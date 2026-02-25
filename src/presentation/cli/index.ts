@@ -9,9 +9,12 @@
  *   shep [command] [options]
  *
  * Commands:
- *   shep              Show help
+ *   shep              Start the web UI daemon (or run onboarding on first run)
+ *   shep start        Start the web UI as a background daemon
+ *   shep stop         Stop the running web UI daemon
+ *   shep status       Show status and metrics of the running daemon
  *   shep version      Display version information
- *   shep ui           Start the web UI
+ *   shep ui           Start the web UI (foreground, interactive)
  *   shep run          Run an AI agent workflow
  *   shep agent        Manage and view agent runs
  *   shep feat         Manage features through the SDLC lifecycle
@@ -42,6 +45,13 @@ import { createIdeOpenCommand } from './commands/ide-open.command.js';
 import { createInstallCommand } from './commands/install.command.js';
 import { createUpgradeCommand } from './commands/upgrade.command.js';
 import { messages } from './ui/index.js';
+
+// Daemon lifecycle commands
+import { createStartCommand } from './commands/start.command.js';
+import { createStopCommand } from './commands/stop.command.js';
+import { createStatusCommand } from './commands/status.command.js';
+import { createServeCommand } from './commands/_serve.command.js';
+import { startDaemon } from './commands/daemon/start-daemon.js';
 
 // DI container and settings
 import { initializeContainer, container } from '@/infrastructure/di/container.js';
@@ -96,8 +106,13 @@ async function bootstrap() {
       .name('shep')
       .description(description)
       .version(version, '-v, --version', 'Display version number')
-      .action(() => {
-        program.outputHelp();
+      // task-10: Default action starts the daemon (or shows already-running URL).
+      // The onboarding gate above (lines 82-89) ensures the wizard runs on first launch;
+      // after the gate, startDaemon() is the correct next step in both cases.
+      // Commander only fires this action when no subcommand matches, so `shep start` etc.
+      // are unaffected.
+      .action(async () => {
+        await startDaemon();
       });
 
     // Register commands
@@ -112,6 +127,12 @@ async function bootstrap() {
     program.addCommand(createIdeOpenCommand());
     program.addCommand(createInstallCommand());
     program.addCommand(createUpgradeCommand());
+
+    // Daemon lifecycle commands (task-9)
+    program.addCommand(createStartCommand());
+    program.addCommand(createStopCommand());
+    program.addCommand(createStatusCommand());
+    program.addCommand(createServeCommand()); // hidden from --help
 
     // Parse arguments (parseAsync needed for async command actions like init)
     await program.parseAsync();

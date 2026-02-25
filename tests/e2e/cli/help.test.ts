@@ -1,16 +1,19 @@
 /**
  * CLI Help Command E2E Tests
  *
- * Tests for the `shep --help` and `shep` (default) commands.
- * Verifies help output displays correctly.
+ * Tests for the `shep --help`, `shep -h`, and related flags.
+ *
+ * NOTE: `shep` (no args) no longer prints help — it starts the web UI daemon
+ * (or runs onboarding on first run). The default help output is now only
+ * accessible via `shep --help` or `shep -h`.
  */
 
 import { describe, it, expect } from 'vitest';
 import { runCli } from '../../helpers/cli/index.js';
 
 describe('CLI: help', () => {
-  it('should display help with usage, commands, and options when no args given', () => {
-    const result = runCli('');
+  it('should display help with --help flag', () => {
+    const result = runCli('--help');
 
     expect(result.success).toBe(true);
     expect(result.exitCode).toBe(0);
@@ -22,15 +25,16 @@ describe('CLI: help', () => {
     expect(result.stdout).toContain('-h, --help');
   });
 
-  it('should display same help output with --help flag', () => {
-    const defaultResult = runCli('');
-    const helpResult = runCli('--help');
+  it('shep (no args) starts the daemon instead of printing help', () => {
+    // The default action is now startDaemon(), not outputHelp().
+    // In a non-TTY test environment, onboarding is skipped and the daemon spawns.
+    const result = runCli('');
 
-    expect(helpResult.success).toBe(true);
-    expect(helpResult.exitCode).toBe(0);
-    expect(helpResult.stdout).toContain('Usage:');
-    expect(helpResult.stdout).toBe(defaultResult.stdout);
-  }, 30_000);
+    expect(result.exitCode).toBe(0);
+    expect(result.success).toBe(true);
+    // Daemon start output contains the server URL, not a "Usage:" banner
+    expect(result.stdout).not.toContain('Usage:');
+  });
 
   it('should display help with -h short flag', () => {
     const result = runCli('-h');

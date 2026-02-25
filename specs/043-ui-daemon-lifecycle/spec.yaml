@@ -1,0 +1,359 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: ui-daemon-lifecycle
+number: 043
+branch: feat/043-ui-daemon-lifecycle
+oneLiner: Seamless onboarding flow — `shep` runs wizard then starts the web UI as a background daemon with start/stop/status lifecycle commands
+userQuery: >
+  Feature: shep onboarding
+
+  to install shep we use npm i -g ...
+  then the next thing i want user to do is to run just "shep"
+
+  this will present tui welcome wizard but once it finished, instead of help we print !
+  I want use to run new shep command - "shep start" which will start shep ui in background and detached mode, it should print the url nicely and OPEN it and run forever in backgroudn!
+
+  Next ,we will need shep stop command too , to stop this background services, store the PID in .shep dir correctly.
+
+  So "shep" -> runs welcome + shep start
+  shep stop stops the service.
+  Also we need to see the status of shep service, so we also need "shep status" with rich data about our process maybe some metrics and cpu/mem agnets cpu/mem etc etc.
+
+  PLease update README -very important, user firendly, not to verbose, right to the point!
+summary: >
+  Implement a first-run onboarding flow where `shep` (no args) runs the existing TUI wizard and
+  then automatically starts the web UI as a detached background daemon. Three new CLI commands
+  handle the daemon lifecycle: `shep start` (spawn detached child + open browser + print URL),
+  `shep stop` (graceful SIGTERM→SIGKILL via stored PID), and `shep status` (live process metrics:
+  PID, port, uptime, CPU%, RSS/heap). Daemon metadata stored in `~/.shep/daemon.json`. The README
+  Quick Start is rewritten to a 3-step install → `shep` → done flow.
+phase: Requirements
+sizeEstimate: M
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - TypeScript
+  - Commander.js (CLI framework)
+  - Node.js child_process (spawn detached)
+  - Node.js fs/promises (daemon.json read/write in ~/.shep/)
+  - Node.js os (system metrics)
+  - Node.js process (per-PID metrics via /proc on Linux, ps on macOS)
+  - picocolors (terminal output styling)
+  - BrowserOpenerService (existing cross-platform browser open)
+  - WebServerService (existing Next.js programmatic server)
+  - port.service (existing port availability check)
+  - shep-directory.service (existing ~/.shep/ path resolution)
+  - '@inquirer/prompts (existing TUI wizard framework)'
+  - Vitest (unit + integration tests)
+  - Playwright (E2E daemon lifecycle tests)
+
+relatedLinks: []
+
+openQuestions:
+  - question: 'What format should the daemon state file use — plain daemon.pid or structured daemon.json?'
+    resolved: true
+    options:
+      - option: 'Plain daemon.pid'
+        description: >
+          Write only the numeric PID to ~/.shep/daemon.pid. Simple, minimal. Drawback: shep status
+          cannot know the port or start time without querying the OS, making the status output less
+          rich and requiring extra system calls.
+        selected: false
+      - option: 'Structured daemon.json'
+        description: >
+          Write a JSON object {pid, port, startedAt} to ~/.shep/daemon.json. Enables shep status to
+          display port and uptime directly from file without extra OS queries. Slightly more complex
+          write path but the added fields are essential for a useful status command.
+        selected: true
+    selectionRationale: >
+      daemon.json is recommended because shep status needs port (to display the URL) and startedAt
+      (to compute uptime) without additional OS queries. The complexity cost is minimal — JSON
+      read/write is one line more than plain text — and the richer data pays dividends in UX.
+    answer: 'Structured daemon.json'
+
+  - question: 'How should per-PID CPU/memory metrics be collected in shep status?'
+    resolved: true
+    options:
+      - option: 'Node.js stdlib only (ps shell-out)'
+        description: >
+          Shell out to `ps -o pid,%cpu,rss,vsz -p <PID>` on macOS/Linux. No new npm dependency.
+          Works on all target platforms. Slightly slower due to process spawn but well within the
+          500ms latency budget. Output requires parsing but is straightforward.
+        selected: true
+      - option: 'pidusage npm package'
+        description: >
+          Add pidusage as a runtime dependency for cross-platform PID metrics. Cleaner API, handles
+          edge cases. Adds one new dependency that must be kept updated and audited.
+        selected: false
+    selectionRationale: >
+      Node.js stdlib ps shell-out is recommended to avoid adding a new runtime npm dependency.
+      The existing codebase already avoids unnecessary dependencies for infrastructure concerns.
+      ps is available on all target platforms (macOS, Linux) and the output parsing is trivial.
+    answer: 'Node.js stdlib only (ps shell-out)'
+
+  - question: 'What should shep start do when a daemon is already running?'
+    resolved: true
+    options:
+      - option: 'Idempotent — print URL and exit 0'
+        description: >
+          If daemon.json exists and the PID is alive, print "Shep is already running at
+          http://localhost:<port>" and exit 0 without spawning a new daemon. Idempotent and
+          safe to run repeatedly from scripts or shortcuts.
+        selected: true
+      - option: 'Error — exit non-zero'
+        description: >
+          Exit with code 1 and an error message if daemon is already running. More explicit
+          but breaks the "run shep anytime" mental model and makes re-running after a
+          session annoying.
+        selected: false
+    selectionRationale: >
+      Idempotent behavior is recommended because it matches the "install → shep → done" mental
+      model. Users should be able to run `shep` or `shep start` at any time without fear of
+      breaking things. Printing the existing URL is also useful as a quick "where is my UI?" lookup.
+    answer: 'Idempotent — print URL and exit 0'
+
+  - question: 'Should shep stop use SIGTERM only or SIGTERM with SIGKILL fallback?'
+    resolved: true
+    options:
+      - option: 'SIGTERM only'
+        description: >
+          Send SIGTERM and return immediately. Simple, but if the daemon is stuck (e.g., hung
+          HTTP request) it will keep running indefinitely, leaving a stale PID file.
+        selected: false
+      - option: 'SIGTERM + 5s wait + SIGKILL'
+        description: >
+          Send SIGTERM, poll for process exit for up to 5 seconds, then send SIGKILL if still
+          alive, then delete daemon.json. Prevents zombie/stuck daemons. The 5s window is
+          generous enough for graceful HTTP server shutdown.
+        selected: true
+    selectionRationale: >
+      SIGTERM + SIGKILL fallback is recommended because the web server performs async cleanup
+      (stopping the notification watcher, draining HTTP connections). The existing ui.command.ts
+      already has a 5s forceExit timer pattern, so this is consistent. A stuck daemon leaving
+      a stale PID file would break subsequent shep start calls.
+    answer: 'SIGTERM + 5s wait + SIGKILL'
+
+  - question: 'Should shep start accept a --port flag for custom port binding?'
+    resolved: true
+    options:
+      - option: 'Yes — support --port flag'
+        description: >
+          Add -p, --port <number> option to shep start, mirroring the existing shep ui command.
+          Stored in daemon.json so shep status and shep stop know the port. Enables power users
+          and CI environments to bind to a specific port.
+        selected: true
+      - option: 'No — auto-select port only'
+        description: >
+          Always auto-select starting from DEFAULT_PORT (4050). Simpler interface, fewer flags.
+          Breaks cases where 4050 is permanently occupied and the user wants a fixed port.
+        selected: false
+    selectionRationale: >
+      Supporting --port is recommended for consistency with shep ui and for CI/scripting use cases.
+      The implementation cost is negligible — the port value is already threaded through the spawn
+      arguments. Omitting it would create an inconsistency between shep ui and shep start.
+    answer: 'Yes — support --port flag'
+
+  - question: 'Should shep (no args) after onboarding auto-start the daemon or show a confirmation prompt?'
+    resolved: true
+    options:
+      - option: 'Auto-start immediately'
+        description: >
+          After onboardingWizard() returns, invoke startDaemon() directly with no additional
+          prompt. Zero friction — user ran shep, shep starts. URL is printed and browser opens.
+          Consistent with the "install → shep → done" design goal.
+        selected: true
+      - option: 'Show a confirmation prompt'
+        description: >
+          After the wizard, ask "Start the Shep web UI now? [Y/n]" before spawning. More
+          cautious but adds a step that most users will just press Enter through, making it
+          noise rather than signal.
+        selected: false
+    selectionRationale: >
+      Auto-start is recommended because the entire feature goal is zero-friction onboarding.
+      The user installed shep and ran `shep` — their intent to start the UI is unambiguous.
+      Adding a confirmation prompt between the wizard and the browser opening introduces
+      unnecessary friction and undermines the "install → shep → done" narrative.
+    answer: 'Auto-start immediately'
+
+content: |
+  ## Problem Statement
+
+  After `npm i -g @shepai/cli`, there is no smooth "first run" experience. Running bare `shep`
+  today outputs the help text — there is no wizard handoff to the web UI, no daemon lifecycle,
+  and no way to keep the UI running in the background. Users must remember `shep ui` and keep
+  that terminal session open. `shep start`, `shep stop`, and `shep status` are noted as WIP in
+  the README but do not exist yet.
+
+  ## Success Criteria
+
+  - [ ] `shep` (no args, first run) presents the TUI onboarding wizard, then spawns the daemon and opens the browser — no additional commands required
+  - [ ] `shep` (no args, daemon already running) prints the URL and exits 0 without spawning a duplicate
+  - [ ] `shep start` spawns a detached process, writes `~/.shep/daemon.json`, prints a formatted URL, opens the browser, and the parent CLI exits within 2 seconds
+  - [ ] `shep start` with daemon already alive prints "already running at <URL>" and exits 0
+  - [ ] `shep stop` sends SIGTERM, waits up to 5s, falls back to SIGKILL, deletes `daemon.json`, and exits 0
+  - [ ] `shep stop` with no daemon running prints a clear message and exits 0
+  - [ ] `shep status` with daemon running displays a table with PID, port, URL, uptime, CPU%, and RSS memory
+  - [ ] `shep status` with no daemon running prints "daemon not running" with a hint to run `shep start`
+  - [ ] Internal `_serve` command starts the web server in-process and runs until SIGTERM
+  - [ ] `~/.shep/daemon.json` is written atomically (temp-file + rename) to prevent corruption
+  - [ ] All new commands have unit test coverage ≥ 80%
+  - [ ] E2E test covers the full start → status → stop lifecycle
+  - [ ] README Quick Start section covers install → `shep` → done in ≤ 3 steps
+  - [ ] No new runtime npm dependencies added
+
+  ## Functional Requirements
+
+  - **FR-1**: When `shep` is invoked with no arguments and onboarding is already complete, the
+    system MUST invoke `startDaemon()` (same logic as `shep start`) instead of printing help.
+
+  - **FR-2**: When `shep` is invoked with no arguments and onboarding is not complete
+    (i.e., `CheckOnboardingStatusUseCase` returns `isComplete: false`), the system MUST run
+    `onboardingWizard()` and, upon its completion, immediately invoke `startDaemon()`.
+
+  - **FR-3**: `shep start` MUST find an available port starting from `DEFAULT_PORT` (4050) using
+    the existing `findAvailablePort()` service. The `--port <number>` flag MUST allow overriding
+    the starting port (range 1024–65535, same validation as `shep ui`).
+
+  - **FR-4**: `shep start` MUST spawn the daemon as a detached child process using
+    `child_process.spawn()` with `{detached: true, stdio: 'ignore'}` and call `child.unref()` so
+    the parent exits immediately. The child MUST be invoked as `process.execPath _serve --port <N>`.
+
+  - **FR-5**: `shep start` MUST write `~/.shep/daemon.json` atomically (write to a temp file,
+    then `fs.rename`) with the shape `{pid: number, port: number, startedAt: string (ISO 8601)}`.
+
+  - **FR-6**: `shep start` MUST print the server URL in a visually formatted block (similar to
+    existing `shep ui` success output) and then open the URL in the default browser using
+    `BrowserOpenerService`.
+
+  - **FR-7**: `shep start` MUST detect an already-running daemon by reading `daemon.json` and
+    checking that the stored PID is alive (`process.kill(pid, 0)` returns without throwing).
+    If alive, it MUST print "Shep is already running at http://localhost:<port>" and exit 0
+    without spawning a new process.
+
+  - **FR-8**: `shep stop` MUST read `~/.shep/daemon.json`, send `SIGTERM` to the stored PID,
+    poll for process exit every 200ms for up to 5 seconds, then send `SIGKILL` if still alive,
+    then delete `daemon.json` regardless of how termination occurred.
+
+  - **FR-9**: `shep stop` MUST handle the case where `daemon.json` does not exist or the stored
+    PID is not alive by printing "No Shep daemon is running" and exiting 0.
+
+  - **FR-10**: `shep status` MUST read `daemon.json`, verify the PID is alive, and display a
+    formatted table containing: PID, port, URL, start time, uptime (human-readable, e.g.,
+    "2h 14m"), CPU% (from `ps` shell-out), and RSS memory in MB.
+
+  - **FR-11**: `shep status` MUST handle the case where `daemon.json` does not exist or the
+    stored PID is not alive by printing "Shep daemon is not running" with a hint: "Run
+    `shep start` to launch it."
+
+  - **FR-12**: The internal `_serve` command MUST be hidden from `--help` output (Commander
+    `.hidden(true)`), accept a required `--port <number>` option, start `WebServerService`,
+    initialize the notification watcher, and run until `SIGTERM`/`SIGINT` triggers graceful
+    shutdown (matching the existing shutdown logic in `ui.command.ts`).
+
+  - **FR-13**: `DaemonPidService` MUST be a new infrastructure service in
+    `packages/core/src/infrastructure/services/daemon/daemon-pid.service.ts` implementing
+    `read()`, `write(data)`, `delete()`, and `isAlive()` methods. It MUST depend on
+    `shep-directory.service.ts` for the `~/.shep/` path.
+
+  - **FR-14**: `IDaemonService` output port MUST be defined in
+    `packages/core/src/application/ports/output/services/daemon-service.interface.ts` and
+    registered in the DI container (`container.ts`).
+
+  - **FR-15**: `README.md` Quick Start section MUST be rewritten to a maximum of 3 steps:
+    (1) install, (2) run `shep`, (3) browser opens. The CLI reference table MUST include
+    `shep start`, `shep stop`, and `shep status` with accurate descriptions.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1 — Performance**: The `shep start` parent process MUST exit within 2 seconds of
+    spawning the daemon child. The daemon child may take longer to become ready but MUST NOT
+    block the parent.
+
+  - **NFR-2 — Reliability**: The spawned daemon MUST survive parent exit. `child.unref()` and
+    `stdio: 'ignore'` are mandatory. Failure to set these correctly is a blocking bug.
+
+  - **NFR-3 — Atomicity**: `daemon.json` writes MUST use a write-to-temp + `fs.rename` pattern
+    to prevent partially-written files from leaving the daemon state corrupt.
+
+  - **NFR-4 — Observability**: `shep status` MUST return live (not cached) metrics within 500ms
+    on standard developer hardware (macOS M-series, Linux x86_64).
+
+  - **NFR-5 — Test coverage**: All new infrastructure services and CLI command handlers MUST have
+    Vitest unit tests covering happy path and error cases. A Playwright E2E test MUST cover the
+    complete start → status → stop lifecycle.
+
+  - **NFR-6 — Cross-platform**: The implementation MUST work on macOS and Linux. Windows support
+    is out of scope (consistent with existing `BrowserOpenerService` behavior).
+
+  - **NFR-7 — No new runtime dependencies**: All process metrics and daemon management MUST use
+    Node.js built-in modules only (`child_process`, `fs/promises`, `os`, `process`). The `ps`
+    binary (available on all POSIX systems) may be shelled out to for CPU/memory metrics.
+
+  - **NFR-8 — Security**: The PID file MUST be scoped to `~/.shep/` (user-writable, not
+    world-writable). The `_serve` command MUST NOT be documented or discoverable via `--help`
+    to avoid user confusion, but its existence is not a security boundary.
+
+  - **NFR-9 — UX consistency**: Terminal output for all new commands MUST use the existing
+    `colors`, `fmt`, and `messages` helpers from `src/presentation/cli/ui/index.ts` for
+    consistent styling with the rest of the CLI.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Daemon state file format | Structured `daemon.json` | Enables port + uptime display in `shep status` without extra OS queries |
+  | 2 | Per-PID CPU/mem collection | `ps` shell-out (stdlib only) | Avoids new npm dependency; `ps` available on all POSIX targets |
+  | 3 | `shep start` when already running | Idempotent — print URL, exit 0 | Matches "run shep anytime" mental model; useful as a URL lookup |
+  | 4 | `shep stop` termination strategy | SIGTERM + 5s wait + SIGKILL | Prevents zombie processes; consistent with existing shutdown pattern |
+  | 5 | `shep start` port flag | Yes — support `--port` flag | Consistent with `shep ui`; enables CI and fixed-port scenarios |
+  | 6 | Default `shep` post-onboarding behavior | Auto-start immediately | Zero friction; user intent is unambiguous after running `shep` |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `src/presentation/cli/index.ts` | High | Default action changes from `outputHelp()` to `startDaemon()` |
+  | `src/presentation/cli/commands/ui.command.ts` | Low | `_serve` subcommand extracted or added alongside existing logic |
+  | `src/presentation/cli/commands/start.command.ts` | High | New file — daemon spawn + URL print + browser open |
+  | `src/presentation/cli/commands/stop.command.ts` | High | New file — read PID, SIGTERM→SIGKILL, remove daemon.json |
+  | `src/presentation/cli/commands/status.command.ts` | High | New file — rich process metrics table |
+  | `packages/core/src/infrastructure/services/filesystem/shep-directory.service.ts` | Low | Add `getDaemonStatePath()` helper returning `~/.shep/daemon.json` |
+  | `packages/core/src/infrastructure/services/daemon/daemon-pid.service.ts` | High | New — daemon.json CRUD (read/write/delete/isAlive) |
+  | `packages/core/src/application/ports/output/services/daemon-service.interface.ts` | Medium | New — IDaemonService output port |
+  | `packages/core/src/infrastructure/di/container.ts` | Low | Register DaemonPidService as IDaemonService |
+  | `README.md` | High | Quick Start rewrite + CLI reference table update |
+  | `tests/unit/services/daemon/` | Medium | Unit tests for DaemonPidService |
+  | `tests/unit/commands/` | Medium | Unit tests for start/stop/status command handlers |
+  | `tests/e2e/cli/daemon-lifecycle.spec.ts` | Medium | E2E: start → status → stop lifecycle |
+
+  ## Dependencies
+
+  - **Existing `WebServerService`**: already manages Next.js start/stop — `_serve` re-uses this
+    in the child process via the same DI container bootstrap
+  - **Existing `BrowserOpenerService`**: cross-platform browser open — called from `shep start`
+    after printing the URL
+  - **Existing `port.service.ts`**: `findAvailablePort(DEFAULT_PORT)` — called by `shep start`
+    to resolve the port; result passed as `--port` arg to the `_serve` child so both sides agree
+  - **Existing `shep-directory.service.ts`**: `getShepHomeDir()` — `daemon.json` lives at
+    `~/.shep/daemon.json`; new `getDaemonStatePath()` helper added to this service
+  - **Existing `onboardingWizard()`**: already invoked at bootstrap (lines 82–89 of `index.ts`);
+    post-wizard flow change is minimal — replace `return` after wizard with `startDaemon()` call
+  - **Node.js built-ins only**: `child_process`, `fs/promises`, `os`, `process` — no new runtime
+    npm dependencies
+
+  ## Size Estimate
+
+  **M** (2–4 days) — Reasoning:
+  - 3 new CLI commands (start/stop/status) with unit tests: ~1 day
+  - `DaemonPidService` + `IDaemonService` port + DI wiring: ~0.5 day
+  - `_serve` internal command + default action change + onboarding handoff: ~0.5 day
+  - Process metrics for `shep status` (ps shell-out + parsing): ~0.5 day
+  - README rewrite: ~0.25 day
+  - E2E test for start → status → stop lifecycle: ~0.5 day
+
+  All core building blocks exist (WebServerService, BrowserOpenerService, port resolution,
+  ~/.shep/ directory management, onboarding gate). The new work is the daemon spawn/lifecycle
+  layer, atomic state file management, and wiring the onboarding exit into `shep start`.
