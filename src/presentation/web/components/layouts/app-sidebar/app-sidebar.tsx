@@ -23,6 +23,7 @@ import { SidebarSectionHeader } from '@/components/common/sidebar-section-header
 import { featureStatusConfig, featureStatusOrder } from '@/components/common/feature-status-config';
 import type { FeatureStatus } from '@/components/common/feature-status-config';
 import { useDeferredMount } from '@/hooks/use-deferred-mount';
+import { featureFlags } from '@/lib/feature-flags';
 
 interface FeatureItem {
   name: string;
@@ -87,12 +88,14 @@ export function AppSidebar({
             href="/memory"
             active={pathname === '/memory'}
           />
-          <SidebarNavItem
-            icon={Puzzle}
-            label="Skills"
-            href="/skills"
-            active={pathname === '/skills'}
-          />
+          {featureFlags.skills ? (
+            <SidebarNavItem
+              icon={Puzzle}
+              label="Skills"
+              href="/skills"
+              active={pathname === '/skills'}
+            />
+          ) : null}
         </SidebarMenu>
       </SidebarHeader>
 

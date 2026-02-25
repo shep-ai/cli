@@ -180,5 +180,9 @@ export async function getSkills(projectRoot?: string, homeDir?: string): Promise
     getSkillsFromDirectory(globalDir, 'global'),
   ]);
 
-  return [...projectSkills, ...globalSkills].sort((a, b) => a.name.localeCompare(b.name));
+  // Deduplicate by name — project skills take precedence over global skills
+  const seen = new Set(projectSkills.map((s) => s.name));
+  const uniqueGlobalSkills = globalSkills.filter((s) => !seen.has(s.name));
+
+  return [...projectSkills, ...uniqueGlobalSkills].sort((a, b) => a.name.localeCompare(b.name));
 }

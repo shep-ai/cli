@@ -462,3 +462,25 @@ content: >
   stories,
 
   and the search/filter client-side interactivity.
+rejectionFeedback:
+  - iteration: 1
+    message: >-
+      when running in the UI the nextjs shows an error, also as its a new
+      feature lets hide it behind feature flag (use env variable)
+    phase: merge
+    timestamp: '2026-02-24T18:52:24.922Z'
+  - iteration: 2
+    message: >-
+      when going to skills page there is an error Encountered two children with
+      the same key, `vercel-react-best-practices`. Keys should be unique so that
+      components maintain their identity across updates. Non-unique keys may
+      cause children to be duplicated and/or omitted — the behavior is
+      unsupported and could change in a future version.
+      src/presentation/web/components/features/skills/skill-list.tsx (40:17) @
+      <unknown>     38 |             <div className="grid grid-cols-1 gap-4
+      md:grid-cols-2 lg:grid-cols-3">   39 |              
+      {categorySkills.map((skill) => ( > 40 |                 <SkillCard
+      key={skill.name} skill={skill} onSelect={onSkillSelect} />     
+      |                 ^   41 |               ))}   42 |             </div>  
+      43 |           </section>
+    timestamp: '2026-02-25T15:33:34.447Z'
