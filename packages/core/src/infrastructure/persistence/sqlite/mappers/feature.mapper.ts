@@ -127,9 +127,9 @@ export function fromDatabase(row: FeatureRow): Feature {
     relatedArtifacts: JSON.parse(row.related_artifacts),
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
-    ...(row.plan !== null && { plan: JSON.parse(row.plan) }),
-    ...(row.agent_run_id !== null && { agentRunId: row.agent_run_id }),
-    ...(row.spec_path !== null && { specPath: row.spec_path }),
+    ...(row.plan != null && { plan: JSON.parse(row.plan) }),
+    ...(row.agent_run_id != null && { agentRunId: row.agent_run_id }),
+    ...(row.spec_path != null && { specPath: row.spec_path }),
     // Assemble workflow flags from flat columns
     push: row.push === 1,
     openPr: row.open_pr === 1,
@@ -138,22 +138,22 @@ export function fromDatabase(row: FeatureRow): Feature {
       allowPlan: row.allow_plan === 1,
       allowMerge: row.allow_merge === 1,
     },
-    ...(row.worktree_path !== null && { worktreePath: row.worktree_path }),
+    ...(row.worktree_path != null && { worktreePath: row.worktree_path }),
     // Repository reference
-    ...(row.repository_id !== null && { repositoryId: row.repository_id }),
+    ...(row.repository_id != null && { repositoryId: row.repository_id }),
     // Assemble pr from flat columns (only when pr_url exists)
-    ...(row.pr_url !== null && {
+    ...(row.pr_url != null && {
       pr: {
         url: row.pr_url,
         number: row.pr_number!,
         status: row.pr_status as PrStatus,
-        ...(row.commit_hash !== null && { commitHash: row.commit_hash }),
-        ...(row.ci_status !== null && { ciStatus: row.ci_status as CiStatus }),
-        ...(row.ci_fix_attempts !== null && { ciFixAttempts: row.ci_fix_attempts }),
-        ...(row.ci_fix_history !== null && { ciFixHistory: JSON.parse(row.ci_fix_history) }),
+        ...(row.commit_hash != null && { commitHash: row.commit_hash }),
+        ...(row.ci_status != null && { ciStatus: row.ci_status as CiStatus }),
+        ...(row.ci_fix_attempts != null && { ciFixAttempts: row.ci_fix_attempts }),
+        ...(row.ci_fix_history != null && { ciFixHistory: JSON.parse(row.ci_fix_history) }),
       },
     }),
     // Feature dependency
-    ...(row.parent_id !== null && { parentId: row.parent_id }),
+    ...(row.parent_id != null && { parentId: row.parent_id }),
   };
 }
