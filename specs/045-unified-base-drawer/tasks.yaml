@@ -1,0 +1,421 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: unified-base-drawer
+summary: >
+  11 tasks across 3 phases. Phase 1 (Foundation) builds the BaseDrawer component with TDD, CVA
+  variants, and Storybook stories. Phase 2 (Migration) refactors 4 existing drawers one at a time.
+  Phase 3 (Validation) runs final CI checks and verifies no regressions.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - React 19
+  - Vaul
+  - class-variance-authority
+  - Vitest + React Testing Library
+  - Storybook
+  - Tailwind CSS v4
+relatedLinks: []
+
+# Structured task list
+tasks:
+  # ──────────────────────────────────────────────────────────────────────────
+  # Phase 1: Foundation — BaseDrawer Component
+  # ──────────────────────────────────────────────────────────────────────────
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Create BaseDrawer component with CVA variants and close button'
+    description: >
+      Create the base-drawer directory structure (index.ts, base-drawer.tsx) and implement the
+      BaseDrawer component. It composes the Tier 0 Drawer/DrawerContent with direction="right",
+      handleOnly, showCloseButton={false}. Implements CVA drawerVariants with size tiers (sm=w-96,
+      md=w-xl, default=sm). Renders an internal close button with the exact same classes used across
+      existing drawers. Accepts open, onClose, modal (default false), size, header, children, footer,
+      className, and data-testid props. Wires onOpenChange internally. Conditionally renders
+      DrawerOverlay when modal=true. Wraps children in a scrollable flex-1 overflow-y-auto container.
+      Conditionally renders DrawerHeader and DrawerFooter when header/footer props are provided.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'BaseDrawer renders with Drawer direction="right" handleOnly showCloseButton={false}'
+      - 'CVA drawerVariants has size.sm=w-96 and size.md=w-xl with defaultVariants size=sm'
+      - 'Close button renders at absolute top-4 right-4 with matching classes from existing drawers'
+      - 'Close button calls onClose when clicked'
+      - 'onOpenChange is wired internally: calls onClose when isOpen=false'
+      - 'modal prop passed to Drawer root; DrawerOverlay renders when modal=true'
+      - 'children wrapped in flex-1 overflow-y-auto scrollable container'
+      - 'DrawerHeader renders only when header prop is provided'
+      - 'DrawerFooter renders only when footer prop is provided'
+      - 'className prop merges onto DrawerContent via cn()'
+      - 'data-testid prop applied to DrawerContent root'
+      - 'Barrel export from index.ts exports BaseDrawer and BaseDrawerProps'
+    tdd:
+      red:
+        - 'Write test: renders children content when open=true'
+        - 'Write test: does not render content when open=false'
+        - 'Write test: close button calls onClose on click'
+        - 'Write test: size="sm" applies w-96 class to DrawerContent'
+        - 'Write test: size="md" applies w-xl class to DrawerContent'
+        - 'Write test: default size is sm (w-96) when no size prop'
+        - 'Write test: modal=true renders DrawerOverlay'
+        - 'Write test: modal=false (default) does not render DrawerOverlay'
+        - 'Write test: header prop renders inside DrawerHeader'
+        - 'Write test: no DrawerHeader when header prop omitted'
+        - 'Write test: footer prop renders inside DrawerFooter'
+        - 'Write test: no DrawerFooter when footer prop omitted'
+        - 'Write test: children render inside scrollable container (overflow-y-auto)'
+        - 'Write test: className merges onto DrawerContent'
+        - 'Write test: data-testid propagates to DrawerContent'
+        - 'Write test: close button has data-testid={testid}-close-button when data-testid provided'
+        - 'Write test: close button has aria-label="Close" and sr-only "Close" text'
+      green:
+        - 'Implement BaseDrawer component with all props and internal wiring'
+        - 'Implement drawerVariants CVA function with size variant'
+        - 'Implement close button with exact existing classes'
+        - 'Implement conditional DrawerOverlay for modal mode'
+        - 'Implement conditional DrawerHeader/DrawerFooter for slot rendering'
+        - 'Implement scrollable content wrapper'
+        - 'Create index.ts barrel export'
+      refactor:
+        - 'Extract close button classes to a constant if they improve readability'
+        - 'Verify CVA variant types are properly exported via VariantProps'
+    estimatedEffort: '2h'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Create BaseDrawer Storybook stories'
+    description: >
+      Create base-drawer.stories.tsx with comprehensive stories covering all BaseDrawer variants
+      and interactions. Follow the established story patterns from review-drawer-shell.stories.tsx
+      and skill-detail-drawer.stories.tsx (trigger wrappers, fullscreen layout, autodocs tag).
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Stories file exists at components/common/base-drawer/base-drawer.stories.tsx'
+      - 'Meta uses title "Common/BaseDrawer", tags ["autodocs"], layout "fullscreen"'
+      - 'Default story: sm size, non-modal, children only'
+      - 'SmallSize story: explicit size="sm" with inspector-style content'
+      - 'MediumSize story: size="md" with content-rich review-style content'
+      - 'Modal story: modal={true} with visible overlay'
+      - 'WithHeader story: header prop with DrawerTitle + DrawerDescription'
+      - 'WithFooter story: footer prop with action buttons'
+      - 'WithHeaderAndFooter story: both slots populated'
+      - 'ScrollableContent story: content exceeding viewport height'
+      - 'All stories use trigger wrapper pattern (starts closed, click to open)'
+    tdd: null
+    estimatedEffort: '1h'
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Phase 2: Migration — Refactor Existing Drawers
+  # ──────────────────────────────────────────────────────────────────────────
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Migrate FeatureDrawer to compose BaseDrawer'
+    description: >
+      Refactor FeatureDrawer to use BaseDrawer with size="sm" and modal={false}. Remove raw
+      Drawer/DrawerContent imports, remove the duplicated close button markup, and pass the header
+      content (DrawerTitle + DrawerDescription) via the header prop. The rest of the drawer body
+      (action buttons, status, PR info, details, delete) remains as children. FeatureDrawerProps
+      interface and external behavior stay identical. Add data-testid="feature-drawer".
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'FeatureDrawer imports BaseDrawer from @/components/common/base-drawer'
+      - 'No Drawer/DrawerContent imports from @/components/ui/drawer remain (DrawerTitle, DrawerDescription still imported for header content)'
+      - 'No close button markup in FeatureDrawer (BaseDrawer handles it)'
+      - 'BaseDrawer receives size="sm" modal={false} data-testid="feature-drawer"'
+      - 'Header slot contains DrawerTitle + DrawerDescription'
+      - 'FeatureDrawerProps interface unchanged'
+      - 'All existing FeatureDrawer stories render correctly'
+    tdd:
+      red:
+        - 'Write test: FeatureDrawer renders BaseDrawer with size="sm"'
+        - 'Write test: FeatureDrawer does not render its own close button'
+        - 'Write test: FeatureDrawer passes header with DrawerTitle containing selectedNode.name'
+      green:
+        - 'Replace Drawer/DrawerContent with BaseDrawer in FeatureDrawer'
+        - 'Move header content to header prop'
+        - 'Remove close button markup'
+        - 'Wire open={selectedNode !== null} and onClose to BaseDrawer'
+      refactor:
+        - 'Remove unused Drawer/DrawerContent imports'
+        - 'Verify all stories render without visual changes'
+    estimatedEffort: '45min'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Migrate FeatureCreateDrawer to compose BaseDrawer'
+    description: >
+      Refactor FeatureCreateDrawer to use BaseDrawer with size="sm" and modal={false}. Remove raw
+      Drawer/DrawerContent imports and duplicated close button. Pass the form header as header prop,
+      the form body as children, and the submit/cancel footer as footer prop. The handleOpenChange
+      logic (resetForm + onClose) must be preserved by wrapping onClose before passing to BaseDrawer.
+      FeatureCreateDrawerProps interface stays identical. Add data-testid="feature-create-drawer".
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'FeatureCreateDrawer imports BaseDrawer from @/components/common/base-drawer'
+      - 'No Drawer/DrawerContent imports remain (DrawerTitle, DrawerDescription, DrawerFooter still imported for slot content)'
+      - 'No close button markup in FeatureCreateDrawer'
+      - 'Footer slot contains the Cancel + Create buttons (was DrawerFooter, now BaseDrawer renders DrawerFooter)'
+      - 'onClose passed to BaseDrawer calls resetForm() then the original onClose()'
+      - 'Form body remains scrollable (BaseDrawer provides flex-1 overflow-y-auto)'
+      - 'FeatureCreateDrawerProps interface unchanged'
+      - 'All existing FeatureCreateDrawer stories render correctly'
+    tdd:
+      red:
+        - 'Write test: FeatureCreateDrawer renders BaseDrawer with size="sm"'
+        - 'Write test: closing the drawer resets form state (resetForm called before onClose)'
+        - 'Write test: footer slot contains Cancel and Create buttons'
+      green:
+        - 'Replace Drawer/DrawerContent with BaseDrawer'
+        - 'Move header to header prop, form body to children, buttons to footer prop'
+        - 'Wire handleOpenChange logic into the onClose prop passed to BaseDrawer'
+        - 'Remove close button markup and Separator before footer (BaseDrawer handles layout)'
+      refactor:
+        - 'Remove unused Drawer/DrawerContent/DrawerFooter imports'
+        - 'Simplify handleOpenChange — it now just becomes the onClose passed to BaseDrawer'
+        - 'Verify all stories render without visual changes'
+    estimatedEffort: '1h'
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Migrate ReviewDrawerShell to compose BaseDrawer'
+    description: >
+      Refactor ReviewDrawerShell to use BaseDrawer with size="md" and modal={false}. Remove raw
+      Drawer/DrawerContent imports and duplicated close button. The drawer header (featureName,
+      featureDescription, DrawerTitle/DrawerDescription) plus the action menu and delete button
+      section should be passed as the header prop. The content slot ({children}) remains as
+      BaseDrawer children. ReviewDrawerShellProps interface MUST stay identical — no changes to
+      PrdQuestionnaireDrawer, TechDecisionsDrawer, or MergeReviewDrawer. Add data-testid="review-drawer".
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'ReviewDrawerShell imports BaseDrawer from @/components/common/base-drawer'
+      - 'No Drawer/DrawerContent imports remain (DrawerTitle, DrawerDescription still imported for header content)'
+      - 'No close button markup in ReviewDrawerShell'
+      - 'BaseDrawer receives size="md" modal={false} data-testid="review-drawer"'
+      - 'Header slot contains DrawerTitle + DrawerDescription + action menu + delete button + Separator'
+      - 'Children slot contains the review content ({children} from ReviewDrawerShellProps)'
+      - 'ReviewDrawerShellProps interface unchanged — zero changes to config file'
+      - 'PrdQuestionnaireDrawer renders correctly (verify story)'
+      - 'TechDecisionsDrawer renders correctly (verify story)'
+      - 'MergeReviewDrawer renders correctly (verify story)'
+      - 'All existing ReviewDrawerShell stories render correctly'
+    tdd:
+      red:
+        - 'Write test: ReviewDrawerShell renders BaseDrawer with size="md"'
+        - 'Write test: ReviewDrawerShell does not render its own close button'
+        - 'Write test: ReviewDrawerShell passes featureName as DrawerTitle in header'
+        - 'Write test: children content renders inside BaseDrawer scrollable area'
+      green:
+        - 'Replace Drawer/DrawerContent with BaseDrawer'
+        - 'Compose header prop with DrawerTitle, DrawerDescription, action menu, delete, and Separator'
+        - 'Pass {children} as BaseDrawer children'
+        - 'Remove close button markup'
+      refactor:
+        - 'Remove unused Drawer/DrawerContent imports'
+        - 'Verify all ReviewDrawerShell stories plus consumer drawer stories render correctly'
+    estimatedEffort: '1h'
+
+  - id: task-6
+    phaseId: phase-2
+    title: 'Migrate SkillDetailDrawer from Sheet to BaseDrawer'
+    description: >
+      Replace the Radix Sheet primitive with BaseDrawer (Vaul-based) in SkillDetailDrawer. Use
+      size="sm" and modal={true}. Replace ScrollArea with BaseDrawer's native scroll handling.
+      Move SheetHeader content (displayName + name) to the header prop. The body content (description,
+      badges, allowed tools, resources, body) becomes children. Remove Sheet/ScrollArea imports.
+      SkillDetailDrawerProps interface stays identical. Add data-testid="skill-detail-drawer".
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'SkillDetailDrawer imports BaseDrawer from @/components/common/base-drawer'
+      - 'No Sheet/SheetContent/SheetHeader imports remain'
+      - 'No ScrollArea import remains'
+      - 'BaseDrawer receives size="sm" modal={true} data-testid="skill-detail-drawer"'
+      - 'Header slot contains DrawerTitle (displayName) + DrawerDescription (name)'
+      - 'Content scrolls natively via BaseDrawer overflow-y-auto'
+      - 'SkillDetailDrawerProps interface unchanged'
+      - 'All existing SkillDetailDrawer stories render correctly'
+    tdd:
+      red:
+        - 'Write test: SkillDetailDrawer renders BaseDrawer with modal={true}'
+        - 'Write test: SkillDetailDrawer renders BaseDrawer with size="sm"'
+        - 'Write test: SkillDetailDrawer passes displayName as DrawerTitle in header'
+        - 'Write test: content renders without ScrollArea wrapper'
+      green:
+        - 'Replace Sheet with BaseDrawer'
+        - 'Move SheetHeader content to header prop with DrawerTitle + DrawerDescription'
+        - 'Move ScrollArea children to BaseDrawer children (remove ScrollArea wrapper)'
+        - 'Set modal={true} on BaseDrawer'
+      refactor:
+        - 'Remove unused Sheet/SheetContent/SheetHeader/SheetTitle/SheetDescription imports'
+        - 'Remove unused ScrollArea import'
+        - 'Verify all SkillDetailDrawer stories render correctly'
+    estimatedEffort: '45min'
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Phase 2 (continued): Update data-testid attributes
+  # ──────────────────────────────────────────────────────────────────────────
+
+  - id: task-7
+    phaseId: phase-2
+    title: 'Verify and standardize data-testid attributes across all drawers'
+    description: >
+      Ensure all migrated drawers pass consistent data-testid to BaseDrawer following the
+      {context}-drawer convention. Verify that FeatureDrawer uses "feature-drawer",
+      FeatureCreateDrawer uses "feature-create-drawer", ReviewDrawerShell uses "review-drawer",
+      and SkillDetailDrawer uses "skill-detail-drawer". The close button automatically gets
+      {testid}-close-button from BaseDrawer. Existing feature-drawer-* data-testid attributes
+      on internal sections (header, status, progress, pr, details, delete) remain unchanged.
+    state: Todo
+    dependencies:
+      - task-3
+      - task-4
+      - task-5
+      - task-6
+    acceptanceCriteria:
+      - 'FeatureDrawer passes data-testid="feature-drawer" to BaseDrawer'
+      - 'FeatureCreateDrawer passes data-testid="feature-create-drawer" to BaseDrawer'
+      - 'ReviewDrawerShell passes data-testid="review-drawer" to BaseDrawer'
+      - 'SkillDetailDrawer passes data-testid="skill-detail-drawer" to BaseDrawer'
+      - 'Close buttons get derived testids: feature-drawer-close-button, etc.'
+      - 'Existing internal data-testid attributes unchanged (feature-drawer-header, etc.)'
+    tdd:
+      red:
+        - 'Write test: each drawer passes correct data-testid to BaseDrawer'
+        - 'Write test: close button testid is derived as {testid}-close-button'
+      green:
+        - 'Verify data-testid props on all BaseDrawer usages (should already be set from tasks 3-6)'
+        - 'Fix any missing or inconsistent testids'
+      refactor:
+        - 'Remove any redundant testid assertions already covered by task-1 tests'
+    estimatedEffort: '20min'
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Phase 2 (continued): Update stories for migrated drawers
+  # ──────────────────────────────────────────────────────────────────────────
+
+  - id: task-8
+    phaseId: phase-2
+    title: 'Verify and update existing Storybook stories post-migration'
+    description: >
+      After all 4 drawer migrations, verify every existing Storybook story renders correctly.
+      Check FeatureDrawer stories (20+ stories), FeatureCreateDrawer stories (10+ stories),
+      ReviewDrawerShell stories (4 stories), SkillDetailDrawer stories (4 stories), and consumer
+      drawer stories (PrdQuestionnaire, TechDecisions, MergeReview). Fix any import issues or
+      minor adjustments needed. No visual regressions should exist.
+    state: Todo
+    dependencies:
+      - task-3
+      - task-4
+      - task-5
+      - task-6
+    acceptanceCriteria:
+      - 'All FeatureDrawer stories render without errors'
+      - 'All FeatureCreateDrawer stories render without errors'
+      - 'All ReviewDrawerShell stories render without errors'
+      - 'All SkillDetailDrawer stories render without errors'
+      - 'PrdQuestionnaire drawer stories render without errors'
+      - 'TechDecisions drawer stories render without errors'
+      - 'MergeReview drawer stories render without errors'
+      - 'No visual layout regressions (same widths, spacing, positioning)'
+    tdd: null
+    estimatedEffort: '45min'
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Phase 3: Validation — Final Verification
+  # ──────────────────────────────────────────────────────────────────────────
+
+  - id: task-9
+    phaseId: phase-3
+    title: 'Run pnpm validate and fix any issues'
+    description: >
+      Run the full validation suite (pnpm validate = lint + format + typecheck + tsp) to ensure
+      all changes pass CI checks. Fix any lint errors, formatting issues, or TypeScript type
+      errors introduced by the refactoring.
+    state: Todo
+    dependencies:
+      - task-7
+      - task-8
+    acceptanceCriteria:
+      - 'pnpm validate passes cleanly (exit code 0)'
+      - 'No lint errors in new or modified files'
+      - 'No TypeScript type errors'
+      - 'No formatting issues'
+    tdd: null
+    estimatedEffort: '20min'
+
+  - id: task-10
+    phaseId: phase-3
+    title: 'Run unit tests and fix any failures'
+    description: >
+      Run pnpm test:unit to verify all existing unit tests pass and the new BaseDrawer tests pass.
+      Fix any test failures. Ensure the new base-drawer.test.tsx is picked up by the test runner.
+    state: Todo
+    dependencies:
+      - task-9
+    acceptanceCriteria:
+      - 'pnpm test:unit passes (exit code 0)'
+      - 'BaseDrawer tests all pass'
+      - 'No existing tests broken by the refactoring'
+    tdd: null
+    estimatedEffort: '20min'
+
+  - id: task-11
+    phaseId: phase-3
+    title: 'Verify consumer code unchanged and Tier 0 primitives untouched'
+    description: >
+      Final verification that no consumer code was modified (control-center-inner.tsx, skills page
+      components) and that Tier 0 primitives (drawer.tsx, sheet.tsx) remain untouched. Check git diff
+      to confirm only the expected files were changed.
+    state: Todo
+    dependencies:
+      - task-10
+    acceptanceCriteria:
+      - 'drawer.tsx has zero changes (git diff shows no modifications)'
+      - 'sheet.tsx has zero changes (git diff shows no modifications)'
+      - 'control-center-inner.tsx has zero changes'
+      - 'prd-questionnaire-drawer.tsx has zero changes'
+      - 'tech-decisions-drawer.tsx has zero changes'
+      - 'merge-review-drawer.tsx has zero changes'
+      - 'Only expected files were created/modified per plan.yaml'
+    tdd: null
+    estimatedEffort: '10min'
+
+# Total effort estimate
+totalEstimate: '8h'
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Summary
+
+  11 tasks across 3 phases totaling ~8 hours of implementation effort.
+
+  **Phase 1 (Foundation, ~3h)** builds the BaseDrawer component test-first with full CVA variant
+  support and comprehensive Storybook stories. This establishes the unified API that all drawers
+  will compose without modifying any existing code.
+
+  **Phase 2 (Migration, ~4h)** refactors each existing drawer one at a time, ordered by complexity
+  and risk. FeatureDrawer is first (simplest, proves the pattern), then FeatureCreateDrawer (adds
+  footer slot + form reset), then ReviewDrawerShell (highest risk — 3 consumer drawers depend on
+  it), and finally SkillDetailDrawer (cross-library Sheet→Vaul migration). After all migrations,
+  a verification pass confirms data-testid consistency and Storybook story correctness.
+
+  **Phase 3 (Validation, ~1h)** runs the full CI validation suite (lint, format, typecheck, tsp),
+  unit tests, and confirms that no consumer code or Tier 0 primitives were inadvertently changed.
+
+  The TDD approach ensures that BaseDrawer's behavior is locked in by tests before any migrations
+  begin, and each migration step can be verified against both the new tests and existing stories.

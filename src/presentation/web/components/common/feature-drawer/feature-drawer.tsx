@@ -1,17 +1,13 @@
 'use client';
 
-import { XIcon, Loader2, Trash2, ExternalLink, GitCommitHorizontal } from 'lucide-react';
+import { useCallback, useEffect } from 'react';
+import { Loader2, Trash2, ExternalLink, GitCommitHorizontal } from 'lucide-react';
 import { PrStatus } from '@shepai/core/domain/generated/output';
 import { cn } from '@/lib/utils';
 import { useSoundAction } from '@/hooks/use-sound-action';
 import { OpenActionMenu } from '@/components/common/open-action-menu';
-import {
-  Drawer,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerDescription,
-} from '@/components/ui/drawer';
+import { BaseDrawer } from '@/components/common/base-drawer';
+import { DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -48,143 +44,133 @@ export function FeatureDrawer({
   const drawerOpenSound = useSoundAction('drawer-open');
   const drawerCloseSound = useSoundAction('drawer-close');
 
+  const isOpen = selectedNode !== null;
+  useEffect(() => {
+    if (isOpen) drawerOpenSound.play();
+  }, [isOpen, drawerOpenSound]);
+
+  const handleClose = useCallback(() => {
+    drawerCloseSound.play();
+    onClose();
+  }, [onClose, drawerCloseSound]);
+
   return (
-    <Drawer
-      direction="right"
-      modal={false}
-      handleOnly
+    <BaseDrawer
       open={selectedNode !== null}
-      onOpenChange={(open) => {
-        if (open) {
-          drawerOpenSound.play();
-        } else {
-          drawerCloseSound.play();
-          onClose();
-        }
-      }}
+      onClose={handleClose}
+      size="sm"
+      modal={false}
+      data-testid="feature-drawer"
+      header={
+        selectedNode ? (
+          <div data-testid="feature-drawer-header">
+            <DrawerTitle>{selectedNode.name}</DrawerTitle>
+            <DrawerDescription>{selectedNode.featureId}</DrawerDescription>
+          </div>
+        ) : undefined
+      }
     >
-      <DrawerContent direction="right" className="w-96" showCloseButton={false}>
-        {selectedNode ? (
-          <>
-            {/* Close button */}
-            <button
-              type="button"
-              aria-label="Close"
-              onClick={() => {
-                drawerCloseSound.play();
-                onClose();
-              }}
-              className="ring-offset-background focus:ring-ring absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden"
-            >
-              <XIcon className="size-4" />
-            </button>
+      {selectedNode ? (
+        <>
+          {/* Action buttons */}
+          {selectedNode.repositoryPath && selectedNode.branch ? (
+            <DrawerActions
+              repositoryPath={selectedNode.repositoryPath}
+              branch={selectedNode.branch}
+              specPath={selectedNode.specPath}
+            />
+          ) : null}
 
-            {/* Header */}
-            <DrawerHeader data-testid="feature-drawer-header">
-              <DrawerTitle>{selectedNode.name}</DrawerTitle>
-              <DrawerDescription>{selectedNode.featureId}</DrawerDescription>
-            </DrawerHeader>
+          <Separator />
 
-            {/* Action buttons */}
-            {selectedNode.repositoryPath && selectedNode.branch ? (
-              <DrawerActions
-                repositoryPath={selectedNode.repositoryPath}
-                branch={selectedNode.branch}
-                specPath={selectedNode.specPath}
-              />
-            ) : null}
-
-            <Separator />
-
-            {/* Status */}
-            <div data-testid="feature-drawer-status" className="flex flex-col gap-3 p-4">
-              <div className="text-muted-foreground text-xs font-semibold tracking-wider">
-                {lifecycleDisplayLabels[selectedNode.lifecycle]}
-              </div>
-
-              <StateBadge data={selectedNode} />
-
-              {selectedNode.progress > 0 ? (
-                <div data-testid="feature-drawer-progress" className="flex flex-col gap-1">
-                  <div className="text-muted-foreground flex items-center justify-between text-xs">
-                    <span>Progress</span>
-                    <span>{selectedNode.progress}%</span>
-                  </div>
-                  <div className="bg-muted h-2 w-full overflow-hidden rounded-full">
-                    <div
-                      className={cn(
-                        'h-full rounded-full transition-all',
-                        featureNodeStateConfig[selectedNode.state].progressClass
-                      )}
-                      style={{ width: `${selectedNode.progress}%` }}
-                    />
-                  </div>
-                </div>
-              ) : null}
+          {/* Status */}
+          <div data-testid="feature-drawer-status" className="flex flex-col gap-3 p-4">
+            <div className="text-muted-foreground text-xs font-semibold tracking-wider">
+              {lifecycleDisplayLabels[selectedNode.lifecycle]}
             </div>
 
-            {/* PR info */}
-            {selectedNode.pr ? (
-              <>
-                <Separator />
-                <PrInfoSection pr={selectedNode.pr} />
-              </>
-            ) : null}
+            <StateBadge data={selectedNode} />
 
-            <Separator />
-
-            {/* Details */}
-            <DetailsSection data={selectedNode} />
-
-            {/* Delete action */}
-            {onDelete ? (
-              <>
-                <Separator />
-                <div data-testid="feature-drawer-delete" className="p-4">
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="destructive" className="w-full" disabled={isDeleting}>
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Delete feature
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Delete feature?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This will permanently delete <strong>{selectedNode.name}</strong> (
-                          {selectedNode.featureId}). This action cannot be undone.
-                          {selectedNode.state === 'running' ? (
-                            <> This feature has a running agent that will be stopped.</>
-                          ) : null}
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                          variant="destructive"
-                          disabled={isDeleting}
-                          onClick={() => onDelete(selectedNode.featureId)}
-                        >
-                          {isDeleting ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Deleting…
-                            </>
-                          ) : (
-                            'Delete'
-                          )}
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+            {selectedNode.progress > 0 ? (
+              <div data-testid="feature-drawer-progress" className="flex flex-col gap-1">
+                <div className="text-muted-foreground flex items-center justify-between text-xs">
+                  <span>Progress</span>
+                  <span>{selectedNode.progress}%</span>
                 </div>
-              </>
+                <div className="bg-muted h-2 w-full overflow-hidden rounded-full">
+                  <div
+                    className={cn(
+                      'h-full rounded-full transition-all',
+                      featureNodeStateConfig[selectedNode.state].progressClass
+                    )}
+                    style={{ width: `${selectedNode.progress}%` }}
+                  />
+                </div>
+              </div>
             ) : null}
-          </>
-        ) : null}
-      </DrawerContent>
-    </Drawer>
+          </div>
+
+          {/* PR info */}
+          {selectedNode.pr ? (
+            <>
+              <Separator />
+              <PrInfoSection pr={selectedNode.pr} />
+            </>
+          ) : null}
+
+          <Separator />
+
+          {/* Details */}
+          <DetailsSection data={selectedNode} />
+
+          {/* Delete action */}
+          {onDelete ? (
+            <>
+              <Separator />
+              <div data-testid="feature-drawer-delete" className="p-4">
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" className="w-full" disabled={isDeleting}>
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete feature
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete feature?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will permanently delete <strong>{selectedNode.name}</strong> (
+                        {selectedNode.featureId}). This action cannot be undone.
+                        {selectedNode.state === 'running' ? (
+                          <> This feature has a running agent that will be stopped.</>
+                        ) : null}
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        variant="destructive"
+                        disabled={isDeleting}
+                        onClick={() => onDelete(selectedNode.featureId)}
+                      >
+                        {isDeleting ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Deleting…
+                          </>
+                        ) : (
+                          'Delete'
+                        )}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+            </>
+          ) : null}
+        </>
+      ) : null}
+    </BaseDrawer>
   );
 }
 
