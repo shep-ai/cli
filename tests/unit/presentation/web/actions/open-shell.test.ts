@@ -18,12 +18,16 @@ vi.mock('node:fs', () => ({
 }));
 
 const mockUnref = vi.fn();
+const mockOn = vi.fn();
 const mockSpawn = vi.fn();
 vi.mock('node:child_process', () => ({
   spawn: (...args: unknown[]) => mockSpawn(...args),
 }));
 
-const originalPlatform = process.platform;
+const mockPlatform = vi.fn<() => string>();
+vi.mock('node:os', () => ({
+  platform: () => mockPlatform(),
+}));
 
 const { openShell } = await import('../../../../../src/presentation/web/app/actions/open-shell.js');
 
@@ -34,8 +38,8 @@ describe('openShell server action', () => {
       environment: { shellPreference: 'zsh' },
     });
     mockExistsSync.mockReturnValue(true);
-    mockSpawn.mockReturnValue({ unref: mockUnref });
-    Object.defineProperty(process, 'platform', { value: originalPlatform });
+    mockSpawn.mockReturnValue({ unref: mockUnref, on: mockOn });
+    mockPlatform.mockReturnValue('darwin');
   });
 
   it('returns error for invalid repositoryPath', async () => {
@@ -57,7 +61,7 @@ describe('openShell server action', () => {
   });
 
   it('returns error on unsupported platform', async () => {
-    Object.defineProperty(process, 'platform', { value: 'win32' });
+    mockPlatform.mockReturnValue('win32');
 
     const result = await openShell({ repositoryPath: '/home/user/project', branch: 'main' });
 
@@ -66,7 +70,7 @@ describe('openShell server action', () => {
   });
 
   it('spawns correct command on darwin', async () => {
-    Object.defineProperty(process, 'platform', { value: 'darwin' });
+    mockPlatform.mockReturnValue('darwin');
 
     const result = await openShell({ repositoryPath: '/home/user/project', branch: 'feat/test' });
 
@@ -79,7 +83,7 @@ describe('openShell server action', () => {
   });
 
   it('spawns correct command on linux', async () => {
-    Object.defineProperty(process, 'platform', { value: 'linux' });
+    mockPlatform.mockReturnValue('linux');
 
     const result = await openShell({ repositoryPath: '/home/user/project', branch: 'feat/test' });
 
@@ -93,7 +97,7 @@ describe('openShell server action', () => {
   });
 
   it('returns success with correct payload', async () => {
-    Object.defineProperty(process, 'platform', { value: 'darwin' });
+    mockPlatform.mockReturnValue('darwin');
     mockGetSettings.mockReturnValue({
       environment: { shellPreference: 'fish' },
     });
@@ -107,8 +111,16 @@ describe('openShell server action', () => {
     });
   });
 
+  it('registers error handler on spawned child', async () => {
+    mockPlatform.mockReturnValue('darwin');
+
+    await openShell({ repositoryPath: '/home/user/project', branch: 'main' });
+
+    expect(mockOn).toHaveBeenCalledWith('error', expect.any(Function));
+  });
+
   it('returns error when spawn throws', async () => {
-    Object.defineProperty(process, 'platform', { value: 'darwin' });
+    mockPlatform.mockReturnValue('darwin');
     mockSpawn.mockImplementation(() => {
       throw new Error('spawn failed');
     });
@@ -119,7 +131,7 @@ describe('openShell server action', () => {
   });
 
   it('returns generic error for non-Error throws', async () => {
-    Object.defineProperty(process, 'platform', { value: 'darwin' });
+    mockPlatform.mockReturnValue('darwin');
     mockSpawn.mockImplementation(() => {
       throw 'unexpected';
     });
@@ -130,7 +142,7 @@ describe('openShell server action', () => {
   });
 
   it('uses repositoryPath directly when branch is not provided', async () => {
-    Object.defineProperty(process, 'platform', { value: 'darwin' });
+    mockPlatform.mockReturnValue('darwin');
 
     const result = await openShell({ repositoryPath: '/home/user/project' });
 
@@ -143,7 +155,7 @@ describe('openShell server action', () => {
   });
 
   it('returns error when repositoryPath does not exist and no branch provided', async () => {
-    Object.defineProperty(process, 'platform', { value: 'darwin' });
+    mockPlatform.mockReturnValue('darwin');
     mockExistsSync.mockReturnValue(false);
 
     const result = await openShell({ repositoryPath: '/nonexistent' });

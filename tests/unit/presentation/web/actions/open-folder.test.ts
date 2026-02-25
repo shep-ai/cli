@@ -8,12 +8,16 @@ vi.mock('node:fs', () => ({
 }));
 
 const mockUnref = vi.fn();
+const mockOn = vi.fn();
 const mockSpawn = vi.fn();
 vi.mock('node:child_process', () => ({
   spawn: (...args: unknown[]) => mockSpawn(...args),
 }));
 
-const originalPlatform = process.platform;
+const mockPlatform = vi.fn<() => string>();
+vi.mock('node:os', () => ({
+  platform: () => mockPlatform(),
+}));
 
 const { openFolder } = await import(
   '../../../../../src/presentation/web/app/actions/open-folder.js'
@@ -23,8 +27,8 @@ describe('openFolder server action', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockExistsSync.mockReturnValue(true);
-    mockSpawn.mockReturnValue({ unref: mockUnref });
-    Object.defineProperty(process, 'platform', { value: originalPlatform });
+    mockSpawn.mockReturnValue({ unref: mockUnref, on: mockOn });
+    mockPlatform.mockReturnValue('darwin');
   });
 
   it('returns error for empty repositoryPath', async () => {
@@ -46,7 +50,6 @@ describe('openFolder server action', () => {
   });
 
   it('returns error when directory does not exist', async () => {
-    Object.defineProperty(process, 'platform', { value: 'darwin' });
     mockExistsSync.mockReturnValue(false);
 
     const result = await openFolder('/nonexistent');
@@ -55,7 +58,7 @@ describe('openFolder server action', () => {
   });
 
   it('returns error on unsupported platform', async () => {
-    Object.defineProperty(process, 'platform', { value: 'win32' });
+    mockPlatform.mockReturnValue('win32');
 
     const result = await openFolder('/home/user/project');
 
@@ -64,7 +67,7 @@ describe('openFolder server action', () => {
   });
 
   it('spawns correct command on darwin', async () => {
-    Object.defineProperty(process, 'platform', { value: 'darwin' });
+    mockPlatform.mockReturnValue('darwin');
 
     const result = await openFolder('/home/user/project');
 
@@ -77,7 +80,7 @@ describe('openFolder server action', () => {
   });
 
   it('spawns correct command on linux', async () => {
-    Object.defineProperty(process, 'platform', { value: 'linux' });
+    mockPlatform.mockReturnValue('linux');
 
     const result = await openFolder('/home/user/project');
 
@@ -90,15 +93,23 @@ describe('openFolder server action', () => {
   });
 
   it('returns success with correct payload', async () => {
-    Object.defineProperty(process, 'platform', { value: 'darwin' });
+    mockPlatform.mockReturnValue('darwin');
 
     const result = await openFolder('/home/user/project');
 
     expect(result).toEqual({ success: true, path: '/home/user/project' });
   });
 
+  it('registers error handler on spawned child', async () => {
+    mockPlatform.mockReturnValue('darwin');
+
+    await openFolder('/home/user/project');
+
+    expect(mockOn).toHaveBeenCalledWith('error', expect.any(Function));
+  });
+
   it('returns error when spawn throws', async () => {
-    Object.defineProperty(process, 'platform', { value: 'darwin' });
+    mockPlatform.mockReturnValue('darwin');
     mockSpawn.mockImplementation(() => {
       throw new Error('spawn failed');
     });
@@ -109,7 +120,7 @@ describe('openFolder server action', () => {
   });
 
   it('returns generic error for non-Error throws', async () => {
-    Object.defineProperty(process, 'platform', { value: 'darwin' });
+    mockPlatform.mockReturnValue('darwin');
     mockSpawn.mockImplementation(() => {
       throw 'unexpected';
     });
