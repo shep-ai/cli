@@ -1,3 +1,9 @@
+# [1.57.0](https://github.com/shep-ai/cli/compare/v1.56.0...v1.57.0) (2026-02-25)
+
+### Features
+
+- **domain:** add pr sync watcher service with github pr/ci status polling ([#116](https://github.com/shep-ai/cli/issues/116)) ([2ba9e93](https://github.com/shep-ai/cli/commit/2ba9e93f41b89fb4502c7ef22dfaf7b00b1dc486))
+
 # [1.56.0](https://github.com/shep-ai/cli/compare/v1.55.3...v1.56.0) (2026-02-25)
 
 ### Features
