@@ -83,12 +83,12 @@ describe('FeaturesCanvas', () => {
     expect(onRepositoryAdd).toHaveBeenCalledWith('repo-1');
   });
 
-  it('Panel has mr-16 right margin to clear the ThemeToggle zone', () => {
+  it('Panel has mb-4 bottom margin at bottom-right position', () => {
     const { container } = render(
       <FeaturesCanvas nodes={[mockNode]} edges={[]} onRepositorySelect={() => undefined} />
     );
-    expect(container.querySelector('.mr-16')).toBeInTheDocument();
-    expect(container.querySelector('.mr-12')).not.toBeInTheDocument();
+    expect(container.querySelector('.mb-4')).toBeInTheDocument();
+    expect(container.querySelector('.mr-16')).not.toBeInTheDocument();
   });
 
   it('renders toolbar when provided', () => {

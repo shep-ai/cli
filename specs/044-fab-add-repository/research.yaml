@@ -1,0 +1,312 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: fab-add-repository
+summary: >
+  The FAB replaces the dashed-border pill button with a circular blue icon-only button
+  at bottom-right. The change is purely presentational — same props interface, same
+  pickFolder logic, same loading state. Only two source files change (add-repository-button.tsx
+  and features-canvas.tsx) plus story updates. The shadcn/ui Tooltip wraps the button for
+  discoverability. No new dependencies, no schema changes, no API changes.
+
+# Relationships
+relatedFeatures:
+  - '043-add-repo-button-position'
+  - '038-control-center-empty-state'
+  - '016-control-center'
+
+technologies:
+  - React 19
+  - '@xyflow/react (Panel component)'
+  - Tailwind CSS 4
+  - shadcn/ui Tooltip (already installed)
+  - lucide-react (Plus, Loader2 — already imported)
+  - Storybook 8
+
+relatedLinks: []
+
+# Structured technology decisions
+decisions:
+  - title: 'FAB styling approach'
+    chosen: 'Tailwind utility classes matching feature-node blue button pattern'
+    rejected:
+      - "shadcn/ui Button component with custom variant — Adds unnecessary abstraction. The feature-node pattern uses a plain <button> with Tailwind classes directly, and the current AddRepositoryButton also uses a plain <button>. Wrapping in shadcn/ui Button would require creating a new 'fab' variant and deviates from the established inline pattern."
+      - 'CSS module or styled-component — The entire codebase uses Tailwind utilities exclusively. Introducing a CSS module would break the established convention for no benefit.'
+    rationale: >
+      The feature-node.tsx action button (line 231) establishes the blue circular button pattern
+      using Tailwind classes directly: bg-blue-500, rounded-full, shadow-md, hover:bg-blue-600.
+      The FAB should follow this exact pattern at a larger scale (h-12 w-12 vs h-6 w-6).
+      Keeping a plain <button> element with Tailwind classes is consistent with both the
+      existing AddRepositoryButton implementation and the feature-node pattern.
+
+  - title: 'Tooltip implementation'
+    chosen: 'shadcn/ui Tooltip with TooltipProvider wrapping the button'
+    rejected:
+      - "HTML title attribute — No animation, inconsistent styling across browsers, cannot match the project's tooltip design system. The codebase already has a styled Tooltip component."
+      - 'Custom tooltip implementation — Unnecessary when the project already has a well-styled Radix-based Tooltip component at components/ui/tooltip.tsx with arrow, animations, and proper accessibility.'
+    rationale: >
+      The repository-node.tsx (lines 43-59) demonstrates the exact tooltip pattern to follow:
+      TooltipProvider > Tooltip > TooltipTrigger asChild > button + TooltipContent. This is the
+      established pattern in the codebase. The tooltip.tsx component is already installed with
+      proper styling (bg-foreground, text-background, arrow, animations).
+
+  - title: 'Panel position for FAB'
+    chosen: 'bottom-right via Panel position prop, replacing current top-right'
+    rejected:
+      - 'Keep top-right and just restyle — Contradicts the spec requirement for bottom-right FAB positioning. Top-right is also occupied by the ThemeToggle zone (mr-16 clearance), making it suboptimal for a prominent FAB.'
+      - 'Absolute positioning outside ReactFlow Panel — Panels are the idiomatic ReactFlow way to position overlay elements. Using absolute positioning would bypass the Panel system and require manual z-index management.'
+    rationale: >
+      The spec requires bottom-right positioning (FR-2). ReactFlow Panel's position='bottom-right'
+      is the idiomatic approach. The current Controls component renders at bottom-left (default),
+      so there is no overlap concern at bottom-right. The mr-16 margin class currently used for
+      ThemeToggle clearance at top-right is no longer needed and should be removed. A mb-4 margin
+      provides spacing from the canvas edge.
+
+  - title: 'AddRepositoryNode canvas node removal'
+    chosen: 'Keep AddRepositoryNode as-is (unused by canvas when FAB exists, but still exported)'
+    rejected:
+      - "Delete AddRepositoryNode entirely — The node component and its config are still part of the module's public API. Other code may reference the type. Removing it is out of scope for this styling change and risks breaking consumers."
+      - "Deprecate with console.warn — Over-engineering for a simple UI change. If the node is no longer placed on the canvas, it simply won't render. No deprecation ceremony needed."
+    rationale: >
+      The spec's scope is purely presentational — restyle the button and change its position.
+      The AddRepositoryNode (the ReactFlow node version) is a separate component in the same
+      directory. It is not being used as a canvas node in the current flow (the button is
+      rendered in a Panel, not as a node). No changes to AddRepositoryNode are needed.
+
+  - title: 'Test strategy'
+    chosen: 'Update existing features-canvas test for Panel class changes, add story-based visual testing'
+    rejected:
+      - "Write dedicated unit tests for AddRepositoryButton rendering — The button's logic (pickFolder, loading state) is unchanged. Only styling changes. The existing test at features-canvas.test.tsx line 86-92 checks Panel class (mr-16) and will need updating to reflect the new position/classes."
+      - 'Add Playwright e2e tests — Over-scoped for a styling change. Storybook stories with visual snapshots provide equivalent coverage for presentational changes.'
+    rationale: >
+      The test at features-canvas.test.tsx:86-92 explicitly checks for mr-16 class on the Panel.
+      This test will need updating since the Panel moves from top-right with mr-16 to bottom-right
+      with mb-4. The test should verify the new class. All other tests are unaffected since the
+      component's behavior (props, events, loading state) is unchanged.
+
+  - title: 'Story updates'
+    chosen: 'Update add-repository-node.stories.tsx to render the FAB standalone, update features-canvas clearance story'
+    rejected:
+      - 'Create a new story file for the FAB — The component file name and export remain the same (AddRepositoryButton). A new story file would create confusion with the existing one.'
+      - "Only update control-center.stories.tsx — The button's own story file should demonstrate the FAB in isolation. The control center stories provide integration-level coverage but not component-level focus."
+    rationale: >
+      The existing add-repository-node.stories.tsx renders the AddRepositoryNode (the canvas node
+      version). Since the FAB is the AddRepositoryButton (the Panel version), a story rendering
+      it inside a Panel within a ReactFlow canvas will properly showcase the new design. The
+      AddRepositoryButtonClearanceCheck story in features-canvas.stories.tsx (line 615) should
+      be updated to verify bottom-right positioning instead of top-right ThemeToggle clearance.
+
+# Open questions (resolved during research)
+openQuestions:
+  - question: 'Should the AddRepositoryButton story file be separate from AddRepositoryNode stories?'
+    resolved: true
+    options:
+      - option: 'Add FAB stories to existing add-repository-node.stories.tsx'
+        description: >
+          Keep all add-repository stories together in the existing file. Add new stories
+          that render AddRepositoryButton inside a Panel to show the FAB. Simple, avoids
+          file proliferation.
+        selected: true
+      - option: 'Create new add-repository-button.stories.tsx'
+        description: >
+          Separate file for the button component stories. Cleaner separation of concerns
+          (node vs button) but adds another file and the components are closely related.
+        selected: false
+      - option: 'Move FAB stories to features-canvas.stories.tsx only'
+        description: >
+          Only show the FAB in the context of the full canvas. Loses the ability to view
+          the button in isolation, making it harder to test states (default, loading).
+        selected: false
+    selectionRationale: >
+      The add-repository-node.stories.tsx file already covers the add-repository family
+      of components. Adding FAB-specific stories there keeps related components together
+      and avoids file proliferation. The stories can render AddRepositoryButton inside a
+      minimal ReactFlow + Panel setup to showcase it independently.
+
+  - question: 'How should the AddRepositoryButtonClearanceCheck story be updated?'
+    resolved: true
+    options:
+      - option: 'Update to verify bottom-right FAB spacing'
+        description: >
+          Change the clearance check to verify the FAB at bottom-right has proper spacing
+          from canvas edges. The ThemeToggle overlay can be removed since the FAB is no
+          longer near it.
+        selected: true
+      - option: 'Delete the clearance check story'
+        description: >
+          Remove it entirely since the FAB at bottom-right doesn't need clearance from
+          ThemeToggle. However, visual verification stories are valuable for catching
+          regressions.
+        selected: false
+      - option: 'Keep the story as-is for backwards compatibility'
+        description: >
+          Leave the ThemeToggle clearance check unchanged. But it would be testing a
+          layout that no longer exists (top-right button with mr-16), making it misleading.
+        selected: false
+    selectionRationale: >
+      The clearance check story was specifically created for feature 043 to verify mr-16
+      spacing with the ThemeToggle. Since the FAB moves to bottom-right, the ThemeToggle
+      overlap concern is eliminated. The story should be updated to verify the new
+      bottom-right FAB positioning, or simplified to just show the FAB in context.
+
+  - question: 'Should the button have a transition/scale effect on hover beyond color change?'
+    resolved: true
+    options:
+      - option: 'Color change only (bg-blue-500 to bg-blue-600)'
+        description: >
+          Simple hover effect matching the feature-node button pattern exactly. Consistent
+          with existing UI, minimal visual disruption. The shadow-lg already provides
+          depth without needing additional hover animation.
+        selected: true
+      - option: 'Color change plus scale-110 transform'
+        description: >
+          Adds a subtle grow effect on hover for more interactive feel. Common in Material
+          Design FABs. But no other button in the codebase uses scale transforms on hover,
+          so it would be inconsistent.
+        selected: false
+      - option: 'Color change plus shadow elevation increase'
+        description: >
+          Increase shadow from shadow-lg to shadow-xl on hover, mimicking Material Design
+          elevation changes. More subtle than scale but still adds an effect not used
+          elsewhere in the codebase.
+        selected: false
+    selectionRationale: >
+      The spec mentions "scale or brightness effect" (FR-6) but the existing feature-node
+      button only uses hover:bg-blue-600 with no scale or shadow changes. Following the
+      established pattern keeps visual consistency. The color transition from blue-500 to
+      blue-600 is sufficient to indicate interactivity.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. FAB Styling Approach
+
+  **Chosen:** Tailwind utility classes matching feature-node blue button pattern
+
+  **Rejected:**
+  - shadcn/ui Button with custom variant — Adds unnecessary abstraction; the existing feature-node and AddRepositoryButton both use plain `<button>` elements
+  - CSS modules — The codebase uses Tailwind exclusively; introducing CSS modules breaks convention
+
+  **Rationale:** The feature-node.tsx action button (line 231) provides the exact pattern: `bg-blue-500 rounded-full shadow-md hover:bg-blue-600` with a white Plus icon. Scale this up from h-6 to h-12 for the FAB.
+
+  ### 2. Tooltip Implementation
+
+  **Chosen:** shadcn/ui Tooltip (already installed at `components/ui/tooltip.tsx`)
+
+  **Rejected:**
+  - HTML `title` attribute — No animation, inconsistent cross-browser styling
+  - Custom tooltip — Unnecessary when the project already has a Radix-based Tooltip
+
+  **Rationale:** repository-node.tsx (lines 43-59) demonstrates the exact pattern: `TooltipProvider > Tooltip > TooltipTrigger asChild > button + TooltipContent`. Follow this established pattern.
+
+  ### 3. Panel Position
+
+  **Chosen:** `Panel position="bottom-right"` replacing current `top-right`
+
+  **Rejected:**
+  - Keep top-right — Contradicts spec; top-right competes with ThemeToggle zone
+  - Absolute positioning — Bypasses ReactFlow Panel system; requires manual z-index
+
+  **Rationale:** ReactFlow Controls are at bottom-left (default), so bottom-right is clear. The `mr-16` class for ThemeToggle clearance is no longer needed. A `mb-4` margin provides edge spacing.
+
+  ### 4. AddRepositoryNode (Canvas Node) Status
+
+  **Chosen:** Keep unchanged — it's a separate component not affected by this change
+
+  **Rejected:**
+  - Delete AddRepositoryNode — Out of scope, may break consumers
+  - Deprecate with console.warn — Over-engineering
+
+  **Rationale:** The spec scope is purely presentational. AddRepositoryNode (the ReactFlow node) is separate from AddRepositoryButton (the Panel button). No changes needed.
+
+  ### 5. Test Strategy
+
+  **Chosen:** Update existing Panel class test, rely on stories for visual verification
+
+  **Rejected:**
+  - Dedicated unit tests for button rendering — Logic is unchanged; only styling changes
+  - Playwright e2e tests — Over-scoped for a presentational change
+
+  **Rationale:** The test at features-canvas.test.tsx:86-92 checks for `mr-16` class. This must be updated to check for the new bottom-right class (`mb-4`). All other tests are unaffected.
+
+  ### 6. Story Updates
+
+  **Chosen:** Update add-repository-node.stories.tsx with FAB stories, update clearance check story
+
+  **Rejected:**
+  - New story file — Same component, would be confusing
+  - Only control-center stories — Loses component-level isolation
+
+  **Rationale:** Keep stories together in the existing file. Add FAB-in-Panel stories for isolated viewing.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | `@xyflow/react` Panel | Position FAB on canvas | Use (already imported) | Panel position="bottom-right" is the idiomatic approach |
+  | shadcn/ui Tooltip | Show "Add Repository" on hover | Use (already installed) | At `components/ui/tooltip.tsx`, used by repository-node |
+  | `lucide-react` Plus | FAB icon | Use (already imported) | Same icon, just larger (h-6 w-6 vs current h-3.5 w-3.5) |
+  | `lucide-react` Loader2 | Loading spinner | Use (already imported) | Same spinner, just larger |
+  | No new libraries | — | N/A | NFR-4 requires no new dependencies |
+
+  ## Security Considerations
+
+  No security implications. This is a purely presentational change:
+  - No new data flows or API calls
+  - The `pickFolder()` server action is unchanged
+  - No user input handling changes
+  - No new routes or endpoints
+  - The `aria-label` and tooltip are static strings (no injection vectors)
+
+  ## Performance Implications
+
+  No performance concerns:
+  - No new components — same AddRepositoryButton, restyled
+  - No new state — same `useState(false)` for loading
+  - No new renders — removing text label slightly reduces DOM nodes
+  - Tooltip uses Radix portal (already proven performant in repository-node usage)
+  - No new dependencies to bundle
+
+  ## Architecture Notes
+
+  ### Files Changed
+
+  | File | Change | Impact |
+  | ---- | ------ | ------ |
+  | `add-repository-button.tsx` | Restyle: dashed pill → circular FAB, wrap in Tooltip | High — visual redesign |
+  | `features-canvas.tsx` | Panel: `top-right` → `bottom-right`, `mr-16` → `mb-4` | Medium — position change |
+  | `add-repository-node.stories.tsx` | Add FAB-specific stories (default, loading) | Medium — new stories |
+  | `features-canvas.stories.tsx` | Update AddRepositoryButtonClearanceCheck | Low — story adjustment |
+  | `features-canvas.test.tsx` | Update Panel class assertion (`mr-16` → `mb-4`) | Low — test fix |
+
+  ### What Does NOT Change
+
+  - `AddRepositoryButtonProps` interface — still `{ onSelect?: (path: string) => void }`
+  - `pickFolder()` utility — untouched
+  - `AddRepositoryNode` (canvas node component) — untouched
+  - `ControlCenterEmptyState` — untouched per spec (FR-8)
+  - `control-center-inner.tsx` — no logic changes
+  - Data flow — `onRepositorySelect` prop chain is unchanged
+
+  ### Implementation Pattern
+
+  The button class changes from:
+  ```
+  border-muted-foreground/30 flex cursor-pointer items-center gap-2 rounded-full
+  border-2 border-dashed px-3 py-1.5 text-xs transition-colors
+  hover:border-blue-500 hover:text-blue-500 disabled:cursor-wait disabled:opacity-60
+  ```
+
+  To:
+  ```
+  flex h-12 w-12 cursor-pointer items-center justify-center rounded-full
+  bg-blue-500 text-white shadow-lg transition-colors
+  hover:bg-blue-600 disabled:cursor-wait disabled:opacity-60
+  ```
+
+  The text `<span>` is removed (icon-only). The Plus icon scales from `h-3.5 w-3.5` to
+  `h-6 w-6`. The entire button is wrapped in a TooltipProvider/Tooltip/TooltipTrigger.
+
+  ---
+
+  _Research complete — proceed with planning_

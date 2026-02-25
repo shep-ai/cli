@@ -609,38 +609,10 @@ export const InteractiveWithRepository: Story = {
   },
 };
 
-// Story to visually verify the Add Repository button does not overlap the ThemeToggle.
-// The simulated ThemeToggle (top-3 right-3, 40×40 px) is rendered as an overlay so
-// reviewers can confirm the mr-16 (64 px) gap keeps the Panel clear of the toggle zone.
-export const AddRepositoryButtonClearanceCheck: Story = {
-  decorators: [
-    (Story) => (
-      <div style={{ height: '100vh', position: 'relative' }}>
-        <Story />
-        {/* Simulated ThemeToggle at top-3 right-3 (same position as AppShell) */}
-        <div
-          style={{
-            position: 'absolute',
-            top: 12,
-            right: 12,
-            width: 40,
-            height: 40,
-            background: 'rgba(255, 0, 0, 0.35)',
-            border: '2px dashed red',
-            borderRadius: 6,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 10,
-            pointerEvents: 'none',
-            zIndex: 50,
-          }}
-        >
-          Theme
-        </div>
-      </div>
-    ),
-  ],
+// Story to visually verify the Add Repository FAB at bottom-right has proper spacing
+// from the canvas edges. The FAB is positioned via Panel position="bottom-right" with
+// mb-4 spacing, separate from the ReactFlow Controls at bottom-left.
+export const AddRepositoryButtonPositionCheck: Story = {
   args: {
     nodes: repoFeatureNodes,
     edges: repoFeatureEdges,
