@@ -1,3 +1,9 @@
+# [1.55.0](https://github.com/shep-ai/cli/compare/v1.54.0...v1.55.0) (2026-02-25)
+
+### Features
+
+- **cli:** add daemon lifecycle commands and onboarding handoff ([#043](https://github.com/shep-ai/cli/issues/043)) ([#132](https://github.com/shep-ai/cli/issues/132)) ([ce2f22e](https://github.com/shep-ai/cli/commit/ce2f22e6bbe29291777eaf53484d94ea97c2c910))
+
 # [1.54.0](https://github.com/shep-ai/cli/compare/v1.53.2...v1.54.0) (2026-02-25)
 
 ### Features
