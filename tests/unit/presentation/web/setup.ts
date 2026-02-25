@@ -30,6 +30,26 @@ globalThis.ResizeObserver = class ResizeObserver {
   disconnect = vi.fn();
 } as unknown as typeof globalThis.ResizeObserver;
 
+// Mock DOM methods for Radix UI Select (jsdom doesn't implement these)
+// Guard with typeof check — Element is unavailable in node environment
+if (typeof Element !== 'undefined') {
+  if (typeof Element.prototype.hasPointerCapture === 'undefined') {
+    Element.prototype.hasPointerCapture = () => false;
+  }
+  if (typeof Element.prototype.setPointerCapture === 'undefined') {
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
+    Element.prototype.setPointerCapture = () => {};
+  }
+  if (typeof Element.prototype.releasePointerCapture === 'undefined') {
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
+    Element.prototype.releasePointerCapture = () => {};
+  }
+  if (typeof Element.prototype.scrollIntoView === 'undefined') {
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
+    Element.prototype.scrollIntoView = () => {};
+  }
+}
+
 // Mock matchMedia for theme tests
 Object.defineProperty(globalThis.window ?? globalThis, 'matchMedia', {
   writable: true,

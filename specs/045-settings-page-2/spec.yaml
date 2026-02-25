@@ -1,0 +1,396 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: settings-page-2
+number: 045
+branch: feat/045-settings-page-2
+oneLiner: Add a web UI settings page to view and edit all platform configuration
+userQuery: >
+  Feature: Add settings page
+summary: >
+  Add a /settings route to the Next.js web UI that loads the singleton Settings
+  entity via the existing LoadSettingsUseCase and provides a tabbed form UI for
+  viewing and editing all configuration sections (models, user profile, environment,
+  system, agent, notifications, workflow). Persists changes via UpdateSettingsUseCase
+  through a new server action. Includes sidebar navigation entry, feature flag gating,
+  Storybook stories, and unit tests.
+phase: Requirements
+sizeEstimate: M
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - Next.js 16 App Router (server components, server actions)
+  - React (client components with useState/useEffect)
+  - shadcn/ui (Tabs, Input, Select, Checkbox, Switch, Label, Card, Button, Separator, ScrollArea)
+  - Tailwind CSS v4
+  - Lucide React (icons)
+  - tsyringe (DI container resolution via server-container.ts)
+  - TypeSpec (Settings domain model in tsp/domain/entities/settings.tsp)
+  - Storybook (mandatory colocated stories)
+  - Vitest (unit tests)
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - question: 'Should settings be saved per-section (save button per tab) or globally (single save button for entire page)?'
+    resolved: true
+    options:
+      - option: 'Per-section save'
+        description: >
+          Each tab has its own Save button. Users save one section at a time. Simpler
+          mental model — changes are scoped and explicit. Reduces risk of accidentally
+          overwriting unrelated sections. Matches CLI pattern where each section has its
+          own command (shep settings agent, shep settings models, etc.).
+        selected: true
+      - option: 'Global save'
+        description: >
+          Single Save button at page level that persists all sections at once. Fewer clicks
+          for users changing multiple sections. Risk of losing unsaved changes when switching
+          tabs. Requires tracking dirty state across all tabs. More complex unsaved-changes
+          warnings.
+        selected: false
+      - option: 'Auto-save on blur'
+        description: >
+          Settings are saved automatically when a field loses focus. No save button needed.
+          Feels modern but removes user control. Can cause unexpected saves. Harder to
+          implement undo/cancel. May trigger excessive writes.
+        selected: false
+    selectionRationale: >
+      Per-section save aligns with the CLI's per-command pattern (shep settings agent,
+      shep settings models), keeps the scope of each save explicit, and avoids complex
+      cross-tab dirty-state tracking. Each section is self-contained — users can modify
+      and save one section without worrying about others.
+    answer: 'Per-section save'
+
+  - question: 'Should the settings page be gated behind a feature flag?'
+    resolved: true
+    options:
+      - option: 'Feature-flagged'
+        description: >
+          Add NEXT_PUBLIC_FLAG_SETTINGS feature flag, gating both the sidebar nav item
+          and the /settings route. Follows the same pattern as Skills page. Allows
+          incremental rollout and safe deployment. Can be enabled by default in development.
+        selected: true
+      - option: 'Always visible'
+        description: >
+          Settings page is always available with no feature flag. Simpler code — no
+          conditional rendering. Appropriate if the feature is considered stable from
+          launch. However, breaks the established pattern of feature-flagging new pages.
+        selected: false
+    selectionRationale: >
+      Feature-flagging follows the established pattern (Skills page uses the same approach),
+      enables safe incremental rollout, and costs minimal implementation effort. The flag
+      can be enabled by default in .env.development for local dev.
+    answer: 'Feature-flagged'
+
+  - question: 'How should the token field in Agent settings be handled for security?'
+    resolved: true
+    options:
+      - option: 'Masked input with reveal toggle'
+        description: >
+          Display the token field as a password input (dots) with a show/hide toggle button.
+          When loading existing settings, show a masked placeholder (e.g., "••••••••") rather
+          than the actual token value. Users can clear and re-enter a new token. Standard
+          security practice for sensitive credentials in web UIs.
+        selected: true
+      - option: 'Plain text input'
+        description: >
+          Show the token as regular text. Simpler implementation but exposes sensitive
+          credentials to anyone viewing the screen. Not recommended for API tokens.
+        selected: false
+      - option: 'Separate secure dialog'
+        description: >
+          Token entry happens in a dedicated modal/dialog with additional confirmation.
+          More secure but adds UX friction and implementation complexity for a single field.
+        selected: false
+    selectionRationale: >
+      A masked input with reveal toggle is the standard pattern for sensitive credentials
+      in web UIs. It prevents casual over-the-shoulder exposure while remaining easy to
+      use. The token is only shown when the user explicitly clicks reveal.
+    answer: 'Masked input with reveal toggle'
+
+  - question: 'Should "Coming Soon" agent types (gemini-cli, aider, etc.) be shown in the Agent Type selector?'
+    resolved: true
+    options:
+      - option: 'Show as disabled options'
+        description: >
+          Display all AgentType enum values in the selector but disable the unsupported
+          ones with a "Coming Soon" badge. Communicates the product roadmap and sets user
+          expectations. Users can see what is planned but cannot select unsupported agents.
+        selected: true
+      - option: 'Hide unsupported options'
+        description: >
+          Only show claude-code in the selector. Simpler but users don't learn about
+          upcoming agent support. Will need UI changes when new agents become available.
+        selected: false
+    selectionRationale: >
+      Showing disabled options with "Coming Soon" badges communicates the product roadmap,
+      builds anticipation, and avoids the need for UI changes when agents become available.
+      The TypeSpec enum already defines them — the UI should reflect the domain model.
+    answer: 'Show as disabled options'
+
+  - question: 'What tab ordering should be used for the settings sections?'
+    resolved: true
+    options:
+      - option: 'User-centric ordering'
+        description: >
+          Order: Models → Agent → Workflow → User Profile → Environment → Notifications → System.
+          Puts the most frequently configured sections (AI models, agent config, workflow
+          automation) first. System-level settings (rarely changed) go last.
+        selected: true
+      - option: 'Alphabetical ordering'
+        description: >
+          Order: Agent → Environment → Models → Notifications → System → User Profile → Workflow.
+          Predictable ordering but doesn't prioritize frequently used sections.
+        selected: false
+      - option: 'Domain model ordering'
+        description: >
+          Order: Models → User Profile → Environment → System → Agent → Notifications → Workflow.
+          Matches the TypeSpec definition order. Consistent with domain model but may not
+          match user mental model of importance.
+        selected: false
+    selectionRationale: >
+      User-centric ordering puts the most impactful and frequently changed settings first.
+      AI model selection and agent configuration are the primary reasons users visit settings.
+      Workflow automation is the next most common. System-level settings rarely change after
+      initial setup.
+    answer: 'User-centric ordering'
+
+  - question: 'Should the CI workflow fields (ciMaxFixAttempts, ciWatchTimeoutMs, ciLogMaxChars) show raw numeric values or user-friendly inputs?'
+    resolved: true
+    options:
+      - option: 'User-friendly inputs with units'
+        description: >
+          Show ciWatchTimeoutMs as minutes (with conversion), ciLogMaxChars with a "characters"
+          suffix, and ciMaxFixAttempts as a simple number input with min/max. Includes inline
+          help text explaining each field. More accessible to non-technical users.
+        selected: true
+      - option: 'Raw numeric inputs'
+        description: >
+          Show raw values as plain number inputs (milliseconds, characters, attempts).
+          Simpler implementation, matches the domain model exactly. May confuse users who
+          don't know 600000ms = 10 minutes.
+        selected: false
+    selectionRationale: >
+      User-friendly inputs with units (e.g., minutes instead of milliseconds) make the
+      settings accessible. Users should not need to mentally convert 600000ms to 10 minutes.
+      The conversion logic is straightforward (multiply/divide by 60000).
+    answer: 'User-friendly inputs with units'
+
+content: |
+  ## Problem Statement
+
+  The Shep platform has a rich Settings entity with 7 configuration sections
+  (models, user profile, environment, system, agent, notifications, workflow)
+  comprising ~40 fields. The backend is fully implemented: TypeSpec domain model,
+  LoadSettingsUseCase, UpdateSettingsUseCase, SQLite repository, and singleton
+  service. However, the web UI has no settings page — users cannot view or modify
+  their configuration from the browser.
+
+  The sidebar navigation shows Control Center, Tools, and Skills but has no
+  Settings link. The `components/features/settings/` directory contains only a
+  `.gitkeep` placeholder. Users must fall back to CLI commands (`shep settings show`,
+  `shep settings agent`, etc.) to manage configuration.
+
+  This feature adds a `/settings` route with a tabbed form UI that exposes all
+  configuration sections, follows established page/action patterns, and persists
+  changes via the existing UpdateSettingsUseCase.
+
+  ## Success Criteria
+
+  - [ ] `/settings` route loads and renders the settings page without errors
+  - [ ] All 7 settings sections are displayed in a tabbed layout with correct fields
+  - [ ] Each section's Save button persists changes to the database via UpdateSettingsUseCase
+  - [ ] Settings page loads current values from LoadSettingsUseCase on initial render
+  - [ ] Sidebar navigation includes a Settings link that highlights when active
+  - [ ] Settings page is gated behind NEXT_PUBLIC_FLAG_SETTINGS feature flag
+  - [ ] All new components have colocated Storybook stories
+  - [ ] Unit tests cover settings page client component and server actions
+  - [ ] Agent token field is displayed as a masked input with reveal toggle
+  - [ ] "Coming Soon" agent types are shown as disabled options in the selector
+  - [ ] CI workflow fields display user-friendly units (minutes instead of ms)
+  - [ ] `pnpm validate` passes with no new errors
+  - [ ] `pnpm test:unit` passes with no regressions
+
+  ## Functional Requirements
+
+  ### Navigation & Routing
+
+  - **FR-1**: Add a `/settings` route as a Next.js App Router server component that
+    loads the Settings entity via `resolve<LoadSettingsUseCase>('LoadSettingsUseCase')`
+    and passes the data to a `SettingsPageClient` client component.
+
+  - **FR-2**: Add a "Settings" entry to the `AppSidebar` navigation using the
+    `Settings` icon from Lucide React, linking to `/settings`, with active state
+    detection via `usePathname() === '/settings'`.
+
+  - **FR-3**: Gate the Settings sidebar link and `/settings` route behind a
+    `NEXT_PUBLIC_FLAG_SETTINGS` feature flag, following the Skills page pattern.
+    Return `notFound()` from the server component when the flag is disabled.
+
+  ### Settings Page Layout
+
+  - **FR-4**: Render a `SettingsPageClient` client component with a `PageHeader`
+    (title: "Settings", description: "Configure your platform preferences") and a
+    `Tabs` component containing 7 tab triggers in user-centric order: Models, Agent,
+    Workflow, User Profile, Environment, Notifications, System.
+
+  - **FR-5**: Each tab renders a dedicated section form component that receives the
+    relevant sub-model data as props and manages its own local form state with
+    `useState`.
+
+  - **FR-6**: Default to the first tab (Models) on initial page load.
+
+  ### Section Form Components
+
+  - **FR-7 (ModelSettingsSection)**: Display 4 text/select inputs for AI model IDs:
+    `analyze`, `requirements`, `plan`, `implement`. Each labeled with the agent phase
+    name. Default values loaded from `settings.models`.
+
+  - **FR-8 (AgentSection)**: Display:
+    - Agent Type selector showing all `AgentType` enum values. Only `claude-code` is
+      selectable; others (`gemini-cli`, `aider`, `continue`, `cursor`, `dev`) are
+      shown as disabled with a "Coming Soon" badge.
+    - Auth Method selector for `AgentAuthMethod` enum (`session`, `token`).
+    - Token input (password type with show/hide toggle) that is conditionally visible
+      only when `authMethod === 'token'`.
+
+  - **FR-9 (WorkflowSection)**: Display:
+    - `openPrOnImplementationComplete` as a Switch toggle.
+    - Approval Gate Defaults: 4 Switch toggles for `allowPrd`, `allowPlan`,
+      `allowMerge`, `pushOnImplementationComplete`.
+    - CI Configuration: `ciMaxFixAttempts` as a number input (min: 1, max: 10),
+      `ciWatchTimeoutMs` displayed as minutes (value ÷ 60000, stored as ms),
+      `ciLogMaxChars` as a number input with "characters" suffix label.
+
+  - **FR-10 (UserProfileSection)**: Display 3 optional text inputs: `name`, `email`,
+    `githubUsername`. All fields accept empty strings (optional in domain model).
+
+  - **FR-11 (EnvironmentSection)**: Display:
+    - `defaultEditor` as a Select with options from `EditorType` enum
+      (`vscode`, `cursor`, `windsurf`, `zed`, `antigravity`).
+    - `shellPreference` as a text input.
+
+  - **FR-12 (NotificationsSection)**: Display:
+    - 3 channel toggles (Switch): `inApp.enabled`, `browser.enabled`,
+      `desktop.enabled`.
+    - 9 event toggles (Switch): `agentStarted`, `phaseCompleted`,
+      `waitingApproval`, `agentCompleted`, `agentFailed`, `prMerged`, `prClosed`,
+      `prChecksPassed`, `prChecksFailed`. Grouped under an "Event Filters" heading.
+
+  - **FR-13 (SystemSection)**: Display:
+    - `autoUpdate` as a Switch toggle.
+    - `logLevel` as a Select with options: `debug`, `info`, `warn`, `error`.
+
+  ### Data Persistence
+
+  - **FR-14**: Create an `updateSettings` server action in `app/actions/` that:
+    1. Accepts a partial settings update (section-scoped).
+    2. Loads the current Settings via `LoadSettingsUseCase`.
+    3. Merges the section update into the full Settings object.
+    4. Persists via `UpdateSettingsUseCase`.
+    5. Returns `{ data: Settings }` on success or `{ error: string }` on failure.
+
+  - **FR-15**: Each section form's Save button calls the `updateSettings` server
+    action with only the changed section data. Display a loading state on the button
+    during the request.
+
+  - **FR-16**: On successful save, show a success toast notification. On failure,
+    show an error toast with the error message.
+
+  ### Storybook & Testing
+
+  - **FR-17**: Create colocated `.stories.tsx` files for: `SettingsPageClient`,
+    `ModelSettingsSection`, `AgentSection`, `WorkflowSection`, `UserProfileSection`,
+    `EnvironmentSection`, `NotificationsSection`, `SystemSection`. Each story file
+    must include at minimum a `Default` story with realistic data fixtures.
+
+  - **FR-18**: Create unit tests for the `updateSettings` server action validating
+    success and error paths.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1 (Performance)**: The settings page must load within the same performance
+    budget as existing pages (Tools, Skills). No additional client-side data fetching
+    beyond the initial server component load.
+
+  - **NFR-2 (Accessibility)**: All form inputs must have associated `<Label>`
+    components. Switch toggles must have accessible names. Tab navigation must be
+    keyboard-accessible via shadcn/ui Tabs component.
+
+  - **NFR-3 (Consistency)**: The settings page must follow established patterns:
+    server component → client component data flow, `PageHeader` for title,
+    `resolve<T>()` for DI, `{ data?, error? }` return shape for server actions.
+
+  - **NFR-4 (Security)**: The agent token field must render as a password input
+    (masked by default) with an explicit toggle to reveal. Tokens must not be logged
+    to the browser console.
+
+  - **NFR-5 (Maintainability)**: Each settings section is a separate component file
+    in `components/features/settings/`. Section components receive typed props and
+    a save callback — they do not directly import server actions.
+
+  - **NFR-6 (Responsive layout)**: The settings form must be usable at the standard
+    app viewport width. Tab labels should be concise enough to fit without horizontal
+    scrolling at common screen widths.
+
+  - **NFR-7 (Validation)**: The `pnpm validate` command (lint + format + typecheck +
+    tsp) must pass with no new errors introduced by this feature.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Per-section save vs global save vs auto-save? | Per-section save | Aligns with CLI per-command pattern, keeps scope explicit, avoids cross-tab dirty-state complexity |
+  | 2 | Feature-flagged or always visible? | Feature-flagged | Follows Skills page pattern, enables safe rollout, minimal implementation cost |
+  | 3 | How to handle the agent token field? | Masked input with reveal toggle | Standard security practice, prevents casual credential exposure |
+  | 4 | Show "Coming Soon" agent types? | Show as disabled options | Communicates roadmap, avoids UI changes when new agents ship |
+  | 5 | Tab ordering? | User-centric (Models → Agent → Workflow → User Profile → Environment → Notifications → System) | Most frequently changed settings first, rarely changed settings last |
+  | 6 | CI fields display format? | User-friendly with units | Minutes > milliseconds for UX; conversion logic is trivial |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `src/presentation/web/app/settings/page.tsx` | High | New route — server component that loads Settings via LoadSettingsUseCase |
+  | `src/presentation/web/components/features/settings/` | High | New client components: SettingsPageClient, 7 section form components |
+  | `src/presentation/web/app/actions/` | Medium | New server action: update-settings |
+  | `src/presentation/web/components/layouts/app-sidebar/app-sidebar.tsx` | Medium | Add Settings nav item (Settings icon, /settings href) |
+  | `src/presentation/web/lib/feature-flags.ts` | Low | Add NEXT_PUBLIC_FLAG_SETTINGS feature flag |
+  | `src/presentation/web/components/features/settings/*.stories.tsx` | Medium | Mandatory Storybook stories for all new components |
+  | `tests/unit/presentation/web/components/features/settings/` | Medium | Unit tests for settings components and server actions |
+  | `packages/core/src/application/use-cases/settings/` | None | Existing use cases consumed as-is — no changes needed |
+  | `packages/core/src/infrastructure/` | None | Repository, mapper, service — consumed as-is |
+
+  ## Dependencies
+
+  **Existing infrastructure (no changes needed):**
+  - `LoadSettingsUseCase` — loads Settings from SQLite via ISettingsRepository
+  - `UpdateSettingsUseCase` — persists updated Settings (accepts full Settings object)
+  - `Settings` TypeSpec model (generated `output.ts`) — type definitions for all 7 sub-models
+  - `settings.service.ts` — global singleton for synchronous access
+  - `server-container.ts` — DI resolution for server components and server actions
+  - `createDefaultSettings()` — factory with complete default values
+  - shadcn/ui components: Tabs, Input, Select, Checkbox, Switch, Label, Card, Button, Separator
+  - `PageHeader`, `EmptyState`, `SidebarNavItem` common components
+
+  **New code to create:**
+  - `/settings` route (server component page)
+  - `NEXT_PUBLIC_FLAG_SETTINGS` feature flag entry
+  - `updateSettings` server action (load → merge → persist pattern)
+  - `SettingsPageClient` — tabbed layout with PageHeader
+  - 7 section form components (Models, Agent, Workflow, UserProfile, Environment, Notifications, System)
+  - Storybook stories for all 8 new components
+  - Unit tests for server action and page components
+  - Sidebar navigation entry for Settings
+
+  ## Size Estimate
+
+  **M (days)** — Purely presentation-layer work. Backend is fully implemented.
+  Established page patterns (Tools, Skills) serve as templates. The 7 sections with
+  ~40 fields require methodical form building but each section follows the same
+  pattern: typed props → local state → save callback. Stories and tests are
+  formulaic once the first section is complete.

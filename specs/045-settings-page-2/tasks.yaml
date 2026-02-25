@@ -1,0 +1,628 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: settings-page-2
+summary: >
+  22 tasks across 5 phases. Phase 1 (Foundation) sets up the Switch component, feature
+  flag, server route, and server action with tests. Phase 2 (Shell) builds the tabbed
+  page layout and sidebar navigation. Phase 3 (Sections) implements all 7 form components.
+  Phase 4 (Stories) creates Storybook stories for all 8 new components. Phase 5 (Validation)
+  adds remaining tests and runs final validation.
+
+relatedFeatures: []
+technologies: []
+relatedLinks: []
+
+tasks:
+  # ── Phase 1: Foundation & Infrastructure ──────────────────────────────────
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Install shadcn/ui Switch component'
+    description: >
+      Install the Switch component via shadcn CLI. The @radix-ui/react-switch dependency
+      already exists in the lockfile but the shadcn wrapper (components/ui/switch.tsx) is
+      missing. Needed for ~15 boolean toggles across Notifications, Workflow, and System sections.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'src/presentation/web/components/ui/switch.tsx exists with Switch export'
+      - 'Switch component renders without errors (verified via quick Storybook or import check)'
+      - 'pnpm validate passes (no type errors from new component)'
+    tdd: null
+    estimatedEffort: '10min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Add NEXT_PUBLIC_FLAG_SETTINGS feature flag'
+    description: >
+      Add the settings feature flag to feature-flags.ts following the exact Skills page
+      pattern. Update .env.example with the new variable. This gates the sidebar link
+      and /settings route for safe rollout.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'featureFlags.settings is defined in feature-flags.ts reading NEXT_PUBLIC_FLAG_SETTINGS'
+      - '.env.example includes NEXT_PUBLIC_FLAG_SETTINGS=false'
+      - 'featureFlags.settings returns false by default (no env var set)'
+      - 'featureFlags.settings returns true when env var is "true" or "1"'
+    tdd:
+      red:
+        - 'No test needed — trivial config addition following established pattern (isEnabled helper already tested implicitly by Skills flag usage)'
+      green:
+        - 'Add settings: isEnabled(process.env.NEXT_PUBLIC_FLAG_SETTINGS) to featureFlags object'
+        - 'Add NEXT_PUBLIC_FLAG_SETTINGS=false to .env.example'
+      refactor:
+        - 'Ensure alphabetical ordering of flags if convention exists'
+    estimatedEffort: '10min'
+
+  - id: task-3
+    phaseId: phase-1
+    title: 'Create updateSettings server action with tests'
+    description: >
+      Create the server action that loads current settings, merges a section update,
+      and persists via UpdateSettingsUseCase. Write tests first (TDD) covering success
+      and error paths. This is the critical data persistence path for the entire feature.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'updateSettings action exists at app/actions/update-settings.ts'
+      - 'Action accepts { section: SettingsSection; data: Record<string, unknown> }'
+      - 'Action returns { data?: Settings; error?: string }'
+      - 'Action loads current settings via LoadSettingsUseCase before merging'
+      - 'Action merges only the specified section into the full Settings object'
+      - 'Action persists via UpdateSettingsUseCase'
+      - 'Error path returns { error: message } without throwing'
+      - 'Unit tests cover: success flow, load error, update error, correct section merge'
+    tdd:
+      red:
+        - 'Create tests/unit/presentation/web/actions/update-settings.test.ts'
+        - 'Write test: "returns updated settings on success" — mock LoadSettingsUseCase to return default settings, mock UpdateSettingsUseCase to return merged result, call action with section="models" and partial data, assert data is returned'
+        - 'Write test: "returns error when LoadSettingsUseCase throws" — mock load to throw, assert { error } returned'
+        - 'Write test: "returns error when UpdateSettingsUseCase throws" — mock update to throw, assert { error } returned'
+        - 'Write test: "merges only the specified section" — call with section="agent" data, assert other sections unchanged in the persisted object'
+      green:
+        - 'Create app/actions/update-settings.ts with "use server" directive'
+        - 'Define SettingsSection type and UpdateSettingsInput interface'
+        - 'Implement load → merge → persist flow with try/catch error handling'
+        - 'Return { data: updatedSettings } on success, { error: message } on failure'
+      refactor:
+        - 'Extract section merge into a typed helper if the switch/mapping is verbose'
+        - 'Ensure type safety on the merge — each section key maps to its correct sub-model type'
+    estimatedEffort: '1.5h'
+
+  - id: task-4
+    phaseId: phase-1
+    title: 'Create /settings server component route'
+    description: >
+      Create the server component page at app/settings/page.tsx following the Tools page
+      pattern. Includes feature flag guard (notFound), DI resolution of LoadSettingsUseCase,
+      and rendering SettingsPageClient with the loaded Settings data. Uses force-dynamic.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'app/settings/page.tsx exists as an async server component'
+      - 'export const dynamic = "force-dynamic" is set'
+      - 'Returns notFound() when featureFlags.settings is false'
+      - 'Resolves LoadSettingsUseCase via resolve() and calls execute()'
+      - 'Wraps SettingsPageClient in div with "flex h-full flex-col p-6" layout'
+      - 'Passes settings data to SettingsPageClient as props'
+    tdd:
+      red:
+        - 'No unit test for server component — verified via integration (page renders when visited). Server component testing is not established in this codebase.'
+      green:
+        - 'Create app/settings/page.tsx with feature flag check, DI resolution, and client component rendering'
+        - 'Import featureFlags, notFound, resolve, LoadSettingsUseCase, SettingsPageClient'
+      refactor:
+        - 'Verify import paths match codebase conventions (type imports for use case)'
+    estimatedEffort: '20min'
+
+  # ── Phase 2: Settings Page Shell & Navigation ────────────────────────────
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Create SettingsPageClient tabbed layout component'
+    description: >
+      Build the main client component that renders PageHeader and a Tabs component with
+      7 tab triggers in user-centric order. Handles save orchestration by providing onSave
+      callbacks to section components that invoke the updateSettings server action and
+      show toast feedback. Uses useTransition for pending state.
+    state: Todo
+    dependencies:
+      - task-3
+      - task-4
+    acceptanceCriteria:
+      - 'SettingsPageClient is a "use client" component exported from components/features/settings/'
+      - 'Renders PageHeader with title "Settings" and description'
+      - 'Renders Tabs with 7 triggers: Models, Agent, Workflow, User Profile, Environment, Notifications, System'
+      - 'Defaults to first tab (Models) on initial render'
+      - 'Each TabsContent renders a placeholder div (section components added in phase 3)'
+      - 'onSave callback calls updateSettings server action and shows toast.success/error'
+      - 'Props interface accepts Settings type from generated output'
+    tdd:
+      red:
+        - 'Create tests/unit/presentation/web/features/settings/settings-page-client.test.tsx'
+        - 'Write test: "renders page header with correct title" — render component, assert "Settings" heading exists'
+        - 'Write test: "renders all 7 tab triggers" — render component, assert each tab label is present'
+        - 'Write test: "defaults to Models tab" — render component, assert Models tab content is visible'
+      green:
+        - 'Create settings-page-client.tsx with "use client" directive'
+        - 'Define SettingsPageClientProps with settings: Settings'
+        - 'Render PageHeader + Tabs + 7 TabsTrigger + 7 TabsContent'
+        - 'Implement onSave handler using useTransition + updateSettings + toast'
+      refactor:
+        - 'Create barrel export in index.ts'
+        - 'Ensure tab value strings are defined as constants for consistency'
+    estimatedEffort: '1h'
+
+  - id: task-6
+    phaseId: phase-2
+    title: 'Add Settings entry to sidebar navigation'
+    description: >
+      Add a Settings SidebarNavItem to app-sidebar.tsx, gated behind featureFlags.settings.
+      Uses the Settings icon from Lucide React and links to /settings with active state
+      detection via usePathname.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'Settings nav item appears in sidebar when featureFlags.settings is true'
+      - 'Settings nav item is hidden when featureFlags.settings is false'
+      - 'Uses Settings icon from lucide-react'
+      - 'Links to /settings'
+      - 'Shows active state when pathname === "/settings"'
+      - 'Positioned after Skills nav item (or last in navigation list)'
+    tdd:
+      red:
+        - 'No separate unit test — sidebar rendering tested via existing sidebar tests. Verified visually in Storybook and integration.'
+      green:
+        - 'Import Settings icon from lucide-react in app-sidebar.tsx'
+        - 'Add conditional SidebarNavItem after Skills entry: {featureFlags.settings ? <SidebarNavItem icon={Settings} label="Settings" href="/settings" active={pathname === "/settings"} /> : null}'
+      refactor:
+        - 'Verify consistent ordering with other nav items'
+    estimatedEffort: '15min'
+
+  # ── Phase 3: Section Form Components ──────────────────────────────────────
+
+  - id: task-7
+    phaseId: phase-3
+    title: 'Create ModelSettingsSection component'
+    description: >
+      Simplest section — 4 text inputs for AI model IDs (analyze, requirements, plan,
+      implement). Establishes the section component pattern that all other sections follow:
+      typed props, local useState, Save button with loading state via onSave callback.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'Component renders 4 labeled text inputs for model IDs'
+      - 'Inputs initialize with values from props (settings.models)'
+      - 'Save button calls onSave with updated ModelConfiguration data'
+      - 'Save button shows loading state during onSave execution'
+      - 'Each input has an associated Label with descriptive text (e.g., "Analysis Model")'
+    tdd:
+      red:
+        - 'Write test: "renders 4 model input fields" — render with default settings, assert 4 inputs present with correct labels'
+        - 'Write test: "initializes inputs with prop values" — render with custom model IDs, assert inputs have those values'
+        - 'Write test: "calls onSave with updated models when Save clicked" — change input, click save, assert onSave called with new data'
+      green:
+        - 'Create model-settings-section.tsx with ModelSettingsSectionProps (models: ModelConfiguration, onSave callback)'
+        - 'Initialize 4 useState fields from props.models'
+        - 'Render Card with 4 Label+Input pairs and Save Button'
+        - 'Wire Save button to call onSave with current state values'
+      refactor:
+        - 'Extract field config array if inputs are repetitive (label, key, value pattern)'
+        - 'Add helpful placeholder text for model inputs'
+    estimatedEffort: '45min'
+
+  - id: task-8
+    phaseId: phase-3
+    title: 'Create AgentSection component'
+    description: >
+      Agent configuration section with AgentType selector (disabled "Coming Soon" options),
+      AgentAuthMethod selector, and conditional token input with password mask and reveal
+      toggle. More complex than Models due to conditional rendering and security concerns.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'AgentType selector shows all enum values; only claude-code is selectable'
+      - 'Disabled options show "Coming Soon" Badge'
+      - 'AgentAuthMethod selector shows session and token options'
+      - 'Token input only visible when authMethod === "token"'
+      - 'Token input renders as password type by default'
+      - 'Eye/EyeOff toggle switches token visibility'
+      - 'Token input has autoComplete="off"'
+      - 'Save button persists agent config via onSave callback'
+    tdd:
+      red:
+        - 'Write test: "renders agent type selector with all options" — assert all AgentType enum values present'
+        - 'Write test: "disables non-claude-code agent types" — assert gemini-cli, aider, etc. are disabled with Coming Soon badge'
+        - 'Write test: "shows token input only when auth method is token" — select token auth, assert token input appears'
+        - 'Write test: "toggles token visibility with eye button" — click toggle, assert input type changes'
+        - 'Write test: "hides token input when auth method is session" — assert token input not visible for session auth'
+      green:
+        - 'Create agent-section.tsx with AgentSectionProps (agent: AgentConfig, onSave callback)'
+        - 'Render AgentType Select with disabled options + Badge'
+        - 'Render AgentAuthMethod Select'
+        - 'Conditionally render token Input with show/hide toggle'
+        - 'Use Eye/EyeOff icons from lucide-react for toggle button'
+      refactor:
+        - 'Define SUPPORTED_AGENTS constant for which agent types are selectable'
+        - 'Ensure token field has proper aria attributes for accessibility'
+    estimatedEffort: '1h'
+
+  - id: task-9
+    phaseId: phase-3
+    title: 'Create WorkflowSection component'
+    description: >
+      Workflow configuration with Switch toggles for PR/approval settings and number
+      inputs for CI configuration. Includes unit conversion for ciWatchTimeoutMs
+      (display minutes, store ms). Most complex section due to nested approvalGateDefaults.
+    state: Todo
+    dependencies:
+      - task-1
+      - task-5
+    acceptanceCriteria:
+      - 'openPrOnImplementationComplete renders as a Switch toggle'
+      - '4 approval gate defaults render as Switch toggles (allowPrd, allowPlan, allowMerge, pushOnImplementationComplete)'
+      - 'ciMaxFixAttempts renders as number input with min=1, max=10'
+      - 'ciWatchTimeoutMs displays in minutes (value / 60000) and saves as ms (* 60000)'
+      - 'ciLogMaxChars renders as number input with "characters" suffix label'
+      - 'Save button persists workflow config including nested approvalGateDefaults'
+    tdd:
+      red:
+        - 'Write test: "renders all workflow toggles" — assert openPr and 4 approval gate switches present'
+        - 'Write test: "displays ciWatchTimeoutMs as minutes" — pass 600000ms, assert input shows 10'
+        - 'Write test: "converts minutes back to ms on save" — set input to 15, click save, assert onSave receives 900000'
+        - 'Write test: "renders CI config inputs with correct constraints" — assert ciMaxFixAttempts has min/max, ciLogMaxChars has label'
+      green:
+        - 'Create workflow-section.tsx with WorkflowSectionProps (workflow: WorkflowConfig, onSave callback)'
+        - 'Render Switch components for boolean toggles'
+        - 'Render number inputs for CI config with minute conversion logic'
+        - 'Handle nested approvalGateDefaults in state and onSave'
+      refactor:
+        - 'Group toggles visually: "PR Settings", "Approval Gates", "CI Configuration"'
+        - 'Add inline help text for CI fields explaining the values'
+    estimatedEffort: '1h'
+
+  - id: task-10
+    phaseId: phase-3
+    title: 'Create UserProfileSection component'
+    description: >
+      Simple section with 3 optional text inputs for name, email, and githubUsername.
+      All fields accept empty strings (optional in domain model).
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'Renders 3 labeled text inputs: Name, Email, GitHub Username'
+      - 'All fields accept empty values (optional)'
+      - 'Inputs initialize with prop values from settings.user'
+      - 'Save button calls onSave with updated UserProfile data'
+    tdd:
+      red:
+        - 'Write test: "renders 3 user profile fields" — assert name, email, githubUsername inputs present'
+        - 'Write test: "initializes with prop values" — render with custom values, assert inputs match'
+        - 'Write test: "calls onSave with updated profile" — change name, click save, assert onSave receives new data'
+      green:
+        - 'Create user-profile-section.tsx with UserProfileSectionProps (user: UserProfile, onSave callback)'
+        - 'Initialize 3 useState fields from props'
+        - 'Render Card with 3 Label+Input pairs and Save Button'
+      refactor:
+        - 'Add appropriate placeholder text and input types (email type for email field)'
+    estimatedEffort: '30min'
+
+  - id: task-11
+    phaseId: phase-3
+    title: 'Create EnvironmentSection component'
+    description: >
+      Environment configuration with EditorType select dropdown and shellPreference
+      text input. The editor select shows all EditorType enum values.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'Renders EditorType select with all enum options (vscode, cursor, windsurf, zed, antigravity)'
+      - 'Renders shellPreference text input'
+      - 'Select initializes with settings.environment.defaultEditor value'
+      - 'Input initializes with settings.environment.shellPreference value'
+      - 'Save button calls onSave with updated EnvironmentConfig data'
+    tdd:
+      red:
+        - 'Write test: "renders editor select with all options" — assert all EditorType values present'
+        - 'Write test: "renders shell preference input" — assert input exists with label'
+        - 'Write test: "calls onSave with updated environment" — change editor, click save, assert new data'
+      green:
+        - 'Create environment-section.tsx with EnvironmentSectionProps (environment: EnvironmentConfig, onSave callback)'
+        - 'Render Select for EditorType with all enum values'
+        - 'Render Input for shellPreference'
+      refactor:
+        - 'Format enum display names nicely (e.g., "VS Code" instead of "vscode")'
+    estimatedEffort: '30min'
+
+  - id: task-12
+    phaseId: phase-3
+    title: 'Create NotificationsSection component'
+    description: >
+      Notification preferences with 3 channel toggles (inApp, browser, desktop) and
+      9 event filter toggles. Uses Switch components from shadcn/ui. Most toggles of
+      any section (~12 switches).
+    state: Todo
+    dependencies:
+      - task-1
+      - task-5
+    acceptanceCriteria:
+      - 'Renders 3 channel toggles: In-App, Browser, Desktop (each a Switch)'
+      - 'Renders 9 event filter toggles under an "Event Filters" heading'
+      - 'All toggles initialize with values from settings.notifications'
+      - 'Save button persists all notification preferences including nested channels and events'
+      - 'Each Switch has an accessible label'
+    tdd:
+      red:
+        - 'Write test: "renders 3 channel toggles" — assert inApp, browser, desktop switches present'
+        - 'Write test: "renders 9 event filter toggles" — assert all event switches present'
+        - 'Write test: "initializes toggles with prop values" — pass custom notification prefs, assert switches reflect them'
+        - 'Write test: "calls onSave with updated notifications" — toggle a switch, click save, assert onSave receives updated data'
+      green:
+        - 'Create notifications-section.tsx with NotificationsSectionProps'
+        - 'Render channel switches in a group'
+        - 'Render event filter switches under "Event Filters" heading'
+        - 'Handle nested state (channels.inApp.enabled, events.agentStarted, etc.)'
+      refactor:
+        - 'Define event toggle config array to reduce repetitive Switch rendering'
+        - 'Format event names for display (agentStarted → "Agent Started")'
+    estimatedEffort: '45min'
+
+  - id: task-13
+    phaseId: phase-3
+    title: 'Create SystemSection component'
+    description: >
+      System configuration with autoUpdate Switch toggle and logLevel Select dropdown.
+      Simplest section alongside UserProfile.
+    state: Todo
+    dependencies:
+      - task-1
+      - task-5
+    acceptanceCriteria:
+      - 'Renders autoUpdate as a Switch toggle'
+      - 'Renders logLevel as a Select with options: debug, info, warn, error'
+      - 'Inputs initialize with settings.system values'
+      - 'Save button calls onSave with updated SystemConfig data'
+    tdd:
+      red:
+        - 'Write test: "renders auto-update toggle" — assert switch present with label'
+        - 'Write test: "renders log level select with 4 options" — assert debug, info, warn, error options'
+        - 'Write test: "calls onSave with updated system config" — toggle autoUpdate, click save, assert new data'
+      green:
+        - 'Create system-section.tsx with SystemSectionProps (system: SystemConfig, onSave callback)'
+        - 'Render Switch for autoUpdate + Select for logLevel'
+      refactor:
+        - 'Add descriptive help text for log levels'
+    estimatedEffort: '30min'
+
+  - id: task-14
+    phaseId: phase-3
+    title: 'Wire section components into SettingsPageClient'
+    description: >
+      Replace placeholder TabsContent divs in SettingsPageClient with the actual section
+      components. Each section receives its typed sub-model data from the settings prop
+      and the onSave callback that invokes the server action for that section.
+    state: Todo
+    dependencies:
+      - task-7
+      - task-8
+      - task-9
+      - task-10
+      - task-11
+      - task-12
+      - task-13
+    acceptanceCriteria:
+      - 'Each TabsContent renders its corresponding section component'
+      - 'Section components receive correct typed props from settings object'
+      - 'onSave callbacks correctly invoke updateSettings with the right section key'
+      - 'Toast notifications appear on successful save and on error'
+      - 'All 7 tabs render their section forms correctly'
+    tdd:
+      red:
+        - 'Write test: "renders ModelSettingsSection in Models tab" — render client, assert model inputs visible in default tab'
+        - 'Write test: "shows toast on successful save" — mock updateSettings to return success, trigger save, assert toast.success called'
+      green:
+        - 'Import all 7 section components in settings-page-client.tsx'
+        - 'Replace placeholder divs with section components, passing settings sub-models'
+        - 'Wire onSave callbacks: onSave for models calls updateSettings({ section: "models", data })'
+      refactor:
+        - 'Extract section-to-key mapping if needed for clarity'
+        - 'Verify type safety of all props passed to sections'
+    estimatedEffort: '45min'
+
+  # ── Phase 4: Storybook Stories ────────────────────────────────────────────
+
+  - id: task-15
+    phaseId: phase-4
+    title: 'Create ModelSettingsSection stories'
+    description: >
+      Colocated Storybook story file for ModelSettingsSection with Default story
+      using realistic model ID fixtures and interactive fn() save callback.
+    state: Todo
+    dependencies:
+      - task-7
+    acceptanceCriteria:
+      - 'model-settings-section.stories.tsx exists colocated with component'
+      - 'Default story renders with realistic model configuration data'
+      - 'Save callback uses fn() from @storybook/test for interaction tracking'
+      - 'Meta uses satisfies Meta<typeof ModelSettingsSection>'
+    tdd: null
+    estimatedEffort: '15min'
+
+  - id: task-16
+    phaseId: phase-4
+    title: 'Create AgentSection stories'
+    description: >
+      Stories for AgentSection showing default (claude-code, session auth) and
+      token auth states. Demonstrates Coming Soon badges and token visibility toggle.
+    state: Todo
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - 'agent-section.stories.tsx exists with Default story (session auth)'
+      - 'Additional story for token auth state (shows token input)'
+      - 'Coming Soon badges visible on disabled agent types'
+    tdd: null
+    estimatedEffort: '15min'
+
+  - id: task-17
+    phaseId: phase-4
+    title: 'Create WorkflowSection stories'
+    description: >
+      Stories for WorkflowSection with Default story showing all toggles and CI
+      config inputs with realistic default values.
+    state: Todo
+    dependencies:
+      - task-9
+    acceptanceCriteria:
+      - 'workflow-section.stories.tsx exists with Default story'
+      - 'Shows realistic workflow defaults (ciWatchTimeoutMs as 10 min, etc.)'
+      - 'Interactive save callback via fn()'
+    tdd: null
+    estimatedEffort: '15min'
+
+  - id: task-18
+    phaseId: phase-4
+    title: 'Create UserProfileSection, EnvironmentSection, NotificationsSection, SystemSection stories'
+    description: >
+      Create story files for the remaining 4 section components. Each follows
+      the same pattern: Default story with realistic fixture data and fn() save callback.
+      Grouped as one task since these are formulaic once the pattern is established.
+    state: Todo
+    dependencies:
+      - task-10
+      - task-11
+      - task-12
+      - task-13
+    acceptanceCriteria:
+      - 'user-profile-section.stories.tsx exists with Default story'
+      - 'environment-section.stories.tsx exists with Default story'
+      - 'notifications-section.stories.tsx exists with Default story'
+      - 'system-section.stories.tsx exists with Default story'
+      - 'All stories use realistic fixture data matching domain model types'
+    tdd: null
+    estimatedEffort: '30min'
+
+  - id: task-19
+    phaseId: phase-4
+    title: 'Create SettingsPageClient stories'
+    description: >
+      Story for the full SettingsPageClient component with complete Settings fixture
+      data. This is the most comprehensive story — shows the full tabbed layout
+      with all section forms populated.
+    state: Todo
+    dependencies:
+      - task-14
+    acceptanceCriteria:
+      - 'settings-page-client.stories.tsx exists colocated with component'
+      - 'Default story renders full tabbed layout with all 7 sections'
+      - 'Fixture data uses createDefaultSettings pattern with realistic values'
+      - 'Parameters include layout: "fullscreen" for proper page rendering'
+    tdd: null
+    estimatedEffort: '20min'
+
+  # ── Phase 5: Testing & Validation ─────────────────────────────────────────
+
+  - id: task-20
+    phaseId: phase-5
+    title: 'Complete SettingsPageClient unit tests'
+    description: >
+      Expand the initial tests from task-5 to cover save orchestration, tab switching,
+      and error handling. Mock the updateSettings server action and toast notifications.
+    state: Todo
+    dependencies:
+      - task-14
+    acceptanceCriteria:
+      - 'Tests cover: tab rendering, tab switching, save success flow, save error flow'
+      - 'Mock updateSettings server action in tests'
+      - 'Assert toast.success on save success and toast.error on save failure'
+      - 'All tests pass with pnpm test:unit'
+    tdd:
+      red:
+        - 'Write test: "switches tab content when tab trigger clicked" — click Agent tab, assert agent form visible'
+        - 'Write test: "shows error toast when save fails" — mock updateSettings to return error, trigger save, assert toast.error'
+      green:
+        - 'Add vi.mock for updateSettings server action'
+        - 'Add vi.mock for sonner toast'
+        - 'Implement tests with render + userEvent interactions'
+      refactor:
+        - 'Extract common render setup into a helper function'
+        - 'Ensure test descriptions are clear and descriptive'
+    estimatedEffort: '45min'
+
+  - id: task-21
+    phaseId: phase-5
+    title: 'Run pnpm validate and fix any issues'
+    description: >
+      Run the full validation suite (lint + format + typecheck + tsp) and fix any
+      errors introduced by the new feature code. This catches type errors, lint
+      violations, and formatting issues before they reach CI.
+    state: Todo
+    dependencies:
+      - task-14
+      - task-19
+      - task-20
+    acceptanceCriteria:
+      - 'pnpm validate passes with zero new errors'
+      - 'All TypeScript types are correct (no @ts-ignore or any casts)'
+      - 'All files follow project formatting conventions'
+      - 'No new lint warnings or errors'
+    tdd: null
+    estimatedEffort: '30min'
+
+  - id: task-22
+    phaseId: phase-5
+    title: 'Run pnpm test:unit and verify zero regressions'
+    description: >
+      Run the full unit test suite to confirm all existing tests still pass and
+      all new tests pass. Fix any regressions introduced by the feature work.
+    state: Todo
+    dependencies:
+      - task-21
+    acceptanceCriteria:
+      - 'pnpm test:unit passes with all tests green'
+      - 'No existing tests broken by new feature code'
+      - 'All new tests (server action + client component) pass'
+      - 'Test coverage includes the critical paths: save success, save error, section merge'
+    tdd: null
+    estimatedEffort: '15min'
+
+totalEstimate: '10h'
+
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation breaks into 22 tasks across 5 phases, building bottom-up from
+  infrastructure to UI to validation.
+
+  First, foundation work installs the shadcn/ui Switch component and establishes the
+  feature flag, server action (with TDD tests), and server component route. These are
+  the non-visual prerequisites everything else depends on.
+
+  Next, the page shell is built — the SettingsPageClient tabbed layout and sidebar
+  navigation entry. This creates a navigable page skeleton even before section content
+  exists.
+
+  The bulk of the work is in Phase 3: building 7 section form components, each following
+  the same pattern (typed props → useState → onSave callback). ModelSettingsSection is
+  built first as the simplest section to establish the pattern, then components increase
+  in complexity through AgentSection and WorkflowSection. These sections are independent
+  and can be developed in parallel. After all sections are built, they're wired into the
+  SettingsPageClient.
+
+  Phase 4 creates mandatory Storybook stories for all 8 new components. Stories use
+  realistic fixture data and interactive fn() callbacks following the existing
+  SkillsPageClient pattern.
+
+  Finally, Phase 5 completes the test suite, runs pnpm validate and pnpm test:unit,
+  and confirms zero regressions across the entire codebase.

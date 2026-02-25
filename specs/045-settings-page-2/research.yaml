@@ -1,0 +1,481 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: settings-page-2
+summary: >
+  Technical research for adding a /settings route to the Next.js web UI. All 7
+  settings sections will follow the established server-component → client-component
+  pattern with per-section save via a new updateSettings server action. The shadcn/ui
+  Switch component must be installed (radix dep exists in lockfile but component wrapper
+  is missing). No domain or infrastructure changes are needed — purely presentation layer.
+
+relatedFeatures: []
+
+technologies:
+  - Next.js 16 App Router (server components, server actions)
+  - React 19 (useState, useTransition for save button pending states)
+  - shadcn/ui (Tabs, Input, Select, Switch, Label, Card, Button, Separator, Badge)
+  - Tailwind CSS v4
+  - Lucide React (Settings icon for sidebar)
+  - tsyringe DI (resolve() from server-container.ts)
+  - Sonner (toast notifications for save success/error)
+  - Vitest (unit tests with vi.mock for server-container and use-case mocking)
+  - Storybook (colocated .stories.tsx files)
+
+relatedLinks: []
+
+decisions:
+  - title: 'Server Action Architecture for Settings Updates'
+    chosen: 'Single updateSettings server action with section-scoped partial updates using load-merge-persist pattern'
+    rejected:
+      - 'One server action per section (7 actions) — excessive boilerplate; all sections follow the same load→merge→persist pattern, so a single parameterized action is sufficient. Would create 7 nearly-identical files.'
+      - 'Direct UpdateSettingsUseCase call from client — violates server/client boundary; use cases must only be invoked server-side via resolve(). Client components cannot access the DI container.'
+    rationale: >
+      The codebase server action pattern (create-feature.ts, delete-feature.ts) uses
+      resolve() to obtain use cases and returns { data?, error? } shape. A single
+      updateSettings action accepting a section key and partial data keeps the code DRY
+      while following this established pattern. The action loads current settings via
+      LoadSettingsUseCase, deep-merges the section update, and persists via
+      UpdateSettingsUseCase. This mirrors CompleteOnboardingUseCase's merge pattern.
+
+  - title: 'Form State Management Approach'
+    chosen: 'useState per section component with useTransition for save button pending state'
+    rejected:
+      - 'React Hook Form + Zod schema validation — overkill for this use case. Settings are simple key-value pairs with no complex cross-field validation. The codebase has no existing react-hook-form usage, so adding it would introduce a new dependency and pattern. Individual useState fields match the existing form patterns (e.g., dialog forms in control-center).'
+      - 'useReducer for form state — adds unnecessary complexity for flat or shallow-nested forms. Each section has 2-9 fields, well within useState ergonomics. useReducer would require action type definitions and a reducer function per section without meaningful benefit.'
+    rationale: >
+      The codebase consistently uses useState for form fields (e.g., feature-create-drawer,
+      tool-card). useTransition provides isPending state for the save button, matching the
+      pattern in tool-card.tsx (line 35). This keeps the implementation aligned with
+      existing code and avoids introducing new dependencies or patterns.
+
+  - title: 'Settings Page Route Structure'
+    chosen: 'Single /settings route with Tabs component for section navigation (client-side tab switching)'
+    rejected:
+      - 'Nested routes per section (/settings/models, /settings/agent, etc.) — unnecessary routing complexity for a single-page form. Would require layout.tsx, multiple page.tsx files, and URL-based tab state. The Tabs component from shadcn/ui handles client-side switching efficiently without page reloads.'
+      - 'Accordion layout instead of tabs — poor UX for 7 sections with ~40 fields. Accordions work for 2-3 collapsible sections but become unwieldy at this scale. Tabs provide clear section isolation and match user expectation for settings pages.'
+    rationale: >
+      A single route with client-side Tabs matches the Tools page pattern (tab-based
+      filtering) and avoids unnecessary route proliferation. The server component loads
+      all settings once (single DB read), passes the full Settings object to the client
+      component, and tab switching is instant (no additional data fetching). This satisfies
+      NFR-1 (performance budget parity with Tools/Skills).
+
+  - title: 'Switch Component Installation'
+    chosen: 'Install shadcn/ui Switch component via CLI (npx shadcn@latest add switch)'
+    rejected:
+      - 'Build a custom toggle component — reinvents the wheel when shadcn/ui provides a battle-tested, accessible Switch built on @radix-ui/react-switch (already in pnpm-lock.yaml). Custom implementation would miss accessibility features (aria-checked, keyboard support).'
+      - 'Use Checkbox instead of Switch for boolean toggles — Switches have stronger affordance for on/off settings (enable/disable pattern). Checkboxes imply selection from a set. UX best practice: Switches for immediate-effect toggles, Checkboxes for batch selection.'
+    rationale: >
+      The @radix-ui/react-switch dependency already exists in pnpm-lock.yaml but no
+      Switch wrapper component exists in src/presentation/web/components/ui/. All other
+      shadcn/ui components (Tabs, Input, Select, Checkbox, etc.) follow the same wrapper
+      pattern. The Switch is needed for ~15 boolean toggles across sections (notifications,
+      workflow, system). Installing via shadcn CLI ensures consistent code generation.
+
+  - title: 'Feature Flag Implementation'
+    chosen: 'Add NEXT_PUBLIC_FLAG_SETTINGS to featureFlags object, following exact Skills page pattern'
+    rejected:
+      - 'Server-side-only flag (no NEXT_PUBLIC_ prefix) — would prevent client-side conditional rendering in the sidebar (app-sidebar.tsx is a client component that reads featureFlags directly). The NEXT_PUBLIC_ prefix is required for both server and client access.'
+      - 'No feature flag (always visible) — breaks the established pattern. Every new page in this codebase uses feature flags for safe rollout. Skipping it would be inconsistent and removes the rollback safety net.'
+    rationale: >
+      The Skills page (feature-flags.ts line 13, app-sidebar.tsx line 91-98,
+      skills/page.tsx line 7) establishes the exact pattern: add flag to featureFlags
+      object → conditional sidebar rendering → notFound() guard in page.tsx. The settings
+      page must follow this identical pattern for consistency and safe deployment.
+
+  - title: 'Token Field Security Implementation'
+    chosen: 'HTML password input with eye icon toggle button using useState for visibility'
+    rejected:
+      - 'Custom masking with dot characters — fragile; breaks copy-paste, autofill, and screen reader behavior. The native password input type handles masking, accessibility, and browser security features (no autocomplete, no spell-check) automatically.'
+      - 'Read-only masked display with separate edit dialog — over-engineered for a single field. Adds modal complexity when a simple show/hide toggle on the input is the standard UX pattern for credential fields.'
+    rationale: >
+      A password input with a visibility toggle is the industry-standard pattern (GitHub,
+      AWS Console, Stripe Dashboard all use it). Implementation: Input type toggles
+      between "password" and "text" based on a showToken boolean state. An Eye/EyeOff
+      icon button from Lucide triggers the toggle. When loading existing settings, the
+      token value is passed through as-is (the domain model stores the actual token).
+
+  - title: 'Section Component Props Pattern'
+    chosen: 'Each section receives typed sub-model data + onSave callback as props'
+    rejected:
+      - 'Section components import and call server actions directly — violates NFR-5 (maintainability). Direct server action imports in section components couple presentation to the server boundary, making stories and tests harder. The parent SettingsPageClient should own the save orchestration.'
+      - 'Context provider for settings state — unnecessary indirection for props that flow one level deep (SettingsPageClient → Section). Context is warranted for deeply nested trees, not flat parent→child data flow.'
+    rationale: >
+      NFR-5 explicitly requires section components to "receive typed props and a save
+      callback — they do not directly import server actions." This pattern makes each
+      section independently storybook-able and testable. The onSave callback signature
+      is (sectionData: T) => Promise<boolean> where T is the section sub-model type
+      (e.g., ModelConfiguration, AgentConfig). Returns true on success for UI feedback.
+
+  - title: 'CI Fields Unit Conversion Approach'
+    chosen: 'Convert at the component boundary — display minutes in UI, store milliseconds in domain model'
+    rejected:
+      - 'Store minutes in domain model and convert at repository layer — changes the domain contract. The TypeSpec model defines ciWatchTimeoutMs as milliseconds (name is self-documenting). Changing the domain model would require updating TypeSpec, regenerating output.ts, and modifying the repository mapper.'
+      - 'Show raw milliseconds with a tooltip explaining the conversion — poor UX. Users should not need to mentally convert 600000ms to 10 minutes. The spec explicitly requires user-friendly units (open question #6 resolution).'
+    rationale: >
+      Conversion at the component level keeps the domain model unchanged (ciWatchTimeoutMs
+      stays in ms as defined in TypeSpec). The WorkflowSection component converts on
+      display (value / 60000) and on save (value * 60000). This is a pure presentation
+      concern — the domain and infrastructure layers are unaware of the unit conversion.
+      Default: 600000ms = 10 minutes.
+
+  - title: 'Test Strategy for Settings Server Action'
+    chosen: 'Vitest with vi.mock for server-container resolve() and use case execute(), following create-feature.test.ts pattern'
+    rejected:
+      - 'Integration tests with real DI container — requires SQLite setup, bootstrap sequence, and is slower. The server action test should verify the action logic (load→merge→persist, error handling) in isolation, not the full stack.'
+      - 'Testing Library render tests for server action — server actions are pure functions invoked server-side, not React components. They should be tested as async functions with mocked dependencies, exactly like the existing action tests.'
+    rationale: >
+      The existing test pattern (get-workflow-defaults.test.ts, create-feature.test.ts)
+      uses vi.mock to stub server-container and use case modules, then imports the action
+      via dynamic import. Tests verify: (1) successful load→merge→persist flow, (2) error
+      handling when LoadSettingsUseCase throws, (3) error handling when UpdateSettingsUseCase
+      throws, (4) correct merge of partial section data into full Settings object.
+
+openQuestions:
+  - question: 'Should the Settings page use the same p-6 wrapper div as the Tools page or match the Skills page (no wrapper)?'
+    resolved: true
+    options:
+      - option: 'Use p-6 wrapper (Tools page pattern)'
+        description: >
+          Wrap the SettingsPageClient in <div className="flex h-full flex-col p-6"> as the
+          Tools page does. Provides consistent padding and flex layout for the page content.
+          The Settings page has substantial form content that benefits from padding.
+        selected: true
+      - option: 'No wrapper (Skills page pattern)'
+        description: >
+          Return <SettingsPageClient> directly from the server component, as the Skills
+          page does. The client component would handle its own padding. Slightly less
+          consistent but gives the client component full control over spacing.
+        selected: false
+      - option: 'Custom layout component'
+        description: >
+          Create a shared PageLayout component that wraps pages with consistent padding
+          and flex layout. Future-proofs but adds abstraction for a pattern used in only
+          two places currently.
+        selected: false
+    selectionRationale: >
+      The Tools page pattern (p-6 wrapper in server component) is the more common pattern
+      and provides consistent spacing. The Settings page has substantial form content with
+      cards and tabs that benefit from the padding. Following the Tools page is the safer
+      default.
+
+  - question: 'How should the updateSettings server action handle concurrent saves across different tabs?'
+    resolved: true
+    options:
+      - option: 'Load-merge-persist per save (optimistic, no locking)'
+        description: >
+          Each save loads the latest settings, merges the section update, and persists.
+          If two tabs save simultaneously, the second save will read the result of the
+          first (or a stale version). Since this is a single-user local app with SQLite,
+          race conditions are extremely unlikely.
+        selected: true
+      - option: 'Optimistic concurrency with version field'
+        description: >
+          Add a version number to Settings and check it before persisting. Rejects stale
+          writes. Requires TypeSpec model change, migration, and retry logic in the UI.
+          Significant implementation cost for a near-zero probability scenario.
+        selected: false
+      - option: 'Queue saves with a global mutex'
+        description: >
+          Serialize all settings writes through a global lock. Prevents any possibility
+          of race conditions. Over-engineered for a single-user local app. Adds complexity
+          and potential deadlock risk.
+        selected: false
+    selectionRationale: >
+      This is a single-user local application with SQLite (WAL mode). Concurrent tab saves
+      are near-impossible in practice — a user saves one section at a time. The
+      load-merge-persist pattern is simple, correct for the use case, and matches the
+      CompleteOnboardingUseCase pattern which uses the same approach without any locking.
+
+  - question: 'Should the Storybook stories for section components use interactive save callbacks or static mock data?'
+    resolved: true
+    options:
+      - option: 'Interactive stories with simulated save (fn() callbacks)'
+        description: >
+          Stories use fn() callbacks that simulate async save behavior. The save button
+          shows loading state, then a success toast appears after a short delay. Provides
+          a realistic interactive preview of the save flow. Matches the ToolCard pattern
+          which uses fn() for interactive callbacks.
+        selected: true
+      - option: 'Static stories with no-op callbacks'
+        description: >
+          Stories render with mock data but save buttons do nothing (fn() with no
+          implementation). Simpler but misses the opportunity to preview the full UX flow
+          including loading states and toast feedback.
+        selected: false
+      - option: 'Storybook play functions for automated interaction testing'
+        description: >
+          Use play() functions to automate filling fields and clicking save. More
+          comprehensive but significantly more complex to write. Better suited for
+          regression testing than story previews.
+        selected: false
+    selectionRationale: >
+      Interactive stories with fn() callbacks follow the existing pattern (ToolCard,
+      SkillCard use fn() from @storybook/test). The Default story for each section should
+      show realistic data. An additional story can show the loading state (save in progress).
+      This provides the most useful Storybook experience for design review.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Server Action Architecture
+
+  **Chosen:** Single `updateSettings` server action with section-scoped partial updates
+
+  **Rejected:**
+  - One server action per section (7 actions) — excessive boilerplate; all follow the same load→merge→persist pattern
+  - Direct UpdateSettingsUseCase call from client — violates server/client boundary
+
+  **Rationale:** A single action accepts a section key and partial data, loads current
+  settings via `LoadSettingsUseCase`, deep-merges the update, and persists via
+  `UpdateSettingsUseCase`. Follows the `{ data?, error? }` return shape from
+  `create-feature.ts`. The merge pattern mirrors `CompleteOnboardingUseCase`.
+
+  ### 2. Form State Management
+
+  **Chosen:** `useState` per section + `useTransition` for save pending state
+
+  **Rejected:**
+  - React Hook Form + Zod — no existing usage in codebase, overkill for simple key-value forms
+  - useReducer — unnecessary complexity for 2-9 field forms
+
+  **Rationale:** Matches existing patterns in feature-create-drawer and tool-card.tsx.
+  `useTransition` provides `isPending` for save button loading state without blocking UI.
+
+  ### 3. Route Structure
+
+  **Chosen:** Single `/settings` route with client-side `Tabs` component
+
+  **Rejected:**
+  - Nested routes per section (/settings/models, /settings/agent) — unnecessary complexity
+  - Accordion layout — poor UX at 7 sections with ~40 fields
+
+  **Rationale:** Single server component loads all settings once (one DB read), passes to
+  client. Tab switching is instant (no data fetching). Matches Tools page tab pattern.
+
+  ### 4. Switch Component
+
+  **Chosen:** Install shadcn/ui Switch via CLI
+
+  **Rejected:**
+  - Custom toggle — reinvents the wheel; @radix-ui/react-switch already in lockfile
+  - Checkbox instead of Switch — wrong affordance for on/off settings
+
+  **Rationale:** `@radix-ui/react-switch` is already a dependency. Need the shadcn wrapper
+  component (`switch.tsx`) for ~15 boolean toggles across sections.
+
+  ### 5. Feature Flag
+
+  **Chosen:** `NEXT_PUBLIC_FLAG_SETTINGS` following exact Skills page pattern
+
+  **Rejected:**
+  - Server-only flag — sidebar is a client component that reads featureFlags directly
+  - No flag — breaks established pattern, removes rollback safety
+
+  **Rationale:** Identical to Skills: flag in feature-flags.ts → conditional sidebar →
+  notFound() guard in page.tsx server component.
+
+  ### 6. Token Security
+
+  **Chosen:** HTML password input with eye icon toggle
+
+  **Rejected:**
+  - Custom dot masking — breaks copy-paste, autofill, accessibility
+  - Separate edit dialog — over-engineered for a single field
+
+  **Rationale:** Industry standard pattern. Input type toggles between "password"/"text".
+  Eye/EyeOff icons from Lucide. Token loaded as-is from domain model.
+
+  ### 7. Section Component Props
+
+  **Chosen:** Typed sub-model data + `onSave` callback prop
+
+  **Rejected:**
+  - Direct server action import — couples presentation to server boundary
+  - Context provider — unnecessary for one-level-deep data flow
+
+  **Rationale:** NFR-5 requires this pattern. Enables independent Storybook stories and
+  unit tests. Signature: `onSave: (data: T) => Promise<boolean>`.
+
+  ### 8. CI Fields Unit Conversion
+
+  **Chosen:** Convert at component boundary (display minutes, store ms)
+
+  **Rejected:**
+  - Change domain model to minutes — alters TypeSpec contract unnecessarily
+  - Show raw ms with tooltip — poor UX per spec requirement
+
+  **Rationale:** Pure presentation concern. WorkflowSection converts on display (÷60000)
+  and on save (×60000). Domain model stays unchanged.
+
+  ### 9. Test Strategy
+
+  **Chosen:** Vitest with vi.mock following create-feature.test.ts pattern
+
+  **Rejected:**
+  - Integration tests with real DI — too heavy for action logic verification
+  - React Testing Library for server actions — actions are async functions, not components
+
+  **Rationale:** Mock server-container and use case modules. Test: success flow, load
+  error, update error, correct section merge.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | shadcn/ui Switch | Boolean toggle inputs (~15 fields) | **Install** | @radix-ui/react-switch in lockfile; wrapper component missing. Needed for notifications, workflow, system toggles |
+  | shadcn/ui Tabs | Section tab navigation | **Use (exists)** | Already installed at components/ui/tabs.tsx. Provides accessible keyboard-navigable tabs |
+  | shadcn/ui Input | Text/number inputs | **Use (exists)** | Already installed. Standard text input for model IDs, user profile, shell preference |
+  | shadcn/ui Select | Enum dropdowns | **Use (exists)** | Already installed. For EditorType, AgentType, AgentAuthMethod, LogLevel selectors |
+  | shadcn/ui Card | Section containers | **Use (exists)** | Already installed. Wraps each section form for visual grouping |
+  | shadcn/ui Button | Save buttons | **Use (exists)** | Already installed. Per-section save with loading state |
+  | shadcn/ui Label | Form field labels | **Use (exists)** | Already installed. Required for accessibility (htmlFor association) |
+  | shadcn/ui Badge | "Coming Soon" indicators | **Use (exists)** | Already installed. For disabled agent type options |
+  | shadcn/ui Separator | Visual dividers | **Use (exists)** | Already installed. Between form field groups within sections |
+  | Sonner (toast) | Save success/error feedback | **Use (exists)** | Already configured in root layout. Pattern: toast.success()/toast.error() |
+  | Lucide React | Settings icon for sidebar | **Use (exists)** | Already installed. Settings icon available. Eye/EyeOff for token toggle |
+  | React Hook Form | Form state management | **Reject** | No existing usage in codebase. useState is sufficient for simple settings forms. Would introduce new pattern |
+  | Zod | Form validation | **Reject** | No client-side validation needed. Settings types are defined by TypeSpec-generated types. Server action handles persistence errors |
+
+  ## Security Considerations
+
+  ### Agent Token Field
+  - **Input type:** `<input type="password">` by default, toggleable to `type="text"`
+  - **No console logging:** Token value must not appear in console.log or error messages
+  - **No URL exposure:** Token is transmitted via server action (POST body), never in URL params
+  - **Server-side only:** Token is only read/written server-side via use cases. The client
+    component receives it as a prop from the server component initial load
+  - **Autocomplete disabled:** Set `autoComplete="off"` on the token input to prevent
+    browser credential storage
+
+  ### Feature Flag Gating
+  - The `/settings` route returns `notFound()` when flag is disabled, preventing unauthorized
+    access to settings UI during staged rollout
+  - Flag is environment-variable controlled, not persisted in DB
+
+  ## Performance Implications
+
+  ### Initial Load
+  - **Single DB read:** Server component calls `LoadSettingsUseCase.execute()` once.
+    Settings is a singleton entity — one row in SQLite. Negligible query time
+  - **No client-side fetching:** All data loaded server-side and passed as props.
+    Satisfies NFR-1 (performance parity with Tools/Skills pages)
+  - **force-dynamic:** Required (same as Tools page) since runtime DI container is needed
+
+  ### Tab Switching
+  - **Zero network requests:** Tab content is pre-rendered. Switching tabs is instant
+    client-side state change via Radix UI Tabs
+  - **All section components rendered once:** No lazy loading needed — total field count
+    (~40) is well within React rendering budget
+
+  ### Save Operations
+  - **Per-section saves:** Each save is a single server action call → single DB write.
+    No batching needed. SQLite WAL mode handles writes efficiently
+  - **useTransition:** Save operations don't block user interaction. The save button
+    shows a loading spinner while the action executes
+
+  ## Architecture Notes
+
+  ### File Structure
+  ```
+  src/presentation/web/
+  ├── app/
+  │   ├── settings/
+  │   │   └── page.tsx                    # Server component (load settings, feature flag guard)
+  │   └── actions/
+  │       └── update-settings.ts          # Server action (load → merge → persist)
+  ├── components/
+  │   ├── features/
+  │   │   └── settings/
+  │   │       ├── index.ts                # Barrel export
+  │   │       ├── settings-page-client.tsx # Client component (tabs, save orchestration)
+  │   │       ├── settings-page-client.stories.tsx
+  │   │       ├── model-settings-section.tsx
+  │   │       ├── model-settings-section.stories.tsx
+  │   │       ├── agent-section.tsx
+  │   │       ├── agent-section.stories.tsx
+  │   │       ├── workflow-section.tsx
+  │   │       ├── workflow-section.stories.tsx
+  │   │       ├── user-profile-section.tsx
+  │   │       ├── user-profile-section.stories.tsx
+  │   │       ├── environment-section.tsx
+  │   │       ├── environment-section.stories.tsx
+  │   │       ├── notifications-section.tsx
+  │   │       ├── notifications-section.stories.tsx
+  │   │       ├── system-section.tsx
+  │   │       └── system-section.stories.tsx
+  │   └── ui/
+  │       └── switch.tsx                  # New: shadcn/ui Switch component (needs install)
+  └── lib/
+      └── feature-flags.ts               # Add NEXT_PUBLIC_FLAG_SETTINGS
+  ```
+
+  ### Data Flow
+  ```
+  1. User navigates to /settings
+  2. Server component (page.tsx):
+     - Checks NEXT_PUBLIC_FLAG_SETTINGS → notFound() if disabled
+     - resolve<LoadSettingsUseCase>('LoadSettingsUseCase').execute()
+     - Passes Settings object to <SettingsPageClient settings={settings} />
+  3. Client component (settings-page-client.tsx):
+     - Renders PageHeader + Tabs with 7 TabsTrigger
+     - Each TabsContent renders a section component with section data + onSave
+  4. Section component (e.g., model-settings-section.tsx):
+     - Initializes useState from props (models.analyze, models.requirements, etc.)
+     - User edits fields → local state updates
+     - User clicks Save → onSave(sectionData) called
+  5. Save flow (settings-page-client.tsx):
+     - onSave calls updateSettings server action with section key + data
+     - Server action: load current → merge section → persist via UpdateSettingsUseCase
+     - Returns { data: Settings } or { error: string }
+     - Client shows toast.success() or toast.error()
+  ```
+
+  ### Server Action Interface
+  ```typescript
+  // app/actions/update-settings.ts
+  'use server';
+
+  type SettingsSection = 'models' | 'agent' | 'workflow' | 'user' | 'environment' | 'notifications' | 'system';
+
+  interface UpdateSettingsInput {
+    section: SettingsSection;
+    data: Record<string, unknown>;
+  }
+
+  export async function updateSettings(
+    input: UpdateSettingsInput
+  ): Promise<{ data?: Settings; error?: string }>
+  ```
+
+  ### Sidebar Integration
+  ```typescript
+  // In app-sidebar.tsx, after the Skills nav item:
+  {featureFlags.settings ? (
+    <SidebarNavItem
+      icon={Settings}
+      label="Settings"
+      href="/settings"
+      active={pathname === '/settings'}
+    />
+  ) : null}
+  ```
+
+  ### Key Import Paths
+  - Types: `import type { Settings, ModelConfiguration, AgentConfig, ... } from '@shepai/core/domain/generated/output'`
+  - Enums: `import { AgentType, AgentAuthMethod, EditorType } from '@shepai/core/domain/generated/output'`
+  - Use cases: `import type { LoadSettingsUseCase } from '@shepai/core/application/use-cases/settings/load-settings.use-case'`
+  - DI: `import { resolve } from '@/lib/server-container'`
+  - Toast: `import { toast } from 'sonner'`
+  - Feature flags: `import { featureFlags } from '@/lib/feature-flags'`
+
+  ### Existing Patterns to Follow
+  1. **Server component:** Tools page (`app/tools/page.tsx`) — resolve use case, execute, pass to client
+  2. **Feature flag:** Skills page (`app/skills/page.tsx`) — flag check → notFound()
+  3. **Sidebar nav:** Skills in `app-sidebar.tsx` — conditional rendering with featureFlags
+  4. **Server action:** `create-feature.ts` — resolve, try/catch, { data?, error? } return
+  5. **Toast usage:** `use-control-center-state.ts` — toast.success/error with description
+  6. **Stories:** `skills-page-client.stories.tsx` — meta satisfies, fixtures at top, multiple stories
+  7. **Tests:** `create-feature.test.ts` — vi.mock server-container, dynamic import, success/error paths
+  8. **Transitions:** `tool-card.tsx` — useTransition for isPending state on async operations

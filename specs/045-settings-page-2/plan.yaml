@@ -1,0 +1,203 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: settings-page-2
+summary: >
+  Presentation-layer feature adding a /settings route with tabbed form UI for all 7
+  settings sections. Uses established server-component → client-component pattern with
+  per-section save via a single updateSettings server action. Requires installing
+  shadcn/ui Switch component and adding NEXT_PUBLIC_FLAG_SETTINGS feature flag.
+  No domain or infrastructure changes — purely web UI work following Tools/Skills page patterns.
+
+relatedFeatures: []
+
+technologies:
+  - Next.js 16 App Router (server components, server actions)
+  - React 19 (useState, useTransition)
+  - shadcn/ui (Tabs, Input, Select, Switch, Label, Card, Button, Separator, Badge)
+  - Tailwind CSS v4
+  - Lucide React (Settings, Eye, EyeOff icons)
+  - tsyringe DI (resolve from server-container.ts)
+  - Sonner (toast notifications)
+  - Vitest (unit tests)
+  - Storybook (colocated stories)
+
+relatedLinks: []
+
+phases:
+  - id: phase-1
+    name: 'Foundation & Infrastructure'
+    description: >
+      Install the shadcn/ui Switch component, add the NEXT_PUBLIC_FLAG_SETTINGS feature
+      flag, create the /settings server component route with feature-flag guard, and
+      create the updateSettings server action. These are the non-visual prerequisites
+      that all subsequent UI work depends on.
+    parallel: false
+
+  - id: phase-2
+    name: 'Settings Page Shell & Navigation'
+    description: >
+      Build the SettingsPageClient tabbed layout component and add the Settings sidebar
+      navigation entry. This establishes the page chrome — tabs, header, save
+      orchestration — so individual section components can be developed against it.
+    parallel: false
+
+  - id: phase-3
+    name: 'Section Form Components'
+    description: >
+      Implement all 7 section form components (Models, Agent, Workflow, UserProfile,
+      Environment, Notifications, System). Each section follows the same pattern: typed
+      props + onSave callback, local useState for form fields, Save button with loading
+      state. Sections within this phase are independent and could be developed in parallel.
+    parallel: true
+
+  - id: phase-4
+    name: 'Storybook Stories'
+    description: >
+      Create colocated .stories.tsx files for all 8 new components (SettingsPageClient +
+      7 sections). Each story file includes a Default story with realistic fixture data
+      and interactive fn() save callbacks. Satisfies the mandatory Storybook requirement.
+    parallel: true
+
+  - id: phase-5
+    name: 'Testing & Validation'
+    description: >
+      Write unit tests for the updateSettings server action and the SettingsPageClient
+      component. Run pnpm validate and pnpm test:unit to confirm zero regressions.
+      Final integration check of the full settings page flow.
+    parallel: false
+
+filesToCreate:
+  - src/presentation/web/components/ui/switch.tsx
+  - src/presentation/web/app/settings/page.tsx
+  - src/presentation/web/app/actions/update-settings.ts
+  - src/presentation/web/components/features/settings/settings-page-client.tsx
+  - src/presentation/web/components/features/settings/model-settings-section.tsx
+  - src/presentation/web/components/features/settings/agent-section.tsx
+  - src/presentation/web/components/features/settings/workflow-section.tsx
+  - src/presentation/web/components/features/settings/user-profile-section.tsx
+  - src/presentation/web/components/features/settings/environment-section.tsx
+  - src/presentation/web/components/features/settings/notifications-section.tsx
+  - src/presentation/web/components/features/settings/system-section.tsx
+  - src/presentation/web/components/features/settings/index.ts
+  - src/presentation/web/components/features/settings/settings-page-client.stories.tsx
+  - src/presentation/web/components/features/settings/model-settings-section.stories.tsx
+  - src/presentation/web/components/features/settings/agent-section.stories.tsx
+  - src/presentation/web/components/features/settings/workflow-section.stories.tsx
+  - src/presentation/web/components/features/settings/user-profile-section.stories.tsx
+  - src/presentation/web/components/features/settings/environment-section.stories.tsx
+  - src/presentation/web/components/features/settings/notifications-section.stories.tsx
+  - src/presentation/web/components/features/settings/system-section.stories.tsx
+  - tests/unit/presentation/web/actions/update-settings.test.ts
+  - tests/unit/presentation/web/features/settings/settings-page-client.test.tsx
+
+filesToModify:
+  - src/presentation/web/lib/feature-flags.ts
+  - src/presentation/web/components/layouts/app-sidebar/app-sidebar.tsx
+  - src/presentation/web/.env.example
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  This feature is entirely within the **presentation layer** (`src/presentation/web/`).
+  The backend stack — TypeSpec domain model, Settings entity, LoadSettingsUseCase,
+  UpdateSettingsUseCase, SQLite repository, and settings service — is fully implemented
+  and consumed as-is. No domain, application, or infrastructure changes are needed.
+
+  The implementation follows the established page pattern used by Tools and Skills:
+
+  ```
+  Server Component (page.tsx)
+    → resolve<LoadSettingsUseCase>() → execute()
+    → Feature flag guard (notFound() if disabled)
+    → Render wrapper div with p-6 layout
+    → Pass Settings data to Client Component
+
+  Client Component (SettingsPageClient)
+    → PageHeader with title/description
+    → Tabs component with 7 TabsTrigger entries
+    → Each TabsContent renders a section form component
+    → Save orchestration: section.onSave → updateSettings server action → toast feedback
+
+  Server Action (updateSettings)
+    → 'use server' directive
+    → resolve<LoadSettingsUseCase>() → load current
+    → Deep merge section update into full Settings
+    → resolve<UpdateSettingsUseCase>() → persist
+    → Return { data?: Settings; error?: string }
+  ```
+
+  Section components are self-contained: they receive typed sub-model props and an
+  `onSave: (data: T) => Promise<boolean>` callback. They manage their own local form
+  state with `useState` and use `useTransition` for save-button pending state. This
+  pattern matches the tool-card.tsx approach and enables independent Storybook stories
+  and unit testing.
+
+  ## Key Design Decisions
+
+  ### 1. Single Server Action for All Sections (from research)
+  A single `updateSettings` action accepts a section key (`'models' | 'agent' | ...`)
+  and partial section data. The action loads current settings, merges the section, and
+  persists. This avoids 7 near-identical action files while following the established
+  `{ data?, error? }` return pattern from `create-feature.ts`.
+
+  ### 2. useState Over React Hook Form (from research)
+  The codebase has zero react-hook-form usage. Settings forms are simple key-value
+  fields (2-9 per section) with no complex cross-field validation. useState matches
+  the feature-create-drawer and tool-card patterns already in use.
+
+  ### 3. Per-Section Save (from spec open questions)
+  Each tab has its own Save button. This aligns with the CLI's per-command pattern
+  (`shep settings agent`, `shep settings models`), keeps saves scoped and explicit,
+  and avoids cross-tab dirty-state tracking complexity.
+
+  ### 4. Feature Flag Following Skills Pattern (from spec/research)
+  `NEXT_PUBLIC_FLAG_SETTINGS` in `feature-flags.ts`, conditional sidebar rendering in
+  `app-sidebar.tsx`, and `notFound()` guard in the server component. Identical to the
+  Skills page implementation.
+
+  ### 5. Install shadcn/ui Switch Component
+  The `@radix-ui/react-switch` dependency exists in the lockfile but no shadcn wrapper
+  component exists in `components/ui/`. The Switch is needed for ~15 boolean toggles
+  across Notifications, Workflow, and System sections. Install via shadcn CLI.
+
+  ### 6. Unit Conversion at Component Boundary (from research)
+  CI workflow fields (ciWatchTimeoutMs) display in user-friendly units (minutes) in
+  the UI but store as milliseconds in the domain model. Conversion happens in the
+  WorkflowSection component — the domain/infrastructure layers are unaware.
+
+  ## Implementation Strategy
+
+  Phase ordering follows a bottom-up dependency chain:
+
+  **Phase 1 (Foundation)** installs the Switch component and creates the feature flag,
+  server route, and server action — the non-visual plumbing that all UI work depends on.
+  The server action is tested first (TDD) since it's the critical data persistence path.
+
+  **Phase 2 (Shell)** builds the page chrome (SettingsPageClient with tabs + sidebar nav).
+  This gives a working page skeleton that can be navigated to and tabbed through, even
+  before section content is built.
+
+  **Phase 3 (Sections)** implements all 7 section form components. These are independent
+  of each other — each receives props and a callback. They can be developed in any order
+  or in parallel. Models is done first as the simplest section (4 text inputs) to
+  establish the pattern, then sections increase in complexity.
+
+  **Phase 4 (Stories)** adds Storybook stories for all components. Stories depend on
+  the components existing but can be written alongside or immediately after each component.
+
+  **Phase 5 (Validation)** writes remaining tests, runs `pnpm validate` and
+  `pnpm test:unit` to confirm everything passes, and does a final integration check.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | shadcn/ui Switch install fails or conflicts | @radix-ui/react-switch already in lockfile; if CLI fails, manually create switch.tsx following checkbox.tsx pattern |
+  | Settings types don't match expected shape | Read generated output.ts types carefully; use TypeScript strict mode to catch mismatches at compile time |
+  | Server action merge loses nested data | Test merge logic explicitly in unit tests — verify that updating one section preserves all other sections |
+  | Feature flag not picked up in dev | Add NEXT_PUBLIC_FLAG_SETTINGS=true to .env.example with comment; verify in .env.development if it exists |
+  | Tab count causes horizontal overflow | Use concise tab labels; test at common viewport widths; ScrollArea wrapper as fallback |
+  | Token field leaks to console | Never console.log the settings object in component code; set autoComplete="off" on token input |
