@@ -1,0 +1,127 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: clear-form-on-submit
+summary: >
+  3 tasks across 2 phases: write failing test (RED), implement the fix (GREEN), validate
+  the full suite and linting (REFACTOR/validation).
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - React 19 (useState, useCallback)
+  - Vitest + @testing-library/react
+  - '@testing-library/user-event'
+relatedLinks: []
+
+# Structured task list
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Write failing test for form reset after submit without unmount'
+    description: >
+      Add a new test case in the "close behavior" describe block that renders the drawer, fills
+      all seven form fields (name, description, attachments, approval gates, push, openPr, parentId),
+      submits, and then asserts all fields are at defaults — WITHOUT unmounting the component.
+      This test MUST fail against the current code, proving the bug exists.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'New test is added to feature-create-drawer.test.tsx in the "close behavior" describe block'
+      - 'Test fills name, description, checks approval gates, checks push/openPr, selects a parent feature, adds an attachment'
+      - 'Test submits the form via the "+ Create Feature" button'
+      - 'Test asserts all 7 field groups are at defaults: name empty, description empty, no attachments shown, all approval gates unchecked, push unchecked, openPr unchecked, parent shows "Select parent feature..."'
+      - 'Test does NOT use rerender(<div />) or any unmount technique — component stays mounted throughout'
+      - 'Test FAILS when run against current code (RED phase)'
+    tdd:
+      red:
+        - 'Write test "clears all form fields after submit without unmounting" in "close behavior" describe block'
+        - 'Render FeatureCreateDrawer with features prop (to enable parent selector) and open=true'
+        - 'Fill name input with "My Feature", description with "Some description"'
+        - 'Click PRD, Plan, and Merge approval gate checkboxes'
+        - 'Click "Create PR" checkbox (openPr) — this also forces push=true'
+        - 'Select a parent feature from the combobox'
+        - 'Add an attachment via mockPickFiles'
+        - 'Click "+ Create Feature" to submit'
+        - 'Assert: name input has value "", description has value ""'
+        - 'Assert: all approval gate checkboxes are unchecked'
+        - 'Assert: Push and Create PR checkboxes are unchecked'
+        - 'Assert: parent feature combobox shows "Select parent feature..."'
+        - 'Assert: no attachment cards are visible (attachment count badge not present)'
+        - 'Run test and confirm it FAILS (name still has "My Feature", etc.)'
+      green: []
+      refactor: []
+    estimatedEffort: '20min'
+
+  - id: task-2
+    phaseId: phase-2
+    title: 'Add resetForm() call in handleSubmit after onSubmit'
+    description: >
+      In feature-create-drawer.tsx, add `resetForm()` on the line after `onSubmit({...})` inside
+      `handleSubmit`. Add `resetForm` to the handleSubmit useCallback dependency array. This is
+      the minimal fix that makes the failing test pass.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - '`resetForm()` is called immediately after `onSubmit({...})` inside handleSubmit (line ~162)'
+      - '`resetForm` is added to the handleSubmit useCallback dependency array'
+      - 'The new test from task-1 passes (GREEN)'
+      - 'All 31 existing tests continue to pass (32 total)'
+      - 'No changes to FeatureCreateDrawerProps interface'
+      - 'No changes to the submission payload (onSubmit receives correct data)'
+      - 'No new functions, hooks, or state variables introduced'
+    tdd:
+      red: []
+      green:
+        - 'Add `resetForm();` on the line after the `onSubmit({...});` call (after line 162)'
+        - 'Add `resetForm` to the dependency array at lines 164-174'
+        - 'Run the new test from task-1 — confirm it PASSES'
+        - 'Run the full test suite — confirm all 32 tests pass'
+      refactor:
+        - 'Verify the handleSubmit dependency array is complete and correct'
+        - 'Confirm no other cleanup is needed — the change is a single line plus one dep entry'
+    estimatedEffort: '5min'
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Run full validation suite'
+    description: >
+      Run `pnpm validate` (lint, format, typecheck, tsp) and `pnpm test:unit` to confirm no
+      regressions, lint violations, or type errors were introduced.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - '`pnpm validate` passes with zero errors'
+      - '`pnpm test:unit` passes with all tests green'
+      - 'No new lint warnings introduced'
+      - 'No type errors introduced'
+    tdd: null
+    estimatedEffort: '5min'
+
+# Total effort estimate
+totalEstimate: '30min'
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Summary
+
+  The implementation follows strict TDD: first write a failing test that proves the bug (form
+  state persists after submit when the component stays mounted), then apply the minimal one-line
+  fix (`resetForm()` after `onSubmit()`) that makes the test pass, and finally validate the full
+  suite.
+
+  The test is the most substantial piece of work (~25 lines) as it must fill all seven form
+  fields and assert each one resets to defaults. The implementation itself is ~3 lines changed
+  in the component file (one `resetForm()` call and one dependency array entry).
+
+  The flow is: Task 1 (RED — write failing test) → Task 2 (GREEN — add resetForm call) →
+  Task 3 (validate everything passes).
+
+  ---
+
+  _Task breakdown for implementation tracking_

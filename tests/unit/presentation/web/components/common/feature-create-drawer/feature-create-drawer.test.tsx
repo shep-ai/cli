@@ -499,6 +499,66 @@ describe('FeatureCreateDrawer', () => {
       expect(onClose).toHaveBeenCalledOnce();
     });
 
+    it('clears all form fields after submit without unmounting', async () => {
+      mockPickFiles.mockResolvedValue([mockPdf]);
+      const onSubmit = vi.fn();
+      const onClose = vi.fn();
+      const user = userEvent.setup();
+      const features: { id: string; name: string }[] = [
+        { id: 'feat-aaa-111', name: 'Parent Feature' },
+      ];
+
+      render(
+        <FeatureCreateDrawer
+          open={true}
+          onClose={onClose}
+          onSubmit={onSubmit}
+          repositoryPath="/repo"
+          features={features}
+        />
+      );
+
+      // Fill name and description
+      await user.type(screen.getByPlaceholderText('e.g. GitHub OAuth Login'), 'My Feature');
+      await user.type(
+        screen.getByPlaceholderText('Describe what this feature does...'),
+        'Some description'
+      );
+
+      // Check approval gates: PRD, Plan, Merge
+      await user.click(screen.getByLabelText('PRD'));
+      await user.click(screen.getByLabelText('Plan'));
+      await user.click(screen.getByLabelText('Merge'));
+
+      // Check "Create PR" (which forces push=true)
+      await user.click(screen.getByLabelText('Create PR'));
+
+      // Select a parent feature
+      await user.click(screen.getByTestId('parent-feature-combobox'));
+      await user.click(screen.getByTestId('parent-feature-option-feat-aaa-111'));
+
+      // Add an attachment
+      await user.click(screen.getByRole('button', { name: /add files/i }));
+      expect(screen.getByText('requirements.pdf')).toBeInTheDocument();
+
+      // Submit the form
+      await user.click(screen.getByRole('button', { name: '+ Create Feature' }));
+      expect(onSubmit).toHaveBeenCalledOnce();
+
+      // Assert all fields are reset to defaults (component is still mounted)
+      expect(screen.getByPlaceholderText('e.g. GitHub OAuth Login')).toHaveValue('');
+      expect(screen.getByPlaceholderText('Describe what this feature does...')).toHaveValue('');
+      expect(screen.getByLabelText('PRD')).not.toBeChecked();
+      expect(screen.getByLabelText('Plan')).not.toBeChecked();
+      expect(screen.getByLabelText('Merge')).not.toBeChecked();
+      expect(screen.getByLabelText('Push')).not.toBeChecked();
+      expect(screen.getByLabelText('Create PR')).not.toBeChecked();
+      expect(screen.getByTestId('parent-feature-combobox')).toHaveTextContent(
+        'Select parent feature...'
+      );
+      expect(screen.queryByText('requirements.pdf')).not.toBeInTheDocument();
+    });
+
     it('clears form data on submit so next open starts fresh', async () => {
       const onSubmit = vi.fn();
       const onClose = vi.fn();

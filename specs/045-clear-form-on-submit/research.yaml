@@ -1,0 +1,305 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: clear-form-on-submit
+summary: >
+  The fix requires adding a single `resetForm()` call inside `handleSubmit` after `onSubmit(data)`
+  and adding `resetForm` to the `useCallback` dependency array. No new libraries, no API changes,
+  no architectural changes. A new test must verify form clearing without component unmount.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - React 19 (useState, useCallback, useEffect)
+  - Vitest + @testing-library/react (unit testing)
+  - Storybook 8 (existing stories — no changes needed)
+  - Vaul (Drawer component — no changes needed)
+
+relatedLinks: []
+
+# Structured technology decisions
+decisions:
+  - title: 'Form reset strategy'
+    chosen: 'Reuse existing resetForm() inside handleSubmit'
+    rejected:
+      - >
+        Create a new resetAfterSubmit() function — Rejected because the existing resetForm()
+        already resets all seven state variables (name, description, attachments, approvalGates,
+        push, openPr, parentId) to their defaults. Introducing a separate function would duplicate
+        logic and violate DRY. The resetForm callback at line 124-132 is already memoized via
+        useCallback and handles workflowDefaults correctly.
+      - >
+        Move to react-hook-form or a form library — Rejected because the component uses simple
+        useState for seven fields. The overhead of introducing a form library for a single-drawer
+        form is not justified. The existing manual state management pattern is consistent with
+        other components in the codebase and keeps the component self-contained.
+    rationale: >
+      The existing resetForm() (line 124-132) already handles clearing all seven state variables
+      back to their defaults, including re-applying workflowDefaults for approvalGates, push, and
+      openPr. It is already used in handleOpenChange (line 134-142) for the close-and-reopen flow.
+      Reusing it in handleSubmit is the minimal, correct change that follows the DRY principle and
+      the existing pattern in this component.
+
+  - title: 'Reset ordering relative to onSubmit'
+    chosen: 'Call resetForm() after onSubmit(data)'
+    rejected:
+      - >
+        Call resetForm() before onSubmit(data) — Rejected because, while functionally equivalent
+        (the payload is already captured in a local object at lines 149-162 before either call),
+        calling reset before submit is unconventional and harder to read. The standard pattern is
+        "submit then clean up." Additionally, calling reset first could confuse developers reading
+        the code into thinking the reset might affect the submitted data.
+      - >
+        Call resetForm() in a useEffect triggered by a submission counter — Rejected because this
+        adds unnecessary indirection and state. The handleSubmit callback is the natural place for
+        post-submit cleanup. Effects for synchronous post-action cleanup are an anti-pattern when
+        the action is already in a callback.
+    rationale: >
+      The payload object is constructed into a local variable (lines 149-162) before being passed
+      to onSubmit(). Calling resetForm() after onSubmit() is safe because the data is already
+      captured by value/reference in the local scope. This ordering is conventional ("do the action,
+      then clean up") and matches how handleOpenChange already works (resetForm then onClose).
+
+  - title: 'Test approach for form clearing after submit'
+    chosen: 'Add new test without unmount — keep existing unmount/remount test'
+    rejected:
+      - >
+        Replace the existing test at line 487 — Rejected because the existing test validates a
+        legitimate scenario (React lifecycle: state is fresh after unmount/remount). While it does
+        not catch the actual bug (form state persists when component stays mounted), it covers a
+        complementary code path. Removing it would reduce coverage.
+      - >
+        Test via Storybook interaction tests only — Rejected because the project mandates Vitest
+        unit tests for all behavior. Storybook interaction tests are supplementary, not a substitute
+        for unit tests. The existing test file already has 31 tests following the established pattern
+        with @testing-library/react and userEvent.
+    rationale: >
+      The new test will render the component, fill and submit the form, then assert all fields are
+      at defaults WITHOUT unmounting. This directly catches the bug: the component stays mounted
+      (as it does in production via the Vaul drawer with open=false→true transitions) but form
+      state was not being reset. The existing unmount/remount test covers a separate concern (React
+      component lifecycle correctness) and remains valid.
+
+  - title: 'Handling initialParentId after submit reset'
+    chosen: 'No special handling — rely on existing useEffect'
+    rejected:
+      - >
+        Add initialParentId resync inside resetForm() — Rejected because it would create a second
+        source of truth for initial parent behavior. The useEffect at lines 118-122 already watches
+        the `open` prop and `initialParentId` and re-syncs parentId when the drawer transitions to
+        open. Since the parent component sets `open=false` after submit (line 483 of
+        use-control-center-state.ts), the next `open=true` triggers the effect correctly.
+      - >
+        Pass initialParentId as a parameter to resetForm — Rejected because it would change the
+        resetForm signature and require updating both call sites (handleOpenChange and handleSubmit).
+        The existing separation of concerns (resetForm clears to defaults, useEffect applies initial
+        props on open) is clean and follows React idioms for prop-driven state initialization.
+    rationale: >
+      The existing useEffect (lines 118-122) handles the initialParentId → parentId sync when
+      `open` transitions to true. After submit, the parent component closes the drawer
+      (setIsCreateDrawerOpen(false) at line 483 of use-control-center-state.ts). When the drawer
+      reopens, the useEffect fires and re-applies initialParentId. This separation of "reset to
+      defaults" vs. "apply initial props on open" is architecturally clean and avoids coupling
+      resetForm to the component's props.
+
+# Open questions (all resolved during research)
+openQuestions:
+  - question: 'Should the new test verify all seven state fields or just name/description?'
+    resolved: true
+    options:
+      - option: 'Verify all seven fields'
+        description: >
+          Assert that name, description, attachments count, all three approval gates, push,
+          openPr, and parentId are all at defaults after submit. Provides comprehensive coverage
+          and catches regressions if resetForm() is modified.
+        selected: true
+      - option: 'Verify only name and description'
+        description: >
+          Assert just the text inputs (name and description) since they are the most visible
+          fields. Simpler test but could miss regressions in checkbox or attachment state.
+        selected: false
+      - option: 'Verify name and one checkbox group'
+        description: >
+          Assert name (text input) and approval gates (checkbox state) as representative samples.
+          Middle ground but arbitrary — no principled reason to exclude other fields.
+        selected: false
+    selectionRationale: >
+      The bug affects all seven state variables equally — resetForm() clears all of them. The test
+      should verify all fields to prevent future regressions if someone modifies resetForm or adds
+      new state. Testing only a subset would leave blind spots. The overhead of asserting all fields
+      is minimal (a few extra expect() calls) and the test file already establishes a pattern of
+      thorough assertions (see the existing unmount/remount test at line 243-278 which checks all
+      checkboxes).
+
+  - question: 'Does the Storybook story need updating to reflect the new reset-after-submit behavior?'
+    resolved: true
+    options:
+      - option: 'No Storybook changes needed'
+        description: >
+          The existing stories already close the drawer after submit (setOpen(false) in the
+          onSubmit callbacks). The behavioral fix (resetForm after submit) is internal to the
+          component and does not change the public API or visual appearance. The Interactive
+          story already demonstrates the submit → close flow correctly.
+        selected: true
+      - option: 'Add a new story showing submit-then-reopen'
+        description: >
+          Create a story that submits, then reopens the drawer to show fields are cleared.
+          Demonstrates the fix visually but requires complex play() interaction chaining.
+        selected: false
+      - option: 'Update the Interactive story to auto-reopen after submit'
+        description: >
+          Modify the existing Interactive story to automatically reopen after submit. Shows
+          the fix but changes the current story's purpose (manual exploration).
+        selected: false
+    selectionRationale: >
+      The component's public API (FeatureCreateDrawerProps) is unchanged. The stories already
+      exercise the submit flow via the Interactive and PreFilled stories. The behavioral fix is
+      internal state management and is best validated by the unit test, not a visual story.
+      Adding a story for this would add maintenance burden for minimal value.
+
+  - question: 'Is there a risk of stale closure in handleSubmit after adding resetForm to deps?'
+    resolved: true
+    options:
+      - option: 'No risk — resetForm is stable and correctly memoized'
+        description: >
+          resetForm is wrapped in useCallback with deps [defaultGates, defaultPush, defaultOpenPr].
+          These values only change when workflowDefaults changes (async load). The handleSubmit
+          callback already depends on all form state variables, so adding resetForm does not
+          introduce new re-render cycles or stale closure risks.
+        selected: true
+      - option: 'Minor risk — resetForm could capture stale defaults'
+        description: >
+          If workflowDefaults changes between renders, resetForm could reset to stale default
+          values. However, this is already the current behavior for handleOpenChange which uses
+          the same resetForm, so it is not a new risk introduced by this change.
+        selected: false
+      - option: 'Significant risk — needs useRef to avoid closure issues'
+        description: >
+          Use useRef for resetForm to always have the latest version. Overkill for this scenario
+          since React's dependency arrays handle this correctly. Would add unnecessary complexity
+          and deviate from the existing pattern.
+        selected: false
+    selectionRationale: >
+      The resetForm callback is memoized with useCallback and its dependencies (defaultGates,
+      defaultPush, defaultOpenPr) are derived from workflowDefaults which is a prop. React's
+      dependency array mechanism ensures handleSubmit always references the current resetForm.
+      This is the same pattern already used by handleOpenChange (line 134-142) which depends on
+      resetForm without issues. No stale closure risk.
+
+# Markdown content (the full research document)
+content: |
+  ## Status
+
+  - **Phase:** Research (Complete)
+  - **Updated:** 2026-02-25
+
+  ## Technology Decisions
+
+  ### 1. Form Reset Strategy
+
+  **Chosen:** Reuse existing `resetForm()` inside `handleSubmit`
+
+  **Rejected:**
+  - Create a new `resetAfterSubmit()` function — duplicates existing logic, violates DRY
+  - Move to react-hook-form — unnecessary for 7 useState fields, inconsistent with codebase
+
+  **Rationale:** The existing `resetForm()` (line 124-132) already clears all seven state
+  variables to defaults, including re-applying `workflowDefaults`. It is used in
+  `handleOpenChange` for close-and-reopen. Reusing it in `handleSubmit` is minimal and correct.
+
+  ### 2. Reset Ordering Relative to onSubmit
+
+  **Chosen:** Call `resetForm()` after `onSubmit(data)`
+
+  **Rejected:**
+  - Call before `onSubmit` — unconventional, confusing to read
+  - Call in a `useEffect` with submission counter — unnecessary indirection
+
+  **Rationale:** The payload is captured in a local variable (lines 149-162) before either call.
+  After-submit ordering is conventional ("action then cleanup") and safe.
+
+  ### 3. Test Approach
+
+  **Chosen:** Add new test without unmount; keep existing unmount/remount test
+
+  **Rejected:**
+  - Replace the existing test at line 487 — loses lifecycle coverage
+  - Test via Storybook interaction tests only — project mandates Vitest unit tests
+
+  **Rationale:** The new test directly catches the bug (form state persists when component stays
+  mounted). The existing test covers React lifecycle correctness (fresh state on remount). Both
+  are valid and non-redundant.
+
+  ### 4. Handling initialParentId After Submit
+
+  **Chosen:** No special handling — rely on existing `useEffect` at lines 118-122
+
+  **Rejected:**
+  - Add `initialParentId` resync inside `resetForm()` — creates second source of truth
+  - Pass `initialParentId` as parameter to `resetForm()` — changes signature, adds coupling
+
+  **Rationale:** The `useEffect` already syncs `parentId` from `initialParentId` when `open`
+  transitions to `true`. The parent component closes the drawer after submit, so the next open
+  triggers the effect. Clean separation of "reset to defaults" vs. "apply initial props on open."
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | React 19 (useState, useCallback) | Form state management | Use (existing) | Already in use; no changes to imports needed |
+  | Vitest | Unit testing | Use (existing) | Existing test suite with 31 tests; add one more |
+  | @testing-library/react | Component rendering in tests | Use (existing) | Already used for all component tests |
+  | @testing-library/user-event | Simulating user interactions | Use (existing) | Already used for form interaction tests |
+  | react-hook-form | Form library | Reject | Overkill for 7 useState fields; would require refactoring the entire component |
+  | Vaul | Drawer component | Use (existing, no changes) | The drawer stays mounted; fix is in form state, not drawer behavior |
+
+  ## Security Considerations
+
+  No security implications. The change is purely internal form state management:
+  - No new user inputs are introduced
+  - No data is persisted or transmitted differently
+  - The submission payload is unchanged (NFR-2)
+  - No new dependencies are introduced (NFR-3)
+
+  ## Performance Implications
+
+  Negligible performance impact:
+  - Adding `resetForm` to `handleSubmit`'s dependency array causes `handleSubmit` to be
+    recreated when `resetForm` changes (which only happens when `workflowDefaults` changes).
+    This is already the case for `handleOpenChange` and causes no measurable overhead.
+  - The `resetForm()` call itself sets 7 state variables synchronously. React batches these
+    into a single re-render. The component already handles this in `handleOpenChange`.
+
+  ## Architecture Notes
+
+  ### Component Ownership
+  The fix stays entirely within `FeatureCreateDrawer`. The component owns its own form state
+  lifecycle (NFR-5). No changes to the parent component (`use-control-center-state.ts`) are
+  needed. The parent's responsibility is limited to: (1) passing `open` prop, (2) receiving
+  `onSubmit` payload, (3) closing the drawer via `setIsCreateDrawerOpen(false)`.
+
+  ### State Flow After Fix
+  1. User fills form and clicks "+ Create Feature"
+  2. `handleSubmit` fires → constructs payload → calls `onSubmit(data)`
+  3. `handleSubmit` calls `resetForm()` → all 7 state variables reset to defaults
+  4. Parent receives payload → creates optimistic node → sets `open=false`
+  5. Next time drawer opens (`open=true`), useEffect re-syncs `initialParentId` if set
+  6. Form is visually empty — ready for next feature creation
+
+  ### Files Changed
+  | File | Change | Lines |
+  | ---- | ------ | ----- |
+  | `src/presentation/web/components/common/feature-create-drawer/feature-create-drawer.tsx` | Add `resetForm()` after `onSubmit()` in `handleSubmit`; add `resetForm` to deps array | ~3 |
+  | `tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx` | Add new test: "clears form fields after submit without unmount" | ~25 |
+
+  ### What Does NOT Change
+  - `FeatureCreateDrawerProps` interface (NFR-1)
+  - Submission payload shape (NFR-2)
+  - Storybook stories (no new stories needed)
+  - Parent component `use-control-center-state.ts`
+  - Any other component or module
+
+  ---
+
+  _Research complete — ready for planning phase_

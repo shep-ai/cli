@@ -1,0 +1,123 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: clear-form-on-submit
+summary: >
+  Add a single `resetForm()` call after `onSubmit(data)` in `handleSubmit`, plus add `resetForm`
+  to the dependency array. Write a new test that verifies form clearing without unmounting the
+  component. Two phases: RED test first, then GREEN+REFACTOR implementation.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - React 19 (useState, useCallback)
+  - Vitest + @testing-library/react (unit testing)
+  - '@testing-library/user-event (interaction simulation)'
+relatedLinks: []
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'RED — Failing Test'
+    description: >
+      Write a new unit test that submits the form and asserts all seven fields are reset to
+      defaults WITHOUT unmounting the component. This test will fail against the current code
+      because handleSubmit does not call resetForm(). This phase establishes the failing test
+      that proves the bug exists.
+    parallel: false
+
+  - id: phase-2
+    name: 'GREEN + REFACTOR — Implementation & Validation'
+    description: >
+      Add `resetForm()` after `onSubmit(data)` in handleSubmit and add `resetForm` to the
+      useCallback dependency array. Run the new test (GREEN). Run the full test suite to confirm
+      no regressions. Run pnpm validate for lint/format/typecheck. Minimal change — no refactor
+      step needed beyond ensuring the dependency array is correct.
+    parallel: false
+
+# File change tracking
+filesToCreate: []
+
+filesToModify:
+  - src/presentation/web/components/common/feature-create-drawer/feature-create-drawer.tsx
+  - tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Status
+
+  - **Phase:** Planning (Complete)
+  - **Updated:** 2026-02-25
+
+  ## Architecture Overview
+
+  The `FeatureCreateDrawer` component (feature-create-drawer.tsx:86-370) manages its own form
+  state via seven `useState` hooks (lines 100-106). A memoized `resetForm` callback (lines 124-132)
+  already clears all seven variables to defaults and is used by `handleOpenChange` (line 137) when
+  the Vaul drawer is closed via its built-in close mechanism.
+
+  The bug is that `handleSubmit` (lines 144-175) calls `onSubmit(data)` but never calls
+  `resetForm()`. The parent component closes the drawer by setting `open=false` via props, which
+  does NOT trigger Vaul's `onOpenChange` — so `handleOpenChange` never fires after submit, and
+  form state persists.
+
+  The fix is entirely internal to `FeatureCreateDrawer`. No changes to the component's public
+  API (`FeatureCreateDrawerProps`), no changes to the parent component, no changes to Storybook
+  stories.
+
+  ## Key Design Decisions
+
+  ### 1. Reuse existing `resetForm()` — no new reset logic
+  **Chosen:** Call the existing `resetForm()` inside `handleSubmit` after `onSubmit(data)`.
+  **Rejected:** Creating a separate `resetAfterSubmit()` function (duplicates logic, violates DRY).
+  **Rejected:** Moving to react-hook-form (overkill for 7 useState fields, inconsistent with codebase).
+  **Rationale:** `resetForm` already handles all seven state variables including workflowDefaults
+  re-application. It's memoized via useCallback and battle-tested through the close-and-reopen flow.
+
+  ### 2. Reset after submit, not before
+  **Chosen:** `onSubmit(data)` then `resetForm()`.
+  **Rejected:** Reset before submit (unconventional, confusing to read).
+  **Rationale:** The payload is already captured in a local variable (lines 149-162) before either
+  call, so ordering is safe. After-submit is the conventional pattern ("action then cleanup") and
+  matches how `handleOpenChange` works (reset then close).
+
+  ### 3. Add new test alongside existing unmount/remount test
+  **Chosen:** Keep the existing test at line 487 and add a new test that verifies form clearing
+  without unmounting.
+  **Rejected:** Replacing the existing test (loses React lifecycle coverage).
+  **Rationale:** The existing test covers component lifecycle correctness (fresh state after
+  unmount/remount). The new test catches the actual bug: form state persists when the component
+  stays mounted. Both are complementary.
+
+  ### 4. No initialParentId handling in resetForm
+  **Chosen:** Rely on the existing `useEffect` at lines 118-122 to re-sync `parentId` from
+  `initialParentId` when the drawer reopens.
+  **Rationale:** Adding resync logic inside `resetForm` would create a second source of truth.
+  The useEffect already handles this correctly when `open` transitions to `true`.
+
+  ## Implementation Strategy
+
+  Phase 1 (RED) comes first because TDD is mandatory. We write the failing test that directly
+  demonstrates the bug: submit the form, then assert fields are at defaults while the component
+  remains mounted. This test will fail because `handleSubmit` currently does not call `resetForm()`.
+
+  Phase 2 (GREEN + REFACTOR) applies the minimal fix: one line (`resetForm()`) after `onSubmit()`
+  in `handleSubmit`, plus adding `resetForm` to the dependency array. The new test passes, all
+  31 existing tests continue to pass, and `pnpm validate` succeeds. No refactoring is needed
+  because the change is a single line reusing existing infrastructure.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | `resetForm` in deps causes excessive re-renders of `handleSubmit` | `resetForm` is memoized with useCallback; its deps (defaultGates, defaultPush, defaultOpenPr) only change when workflowDefaults changes. Same pattern already used by `handleOpenChange` without issues. |
+  | Stale closure in `handleSubmit` after adding `resetForm` to deps | React's dependency array mechanism ensures the latest `resetForm` is captured. Same pattern as `handleOpenChange` (line 141). No stale closure risk. |
+  | New test is flaky due to Vaul drawer behavior in jsdom | Test uses the same `render` / `userEvent` / `screen` pattern as all 31 existing tests. The beforeAll stub for pointer capture and getComputedStyle handles Vaul's jsdom quirks. |
+  | `onSubmit` receives cleared data instead of filled data | Impossible — the payload is constructed into a local variable (lines 149-162) before `onSubmit()` is called. `resetForm()` clears `useState` hooks, not the local variable. |
+
+  ---
+
+  _Generated by planning agent_
