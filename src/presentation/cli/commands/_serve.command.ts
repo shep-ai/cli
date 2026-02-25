@@ -5,11 +5,14 @@
  * This command is hidden from --help output and is invoked internally by
  * the startDaemon() helper via child_process.spawn({detached: true}).
  *
+ * NOTE: The DI container and settings are already initialized by index.ts
+ * bootstrap() before Commander dispatches to this action. This command
+ * only needs to start the web server and notification watcher.
+ *
  * Lifecycle:
- *   1. Bootstrap DI container + settings (same sequence as index.ts)
- *   2. Start WebServerService on the provided --port
- *   3. Initialize notification watcher
- *   4. Block until SIGTERM or SIGINT triggers graceful shutdown
+ *   1. Start WebServerService on the provided --port
+ *   2. Initialize notification watcher
+ *   3. Block until SIGTERM or SIGINT triggers graceful shutdown
  *
  * The shutdown sequence mirrors ui.command.ts:
  *   - Set isShuttingDown flag (idempotent — prevents double-shutdown)
@@ -23,9 +26,7 @@
  */
 
 import { Command, InvalidArgumentError } from 'commander';
-import { initializeContainer, container } from '@/infrastructure/di/container.js';
-import { InitializeSettingsUseCase } from '@/application/use-cases/settings/initialize-settings.use-case.js';
-import { initializeSettings } from '@/infrastructure/services/settings.service.js';
+import { container } from '@/infrastructure/di/container.js';
 import { setVersionEnvVars } from '@/infrastructure/services/version.service.js';
 import { resolveWebDir } from '@/infrastructure/services/web-server.service.js';
 import {
@@ -58,14 +59,6 @@ export function createServeCommand(): Command {
     .option('-p, --port <number>', 'Port to listen on', parsePort)
     .action(async (options: { port?: number }) => {
       try {
-        // Bootstrap DI container + settings (same sequence as index.ts)
-        await initializeContainer();
-        (globalThis as Record<string, unknown>).__shepContainer = container;
-
-        const initializeSettingsUseCase = container.resolve(InitializeSettingsUseCase);
-        const settings = await initializeSettingsUseCase.execute();
-        initializeSettings(settings);
-
         const port = options.port ?? 4050;
         const { dir, dev } = resolveWebDir();
 
