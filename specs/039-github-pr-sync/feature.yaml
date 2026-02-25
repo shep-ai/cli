@@ -24,6 +24,7 @@ status:
     - phase-3
     - phase-4
     - phase-5
+    - merge
 validation:
   lastRun: null
   gatesPassed: []
@@ -36,6 +37,7 @@ checkpoints:
   - phase: feature-created
     completedAt: '2026-02-24T14:58:13Z'
     completedBy: feature-agent
+prUrl: https://github.com/shep-ai/cli/pull/116
 errors:
   current: null
   history: []
