@@ -79,6 +79,7 @@ export function FeatureDrawer({
                 repositoryPath={selectedNode.repositoryPath}
                 branch={selectedNode.branch}
                 specPath={selectedNode.specPath}
+                featureId={selectedNode.featureId}
               />
             ) : null}
 
@@ -277,12 +278,14 @@ function DrawerActions({
   repositoryPath,
   branch,
   specPath,
+  featureId,
 }: {
   repositoryPath: string;
   branch: string;
   specPath?: string;
+  featureId: string;
 }) {
-  const actions = useFeatureActions({ repositoryPath, branch, specPath });
+  const actions = useFeatureActions({ repositoryPath, branch, specPath, featureId });
 
   return (
     <div className="flex gap-2 px-4 pb-3">

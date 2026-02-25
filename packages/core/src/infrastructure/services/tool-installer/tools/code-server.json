@@ -1,0 +1,18 @@
+{
+  "name": "code-server",
+  "summary": "VS Code in the browser — run a full editor from any machine",
+  "description": "code-server allows you to run VS Code on any machine and access it through the browser. Get a consistent development environment with full VS Code functionality including extensions, terminal, and debugging.",
+  "tags": ["ide"],
+  "iconUrl": "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/vscode/vscode-original.svg",
+  "binary": "code-server",
+  "packageManager": "brew",
+  "commands": {
+    "linux": "curl -fsSL https://code-server.dev/install.sh | sh",
+    "darwin": "brew install code-server"
+  },
+  "timeout": 300000,
+  "documentationUrl": "https://coder.com/docs/code-server",
+  "verifyCommand": "code-server --version",
+  "autoInstall": true,
+  "openDirectory": "code-server --bind-addr 127.0.0.1:0 --auth none {dir}"
+}

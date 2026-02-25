@@ -22,6 +22,35 @@ describe('ToolMetadata', () => {
     });
   });
 
+  describe('code-server tool metadata', () => {
+    it('loads code-server tool with correct binary and tags', () => {
+      const meta = TOOL_METADATA['code-server'];
+      expect(meta).toBeDefined();
+      expect(meta.binary).toBe('code-server');
+      expect(meta.tags).toContain('ide');
+    });
+
+    it('has openDirectory with {dir} placeholder and localhost binding', () => {
+      const meta = TOOL_METADATA['code-server'];
+      expect(meta).toBeDefined();
+      expect(typeof meta.openDirectory).toBe('string');
+      expect(meta.openDirectory).toContain('{dir}');
+      expect(meta.openDirectory).toContain('127.0.0.1');
+      expect(meta.openDirectory).toContain('--auth none');
+    });
+
+    it('has platform-specific install commands', () => {
+      const meta = TOOL_METADATA['code-server'];
+      expect(meta.commands).toHaveProperty('linux');
+      expect(meta.commands).toHaveProperty('darwin');
+    });
+
+    it('has correct verifyCommand', () => {
+      const meta = TOOL_METADATA['code-server'];
+      expect(meta.verifyCommand).toBe('code-server --version');
+    });
+  });
+
   describe('openDirectory {dir} placeholder', () => {
     it.each(['vscode', 'cursor', 'windsurf', 'zed'])(
       '%s has {dir} in openDirectory string',

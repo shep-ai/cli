@@ -23,6 +23,9 @@ properties:
   workflow:
     $ref: WorkflowConfig.yaml
     description: Global workflow configuration defaults
+  codeServer:
+    $ref: CodeServerConfig.yaml
+    description: code-server instance configuration
   onboardingComplete:
     type: boolean
     default: false
@@ -35,6 +38,7 @@ required:
   - agent
   - notifications
   - workflow
+  - codeServer
   - onboardingComplete
 allOf:
   - $ref: BaseEntity.yaml

@@ -44,6 +44,8 @@ import type { IIdeLauncherService } from '../../application/ports/output/service
 import { JsonDrivenIdeLauncherService } from '../services/ide-launchers/json-driven-ide-launcher.service.js';
 import type { IDaemonService } from '../../application/ports/output/services/daemon-service.interface.js';
 import { DaemonPidService } from '../services/daemon/daemon-pid.service.js';
+import type { ICodeServerManagerService } from '../../application/ports/output/services/code-server-manager-service.interface.js';
+import { CodeServerManagerService } from '../services/code-server/code-server-manager.service.js';
 
 // Agent infrastructure interfaces and implementations
 import type { IAgentExecutorFactory } from '../../application/ports/output/agents/agent-executor-factory.interface.js';
@@ -103,6 +105,9 @@ import { InstallToolUseCase } from '../../application/use-cases/tools/install-to
 import { ListToolsUseCase } from '../../application/use-cases/tools/list-tools.use-case.js';
 import { LaunchToolUseCase } from '../../application/use-cases/tools/launch-tool.use-case.js';
 import { LaunchIdeUseCase } from '../../application/use-cases/ide/launch-ide.use-case.js';
+import { StartCodeServerUseCase } from '../../application/use-cases/code-server/start-code-server.use-case.js';
+import { StopCodeServerUseCase } from '../../application/use-cases/code-server/stop-code-server.use-case.js';
+import { GetCodeServerStatusUseCase } from '../../application/use-cases/code-server/get-code-server-status.use-case.js';
 import { AddRepositoryUseCase } from '../../application/use-cases/repositories/add-repository.use-case.js';
 import { ListRepositoriesUseCase } from '../../application/use-cases/repositories/list-repositories.use-case.js';
 import { DeleteRepositoryUseCase } from '../../application/use-cases/repositories/delete-repository.use-case.js';
@@ -187,6 +192,12 @@ export async function initializeContainer(): Promise<typeof container> {
     JsonDrivenIdeLauncherService
   );
   container.registerSingleton<IDaemonService>('IDaemonService', DaemonPidService);
+  container.register<ICodeServerManagerService>('ICodeServerManagerService', {
+    useFactory: (c) => {
+      const database = c.resolve<Database.Database>('Database');
+      return new CodeServerManagerService(database);
+    },
+  });
 
   // Register agent infrastructure
   container.register<IAgentRunRepository>('IAgentRunRepository', {
@@ -309,6 +320,9 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton(ListToolsUseCase);
   container.registerSingleton(LaunchToolUseCase);
   container.registerSingleton(LaunchIdeUseCase);
+  container.registerSingleton(StartCodeServerUseCase);
+  container.registerSingleton(StopCodeServerUseCase);
+  container.registerSingleton(GetCodeServerStatusUseCase);
   container.registerSingleton(AddRepositoryUseCase);
   container.registerSingleton(ListRepositoriesUseCase);
   container.registerSingleton(DeleteRepositoryUseCase);
@@ -369,6 +383,15 @@ export async function initializeContainer(): Promise<typeof container> {
   });
   container.register('LaunchIdeUseCase', {
     useFactory: (c) => c.resolve(LaunchIdeUseCase),
+  });
+  container.register('StartCodeServerUseCase', {
+    useFactory: (c) => c.resolve(StartCodeServerUseCase),
+  });
+  container.register('StopCodeServerUseCase', {
+    useFactory: (c) => c.resolve(StopCodeServerUseCase),
+  });
+  container.register('GetCodeServerStatusUseCase', {
+    useFactory: (c) => c.resolve(GetCodeServerStatusUseCase),
   });
   container.register('AddRepositoryUseCase', {
     useFactory: (c) => c.resolve(AddRepositoryUseCase),

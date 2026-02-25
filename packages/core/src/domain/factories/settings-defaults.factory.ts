@@ -148,6 +148,9 @@ export function createDefaultSettings(): Settings {
     agent,
     notifications,
     workflow,
+    codeServer: {
+      idleTimeoutSeconds: 1800,
+    },
     onboardingComplete: false,
     createdAt: now,
     updatedAt: now,

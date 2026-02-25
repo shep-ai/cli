@@ -1,0 +1,255 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: code-server-integration
+summary: >
+  Integrate code-server as a managed browser-based editor per feature worktree. The implementation
+  follows Clean Architecture in five phases: (1) domain model and persistence foundation,
+  (2) service interface and infrastructure implementation for process lifecycle management,
+  (3) use cases orchestrating business logic, (4) API routes exposing functionality to the web layer,
+  (5) web UI integration in the feature drawer's OpenActionMenu. Key decisions: spawn via
+  child_process.spawn detached (existing pattern), SQLite persistence via migration v23/v24,
+  port allocation starting at 13370 via existing findAvailablePort(), and SIGTERM/SIGKILL graceful
+  shutdown. All new code follows TDD (red-green-refactor) with Storybook stories for UI components.
+
+relatedFeatures: []
+
+technologies:
+  - code-server (coder/code-server v4.x) - VS Code in the browser
+  - Node.js child_process.spawn - detached process spawning
+  - better-sqlite3 - instance state persistence via migration v23/v24
+  - tsyringe - DI registration for new service and use cases
+  - Next.js App Router API routes - start/stop/status endpoints
+  - React/shadcn-ui - feature drawer UI additions
+  - TypeSpec - CodeServerInstance value object
+  - Lucide React icons - Globe icon for browser editor action
+
+relatedLinks:
+  - https://github.com/coder/code-server
+  - https://coder.com/docs/code-server
+
+phases:
+  - id: phase-1
+    name: 'Foundation — Domain Model, Tool Metadata & Persistence'
+    description: >
+      Establishes the data foundation that all subsequent phases depend on. Defines the
+      CodeServerInstance TypeSpec value object and CodeServerInstanceStatus enum, adds the
+      code-server.json tool metadata file, and creates SQLite migrations (v23 for
+      code_server_instances table, v24 for settings idle timeout column). Also includes the
+      SQLite mapper for database round-tripping. This phase has zero runtime dependencies and
+      produces the types, schema, and metadata consumed by all later phases.
+    parallel: false
+
+  - id: phase-2
+    name: 'Service Layer — Interface & Infrastructure Implementation'
+    description: >
+      Builds the core process lifecycle management service. Defines the ICodeServerManagerService
+      interface in the application ports layer, then implements CodeServerManagerService in the
+      infrastructure layer with: start (port allocation + spawn + persist), stop (SIGTERM/SIGKILL
+      + persist), getStatus (PID liveness + reconcile), listRunning, stopAll, and reconcile.
+      Registers the service in the DI container. This is the highest-complexity phase and the
+      heart of the feature.
+    parallel: false
+
+  - id: phase-3
+    name: 'Use Cases — Business Logic Orchestration'
+    description: >
+      Creates three thin use cases that orchestrate validation and delegation:
+      StartCodeServerUseCase (validate feature exists, check code-server installed, delegate to
+      manager), StopCodeServerUseCase (delegate stop), GetCodeServerStatusUseCase (delegate
+      status query). Each use case is registered in the DI container with string-token aliases
+      for web route resolution.
+    parallel: false
+
+  - id: phase-4
+    name: 'API Routes — Web Endpoints'
+    description: >
+      Exposes the use cases via three Next.js App Router API routes: POST /api/code-server/start,
+      POST /api/code-server/stop, GET /api/code-server/status. Each route resolves the
+      corresponding use case via the DI container, validates input, and returns JSON responses
+      following existing route patterns.
+    parallel: false
+
+  - id: phase-5
+    name: 'Web UI — Feature Drawer Integration & Storybook'
+    description: >
+      Integrates code-server controls into the feature drawer. Extends useFeatureActions hook
+      with browser editor actions (start, stop, status fetch). Adds a "Browser Editor" menu item
+      to OpenActionMenu with Globe icon, loading/error/running states, and disabled state when
+      code-server is not installed. Creates Storybook stories for all new/modified components
+      covering all states (loading, running, stopped, error, not installed).
+    parallel: false
+
+filesToCreate:
+  # Phase 1 — Foundation
+  - tsp/domain/value-objects/code-server-instance.tsp
+  - packages/core/src/infrastructure/services/tool-installer/tools/code-server.json
+  - packages/core/src/infrastructure/persistence/sqlite/mappers/code-server-instance.mapper.ts
+
+  # Phase 2 — Service Layer
+  - packages/core/src/application/ports/output/services/code-server-manager-service.interface.ts
+  - packages/core/src/infrastructure/services/code-server/code-server-manager.service.ts
+  - packages/core/src/infrastructure/services/code-server/code-server-manager.service.test.ts
+
+  # Phase 3 — Use Cases
+  - packages/core/src/application/use-cases/code-server/start-code-server.use-case.ts
+  - packages/core/src/application/use-cases/code-server/stop-code-server.use-case.ts
+  - packages/core/src/application/use-cases/code-server/get-code-server-status.use-case.ts
+  - packages/core/src/application/use-cases/code-server/start-code-server.use-case.test.ts
+  - packages/core/src/application/use-cases/code-server/stop-code-server.use-case.test.ts
+  - packages/core/src/application/use-cases/code-server/get-code-server-status.use-case.test.ts
+
+  # Phase 4 — API Routes
+  - src/presentation/web/app/api/code-server/start/route.ts
+  - src/presentation/web/app/api/code-server/stop/route.ts
+  - src/presentation/web/app/api/code-server/status/route.ts
+
+  # Phase 5 — Web UI
+  - src/presentation/web/components/common/open-action-menu/open-action-menu.stories.tsx
+
+filesToModify:
+  # Phase 1 — Foundation
+  - tsp/domain/value-objects/index.tsp
+  - packages/core/src/infrastructure/persistence/sqlite/migrations.ts
+
+  # Phase 1 — Settings
+  - tsp/domain/entities/settings.tsp
+  - packages/core/src/infrastructure/persistence/sqlite/mappers/settings.mapper.ts
+
+  # Phase 2 — DI
+  - packages/core/src/application/ports/output/services/index.ts
+  - packages/core/src/infrastructure/di/container.ts
+
+  # Phase 5 — Web UI
+  - src/presentation/web/components/common/feature-drawer/use-feature-actions.ts
+  - src/presentation/web/components/common/open-action-menu/open-action-menu.tsx
+  - src/presentation/web/components/common/open-action-menu/config.ts
+  - src/presentation/web/components/common/feature-drawer/feature-drawer.stories.tsx
+
+openQuestions: []
+
+content: |
+  ## Status
+
+  - **Phase:** Planning
+  - **Updated:** 2026-02-25
+
+  ## Architecture Overview
+
+  The code-server integration follows the established Clean Architecture pattern with dependencies
+  pointing inward. The feature introduces a new vertical slice through all four layers:
+
+  **Domain Layer** — A `CodeServerInstance` TypeSpec value object and `CodeServerInstanceStatus` enum
+  define the data shape for instance state (PID, port, feature ID, worktree path, status, timestamps).
+  This is a value object (not entity) because it has no independent business behavior — it is
+  process state managed entirely by the infrastructure service.
+
+  **Application Layer** — An `ICodeServerManagerService` output port interface defines the contract
+  for process lifecycle management (start, stop, getStatus, listRunning, stopAll, reconcile). Three
+  thin use cases (Start, Stop, GetStatus) orchestrate validation (feature exists, tool installed)
+  before delegating to the service interface.
+
+  **Infrastructure Layer** — `CodeServerManagerService` implements the interface using Node.js
+  `child_process.spawn` with `detached: true` for process spawning, the existing `findAvailablePort()`
+  for port allocation starting at 13370, SQLite for state persistence via a new migration (v23 for
+  the instances table, v24 for the settings idle timeout column), and PID liveness checks via
+  `process.kill(pid, 0)` for reconciliation.
+
+  **Presentation Layer** — Three Next.js API routes (start, stop, status) expose the use cases.
+  The feature drawer's existing `OpenActionMenu` gains a "Browser Editor" dropdown item that triggers
+  start/stop and opens code-server in a new browser tab.
+
+  ### Integration with Existing Systems
+
+  | System | Integration Point |
+  | ------ | ----------------- |
+  | Tool metadata | New `code-server.json` in tools/ — installation detection, tools page listing |
+  | Port service | Reuse `findAvailablePort()` starting at 13370 |
+  | PID liveness | Reuse `process.kill(pid, 0)` pattern from DaemonPidService |
+  | Process spawn | Follow `spawn(detached: true, unref())` pattern from FeatureAgentProcessService |
+  | SQLite migrations | Add v23 (instances table) and v24 (settings column) |
+  | DI container | Register service + use cases with string-token aliases |
+  | Settings entity | Add `codeServer` nested config section with `idleTimeoutSeconds` |
+  | Feature drawer | Extend OpenActionMenu with "Browser Editor" item |
+
+  ## Key Design Decisions
+
+  ### 1. spawn() with detached:true for Process Management
+  Code-server is an external binary, so `spawn()` (not `fork()`) is the correct Node.js API.
+  Detached mode allows the process to outlive the spawning request handler and survive daemon
+  restarts. This is the exact pattern used by FeatureAgentProcessService for background workers.
+  `child.unref()` ensures the parent process can exit cleanly.
+
+  ### 2. SQLite for Instance State Persistence
+  Multi-record state with querying needs (find by featureId, list all running) naturally fits
+  SQLite, which is already the primary persistence layer (22 migrations). A JSON state file
+  would be insufficient for concurrent instances. Migration v23 creates the instances table
+  with a UNIQUE constraint on feature_id for idempotent starts.
+
+  ### 3. Port 13370 Start Range
+  Well above the daemon port range (4050+) and common dev server ports (3000-8080). The existing
+  `findAvailablePort()` function handles sequential probing with up to 20 attempts, matching NFR-8.
+
+  ### 4. SIGTERM → 5s → SIGKILL Shutdown
+  Industry-standard graceful shutdown (Docker, Kubernetes, systemd). code-server handles SIGTERM
+  for state saving. The 5-second timeout balances cleanup time vs user wait time.
+
+  ### 5. Value Object (Not Entity) for CodeServerInstance
+  CodeServerInstance is ephemeral process state with no business logic or domain events. It follows
+  the pattern of existing value objects (ToolInstallationStatus, ToolInstallCommand). The manager
+  service owns all lifecycle behavior.
+
+  ### 6. OpenActionMenu Integration (Not Separate Button)
+  The feature drawer already has an "Open" dropdown containing IDE, Terminal, Specs Folder, and
+  Copy Path actions. Adding "Browser Editor" as another DropdownMenuItem is visually consistent,
+  discoverable, and avoids redundant UI patterns.
+
+  ### 7. On-Demand Status Fetching (Not Polling)
+  Status is fetched when the drawer opens and after start/stop actions. This avoids continuous
+  polling overhead for state that changes infrequently. External changes (crash, idle timeout)
+  are caught on the next drawer open.
+
+  ### 8. Shared Extensions, Per-Instance User Data
+  Extensions are heavyweight and should be installed once (`--extensions-dir ~/.shep/code-server/extensions/`).
+  Workspace state is per-feature (`--user-data-dir ~/.shep/code-server/user-data/<featureId>/`).
+
+  ## Implementation Strategy
+
+  The five phases are ordered by dependency — each phase builds on the previous:
+
+  **Phase 1 (Foundation)** comes first because it produces the types, schema, and metadata that
+  all subsequent phases consume. The TypeSpec value object generates types used by the mapper,
+  service, and use cases. The SQLite migration creates the table used by the service. The tool
+  metadata enables installation detection used by the UI.
+
+  **Phase 2 (Service Layer)** is the highest-complexity phase and the core of the feature. It
+  depends on Phase 1's types and schema. The service encapsulates all process lifecycle logic
+  (spawn, track, stop, reconcile) behind an interface that use cases and tests can mock.
+
+  **Phase 3 (Use Cases)** depends on Phase 2's interface. The use cases are thin orchestrators
+  that validate preconditions (feature exists, tool installed) before delegating to the service.
+  They are the boundary between presentation and infrastructure.
+
+  **Phase 4 (API Routes)** depends on Phase 3's use cases. Routes are thin handlers that resolve
+  use cases via DI, validate request input, and return JSON responses.
+
+  **Phase 5 (Web UI)** depends on Phase 4's API routes. The UI calls the routes and displays
+  results. This phase also adds Storybook stories for all new/modified components.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | code-server not installed on host | Tool metadata enables install detection. UI disables button with tooltip. Start use case validates installation before spawning. |
+  | Port collisions with other services | Start at 13370, well above common ranges. findAvailablePort() probes up to 20 ports sequentially. |
+  | Orphaned processes after daemon restart | Reconciliation on service init: query "running" instances, check PID liveness, mark dead ones as stopped. |
+  | code-server crashes unexpectedly | Status check uses PID liveness. Dead PID → status updated to stopped. User can re-launch. |
+  | Resource exhaustion (300-500MB per instance) | Manual launch only (no auto-start). Log warning at 5+ simultaneous instances (NFR-9). Idle timeout default 30 min. |
+  | Race condition: duplicate start for same feature | Idempotent start: check for existing running instance first (UNIQUE constraint on feature_id). Return existing URL if alive. |
+  | Process stop hangs (SIGTERM not handled) | 5-second timeout with SIGKILL fallback ensures process always terminates. |
+  | TypeSpec compilation breaks existing types | Run `pnpm tsp:compile` after changes. Value object is additive (new model, no modifications to existing). |
+  | Migration conflicts with other branches | Use next sequential version (v23/v24). If conflict detected during merge, renumber. |
+
+  ---
+
+  _Plan complete — proceed to task breakdown_

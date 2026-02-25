@@ -1,0 +1,626 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: code-server-integration
+summary: >
+  20 tasks across 5 phases implementing code-server as a managed browser-based editor per feature
+  worktree. Phases progress from domain foundation through service implementation, use cases, API
+  routes, and web UI integration. Every code task includes TDD cycles (red-green-refactor).
+
+relatedFeatures: []
+technologies:
+  - code-server (coder/code-server v4.x)
+  - Node.js child_process.spawn
+  - better-sqlite3
+  - tsyringe
+  - Next.js App Router
+  - React/shadcn-ui
+  - TypeSpec
+  - Lucide React
+
+relatedLinks:
+  - https://github.com/coder/code-server
+
+tasks:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Phase 1 — Foundation: Domain Model, Tool Metadata & Persistence
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Define CodeServerInstance TypeSpec value object'
+    description: >
+      Create the CodeServerInstance value object and CodeServerInstanceStatus enum in TypeSpec.
+      This defines the canonical data shape used by the mapper, service, use cases, and API
+      responses. Add the new file to the value-objects index.tsp and compile.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'CodeServerInstance model defined in tsp/domain/value-objects/code-server-instance.tsp with fields: id, featureId, pid, port, worktreePath, status, startedAt, stoppedAt (optional)'
+      - 'CodeServerInstanceStatus enum defined with running and stopped values'
+      - 'value-objects/index.tsp imports the new file'
+      - 'pnpm tsp:compile succeeds and generates types in domain/generated/output.ts'
+      - 'No modifications to existing TypeSpec models'
+    tdd:
+      red:
+        - 'Run pnpm tsp:compile — should succeed (baseline). Verify CodeServerInstance type does not exist in generated output'
+      green:
+        - 'Create code-server-instance.tsp with @doc annotations, CodeServerInstanceStatus enum, and CodeServerInstance model'
+        - 'Add import to value-objects/index.tsp'
+        - 'Run pnpm tsp:compile — verify CodeServerInstance and CodeServerInstanceStatus appear in generated output.ts'
+      refactor:
+        - 'Review @doc annotations for clarity and consistency with existing value objects'
+    estimatedEffort: '30min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Add code-server.json tool metadata'
+    description: >
+      Create the code-server tool metadata JSON file following the existing schema pattern. This
+      enables installation detection, tools page listing, and basic launch from the tools page.
+      The file is loaded dynamically by tool-metadata.ts — no code changes needed for discovery.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'code-server.json exists in packages/core/src/infrastructure/services/tool-installer/tools/'
+      - 'Fields: name, summary, description, tags (["ide"]), iconUrl, binary ("code-server"), packageManager, commands (darwin: brew, linux: curl), timeout, documentationUrl, verifyCommand ("code-server --version"), autoInstall, openDirectory'
+      - 'code-server appears in tools list when tool metadata is loaded'
+    tdd:
+      red:
+        - 'Write test that loads tool metadata and asserts code-server tool exists with correct binary and tags'
+      green:
+        - 'Create code-server.json with all required fields following the existing tool schema'
+      refactor:
+        - 'Verify description text is clear and consistent with other tool descriptions'
+    estimatedEffort: '20min'
+
+  - id: task-3
+    phaseId: phase-1
+    title: 'Add CodeServerConfig to Settings TypeSpec model'
+    description: >
+      Extend the Settings TypeSpec entity with a new codeServer nested config section containing
+      idleTimeoutSeconds (default 1800). This follows the pattern of existing nested config
+      objects (models, environment, system, agent, workflow, notifications).
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'CodeServerConfig model defined in tsp/domain/entities/settings.tsp with idleTimeoutSeconds: int32 = 1800'
+      - 'Settings model includes codeServer: CodeServerConfig field'
+      - 'pnpm tsp:compile succeeds and generates the new types'
+    tdd:
+      red:
+        - 'Verify CodeServerConfig does not exist in generated output. Run pnpm tsp:compile as baseline'
+      green:
+        - 'Add CodeServerConfig model and codeServer field to Settings in settings.tsp'
+        - 'Run pnpm tsp:compile — verify types appear in output.ts'
+      refactor:
+        - 'Ensure @doc annotation describes the section purpose and default value'
+    estimatedEffort: '20min'
+
+  - id: task-4
+    phaseId: phase-1
+    title: 'Create SQLite migration v23 for code_server_instances table'
+    description: >
+      Add migration version 23 to create the code_server_instances table with columns: id (TEXT PK),
+      feature_id (TEXT UNIQUE), pid (INTEGER), port (INTEGER), worktree_path (TEXT), status (TEXT),
+      started_at (TEXT), stopped_at (TEXT nullable), created_at (INTEGER), updated_at (INTEGER).
+      Includes indexes on feature_id and status.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'Migration v23 added to MIGRATIONS array in migrations.ts'
+      - 'Creates code_server_instances table with all specified columns'
+      - 'UNIQUE constraint on feature_id column'
+      - 'Indexes on feature_id and status'
+      - 'Migration is idempotent (IF NOT EXISTS)'
+      - 'Existing tests pass — no regressions'
+    tdd:
+      red:
+        - 'Write test that runs migrations on a fresh in-memory database and asserts code_server_instances table exists with correct schema'
+      green:
+        - 'Add migration v23 to MIGRATIONS array with CREATE TABLE and CREATE INDEX statements'
+      refactor:
+        - 'Verify SQL formatting consistency with existing migrations'
+    estimatedEffort: '30min'
+
+  - id: task-5
+    phaseId: phase-1
+    title: 'Create SQLite migration v24 for settings idle timeout column'
+    description: >
+      Add migration version 24 to add cs_idle_timeout_seconds column to the settings table
+      with a default of 1800 (30 minutes). Update the settings mapper to include the new field
+      in toDatabase/fromDatabase conversions.
+    state: Todo
+    dependencies:
+      - task-3
+      - task-4
+    acceptanceCriteria:
+      - 'Migration v24 added to MIGRATIONS array'
+      - 'ALTER TABLE settings ADD COLUMN cs_idle_timeout_seconds INTEGER NOT NULL DEFAULT 1800'
+      - 'Settings mapper maps codeServer.idleTimeoutSeconds to/from cs_idle_timeout_seconds column'
+      - 'Existing settings tests pass — new field round-trips correctly'
+    tdd:
+      red:
+        - 'Write test that creates settings with codeServer.idleTimeoutSeconds, persists, and reads back — assert value preserved'
+        - 'Test default value (1800) is used when not explicitly set'
+      green:
+        - 'Add migration v24 with ALTER TABLE statement'
+        - 'Update settings mapper toDatabase to write cs_idle_timeout_seconds from codeServer.idleTimeoutSeconds'
+        - 'Update settings mapper fromDatabase to read cs_idle_timeout_seconds into codeServer.idleTimeoutSeconds'
+      refactor:
+        - 'Ensure default value handling is consistent with other settings defaults'
+    estimatedEffort: '30min'
+
+  - id: task-6
+    phaseId: phase-1
+    title: 'Create CodeServerInstance SQLite mapper'
+    description: >
+      Implement toDatabase and fromDatabase mapper functions for CodeServerInstance following the
+      existing mapper pattern. Maps between domain camelCase properties and snake_case SQL columns.
+      Handles date conversions and status enum mapping.
+    state: Todo
+    dependencies:
+      - task-1
+      - task-4
+    acceptanceCriteria:
+      - 'Mapper file exists at packages/core/src/infrastructure/persistence/sqlite/mappers/code-server-instance.mapper.ts'
+      - 'toDatabase maps CodeServerInstance → SQL row object (camelCase → snake_case)'
+      - 'fromDatabase maps SQL row → CodeServerInstance (snake_case → camelCase)'
+      - 'Date fields correctly converted (ISO strings for started_at/stopped_at, unix ms for created_at/updated_at)'
+      - 'Null handling for optional stopped_at field'
+    tdd:
+      red:
+        - 'Write test: create CodeServerInstance object → toDatabase → fromDatabase → assert equals original'
+        - 'Test null stoppedAt round-trip'
+        - 'Test status enum values round-trip correctly'
+      green:
+        - 'Implement toDatabase and fromDatabase functions following existing mapper patterns'
+      refactor:
+        - 'Extract date conversion helpers if duplicated with existing mappers'
+    estimatedEffort: '30min'
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Phase 2 — Service Layer: Interface & Infrastructure Implementation
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  - id: task-7
+    phaseId: phase-2
+    title: 'Define ICodeServerManagerService interface'
+    description: >
+      Create the application-layer output port interface for code-server process lifecycle
+      management. Defines the contract: start, stop, getStatus, listRunning, stopAll, reconcile.
+      Includes CodeServerStartResult type. Export from the services index.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Interface file at packages/core/src/application/ports/output/services/code-server-manager-service.interface.ts'
+      - 'ICodeServerManagerService interface with methods: start, stop, getStatus, listRunning, stopAll, reconcile'
+      - 'CodeServerStartResult type with url, port, pid, featureId fields'
+      - 'Exported from services/index.ts'
+      - 'JSDoc describing implementation requirements (consistent with existing interfaces)'
+    tdd: null
+    estimatedEffort: '20min'
+
+  - id: task-8
+    phaseId: phase-2
+    title: 'Implement CodeServerManagerService — start method'
+    description: >
+      Implement the start method: check for existing running instance (idempotent), allocate port
+      via findAvailablePort(13370), spawn code-server as detached child process with --bind-addr,
+      --auth none, --user-data-dir, --extensions-dir, --idle-timeout-seconds flags, persist
+      instance state to SQLite, return URL and port. Log stdout/stderr to file.
+    state: Todo
+    dependencies:
+      - task-6
+      - task-7
+    acceptanceCriteria:
+      - 'Service file at packages/core/src/infrastructure/services/code-server/code-server-manager.service.ts'
+      - 'start() is idempotent — returns existing instance URL if already running (PID alive)'
+      - 'Allocates port starting at 13370 via findAvailablePort()'
+      - 'Spawns code-server with correct flags: --bind-addr 127.0.0.1:<port> --auth none --user-data-dir --extensions-dir --idle-timeout-seconds'
+      - 'Process is detached (detached: true, child.unref())'
+      - 'stdout/stderr redirected to log file (~/.shep/logs/code-server-<featureId>.log)'
+      - 'Instance state persisted to SQLite with status "running"'
+      - 'Returns CodeServerStartResult with url, port, pid, featureId'
+    tdd:
+      red:
+        - 'Write test: call start() with valid featureId and worktreePath → assert returns CodeServerStartResult with url containing port and 127.0.0.1'
+        - 'Write test: call start() twice for same featureId → assert returns same URL (idempotent), spawn called only once'
+        - 'Write test: call start() for running instance with dead PID → assert spawns new instance (re-start after crash)'
+        - 'Write test: assert spawn called with correct flags (--bind-addr, --auth, --user-data-dir, --extensions-dir, --idle-timeout-seconds)'
+      green:
+        - 'Implement start() with port allocation, spawn, SQLite insert, and idempotency check'
+        - 'Mock child_process.spawn, findAvailablePort, and Database for unit tests'
+      refactor:
+        - 'Extract spawn flag construction into a private helper method'
+        - 'Extract log file path construction into a private helper'
+    estimatedEffort: '2h'
+
+  - id: task-9
+    phaseId: phase-2
+    title: 'Implement CodeServerManagerService — stop method'
+    description: >
+      Implement the stop method: find instance by featureId, send SIGTERM, wait up to 5 seconds,
+      send SIGKILL if still alive, update SQLite status to "stopped" with stopped_at timestamp.
+    state: Todo
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - 'stop() sends SIGTERM to the process PID'
+      - 'Waits up to 5 seconds for graceful shutdown'
+      - 'Sends SIGKILL if process still alive after timeout'
+      - 'Updates SQLite record: status = "stopped", stopped_at = now'
+      - 'No-op if instance not found or already stopped'
+      - 'Handles case where PID is already dead (process exited between check and signal)'
+    tdd:
+      red:
+        - 'Write test: call stop() for running instance → assert SIGTERM sent, status updated to stopped'
+        - 'Write test: call stop() when process does not respond to SIGTERM within 5s → assert SIGKILL sent'
+        - 'Write test: call stop() for non-existent featureId → assert no error (no-op)'
+        - 'Write test: call stop() for already-stopped instance → assert no-op'
+      green:
+        - 'Implement stop() with SIGTERM, setTimeout, SIGKILL fallback, and SQLite update'
+      refactor:
+        - 'Extract signal-and-wait logic into a private gracefulKill() helper'
+    estimatedEffort: '1h'
+
+  - id: task-10
+    phaseId: phase-2
+    title: 'Implement CodeServerManagerService — getStatus, listRunning, stopAll'
+    description: >
+      Implement the remaining service methods: getStatus queries SQLite and checks PID liveness,
+      listRunning returns all instances with status "running", stopAll calls stop() for each
+      running instance.
+    state: Todo
+    dependencies:
+      - task-9
+    acceptanceCriteria:
+      - 'getStatus() returns CodeServerInstance with live PID check, or null if not found'
+      - 'getStatus() auto-reconciles: if PID is dead but status is "running", updates to "stopped"'
+      - 'listRunning() returns all instances with status "running" from SQLite'
+      - 'stopAll() calls stop() for each running instance'
+      - 'stopAll() handles partial failures (logs errors, continues stopping remaining)'
+    tdd:
+      red:
+        - 'Write test: getStatus() for running instance with live PID → returns instance with status "running"'
+        - 'Write test: getStatus() for instance with dead PID → returns updated instance with status "stopped"'
+        - 'Write test: getStatus() for non-existent featureId → returns null'
+        - 'Write test: listRunning() returns only running instances (not stopped)'
+        - 'Write test: stopAll() stops all running instances'
+      green:
+        - 'Implement getStatus with SQLite query + PID liveness check'
+        - 'Implement listRunning with SQLite query WHERE status = "running"'
+        - 'Implement stopAll with loop over listRunning + stop()'
+      refactor:
+        - 'Extract PID liveness check into a private isAlive() method (matching DaemonPidService pattern)'
+    estimatedEffort: '1h'
+
+  - id: task-11
+    phaseId: phase-2
+    title: 'Implement CodeServerManagerService — reconcile method'
+    description: >
+      Implement startup reconciliation: query all instances with status "running" from SQLite,
+      check each PID liveness, mark dead ones as "stopped". This runs once on service
+      initialization to clean up stale state from daemon restarts.
+    state: Todo
+    dependencies:
+      - task-10
+    acceptanceCriteria:
+      - 'reconcile() queries all "running" instances from SQLite'
+      - 'Checks PID liveness for each instance via process.kill(pid, 0)'
+      - 'Marks instances with dead PIDs as "stopped" with stopped_at timestamp'
+      - 'Preserves instances with live PIDs (no changes)'
+      - 'Logs reconciliation results (N instances checked, M marked stopped)'
+    tdd:
+      red:
+        - 'Write test: 3 "running" instances in DB, 1 has dead PID → reconcile marks only the dead one as stopped'
+        - 'Write test: all instances alive → reconcile makes no changes'
+        - 'Write test: all instances dead → reconcile marks all as stopped'
+      green:
+        - 'Implement reconcile() with SQLite query, PID check loop, and batch update'
+      refactor:
+        - 'Ensure reconcile is called in constructor or init method for automatic startup cleanup'
+    estimatedEffort: '45min'
+
+  - id: task-12
+    phaseId: phase-2
+    title: 'Register CodeServerManagerService in DI container'
+    description: >
+      Register the CodeServerManagerService in the DI container using a factory pattern (needs
+      Database injection). Add string-token alias for web route resolution.
+    state: Todo
+    dependencies:
+      - task-11
+    acceptanceCriteria:
+      - 'container.ts registers CodeServerManagerService with factory pattern (receives Database)'
+      - 'String token "ICodeServerManagerService" resolves to the service'
+      - 'Service can be resolved via container.resolve("ICodeServerManagerService")'
+    tdd:
+      red:
+        - 'Write test: resolve "ICodeServerManagerService" from container → assert returns instance of CodeServerManagerService'
+      green:
+        - 'Add factory registration to container.ts following existing service patterns'
+      refactor:
+        - 'Verify registration order is consistent with existing services (grouped by layer)'
+    estimatedEffort: '20min'
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Phase 3 — Use Cases: Business Logic Orchestration
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  - id: task-13
+    phaseId: phase-3
+    title: 'Implement StartCodeServerUseCase'
+    description: >
+      Create the StartCodeServer use case that orchestrates: validate feature exists (via
+      IFeatureRepository), check code-server is installed (via tool availability), resolve worktree
+      path, read idle timeout from settings, delegate to ICodeServerManagerService.start(), return
+      URL and port.
+    state: Todo
+    dependencies:
+      - task-12
+    acceptanceCriteria:
+      - 'Use case at packages/core/src/application/use-cases/code-server/start-code-server.use-case.ts'
+      - '@injectable() class with execute() method'
+      - 'Validates feature exists via IFeatureRepository.findById()'
+      - 'Throws descriptive error if feature not found'
+      - 'Throws descriptive error if code-server not installed'
+      - 'Reads idle timeout from settings (ISettingsRepository)'
+      - 'Delegates to ICodeServerManagerService.start() with featureId and worktreePath'
+      - 'Returns { url, port } on success'
+    tdd:
+      red:
+        - 'Write test: valid feature + installed code-server → returns { url, port }'
+        - 'Write test: non-existent featureId → throws "Feature not found" error'
+        - 'Write test: code-server not installed → throws "code-server is not installed" error'
+        - 'Write test: verifies idle timeout is read from settings and passed to manager'
+      green:
+        - 'Implement use case with @inject dependencies and validation logic'
+        - 'Mock IFeatureRepository, ICodeServerManagerService, ISettingsRepository for tests'
+      refactor:
+        - 'Ensure error messages are user-friendly and actionable'
+    estimatedEffort: '1h'
+
+  - id: task-14
+    phaseId: phase-3
+    title: 'Implement StopCodeServerUseCase'
+    description: >
+      Create the StopCodeServer use case that delegates to ICodeServerManagerService.stop()
+      for a given feature ID.
+    state: Todo
+    dependencies:
+      - task-12
+    acceptanceCriteria:
+      - 'Use case at packages/core/src/application/use-cases/code-server/stop-code-server.use-case.ts'
+      - '@injectable() class with execute({ featureId }) method'
+      - 'Delegates to ICodeServerManagerService.stop(featureId)'
+      - 'Returns void on success'
+    tdd:
+      red:
+        - 'Write test: call execute with featureId → assert manager.stop() called with same featureId'
+      green:
+        - 'Implement thin use case with @inject and delegation'
+      refactor:
+        - 'Verify consistent pattern with other simple delegation use cases in codebase'
+    estimatedEffort: '20min'
+
+  - id: task-15
+    phaseId: phase-3
+    title: 'Implement GetCodeServerStatusUseCase'
+    description: >
+      Create the GetCodeServerStatus use case that delegates to
+      ICodeServerManagerService.getStatus() and returns structured status information.
+    state: Todo
+    dependencies:
+      - task-12
+    acceptanceCriteria:
+      - 'Use case at packages/core/src/application/use-cases/code-server/get-code-server-status.use-case.ts'
+      - '@injectable() class with execute({ featureId }) method'
+      - 'Delegates to ICodeServerManagerService.getStatus(featureId)'
+      - 'Returns { status, url?, port? } — null if no instance found'
+    tdd:
+      red:
+        - 'Write test: running instance → returns { status: "running", url, port }'
+        - 'Write test: stopped instance → returns { status: "stopped" }'
+        - 'Write test: no instance → returns null'
+      green:
+        - 'Implement use case with @inject and delegation'
+      refactor:
+        - 'Ensure return type is consistent and well-documented'
+    estimatedEffort: '20min'
+
+  - id: task-16
+    phaseId: phase-3
+    title: 'Register use cases in DI container'
+    description: >
+      Register all three code-server use cases in the DI container with string-token aliases
+      for web route resolution via resolve().
+    state: Todo
+    dependencies:
+      - task-13
+      - task-14
+      - task-15
+    acceptanceCriteria:
+      - 'StartCodeServerUseCase registered with string token'
+      - 'StopCodeServerUseCase registered with string token'
+      - 'GetCodeServerStatusUseCase registered with string token'
+      - 'All three resolvable via resolve() in web routes'
+    tdd:
+      red:
+        - 'Write test: resolve each use case string token from container → assert returns correct class instance'
+      green:
+        - 'Add registerSingleton entries to container.ts for all three use cases'
+      refactor:
+        - 'Group registrations with existing use case section in container.ts'
+    estimatedEffort: '15min'
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Phase 4 — API Routes: Web Endpoints
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  - id: task-17
+    phaseId: phase-4
+    title: 'Create POST /api/code-server/start route'
+    description: >
+      Create the Next.js API route that accepts { featureId, repositoryPath, branch }, resolves
+      StartCodeServerUseCase via DI, executes it, and returns { url, port } or error response.
+    state: Todo
+    dependencies:
+      - task-16
+    acceptanceCriteria:
+      - 'Route file at src/presentation/web/app/api/code-server/start/route.ts'
+      - 'Exports POST handler'
+      - 'Parses JSON body for featureId, repositoryPath, branch'
+      - 'Returns 400 if required fields missing'
+      - 'Returns 200 with { url, port } on success'
+      - 'Returns 404 if feature not found'
+      - 'Returns 500 with { error } on unexpected errors'
+    tdd:
+      red:
+        - 'Write test: POST with valid body → assert 200 with { url, port }'
+        - 'Write test: POST with missing featureId → assert 400'
+        - 'Write test: POST with non-existent feature → assert 404'
+      green:
+        - 'Implement route handler following existing route patterns (resolve, validate, execute, respond)'
+      refactor:
+        - 'Ensure error responses are consistent with existing API error format'
+    estimatedEffort: '30min'
+
+  - id: task-18
+    phaseId: phase-4
+    title: 'Create POST /api/code-server/stop and GET /api/code-server/status routes'
+    description: >
+      Create the stop and status API routes. Stop accepts { featureId } and delegates to
+      StopCodeServerUseCase. Status accepts featureId query param and delegates to
+      GetCodeServerStatusUseCase.
+    state: Todo
+    dependencies:
+      - task-16
+    acceptanceCriteria:
+      - 'Stop route at src/presentation/web/app/api/code-server/stop/route.ts — POST handler'
+      - 'Status route at src/presentation/web/app/api/code-server/status/route.ts — GET handler'
+      - 'Stop returns 200 on success, 400 if featureId missing'
+      - 'Status returns 200 with instance data or null, 400 if featureId query param missing'
+      - 'Both handle errors with 500 and { error } response'
+    tdd:
+      red:
+        - 'Write test: POST /stop with featureId → assert 200'
+        - 'Write test: GET /status?featureId=xxx → assert 200 with status data'
+        - 'Write test: GET /status without featureId → assert 400'
+      green:
+        - 'Implement both routes following the same pattern as the start route'
+      refactor:
+        - 'Verify response shapes are consistent across all three code-server routes'
+    estimatedEffort: '30min'
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Phase 5 — Web UI: Feature Drawer Integration & Storybook
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  - id: task-19
+    phaseId: phase-5
+    title: 'Extend useFeatureActions hook and OpenActionMenu with browser editor'
+    description: >
+      Add browser editor actions to the useFeatureActions hook (start, stop, status fetch) and
+      extend OpenActionMenu with a "Browser Editor" DropdownMenuItem. The menu item shows a Globe
+      icon, supports loading/error/running states, opens code-server URL in new tab on start,
+      shows green dot when running, and is disabled when code-server is not installed.
+    state: Todo
+    dependencies:
+      - task-17
+      - task-18
+    acceptanceCriteria:
+      - 'useFeatureActions exposes: openBrowserEditor(), stopBrowserEditor(), browserEditorStatus, browserEditorLoading, browserEditorError'
+      - 'Status fetched on hook mount (GET /api/code-server/status) and after start/stop actions'
+      - 'OpenActionMenu shows "Browser Editor" item with Globe icon from lucide-react'
+      - 'Clicking "Browser Editor" calls POST /api/code-server/start and opens URL in new tab via window.open()'
+      - 'When running: menu item shows green dot indicator and changes to "Stop Browser Editor"'
+      - 'Loading state shows spinner icon (Loader2 with animate-spin)'
+      - 'Error state shows alert icon with auto-clear after 5 seconds'
+      - 'Disabled with tooltip when code-server is not installed'
+      - 'featureId passed from FeatureDrawerProps.selectedNode.featureId'
+    tdd:
+      red:
+        - 'Write test: render OpenActionMenu with browserEditorStatus = "stopped" → assert "Browser Editor" menu item visible with Globe icon'
+        - 'Write test: render with browserEditorStatus = "running" → assert "Stop Browser Editor" visible with green dot'
+        - 'Write test: render with browserEditorLoading = true → assert spinner icon shown'
+        - 'Write test: render with code-server not installed → assert menu item is disabled'
+        - 'Write test: click "Browser Editor" → assert start API called and window.open triggered'
+      green:
+        - 'Add browserEditor state to useFeatureActions (loading, error, status, actions)'
+        - 'Add status fetch on mount via useEffect'
+        - 'Add "Browser Editor" / "Stop Browser Editor" DropdownMenuItem to OpenActionMenu'
+        - 'Update config.ts with new action type'
+      refactor:
+        - 'Ensure loading/error pattern matches existing IDE/Terminal/Specs actions exactly'
+        - 'Extract browser editor menu item into a sub-component if it grows complex'
+    estimatedEffort: '2h'
+
+  - id: task-20
+    phaseId: phase-5
+    title: 'Create Storybook stories for OpenActionMenu and update feature drawer stories'
+    description: >
+      Create comprehensive Storybook stories for the OpenActionMenu component covering all browser
+      editor states. Update existing feature drawer stories to include browser editor state
+      variations. All states must be demonstrated: loading, running, stopped, error, not installed.
+    state: Todo
+    dependencies:
+      - task-19
+    acceptanceCriteria:
+      - 'OpenActionMenu stories file at src/presentation/web/components/common/open-action-menu/open-action-menu.stories.tsx'
+      - 'Stories cover: default (stopped), loading, running, error, not-installed states'
+      - 'Feature drawer stories updated to include browser editor state in fixtures'
+      - 'All stories render without errors in Storybook'
+      - 'Colocated with the component (same directory)'
+    tdd:
+      red:
+        - 'Run Storybook build — no new stories should exist yet for OpenActionMenu'
+      green:
+        - 'Create stories with fixture data for all browser editor states'
+        - 'Add DrawerTrigger helpers for interactive testing'
+        - 'Update feature drawer story fixtures to include browserEditorStatus variations'
+      refactor:
+        - 'Ensure story organization follows existing pattern (fixtures → helpers → stories → matrix)'
+    estimatedEffort: '1h'
+
+totalEstimate: '13h'
+
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation is broken into 20 tasks across 5 phases, totaling approximately 13 hours
+  of estimated effort.
+
+  **Phase 1 (Foundation)** establishes the data layer: TypeSpec value object for instance state,
+  code-server tool metadata JSON, Settings model extension for idle timeout, SQLite migrations
+  for the instances table and settings column, and the database mapper. These 6 tasks have minimal
+  interdependencies and produce the types and schema consumed by all subsequent phases.
+
+  **Phase 2 (Service Layer)** is the most complex phase with 6 tasks building the
+  CodeServerManagerService. The interface is defined first, then start/stop/getStatus/listRunning/
+  stopAll/reconcile methods are implemented incrementally with thorough TDD. Each method builds
+  on the previous. The service is registered in the DI container at the end of the phase.
+
+  **Phase 3 (Use Cases)** adds 3 thin use cases (Start, Stop, GetStatus) plus DI registration.
+  These orchestrate validation (feature exists, tool installed) before delegating to the service
+  interface. They are the seam between presentation and infrastructure layers.
+
+  **Phase 4 (API Routes)** exposes 3 Next.js endpoints (start, stop, status) that resolve use
+  cases via DI. These are straightforward request → validate → execute → respond handlers.
+
+  **Phase 5 (Web UI)** integrates the browser editor into the feature drawer's OpenActionMenu
+  with full state management (loading, running, stopped, error, not-installed) and comprehensive
+  Storybook stories. This is the user-facing culmination of all previous phases.
+
+  The ordering ensures each phase can be developed and tested independently — Phase 1 types are
+  verified by tsp:compile, Phase 2 services by unit tests with mocked dependencies, Phase 3 use
+  cases by unit tests with mocked services, Phase 4 routes by integration tests, and Phase 5 UI
+  by Storybook stories and component tests.
+
+  ---
+
+  _Task breakdown complete — ready for implementation_

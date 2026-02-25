@@ -1,0 +1,13 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: CodeServerConfig.yaml
+type: object
+properties:
+  idleTimeoutSeconds:
+    type: integer
+    minimum: -2147483648
+    maximum: 2147483647
+    default: 1800
+    description: "Idle timeout in seconds for code-server instances (default: 1800)"
+required:
+  - idleTimeoutSeconds
+description: code-server instance configuration

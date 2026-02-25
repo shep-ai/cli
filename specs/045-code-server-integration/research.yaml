@@ -1,0 +1,650 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: code-server-integration
+summary: >
+  Technical research for integrating code-server as a managed browser-based editor per feature
+  worktree. The implementation follows existing Clean Architecture patterns: a new
+  ICodeServerManagerService interface in the application layer, a CodeServerManagerService
+  infrastructure implementation using Node.js child_process.spawn for detached process lifecycle,
+  SQLite persistence via migration v23 for instance state, three thin use cases, Next.js API routes,
+  and feature drawer UI integration via an additional "Browser Editor" action in the existing
+  OpenActionMenu. No new external libraries required — all functionality leverages existing
+  codebase patterns (port service, PID liveness, tool metadata, DI container).
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - code-server (coder/code-server v4.x) - VS Code in the browser, installed via tool metadata system
+  - Node.js child_process.spawn - detached process spawning (existing pattern from FeatureAgentProcessService)
+  - better-sqlite3 - instance state persistence via new migration (existing dependency)
+  - tsyringe - DI registration for new service and use cases (existing dependency)
+  - Next.js App Router API routes - three new endpoints for start/stop/status
+  - React/shadcn-ui - feature drawer UI additions (Button, Tooltip, DropdownMenuItem)
+  - TypeSpec - domain model for CodeServerInstance value object
+  - Lucide React icons - Globe icon for browser editor action (existing dependency)
+
+relatedLinks:
+  - https://github.com/coder/code-server
+  - https://coder.com/docs/code-server/install
+  - https://coder.com/docs/code-server/guide
+
+decisions:
+  - title: 'Process Spawning Strategy'
+    chosen: 'Node.js child_process.spawn with detached:true + unref()'
+    rejected:
+      - 'fork() with IPC channel — fork() is for Node.js modules with IPC messaging; code-server is an external binary, not a .js module. spawn() is the correct API for external executables.'
+      - 'exec() with shell wrapper — exec() buffers all stdout/stderr in memory, inappropriate for a long-running server process that may run for hours. Also lacks detached process support.'
+      - 'Third-party process manager (pm2, forever) — adds unnecessary runtime dependency when Node.js built-in child_process already provides detached process management. The codebase already uses spawn successfully for IDE launchers and agent processes.'
+    rationale: >
+      spawn() with detached:true is the established pattern in this codebase for long-running
+      background processes. The FeatureAgentProcessService (feature-agent-process.service.ts)
+      demonstrates the exact pattern: spawn/fork detached, redirect stdio to log file, call
+      child.unref() so the parent can exit independently. code-server is an external binary
+      (not a Node module), so spawn() (not fork()) is the correct API. The process needs to
+      outlive the spawning request handler and survive daemon restarts, which detached mode
+      provides. Logging stdout/stderr to ~/.shep/logs/code-server-<featureId>.log follows the
+      existing worker log file pattern.
+
+  - title: 'Instance State Persistence'
+    chosen: 'SQLite table via migration (code_server_instances)'
+    rejected:
+      - 'JSON state file (like daemon.json) — while the daemon PID service uses a JSON file, that is for a single singleton record. code-server needs to track multiple concurrent instances with querying capability (find by featureId, list all running). SQLite is the natural choice for multi-record state that supports queries and transactions.'
+      - 'In-memory Map only (no persistence) — loses all instance tracking on daemon restart, making orphan cleanup impossible. The requirement explicitly states state must survive daemon restarts for reconciliation.'
+    rationale: >
+      The codebase uses SQLite (better-sqlite3) as its primary persistence layer with a
+      well-established migration system (22 versions so far). Adding migration v23 for a
+      code_server_instances table follows the exact same pattern. SQLite provides: transactional
+      writes for atomicity (FR-5 requirement), indexed queries by feature_id (UNIQUE constraint),
+      and survival across daemon restarts for reconciliation (FR-12). The existing mapper pattern
+      (toDatabase/fromDatabase) will be used for type conversion.
+
+  - title: 'Port Allocation Strategy'
+    chosen: 'Reuse existing findAvailablePort() starting at port 13370'
+    rejected:
+      - 'Let code-server pick its own port (--bind-addr 127.0.0.1:0) — while code-server supports binding to port 0 for OS-assigned ports, we need to know the port before the process fully starts to return it to the UI immediately. Parsing stdout for the port introduces race conditions and complexity. The existing port service is proven and deterministic.'
+      - 'Fixed port per feature (hash-based) — deterministic but risks collisions if the same feature is restarted rapidly. Sequential probing is simpler and proven in the codebase.'
+    rationale: >
+      The existing port.service.ts provides findAvailablePort() which uses the node:net try-bind
+      pattern (same as Vite). Starting at port 13370 (well above the daemon port range starting
+      at 4050) avoids collisions. The function supports a maxAttempts parameter (default 20),
+      matching NFR-8. This approach is proven in the codebase, avoids race conditions from port 0
+      auto-assignment, and gives us the port synchronously before spawning code-server.
+
+  - title: 'Service Layer Architecture'
+    chosen: 'ICodeServerManagerService interface in application/ports + implementation in infrastructure/services'
+    rejected:
+      - 'Inline logic in use cases — violates single responsibility and makes testing harder. The manager encapsulates process lifecycle, port allocation, and state persistence which are infrastructure concerns that should not leak into use cases.'
+      - 'Extend existing IIdeLauncherService — the IDE launcher is fire-and-forget (spawn and forget). code-server needs lifecycle management (start, stop, status, reconciliation) which is fundamentally different. Forcing this into the IDE launcher interface would violate interface segregation.'
+    rationale: >
+      Clean Architecture requires infrastructure concerns (process management, SQLite queries) to
+      live behind an application-layer interface. The codebase consistently follows this pattern:
+      IDaemonService, IToolInstallerService, IFeatureAgentProcessService all define interfaces in
+      application/ports/output/services/ with implementations in infrastructure/services/. The new
+      ICodeServerManagerService follows the same convention. Use cases depend only on the interface,
+      enabling unit testing with mocks.
+
+  - title: 'Settings Integration for Idle Timeout'
+    chosen: 'New codeServer config section in Settings TypeSpec model'
+    rejected:
+      - 'Hardcoded constant — violates FR-26 which requires the idle timeout to be configurable. Users with different workflows need different timeouts.'
+      - 'Separate config file (~/.shep/code-server-config.json) — fragments configuration across multiple storage mechanisms. The codebase already has a comprehensive Settings entity with TypeSpec model, SQLite persistence, and API routes. Adding a field there is consistent and discoverable.'
+      - 'Environment variable only — not persistent, not discoverable via UI, and inconsistent with how all other settings are managed in the codebase.'
+    rationale: >
+      The Settings entity (tsp/domain/entities/settings.tsp) is the single source of truth for
+      all user-configurable values. Adding a codeServer section with idleTimeoutSeconds follows
+      the pattern of existing nested config objects (models, environment, system, agent, workflow,
+      notifications). The setting will need a new SQLite migration to add the column, a TypeSpec
+      model update, and mapper updates — all following established patterns. The default of 1800
+      seconds (30 minutes) matches code-server's --idle-timeout-seconds behavior.
+
+  - title: 'Tool Metadata Registration Approach'
+    chosen: 'New code-server.json in tools/ directory with standard metadata schema'
+    rejected:
+      - 'Programmatic registration in container.ts — all other tools use JSON metadata files loaded dynamically by tool-metadata.ts. A programmatic exception for code-server would break the data-driven pattern and require code changes to modify tool configuration.'
+      - 'Custom tool type outside existing system — the existing tool metadata system already handles installation detection (verifyCommand), install commands, and directory opening. code-server fits naturally as an IDE-tagged tool.'
+    rationale: >
+      The tool metadata system (tool-metadata.ts) dynamically loads all .json files from the tools/
+      directory. There are currently 10 tool definitions following an identical schema. Adding
+      code-server.json with binary: "code-server", tags: ["ide"], verifyCommand:
+      "code-server --version", and platform-specific install commands follows the exact established
+      pattern. The openDirectory field can be set to enable basic launch-from-tools-page behavior,
+      while the dedicated CodeServerManagerService handles the richer lifecycle management.
+
+  - title: 'Graceful Shutdown Strategy'
+    chosen: 'SIGTERM with 5-second timeout, then SIGKILL fallback'
+    rejected:
+      - 'SIGKILL immediately — does not give code-server time to save state and close connections gracefully. Could corrupt workspace state files.'
+      - 'SIGTERM only with no timeout — if code-server hangs, the process would never terminate, leaking resources indefinitely.'
+      - 'SIGINT (Ctrl+C equivalent) — while code-server handles SIGINT, SIGTERM is the standard signal for graceful termination of server processes. SIGINT is conventionally for interactive terminal processes.'
+    rationale: >
+      SIGTERM → wait → SIGKILL is the industry standard for graceful process termination (used by
+      Docker, Kubernetes, systemd). code-server handles SIGTERM to save state and close connections.
+      The 5-second timeout (FR-9) balances giving code-server time to clean up while not blocking
+      the user. This pattern matches the conceptual approach used by the existing daemon shutdown
+      flow. Implementation: process.kill(pid, 'SIGTERM'), setTimeout 5000ms, check isAlive(),
+      if still alive process.kill(pid, 'SIGKILL').
+
+  - title: 'UI Integration Point'
+    chosen: 'Add "Browser Editor" as new DropdownMenuItem in existing OpenActionMenu'
+    rejected:
+      - 'Separate standalone button in feature drawer — the drawer already has an "Open" dropdown (OpenActionMenu) containing IDE, Terminal, and Specs Folder actions. Adding a separate button would break visual consistency and create redundant UI patterns.'
+      - 'New section/panel in feature drawer — over-engineering for a single action button. The action is conceptually identical to "Open in IDE" — it opens the code in an editor, just browser-based instead of desktop.'
+    rationale: >
+      The feature drawer renders a DrawerActions component that delegates to OpenActionMenu. This
+      dropdown already contains IDE, Terminal, Specs Folder, and Copy Path actions (open-action-menu.tsx).
+      Adding "Browser Editor" as a new DropdownMenuItem is the natural integration point — it is
+      visually consistent, discoverable, and follows the established action menu pattern. The menu
+      item will use the Globe icon from lucide-react (already a dependency) to distinguish it from
+      the desktop IDE action (Code2 icon). When code-server is not installed, the item will be
+      disabled with a tooltip.
+
+  - title: 'API Route Design'
+    chosen: 'Three dedicated routes under /api/code-server/ (start, stop, status)'
+    rejected:
+      - 'Single route with action parameter (/api/code-server?action=start) — conflates different HTTP semantics. Start and stop are mutations (POST), status is a query (GET). A single endpoint would need to handle all methods and actions, making it harder to reason about.'
+      - 'Extend existing /api/tools routes — the tools API handles generic tool listing, installation, and launching. code-server lifecycle management (start with state persistence, stop with graceful shutdown, status with PID liveness) is domain-specific and does not fit the generic tools contract.'
+    rationale: >
+      The codebase uses dedicated route files per operation, following Next.js App Router conventions.
+      Three routes provide clear separation: POST /api/code-server/start (mutation → create instance),
+      POST /api/code-server/stop (mutation → terminate instance), GET /api/code-server/status
+      (query → check liveness). Each route is a thin handler that resolves the corresponding use
+      case via DI and returns JSON. This matches the pattern of existing routes like /api/tools/[id]/
+      install and /api/tools/[id]/launch.
+
+  - title: 'TypeSpec Domain Model Approach'
+    chosen: 'CodeServerInstance as a value object (not entity) in tsp/domain/value-objects/'
+    rejected:
+      - 'Full entity extending BaseEntity — CodeServerInstance is process state tracked by the manager service, not a first-class domain entity with independent business behavior. It does not have domain events or business rules beyond simple state tracking. Entities are reserved for core domain objects like Feature, Repository, Settings.'
+      - 'No TypeSpec model (raw TypeScript types only) — violates the MANDATORY TypeSpec-first rule. All domain types must be defined in TypeSpec and compiled to generated output.ts.'
+    rationale: >
+      CodeServerInstance represents ephemeral process state (PID, port, status, timestamps) managed
+      entirely by the CodeServerManagerService. It has no independent business logic or domain events.
+      In DDD terms, this is a value object — a data structure whose identity comes from the featureId
+      it is associated with, not from its own id. The TypeSpec model defines the shape used in the
+      SQLite mapper, API responses, and UI state. Placing it in tsp/domain/value-objects/ alongside
+      ToolInstallationStatus and ToolInstallCommand follows the established value object pattern.
+
+  - title: 'Process Reconciliation on Startup'
+    chosen: 'Query all "running" instances from SQLite, check PID liveness, mark dead ones as stopped'
+    rejected:
+      - 'No reconciliation (trust persisted state) — after daemon restart, stored PIDs may reference dead processes. Without reconciliation, the UI would show instances as "running" when they are actually stopped, confusing users.'
+      - 'Kill all instances on startup (clean slate) — unnecessarily destroys running instances that survived the daemon restart. code-server processes are detached and can survive daemon restarts — reconciliation should preserve working instances.'
+    rationale: >
+      On service initialization, the manager queries all instances with status "running" from
+      SQLite, then checks each PID with process.kill(pid, 0) — the same isAlive() pattern used
+      by DaemonPidService and FeatureAgentProcessService. Instances with dead PIDs are updated
+      to "stopped" with stopped_at timestamp. This is the minimal correct reconciliation: preserve
+      live instances, clean up dead ones. The reconciliation runs once at service construction
+      time (or first method call), keeping it simple and predictable.
+
+# Open questions (all resolved)
+openQuestions:
+  - question: 'Should the code-server idle timeout setting live in a new codeServer section of Settings, or as a standalone settings field?'
+    resolved: true
+    options:
+      - option: 'New codeServer section in Settings model'
+        description: >
+          Add a CodeServerConfig nested model to Settings with idleTimeoutSeconds field.
+          Follows the pattern of existing nested config objects (models, environment, system,
+          agent, workflow, notifications). Extensible if more code-server settings are added later
+          (e.g., default extensions, theme). Requires TypeSpec model change, migration for new
+          column, and mapper update.
+        selected: true
+      - option: 'Flat field on Settings (codeServerIdleTimeoutSeconds)'
+        description: >
+          Add a single flat column to the settings table. Simpler migration but does not group
+          code-server settings logically. If more code-server settings are added later, they
+          would be scattered as unrelated flat fields.
+        selected: false
+      - option: 'Separate codeServer settings stored in the code_server_instances metadata'
+        description: >
+          Store timeout configuration per-instance rather than globally. Allows per-feature
+          timeouts but adds complexity. Most users want a single global default. Per-feature
+          override can be added later if needed.
+        selected: false
+    selectionRationale: >
+      A new codeServer section follows the established pattern where each functional area gets
+      its own nested config model in Settings (models: ModelConfiguration, agent: AgentConfig,
+      workflow: WorkflowConfig, etc.). This provides a clean namespace for future code-server
+      settings (default extensions, preferred theme, max concurrent instances) without polluting
+      the flat settings namespace. The migration adds a single column (cs_idle_timeout_seconds
+      INTEGER DEFAULT 1800) with a handler for safety.
+
+  - question: 'How should the feature drawer know the featureId to pass to the code-server API?'
+    resolved: true
+    options:
+      - option: 'Use selectedNode.featureId from FeatureDrawerProps (already available)'
+        description: >
+          The FeatureDrawer already receives selectedNode: FeatureNodeData which contains
+          featureId, repositoryPath, and branch. These are exactly the fields needed by the
+          POST /api/code-server/start endpoint. No additional data fetching or prop threading
+          required.
+        selected: true
+      - option: 'Fetch feature details via a separate API call from the drawer'
+        description: >
+          Make a GET /api/features/:id call to retrieve full feature details. Unnecessary
+          since FeatureNodeData already contains all required fields (featureId, repositoryPath,
+          branch).
+        selected: false
+      - option: 'Pass featureId as a URL param to a dedicated code-server page'
+        description: >
+          Navigate to a /code-server?featureId=xxx page that handles the launch. Over-engineered
+          for a single action button. The pattern of calling APIs from the drawer is already
+          established by openIde/openShell actions.
+        selected: false
+    selectionRationale: >
+      FeatureNodeData already contains featureId, repositoryPath, and branch — all the data
+      needed for the start API. The DrawerActions component (feature-drawer.tsx:276-292) receives
+      repositoryPath and branch, and could trivially receive featureId as well. The existing
+      useFeatureActions hook demonstrates the exact pattern: call an API with feature data,
+      manage loading/error state, clear errors after timeout.
+
+  - question: 'Should the code-server status be polled or fetched on-demand in the feature drawer?'
+    resolved: true
+    options:
+      - option: 'Fetch on-demand when drawer opens + after start/stop actions'
+        description: >
+          Call GET /api/code-server/status?featureId=xxx when the drawer opens for a feature,
+          and refetch after start/stop mutations. Simple, predictable, and avoids continuous
+          polling overhead. Status is only relevant when the user is looking at the drawer.
+        selected: true
+      - option: 'Continuous polling via setInterval (every 5 seconds)'
+        description: >
+          Poll status every 5 seconds while the drawer is open. Catches external state changes
+          (e.g., code-server crashes, idle timeout) automatically. But adds network overhead and
+          complexity for a state that changes infrequently.
+        selected: false
+      - option: 'Server-Sent Events (SSE) for real-time status updates'
+        description: >
+          Use the existing /api/agent-events SSE pattern to push code-server status changes.
+          Real-time but significantly more complex — requires adding code-server events to the
+          SSE polling loop, which currently only handles agent run and feature lifecycle events.
+        selected: false
+    selectionRationale: >
+      On-demand fetching is the simplest approach and matches how the feature drawer currently
+      works — it renders data passed via props without continuous polling. Status is fetched
+      when the drawer opens (via useEffect) and refetched after start/stop actions. The NFR-14
+      requirement for 2-second UI updates is naturally met since the user triggers start/stop
+      actions and sees the result immediately. External state changes (crash, idle timeout) are
+      caught on the next drawer open. If real-time updates become important, SSE can be added
+      later without changing the API contract.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Process Spawning Strategy
+
+  **Chosen:** Node.js child_process.spawn with detached:true + unref()
+
+  **Rejected:**
+  - fork() with IPC channel — code-server is an external binary, not a Node.js module
+  - exec() with shell wrapper — buffers all output in memory, inappropriate for long-running servers
+  - Third-party process manager (pm2) — unnecessary dependency when built-in child_process suffices
+
+  **Rationale:** spawn() with detached:true is the established pattern in this codebase
+  (FeatureAgentProcessService uses fork with detached:true for background workers). code-server
+  is an external binary, so spawn() is the correct API. The process needs to outlive request
+  handlers and survive daemon restarts, which detached mode provides.
+
+  ### 2. Instance State Persistence
+
+  **Chosen:** SQLite table via migration v23 (code_server_instances)
+
+  **Rejected:**
+  - JSON state file — insufficient for multi-record querying and concurrent instance tracking
+  - In-memory Map only — loses state on daemon restart, prevents orphan cleanup
+
+  **Rationale:** The codebase uses SQLite as its primary persistence layer with 22 existing
+  migrations. A new table provides transactional writes, indexed queries by feature_id, and
+  survival across daemon restarts for reconciliation.
+
+  ### 3. Port Allocation Strategy
+
+  **Chosen:** Reuse existing findAvailablePort() starting at port 13370
+
+  **Rejected:**
+  - Let code-server pick its own port (bind to 0) — requires parsing stdout for actual port
+  - Fixed port per feature (hash-based) — risks collisions on rapid restart
+
+  **Rationale:** The existing port.service.ts is proven and deterministic. Starting at 13370
+  avoids the daemon port range (4050+). The port is known before spawning, eliminating race
+  conditions.
+
+  ### 4. Service Layer Architecture
+
+  **Chosen:** ICodeServerManagerService interface in application/ports + implementation in infrastructure/services
+
+  **Rejected:**
+  - Inline logic in use cases — violates SRP, harder to test
+  - Extend IIdeLauncherService — fire-and-forget launcher is fundamentally different from lifecycle management
+
+  **Rationale:** Clean Architecture output port pattern (IDaemonService, IToolInstallerService,
+  IFeatureAgentProcessService) establishes this convention. Use cases depend only on the interface.
+
+  ### 5. Settings Integration for Idle Timeout
+
+  **Chosen:** New codeServer config section in Settings TypeSpec model
+
+  **Rejected:**
+  - Hardcoded constant — violates FR-26 configurability requirement
+  - Separate config file — fragments configuration storage
+  - Environment variable only — not persistent or discoverable via UI
+
+  **Rationale:** Settings entity is the single source of truth for all user configuration.
+  Adding a codeServer section follows the pattern of existing nested config objects.
+
+  ### 6. Tool Metadata Registration
+
+  **Chosen:** New code-server.json in tools/ directory
+
+  **Rejected:**
+  - Programmatic registration — breaks the data-driven JSON loading pattern
+  - Custom tool type — the existing metadata schema already handles all required fields
+
+  **Rationale:** The tool-metadata.ts loader dynamically discovers .json files in tools/.
+  code-server.json with binary: "code-server", tags: ["ide"], and platform-specific install
+  commands follows the exact pattern of the 10 existing tool definitions.
+
+  ### 7. Graceful Shutdown Strategy
+
+  **Chosen:** SIGTERM with 5-second timeout, then SIGKILL fallback
+
+  **Rejected:**
+  - SIGKILL immediately — no graceful cleanup, may corrupt state
+  - SIGTERM only — hangs forever if process is stuck
+  - SIGINT — SIGTERM is the standard for server termination
+
+  **Rationale:** SIGTERM → wait → SIGKILL is industry standard (Docker, Kubernetes, systemd).
+  code-server handles SIGTERM for graceful state saving.
+
+  ### 8. UI Integration Point
+
+  **Chosen:** Add "Browser Editor" as new DropdownMenuItem in existing OpenActionMenu
+
+  **Rejected:**
+  - Separate standalone button — breaks visual consistency with existing drawer pattern
+  - New section/panel — over-engineering for a single action
+
+  **Rationale:** The OpenActionMenu dropdown already contains IDE, Terminal, and Specs Folder
+  actions. Adding "Browser Editor" with a Globe icon is the natural, consistent integration point.
+
+  ### 9. API Route Design
+
+  **Chosen:** Three dedicated routes under /api/code-server/ (start, stop, status)
+
+  **Rejected:**
+  - Single route with action parameter — conflates HTTP semantics
+  - Extend existing /api/tools routes — code-server lifecycle is domain-specific
+
+  **Rationale:** Dedicated routes per operation follow Next.js App Router conventions and
+  match existing route patterns (tools/[id]/install, tools/[id]/launch).
+
+  ### 10. TypeSpec Model Approach
+
+  **Chosen:** CodeServerInstance as a value object in tsp/domain/value-objects/
+
+  **Rejected:**
+  - Full entity extending BaseEntity — it is process state, not a core domain entity
+  - Raw TypeScript types only — violates MANDATORY TypeSpec-first rule
+
+  **Rationale:** CodeServerInstance is ephemeral process state with no independent business logic.
+  It follows the pattern of existing value objects (ToolInstallationStatus, ToolInstallCommand).
+
+  ### 11. Process Reconciliation on Startup
+
+  **Chosen:** Query "running" instances from SQLite, check PID liveness, mark dead ones as stopped
+
+  **Rejected:**
+  - No reconciliation — stale state would confuse users
+  - Kill all instances on restart — destroys surviving instances unnecessarily
+
+  **Rationale:** Minimal correct reconciliation using the existing isAlive() pattern from
+  DaemonPidService and FeatureAgentProcessService.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | code-server (coder/code-server) | VS Code in the browser | Use (external binary) | Core requirement. Installed via tool metadata system, not as npm dependency. |
+  | Node.js child_process (built-in) | Process spawning | Use | Already used throughout codebase for agent processes and IDE launchers. No new dependency. |
+  | better-sqlite3 (existing) | Instance state persistence | Use | Already the primary persistence layer. Adding migration v23 follows existing pattern. |
+  | tsyringe (existing) | Dependency injection | Use | All services and use cases registered via tsyringe. No new DI patterns needed. |
+  | lucide-react (existing) | Globe icon for UI | Use | Already used for all drawer icons (Code2, Terminal, FolderOpen). Globe icon available. |
+  | node-pty / xterm.js | Embedded terminal for code-server | Reject | code-server provides its own terminal. No need for additional terminal libraries. |
+  | pm2 / forever | Process management | Reject | Overkill dependency. Built-in child_process with detached mode is sufficient and proven in codebase. |
+  | get-port (npm package) | Port finding | Reject | The existing port.service.ts provides equivalent functionality. No need for external dependency. |
+  | tree-kill (npm package) | Process tree killing | Reject | code-server is a single process, not a process tree. Standard process.kill(pid) with SIGTERM/SIGKILL is sufficient. |
+
+  ## Security Considerations
+
+  ### Localhost-Only Binding (NFR-6)
+  code-server instances MUST bind exclusively to 127.0.0.1 via `--bind-addr 127.0.0.1:<port>`.
+  The manager service hardcodes this — it is never configurable. This ensures code-server is
+  only accessible from the local machine, matching the Shep daemon's own localhost binding.
+
+  ### No Authentication for Localhost (Spec Decision)
+  Using `--auth none` is safe because the bind address is 127.0.0.1. This is the standard
+  pattern for local dev tools (Vite dev server, Storybook, webpack-dev-server). If Shep adds
+  remote/cloud support in the future, authentication must be revisited.
+
+  ### Feature ID Validation (NFR-7)
+  The StartCodeServerUseCase must validate that the requested featureId exists in the features
+  table and has a valid repositoryPath before spawning an instance. This prevents:
+  - Resource exhaustion from invalid feature IDs
+  - Path traversal via crafted worktree paths
+
+  ### Process Isolation
+  Each code-server instance runs with the same OS user as the Shep daemon. There is no
+  additional sandboxing. This is acceptable for a local development tool but should be
+  documented as a limitation.
+
+  ### Port Range Isolation (NFR-8)
+  Starting at port 13370 with up to 20 attempts keeps code-server ports well separated from:
+  - Shep daemon (4050+)
+  - Common development server ports (3000-8080)
+  - Ephemeral OS ports (32768+)
+
+  ## Performance Implications
+
+  ### Resource Consumption
+  Each code-server instance consumes 300-500MB RAM (documented in spec). The service logs a
+  warning when more than 5 instances are running simultaneously (NFR-9). This is a log warning,
+  not a hard limit — users with sufficient resources can run more.
+
+  ### Spawn Latency (NFR-1)
+  The critical path for start is: findAvailablePort() → spawn() → persist to SQLite → return URL.
+  - Port finding: ~10-50ms (sequential net.createServer attempts)
+  - Process spawn: ~100-200ms (OS fork + exec)
+  - SQLite insert: ~1-5ms (WAL mode)
+  - Total: well under the 3-second NFR-1 requirement
+
+  Note: The user may need to wait a few seconds after opening the tab for code-server to fully
+  initialize its HTTP server. The URL is returned immediately after spawn, and code-server's
+  own loading screen handles the initialization wait.
+
+  ### Database Impact
+  The code_server_instances table is expected to have very few rows (typically <10 concurrent
+  instances). Queries are fast even without optimization. A UNIQUE index on feature_id ensures
+  idempotent start operations without table scans.
+
+  ### Reconciliation Cost
+  Startup reconciliation queries all "running" instances and checks PID liveness. With <10
+  instances, this is sub-millisecond. process.kill(pid, 0) is a syscall with negligible overhead.
+
+  ## Architecture Notes
+
+  ### Clean Architecture Layer Mapping
+
+  ```
+  Domain Layer (tsp/domain/value-objects/)
+  ├── CodeServerInstance value object (TypeSpec → generated output.ts)
+  └── CodeServerInstanceStatus enum (running | stopped)
+
+  Application Layer (application/)
+  ├── ports/output/services/code-server-manager.interface.ts
+  │   └── ICodeServerManagerService { start, stop, getStatus, listRunning, stopAll }
+  ├── use-cases/code-server/
+  │   ├── start-code-server.use-case.ts
+  │   ├── stop-code-server.use-case.ts
+  │   └── get-code-server-status.use-case.ts
+
+  Infrastructure Layer (infrastructure/)
+  ├── services/code-server/code-server-manager.service.ts
+  │   └── CodeServerManagerService implements ICodeServerManagerService
+  ├── persistence/sqlite/migrations.ts (add migration v23)
+  ├── persistence/sqlite/mappers/code-server-instance.mapper.ts
+  └── di/container.ts (register service + use cases + string-token aliases)
+
+  Presentation Layer (presentation/)
+  ├── web/app/api/code-server/
+  │   ├── start/route.ts   (POST)
+  │   ├── stop/route.ts    (POST)
+  │   └── status/route.ts  (GET)
+  └── web/components/common/
+      ├── feature-drawer/use-feature-actions.ts (add browser editor action)
+      └── open-action-menu/ (add Browser Editor menu item)
+  ```
+
+  ### Integration with Existing Systems
+
+  **Tool Metadata System**: code-server.json enables the existing tools page to show
+  installation status, and allows users to install code-server via the established install flow.
+  The tool metadata openDirectory field enables basic "launch" from the tools page (though the
+  full lifecycle management goes through the dedicated manager service).
+
+  **DI Container**: New registrations follow the exact pattern of existing services:
+  - Factory registration for CodeServerManagerService (needs Database injection)
+  - Singleton registration for use cases
+  - String-token aliases for web route resolution
+
+  **Settings Service**: The idle timeout setting integrates with the existing Settings entity
+  flow: TypeSpec model → generated types → SQLite migration → mapper → repository → use case.
+
+  **Daemon Lifecycle**: The stopAll() method on the manager service should be called during
+  daemon shutdown to gracefully terminate all running instances. This can be wired into the
+  existing daemon shutdown flow.
+
+  ### SQLite Migration v23 Schema
+
+  ```sql
+  CREATE TABLE IF NOT EXISTS code_server_instances (
+    id TEXT PRIMARY KEY NOT NULL,
+    feature_id TEXT NOT NULL UNIQUE,
+    pid INTEGER NOT NULL,
+    port INTEGER NOT NULL,
+    worktree_path TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'running',
+    started_at TEXT NOT NULL,
+    stopped_at TEXT,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_cs_instances_feature ON code_server_instances(feature_id);
+  CREATE INDEX IF NOT EXISTS idx_cs_instances_status ON code_server_instances(status);
+  ```
+
+  The settings migration (v24) adds the idle timeout column:
+  ```sql
+  ALTER TABLE settings ADD COLUMN cs_idle_timeout_seconds INTEGER NOT NULL DEFAULT 1800;
+  ```
+
+  ### TypeSpec Value Object
+
+  ```typespec
+  // tsp/domain/value-objects/code-server-instance.tsp
+  @doc("Status of a code-server instance")
+  enum CodeServerInstanceStatus {
+    running: "running",
+    stopped: "stopped",
+  }
+
+  @doc("State of a managed code-server instance")
+  model CodeServerInstance {
+    id: string;
+    featureId: string;
+    pid: int32;
+    port: int32;
+    worktreePath: string;
+    status: CodeServerInstanceStatus;
+    startedAt: utcDateTime;
+    stoppedAt?: utcDateTime;
+  }
+  ```
+
+  ### code-server.json Tool Metadata
+
+  ```json
+  {
+    "name": "code-server",
+    "summary": "VS Code in the browser — run a full editor from any machine",
+    "description": "code-server allows you to run VS Code on any machine and access it through the browser. Get a consistent development environment with full VS Code functionality including extensions, terminal, and debugging.",
+    "tags": ["ide"],
+    "iconUrl": "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/vscode/vscode-original.svg",
+    "binary": "code-server",
+    "packageManager": "brew",
+    "commands": {
+      "linux": "curl -fsSL https://code-server.dev/install.sh | sh",
+      "darwin": "brew install code-server"
+    },
+    "timeout": 300000,
+    "documentationUrl": "https://coder.com/docs/code-server",
+    "verifyCommand": "code-server --version",
+    "autoInstall": true,
+    "openDirectory": "code-server --bind-addr 127.0.0.1:0 --auth none {dir}"
+  }
+  ```
+
+  ### ICodeServerManagerService Interface
+
+  ```typescript
+  interface CodeServerStartResult {
+    url: string;
+    port: number;
+    pid: number;
+    featureId: string;
+  }
+
+  interface ICodeServerManagerService {
+    start(featureId: string, worktreePath: string): Promise<CodeServerStartResult>;
+    stop(featureId: string): Promise<void>;
+    getStatus(featureId: string): Promise<CodeServerInstance | null>;
+    listRunning(): Promise<CodeServerInstance[]>;
+    stopAll(): Promise<void>;
+    reconcile(): Promise<void>;
+  }
+  ```
+
+  ### Use Case Contracts
+
+  **StartCodeServerUseCase.execute(input)**:
+  - Input: `{ featureId: string, repositoryPath: string, branch: string }`
+  - Validates feature exists via IFeatureRepository
+  - Checks code-server installed via IToolInstallerService
+  - Computes worktree path from repositoryPath + branch
+  - Delegates to ICodeServerManagerService.start()
+  - Returns: `{ url: string, port: number }` or throws
+
+  **StopCodeServerUseCase.execute(input)**:
+  - Input: `{ featureId: string }`
+  - Delegates to ICodeServerManagerService.stop()
+  - Returns: void or throws
+
+  **GetCodeServerStatusUseCase.execute(input)**:
+  - Input: `{ featureId: string }`
+  - Delegates to ICodeServerManagerService.getStatus()
+  - Returns: `{ status: 'running' | 'stopped' | null, url?: string, port?: number }`
+
+  ### UI State Flow
+
+  1. Drawer opens → useEffect fetches status for featureId
+  2. Status = null/stopped → Show "Browser Editor" menu item (enabled if code-server installed)
+  3. User clicks "Browser Editor" → loading state → POST /api/code-server/start
+  4. Success → window.open(url, '_blank') → refetch status → show green dot + "Stop" option
+  5. User clicks "Stop Browser Editor" → POST /api/code-server/stop → refetch status → green dot removed
+  6. Error → show error state with auto-clear after 5 seconds (existing pattern from useFeatureActions)
+
+  ---
+
+  _Research complete — proceed with planning phase_

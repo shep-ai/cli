@@ -372,6 +372,33 @@ ALTER TABLE features ADD COLUMN ci_fix_history TEXT;
       add('notif_evt_pr_checks_failed');
     },
   },
+  {
+    version: 23,
+    sql: `
+-- Migration 023: Create code_server_instances table for managed code-server process state
+CREATE TABLE IF NOT EXISTS code_server_instances (
+  id TEXT PRIMARY KEY NOT NULL,
+  feature_id TEXT NOT NULL UNIQUE,
+  pid INTEGER NOT NULL,
+  port INTEGER NOT NULL,
+  worktree_path TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'running',
+  started_at TEXT NOT NULL,
+  stopped_at TEXT,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_cs_instances_feature ON code_server_instances(feature_id);
+CREATE INDEX IF NOT EXISTS idx_cs_instances_status ON code_server_instances(status);
+`,
+  },
+  {
+    version: 24,
+    sql: `
+-- Migration 024: Add code-server idle timeout setting to settings table
+ALTER TABLE settings ADD COLUMN cs_idle_timeout_seconds INTEGER NOT NULL DEFAULT 1800;
+`,
+  },
 ];
 
 /**

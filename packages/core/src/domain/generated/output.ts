@@ -362,6 +362,16 @@ export type WorkflowConfig = {
    */
   ciLogMaxChars?: number;
 };
+
+/**
+ * code-server instance configuration
+ */
+export type CodeServerConfig = {
+  /**
+   * Idle timeout in seconds for code-server instances (default: 1800)
+   */
+  idleTimeoutSeconds: number;
+};
 export enum AgentType {
   ClaudeCode = 'claude-code',
   GeminiCli = 'gemini-cli',
@@ -499,6 +509,10 @@ export type Settings = BaseEntity & {
    * Global workflow configuration defaults
    */
   workflow: WorkflowConfig;
+  /**
+   * code-server instance configuration
+   */
+  codeServer: CodeServerConfig;
   /**
    * Whether first-run onboarding has been completed (default: false)
    */
@@ -1451,6 +1465,48 @@ export type ToolInstallCommand = {
    * Package manager identifier
    */
   packageManager: string;
+};
+export enum CodeServerInstanceStatus {
+  Running = 'running',
+  Stopped = 'stopped',
+}
+
+/**
+ * State of a managed code-server instance
+ */
+export type CodeServerInstance = {
+  /**
+   * Unique identifier for this instance record
+   */
+  id: string;
+  /**
+   * Feature ID this instance is scoped to
+   */
+  featureId: string;
+  /**
+   * OS process ID of the code-server process
+   */
+  pid: number;
+  /**
+   * Port code-server is bound to on localhost
+   */
+  port: number;
+  /**
+   * Absolute path to the feature worktree
+   */
+  worktreePath: string;
+  /**
+   * Current lifecycle status
+   */
+  status: CodeServerInstanceStatus;
+  /**
+   * When the instance was started
+   */
+  startedAt: any;
+  /**
+   * When the instance was stopped (if stopped)
+   */
+  stoppedAt?: any;
 };
 export enum AgentStatus {
   Idle = 'Idle',

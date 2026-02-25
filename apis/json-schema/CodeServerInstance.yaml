@@ -1,0 +1,43 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: CodeServerInstance.yaml
+type: object
+properties:
+  id:
+    type: string
+    description: Unique identifier for this instance record
+  featureId:
+    type: string
+    description: Feature ID this instance is scoped to
+  pid:
+    type: integer
+    minimum: -2147483648
+    maximum: 2147483647
+    description: OS process ID of the code-server process
+  port:
+    type: integer
+    minimum: -2147483648
+    maximum: 2147483647
+    description: Port code-server is bound to on localhost
+  worktreePath:
+    type: string
+    description: Absolute path to the feature worktree
+  status:
+    $ref: CodeServerInstanceStatus.yaml
+    description: Current lifecycle status
+  startedAt:
+    type: string
+    format: date-time
+    description: When the instance was started
+  stoppedAt:
+    type: string
+    format: date-time
+    description: When the instance was stopped (if stopped)
+required:
+  - id
+  - featureId
+  - pid
+  - port
+  - worktreePath
+  - status
+  - startedAt
+description: State of a managed code-server instance

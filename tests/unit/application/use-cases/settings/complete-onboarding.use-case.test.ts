@@ -51,6 +51,9 @@ function createTestSettings(overrides: Partial<Settings> = {}): Settings {
         pushOnImplementationComplete: false,
       },
     },
+    codeServer: {
+      idleTimeoutSeconds: 1800,
+    },
     onboardingComplete: false,
     ...overrides,
   };

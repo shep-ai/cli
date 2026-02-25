@@ -1,0 +1,383 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: code-server-integration
+number: 045
+branch: feat/045-code-server-integration
+oneLiner: In-browser VS Code editor per feature/repo via code-server process management
+userQuery: >
+  Feature: Add support to in browser code editor with code-server per feature / repo
+  https://github.com/coder/code-server
+summary: >
+  Integrate code-server (VS Code in the browser) as a managed tool within Shep, enabling users to
+  launch per-feature or per-repo browser-based code editing sessions. This extends the existing
+  JSON-driven tool metadata system with a new code-server manager service that handles instance
+  lifecycle (spawn, track, stop), dynamic port allocation, and provides new-tab access from the
+  web UI feature drawer. Instances are scoped per feature worktree, require manual launch, and
+  auto-shutdown after configurable idle timeout to conserve resources.
+phase: Requirements
+sizeEstimate: L
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - code-server (coder/code-server) - VS Code in the browser
+  - Node.js child_process - process spawning and lifecycle management
+  - Next.js API routes - backend endpoints for code-server management
+  - React/shadcn-ui - UI components for launch controls and status display
+  - tsyringe - dependency injection for new service registration
+  - SQLite - persistence of code-server instance state via migration
+  - TypeSpec - domain model definitions for CodeServerInstance state
+
+relatedLinks:
+  - https://github.com/coder/code-server
+  - https://coder.com/docs/code-server
+
+# Open questions (all resolved with AI recommendations)
+openQuestions:
+  - question: 'Should code-server instances be embedded via iframe in the web UI or opened in a new browser tab?'
+    resolved: true
+    options:
+      - option: 'New tab only'
+        description: >
+          Opens code-server in a new browser tab. Simplest to implement, avoids iframe security
+          complications (CSP, X-Frame-Options), provides full-screen VS Code experience, and
+          sidesteps cross-origin keyboard shortcut conflicts. Users get a native VS Code feel.
+        selected: true
+      - option: 'Iframe embed only'
+        description: >
+          Embeds code-server in an iframe within the feature drawer. Keeps users in the Shep UI
+          but creates a cramped editing experience, requires CSP configuration, and VS Code
+          keyboard shortcuts may conflict with the host page.
+        selected: false
+      - option: 'Both (new tab + iframe toggle)'
+        description: >
+          Offers both options via a toggle. Maximum flexibility but doubles the UI surface area,
+          increases complexity, and the iframe experience is inherently limited by viewport size.
+        selected: false
+    selectionRationale: >
+      New tab is recommended because code-server provides a full VS Code experience that benefits
+      from the entire browser viewport. Iframes introduce CSP/X-Frame-Options configuration overhead,
+      keyboard shortcut conflicts, and a cramped editing area. The Shep web UI already opens desktop
+      IDEs externally — opening a browser tab is the natural equivalent for a browser-based editor.
+      Iframe support can be added in a future iteration if demand exists.
+    answer: 'New tab only'
+
+  - question: 'Should code-server instances be scoped per feature worktree, per repo, or both?'
+    resolved: true
+    options:
+      - option: 'Per feature worktree'
+        description: >
+          One code-server instance per feature worktree. Aligns with Shep's per-feature isolation
+          model where each feature gets its own git worktree at ~/.shep/repos/<hash>/wt/<slug>/.
+          Natural 1:1 mapping between features and editor sessions. Users see only the files
+          relevant to their current feature.
+        selected: true
+      - option: 'Per repository'
+        description: >
+          One code-server instance per repository root. Simpler resource usage (fewer instances)
+          but users see the entire repo rather than the feature-specific worktree. Does not align
+          with the per-feature isolation model that is central to Shep.
+        selected: false
+      - option: 'Both (user choice)'
+        description: >
+          Allow users to choose scope at launch time. Maximum flexibility but adds UI complexity
+          and makes the mental model harder to understand.
+        selected: false
+    selectionRationale: >
+      Per feature worktree aligns with Shep's core isolation model. Every feature already gets a
+      dedicated worktree at ~/.shep/repos/<hash>/wt/<slug>/. Launching code-server pointed at this
+      path gives users an editor focused on exactly the files they're working on, consistent with
+      how desktop IDEs are already launched. Per-repo support can be added later if needed.
+    answer: 'Per feature worktree'
+
+  - question: 'What authentication mode should code-server use?'
+    resolved: true
+    options:
+      - option: 'No auth for localhost (--auth none)'
+        description: >
+          Disables authentication when binding to 127.0.0.1. Simplest UX — users click and
+          immediately get VS Code. Safe because code-server is only accessible from the local
+          machine. This is the standard approach for local dev tools (Vite, Storybook, etc.).
+        selected: true
+      - option: 'Password auth always'
+        description: >
+          Requires password authentication even on localhost. Adds friction to every launch.
+          Necessary for remote access but overkill for local-only use. Password must be stored
+          and communicated to the user.
+        selected: false
+      - option: 'Configurable (none for local, password for remote)'
+        description: >
+          Auth mode is configurable in settings. Adds implementation complexity for a setting
+          most users won't need since Shep currently only supports local use.
+        selected: false
+    selectionRationale: >
+      No auth for localhost is the standard pattern for local dev tools. Shep currently only
+      supports local execution — the daemon and web UI bind to 127.0.0.1. Adding authentication
+      for a locally-bound service adds UX friction with no security benefit. When/if remote access
+      is added to Shep, authentication can be enabled at that point.
+    answer: 'No auth for localhost (--auth none)'
+
+  - question: 'Should code-server instances auto-start when a feature is opened, or require manual launch?'
+    resolved: true
+    options:
+      - option: 'Manual launch only'
+        description: >
+          User must explicitly click "Open in Browser Editor" to start a code-server instance.
+          Conserves resources (300-500MB RAM per instance), gives users control, and avoids
+          surprising resource consumption. Consistent with how desktop IDE launch works today.
+        selected: true
+      - option: 'Auto-start on feature open'
+        description: >
+          Automatically starts a code-server instance when a feature is viewed in the drawer.
+          Reduces clicks but consumes significant resources for features the user may only be
+          browsing. Could start many instances if user is reviewing multiple features.
+        selected: false
+      - option: 'Configurable (default manual)'
+        description: >
+          Setting to toggle auto-start behavior. Adds settings complexity for an edge case.
+          Most users will want manual control given the resource cost.
+        selected: false
+    selectionRationale: >
+      Manual launch is recommended because each code-server instance consumes 300-500MB RAM.
+      Auto-starting would create instances for features the user is merely browsing, leading to
+      unexpected resource consumption. The current desktop IDE launch is already manual (click to
+      open). Manual launch keeps the interaction model consistent and resource usage predictable.
+    answer: 'Manual launch only'
+
+  - question: 'Should idle timeouts auto-shutdown inactive code-server instances?'
+    resolved: true
+    options:
+      - option: 'Yes, with configurable timeout (default 30 minutes)'
+        description: >
+          code-server supports --idle-timeout-seconds natively. After no editor activity for the
+          configured duration, the process exits automatically. Prevents resource leaks from
+          forgotten instances. The 30-minute default balances convenience (users stepping away
+          briefly) with resource conservation. Users can override via settings.
+        selected: true
+      - option: 'No idle timeout'
+        description: >
+          Instances run until explicitly stopped or Shep shuts down. Simpler implementation but
+          risks resource leaks. Users who forget to stop instances accumulate memory usage.
+        selected: false
+      - option: 'Fixed timeout (non-configurable)'
+        description: >
+          Hardcoded timeout value. Simpler than configurable but removes user control over a
+          setting that depends on workflow (some users step away frequently).
+        selected: false
+    selectionRationale: >
+      Idle timeout with a sensible default is recommended because code-server natively supports
+      --idle-timeout-seconds, making implementation trivial. Forgotten instances are a real resource
+      leak risk at 300-500MB each. A 30-minute default covers normal work breaks while reclaiming
+      resources from truly abandoned sessions. Making it configurable respects diverse workflows.
+    answer: 'Yes, with configurable timeout (default 30 minutes)'
+
+  - question: 'How should code-server extension and settings isolation work across instances?'
+    resolved: true
+    options:
+      - option: 'Shared extensions, per-instance user data'
+        description: >
+          All instances share a single extensions directory (~/.shep/code-server/extensions/) but
+          each gets its own user-data-dir for workspace state, recently opened files, etc. This
+          means extensions are installed once and available everywhere, while workspace-specific
+          state (open tabs, cursor position) is isolated per feature. Reduces disk usage and
+          install time.
+        selected: true
+      - option: 'Fully isolated (separate extensions and user data per instance)'
+        description: >
+          Each instance gets its own extensions and user data directories. Maximum isolation but
+          means extensions must be installed separately for each feature, consuming more disk space
+          and requiring repeated setup.
+        selected: false
+      - option: 'Fully shared (single extensions and user data directory)'
+        description: >
+          All instances share everything. Simplest but workspace state (open tabs, settings) from
+          one feature leaks into another, creating a confusing experience.
+        selected: false
+    selectionRationale: >
+      Shared extensions with per-instance user data strikes the optimal balance. Extensions are
+      heavyweight (hundreds of MB) and users want the same set everywhere — installing once and
+      sharing avoids redundant disk usage and setup friction. Workspace state (open files, layout,
+      cursor positions) is inherently per-feature and should be isolated so switching between
+      features preserves each workspace's context. code-server supports this via separate
+      --extensions-dir and --user-data-dir flags.
+    answer: 'Shared extensions, per-instance user data'
+
+content: |
+  ## Problem Statement
+
+  Currently, Shep launches external desktop IDEs (VS Code, Cursor, Zed) via the tool launcher system
+  to open feature worktrees. This requires users to have desktop IDEs installed and cannot provide
+  an integrated in-browser editing experience. Users working remotely, on lightweight machines, or
+  who want a browser-native workflow have no option for code editing directly within the Shep web UI.
+
+  code-server (https://github.com/coder/code-server) runs VS Code as a Node.js HTTP server accessible
+  via any browser. By integrating code-server as a managed service, Shep can offer per-feature
+  browser-based editing sessions with full VS Code functionality including extensions, terminal, and
+  debugging — all without requiring a desktop IDE installation.
+
+  ## Success Criteria
+
+  - [ ] code-server appears in the tools page with correct installation status detection
+  - [ ] User can install code-server via the existing tool installer system
+  - [ ] User can click "Open in Browser Editor" in the feature drawer to launch a code-server instance for that feature's worktree
+  - [ ] code-server opens in a new browser tab at the allocated port with no-auth on localhost
+  - [ ] Multiple code-server instances can run simultaneously for different features on different ports
+  - [ ] Feature drawer shows running/stopped status indicator for code-server
+  - [ ] User can stop a running code-server instance from the feature drawer
+  - [ ] Instances auto-shutdown after 30 minutes of idle (configurable)
+  - [ ] Instances are cleaned up when Shep daemon shuts down (graceful SIGTERM, fallback SIGKILL)
+  - [ ] Instance state (PID, port, feature ID) persists across daemon restarts and is reconciled on startup
+  - [ ] All new code covered by unit tests following TDD (red-green-refactor)
+  - [ ] Storybook stories exist for all new/modified web UI components
+
+  ## Functional Requirements
+
+  ### Tool Registration
+
+  - **FR-1**: A `code-server.json` tool metadata file SHALL be added to the tools directory, defining the binary name (`code-server`), platform-specific install commands (brew for macOS, curl script for Linux), verify command, documentation URL, and tags (`["ide"]`).
+  - **FR-2**: The tool metadata SHALL include an `openDirectory` field (e.g., `code-server --bind-addr 127.0.0.1:0 {dir}`) so code-server appears as a launchable IDE in the existing tools system.
+  - **FR-3**: code-server SHALL appear on the tools page with accurate installation status (installed, not installed, unknown) detected via the existing `verifyCommand` mechanism.
+
+  ### Code-Server Manager Service
+
+  - **FR-4**: A new `ICodeServerManagerService` interface SHALL be defined in the application ports layer with operations: `start(featureId, worktreePath)`, `stop(featureId)`, `getStatus(featureId)`, `listRunning()`, and `stopAll()`.
+  - **FR-5**: The `start` operation SHALL allocate an available port via the existing `findAvailablePort()` service, spawn code-server as a detached child process bound to `127.0.0.1:<port>` with `--auth none`, and return the URL and port.
+  - **FR-6**: The `start` operation SHALL pass `--user-data-dir ~/.shep/code-server/user-data/<featureId>/` and `--extensions-dir ~/.shep/code-server/extensions/` to isolate workspace state per feature while sharing extensions.
+  - **FR-7**: The `start` operation SHALL pass `--idle-timeout-seconds <timeout>` where timeout is read from settings (default 1800 seconds / 30 minutes).
+  - **FR-8**: The `start` operation SHALL be idempotent — if an instance is already running for the given feature (verified by PID liveness check), it SHALL return the existing instance's URL rather than spawning a duplicate.
+  - **FR-9**: The `stop` operation SHALL send SIGTERM to the code-server process, wait up to 5 seconds for graceful shutdown, then send SIGKILL if the process is still alive.
+  - **FR-10**: The `getStatus` operation SHALL return the instance state (running, stopped, or unknown) by checking PID liveness and reconciling with persisted state.
+  - **FR-11**: The `stopAll` operation SHALL terminate all tracked code-server instances using the same graceful shutdown sequence as `stop`. This SHALL be called during daemon shutdown.
+  - **FR-12**: On service initialization, the manager SHALL reconcile persisted instance state with actual process liveness — marking instances with dead PIDs as stopped.
+
+  ### Persistence
+
+  - **FR-13**: A new SQLite migration SHALL create a `code_server_instances` table with columns: `id` (TEXT PK), `feature_id` (TEXT, unique), `pid` (INTEGER), `port` (INTEGER), `worktree_path` (TEXT), `status` (TEXT: 'running' | 'stopped'), `started_at` (TEXT ISO 8601), `stopped_at` (TEXT ISO 8601 nullable).
+  - **FR-14**: Instance state (PID, port, feature ID, worktree path, status, timestamps) SHALL be persisted to SQLite so that state survives daemon restarts and can be reconciled on startup.
+
+  ### Use Cases
+
+  - **FR-15**: A `StartCodeServerUseCase` SHALL orchestrate: validate code-server is installed → resolve worktree path for the feature → delegate to the manager service → return the URL or error.
+  - **FR-16**: A `StopCodeServerUseCase` SHALL delegate to the manager service to stop the instance for a given feature ID.
+  - **FR-17**: A `GetCodeServerStatusUseCase` SHALL return the current status (running with URL, or stopped) for a given feature ID.
+
+  ### API Routes
+
+  - **FR-18**: `POST /api/code-server/start` SHALL accept `{ featureId, repositoryPath, branch }`, resolve the worktree path, start a code-server instance, and return `{ url, port }` on success or an appropriate error response.
+  - **FR-19**: `POST /api/code-server/stop` SHALL accept `{ featureId }` and stop the running instance.
+  - **FR-20**: `GET /api/code-server/status?featureId=<id>` SHALL return the current instance status for the given feature.
+
+  ### Web UI Integration
+
+  - **FR-21**: The feature drawer SHALL display an "Open in Browser Editor" button that triggers the start API route and opens the returned URL in a new browser tab.
+  - **FR-22**: The feature drawer SHALL show a status indicator (e.g., green dot for running, no indicator for stopped) next to the browser editor action when a code-server instance is active for that feature.
+  - **FR-23**: When a code-server instance is running, the feature drawer SHALL show a "Stop Browser Editor" button that calls the stop API route and updates the status indicator.
+  - **FR-24**: The "Open in Browser Editor" button SHALL show a loading state while the instance is starting and handle errors with a toast or inline error message.
+  - **FR-25**: If code-server is not installed, the "Open in Browser Editor" button SHALL be disabled with a tooltip indicating that code-server must be installed first (linking to the tools page).
+
+  ### Settings
+
+  - **FR-26**: The idle timeout for code-server instances SHALL be configurable via the existing settings system with a default of 30 minutes (1800 seconds). The setting key SHALL be `codeServer.idleTimeoutSeconds`.
+
+  ### DI Registration
+
+  - **FR-27**: The `ICodeServerManagerService` implementation, all new use cases, and the SQLite migration SHALL be registered in the DI container following existing patterns (string tokens for Turbopack compatibility).
+
+  ## Non-Functional Requirements
+
+  ### Performance
+
+  - **NFR-1**: Port allocation and process spawn SHALL complete within 3 seconds. The API route SHALL return the code-server URL within 5 seconds of the user clicking "Open in Browser Editor".
+  - **NFR-2**: The manager service SHALL support at least 10 simultaneous code-server instances without degradation of Shep's own performance (excluding code-server's own memory footprint).
+
+  ### Reliability
+
+  - **NFR-3**: Orphaned code-server processes (PID alive but not tracked, or tracked but PID dead) SHALL be detected and cleaned up on daemon startup via reconciliation.
+  - **NFR-4**: If code-server crashes unexpectedly, the status SHALL be updated to stopped on the next status check (PID liveness check), and the user SHALL be able to re-launch.
+  - **NFR-5**: Process state persistence SHALL use atomic writes (write-to-temp + rename) consistent with the existing daemon PID service pattern, or SQLite transactions for database persistence.
+
+  ### Security
+
+  - **NFR-6**: code-server instances SHALL bind exclusively to `127.0.0.1` (loopback), never to `0.0.0.0` or any network-accessible interface.
+  - **NFR-7**: The API routes SHALL validate that the requested feature ID exists and belongs to a tracked repository before starting an instance.
+
+  ### Resource Management
+
+  - **NFR-8**: The port range for code-server instances SHALL start at 13370 (well above the Shep daemon port range) with up to 20 attempts, to avoid collisions with other local services.
+  - **NFR-9**: The service SHALL log a warning if more than 5 instances are running simultaneously, alerting users to potential high memory usage.
+
+  ### Maintainability
+
+  - **NFR-10**: The code-server manager service SHALL follow the existing Clean Architecture patterns — interface in application layer, implementation in infrastructure layer, registered via DI.
+  - **NFR-11**: All new components SHALL have corresponding unit tests achieving at minimum the same coverage level as existing services in the codebase.
+  - **NFR-12**: All new web UI components SHALL have colocated Storybook `.stories.tsx` files demonstrating all states (loading, running, stopped, error, not installed).
+
+  ### UX
+
+  - **NFR-13**: The "Open in Browser Editor" action SHALL be visually consistent with existing feature drawer actions (Open in IDE, Open in Terminal) in terms of icon style, button sizing, and placement.
+  - **NFR-14**: Status transitions (starting → running, running → stopped) SHALL be reflected in the UI within 2 seconds without requiring a page refresh.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Iframe or new tab for code-server? | New tab only | Full viewport for VS Code, avoids CSP/iframe complexity and keyboard shortcut conflicts. Iframe can be added later. |
+  | 2 | Instance scope: per feature, per repo, or both? | Per feature worktree | Aligns with Shep's core per-feature isolation model. Each worktree gets its own editor session. |
+  | 3 | Authentication mode? | No auth for localhost (--auth none) | Standard pattern for local dev tools. Shep only supports local execution today. |
+  | 4 | Auto-start or manual launch? | Manual launch only | Each instance costs 300-500MB RAM. Manual launch keeps resource usage predictable and matches existing IDE launch UX. |
+  | 5 | Idle timeout for auto-shutdown? | Yes, configurable (default 30 min) | code-server supports --idle-timeout-seconds natively. Prevents resource leaks from forgotten instances. |
+  | 6 | Extension/settings isolation? | Shared extensions, per-instance user data | Install extensions once, reuse everywhere. Workspace state (open tabs, layout) isolated per feature. |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `infrastructure/services/tool-installer/tools/` | Low | Add code-server.json tool metadata for install/availability checks |
+  | `infrastructure/services/` (new service) | High | New CodeServerManagerService for instance lifecycle (spawn, track, stop, port allocation) |
+  | `application/ports/output/services/` | Medium | New ICodeServerManagerService interface definition |
+  | `application/use-cases/` (new use cases) | High | StartCodeServer, StopCodeServer, GetCodeServerStatus use cases |
+  | `infrastructure/di/container.ts` | Low | Register new service and use cases in DI container |
+  | `presentation/web/app/api/` (new routes) | Medium | API routes for starting/stopping/status of code-server instances |
+  | `presentation/web/components/common/feature-drawer/` | Medium | Add "Open in Browser Editor" action button and status indicator |
+  | `presentation/web/components/features/tools/` | Low | code-server appears in tools page via existing metadata system |
+  | `tsp/domain/` | Low | TypeSpec model for CodeServerInstance state |
+  | `infrastructure/persistence/sqlite/migrations.ts` | Medium | New migration for code_server_instances table |
+
+  ## Dependencies
+
+  **External:**
+  - code-server binary must be installed on the host system (installable via tool metadata system)
+  - Sufficient system resources (300-500MB RAM per code-server instance)
+
+  **Internal (existing code to build on):**
+  - Tool metadata system (`tool-metadata.ts`, `loadToolMetadata()`) — for installation/availability
+  - Port service (`port.service.ts`, `findAvailablePort()`) — for dynamic port allocation
+  - Daemon PID service (`daemon-pid.service.ts`) — atomic state file patterns and PID liveness checks
+  - Feature agent process service — detached child process spawning patterns
+  - IDE launcher service — headless launch and platform resolution patterns
+  - Feature drawer component — UI integration point for launch action
+  - DI container — service registration and resolution
+  - SQLite migration system — versioned schema evolution
+  - Settings service — for configurable idle timeout
+
+  ## Size Estimate
+
+  **L (week+)** — This feature requires:
+  1. Tool metadata registration (code-server.json) — 0.5 day
+  2. TypeSpec model + SQLite migration for instance tracking — 0.5 day
+  3. ICodeServerManagerService interface + implementation with process lifecycle — 2-3 days
+  4. Three use cases (Start, Stop, GetStatus) with TDD — 1-2 days
+  5. API routes (start, stop, status) — 0.5 day
+  6. Web UI integration (feature drawer button, status indicator, error handling) — 1-2 days
+  7. Storybook stories for all new UI components — 0.5 day
+  8. Integration testing, edge cases, reconciliation logic — 1-2 days
+
+  The core complexity is in the process manager service — reliably spawning, tracking, and
+  cleaning up code-server instances across daemon restarts, idle timeouts, and feature deletions.
+  The tool metadata and UI work leverages well-established patterns in the codebase.
+
+  ---
+
+  _Requirements complete — proceed with research phase_

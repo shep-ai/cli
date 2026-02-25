@@ -655,4 +655,145 @@ describe('SQLite Migrations', () => {
       expect(indexes).toContain('idx_phase_timings_run');
     });
   });
+
+  describe('migration v23: code_server_instances table', () => {
+    beforeEach(async () => {
+      await runSQLiteMigrations(db);
+    });
+
+    it('should create code_server_instances table', () => {
+      expect(tableExists(db, 'code_server_instances')).toBe(true);
+    });
+
+    it('should have correct schema with all required columns', () => {
+      const schema = getTableSchema(db, 'code_server_instances');
+      const columnNames = schema.map((col) => col.name);
+
+      expect(columnNames).toContain('id');
+      expect(columnNames).toContain('feature_id');
+      expect(columnNames).toContain('pid');
+      expect(columnNames).toContain('port');
+      expect(columnNames).toContain('worktree_path');
+      expect(columnNames).toContain('status');
+      expect(columnNames).toContain('started_at');
+      expect(columnNames).toContain('stopped_at');
+      expect(columnNames).toContain('created_at');
+      expect(columnNames).toContain('updated_at');
+    });
+
+    it('should have id as TEXT PRIMARY KEY NOT NULL', () => {
+      const schema = getTableSchema(db, 'code_server_instances');
+      const id = schema.find((col) => col.name === 'id');
+
+      expect(id).toBeDefined();
+      expect(id?.type).toBe('TEXT');
+      expect(id?.pk).toBe(1);
+      expect(id?.notnull).toBe(1);
+    });
+
+    it('should have feature_id as TEXT NOT NULL UNIQUE', () => {
+      const schema = getTableSchema(db, 'code_server_instances');
+      const featureId = schema.find((col) => col.name === 'feature_id');
+
+      expect(featureId).toBeDefined();
+      expect(featureId?.type).toBe('TEXT');
+      expect(featureId?.notnull).toBe(1);
+    });
+
+    it('should enforce UNIQUE constraint on feature_id', () => {
+      const now = Date.now();
+      db.prepare(
+        `INSERT INTO code_server_instances (id, feature_id, pid, port, worktree_path, status, started_at, created_at, updated_at)
+         VALUES ('cs-1', 'feat-1', 12345, 13370, '/tmp/wt/feat-1', 'running', '2026-01-01T00:00:00Z', ${now}, ${now})`
+      ).run();
+
+      expect(() => {
+        db.prepare(
+          `INSERT INTO code_server_instances (id, feature_id, pid, port, worktree_path, status, started_at, created_at, updated_at)
+           VALUES ('cs-2', 'feat-1', 12346, 13371, '/tmp/wt/feat-1', 'running', '2026-01-01T00:00:00Z', ${now}, ${now})`
+        ).run();
+      }).toThrow();
+    });
+
+    it('should have INTEGER columns for pid, port, created_at, updated_at', () => {
+      const schema = getTableSchema(db, 'code_server_instances');
+
+      const intColumns = ['pid', 'port', 'created_at', 'updated_at'];
+      intColumns.forEach((colName) => {
+        const col = schema.find((c) => c.name === colName);
+        expect(col, `column ${colName} should exist`).toBeDefined();
+        expect(col?.type, `column ${colName} should be INTEGER`).toBe('INTEGER');
+        expect(col?.notnull, `column ${colName} should be NOT NULL`).toBe(1);
+      });
+    });
+
+    it('should have stopped_at as nullable TEXT', () => {
+      const schema = getTableSchema(db, 'code_server_instances');
+      const stoppedAt = schema.find((col) => col.name === 'stopped_at');
+
+      expect(stoppedAt).toBeDefined();
+      expect(stoppedAt?.type).toBe('TEXT');
+      expect(stoppedAt?.notnull).toBe(0); // nullable
+    });
+
+    it('should default status to running', () => {
+      const schema = getTableSchema(db, 'code_server_instances');
+      const status = schema.find((col) => col.name === 'status');
+
+      expect(status).toBeDefined();
+      expect(status?.dflt_value).toBe("'running'");
+    });
+
+    it('should create indexes on feature_id and status', () => {
+      const indexes = getTableIndexes(db, 'code_server_instances');
+      expect(indexes).toContain('idx_cs_instances_feature');
+      expect(indexes).toContain('idx_cs_instances_status');
+    });
+
+    it('should set schema version to at least 23', () => {
+      const version = getSchemaVersion(db);
+      expect(version).toBeGreaterThanOrEqual(23);
+    });
+  });
+
+  describe('migration v24: code-server idle timeout setting', () => {
+    beforeEach(async () => {
+      await runSQLiteMigrations(db);
+    });
+
+    it('should add cs_idle_timeout_seconds column to settings table', () => {
+      const schema = getTableSchema(db, 'settings');
+      const col = schema.find((c) => c.name === 'cs_idle_timeout_seconds');
+
+      expect(col).toBeDefined();
+      expect(col?.type).toBe('INTEGER');
+      expect(col?.notnull).toBe(1);
+    });
+
+    it('should default cs_idle_timeout_seconds to 1800', () => {
+      const schema = getTableSchema(db, 'settings');
+      const col = schema.find((c) => c.name === 'cs_idle_timeout_seconds');
+
+      expect(col?.dflt_value).toBe('1800');
+    });
+
+    it('should preserve default value for existing settings rows', () => {
+      db.prepare(
+        `INSERT INTO settings (id, created_at, updated_at, model_analyze, model_requirements, model_plan, model_implement,
+          env_default_editor, env_shell_preference, sys_auto_update, sys_log_level, agent_type, agent_auth_method)
+        VALUES ('test', '2025-01-01', '2025-01-01', 'm', 'm', 'm', 'm', 'vscode', 'bash', 1, 'info', 'claude-code', 'session')`
+      ).run();
+
+      const row = db
+        .prepare('SELECT cs_idle_timeout_seconds FROM settings WHERE id = ?')
+        .get('test') as { cs_idle_timeout_seconds: number };
+
+      expect(row.cs_idle_timeout_seconds).toBe(1800);
+    });
+
+    it('should set schema version to at least 24', () => {
+      const version = getSchemaVersion(db);
+      expect(version).toBeGreaterThanOrEqual(24);
+    });
+  });
 });

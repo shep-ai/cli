@@ -38,3 +38,7 @@ export type {
   LaunchIdeFailed,
 } from './ide-launcher-service.interface.js';
 export type { IDaemonService, DaemonState } from './daemon-service.interface.js';
+export type {
+  ICodeServerManagerService,
+  CodeServerStartResult,
+} from './code-server-manager-service.interface.js';

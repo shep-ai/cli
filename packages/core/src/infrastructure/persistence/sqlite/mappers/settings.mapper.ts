@@ -77,6 +77,9 @@ export interface SettingsRow {
   approval_gate_allow_plan: number;
   approval_gate_allow_merge: number;
   approval_gate_push_on_impl_complete: number;
+
+  // CodeServerConfig (codeServer.*)
+  cs_idle_timeout_seconds: number;
 }
 
 /**
@@ -147,6 +150,9 @@ export function toDatabase(settings: Settings): SettingsRow {
       .pushOnImplementationComplete
       ? 1
       : 0,
+
+    // CodeServerConfig
+    cs_idle_timeout_seconds: settings.codeServer?.idleTimeoutSeconds ?? 1800,
   };
 }
 
@@ -225,6 +231,11 @@ export function fromDatabase(row: SettingsRow): Settings {
         allowMerge: row.approval_gate_allow_merge === 1,
         pushOnImplementationComplete: row.approval_gate_push_on_impl_complete === 1,
       },
+    },
+
+    // CodeServerConfig
+    codeServer: {
+      idleTimeoutSeconds: row.cs_idle_timeout_seconds ?? 1800,
     },
 
     // Onboarding (INTEGER → boolean)

@@ -75,6 +75,9 @@ describe('SQLiteSettingsRepository', () => {
         pushOnImplementationComplete: false,
       },
     },
+    codeServer: {
+      idleTimeoutSeconds: 1800,
+    },
     onboardingComplete: false,
   });
 

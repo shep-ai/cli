@@ -10,6 +10,8 @@ import {
   Check,
   Loader2,
   CircleAlert,
+  Globe,
+  Square,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -33,8 +35,15 @@ export function OpenActionMenu({ actions, repositoryPath, showSpecs }: OpenActio
     setTimeout(() => setCopied(false), COPY_FEEDBACK_DELAY);
   };
 
-  const anyLoading = actions.ideLoading || actions.shellLoading || actions.specsLoading;
-  const anyError = actions.ideError ?? actions.shellError ?? actions.specsError;
+  const anyLoading =
+    actions.ideLoading ||
+    actions.shellLoading ||
+    actions.specsLoading ||
+    actions.browserEditorLoading;
+  const anyError =
+    actions.ideError ?? actions.shellError ?? actions.specsError ?? actions.browserEditorError;
+
+  const isEditorRunning = actions.browserEditorStatus === 'running';
 
   return (
     <DropdownMenu modal={false}>
@@ -98,6 +107,41 @@ export function OpenActionMenu({ actions, repositoryPath, showSpecs }: OpenActio
           )}
           Specs Folder
         </DropdownMenuItem>
+
+        {isEditorRunning ? (
+          <DropdownMenuItem
+            onClick={actions.stopBrowserEditor}
+            disabled={actions.browserEditorLoading}
+            className="gap-2"
+          >
+            {actions.browserEditorLoading ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : actions.browserEditorError ? (
+              <CircleAlert className="text-destructive size-4" />
+            ) : (
+              <Square className="size-4" />
+            )}
+            <span className="flex items-center gap-1.5">
+              Stop Browser Editor
+              <span className="size-2 rounded-full bg-green-500" />
+            </span>
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem
+            onClick={actions.openBrowserEditor}
+            disabled={actions.browserEditorLoading}
+            className="gap-2"
+          >
+            {actions.browserEditorLoading ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : actions.browserEditorError ? (
+              <CircleAlert className="text-destructive size-4" />
+            ) : (
+              <Globe className="size-4" />
+            )}
+            Browser Editor
+          </DropdownMenuItem>
+        )}
 
         <DropdownMenuSeparator />
 

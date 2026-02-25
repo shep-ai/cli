@@ -75,6 +75,9 @@ function createTestSettings(overrides: Partial<Settings> = {}): Settings {
         pushOnImplementationComplete: false,
       },
     },
+    codeServer: {
+      idleTimeoutSeconds: 1800,
+    },
     onboardingComplete: false,
     ...overrides,
   };
@@ -121,6 +124,7 @@ function createTestRow(overrides: Partial<SettingsRow> = {}): SettingsRow {
     approval_gate_allow_plan: 0,
     approval_gate_allow_merge: 0,
     approval_gate_push_on_impl_complete: 0,
+    cs_idle_timeout_seconds: 1800,
     ...overrides,
   };
 }

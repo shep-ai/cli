@@ -267,6 +267,29 @@ model WorkflowConfig {
   ciLogMaxChars?: int32;
 }
 
+/**
+ * Code Server Configuration
+ *
+ * Configuration for managed code-server (VS Code in the browser) instances.
+ * Controls idle timeout behavior for automatic resource cleanup.
+ *
+ * ## Idle Timeout
+ *
+ * code-server supports native --idle-timeout-seconds for automatic shutdown
+ * after a period of inactivity. The default of 1800 seconds (30 minutes)
+ * balances convenience with resource conservation (each instance uses
+ * 300-500MB RAM).
+ */
+@doc("code-server instance configuration")
+model CodeServerConfig {
+  /**
+   * Idle timeout in seconds before a code-server instance auto-shuts down.
+   * Set to 0 to disable idle timeout. Default: 1800 (30 minutes).
+   */
+  @doc("Idle timeout in seconds for code-server instances (default: 1800)")
+  idleTimeoutSeconds: int32 = 1800;
+}
+
 @doc("AI coding agent configuration")
 model AgentConfig {
   /**
@@ -497,6 +520,13 @@ model Settings extends BaseEntity {
    */
   @doc("Global workflow configuration defaults")
   workflow: WorkflowConfig;
+
+  /**
+   * Code-server (VS Code in the browser) configuration.
+   * Controls idle timeout and other code-server instance settings.
+   */
+  @doc("code-server instance configuration")
+  codeServer: CodeServerConfig;
 
   /**
    * Whether the first-run onboarding wizard has been completed.

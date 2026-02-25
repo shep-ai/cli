@@ -1,0 +1,7 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: CodeServerInstanceStatus.yaml
+type: string
+enum:
+  - running
+  - stopped
+description: Status of a code-server instance
