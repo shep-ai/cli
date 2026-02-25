@@ -3,17 +3,18 @@ feature:
   name: joke-feature
   number: 44
   branch: feat/044-joke-feature
-  lifecycle: implementation
+  lifecycle: review
   createdAt: '2026-02-25T15:20:44Z'
+prUrl: 'https://github.com/shep-ai/cli/pull/141'
 status:
-  phase: implementation-complete
+  phase: in-review
   progress:
     completed: 6
     total: 6
     percentage: 100
   currentTask: null
-  lastUpdated: '2026-02-25T15:47:45.110Z'
-  lastUpdatedBy: feature-agent:implement
+  lastUpdated: '2026-02-25T15:53:00.000Z'
+  lastUpdatedBy: shep-kit:commit-pr
   completedPhases:
     - analyze
     - requirements
@@ -39,6 +40,9 @@ checkpoints:
   - phase: plan-complete
     completedAt: '2026-02-25T15:30:00Z'
     completedBy: shep-kit:plan
+  - phase: pr-created
+    completedAt: '2026-02-25T15:53:00.000Z'
+    completedBy: shep-kit:commit-pr
 errors:
   current: null
   history: []
