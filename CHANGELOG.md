@@ -1,3 +1,9 @@
+## [1.55.2](https://github.com/shep-ai/cli/compare/v1.55.1...v1.55.2) (2026-02-25)
+
+### Bug Fixes
+
+- **domain:** backfill ci_fix columns missing after migration rebase ([#136](https://github.com/shep-ai/cli/issues/136)) ([16206b0](https://github.com/shep-ai/cli/commit/16206b0f7181518db62ca2e863607e6f9b1ae89f))
+
 ## [1.55.1](https://github.com/shep-ai/cli/compare/v1.55.0...v1.55.1) (2026-02-25)
 
 ### Bug Fixes
