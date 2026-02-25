@@ -25,7 +25,8 @@ import type { FeatureStatus } from '@/components/common/feature-status-config';
 import { useDeferredMount } from '@/hooks/use-deferred-mount';
 import { featureFlags } from '@/lib/feature-flags';
 
-interface FeatureItem {
+export interface FeatureItem {
+  featureId: string;
   name: string;
   status: FeatureStatus;
   startedAt?: number;
@@ -35,7 +36,7 @@ interface FeatureItem {
 export interface AppSidebarProps {
   features: FeatureItem[];
   onNewFeature?: () => void;
-  onFeatureClick?: (name: string) => void;
+  onFeatureClick?: (featureId: string) => void;
   onFeaturesFolderClick?: () => void;
   onFeaturesMenuClick?: () => void;
 }
@@ -119,12 +120,14 @@ export function AppSidebar({
                   <FeatureStatusGroup key={key} label={label} count={items.length}>
                     {items.map((feature) => (
                       <FeatureListItem
-                        key={feature.name}
+                        key={feature.featureId}
                         name={feature.name}
                         status={feature.status}
                         startedAt={feature.startedAt}
                         duration={feature.duration}
-                        onClick={onFeatureClick ? () => onFeatureClick(feature.name) : undefined}
+                        onClick={
+                          onFeatureClick ? () => onFeatureClick(feature.featureId) : undefined
+                        }
                       />
                     ))}
                   </FeatureStatusGroup>

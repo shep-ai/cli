@@ -9,11 +9,26 @@ function renderWithSidebar(ui: React.ReactElement) {
 }
 
 const mockFeatures = [
-  { name: 'Auth Module', status: 'action-needed' as const },
-  { name: 'Dashboard', status: 'in-progress' as const, startedAt: Date.now() - 330_000 },
-  { name: 'Settings Page', status: 'done' as const, duration: '2h' },
-  { name: 'API Gateway', status: 'in-progress' as const, startedAt: Date.now() - 60_000 },
-  { name: 'User Profile', status: 'done' as const, duration: '1h' },
+  { featureId: 'feat-auth-001', name: 'Auth Module', status: 'action-needed' as const },
+  {
+    featureId: 'feat-dashboard-002',
+    name: 'Dashboard',
+    status: 'in-progress' as const,
+    startedAt: Date.now() - 330_000,
+  },
+  {
+    featureId: 'feat-settings-003',
+    name: 'Settings Page',
+    status: 'done' as const,
+    duration: '2h',
+  },
+  {
+    featureId: 'feat-api-004',
+    name: 'API Gateway',
+    status: 'in-progress' as const,
+    startedAt: Date.now() - 60_000,
+  },
+  { featureId: 'feat-profile-005', name: 'User Profile', status: 'done' as const, duration: '1h' },
 ];
 
 describe('AppSidebar', () => {
@@ -53,6 +68,18 @@ describe('AppSidebar', () => {
     renderWithSidebar(<AppSidebar features={mockFeatures} />);
 
     expect(screen.getByRole('button', { name: /new feature/i })).toBeInTheDocument();
+  });
+
+  it('fires onFeatureClick with featureId when a feature is clicked', async () => {
+    const handleFeatureClick = vi.fn();
+    const user = userEvent.setup();
+
+    renderWithSidebar(<AppSidebar features={mockFeatures} onFeatureClick={handleFeatureClick} />);
+
+    await user.click(screen.getByText('Auth Module'));
+
+    expect(handleFeatureClick).toHaveBeenCalledOnce();
+    expect(handleFeatureClick).toHaveBeenCalledWith('feat-auth-001');
   });
 
   it('fires onNewFeature callback when button is clicked', async () => {

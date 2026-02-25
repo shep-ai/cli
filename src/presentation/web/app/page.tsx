@@ -11,6 +11,7 @@ import { layoutWithDagre } from '@/lib/layout-with-dagre';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 import type { Edge } from '@xyflow/react';
 import type { FeatureNodeData, FeatureLifecyclePhase } from '@/components/common/feature-node';
+import { formatElapsed } from '@/components/common/elapsed-time';
 
 /** Skip static pre-rendering since we need runtime DI container and server context. */
 export const dynamic = 'force-dynamic';
@@ -91,6 +92,7 @@ export default async function HomePage() {
         }
       }
 
+      const state = deriveNodeState(feature, run);
       const nodeData: FeatureNodeData = {
         name: feature.name,
         description: feature.description ?? feature.slug,
@@ -99,11 +101,22 @@ export default async function HomePage() {
         repositoryPath: feature.repositoryPath,
         branch: feature.branch,
         specPath: feature.specPath,
-        state: deriveNodeState(feature, run),
+        state,
         progress: deriveProgress(feature),
         ...(run?.agentType && { agentType: run.agentType as FeatureNodeData['agentType'] }),
         ...(run?.error && { errorMessage: run.error }),
         ...(blockedBy && { blockedBy }),
+        ...(run?.startedAt &&
+          state !== 'done' && {
+            startedAt: new Date(run.startedAt).getTime(),
+          }),
+        ...(state === 'done' &&
+          run?.startedAt &&
+          run?.completedAt && {
+            runtime: formatElapsed(
+              new Date(run.completedAt).getTime() - new Date(run.startedAt).getTime()
+            ),
+          }),
         ...(feature.pr && {
           pr: {
             url: feature.pr.url,

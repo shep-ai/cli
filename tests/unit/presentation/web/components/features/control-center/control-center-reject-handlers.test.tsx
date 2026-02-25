@@ -60,6 +60,7 @@ import { toast as mockToast } from 'sonner';
 
 // ── Component imports (after mocks) ──────────────────────────────────
 import { ControlCenterInner } from '@/components/features/control-center/control-center-inner';
+import { SidebarFeaturesProvider } from '@/hooks/sidebar-features-context';
 import type { FeaturesCanvasProps } from '@/components/features/features-canvas';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 import type { FeatureNodeData } from '@/components/common/feature-node';
@@ -157,7 +158,11 @@ const techNode: CanvasNodeType = {
 };
 
 function renderControlCenter(nodes: CanvasNodeType[] = [repoNode, prdNode, techNode]) {
-  return render(<ControlCenterInner initialNodes={nodes} initialEdges={[]} />);
+  return render(
+    <SidebarFeaturesProvider>
+      <ControlCenterInner initialNodes={nodes} initialEdges={[]} />
+    </SidebarFeaturesProvider>
+  );
 }
 
 /**

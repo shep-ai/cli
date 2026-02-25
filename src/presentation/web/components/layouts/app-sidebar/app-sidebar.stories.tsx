@@ -34,12 +34,27 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 const mockFeatures = [
-  { name: 'Auth Module', status: 'action-needed' as const },
-  { name: 'Payment Flow', status: 'action-needed' as const },
-  { name: 'Dashboard', status: 'in-progress' as const, startedAt: Date.now() - 330_000 },
-  { name: 'API Gateway', status: 'in-progress' as const, startedAt: Date.now() - 60_000 },
-  { name: 'Settings Page', status: 'done' as const, duration: '2h' },
-  { name: 'User Profile', status: 'done' as const, duration: '1h' },
+  { featureId: 'feat-auth-001', name: 'Auth Module', status: 'action-needed' as const },
+  { featureId: 'feat-payment-002', name: 'Payment Flow', status: 'action-needed' as const },
+  {
+    featureId: 'feat-dashboard-003',
+    name: 'Dashboard',
+    status: 'in-progress' as const,
+    startedAt: Date.now() - 330_000,
+  },
+  {
+    featureId: 'feat-api-004',
+    name: 'API Gateway',
+    status: 'in-progress' as const,
+    startedAt: Date.now() - 60_000,
+  },
+  {
+    featureId: 'feat-settings-005',
+    name: 'Settings Page',
+    status: 'done' as const,
+    duration: '2h',
+  },
+  { featureId: 'feat-profile-006', name: 'User Profile', status: 'done' as const, duration: '1h' },
 ];
 
 export const Default: Story = {
@@ -66,8 +81,18 @@ export const Empty: Story = {
 export const AllInProgress: Story = {
   args: {
     features: [
-      { name: 'Feature A', status: 'in-progress' as const, startedAt: Date.now() - 120_000 },
-      { name: 'Feature B', status: 'in-progress' as const, startedAt: Date.now() - 600_000 },
+      {
+        featureId: 'feat-a-001',
+        name: 'Feature A',
+        status: 'in-progress' as const,
+        startedAt: Date.now() - 120_000,
+      },
+      {
+        featureId: 'feat-b-002',
+        name: 'Feature B',
+        status: 'in-progress' as const,
+        startedAt: Date.now() - 600_000,
+      },
     ],
   },
 };
@@ -75,9 +100,9 @@ export const AllInProgress: Story = {
 export const AllDone: Story = {
   args: {
     features: [
-      { name: 'Feature A', status: 'done' as const, duration: '30m' },
-      { name: 'Feature B', status: 'done' as const, duration: '1h' },
-      { name: 'Feature C', status: 'done' as const, duration: '3h' },
+      { featureId: 'feat-a-001', name: 'Feature A', status: 'done' as const, duration: '30m' },
+      { featureId: 'feat-b-002', name: 'Feature B', status: 'done' as const, duration: '1h' },
+      { featureId: 'feat-c-003', name: 'Feature C', status: 'done' as const, duration: '3h' },
     ],
   },
 };

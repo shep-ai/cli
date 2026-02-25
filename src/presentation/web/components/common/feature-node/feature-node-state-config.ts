@@ -53,6 +53,8 @@ export interface FeatureNodeData {
   branch: string;
   /** Absolute path to the specs folder on disk */
   specPath?: string;
+  /** Epoch ms when the current agent run started (for elapsed-time in sidebar) */
+  startedAt?: number;
   /** Human-readable runtime for done state (e.g. "2h 15m") */
   runtime?: string;
   /** Feature name this node is blocked by */

@@ -24,6 +24,7 @@ vi.mock('@/app/actions/approve-feature', () => ({
 }));
 
 import { ControlCenterInner } from '@/components/features/control-center/control-center-inner';
+import { SidebarFeaturesProvider } from '@/hooks/sidebar-features-context';
 import type { FeaturesCanvasProps } from '@/components/features/features-canvas';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 import { featureNodeStateConfig } from '@/components/common/feature-node';
@@ -106,7 +107,11 @@ const mergeReviewNode: CanvasNodeType = {
 const initialNodes: CanvasNodeType[] = [repoNodeDefault, featureNodeA, featureNodeB];
 
 function renderControlCenter(nodes = initialNodes) {
-  return render(<ControlCenterInner initialNodes={nodes} initialEdges={[]} />);
+  return render(
+    <SidebarFeaturesProvider>
+      <ControlCenterInner initialNodes={nodes} initialEdges={[]} />
+    </SidebarFeaturesProvider>
+  );
 }
 
 const mergeReviewDataFixture: MergeReviewData = {
