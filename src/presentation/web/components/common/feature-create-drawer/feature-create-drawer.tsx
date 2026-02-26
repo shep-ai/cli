@@ -103,11 +103,12 @@ export function FeatureCreateDrawer({
   const [parentId, setParentId] = useState<string | undefined>(undefined);
 
   // Play drawer-open sound when the drawer opens
+  const playDrawerOpen = drawerOpenSound.play;
   useEffect(() => {
     if (open) {
-      drawerOpenSound.play();
+      playDrawerOpen();
     }
-  }, [open, drawerOpenSound]);
+  }, [open, playDrawerOpen]);
 
   // Sync state when workflowDefaults load asynchronously
   useEffect(() => {

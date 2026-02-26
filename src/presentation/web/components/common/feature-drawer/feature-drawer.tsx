@@ -45,9 +45,10 @@ export function FeatureDrawer({
   const drawerCloseSound = useSoundAction('drawer-close');
 
   const isOpen = selectedNode !== null;
+  const playDrawerOpen = drawerOpenSound.play;
   useEffect(() => {
-    if (isOpen) drawerOpenSound.play();
-  }, [isOpen, drawerOpenSound]);
+    if (isOpen) playDrawerOpen();
+  }, [isOpen, playDrawerOpen]);
 
   const handleClose = useCallback(() => {
     drawerCloseSound.play();
