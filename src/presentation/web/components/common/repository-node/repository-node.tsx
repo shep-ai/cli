@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Handle, Position } from '@xyflow/react';
-import { Github, Plus, Code2, Terminal, FolderOpen, Trash2 } from 'lucide-react';
+import { Github, Plus, Code2, Terminal, FolderOpen, Trash2, Play, Square } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ActionButton } from '@/components/common/action-button';
 import {
@@ -16,6 +16,9 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { DeploymentStatusBadge } from '@/components/common/deployment-status-badge';
+import { useDeployAction } from '@/hooks/use-deploy-action';
+import { featureFlags } from '@/lib/feature-flags';
 import type { RepositoryNodeData } from './repository-node-config';
 import { useRepositoryActions } from './use-repository-actions';
 
@@ -24,6 +27,16 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
   const actions = useRepositoryActions(
     data.repositoryPath ? { repositoryPath: data.repositoryPath } : null
   );
+  const deployAction = useDeployAction(
+    data.repositoryPath
+      ? {
+          targetId: data.repositoryPath,
+          targetType: 'repository',
+          repositoryPath: data.repositoryPath,
+        }
+      : null
+  );
+  const isDeploymentActive = deployAction.status === 'Booting' || deployAction.status === 'Ready';
 
   return (
     <div className="group relative">
@@ -96,7 +109,7 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
             data.onClick?.();
           }
         }}
-        className="nodrag bg-card flex w-72 cursor-default items-center gap-3 rounded-full border px-4 py-3 shadow-sm"
+        className="nodrag bg-card flex min-w-[18rem] cursor-default items-center gap-3 rounded-full border px-4 py-3 shadow-sm"
       >
         <Github className="text-muted-foreground h-5 w-5 shrink-0" />
         <span data-testid="repository-node-name" className="min-w-0 truncate text-sm font-medium">
@@ -169,6 +182,34 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
                   <TooltipContent>Open Folder</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
+              {featureFlags.envDeploy ? (
+                <>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="flex items-center">
+                          <ActionButton
+                            label={isDeploymentActive ? 'Stop Dev Server' : 'Start Dev Server'}
+                            onClick={isDeploymentActive ? deployAction.stop : deployAction.deploy}
+                            loading={deployAction.deployLoading || deployAction.stopLoading}
+                            error={!!deployAction.deployError}
+                            icon={isDeploymentActive ? Square : Play}
+                            iconOnly
+                            variant="ghost"
+                            size="icon-xs"
+                          />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {isDeploymentActive ? 'Stop Dev Server' : 'Start Dev Server'}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  {isDeploymentActive ? (
+                    <DeploymentStatusBadge status={deployAction.status} url={deployAction.url} />
+                  ) : null}
+                </>
+              ) : null}
             </>
           ) : null}
 

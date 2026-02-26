@@ -39,6 +39,7 @@ import type { IAgentRunRepository } from '@/application/ports/output/agents/agen
 import type { IPhaseTimingRepository } from '@/application/ports/output/agents/phase-timing-repository.interface.js';
 import type { INotificationService } from '@/application/ports/output/services/notification-service.interface.js';
 import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
+import type { IDeploymentService } from '@/application/ports/output/services/deployment-service.interface.js';
 
 function parsePort(value: string): number {
   const port = parseInt(value, 10);
@@ -89,6 +90,8 @@ export function createServeCommand(): Command {
           forceExit.unref();
 
           getNotificationWatcher().stop();
+          const deploymentService = container.resolve<IDeploymentService>('IDeploymentService');
+          deploymentService.stopAll();
           await service.stop();
           process.exit(0);
         };

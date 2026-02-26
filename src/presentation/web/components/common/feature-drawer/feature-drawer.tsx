@@ -70,6 +70,16 @@ export function FeatureDrawer({
           </div>
         ) : undefined
       }
+      deployTarget={
+        selectedNode?.repositoryPath && selectedNode.branch
+          ? {
+              targetId: selectedNode.featureId,
+              targetType: 'feature',
+              repositoryPath: selectedNode.repositoryPath,
+              branch: selectedNode.branch,
+            }
+          : undefined
+      }
     >
       {selectedNode ? (
         <>

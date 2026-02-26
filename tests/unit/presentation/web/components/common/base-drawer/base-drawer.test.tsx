@@ -3,6 +3,27 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BaseDrawer } from '@/components/common/base-drawer';
 
+vi.mock('@/lib/feature-flags', () => ({
+  featureFlags: { envDeploy: true, skills: false },
+}));
+
+vi.mock('@/hooks/use-deploy-action', () => ({
+  useDeployAction: () => ({
+    deploy: vi.fn(),
+    stop: vi.fn(),
+    deployLoading: false,
+    stopLoading: false,
+    deployError: null,
+    status: null,
+    url: null,
+  }),
+}));
+
+vi.mock('@/components/common/deployment-status-badge', () => ({
+  DeploymentStatusBadge: ({ status }: { status: string | null }) =>
+    status ? <div data-testid="deployment-status-badge" data-status={status} /> : null,
+}));
+
 describe('BaseDrawer', () => {
   describe('rendering', () => {
     it('renders children content when open=true', () => {
@@ -178,6 +199,38 @@ describe('BaseDrawer', () => {
       const scrollContainer = content.closest('.overflow-y-auto');
       expect(scrollContainer).toBeInTheDocument();
       expect(scrollContainer?.className).toContain('flex-1');
+    });
+  });
+
+  describe('deployTarget', () => {
+    it('renders deploy bar when deployTarget is provided', () => {
+      render(
+        <BaseDrawer
+          open
+          onClose={vi.fn()}
+          deployTarget={{
+            targetId: 'f1',
+            targetType: 'feature',
+            repositoryPath: '/repo',
+            branch: 'main',
+          }}
+        >
+          <p>Content</p>
+        </BaseDrawer>
+      );
+
+      expect(screen.getByTestId('base-drawer-deploy-bar')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /start dev server/i })).toBeInTheDocument();
+    });
+
+    it('does not render deploy bar when deployTarget is omitted', () => {
+      render(
+        <BaseDrawer open onClose={vi.fn()}>
+          <p>Content</p>
+        </BaseDrawer>
+      );
+
+      expect(screen.queryByTestId('base-drawer-deploy-bar')).not.toBeInTheDocument();
     });
   });
 
