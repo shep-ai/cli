@@ -1,3 +1,9 @@
+## [1.66.1](https://github.com/shep-ai/cli/compare/v1.66.0...v1.66.1) (2026-02-26)
+
+### Bug Fixes
+
+- **agents:** persist pr data to db before merge approval gate ([#162](https://github.com/shep-ai/cli/issues/162)) ([e078a36](https://github.com/shep-ai/cli/commit/e078a363df33630593cfcdad4f0d930e2625b0a7))
+
 # [1.66.0](https://github.com/shep-ai/cli/compare/v1.65.1...v1.66.0) (2026-02-26)
 
 ### Bug Fixes
