@@ -1,10 +1,10 @@
 'use client';
 
+import { useCallback } from 'react';
 import { Loader2, Trash2 } from 'lucide-react';
 import { BaseDrawer } from '@/components/common/base-drawer';
 import { DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,13 +33,17 @@ export function ReviewDrawerShell({
   isDeleting,
   children,
 }: ReviewDrawerShellProps) {
+  const handleClose = useCallback(() => {
+    onClose();
+  }, [onClose]);
+
   const actionsInput = repositoryPath && branch ? { repositoryPath, branch, specPath } : null;
   const actions = useFeatureActions(actionsInput);
 
   return (
     <BaseDrawer
       open={open}
-      onClose={onClose}
+      onClose={handleClose}
       size="md"
       modal={false}
       data-testid="review-drawer"
@@ -116,10 +120,7 @@ export function ReviewDrawerShell({
         </>
       }
     >
-      <Separator />
-
-      {/* Content slot */}
-      <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+      {children}
     </BaseDrawer>
   );
 }
