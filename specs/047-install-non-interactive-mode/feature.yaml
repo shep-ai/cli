@@ -38,6 +38,7 @@ checkpoints:
   - phase: plan-complete
     completedAt: '2026-02-26T00:00:00Z'
     completedBy: shep-kit:plan
+prUrl: 'https://github.com/shep-ai/cli/pull/169'
 errors:
   current: null
   history: []
