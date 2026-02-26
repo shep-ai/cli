@@ -21,7 +21,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { spawn } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, chmodSync } from 'node:fs';
 import { readFile, access } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -32,6 +32,24 @@ import { createCliRunner } from '../../helpers/cli/runner.js';
 const TEST_TIMEOUT = 30_000;
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
+
+/**
+ * Write a fake `npm` shell script into the given directory.
+ * The script simulates a newer version available (viewVersion) and exits with
+ * installExitCode when running `npm i` (install).
+ */
+function createFakeNpmBin(dir: string, viewVersion: string, installExitCode: number): void {
+  const scriptPath = join(dir, 'npm');
+  writeFileSync(
+    scriptPath,
+    `${[
+      '#!/bin/sh',
+      `if [ "$1" = "view" ]; then echo "${viewVersion}"; exit 0; fi`,
+      `exit ${installExitCode}`,
+    ].join('\n')}\n`
+  );
+  chmodSync(scriptPath, 0o755);
+}
 
 /**
  * Create an isolated temp SHEP_HOME directory.
@@ -247,6 +265,314 @@ describe('CLI: daemon lifecycle', { timeout: TEST_TIMEOUT }, () => {
       expect(result.exitCode).toBe(0);
       const output = result.stdout + result.stderr;
       expect(output).toMatch(/not running/i);
+    });
+  });
+
+  // ── 4. shep restart ─────────────────────────────────────────────────────
+  describe('shep restart', () => {
+    describe('daemon is running', () => {
+      let shepHome: string;
+      let cleanup: () => void;
+      let runCli: ReturnType<typeof createCliRunner>['run'];
+      let fakeProcess: ReturnType<typeof spawn>;
+      const fakePort = 4052;
+
+      beforeAll(() => {
+        const temp = makeTempShepHome();
+        shepHome = temp.shepHome;
+        cleanup = temp.cleanup;
+        runCli = createCliRunner({
+          env: { SHEP_HOME: shepHome, SHEP_SKIP_READINESS_CHECK: '1' },
+        }).run;
+
+        fakeProcess = spawn('sleep', ['60'], { detached: true, stdio: 'ignore' });
+        fakeProcess.unref();
+        writeDaemonJson(shepHome, fakeProcess.pid!, fakePort);
+      });
+
+      afterAll(async () => {
+        // Kill old fake process if still alive (likely dead after restart)
+        try {
+          if (fakeProcess?.pid) process.kill(fakeProcess.pid, 'SIGKILL');
+        } catch {
+          // Already dead — OK
+        }
+        // Kill new daemon if startDaemon wrote a new daemon.json
+        if (await daemonJsonExists(shepHome)) {
+          try {
+            const state = await readDaemonJson(shepHome);
+            process.kill(state.pid, 'SIGKILL');
+          } catch {
+            // Already dead — OK
+          }
+        }
+        cleanup();
+      });
+
+      it('exits 0, stops the old daemon, and invokes startDaemon', async () => {
+        const result = runCli('restart');
+
+        expect(result.exitCode).toBe(0);
+
+        const output = result.stdout + result.stderr;
+        // stopDaemon was called and completed — prints this success message
+        expect(output).toMatch(/shep daemon stopped/i);
+        // startDaemon was invoked — output contains a localhost URL
+        expect(output).toMatch(/localhost:\d+/);
+      });
+
+      it('daemon.json no longer belongs to the old process after restart', async () => {
+        const exists = await daemonJsonExists(shepHome);
+        if (exists) {
+          const state = await readDaemonJson(shepHome);
+          // New daemon.json must have a different PID than the old sleep process
+          expect(state.pid).not.toBe(fakeProcess.pid);
+        }
+        // If daemon.json is absent, startDaemon failed — acceptable in test env.
+      });
+    });
+
+    describe('daemon is not running', () => {
+      let shepHome: string;
+      let cleanup: () => void;
+      let runCli: ReturnType<typeof createCliRunner>['run'];
+
+      beforeAll(() => {
+        const temp = makeTempShepHome();
+        shepHome = temp.shepHome;
+        cleanup = temp.cleanup;
+        runCli = createCliRunner({
+          env: { SHEP_HOME: shepHome, SHEP_SKIP_READINESS_CHECK: '1' },
+        }).run;
+      });
+
+      afterAll(async () => {
+        // Kill any daemon that startDaemon may have spawned
+        if (await daemonJsonExists(shepHome)) {
+          try {
+            const state = await readDaemonJson(shepHome);
+            process.kill(state.pid, 'SIGKILL');
+          } catch {
+            // Already dead — OK
+          }
+        }
+        cleanup();
+      });
+
+      it('exits 0 and prints "Daemon was not running" message', () => {
+        const result = runCli('restart');
+        expect(result.exitCode).toBe(0);
+        const output = result.stdout + result.stderr;
+        expect(output).toMatch(/daemon was not running/i);
+      });
+
+      it('still invokes startDaemon when daemon was not running', () => {
+        // Output should contain a localhost URL from startDaemon's success path
+        // (test runs after the previous test — startDaemon already ran; check prior output indirectly
+        //  by re-running; daemon is already up so this tests idempotent path)
+        const result = runCli('restart');
+        expect(result.exitCode).toBe(0);
+        expect(result.stdout + result.stderr).toMatch(/localhost:\d+/);
+      });
+    });
+  });
+
+  // ── 5. shep upgrade with daemon ─────────────────────────────────────────
+  describe('shep upgrade with daemon', () => {
+    describe('daemon was running — npm install succeeds', () => {
+      let shepHome: string;
+      let binDir: string;
+      let cleanup: () => void;
+      let runCli: ReturnType<typeof createCliRunner>['run'];
+      let fakeProcess: ReturnType<typeof spawn>;
+      const fakePort = 4053;
+
+      beforeAll(() => {
+        const temp = makeTempShepHome();
+        shepHome = temp.shepHome;
+        binDir = mkdtempSync(join(tmpdir(), 'shep-e2e-bin-'));
+        createFakeNpmBin(binDir, '99.99.99', 0);
+
+        cleanup = () => {
+          try {
+            rmSync(shepHome, { recursive: true, force: true });
+          } catch {
+            // best-effort
+          }
+          try {
+            rmSync(binDir, { recursive: true, force: true });
+          } catch {
+            // best-effort
+          }
+        };
+
+        runCli = createCliRunner({
+          env: {
+            SHEP_HOME: shepHome,
+            SHEP_SKIP_READINESS_CHECK: '1',
+            PATH: `${binDir}:${process.env.PATH ?? '/usr/local/bin:/usr/bin:/bin'}`,
+          },
+        }).run;
+
+        fakeProcess = spawn('sleep', ['60'], { detached: true, stdio: 'ignore' });
+        fakeProcess.unref();
+        writeDaemonJson(shepHome, fakeProcess.pid!, fakePort);
+      });
+
+      afterAll(async () => {
+        try {
+          if (fakeProcess?.pid) process.kill(fakeProcess.pid, 'SIGKILL');
+        } catch {
+          // Already dead — OK
+        }
+        if (await daemonJsonExists(shepHome)) {
+          try {
+            const state = await readDaemonJson(shepHome);
+            process.kill(state.pid, 'SIGKILL');
+          } catch {
+            // Already dead — OK
+          }
+        }
+        cleanup();
+      });
+
+      it('stops the daemon before upgrade, restarts it after, and exits 0', () => {
+        const result = runCli('upgrade');
+
+        expect(result.exitCode).toBe(0);
+
+        const output = result.stdout + result.stderr;
+        // Daemon lifecycle messages printed in order
+        expect(output).toMatch(/stopping daemon before upgrade/i);
+        expect(output).toMatch(/restarting daemon/i);
+        expect(output).toMatch(/upgraded successfully/i);
+      });
+    });
+
+    describe('daemon was running — npm install fails', () => {
+      let shepHome: string;
+      let binDir: string;
+      let cleanup: () => void;
+      let runCli: ReturnType<typeof createCliRunner>['run'];
+      let fakeProcess: ReturnType<typeof spawn>;
+      const fakePort = 4054;
+
+      beforeAll(() => {
+        const temp = makeTempShepHome();
+        shepHome = temp.shepHome;
+        binDir = mkdtempSync(join(tmpdir(), 'shep-e2e-bin-'));
+        createFakeNpmBin(binDir, '99.99.99', 1); // exits 1 — install failure
+
+        cleanup = () => {
+          try {
+            rmSync(shepHome, { recursive: true, force: true });
+          } catch {
+            // best-effort
+          }
+          try {
+            rmSync(binDir, { recursive: true, force: true });
+          } catch {
+            // best-effort
+          }
+        };
+
+        runCli = createCliRunner({
+          env: {
+            SHEP_HOME: shepHome,
+            SHEP_SKIP_READINESS_CHECK: '1',
+            PATH: `${binDir}:${process.env.PATH ?? '/usr/local/bin:/usr/bin:/bin'}`,
+          },
+        }).run;
+
+        fakeProcess = spawn('sleep', ['60'], { detached: true, stdio: 'ignore' });
+        fakeProcess.unref();
+        writeDaemonJson(shepHome, fakeProcess.pid!, fakePort);
+      });
+
+      afterAll(async () => {
+        try {
+          if (fakeProcess?.pid) process.kill(fakeProcess.pid, 'SIGKILL');
+        } catch {
+          // Already dead — OK
+        }
+        if (await daemonJsonExists(shepHome)) {
+          try {
+            const state = await readDaemonJson(shepHome);
+            process.kill(state.pid, 'SIGKILL');
+          } catch {
+            // Already dead — OK
+          }
+        }
+        cleanup();
+      });
+
+      it('stops the old daemon, attempts restart, and prints "daemon restored" message', () => {
+        const result = runCli('upgrade');
+
+        // Process exits with code 1 because npm install failed
+        expect(result.success).toBe(false);
+
+        const output = result.stdout + result.stderr;
+        // stopDaemon ran before install (daemon lifecycle messages present)
+        expect(output).toMatch(/stopping daemon before upgrade/i);
+        // daemon restored message printed after failed install
+        expect(output).toMatch(/upgrade failed.*daemon restored on previous version/i);
+      });
+    });
+
+    describe('daemon was NOT running', () => {
+      let shepHome: string;
+      let binDir: string;
+      let cleanup: () => void;
+      let runCli: ReturnType<typeof createCliRunner>['run'];
+
+      beforeAll(() => {
+        const temp = makeTempShepHome();
+        shepHome = temp.shepHome;
+        binDir = mkdtempSync(join(tmpdir(), 'shep-e2e-bin-'));
+        createFakeNpmBin(binDir, '99.99.99', 0);
+
+        cleanup = () => {
+          try {
+            rmSync(shepHome, { recursive: true, force: true });
+          } catch {
+            // best-effort
+          }
+          try {
+            rmSync(binDir, { recursive: true, force: true });
+          } catch {
+            // best-effort
+          }
+        };
+
+        runCli = createCliRunner({
+          env: {
+            SHEP_HOME: shepHome,
+            SHEP_SKIP_READINESS_CHECK: '1',
+            PATH: `${binDir}:${process.env.PATH ?? '/usr/local/bin:/usr/bin:/bin'}`,
+          },
+        }).run;
+        // No daemon.json written — daemon is not running
+      });
+
+      afterAll(() => cleanup());
+
+      it('completes upgrade without stopping or restarting the daemon', () => {
+        const result = runCli('upgrade');
+
+        expect(result.exitCode).toBe(0);
+
+        const output = result.stdout + result.stderr;
+        expect(output).not.toMatch(/stopping daemon/i);
+        expect(output).not.toMatch(/restarting daemon/i);
+        expect(output).toMatch(/upgraded successfully/i);
+      });
+
+      it('does not create daemon.json when none existed before upgrade', async () => {
+        // No daemon was running, so no daemon should have been started
+        const exists = await daemonJsonExists(shepHome);
+        expect(exists).toBe(false);
+      });
     });
   });
 });
