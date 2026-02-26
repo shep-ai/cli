@@ -1,3 +1,9 @@
+# [1.64.0](https://github.com/shep-ai/cli/compare/v1.63.0...v1.64.0) (2026-02-26)
+
+### Features
+
+- **cli:** daemon log file, enhanced status, fix process hang ([#153](https://github.com/shep-ai/cli/issues/153)) ([2515c0b](https://github.com/shep-ai/cli/commit/2515c0b6b687e06d09502f1d47bc4cdf3039de4b))
+
 # [1.63.0](https://github.com/shep-ai/cli/compare/v1.62.0...v1.63.0) (2026-02-26)
 
 ### Features
