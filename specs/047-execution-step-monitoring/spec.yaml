@@ -1,0 +1,137 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: execution-step-monitoring
+number: 047
+branch: feat/047-execution-step-monitoring
+oneLiner: hierarchical execution step monitoring for agent runs with automatic instrumentation
+summary: >
+  Replace the flat PhaseTiming model with a hierarchical ExecutionStep entity that
+  automatically records every graph node and its sub-steps (validation, repair, CI watch,
+  CI fix iterations, approval waits). A graph middleware instruments LangGraph nodes
+  automatically. Inner sub-steps use an ExecutionMonitor context. A GetExecutionHistory
+  use case returns structured DTOs for both CLI and web UI consumption. Node inputs
+  (rejection messages, approval comments, user feedback) are captured as step metadata.
+phase: Requirements
+sizeEstimate: L
+
+relatedFeatures:
+  - 'phase-timing (current system being replaced)'
+
+technologies:
+  - TypeScript
+  - TypeSpec
+  - LangGraph
+  - SQLite
+  - Vitest
+
+relatedLinks: []
+
+openQuestions: []
+
+content: |
+  ## Problem Statement
+
+  The current `PhaseTiming` model only records 6 high-level graph nodes (analyze, requirements,
+  research, plan, implement, merge). Sub-steps happening **inside** those nodes are invisible:
+
+  - CI watch/fix iterations in the merge node produce no timing records
+  - Validation/repair loops (validate_spec_analyze, repair_spec_analyze) leave no trace
+  - Approval wait inputs (rejection message, approval comment) are stored separately in spec.yaml
+  - Phase timing recording is manual — new nodes require explicit instrumentation
+  - All rendering logic lives in the CLI presentation layer, making it unreusable for web UI
+
+  Users running `shep feat show` cannot see WHY a phase took long or WHAT happened inside it.
+  This is an agent execution **history** system — not just timings.
+
+  ## Success Criteria
+
+  - [ ] New `ExecutionStep` TypeSpec model with parentId for hierarchical nesting
+  - [ ] Graph middleware auto-records start/end/outcome for every LangGraph node
+  - [ ] ExecutionMonitor context enables sub-step recording inside nodes (CI watch, fix attempts)
+  - [ ] Node inputs captured: rejection messages, approval comments, user feedback stored as metadata
+  - [ ] All iteration cycles visible: re-execution after rejection, validation/repair loops, CI fix attempts
+  - [ ] `GetExecutionHistory` use case returns structured DTO tree (shared by CLI and web)
+  - [ ] `shep feat show` renders hierarchical step tree with nested sub-steps
+  - [ ] PhaseTiming table migrated to execution_steps table with backward-compatible data
+  - [ ] Zero manual instrumentation needed for new graph nodes added in the future
+
+  ## Affected Areas
+
+  | Area                   | Impact | Reasoning                                                          |
+  | ---------------------- | ------ | ------------------------------------------------------------------ |
+  | TypeSpec models (tsp/) | High   | New ExecutionStep model, new enums, deprecate PhaseTiming          |
+  | Application use cases  | High   | New GetExecutionHistory use case, update approve/reject use cases  |
+  | Infrastructure repos   | High   | New ExecutionStep repository, SQLite migration, graph middleware   |
+  | Feature agent graph    | High   | Middleware wraps all nodes, ExecutionMonitor passed via config     |
+  | CLI presentation       | Medium | Refactor `feat show` to use DTO from use case instead of raw data |
+  | Merge node / CI loop   | Medium | Instrument sub-steps: commit, push, PR, watch-ci, fix-attempt    |
+
+  ## Presentation in `shep feat show`
+
+  The hierarchical step tree should render as a nested timeline in the CLI:
+
+  ```
+  Phase Timing
+    i started
+  Analyzing        ████████░░░░░░░░░░░░ 55.9s
+    ↳ validate      ██░░░░░░░░░░░░░░░░░░  3.2s
+  Requirements     ███████████░░░░░░░░░ 78.0s
+    ↳ approval      █████░░░░░░░░░░░░░░░ 32.1s (waiting)
+    ↩ rejected: "add more detail on auth flow"
+  Requirements:2   ██████░░░░░░░░░░░░░░ 45.3s
+    ↳ validate      █░░░░░░░░░░░░░░░░░░░  2.1s
+    ↳ approval      ██░░░░░░░░░░░░░░░░░░ 12.4s
+    ✓ approved: "looks good"
+  Researching      ████████████████████ 144.5s
+  Planning         ██████████████░░░░░░ 102.6s
+  Implementing     ███████████░░░░░░░░░ 82.6s
+    ↳ rev phase-1   ███████████░░░░░░░░░ 82.6s
+  Merging          ████████████████████ 186.3s
+    ↳ commit         █░░░░░░░░░░░░░░░░░░░  2.1s
+    ↳ push           █░░░░░░░░░░░░░░░░░░░  3.4s
+    ↳ create-pr      ██░░░░░░░░░░░░░░░░░░  5.2s
+    ↳ watch-ci       █████████░░░░░░░░░░░ 45.0s  ✗ failed
+    ↳ fix-attempt-1  ██████░░░░░░░░░░░░░░ 32.1s
+    ↳ watch-ci       ████████████░░░░░░░░ 62.3s  ✓ passed
+
+  Total execution  546.2s (9m 6s)
+  Total wait        44.5s
+  Total wall-clock 590.7s (9m 51s)
+  ```
+
+  Key rendering rules:
+  - Parent phases show aggregated duration
+  - Sub-steps are indented with `↳` prefix
+  - Approval waits show input: rejection message or approval comment
+  - CI fix attempts show outcome (passed/failed/timeout)
+  - Running steps show elapsed time with `(running)` suffix
+  - The DTO provides all data — CLI just formats, no business logic in presentation
+
+  ## Node Input Recording
+
+  Every step that involves user interaction or produces meaningful output must capture its
+  **inputs** and **outputs** in the step metadata:
+
+  | Step Type       | Input Recorded                              | Output Recorded          |
+  | --------------- | ------------------------------------------- | ------------------------ |
+  | Approval wait   | User's approval comment or rejection message | approved/rejected        |
+  | Rejection cycle | Rejection feedback text                      | Which iteration number   |
+  | CI fix attempt  | Failure log summary (first 500 chars)        | fixed/failed/timeout     |
+  | Validation      | (none)                                       | pass/fail + error list   |
+  | Repair          | Validation errors being repaired             | success/failure          |
+  | Graph node      | (auto: state snapshot key fields)            | outcome + messages       |
+
+  ## Dependencies
+
+  None — this replaces the existing PhaseTiming system. Backward-compatible migration required.
+
+  ## Size Estimate
+
+  **L** — Touches domain model, application layer, infrastructure (repo + migration + middleware),
+  and presentation. Requires careful migration of existing PhaseTiming data. Multiple TypeSpec
+  models and enums to define.
+
+  ---
+
+  _Generated by `/shep-kit:new-feature-fast`_

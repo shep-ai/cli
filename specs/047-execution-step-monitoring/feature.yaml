@@ -1,0 +1,42 @@
+feature:
+  id: '047-execution-step-monitoring'
+  name: 'execution-step-monitoring'
+  number: 47
+  branch: 'feat/047-execution-step-monitoring'
+  lifecycle: 'implementation'
+  createdAt: '2026-02-26T17:23:03Z'
+
+status:
+  phase: 'ready-to-implement'
+  progress:
+    completed: 0
+    total: 10
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-02-26T17:24:00Z'
+  lastUpdatedBy: 'shep-kit:new-feature-fast'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-02-26T17:23:03Z'
+    completedBy: 'shep-kit:new-feature-fast'
+  - phase: 'research-complete'
+    completedAt: '2026-02-26T17:24:00Z'
+    completedBy: 'shep-kit:new-feature-fast'
+  - phase: 'plan-complete'
+    completedAt: '2026-02-26T17:24:00Z'
+    completedBy: 'shep-kit:new-feature-fast'
+
+errors:
+  current: null
+  history: []
