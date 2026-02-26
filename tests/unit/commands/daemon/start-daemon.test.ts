@@ -61,13 +61,29 @@ function createMockChild(): MockChild {
 }
 
 // ---- child_process.spawn mock ------------------------------------------------
-const { mockSpawn } = vi.hoisted(() => {
+const { mockSpawn, mockOpenSync } = vi.hoisted(() => {
   const mockSpawn = vi.fn();
-  return { mockSpawn };
+  const mockOpenSync = vi.fn().mockReturnValue(42); // fake fd
+  return { mockSpawn, mockOpenSync };
 });
 
 vi.mock('node:child_process', () => ({
   spawn: mockSpawn,
+}));
+
+vi.mock('node:fs', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  return {
+    ...actual,
+    openSync: mockOpenSync,
+    closeSync: vi.fn(),
+    renameSync: vi.fn(),
+    existsSync: vi.fn().mockReturnValue(false),
+  };
+});
+
+vi.mock('@/infrastructure/services/filesystem/shep-directory.service.js', () => ({
+  getDaemonLogPath: vi.fn().mockReturnValue('/tmp/test-shep/daemon.log'),
 }));
 
 // Global mock child — reassigned per test in beforeEach
@@ -220,20 +236,21 @@ describe('startDaemon()', () => {
       expect(spawnOpts).toMatchObject({ detached: true });
     });
 
-    it('spawns with stderr piped for error capture', async () => {
+    it('spawns with stdout and stderr redirected to log file fd', async () => {
+      mockOpenSync.mockReturnValue(42);
       await startDaemon();
       const spawnOpts = mockSpawn.mock.calls[0][2];
-      expect(spawnOpts).toMatchObject({ stdio: ['ignore', 'ignore', 'pipe'] });
+      expect(spawnOpts).toMatchObject({ stdio: ['ignore', 42, 42] });
+    });
+
+    it('opens the log file for appending', async () => {
+      await startDaemon();
+      expect(mockOpenSync).toHaveBeenCalledWith('/tmp/test-shep/daemon.log', 'a', 0o600);
     });
 
     it('calls child.unref() after the settle check', async () => {
       await startDaemon();
       expect(mockChild.unref).toHaveBeenCalled();
-    });
-
-    it('destroys stderr before unreffing', async () => {
-      await startDaemon();
-      expect(mockChild.stderr.destroy).toHaveBeenCalled();
     });
 
     it('writes daemon.json with pid, port, and startedAt', async () => {

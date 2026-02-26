@@ -131,6 +131,7 @@ describe('IAgentExecutorFactory type contracts', () => {
         supportsFeature: () => false,
       }),
       getSupportedAgents: () => [AgentType.ClaudeCode],
+      getCliInfo: () => [],
     };
     expect(mockFactory.getSupportedAgents()).toContain(AgentType.ClaudeCode);
   });
@@ -145,6 +146,7 @@ describe('IAgentExecutorFactory type contracts', () => {
         supportsFeature: () => false,
       }),
       getSupportedAgents: () => [AgentType.ClaudeCode, AgentType.GeminiCli],
+      getCliInfo: () => [],
     };
     const executor = mockFactory.createExecutor(AgentType.ClaudeCode, {
       type: AgentType.ClaudeCode,
@@ -163,6 +165,7 @@ describe('IAgentExecutorFactory type contracts', () => {
         supportsFeature: () => false,
       }),
       getSupportedAgents: () => [AgentType.ClaudeCode, AgentType.GeminiCli],
+      getCliInfo: () => [],
     };
     const supported = mockFactory.getSupportedAgents();
     expect(supported).toHaveLength(2);

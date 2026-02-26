@@ -10,7 +10,10 @@
 
 import type { AgentType, AgentConfig } from '../../../../domain/generated/output.js';
 import type { IAgentExecutor } from '../../../../application/ports/output/agents/agent-executor.interface.js';
-import type { IAgentExecutorFactory } from '../../../../application/ports/output/agents/agent-executor-factory.interface.js';
+import type {
+  IAgentExecutorFactory,
+  AgentCliInfo,
+} from '../../../../application/ports/output/agents/agent-executor-factory.interface.js';
 import { ClaudeCodeExecutorService } from './executors/claude-code-executor.service.js';
 import { CursorExecutorService } from './executors/cursor-executor.service.js';
 import { DevAgentExecutorService } from './executors/dev-executor.service.js';
@@ -79,6 +82,14 @@ export class AgentExecutorFactory implements IAgentExecutorFactory {
       'cursor' as AgentType,
       'dev' as AgentType,
       'gemini-cli' as AgentType,
+    ];
+  }
+
+  getCliInfo(): AgentCliInfo[] {
+    return [
+      { agentType: 'claude-code' as AgentType, cmd: 'claude', versionArgs: ['--version'] },
+      { agentType: 'gemini-cli' as AgentType, cmd: 'gemini', versionArgs: ['--version'] },
+      { agentType: 'cursor' as AgentType, cmd: 'cursor', versionArgs: ['--version'] },
     ];
   }
 }

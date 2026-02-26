@@ -18,10 +18,12 @@
  */
 
 import { spawn } from 'node:child_process';
+import { closeSync, openSync, renameSync, existsSync } from 'node:fs';
 import http from 'node:http';
 import { container } from '@/infrastructure/di/container.js';
 import { findAvailablePort, DEFAULT_PORT } from '@/infrastructure/services/port.service.js';
 import { BrowserOpenerService } from '@/infrastructure/services/browser-opener.service.js';
+import { getDaemonLogPath } from '@/infrastructure/services/filesystem/shep-directory.service.js';
 import { fmt, messages, spinner } from '../../ui/index.js';
 import type { IDaemonService } from '@/application/ports/output/services/daemon-service.interface.js';
 
@@ -58,22 +60,31 @@ export async function startDaemon(opts: StartDaemonOptions = {}): Promise<void> 
   const startPort = opts.port ?? DEFAULT_PORT;
   const port = await findAvailablePort(startPort);
 
+  // Rotate existing daemon.log → daemon.log.old (keep 1 backup)
+  const logPath = getDaemonLogPath();
+  try {
+    if (existsSync(logPath)) {
+      renameSync(logPath, `${logPath}.old`);
+    }
+  } catch {
+    // Best-effort rotation — continue even if rename fails
+  }
+
+  // Open log file for daemon stdout+stderr redirection
+  const logFd = openSync(logPath, 'a', 0o600);
+
   // Spawn the daemon as a detached child process.
   // Propagate process.execArgv so tsx loader hooks (--require / --import) are
   // available in dev mode. In production (compiled JS), execArgv is empty.
+  // stdout and stderr are both redirected to daemon.log.
   const child = spawn(
     process.execPath,
     [...process.execArgv, process.argv[1], '_serve', '--port', String(port)],
     {
       detached: true,
-      // Keep stderr piped so we can surface startup errors; stdin/stdout detached.
-      stdio: ['ignore', 'ignore', 'pipe'],
+      stdio: ['ignore', logFd, logFd],
     }
   );
-
-  // Collect stderr in case the child crashes during startup.
-  let stderrChunks: Buffer[] = [];
-  child.stderr!.on('data', (chunk: Buffer) => stderrChunks.push(chunk));
 
   // Wait briefly for the child to either settle or crash.
   const exitCode = await Promise.race([
@@ -83,22 +94,18 @@ export async function startDaemon(opts: StartDaemonOptions = {}): Promise<void> 
 
   if (exitCode !== undefined) {
     // Child exited during the settle window — startup failed.
-    const stderr = Buffer.concat(stderrChunks).toString().trim();
+    closeSync(logFd);
     messages.newline();
     messages.error(`Daemon failed to start (exit code ${exitCode ?? 'unknown'}).`);
-    if (stderr) {
-      console.error(stderr);
-    }
+    messages.info(`Check logs: ${fmt.code(logPath)}`);
     messages.newline();
     // Clean up stale daemon.json if it exists
     await daemonService.delete();
     return;
   }
 
-  // Child is alive — detach fully.
-  // Unref stderr so the parent event loop is not held open, then unref the child.
-  child.stderr!.destroy();
-  stderrChunks = [];
+  // Child is alive — close the log fd in the parent and detach fully.
+  closeSync(logFd);
   child.unref();
 
   // Write daemon.json atomically
@@ -144,8 +151,10 @@ function waitForServer(url: string, timeoutMs: number): Promise<boolean> {
     const probe = () => {
       if (Date.now() > deadline) return resolve(false);
 
-      const req = http.get(url, () => {
-        resolve(true);
+      const req = http.get(url, (res) => {
+        // Drain the response so the socket doesn't keep the event loop alive
+        res.resume();
+        res.on('end', () => resolve(true));
       });
       req.on('error', () => {
         setTimeout(probe, READY_POLL_MS);

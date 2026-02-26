@@ -28,6 +28,7 @@ describe('AgentExecutorProvider', () => {
     mockFactory = {
       createExecutor: vi.fn().mockReturnValue(mockExecutor),
       getSupportedAgents: vi.fn(),
+      getCliInfo: vi.fn().mockReturnValue([]),
     };
     mockGetSettings.mockReturnValue({
       agent: { type: 'claude-code', authMethod: 'session' },
