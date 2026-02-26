@@ -94,7 +94,7 @@ TypeError: Cannot read property 'send' of undefined
     at async middleware (src/middleware/auth.ts:23:7)
 
 This error occurs because the SendGrid client is not properly initialized.
-Check your SENDGRID_API_KEY environment variable.`,
+Check your email service configuration environment variable.`,
   repositoryPath: '/home/user/my-repo',
   branch: 'feat/email-service',
 };
