@@ -28,7 +28,7 @@ import type {
 } from '../../../application/ports/output/services/git-pr-service.interface.js';
 import type { INotificationService } from '../../../application/ports/output/services/notification-service.interface.js';
 
-const DEFAULT_POLL_INTERVAL_MS = 3000;
+const DEFAULT_POLL_INTERVAL_MS = 30_000;
 const TAG = '[PrSyncWatcher]';
 
 interface PrWatcherState {

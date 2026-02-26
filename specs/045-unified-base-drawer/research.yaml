@@ -1,0 +1,550 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: unified-base-drawer
+summary: >
+  Technical research for extracting a unified BaseDrawer component from 6 existing drawer implementations.
+  Key decisions: compose the Tier 0 Vaul Drawer primitive (not fork it), use CVA for width tier variants
+  (sm=w-96, md=w-xl), render a single close button internally, pass-through modal prop to Vaul, use
+  slot-based composition via header/children/footer props, and migrate SkillDetailDrawer from Radix Sheet
+  to Vaul Drawer. No new dependencies required — all libraries (vaul, CVA, cn, lucide-react) are already
+  in use.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - React 19
+  - Next.js 16 (App Router)
+  - Vaul (drawer primitive, already used by 5/6 drawers)
+  - Radix UI Dialog (Sheet primitive, used by SkillDetailDrawer — to be replaced)
+  - Tailwind CSS v4 (CSS-first config via @theme)
+  - shadcn/ui (component library pattern)
+  - class-variance-authority (CVA, ^0.7.1 — already in use)
+  - clsx + tailwind-merge (cn utility — already in use)
+  - lucide-react (XIcon for close button — already in use)
+  - Storybook (story verification)
+  - Vitest + React Testing Library (unit testing)
+
+relatedLinks: []
+
+# Structured technology decisions
+decisions:
+  - title: 'BaseDrawer composition strategy — compose vs fork Tier 0 primitive'
+    chosen: 'Compose the Tier 0 Drawer primitive as-is'
+    rejected:
+      - >
+        Fork/extend drawer.tsx with BaseDrawer logic — rejected because NFR-3 mandates Tier 0
+        immutability. Modifying drawer.tsx would violate the tier architecture and affect all
+        Drawer usages codebase-wide, not just right-side panels.
+      - >
+        Create BaseDrawer from scratch using raw vaul — rejected because it would duplicate the
+        normalization work already done in drawer.tsx (direction CSS, transform variables, portal,
+        data-slot attributes). Composing the existing Tier 0 primitive avoids duplication.
+    rationale: >
+      The Tier 0 drawer.tsx already wraps vaul with proper direction handling, CSS transform variables,
+      portal rendering, and data-slot attributes. BaseDrawer should import and compose Drawer,
+      DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerFooter from
+      @/components/ui/drawer — exactly as FeatureDrawer and ReviewDrawerShell do today. The key
+      difference is that BaseDrawer will set direction="right", handleOnly, and showCloseButton={false}
+      as fixed configuration (since it renders its own close button), while exposing open, onOpenChange,
+      onClose, modal, size, and slot props. This follows the same composition pattern used by all
+      existing common/ components that wrap ui/ primitives.
+
+  - title: 'CVA variant design for width tiers'
+    chosen: 'Two tiers: sm (w-96 / 384px) and md (w-xl / 576px) via CVA variants'
+    rejected:
+      - >
+        Three or more tiers (sm/md/lg/full) — rejected because only two distinct widths exist in the
+        codebase: w-96 (FeatureDrawer, FeatureCreateDrawer) and w-xl (ReviewDrawerShell). Adding
+        unused tiers would be speculative design. Additional tiers can be added later by extending
+        the CVA variants object.
+      - >
+        Single width for all drawers — rejected because inspector panels (FeatureDrawer) and
+        content-rich review panels (ReviewDrawerShell) have fundamentally different content density
+        needs. Forcing w-96 on review content would truncate diff summaries and questionnaire tables.
+        Forcing w-xl on inspector panels would waste horizontal space.
+    rationale: >
+      The codebase uses CVA extensively (button.tsx, badge.tsx, alert.tsx) with a consistent pattern:
+      define base classes, add variant groups, set defaultVariants, and export the variants function.
+      BaseDrawer will follow this exact pattern with a drawerVariants function containing a `size`
+      variant group. The two tiers map directly to existing usage: sm=w-96 for FeatureDrawer and
+      FeatureCreateDrawer, md=w-xl for ReviewDrawerShell. SkillDetailDrawer currently uses
+      sm:max-w-lg (~512px), but since it's migrating to Vaul and its content fits within w-96
+      (it only shows metadata, badges, and text), it should use sm. Default size is sm since 4 of 6
+      drawer instances use it.
+
+  - title: 'Close button implementation'
+    chosen: 'BaseDrawer renders its own <button> element with onClose handler, suppresses Tier 0 close button'
+    rejected:
+      - >
+        Use Tier 0 DrawerContent showCloseButton={true} — rejected because the Tier 0 close button
+        uses DrawerPrimitive.Close which dispatches Vaul's internal close event rather than calling
+        the consumer's onClose callback directly. FeatureDrawer, FeatureCreateDrawer, and
+        ReviewDrawerShell all already use showCloseButton={false} and render their own <button>
+        with onClick={onClose} for precise control over close behavior (e.g., FeatureCreateDrawer
+        resets form state on close).
+      - >
+        No close button in BaseDrawer, let consumers render their own — rejected because this is
+        the exact duplication problem the feature aims to solve. All 3 Vaul-based drawer
+        implementations copy-paste the identical 5-line close button markup with identical classes.
+    rationale: >
+      All existing drawer implementations disable the Tier 0 close button (showCloseButton={false})
+      and render their own <button> that calls onClose directly. This is because consumers need the
+      onClose callback to run side effects (e.g., FeatureCreateDrawer resets form state). BaseDrawer
+      will use showCloseButton={false} on DrawerContent and render its own button element at
+      "absolute top-4 right-4" with the exact same classes used across all 3 existing drawers:
+      "ring-offset-background focus:ring-ring rounded-xs opacity-70 transition-opacity
+      hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden". The close button
+      calls onClose which consumers provide. This consolidates the duplicated markup into one place.
+
+  - title: 'Modal/non-modal support strategy'
+    chosen: 'Pass-through modal prop to Vaul Drawer root, default false, render DrawerOverlay when modal=true'
+    rejected:
+      - >
+        Always non-modal — rejected because SkillDetailDrawer currently uses Radix Sheet which is
+        inherently modal (renders overlay, traps focus). Removing modal behavior would be a UX
+        regression for the skills page.
+      - >
+        Custom overlay implementation — rejected because the Tier 0 drawer.tsx already exports
+        DrawerOverlay with proper styling (fixed inset-0 z-50 bg-black/50). The Vaul Drawer root
+        accepts modal={true|false} natively. No custom work needed.
+    rationale: >
+      Vaul's Drawer primitive natively supports modal={true|false}. When modal={true}, Vaul handles
+      focus trapping and prevents background interaction. BaseDrawer passes the modal prop to the
+      Drawer root and conditionally renders <DrawerOverlay /> inside DrawerContent's portal when
+      modal is true. This mirrors the Sheet primitive's behavior (SheetContent always renders
+      SheetOverlay) but makes it conditional. The default is false because 5/6 existing drawers
+      are non-modal (they allow canvas interaction behind the drawer). Only SkillDetailDrawer
+      needs modal=true.
+
+  - title: 'Slot-based composition API design'
+    chosen: 'Props-based slots: header (ReactNode), children (ReactNode), footer (ReactNode)'
+    rejected:
+      - >
+        Compound component pattern (BaseDrawer.Header, BaseDrawer.Content, BaseDrawer.Footer) —
+        rejected because it would require consumers to import multiple sub-components and the
+        BaseDrawer needs to control the scroll wrapper around children. With compound components,
+        BaseDrawer cannot inject its scroll container between the header and footer slots because
+        it doesn't control the children order.
+      - >
+        Render props pattern — rejected because the slots are simple ReactNode passthroughs, not
+        requiring any render-time data from BaseDrawer. Render props would add unnecessary
+        complexity and awkward JSX nesting.
+    rationale: >
+      The header, children, footer props pattern is the simplest API that gives BaseDrawer full
+      control over layout structure. BaseDrawer renders: DrawerHeader (with header prop content),
+      then a scrollable div wrapping children, then DrawerFooter (with footer prop content). Only
+      children is required. When header is provided, it's rendered inside DrawerHeader; when header
+      is omitted, no DrawerHeader is rendered. Same for footer/DrawerFooter. This lets BaseDrawer
+      own the scroll container placement and flex layout while consumers fill in the visual content.
+
+  - title: 'SkillDetailDrawer migration approach'
+    chosen: 'Direct migration from Sheet to BaseDrawer with modal=true, replace ScrollArea with BaseDrawer native scroll'
+    rejected:
+      - >
+        Abstract BaseDrawer over both Vaul and Radix — rejected because the two primitives have
+        fundamentally different APIs (Vaul uses CSS transforms, Radix uses CSS animations; Vaul has
+        direction/handleOnly, Radix has side; modal behavior implementation differs). The abstraction
+        would leak at every level and require maintaining two code paths.
+      - >
+        Keep SkillDetailDrawer on Sheet, exclude from unification — rejected because it defeats the
+        purpose of the feature. Future drawers would face the same library choice problem, and
+        the skills page drawer would remain inconsistent with all other drawers.
+    rationale: >
+      SkillDetailDrawer is the only drawer using Radix Sheet. Its current structure maps cleanly
+      to BaseDrawer: SheetHeader → header prop, ScrollArea content → children (BaseDrawer handles
+      scroll), SheetContent side="right" → BaseDrawer direction is always right. The width changes
+      from "w-full sm:max-w-lg" to size="sm" (w-96), which is appropriate since the content is
+      metadata/badges/text that fits within 384px. The visual change is: Radix slide-in animation
+      becomes Vaul transform animation — nearly identical for right-side panels. The modal behavior
+      is preserved via modal={true}. ScrollArea removal is safe since only SkillDetailDrawer uses
+      it for drawers (the other 2 ScrollArea usages are in app-sidebar and scroll-area.tsx itself).
+
+  - title: 'Scroll handling standardization'
+    chosen: 'CSS flex-1 overflow-y-auto on content wrapper div'
+    rejected:
+      - >
+        Radix ScrollArea component — rejected because it adds JS overhead for custom scrollbar
+        rendering, only one drawer currently uses it (SkillDetailDrawer), and native scrolling
+        is more reliable with dynamic content. The custom scrollbar styling is cosmetic, not
+        functional.
+      - >
+        CSS scroll-snap or overscroll-behavior utilities — rejected because drawer content is
+        free-form (not snapping to discrete points) and overscroll-behavior is only relevant
+        for preventing scroll chaining, which is not an issue in side panels.
+    rationale: >
+      FeatureCreateDrawer already uses "flex-1 overflow-y-auto" successfully for its form content.
+      This is the simplest reliable approach: the content div takes remaining flex space and scrolls
+      when content overflows. BaseDrawer's content wrapper will use "flex-1 overflow-y-auto" with
+      an inner div using "flex flex-col" so children can control their own spacing. The outer
+      DrawerContent already uses "flex flex-col" (from Tier 0), so flex-1 on the content wrapper
+      naturally fills the space between header and footer.
+
+  - title: 'Test strategy for BaseDrawer'
+    chosen: 'Vitest + React Testing Library with jsdom, testing render/interaction/accessibility'
+    rejected:
+      - >
+        Storybook interaction tests only — rejected because unit tests provide faster feedback
+        and are required by the project's TDD mandate. Storybook tests are visual, not unit-level.
+      - >
+        E2e tests with Playwright — rejected for the BaseDrawer component itself because it's a
+        presentation component with no server-side behavior. Unit tests with RTL are more
+        appropriate. E2e tests may be added for full drawer flows but are not in scope for this
+        feature.
+    rationale: >
+      The project uses Vitest + React Testing Library for component tests (visible in the testing
+      guide). BaseDrawer tests should cover: rendering with default props, open/close state
+      transitions, close button click calling onClose, Escape key triggering close (Vaul native),
+      size variant class application (w-96 for sm, w-xl for md), modal overlay presence when
+      modal=true and absence when modal=false, children/header/footer slot rendering, className
+      passthrough merging, and data-testid propagation. Note: no .test.tsx files currently exist
+      in the components directory, so this will establish the pattern. The testing stack is
+      already configured in the project (Vitest + RTL in packages).
+
+  - title: 'data-testid convention'
+    chosen: '{context}-drawer pattern on root, {context}-drawer-{section} on subsections'
+    rejected:
+      - >
+        Auto-generated testids from component name — rejected because test IDs should be
+        meaningful and stable across refactors, not tied to implementation details.
+      - >
+        No data-testid convention (leave to consumers) — rejected because the spec requires
+        consistent testid attributes (SC-15) and the existing FeatureDrawer already uses
+        feature-drawer-* prefix pattern.
+    rationale: >
+      FeatureDrawer already uses "feature-drawer-header", "feature-drawer-status",
+      "feature-drawer-progress", "feature-drawer-details", "feature-drawer-delete",
+      "feature-drawer-pr" — establishing the {context}-drawer-{section} convention.
+      BaseDrawer accepts data-testid and applies it to the DrawerContent root. Consumers
+      pass their context-specific prefix (e.g., "feature-drawer", "review-drawer",
+      "skill-detail-drawer"). BaseDrawer also applies derived testids on its internal
+      elements: {testid}-close-button on the close button. Header, content, and footer
+      sections can have testids applied by consumers via their slot content.
+
+# Open questions (resolved during research)
+openQuestions:
+  - question: 'Should BaseDrawer handle the onOpenChange → onClose translation internally or expose both?'
+    resolved: true
+    options:
+      - option: 'Accept onClose only, translate internally'
+        description: >
+          BaseDrawer accepts only onClose. Internally it wraps onOpenChange to call onClose when
+          open transitions to false. Simpler consumer API — consumers only think about "close".
+          Trade-off: consumers cannot distinguish between "user closed" vs "programmatic close"
+          but this distinction is not needed by any current drawer.
+        selected: true
+      - option: 'Accept both onOpenChange and onClose'
+        description: >
+          BaseDrawer accepts both props, passes onOpenChange to Vaul Drawer and calls onClose
+          as a convenience. More flexible but redundant — onClose is just onOpenChange(false).
+          Consumers must decide which to use.
+        selected: false
+      - option: 'Accept onOpenChange only (match Vaul API)'
+        description: >
+          BaseDrawer directly mirrors Vaul's API. Consumers handle the open/false check themselves.
+          Maximum flexibility but worse DX — every consumer writes the same if (!open) onClose()
+          boilerplate, which is the current duplication pattern.
+        selected: false
+    selectionRationale: >
+      All existing drawers follow the same pattern: they accept onClose from their parent, pass
+      open and onOpenChange to Vaul, and in onOpenChange they check if (!open) onClose(). This
+      boilerplate is duplicated in FeatureDrawer, FeatureCreateDrawer, and ReviewDrawerShell.
+      BaseDrawer should encapsulate this: accept open (boolean) and onClose (callback), wire
+      up onOpenChange={(isOpen) => { if (!isOpen) onClose(); }} internally. This eliminates
+      the repeated pattern and gives consumers a clean imperative close callback. However,
+      FeatureCreateDrawer's handleOpenChange also calls resetForm() before onClose — this is
+      handled by the consumer passing an onClose that resets form state, which already works.
+    answer: 'Accept onClose only, translate internally'
+
+  - question: 'Should the DrawerOverlay be rendered inside or outside DrawerContent for modal mode?'
+    resolved: true
+    options:
+      - option: 'Inside DrawerPortal, before DrawerContent (sibling)'
+        description: >
+          Render DrawerOverlay as a sibling of DrawerContent inside the portal, matching the
+          Sheet primitive pattern. The overlay covers the viewport while content sits on top.
+          This is how SheetContent renders SheetOverlay today.
+        selected: true
+      - option: 'Inside DrawerContent (child)'
+        description: >
+          Render DrawerOverlay as the first child inside DrawerContent. Simpler DOM structure
+          but the overlay would be clipped to the drawer width, defeating its purpose (it should
+          cover the full viewport).
+        selected: false
+      - option: 'Outside DrawerPortal (separate portal)'
+        description: >
+          Render the overlay in its own portal. Maximum isolation but unnecessary complexity —
+          the existing portal is sufficient and both Sheet and Drawer already share z-50 stacking.
+        selected: false
+    selectionRationale: >
+      Looking at the Tier 0 drawer.tsx, DrawerContent renders inside DrawerPortal. The DrawerOverlay
+      is exported but never used by any existing drawer (since they're all non-modal). For modal
+      mode, BaseDrawer should render DrawerOverlay as a sibling before DrawerContent inside the
+      portal, matching how SheetContent renders SheetOverlay. However, since BaseDrawer composes
+      DrawerContent (which internally renders its own DrawerPortal), the overlay must be handled
+      carefully. The cleanest approach: BaseDrawer conditionally renders DrawerOverlay just before
+      DrawerContent when modal=true. Since DrawerOverlay is a fixed-position element at z-50, it
+      will overlay the viewport regardless of its DOM position relative to DrawerContent. This
+      matches the visual behavior of the current Sheet-based SkillDetailDrawer.
+    answer: 'Inside DrawerPortal, before DrawerContent (sibling) — but since DrawerContent manages its own portal, render DrawerOverlay as a direct child at the top of DrawerContent'
+
+  - question: 'How should the header slot handle DrawerTitle/DrawerDescription semantics?'
+    resolved: true
+    options:
+      - option: 'BaseDrawer renders DrawerHeader wrapper, consumer passes inner content'
+        description: >
+          BaseDrawer renders <DrawerHeader> around the header prop content. Consumer is responsible
+          for including DrawerTitle and DrawerDescription inside their header content for proper
+          accessibility semantics. BaseDrawer provides the structural wrapper; consumer provides
+          semantic content.
+        selected: true
+      - option: 'BaseDrawer accepts title and description as separate props'
+        description: >
+          BaseDrawer accepts title (string) and description (string) props and renders DrawerTitle
+          and DrawerDescription automatically. Simpler for basic cases but inflexible — FeatureDrawer
+          uses featureId as description, FeatureCreateDrawer uses a badge as description, and
+          ReviewDrawerShell conditionally renders description vs sr-only text.
+        selected: false
+      - option: 'No DrawerHeader in BaseDrawer, consumer handles everything'
+        description: >
+          BaseDrawer provides no header wrapper. Consumer must include their own DrawerHeader,
+          DrawerTitle, DrawerDescription. Maximum flexibility but defeats the purpose of
+          standardizing header layout and means BaseDrawer can't control header/scroll/footer
+          flex layout.
+        selected: false
+    selectionRationale: >
+      The header content varies significantly across drawers. FeatureDrawer uses name as title and
+      featureId as description. FeatureCreateDrawer uses a blue dot + "NEW FEATURE" as title and
+      a Badge as description. ReviewDrawerShell uses featureName as title and conditionally renders
+      featureDescription or sr-only featureId. Abstracting title/description as string props would
+      not accommodate these variations. Instead, BaseDrawer renders <DrawerHeader> as the structural
+      wrapper when header is provided, and consumers pass full ReactNode content including their
+      own DrawerTitle/DrawerDescription. This maintains accessibility semantics (consumers must
+      include DrawerTitle) while allowing arbitrary header layouts.
+    answer: 'BaseDrawer renders DrawerHeader wrapper, consumer passes inner content including DrawerTitle/DrawerDescription'
+
+# Markdown content (the full research document)
+content: |
+  ## Technology Decisions
+
+  ### 1. Composition Strategy — Compose Tier 0 Primitive
+
+  **Chosen:** Compose the existing Tier 0 `Drawer` primitive from `@/components/ui/drawer`
+
+  **Rejected:**
+  - Fork/extend drawer.tsx — violates NFR-3 (Tier 0 immutability) and would affect all Drawer usages codebase-wide
+  - Create from scratch using raw vaul — duplicates the normalization already done in drawer.tsx (direction CSS, transform variables, portal)
+
+  **Rationale:** The Tier 0 drawer.tsx already handles vaul wrapping with proper direction support, CSS transform variables, portal rendering, and data-slot attributes. BaseDrawer imports Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerFooter, DrawerOverlay from `@/components/ui/drawer` — exactly matching how FeatureDrawer and ReviewDrawerShell compose today. BaseDrawer fixes `direction="right"`, `handleOnly`, and `showCloseButton={false}` as internal configuration.
+
+  ### 2. CVA Width Tiers — Two Tiers (sm/md)
+
+  **Chosen:** Two size tiers via CVA: `sm` → `w-96` (384px), `md` → `w-xl` (576px)
+
+  **Rejected:**
+  - Three+ tiers (sm/md/lg/full) — speculative; only two widths exist in the codebase
+  - Single width — forces a bad compromise; inspector panels and review panels have different density needs
+
+  **Rationale:** Follows the CVA pattern established in button.tsx, badge.tsx, alert.tsx. The `drawerVariants` function will have a `size` variant with two options mapping to existing width classes. Default is `sm` since 4/6 drawer instances use it. The CVA pattern is: base classes in first argument, variant groups in `variants`, `defaultVariants` for fallback, export the variants function, use `VariantProps` for TypeScript types, apply via `cn(drawerVariants({ size }), className)`.
+
+  ### 3. Close Button — Internal Rendering with onClose
+
+  **Chosen:** BaseDrawer renders its own `<button>` element, suppresses Tier 0 close button via `showCloseButton={false}`
+
+  **Rejected:**
+  - Use Tier 0 showCloseButton={true} — uses DrawerPrimitive.Close which doesn't call the consumer's onClose directly
+  - No close button (let consumers render) — perpetuates the current 5-line duplication across 3 drawers
+
+  **Rationale:** All three Vaul-based drawers (FeatureDrawer, FeatureCreateDrawer, ReviewDrawerShell) already use `showCloseButton={false}` and render identical custom close buttons. The close button markup is: `<button type="button" aria-label="Close" onClick={onClose} className="ring-offset-background focus:ring-ring absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden"><XIcon className="size-4" /><span className="sr-only">Close</span></button>`. BaseDrawer consolidates this into one place.
+
+  ### 4. Modal Support — Pass-Through Prop
+
+  **Chosen:** Accept `modal` boolean prop (default: false), pass to Vaul Drawer root, conditionally render DrawerOverlay
+
+  **Rejected:**
+  - Always non-modal — UX regression for SkillDetailDrawer which is currently a focused modal view
+  - Custom overlay implementation — unnecessary since Tier 0 already exports DrawerOverlay
+
+  **Rationale:** Vaul's Drawer root natively supports `modal={true|false}`. When `modal={true}`, Vaul handles focus trapping. BaseDrawer passes the prop through and conditionally renders `<DrawerOverlay />` when modal is true (rendering it as a child at the top of DrawerContent, since DrawerContent manages its own portal). The overlay uses the existing styling: `fixed inset-0 z-50 bg-black/50`.
+
+  ### 5. Slot-Based Composition — Props-Based Slots
+
+  **Chosen:** Three prop slots: `header` (ReactNode), `children` (ReactNode, required), `footer` (ReactNode)
+
+  **Rejected:**
+  - Compound components (BaseDrawer.Header etc.) — BaseDrawer needs to control the scroll wrapper between header and footer, which compound components don't allow
+  - Render props — unnecessary complexity for simple ReactNode passthroughs
+
+  **Rationale:** BaseDrawer owns the layout: `DrawerHeader` → scrollable content div → `DrawerFooter`. Consumers fill in each section via props. Only `children` is required. When `header` is provided, it's rendered inside `<DrawerHeader>`; when omitted, no DrawerHeader is rendered. Same for `footer`/`<DrawerFooter>`. This gives BaseDrawer full control over flex layout and scroll positioning.
+
+  ### 6. SkillDetailDrawer Migration — Sheet to Vaul
+
+  **Chosen:** Direct migration from Radix Sheet to BaseDrawer with `modal={true}`, replace ScrollArea with native scroll
+
+  **Rejected:**
+  - Abstract over both Vaul and Radix — leaky abstraction, fundamentally different APIs (transforms vs animations, direction vs side)
+  - Keep on Sheet, exclude from unification — defeats the purpose; leaves library inconsistency
+
+  **Rationale:** SkillDetailDrawer's current structure maps cleanly to BaseDrawer: `SheetHeader` → `header` prop, `ScrollArea` content → `children` (BaseDrawer handles scroll), `SheetContent side="right"` → BaseDrawer always uses right. Width changes from `w-full sm:max-w-lg` to `size="sm"` (w-96). Visual change is minimal: Radix slide-in becomes Vaul transform — nearly identical for right-side panels. Modal behavior preserved via `modal={true}`. The `ScrollArea` import is only used by SkillDetailDrawer among drawer components, so its removal is safe.
+
+  ### 7. onOpenChange Encapsulation
+
+  **Chosen:** BaseDrawer accepts `open` and `onClose`, translates to onOpenChange internally
+
+  **Rejected:**
+  - Expose both onOpenChange and onClose — redundant, consumers must choose
+  - Expose only onOpenChange — perpetuates the `if (!open) onClose()` boilerplate
+
+  **Rationale:** Every existing drawer duplicates the same pattern: accept onClose from parent, wire `onOpenChange={(isOpen) => { if (!isOpen) onClose(); }}`. BaseDrawer encapsulates this, exposing a clean `onClose` callback. Consumers like FeatureCreateDrawer that need additional close logic (form reset) can wrap it in their onClose prop.
+
+  ### 8. Scroll Handling — CSS overflow-y-auto
+
+  **Chosen:** CSS `flex-1 overflow-y-auto` on the content wrapper div
+
+  **Rejected:**
+  - Radix ScrollArea — JS overhead, custom scrollbar is cosmetic not functional, only one drawer uses it
+  - CSS scroll-snap — not applicable for free-form content
+
+  **Rationale:** FeatureCreateDrawer already uses `flex-1 overflow-y-auto` successfully. The Tier 0 DrawerContent uses `flex flex-col`, so a `flex-1` child naturally fills remaining space. The content wrapper will be `<div className="flex-1 overflow-y-auto"><div className="flex flex-col">{children}</div></div>` — outer div handles scroll, inner div provides flex column layout for children.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | vaul (^1.1.2) | Drawer primitive | Use (existing) | Already powers 5/6 drawers via Tier 0 drawer.tsx. Native modal support, direction support, handleOnly. No version change needed. |
+  | class-variance-authority (^0.7.1) | CVA width variants | Use (existing) | Already used by button.tsx, badge.tsx, alert.tsx, spinner.tsx, label.tsx. Provides type-safe variant props via VariantProps. No version change needed. |
+  | clsx + tailwind-merge | cn() utility | Use (existing) | Already used across all components for class merging. Located at @/lib/utils. No changes needed. |
+  | lucide-react (^0.563.0) | XIcon for close button | Use (existing) | Already imported in all drawer implementations. No new icons needed. |
+  | radix-ui Dialog (Sheet) | Sheet primitive | Remove from SkillDetailDrawer | SkillDetailDrawer will migrate to BaseDrawer (Vaul-based). The Sheet primitive stays in ui/sheet.tsx for other uses but is no longer imported by any drawer component. |
+  | @radix-ui/react-scroll-area | ScrollArea | Remove from SkillDetailDrawer | BaseDrawer provides native CSS scroll handling. ScrollArea import removed from SkillDetailDrawer. Component stays in ui/scroll-area.tsx for other uses (app-sidebar). |
+  | New dependencies | — | None needed | All required libraries already in the project. Zero new runtime dependencies. |
+
+  ## Security Considerations
+
+  - **No security implications.** This is a purely presentational refactoring. No data handling, API calls, authentication, or user input processing changes. The drawers display data provided by parent components — that data flow is unchanged.
+  - **Focus trapping in modal mode** is handled by Vaul natively, preventing inadvertent background interaction when a modal drawer is open. This preserves the existing security-relevant behavior of the Sheet-based SkillDetailDrawer.
+  - **Close button accessibility** is maintained: `aria-label="Close"`, `sr-only` text, proper focus ring styling, keyboard support via Escape key (Vaul native).
+
+  ## Performance Implications
+
+  - **Bundle size: neutral to slightly reduced.** Removing the Radix Sheet import from SkillDetailDrawer eliminates a small chunk of Radix Dialog code from that component's bundle. No new runtime dependencies are added.
+  - **Animation performance: unchanged.** Vaul uses CSS transforms (GPU-accelerated) for drawer transitions. The `--initial-transform` CSS variable in drawer.tsx drives the open/close animation. This is already 60fps on all existing drawers.
+  - **Scroll performance: improved for SkillDetailDrawer.** Moving from Radix ScrollArea (which uses JS to measure scroll position and render custom scrollbars) to native CSS overflow-y-auto eliminates JS scroll handlers. Native scrolling is always smoother.
+  - **Re-render optimization: no change.** BaseDrawer is a thin wrapper. It receives props and renders — no internal state, no effects, no context. Consumer components manage their own state exactly as they do today.
+  - **Tree-shaking: maintained.** CVA and cn() are already tree-shaken. BaseDrawer's drawerVariants function is a plain function that tree-shakes cleanly.
+
+  ## Architecture Notes
+
+  ### Component Tier Placement
+
+  BaseDrawer lives at **Tier 1 (common/)** — `components/common/base-drawer/`. This follows the established tier hierarchy:
+
+  - **Tier 0 (ui/):** Raw primitives — drawer.tsx, sheet.tsx, button.tsx. NOT modified.
+  - **Tier 1 (common/):** Reusable composed components — base-drawer/, feature-drawer/, review-drawer-shell/. BaseDrawer goes here.
+  - **Tier 2 (features/):** Feature-specific components — skill-detail-drawer.tsx. SkillDetailDrawer stays in features/skills/ but now composes BaseDrawer from common/.
+
+  ### File Structure
+
+  Following the established pattern (e.g., feature-drawer/, review-drawer-shell/):
+
+  ```
+  components/common/base-drawer/
+  ├── index.ts                  # barrel export
+  ├── base-drawer.tsx           # component + CVA variants
+  ├── base-drawer.stories.tsx   # Storybook stories
+  └── base-drawer.test.tsx      # Vitest unit tests
+  ```
+
+  ### Composition Hierarchy After Refactoring
+
+  ```
+  Tier 0: drawer.tsx (Vaul wrapper — unchanged)
+     ↓ composes
+  Tier 1: base-drawer.tsx (unified shell — NEW)
+     ↓ composes                    ↓ composes
+  Tier 1: feature-drawer.tsx    Tier 1: review-drawer-shell.tsx
+  Tier 1: feature-create-drawer.tsx
+     ↓ composes
+  Tier 2: skill-detail-drawer.tsx
+  ```
+
+  ### Props Interface Design
+
+  ```typescript
+  import { type VariantProps } from 'class-variance-authority';
+
+  // CVA variants for width tiers
+  const drawerVariants = cva('', {
+    variants: {
+      size: {
+        sm: 'w-96',    // 384px — inspector panels
+        md: 'w-xl',    // 576px — content-rich panels
+      },
+    },
+    defaultVariants: {
+      size: 'sm',
+    },
+  });
+
+  export interface BaseDrawerProps extends VariantProps<typeof drawerVariants> {
+    open: boolean;
+    onClose: () => void;
+    modal?: boolean;              // default: false
+    header?: React.ReactNode;     // rendered inside DrawerHeader
+    children: React.ReactNode;    // rendered inside scrollable content area
+    footer?: React.ReactNode;     // rendered inside DrawerFooter
+    className?: string;           // merged onto DrawerContent
+    'data-testid'?: string;       // applied to DrawerContent root
+  }
+  ```
+
+  ### Migration Impact Summary
+
+  | Drawer | Current | After | Changes |
+  | ------ | ------- | ----- | ------- |
+  | FeatureDrawer | Raw Drawer + custom close | BaseDrawer size="sm" | Remove Drawer/DrawerContent imports, remove close button, wrap content in BaseDrawer |
+  | FeatureCreateDrawer | Raw Drawer + custom close | BaseDrawer size="sm" footer={...} | Remove Drawer/DrawerContent imports, remove close button, pass form as children, pass footer buttons as footer |
+  | ReviewDrawerShell | Raw Drawer + custom close | BaseDrawer size="md" header={...} | Remove Drawer/DrawerContent imports, remove close button, pass header content as header prop |
+  | SkillDetailDrawer | Sheet + ScrollArea | BaseDrawer size="sm" modal header={...} | Replace Sheet imports with BaseDrawer, remove ScrollArea, pass content as children |
+  | PrdQuestionnaireDrawer | Wraps ReviewDrawerShell | No changes | ReviewDrawerShell props interface unchanged |
+  | TechDecisionsDrawer | Wraps ReviewDrawerShell | No changes | ReviewDrawerShell props interface unchanged |
+  | MergeReviewDrawer | Wraps ReviewDrawerShell | No changes | ReviewDrawerShell props interface unchanged |
+
+  ### Consumer Interface Stability
+
+  **Zero breaking changes for drawer consumers.** All refactoring is internal to each drawer component:
+  - FeatureDrawerProps remains: `{ selectedNode, onClose, onDelete?, isDeleting? }`
+  - FeatureCreateDrawerProps remains: `{ open, onClose, onSubmit, repositoryPath, isSubmitting?, ... }`
+  - ReviewDrawerShellProps remains: `{ open, onClose, featureName, featureDescription?, featureId?, ... children }`
+  - SkillDetailDrawerProps remains: `{ skill, onClose }`
+  - PrdQuestionnaireDrawerProps, TechDecisionsDrawerProps, MergeReviewDrawerProps: zero changes
+
+  ### Testing Approach
+
+  BaseDrawer unit tests (base-drawer.test.tsx) should cover:
+  1. **Render:** Component renders without crashing with minimal props
+  2. **Open/Close:** Drawer visible when open=true, hidden when open=false
+  3. **Close button:** Clicking close button calls onClose
+  4. **Escape key:** Pressing Escape calls onClose (Vaul native behavior)
+  5. **Size variants:** sm applies w-96 class, md applies w-xl class
+  6. **Modal overlay:** DrawerOverlay present when modal=true, absent when modal=false
+  7. **Children slot:** Children content renders in scrollable container
+  8. **Header slot:** Header content renders inside DrawerHeader when provided
+  9. **Footer slot:** Footer content renders inside DrawerFooter when provided
+  10. **className:** Custom className merges with base classes
+  11. **data-testid:** Propagates to DrawerContent root element
+
+  ### Storybook Coverage
+
+  BaseDrawer stories (base-drawer.stories.tsx) should include:
+  1. Default — minimal props, sm size, non-modal
+  2. SmallSize — explicit size="sm" with inspector-style content
+  3. MediumSize — size="md" with content-rich review-style content
+  4. Modal — modal={true} with overlay visible
+  5. NonModal — modal={false} (same as default, explicit for documentation)
+  6. WithHeader — header prop with DrawerTitle/DrawerDescription
+  7. WithFooter — footer prop with action buttons
+  8. WithHeaderAndFooter — both slots populated
+  9. ScrollableContent — content that exceeds viewport to demonstrate scroll
+  10. CloseButtonInteraction — interactive story demonstrating close behavior

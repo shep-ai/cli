@@ -20,6 +20,8 @@ import { FeaturesCanvas } from '@/components/features/features-canvas';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 import type { FeatureNodeData } from '@/components/common/feature-node';
 import { FeatureDrawer, FeatureCreateDrawer } from '@/components/common';
+import { RepositoryDrawer } from '@/components/common/repository-node';
+import type { RepositoryNodeData } from '@/components/common/repository-node';
 import { PrdQuestionnaireDrawer } from '@/components/common/prd-questionnaire';
 import type { PrdQuestionnaireData } from '@/components/common/prd-questionnaire';
 import { TechDecisionsDrawer } from '@/components/common/tech-decisions-review';
@@ -98,6 +100,28 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
   const [mergeReviewData, setMergeReviewData] = useState<MergeReviewData | null>(null);
   const [isLoadingMergeReview, setIsLoadingMergeReview] = useState(false);
 
+  // Repository drawer state
+  const [selectedRepoNode, setSelectedRepoNode] = useState<RepositoryNodeData | null>(null);
+
+  // Clear all drawers — used for pane click and canvas drag
+  const handleClearDrawers = useCallback(() => {
+    clearSelection();
+    setSelectedRepoNode(null);
+    closeCreateDrawer();
+  }, [clearSelection, closeCreateDrawer]);
+
+  // Open repository drawer when a repo node is clicked
+  const handleRepositoryClick = useCallback(
+    (nodeId: string) => {
+      const node = nodes.find((n) => n.id === nodeId);
+      if (node?.type === 'repositoryNode') {
+        clearSelection();
+        setSelectedRepoNode(node.data as RepositoryNodeData);
+      }
+    },
+    [nodes, clearSelection]
+  );
+
   const showPrdDrawer =
     selectedNode?.lifecycle === 'requirements' && selectedNode?.state === 'action-required';
 
@@ -105,7 +129,8 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     selectedNode?.lifecycle === 'implementation' && selectedNode?.state === 'action-required';
 
   const showMergeReviewDrawer =
-    selectedNode?.lifecycle === 'review' && selectedNode?.state === 'action-required';
+    selectedNode?.lifecycle === 'review' &&
+    (selectedNode?.state === 'action-required' || selectedNode?.state === 'error');
 
   const handlePrdSelect = useCallback((questionId: string, optionId: string) => {
     setPrdSelections((prev) => ({ ...prev, [questionId]: optionId }));
@@ -378,10 +403,12 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
         onAddFeature={handleAddFeature}
         onNodeAction={handleAddFeatureToFeature}
         onNodeClick={handleNodeClick}
-        onPaneClick={clearSelection}
+        onPaneClick={handleClearDrawers}
         onRepositoryAdd={handleAddFeatureToRepo}
+        onRepositoryClick={handleRepositoryClick}
         onRepositoryDelete={handleDeleteRepository}
         onRepositorySelect={handleAddRepository}
+        onCanvasDrag={handleClearDrawers}
         emptyState={<ControlCenterEmptyState onRepositorySelect={handleAddRepository} />}
       />
       <FeatureDrawer
@@ -458,6 +485,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
         features={featureOptions}
         initialParentId={pendingParentFeatureId}
       />
+      <RepositoryDrawer data={selectedRepoNode} onClose={() => setSelectedRepoNode(null)} />
     </>
   );
 }

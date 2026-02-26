@@ -36,7 +36,7 @@ import { Button } from '@/components/ui/button';
  * - Submit button is disabled when name is empty
  * - `approvalGates` always included: `{ allowPrd, allowPlan, allowMerge }` (all false by default)
  * - Non-modal (`modal={false}`) — canvas stays interactive behind the drawer
- * - Fixed width: 384px (`w-96`)
+ * - Fixed width: 448px (`w-xl`) — matches review drawers (PRD, Plan, Merge)
  * - Attachments use native OS file picker via `pickFiles()` — returns `FileAttachment[]`
  *   with full absolute paths, filenames, and sizes
  */

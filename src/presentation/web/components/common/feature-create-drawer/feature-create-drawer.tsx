@@ -3,7 +3,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
-  XIcon,
   PlusIcon,
   FileIcon,
   FileTextIcon,
@@ -15,14 +14,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSoundAction } from '@/hooks/use-sound-action';
-import {
-  Drawer,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerDescription,
-  DrawerFooter,
-} from '@/components/ui/drawer';
+import { BaseDrawer } from '@/components/common/base-drawer';
+import { DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -142,16 +135,11 @@ export function FeatureCreateDrawer({
     setParentId(undefined);
   }, [defaultGates, defaultPush, defaultOpenPr]);
 
-  const handleOpenChange = useCallback(
-    (nextOpen: boolean) => {
-      if (!nextOpen) {
-        drawerCloseSound.play();
-        resetForm();
-        onClose();
-      }
-    },
-    [onClose, resetForm, drawerCloseSound]
-  );
+  const handleClose = useCallback(() => {
+    drawerCloseSound.play();
+    resetForm();
+    onClose();
+  }, [onClose, resetForm, drawerCloseSound]);
 
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
@@ -208,23 +196,14 @@ export function FeatureCreateDrawer({
   const hasFeatures = features && features.length > 0;
 
   return (
-    <Drawer direction="right" modal={false} handleOnly open={open} onOpenChange={handleOpenChange}>
-      <DrawerContent direction="right" className="w-96" showCloseButton={false}>
-        {/* Close button */}
-        <button
-          type="button"
-          aria-label="Close"
-          onClick={() => {
-            drawerCloseSound.play();
-            onClose();
-          }}
-          className="ring-offset-background focus:ring-ring absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden"
-        >
-          <XIcon className="size-4" />
-        </button>
-
-        {/* Header */}
-        <DrawerHeader>
+    <BaseDrawer
+      open={open}
+      onClose={handleClose}
+      size="md"
+      modal={false}
+      data-testid="feature-create-drawer"
+      header={
+        <>
           <div className="flex items-center gap-2">
             <div className="h-2.5 w-2.5 shrink-0 rounded-full bg-blue-500" />
             <DrawerTitle>NEW FEATURE</DrawerTitle>
@@ -234,164 +213,156 @@ export function FeatureCreateDrawer({
               <Badge variant="secondary">Creating...</Badge>
             </div>
           </DrawerDescription>
-        </DrawerHeader>
-
-        <Separator />
-
-        {/* Form body */}
-        <div className="flex-1 overflow-y-auto p-4">
-          <form id="create-feature-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
-            {/* Feature name */}
-            <div className="flex flex-col gap-1.5">
-              <Label
-                htmlFor="feature-name"
-                className="text-muted-foreground text-xs font-semibold tracking-wider"
-              >
-                FEATURE NAME
-              </Label>
-              <Input
-                id="feature-name"
-                placeholder="e.g. GitHub OAuth Login"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                disabled={isSubmitting}
-              />
-            </div>
-
-            {/* Description */}
-            <div className="flex flex-col gap-1.5">
-              <Label
-                htmlFor="feature-description"
-                className="text-muted-foreground text-xs font-semibold tracking-wider"
-              >
-                DESCRIPTION
-              </Label>
-              <Textarea
-                id="feature-description"
-                placeholder="Describe what this feature does..."
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={4}
-                disabled={isSubmitting}
-              />
-            </div>
-
-            {/* Parent feature selector (only when features are available) */}
-            {hasFeatures ? (
-              <div className="flex flex-col gap-1.5">
-                <Label
-                  htmlFor="parent-feature"
-                  className="text-muted-foreground text-xs font-semibold tracking-wider"
-                >
-                  PARENT FEATURE
-                </Label>
-                <ParentFeatureCombobox
-                  features={features}
-                  value={parentId}
-                  onChange={setParentId}
-                  disabled={isSubmitting}
-                />
-              </div>
-            ) : null}
-
-            {/* Auto-approve checkboxes */}
-            <div className="flex flex-col gap-1.5">
-              <Label className="text-muted-foreground text-xs font-semibold tracking-wider">
-                APPROVE
-              </Label>
-              <CheckboxGroup
-                label="Autonomous Mode"
-                description="YOLO!"
-                parentAriaLabel="Auto approve all"
-                options={AUTO_APPROVE_OPTIONS}
-                value={approvalGates}
-                onValueChange={setApprovalGates}
-                disabled={isSubmitting}
-              />
-            </div>
-
-            {/* Git options */}
-            <div className="flex flex-col gap-1.5">
-              <Label className="text-muted-foreground text-xs font-semibold tracking-wider">
-                GIT
-              </Label>
-              <div className="flex flex-col gap-2">
-                <CheckboxGroupItem
-                  id="push"
-                  label="Push"
-                  description="Push branch to remote after implementation."
-                  checked={push || openPr}
-                  onCheckedChange={setPush}
-                  disabled={openPr || isSubmitting}
-                />
-                <CheckboxGroupItem
-                  id="open-pr"
-                  label="Create PR"
-                  description="Open a pull request after pushing."
-                  checked={openPr}
-                  onCheckedChange={setOpenPr}
-                  disabled={isSubmitting}
-                />
-              </div>
-            </div>
-
-            {/* Attachments */}
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <Label className="text-muted-foreground text-xs font-semibold tracking-wider">
-                  ATTACHMENTS
-                  {attachments.length > 0 && (
-                    <span className="text-muted-foreground/60 ml-1.5">({attachments.length})</span>
-                  )}
-                </Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="xs"
-                  onClick={handleAddFiles}
-                  disabled={isSubmitting}
-                >
-                  <PlusIcon className="size-3" />
-                  Add Files
-                </Button>
-              </div>
-
-              {attachments.length > 0 && (
-                <div className="flex flex-col gap-2">
-                  {attachments.map((file) => (
-                    <AttachmentCard
-                      key={file.path}
-                      file={file}
-                      onRemove={() => handleRemoveFile(file.path)}
-                      disabled={isSubmitting}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          </form>
-        </div>
-
-        {/* Footer */}
-        <Separator />
-        <DrawerFooter className="flex-row justify-end gap-2">
-          <Button
-            variant="outline"
-            onClick={() => {
-              drawerCloseSound.play();
-              onClose();
-            }}
-            disabled={isSubmitting}
-          >
+        </>
+      }
+      footer={
+        <div className="flex flex-row justify-end gap-2">
+          <Button variant="outline" onClick={handleClose} disabled={isSubmitting}>
             Cancel
           </Button>
           <Button type="submit" form="create-feature-form" disabled={!name.trim() || isSubmitting}>
             {isSubmitting ? 'Creating...' : '+ Create Feature'}
           </Button>
-        </DrawerFooter>
-      </DrawerContent>
-    </Drawer>
+        </div>
+      }
+    >
+      <Separator />
+
+      {/* Form body */}
+      <div className="p-4">
+        <form id="create-feature-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
+          {/* Feature name */}
+          <div className="flex flex-col gap-1.5">
+            <Label
+              htmlFor="feature-name"
+              className="text-muted-foreground text-xs font-semibold tracking-wider"
+            >
+              FEATURE NAME
+            </Label>
+            <Input
+              id="feature-name"
+              placeholder="e.g. GitHub OAuth Login"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              disabled={isSubmitting}
+            />
+          </div>
+
+          {/* Description */}
+          <div className="flex flex-col gap-1.5">
+            <Label
+              htmlFor="feature-description"
+              className="text-muted-foreground text-xs font-semibold tracking-wider"
+            >
+              DESCRIPTION
+            </Label>
+            <Textarea
+              id="feature-description"
+              placeholder="Describe what this feature does..."
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={4}
+              disabled={isSubmitting}
+            />
+          </div>
+
+          {/* Parent feature selector (only when features are available) */}
+          {hasFeatures ? (
+            <div className="flex flex-col gap-1.5">
+              <Label
+                htmlFor="parent-feature"
+                className="text-muted-foreground text-xs font-semibold tracking-wider"
+              >
+                PARENT FEATURE
+              </Label>
+              <ParentFeatureCombobox
+                features={features}
+                value={parentId}
+                onChange={setParentId}
+                disabled={isSubmitting}
+              />
+            </div>
+          ) : null}
+
+          {/* Auto-approve checkboxes */}
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-muted-foreground text-xs font-semibold tracking-wider">
+              APPROVE
+            </Label>
+            <CheckboxGroup
+              label="Autonomous Mode"
+              description="YOLO!"
+              parentAriaLabel="Auto approve all"
+              options={AUTO_APPROVE_OPTIONS}
+              value={approvalGates}
+              onValueChange={setApprovalGates}
+              disabled={isSubmitting}
+            />
+          </div>
+
+          {/* Git options */}
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-muted-foreground text-xs font-semibold tracking-wider">
+              GIT
+            </Label>
+            <div className="flex flex-col gap-2">
+              <CheckboxGroupItem
+                id="push"
+                label="Push"
+                description="Push branch to remote after implementation."
+                checked={push || openPr}
+                onCheckedChange={setPush}
+                disabled={openPr || isSubmitting}
+              />
+              <CheckboxGroupItem
+                id="open-pr"
+                label="Create PR"
+                description="Open a pull request after pushing."
+                checked={openPr}
+                onCheckedChange={setOpenPr}
+                disabled={isSubmitting}
+              />
+            </div>
+          </div>
+
+          {/* Attachments */}
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-muted-foreground text-xs font-semibold tracking-wider">
+                ATTACHMENTS
+                {attachments.length > 0 && (
+                  <span className="text-muted-foreground/60 ml-1.5">({attachments.length})</span>
+                )}
+              </Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="xs"
+                onClick={handleAddFiles}
+                disabled={isSubmitting}
+              >
+                <PlusIcon className="size-3" />
+                Add Files
+              </Button>
+            </div>
+
+            {attachments.length > 0 && (
+              <div className="flex flex-col gap-2">
+                {attachments.map((file) => (
+                  <AttachmentCard
+                    key={file.path}
+                    file={file}
+                    onRemove={() => handleRemoveFile(file.path)}
+                    disabled={isSubmitting}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </form>
+      </div>
+    </BaseDrawer>
   );
 }
 
