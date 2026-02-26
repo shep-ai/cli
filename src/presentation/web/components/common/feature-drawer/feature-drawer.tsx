@@ -1,10 +1,9 @@
 'use client';
 
-import { useCallback, useEffect } from 'react';
+import { useCallback } from 'react';
 import { Loader2, Trash2, ExternalLink, GitCommitHorizontal } from 'lucide-react';
 import { PrStatus } from '@shepai/core/domain/generated/output';
 import { cn } from '@/lib/utils';
-import { useSoundAction } from '@/hooks/use-sound-action';
 import { OpenActionMenu } from '@/components/common/open-action-menu';
 import { BaseDrawer } from '@/components/common/base-drawer';
 import { DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
@@ -41,18 +40,9 @@ export function FeatureDrawer({
   onDelete,
   isDeleting = false,
 }: FeatureDrawerProps) {
-  const drawerOpenSound = useSoundAction('drawer-open');
-  const drawerCloseSound = useSoundAction('drawer-close');
-
-  const isOpen = selectedNode !== null;
-  useEffect(() => {
-    if (isOpen) drawerOpenSound.play();
-  }, [isOpen, drawerOpenSound]);
-
   const handleClose = useCallback(() => {
-    drawerCloseSound.play();
     onClose();
-  }, [onClose, drawerCloseSound]);
+  }, [onClose]);
 
   const actionsInput =
     selectedNode?.repositoryPath && selectedNode?.branch
