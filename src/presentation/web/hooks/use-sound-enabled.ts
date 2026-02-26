@@ -26,13 +26,11 @@ export function useSoundEnabled(): UseSoundEnabledResult {
   }, []);
 
   const toggle = useCallback(() => {
-    setEnabled((prev) => {
-      const next = !prev;
-      localStorage.setItem(STORAGE_KEY, String(next));
-      window.dispatchEvent(new CustomEvent(SYNC_EVENT, { detail: next }));
-      return next;
-    });
-  }, []);
+    const next = !enabled;
+    localStorage.setItem(STORAGE_KEY, String(next));
+    setEnabled(next);
+    window.dispatchEvent(new CustomEvent(SYNC_EVENT, { detail: next }));
+  }, [enabled]);
 
   return { enabled, toggle };
 }
