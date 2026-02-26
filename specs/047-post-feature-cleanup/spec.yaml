@@ -1,0 +1,118 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: post-feature-cleanup
+number: 047
+branch: feat/047-post-feature-cleanup
+oneLiner: automatically clean up worktree and branch after feature merges to maintain lifecycle
+userQuery: >
+  Feature: featur ecleanup
+
+  LEts make sure that after feature is finishied, we delete the worktree and branch from (we still keep the worktree dir content, just unlink worktree from it)
+summary: >
+  When a feature completes its lifecycle and reaches the Maintain state (after merge), the system
+  should automatically unlink the git worktree (preserving directory contents) and delete the local
+  and remote feature branches. This cleanup currently must be done manually and leaves stale worktrees
+  and branches after every completed feature.
+phase: Analysis
+sizeEstimate: S
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - TypeScript
+  - Node.js
+  - LangGraph
+  - git (worktree, branch operations)
+  - TSyringe (DI)
+  - Clean Architecture
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  After a feature is merged and transitions to the `Maintain` lifecycle state, the system leaves
+  behind a stale git worktree and the feature branch (both locally and on the remote). There is no
+  automatic cleanup. Users must manually run `git worktree remove` and `git branch -d` after every
+  feature completes. Over time this accumulates clutter.
+
+  The desired behavior: once a feature reaches `SdlcLifecycle.Maintain`, the system should:
+  1. **Unlink the git worktree** (`git worktree remove --force`) — preserving the directory contents
+     on disk (so history/artifacts remain accessible), just removing the git tracking.
+  2. **Delete the local feature branch** (`git branch -d <branch>`).
+  3. **Delete the remote feature branch** (`git push origin --delete <branch>`), if it still exists.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The repo is a pnpm monorepo following Clean Architecture with four strict layers inside
+  `packages/core/src/`:
+
+  - `domain/` — Core models, enums, value objects. TypeSpec-generated types live in
+    `domain/generated/output.ts`. `SdlcLifecycle` enum is defined in `tsp/common/enums/lifecycle.tsp`.
+  - `application/` — Use cases and output-port interfaces. Use cases orchestrate domain logic.
+    Port interfaces for services live in `application/ports/output/services/`.
+  - `infrastructure/` — External concerns: git operations, agent execution, persistence (SQLite).
+    Git services: `infrastructure/services/git/`.
+  - `presentation/` — CLI, TUI, Web UI.
+
+  ### Architecture Patterns
+
+  - **Clean Architecture**: Dependencies point strictly inward. Infrastructure depends on
+    application interfaces; application depends on domain; domain has no external deps.
+  - **Dependency Injection**: TSyringe container resolves all services by interface token.
+  - **Repository Pattern**: Data access only via repository interfaces.
+  - **Feature Lifecycle State Machine**: `SdlcLifecycle` (Started → Analyze → Requirements →
+    Research → Planning → Implementation → Review → Maintain). `Maintain` is the terminal state.
+  - **LangGraph Agent**: Feature agent runs as a directed graph of nodes. The final node is
+    `merge.node.ts`, which transitions lifecycle to `Maintain` on successful merge.
+
+  ### Relevant Technologies
+
+  - **WorktreeService** (`infrastructure/services/git/worktree.service.ts`): Implements
+    `IWorktreeService`. Has `create()`, `remove()` (unlinks worktree, preserves directory), `list()`,
+    `exists()`, `branchExists()`, `remoteBranchExists()`. Already has the primitives needed.
+  - **GitPrService** (`infrastructure/services/git/git-pr-service.ts`): Has `deleteBranch(cwd,
+    branch, deleteRemote?)` for local and remote branch deletion.
+  - **merge.node.ts** (`infrastructure/services/agents/feature-agent/nodes/merge/merge.node.ts`):
+    The completion point. Currently sets lifecycle to `Maintain` but does no cleanup.
+  - **feature-agent-worker.ts**: Worker process entry point. After graph completion, marks run as
+    completed. No post-graph cleanup hook exists today.
+  - **DeleteFeatureUseCase**: Manual deletion path — removes worktree + DB record. Shows the cleanup
+    pattern already works; we need automatic post-merge cleanup without deleting the DB record.
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `packages/core/src/infrastructure/services/agents/feature-agent/nodes/merge/merge.node.ts` | High | This is where lifecycle transitions to Maintain; cleanup should trigger here after merge succeeds |
+  | `packages/core/src/infrastructure/services/git/worktree.service.ts` | Low | Existing `remove()` method already supports unlinking worktree; may need `--force` flag support |
+  | `packages/core/src/application/ports/output/services/worktree-service.interface.ts` | Low | If `remove()` signature changes to support force flag, interface needs update |
+  | `packages/core/src/infrastructure/services/git/git-pr-service.ts` | Low | Existing `deleteBranch()` supports remote deletion; verify it handles already-deleted remote gracefully |
+  | `packages/core/src/application/ports/output/services/git-pr-service.interface.ts` | Low | Interface may need updating if deleteBranch signature changes |
+  | `packages/core/src/application/use-cases/features/` | Medium | May need a new `CleanupFeatureWorktreeUseCase` or extend existing update-lifecycle use case |
+
+  ## Dependencies
+
+  - `IWorktreeService.remove()` — already implemented, may need `--force` option to handle edge cases
+    where worktree has uncommitted changes post-merge.
+  - `IGitPrService.deleteBranch()` — already implemented with optional remote deletion. Must
+    gracefully handle cases where the remote branch was already deleted by the PR merge (many CI/CD
+    setups auto-delete branches on merge).
+  - `SdlcLifecycle.Maintain` — the trigger state; cleanup runs only when this lifecycle is reached.
+  - Feature entity `worktreePath` and `branch` fields — provide the data needed to perform cleanup
+    without extra lookups.
+
+  ## Size Estimate
+
+  **S** — The core primitives (`worktree remove`, `deleteBranch`) already exist. The work is
+  wiring them into the post-merge flow in `merge.node.ts` (or a new use case called from there),
+  adding error handling for edge cases (remote already deleted, worktree already gone), and writing
+  unit tests for the new cleanup path. No new domain models or TypeSpec changes are required.
