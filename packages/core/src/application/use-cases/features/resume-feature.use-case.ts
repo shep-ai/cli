@@ -112,16 +112,25 @@ export class ResumeFeatureUseCase {
       feature.repositoryPath,
       feature.branch
     );
-    const specDir = feature.specPath ?? worktreePath;
+    if (!feature.specPath) {
+      throw new Error(`Feature "${feature.name}" is missing specPath — cannot resume`);
+    }
 
-    this.processService.spawn(feature.id, newRunId, feature.repositoryPath, specDir, worktreePath, {
-      resume: true,
-      approvalGates: lastRun.approvalGates,
-      threadId: lastRun.threadId,
-      resumeFromInterrupt: lastRun.status === AgentRunStatus.waitingApproval,
-      push: feature.push,
-      openPr: feature.openPr,
-    });
+    this.processService.spawn(
+      feature.id,
+      newRunId,
+      feature.repositoryPath,
+      feature.specPath,
+      worktreePath,
+      {
+        resume: true,
+        approvalGates: lastRun.approvalGates,
+        threadId: lastRun.threadId,
+        resumeFromInterrupt: lastRun.status === AgentRunStatus.waitingApproval,
+        push: feature.push,
+        openPr: feature.openPr,
+      }
+    );
 
     return { feature, newRun };
   }

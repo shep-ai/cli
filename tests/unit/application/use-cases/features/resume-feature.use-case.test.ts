@@ -240,20 +240,11 @@ describe('ResumeFeatureUseCase', () => {
     await expect(useCase.execute('feat-001')).rejects.toThrow(/already completed/i);
   });
 
-  it('should fall back to worktreePath when feature.specPath is undefined', async () => {
+  it('should throw when feature.specPath is missing', async () => {
     featureRepo.findById.mockResolvedValue(createTestFeature({ specPath: undefined }));
     runRepo.findById.mockResolvedValue(createTestRun({ status: AgentRunStatus.failed }));
 
-    await useCase.execute('feat-001');
-
-    expect(processService.spawn).toHaveBeenCalledWith(
-      'feat-001',
-      expect.any(String),
-      '/test/repo',
-      '/wt/path', // falls back to worktreePath
-      '/wt/path',
-      expect.objectContaining({ resume: true })
-    );
+    await expect(useCase.execute('feat-001')).rejects.toThrow(/missing specPath/i);
   });
 
   it('should pass workflow flags from feature entity to spawn', async () => {
