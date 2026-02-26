@@ -1,0 +1,133 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: install-non-interactive-mode
+number: 047
+branch: feat/047-install-non-interactive-mode
+oneLiner: fix tool installer interactive prompts that hang when called from the web ui
+userQuery: >
+  Feature: ui tool installer bug
+
+  shep install windsurf prompts "File exists. Overwrite? (y/N)" which hangs
+  when called from the UI because stdin is ignored and there is no way to answer.
+summary: >
+  When tool install commands (e.g. windsurf via gpg --dearmor) encounter existing
+  files they prompt interactively for confirmation. The web UI spawns these commands
+  with stdin ignored, so the process hangs until the timeout fires and the install
+  fails. The fix is to pass non-interactive / assume-yes flags in the per-tool
+  install commands stored in the JSON metadata files so that prompts never appear.
+phase: Analysis
+sizeEstimate: S
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - Node.js child_process (spawn)
+  - Commander.js (CLI)
+  - Next.js API routes (web UI)
+  - Shell scripting (gpg, apt, curl, brew)
+  - TypeSpec (domain model)
+  - JSON tool metadata files
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - Does every affected tool command have an accepted non-interactive flag (--yes /
+    --batch / --no-tty) or do some require DEBIAN_FRONTEND=noninteractive env var?
+  - Should the CLI also pass a --non-interactive / -y flag so operators can script
+    shep install without interactive prompts even in edge cases not covered by metadata?
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  Running `shep install windsurf` (and potentially other tools) can trigger
+  interactive confirmation prompts from the underlying shell commands, e.g.:
+
+  ```
+  File '/usr/share/keyrings/windsurf-stable-archive-keyring.gpg' exists. Overwrite? (y/N)
+  ```
+
+  The tool installer service spawns child processes with `stdio: ['ignore', 'pipe',
+  'pipe']`, meaning stdin is always closed. When a prompt appears the child process
+  blocks waiting for input that never arrives, eventually being killed by the
+  per-tool timeout (default 300 s). The installation then reports failure.
+
+  This is a silent regression for CLI users who reinstall tools and a hard blocker
+  for the web UI where there is no mechanism to pass stdin input at all.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The project is a pnpm monorepo following Clean Architecture with four layers:
+
+  ```
+  packages/core/src/
+  ├── domain/          # value objects, generated TypeSpec output
+  ├── application/     # use cases (install-tool, validate-tool-availability, …)
+  ├── infrastructure/  # services (tool-installer, ide-launcher)
+  └── …
+
+  src/presentation/
+  ├── cli/commands/install.command.ts   # shep install entry point
+  └── web/app/api/tools/[id]/install/  # POST /api/tools/{id}/install
+  ```
+
+  Tool definitions live in JSON files:
+  `packages/core/src/infrastructure/services/tool-installer/tools/*.json`
+  (windsurf.json, cursor.json, gh.json, vscode.json, …)
+
+  ### Architecture Patterns
+
+  - **Clean Architecture** — dependencies point inward; infrastructure implements
+    application port interfaces.
+  - **Tool metadata driven** — all install commands, verify commands, timeouts, and
+    spawn options are declared in per-tool JSON files. No hardcoding in service code.
+  - **Single spawn site** — `ToolInstallerServiceImpl.executeInstall()` is the only
+    place that spawns install commands. It always uses `stdio: ['ignore', 'pipe',
+    'pipe']`. Adding a non-interactive flag to the command string or adding an env
+    var to the spawn options is therefore the minimal, correct fix.
+
+  ### Relevant Technologies
+
+  - **Node.js `child_process.spawn`** — used to run shell install commands with
+    stdin ignored and stdout/stderr piped.
+  - **Shell tool flags** — `gpg --batch --yes`, `apt-get -y`, `brew install` (already
+    non-interactive on stdin=ignore), `DEBIAN_FRONTEND=noninteractive`.
+  - **TypeSpec** — domain value object `ToolInstallCommand` may need an
+    `environmentVariables` or `nonInteractiveFlags` field if we choose to model this
+    in TypeSpec rather than embedding flags inline in command strings.
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `packages/core/src/infrastructure/services/tool-installer/tools/windsurf.json` | High | Linux command uses `gpg --dearmor` without `--batch --yes`; this is the reported failure. |
+  | `packages/core/src/infrastructure/services/tool-installer/tools/*.json` (all tools) | Medium | Audit all 11+ tool JSON files for other interactive-prompt risks (apt, curl-pipe-sudo, etc.). |
+  | `packages/core/src/infrastructure/services/tool-installer/tool-installer.service.ts` | Low | May add optional `env` overrides (e.g. `DEBIAN_FRONTEND=noninteractive`) to spawn options if not handled per-tool. |
+  | `tsp/domain/value-objects/tool-install-command.tsp` | Low | May need a new optional field if spawn env vars are modelled in TypeSpec. |
+  | `src/presentation/cli/commands/install.command.ts` | Low | Optionally expose a `--yes` / `-y` flag as a belt-and-suspenders measure for CLI operators. |
+  | `tests/unit/infrastructure/services/tool-installer/` | Medium | Unit tests for the service and for updated command strings. |
+  | `tests/integration/services/tool-installer.service.test.ts` | Medium | Integration test verifying no interactive prompt is emitted. |
+
+  ## Dependencies
+
+  - Existing `ToolInstallerServiceImpl` spawn logic (no interface changes required
+    for the minimal fix).
+  - Per-tool JSON metadata schema (`ToolMetadata`) — already supports a `commands`
+    map keyed by platform; the fix is to update the command strings in those maps.
+  - If env-var support is needed: `child_process.spawn` already accepts an `env`
+    option; the `spawnOptions` field in `ToolMetadata` would need to be extended to
+    carry `env`.
+
+  ## Size Estimate
+
+  **S** — The core fix is updating command strings in JSON files (add `--batch --yes`
+  to gpg, confirm other tools are already non-interactive). A service-level env
+  override (`DEBIAN_FRONTEND=noninteractive`) and optional CLI `--yes` flag are
+  additive and low-risk. No domain model changes are required for the minimal fix;
+  TypeSpec changes only if env-var metadata is desired. Total scope: 2–5 files
+  changed, covered by existing test infrastructure.
