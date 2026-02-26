@@ -1,3 +1,9 @@
+## [1.64.1](https://github.com/shep-ai/cli/compare/v1.64.0...v1.64.1) (2026-02-26)
+
+### Bug Fixes
+
+- **web:** stop drawer-open sound firing on every re-render ([#156](https://github.com/shep-ai/cli/issues/156)) ([4569852](https://github.com/shep-ai/cli/commit/45698524133525c27e53fbec604e76d9227cb37a))
+
 # [1.64.0](https://github.com/shep-ai/cli/compare/v1.63.0...v1.64.0) (2026-02-26)
 
 ### Features
