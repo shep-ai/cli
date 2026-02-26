@@ -1,3 +1,9 @@
+## [1.64.2](https://github.com/shep-ai/cli/compare/v1.64.1...v1.64.2) (2026-02-26)
+
+### Bug Fixes
+
+- **web:** prevent setstate-in-render in use-sound-enabled ([#157](https://github.com/shep-ai/cli/issues/157)) ([912b033](https://github.com/shep-ai/cli/commit/912b0330caa1202a0460e632da44e09553e4288c))
+
 ## [1.64.1](https://github.com/shep-ai/cli/compare/v1.64.0...v1.64.1) (2026-02-26)
 
 ### Bug Fixes
