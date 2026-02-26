@@ -1,0 +1,256 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: post-feature-cleanup
+summary: >
+  7 tasks across 4 phases: update the WorktreeService force flag (phase 1), create and test
+  CleanupFeatureWorktreeUseCase (phase 2), register it in the DI container (phase 3), and
+  wire it into merge.node.ts with test coverage (phase 4).
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - TypeScript
+  - TSyringe
+  - Vitest
+  - git worktree CLI
+
+relatedLinks: []
+
+# Structured task list
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Add force flag to IWorktreeService.remove() and WorktreeService implementation'
+    description: >
+      Update the IWorktreeService output port interface to add an optional force?: boolean
+      parameter to the remove() method signature. Update the WorktreeService implementation
+      to pass --force to the git worktree remove command when force is true. Existing callers
+      are unaffected — the parameter is optional with no default.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'IWorktreeService.remove() signature includes optional force?: boolean parameter'
+      - 'WorktreeService.remove() passes --force to git worktree remove when force=true'
+      - 'WorktreeService.remove() does NOT pass --force when force is omitted or false'
+      - 'Existing callers of remove() compile and work without changes'
+      - 'Unit test for WorktreeService.remove() with force=true asserts --force in git args'
+      - 'Unit test for WorktreeService.remove() without force asserts --force absent'
+    tdd:
+      red:
+        - 'Write a unit test for WorktreeService.remove() that passes force=true and asserts the spawned git command includes --force in its arguments'
+        - 'Write a unit test that calls remove() without force and asserts --force is NOT in git arguments'
+        - 'Confirm tests fail (WorktreeService does not yet accept force parameter)'
+      green:
+        - 'Add force?: boolean to IWorktreeService.remove() signature'
+        - 'Update WorktreeService.remove() to accept force param and conditionally append --force to git args'
+      refactor:
+        - 'Verify no existing callers pass force; confirm TypeScript compiles cleanly'
+        - 'Confirm the implementation handles undefined/false consistently (no --force appended)'
+    estimatedEffort: '30min'
+
+  - id: task-2
+    phaseId: phase-2
+    title: 'Create CleanupFeatureWorktreeUseCase — skeleton and happy path test'
+    description: >
+      Create the new use case file at
+      packages/core/src/application/use-cases/features/cleanup-feature-worktree.use-case.ts.
+      The class is @injectable(), accepts featureId: string, resolves the Feature via
+      IFeatureRepository, then sequentially removes the worktree (force=true), deletes the
+      local branch, checks remote branch existence, and conditionally deletes the remote branch.
+      Start with the happy path test: all services succeed and all three cleanup steps complete.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'File exists at packages/core/src/application/use-cases/features/cleanup-feature-worktree.use-case.ts'
+      - 'Class is decorated with @injectable()'
+      - 'Constructor injects IFeatureRepository, IWorktreeService, IGitPrService via @inject()'
+      - 'execute(featureId) resolves Feature via featureRepo.findById()'
+      - 'execute() returns early (no-op) when feature is not found'
+      - 'Happy path test passes: worktree removed, local branch deleted, remote branch deleted'
+      - 'worktreeService.remove() called with force=true when worktreePath is set'
+      - 'remoteBranchExists() called before remote deletion; deleteBranch called with deleteRemote=true when true'
+    tdd:
+      red:
+        - 'Create test file at tests/unit/application/use-cases/features/cleanup-feature-worktree.use-case.test.ts'
+        - 'Write happy path test: mock featureRepo returns feature with worktreePath and branch; assert remove(path, true), deleteBranch(repoPath, branch), remoteBranchExists returns true, deleteBranch(repoPath, branch, true) are all called'
+        - 'Write not-found guard test: featureRepo.findById returns null; assert no service methods called'
+        - 'Confirm tests fail (file does not exist yet)'
+      green:
+        - 'Create cleanup-feature-worktree.use-case.ts with @injectable() class'
+        - 'Implement execute(featureId): resolve feature, call three cleanup steps in sequence, return early on null feature'
+        - 'Wrap each step in individual try/catch with console.warn on error'
+      refactor:
+        - 'Extract step labels into clear inline comments for readability'
+        - 'Ensure TypeScript strict mode compiles with no errors'
+    estimatedEffort: '45min'
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Add edge case tests for CleanupFeatureWorktreeUseCase'
+    description: >
+      Extend the use case test suite to cover all non-happy-path scenarios: worktree already
+      unlinked (remove throws), no worktreePath on feature (skip step), local branch already
+      deleted (deleteBranch throws), remote branch already deleted (remoteBranchExists returns
+      false), unexpected error on remoteBranchExists (throws). Verify that errors in one step
+      do not prevent subsequent steps from running.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'Test: worktree remove throws → caught, logged as warn, local branch delete still called'
+      - 'Test: feature.worktreePath is undefined/null → worktree step skipped, remaining steps run'
+      - 'Test: local branch deleteBranch throws → caught, logged as warn, remote check still called'
+      - 'Test: remoteBranchExists returns false → remote deleteBranch NOT called'
+      - 'Test: remoteBranchExists throws → caught, logged as warn, execute resolves without error'
+      - 'console.warn is called with a meaningful message for each caught error'
+      - 'No test causes execute() to reject — all errors are swallowed'
+    tdd:
+      red:
+        - 'Write test: worktreeService.remove rejects → verify console.warn called, deleteBranch still called'
+        - 'Write test: feature has no worktreePath → verify remove not called, deleteBranch still called'
+        - 'Write test: first deleteBranch rejects → verify console.warn called, remoteBranchExists still called'
+        - 'Write test: remoteBranchExists returns false → verify second deleteBranch not called'
+        - 'Write test: remoteBranchExists rejects → verify console.warn called, execute resolves'
+        - 'Confirm these tests fail against current implementation if gaps exist'
+      green:
+        - 'Adjust implementation if any edge case is not handled (guard for missing worktreePath, individual try/catch per step)'
+      refactor:
+        - 'Review all test descriptions for clarity'
+        - 'Ensure spy/mock cleanup between tests (vi.clearAllMocks or beforeEach resets)'
+    estimatedEffort: '45min'
+
+  - id: task-4
+    phaseId: phase-3
+    title: 'Register CleanupFeatureWorktreeUseCase in the DI container'
+    description: >
+      Add CleanupFeatureWorktreeUseCase to container.ts following the existing use case
+      registration pattern. Register as a singleton using registerSingleton(). Add a
+      string-token alias if the project convention requires one for factory injection.
+      Verify the container compiles with no circular dependency errors.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'CleanupFeatureWorktreeUseCase imported in container.ts'
+      - 'Registered with container.registerSingleton(CleanupFeatureWorktreeUseCase)'
+      - 'String-token alias registered if consistent with peer use cases'
+      - 'pnpm build compiles without errors after registration'
+    tdd:
+      red:
+        - 'Attempt to resolve CleanupFeatureWorktreeUseCase from container in a DI integration test or verify build fails without registration'
+      green:
+        - 'Add import and registerSingleton call in container.ts, following the block where other use cases are registered'
+        - 'Add string-token alias registration if the convention is present for other use cases'
+      refactor:
+        - 'Confirm registration is placed alphabetically or in logical grouping with peer use cases'
+        - 'Run pnpm build to verify no type errors or circular dependency issues'
+    estimatedEffort: '20min'
+
+  - id: task-5
+    phaseId: phase-4
+    title: 'Inject CleanupFeatureWorktreeUseCase into MergeNodeDeps and call after Maintain transition'
+    description: >
+      Update merge.node.ts to add cleanupFeatureWorktreeUseCase to the MergeNodeDeps type,
+      inject it via DI, and call execute(feature.id) after the featureRepository.update()
+      call inside the merged===true branch. The call is a single await and must not be
+      wrapped in a try/catch — the use case itself is responsible for non-fatal error handling.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'MergeNodeDeps includes cleanupFeatureWorktreeUseCase: CleanupFeatureWorktreeUseCase (or interface type)'
+      - 'merge.node.ts calls await deps.cleanupFeatureWorktreeUseCase.execute(feature.id) after featureRepository.update() inside the merged===true block'
+      - 'The cleanup call is NOT inside an additional try/catch in merge.node.ts'
+      - 'The cleanup call is NOT reachable when merged===false'
+      - 'pnpm build compiles without errors'
+    tdd:
+      red:
+        - 'In merge.node.test.ts, add a test that creates a mock cleanupFeatureWorktreeUseCase dep and asserts execute() is called once with feature.id when merged=true'
+        - 'Add a test that asserts execute() is NOT called when merged=false (PR-only flow)'
+        - 'Confirm tests fail (MergeNodeDeps does not yet have the dep)'
+      green:
+        - 'Add cleanupFeatureWorktreeUseCase field to MergeNodeDeps type'
+        - 'Add the await call after featureRepository.update() in the merged===true block'
+        - 'Update the factory/createMergeNode function to accept and pass through the new dep'
+      refactor:
+        - 'Confirm existing merge node tests still pass after adding the new dep'
+        - 'Verify call ordering: lifecycle update → featureRepository.update() → cleanup → return state'
+    estimatedEffort: '45min'
+
+  - id: task-6
+    phaseId: phase-4
+    title: 'Update merge.node.ts factory and DI wiring to provide the cleanup use case'
+    description: >
+      Update any factory function or provider in the agent infrastructure that constructs
+      merge.node.ts deps to include the cleanupFeatureWorktreeUseCase. This may be in
+      feature-agent-worker.ts, feature-agent.ts, or a dedicated node factory — wherever
+      MergeNodeDeps is assembled. Ensure the use case is resolved from the DI container
+      and passed to the merge node.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'The factory/provider that constructs MergeNodeDeps resolves cleanupFeatureWorktreeUseCase from the container'
+      - 'pnpm build compiles without errors'
+      - 'pnpm test:unit passes with no regressions'
+    tdd:
+      red:
+        - 'Run pnpm build after task-5 to identify the TypeScript compile error pointing to the factory that constructs MergeNodeDeps — this reveals the exact file to update'
+      green:
+        - 'Add container.resolve(CleanupFeatureWorktreeUseCase) (or string-token equivalent) to the MergeNodeDeps construction site'
+      refactor:
+        - 'Run pnpm validate to confirm lint, format, and typecheck all pass'
+    estimatedEffort: '20min'
+
+  - id: task-7
+    phaseId: phase-4
+    title: 'Final validation — run full test suite and lint'
+    description: >
+      Run pnpm test:unit, pnpm lint:fix, and pnpm validate to confirm all new and existing
+      tests pass, no lint errors, and TypeScript compiles cleanly. Fix any remaining issues
+      before marking the feature ready for PR.
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'pnpm test:unit passes with no failures'
+      - 'pnpm validate passes (lint + format + typecheck + tsp)'
+      - 'All new test files follow existing vitest conventions (vi.fn(), vi.hoisted(), describe/it blocks)'
+      - 'No new TypeScript errors introduced'
+    tdd: null
+    estimatedEffort: '15min'
+
+# Total effort estimate
+totalEstimate: '3h 20min'
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Summary
+
+  The implementation flows in four strictly-ordered phases driven by layer dependencies.
+
+  Phase 1 lays the foundation by extending `WorktreeService.remove()` with the optional `force`
+  flag. This change must land first because the use case (Phase 2) depends on calling `remove()`
+  with `force=true`.
+
+  Phase 2 creates `CleanupFeatureWorktreeUseCase` — the core orchestration unit. It is built
+  test-first: the happy path test comes before the implementation, followed by a second task that
+  hardens the edge cases (already-gone worktree, missing worktreePath, already-deleted branches,
+  network errors). Each cleanup step has its own try/catch so one failure never blocks the others.
+
+  Phase 3 registers the new use case in the TSyringe DI container, making it available for
+  injection throughout the infrastructure layer.
+
+  Phase 4 wires everything together in `merge.node.ts`: add the use case to `MergeNodeDeps`,
+  call `execute(feature.id)` in the `merged===true` branch after the repository update, update
+  the factory that constructs the deps, and run a final full validation pass to confirm no
+  regressions.
+
+  Total: 7 tasks, approximately 3h 20min. No TypeSpec changes, no DB migrations, no new
+  external dependencies.
