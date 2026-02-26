@@ -165,6 +165,7 @@ function baseDeps(overrides?: Partial<MergeNodeDeps>): MergeNodeDeps {
       getCiStatus: vi.fn().mockResolvedValue({ status: 'success', runUrl: null }),
       watchCi: vi.fn().mockResolvedValue({ status: 'success' }),
       getFailureLogs: vi.fn().mockResolvedValue(''),
+      mergePr: vi.fn().mockResolvedValue(undefined),
     } as any,
     ...overrides,
   };
@@ -238,7 +239,25 @@ describe('createMergeNode (agent-driven)', () => {
       expect(result.prNumber).toBe(42);
     });
 
-    it('should make second agent call with merge-squash prompt when allowMerge=true', async () => {
+    it('should use gitPrService.mergePr when PR exists and allowMerge=true', async () => {
+      const node = createMergeNode(deps);
+      const state = baseState({
+        openPr: true,
+        prUrl: 'https://github.com/test/repo/pull/42',
+        prNumber: 42,
+        approvalGates: { allowPrd: false, allowPlan: false, allowMerge: true },
+      });
+      await node(state);
+
+      // PR merge via service — no second agent call
+      expect(deps.gitPrService.mergePr).toHaveBeenCalledWith('/tmp/worktree', 42, 'squash');
+      expect(mockBuildMergeSquashPrompt).not.toHaveBeenCalled();
+      // Only one executor call for commit/push/PR
+      expect(deps.executor.execute).toHaveBeenCalledTimes(1);
+    });
+
+    it('should use agent for local merge when no PR and allowMerge=true', async () => {
+      mockParsePrUrl.mockReturnValueOnce(null);
       const node = createMergeNode(deps);
       const state = baseState({
         approvalGates: { allowPrd: false, allowPlan: false, allowMerge: true },
@@ -246,7 +265,7 @@ describe('createMergeNode (agent-driven)', () => {
       await node(state);
 
       expect(mockBuildMergeSquashPrompt).toHaveBeenCalled();
-      // Two calls: first for commit/push/PR, second for merge
+      // Two calls: first for commit/push/PR, second for local merge
       expect(deps.executor.execute).toHaveBeenCalledTimes(2);
     });
 
@@ -376,6 +395,42 @@ describe('createMergeNode (agent-driven)', () => {
       );
     });
 
+    it('should restore PR data from feature record on resume and merge PR via service', async () => {
+      // Simulate resume after interrupt: completedPhases includes 'merge' AND shouldInterrupt=true
+      mockGetCompletedPhases.mockReturnValueOnce(['merge']);
+      mockShouldInterrupt.mockReturnValueOnce(true); // for isResumeAfterInterrupt check
+
+      const featureRepo = createMockFeatureRepo();
+      (featureRepo.findById as ReturnType<typeof vi.fn>).mockResolvedValue({
+        id: 'feat-001',
+        lifecycle: 'Implementation',
+        branch: 'feat/test',
+        pr: {
+          url: 'https://github.com/test/repo/pull/55',
+          number: 55,
+          commitHash: 'def5678',
+          ciStatus: 'success',
+          status: 'Open',
+        },
+      });
+      const depsWithPr = baseDeps({ featureRepository: featureRepo });
+      const node = createMergeNode(depsWithPr);
+
+      // State has NO prUrl/prNumber (lost across interrupt)
+      const state = baseState({
+        approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
+        _approvalAction: 'approved' as any,
+        prUrl: null,
+        prNumber: null,
+      });
+      await node(state);
+
+      // Should have restored PR data and merged via service (not agent)
+      expect(depsWithPr.gitPrService.mergePr).toHaveBeenCalledWith('/tmp/worktree', 55, 'squash');
+      expect(depsWithPr.executor.execute).not.toHaveBeenCalled(); // No agent calls on resume
+      expect(depsWithPr.verifyMerge).not.toHaveBeenCalled(); // No local verification for PR merge
+    });
+
     it('should NOT call getDiffSummary when shouldInterrupt returns false', async () => {
       mockShouldInterrupt.mockReturnValueOnce(false);
       const node = createMergeNode(deps);
@@ -481,7 +536,7 @@ describe('createMergeNode (agent-driven)', () => {
       await expect(node(state)).rejects.toThrow('Merge verification failed');
     });
 
-    it('should skip verification when PR exists (remote merge)', async () => {
+    it('should skip verification when PR exists (remote merge via service)', async () => {
       const node = createMergeNode(deps);
       const state = baseState({
         openPr: true,
@@ -491,8 +546,9 @@ describe('createMergeNode (agent-driven)', () => {
       });
       await node(state);
 
-      // PR URL exists from state, so remote merge path is used — no local verification needed
+      // PR merge via gitPrService — no local verification needed
       expect(deps.verifyMerge).not.toHaveBeenCalled();
+      expect(deps.gitPrService.mergePr).toHaveBeenCalledWith('/tmp/worktree', 99, 'squash');
     });
   });
 
@@ -508,7 +564,8 @@ describe('createMergeNode (agent-driven)', () => {
       await expect(node(state)).rejects.toThrow('Agent execution failed');
     });
 
-    it('should throw when second executor call fails (merge step)', async () => {
+    it('should throw when second executor call fails (local merge step, no PR)', async () => {
+      mockParsePrUrl.mockReturnValueOnce(null);
       (deps.executor.execute as ReturnType<typeof vi.fn>)
         .mockResolvedValueOnce({ result: 'Commit done' })
         .mockRejectedValueOnce(new Error('Merge conflict'));
@@ -518,6 +575,21 @@ describe('createMergeNode (agent-driven)', () => {
       });
 
       await expect(node(state)).rejects.toThrow('Merge conflict');
+    });
+
+    it('should throw when gitPrService.mergePr fails (PR merge)', async () => {
+      (deps.gitPrService.mergePr as ReturnType<typeof vi.fn>).mockRejectedValue(
+        new Error('PR merge failed')
+      );
+      const node = createMergeNode(deps);
+      const state = baseState({
+        openPr: true,
+        prUrl: 'https://github.com/test/repo/pull/42',
+        prNumber: 42,
+        approvalGates: { allowPrd: false, allowPlan: false, allowMerge: true },
+      });
+
+      await expect(node(state)).rejects.toThrow('PR merge failed');
     });
 
     it('should record phase timing even when merge fails', async () => {

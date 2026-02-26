@@ -202,29 +202,44 @@ export function createMergeNode(deps: MergeNodeDeps) {
       } else {
         log.info('Merge approved — skipping commit/push/PR, continuing to post-merge');
         messages.push(`[merge] Approved — continuing`);
+
+        // Restore PR data from feature record (persisted before interrupt, but
+        // not returned in graph state because interrupt() threw before the return).
+        if (feature?.pr) {
+          prUrl = feature.pr.url ?? prUrl;
+          prNumber = feature.pr.number ?? prNumber;
+          commitHash = feature.pr.commitHash ?? commitHash;
+          ciStatus = (feature.pr.ciStatus as string) ?? ciStatus;
+        }
       }
 
-      // --- Agent Call 2: Merge ---
+      // --- Merge ---
       // Merge when: allowMerge is true (auto-merge), OR user explicitly
       // approved at the merge gate (isResumeAfterInterrupt means they
       // clicked Approve). The approval IS permission to merge.
       let merged = false;
       const userApprovedMerge = isResumeAfterInterrupt && state._approvalAction !== 'rejected';
       if (state.approvalGates?.allowMerge || userApprovedMerge) {
-        log.info('Agent call 2: merge/squash');
-        const mergePrompt = buildMergeSquashPrompt(
-          { ...state, prUrl, prNumber, commitHash },
-          branch,
-          baseBranch,
-          remoteAvailable
-        );
-        // Run merge in the ORIGINAL repo, not the worktree — the worktree IS
-        // the feature branch and must not be modified or removed during merge.
-        const mergeOptions = { ...options, cwd: state.repositoryPath };
-        await retryExecute(executor, mergePrompt, mergeOptions, { logger: log });
+        if (prUrl && prNumber) {
+          // PR exists: merge via GitHub API directly — no agent or local merge needed.
+          log.info(`Merging PR #${prNumber} via GitHub API (squash)`);
+          await deps.gitPrService.mergePr(cwd, prNumber, 'squash');
+          messages.push(`[merge] PR #${prNumber} merged via squash`);
+          merged = true;
+        } else {
+          // No PR: local merge via agent in the ORIGINAL repo (not the worktree,
+          // which IS the feature branch and must not be modified during merge).
+          log.info('Agent call: merge/squash (local, no PR)');
+          const mergePrompt = buildMergeSquashPrompt(
+            { ...state, prUrl, prNumber, commitHash },
+            branch,
+            baseBranch,
+            remoteAvailable
+          );
+          const mergeOptions = { ...options, cwd: state.repositoryPath };
+          await retryExecute(executor, mergePrompt, mergeOptions, { logger: log });
 
-        // Verify the merge actually succeeded (agent may report success without merging)
-        if (!prUrl) {
+          // Verify the merge actually succeeded (agent may report success without merging)
           const mergeVerified = await deps.verifyMerge(state.repositoryPath, branch, baseBranch);
           if (!mergeVerified) {
             throw new Error(
@@ -233,10 +248,9 @@ export function createMergeNode(deps: MergeNodeDeps) {
             );
           }
           log.info('Merge verified: feature branch is ancestor of base branch');
+          messages.push(`[merge] Agent completed local merge operation`);
+          merged = true;
         }
-
-        messages.push(`[merge] Agent completed merge operation`);
-        merged = true;
       }
 
       // --- Update feature lifecycle ---
