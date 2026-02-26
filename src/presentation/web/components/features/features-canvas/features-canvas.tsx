@@ -145,7 +145,11 @@ export function FeaturesCanvas({
   }
 
   return (
-    <div data-testid="features-canvas" data-no-drawer-close className="h-full w-full">
+    <div
+      data-testid="features-canvas"
+      data-no-drawer-close
+      className="pointer-events-auto h-full w-full"
+    >
       <ReactFlowProvider>
         <ReactFlow
           nodes={enrichedNodes}
