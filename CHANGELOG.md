@@ -1,3 +1,9 @@
+## [1.65.1](https://github.com/shep-ai/cli/compare/v1.65.0...v1.65.1) (2026-02-26)
+
+### Bug Fixes
+
+- **agents:** detect ci failure from real execfile error format + resume-after-error tests ([#155](https://github.com/shep-ai/cli/issues/155)) ([0a8dc03](https://github.com/shep-ai/cli/commit/0a8dc03a1da500535a7125a579a05619a52d7767))
+
 # [1.65.0](https://github.com/shep-ai/cli/compare/v1.64.2...v1.65.0) (2026-02-26)
 
 ### Features
