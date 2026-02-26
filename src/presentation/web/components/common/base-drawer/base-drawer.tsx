@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/drawer';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useDeployAction, type DeployActionInput } from '@/hooks/use-deploy-action';
+import { featureFlags } from '@/lib/feature-flags';
 
 const drawerVariants = cva('', {
   variants: {
@@ -83,8 +84,8 @@ export function BaseDrawer({
         {/* Header slot */}
         {header ? <DrawerHeader>{header}</DrawerHeader> : null}
 
-        {/* Dev server bar — rendered when deployTarget is provided */}
-        {deployTarget ? <DeployBar deployTarget={deployTarget} /> : null}
+        {/* Dev server bar — rendered when deployTarget is provided and env deploy is enabled */}
+        {featureFlags.envDeploy && deployTarget ? <DeployBar deployTarget={deployTarget} /> : null}
 
         {/* Scrollable content area */}
         <div className="flex-1 overflow-y-auto">

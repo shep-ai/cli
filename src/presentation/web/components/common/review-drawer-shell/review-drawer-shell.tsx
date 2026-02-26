@@ -21,6 +21,7 @@ import { OpenActionMenu } from '@/components/common/open-action-menu';
 import { ActionButton } from '@/components/common/action-button';
 import { useFeatureActions } from '@/components/common/feature-drawer/use-feature-actions';
 import { useDeployAction } from '@/hooks/use-deploy-action';
+import { featureFlags } from '@/lib/feature-flags';
 import type { ReviewDrawerShellProps } from './review-drawer-shell-config';
 
 export function ReviewDrawerShell({
@@ -72,7 +73,7 @@ export function ReviewDrawerShell({
                 repositoryPath={actionsInput.repositoryPath}
                 showSpecs={!!specPath}
               />
-              {deployTargetInput ? (
+              {featureFlags.envDeploy && deployTargetInput ? (
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
