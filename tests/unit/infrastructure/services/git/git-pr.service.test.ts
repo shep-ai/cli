@@ -395,6 +395,22 @@ describe('GitPrService', () => {
       expect(result.status).toBe('pending');
     });
 
+    it('should throw GitPrError when gh command fails', async () => {
+      vi.mocked(mockExec).mockRejectedValue(new Error('gh: command not found'));
+
+      await expect(service.getCiStatus('/repo', 'feat/branch')).rejects.toThrow(GitPrError);
+    });
+
+    it('should throw GitPrError with GH_NOT_FOUND when gh is not installed', async () => {
+      const error = new Error('ENOENT');
+      (error as NodeJS.ErrnoException).code = 'ENOENT';
+      vi.mocked(mockExec).mockRejectedValue(error);
+
+      await expect(service.getCiStatus('/repo', 'feat/branch')).rejects.toMatchObject({
+        code: GitPrErrorCode.GH_NOT_FOUND,
+      });
+    });
+
     it('should return pending when conclusion is null', async () => {
       const ghOutput = JSON.stringify([
         { conclusion: null, url: 'https://github.com/org/repo/actions/runs/456' },
@@ -537,6 +553,40 @@ describe('GitPrService', () => {
       await expect(service.watchCi('/repo', 'feat/branch', 5000)).rejects.toMatchObject({
         code: GitPrErrorCode.CI_TIMEOUT,
       });
+    });
+
+    it('should return success when gh run watch exits 0 even if stdout lacks "success" keyword', async () => {
+      // gh run watch --exit-status exits 0 = CI passed. Period.
+      // stdout may contain checkmarks like "✓ build in 1m2s" without "success" or "completed"
+      vi.mocked(mockExec)
+        .mockResolvedValueOnce({
+          stdout: JSON.stringify([{ databaseId: 789 }]),
+          stderr: '',
+        })
+        .mockResolvedValueOnce({
+          stdout: '✓ build (789) in 1m2s\n✓ test (790) in 2m3s\n',
+          stderr: '',
+        });
+
+      const result = await service.watchCi('/repo', 'feat/branch');
+
+      expect(result.status).toBe('success');
+    });
+
+    it('should return success when gh run watch exits 0 with empty stdout', async () => {
+      vi.mocked(mockExec)
+        .mockResolvedValueOnce({
+          stdout: JSON.stringify([{ databaseId: 789 }]),
+          stderr: '',
+        })
+        .mockResolvedValueOnce({
+          stdout: '',
+          stderr: '',
+        });
+
+      const result = await service.watchCi('/repo', 'feat/branch');
+
+      expect(result.status).toBe('success');
     });
 
     it('should pass timeout option to exec', async () => {
