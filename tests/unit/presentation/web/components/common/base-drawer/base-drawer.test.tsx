@@ -165,22 +165,22 @@ describe('BaseDrawer', () => {
     });
   });
 
-  describe('scrollable content', () => {
-    it('renders children inside scrollable container with overflow-y-auto', () => {
+  describe('content area layout', () => {
+    it('renders children inside a flex-1 min-h-0 flex-col container', () => {
       render(
         <BaseDrawer open onClose={vi.fn()} data-testid="drawer">
-          <p>Scrollable content</p>
+          <p>Content</p>
         </BaseDrawer>
       );
 
-      const content = screen.getByText('Scrollable content');
-      // The scrollable wrapper is the parent of the inner flex-col div
-      const scrollContainer = content.closest('.overflow-y-auto');
-      expect(scrollContainer).toBeInTheDocument();
-      expect(scrollContainer?.className).toContain('flex-1');
+      const content = screen.getByText('Content');
+      const contentArea = content.parentElement;
+      expect(contentArea?.className).toContain('flex-1');
+      expect(contentArea?.className).toContain('min-h-0');
+      expect(contentArea?.className).toContain('flex-col');
     });
 
-    it('renders header and footer outside scroll container', () => {
+    it('renders header and footer as siblings of the content area', () => {
       render(
         <BaseDrawer
           open
@@ -192,24 +192,22 @@ describe('BaseDrawer', () => {
         </BaseDrawer>
       );
 
-      // Query for the scroll container
-      const scrollContainer = document.querySelector('.overflow-y-auto');
-      expect(scrollContainer).toBeInTheDocument();
+      const content = screen.getByText('Content');
+      const contentArea = content.parentElement;
 
-      // Query for header and footer elements
       const header = screen.getByText('Test Header').closest('[data-slot="drawer-header"]');
       const footer = screen.getByText('Test Footer').closest('[data-slot="drawer-footer"]');
 
-      // Header and footer should be siblings of scroll container (not children)
-      expect(header?.parentElement).toBe(scrollContainer?.parentElement);
-      expect(footer?.parentElement).toBe(scrollContainer?.parentElement);
+      // Header and footer should be siblings of content area (not children)
+      expect(header?.parentElement).toBe(contentArea?.parentElement);
+      expect(footer?.parentElement).toBe(contentArea?.parentElement);
 
-      // Verify header and footer should have shrink-0 class (will fail initially)
+      // Header and footer are shrink-0 so they don't compress
       expect(header?.className).toContain('shrink-0');
       expect(footer?.className).toContain('shrink-0');
 
-      // Verify scroll container should have min-h-0 class (will fail initially)
-      expect(scrollContainer?.className).toContain('min-h-0');
+      // Content area fills remaining space
+      expect(contentArea?.className).toContain('min-h-0');
     });
   });
 

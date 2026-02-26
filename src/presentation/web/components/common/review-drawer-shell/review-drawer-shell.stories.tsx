@@ -4,7 +4,7 @@ import { fn } from '@storybook/test';
 import { ReviewDrawerShell } from './review-drawer-shell';
 
 const meta: Meta<typeof ReviewDrawerShell> = {
-  title: 'Composed/ReviewDrawerShell',
+  title: 'Drawers/Review/ReviewDrawerShell',
   component: ReviewDrawerShell,
   tags: ['autodocs'],
   parameters: {

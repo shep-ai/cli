@@ -5,7 +5,7 @@ import { DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
 
 const meta: Meta<typeof BaseDrawer> = {
-  title: 'Common/BaseDrawer',
+  title: 'Drawers/Base/BaseDrawer',
   component: BaseDrawer,
   tags: ['autodocs'],
   parameters: {

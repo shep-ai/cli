@@ -4,7 +4,7 @@ import { Check } from 'lucide-react';
 import { DrawerActionBar } from './drawer-action-bar';
 
 const meta: Meta<typeof DrawerActionBar> = {
-  title: 'Composed/DrawerActionBar',
+  title: 'Drawers/Base/DrawerActionBar',
   component: DrawerActionBar,
   tags: ['autodocs'],
   parameters: {

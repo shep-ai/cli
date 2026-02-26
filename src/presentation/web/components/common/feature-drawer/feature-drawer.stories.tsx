@@ -7,7 +7,7 @@ import type { FeatureLifecyclePhase, FeatureNodeState } from '@/components/commo
 import { Button } from '@/components/ui/button';
 
 const meta: Meta<typeof FeatureDrawer> = {
-  title: 'Composed/FeatureDrawer',
+  title: 'Drawers/Feature/FeatureDrawer',
   component: FeatureDrawer,
   tags: ['autodocs'],
   parameters: {

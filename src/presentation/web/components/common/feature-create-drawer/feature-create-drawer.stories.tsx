@@ -41,7 +41,7 @@ import { Button } from '@/components/ui/button';
  *   with full absolute paths, filenames, and sizes
  */
 const meta: Meta<typeof FeatureCreateDrawer> = {
-  title: 'Composed/FeatureCreateDrawer',
+  title: 'Drawers/Feature/FeatureCreateDrawer',
   component: FeatureCreateDrawer,
   tags: ['autodocs'],
   parameters: {

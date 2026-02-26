@@ -5,7 +5,7 @@ import { RepositoryDrawer } from './repository-drawer';
 import type { RepositoryNodeData } from './repository-node-config';
 
 const meta: Meta<typeof RepositoryDrawer> = {
-  title: 'Composed/RepositoryDrawer',
+  title: 'Drawers/Feature/RepositoryDrawer',
   component: RepositoryDrawer,
   tags: ['autodocs'],
   parameters: {

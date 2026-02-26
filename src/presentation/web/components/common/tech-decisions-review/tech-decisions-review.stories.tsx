@@ -45,7 +45,7 @@ const mockData: TechDecisionsReviewData = {
 /* ─── Standalone TechDecisionsReview ─── */
 
 const meta: Meta<typeof TechDecisionsReview> = {
-  title: 'Composed/TechDecisionsReview',
+  title: 'Drawers/Review/TechDecisionsReview',
   component: TechDecisionsReview,
   tags: ['autodocs'],
   parameters: {
@@ -104,7 +104,6 @@ export const NoTechnologies: Story = {
 type DrawerStory = StoryObj<typeof TechDecisionsDrawer>;
 
 const drawerMeta = {
-  title: 'Composed/TechDecisionsDrawer',
   component: TechDecisionsDrawer,
   tags: ['autodocs'],
   parameters: {

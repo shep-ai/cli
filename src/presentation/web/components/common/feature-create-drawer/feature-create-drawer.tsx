@@ -229,7 +229,7 @@ export function FeatureCreateDrawer({
       <Separator />
 
       {/* Form body */}
-      <div className="p-4">
+      <div className="overflow-y-auto p-4">
         <form id="create-feature-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
           {/* Feature name */}
           <div className="flex flex-col gap-1.5">

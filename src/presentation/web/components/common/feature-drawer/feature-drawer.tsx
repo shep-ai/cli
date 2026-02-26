@@ -71,7 +71,7 @@ export function FeatureDrawer({
       }
     >
       {selectedNode ? (
-        <>
+        <div className="flex-1 overflow-y-auto">
           {/* Action buttons */}
           {selectedNode.repositoryPath && selectedNode.branch ? (
             <DrawerActions
@@ -168,7 +168,7 @@ export function FeatureDrawer({
               </div>
             </>
           ) : null}
-        </>
+        </div>
       ) : null}
     </BaseDrawer>
   );
