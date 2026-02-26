@@ -9,13 +9,13 @@ feature:
 prUrl: 'https://github.com/shep-ai/cli/pull/168'
 
 status:
-  phase: 'in-review'
+  phase: 'review-watching'
   progress:
     completed: 10
     total: 10
     percentage: 100
   currentTask: null
-  lastUpdated: '2026-02-26T20:50:00Z'
+  lastUpdated: '2026-02-26T20:58:00Z'
   lastUpdatedBy: 'shep-kit:commit-pr'
 
 validation:
@@ -44,6 +44,16 @@ checkpoints:
   - phase: 'pr-created'
     completedAt: '2026-02-26T20:50:00Z'
     completedBy: 'shep-kit:commit-pr'
+  - phase: 'review-loop-started'
+    completedAt: '2026-02-26T20:58:00Z'
+    completedBy: 'shep-kit:commit-pr'
+
+reviewLoop:
+  iteration: 0
+  maxIterations: 5
+  commentsAddressed: []
+  commentsRemaining: []
+  status: 'watching'
 
 errors:
   current: null
