@@ -1,3 +1,9 @@
+## [1.66.4](https://github.com/shep-ai/cli/compare/v1.66.3...v1.66.4) (2026-02-26)
+
+### Bug Fixes
+
+- **agents:** fix ci watch reporting green ci as failure ([#166](https://github.com/shep-ai/cli/issues/166)) ([117950a](https://github.com/shep-ai/cli/commit/117950a7e1d5b2040d821ea266427365fff69e00))
+
 ## [1.66.3](https://github.com/shep-ai/cli/compare/v1.66.2...v1.66.3) (2026-02-26)
 
 ### Bug Fixes
