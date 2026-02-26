@@ -105,7 +105,8 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     selectedNode?.lifecycle === 'implementation' && selectedNode?.state === 'action-required';
 
   const showMergeReviewDrawer =
-    selectedNode?.lifecycle === 'review' && selectedNode?.state === 'action-required';
+    selectedNode?.lifecycle === 'review' &&
+    (selectedNode?.state === 'action-required' || selectedNode?.state === 'error');
 
   const handlePrdSelect = useCallback((questionId: string, optionId: string) => {
     setPrdSelections((prev) => ({ ...prev, [questionId]: optionId }));
