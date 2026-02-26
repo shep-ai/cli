@@ -1,0 +1,39 @@
+feature:
+  id: 046-merge-step-integration-tests
+  name: merge-step-integration-tests
+  number: 46
+  branch: feat/046-merge-step-integration-tests
+  lifecycle: research
+  createdAt: '2026-02-26T12:29:24Z'
+status:
+  phase: implementation-complete
+  progress:
+    completed: 9
+    total: 9
+    percentage: 100
+  currentTask: null
+  lastUpdated: '2026-02-26T13:21:32.275Z'
+  lastUpdatedBy: feature-agent:implement
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+    - plan
+    - phase-1
+    - phase-2
+    - phase-3
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-02-26T12:29:24Z'
+    completedBy: feature-agent
+errors:
+  current: null
+  history: []
