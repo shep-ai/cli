@@ -1,3 +1,9 @@
+## [1.66.2](https://github.com/shep-ai/cli/compare/v1.66.1...v1.66.2) (2026-02-26)
+
+### Bug Fixes
+
+- **agents:** fix merge rejection, worktree path, and default branch bugs ([#163](https://github.com/shep-ai/cli/issues/163)) ([05b6c57](https://github.com/shep-ai/cli/commit/05b6c57ef5917183bb64e114e18df8d9d443644c))
+
 ## [1.66.1](https://github.com/shep-ai/cli/compare/v1.66.0...v1.66.1) (2026-02-26)
 
 ### Bug Fixes
