@@ -149,7 +149,12 @@ export class CreateFeatureUseCase {
         createdAt: now,
         updatedAt: now,
       };
-      await this.repositoryRepo.create(repository);
+      repository = await this.repositoryRepo.create(repository);
+      if (!repository) {
+        throw new Error(
+          `Failed to create or retrieve repository record for path: ${normalizedPath}`
+        );
+      }
     }
 
     const feature: Feature = {

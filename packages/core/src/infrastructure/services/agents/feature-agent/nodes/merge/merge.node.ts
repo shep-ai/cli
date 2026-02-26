@@ -186,9 +186,13 @@ export function createMergeNode(deps: MergeNodeDeps) {
         messages.push(`[merge] Approved — continuing`);
       }
 
-      // --- Agent Call 2: Merge (if enabled) ---
+      // --- Agent Call 2: Merge ---
+      // Merge when: allowMerge is true (auto-merge), OR user explicitly
+      // approved at the merge gate (isResumeAfterInterrupt means they
+      // clicked Approve). The approval IS permission to merge.
       let merged = false;
-      if (state.approvalGates?.allowMerge) {
+      const userApprovedMerge = isResumeAfterInterrupt && state._approvalAction !== 'rejected';
+      if (state.approvalGates?.allowMerge || userApprovedMerge) {
         log.info('Agent call 2: merge/squash');
         const mergePrompt = buildMergeSquashPrompt(
           { ...state, prUrl, prNumber, commitHash },

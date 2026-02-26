@@ -372,6 +372,31 @@ ALTER TABLE features ADD COLUMN ci_fix_history TEXT;
       add('notif_evt_pr_checks_failed');
     },
   },
+  {
+    version: 23,
+    sql: `
+-- Migration 023: Back-fill repositories rows for orphaned features
+-- Inserts a repository row for every distinct repository_path in the features table
+-- that has no matching row in repositories. INSERT OR IGNORE ensures idempotency.
+INSERT OR IGNORE INTO repositories (id, name, path, created_at, updated_at)
+SELECT
+  lower(hex(randomblob(16))) AS id,
+  CASE
+    WHEN instr(repository_path, '/') > 0
+    THEN replace(repository_path, rtrim(repository_path, replace(repository_path, '/', '')), '')
+    ELSE repository_path
+  END AS name,
+  repository_path AS path,
+  strftime('%s', 'now') * 1000 AS created_at,
+  strftime('%s', 'now') * 1000 AS updated_at
+FROM (
+  SELECT DISTINCT repository_path
+  FROM features
+  WHERE repository_path IS NOT NULL AND repository_path != ''
+)
+WHERE repository_path NOT IN (SELECT path FROM repositories WHERE path IS NOT NULL);
+`,
+  },
 ];
 
 /**

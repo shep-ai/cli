@@ -54,6 +54,28 @@ describe('SQLiteRepositoryRepository', () => {
       const rows = db.prepare('SELECT * FROM repositories').all();
       expect(rows).toHaveLength(1);
     });
+
+    it('should return the existing entity on UNIQUE path conflict', async () => {
+      const repo = createTestRepo();
+      await repository.create(repo);
+
+      // Second create with a different id but same path — conflict
+      const result = await repository.create(createTestRepo({ id: 'repo-2' }));
+
+      // Must return the ORIGINAL row (id: 'repo-1'), not undefined
+      expect(result).toBeDefined();
+      expect(result.id).toBe('repo-1');
+      expect(result.path).toBe('/Users/test/my-project');
+    });
+
+    it('should return the newly created entity when path is new', async () => {
+      const repo = createTestRepo();
+      const result = await repository.create(repo);
+
+      expect(result).toBeDefined();
+      expect(result.id).toBe('repo-1');
+      expect(result.path).toBe('/Users/test/my-project');
+    });
   });
 
   describe('findById()', () => {

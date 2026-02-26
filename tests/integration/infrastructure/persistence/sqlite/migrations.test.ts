@@ -618,6 +618,64 @@ describe('SQLite Migrations', () => {
     });
   });
 
+  describe('migration v23: compensating back-fill of orphaned repository rows', () => {
+    it('creates a repositories row for a feature whose repository_path has no matching row', async () => {
+      // Arrange: run all current migrations (DB reaches v22)
+      await runSQLiteMigrations(db);
+      const now = Date.now();
+      db.prepare(
+        `INSERT INTO features (id, name, slug, description, user_query, repository_path, branch, lifecycle, messages, related_artifacts, created_at, updated_at)
+         VALUES ('f-orphan', 'orphan-feat', 'orphan-feat', 'desc', '', '/test/path', 'main', 'Requirements', '[]', '[]', ?, ?)`
+      ).run(now, now);
+
+      // Confirm no repositories row for this path before migration 23
+      const beforeRow = db.prepare('SELECT * FROM repositories WHERE path = ?').get('/test/path');
+      expect(beforeRow).toBeUndefined();
+
+      // Act: reset version to 22 so migration 23 runs on the next call
+      db.pragma('user_version = 22');
+      await runSQLiteMigrations(db);
+
+      // Assert: repositories row now exists for the orphaned path
+      const afterRow = db.prepare('SELECT * FROM repositories WHERE path = ?').get('/test/path') as
+        | Record<string, unknown>
+        | undefined;
+      expect(afterRow).toBeDefined();
+      expect(afterRow!.path).toBe('/test/path');
+      expect(afterRow!.name).toBe('path'); // last segment of '/test/path'
+    });
+
+    it('does not duplicate an already-existing repositories row (idempotent)', async () => {
+      // Arrange: run migrations, create matching feature + repo pair
+      await runSQLiteMigrations(db);
+      const now = Date.now();
+      db.prepare(
+        `INSERT INTO repositories (id, name, path, created_at, updated_at)
+         VALUES ('existing-repo', 'myrepo', '/existing/myrepo', ?, ?)`
+      ).run(now, now);
+      db.prepare(
+        `INSERT INTO features (id, name, slug, description, user_query, repository_path, branch, lifecycle, messages, related_artifacts, created_at, updated_at)
+         VALUES ('f-existing', 'existing-feat', 'existing-feat', 'desc', '', '/existing/myrepo', 'main', 'Requirements', '[]', '[]', ?, ?)`
+      ).run(now, now);
+
+      // Act: reset and re-run migration 23
+      db.pragma('user_version = 22');
+      await runSQLiteMigrations(db);
+
+      // Assert: still only one row for this path
+      const rows = db
+        .prepare('SELECT * FROM repositories WHERE path = ?')
+        .all('/existing/myrepo') as unknown[];
+      expect(rows).toHaveLength(1);
+    });
+
+    it('sets schema version to 23 after migration', async () => {
+      await runSQLiteMigrations(db);
+      expect(getSchemaVersion(db)).toBe(LATEST_SCHEMA_VERSION);
+      expect(LATEST_SCHEMA_VERSION).toBe(23);
+    });
+  });
+
   describe('migration v8: approval_gates and phase_timings', () => {
     beforeEach(async () => {
       await runSQLiteMigrations(db);

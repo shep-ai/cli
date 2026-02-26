@@ -30,20 +30,23 @@ export function buildRequirementsPrompt(state: FeatureAgentState): string {
       // Filter to requirements-phase rejections (or legacy entries without phase)
       const reqRejections = rejectionFeedback.filter((e) => !e.phase || e.phase === 'requirements');
       if (reqRejections.length > 0) {
-        const entries = reqRejections
-          .map(
-            (entry) => `- **Iteration ${entry.iteration}** (${entry.timestamp}): ${entry.message}`
-          )
-          .join('\n');
+        const latest = reqRejections[reqRejections.length - 1];
+        const older = reqRejections.slice(0, -1);
+        const olderSection =
+          older.length > 0
+            ? `\n### Earlier feedback (for context only)\n${older.map((e) => `- Iteration ${e.iteration}: ${e.message}`).join('\n')}\n`
+            : '';
         rejectionFeedbackSection = `
-## Previous Rejection Feedback
+## ⚠️ CRITICAL — User Rejection Feedback (MUST ADDRESS)
 
-The user has previously rejected this PRD with the following feedback. You MUST address these concerns in your revised output:
+**YOUR PRIMARY TASK: The user rejected the previous result and gave this feedback. You MUST act on it:**
 
-${entries}
+> ${latest.message}
 
-Focus on the most recent feedback (highest iteration number) while ensuring earlier feedback is still addressed.
+(Iteration ${latest.iteration}, ${latest.timestamp})
 
+Do NOT just record this feedback — you must actually make the changes the user requested.
+${olderSection}
 `;
       }
     }
