@@ -23,6 +23,10 @@ vi.mock('@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js', 
   writeSpecFileAtomic: vi.fn(),
 }));
 
+vi.mock('@/infrastructure/services/ide-launchers/compute-worktree-path.js', () => ({
+  computeWorktreePath: vi.fn().mockReturnValue('/computed/worktree/path'),
+}));
+
 import { readFileSync } from 'node:fs';
 import yaml from 'js-yaml';
 import { writeSpecFileAtomic } from '@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js';
@@ -131,7 +135,7 @@ describe('ApproveAgentRunUseCase with PrdApprovalPayload', () => {
       'run-001',
       '/test/repo',
       '/test/repo/.shep/wt/feat-branch',
-      undefined,
+      '/computed/worktree/path',
       expect.not.objectContaining({ resumePayload: expect.any(String) })
     );
   });
@@ -148,7 +152,7 @@ describe('ApproveAgentRunUseCase with PrdApprovalPayload', () => {
       'run-001',
       '/test/repo',
       '/test/repo/.shep/wt/feat-branch',
-      undefined,
+      '/computed/worktree/path',
       expect.objectContaining({
         resumePayload: JSON.stringify(payload),
       })

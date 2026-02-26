@@ -58,17 +58,35 @@ export class GitPrService implements IGitPrService {
       }
     }
 
-    // 3. Fall back to current branch (works for single-branch / fresh repos)
+    // 3. Check git config init.defaultBranch (user/system-level default)
     try {
-      const { stdout } = await this.execFile('git', ['symbolic-ref', '--short', 'HEAD'], { cwd });
-      const branch = stdout.trim();
-      if (branch) return branch;
+      const { stdout } = await this.execFile('git', ['config', 'init.defaultBranch'], { cwd });
+      const configured = stdout.trim();
+      if (configured) return configured;
     } catch {
-      // Detached HEAD — continue
+      // Not configured — continue
     }
 
-    // 4. Ultimate fallback
-    return 'main';
+    // 4. Fall back to current branch ONLY in the main worktree (not feature worktrees).
+    // In a feature worktree, symbolic-ref HEAD returns the feature branch, not the default.
+    try {
+      const gitDir = await this.execFile('git', ['rev-parse', '--git-dir'], { cwd });
+      const gitCommonDir = await this.execFile('git', ['rev-parse', '--git-common-dir'], { cwd });
+      const isMainWorktree = gitDir.stdout.trim() === gitCommonDir.stdout.trim();
+      if (isMainWorktree) {
+        const { stdout } = await this.execFile('git', ['symbolic-ref', '--short', 'HEAD'], { cwd });
+        const branch = stdout.trim();
+        if (branch) return branch;
+      }
+    } catch {
+      // Detached HEAD or other error — continue
+    }
+
+    // 5. Ultimate fallback — throw instead of silently guessing
+    throw new Error(
+      `Unable to determine default branch for repository at ${cwd}. ` +
+        `No remote HEAD, no main/master branch, and no init.defaultBranch configured.`
+    );
   }
 
   async hasUncommittedChanges(cwd: string): Promise<boolean> {

@@ -20,6 +20,7 @@ import type {
   RejectionFeedbackEntry,
 } from '../../../domain/generated/output.js';
 import { writeSpecFileAtomic } from '../../../infrastructure/services/agents/feature-agent/nodes/node-helpers.js';
+import { computeWorktreePath } from '../../../infrastructure/services/ide-launchers/compute-worktree-path.js';
 
 @injectable()
 export class RejectAgentRunUseCase {
@@ -125,12 +126,17 @@ export class RejectAgentRunUseCase {
       iteration,
     };
 
+    // Derive worktree path with fallback — the mapper conditionally sets
+    // worktreePath only when the DB column is non-null, so compute it if missing.
+    const worktreePath =
+      feature.worktreePath ?? computeWorktreePath(feature.repositoryPath, feature.branch);
+
     this.processService.spawn(
       run.featureId ?? '',
       id,
       feature.repositoryPath,
       feature.specPath,
-      feature.worktreePath,
+      worktreePath,
       {
         resume: true,
         approvalGates: run.approvalGates,
