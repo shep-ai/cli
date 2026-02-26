@@ -1,3 +1,9 @@
+# [1.67.0](https://github.com/shep-ai/cli/compare/v1.66.4...v1.67.0) (2026-02-26)
+
+### Features
+
+- **web:** drawer scroll layout, unified drawers, and inline revision input ([#158](https://github.com/shep-ai/cli/issues/158)) ([fb4f2cf](https://github.com/shep-ai/cli/commit/fb4f2cf252a26bcf229a8565c49964299c622da3))
+
 ## [1.66.3](https://github.com/shep-ai/cli/compare/v1.66.2...v1.66.3) (2026-02-26)
 
 ### Bug Fixes
