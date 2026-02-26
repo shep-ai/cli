@@ -1,0 +1,158 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: post-feature-cleanup
+summary: >
+  Add automatic post-merge cleanup to the feature lifecycle: create CleanupFeatureWorktreeUseCase
+  in the application layer, update WorktreeService.remove() to accept a force flag, wire the use
+  case into merge.node.ts after the Maintain lifecycle transition, and register it in the DI
+  container. All required primitives already exist — no TypeSpec changes or DB migrations needed.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - TypeScript
+  - Node.js
+  - TSyringe (DI)
+  - Vitest (unit testing)
+  - git worktree CLI
+  - LangGraph (merge node)
+  - Clean Architecture
+
+relatedLinks: []
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'Service Interface & Implementation Update'
+    description: >
+      Update IWorktreeService.remove() to accept an optional force parameter and update the
+      WorktreeService implementation to pass --force to the git command when the flag is set.
+      This is the lowest-level foundation change and must land first so all higher layers can
+      depend on it.
+    parallel: false
+
+  - id: phase-2
+    name: 'CleanupFeatureWorktreeUseCase'
+    description: >
+      Create the new application-layer use case that orchestrates the three cleanup steps:
+      worktree unlinking, local branch deletion, and remote branch deletion. All steps are
+      non-fatal — errors are caught and logged as warnings. The use case accepts a featureId,
+      resolves the Feature entity via IFeatureRepository, and delegates git operations to
+      IWorktreeService and IGitPrService.
+    parallel: false
+
+  - id: phase-3
+    name: 'DI Registration'
+    description: >
+      Register CleanupFeatureWorktreeUseCase as a singleton in container.ts following the
+      existing use case registration pattern. Add a string-token alias to support factory
+      injection and keep the container consistent with other use case registrations.
+    parallel: false
+
+  - id: phase-4
+    name: 'merge.node.ts Integration'
+    description: >
+      Inject CleanupFeatureWorktreeUseCase into MergeNodeDeps and call it after the
+      SdlcLifecycle.Maintain transition and feature repository update inside the merged===true
+      branch. Update merge node tests to assert the cleanup use case is called on merge and
+      not called when merge is skipped.
+    parallel: false
+
+# File change tracking
+filesToCreate:
+  - packages/core/src/application/use-cases/features/cleanup-feature-worktree.use-case.ts
+  - tests/unit/application/use-cases/features/cleanup-feature-worktree.use-case.test.ts
+
+filesToModify:
+  - packages/core/src/application/ports/output/services/worktree-service.interface.ts
+  - packages/core/src/infrastructure/services/git/worktree.service.ts
+  - packages/core/src/infrastructure/di/container.ts
+  - packages/core/src/infrastructure/services/agents/feature-agent/nodes/merge/merge.node.ts
+  - tests/unit/infrastructure/services/agents/feature-agent/nodes/merge.node.test.ts
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Architecture Overview
+
+  This feature adds automatic post-merge cleanup to the existing feature lifecycle. The system
+  already handles the merge transition in `merge.node.ts` (infrastructure layer), which sets
+  `SdlcLifecycle.Maintain` and persists the feature via `IFeatureRepository`. The new cleanup
+  step runs immediately after this persistence, before the node returns its state update.
+
+  The implementation follows the established Clean Architecture pattern in this codebase:
+
+  - **Domain layer**: No changes. Feature entity already has `worktreePath`, `branch`, and
+    `repositoryPath` fields. No TypeSpec changes needed.
+  - **Application layer**: New `CleanupFeatureWorktreeUseCase` mirrors `DeleteFeatureUseCase`
+    and peers — injectable, accepts `featureId`, resolves entity via `IFeatureRepository`,
+    delegates git operations to injected service interfaces.
+  - **Infrastructure layer**: `WorktreeService.remove()` gains an optional `force` flag.
+    `merge.node.ts` gains one injected dependency and one `await` call.
+  - **DI container**: New use case registered as singleton with string-token alias, consistent
+    with all other use case registrations in `container.ts`.
+
+  ## Key Design Decisions
+
+  ### 1. Application-Layer Use Case (not inline in merge.node.ts)
+  Creating a dedicated `CleanupFeatureWorktreeUseCase` rather than inlining cleanup in
+  `merge.node.ts` follows the codebase pattern (DeleteFeatureUseCase, UpdateFeatureLifecycleUseCase)
+  and keeps the merge node focused on merge orchestration. The use case is independently
+  unit-testable with mocked dependencies.
+
+  ### 2. Non-Fatal Error Handling
+  All three cleanup steps (worktree remove, local branch delete, remote branch delete) are
+  wrapped in individual try/catch blocks. Errors are logged as warnings via `console.warn`
+  and execution continues to the next step. This matches the existing use case logging pattern
+  (no injected ILogger) and ensures a failed remote branch delete never surfaces as a feature
+  failure — especially important since CI/CD systems often auto-delete remote branches on PR merge.
+
+  ### 3. WorktreeService.remove() Force Flag
+  Post-merge worktrees can have untracked files (build artifacts, test output) that cause
+  standard `git worktree remove` to fail. Adding an optional `force?: boolean` parameter that
+  passes `--force` to the git command is backward-compatible — existing callers continue to work
+  without the flag. The `--force` flag only unlinks git tracking; directory contents are always
+  preserved on disk.
+
+  ### 4. Check-Before-Delete for Remote Branch
+  `IWorktreeService.remoteBranchExists()` is called before attempting remote branch deletion.
+  This is cleaner than attempting the delete and parsing git error messages, which differ between
+  GitHub, GitLab, and Gitea. The pattern is already established in the codebase.
+
+  ### 5. featureId Input (not raw strings or full entity)
+  The use case accepts `featureId: string` and resolves the Feature entity internally via
+  `IFeatureRepository`. This matches the canonical pattern (DeleteFeatureUseCase) and ensures
+  the use case interface stays consistent and extensible. `merge.node.ts` already has `feature.id`
+  in scope at the integration point.
+
+  ### 6. Singleton DI Registration
+  All other use cases in `container.ts` are registered with `registerSingleton`. Since
+  `CleanupFeatureWorktreeUseCase` holds no mutable instance state, singleton registration is
+  safe and consistent with the project convention.
+
+  ## Implementation Strategy
+
+  The four phases are strictly ordered by dependency. Phase 1 must land first because the use
+  case (Phase 2) calls `worktreeService.remove(path, true)` — the force flag must exist on the
+  interface before the use case can be written against it. Phase 3 (DI registration) requires
+  the use case class to exist. Phase 4 (merge.node.ts integration) requires the DI registration
+  so the container can provide the dependency.
+
+  Each phase is small and independently reviewable. The total scope is intentionally narrow:
+  no new domain models, no database migrations, no TypeSpec changes. The work is pure
+  application-layer orchestration wiring existing infrastructure primitives.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | WorktreeService.remove() signature change breaks existing callers | force parameter is optional with no default — all existing call sites omit it and continue to work unchanged |
+  | merge.node.ts integration breaks existing merge node tests | Tests are updated in the same task; existing mock setup is extended, not replaced |
+  | Remote branch already deleted by CI/CD before cleanup runs | remoteBranchExists() returns false → silently skipped; FR-8 non-fatal handling covers any unexpected error |
+  | Worktree already unlinked (e.g., agent retry scenario) | remove() throws → caught by try/catch → logged as warn → continues; idempotency guaranteed by NFR-4 |
+  | Local branch already deleted (e.g., manual cleanup by developer) | deleteBranch() throws → caught by try/catch → logged as warn → continues |
+  | GitPrService.deleteBranch() uses -d and post-merge branch is not fully-merged in git's view | Non-fatal handler catches and logs; edge case is bounded by the fact that merge.node.ts verified the merge succeeded |
