@@ -1,0 +1,43 @@
+feature:
+  id: 046-merge-step-integration-tests
+  name: merge-step-integration-tests
+  number: 46
+  branch: feat/046-merge-step-integration-tests
+  lifecycle: review
+  createdAt: '2026-02-26T12:29:24Z'
+status:
+  phase: in-review
+  progress:
+    completed: 9
+    total: 9
+    percentage: 100
+  currentTask: null
+  lastUpdated: '2026-02-26T16:25:00.000Z'
+  lastUpdatedBy: shep-kit:commit-pr
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+    - plan
+    - phase-1
+    - phase-2
+    - phase-3
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-02-26T12:29:24Z'
+    completedBy: feature-agent
+  - phase: pr-created
+    completedAt: '2026-02-26T16:25:00.000Z'
+    completedBy: shep-kit:commit-pr
+errors:
+  current: null
+  history: []
+prUrl: https://github.com/shep-ai/cli/pull/161
