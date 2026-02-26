@@ -246,6 +246,7 @@ export function buildDeps(opts: BuildDepsOptions = {}): BuiltDeps {
     featureRepository,
     verifyMerge: (cwd, fb, bb) => gitPrService.verifyMerge(cwd, fb, bb),
     gitPrService,
+    cleanupFeatureWorktreeUseCase: { execute: vi.fn().mockResolvedValue(undefined) } as any,
   };
 
   return { deps, featureRepository, executor };

@@ -63,9 +63,12 @@ export class WorktreeService implements IWorktreeService {
     return created;
   }
 
-  async remove(worktreePath: string): Promise<void> {
+  async remove(worktreePath: string, force?: boolean): Promise<void> {
     try {
-      await this.execFile('git', ['worktree', 'remove', worktreePath], {});
+      const args = ['worktree', 'remove'];
+      if (force) args.push('--force');
+      args.push(worktreePath);
+      await this.execFile('git', args, {});
     } catch (error) {
       throw this.parseGitError(error);
     }

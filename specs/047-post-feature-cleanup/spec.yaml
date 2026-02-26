@@ -1,0 +1,265 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: post-feature-cleanup
+number: 047
+branch: feat/047-post-feature-cleanup
+oneLiner: automatically clean up worktree and branch after feature merges to maintain lifecycle
+userQuery: >
+  Feature: featur ecleanup
+
+  LEts make sure that after feature is finishied, we delete the worktree and branch from (we still keep the worktree dir content, just unlink worktree from it)
+summary: >
+  When a feature completes its lifecycle and reaches the Maintain state (after merge), the system
+  should automatically unlink the git worktree (preserving directory contents) and delete the local
+  and remote feature branches. This cleanup currently must be done manually and leaves stale worktrees
+  and branches after every completed feature.
+phase: Requirements
+sizeEstimate: S
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - TypeScript
+  - Node.js
+  - LangGraph
+  - git (worktree, branch operations)
+  - TSyringe (DI)
+  - Clean Architecture
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - question: 'Where should the post-merge cleanup logic live?'
+    resolved: true
+    options:
+      - option: 'Inline in merge.node.ts'
+        description: >
+          Add cleanup calls directly inside merge.node.ts after the lifecycle update to Maintain.
+          Simple and co-located with the trigger. Keeps the node self-contained but mixes
+          infrastructure concerns (git cleanup) with the merge orchestration logic. Harder to unit
+          test cleanup in isolation.
+        selected: false
+      - option: 'New CleanupFeatureWorktreeUseCase'
+        description: >
+          Create a dedicated use case in application/use-cases/features/ that encapsulates worktree
+          unlinking and branch deletion. merge.node.ts calls the use case after setting lifecycle to
+          Maintain. Follows Clean Architecture — the use case owns the cleanup orchestration,
+          infrastructure services do the git work. Cleanly unit-testable and reusable.
+        selected: true
+      - option: 'Post-graph hook in feature-agent-worker.ts'
+        description: >
+          Add a post-graph cleanup hook in feature-agent-worker.ts that inspects final state and
+          cleans up after graph completion. Keeps cleanup out of the node graph entirely but adds
+          coupling to the worker process and makes the trigger less explicit (relying on state
+          inspection rather than lifecycle transition).
+        selected: false
+    selectionRationale: >
+      A dedicated CleanupFeatureWorktreeUseCase is recommended because it follows Clean Architecture
+      principles — the use case layer owns orchestration of infrastructure services. This gives a
+      clear, testable unit that can be called from merge.node.ts at the exact moment of lifecycle
+      transition. It mirrors the existing DeleteFeatureUseCase pattern and keeps merge.node.ts
+      focused on merge orchestration rather than git housekeeping.
+    answer: 'New CleanupFeatureWorktreeUseCase'
+
+  - question: 'Should cleanup failures (worktree already gone, remote already deleted) be fatal or non-fatal?'
+    resolved: true
+    options:
+      - option: 'Fatal — throw on any cleanup error'
+        description: >
+          Any failure during worktree removal or branch deletion throws an error and surfaces to
+          the user. Guarantees cleanup always succeeds, but may leave features stuck in Maintain
+          state if git has an unexpected error (e.g., network issue deleting remote). Poor UX since
+          the merge itself succeeded.
+        selected: false
+      - option: 'Non-fatal — log warnings, never block completion'
+        description: >
+          Cleanup errors are caught, logged as warnings, and the feature is still marked Maintain.
+          The feature is successfully merged; cleanup is best-effort. Already-gone worktrees and
+          already-deleted remotes are silently handled as no-ops. Any unexpected errors are logged
+          but do not fail the run. This matches the intent: merge is the primary operation,
+          cleanup is housekeeping.
+        selected: true
+    selectionRationale: >
+      Non-fatal is the correct choice because the primary goal (merging the feature) has already
+      succeeded by the time cleanup runs. Failing the entire run due to a stale worktree or
+      already-deleted remote branch would be a poor user experience and could leave features in
+      an inconsistent state. Many CI/CD systems auto-delete the remote branch on PR merge, making
+      "remote already gone" a routine, expected condition. Cleanup should be best-effort housekeeping.
+    answer: 'Non-fatal — log warnings, never block completion'
+
+  - question: 'Should git worktree remove use --force flag?'
+    resolved: true
+    options:
+      - option: 'Always use --force'
+        description: >
+          Pass --force to git worktree remove unconditionally. Handles edge cases where the
+          worktree has untracked files or other git state that would otherwise cause removal to
+          fail. Since directory contents are preserved (only git tracking is removed), --force
+          is safe. Simplest implementation.
+        selected: true
+      - option: 'Try without --force first, retry with --force on failure'
+        description: >
+          Attempt removal without --force; if it fails, retry with --force. More conservative
+          but adds complexity and a second git call. The retry adds little value since the
+          directory contents are always preserved regardless of --force.
+        selected: false
+    selectionRationale: >
+      Always using --force is recommended because: (1) directory contents are preserved regardless
+      — --force only affects whether git will unlink a dirty worktree, not whether files are kept;
+      (2) post-merge worktrees can legitimately have untracked files or other state that standard
+      remove would reject; (3) the simpler path has no downsides. The current WorktreeService.remove()
+      does not pass --force, so this requires updating the service method.
+    answer: 'Always use --force'
+
+  - question: 'Should remote branch deletion check for existence before attempting delete?'
+    resolved: true
+    options:
+      - option: 'Check existence first via remoteBranchExists(), then delete if present'
+        description: >
+          Call IWorktreeService.remoteBranchExists() before attempting deletion. Only calls
+          deleteBranch with deleteRemote=true if the remote branch exists. Avoids a git error
+          when the remote is already gone (common when CI auto-deletes on PR merge). Slightly
+          more network calls but cleaner error handling.
+        selected: true
+      - option: 'Attempt delete and swallow the "not found" error'
+        description: >
+          Always attempt git push origin --delete <branch> and catch the specific error when
+          the remote branch does not exist. Fewer git calls (one instead of two) but requires
+          parsing git error messages to distinguish "not found" from real errors. More fragile
+          across git versions.
+        selected: false
+    selectionRationale: >
+      Checking existence first is recommended because IWorktreeService already exposes
+      remoteBranchExists() and the pattern is already established in the codebase. This is
+      cleaner than parsing git error messages and more robust across git server implementations
+      (GitHub, GitLab, Gitea all report "not found" differently). The extra network call is
+      negligible in a post-merge context.
+    answer: 'Check existence first via remoteBranchExists(), then delete if present'
+
+content: |
+  ## Problem Statement
+
+  After a feature is merged and transitions to the `Maintain` lifecycle state, the system leaves
+  behind a stale git worktree and the feature branch (both locally and on the remote). There is no
+  automatic cleanup. Users must manually run `git worktree remove` and `git branch -d` after every
+  feature completes. Over time this accumulates clutter in both the local git repo and the remote.
+
+  The desired behavior: once a feature reaches `SdlcLifecycle.Maintain`, the system should
+  automatically perform three cleanup operations:
+  1. **Unlink the git worktree** (`git worktree remove --force <path>`) — preserving the directory
+     contents on disk so history and artifacts remain accessible, just removing git's tracking.
+  2. **Delete the local feature branch** (`git branch -d <branch>`).
+  3. **Delete the remote feature branch** (`git push origin --delete <branch>`), if it still exists.
+
+  None of these operations should fail the feature run — the merge is the primary operation and
+  cleanup is best-effort housekeeping.
+
+  ## Success Criteria
+
+  - [ ] After a feature reaches `SdlcLifecycle.Maintain`, the git worktree is automatically unlinked
+        (directory contents preserved on disk, worktree no longer appears in `git worktree list`)
+  - [ ] After a feature reaches `SdlcLifecycle.Maintain`, the local feature branch is deleted
+  - [ ] After a feature reaches `SdlcLifecycle.Maintain`, the remote feature branch is deleted if
+        it exists (silently skipped if already gone)
+  - [ ] The feature DB record is NOT deleted — only git artifacts are cleaned up
+  - [ ] Cleanup failures (worktree not found, remote branch already deleted, network error on remote
+        delete) are logged as warnings and do not cause the feature run to fail
+  - [ ] The `WorktreeService.remove()` method supports `--force` flag to handle post-merge worktrees
+        that may have untracked files
+  - [ ] `IWorktreeService` interface is updated to reflect the force flag if the signature changes
+  - [ ] A new `CleanupFeatureWorktreeUseCase` (or equivalent) encapsulates the cleanup orchestration
+        and is callable from `merge.node.ts`
+  - [ ] Unit tests cover the happy path (worktree removed, branches deleted) and all edge cases
+        (worktree already gone, local branch already deleted, remote branch already deleted,
+        cleanup error does not propagate)
+  - [ ] No TypeSpec or domain model changes are required
+
+  ## Functional Requirements
+
+  - **FR-1**: The system MUST automatically trigger cleanup when `SdlcLifecycle.Maintain` is set in
+    `merge.node.ts` after a successful merge (i.e., when `merged === true`).
+  - **FR-2**: Cleanup MUST unlink the git worktree at `feature.worktreePath` using
+    `git worktree remove --force <path>`, preserving all directory contents on disk.
+  - **FR-3**: Cleanup MUST delete the local feature branch named `feature.branch` using
+    `git branch -d <branch>` (or `-D` if needed for the force case).
+  - **FR-4**: Cleanup MUST check whether the remote feature branch exists before attempting remote
+    deletion, using `IWorktreeService.remoteBranchExists()`. If it exists, delete it via
+    `IGitPrService.deleteBranch()` with `deleteRemote=true`; if not, skip silently.
+  - **FR-5**: The feature DB record (including `worktreePath`, `branch`, and all PR/CI data) MUST
+    be preserved after cleanup. Only git artifacts (worktree link, branches) are removed.
+  - **FR-6**: If the worktree path does not exist or is already unlinked, the worktree removal step
+    MUST be silently skipped (logged as a debug/info message, not an error).
+  - **FR-7**: If the local branch does not exist (already deleted), the local branch deletion step
+    MUST be silently skipped.
+  - **FR-8**: Any unexpected error during any cleanup step MUST be caught, logged as a warning with
+    the error message, and execution MUST continue to the next cleanup step. Cleanup errors MUST
+    NOT propagate out of the cleanup logic.
+  - **FR-9**: Cleanup MUST only run when the feature was actually merged (i.e., `merged === true`
+    in merge.node.ts). PR-only flows that leave lifecycle at `Review` MUST NOT trigger cleanup.
+  - **FR-10**: `WorktreeService.remove()` MUST accept an optional `force` boolean parameter and
+    pass `--force` to the git command when true.
+  - **FR-11**: `IWorktreeService` interface MUST be updated to include the `force` parameter on
+    `remove()` to match the implementation change in FR-10.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1 — Clean Architecture compliance**: Cleanup orchestration MUST live in the application
+    layer (a new use case). Infrastructure services (`WorktreeService`, `GitPrService`) perform
+    the git operations. `merge.node.ts` (infrastructure) calls the use case after lifecycle update.
+  - **NFR-2 — No new domain models**: This feature requires no changes to TypeSpec or generated
+    domain types. All data needed (`worktreePath`, `branch`) is already on the Feature entity.
+  - **NFR-3 — Testability**: The new use case MUST be independently unit-testable with mocked
+    service dependencies. `merge.node.ts` cleanup path MUST be coverable in existing node tests.
+  - **NFR-4 — Idempotency**: Running cleanup multiple times (e.g., if the agent retries) MUST be
+    safe. Each step checks existence before acting and skips gracefully if already done.
+  - **NFR-5 — Logging**: All cleanup steps MUST emit structured log messages at appropriate levels:
+    info for successful operations, debug for already-done skips, warn for unexpected errors.
+  - **NFR-6 — No user-visible delay**: Cleanup runs synchronously in the post-merge flow but is
+    fast (git commands). It MUST NOT introduce perceptible delay to the feature completion UX.
+  - **NFR-7 — DI compliance**: The new use case MUST be registered in the TSyringe container and
+    injected into `merge.node.ts` factory deps via the standard interface token pattern.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Where should cleanup logic live? | New CleanupFeatureWorktreeUseCase | Follows Clean Architecture; mirrors DeleteFeatureUseCase pattern; independently testable |
+  | 2 | Should cleanup failures be fatal? | Non-fatal — log warnings, never block | Merge already succeeded; cleanup is housekeeping; remote-already-deleted is routine |
+  | 3 | Should worktree remove use --force? | Always use --force | Directory contents preserved regardless; post-merge worktrees may have untracked files |
+  | 4 | Should remote deletion check existence first? | Check via remoteBranchExists() first | Cleaner than parsing git errors; remoteBranchExists() already exists in the interface |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `packages/core/src/infrastructure/services/agents/feature-agent/nodes/merge/merge.node.ts` | High | Triggers cleanup after lifecycle transitions to Maintain; must inject and call the new use case |
+  | `packages/core/src/application/use-cases/features/` | Medium | New `CleanupFeatureWorktreeUseCase` added here to orchestrate worktree + branch cleanup |
+  | `packages/core/src/infrastructure/services/git/worktree.service.ts` | Low | `remove()` needs optional `force` boolean parameter to pass `--force` to git |
+  | `packages/core/src/application/ports/output/services/worktree-service.interface.ts` | Low | `remove()` signature updated to include optional `force` parameter |
+  | `packages/core/src/infrastructure/services/git/git-pr-service.ts` | Low | Verify `deleteBranch()` handles gracefully when local branch is checked out elsewhere |
+  | `packages/core/src/application/ports/output/services/git-pr-service.interface.ts` | Low | Interface may need review; likely no change needed if deleteBranch already handles edge cases |
+  | DI container registration | Low | New use case must be registered with TSyringe |
+
+  ## Dependencies
+
+  - `IWorktreeService.remove()` — needs `--force` flag support added (FR-10, FR-11)
+  - `IWorktreeService.remoteBranchExists()` — used to check remote branch before deletion (FR-4)
+  - `IWorktreeService.exists()` — or equivalent check to detect already-gone worktrees (FR-6)
+  - `IGitPrService.deleteBranch()` — used for local and remote branch deletion (FR-3, FR-4)
+  - `IFeatureRepository.findById()` — used in use case to retrieve `worktreePath` and `branch`
+  - `SdlcLifecycle.Maintain` — the trigger state; cleanup runs only when this lifecycle is set
+  - Feature entity `worktreePath` and `branch` fields — all data needed for cleanup
+
+  ## Size Estimate
+
+  **S** — The core primitives already exist. The work is:
+  1. Add `force` parameter to `WorktreeService.remove()` and `IWorktreeService`
+  2. Create `CleanupFeatureWorktreeUseCase` with error-safe step orchestration
+  3. Register the use case in the DI container
+  4. Wire it into `merge.node.ts` deps and call it after lifecycle update
+  5. Write unit tests for the use case (happy path + all edge cases) and update merge.node tests
+
+  No TypeSpec changes, no new domain models, no DB migrations required.

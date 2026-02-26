@@ -29,6 +29,7 @@ import { setPhaseTimingContext, recordLifecycleEvent } from './phase-timing-cont
 import { setLifecycleContext } from './lifecycle-context.js';
 import type { IPhaseTimingRepository } from '@/application/ports/output/agents/phase-timing-repository.interface.js';
 import { UpdateFeatureLifecycleUseCase } from '@/application/use-cases/features/update/update-feature-lifecycle.use-case.js';
+import { CleanupFeatureWorktreeUseCase } from '@/application/use-cases/features/cleanup-feature-worktree.use-case.js';
 
 import type { ApprovalGates } from '@/domain/generated/output.js';
 
@@ -166,6 +167,7 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
   // Resolve merge node dependencies
   const gitPrService = container.resolve<IGitPrService>('IGitPrService');
   const featureRepository = container.resolve<IFeatureRepository>('IFeatureRepository');
+  const cleanupFeatureWorktreeUseCase = container.resolve(CleanupFeatureWorktreeUseCase);
 
   const graphDeps: FeatureAgentGraphDeps = {
     executor,
@@ -178,6 +180,7 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
         gitPrService.verifyMerge(cwd, featureBranch, baseBranch),
       featureRepository,
       gitPrService,
+      cleanupFeatureWorktreeUseCase,
     },
   };
 
