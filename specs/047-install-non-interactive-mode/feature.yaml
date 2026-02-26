@@ -1,0 +1,39 @@
+feature:
+  id: 047-install-non-interactive-mode
+  name: install-non-interactive-mode
+  number: 47
+  branch: feat/047-install-non-interactive-mode
+  lifecycle: implementation
+  createdAt: '2026-02-26T18:42:56Z'
+status:
+  phase: ready-to-implement
+  progress:
+    completed: 0
+    total: 6
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-02-26T00:00:00Z'
+  lastUpdatedBy: shep-kit:plan
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+    - plan-complete
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-02-26T18:42:56Z'
+    completedBy: feature-agent
+  - phase: plan-complete
+    completedAt: '2026-02-26T00:00:00Z'
+    completedBy: shep-kit:plan
+errors:
+  current: null
+  history: []

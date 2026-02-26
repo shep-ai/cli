@@ -1,0 +1,241 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: install-non-interactive-mode
+summary: >
+  6 tasks across 3 phases: write failing tests (RED), update 4 JSON metadata files
+  to pass tests (GREEN), then validate the full suite and run pnpm validate (REFACTOR).
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - Vitest unit tests
+  - JSON tool metadata files
+  - gpg --batch --yes
+  - DEBIAN_FRONTEND=noninteractive
+  - Homebrew (brew install git)
+relatedLinks: []
+
+# Structured task list — this is the single source of truth for tasks.
+# The content field below is a summary only; it does NOT duplicate task details.
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Write failing unit tests for non-interactive flags'
+    description: >
+      Extend tool-metadata.test.ts with a new describe block that asserts the required
+      non-interactive flags are present in each affected tool JSON command string.
+      Tests must be written FIRST and will fail (RED) because the JSON files have not
+      yet been updated. Covers windsurf (gpg + apt-get), vscode (gpg + apt-get),
+      git (apt-get + darwin brew), and gh (apt/apt-get).
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'New describe block "non-interactive install flags" added to tool-metadata.test.ts'
+      - 'Test asserts windsurf linux command contains "--batch"'
+      - 'Test asserts windsurf linux command contains "--yes"'
+      - 'Test asserts windsurf linux command contains "DEBIAN_FRONTEND=noninteractive"'
+      - 'Test asserts vscode linux command contains "--batch"'
+      - 'Test asserts vscode linux command contains "--yes"'
+      - 'Test asserts vscode linux command contains "DEBIAN_FRONTEND=noninteractive"'
+      - 'Test asserts git linux command contains "DEBIAN_FRONTEND=noninteractive"'
+      - 'Test asserts git darwin command equals "brew install git"'
+      - 'Test asserts gh linux command contains "DEBIAN_FRONTEND=noninteractive"'
+      - 'All new tests FAIL when run (RED state confirmed by running pnpm test:unit)'
+    tdd:
+      red:
+        - 'Add describe("non-interactive install flags") block to tool-metadata.test.ts'
+        - 'Write it("windsurf linux command includes gpg --batch") asserting TOOL_METADATA.windsurf.commands.linux contains "--batch"'
+        - 'Write it("windsurf linux command includes gpg --yes") asserting TOOL_METADATA.windsurf.commands.linux contains "--yes"'
+        - 'Write it("windsurf linux command includes DEBIAN_FRONTEND=noninteractive") asserting the string is present'
+        - 'Write it("vscode linux command includes gpg --batch") asserting TOOL_METADATA.vscode.commands.linux contains "--batch"'
+        - 'Write it("vscode linux command includes gpg --yes") asserting TOOL_METADATA.vscode.commands.linux contains "--yes"'
+        - 'Write it("vscode linux command includes DEBIAN_FRONTEND=noninteractive") asserting the string is present'
+        - 'Write it("git linux command includes DEBIAN_FRONTEND=noninteractive") asserting TOOL_METADATA.git.commands.linux contains the string'
+        - 'Write it("git darwin command is brew install git") asserting TOOL_METADATA.git.commands.darwin equals "brew install git"'
+        - 'Write it("gh linux command includes DEBIAN_FRONTEND=noninteractive") asserting TOOL_METADATA.gh.commands.linux contains the string'
+        - 'Run pnpm test:unit and confirm all new tests fail'
+      green:
+        - '(No GREEN step for this task — GREEN is done in tasks 2-5 by updating JSON files)'
+      refactor:
+        - '(No REFACTOR step for this task — tests are already clean and focused)'
+    estimatedEffort: '30min'
+
+  - id: task-2
+    phaseId: phase-2
+    title: 'Fix windsurf.json: add gpg flags and DEBIAN_FRONTEND to Linux command'
+    description: >
+      Update windsurf.json linux command to include "--batch --yes" on the gpg --dearmor
+      invocation and prefix both apt-get calls (update and install) with
+      DEBIAN_FRONTEND=noninteractive. The current command is a single compound shell
+      expression using &&; each apt-get invocation must be prefixed individually.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'windsurf.json linux command contains "gpg --batch --yes --dearmor" (or equivalent with flags before --dearmor)'
+      - 'windsurf.json linux command contains "DEBIAN_FRONTEND=noninteractive apt-get update"'
+      - 'windsurf.json linux command contains "DEBIAN_FRONTEND=noninteractive apt-get install"'
+      - 'windsurf.json darwin command is unchanged (brew install --cask windsurf)'
+      - 'JSON file is valid (parseable by JSON.parse)'
+      - 'The two windsurf unit tests that were failing now pass'
+    tdd:
+      red:
+        - '(Tests already written in task-1 — these are the failing tests this task makes green)'
+      green:
+        - 'Edit windsurf.json: change "sudo gpg --dearmor" to "sudo gpg --batch --yes --dearmor"'
+        - 'Edit windsurf.json: change "sudo apt-get update" to "sudo DEBIAN_FRONTEND=noninteractive apt-get update"'
+        - 'Edit windsurf.json: change "sudo apt-get install -y windsurf" to "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y windsurf"'
+        - 'Run pnpm test:unit and confirm windsurf tests now pass'
+      refactor:
+        - 'Verify the full JSON structure is valid and unchanged except for the command strings'
+        - 'Confirm darwin command and all other fields are untouched'
+    estimatedEffort: '15min'
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Fix vscode.json: add gpg flags and DEBIAN_FRONTEND to Linux command'
+    description: >
+      Update vscode.json linux command to include "--batch --yes" on the gpg --dearmor
+      invocation and prefix both apt-get calls (update and install) with
+      DEBIAN_FRONTEND=noninteractive. Same pattern as windsurf.json.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'vscode.json linux command contains gpg --batch --yes flags'
+      - 'vscode.json linux command contains "DEBIAN_FRONTEND=noninteractive apt-get update"'
+      - 'vscode.json linux command contains "DEBIAN_FRONTEND=noninteractive apt-get install"'
+      - 'vscode.json darwin command is unchanged (brew install visual-studio-code)'
+      - 'JSON file is valid'
+      - 'The two vscode unit tests that were failing now pass'
+    tdd:
+      red:
+        - '(Tests already written in task-1)'
+      green:
+        - 'Edit vscode.json: change "sudo gpg --dearmor" to "sudo gpg --batch --yes --dearmor"'
+        - 'Edit vscode.json: change "sudo apt-get update" to "sudo DEBIAN_FRONTEND=noninteractive apt-get update"'
+        - 'Edit vscode.json: change "sudo apt-get install -y code" to "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y code"'
+        - 'Run pnpm test:unit and confirm vscode tests now pass'
+      refactor:
+        - 'Verify the full JSON structure is valid and unchanged except for the command strings'
+    estimatedEffort: '15min'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Fix git.json: add DEBIAN_FRONTEND to Linux and replace Darwin command'
+    description: >
+      Update git.json with two changes: (1) prefix the linux apt-get update and
+      apt-get install calls with DEBIAN_FRONTEND=noninteractive, and (2) replace
+      the darwin command "xcode-select --install" with "brew install git".
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'git.json linux command contains "DEBIAN_FRONTEND=noninteractive apt-get update"'
+      - 'git.json linux command contains "DEBIAN_FRONTEND=noninteractive apt-get install"'
+      - 'git.json darwin command is exactly "brew install git"'
+      - 'JSON file is valid'
+      - 'The two git unit tests that were failing now pass'
+    tdd:
+      red:
+        - '(Tests already written in task-1)'
+      green:
+        - 'Edit git.json: change "sudo apt-get update" to "sudo DEBIAN_FRONTEND=noninteractive apt-get update"'
+        - 'Edit git.json: change "sudo apt-get install -y git" to "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y git"'
+        - 'Edit git.json: change darwin value from "xcode-select --install" to "brew install git"'
+        - 'Run pnpm test:unit and confirm git tests now pass'
+      refactor:
+        - 'Verify the full JSON structure is valid and unchanged except for the two command strings'
+    estimatedEffort: '15min'
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Fix gh.json: add DEBIAN_FRONTEND to all apt/apt-get invocations'
+    description: >
+      Update gh.json linux command to prefix every apt and apt-get invocation with
+      DEBIAN_FRONTEND=noninteractive. The current linux command is a complex compound
+      expression mixing apt (for update and gh install) and apt-get (for wget). Each
+      invocation must be prefixed individually for complete coverage.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'gh.json linux command contains "DEBIAN_FRONTEND=noninteractive apt update" (first apt update call)'
+      - 'gh.json linux command contains "DEBIAN_FRONTEND=noninteractive apt-get install wget"'
+      - 'gh.json linux command contains "DEBIAN_FRONTEND=noninteractive apt install gh"'
+      - 'gh.json darwin command is unchanged (brew install gh)'
+      - 'JSON file is valid'
+      - 'The gh unit test that was failing now passes'
+    tdd:
+      red:
+        - '(Tests already written in task-1)'
+      green:
+        - 'Edit gh.json: prefix "apt update" with "DEBIAN_FRONTEND=noninteractive" in the conditional block'
+        - 'Edit gh.json: prefix "apt-get install wget -y" with "DEBIAN_FRONTEND=noninteractive"'
+        - 'Edit gh.json: prefix "apt install gh -y" with "DEBIAN_FRONTEND=noninteractive"'
+        - 'Run pnpm test:unit and confirm gh test now passes'
+      refactor:
+        - 'Verify the full JSON structure is valid and unchanged except for the command string'
+    estimatedEffort: '20min'
+
+  - id: task-6
+    phaseId: phase-3
+    title: 'Validate full suite and confirm no regressions'
+    description: >
+      Run pnpm validate (lint + format + typecheck + tsp) and pnpm test to confirm all
+      existing tests still pass, the 10 new tests now pass, and no regressions were
+      introduced. Verify the 6 tools that required no changes (cursor, cursor-cli,
+      claude-code, gemini-cli, antigravity, zed) are unaffected.
+    state: Todo
+    dependencies:
+      - task-2
+      - task-3
+      - task-4
+      - task-5
+    acceptanceCriteria:
+      - 'pnpm test:unit passes with all 10 new non-interactive flag assertions green'
+      - 'pnpm validate passes (lint + format + typecheck + tsp compile)'
+      - 'No existing tests are broken'
+      - 'All 10 success criteria from the spec are satisfied'
+    tdd: null
+    estimatedEffort: '15min'
+
+# Total effort estimate
+totalEstimate: '1h 50min'
+
+# Open questions
+openQuestions: []
+
+# Markdown content — summary and acceptance checklist only.
+# Individual task details live in the tasks[] array above (no duplication).
+content: |
+  ## Summary
+
+  Data-only fix for tool installer interactive prompt hangs — 6 tasks across 3 TDD phases.
+
+  Phase 1 (RED) writes 10 failing unit test assertions documenting the required
+  non-interactive flags. Phase 2 (GREEN) updates 4 JSON files to make all tests pass:
+  windsurf.json and vscode.json get gpg --batch --yes flags plus DEBIAN_FRONTEND prefixes;
+  git.json gets DEBIAN_FRONTEND on Linux and brew install git on Darwin; gh.json gets
+  DEBIAN_FRONTEND prefixes on all apt/apt-get calls. Phase 3 (REFACTOR) runs the full
+  validate suite to confirm no regressions.
+
+  ## Acceptance Checklist
+
+  Before marking feature complete:
+
+  - [ ] All 6 tasks completed
+  - [ ] 10 new non-interactive flag assertions pass (pnpm test:unit)
+  - [ ] No existing tests broken
+  - [ ] pnpm validate passes (lint + format + typecheck + tsp)
+  - [ ] windsurf.json linux: gpg --batch --yes + DEBIAN_FRONTEND on both apt-get calls
+  - [ ] vscode.json linux: gpg --batch --yes + DEBIAN_FRONTEND on both apt-get calls
+  - [ ] git.json linux: DEBIAN_FRONTEND on apt-get calls; darwin: brew install git
+  - [ ] gh.json linux: DEBIAN_FRONTEND on all apt/apt-get invocations
+  - [ ] Known limitations documented (curl-pipe-bash scripts)
+  - [ ] PR created and reviewed
+
+  ---
+
+  _Task details are in the tasks[] array of tasks.yaml_
