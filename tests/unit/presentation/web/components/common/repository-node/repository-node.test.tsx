@@ -44,6 +44,11 @@ vi.mock('@/hooks/use-deploy-action', () => ({
   useDeployAction: () => mockDeployHookReturn,
 }));
 
+// Mock feature flags — enable envDeploy so deploy buttons render
+vi.mock('@/lib/feature-flags', () => ({
+  featureFlags: { envDeploy: true, skills: false },
+}));
+
 // Mock DeploymentStatusBadge
 vi.mock('@/components/common/deployment-status-badge', () => ({
   DeploymentStatusBadge: ({ status, url }: { status: string | null; url?: string | null }) =>

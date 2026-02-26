@@ -3,6 +3,10 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BaseDrawer } from '@/components/common/base-drawer';
 
+vi.mock('@/lib/feature-flags', () => ({
+  featureFlags: { envDeploy: true, skills: false },
+}));
+
 vi.mock('@/hooks/use-deploy-action', () => ({
   useDeployAction: () => ({
     deploy: vi.fn(),
