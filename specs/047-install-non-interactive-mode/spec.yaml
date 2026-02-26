@@ -14,9 +14,11 @@ summary: >
   When tool install commands (e.g. windsurf via gpg --dearmor) encounter existing
   files they prompt interactively for confirmation. The web UI spawns these commands
   with stdin ignored, so the process hangs until the timeout fires and the install
-  fails. The fix is to pass non-interactive / assume-yes flags in the per-tool
-  install commands stored in the JSON metadata files so that prompts never appear.
-phase: Analysis
+  fails. The fix is to audit all per-tool JSON metadata files and embed the correct
+  non-interactive flags (--batch --yes for gpg, DEBIAN_FRONTEND=noninteractive for
+  apt-get) directly in the command strings so that prompts never appear regardless
+  of caller context.
+phase: Requirements
 sizeEstimate: S
 
 # Relationships
@@ -34,10 +36,123 @@ relatedLinks: []
 
 # Open questions (must be resolved before implementation)
 openQuestions:
-  - Does every affected tool command have an accepted non-interactive flag (--yes /
-    --batch / --no-tty) or do some require DEBIAN_FRONTEND=noninteractive env var?
-  - Should the CLI also pass a --non-interactive / -y flag so operators can script
-    shep install without interactive prompts even in edge cases not covered by metadata?
+  - question: 'How should non-interactive flags be applied to gpg --dearmor commands?'
+    resolved: true
+    options:
+      - option: 'Inline flags in JSON command strings'
+        description: >
+          Add --batch --yes directly to each gpg invocation in the tool JSON files.
+          This is minimal, self-contained, auditable per-tool, and requires no service
+          or schema changes. The command string is the single source of truth.
+        selected: true
+      - option: 'Service-level env var injection'
+        description: >
+          Extend ToolMetadata/ToolInstallCommand with an optional env map and inject
+          GNUPGHOME or GPG_AGENT_INFO at spawn time. More complex: requires TypeSpec
+          changes, schema migration, and service logic changes. Overkill for flags
+          that belong in the command string.
+        selected: false
+    selectionRationale: >
+      Inline flags are the minimal correct fix. The tool JSON files are already the
+      authoritative source for command strings; placing non-interactive flags there
+      keeps the fix co-located with the command and avoids schema/service churn.
+    answer: 'Inline flags in JSON command strings'
+
+  - question: 'How should apt-get non-interactive mode be enforced?'
+    resolved: true
+    options:
+      - option: 'Inline DEBIAN_FRONTEND in command string'
+        description: >
+          Prepend DEBIAN_FRONTEND=noninteractive to each sudo apt-get invocation
+          in the JSON command strings (e.g. "sudo DEBIAN_FRONTEND=noninteractive
+          apt-get install -y ..."). Works without any service changes, is visible
+          in the command string, and is the standard idiom for scripted apt usage.
+        selected: true
+      - option: 'Spawn-level env override in service'
+        description: >
+          Detect apt-get commands in executeInstall() and merge DEBIAN_FRONTEND=noninteractive
+          into the spawn env. Requires service-layer logic to inspect command strings,
+          is fragile (pattern matching), and moves configuration out of the metadata
+          files where it belongs.
+        selected: false
+    selectionRationale: >
+      Inline DEBIAN_FRONTEND keeps configuration in the JSON metadata where operators
+      can see and review it. It is idiomatic for CI/scripted apt usage and requires
+      no service or TypeSpec changes.
+    answer: 'Inline DEBIAN_FRONTEND in command string'
+
+  - question: 'Should the CLI shep install command expose a --yes / -y flag?'
+    resolved: true
+    options:
+      - option: 'No CLI flag needed'
+        description: >
+          The metadata-level fix (inline non-interactive flags) is the correct and
+          complete solution. stdin is already ignored for all spawned commands so no
+          interactive prompt can appear after the JSON files are fixed. A CLI flag
+          would be redundant and add surface area with no benefit.
+        selected: true
+      - option: 'Add --yes / -y CLI flag'
+        description: >
+          Expose a belt-and-suspenders flag that could theoretically help with future
+          tools whose non-interactive flags are not yet in metadata. Adds Commander.js
+          option, increases API surface, and provides no value for the current fix.
+        selected: false
+    selectionRationale: >
+      The spawn site already uses stdio: ["ignore", "pipe", "pipe"], making stdin
+      permanently closed. Non-interactive flags belong in the metadata command strings,
+      not as a runtime CLI knob. Keeping the API surface minimal is preferred.
+    answer: 'No CLI flag needed'
+
+  - question: 'How should tools that use external install scripts (curl | bash) be handled?'
+    resolved: true
+    options:
+      - option: 'Pass CI=true env var and document limitation'
+        description: >
+          Set CI=true and NONINTERACTIVE=1 in the spawn environment for commands
+          that pipe to bash/sh. Many well-maintained install scripts (Homebrew,
+          various vendors) honour these env vars to suppress prompts. Document as
+          a known limitation that third-party scripts cannot be fully controlled.
+          Requires adding an optional env field to ToolMetadata (minimal TypeSpec change).
+        selected: false
+      - option: 'Document as known limitation, no code change'
+        description: >
+          External curl-pipe-bash scripts are opaque; we cannot control their
+          interactivity without modifying them. Since none of the currently affected
+          tools (claude-code, cursor-cli, zed) have been reported as hanging, accept
+          this as a known limitation and document it. Focus the fix on the confirmed
+          interactive-prompt sources (gpg, apt-get). Revisit if a specific external
+          script is reported as hanging.
+        selected: true
+    selectionRationale: >
+      No external script tools have been reported as hanging. The confirmed failure
+      is gpg and apt-get, which are fully controllable via flags. Adding optional
+      env-var infrastructure now for a hypothetical future problem violates YAGNI.
+      The limitation should be clearly documented for future maintainers.
+    answer: 'Document as known limitation, no code change'
+
+  - question: 'How should git.json Darwin (xcode-select --install) be handled?'
+    resolved: true
+    options:
+      - option: 'Replace with brew install git'
+        description: >
+          Use "brew install git" as the Darwin command for git.json. Homebrew is
+          non-interactive by default and installs a full git binary. Works on any
+          macOS system where brew is available (which shep already requires for
+          other macOS installs).
+        selected: true
+      - option: 'Leave as known limitation'
+        description: >
+          xcode-select --install opens a GUI dialog on macOS and is inherently
+          interactive. Accept it as a platform limitation and document it. Git is
+          typically pre-installed on macOS via Xcode command line tools, so shep
+          install git is unlikely to be needed in practice.
+        selected: false
+    selectionRationale: >
+      "brew install git" is a direct, non-interactive drop-in replacement that works
+      identically to other Darwin commands in the tool metadata. It avoids the GUI
+      dialog, is idempotent, and is consistent with the brew-centric macOS install
+      strategy already used by windsurf, vscode, gh, and cursor.
+    answer: 'Replace with brew install git'
 
 # Markdown content (the actual spec)
 content: |
@@ -58,76 +173,119 @@ content: |
   This is a silent regression for CLI users who reinstall tools and a hard blocker
   for the web UI where there is no mechanism to pass stdin input at all.
 
-  ## Codebase Analysis
+  ## Success Criteria
 
-  ### Project Structure
+  - [ ] `shep install windsurf` on Linux succeeds on a machine where the GPG
+        keyring file already exists (no hang, no "Overwrite?" prompt)
+  - [ ] All 10 tool JSON files have been audited and every gpg --dearmor command
+        includes --batch --yes
+  - [ ] All apt-get install commands in tool JSON files are prefixed with
+        DEBIAN_FRONTEND=noninteractive
+  - [ ] git.json Darwin command is replaced with brew install git
+  - [ ] Unit tests verify that all updated command strings contain the required
+        non-interactive flags
+  - [ ] No existing tests are broken by the command string changes
+  - [ ] pnpm validate passes (lint + format + typecheck + tsp)
+  - [ ] Known limitations for external curl-pipe-bash scripts are documented in
+        the affected tool JSON files via a "notes" comment or in this spec
 
-  The project is a pnpm monorepo following Clean Architecture with four layers:
+  ## Functional Requirements
 
-  ```
-  packages/core/src/
-  ├── domain/          # value objects, generated TypeSpec output
-  ├── application/     # use cases (install-tool, validate-tool-availability, …)
-  ├── infrastructure/  # services (tool-installer, ide-launcher)
-  └── …
+  - **FR-1**: The windsurf.json Linux install command MUST include `--batch --yes`
+    on the `gpg --dearmor` invocation so the command succeeds non-interactively
+    when the output keyring file already exists.
 
-  src/presentation/
-  ├── cli/commands/install.command.ts   # shep install entry point
-  └── web/app/api/tools/[id]/install/  # POST /api/tools/{id}/install
-  ```
+  - **FR-2**: The vscode.json Linux install command MUST include `--batch --yes`
+    on the `gpg --dearmor` invocation for the same reason (same gpg pattern).
 
-  Tool definitions live in JSON files:
-  `packages/core/src/infrastructure/services/tool-installer/tools/*.json`
-  (windsurf.json, cursor.json, gh.json, vscode.json, …)
+  - **FR-3**: Every `apt-get install` (and `apt-get update`) invocation across
+    all tool JSON files MUST be prefixed with `DEBIAN_FRONTEND=noninteractive`
+    to suppress debconf and locale prompts.
 
-  ### Architecture Patterns
+  - **FR-4**: git.json Darwin command MUST be replaced with `brew install git`
+    to avoid the inherently interactive `xcode-select --install` GUI dialog.
 
-  - **Clean Architecture** — dependencies point inward; infrastructure implements
-    application port interfaces.
-  - **Tool metadata driven** — all install commands, verify commands, timeouts, and
-    spawn options are declared in per-tool JSON files. No hardcoding in service code.
-  - **Single spawn site** — `ToolInstallerServiceImpl.executeInstall()` is the only
-    place that spawns install commands. It always uses `stdio: ['ignore', 'pipe',
-    'pipe']`. Adding a non-interactive flag to the command string or adding an env
-    var to the spawn options is therefore the minimal, correct fix.
+  - **FR-5**: All other tool JSON files (gh.json, cursor.json, cursor-cli.json,
+    claude-code.json, gemini-cli.json, antigravity.json, zed.json) MUST be
+    audited to confirm their existing commands are already non-interactive or to
+    apply fixes where needed.
 
-  ### Relevant Technologies
+  - **FR-6**: Unit tests MUST assert that all updated command strings contain the
+    expected non-interactive flags (--batch, --yes, DEBIAN_FRONTEND=noninteractive)
+    so regressions are caught immediately.
 
-  - **Node.js `child_process.spawn`** — used to run shell install commands with
-    stdin ignored and stdout/stderr piped.
-  - **Shell tool flags** — `gpg --batch --yes`, `apt-get -y`, `brew install` (already
-    non-interactive on stdin=ignore), `DEBIAN_FRONTEND=noninteractive`.
-  - **TypeSpec** — domain value object `ToolInstallCommand` may need an
-    `environmentVariables` or `nonInteractiveFlags` field if we choose to model this
-    in TypeSpec rather than embedding flags inline in command strings.
+  ## Non-Functional Requirements
+
+  - **NFR-1 — Zero hangs**: After this fix, no tool install command may block
+    indefinitely on stdin when `stdio: ['ignore', 'pipe', 'pipe']` is in effect.
+    The timeout must never fire due to an interactive prompt.
+
+  - **NFR-2 — Idempotency**: All updated install commands MUST be safe to run
+    more than once. A second run of `shep install <tool>` must not fail because
+    a file or package already exists.
+
+  - **NFR-3 — No service-layer changes**: The fix is data-only (JSON command strings).
+    `ToolInstallerServiceImpl.executeInstall()` must not be modified unless a
+    separate approved requirement mandates it.
+
+  - **NFR-4 — No TypeSpec changes**: No new fields are added to `ToolInstallCommand`
+    or `ToolMetadata` for this fix. TypeSpec changes are deferred until a concrete
+    use case (e.g. per-tool env vars) is approved.
+
+  - **NFR-5 — Backward compatibility**: CLI users running `shep install <tool>` in
+    an interactive terminal must not experience any degraded behavior. Silent
+    assume-yes flags are acceptable because the spawn stdin is already closed.
+
+  - **NFR-6 — Auditability**: Every non-interactive flag added to a command string
+    MUST be visible in the JSON file diff so reviewers can see exactly what changed.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | How should non-interactive flags be applied to gpg --dearmor commands? | Inline --batch --yes in JSON command strings | Minimal fix, co-located with the command, no service/schema changes |
+  | 2 | How should apt-get non-interactive mode be enforced? | Inline DEBIAN_FRONTEND=noninteractive in command string | Standard scripted-apt idiom, visible in metadata, no service changes |
+  | 3 | Should CLI shep install expose a --yes / -y flag? | No CLI flag needed | stdin is already closed; flags belong in metadata, not runtime API |
+  | 4 | How to handle curl-pipe-bash external scripts? | Document as known limitation, no code change | No reports of hanging; YAGNI — revisit if a specific script is reported |
+  | 5 | How to handle git.json Darwin xcode-select --install? | Replace with brew install git | Non-interactive, idempotent, consistent with macOS tool strategy |
 
   ## Affected Areas
 
   | Area | Impact | Reasoning |
   | ---- | ------ | --------- |
-  | `packages/core/src/infrastructure/services/tool-installer/tools/windsurf.json` | High | Linux command uses `gpg --dearmor` without `--batch --yes`; this is the reported failure. |
-  | `packages/core/src/infrastructure/services/tool-installer/tools/*.json` (all tools) | Medium | Audit all 11+ tool JSON files for other interactive-prompt risks (apt, curl-pipe-sudo, etc.). |
-  | `packages/core/src/infrastructure/services/tool-installer/tool-installer.service.ts` | Low | May add optional `env` overrides (e.g. `DEBIAN_FRONTEND=noninteractive`) to spawn options if not handled per-tool. |
-  | `tsp/domain/value-objects/tool-install-command.tsp` | Low | May need a new optional field if spawn env vars are modelled in TypeSpec. |
-  | `src/presentation/cli/commands/install.command.ts` | Low | Optionally expose a `--yes` / `-y` flag as a belt-and-suspenders measure for CLI operators. |
-  | `tests/unit/infrastructure/services/tool-installer/` | Medium | Unit tests for the service and for updated command strings. |
-  | `tests/integration/services/tool-installer.service.test.ts` | Medium | Integration test verifying no interactive prompt is emitted. |
+  | `packages/core/src/infrastructure/services/tool-installer/tools/windsurf.json` | High | Linux gpg command missing --batch --yes; confirmed failure case. |
+  | `packages/core/src/infrastructure/services/tool-installer/tools/vscode.json` | High | Linux gpg command missing --batch --yes; same pattern as windsurf. |
+  | `packages/core/src/infrastructure/services/tool-installer/tools/git.json` | High | Darwin xcode-select --install is inherently interactive; replace with brew install git. |
+  | `packages/core/src/infrastructure/services/tool-installer/tools/gh.json` | Medium | Linux apt-get commands missing DEBIAN_FRONTEND=noninteractive. |
+  | `packages/core/src/infrastructure/services/tool-installer/tools/*.json` (all) | Medium | Audit all 10 JSON files for any remaining interactive-prompt risks. |
+  | `packages/core/src/infrastructure/services/tool-installer/tool-installer.service.ts` | None | No changes required for the minimal data-only fix. |
+  | `tsp/domain/value-objects/tool-install-command.tsp` | None | No TypeSpec changes required. |
+  | `src/presentation/cli/commands/install.command.ts` | None | No CLI flag changes required. |
+  | `tests/unit/infrastructure/services/tool-installer/` | Medium | Unit tests to verify updated command strings contain required flags. |
 
   ## Dependencies
 
-  - Existing `ToolInstallerServiceImpl` spawn logic (no interface changes required
-    for the minimal fix).
-  - Per-tool JSON metadata schema (`ToolMetadata`) — already supports a `commands`
+  - Existing `ToolInstallerServiceImpl` spawn logic — unchanged; always uses
+    `stdio: ['ignore', 'pipe', 'pipe']` which is the precondition for this fix.
+  - Per-tool JSON metadata schema (`ToolMetadata`) — already supports `commands`
     map keyed by platform; the fix is to update the command strings in those maps.
-  - If env-var support is needed: `child_process.spawn` already accepts an `env`
-    option; the `spawnOptions` field in `ToolMetadata` would need to be extended to
-    carry `env`.
+  - No TypeSpec changes, no interface changes, no schema migrations required.
+
+  ## Known Limitations
+
+  - **External install scripts** (claude-code, cursor-cli, zed use `curl | bash`):
+    The interactivity of these third-party scripts cannot be controlled by shep.
+    If a future version of one of these scripts introduces an interactive prompt,
+    it will hang under the current spawn configuration. This will need to be handled
+    on a case-by-case basis if reported.
+  - **sudo password prompts**: If the running user does not have passwordless sudo,
+    all commands using `sudo` will hang regardless of non-interactive flags on the
+    underlying tool commands. This is a system configuration concern outside shep's
+    control and is documented behavior.
 
   ## Size Estimate
 
-  **S** — The core fix is updating command strings in JSON files (add `--batch --yes`
-  to gpg, confirm other tools are already non-interactive). A service-level env
-  override (`DEBIAN_FRONTEND=noninteractive`) and optional CLI `--yes` flag are
-  additive and low-risk. No domain model changes are required for the minimal fix;
-  TypeSpec changes only if env-var metadata is desired. Total scope: 2–5 files
-  changed, covered by existing test infrastructure.
+  **S** — Data-only fix: update command strings in 3–5 JSON files, add
+  non-interactive flags to gpg and apt-get invocations, replace one macOS command.
+  Write unit tests for updated command strings. No service, TypeSpec, or interface
+  changes. Total estimated diff: 5–8 files, ~30–60 lines changed.
