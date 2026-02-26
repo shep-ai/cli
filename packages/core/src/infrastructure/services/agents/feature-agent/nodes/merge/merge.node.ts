@@ -165,6 +165,24 @@ export function createMergeNode(deps: MergeNodeDeps) {
           ciFixStatus = ciResult.ciFixStatus;
         }
 
+        // --- Persist PR data before approval gate so feat show displays it ---
+        if (feature && prUrl && prNumber) {
+          await deps.featureRepository.update({
+            ...feature,
+            pr: {
+              url: prUrl,
+              number: prNumber,
+              status: PrStatus.Open,
+              ...(commitHash ? { commitHash } : {}),
+              ...(ciStatus ? { ciStatus: ciStatus as CiStatus } : {}),
+              ...(ciFixAttempts > 0 ? { ciFixAttempts } : {}),
+              ...(ciFixHistory.length > 0 ? { ciFixHistory } : {}),
+            },
+            updatedAt: new Date(),
+          });
+          log.info(`Persisted PR data (${prUrl}) to feature record`);
+        }
+
         // --- Merge approval gate ---
         if (shouldInterrupt('merge', state.approvalGates)) {
           log.info('Interrupting for merge approval');
