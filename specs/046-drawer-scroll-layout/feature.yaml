@@ -5,6 +5,7 @@ feature:
   branch: feat/046-drawer-scroll-layout
   lifecycle: research
   createdAt: '2026-02-26T12:24:37Z'
+  prUrl: 'https://github.com/shep-ai/cli/pull/158'
 status:
   phase: implementation-complete
   progress:
