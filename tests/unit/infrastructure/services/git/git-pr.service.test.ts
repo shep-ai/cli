@@ -44,7 +44,8 @@ describe('GitPrService', () => {
     it('should fall back to local main branch when remote HEAD fails', async () => {
       vi.mocked(mockExec)
         .mockRejectedValueOnce(new Error('not found')) // remote HEAD
-        .mockResolvedValueOnce({ stdout: 'abc123\n', stderr: '' }); // refs/heads/main exists
+        .mockResolvedValueOnce({ stdout: 'abc123\n', stderr: '' }) // refs/heads/main exists
+        .mockRejectedValueOnce(new Error('not found')); // refs/heads/master does not exist
 
       const result = await service.getDefaultBranch('/repo');
       expect(result).toBe('main');
@@ -55,6 +56,17 @@ describe('GitPrService', () => {
         .mockRejectedValueOnce(new Error('not found')) // remote HEAD
         .mockRejectedValueOnce(new Error('not found')) // refs/heads/main
         .mockResolvedValueOnce({ stdout: 'def456\n', stderr: '' }); // refs/heads/master exists
+
+      const result = await service.getDefaultBranch('/repo');
+      expect(result).toBe('master');
+    });
+
+    it('should pick most recently committed branch when both main and master exist', async () => {
+      vi.mocked(mockExec)
+        .mockRejectedValueOnce(new Error('not found')) // remote HEAD
+        .mockResolvedValueOnce({ stdout: 'abc123\n', stderr: '' }) // refs/heads/main exists
+        .mockResolvedValueOnce({ stdout: 'def456\n', stderr: '' }) // refs/heads/master exists
+        .mockResolvedValueOnce({ stdout: 'master\nmain\n', stderr: '' }); // for-each-ref: master is newer
 
       const result = await service.getDefaultBranch('/repo');
       expect(result).toBe('master');

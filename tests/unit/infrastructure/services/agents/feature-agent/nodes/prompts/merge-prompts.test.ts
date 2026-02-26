@@ -114,6 +114,17 @@ describe('buildCommitPushPrPrompt', () => {
     expect(prompt.toLowerCase()).toContain('prurl');
   });
 
+  it('should forbid git pull and rebase before pushing', () => {
+    const prompt = buildCommitPushPrPrompt(
+      baseState({ push: true, openPr: false }),
+      'feat/test',
+      'main'
+    );
+    expect(prompt).toContain('Do NOT run `git pull`');
+    expect(prompt).toContain('git rebase');
+    expect(prompt).toContain('git merge');
+  });
+
   it('should be deterministic (same input = same output)', () => {
     const state = baseState({ push: true, openPr: true });
     const prompt1 = buildCommitPushPrPrompt(state, 'feat/test', 'main');

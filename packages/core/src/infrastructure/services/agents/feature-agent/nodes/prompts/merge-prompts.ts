@@ -114,6 +114,7 @@ ${steps.join('\n')}
 - Write a meaningful conventional commit message derived from the actual diff — do NOT use generic messages
 ${rejectionSection ? '- You MUST modify source code files to address the rejection feedback above BEFORE committing' : '- Do NOT modify any source code files — only perform git operations'}
 - Do NOT amend existing commits
+- Do NOT run \`git pull\`, \`git rebase\`, or \`git merge\` — this is a fresh branch, push it directly
 - If there are no changes to commit, skip the commit step and report that no changes were found`;
 }
 
