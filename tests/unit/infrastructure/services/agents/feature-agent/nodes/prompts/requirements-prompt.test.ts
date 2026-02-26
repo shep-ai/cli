@@ -5,9 +5,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock node-helpers readSpecFile
-vi.mock('@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js', () => ({
-  readSpecFile: vi.fn(),
-}));
+vi.mock(
+  '@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js',
+  async (importOriginal) => {
+    const actual =
+      await importOriginal<
+        typeof import('@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js')
+      >();
+    return {
+      ...actual,
+      readSpecFile: vi.fn(),
+    };
+  }
+);
 
 import { buildRequirementsPrompt } from '@/infrastructure/services/agents/feature-agent/nodes/prompts/requirements.prompt.js';
 import { readSpecFile } from '@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js';

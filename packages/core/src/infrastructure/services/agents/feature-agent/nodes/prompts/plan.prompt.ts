@@ -8,7 +8,7 @@
  */
 
 import yaml from 'js-yaml';
-import { readSpecFile } from '../node-helpers.js';
+import { readSpecFile, buildCommitPushBlock } from '../node-helpers.js';
 import type { FeatureAgentState } from '../../state.js';
 
 export function buildPlanPrompt(state: FeatureAgentState): string {
@@ -207,5 +207,11 @@ You MUST write TWO files:
 - Follow existing codebase conventions for file placement and naming
 - Do NOT create any other files
 - Do NOT modify any source code
-- Do NOT start implementing — planning only`;
+- Do NOT start implementing — planning only
+
+${buildCommitPushBlock({
+  push: state.push,
+  files: [`${state.specDir}/plan.yaml`, `${state.specDir}/tasks.yaml`],
+  commitHint: 'docs(specs): create implementation plan and task breakdown',
+})}`;
 }
