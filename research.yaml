@@ -254,6 +254,72 @@ decisions:
       The control center passes rejectFeature(featureId, feedback) as the handler.
       DrawerRevisionInput trims input and prevents empty submissions.
 
+  - title: 'Server Action Testing Strategy'
+    chosen: >
+      TDD with comprehensive unit tests covering all conditional branches: input validation
+      (empty/whitespace featureId), feature not found, successful data mapping, plan loading
+      failure (best-effort degradation), diff summary failure (graceful fallback), missing PR
+      scenario, missing worktree scenario, and complete happy path. Tests use vi.mock for DI
+      container and follow RED → GREEN → REFACTOR cycle.
+    rejected:
+      - >
+        Integration tests only: Rejected because it violates the mandatory TDD requirement
+        from CLAUDE.md ("MANDATORY — TDD: Write failing tests FIRST"). Integration tests
+        provide slower feedback, less granular failure diagnosis, and don't serve as
+        executable documentation of individual code paths. The codebase standard requires
+        unit tests for all server actions (confirmed by existing approve-feature.test.ts
+        and reject-feature.test.ts).
+      - >
+        Manual testing in Storybook only: Rejected because it provides zero automated
+        regression coverage for server-side logic. Storybook is excellent for visual
+        component testing but cannot validate server action behavior like input validation,
+        error handling, DI resolution, or graceful degradation paths. Server actions require
+        programmatic testing with mocked dependencies.
+    rationale: >
+      The CLAUDE.md mandates TDD for all implementation work: "Write failing tests FIRST
+      (RED → GREEN → REFACTOR). Every plan phase must define explicit TDD cycles." The
+      get-merge-review-data server action has 7+ conditional branches that require isolated
+      testing: (1) empty featureId validation, (2) feature not found error, (3) PR metadata
+      extraction, (4) branch construction, (5) plan loading with try/catch, (6) worktreePath
+      check, (7) diff summary with try/catch. Unit tests provide fast feedback (<100ms),
+      clear failure messages pinpointing exact branches, and serve as living documentation.
+      The test file structure follows the established pattern: vi.mock('@/lib/server-container')
+      with token-based mocks, beforeEach cleanup, describe blocks for validation/errors/success,
+      and expectTypeOf for discriminated union validation. Estimated 150 lines for complete
+      branch coverage.
+
+  - title: 'Storybook Story Coverage Strategy'
+    chosen: >
+      Comprehensive coverage of all visual states including dedicated stories for each CI
+      status variant (Pending, Success, Failure) and integration stories showing merge review
+      nodes in feature-node.stories.tsx and control-center.stories.tsx multi-feature variants.
+      Merge review drawer already has 11 story variants covering all data combinations.
+    rejected:
+      - >
+        Cover only Success and Failure CI states: Rejected because Pending is a real state
+        users encounter during PR creation and CI execution. Omitting it leaves a gap in
+        visual documentation and prevents designers/QA from seeing the loading state behavior.
+        The existing merge-review.stories.tsx has 11 variants, showing the project's standard
+        for thorough coverage.
+      - >
+        Cover only default state without edge cases: Rejected because Storybook stories serve
+        dual purposes: (1) visual regression testing and (2) living documentation for designers
+        and QA. Edge cases like missing diff summary, missing phases, or no CI status are
+        important states that occur in real workflows (e.g., worktree cleanup, plan not yet
+        created, PR pre-CI). The codebase standard is comprehensive edge case coverage
+        (confirmed by prd-questionnaire.stories.tsx with 9 variants and tech-decisions-review.stories.tsx
+        with 8 variants).
+    rationale: >
+      Comprehensive story coverage aligns with the project's quality standards. CI status
+      directly impacts user approval decisions — green check means "safe to merge", red X
+      means "don't merge yet", yellow spinner means "wait for CI". Each state requires
+      visual verification. The feature-node.stories.tsx needs a MergeReviewActionRequired
+      variant showing the emerald badge + GitMerge icon (~15 lines). The control-center.stories.tsx
+      needs merge review nodes added to existing multi-feature variants like MultipleFeatures,
+      FullWorkflowStates (~3 additions × 10 lines). Total story work: ~45 lines. This ensures
+      the merge review visualization is properly documented and prevents regressions when
+      badge styling or node rendering logic changes.
+
 openQuestions:
   - question: >
       Should the server action resolve Feature.worktreePath for the getPrDiffSummary call,
@@ -491,6 +557,40 @@ content: |
   - Approve button (full width, customizable label and icon)
   - isProcessing and isRejecting states disable all inputs during operations
   The rejectFeature() server action already supports all approval gates including merge.
+
+  ### 9. Server Action Testing Strategy
+
+  **Chosen:** TDD with comprehensive unit tests covering all branches
+
+  **Rejected:**
+  - Integration tests only — violates CLAUDE.md TDD mandate, slower feedback, less granular
+  - Manual Storybook testing — zero automated regression coverage for server logic
+
+  **Rationale:** The server action has 7+ conditional branches requiring isolated testing:
+  empty featureId validation, feature not found, PR extraction, branch construction, plan
+  loading (try/catch), worktreePath check, diff summary (try/catch). Unit tests provide
+  fast feedback (<100ms), pinpoint failure messages, and executable documentation. Test
+  structure: vi.mock('@/lib/server-container') with token mocks, beforeEach cleanup,
+  describe blocks (validation/errors/success), expectTypeOf for discriminated unions.
+  Pattern follows approve-feature.test.ts and reject-feature.test.ts. ~150 lines for 100%
+  branch coverage per CLAUDE.md TDD requirement.
+
+  ### 10. Storybook Story Coverage
+
+  **Chosen:** Comprehensive coverage including all CI status variants and integration stories
+
+  **Rejected:**
+  - Success/Failure only — omits Pending state users encounter during CI execution
+  - Default state only — poor documentation, no visual regression coverage for edge cases
+
+  **Rationale:** Stories serve dual purposes: visual regression testing and living
+  documentation. CI status affects approval decisions (green=safe, red=block, yellow=wait).
+  Existing merge-review.stories.tsx has 11 variants (confirmed implementation), matching
+  project standards (prd-questionnaire: 9 variants, tech-decisions-review: 8 variants).
+  Missing stories: feature-node.stories.tsx needs MergeReviewActionRequired variant with
+  emerald badge + GitMerge (~15 lines), control-center.stories.tsx needs merge nodes in
+  MultipleFeatures, FullWorkflowStates (~3 additions × 10 lines). Total: ~45 lines ensuring
+  proper documentation and regression prevention.
 
   ## Library Analysis
 

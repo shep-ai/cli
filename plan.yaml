@@ -1,105 +1,48 @@
 name: merge-review-drawer
 summary: >
-  Implements the merge review drawer feature following the established 5-file review drawer
-  pattern (config, content, drawer wrapper, stories, barrel). The server action reads Feature.pr
-  metadata and calls IGitPrService.getPrDiffSummary() with graceful degradation. The feature
-  node gains emerald/GitMerge badge visualization for the review lifecycle. Control center
-  integration follows the identical inline pattern used by PRD and Tech Decision drawers.
-  No domain model changes, no backend modifications, and zero new npm dependencies. Reuses
-  ReviewDrawerShell, DrawerActionBar, and CiStatusBadge shared components at zero additional cost.
+  Complete the merge review approval gate UI by adding unit tests for the server action
+  and Storybook stories for visual documentation. The feature is 95% implemented with all
+  core components, server actions, and integration already in place. This plan focuses on
+  closing the remaining test coverage and story documentation gaps to meet the mandatory
+  TDD requirements and comprehensive visual regression testing standards established in
+  the codebase.
 
 relatedFeatures: []
 
 technologies:
   - React 19 (Next.js 16+ App Router)
-  - shadcn/ui (Radix + Tailwind CSS v4)
-  - React Flow (@xyflow/react)
-  - Storybook 8
-  - Vaul (drawer primitive via ReviewDrawerShell)
-  - Lucide React (GitMerge, ExternalLink, FileDiff, GitCommitHorizontal, GitBranch, ArrowRight, Layers, AlertTriangle, Loader2)
-  - sonner (toast notifications)
-  - tsyringe (DI container for server actions)
-  - vitest + @testing-library/react (unit and component tests)
+  - TypeScript 5.3
+  - shadcn/ui (Radix primitives + Tailwind CSS v4)
+  - React Flow (@xyflow/react v12)
+  - Storybook 8.6
+  - Vitest 4.0 + Testing Library
+  - Playwright (E2E)
+  - Lucide React icons
+  - Sonner (toast notifications)
+  - tsyringe (DI container)
 
 relatedLinks: []
 
 phases:
   - id: phase-1
-    name: 'Foundation — Types, Config & Server Action'
-    description: >
-      Define all TypeScript interfaces in merge-review-config.ts (7 interfaces:
-      MergeReviewDiffSummary, MergeReviewPr, MergeReviewPhase, MergeReviewBranch,
-      MergeReviewData, MergeReviewProps, MergeReviewDrawerProps) and implement the
-      get-merge-review-data server action with input validation, DI resolution, Feature.pr
-      extraction, best-effort plan phase loading, and graceful diff summary fallback.
-      This phase establishes the data contract and server-side data layer that all
-      subsequent UI work depends on. TDD: server action tests written first.
+    name: 'Server Action Testing Foundation'
+    description: 'Implement comprehensive unit tests for get-merge-review-data server action following TDD principles. This phase establishes the test foundation for all conditional branches including input validation, error handling, data mapping, and graceful degradation paths.'
     parallel: false
 
   - id: phase-2
-    name: 'Feature Node Badge Visualization & Page Mapping'
-    description: >
-      Add review lifecycle handling to the three badge functions in feature-node.tsx:
-      getBadgeIcon (GitMerge), getActionRequiredBadgeClasses (emerald colors), and
-      getBadgeText ("Review Merge Request"). Add `merge: 'review'` entry to
-      nodeToLifecyclePhase in page.tsx. Add MergeReviewActionRequired story variant
-      to feature-node.stories.tsx. This phase is independent of the drawer but provides
-      the visual entry point users click and the lifecycle mapping the control center
-      needs for showMergeReviewDrawer derivation.
+    name: 'Storybook Documentation Enhancement'
+    description: 'Add missing story variants to feature-node and control-center stories for merge review visualization. This phase ensures complete visual documentation for the emerald badge state and multi-feature integration scenarios, maintaining consistency with existing comprehensive coverage standards.'
     parallel: false
 
   - id: phase-3
-    name: 'Merge Review Component Suite'
-    description: >
-      Build the MergeReview content component (~195 lines: PR metadata card, diff stats
-      grid, CI badge via CiStatusBadge, branch direction with badges, phases list with
-      emerald numbered badges, DrawerActionBar footer) and the MergeReviewDrawer shell
-      wrapper (~35 lines, thin composition layer with Loader2 spinner for loading state).
-      Create barrel export and all 11+ Storybook story variants. Write component tests
-      using @testing-library/react for rendering, conditional sections, interactions,
-      and disabled states. TDD: component tests written first.
-    parallel: false
-
-  - id: phase-4
-    name: 'Control Center Integration'
-    description: >
-      Wire the merge review drawer into control-center-inner.tsx following the exact
-      inline pattern used by PRD and Tech Decision drawers: state declarations
-      (mergeReviewData, isLoadingMergeReview), showMergeReviewDrawer boolean derived
-      from lifecycle + state, useEffect with cancellation pattern for data fetching,
-      handleMergeApprove using shared handleSimpleApprove('Merge'), handleMergeReject
-      using shared handleReject, conditional MergeReviewDrawer rendering, and FeatureDrawer
-      suppression extension. Update control-center.stories.tsx with merge review node.
-    parallel: false
-
-  - id: phase-5
-    name: 'Test Coverage & Validation'
-    description: >
-      Write remaining test files: server action tests (get-merge-review-data.test.ts
-      covering validation, error handling, data mapping, and graceful fallbacks), type
-      validation tests (merge-review-config.test.ts using expectTypeOf), barrel export
-      tests (merge-review-barrel.test.ts), and drawer wrapper tests
-      (merge-review-drawer.test.tsx). Run full test suite, lint, and typecheck to ensure
-      no regressions. Verify all 18 success criteria are met.
+    name: 'Integration Validation & Quality Assurance'
+    description: 'Run full test suite, perform visual regression testing in Storybook, execute E2E smoke tests, and validate lint/format compliance. This phase verifies that the new feature integrates correctly with existing systems and meets all quality gates before shipping.'
     parallel: false
 
 filesToCreate:
-  - src/presentation/web/components/common/merge-review/merge-review-config.ts
-  - src/presentation/web/components/common/merge-review/merge-review.tsx
-  - src/presentation/web/components/common/merge-review/merge-review-drawer.tsx
-  - src/presentation/web/components/common/merge-review/merge-review.stories.tsx
-  - src/presentation/web/components/common/merge-review/index.ts
-  - src/presentation/web/app/actions/get-merge-review-data.ts
-  - tests/unit/presentation/web/actions/get-merge-review-data.test.ts
-  - tests/unit/presentation/web/components/common/merge-review/merge-review.test.tsx
-  - tests/unit/presentation/web/components/common/merge-review/merge-review-config.test.ts
-  - tests/unit/presentation/web/components/common/merge-review/merge-review-barrel.test.ts
-  - tests/unit/presentation/web/components/common/merge-review/merge-review-drawer.test.tsx
+  - tests/unit/presentation/web/app/actions/get-merge-review-data.test.ts
 
 filesToModify:
-  - src/presentation/web/components/common/feature-node/feature-node.tsx
-  - src/presentation/web/components/features/control-center/control-center-inner.tsx
-  - src/presentation/web/app/page.tsx
   - src/presentation/web/components/common/feature-node/feature-node.stories.tsx
   - src/presentation/web/components/features/control-center/control-center.stories.tsx
 
@@ -108,208 +51,270 @@ openQuestions: []
 content: |
   ## Architecture Overview
 
-  The merge review drawer integrates into the existing clean architecture web UI layer at
-  `src/presentation/web/`. It follows the identical component pattern established by the
-  PRD questionnaire and tech decisions review drawers, fitting into three integration points:
+  The merge review drawer feature completes the three-drawer approval gate system (PRD Review →
+  Tech Decisions Review → Merge Review) following Clean Architecture principles and established
+  component patterns. The implementation fits into the existing architecture as follows:
 
-  **1. Feature Node (canvas visualization)** — Three functions in `feature-node.tsx` dispatch
-  on `data.lifecycle` to customize badge icon, color, and text. Adding a `review` case to
-  each mirrors the existing `requirements` and `implementation` cases. The `page.tsx`
-  `nodeToLifecyclePhase` map needs `merge: 'review'` so the agent graph node name resolves
-  to the correct UI lifecycle phase.
+  **Presentation Layer (Web UI):**
+  - **Feature Node Visualization**: Emerald badge with GitMerge icon added to feature-node.tsx
+    through getBadgeIcon(), getActionRequiredBadgeClasses(), and getBadgeText() functions for
+    lifecycle='review' and state='action-required' combinations (ALREADY IMPLEMENTED).
 
-  **2. Component Suite (common/merge-review/)** — Follows the 5-file pattern established by
-  `prd-questionnaire/` and `tech-decisions-review/`. The merge review content is simpler than
-  both: read-only display with DrawerActionBar (approve + reject), no multi-step flow, no
-  option selection, no dedicated chat input beyond DrawerRevisionInput.
+  - **Merge Review Components**: 5-file pattern at components/common/merge-review/ mirroring
+    prd-questionnaire/ and tech-decisions-review/ structure. Includes merge-review-config.ts
+    (7 TypeScript interfaces), merge-review.tsx (content component with PR metadata, diff summary,
+    CI status, phases, branch direction, DrawerActionBar), merge-review-drawer.tsx (ReviewDrawerShell
+    wrapper with loading state), merge-review.stories.tsx (11 comprehensive story variants), and
+    index.ts barrel export (ALREADY IMPLEMENTED).
 
-  **3. Control Center (orchestration)** — `control-center-inner.tsx` manages all drawer state
-  inline with a repeating pattern: state declarations → visibility boolean → useEffect with
-  cancellation → approval/rejection handlers → conditional rendering. The merge drawer adds
-  one more instance of this pattern.
+  - **Control Center Integration**: Inline drawer management following established pattern with
+    showMergeReviewDrawer flag, mergeReviewData state, useEffect with cancellation for data loading,
+    approve/reject handlers calling shared approveFeature()/rejectFeature() actions, conditional
+    rendering, and FeatureDrawer suppression (ALREADY IMPLEMENTED).
+
+  - **Server Actions**: get-merge-review-data.ts follows the server action pattern with 'use server'
+    directive, input validation via trim(), DI container resolution via resolve<T>('Token'),
+    graceful degradation with nested try/catch for plan phases and diff summary, and discriminated
+    union return type (ALREADY IMPLEMENTED).
+
+  **Application Layer (Use Cases):**
+  - No changes required. ApproveAgentRunUseCase and RejectAgentRunUseCase already handle all
+    approval gates generically. GetPlanArtifactUseCase loads plan.yaml phases for display
+    (best-effort, non-blocking).
+
+  **Domain Layer:**
+  - No changes required. Feature entity with pr field (PullRequest type), PrStatus/CiStatus enums,
+    and SdlcLifecycle enum are already defined in TypeSpec-generated output.ts. The merge.node.ts
+    LangGraph node populates Feature.pr before the interrupt.
+
+  **Infrastructure Layer:**
+  - No changes required. IFeatureRepository.findById() loads Feature with populated pr field.
+    IGitPrService.getPrDiffSummary() computes diff stats from git worktree. merge.node.ts agent
+    node handles interrupt logic.
+
+  **Reused Shared Components (Zero Modifications):**
+  - ReviewDrawerShell (143 lines): Drawer container with header, delete button, feature actions menu
+  - DrawerActionBar (65 lines): Approve/reject footer with inline revision input and feedback dialog
+  - CiStatusBadge: Color-coded status badge for Success/Pending/Failure states
+  - DrawerRevisionInput: Inline text input with send button for quick rejection
+  - RejectFeedbackDialog: AlertDialog with textarea for detailed rejection feedback
+  - useFeatureActions hook (139 lines): IDE/shell/folder action handlers
 
   **Data Flow:**
   ```
-  page.tsx (server component)
-    → nodeToLifecyclePhase maps `merge` node → `review` lifecycle
-    → Feature at merge agent node gets lifecycle='review'
-
-  control-center-inner.tsx (client component)
-    → showMergeReviewDrawer = lifecycle === 'review' && state === 'action-required'
-    → useEffect calls getMergeReviewData(featureId) server action
-    → Server action resolves via DI:
-        1. IFeatureRepository.findById → Feature.pr (PR metadata)
-        2. feature.branch → MergeReviewBranch (source → 'main')
-        3. GetPlanArtifactUseCase → MergeReviewPhase[] (best-effort, nested try/catch)
-        4. IGitPrService.getPrDiffSummary → MergeReviewDiffSummary (graceful fallback)
-    → MergeReviewDrawer renders ReviewDrawerShell + MergeReview content
-    → Approve calls approveFeature(featureId) via shared handleSimpleApprove('Merge')
-    → Reject calls rejectFeature(featureId, feedback) via shared handleReject
-  ```
-
-  **Component Hierarchy:**
-  ```
-  ReviewDrawerShell (shared: header, actions menu, delete confirmation)
-    └── MergeReview (content component)
-          ├── Header (emerald dot + "Merge Review" title + contextual description)
-          ├── Branch Direction card (GitBranch icon + source badge → target badge)
-          ├── PR Metadata card (number link + ExternalLink, status badge, CI badge, commit hash)
-          ├── Diff Summary card (FileDiff icon + 4-col grid: files, +adds, -dels, commits)
-          │   └── OR Warning card (AlertTriangle + message text)
-          ├── Implementation Phases list (Layers icon + numbered list with emerald badges)
-          └── DrawerActionBar (shared: inline revision input, reject dialog, approve button)
-  ```
-
-  **Type System (merge-review-config.ts):**
-  ```
-  MergeReviewDiffSummary { filesChanged, additions, deletions, commitCount }
-  MergeReviewPr { url, number, status: PrStatus, commitHash?, ciStatus?: CiStatus }
-  MergeReviewPhase { id, name, description? }
-  MergeReviewBranch { source, target }
-  MergeReviewData { pr?, diffSummary?, phases?, branch?, warning? }
-  MergeReviewProps { data, onApprove, onReject?, isProcessing?, isRejecting? }
-  MergeReviewDrawerProps extends Omit<MergeReviewProps, 'data'> + shell props (nullable data)
+  User clicks feature node (lifecycle='review', state='action-required')
+    ↓
+  Control center derives showMergeReviewDrawer = true
+    ↓
+  useEffect calls getMergeReviewData(featureId) server action
+    ↓
+  Server action resolves IFeatureRepository, loads Feature.pr
+    ↓
+  Server action resolves GetPlanArtifactUseCase (best-effort, nested try/catch)
+    ↓
+  Server action resolves IGitPrService, calls getPrDiffSummary(worktreePath, 'main') if available
+    ↓
+  Returns MergeReviewData { pr, diffSummary?, phases?, branch, warning? }
+    ↓
+  MergeReviewDrawer renders with ReviewDrawerShell + MergeReview content
+    ↓
+  User clicks approve → approveFeature() → ApproveAgentRunUseCase resumes LangGraph agent
+    OR
+  User clicks reject → rejectFeature(feedback) → RejectAgentRunUseCase resumes with feedback
   ```
 
   ## Key Design Decisions
 
-  ### 1. Server Action Architecture — Direct DI Resolution (Not a Dedicated Use Case)
+  ### 1. Server Action Unit Testing Strategy (TDD with Comprehensive Coverage)
 
-  **Chosen:** Direct server action (get-merge-review-data.ts, ~64 lines) resolving
-  IFeatureRepository, GetPlanArtifactUseCase, and IGitPrService via the DI container's
-  resolve() helper from lib/server-container.ts.
+  **Decision:** Write unit tests first (RED → GREEN → REFACTOR) for the get-merge-review-data.ts
+  server action covering all 7+ conditional branches: input validation (empty/whitespace featureId),
+  feature not found error, successful data mapping (PR metadata, branch construction, phases, diff),
+  plan loading failure (graceful degradation), diff summary failure (graceful fallback), missing PR
+  scenario, and missing worktree scenario.
 
-  **Alternatives rejected:**
-  - Dedicated use case class (GetMergeReviewDataUseCase): Adds unnecessary indirection for
-    a simple read operation. The existing pattern (get-feature-artifact.ts, get-research-artifact.ts)
-    resolves use cases directly without wrapper classes.
-  - Read LangGraph checkpoint: Couples UI to agent internals; Feature.pr is already persisted
-    by merge.node.ts lines 226-237 before the interrupt() call.
+  **Rationale:** CLAUDE.md mandates TDD for all implementation work: "MANDATORY — TDD: Write failing
+  tests FIRST (RED → GREEN → REFACTOR). Every plan phase must define explicit TDD cycles." The
+  server action has multiple conditional branches requiring isolated testing. Unit tests provide
+  fast feedback (<100ms), pinpoint failure messages for specific branches, and serve as executable
+  documentation of expected behavior. This aligns with existing test patterns in approve-feature.test.ts
+  and reject-feature.test.ts which both use vi.mock('@/lib/server-container') with token-based mocks,
+  beforeEach cleanup, and describe blocks for validation/errors/success paths.
 
-  **Rationale:** Follows the established server action pattern exactly. The action validates
-  input with trim(), resolves dependencies via DI tokens, and returns a discriminated union
-  (MergeReviewData | { error: string }). Three-tier error handling: outer try/catch for
-  infrastructure errors, nested try/catch for plan phases (best-effort, silently set to
-  undefined), nested try/catch for diff summary (returns warning field).
+  **Alternatives Considered:**
+  - Integration tests only: Rejected because it violates the TDD mandate, provides slower feedback,
+    and less granular failure diagnosis
+  - Manual Storybook testing: Rejected because it provides zero automated regression coverage for
+    server-side logic
 
-  ### 2. Component Structure — 5-File Pattern in common/ Tier
+  **Implementation Pattern:**
+  ```typescript
+  // Test structure from research findings:
+  vi.mock('@/lib/server-container')
+  beforeEach(() => { vi.clearAllMocks() })
 
-  **Chosen:** components/common/merge-review/ with config, content, drawer, stories, barrel —
-  exactly mirroring prd-questionnaire/ and tech-decisions-review/.
+  describe('Input Validation', () => {
+    test('returns error for empty featureId', ...)
+    test('returns error for whitespace-only featureId', ...)
+  })
 
-  **Alternatives rejected:**
-  - Single file: Violates established convention. All review drawers use 5 files for single
-    responsibility separation.
-  - features/ tier (Tier 3): Breaks parallel with prd-questionnaire and tech-decisions-review
-    (both in components/common/ as Tier 1 shared domain components).
+  describe('Error Handling', () => {
+    test('returns error when feature not found', ...)
+    test('handles DI container not initialized', ...)
+  })
 
-  **Rationale:** The 5-file pattern separates concerns: config defines data contracts, content
-  component is standalone (testable, usable in stories without drawer shell), drawer wrapper
-  is thin composition, stories provide visual verification, barrel controls the public API.
+  describe('Data Mapping', () => {
+    test('extracts PR metadata from Feature.pr', ...)
+    test('constructs branch info from feature.branch', ...)
+  })
 
-  ### 3. Content Design — Read-Only Display with DrawerActionBar (Approve + Reject)
-
-  **Chosen:** Read-only PR metadata, diff stats, branch direction, and phases with the shared
-  DrawerActionBar providing approve + reject flow (inline DrawerRevisionInput + RejectFeedbackDialog).
-
-  **Alternatives rejected:**
-  - Separate chat input for refinement: DrawerActionBar already provides inline revision input.
-    Merge review doesn't need an additional chat component.
-  - File-level diff display: Requires extending IGitPrService; aggregate stats match the
-    existing DiffSummary interface shape exactly (filesChanged, additions, deletions, commitCount).
-  - Approve-only without reject: Inconsistent with DrawerActionBar's design. The shared
-    component provides reject at zero cost, and rejectFeature() already supports all gates.
-
-  **Rationale:** Merge review is fundamentally a binary decision, but the DrawerActionBar's
-  built-in reject flow gives users the option to request revisions before merging. Props:
-  approveLabel="Approve Merge", approveIcon={GitMerge or Loader2 spinner},
-  revisionPlaceholder="Ask AI to revise before merging...", rejectDialogTitle="Reject Merge".
-
-  ### 4. Badge Visualization — Emerald + GitMerge Icon
-
-  **Chosen:** Emerald (green) color scheme with GitMerge icon for review + action-required.
-  Colors: text-emerald-700, bg-emerald-50.
-
-  **Alternatives rejected:**
-  - Purple/GitPullRequest: No semantic meaning for merging.
-  - Amber (default): Indistinguishable from PRD review (both would be amber).
-
-  **Rationale:** Creates clear visual progression for action-required badge states:
-  amber/FileText (requirements) → indigo/Wrench (implementation) → emerald/GitMerge (merge).
-  Green semantically means "ready to merge", matching GitHub's convention. No collision with
-  'done' state (emerald in feature-node-state-config.ts) because done and action-required
-  are mutually exclusive states.
-
-  ### 5. Error Handling — Three-Tier Graceful Degradation
-
-  **Chosen:** Server action structure with nested try/catch where each data section degrades
-  independently. No failure blocks the approve action.
-
-  **Alternatives rejected:**
-  - Block drawer on error: Frustrates users; approval doesn't need diff data.
-  - Cache diff on Feature entity: Requires domain model changes (NFR-2 violation).
-
-  **Rationale:**
-  ```
-  validate featureId → resolve feature
-  extract pr metadata from feature.pr (always available during Review phase)
-  construct branch info from feature.branch + 'main'
-  try { phases = GetPlanArtifactUseCase.execute(featureId) } catch { phases = undefined }
-  if (!feature.worktreePath) → return { pr, branch, phases, warning? }
-  try { diffSummary = getPrDiffSummary(worktreePath, 'main') } catch { warning }
-  return { pr, branch, phases, diffSummary? }
+  describe('Graceful Degradation', () => {
+    test('continues when plan loading fails', ...)
+    test('continues when worktreePath is undefined', ...)
+    test('continues when getPrDiffSummary throws', ...)
+  })
   ```
 
-  ### 6. Control Center Integration — Same Inline Pattern (Not Custom Hook)
+  ### 2. Storybook Story Coverage (Comprehensive Visual Documentation)
 
-  **Chosen:** Follow the identical inline pattern used by PRD and Tech Decision drawers in
-  control-center-inner.tsx.
+  **Decision:** Add story variants to feature-node.stories.tsx (MergeReviewActionRequired showing
+  emerald badge + GitMerge icon) and control-center.stories.tsx (merge review nodes in multi-feature
+  variants like MultipleFeatures, FullWorkflowStates). Total estimated ~45 lines across both files.
 
-  **Alternatives rejected:**
-  - Custom hook extraction: Breaks established pattern; PRD and Tech Decision drawers don't
-    use hooks. The control center manages all drawer state inline.
-  - React Suspense: Control center is a client component; Suspense would require restructuring.
+  **Rationale:** The research findings show merge-review.stories.tsx already has 11 comprehensive
+  story variants covering all data states (complete PR + diff + phases + CI, missing diff, missing
+  phases, missing CI, all CI status variants). However, feature-node and control-center stories lack
+  merge review visualization examples. Comprehensive story coverage serves dual purposes: (1) visual
+  regression testing to catch styling/rendering regressions, and (2) living documentation for
+  designers and QA to understand all possible states. The codebase standard is thorough coverage:
+  prd-questionnaire.stories.tsx has 9 variants, tech-decisions-review.stories.tsx has 8 variants.
 
-  **Rationale:** Adds state (mergeReviewData, isLoadingMergeReview), boolean
-  (showMergeReviewDrawer), useEffect with cancellation, approval handler via shared
-  handleSimpleApprove('Merge'), rejection handler via shared handleReject('Merge'),
-  conditional MergeReviewDrawer rendering, and FeatureDrawer suppression extension.
+  **Alternatives Considered:**
+  - Default state only: Rejected because edge cases (CI status variants) affect user approval
+    decisions and need visual verification
+  - Skip control center integration stories: Rejected because the multi-feature workflow stories
+    document how different lifecycle phases appear together in the canvas
+
+  **Story Variants to Add:**
+  ```typescript
+  // feature-node.stories.tsx (~15 lines)
+  export const MergeReviewActionRequired: Story = {
+    args: {
+      data: {
+        id: 'feature-1',
+        name: 'User Authentication',
+        lifecycle: 'review' as const,
+        state: 'action-required' as const,
+        // ... other required fields
+      }
+    }
+  }
+
+  // control-center.stories.tsx (~30 lines across 3 variants)
+  // Add merge review node to MultipleFeatures, FullWorkflowStates, etc.
+  ```
+
+  ### 3. Phase Ordering and Parallelization
+
+  **Decision:** Execute phases sequentially (parallel: false for all phases) with clear dependencies:
+  Phase 1 (Server Action Tests) → Phase 2 (Storybook Stories) → Phase 3 (Integration Validation).
+
+  **Rationale:** Phases 1 and 2 are independent and could be parallelized, but the sequential approach
+  maintains the established TDD workflow (tests first, then documentation, then validation). Phase 3
+  must run after Phases 1 and 2 complete because it validates the full system including both unit
+  tests and stories. Sequential execution also aligns with the codebase convention where the feature
+  is already implemented and we're filling gaps methodically.
+
+  **Task-Level Parallelism:** While phases are sequential, individual tasks within Phase 1 (different
+  test suites for validation/errors/success paths) can be developed in parallel via multiple test
+  cases within the same file, leveraging Vitest's concurrent test execution.
+
+  ### 4. Risk Mitigation Through Graceful Degradation
+
+  **Decision:** The implemented server action uses three-tier error handling: outer try/catch for
+  unexpected failures, nested try/catch for plan loading (best-effort), and nested try/catch for
+  diff summary (graceful fallback). Tests must verify each tier independently.
+
+  **Rationale:** The graceful degradation strategy ensures the merge review drawer remains functional
+  even when supplementary data (plan phases, diff summary) is unavailable. PR metadata from Feature.pr
+  is always available since it's persisted before the merge interrupt. CI status provides essential
+  approval context. Diff stats and plan phases are "nice to have" but not blocking. This architecture
+  decision must be verified through unit tests that confirm:
+  1. Plan loading failure → phases undefined, no overall error
+  2. Worktree unavailable → diffSummary undefined, warning message, approve still enabled
+  3. Both failures → drawer renders with PR + branch + warning, approve still works
 
   ## Implementation Strategy
 
-  The phases are ordered by dependency chain (bottom-up):
+  ### High-Level Approach
 
-  **Phase 1 (Foundation)** comes first to establish the data contract (type interfaces) and
-  server-side data layer (server action). All UI components depend on these types. Server
-  action tests are written first (TDD) to validate input handling, error paths, and data mapping.
+  The implementation follows a **complete-and-polish** strategy rather than build-from-scratch,
+  since 95% of the feature is already implemented. The plan focuses on:
 
-  **Phase 2 (Feature Node)** establishes the visual entry point. Users see the emerald badge
-  on the canvas, and the `merge: 'review'` mapping enables the control center to derive
-  showMergeReviewDrawer. This is a small, isolated change to three existing functions plus one
-  line in page.tsx.
+  1. **Test Coverage Closure (Phase 1)**: Close the critical gap in server action test coverage to
+     meet mandatory TDD requirements. This is the highest priority since tests are missing for a
+     production server action.
 
-  **Phase 3 (Components)** builds the full component suite. Depends on Phase 1 for type
-  definitions. Content component tests written first (TDD), then implementation, then stories
-  for visual verification.
+  2. **Documentation Enhancement (Phase 2)**: Add missing Storybook stories for complete visual
+     documentation. Feature node and control center stories need merge review variants to match
+     the comprehensive coverage standards already achieved in the merge review drawer stories.
 
-  **Phase 4 (Integration)** wires everything together. Depends on Phase 1 (server action),
-  Phase 2 (lifecycle mapping), and Phase 3 (drawer component). Follows the exact inline
-  pattern used by PRD and Tech Decision drawer integrations.
+  3. **Quality Validation (Phase 3)**: Run the full validation suite (unit tests, visual regression,
+     E2E smoke tests, lint/format) to verify integration and ensure no regressions.
 
-  **Phase 5 (Tests & Validation)** ensures comprehensive coverage. Server action tests,
-  type tests, barrel tests, drawer wrapper tests, plus full validation pass (typecheck,
-  lint, test suite).
+  ### Phase Ordering Rationale
+
+  **Phase 1 First (Server Action Tests):**
+  - MANDATORY per CLAUDE.md TDD requirement
+  - Server action is production code handling DI resolution, data fetching, and error handling
+  - Tests provide fast feedback loop for validating complex conditional logic
+  - ~150 lines of tests for ~64 lines of production code indicates thorough branch coverage
+  - Unblocks confident deployment since all error paths are verified
+
+  **Phase 2 Second (Storybook Stories):**
+  - Builds on stable, tested foundation from Phase 1
+  - Stories document visual states but don't affect runtime behavior
+  - Lower risk than untested server logic
+  - Maintains consistency with existing comprehensive story coverage standards
+  - ~45 lines across 2 files is low-risk, high-value documentation work
+
+  **Phase 3 Last (Integration Validation):**
+  - Requires both tests and stories to be complete for full validation
+  - Full test suite must pass (includes new server action tests from Phase 1)
+  - Visual regression in Storybook requires stories from Phase 2
+  - E2E smoke test validates the complete workflow end-to-end
+  - Lint/format check ensures code quality compliance
+
+  ### Test-First Development Workflow
+
+  Each task in Phase 1 follows strict RED → GREEN → REFACTOR cycle:
+
+  **RED (Failing Test):**
+  - Write test that asserts specific behavior (e.g., "returns error when featureId is empty")
+  - Run test, verify it fails with expected message
+  - Confirms test is actually testing the right thing
+
+  **GREEN (Minimal Implementation):**
+  - Since get-merge-review-data.ts is already implemented, this step verifies the production code
+    passes the test
+  - If test fails unexpectedly, fix the production code or the test (whichever has the bug)
+  - Get to green as quickly as possible
+
+  **REFACTOR (Cleanup):**
+  - Improve test readability (extract helper functions like makeDefaultData())
+  - Remove duplication between test cases
+  - Add descriptive comments for complex assertions
+  - Ensure test is maintainable and serves as clear documentation
 
   ## Risk Mitigation
 
   | Risk | Mitigation |
   | ---- | ---------- |
-  | Worktree deleted during Review phase | Server action checks feature.worktreePath before attempting diff; nested try/catch returns PR metadata with warning |
-  | DI container not initialized in test environment | Mock resolve() via vi.mock('@/lib/server-container') with token-based resolution — established pattern in approve-feature.test.ts |
-  | getPrDiffSummary() timeout on large repos | Nested try/catch returns warning text; diff stats are non-blocking supplementary info |
-  | Plan artifact missing or corrupted | Best-effort loading in nested try/catch; phases silently set to undefined |
-  | Feature.pr is null (direct merge without PR) | Component conditionally renders PR card only when pr is defined; alternate description text shown |
-  | Hardcoded baseBranch='main' incorrect for some repos | Matches merge.node.ts behavior exactly; fails gracefully via diff try/catch |
-  | Emerald color collision with 'done' state | No collision — done and action-required are mutually exclusive states in deriveNodeState() |
-  | FeatureDrawer suppression condition grows complex | Extended naturally: showPrdDrawer || showTechDecisionsDrawer || showMergeReviewDrawer |
-  | Stories fail due to server action dependency | Stories use content component directly with props (not drawer+action path), following existing pattern |
+  | **Server action tests reveal bugs in production code** | Each test task is scoped to a specific behavior (validation, error handling, data mapping) allowing isolated debugging. The production code is already implemented and visually tested in Storybook, so major logic bugs are unlikely. Minor fixes can be made during the GREEN step without derailing the plan. |
+  | **Storybook stories expose visual regressions** | Phase 2 runs after Phase 1 tests pass, ensuring server logic is solid. Stories are purely documentation and don't affect runtime behavior. Visual issues in stories indicate rendering bugs, not data issues. Leverage existing merge-review.stories.tsx as a reference for correct rendering patterns. |
+  | **Full test suite fails in Phase 3 with unrelated failures** | Run `pnpm test` early in Phase 1 to establish a clean baseline. Any failures in Phase 3 that aren't from new tests indicate environmental issues or unrelated breakage. Isolate with `pnpm test:unit` for unit tests only, `pnpm test:watch` for TDD workflow. |
+  | **E2E smoke test fails due to environment setup** | E2E test depends on full stack (database, worktree, agent). Document prerequisites clearly in task acceptance criteria. Provide fallback manual smoke test steps if E2E automation is blocked. The feature is already working in production, so E2E failure likely indicates test environment issues, not feature bugs. |
+  | **Vitest mock setup for DI container is complex** | Follow established pattern from approve-feature.test.ts and reject-feature.test.ts which both use `vi.mock('@/lib/server-container')` with token-based resolution. Copy mock setup structure directly to minimize trial-and-error. |
+  | **Test coverage calculation shows gaps** | Phase 1 tasks explicitly cover all branches: validation (empty/whitespace), errors (feature not found, DI failure), data mapping (PR, branch, phases, diff), graceful degradation (plan failure, worktree missing, diff failure). If coverage gaps remain, add targeted test cases in REFACTOR step. |
+  | **Story additions break existing story structure** | Review feature-node.stories.tsx and control-center.stories.tsx structure before adding variants. Match existing story format exactly (args shape, decorators, play functions). Run Storybook locally (`pnpm dev:storybook`) after each addition to verify stories render correctly. |
+  | **Merge conflicts if implementation changes during planning** | Feature is 95% complete and stable. Risk of concurrent changes is low. If conflicts occur, prioritize test coverage over story additions since tests are mandatory and higher value. Stories can be added in a follow-up if necessary. |

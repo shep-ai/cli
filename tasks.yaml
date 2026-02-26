@@ -1,555 +1,202 @@
 name: merge-review-drawer
 summary: >
-  14 tasks across 5 phases implementing the merge review drawer feature. Phase 1 establishes
-  the data contract (types + server action, 3 tasks). Phase 2 updates the feature node badge
-  and page mapping (2 tasks). Phase 3 builds the component suite (4 tasks). Phase 4 wires
-  the control center integration (2 tasks). Phase 5 completes test coverage and validation
-  (3 tasks).
+  3 tasks completing test coverage and visual documentation for the merge review drawer
+  feature. Phase 1 adds comprehensive server action unit tests (1 task, ~150 lines).
+  Phase 2 adds missing Storybook story variants (1 task, ~45 lines). Phase 3 validates
+  the complete implementation (1 task, full test suite + E2E smoke test).
 
 relatedFeatures: []
 technologies: []
 relatedLinks: []
 
 tasks:
-  # ── Phase 1: Foundation — Types, Config & Server Action ──────────────────
+  # ── Phase 1: Server Action Testing Foundation ─────────────────────────────
 
   - id: task-1
     phaseId: phase-1
-    title: 'Define MergeReview type interfaces in merge-review-config.ts'
+    title: 'Write comprehensive unit tests for get-merge-review-data server action'
     description: >
-      Create the merge-review-config.ts file with 7 TypeScript interfaces that define the
-      complete data contract for the merge review feature. This is the foundational file that
-      both the server action and all UI components import from. Interfaces: MergeReviewDiffSummary,
-      MergeReviewPr (using PrStatus and CiStatus enums from domain), MergeReviewPhase,
-      MergeReviewBranch, MergeReviewData (all optional fields for graceful degradation),
-      MergeReviewProps (content component), MergeReviewDrawerProps (extends with shell props,
-      nullable data for loading state).
+      Create tests/unit/presentation/web/app/actions/get-merge-review-data.test.ts following
+      the TDD principle. Write tests for all conditional branches: input validation (empty/
+      whitespace featureId), feature not found error, successful data mapping (PR metadata,
+      branch construction, plan phases, diff summary), plan loading failure (graceful
+      degradation), diff summary failure (graceful fallback), missing PR scenario, and
+      missing worktree scenario. Use vi.mock('@/lib/server-container') for DI token mocking
+      following the pattern in approve-feature.test.ts and reject-feature.test.ts.
     state: Todo
     dependencies: []
     acceptanceCriteria:
-      - 'File exists at components/common/merge-review/merge-review-config.ts'
-      - 'MergeReviewDiffSummary has filesChanged, additions, deletions, commitCount (all number)'
-      - 'MergeReviewPr has url (string), number (number), status (PrStatus), optional commitHash, optional ciStatus (CiStatus)'
-      - 'MergeReviewPhase has id (string), name (string), optional description'
-      - 'MergeReviewBranch has source (string), target (string)'
-      - 'MergeReviewData has all optional fields: pr?, diffSummary?, phases?, branch?, warning?'
-      - 'MergeReviewProps has data (non-nullable MergeReviewData), onApprove, optional onReject, optional isProcessing, optional isRejecting'
-      - 'MergeReviewDrawerProps extends Omit<MergeReviewProps, "data"> with nullable data, open, onClose, featureName, and optional shell props'
-      - 'PrStatus and CiStatus imported from @shepai/core/domain/generated/output'
-      - 'JSDoc comments on each interface and key fields'
-      - 'TypeScript compiles without errors'
+      - 'Test file exists at tests/unit/presentation/web/app/actions/get-merge-review-data.test.ts'
+      - 'Mocks resolve() via vi.mock with token-based resolution for IFeatureRepository, IGitPrService, GetPlanArtifactUseCase'
+      - 'beforeEach clears all mocks with vi.clearAllMocks()'
+      - 'Test: empty featureId returns { error: "Feature id is required" }'
+      - 'Test: whitespace-only featureId (e.g., "   ") returns { error: "Feature id is required" }'
+      - 'Test: feature not found (findById returns null) returns { error: "Feature not found" }'
+      - 'Test: complete happy path returns MergeReviewData with pr, diffSummary, phases, branch'
+      - 'Test: PR metadata correctly extracted (url, number, status, commitHash, ciStatus) from Feature.pr'
+      - 'Test: branch info constructed with source=feature.branch, target="main"'
+      - 'Test: plan loading throws → phases undefined, no overall error, data still returns'
+      - 'Test: worktreePath undefined → skips diff entirely, returns data without diffSummary, no warning if PR exists'
+      - 'Test: worktreePath exists but getPrDiffSummary throws → returns data with warning "Diff statistics unavailable"'
+      - 'Test: no PR (feature.pr is undefined) and no worktreePath → returns warning "No PR or diff data available"'
+      - 'Test: outer try/catch for unexpected errors → returns { error: string }'
+      - 'Uses expectTypeOf() to validate discriminated union return type'
+      - 'All tests pass with pnpm test:unit'
+      - '100% branch coverage for server action (all conditional paths tested)'
     tdd:
       red:
         - >
-          Write merge-review-config.test.ts with type-level tests using expectTypeOf() that
-          create MergeReviewData literals with all fields, optional fields only, degraded state
-          (warning + no diffSummary), and no-PR state. Also test MergeReviewProps and
-          MergeReviewDrawerProps interface compliance. Tests fail because the file doesn't exist.
+          Write all test cases in describe blocks: "Input Validation" (empty/whitespace featureId),
+          "Error Handling" (feature not found, DI errors), "Data Mapping" (PR extraction, branch
+          construction), "Graceful Degradation" (plan failure, worktree missing, diff failure,
+          combined failures), "Happy Path" (complete data with all fields). Mock resolve() to
+          return repository, service, and use case mocks. Each test configures mocks for specific
+          scenarios (e.g., findById returns null, getPrDiffSummary throws). Run tests, verify they
+          fail because production code behavior is being tested.
       green:
         - >
-          Create merge-review-config.ts with all 7 interfaces. Import PrStatus and CiStatus
-          from @shepai/core/domain/generated/output. Add JSDoc comments following the pattern
-          in tech-decisions-review-config.ts.
+          The server action is already implemented (get-merge-review-data.ts exists from spec).
+          Run tests against the actual implementation. If tests fail unexpectedly, investigate
+          whether the test setup is incorrect (e.g., mock configuration) or if there's a bug
+          in the production code. Fix the production code or test as appropriate to achieve green.
       refactor:
-        - 'Ensure consistent field ordering across interfaces (required fields first, optional fields second).'
-    estimatedEffort: '30min'
-
-  - id: task-2
-    phaseId: phase-1
-    title: 'Create getMergeReviewData server action'
-    description: >
-      Create the server action at app/actions/get-merge-review-data.ts that validates featureId,
-      resolves IFeatureRepository to read Feature.pr, loads plan phases via GetPlanArtifactUseCase
-      (best-effort), and calls IGitPrService.getPrDiffSummary() with graceful fallback. Returns
-      MergeReviewData on success or { error } on failure. Follows the exact pattern of
-      get-feature-artifact.ts and get-research-artifact.ts. Uses three-tier nested try/catch
-      for independent degradation of each data section.
-    state: Todo
-    dependencies:
-      - task-1
-    acceptanceCriteria:
-      - "Server action has 'use server' directive"
-      - 'Validates featureId is non-empty after trim(), returns { error: "Feature id is required" } on invalid input'
-      - 'Resolves IFeatureRepository via resolve() and calls findById(featureId)'
-      - 'Returns { error: "Feature not found" } when feature does not exist'
-      - 'Extracts pr metadata (url, number, status, commitHash, ciStatus) from Feature.pr when present'
-      - 'Constructs branch info from feature.branch (source) with target hardcoded as "main"'
-      - 'Loads plan phases via GetPlanArtifactUseCase.execute(featureId) in nested try/catch (best-effort)'
-      - 'Checks feature.worktreePath before attempting diff — skips entirely when undefined'
-      - 'Calls IGitPrService.getPrDiffSummary(feature.worktreePath, "main") in nested try/catch'
-      - 'Returns warning "Diff statistics unavailable" when diff call fails'
-      - 'Returns warning "No PR or diff data available" when neither PR nor worktreePath exist'
-      - 'Outer catch returns { error } with descriptive message'
-      - 'Return type is MergeReviewData | { error: string } (discriminated union)'
-      - 'Imports MergeReviewData and MergeReviewPhase from merge-review-config.ts'
-    tdd:
-      red:
         - >
-          Write get-merge-review-data.test.ts mocking resolve() via vi.mock('@/lib/server-container')
-          with token-based resolution for IFeatureRepository, IGitPrService, and
-          GetPlanArtifactUseCase. Tests: (1) empty featureId returns error, (2) whitespace-only
-          featureId returns error, (3) feature not found returns error, (4) feature with PR +
-          diff returns full MergeReviewData, (5) feature with PR but failed diff returns data
-          with warning, (6) feature without worktreePath returns data without diff, (7) feature
-          without PR and without worktreePath returns warning, (8) plan phase loading failure
-          still returns data with phases=undefined, (9) outer catch returns error message.
-          All tests fail because the server action doesn't exist.
-      green:
-        - >
-          Create get-merge-review-data.ts with 'use server' directive. Validate featureId with
-          trim(), resolve dependencies via DI tokens, extract PR metadata with conditional spread,
-          construct branch info, load phases in nested try/catch, check worktreePath, call
-          getPrDiffSummary in nested try/catch, return structured result.
-      refactor:
-        - 'Ensure error messages are user-facing and descriptive. Verify consistent handling of null vs undefined fields.'
-    estimatedEffort: '1h'
-
-  - id: task-3
-    phaseId: phase-1
-    title: 'Create barrel export for merge-review component directory'
-    description: >
-      Create index.ts barrel export that exports MergeReview, MergeReviewDrawer, and all type
-      interfaces from the config file. This needs to be created early so that control-center-inner.tsx
-      can import from the barrel path. Initially exports will only include the config types; component
-      exports will be added as they are created in Phase 3.
-    state: Todo
-    dependencies:
-      - task-1
-    acceptanceCriteria:
-      - 'File exists at components/common/merge-review/index.ts'
-      - 'Exports MergeReview component (after task-6 creates it)'
-      - 'Exports MergeReviewDrawer component (after task-7 creates it)'
-      - 'Exports MergeReviewProps, MergeReviewDrawerProps, MergeReviewData types'
-      - 'TypeScript compiles without errors'
-    tdd:
-      red:
-        - >
-          Write merge-review-barrel.test.ts that imports from the barrel and asserts all expected
-          exports are defined. Test fails because index.ts doesn't exist.
-      green:
-        - >
-          Create index.ts with named exports of components and type re-exports from config.
-      refactor:
-        - 'No refactoring needed — simple barrel file following established pattern.'
-    estimatedEffort: '10min'
-
-  # ── Phase 2: Feature Node Badge Visualization & Page Mapping ─────────────
-
-  - id: task-4
-    phaseId: phase-2
-    title: 'Add merge node to lifecycle phase mapping in page.tsx'
-    description: >
-      Add the entry `merge: 'review'` to the nodeToLifecyclePhase map in page.tsx so that
-      when the agent graph is at the merge node, the UI lifecycle resolves to 'review'. Without
-      this mapping, the control center cannot derive showMergeReviewDrawer correctly.
-    state: Todo
-    dependencies: []
-    acceptanceCriteria:
-      - 'nodeToLifecyclePhase contains `merge: "review"` entry'
-      - 'TypeScript compiles without errors'
-    tdd:
-      red:
-        - >
-          Verify that nodeToLifecyclePhase currently does not include "merge" key. The mapping
-          addition is a single line — testing is via typecheck and integration.
-      green:
-        - >
-          Add `merge: 'review'` to the nodeToLifecyclePhase record in page.tsx alongside
-          the existing entries (after `implement: 'implementation'`).
-      refactor:
-        - 'No refactoring needed — single line addition.'
-    estimatedEffort: '5min'
-
-  - id: task-5
-    phaseId: phase-2
-    title: 'Add review lifecycle badge to feature node functions'
-    description: >
-      Add the review lifecycle case to three functions in feature-node.tsx: getBadgeIcon()
-      returns GitMerge icon, getActionRequiredBadgeClasses() returns emerald colors
-      (text-emerald-700, bg-emerald-50), and getBadgeText() returns "Review Merge Request".
-      Import GitMerge from lucide-react. Add MergeReviewActionRequired story variant to
-      feature-node.stories.tsx.
-    state: Todo
-    dependencies:
-      - task-4
-    acceptanceCriteria:
-      - 'GitMerge imported from lucide-react in feature-node.tsx'
-      - 'getBadgeIcon returns GitMerge when lifecycle="review" and state="action-required"'
-      - 'getActionRequiredBadgeClasses returns { badgeClass: "text-emerald-700", badgeBgClass: "bg-emerald-50" } for review lifecycle'
-      - 'getBadgeText returns "Review Merge Request" when lifecycle="review" and state="action-required"'
-      - 'MergeReviewActionRequired story variant added to feature-node.stories.tsx with lifecycle="review", state="action-required"'
-      - 'No changes to other lifecycle cases'
-      - 'TypeScript compiles without errors'
-    tdd:
-      red:
-        - >
-          Write tests for getBadgeIcon, getActionRequiredBadgeClasses, and getBadgeText
-          that assert the expected return values when data.lifecycle="review" and
-          data.state="action-required". Tests fail because the review cases don't exist yet.
-      green:
-        - >
-          Add `if (data.lifecycle === 'review') return GitMerge;` to getBadgeIcon.
-          Add `if (data.lifecycle === 'review') return { badgeClass: 'text-emerald-700', badgeBgClass: 'bg-emerald-50' };`
-          to getActionRequiredBadgeClasses. Add `if (data.lifecycle === 'review') return 'Review Merge Request';`
-          to getBadgeText's action-required case. Add story variant to stories file.
-      refactor:
-        - 'Verify consistent ordering of lifecycle checks across the three functions (requirements → implementation → review).'
-    estimatedEffort: '30min'
-
-  # ── Phase 3: Merge Review Component Suite ────────────────────────────────
-
-  - id: task-6
-    phaseId: phase-3
-    title: 'Build MergeReview content component'
-    description: >
-      Create merge-review.tsx — the content component (~195 lines) displaying: header with
-      emerald dot and contextual description, branch direction card (GitBranch + source badge →
-      ArrowRight → target badge), PR metadata card (number as external link, status badge,
-      CI status via CiStatusBadge, truncated commit hash with GitCommitHorizontal icon), diff
-      summary card (FileDiff icon + 4-column grid), warning card (AlertTriangle) when diff
-      unavailable, phases list (Layers icon + numbered items with emerald badges), and
-      DrawerActionBar footer (GitMerge approve icon, inline revision input, reject dialog).
-    state: Todo
-    dependencies:
-      - task-1
-    acceptanceCriteria:
-      - 'Displays PR number as clickable external link with target="_blank" rel="noopener noreferrer" and ExternalLink icon'
-      - 'Displays PR status text as outline Badge'
-      - 'Displays CI status via CiStatusBadge when ciStatus is defined'
-      - 'Omits CI section entirely when ciStatus is undefined (FR-17)'
-      - 'Displays truncated commit hash (first 7 chars) with GitCommitHorizontal icon when commitHash is defined'
-      - 'Omits commit hash section when commitHash is undefined (FR-18)'
-      - 'Displays diff summary 4-column grid: files changed, +additions (green), -deletions (red), commit count'
-      - 'Shows warning message with AlertTriangle instead of diff section when diffSummary absent and warning set (FR-19)'
-      - 'Displays branch direction with GitBranch icon, source badge, ArrowRight, target badge (FR-13)'
-      - 'Omits branch section when branch data absent (FR-20)'
-      - 'Displays numbered implementation phases list with emerald badges when phases present (FR-14)'
-      - 'Omits phases section when phases absent (FR-20)'
-      - 'Shows "Review the changes and approve to merge." when no PR (FR-16)'
-      - 'Shows "Review the pull request details and approve to merge." when PR present'
-      - 'DrawerActionBar with approveLabel="Approve Merge", GitMerge icon (or Loader2 when processing)'
-      - 'DrawerActionBar with revisionPlaceholder="Ask AI to revise before merging..."'
-      - 'DrawerActionBar with rejectDialogTitle="Reject Merge"'
-      - 'Approve and reject buttons disabled when isProcessing or isRejecting'
-    tdd:
-      red:
-        - >
-          Write merge-review.test.tsx with tests: (1) PR link renders with correct href, target,
-          rel attributes, (2) PR status text displayed, (3) CI badge renders for each CiStatus
-          variant (Success/Pending/Failure), (4) CI section omitted when undefined, (5) diff
-          stats render with correct formatting (+/- prefix, colors), (6) warning renders when
-          no diff, (7) commit hash truncated to 7 chars, (8) commit hash omitted when undefined,
-          (9) branch names render, (10) branch section omitted when undefined, (11) phases
-          render with names and descriptions, (12) phases section omitted when undefined,
-          (13) "Approve Merge" button calls onApprove, (14) button disabled when isProcessing,
-          (15) inline revision input calls onReject with trimmed text, (16) no-PR alternate
-          description text. Tests fail because component doesn't exist.
-      green:
-        - >
-          Create merge-review.tsx with 'use client' directive. Import Lucide icons, Badge,
-          CiStatusBadge, DrawerActionBar. Extract PhaseList as helper component. Build layout
-          with conditional sections for each data field.
-      refactor:
-        - 'Ensure consistent class naming patterns with existing drawer content components.'
+          Extract shared mock factory functions (e.g., mockFeatureRepository(), mockGitPrService(),
+          mockPlanArtifactUseCase()) to reduce duplication. Add helper function makeFeatureWithPr()
+          to build test Feature objects with different field combinations. Ensure test descriptions
+          clearly communicate what behavior is being verified. Add comments for complex mock
+          configurations (e.g., nested try/catch scenarios).
     estimatedEffort: '2h'
 
-  - id: task-7
-    phaseId: phase-3
-    title: 'Build MergeReviewDrawer shell wrapper'
-    description: >
-      Create merge-review-drawer.tsx — a thin wrapper (~35 lines) that composes ReviewDrawerShell
-      with MergeReview content. Shows Loader2 spinner while data is null (loading state).
-      Destructures drawer props, passes shell props to ReviewDrawerShell, spreads remaining
-      props to MergeReview content component. Follows the exact pattern of
-      tech-decisions-drawer.tsx.
-    state: Todo
-    dependencies:
-      - task-6
-    acceptanceCriteria:
-      - 'Wraps MergeReview in ReviewDrawerShell with all shell props: open, onClose, featureName, featureId, repositoryPath, branch, specPath, onDelete, isDeleting'
-      - 'Renders MergeReview content when data is not null'
-      - 'Renders Loader2 spinner (animate-spin) centered when data is null'
-      - 'Spreads remaining props (...reviewProps) to MergeReview'
-      - 'Has "use client" directive'
-      - 'Exports MergeReviewDrawer as named export'
-    tdd:
-      red:
-        - >
-          Write merge-review-drawer.test.tsx: (1) renders ReviewDrawerShell with feature
-          metadata and MergeReview content when data is provided, (2) renders spinner when
-          data is null (if testable — may rely on visual verification via stories).
-      green:
-        - >
-          Create merge-review-drawer.tsx following tech-decisions-drawer.tsx pattern. Import
-          Loader2, ReviewDrawerShell, MergeReview, and MergeReviewDrawerProps.
-      refactor:
-        - 'No refactoring needed — simple wrapper following established pattern.'
-    estimatedEffort: '15min'
+  # ── Phase 2: Storybook Documentation Enhancement ───────────────────────────
 
-  - id: task-8
-    phaseId: phase-3
-    title: 'Create Storybook stories for merge review components'
+  - id: task-2
+    phaseId: phase-2
+    title: 'Add merge review story variants to feature node and control center'
     description: >
-      Create merge-review.stories.tsx with comprehensive story variants. Stories use the
-      content component directly with props (not through server action). Variants cover all
-      data states and edge cases. Includes both standalone content stories and drawer wrapper
-      stories with interactive open/close.
+      Add MergeReviewActionRequired story variant to feature-node.stories.tsx (~15 lines)
+      showing emerald badge with GitMerge icon, lifecycle='review', state='action-required'.
+      Add merge review feature nodes to control-center.stories.tsx multi-feature variants
+      (~30 lines across 3 existing stories like MultipleFeatures, FullWorkflowStates).
+      This completes visual documentation coverage for the merge review visualization,
+      matching the comprehensive standards already established in merge-review.stories.tsx
+      (11 variants).
     state: Todo
     dependencies:
-      - task-7
+      - task-1
     acceptanceCriteria:
-      - 'Stories file at components/common/merge-review/merge-review.stories.tsx'
-      - 'Meta title: "Common/MergeReview"'
-      - 'Default story: all data present (PR + diff + CI success + branch + phases)'
-      - 'CIPending story: CiStatus.Pending with Loader2 animation'
-      - 'CIFailure story: CiStatus.Failure with red XCircle'
-      - 'NoDiffSummary story: diff unavailable, shows warning message'
-      - 'NoCIStatus story: ciStatus undefined, CI section omitted'
-      - 'Processing story: isProcessing=true, approve button disabled with spinner'
-      - 'NoPrWithDiff story: no PR, shows branch direction and diff summary'
-      - 'NoPrNoDiff story: no PR and no diff, shows warning'
-      - 'WithPhases story: implementation phases list shown'
-      - 'InDrawer story: rendered inside MergeReviewDrawer with shell and interactive toggle'
-      - 'WithDeleteButton story: drawer with onDelete handler showing delete button'
-      - 'InDrawerNoPr story: drawer without PR data'
-      - 'Uses fn() from @storybook/test for action handlers'
-      - 'PrStatus and CiStatus imported from domain types'
+      - 'feature-node.stories.tsx has MergeReviewActionRequired story variant'
+      - 'Story shows emerald badge (bg-emerald-50, text-emerald-700) with GitMerge icon'
+      - 'Story data: lifecycle="review", state="action-required", name="User Authentication", other required fields'
+      - 'control-center.stories.tsx MultipleFeatures variant includes merge review node'
+      - 'control-center.stories.tsx FullWorkflowStates variant includes merge review node'
+      - 'Merge review nodes have descriptive name/description (e.g., "Merge Review", "PR ready for merge approval")'
+      - 'Merge review nodes positioned in canvas to avoid overlap with existing nodes'
+      - 'Stories render without errors in Storybook (pnpm dev:storybook)'
+      - 'Visual verification: emerald badge displays correctly on canvas'
     tdd:
       red:
         - >
-          Verify stories file compiles and each story export matches the expected name.
-          Visual verification is done in Storybook after implementation.
+          Review existing feature-node.stories.tsx and control-center.stories.tsx structure.
+          Identify where to add new story variants. Verify that merge review node does not
+          already exist in control center stories. The "failing" step is confirming the absence
+          of these story variants.
       green:
         - >
-          Create stories file with shared mock data (fullPr, samplePhases, sampleBranch, fullData),
-          meta configuration with fullscreen layout and 400x600 container decorator, and all
-          story variants using args or render functions.
+          Add MergeReviewActionRequired export to feature-node.stories.tsx with args matching
+          the spec pattern (lifecycle: 'review', state: 'action-required'). Add merge review
+          feature nodes to the featureNodes arrays in MultipleFeatures and FullWorkflowStates
+          control center stories, positioned appropriately in the canvas (e.g., x: 800, y: 400).
+          Run Storybook locally to verify stories render correctly.
       refactor:
-        - 'Extract shared story data to top-level consts for DRY variant definitions.'
+        - >
+          Ensure consistent positioning and sizing with other feature nodes in multi-feature stories.
+          Verify merge review node descriptions are clear and concise. Extract shared merge review
+          node data to a const if used in multiple stories (DRY principle).
     estimatedEffort: '1h'
 
-  - id: task-9
+  # ── Phase 3: Integration Validation & Quality Assurance ────────────────────
+
+  - id: task-3
     phaseId: phase-3
-    title: 'Update barrel export and verify component suite builds'
-    description: >
-      Finalize the barrel export in index.ts with all component and type exports. Run
-      typecheck and lint to verify the entire merge review component suite compiles correctly.
-    state: Todo
-    dependencies:
-      - task-8
-      - task-3
-    acceptanceCriteria:
-      - 'index.ts exports MergeReview, MergeReviewDrawer components'
-      - 'index.ts exports MergeReviewProps, MergeReviewDrawerProps, MergeReviewData types'
-      - 'pnpm typecheck passes with no errors related to merge-review'
-      - 'pnpm lint passes with no new warnings'
-    tdd:
-      red:
-        - 'Run pnpm typecheck — identify any type errors to fix.'
-      green:
-        - 'Fix any type errors or lint warnings. Ensure all exports resolve correctly.'
-      refactor:
-        - 'No refactoring needed — verification task.'
-    estimatedEffort: '15min'
-
-  # ── Phase 4: Control Center Integration ──────────────────────────────────
-
-  - id: task-10
-    phaseId: phase-4
-    title: 'Integrate merge review drawer into control center'
-    description: >
-      Add the merge review drawer integration to control-center-inner.tsx following the exact
-      same inline pattern as PRD and Tech Decision drawers. Add: imports for getMergeReviewData
-      and MergeReviewDrawer, state declarations (mergeReviewData, isLoadingMergeReview),
-      showMergeReviewDrawer boolean derived from lifecycle + state, useEffect with cancellation
-      pattern for data fetching, handleMergeApprove via shared handleSimpleApprove('Merge'),
-      handleMergeReject via shared handleReject('Merge'), conditional MergeReviewDrawer
-      rendering with all props, and FeatureDrawer suppression extension.
-    state: Todo
-    dependencies:
-      - task-9
-      - task-2
-    acceptanceCriteria:
-      - 'Imports: getMergeReviewData from actions, MergeReviewData and MergeReviewDrawer from barrel'
-      - 'State: mergeReviewData (MergeReviewData | null), isLoadingMergeReview (boolean)'
-      - 'showMergeReviewDrawer = selectedNode?.lifecycle === "review" && selectedNode?.state === "action-required"'
-      - 'useEffect keyed on mergeFeatureId with cancellation pattern (let cancelled = false; return () => { cancelled = true })'
-      - 'useEffect resets mergeReviewData to null when featureId changes'
-      - 'Error from server action shows toast.error and keeps data null'
-      - 'handleMergeApprove = useCallback(() => handleSimpleApprove("Merge"), [handleSimpleApprove])'
-      - 'handleMergeReject = useCallback((feedback) => handleReject(feedback, "Merge"), [handleReject])'
-      - 'MergeReviewDrawer rendered conditionally when showMergeReviewDrawer is true'
-      - 'MergeReviewDrawer receives: open, onClose, featureName, featureId, repositoryPath, branch, specPath, data, onApprove, onReject, isRejecting, onDelete, isDeleting, isProcessing'
-      - 'FeatureDrawer suppression: showPrdDrawer || showTechDecisionsDrawer || showMergeReviewDrawer ? null : selectedNode'
-    tdd:
-      red:
-        - >
-          The control center integration is heavily coupled to React state and effects. Testing
-          is primarily via Storybook stories and the overall integration test suite. Verify that
-          typecheck passes with the new integration code.
-      green:
-        - >
-          Add all integration code to control-center-inner.tsx following the exact inline
-          pattern of the PRD and Tech Decision drawer integrations.
-      refactor:
-        - 'Verify the comment "Reject state (shared by both drawers)" is updated to reflect three drawers if applicable.'
-    estimatedEffort: '1h'
-
-  - id: task-11
-    phaseId: phase-4
-    title: 'Update control center stories with merge review node'
-    description: >
-      Add a feature node with lifecycle="review" and state="action-required" to the
-      control-center.stories.tsx multi-feature story variants. This ensures the merge review
-      node is visible in the Storybook canvas alongside the other feature node types.
-    state: Todo
-    dependencies:
-      - task-10
-    acceptanceCriteria:
-      - 'Control center story featureNodes array includes a node with lifecycle: "review", state: "action-required"'
-      - 'Node has meaningful name and description (e.g., "Merge Review", "PR ready for merge approval")'
-      - 'Node positioned appropriately in the canvas layout'
-      - 'Story renders without errors'
-    tdd:
-      red:
-        - 'Verify no existing control center story node has lifecycle="review" + state="action-required".'
-      green:
-        - >
-          Add a feature node entry to the featureNodes array with lifecycle: 'review',
-          state: 'action-required', appropriate position, and descriptive metadata.
-      refactor:
-        - "Ensure node positioning doesn't overlap with existing nodes."
-    estimatedEffort: '15min'
-
-  # ── Phase 5: Test Coverage & Validation ──────────────────────────────────
-
-  - id: task-12
-    phaseId: phase-5
-    title: 'Write server action unit tests'
-    description: >
-      Create get-merge-review-data.test.ts with comprehensive server action tests following
-      the pattern in approve-feature.test.ts and reject-feature.test.ts. Mock resolve() via
-      vi.mock('@/lib/server-container') with token-based resolution. Cover all validation
-      paths, error conditions, data mapping, and graceful fallbacks. Use dynamic imports
-      (await import()) to enable mocking.
-    state: Todo
-    dependencies:
-      - task-2
-    acceptanceCriteria:
-      - 'Test: empty featureId returns { error: "Feature id is required" }'
-      - 'Test: whitespace-only featureId returns { error: "Feature id is required" }'
-      - 'Test: feature not found returns { error: "Feature not found" }'
-      - 'Test: feature with PR + diff + phases returns complete MergeReviewData'
-      - 'Test: PR metadata correctly mapped (url, number, status, commitHash, ciStatus)'
-      - 'Test: branch info constructed from feature.branch + "main" target'
-      - 'Test: diff summary failure returns data with warning "Diff statistics unavailable"'
-      - 'Test: no worktreePath skips diff entirely, returns data without diffSummary'
-      - 'Test: no PR and no worktreePath returns warning "No PR or diff data available"'
-      - 'Test: plan phase loading failure returns data with phases=undefined'
-      - 'Test: outer catch returns { error } with descriptive message'
-      - 'All tests pass with pnpm test'
-    tdd:
-      red:
-        - >
-          Write all test cases listed in acceptance criteria. Mock IFeatureRepository.findById,
-          IGitPrService.getPrDiffSummary, and GetPlanArtifactUseCase.execute via resolve() mock.
-          Use beforeEach with vi.clearAllMocks(). Tests fail because they test the actual
-          server action behavior.
-      green:
-        - 'Server action already exists from task-2. Fix any test failures by adjusting mocks or server action logic.'
-      refactor:
-        - 'Extract shared mock setup to helper functions for DRY test code.'
-    estimatedEffort: '1h'
-
-  - id: task-13
-    phaseId: phase-5
-    title: 'Write component and config type tests'
-    description: >
-      Ensure merge-review-config.test.ts (expectTypeOf tests), merge-review-barrel.test.ts
-      (export validation), and merge-review-drawer.test.tsx (drawer wrapper rendering) are
-      complete and passing. These provide additional confidence in the type system, public API,
-      and component composition.
-    state: Todo
-    dependencies:
-      - task-9
-    acceptanceCriteria:
-      - 'merge-review-config.test.ts: type-level tests for all 7 interfaces using expectTypeOf()'
-      - 'merge-review-barrel.test.ts: validates MergeReview and MergeReviewDrawer exports are defined and are functions'
-      - 'merge-review-drawer.test.tsx: renders ReviewDrawerShell with feature metadata and MergeReview content'
-      - 'All tests pass with pnpm test'
-    tdd:
-      red:
-        - 'Write/finalize all remaining test cases. Ensure full coverage of edge cases.'
-      green:
-        - 'Fix any failing tests by adjusting test data or component behavior.'
-      refactor:
-        - 'Ensure consistent test patterns across all merge-review test files.'
-    estimatedEffort: '45min'
-
-  - id: task-14
-    phaseId: phase-5
     title: 'Run full validation suite and verify all success criteria'
     description: >
-      Run the complete validation suite (typecheck, lint, test, Storybook build) to ensure
-      no regressions. Verify all 18 success criteria from the spec are met. Check that all
-      functional requirements (FR-1 through FR-32) and non-functional requirements (NFR-1
-      through NFR-11) are satisfied.
+      Execute the complete validation workflow: pnpm test (unit tests including new server
+      action tests from task-1), pnpm validate (lint + format + typecheck + tsp compile),
+      visual regression testing in Storybook (review all merge review story variants), and
+      E2E smoke test (create feature → implement → merge phase → approve → verify agent resumes).
+      Verify all 12 success criteria from the spec are met. Document any remaining issues or
+      follow-up work needed. This is the final quality gate before shipping.
     state: Todo
     dependencies:
-      - task-12
-      - task-13
-      - task-11
+      - task-2
     acceptanceCriteria:
-      - 'pnpm typecheck passes with no errors'
-      - 'pnpm lint passes with no new warnings'
-      - 'pnpm test passes (all tests green)'
-      - 'All 18 success criteria from the spec verified'
-      - 'Feature node displays emerald/GitMerge badge for review + action-required'
-      - 'Merge review drawer renders with all data sections'
-      - 'Graceful degradation works for missing PR, diff, CI, phases, branch'
-      - 'Control center integration works end-to-end'
+      - 'pnpm test passes with all tests green (including task-1 server action tests)'
+      - 'pnpm validate passes (lint, format, typecheck, tsp compile)'
+      - 'No new TypeScript errors related to merge review feature'
+      - 'No new ESLint warnings related to merge review feature'
+      - 'Storybook builds successfully (pnpm build-storybook or visual check with pnpm dev:storybook)'
+      - 'Visual verification: all 11+ merge-review.stories.tsx variants render correctly'
+      - 'Visual verification: MergeReviewActionRequired feature node story shows emerald badge'
+      - 'Visual verification: control center stories show merge review nodes integrated with other lifecycle phases'
+      - 'Manual smoke test: create feature → advance to merge phase → click merge review node → drawer opens with PR data → approve button works → agent resumes'
+      - 'All 12 spec success criteria verified (FR-1 emerald badge, FR-3 drawer opens, FR-4 PR metadata, FR-5 diff summary, FR-6 CI status, FR-7 phases, FR-8 branch direction, FR-9 approve button, FR-10 reject button, FR-13 input validation, FR-18 graceful degradation, FR-15 test coverage)'
+      - 'Document any known limitations or follow-up work in commit message or spec'
     tdd:
       red:
-        - 'Run pnpm validate to establish baseline. Identify any remaining failures.'
+        - >
+          Run pnpm test to establish baseline. Identify any failing tests not related to
+          this feature (pre-existing failures). Run pnpm validate to identify any lint/format/
+          typecheck errors. Start Storybook and review all merge review stories for visual issues.
       green:
-        - 'Fix any validation failures found during final verification.'
+        - >
+          Fix any validation failures found. If tests fail, debug and fix. If lint errors exist,
+          run pnpm lint:fix. If typecheck errors exist, resolve type issues. If stories have
+          visual bugs, adjust component styling or story data. For E2E smoke test, either run
+          automated Playwright test if available, or manually verify the workflow end-to-end
+          using pnpm dev:cli and pnpm dev:web.
       refactor:
-        - 'Final cleanup: remove any TODO comments, verify all files follow established conventions.'
-    estimatedEffort: '30min'
+        - >
+          Final cleanup pass: remove any TODO comments added during implementation, verify all
+          files follow established conventions (no console.logs, consistent naming, proper
+          JSDoc comments). Update CLAUDE.md or feature spec with any lessons learned or
+          architectural notes for future maintainers. Prepare concise commit message summarizing
+          the work (tests + stories completion for merge review drawer).
+    estimatedEffort: '2h'
 
-totalEstimate: '8.5h'
+totalEstimate: '5h'
 openQuestions: []
 
 content: |
   ## Summary
 
-  The implementation follows a bottom-up dependency chain across 14 tasks in 5 phases.
+  The implementation completes the remaining 5% of the merge review drawer feature by adding
+  comprehensive test coverage and visual documentation.
 
-  First, the data contract is established: type interfaces in merge-review-config.ts, the
-  getMergeReviewData server action with three-tier error handling, and the barrel export
-  (Phase 1, tasks 1-3). The server action resolves Feature.pr via IFeatureRepository, loads
-  plan phases best-effort via GetPlanArtifactUseCase, and calls IGitPrService.getPrDiffSummary()
-  with graceful fallback — each data section degrades independently.
+  **Phase 1 (Server Action Tests)** writes ~150 lines of unit tests for get-merge-review-data.ts,
+  covering all conditional branches: input validation (empty/whitespace featureId), feature not
+  found error, successful data mapping (PR metadata, branch, phases, diff), plan loading failure
+  (best-effort degradation), diff summary failure (graceful fallback), missing PR scenario, and
+  missing worktree scenario. Tests follow the established pattern from approve-feature.test.ts
+  and reject-feature.test.ts using vi.mock('@/lib/server-container') for DI token mocking. This
+  achieves 100% branch coverage for the server action, meeting the mandatory TDD requirement
+  from CLAUDE.md.
 
-  Next, the feature node visual identity is set up: the `merge: 'review'` entry in page.tsx's
-  nodeToLifecyclePhase map and the emerald/GitMerge badge additions to three functions in
-  feature-node.tsx (Phase 2, tasks 4-5). This is a small, isolated change with immediate
-  visual impact.
+  **Phase 2 (Storybook Stories)** adds ~45 lines across feature-node.stories.tsx and
+  control-center.stories.tsx. The MergeReviewActionRequired story variant shows the emerald
+  badge with GitMerge icon for the review lifecycle. Multi-feature control center stories
+  (MultipleFeatures, FullWorkflowStates) gain merge review nodes positioned in the canvas
+  to document how the merge approval gate appears alongside other lifecycle phases. This
+  maintains consistency with the comprehensive coverage standards already established in
+  merge-review.stories.tsx (11 variants).
 
-  Then the component suite is built following the established 5-file pattern: the MergeReview
-  content component with PR metadata, diff stats, CI badge, branch direction, phases list,
-  and DrawerActionBar; the MergeReviewDrawer shell wrapper with Loader2 loading state;
-  comprehensive Storybook stories covering 11+ variants; and a build verification pass
-  (Phase 3, tasks 6-9).
+  **Phase 3 (Validation)** runs the full quality gate: pnpm test (unit tests pass), pnpm validate
+  (lint/format/typecheck pass), Storybook visual regression (all stories render correctly), and
+  E2E smoke test (create feature → merge phase → approve → agent resumes). Verifies all 12
+  success criteria from the spec are met. Documents any remaining issues or follow-up work.
 
-  The control center integration wires everything together: state declarations, visibility
-  boolean, useEffect with cancellation, approve/reject handlers via shared callbacks,
-  conditional rendering, and FeatureDrawer suppression (Phase 4, tasks 10-11).
-
-  Finally, test coverage is completed with server action unit tests, config type tests, barrel
-  export tests, drawer wrapper tests, and a full validation pass to verify all 18 success
-  criteria (Phase 5, tasks 12-14).
-
-  The total estimate of 8.5 hours accounts for TDD overhead and thorough testing of a feature
-  that follows well-established patterns. Every task is scoped to produce a testable,
-  independently verifiable increment.
+  The feature is 95% complete at the start of this plan. The remaining work focuses exclusively
+  on closing test coverage gaps (mandatory TDD compliance) and adding story variants (visual
+  documentation). All core functionality (components, server actions, control center integration,
+  feature node badge) is already implemented and working, as confirmed in the spec's
+  "Already Implemented" section.
