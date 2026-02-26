@@ -38,6 +38,7 @@ import { updateNodeLifecycle } from '../../lifecycle-context.js';
 import { buildCommitPushPrPrompt, buildMergeSquashPrompt } from '../prompts/merge-prompts.js';
 import { parseCommitHash, parsePrUrl } from './merge-output-parser.js';
 import { runCiWatchFixLoop } from './ci-watch-fix-loop.js';
+import type { CleanupFeatureWorktreeUseCase } from '@/application/use-cases/features/cleanup-feature-worktree.use-case.js';
 
 export interface MergeNodeDeps {
   executor: IAgentExecutor;
@@ -51,6 +52,7 @@ export interface MergeNodeDeps {
    */
   verifyMerge: (cwd: string, featureBranch: string, baseBranch: string) => Promise<boolean>;
   gitPrService: IGitPrService;
+  cleanupFeatureWorktreeUseCase: Pick<CleanupFeatureWorktreeUseCase, 'execute'>;
 }
 
 /**
@@ -293,6 +295,10 @@ export function createMergeNode(deps: MergeNodeDeps) {
           updatedAt: new Date(),
         });
         messages.push(`[merge] Feature lifecycle → ${newLifecycle}`);
+
+        if (merged) {
+          await deps.cleanupFeatureWorktreeUseCase.execute(feature.id);
+        }
       }
 
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
