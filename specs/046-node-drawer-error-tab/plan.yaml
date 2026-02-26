@@ -1,0 +1,297 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: node-drawer-error-tab
+summary: >
+  Implementation plan for adding a conditional Errors tab to FeatureDrawer with
+  console-style error display. The approach uses existing Radix UI Tabs primitives,
+  direct Tailwind red utilities matching established codebase patterns, and TDD-driven
+  development. Implementation is a pure UI enhancement with no domain model or
+  architectural changes—all work occurs in the presentation layer.
+
+# Relationships
+relatedFeatures:
+  - 018-feature-drawer
+  - 045-unified-base-drawer
+
+technologies:
+  - React 19
+  - TypeScript 5.7
+  - Radix UI Tabs (@radix-ui/react-tabs)
+  - lucide-react (CircleX icon)
+  - Tailwind CSS
+  - Vitest
+  - Testing Library
+  - Storybook 8
+
+relatedLinks:
+  - https://www.radix-ui.com/primitives/docs/components/tabs
+  - https://tailwindcss.com/docs/background-color
+  - https://lucide.dev/icons/circle-x
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'Test Infrastructure & Conditional Tab Rendering'
+    description: 'Establish TDD foundation with comprehensive unit tests for tab visibility logic, then implement conditional tab structure. This phase ensures the core conditional rendering works correctly (tabs shown when errorMessage exists, hidden when undefined/empty) before adding error display styling and content.'
+    parallel: false
+
+  - id: phase-2
+    name: 'Console-Style Error Display & Details Tab Cleanup'
+    description: 'Implement the Errors tab content with console-style visual treatment (CircleX icon, red color scheme, monospace formatting, scrollable container) and remove errorMessage field from Details tab to avoid duplication. This phase completes the core functionality with proper error presentation.'
+    parallel: false
+
+  - id: phase-3
+    name: 'Accessibility & Edge Case Hardening'
+    description: 'Add ARIA labels for screen readers, verify keyboard navigation works correctly, and test edge cases (null, undefined, empty string, very long messages). This phase ensures the feature is robust and accessible to all users.'
+    parallel: false
+
+  - id: phase-4
+    name: 'Storybook Documentation & Visual Validation'
+    description: 'Create comprehensive Storybook stories demonstrating error tab behavior across different scenarios (short message, medium message, long stack trace, no error). This phase provides visual documentation and enables manual testing of the feature.'
+    parallel: false
+
+# File change tracking
+filesToCreate: []
+
+filesToModify:
+  - src/presentation/web/components/common/feature-drawer/feature-drawer.tsx
+  - tests/unit/presentation/web/components/common/feature-drawer/feature-drawer.test.tsx
+  - src/presentation/web/components/common/feature-drawer/feature-drawer.stories.tsx
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Status
+
+  - **Phase:** Planning
+  - **Updated:** 2026-02-26
+
+  ## Architecture Overview
+
+  This feature is a **pure presentation layer enhancement** with no impact on domain, application, or infrastructure layers. The FeatureDrawer component already receives `errorMessage?: string` from the FeatureNodeData interface—we're simply changing how that data is displayed.
+
+  **Component Hierarchy:**
+  ```
+  BaseDrawer (unchanged)
+    └─ FeatureDrawer (modified)
+         ├─ DrawerHeader (unchanged)
+         ├─ DrawerActions (unchanged)
+         ├─ StatusSection (unchanged)
+         ├─ PrInfoSection (unchanged)
+         ├─ Tabs (NEW - conditional)
+         │    ├─ TabsList
+         │    │    ├─ TabsTrigger: Details
+         │    │    └─ TabsTrigger: Errors
+         │    ├─ TabsContent: Details (wraps existing DetailsSection)
+         │    └─ TabsContent: Errors (NEW - console-style error display)
+         └─ Delete AlertDialog (unchanged)
+  ```
+
+  **Conditional Rendering Strategy:**
+  - When `data.errorMessage` is undefined/empty: render current single-view layout (no tabs)
+  - When `data.errorMessage` has content: wrap Details content in Tabs component, add Errors tab
+  - Implementation: `const showTabs = Boolean(data.errorMessage)`
+
+  **State Management:**
+  - No new state needed—Tabs component manages active tab internally via Radix UI
+  - Default active tab set via `defaultValue="errors"` prop on Tabs root
+  - Tab switching preserves drawer state (delete dialog, etc.)
+
+  **Integration Points:**
+  - Uses existing `ui/tabs.tsx` primitive (Radix UI wrapper already in codebase)
+  - Uses existing `lucide-react` CircleX icon (already used in tool-card.tsx for errors)
+  - Follows existing error styling patterns from ci-status-badge.tsx and tool-card.tsx
+
+  **Clean Architecture Compliance:**
+  ✅ No tier violations—presentation layer modifies presentation layer
+  ✅ Uses existing domain model (FeatureNodeData) without modification
+  ✅ No dependencies on infrastructure or application layers
+
+  ## Key Design Decisions
+
+  ### 1. Conditional Tab Structure vs. Always-Present Tabs
+  **Chosen:** Conditional tab structure (tabs only when errorMessage exists)
+
+  **Rationale:** Matches existing codebase pattern—DetailsSection (feature-drawer.tsx:199-213) only renders when `hasAnyDetail` is true. Avoids unnecessary UI complexity for the majority case (no errors). Progressive disclosure principle: only show UI elements when needed. Implementation is simple: one boolean check + conditional JSX.
+
+  **Alternatives Considered:**
+  - Always show tabs with disabled Errors tab—rejected because this adds persistent tab chrome that serves no purpose 90%+ of the time
+  - Separate ErrorDrawer component—rejected because this duplicates entire drawer structure
+
+  ### 2. Error Tab as Default Active Tab
+  **Chosen:** `<Tabs defaultValue="errors">` when tabs are shown
+
+  **Rationale:** User feedback: "the error should be shown like a logger.error would show it" implies immediate visibility. When a user opens a drawer for a failed node, their primary intent is to diagnose the failure. Console.error() displays errors immediately without user action—same principle applies here. Pattern already exists in codebase: version-page-client.tsx:49 uses `defaultValue="overview"`.
+
+  **Alternatives Considered:**
+  - Details tab always default—rejected because users must manually click to see error, adds friction
+  - Remember last active tab in localStorage—rejected as over-engineering
+
+  ### 3. Console-Style Error Display with Direct Tailwind Utilities
+  **Chosen:** Direct Tailwind red utilities (`bg-red-50`, `border-red-200`, `text-red-900`) with `<pre>` element for monospace formatting
+
+  **Rationale:** Matches existing error patterns in codebase:
+  - ci-status-badge.tsx line 23: `bg-red-50 text-red-700` for failure badge
+  - tool-card.tsx line 112: `text-red-600` for error text
+  - tool-card.tsx line 115: CircleX icon for error indicator
+
+  The `<pre>` element with `whitespace-pre-wrap font-mono` preserves formatting for stack traces (line breaks, indentation) while wrapping long lines to prevent horizontal scroll. The `max-h-96 overflow-y-auto` constraint ensures very long stack traces don't dominate the drawer.
+
+  **Alternatives Considered:**
+  - Semantic CSS variables—rejected because codebase doesn't use design token system
+  - shadcn/ui Alert component—rejected because it's not designed for multi-line stack traces
+
+  ### 4. Remove errorMessage from Details Tab
+  **Chosen:** Conditional rendering: `{data.errorMessage && !showTabs ? <DetailRow label="Error" value={data.errorMessage} /> : null}`
+
+  **Rationale:** Avoids duplication and confusion about authoritative source. When tabs are shown, error content is ONLY in the Errors tab (with full console-style treatment). When no tabs, the errorMessage DetailRow wouldn't appear anyway since errorMessage would be undefined. Clear separation of concerns: Details = metadata, Errors = diagnostics.
+
+  **Alternatives Considered:**
+  - Show in both places—rejected because duplication violates DRY and creates confusion
+  - Show summary in Details, full error in Errors—rejected because errorMessage is just a string, not structured data
+
+  ### 5. Radix UI Tabs with ARIA Labels
+  **Chosen:** Use existing `ui/tabs.tsx` primitive with `aria-label` attributes on TabsTrigger elements
+
+  **Rationale:** Radix UI Tabs is already installed and provides battle-tested accessibility:
+  - Automatic ARIA roles (role="tablist", role="tab", role="tabpanel")
+  - Built-in keyboard navigation (Tab/Arrow keys, Enter/Space to activate)
+  - Focus management with visual focus rings
+  - Used in version-page-client.tsx:49-122 as reference implementation
+
+  Adding `aria-label` attributes provides screen reader users with descriptive labels beyond visible text ("Details section", "Error details section"). Follows WCAG 2.1 AA standards.
+
+  **Alternatives Considered:**
+  - Build custom tab component—rejected because Radix UI already provides this
+  - Use Material-UI or Chakra UI—rejected to avoid dependency bloat and styling inconsistency
+
+  ### 6. TDD-First Development with Comprehensive Coverage
+  **Chosen:** Write failing tests FIRST (RED) before implementation (GREEN), then refactor
+
+  **Rationale:** CLAUDE.md mandates TDD: "MANDATORY — TDD: Write failing tests FIRST (RED → GREEN → REFACTOR)". Existing feature-drawer.test.tsx has 100% coverage (490 lines)—we maintain this standard. TDD ensures:
+  - Tests drive design (tests written to spec, not to match implementation)
+  - Higher confidence in correctness (tests fail when expected)
+  - Better edge case coverage (tests force thinking about null/undefined/empty cases)
+
+  Test structure extends existing patterns in feature-drawer.test.tsx with new describe blocks for tab functionality. Use Testing Library accessible queries (getByRole) for semantic testing.
+
+  **Alternatives Considered:**
+  - Write tests after implementation—rejected because it violates MANDATORY TDD requirement
+  - E2E tests only—rejected because unit tests provide faster feedback and easier debugging
+
+  ## Implementation Strategy
+
+  **Phase Ordering Rationale:**
+
+  1. **Phase 1: Test Infrastructure & Conditional Tab Rendering**
+     - Start with tab visibility logic (core conditional rendering)
+     - Write comprehensive unit tests for showTabs boolean logic
+     - Implement minimal tab structure (TabsList, TabsTrigger, TabsContent wrapping existing Details)
+     - Verify tabs appear/disappear based on errorMessage presence
+     - Foundation for all subsequent work
+
+  2. **Phase 2: Console-Style Error Display & Details Tab Cleanup**
+     - Build on Phase 1's tab structure
+     - Add Errors tab content with console-style visual treatment
+     - Implement CircleX icon, "Error" heading, styled `<pre>` element
+     - Remove errorMessage from Details tab to avoid duplication
+     - Complete core functionality
+
+  3. **Phase 3: Accessibility & Edge Case Hardening**
+     - Enhance Phase 2's implementation with accessibility features
+     - Add ARIA labels, verify keyboard navigation
+     - Test edge cases (null, undefined, empty string, very long messages)
+     - Ensure robust, accessible implementation
+
+  4. **Phase 4: Storybook Documentation & Visual Validation**
+     - Document completed feature with comprehensive stories
+     - Enable manual visual testing across scenarios
+     - Provide reference for future developers
+     - Final validation before completion
+
+  **Dependency Flow:**
+  - Phase 1 must complete before Phase 2 (need tab structure before adding error display)
+  - Phase 2 must complete before Phase 3 (need error display before testing accessibility)
+  - Phase 3 must complete before Phase 4 (need working feature before documenting in Storybook)
+
+  **Parallel Work Opportunities:**
+  - None—this is a single-component modification with sequential dependencies
+  - All work happens in one file (feature-drawer.tsx) with supporting test/story files
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Breaking existing functionality (delete dialog, status section, PR info) | Comprehensive unit tests for existing behaviors run alongside new tests. Existing 100% test coverage provides safety net. Run full test suite after each phase. |
+  | Tabs component conflicts with BaseDrawer scroll behavior | BaseDrawer already provides `flex-1 overflow-y-auto` scroll context (base-drawer.tsx:80-83). Tab panels inherit this scroll. Test with very long error messages (1000+ lines) to verify delete button remains accessible. |
+  | Very long error messages cause performance issues | Use `max-h-96 overflow-y-auto` on error message container to limit rendering. React DevTools Profiler to measure render time. Target: <100ms for typical errors (<100 lines), <500ms for very long traces (1000+ lines). |
+  | XSS vulnerability in error message display | Use JSX interpolation `{data.errorMessage}` which React escapes automatically. Never use `dangerouslySetInnerHTML`. Render in `<pre>` element with text content, not HTML. |
+  | Accessibility issues with tab navigation | Use Radix UI Tabs primitive which provides built-in accessibility (ARIA roles, keyboard nav, focus management). Add explicit `aria-label` attributes. Test with keyboard only (no mouse) and screen reader. |
+  | Inconsistent error styling across application | Follow existing patterns: ci-status-badge.tsx (bg-red-50, text-red-700), tool-card.tsx (text-red-600, CircleX icon). Use same Tailwind utilities and icon. Document in code comments for future consistency. |
+  | Edge cases not handled (null, undefined, empty string) | Write explicit unit tests for each edge case before implementation. Use `Boolean(data.errorMessage)` for clean falsy handling (null/undefined/'' all → false). Defensive fallback text in error display. |
+  | Tab state not preserved during re-renders | Radix UI Tabs manages state internally with `defaultValue` prop. Test that delete dialog can open/close while on Errors tab without losing tab state. Use React DevTools to verify no unnecessary re-renders. |
+
+  ## Testing Strategy
+
+  **Unit Tests (feature-drawer.test.tsx):**
+  - Extend existing 490-line test suite with new describe blocks
+  - Coverage target: maintain 100% coverage
+  - Test categories:
+    1. Tab visibility logic (showTabs boolean)
+    2. Default active tab selection (defaultValue="errors")
+    3. Error display styling (CircleX icon, red classes, monospace font)
+    4. Details tab cleanup (errorMessage field removed when tabs shown)
+    5. Edge cases (null, undefined, empty string, very long messages)
+    6. Accessibility (ARIA labels, keyboard navigation)
+    7. State preservation (delete dialog works while on Errors tab)
+
+  **Storybook Stories (feature-drawer.stories.tsx):**
+  - Add 4 new stories + update existing Error story
+  - Manual visual testing checklist:
+    1. Tabs only appear when errorMessage exists
+    2. Errors tab active by default
+    3. Console-style red styling matches design
+    4. Long errors scroll within max-h-96 container
+    5. Delete button remains visible with long errors
+    6. Tab switching works (keyboard + mouse)
+    7. Error text is monospace with preserved formatting
+
+  **Execution:**
+  - TDD cycles: `pnpm test:watch` for RED-GREEN-REFACTOR workflow
+  - Full test suite: `pnpm test` (all unit + integration tests)
+  - Coverage report: `pnpm test:coverage` (verify >95%)
+  - Storybook: `pnpm dev:web` → http://localhost:3000/storybook
+  - Lint/typecheck: `pnpm validate` before commit
+
+  ## File Modification Summary
+
+  **src/presentation/web/components/common/feature-drawer/feature-drawer.tsx** (Primary Changes)
+  - Add `showTabs` boolean: `const showTabs = Boolean(data.errorMessage)`
+  - Add conditional tab structure with Tabs/TabsList/TabsTrigger/TabsContent
+  - Wrap existing DetailsSection in TabsContent when showTabs is true
+  - Add new Errors TabsContent with console-style error display
+  - Add conditional rendering to errorMessage DetailRow: `{data.errorMessage && !showTabs ? ... : null}`
+  - Import CircleX from lucide-react (already used in codebase)
+  - Import Tabs components from ui/tabs.tsx (already exists)
+
+  **tests/unit/presentation/web/components/common/feature-drawer/feature-drawer.test.tsx** (Supporting Tests)
+  - Add describe block: "Tab Rendering Logic"
+  - Add describe block: "Error Display Styling"
+  - Add describe block: "Accessibility"
+  - Add describe block: "Edge Cases"
+  - Extend existing test data fixtures with error scenarios (short, medium, long, edge cases)
+  - Update existing tests if needed (should mostly pass unchanged)
+
+  **src/presentation/web/components/common/feature-drawer/feature-drawer.stories.tsx** (Visual Documentation)
+  - Add ErrorShortMessage story (1-line error)
+  - Add ErrorMediumMessage story (~10-line error with formatting)
+  - Add ErrorLongStackTrace story (~50+ line stack trace)
+  - Add NoErrorState story (errorMessage: undefined)
+  - Update existing Error story with multi-line error
+
+  ---
+
+  _Plan complete — ready for task breakdown in tasks.yaml_

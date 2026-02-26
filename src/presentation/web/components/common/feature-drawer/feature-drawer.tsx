@@ -204,10 +204,10 @@ function DetailsSectionWithTabs({ data }: { data: FeatureNodeData }) {
     return (
       <Tabs defaultValue="errors" className="px-4">
         <TabsList className="w-full">
-          <TabsTrigger value="details" className="flex-1">
+          <TabsTrigger value="details" className="flex-1" aria-label="Details section">
             Details
           </TabsTrigger>
-          <TabsTrigger value="errors" className="flex-1">
+          <TabsTrigger value="errors" className="flex-1" aria-label="Error details section">
             Errors
           </TabsTrigger>
         </TabsList>

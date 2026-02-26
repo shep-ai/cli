@@ -1,0 +1,510 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: node-drawer-error-tab
+summary: >
+  18 tasks across 4 phases to add conditional Errors tab to FeatureDrawer with
+  console-style error display. Implementation follows TDD approach with comprehensive
+  unit tests, accessibility validation, and Storybook documentation.
+
+# Relationships
+relatedFeatures:
+  - 018-feature-drawer
+  - 045-unified-base-drawer
+
+technologies:
+  - React 19
+  - TypeScript 5.7
+  - Radix UI Tabs
+  - lucide-react
+  - Tailwind CSS
+  - Vitest
+  - Testing Library
+  - Storybook 8
+
+relatedLinks:
+  - https://www.radix-ui.com/primitives/docs/components/tabs
+  - https://testing-library.com/docs/react-testing-library/intro
+
+# Structured task list
+tasks:
+  # Phase 1: Test Infrastructure & Conditional Tab Rendering
+  - id: task-1
+    phaseId: phase-1
+    title: 'Write failing tests for tab visibility logic'
+    description: 'Create unit tests that verify tabs are shown when errorMessage exists and hidden when undefined/empty. Test the showTabs boolean logic with various edge cases (null, undefined, empty string, non-empty string).'
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'Test fails: expects tabs to be present when errorMessage="Build failed", but no tabs found'
+      - 'Test fails: expects no tabs when errorMessage=undefined'
+      - 'Test fails: expects no tabs when errorMessage=""'
+      - 'Test fails: expects no tabs when errorMessage=null'
+      - 'All new tests use Testing Library getByRole queries for semantic testing'
+    tdd:
+      red:
+        - 'Write test: "renders tabs when errorMessage exists" - expect screen.getByRole("tablist") to be in document with errorMessage="Build failed"'
+        - 'Write test: "does not render tabs when errorMessage is undefined" - expect screen.queryByRole("tablist") to be null'
+        - 'Write test: "does not render tabs when errorMessage is empty string" - expect screen.queryByRole("tablist") to be null with errorMessage=""'
+        - 'Write test: "does not render tabs when errorMessage is null" - expect screen.queryByRole("tablist") to be null with errorMessage=null'
+        - 'Run tests with `pnpm test:watch` - verify all 4 tests fail (tabs not implemented yet)'
+      green:
+        - 'Implementation happens in next task'
+      refactor:
+        - 'N/A - tests only'
+    estimatedEffort: '30min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Implement conditional tab structure in FeatureDrawer'
+    description: 'Add showTabs boolean logic and conditionally render Tabs component. Import Tabs primitives from ui/tabs.tsx. Wrap existing DetailsSection in TabsContent. Add empty Errors TabsContent placeholder.'
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'showTabs boolean correctly evaluates: Boolean(data.errorMessage)'
+      - 'Tabs component with TabsList and two TabsTrigger elements (Details, Errors) renders when showTabs is true'
+      - 'Existing Details content wrapped in TabsContent component'
+      - 'Empty Errors TabsContent renders (placeholder for next phase)'
+      - 'Current single-view layout renders when showTabs is false'
+      - 'All tests from task-1 now pass'
+    tdd:
+      red:
+        - 'Tests from task-1 are already failing'
+      green:
+        - 'Add import: import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"'
+        - 'Add showTabs boolean: const showTabs = Boolean(data.errorMessage)'
+        - 'Add conditional JSX: {showTabs ? <Tabs>...</Tabs> : <div>{existing Details content}</div>}'
+        - 'Inside Tabs: add TabsList with two TabsTrigger elements (value="details" and value="errors")'
+        - 'Wrap existing DetailsSection in <TabsContent value="details">...</TabsContent>'
+        - 'Add empty <TabsContent value="errors"><div>Error placeholder</div></TabsContent>'
+        - 'Run tests - verify all 4 tests from task-1 pass'
+      refactor:
+        - 'Extract tab structure to improve readability if JSX becomes too nested'
+        - 'Ensure proper indentation and formatting'
+    estimatedEffort: '45min'
+
+  - id: task-3
+    phaseId: phase-1
+    title: 'Write failing tests for default active tab'
+    description: 'Create unit tests that verify the Errors tab is the default active tab when tabs are shown. Use Testing Library queries to check which tab panel is visible by default.'
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'Test fails: expects Errors tab content to be visible by default when errorMessage exists'
+      - 'Test fails: expects Details tab content to be hidden by default (not the active tab)'
+      - 'Test verifies user can manually switch to Details tab via click/keyboard'
+    tdd:
+      red:
+        - 'Write test: "Errors tab is active by default when errorMessage exists" - render with errorMessage="Build failed", expect Errors tab content visible, Details tab content hidden'
+        - 'Write test: "can switch from Errors tab to Details tab" - render with error, click Details tab trigger, expect Details content visible'
+        - 'Run tests - verify tests fail (defaultValue not set yet)'
+      green:
+        - 'Implementation happens in next task'
+      refactor:
+        - 'N/A - tests only'
+    estimatedEffort: '20min'
+
+  - id: task-4
+    phaseId: phase-1
+    title: 'Set Errors tab as default active tab'
+    description: 'Add defaultValue="errors" prop to Tabs component to make Errors tab active by default when tabs are shown.'
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'Tabs component has defaultValue="errors" prop'
+      - 'Errors tab content visible by default when drawer opens with error'
+      - 'Details tab content hidden by default (not active)'
+      - 'User can manually switch between tabs'
+      - 'All tests from task-3 pass'
+    tdd:
+      red:
+        - 'Tests from task-3 are already failing'
+      green:
+        - 'Add defaultValue="errors" to Tabs component: <Tabs defaultValue="errors">...</Tabs>'
+        - 'Run tests - verify both tests from task-3 pass'
+      refactor:
+        - 'No refactoring needed - simple prop addition'
+    estimatedEffort: '15min'
+
+  # Phase 2: Console-Style Error Display & Details Tab Cleanup
+  - id: task-5
+    phaseId: phase-2
+    title: 'Write failing tests for console-style error display structure'
+    description: 'Create unit tests that verify the Errors tab contains CircleX icon, "Error" heading, and error message in a pre element with proper classes.'
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'Test fails: expects CircleX icon to be present in Errors tab content'
+      - 'Test fails: expects "Error" heading with specific styling classes'
+      - 'Test fails: expects error message rendered in pre element with font-mono class'
+      - 'Test fails: expects error container to have red styling classes (bg-red-50, border-red-200)'
+    tdd:
+      red:
+        - 'Write test: "renders CircleX icon in Errors tab" - render with errorMessage, expect icon element (test by role or testid)'
+        - 'Write test: "renders Error heading with red styling" - expect heading with text "Error" and text-red-900 class'
+        - 'Write test: "renders error message in pre element" - expect pre element containing errorMessage text with font-mono class'
+        - 'Write test: "error container has console-style red classes" - expect container with bg-red-50, border-red-200, rounded-lg classes'
+        - 'Run tests - verify all tests fail (error display not implemented)'
+      green:
+        - 'Implementation happens in next task'
+      refactor:
+        - 'N/A - tests only'
+    estimatedEffort: '30min'
+
+  - id: task-6
+    phaseId: phase-2
+    title: 'Implement console-style error display in Errors tab'
+    description: 'Replace placeholder in Errors TabsContent with full console-style error display: CircleX icon, "Error" heading, styled pre element with error message, and red color scheme container.'
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'CircleX icon imported from lucide-react and rendered with text-red-600 class'
+      - '"Error" heading rendered with text-red-900 font-semibold classes'
+      - 'Error message rendered in pre element with whitespace-pre-wrap font-mono text-sm text-red-900 classes'
+      - 'Container has bg-red-50 border border-red-200 rounded-lg p-4 classes'
+      - 'Container has max-h-96 overflow-y-auto for scrolling long errors'
+      - 'Error message displays correctly with preserved formatting'
+      - 'All tests from task-5 pass'
+    tdd:
+      red:
+        - 'Tests from task-5 are already failing'
+      green:
+        - 'Add import: import { CircleX } from "lucide-react"'
+        - 'Replace placeholder in Errors TabsContent with structured div'
+        - 'Add container div with classes: bg-red-50 border border-red-200 rounded-lg p-4 max-h-96 overflow-y-auto'
+        - 'Add header div with CircleX icon (className="h-4 w-4 text-red-600") and h3 "Error" (className="text-red-900 font-semibold")'
+        - 'Add pre element with error message: <pre className="whitespace-pre-wrap font-mono text-sm text-red-900">{data.errorMessage}</pre>'
+        - 'Run tests - verify all 4 tests from task-5 pass'
+      refactor:
+        - 'Ensure proper flex layout for icon + heading (flex items-center gap-2)'
+        - 'Add margin between heading and error message (mb-2 on header div)'
+    estimatedEffort: '30min'
+
+  - id: task-7
+    phaseId: phase-2
+    title: 'Write failing tests for errorMessage removal from Details tab'
+    description: 'Create unit tests that verify the errorMessage DetailRow is removed from Details tab when tabs are shown, but appears in single-view layout when no error exists.'
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'Test fails: expects errorMessage DetailRow NOT to be present in Details tab when tabs are shown'
+      - 'Test passes: errorMessage DetailRow appears in single-view layout when errorMessage is undefined (current behavior)'
+      - 'Test verifies other DetailRow fields (description, agentType, runtime, blockedBy) still render in Details tab'
+    tdd:
+      red:
+        - 'Write test: "does not render errorMessage in Details tab when tabs are shown" - render with errorMessage, switch to Details tab, expect no DetailRow with label="Error"'
+        - 'Write test: "renders all other DetailRow fields in Details tab" - render with error, switch to Details tab, expect description, agentType, runtime DetailRows present'
+        - 'Run tests - first test should fail (errorMessage DetailRow currently always renders when present)'
+      green:
+        - 'Implementation happens in next task'
+      refactor:
+        - 'N/A - tests only'
+    estimatedEffort: '20min'
+
+  - id: task-8
+    phaseId: phase-2
+    title: 'Remove errorMessage field from Details tab when tabs shown'
+    description: 'Add conditional rendering to errorMessage DetailRow so it only appears in single-view layout (when showTabs is false), not in the Details tab.'
+    state: Todo
+    dependencies:
+      - task-7
+    acceptanceCriteria:
+      - 'errorMessage DetailRow has conditional: {data.errorMessage && !showTabs ? <DetailRow ... /> : null}'
+      - 'errorMessage does NOT appear in Details tab when tabs are shown'
+      - 'Other DetailRow fields (description, agentType, runtime, blockedBy) still render in Details tab'
+      - 'No duplication of error message between Details tab and Errors tab'
+      - 'All tests from task-7 pass'
+    tdd:
+      red:
+        - 'Tests from task-7 are already failing'
+      green:
+        - 'Locate errorMessage DetailRow in DetailsSection component'
+        - 'Wrap with conditional: {data.errorMessage && !showTabs ? <DetailRow label="Error" value={data.errorMessage} /> : null}'
+        - 'Run tests - verify test from task-7 passes'
+      refactor:
+        - 'Ensure showTabs variable is accessible in DetailsSection scope (may need to pass as prop or define earlier)'
+        - 'Verify other DetailRow fields still render correctly'
+    estimatedEffort: '20min'
+
+  # Phase 3: Accessibility & Edge Case Hardening
+  - id: task-9
+    phaseId: phase-3
+    title: 'Write failing tests for ARIA labels on tab triggers'
+    description: 'Create unit tests that verify TabsTrigger elements have appropriate aria-label attributes for screen readers.'
+    state: Todo
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - 'Test fails: expects Details tab trigger to have aria-label="Details section"'
+      - 'Test fails: expects Errors tab trigger to have aria-label="Error details section"'
+      - 'Tests use getByRole with accessible name queries'
+    tdd:
+      red:
+        - 'Write test: "Details tab trigger has ARIA label" - expect screen.getByRole("tab", { name: /details section/i }) to exist'
+        - 'Write test: "Errors tab trigger has ARIA label" - expect screen.getByRole("tab", { name: /error details section/i }) to exist'
+        - 'Run tests - verify tests fail (aria-label attributes not added yet)'
+      green:
+        - 'Implementation happens in next task'
+      refactor:
+        - 'N/A - tests only'
+    estimatedEffort: '15min'
+
+  - id: task-10
+    phaseId: phase-3
+    title: 'Add ARIA labels to tab triggers'
+    description: 'Add aria-label attributes to Details and Errors TabsTrigger elements for screen reader accessibility.'
+    state: Todo
+    dependencies:
+      - task-9
+    acceptanceCriteria:
+      - 'Details TabsTrigger has aria-label="Details section"'
+      - 'Errors TabsTrigger has aria-label="Error details section"'
+      - 'Screen readers announce descriptive labels for each tab'
+      - 'All tests from task-9 pass'
+    tdd:
+      red:
+        - 'Tests from task-9 are already failing'
+      green:
+        - 'Add aria-label="Details section" to Details TabsTrigger'
+        - 'Add aria-label="Error details section" to Errors TabsTrigger'
+        - 'Run tests - verify both tests from task-9 pass'
+      refactor:
+        - 'No refactoring needed - simple attribute addition'
+    estimatedEffort: '10min'
+
+  - id: task-11
+    phaseId: phase-3
+    title: 'Write failing tests for keyboard navigation'
+    description: 'Create unit tests that verify keyboard navigation works correctly for tabs (Tab key focus, Arrow keys switch tabs, Enter/Space activate).'
+    state: Todo
+    dependencies:
+      - task-10
+    acceptanceCriteria:
+      - 'Test verifies Tab key can focus on tab triggers'
+      - 'Test verifies Arrow keys can switch between tabs'
+      - 'Test verifies Enter/Space keys activate focused tab'
+      - 'Tests use userEvent for realistic keyboard interactions'
+    tdd:
+      red:
+        - 'Write test: "can navigate tabs with keyboard" - render with error, use userEvent.tab() to focus tabs, userEvent.keyboard("{ArrowRight}") to switch, verify Details tab becomes active'
+        - 'Write test: "can activate tab with Enter key" - focus Errors tab, press ArrowRight to Details, press Enter, verify Details tab content visible'
+        - 'Run tests - tests should pass if Radix UI provides correct keyboard behavior (may need to verify implementation)'
+      green:
+        - 'Radix UI Tabs handles keyboard navigation automatically - tests should pass without additional implementation'
+        - 'If tests fail, investigate Radix UI setup or test environment'
+      refactor:
+        - 'N/A - Radix UI provides this functionality'
+    estimatedEffort: '25min'
+
+  - id: task-12
+    phaseId: phase-3
+    title: 'Write failing tests for edge cases'
+    description: 'Create comprehensive unit tests for edge cases: very long error messages (>1000 chars), multi-line errors with newlines, special characters (HTML entities, control chars).'
+    state: Todo
+    dependencies:
+      - task-11
+    acceptanceCriteria:
+      - 'Test verifies very long error message (1500 chars) renders with scroll (max-h-96 overflow-y-auto)'
+      - 'Test verifies multi-line error with newlines preserves formatting (whitespace-pre-wrap)'
+      - 'Test verifies error with HTML entities (<, >, &) are escaped correctly (no XSS)'
+      - 'Test verifies error with special characters (tabs, control chars) renders without breaking layout'
+    tdd:
+      red:
+        - 'Write test: "renders very long error with scroll" - create 1500-char error message, render, verify max-h-96 class present on container'
+        - 'Write test: "preserves newlines in multi-line error" - create error with "\\nline1\\nline2\\nline3", render, verify all lines visible in pre element'
+        - 'Write test: "escapes HTML entities in error message" - create error with "<script>alert(1)</script>", render, verify text is escaped (no script execution)'
+        - 'Write test: "handles special characters gracefully" - create error with tabs (\\t) and control chars, render, verify no layout break'
+        - 'Run tests - verify tests pass (React escapes by default, whitespace-pre-wrap handles newlines, max-h-96 already added)'
+      green:
+        - 'Tests should pass with existing implementation - React escapes HTML by default, whitespace-pre-wrap preserves newlines, max-h-96 provides scroll'
+        - 'If tests fail, investigate edge case handling'
+      refactor:
+        - 'N/A - validation tests for existing implementation'
+    estimatedEffort: '30min'
+
+  - id: task-13
+    phaseId: phase-3
+    title: 'Write failing tests for state preservation during tab switching'
+    description: 'Create unit tests that verify drawer state (delete dialog open/close) is preserved when switching between tabs.'
+    state: Todo
+    dependencies:
+      - task-12
+    acceptanceCriteria:
+      - 'Test verifies delete dialog can open while on Errors tab and remains open when switching to Details tab'
+      - 'Test verifies delete dialog state does not interfere with tab switching'
+      - 'Test verifies no unnecessary re-renders when switching tabs'
+    tdd:
+      red:
+        - 'Write test: "preserves delete dialog state when switching tabs" - render with error and onDelete prop, open delete dialog, switch from Errors to Details tab, verify dialog still open'
+        - 'Write test: "can interact with delete dialog while on any tab" - render with error, switch to Details tab, open delete dialog, click cancel, verify dialog closes'
+        - 'Run tests - verify tests pass (Radix UI Tabs preserves React state correctly)'
+      green:
+        - 'Tests should pass with existing implementation - React state preservation is automatic'
+        - 'If tests fail, investigate tab mounting/unmounting behavior'
+      refactor:
+        - 'N/A - validation tests for existing behavior'
+    estimatedEffort: '20min'
+
+  - id: task-14
+    phaseId: phase-3
+    title: 'Run full test suite and verify coverage'
+    description: 'Execute full test suite (pnpm test) to ensure all existing tests still pass and verify >95% coverage for FeatureDrawer component (pnpm test:coverage).'
+    state: Todo
+    dependencies:
+      - task-13
+    acceptanceCriteria:
+      - 'All existing tests pass (no regressions)'
+      - 'All new tests pass (18 new tests across phases 1-3)'
+      - 'FeatureDrawer component coverage is >95% (ideally 100% to match existing standard)'
+      - 'Coverage report shows all branches covered (showTabs true/false, error present/absent)'
+      - 'No TypeScript errors or warnings'
+    tdd:
+      red:
+        - 'N/A - validation task'
+      green:
+        - 'N/A - validation task'
+      refactor:
+        - 'N/A - validation task'
+    estimatedEffort: '20min'
+
+  # Phase 4: Storybook Documentation & Visual Validation
+  - id: task-15
+    phaseId: phase-4
+    title: 'Create ErrorShortMessage story'
+    description: 'Add Storybook story for a short (1-line) error message to demonstrate basic error tab functionality.'
+    state: Todo
+    dependencies:
+      - task-14
+    acceptanceCriteria:
+      - 'Story renders FeatureDrawer with errorMessage: "Build failed: type mismatch in src/auth.ts"'
+      - 'Tabs are visible with Errors tab active by default'
+      - 'Error message fits in container without scroll'
+      - 'Console-style red styling is visible'
+      - 'Story renders without errors in Storybook'
+    tdd: null
+    estimatedEffort: '20min'
+
+  - id: task-16
+    phaseId: phase-4
+    title: 'Create ErrorMediumMessage story'
+    description: 'Add Storybook story for a medium-length (~10 lines) error message with formatting to demonstrate whitespace preservation.'
+    state: Todo
+    dependencies:
+      - task-15
+    acceptanceCriteria:
+      - 'Story renders FeatureDrawer with multi-line error (~10 lines) including indentation and newlines'
+      - 'Error message preserves formatting (whitespace-pre-wrap visible)'
+      - 'Error fits in container with some scroll if needed'
+      - 'Monospace font (font-mono) is clearly visible'
+      - 'Story renders without errors in Storybook'
+    tdd: null
+    estimatedEffort: '25min'
+
+  - id: task-17
+    phaseId: phase-4
+    title: 'Create ErrorLongStackTrace story'
+    description: 'Add Storybook story for a very long (~50+ lines) Node.js stack trace to demonstrate scrolling behavior and max-h-96 constraint.'
+    state: Todo
+    dependencies:
+      - task-16
+    acceptanceCriteria:
+      - 'Story renders FeatureDrawer with realistic 50+ line stack trace'
+      - 'Error container scrolls (max-h-96 overflow-y-auto visible)'
+      - 'Delete button remains visible and accessible below error container'
+      - 'Scrollbar appears on error container (not entire drawer)'
+      - 'Story renders without errors in Storybook'
+    tdd: null
+    estimatedEffort: '30min'
+
+  - id: task-18
+    phaseId: phase-4
+    title: 'Create NoErrorState story and update existing Error story'
+    description: 'Add Storybook story that explicitly shows no error state (errorMessage: undefined) to verify no tabs appear. Update existing Error story to use multi-line error instead of single-line.'
+    state: Todo
+    dependencies:
+      - task-17
+    acceptanceCriteria:
+      - 'NoErrorState story renders FeatureDrawer with errorMessage: undefined'
+      - 'No tabs visible in NoErrorState story (current single-view behavior)'
+      - 'Existing Error story updated to use multi-line errorMessage with stack trace'
+      - 'All stories render without errors in Storybook'
+      - 'Visual validation checklist completed for all 4 new stories'
+    tdd: null
+    estimatedEffort: '25min'
+
+# Total effort estimate
+totalEstimate: '7h 30min'
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Status
+
+  - **Phase:** Implementation
+  - **Updated:** 2026-02-26
+
+  ## Summary
+
+  This implementation follows a strict TDD approach across 18 tasks in 4 phases. First, we establish test infrastructure and implement conditional tab rendering (Phase 1). Then we build the console-style error display and clean up the Details tab (Phase 2). Next, we harden the implementation with accessibility features and edge case testing (Phase 3). Finally, we document the feature with comprehensive Storybook stories (Phase 4).
+
+  The task breakdown ensures each step has clear acceptance criteria and follows the RED-GREEN-REFACTOR cycle. All code tasks write failing tests first before implementation, maintaining the 100% test coverage standard of the existing codebase.
+
+  ## Task Flow
+
+  **Phase 1 (Foundation):**
+  - Tasks 1-2: Tab visibility logic (tests first, then implementation)
+  - Tasks 3-4: Default active tab (tests first, then implementation)
+
+  **Phase 2 (Core Functionality):**
+  - Tasks 5-6: Console-style error display (tests first, then implementation)
+  - Tasks 7-8: Remove errorMessage from Details tab (tests first, then implementation)
+
+  **Phase 3 (Robustness):**
+  - Tasks 9-10: ARIA labels (tests first, then implementation)
+  - Tasks 11-13: Keyboard navigation, edge cases, state preservation (tests verify behavior)
+  - Task 14: Full test suite validation and coverage check
+
+  **Phase 4 (Documentation):**
+  - Tasks 15-18: Storybook stories for visual validation (no TDD, documentation only)
+
+  Each task builds on the previous, with explicit dependencies ensuring proper sequencing. The total estimated effort is 7.5 hours, aligning with the Medium (M) size estimate from the spec (1-2 days).
+
+  ## Testing Strategy
+
+  **Unit Tests (Phases 1-3):**
+  - 18+ new tests across 4 describe blocks
+  - TDD cycle for every implementation task
+  - Coverage target: maintain 100% (existing standard)
+  - Execution: `pnpm test:watch` for TDD, `pnpm test:coverage` for validation
+
+  **Storybook Stories (Phase 4):**
+  - 4 new stories + 1 updated story
+  - Manual visual testing checklist
+  - Execution: `pnpm dev:web` → http://localhost:3000/storybook
+
+  ## Validation Checklist
+
+  Before marking implementation complete:
+  - [ ] All 18 tasks completed and marked as done
+  - [ ] All unit tests pass (existing + new)
+  - [ ] Coverage >95% for FeatureDrawer component
+  - [ ] All Storybook stories render without errors
+  - [ ] Manual visual validation completed (tabs, error display, scrolling, accessibility)
+  - [ ] Keyboard navigation works (Tab, Arrow keys, Enter/Space)
+  - [ ] Screen reader test completed (ARIA labels announced correctly)
+  - [ ] Edge cases verified (long errors, special characters, state preservation)
+  - [ ] No TypeScript errors or warnings
+  - [ ] Linter passes: `pnpm lint:fix`
+  - [ ] Type checker passes: `pnpm validate`
+
+  ---
+
+  _Task breakdown complete — ready for implementation phase_

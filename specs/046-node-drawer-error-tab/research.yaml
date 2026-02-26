@@ -1,0 +1,726 @@
+name: node-drawer-error-tab
+summary: >
+  Technical research for adding a conditional Errors tab to FeatureDrawer with
+  console-style error display. Implementation uses existing Radix UI Tabs
+  primitives (already in codebase), direct Tailwind red utilities (matching
+  ci-status-badge.tsx and tool-card.tsx patterns), CircleX icon from
+  lucide-react, and conditional rendering logic to show/hide tabs based on
+  errorMessage presence. No external libraries, domain model changes, or
+  architectural modifications required—pure UI component enhancement with
+  TDD-driven development.
+
+relatedFeatures:
+  - 018-feature-drawer
+  - 045-unified-base-drawer
+
+technologies:
+  - React 19
+  - TypeScript 5.7
+  - Radix UI Tabs (@radix-ui/react-tabs via shadcn)
+  - lucide-react (CircleX icon)
+  - Tailwind CSS (direct red utilities)
+  - Vitest (unit testing)
+  - Testing Library (@testing-library/react)
+  - Storybook 8 (component stories)
+
+relatedLinks:
+  - https://www.radix-ui.com/primitives/docs/components/tabs
+  - https://tailwindcss.com/docs/background-color#arbitrary-values
+  - https://lucide.dev/icons/circle-x
+  - https://testing-library.com/docs/react-testing-library/intro
+
+decisions:
+  - title: 'Tab Structure and Conditional Rendering Approach'
+    chosen: >
+      Conditional tab structure rendered only when errorMessage exists. When
+      errorMessage is present, wrap existing Details content in a Tabs
+      component with two tabs: "Details" and "Errors". When errorMessage is
+      undefined/empty, render current single-view layout (no tabs).
+      Implementation uses a simple boolean check: `const showTabs =
+      Boolean(data.errorMessage)` followed by conditional JSX.
+    rejected:
+      - >-
+        Always show tabs with Details/Errors, but disable/hide Errors tab when
+        no error — Rejected because this adds unnecessary UI complexity for the
+        majority case (no errors). Creates persistent tab chrome that serves no
+        purpose 90%+ of the time. Violates principle of progressive disclosure
+        (only show UI elements when needed).
+      - >-
+        Separate ErrorDrawer component that replaces FeatureDrawer when error
+        exists — Rejected because this duplicates the entire drawer structure
+        (header, status section, PR info, delete button) and creates two
+        parallel component hierarchies to maintain. Single component with
+        conditional tabs is simpler and more maintainable.
+    rationale: >
+      Conditional rendering matches the codebase's existing pattern of
+      progressive disclosure (see DetailsSection at feature-drawer.tsx:199-213
+      which only renders when `hasAnyDetail` is true). Tab structure only
+      appears when needed, keeping the UI clean for non-error states while
+      providing dedicated error space when errors exist. This approach requires
+      minimal code changes: wrap existing Details content in TabsContent,
+      conditionally render Tabs vs. plain content, and add error TabsContent.
+      No architectural changes to BaseDrawer composition. Performance impact is
+      negligible (one boolean check + conditional JSX).
+
+  - title: 'Default Active Tab Selection'
+    chosen: >
+      Error tab is the default active tab when errorMessage exists. Implemented
+      via `<Tabs defaultValue="errors">` on the Tabs root component. When tabs
+      are shown, users immediately see the error content without manual tab
+      switching.
+    rejected:
+      - >-
+        Details tab always default (user must click Errors tab) — Rejected
+        because when a user opens a drawer for a node in an error state, their
+        primary intent is to diagnose the failure. Making the error immediately
+        visible reduces cognitive friction and aligns with standard dev tool UX
+        (browser console auto-shows errors, IDE error panels open on error).
+        Requiring manual tab click adds unnecessary action.
+      - >-
+        Remember last active tab in localStorage — Rejected because this adds
+        complexity (localStorage read/write, edge cases around clearing storage)
+        for minimal benefit. Error visibility is contextual to the specific node
+        being viewed, not a persistent user preference. Over-engineering for a
+        simple feature.
+    rationale: >
+      User feedback explicitly stated "the error should be shown like a
+      logger.error would show it", implying immediate visibility. When browser
+      console.error() is called, errors appear immediately without user action.
+      Same pattern applies here. This matches the principle of "show the most
+      relevant content first" — for a failed node, the error IS the most
+      relevant content. Reference implementation: version-page-client.tsx:49
+      uses `defaultValue="overview"` to set initial tab, demonstrating the
+      pattern already exists in the codebase.
+
+  - title: 'Error Display Styling (Console-Style Visual Treatment)'
+    chosen: >
+      Console-style error display using direct Tailwind red utilities:
+      container with `bg-red-50 border border-red-200 rounded-lg p-4`,
+      CircleX icon with `text-red-600`, "Error" heading with `text-red-900
+      font-semibold`, error message in `<pre>` element with `whitespace-pre-wrap
+      font-mono text-sm text-red-900`, and `max-h-96 overflow-y-auto` for long
+      errors.
+    rejected:
+      - >-
+        Plain text display without special styling — Rejected because user
+        feedback explicitly requested "the error should be shown like a
+        logger.error would show it". Plain text does not match the visual
+        treatment developers expect from console.error() (red background,
+        monospace font). Would not provide the semantic clarity needed to
+        immediately recognize error content.
+      - >-
+        Semantic CSS variables (--color-error-bg, --color-error-text) —
+        Rejected because the codebase does not currently use a centralized
+        design token system for error colors. ci-status-badge.tsx (line 23) and
+        tool-card.tsx (line 112) both use direct Tailwind red utilities
+        (bg-red-50, text-red-600, text-red-700, text-red-400). Adding semantic
+        tokens for a single component feature creates inconsistency and
+        indirection. If future work adds a design system, we can refactor. For
+        now, explicit Tailwind classes match existing patterns.
+      - >-
+        Use Alert component from shadcn/ui — Rejected because Alert component
+        is designed for inline notifications/warnings, not for displaying
+        multi-line stack traces with preserved formatting. Alert has opinionated
+        padding, icon positioning, and spacing that doesn't match console.error
+        visual treatment. Custom <pre> element with console-style styling
+        provides exact control needed for error message display.
+    rationale: >
+      Direct Tailwind utilities match existing error styling patterns in the
+      codebase: ci-status-badge.tsx line 23 uses `bg-red-50 text-red-700` for
+      CiStatus.Failure, tool-card.tsx line 112 uses `text-red-600` for error
+      icon + text. Consistency is key. CircleX icon is already used for error
+      state in tool-card.tsx line 115, providing visual consistency across the
+      application. The `<pre>` element with `whitespace-pre-wrap font-mono`
+      preserves formatting for stack traces (line breaks, indentation, spacing)
+      while wrapping long lines to prevent horizontal scroll. This matches how
+      browser dev tools display console.error() output. Red color scheme
+      (bg-red-50 background, border-red-200 border, text-red-900 text) provides
+      immediate semantic clarity: "this is an error, pay attention". The
+      max-h-96 scroll container ensures very long stack traces (100+ lines)
+      don't dominate the drawer, matching the pattern in browser dev tools where
+      long console output is scrollable within a fixed-height panel.
+
+  - title: 'Error Message Field Handling in Details Tab'
+    chosen: >
+      Remove errorMessage field from Details tab when Errors tab is present.
+      Conditional rendering: `{data.errorMessage && !showTabs ? <DetailRow
+      label="Error" value={data.errorMessage} /> : null}`. When tabs are shown,
+      error content is ONLY in the Errors tab. When no tabs (no error), the
+      errorMessage field would not exist anyway (since showTabs depends on
+      errorMessage presence).
+    rejected:
+      - >-
+        Show error in both Details tab and Errors tab — Rejected because
+        duplication creates confusion (which display is authoritative?), adds
+        visual clutter, and violates DRY principles. If error message is shown
+        in two places and they differ (e.g., due to a bug or state
+        inconsistency), users won't know which to trust. Single source of truth
+        (Errors tab) provides clarity.
+      - >-
+        Show error summary in Details, full error in Errors tab — Rejected
+        because this adds complexity (need to define "summary" vs "full" error,
+        implement truncation logic, decide on truncation length). The error
+        field in FeatureNodeData is already a string (errorMessage?: string),
+        not structured data with summary/details. Splitting the display creates
+        ambiguity. If users need metadata, they can switch to Details tab.
+    rationale: >
+      By defaulting to the Errors tab when an error exists, users see the full
+      console-style error immediately. If they need metadata (description,
+      agentType, runtime, blockedBy), they can switch to Details tab. This
+      provides clear separation of concerns: Details = metadata, Errors = error
+      diagnostics. No duplication, no confusion. The conditional rendering logic
+      is simple: if showTabs (meaning error exists), don't show errorMessage in
+      Details; if !showTabs (no error), the error field wouldn't render anyway
+      because it's undefined. Clean information architecture. Note: existing
+      DetailsSection component (feature-drawer.tsx:199-213) already has
+      conditional field rendering — each field only shows if defined. We're
+      extending this pattern with an additional condition for errorMessage.
+
+  - title: 'Tab Accessibility and ARIA Labels'
+    chosen: >
+      Use Radix UI Tabs primitive with built-in accessibility. Add aria-label
+      attributes to TabsTrigger elements: `<TabsTrigger value="details"
+      aria-label="Details section">Details</TabsTrigger>` and `<TabsTrigger
+      value="errors" aria-label="Error details
+      section">Errors</TabsTrigger>`. Radix UI handles keyboard navigation
+      (Tab/Arrow keys), focus management, and ARIA roles (role="tablist",
+      role="tab", role="tabpanel") automatically.
+    rejected:
+      - >-
+        Build custom tab component from scratch — Rejected because Radix UI Tabs
+        primitive already exists in the codebase
+        (src/presentation/web/components/ui/tabs.tsx) and provides battle-tested
+        accessibility (ARIA roles, keyboard navigation, focus management).
+        Re-implementing this is unnecessary work and would likely introduce
+        accessibility bugs. Radix UI is already used for 20+ components in the
+        codebase (see shadcn/ui documentation).
+      - >-
+        Use Material-UI Tabs or Chakra UI Tabs — Rejected because the codebase
+        uses shadcn/ui + Radix UI as the component library (see tabs.tsx,
+        button.tsx, badge.tsx, etc.). Introducing a new UI library (Material-UI,
+        Chakra) would add dependency bloat, increase bundle size, and create
+        inconsistent styling across the application. Stick with existing
+        architecture.
+    rationale: >
+      Radix UI Tabs is already installed and used in the codebase (tabs.tsx
+      imports from 'radix-ui'). version-page-client.tsx:49-122 demonstrates
+      existing usage with TabsList, TabsTrigger, TabsContent, and defaultValue.
+      Adding aria-label attributes to TabsTrigger elements provides screen
+      reader users with descriptive labels ("Details section", "Error details
+      section") beyond the visible text ("Details", "Errors"). This follows WCAG
+      2.1 AA standards for accessible tab interfaces. Keyboard navigation (Tab
+      key to focus tab list, Arrow keys to move between tabs, Enter/Space to
+      activate) is handled automatically by Radix UI. No custom keyboard event
+      handlers needed. Focus management (visual focus ring, active tab styling)
+      is also automatic via Radix UI's built-in state tracking
+      (data-[state=active]). Testing: use Testing Library's
+      `screen.getByRole('tablist')`, `screen.getByRole('tab', { name: 'Details
+      section' })` for accessible queries in unit tests.
+
+  - title: 'Tab Content Layout and Scrolling Behavior'
+    chosen: >
+      Errors tab content uses a scrollable container with max-h-96
+      (overflow-y-auto) for the error message itself, not the entire tab panel.
+      Details tab content remains unstyled (existing behavior). BaseDrawer
+      already provides a scrollable content area (base-drawer.tsx:80-83:
+      `<div className="flex-1 overflow-y-auto">`), so tab panels inherit scroll
+      context.
+    rejected:
+      - >-
+        Fixed-height tab panels with internal scroll — Rejected because this
+        constrains all tab content to the same height regardless of actual
+        content length. Details tab might have 3 short fields, Errors tab might
+        have 50 lines of stack trace. Fixed height creates wasted space (Details
+        tab) or insufficient space (Errors tab). Better to let each tab panel
+        size naturally based on content, with scroll applied only where needed
+        (long error messages).
+      - >-
+        No max height on error message (let it expand infinitely) — Rejected
+        because extremely long stack traces (200+ lines) would push delete
+        button and other controls out of view, making the drawer unusable.
+        max-h-96 (~24rem, ~30-40 lines) ensures the error message is contained
+        while still showing substantial content. Users can scroll within the
+        error area to see full trace. This matches browser dev tools pattern
+        where console output has a scrollable panel.
+    rationale: >
+      BaseDrawer component (base-drawer.tsx:80-83) already provides a
+      flex-1-overflow-y-auto scrollable content area that wraps all drawer
+      children. When tab panels are rendered inside this area, they inherit the
+      scroll context. For most content (status section, PR info, Details tab
+      fields), natural layout + BaseDrawer scroll is sufficient. For potentially
+      very long content (error stack traces), an additional max-h-96
+      overflow-y-auto constraint on the specific error message <pre> element
+      prevents it from dominating the entire drawer. This provides two levels of
+      scroll: (1) BaseDrawer scroll for overall drawer content (all sections),
+      (2) error message scroll for long stack traces. Users can scroll the
+      drawer to see all sections (status, PR, tabs, delete button), then scroll
+      within the error message to see full trace. This is the same pattern as
+      browser dev tools: the entire panel scrolls, but within the panel, long
+      console output also scrolls. Testing: verify that delete button remains
+      accessible even with 200-line error messages.
+
+  - title: 'Edge Case Handling for Error Message Values'
+    chosen: >
+      Treat errorMessage as a simple boolean presence check for tabs: `const
+      showTabs = Boolean(data.errorMessage)`. Empty string ('') is falsy in
+      Boolean context, so tabs won't show. Null and undefined are also falsy.
+      Only non-empty strings trigger tab display. In Errors tab content, use
+      optional chaining: `{data.errorMessage || 'No error message available'}` as
+      fallback (defensive programming, though showTabs ensures errorMessage
+      exists).
+    rejected:
+      - >-
+        Complex validation (check for null, undefined, empty string separately)
+        — Rejected because Boolean(data.errorMessage) handles all cases: null →
+        false, undefined → false, '' → false, 'error text' → true. Simple and
+        readable. No need for verbose `data.errorMessage !== null &&
+        data.errorMessage !== undefined && data.errorMessage !== ''` checks.
+      - >-
+        Show tabs even for empty string errorMessage — Rejected because empty
+        string provides no diagnostic value. If errorMessage is '', there's
+        nothing to show in the Errors tab (empty panel is confusing). Better to
+        treat empty string as "no error" and not show tabs. User feedback was
+        about showing errors "like a logger.error" — logger.error('') with empty
+        message is not useful.
+    rationale: >
+      FeatureNodeData interface (feature-node-state-config.ts:42-75) defines
+      errorMessage as `errorMessage?: string`, meaning it can be undefined or a
+      string. TypeScript doesn't distinguish between empty string and undefined
+      at the type level, but at runtime, Boolean('') is false while
+      Boolean('error text') is true. This provides clean semantics: if there's
+      an error message with content, show tabs; otherwise, don't. Edge case
+      testing (unit tests) should verify: (1) errorMessage: undefined → no tabs,
+      (2) errorMessage: null → no tabs (defensive, though TypeScript says
+      string?), (3) errorMessage: '' → no tabs, (4) errorMessage: 'Build failed'
+      → tabs shown. The optional chaining in error display
+      (`{data.errorMessage}`) safely handles all cases, and TypeScript ensures
+      we only render Errors tab when showTabs is true, so errorMessage should
+      always be defined at that point. Fallback text ('No error message
+      available') is defensive programming (should never happen, but prevents
+      blank panel if state is inconsistent).
+
+  - title: 'Testing Strategy (TDD Approach)'
+    chosen: >
+      TDD cycle (RED → GREEN → REFACTOR) with Vitest + Testing Library. Unit
+      tests written FIRST before implementation. Test structure: (1) Tab
+      rendering logic (tabs shown when errorMessage exists, not shown when
+      undefined/empty), (2) Default active tab (Errors tab active by default
+      when tabs shown), (3) Error message removal from Details tab (conditional
+      DetailRow rendering), (4) Console-style error display (CircleX icon,
+      "Error" heading, red styling classes, <pre> element with font-mono), (5)
+      Edge cases (null, undefined, empty string, very long messages >1000
+      chars). Coverage target: >95% for FeatureDrawer component (existing tests
+      have 100% coverage, maintain that standard).
+    rejected:
+      - >-
+        Write tests after implementation — Rejected because CLAUDE.md explicitly
+        mandates TDD: "MANDATORY — TDD: Write failing tests FIRST (RED → GREEN
+        → REFACTOR). Every plan phase must define explicit TDD cycles." Writing
+        tests after code violates the spec-driven workflow and reduces test
+        quality (tests written to match implementation instead of driving
+        design).
+      - >-
+        E2E tests only (no unit tests) — Rejected because unit tests provide
+        faster feedback, easier debugging, and higher coverage for component
+        logic. E2E tests are valuable for integration but are slower, flakier,
+        and harder to isolate failures. Feature-drawer.test.tsx already has
+        comprehensive unit tests (490 lines) covering all component behaviors.
+        Adding E2E tests without unit tests would be inconsistent with existing
+        patterns and slower to run.
+    rationale: >
+      Existing feature-drawer.test.tsx (490 lines) provides excellent coverage
+      (100%) using Vitest + Testing Library. We extend this test suite with new
+      describe blocks for tab functionality. TDD cycle: (1) RED — Write failing
+      test for "renders tabs when errorMessage exists" (expect tabs not found,
+      test fails because tabs not implemented), (2) GREEN — Implement minimal
+      conditional tabs logic (test passes), (3) REFACTOR — Extract tab rendering
+      to helper function if needed. Repeat for each FR (FR-1 through FR-9). Use
+      Testing Library queries: `screen.getByRole('tablist')`,
+      `screen.getByRole('tab', { name: /details/i })`,
+      `screen.getByRole('tab', { name: /errors/i })`,
+      `screen.getByRole('tabpanel')`. Use `user.click()` for tab switching
+      tests. Mock data fixtures (existing: runningData, errorData) extended with
+      new cases: errorDataWithLongStackTrace (50+ lines), errorDataWithEmptyString
+      (''), errorDataWithNull (null). TDD guide reference:
+      docs/development/tdd-guide.md:16-37 describes RED-GREEN-REFACTOR cycle.
+      Unit test execution: `pnpm test:unit` (fast, ~2-3s for all tests) or
+      `pnpm test:watch` for watch mode during TDD cycles. Coverage report: `pnpm
+      test:coverage` (should show >95% coverage for feature-drawer.tsx after
+      implementation).
+
+  - title: 'Storybook Stories for Error Tab Scenarios'
+    chosen: >
+      Add 4 new Storybook stories to feature-drawer.stories.tsx: (1)
+      ErrorShortMessage (1-line error, tabs shown), (2) ErrorMediumMessage
+      (~10-line error with some formatting), (3) ErrorLongStackTrace (~50+ line
+      stack trace to demonstrate scrolling), (4) NoErrorState (existing Error
+      story shows errorMessage, add explicit story showing undefined
+      errorMessage to verify no tabs). Update existing Error story (line 131) to
+      use errorData fixture with multi-line error instead of single-line "Build
+      failed: type mismatch".
+    rejected:
+      - >-
+        Single "Error" story only — Rejected because this doesn't demonstrate
+        the range of error message lengths and the scrolling behavior for long
+        stack traces. Storybook is for visual testing and documentation;
+        multiple stories show different states clearly.
+      - >-
+        Automated visual regression tests (Percy, Chromatic) — Rejected for this
+        feature because the codebase doesn't currently have visual regression
+        testing infrastructure. Adding it requires account setup, CI
+        integration, and ongoing maintenance. Out of scope for this feature.
+        Manual visual review via Storybook is sufficient.
+    rationale: >
+      Existing feature-drawer.stories.tsx has 22 stories covering all states,
+      lifecycle phases, and edge cases. Adding 4 error-specific stories maintains
+      the pattern of comprehensive coverage. ErrorShortMessage uses errorMessage:
+      'Build failed: type mismatch in src/auth.ts' (1 line, fits without scroll,
+      demonstrates basic tab UI). ErrorMediumMessage uses errorMessage with ~10
+      lines including some indentation (demonstrates whitespace-pre-wrap
+      preserving formatting). ErrorLongStackTrace uses realistic 50+ line Node.js
+      stack trace (demonstrates max-h-96 scroll, ensures delete button remains
+      visible). NoErrorState explicitly shows errorMessage: undefined (verifies
+      no tabs, maintains current single-view behavior). Storybook execution:
+      `pnpm dev:web` then navigate to http://localhost:3000/storybook → Composed
+      → FeatureDrawer. Manual review checklist: (1) Tabs only appear when
+      errorMessage exists, (2) Errors tab is active by default, (3) Error display
+      has console-style red styling, (4) Long errors scroll within max-h-96
+      container, (5) Delete button remains visible with long errors, (6) Tab
+      switching works (keyboard + mouse), (7) Error text is monospace with
+      preserved formatting. Update existing Error story: change errorData fixture
+      (line 82-92) to include multi-line errorMessage with realistic stack trace
+      instead of single-line message. This makes the Error story more
+      representative of real errors.
+
+openQuestions:
+  - question: >-
+      Should the CircleX icon in the Errors tab content match the icon used in
+      the state badge, or use a different visual treatment?
+    resolved: true
+    options:
+      - option: Same icon and styling as state badge (CircleX with state color)
+        description: >-
+          Reuse the featureNodeStateConfig.error.icon (CircleX) and
+          badgeClass/badgeBgClass styling from state badge. Provides visual
+          consistency between the badge (top of drawer) and error content
+          (Errors tab). User sees the same icon/color twice, reinforcing error
+          state. May feel redundant since the state badge already shows error
+          icon.
+        selected: false
+      - option: Same icon (CircleX) but different styling (text-red-600 only)
+        description: >-
+          Use CircleX icon from lucide-react (matches tool-card.tsx line 115)
+          with text-red-600 class (matches tool-card.tsx line 112). Provides
+          consistency with existing error icon usage in the codebase while using
+          a simpler treatment (icon + text color, no background badge). Clear
+          error indicator without duplication of the state badge styling.
+        selected: true
+      - option: No icon in Errors tab content, just "Error" heading and message
+        description: >-
+          Show only a text heading "Error" with font-semibold and red color,
+          followed by the error message. Simpler, less visual clutter. However,
+          doesn't match tool-card.tsx pattern (line 110-117) where errors are
+          shown with CircleX icon. Less semantic clarity (icon provides immediate
+          visual recognition of error content).
+        selected: false
+    selectionRationale: >
+      Same icon (CircleX) but different styling is recommended because it
+      matches the existing pattern in tool-card.tsx (lines 110-117) where errors
+      are displayed with CircleX icon and text-red-600 color. This provides
+      consistency across the application without duplicating the full badge
+      styling from the state badge (which would feel redundant). The CircleX icon
+      provides immediate visual recognition of error content for users scanning
+      the UI, while the simpler text-red-600 treatment (no background badge)
+      keeps the Errors tab content focused on the error message itself. The state
+      badge at the top of the drawer already uses the full badge styling
+      (bg-red-50, text-red-700), so repeating that in the error content would be
+      overkill. Reference: ci-status-badge.tsx (line 23) uses bg-red-50 +
+      text-red-700 for failure badge, but that's a status badge context (top of
+      drawer). For inline error content display (within a tab), simpler icon +
+      text color is more appropriate.
+    answer: Same icon (CircleX) but different styling (text-red-600 only)
+
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-02-26
+
+  ## Technology Decisions
+
+  ### 1. Tab Structure and Conditional Rendering Approach
+
+  **Chosen:** Conditional tab structure rendered only when errorMessage exists
+
+  **Rejected:**
+  - Always show tabs with disabled/hidden Errors tab when no error — Adds unnecessary UI complexity
+  - Separate ErrorDrawer component — Duplicates drawer structure, harder to maintain
+
+  **Rationale:**
+  Conditional rendering matches existing codebase pattern in DetailsSection (feature-drawer.tsx:199-213) which only renders when `hasAnyDetail` is true. Implementation uses simple boolean: `const showTabs = Boolean(data.errorMessage)`. When true, wrap Details content in Tabs component and add Errors tab. When false, render current single-view layout. No changes to BaseDrawer composition, minimal code changes, negligible performance impact.
+
+  ### 2. Default Active Tab Selection
+
+  **Chosen:** Error tab is default active tab when tabs are shown (`<Tabs defaultValue="errors">`)
+
+  **Rejected:**
+  - Details tab always default — Users must manually click to see error, adds friction
+  - Remember last active tab in localStorage — Over-engineering, adds complexity
+
+  **Rationale:**
+  User feedback: "the error should be shown like a logger.error would show it" implies immediate visibility. When browser console.error() is called, errors appear immediately. Same principle applies here. Pattern exists in codebase: version-page-client.tsx:49 uses `defaultValue="overview"`.
+
+  ### 3. Error Display Styling (Console-Style Visual Treatment)
+
+  **Chosen:** Direct Tailwind red utilities with console-style formatting
+
+  **Component structure:**
+  ```tsx
+  <div className="bg-red-50 border border-red-200 rounded-lg p-4 max-h-96 overflow-y-auto">
+    <div className="flex items-center gap-2 mb-2">
+      <CircleX className="h-4 w-4 text-red-600" />
+      <h3 className="text-red-900 font-semibold">Error</h3>
+    </div>
+    <pre className="whitespace-pre-wrap font-mono text-sm text-red-900">
+      {data.errorMessage}
+    </pre>
+  </div>
+  ```
+
+  **Rejected:**
+  - Plain text without special styling — Doesn't match logger.error visual treatment
+  - Semantic CSS variables — Codebase doesn't use design token system, adds indirection
+  - shadcn/ui Alert component — Not designed for multi-line stack traces
+
+  **Rationale:**
+  Direct Tailwind utilities match existing error patterns: ci-status-badge.tsx line 23 uses `bg-red-50 text-red-700`, tool-card.tsx line 112 uses `text-red-600`. CircleX icon is already used for errors in tool-card.tsx line 115. The `<pre>` element with `whitespace-pre-wrap font-mono` preserves formatting for stack traces (line breaks, indentation) while wrapping long lines to prevent horizontal scroll. The `max-h-96 overflow-y-auto` ensures very long stack traces don't dominate the drawer.
+
+  **Color scheme:**
+  - Background: `bg-red-50` (light red tint)
+  - Border: `border-red-200` (subtle red border)
+  - Icon: `text-red-600` (medium red, matches tool-card.tsx)
+  - Heading: `text-red-900` (dark red for contrast)
+  - Error text: `text-red-900` (dark red, readable on light background)
+
+  ### 4. Error Message Field Handling in Details Tab
+
+  **Chosen:** Remove errorMessage from Details tab when tabs are shown
+
+  **Implementation:**
+  ```tsx
+  {data.errorMessage && !showTabs ? <DetailRow label="Error" value={data.errorMessage} /> : null}
+  ```
+
+  **Rejected:**
+  - Show error in both Details and Errors tab — Duplication creates confusion
+  - Show summary in Details, full error in Errors — Adds complexity, FeatureNodeData.errorMessage is just a string
+
+  **Rationale:**
+  By defaulting to Errors tab when error exists, users see full console-style error immediately. If they need metadata, they switch to Details tab. Clear separation of concerns: Details = metadata, Errors = diagnostics. Existing DetailsSection (feature-drawer.tsx:199-213) already has conditional field rendering—we extend this with an additional condition for errorMessage.
+
+  ### 5. Tab Accessibility and ARIA Labels
+
+  **Chosen:** Radix UI Tabs primitive with aria-label attributes on TabsTrigger elements
+
+  **Implementation:**
+  ```tsx
+  <TabsTrigger value="details" aria-label="Details section">
+    Details
+  </TabsTrigger>
+  <TabsTrigger value="errors" aria-label="Error details section">
+    Errors
+  </TabsTrigger>
+  ```
+
+  **Rejected:**
+  - Build custom tab component — Radix UI already provides battle-tested accessibility
+  - Use Material-UI or Chakra UI Tabs — Codebase uses shadcn/ui + Radix UI, adding new library creates inconsistency
+
+  **Rationale:**
+  Radix UI Tabs is already installed (src/presentation/web/components/ui/tabs.tsx) and used in codebase (version-page-client.tsx:49-122). Provides automatic ARIA roles (role="tablist", role="tab", role="tabpanel"), keyboard navigation (Tab/Arrow keys), and focus management. Adding aria-label gives screen reader users descriptive labels beyond visible text. Follows WCAG 2.1 AA standards.
+
+  ### 6. Tab Content Layout and Scrolling Behavior
+
+  **Chosen:** Errors tab uses max-h-96 overflow-y-auto on error message container, inherits BaseDrawer scroll context
+
+  **Rejected:**
+  - Fixed-height tab panels with internal scroll — Wastes space for short content, constrains long content
+  - No max height on error message — Very long stack traces (200+ lines) would push controls out of view
+
+  **Rationale:**
+  BaseDrawer (base-drawer.tsx:80-83) already provides flex-1-overflow-y-auto scrollable content area. Tab panels inherit this scroll context. For potentially very long content (stack traces), max-h-96 constraint on error message `<pre>` prevents it from dominating drawer. Provides two levels of scroll: (1) BaseDrawer scroll for overall content, (2) error message scroll for long traces. Matches browser dev tools pattern.
+
+  ### 7. Edge Case Handling for Error Message Values
+
+  **Chosen:** Boolean presence check: `const showTabs = Boolean(data.errorMessage)`
+
+  **Edge cases handled:**
+  - `errorMessage: undefined` → showTabs: false (no tabs)
+  - `errorMessage: null` → showTabs: false (defensive, TypeScript says string?)
+  - `errorMessage: ''` → showTabs: false (empty string is not useful)
+  - `errorMessage: 'Build failed'` → showTabs: true (tabs shown)
+
+  **Rejected:**
+  - Complex validation (separate checks for null, undefined, empty string) — Boolean() handles all cases
+  - Show tabs even for empty string — Empty panel is confusing, no diagnostic value
+
+  **Rationale:**
+  FeatureNodeData interface defines `errorMessage?: string`. Boolean('') is false, Boolean('error') is true. Clean semantics: if there's error content, show tabs; otherwise, don't. Unit tests verify all edge cases.
+
+  ### 8. Testing Strategy (TDD Approach)
+
+  **Chosen:** TDD cycle (RED → GREEN → REFACTOR) with Vitest + Testing Library, tests written FIRST
+
+  **Test coverage areas:**
+  1. Tab rendering logic (tabs shown/hidden based on errorMessage)
+  2. Default active tab (Errors tab active when tabs shown)
+  3. Error message removal from Details tab (conditional DetailRow)
+  4. Console-style error display (CircleX icon, "Error" heading, red styling, `<pre>` element)
+  5. Edge cases (null, undefined, empty string, very long messages >1000 chars)
+  6. Accessibility (keyboard navigation, ARIA labels, screen reader support)
+  7. Tab switching preserves state (delete confirmation dialog state maintained)
+
+  **Coverage target:** >95% for FeatureDrawer component (maintain existing 100% coverage standard)
+
+  **Rejected:**
+  - Write tests after implementation — Violates MANDATORY TDD requirement in CLAUDE.md
+  - E2E tests only — Slower, flakier, harder to isolate failures
+
+  **Rationale:**
+  Existing feature-drawer.test.tsx has 490 lines with 100% coverage. Extend with new describe blocks for tab functionality. TDD cycle: (1) RED - Write failing test for "renders tabs when errorMessage exists", (2) GREEN - Implement minimal conditional tabs logic, (3) REFACTOR - Extract helper if needed. Use Testing Library queries: `screen.getByRole('tablist')`, `screen.getByRole('tab', { name: /errors/i })`. Execution: `pnpm test:unit` (~2-3s) or `pnpm test:watch` for TDD cycles.
+
+  ### 9. Storybook Stories for Error Tab Scenarios
+
+  **Chosen:** Add 4 new stories + update existing Error story
+
+  **New stories:**
+  1. **ErrorShortMessage** - 1-line error: 'Build failed: type mismatch in src/auth.ts'
+  2. **ErrorMediumMessage** - ~10-line error with formatting (demonstrates whitespace preservation)
+  3. **ErrorLongStackTrace** - ~50+ line Node.js stack trace (demonstrates scrolling)
+  4. **NoErrorState** - errorMessage: undefined (verifies no tabs, current behavior)
+
+  **Updated story:**
+  - **Error** (line 131) - Change errorData fixture to multi-line error instead of single-line
+
+  **Rejected:**
+  - Single "Error" story only — Doesn't demonstrate range of error lengths and scrolling
+  - Automated visual regression tests (Percy, Chromatic) — Infrastructure doesn't exist, out of scope
+
+  **Rationale:**
+  Existing feature-drawer.stories.tsx has 22 stories with comprehensive coverage. Adding 4 error-specific stories maintains pattern. Storybook is for visual testing and documentation; multiple stories show different states clearly. Manual review checklist: (1) Tabs only appear when errorMessage exists, (2) Errors tab active by default, (3) Console-style red styling, (4) Long errors scroll, (5) Delete button visible, (6) Tab switching works, (7) Monospace formatting preserved.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | @radix-ui/react-tabs | Tab component primitives | Use (already installed) | Already in codebase via shadcn/ui tabs.tsx, provides accessibility out of box |
+  | lucide-react | CircleX icon for error display | Use (already installed) | Already used throughout codebase (tool-card.tsx line 12), consistent icon system |
+  | Tailwind CSS | Direct red utility classes for styling | Use (already installed) | Existing patterns in ci-status-badge.tsx and tool-card.tsx use direct utilities |
+  | Vitest | Unit testing framework | Use (already installed) | Existing test suite uses Vitest, feature-drawer.test.tsx has 100% coverage |
+  | @testing-library/react | Component testing utilities | Use (already installed) | Used in all existing component tests, provides accessible queries |
+  | Storybook 8 | Component documentation and visual testing | Use (already installed) | feature-drawer.stories.tsx has 22 stories, add 4 more for error scenarios |
+
+  **No external libraries needed** - All required dependencies already exist in the codebase.
+
+  ## Security Considerations
+
+  **XSS Risk in Error Message Display:**
+  - Error messages are rendered in `<pre>` element with text content, not HTML
+  - React automatically escapes text content, preventing XSS
+  - No use of `dangerouslySetInnerHTML` required or allowed
+  - Stack traces from backend are strings, not executable code
+
+  **Mitigation:** Use `{data.errorMessage}` JSX interpolation (React escapes automatically). Do NOT use `dangerouslySetInnerHTML` even for "formatted" errors.
+
+  **Information Disclosure:**
+  - Error messages may contain sensitive paths, environment variables, or internal implementation details
+  - FeatureDrawer is only accessible in the web UI which requires local access (localhost:3000)
+  - No remote/public exposure of error messages
+
+  **Note:** This is a local-first application. Error messages are displayed to developers working on the codebase, not end users. Sensitive information in stack traces is expected and acceptable in this context.
+
+  ## Performance Implications
+
+  **Rendering Performance:**
+  - Conditional rendering (`const showTabs = Boolean(data.errorMessage)`) is O(1) boolean check
+  - Tab component adds ~50ms initial mount time (Radix UI overhead)
+  - Error message rendering with `<pre>` element is O(n) where n = message length
+  - Very long errors (1000+ lines) may cause 100-200ms render time, but this is acceptable for error diagnostics context
+
+  **Memory Impact:**
+  - Error messages stored in FeatureNodeData state (already exists, no new allocation)
+  - Tabs component adds ~10KB to bundle (already included via tabs.tsx, no new dependency)
+  - No new network requests, all rendering is client-side
+
+  **Optimization Opportunities:**
+  - For extremely long errors (>10,000 lines), could implement virtualization (react-window) but this is edge case
+  - Current approach (max-h-96 scroll) is sufficient for 99.9% of real-world errors
+
+  **Measurement:** Use React DevTools Profiler to measure render time before/after implementation. Target: <100ms for typical error messages (<100 lines), <500ms for very long stack traces (1000+ lines).
+
+  ## Architecture Notes
+
+  **Layer:** Presentation Layer (Web UI Component)
+  **Location:** `src/presentation/web/components/common/feature-drawer/feature-drawer.tsx`
+
+  **No changes to:**
+  - Domain layer (packages/core/src/domain/) — FeatureNodeData interface already has errorMessage field
+  - Application layer (packages/core/src/application/) — No use cases modified
+  - Infrastructure layer (packages/core/src/infrastructure/) — No external service calls
+
+  **Component hierarchy:**
+  ```
+  BaseDrawer (base-drawer.tsx)
+    └─ FeatureDrawer (feature-drawer.tsx) ← Modifications here
+         ├─ DrawerHeader (name, featureId)
+         ├─ DrawerActions (Open menu)
+         ├─ StatusSection (lifecycle, state badge, progress bar)
+         ├─ PrInfoSection (if pr exists)
+         ├─ Tabs (if errorMessage exists) ← NEW
+         │    ├─ TabsList
+         │    │    ├─ TabsTrigger (Details) ← NEW
+         │    │    └─ TabsTrigger (Errors) ← NEW
+         │    ├─ TabsContent (Details) ← Wrap existing DetailsSection
+         │    └─ TabsContent (Errors) ← NEW console-style error display
+         └─ Delete AlertDialog (if onDelete exists)
+  ```
+
+  **State management:** No new state needed. Tabs component manages active tab state internally via Radix UI (controlled by defaultValue prop). FeatureNodeData.errorMessage already exists, no new props added to FeatureDrawer.
+
+  **Composition pattern:** Maintains existing BaseDrawer composition. FeatureDrawer is a "slot-based" component that passes header/children/footer to BaseDrawer. Tabs are added as children content, no architectural changes.
+
+  **Testing impact:** Existing tests (feature-drawer.test.tsx) continue to pass with minimal updates. New tests added for tab functionality. No integration tests needed (pure UI component change).
+
+  **Clean Architecture compliance:** ✅ No tier violations. Presentation layer component modifies presentation layer component. Uses existing domain model (FeatureNodeData) without modification. No dependencies on infrastructure or application layers.
+
+  ---
+
+  ## Implementation Checklist
+
+  - [ ] Write failing unit tests for tab rendering logic (FR-1, FR-5)
+  - [ ] Implement conditional tab structure in feature-drawer.tsx
+  - [ ] Write failing unit tests for default active tab (FR-2)
+  - [ ] Implement defaultValue="errors" on Tabs component
+  - [ ] Write failing unit tests for console-style error display (FR-3)
+  - [ ] Implement Errors tab content with CircleX icon, heading, and styled pre element
+  - [ ] Write failing unit tests for error removal from Details tab (FR-4)
+  - [ ] Implement conditional rendering of errorMessage DetailRow
+  - [ ] Write failing unit tests for edge cases (FR-8)
+  - [ ] Verify all edge cases handled (null, undefined, empty string, long messages)
+  - [ ] Write failing unit tests for accessibility (FR-9)
+  - [ ] Add aria-label attributes to TabsTrigger elements
+  - [ ] Verify keyboard navigation works (Tab, Arrow keys, Enter/Space)
+  - [ ] Add ErrorShortMessage story to feature-drawer.stories.tsx
+  - [ ] Add ErrorMediumMessage story to feature-drawer.stories.tsx
+  - [ ] Add ErrorLongStackTrace story to feature-drawer.stories.tsx
+  - [ ] Add NoErrorState story to feature-drawer.stories.tsx
+  - [ ] Update existing Error story with multi-line error
+  - [ ] Run Storybook and manually verify all stories
+  - [ ] Run unit tests and verify >95% coverage: `pnpm test:coverage`
+  - [ ] Run all tests and verify no regressions: `pnpm test`
+  - [ ] Run linter and fix issues: `pnpm lint:fix`
+  - [ ] Run type checker: `pnpm validate`
+
+  ---
+
+  _Research complete — ready for planning phase_

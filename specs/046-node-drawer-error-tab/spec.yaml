@@ -1,0 +1,509 @@
+name: node-drawer-error-tab
+number: 46
+branch: feat/046-node-drawer-error-tab
+oneLiner: Add dedicated error tab to Node Drawer with console-style error display
+userQuery: >
+  Feature: Node Drawer should have a tab to show errors if there is no dedicated
+  place for errors
+summary: >
+  Currently, errors in feature nodes are only displayed as a single-line
+  errorMessage in the Details section of the FeatureDrawer. This feature adds a
+  dedicated "Errors" tab to the drawer when error state is present, displaying
+  errors in a console.error-style format with monospace font, preserved
+  formatting, red color scheme, and CircleX icon. The tab structure is
+  conditional—appearing only when an error exists to avoid unnecessary UI
+  complexity for non-error states.
+phase: Requirements
+sizeEstimate: M
+relatedFeatures:
+  - 018-feature-drawer
+  - 045-unified-base-drawer
+technologies:
+  - React 19
+  - TypeScript
+  - Radix UI Tabs
+  - shadcn/ui
+  - Tailwind CSS
+  - Vitest
+  - Testing Library
+  - Storybook
+  - lucide-react
+relatedLinks: []
+openQuestions:
+  - question: Should the error tab be the default active tab when an error exists?
+    resolved: true
+    options:
+      - option: Error tab active by default
+        description: >-
+          Immediately shows error content when drawer opens. Prioritizes error
+          visibility and aligns with user expectations (users opening a failed
+          node likely want to see the error first). May surprise users who want
+          to see details first.
+        selected: true
+      - option: Details tab active by default
+        description: >-
+          Maintains consistent behavior regardless of error state. Users must
+          manually click the Errors tab. Provides continuity but reduces error
+          visibility and requires extra action to diagnose failures.
+        selected: false
+    selectionRationale: >-
+      Error tab active by default is recommended because when a user opens a
+      drawer for a node in an error state, their primary intent is to understand
+      what went wrong. Making the error immediately visible reduces friction and
+      aligns with the principle of "show the most relevant content first." This
+      follows industry-standard UX patterns (e.g., browser dev tools, IDE error
+      panels).
+    answer: Error tab active by default
+  - question: >-
+      Should the error display use console.error styling (red background +
+      monospace)?
+    resolved: true
+    options:
+      - option: Console-style error display
+        description: >-
+          Uses bg-red-50/red-100, text-red-900, border-red-200, and font-mono
+          with whitespace-pre-wrap. Matches browser dev tools console.error()
+          visual treatment. Clearly distinguishes errors from regular content.
+          Preserves formatting for stack traces.
+        selected: true
+      - option: Plain text display
+        description: >-
+          Uses standard text styling without special error colors or background.
+          Simpler but doesn't provide the visual distinction users expect for
+          error states. Less familiar to developers accustomed to console error
+          output.
+        selected: false
+    selectionRationale: >-
+      Console-style error display is recommended because the user feedback
+      explicitly requested "the error should be shown like a logger.error would
+      show it". This means replicating the visual treatment developers see in
+      browser consoles: red background for prominence, monospace font for
+      technical readability, and preserved whitespace for stack traces. This
+      pattern is universally recognized and provides immediate semantic clarity.
+    answer: Console-style error display
+  - question: >-
+      Should the error message field be removed from the Details tab when the
+      Errors tab is present?
+    resolved: true
+    options:
+      - option: Remove from Details tab
+        description: >-
+          Avoids duplication by removing the errorMessage DetailRow when the
+          Errors tab exists. Cleaner UX, no redundant information. Users must
+          switch tabs to see error details. Maintains single source of truth for
+          error display.
+        selected: true
+      - option: Keep in both places
+        description: >-
+          Shows error summary in Details and full error in Errors tab. Provides
+          quick visibility without tab switching but creates duplication and
+          inconsistency (which version is authoritative?). More visual clutter.
+        selected: false
+    selectionRationale: >-
+      Remove from Details tab is recommended because duplication creates
+      confusion (which error display is correct?) and violates DRY principles.
+      By defaulting to the Errors tab when an error exists, users see the full
+      console-style error immediately. If they need metadata, they can switch to
+      Details. This provides a cleaner information architecture with clear
+      separation of concerns.
+    answer: Remove from Details tab
+  - question: Should the error display include an icon and heading?
+    resolved: true
+    options:
+      - option: CircleX icon with "Error" heading
+        description: >-
+          Displays CircleX icon (already used in tool-card.tsx for errors) with
+          a simple "Error" heading above the error message. Clear semantic
+          indicator matching existing codebase patterns. Provides visual anchor
+          for the error content.
+        selected: true
+      - option: Error message only
+        description: >-
+          Shows the error message directly without icon or heading. More compact
+          but less clear that this is error content. Doesn't match the visual
+          treatment of errors elsewhere in the application (e.g., tool cards).
+        selected: false
+    selectionRationale: >-
+      CircleX icon with "Error" heading is recommended because it matches the
+      existing pattern in tool-card.tsx (lines 110-117) where errors are shown
+      with CircleX icon + red text. This provides consistency across the
+      application and immediately signals error state. The heading "Error"
+      provides context for screen readers and visually anchors the error
+      content.
+    answer: CircleX icon with "Error" heading
+  - question: Should very long error messages have a max height with scroll?
+    resolved: true
+    options:
+      - option: Max height with scroll
+        description: >-
+          Sets max-h-96 (384px) on the error message container with
+          overflow-y-auto. Prevents extremely long stack traces from dominating
+          the drawer. Maintains drawer usability for errors with 100+ lines.
+          Users can scroll within the error area to see full content.
+        selected: true
+      - option: No max height
+        description: >-
+          Allows error message to expand to full height regardless of length.
+          More straightforward but can make the drawer unusable for very long
+          errors (e.g., 200+ line stack traces). May push other controls (like
+          delete button) out of view.
+        selected: false
+    selectionRationale: >-
+      Max height with scroll is recommended because error messages can be
+      arbitrarily long (especially stack traces from deeply nested calls). A
+      max-h-96 (24rem) limit ensures the drawer remains functional while still
+      showing substantial error content (approximately 30-40 lines). This
+      matches how browser dev tools and IDE error panels handle long outputs.
+    answer: Max height with scroll
+  - question: >-
+      Should error tab styling use semantic color tokens or direct Tailwind
+      utilities?
+    resolved: true
+    options:
+      - option: Direct Tailwind red utilities
+        description: >-
+          Use bg-red-50, border-red-200, text-red-900 directly. Simple,
+          explicit, no indirection. Harder to theme consistently if design
+          system evolves. Standard Tailwind approach for component-specific
+          styling. Matches existing patterns in ci-status-badge.tsx and
+          tool-card.tsx.
+        selected: true
+      - option: Semantic color tokens
+        description: >-
+          Define CSS variables like --color-error-bg, --color-error-border. More
+          maintainable if error styling needs to be consistent across
+          components. Adds abstraction overhead. Better if design system has
+          centralized color management.
+        selected: false
+    selectionRationale: >-
+      Direct Tailwind red utilities is recommended because the codebase already
+      uses this pattern (ci-status-badge.tsx line 23 uses
+      bg-red-50/text-red-700, tool-card.tsx line 112 uses text-red-600). For a
+      single component feature, semantic tokens add unnecessary indirection. If
+      future work adds a design system with centralized error colors, we can
+      refactor. For now, explicit Tailwind classes match existing patterns and
+      are easier to understand.
+    answer: Direct Tailwind red utilities
+content: >
+  ## Problem Statement
+
+
+  The current FeatureDrawer component displays error messages as a single-line
+
+  text field in the Details section (`<DetailRow label="Error"
+  value={data.errorMessage} />`). This
+
+  approach has several limitations:
+
+
+  1. **Limited space** - Single-line display truncates longer error messages and
+  stack traces
+
+  2. **Poor visibility** - Errors are buried in the Details section alongside
+  other metadata
+
+  3. **No formatting** - Cannot display structured errors, stack traces, or
+  multi-line messages with preserved whitespace
+
+  4. **Inconsistent UX** - Errors lack the visual treatment developers expect
+  (e.g., console.error() style with monospace font and red coloring)
+
+  5. **Cognitive friction** - Users must scan through details to find error
+  information instead of seeing it prominently displayed
+
+
+  **User feedback**: "the error should be shown like a logger.error would show
+  it"
+
+
+  When a feature node is in an error state, users need immediate, clear
+  visibility into what
+
+  went wrong, with error display that matches the familiar console.error()
+  visual treatment:
+
+  red color scheme, monospace font, preserved formatting, and sufficient space
+  for stack traces.
+
+
+  ## Success Criteria
+
+
+  - [ ] FeatureDrawer displays a tab structure when `data.errorMessage` is
+  present
+
+  - [ ] Error tab is the default active tab when an error exists
+
+  - [ ] Error message is displayed in console.error style (red background,
+  monospace font, preserved whitespace)
+
+  - [ ] Error display includes CircleX icon and "Error" heading with red color
+  scheme
+
+  - [ ] Very long error messages (>30 lines) are contained in a scrollable area
+  (max-h-96)
+
+  - [ ] Error message is removed from Details section when Errors tab is present
+  (no duplication)
+
+  - [ ] Tab structure is not shown when no error exists (maintains current
+  single-view behavior)
+
+  - [ ] Error text uses `whitespace-pre-wrap` and `font-mono` to preserve
+  formatting (stack traces, line breaks, indentation)
+
+  - [ ] Error container uses `bg-red-50`, `border-red-200`, `text-red-900` for
+  console-style visual treatment
+
+  - [ ] All unit tests pass with >95% coverage for new conditional logic
+
+  - [ ] Storybook stories demonstrate error tab with short message, long
+  message, and stack trace
+
+  - [ ] Component maintains accessibility standards (keyboard navigation, screen
+  reader support)
+
+  - [ ] Visual regression tests pass (error tab styling matches console.error
+  appearance)
+
+
+  ## Functional Requirements
+
+
+  - **FR-1**: FeatureDrawer MUST render a Tabs component when
+  `data.errorMessage` is defined (non-empty string)
+
+  - **FR-2**: When tabs are rendered, the Errors tab MUST be the default active
+  tab (using `defaultValue="errors"` on Tabs)
+
+  - **FR-3**: Errors tab MUST display error message in a console-style format
+  with:
+    - CircleX icon from lucide-react with `text-red-600` class
+    - "Error" heading with `text-red-900 font-semibold` classes
+    - Error message in a `<pre>` element with `whitespace-pre-wrap font-mono text-sm` classes
+    - Container with `bg-red-50 border border-red-200 rounded-lg p-4` classes
+    - Max height constraint `max-h-96 overflow-y-auto` for scrolling long errors
+  - **FR-4**: When tabs are rendered, the `errorMessage` field MUST NOT appear
+  in the Details tab content (conditional rendering based on presence of error)
+
+  - **FR-5**: When `data.errorMessage` is undefined or empty string,
+  FeatureDrawer MUST NOT render tabs (show current single-view layout with
+  Details section)
+
+  - **FR-6**: Details tab MUST contain all existing content (description,
+  agentType, runtime, blockedBy fields) - only errorMessage field is
+  conditionally removed
+
+  - **FR-7**: Tab switching MUST preserve the state of Details tab content
+  (e.g., delete confirmation dialog state)
+
+  - **FR-8**: Error message display MUST handle edge cases: empty string (no
+  tab), null (no tab), undefined (no tab), very long messages (>1000 chars with
+  scroll), multi-line messages (preserved newlines), special characters (HTML
+  entities, control characters)
+
+  - **FR-9**: Tabs component MUST use semantic HTML structure with ARIA labels
+  for accessibility
+
+
+  ## Non-Functional Requirements
+
+
+  - **NFR-1**: Error tab content MUST be accessible via keyboard navigation (Tab
+  key cycles through tab triggers, Enter/Space activates)
+
+  - **NFR-2**: Tab triggers MUST have ARIA labels for screen readers ("Details
+  section", "Error details section")
+
+  - **NFR-3**: Error message MUST NOT cause horizontal scrolling (text wraps
+  within drawer width using `whitespace-pre-wrap`)
+
+  - **NFR-4**: Component re-render performance MUST NOT degrade (no unnecessary
+  re-renders when switching tabs - use React.memo if needed)
+
+  - **NFR-5**: Error styling MUST use direct Tailwind red utilities
+  (`bg-red-50`, `border-red-200`, `text-red-900`, `text-red-600`) for
+  consistency with existing codebase patterns (ci-status-badge.tsx,
+  tool-card.tsx)
+
+  - **NFR-6**: Component MUST maintain existing BaseDrawer composition pattern
+  (no architectural changes)
+
+  - **NFR-7**: Storybook stories MUST render without errors and demonstrate:
+    - Short error message (~1 line)
+    - Medium error message (~10 lines)
+    - Long stack trace (~50+ lines) to test scrolling
+    - No error state (current behavior)
+  - **NFR-8**: Unit tests MUST achieve >95% coverage for FeatureDrawer component
+  including:
+    - Tab rendering conditional logic
+    - Default active tab selection
+    - Error message presence/absence
+    - Edge cases (null, undefined, empty string, very long string)
+  - **NFR-9**: Implementation MUST follow TDD cycle (RED → GREEN → REFACTOR)
+  with failing tests written first
+
+  - **NFR-10**: Component MUST use named exports only (no default exports) per
+  codebase conventions
+
+
+  ## Product Questions & AI Recommendations
+
+
+  | # | Question | AI Recommendation | Rationale |
+
+  | - | -------- | ----------------- | --------- |
+
+  | 1 | Should the error tab be the default active tab when an error exists? |
+  Error tab active by default | Users opening a failed node primarily want to
+  see what went wrong. Immediate error visibility reduces friction and aligns
+  with standard dev tool UX patterns (browser console, IDE error panels). |
+
+  | 2 | Should the error display use console.error styling (red background +
+  monospace)? | Console-style error display | User feedback explicitly requested
+  "the error should be shown like a logger.error would show it". This means
+  replicating console.error() visual treatment: red background, monospace font,
+  preserved whitespace. Universally recognized pattern. |
+
+  | 3 | Should the error message field be removed from the Details tab when the
+  Errors tab is present? | Remove from Details tab | Avoids duplication and
+  confusion about authoritative source. Error tab provides full console-style
+  display as default view. Users can switch to Details for metadata if needed. |
+
+  | 4 | Should the error display include an icon and heading? | CircleX icon
+  with "Error" heading | Matches existing pattern in tool-card.tsx (lines
+  110-117). Provides consistency across the application and immediately signals
+  error state. Heading provides context for screen readers. |
+
+  | 5 | Should very long error messages have a max height with scroll? | Max
+  height with scroll | Prevents extremely long stack traces (100+ lines) from
+  dominating drawer. max-h-96 (~30-40 lines visible) ensures drawer remains
+  functional while showing substantial error content. Matches browser dev tools
+  pattern. |
+
+  | 6 | Should error tab styling use semantic color tokens or direct Tailwind
+  utilities? | Direct Tailwind red utilities | Matches existing patterns in
+  ci-status-badge.tsx and tool-card.tsx. Simpler for single-component feature.
+  Can refactor to semantic tokens if design system is centralized later. |
+
+
+  ## Affected Areas
+
+
+  | Area | Impact | Reasoning |
+
+  | ---- | ------ | --------- |
+
+  | `src/presentation/web/components/common/feature-drawer/feature-drawer.tsx` |
+  High | Core component that needs conditional tab structure and console-style
+  error display |
+
+  |
+  `src/presentation/web/components/common/feature-drawer/feature-drawer.stories.tsx`
+  | Medium | Stories must be updated to demonstrate error tab with short,
+  medium, and long error messages |
+
+  |
+  `tests/unit/presentation/web/components/common/feature-drawer/feature-drawer.test.tsx`
+  | High | Unit tests must verify tab rendering logic, default active tab,
+  console-style error display, conditional error field removal, and edge cases |
+
+  |
+  `src/presentation/web/components/common/feature-node/feature-node-state-config.ts`
+  | None | No changes needed - errorMessage field already exists in
+  FeatureNodeData interface |
+
+  | `src/presentation/web/components/ui/tabs.tsx` | None | Already exists as
+  shadcn primitive, no changes needed |
+
+
+  ## Dependencies
+
+
+  **Existing Infrastructure**:
+
+
+  - `BaseDrawer` component
+  (`src/presentation/web/components/common/base-drawer/`) - Provides drawer
+  shell
+
+  - `Tabs`, `TabsList`, `TabsTrigger`, `TabsContent` primitives
+  (`src/presentation/web/components/ui/tabs.tsx`) - Radix UI tab components
+
+  - `FeatureNodeData` interface with `errorMessage?: string` field already
+  defined
+
+  - `featureNodeStateConfig` with error state styling already configured
+
+  - `lucide-react` - For CircleX icon component (already used in tool-card.tsx
+  for errors)
+
+  - Existing error styling patterns: `bg-red-50`, `text-red-600`, `text-red-700`
+  in ci-status-badge.tsx and tool-card.tsx
+
+  - Testing utilities: Vitest, Testing Library, Storybook
+
+
+  **No External Libraries Needed** - All required UI primitives, icons, and
+  styling patterns already available.
+
+
+  ## Size Estimate
+
+
+  **M (Medium - 1-2 days)**
+
+
+  Justification:
+
+
+  - **Simple scope**: Single component modification with conditional rendering
+  and inline console-style error display
+
+  - **Low complexity**: Leverages existing Tabs primitive, follows established
+  error styling patterns from tool-card.tsx and ci-status-badge.tsx
+
+  - **Clear requirements**: Well-defined functional and non-functional
+  requirements with AI-recommended answers addressing user feedback ("show like
+  logger.error")
+
+  - **Existing patterns**: Similar tab usage in `tools-page-client.tsx` provides
+  reference, error styling pattern in `tool-card.tsx` (lines 110-117) and
+  `ci-status-badge.tsx` (line 23)
+
+  - **Testing overhead**: TDD required (9 FR + edge cases), plus Storybook
+  stories (4 scenarios: short/medium/long/no-error) and accessibility validation
+
+  - **Integration risk**: Low - changes isolated to FeatureDrawer component, no
+  domain model changes
+
+  - **No architectural impact**: Uses existing BaseDrawer composition, no new
+  tier violations
+
+
+  **Breakdown**:
+
+  - TDD implementation: ~4 hours (write failing tests for FR-1 through FR-9,
+  implement conditional tabs with console-style error display, refactor)
+
+  - Storybook stories: ~2 hours (ErrorShort, ErrorMedium, ErrorLongStackTrace,
+  NoError scenarios)
+
+  - Accessibility testing: ~1 hour (keyboard nav, screen reader labels, ARIA
+  compliance)
+
+  - Integration testing: ~1 hour (verify with real error states in dev
+  environment, test scrolling for long errors)
+
+  - Documentation/review: ~1 hour (update component docs, code review prep)
+
+
+  ---
+
+
+  _Requirements complete — ready for research phase_
+rejectionFeedback:
+  - iteration: 1
+    message: the error should be shown like a logger.error would show it
+    phase: requirements
+    timestamp: '2026-02-26T13:43:29.807Z'

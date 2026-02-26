@@ -551,7 +551,7 @@ describe('FeatureDrawer', () => {
       expect(screen.getByText('Build failed')).toBeInTheDocument();
 
       // Click Details tab
-      await user.click(screen.getByRole('tab', { name: /details/i }));
+      await user.click(screen.getByRole('tab', { name: 'Details section' }));
 
       // Details content should now be visible
       expect(screen.getByText('A test description')).toBeInTheDocument();
@@ -645,7 +645,7 @@ describe('FeatureDrawer', () => {
       });
 
       // Switch to Details tab
-      await user.click(screen.getByRole('tab', { name: /details/i }));
+      await user.click(screen.getByRole('tab', { name: 'Details section' }));
 
       // The Details tab panel should be active
       const detailsPanel = screen.getByRole('tabpanel');
@@ -673,7 +673,7 @@ describe('FeatureDrawer', () => {
       });
 
       // Switch to Details tab
-      await user.click(screen.getByRole('tab', { name: /details/i }));
+      await user.click(screen.getByRole('tab', { name: 'Details section' }));
 
       // All other fields should be present
       expect(screen.getByText('Description')).toBeInTheDocument();
@@ -696,6 +696,301 @@ describe('FeatureDrawer', () => {
       expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
       // Details section should be visible directly
       expect(screen.getByText('A test description')).toBeInTheDocument();
+    });
+  });
+
+  describe('ARIA Labels for Screen Readers', () => {
+    it('Details tab trigger has ARIA label', () => {
+      renderDrawer({
+        ...defaultData,
+        state: 'error',
+        errorMessage: 'Build failed',
+      });
+
+      const detailsTab = screen.getByRole('tab', { name: 'Details section' });
+      expect(detailsTab).toBeInTheDocument();
+    });
+
+    it('Errors tab trigger has ARIA label', () => {
+      renderDrawer({
+        ...defaultData,
+        state: 'error',
+        errorMessage: 'Build failed',
+      });
+
+      const errorsTab = screen.getByRole('tab', { name: 'Error details section' });
+      expect(errorsTab).toBeInTheDocument();
+    });
+  });
+
+  describe('Keyboard Navigation', () => {
+    it('can navigate tabs with keyboard', async () => {
+      const user = userEvent.setup();
+      renderDrawer({
+        ...defaultData,
+        state: 'error',
+        errorMessage: 'Build failed',
+        description: 'A test description',
+      });
+
+      // Errors tab is active by default
+      const errorsTab = screen.getByRole('tab', { name: 'Error details section' });
+      expect(errorsTab).toHaveAttribute('data-state', 'active');
+
+      // Focus on the Errors tab
+      errorsTab.focus();
+      expect(errorsTab).toHaveFocus();
+
+      // Press ArrowLeft to switch to Details tab
+      await user.keyboard('{ArrowLeft}');
+
+      // Details tab should now be active
+      const detailsTab = screen.getByRole('tab', { name: 'Details section' });
+      expect(detailsTab).toHaveAttribute('data-state', 'active');
+      expect(screen.getByText('A test description')).toBeInTheDocument();
+    });
+
+    it('can activate tab with Enter key', async () => {
+      const user = userEvent.setup();
+      renderDrawer({
+        ...defaultData,
+        state: 'error',
+        errorMessage: 'Build failed',
+        description: 'A test description',
+      });
+
+      // Get the Details tab (not active by default)
+      const detailsTab = screen.getByRole('tab', { name: 'Details section' });
+      expect(detailsTab).toHaveAttribute('data-state', 'inactive');
+
+      // Focus on Details tab and press Enter
+      detailsTab.focus();
+      await user.keyboard('{Enter}');
+
+      // Details tab should now be active
+      expect(detailsTab).toHaveAttribute('data-state', 'active');
+      expect(screen.getByText('A test description')).toBeInTheDocument();
+    });
+
+    it('can activate tab with Space key', async () => {
+      const user = userEvent.setup();
+      renderDrawer({
+        ...defaultData,
+        state: 'error',
+        errorMessage: 'Build failed',
+        description: 'A test description',
+      });
+
+      // Get the Details tab (not active by default)
+      const detailsTab = screen.getByRole('tab', { name: 'Details section' });
+      expect(detailsTab).toHaveAttribute('data-state', 'inactive');
+
+      // Focus on Details tab and press Space
+      detailsTab.focus();
+      await user.keyboard(' ');
+
+      // Details tab should now be active
+      expect(detailsTab).toHaveAttribute('data-state', 'active');
+      expect(screen.getByText('A test description')).toBeInTheDocument();
+    });
+  });
+
+  describe('Edge Cases', () => {
+    it('renders very long error message with scroll', () => {
+      const longError = 'Line 1\n'.repeat(150); // 150 lines
+      renderDrawer({
+        ...defaultData,
+        state: 'error',
+        errorMessage: longError,
+      });
+
+      // Find the error container by looking for the pre element
+      const preElement = screen.getByText((content, element) => {
+        return element?.tagName.toLowerCase() === 'pre' && content.startsWith('Line 1');
+      });
+
+      // The container should have max-h-96 and overflow-y-auto for scrolling
+      const container = preElement.closest('.max-h-96');
+      expect(container).toBeInTheDocument();
+      expect(container?.className).toContain('overflow-y-auto');
+    });
+
+    it('preserves newlines in multi-line error', () => {
+      const multiLineError = 'Error at line 10\nStack trace:\n  at function1()\n  at function2()';
+      renderDrawer({
+        ...defaultData,
+        state: 'error',
+        errorMessage: multiLineError,
+      });
+
+      // The pre element should have whitespace-pre-wrap to preserve newlines
+      const preElement = screen.getByText((content, element) => {
+        return element?.tagName.toLowerCase() === 'pre' && content.includes('Error at line 10');
+      });
+
+      expect(preElement.className).toContain('whitespace-pre-wrap');
+      // All lines should be visible in the content
+      expect(preElement.textContent).toContain('Error at line 10');
+      expect(preElement.textContent).toContain('Stack trace:');
+      expect(preElement.textContent).toContain('at function1()');
+      expect(preElement.textContent).toContain('at function2()');
+    });
+
+    it('escapes HTML entities in error message', () => {
+      const errorWithHTML = '<script>alert("XSS")</script>';
+      renderDrawer({
+        ...defaultData,
+        state: 'error',
+        errorMessage: errorWithHTML,
+      });
+
+      // The error message should be escaped (rendered as text, not executed as HTML)
+      const preElement = screen.getByText((content, element) => {
+        return (
+          element?.tagName.toLowerCase() === 'pre' &&
+          content.includes('<script>alert("XSS")</script>')
+        );
+      });
+
+      expect(preElement).toBeInTheDocument();
+      // Verify the actual text content contains the literal HTML string
+      expect(preElement.textContent).toBe('<script>alert("XSS")</script>');
+
+      // Verify no actual script tag was created in the DOM
+      const container = preElement.parentElement;
+      expect(container?.querySelector('script')).toBeNull();
+    });
+
+    it('handles special characters gracefully', () => {
+      const errorWithSpecialChars = 'Error:\tTab character\nNewline\rCarriage return\x00Null char';
+      renderDrawer({
+        ...defaultData,
+        state: 'error',
+        errorMessage: errorWithSpecialChars,
+      });
+
+      // The pre element should render without breaking layout
+      const preElement = screen.getByText((content, element) => {
+        return element?.tagName.toLowerCase() === 'pre' && content.includes('Tab character');
+      });
+
+      expect(preElement).toBeInTheDocument();
+      expect(preElement.className).toContain('font-mono');
+      expect(preElement.className).toContain('whitespace-pre-wrap');
+    });
+
+    it('handles very long single-line error without horizontal scroll', () => {
+      // Create a very long error without newlines (1500 characters)
+      const longSingleLineError = 'A'.repeat(1500);
+      renderDrawer({
+        ...defaultData,
+        state: 'error',
+        errorMessage: longSingleLineError,
+      });
+
+      const preElement = screen.getByText((content, element) => {
+        return element?.tagName.toLowerCase() === 'pre' && content.startsWith('AAAA');
+      });
+
+      // whitespace-pre-wrap ensures long lines wrap instead of causing horizontal scroll
+      expect(preElement.className).toContain('whitespace-pre-wrap');
+    });
+  });
+
+  describe('State Preservation During Tab Switching', () => {
+    it('preserves tab state after closing delete dialog', async () => {
+      const user = userEvent.setup();
+      const onDelete = vi.fn();
+
+      renderDrawer(
+        {
+          ...defaultData,
+          state: 'error',
+          errorMessage: 'Build failed',
+          description: 'A test description',
+        },
+        vi.fn(),
+        { onDelete }
+      );
+
+      // Initially on Errors tab
+      expect(screen.getByText('Build failed')).toBeInTheDocument();
+
+      // Switch to Details tab
+      await user.click(screen.getByRole('tab', { name: 'Details section' }));
+      expect(screen.getByText('A test description')).toBeInTheDocument();
+
+      // Open delete dialog
+      await user.click(screen.getByRole('button', { name: /delete feature/i }));
+      expect(screen.getByText('Delete feature?')).toBeInTheDocument();
+
+      // Close dialog
+      await user.click(screen.getByRole('button', { name: /cancel/i }));
+
+      // Should still be on Details tab after closing dialog
+      expect(screen.queryByText('Delete feature?')).not.toBeInTheDocument();
+      expect(screen.getByText('A test description')).toBeInTheDocument();
+
+      // Details tab should still be active
+      const detailsTab = screen.getByRole('tab', { name: 'Details section' });
+      expect(detailsTab).toHaveAttribute('data-state', 'active');
+    });
+
+    it('can interact with delete dialog while on any tab', async () => {
+      const user = userEvent.setup();
+      const onDelete = vi.fn();
+
+      renderDrawer(
+        {
+          ...defaultData,
+          state: 'error',
+          errorMessage: 'Build failed',
+          description: 'A test description',
+        },
+        vi.fn(),
+        { onDelete }
+      );
+
+      // Switch to Details tab first
+      await user.click(screen.getByRole('tab', { name: 'Details section' }));
+      expect(screen.getByText('A test description')).toBeInTheDocument();
+
+      // Open delete dialog from Details tab
+      await user.click(screen.getByRole('button', { name: /delete feature/i }));
+      expect(screen.getByText('Delete feature?')).toBeInTheDocument();
+
+      // Close dialog
+      await user.click(screen.getByRole('button', { name: /cancel/i }));
+      expect(screen.queryByText('Delete feature?')).not.toBeInTheDocument();
+
+      // Verify we're still on Details tab
+      expect(screen.getByText('A test description')).toBeInTheDocument();
+    });
+
+    it('delete dialog confirms correctly while on Errors tab', async () => {
+      const user = userEvent.setup();
+      const onDelete = vi.fn();
+
+      renderDrawer(
+        {
+          ...defaultData,
+          state: 'error',
+          errorMessage: 'Build failed',
+          featureId: '#test-feature',
+        },
+        vi.fn(),
+        { onDelete }
+      );
+
+      // Should be on Errors tab by default
+      expect(screen.getByText('Build failed')).toBeInTheDocument();
+
+      // Open and confirm delete dialog
+      await user.click(screen.getByRole('button', { name: /delete feature/i }));
+      await user.click(screen.getByRole('button', { name: /^delete$/i }));
+
+      // onDelete should be called with correct featureId
+      expect(onDelete).toHaveBeenCalledWith('#test-feature');
     });
   });
 });
