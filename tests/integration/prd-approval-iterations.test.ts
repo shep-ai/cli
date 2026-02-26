@@ -17,6 +17,7 @@ import type { AgentRun, PrdApprovalPayload } from '@/domain/generated/output.js'
 import { RejectAgentRunUseCase } from '@/application/use-cases/agents/reject-agent-run.use-case.js';
 import { ApproveAgentRunUseCase } from '@/application/use-cases/agents/approve-agent-run.use-case.js';
 import { ReviewFeatureUseCase } from '@/application/use-cases/agents/review-feature.use-case.js';
+import { computeWorktreePath } from '@/infrastructure/services/ide-launchers/compute-worktree-path.js';
 
 // --- Mock Factories ---
 
@@ -184,12 +185,13 @@ describe('PRD Approval Iterations (Integration)', () => {
       );
 
       // Verify worker spawned with resumeFromInterrupt and rejection payload
+      const expectedWorktree = computeWorktreePath('/test/repo', 'feat/test-feature');
       expect(mockProcessService.spawn).toHaveBeenCalledWith(
         'feat-001',
         'run-001',
         '/test/repo',
         specDir,
-        undefined,
+        expectedWorktree,
         expect.objectContaining({
           resume: true,
           resumeFromInterrupt: true,
@@ -248,12 +250,13 @@ describe('PRD Approval Iterations (Integration)', () => {
       expect(fwQuestion.answer).toBe('Fastify');
 
       // Verify worker spawned with resumePayload
+      const expectedWorktree = computeWorktreePath('/test/repo', 'feat/test-feature');
       expect(mockProcessService.spawn).toHaveBeenCalledWith(
         'feat-001',
         'run-001',
         '/test/repo',
         specDir,
-        undefined,
+        expectedWorktree,
         expect.objectContaining({
           resumePayload: JSON.stringify(approvalPayload),
         })
