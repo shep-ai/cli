@@ -1,3 +1,9 @@
+## [1.66.3](https://github.com/shep-ai/cli/compare/v1.66.2...v1.66.3) (2026-02-26)
+
+### Bug Fixes
+
+- **agents:** check remote branches in slug resolver and prevent stale pulls ([#164](https://github.com/shep-ai/cli/issues/164)) ([5dede79](https://github.com/shep-ai/cli/commit/5dede79d02cbd50d44752d7e7679676f26f18241))
+
 ## [1.66.2](https://github.com/shep-ai/cli/compare/v1.66.1...v1.66.2) (2026-02-26)
 
 ### Bug Fixes
