@@ -91,6 +91,23 @@ const errorData: FeatureNodeData = {
   branch: 'feat/email-service',
 };
 
+const reviewInProgressData: FeatureNodeData = {
+  name: 'Auth Module',
+  description: 'Implement OAuth2 authentication flow',
+  featureId: '#f6',
+  lifecycle: 'review',
+  state: 'running',
+  progress: 0,
+  agentType: 'claude-code',
+  repositoryPath: '/home/user/my-repo',
+  branch: 'feat/auth-module',
+  pr: {
+    url: 'https://github.com/org/repo/pull/17',
+    number: 17,
+    status: PrStatus.Open,
+  },
+};
+
 /* ---------------------------------------------------------------------------
  * Trigger wrapper — starts closed, click to open
  * ------------------------------------------------------------------------- */
@@ -112,6 +129,11 @@ function DrawerTrigger({ data, label }: { data: FeatureNodeData; label: string }
  * Per-state stories
  * ------------------------------------------------------------------------- */
 
+/** Feature drawer rendered inside a full-page context — starts open. Primary story. */
+export const Default: Story = {
+  render: () => <FeatureDrawerShellTemplate data={runningData} />,
+};
+
 export const Running: Story = {
   render: () => <DrawerTrigger data={runningData} label="Open Running" />,
 };
@@ -126,6 +148,11 @@ export const Done: Story = {
 
 export const Blocked: Story = {
   render: () => <DrawerTrigger data={blockedData} label="Open Blocked" />,
+};
+
+/** Review lifecycle + running state — matches the look/feel of review pending-action drawers. */
+export const ReviewInProgress: Story = {
+  render: () => <DrawerTrigger data={reviewInProgressData} label="Open Review In Progress" />,
 };
 
 export const Error: Story = {
@@ -340,7 +367,7 @@ function DrawerTriggerWithDelete({
   );
 }
 
-/** FeatureDrawer with a delete button in the footer. */
+/** FeatureDrawer with a delete icon button in the header. */
 export const WithDeleteButton: Story = {
   render: () => <DrawerTriggerWithDelete data={doneData} label="Open With Delete" />,
 };
@@ -405,4 +432,30 @@ export const PrStatusOpen: Story = {
 /** PR with Merged status — purple badge. */
 export const PrStatusMerged: Story = {
   render: () => <DrawerTrigger data={doneWithPrData} label="Open PR Status: Merged" />,
+};
+
+/* ---------------------------------------------------------------------------
+ * In-drawer story — full page context, starts open
+ * ------------------------------------------------------------------------- */
+
+function FeatureDrawerShellTemplate({ data }: { data: FeatureNodeData }) {
+  const [selected, setSelected] = useState<FeatureNodeData | null>(data);
+
+  return (
+    <div style={{ height: '100vh', background: '#f8fafc', padding: '2rem' }}>
+      <button
+        type="button"
+        onClick={() => setSelected(data)}
+        style={{ padding: '8px 16px', border: '1px solid #ccc', borderRadius: '6px' }}
+      >
+        Open Drawer
+      </button>
+      <FeatureDrawer selectedNode={selected} onClose={() => setSelected(null)} />
+    </div>
+  );
+}
+
+/** Feature drawer rendered inside a full-page context — starts open. */
+export const InDrawer: Story = {
+  render: () => <FeatureDrawerShellTemplate data={runningData} />,
 };
