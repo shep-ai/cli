@@ -1,3 +1,9 @@
+# [1.63.0](https://github.com/shep-ai/cli/compare/v1.62.0...v1.63.0) (2026-02-26)
+
+### Features
+
+- **web:** unify all drawers behind base-drawer component ([#149](https://github.com/shep-ai/cli/issues/149)) ([99f505b](https://github.com/shep-ai/cli/commit/99f505b66575ef4fa8ac9cb78b803c45328be580))
+
 # [1.62.0](https://github.com/shep-ai/cli/compare/v1.61.0...v1.62.0) (2026-02-25)
 
 ### Features
