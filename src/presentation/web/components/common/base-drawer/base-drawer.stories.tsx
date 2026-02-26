@@ -181,6 +181,32 @@ export const WithHeaderAndFooter: Story = {
   ),
 };
 
+/** Drawer with deployTarget prop showing the dev server bar below the header. */
+export const WithDevServerBar: Story = {
+  render: () => (
+    <DrawerTrigger
+      header={
+        <>
+          <DrawerTitle>Auth Module</DrawerTitle>
+          <DrawerDescription>#f-001</DrawerDescription>
+        </>
+      }
+      deployTarget={{
+        targetId: '#f-001',
+        targetType: 'feature',
+        repositoryPath: '/Users/dev/my-project',
+        branch: 'feat/auth-module',
+      }}
+    >
+      <div className="p-4">
+        <p className="text-muted-foreground text-sm">
+          The deploy bar appears between the header and this content.
+        </p>
+      </div>
+    </DrawerTrigger>
+  ),
+};
+
 /** Drawer with content that exceeds viewport to demonstrate scroll behavior. */
 export const ScrollableContent: Story = {
   render: () => (

@@ -43,6 +43,16 @@ export function ReviewDrawerShell({
       size="md"
       modal={false}
       data-testid="review-drawer"
+      deployTarget={
+        featureId && repositoryPath && branch
+          ? {
+              targetId: featureId,
+              targetType: 'feature',
+              repositoryPath,
+              branch,
+            }
+          : undefined
+      }
       header={
         <>
           <div data-testid="feature-drawer-header">
