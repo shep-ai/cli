@@ -559,4 +559,143 @@ describe('FeatureDrawer', () => {
       // We need to check that the description is now the active content
     });
   });
+
+  describe('Console-Style Error Display Structure', () => {
+    it('renders CircleX icon in Errors tab', () => {
+      renderDrawer({
+        ...defaultData,
+        state: 'error',
+        errorMessage: 'Build failed: type mismatch',
+      });
+
+      // Look for the CircleX icon by checking for SVG with specific attributes
+      // lucide-react icons render as SVGs
+      const container = screen.getByText('Build failed: type mismatch').closest('div');
+      const svg = container?.parentElement?.querySelector('svg');
+      expect(svg).toBeInTheDocument();
+    });
+
+    it('renders Error heading with red styling', () => {
+      renderDrawer({
+        ...defaultData,
+        state: 'error',
+        errorMessage: 'Build failed: type mismatch',
+      });
+
+      const heading = screen.getByRole('heading', { name: /error/i });
+      expect(heading).toBeInTheDocument();
+      expect(heading.className).toContain('text-red-900');
+      expect(heading.className).toContain('font-semibold');
+    });
+
+    it('renders error message in pre element with monospace font', () => {
+      renderDrawer({
+        ...defaultData,
+        state: 'error',
+        errorMessage: 'Build failed: type mismatch in src/auth.ts',
+      });
+
+      const preElement = screen.getByText('Build failed: type mismatch in src/auth.ts');
+      expect(preElement.tagName.toLowerCase()).toBe('pre');
+      expect(preElement.className).toContain('font-mono');
+    });
+
+    it('error container has console-style red classes', () => {
+      renderDrawer({
+        ...defaultData,
+        state: 'error',
+        errorMessage: 'Build failed',
+      });
+
+      // Find the container by looking for the error message and checking its parent containers
+      const preElement = screen.getByText('Build failed');
+      const container = preElement.closest('.bg-red-50');
+      expect(container).toBeInTheDocument();
+      expect(container?.className).toContain('bg-red-50');
+      expect(container?.className).toContain('border-red-200');
+      expect(container?.className).toContain('rounded-lg');
+    });
+
+    it('error container has max height with scroll for long errors', () => {
+      const longError = 'Line 1\n'.repeat(100);
+      renderDrawer({
+        ...defaultData,
+        state: 'error',
+        errorMessage: longError,
+      });
+
+      // Find the pre element by looking for text that contains part of the long error
+      const preElement = screen.getByText((content, element) => {
+        return element?.tagName.toLowerCase() === 'pre' && content.startsWith('Line 1');
+      });
+      const container = preElement.closest('.max-h-96');
+      expect(container).toBeInTheDocument();
+      expect(container?.className).toContain('overflow-y-auto');
+    });
+  });
+
+  describe('Error Message Removal from Details Tab', () => {
+    it('does not render errorMessage in Details tab when tabs are shown', async () => {
+      const user = userEvent.setup();
+      renderDrawer({
+        ...defaultData,
+        state: 'error',
+        errorMessage: 'Build failed: type mismatch',
+        description: 'A test description',
+      });
+
+      // Switch to Details tab
+      await user.click(screen.getByRole('tab', { name: /details/i }));
+
+      // The Details tab panel should be active
+      const detailsPanel = screen.getByRole('tabpanel');
+
+      // Error label (from DetailRow) should not be present in the active Details tab panel
+      // Note: The "Error" heading still exists in the Errors tab (just hidden), so we need to check within the active panel
+      const errorLabelInDetails = Array.from(
+        detailsPanel.querySelectorAll('.text-muted-foreground')
+      ).find((el) => el.textContent === 'Error');
+      expect(errorLabelInDetails).toBeUndefined();
+
+      // The error message should not be visible in the Details panel
+      expect(detailsPanel.textContent).not.toContain('Build failed: type mismatch');
+    });
+
+    it('renders all other DetailRow fields in Details tab', async () => {
+      const user = userEvent.setup();
+      renderDrawer({
+        ...defaultData,
+        state: 'error',
+        errorMessage: 'Build failed',
+        description: 'A detailed description',
+        agentType: 'claude-code',
+        runtime: '2h 15m',
+      });
+
+      // Switch to Details tab
+      await user.click(screen.getByRole('tab', { name: /details/i }));
+
+      // All other fields should be present
+      expect(screen.getByText('Description')).toBeInTheDocument();
+      expect(screen.getByText('A detailed description')).toBeInTheDocument();
+      expect(screen.getByText('Agent')).toBeInTheDocument();
+      expect(screen.getByText('claude-code')).toBeInTheDocument();
+      expect(screen.getByText('Runtime')).toBeInTheDocument();
+      expect(screen.getByText('2h 15m')).toBeInTheDocument();
+    });
+
+    it('errorMessage appears in single-view layout when no tabs shown', () => {
+      renderDrawer({
+        ...defaultData,
+        state: 'error',
+        errorMessage: undefined,
+        description: 'A test description',
+      });
+
+      // No tabs should be present
+      expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
+      // Details section should be visible directly
+      expect(screen.getByText('A test description')).toBeInTheDocument();
+    });
+  });
 });

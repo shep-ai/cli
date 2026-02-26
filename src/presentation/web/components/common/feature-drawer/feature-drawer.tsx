@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect } from 'react';
-import { Loader2, Trash2, ExternalLink, GitCommitHorizontal } from 'lucide-react';
+import { Loader2, Trash2, ExternalLink, GitCommitHorizontal, CircleX } from 'lucide-react';
 import { PrStatus } from '@shepai/core/domain/generated/output';
 import { cn } from '@/lib/utils';
 import { useSoundAction } from '@/hooks/use-sound-action';
@@ -215,7 +215,17 @@ function DetailsSectionWithTabs({ data }: { data: FeatureNodeData }) {
           <DetailsSection data={data} showTabs={showTabs} />
         </TabsContent>
         <TabsContent value="errors">
-          <div className="p-4">{data.errorMessage}</div>
+          <div className="p-4">
+            <div className="max-h-96 overflow-y-auto rounded-lg border border-red-200 bg-red-50 p-4">
+              <div className="mb-2 flex items-center gap-2">
+                <CircleX className="h-4 w-4 text-red-600" />
+                <h3 className="font-semibold text-red-900">Error</h3>
+              </div>
+              <pre className="font-mono text-sm whitespace-pre-wrap text-red-900">
+                {data.errorMessage}
+              </pre>
+            </div>
+          </div>
         </TabsContent>
       </Tabs>
     );
