@@ -1,3 +1,13 @@
+# [1.66.0](https://github.com/shep-ai/cli/compare/v1.65.1...v1.66.0) (2026-02-26)
+
+### Bug Fixes
+
+- **web:** fix repo/feature visibility bug — ensure repo rows created and rendered ([#159](https://github.com/shep-ai/cli/issues/159)) ([df92f6f](https://github.com/shep-ai/cli/commit/df92f6f6a18f6a64f24fd26f6a862d9e0286149d))
+
+### Features
+
+- **web,deployment:** add deploy dev server action to feature and repository nodes ([#150](https://github.com/shep-ai/cli/issues/150)) ([b70c8a9](https://github.com/shep-ai/cli/commit/b70c8a93e38adb46934855e0d312eea209b1f092))
+
 ## [1.65.1](https://github.com/shep-ai/cli/compare/v1.65.0...v1.65.1) (2026-02-26)
 
 ### Bug Fixes
