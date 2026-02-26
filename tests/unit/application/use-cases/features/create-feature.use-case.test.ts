@@ -30,10 +30,19 @@ import type { Feature } from '@/domain/generated/output.js';
 import type { MetadataGenerator } from '@/application/use-cases/features/create/metadata-generator.js';
 import type { SlugResolver } from '@/application/use-cases/features/create/slug-resolver.js';
 import type { CreateFeatureInput } from '@/application/use-cases/features/create/types.js';
+import type { Repository } from '@/domain/generated/output.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+const testRepository: Repository = {
+  id: 'test-repo-id',
+  name: 'repo',
+  path: '/repo',
+  createdAt: new Date(),
+  updatedAt: new Date(),
+};
 
 function makeParentFeature(overrides?: Partial<Feature>): Feature {
   return {
@@ -139,7 +148,7 @@ describe('CreateFeatureUseCase', () => {
     } as unknown as SlugResolver;
 
     mockRepositoryRepo = {
-      create: vi.fn().mockResolvedValue(undefined),
+      create: vi.fn().mockResolvedValue(testRepository),
       findById: vi.fn().mockResolvedValue(null),
       findByPath: vi.fn().mockResolvedValue(null),
       findByPathIncludingDeleted: vi.fn().mockResolvedValue(null),
@@ -467,6 +476,21 @@ describe('CreateFeatureUseCase', () => {
       const result = await useCase.execute({ ...baseInput, parentId: 'a' });
       expect(result.feature).toBeDefined();
       expect(result.feature.parentId).toBe('a');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Repository creation guard
+  // -------------------------------------------------------------------------
+
+  describe('repository creation guard', () => {
+    it('throws if repositoryRepo.create() returns falsy', async () => {
+      mockRepositoryRepo.findByPath = vi.fn().mockResolvedValue(null);
+      mockRepositoryRepo.create = vi.fn().mockResolvedValue(null as any);
+
+      await expect(useCase.execute(baseInput)).rejects.toThrow(
+        'Failed to create or retrieve repository record'
+      );
     });
   });
 });

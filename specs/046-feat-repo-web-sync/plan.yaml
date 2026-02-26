@@ -1,0 +1,161 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feat-repo-web-sync
+summary: >
+  Fix a data-consistency bug where features created via `shep feat new` appear in `feat ls`
+  but are invisible in `repo ls` and the web UI. The fix has four coordinated parts: (1) change
+  IRepositoryRepository.create() to return Promise<Repository> using INSERT OR IGNORE + SELECT so
+  the persisted entity is always returned; (2) guard the create() result in CreateFeatureUseCase
+  and throw if falsy; (3) add a compensating migration (v23) that back-fills any orphaned repository
+  rows; and (4) add orphan-fallback rendering in page.tsx that synthesises virtual repository nodes
+  for features whose repository row is missing from the DB.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - TypeScript
+  - SQLite (better-sqlite3)
+  - Next.js App Router (Server Components)
+  - React / React Flow
+  - Clean Architecture (domain / application / infrastructure / presentation)
+  - Vitest (unit + integration tests)
+relatedLinks:
+  - https://www.sqlite.org/lang_insert.html
+  - https://www.sqlite.org/lang_conflict.html
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'Infrastructure Fix — sqlite-repository.repository.ts + interface'
+    description: >
+      Change the SQLite create() implementation from INSERT OR IGNORE (returns nothing)
+      to INSERT OR IGNORE + SELECT (always returns the persisted entity). Update the
+      IRepositoryRepository port interface from Promise<void> to Promise<Repository> in
+      the same phase so the TypeScript contract is consistent before the use-case guard
+      is written. This is the lowest-level root cause: the INSERT fires but the result
+      is discarded, so any UNIQUE conflict silently swallows the row reference.
+    parallel: false
+
+  - id: phase-2
+    name: 'Application Fix — CreateFeatureUseCase guard + error handling'
+    description: >
+      Add a post-create guard in CreateFeatureUseCase that throws a descriptive Error if
+      the create() call returns a falsy value. Update the unit-test mock to return a
+      Repository object (previously returned undefined) so existing tests continue to pass
+      and the new guard test can exercise the failure path.
+    parallel: false
+
+  - id: phase-3
+    name: 'Persistence Fix — Compensating migration v23'
+    description: >
+      Add migration version 23 to migrations.ts that back-fills a repositories row for every
+      distinct repository_path in the features table that has no matching row in repositories.
+      Uses INSERT OR IGNORE + lower(hex(randomblob(16))) for idempotent UUID generation,
+      mirroring the existing pattern in migration 15. Bump LATEST_SCHEMA_VERSION to 23.
+    parallel: false
+
+  - id: phase-4
+    name: 'Presentation Fix — page.tsx orphan-fallback rendering'
+    description: >
+      Add a second grouping pass in page.tsx after the main repository loop. After iterating
+      over real repository rows, iterate allFeatures and group any whose repositoryPath is not
+      already covered by a rendered repository node into synthetic "virtual" repository nodes
+      (id: virtual-repo-${repositoryPath}). O(n) with a Set lookup, zero extra DB calls.
+    parallel: false
+
+# File change tracking
+filesToCreate: []
+
+filesToModify:
+  - packages/core/src/application/ports/output/repositories/repository-repository.interface.ts
+  - packages/core/src/infrastructure/repositories/sqlite-repository.repository.ts
+  - packages/core/src/application/use-cases/features/create/create-feature.use-case.ts
+  - packages/core/src/infrastructure/persistence/sqlite/migrations.ts
+  - src/presentation/web/app/page.tsx
+  - tests/integration/infrastructure/repositories/sqlite-repository.repository.test.ts
+  - tests/unit/application/use-cases/features/create-feature.use-case.test.ts
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Architecture Overview
+
+  This feature spans three Clean Architecture layers — all changes stay within their
+  existing layers with no new cross-layer dependencies:
+
+  - **Infrastructure** (`sqlite-repository.repository.ts`, `migrations.ts`): fixes the
+    persistence implementation detail (INSERT OR IGNORE + SELECT) and adds the compensating
+    migration. Neither touches domain logic.
+  - **Application** (`repository-repository.interface.ts`, `create-feature.use-case.ts`):
+    updates the output port contract (create() return type) and adds a defensive guard in
+    the use case. The interface is hand-authored TypeScript (not TypeSpec-generated), so
+    no tsp:compile cycle is needed.
+  - **Presentation** (`page.tsx`): adds orphan-fallback rendering in the Next.js Server
+    Component. This is a pure in-memory grouping change — no new use cases, API calls, or
+    domain logic.
+
+  The test files at `tests/integration/` and `tests/unit/` mirror the source layers and
+  are updated in lockstep with each source change.
+
+  ## Key Design Decisions
+
+  ### 1. INSERT OR IGNORE + SELECT (not INSERT OR REPLACE)
+  INSERT OR REPLACE would destroy the existing row and lose any fields written after initial
+  creation (notably `deleted_at` added by migration 16). INSERT OR IGNORE preserves the
+  existing row. Appending a SELECT by path after `stmt.run()` ensures the caller always
+  receives the authoritative DB row regardless of whether the INSERT fired or was ignored.
+  This matches the idempotent "ensure-exists" intent at the call site.
+
+  ### 2. Interface return type change (Promise<void> → Promise<Repository>)
+  Changing the return type at the interface level forces every implementation and every
+  call site to handle the returned entity. The SQLite implementation is the only real
+  implementation; the test mock is the only other affected site. Making the contract
+  explicit at the interface level is the minimal change that closes the data-loss gap
+  without introducing new abstractions. IRepositoryRepository is hand-authored TypeScript
+  (an application-layer output port), not TypeSpec-generated, so no tsp:compile is needed.
+
+  ### 3. Defensive guard in CreateFeatureUseCase (throw, not log)
+  The existing use case throws for lifecycle gate failures, parent validation, and cycle
+  detection. Throwing for a missing repository entity is consistent with that pattern
+  (NFR-3 error observability). Since the migration + INSERT OR IGNORE + SELECT fix makes
+  this path unreachable in normal operation, the guard acts as a defensive assertion
+  rather than expected control flow.
+
+  ### 4. Orphan-fallback in page.tsx (synthesise virtual nodes)
+  page.tsx already builds a featuresByRepo map keyed by feature.repositoryPath. A second
+  pass over allFeatures grouping any whose repositoryPath is not covered by a real
+  repository node costs O(n) with a Set lookup and zero extra DB round-trips (NFR-4).
+  The virtual node id `virtual-repo-${repositoryPath}` follows the existing `repo-${repo.id}`
+  naming convention and is deterministic across renders (unlike a random uuid).
+
+  ### 5. Compensating migration at version 23
+  migrations.ts uses LATEST_SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version
+  (currently 22). Migration 23 is the natural next slot. The SQL mirrors migration 15:
+  INSERT OR IGNORE ... SELECT DISTINCT repository_path FROM features WHERE repository_path
+  IS NOT NULL. Uses lower(hex(randomblob(16))) for UUID generation (same as migration 15).
+  Runs automatically on next `shep` startup with no operator action required.
+
+  ## Implementation Strategy
+
+  Phase ordering follows dependency:
+  1. **Phase 1 first** — the interface contract and SQLite implementation must be correct
+     before any higher layer can rely on a returned Repository entity.
+  2. **Phase 2 second** — the use-case guard is written against the updated interface.
+     The unit-test mock is updated in this phase so it returns a Repository.
+  3. **Phase 3 third** — the compensating migration is independent of phase 2 but is
+     grouped with the backend changes before touching the web UI.
+  4. **Phase 4 last** — the presentation fallback is self-contained and developed after
+     all backend fixes are in place and verified.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Migration 23 double-runs and corrupts data | INSERT OR IGNORE is idempotent; existing rows are never touched |
+  | Other mock implementations of IRepositoryRepository fail to compile after return-type change | TypeScript compiler surfaces these immediately; grep for `create:` in test files before shipping |
+  | Virtual node ids in page.tsx collide with real repo node ids | Real nodes use `repo-${repo.id}` (UUID); virtual nodes use `virtual-repo-${repositoryPath}` — no overlap possible |
+  | page.tsx orphan pass renders duplicate nodes for features already covered by a real repo | The covered-paths Set is built from the real repositories loop before the orphan pass runs |
+  | `deleted_at` column in repositories table (migration 16) not handled by create() | The INSERT only specifies the 5 columns used at creation time; `deleted_at` defaults to NULL — no change needed |
