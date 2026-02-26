@@ -1,6 +1,6 @@
 # Conventional Commits (STRICT)
 
-You MUST output commit messages that pass ALL rules below.
+You MUST output commit messages that pass ALL rules below.  
 If you are asked to produce a commit message and your first attempt would violate any rule, you MUST self-correct and output only a valid commit message (no explanations).
 
 ## Format
