@@ -46,7 +46,7 @@ export function PrdQuestionnaire({
   if (total === 0) return null;
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex flex-1 flex-col">
       <div className="flex-1 space-y-4 overflow-y-auto p-4">
         {/* Header */}
         {showHeader ? (

@@ -592,12 +592,13 @@ export function useControlCenterState(
       const repoEdge = edges.find((e) => e.target === featureNodeId);
       const repoNodeId = repoEdge?.source ?? null;
 
+      clickSound.play();
       setSelectedNode(null);
       setPendingRepoNodeId(repoNodeId);
       setPendingParentFeatureId(featureId);
       setIsCreateDrawerOpen(true);
     },
-    [edges]
+    [edges, clickSound]
   );
 
   const handleLayout = useCallback(

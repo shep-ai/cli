@@ -52,53 +52,40 @@ describe('TechDecisionsReview', () => {
   });
 
   describe('reject functionality', () => {
-    it('does not render reject button when onReject is undefined', () => {
+    it('does not render revision input when onReject is undefined', () => {
       render(<TechDecisionsReview {...defaultProps} />);
 
-      expect(screen.queryByRole('button', { name: /reject/i })).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('Ask AI to revise the plan...')).not.toBeInTheDocument();
     });
 
-    it('renders reject button in action bar when onReject is provided', () => {
+    it('renders revision input in action bar when onReject is provided', () => {
       const onReject = vi.fn();
       render(<TechDecisionsReview {...defaultProps} onReject={onReject} />);
 
-      expect(screen.getByRole('button', { name: /reject/i })).toBeInTheDocument();
+      expect(screen.getByLabelText('Ask AI to revise the plan...')).toBeInTheDocument();
     });
 
-    it('reject button is disabled when isRejecting is true', () => {
+    it('revision input is disabled when isRejecting is true', () => {
       const onReject = vi.fn();
       render(<TechDecisionsReview {...defaultProps} onReject={onReject} isRejecting />);
 
-      expect(screen.getByRole('button', { name: /reject/i })).toBeDisabled();
+      expect(screen.getByLabelText('Ask AI to revise the plan...')).toBeDisabled();
     });
 
-    it('reject button is disabled when isProcessing is true', () => {
+    it('revision input is disabled when isProcessing is true', () => {
       const onReject = vi.fn();
       render(<TechDecisionsReview {...defaultProps} onReject={onReject} isProcessing />);
 
-      expect(screen.getByRole('button', { name: /reject/i })).toBeDisabled();
+      expect(screen.getByLabelText('Ask AI to revise the plan...')).toBeDisabled();
     });
 
-    it('clicking reject opens the AlertDialog with "Reject Plan" title', () => {
+    it('submitting revision input calls onReject with feedback', () => {
       const onReject = vi.fn();
       render(<TechDecisionsReview {...defaultProps} onReject={onReject} />);
 
-      fireEvent.click(screen.getByRole('button', { name: /reject/i }));
-
-      expect(screen.getByText('Reject Plan')).toBeInTheDocument();
-      expect(screen.getByLabelText('Rejection feedback')).toBeInTheDocument();
-    });
-
-    it('confirming dialog calls onReject with feedback', () => {
-      const onReject = vi.fn();
-      render(<TechDecisionsReview {...defaultProps} onReject={onReject} />);
-
-      fireEvent.click(screen.getByRole('button', { name: /reject/i }));
-
-      const textarea = screen.getByLabelText('Rejection feedback');
-      fireEvent.change(textarea, { target: { value: 'Reconsider the database' } });
-
-      fireEvent.click(screen.getByRole('button', { name: /confirm reject/i }));
+      const input = screen.getByLabelText('Ask AI to revise the plan...');
+      fireEvent.change(input, { target: { value: 'Reconsider the database' } });
+      fireEvent.click(screen.getByRole('button', { name: /send/i }));
 
       expect(onReject).toHaveBeenCalledWith('Reconsider the database');
     });
@@ -108,14 +95,6 @@ describe('TechDecisionsReview', () => {
       render(<TechDecisionsReview {...defaultProps} onReject={onReject} isRejecting />);
 
       expect(screen.getByRole('button', { name: /approve plan/i })).toBeDisabled();
-    });
-
-    it('approve button takes remaining space with flex-1', () => {
-      const onReject = vi.fn();
-      render(<TechDecisionsReview {...defaultProps} onReject={onReject} />);
-
-      const approveButton = screen.getByRole('button', { name: /approve plan/i });
-      expect(approveButton).toHaveClass('flex-1');
     });
   });
 

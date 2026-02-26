@@ -22,7 +22,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { CheckboxGroup } from '@/components/ui/checkbox-group';
 import { CheckboxGroupItem } from '@/components/ui/checkbox-group-item';
-import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { FileAttachment } from '@shepai/core/infrastructure/services/file-dialog.service';
@@ -87,8 +86,6 @@ export function FeatureCreateDrawer({
   features,
   initialParentId,
 }: FeatureCreateDrawerProps) {
-  const drawerOpenSound = useSoundAction('drawer-open');
-  const drawerCloseSound = useSoundAction('drawer-close');
   const createSound = useSoundAction('create');
   const defaultGates = workflowDefaults?.approvalGates ?? EMPTY_GATES;
   const defaultPush = workflowDefaults?.push ?? false;
@@ -101,14 +98,6 @@ export function FeatureCreateDrawer({
   const [push, setPush] = useState(defaultPush);
   const [openPr, setOpenPr] = useState(defaultOpenPr);
   const [parentId, setParentId] = useState<string | undefined>(undefined);
-
-  // Play drawer-open sound when the drawer opens
-  const playDrawerOpen = drawerOpenSound.play;
-  useEffect(() => {
-    if (open) {
-      playDrawerOpen();
-    }
-  }, [open, playDrawerOpen]);
 
   // Sync state when workflowDefaults load asynchronously
   useEffect(() => {
@@ -137,10 +126,9 @@ export function FeatureCreateDrawer({
   }, [defaultGates, defaultPush, defaultOpenPr]);
 
   const handleClose = useCallback(() => {
-    drawerCloseSound.play();
     resetForm();
     onClose();
-  }, [onClose, resetForm, drawerCloseSound]);
+  }, [onClose, resetForm]);
 
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
@@ -227,10 +215,8 @@ export function FeatureCreateDrawer({
         </div>
       }
     >
-      <Separator />
-
       {/* Form body */}
-      <div className="p-4">
+      <div className="overflow-y-auto p-4">
         <form id="create-feature-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
           {/* Feature name */}
           <div className="flex flex-col gap-1.5">

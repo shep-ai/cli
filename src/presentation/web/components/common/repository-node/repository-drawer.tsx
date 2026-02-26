@@ -1,5 +1,6 @@
 'use client';
 
+import { useCallback } from 'react';
 import { Code2, Terminal, FolderOpen } from 'lucide-react';
 import { BaseDrawer } from '@/components/common/base-drawer';
 import { DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
@@ -14,6 +15,10 @@ export interface RepositoryDrawerProps {
 }
 
 export function RepositoryDrawer({ data, onClose }: RepositoryDrawerProps) {
+  const handleClose = useCallback(() => {
+    onClose();
+  }, [onClose]);
+
   const actions = useRepositoryActions(
     data?.repositoryPath ? { repositoryPath: data.repositoryPath } : null
   );
@@ -21,8 +26,8 @@ export function RepositoryDrawer({ data, onClose }: RepositoryDrawerProps) {
   return (
     <BaseDrawer
       open={data !== null}
-      onClose={onClose}
-      size="sm"
+      onClose={handleClose}
+      size="md"
       modal={false}
       data-testid="repository-drawer"
       deployTarget={

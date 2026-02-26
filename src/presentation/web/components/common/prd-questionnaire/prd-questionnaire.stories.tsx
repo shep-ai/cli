@@ -164,7 +164,7 @@ function InteractiveQuestionnaire({
 /* ─── Standalone PrdQuestionnaire ─── */
 
 const meta: Meta<typeof PrdQuestionnaire> = {
-  title: 'Composed/PrdQuestionnaire',
+  title: 'Drawers/Review/PrdQuestionnaire',
   component: PrdQuestionnaire,
   tags: ['autodocs'],
   parameters: {
@@ -280,7 +280,6 @@ export const MinimalData: Story = {
 type DrawerStory = StoryObj<typeof PrdQuestionnaireDrawer>;
 
 const drawerMeta = {
-  title: 'Composed/PrdQuestionnaireDrawer',
   component: PrdQuestionnaireDrawer,
   tags: ['autodocs'],
   parameters: {

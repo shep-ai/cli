@@ -41,7 +41,7 @@ import { Button } from '@/components/ui/button';
  *   with full absolute paths, filenames, and sizes
  */
 const meta: Meta<typeof FeatureCreateDrawer> = {
-  title: 'Composed/FeatureCreateDrawer',
+  title: 'Drawers/Feature/FeatureCreateDrawer',
   component: FeatureCreateDrawer,
   tags: ['autodocs'],
   parameters: {
@@ -309,6 +309,47 @@ export const WithWorkflowDefaults: Story = {
  * In Storybook, the native picker won't work (no backend), but submitted data
  * would show the paths if files were attached programmatically.
  */
+/* ---------------------------------------------------------------------------
+ * In-drawer story — full page context, starts open
+ * ------------------------------------------------------------------------- */
+
+function CreateDrawerShellTemplate() {
+  const [open, setOpen] = useState(true);
+
+  return (
+    <div style={{ height: '100vh', background: '#f8fafc', padding: '2rem' }}>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        style={{ padding: '8px 16px', border: '1px solid #ccc', borderRadius: '6px' }}
+      >
+        Open Drawer
+      </button>
+      <FeatureCreateDrawer
+        open={open}
+        onClose={() => {
+          setOpen(false);
+          logClose();
+        }}
+        onSubmit={(data) => {
+          logSubmit(data);
+          setOpen(false);
+        }}
+        repositoryPath="/Users/dev/my-repo"
+      />
+    </div>
+  );
+}
+
+/** Feature create drawer rendered inside a full-page context — starts open. */
+export const InDrawer: Story = {
+  render: () => <CreateDrawerShellTemplate />,
+};
+
+/* ---------------------------------------------------------------------------
+ * Interactive story — full paths shown in submitted data panel
+ * ------------------------------------------------------------------------- */
+
 export const Interactive: Story = {
   render: function InteractiveRender() {
     const [open, setOpen] = useState(false);

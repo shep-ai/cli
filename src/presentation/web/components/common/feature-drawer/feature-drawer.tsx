@@ -1,10 +1,9 @@
 'use client';
 
-import { useCallback, useEffect } from 'react';
+import { useCallback } from 'react';
 import { Loader2, Trash2, ExternalLink, GitCommitHorizontal } from 'lucide-react';
 import { PrStatus } from '@shepai/core/domain/generated/output';
 import { cn } from '@/lib/utils';
-import { useSoundAction } from '@/hooks/use-sound-action';
 import { OpenActionMenu } from '@/components/common/open-action-menu';
 import { BaseDrawer } from '@/components/common/base-drawer';
 import { DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
@@ -41,33 +40,101 @@ export function FeatureDrawer({
   onDelete,
   isDeleting = false,
 }: FeatureDrawerProps) {
-  const drawerOpenSound = useSoundAction('drawer-open');
-  const drawerCloseSound = useSoundAction('drawer-close');
-
-  const isOpen = selectedNode !== null;
-  const playDrawerOpen = drawerOpenSound.play;
-  useEffect(() => {
-    if (isOpen) playDrawerOpen();
-  }, [isOpen, playDrawerOpen]);
-
   const handleClose = useCallback(() => {
-    drawerCloseSound.play();
     onClose();
-  }, [onClose, drawerCloseSound]);
+  }, [onClose]);
+
+  const actionsInput =
+    selectedNode?.repositoryPath && selectedNode?.branch
+      ? {
+          repositoryPath: selectedNode.repositoryPath,
+          branch: selectedNode.branch,
+          specPath: selectedNode.specPath,
+        }
+      : null;
+  const actions = useFeatureActions(actionsInput);
 
   return (
     <BaseDrawer
       open={selectedNode !== null}
       onClose={handleClose}
-      size="sm"
+      size="md"
       modal={false}
       data-testid="feature-drawer"
       header={
         selectedNode ? (
-          <div data-testid="feature-drawer-header">
-            <DrawerTitle>{selectedNode.name}</DrawerTitle>
-            <DrawerDescription>{selectedNode.featureId}</DrawerDescription>
-          </div>
+          <>
+            <div data-testid="feature-drawer-header">
+              <DrawerTitle>{selectedNode.name}</DrawerTitle>
+              {selectedNode.description ? (
+                <DrawerDescription>{selectedNode.description}</DrawerDescription>
+              ) : selectedNode.featureId ? (
+                <DrawerDescription className="sr-only">{selectedNode.featureId}</DrawerDescription>
+              ) : null}
+            </div>
+
+            {actionsInput ? (
+              <div className="flex items-center gap-2 pt-2">
+                <OpenActionMenu
+                  actions={actions}
+                  repositoryPath={actionsInput.repositoryPath}
+                  showSpecs={!!actionsInput.specPath}
+                />
+                {onDelete && selectedNode.featureId ? (
+                  <>
+                    <div className="bg-border mx-1 h-4 w-px" />
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label="Delete feature"
+                          disabled={isDeleting}
+                          className="text-muted-foreground hover:text-destructive"
+                          data-testid="feature-drawer-delete"
+                        >
+                          {isDeleting ? (
+                            <Loader2 className="size-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="size-4" />
+                          )}
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete feature?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will permanently delete <strong>{selectedNode.name}</strong> (
+                            {selectedNode.featureId}). This action cannot be undone.
+                            {selectedNode.state === 'running' ? (
+                              <> This feature has a running agent that will be stopped.</>
+                            ) : null}
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            variant="destructive"
+                            disabled={isDeleting}
+                            onClick={() => onDelete(selectedNode.featureId)}
+                          >
+                            {isDeleting ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Deleting…
+                              </>
+                            ) : (
+                              'Delete'
+                            )}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </>
+                ) : null}
+              </div>
+            ) : null}
+          </>
         ) : undefined
       }
       deployTarget={
@@ -82,18 +149,7 @@ export function FeatureDrawer({
       }
     >
       {selectedNode ? (
-        <>
-          {/* Action buttons */}
-          {selectedNode.repositoryPath && selectedNode.branch ? (
-            <DrawerActions
-              repositoryPath={selectedNode.repositoryPath}
-              branch={selectedNode.branch}
-              specPath={selectedNode.specPath}
-            />
-          ) : null}
-
-          <Separator />
-
+        <div className="flex-1 overflow-y-auto">
           {/* Status */}
           <div data-testid="feature-drawer-status" className="flex flex-col gap-3 p-4">
             <div className="text-muted-foreground text-xs font-semibold tracking-wider">
@@ -129,57 +185,9 @@ export function FeatureDrawer({
             </>
           ) : null}
 
-          <Separator />
-
           {/* Details */}
           <DetailsSection data={selectedNode} />
-
-          {/* Delete action */}
-          {onDelete ? (
-            <>
-              <Separator />
-              <div data-testid="feature-drawer-delete" className="p-4">
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="destructive" className="w-full" disabled={isDeleting}>
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Delete feature
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Delete feature?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This will permanently delete <strong>{selectedNode.name}</strong> (
-                        {selectedNode.featureId}). This action cannot be undone.
-                        {selectedNode.state === 'running' ? (
-                          <> This feature has a running agent that will be stopped.</>
-                        ) : null}
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-                      <AlertDialogAction
-                        variant="destructive"
-                        disabled={isDeleting}
-                        onClick={() => onDelete(selectedNode.featureId)}
-                      >
-                        {isDeleting ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Deleting…
-                          </>
-                        ) : (
-                          'Delete'
-                        )}
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
-            </>
-          ) : null}
-        </>
+        </div>
       ) : null}
     </BaseDrawer>
   );
@@ -208,19 +216,20 @@ function StateBadge({ data }: { data: FeatureNodeData }) {
 }
 
 function DetailsSection({ data }: { data: FeatureNodeData }) {
-  const hasAnyDetail =
-    data.description ?? data.agentType ?? data.runtime ?? data.blockedBy ?? data.errorMessage;
+  const hasAnyDetail = data.agentType ?? data.runtime ?? data.blockedBy ?? data.errorMessage;
 
   if (!hasAnyDetail) return null;
 
   return (
-    <div data-testid="feature-drawer-details" className="flex flex-col gap-3 p-4">
-      {data.description ? <DetailRow label="Description" value={data.description} /> : null}
-      {data.agentType ? <DetailRow label="Agent" value={data.agentType} /> : null}
-      {data.runtime ? <DetailRow label="Runtime" value={data.runtime} /> : null}
-      {data.blockedBy ? <DetailRow label="Blocked by" value={data.blockedBy} /> : null}
-      {data.errorMessage ? <DetailRow label="Error" value={data.errorMessage} /> : null}
-    </div>
+    <>
+      <Separator />
+      <div data-testid="feature-drawer-details" className="flex flex-col gap-3 p-4">
+        {data.agentType ? <DetailRow label="Agent" value={data.agentType} /> : null}
+        {data.runtime ? <DetailRow label="Runtime" value={data.runtime} /> : null}
+        {data.blockedBy ? <DetailRow label="Blocked by" value={data.blockedBy} /> : null}
+        {data.errorMessage ? <DetailRow label="Error" value={data.errorMessage} /> : null}
+      </div>
+    </>
   );
 }
 
@@ -278,24 +287,6 @@ function PrInfoSection({ pr }: { pr: NonNullable<FeatureNodeData['pr']> }) {
           </div>
         ) : null}
       </div>
-    </div>
-  );
-}
-
-function DrawerActions({
-  repositoryPath,
-  branch,
-  specPath,
-}: {
-  repositoryPath: string;
-  branch: string;
-  specPath?: string;
-}) {
-  const actions = useFeatureActions({ repositoryPath, branch, specPath });
-
-  return (
-    <div className="flex gap-2 px-4 pb-3">
-      <OpenActionMenu actions={actions} repositoryPath={repositoryPath} showSpecs={!!specPath} />
     </div>
   );
 }

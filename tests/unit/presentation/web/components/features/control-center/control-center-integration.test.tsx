@@ -141,9 +141,9 @@ describe('ControlCenterInner + FeatureDrawer integration', () => {
         capturedCanvasProps.onNodeClick?.({} as React.MouseEvent, featureNodeA);
       });
 
-      // Drawer should now show the feature name
+      // Drawer should now show the feature name and description
       expect(screen.getByText('Auth Module')).toBeInTheDocument();
-      expect(screen.getByText('#fa01')).toBeInTheDocument();
+      expect(screen.getByText('OAuth2 authentication')).toBeInTheDocument();
     });
 
     it('displays the correct state badge for the selected node', () => {
@@ -217,7 +217,7 @@ describe('ControlCenterInner + FeatureDrawer integration', () => {
       });
 
       expect(screen.getByText('Auth Module')).toBeInTheDocument();
-      expect(screen.getByText('#fa01')).toBeInTheDocument();
+      expect(screen.getByText('OAuth2 authentication')).toBeInTheDocument();
       expect(screen.queryByText('Payment Gateway')).not.toBeInTheDocument();
 
       // Click node B — drawer should switch to node B data
@@ -226,7 +226,7 @@ describe('ControlCenterInner + FeatureDrawer integration', () => {
       });
 
       expect(screen.getByText('Payment Gateway')).toBeInTheDocument();
-      expect(screen.getByText('#fb02')).toBeInTheDocument();
+      expect(screen.getByText('Stripe integration')).toBeInTheDocument();
       expect(screen.queryByText('Auth Module')).not.toBeInTheDocument();
     });
 
@@ -303,15 +303,15 @@ describe('ControlCenterInner + FeatureDrawer integration', () => {
   describe('merge review drawer', () => {
     const nodesWithMerge: CanvasNodeType[] = [repoNodeDefault, featureNodeA, mergeReviewNode];
 
-    it('suppresses FeatureDrawer when review + action-required node is selected', async () => {
+    it('shows unified drawer for review + action-required node', async () => {
       renderControlCenter(nodesWithMerge);
 
       act(() => {
         capturedCanvasProps.onNodeClick?.({} as React.MouseEvent, mergeReviewNode);
       });
 
-      // FeatureDrawer should be suppressed — its unique delete section is absent
-      expect(screen.queryByTestId('feature-drawer-delete')).not.toBeInTheDocument();
+      // Unified drawer renders the feature header for all feature-based views
+      expect(screen.getByText('Merge Review Feature')).toBeInTheDocument();
     });
 
     it('calls getMergeReviewData when review + action-required node is clicked', async () => {

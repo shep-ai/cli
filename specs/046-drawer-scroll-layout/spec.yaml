@@ -1,0 +1,184 @@
+name: drawer-scroll-layout
+number: 046
+branch: feat/046-drawer-scroll-layout
+oneLiner: Refactor drawer layout with fixed header/footer and scrollable content area
+summary: >
+  Refactor the BaseDrawer component to support fixed header/footer sections with
+  a scrollable content area in between. When drawer content is large, only the
+  center content area should scroll while the header (title + close button) and
+  footer (DrawerActionBar with inputs/buttons) remain fixed in place. This
+  improves UX for drawers with lengthy content like merge reviews, questionnaires,
+  and feature details by keeping key actions always visible.
+phase: Requirements
+sizeEstimate: M
+
+relatedFeatures:
+  - 045
+
+technologies:
+  - React 19
+  - Next.js 16 (App Router)
+  - Vaul (drawer primitive library)
+  - Tailwind CSS
+  - CVA (class-variance-authority)
+  - shadcn/ui
+  - Storybook
+  - Vitest + React Testing Library
+
+relatedLinks: []
+
+openQuestions:
+  - question: 'Should we simplify internal layouts of existing review components (MergeReview, PrdQuestionnaire, TechDecisionsReview) to remove their redundant scroll structures?'
+    resolved: true
+    options:
+      - option: 'Simplify now (same PR)'
+        description: 'Remove redundant flex/scroll layout from review components since BaseDrawer now handles it. Single cohesive change, prevents layout duplication, but increases PR scope and testing surface.'
+        selected: false
+      - option: 'Simplify later (separate PR)'
+        description: 'Keep review components unchanged in this PR, simplify in follow-up. Smaller PR scope, easier to review/test, allows independent validation of BaseDrawer changes before consumer changes.'
+        selected: true
+      - option: 'Never simplify (keep as-is)'
+        description: 'Leave review components with their own scroll layout as defensive pattern. Provides fallback if BaseDrawer behavior changes, but creates layout duplication and potential conflicts.'
+        selected: false
+    selectionRationale: 'Simplifying in a separate PR is recommended because it keeps this PR focused on BaseDrawer layout changes only, making it easier to review and test. Review components already work correctly with their internal scroll structures, so there is no urgency to modify them. A follow-up PR can systematically simplify all consumers after validating BaseDrawer behavior in production.'
+    answer: 'Simplify later (separate PR)'
+
+  - question: 'Should we add min-height constraints to prevent footer from pushing content out of view on short drawers?'
+    resolved: true
+    options:
+      - option: 'Add min-height safeguards'
+        description: 'Set min-height on content area to ensure footer never overlaps content on short drawers. Handles edge cases, prevents layout bugs, adds ~10 lines of CSS logic.'
+        selected: true
+      - option: 'No min-height (rely on flex)'
+        description: 'Trust flex-1 to distribute space naturally without constraints. Simpler implementation, but may cause footer to push content out of view if drawer height is constrained.'
+        selected: false
+    selectionRationale: 'Min-height safeguards are recommended because drawers can be opened on various screen sizes and viewport heights. Without constraints, a large footer (DrawerActionBar with textarea + buttons) could compress content to unusable heights on smaller screens. A simple min-height: 0 on the scrollable content area prevents flex shrinking below zero and ensures content is always accessible via scroll.'
+    answer: 'Add min-height safeguards'
+
+  - question: 'Should we add padding/spacing guidelines for drawer content to ensure consistent visual rhythm?'
+    resolved: true
+    options:
+      - option: 'Enforce padding in BaseDrawer'
+        description: 'Add default p-4 or p-6 to scrollable content area in BaseDrawer. Consistent spacing across all drawers, but reduces consumer flexibility and may conflict with custom layouts.'
+        selected: false
+      - option: 'Document padding conventions'
+        description: 'Keep BaseDrawer layout-only, document recommended padding (p-4 for content, border-t for footer) in Storybook and comments. Maintains flexibility, allows custom layouts, relies on documentation.'
+        selected: true
+      - option: 'No guidelines (consumer responsibility)'
+        description: 'Let each drawer consumer choose their own spacing. Maximum flexibility, but risks inconsistent UX across drawers.'
+        selected: false
+    selectionRationale: 'Documenting padding conventions is recommended because BaseDrawer is a structural component that should not impose visual styling decisions. Different drawers have different spacing needs (e.g., MergeReview uses space-y-4 for sections, FeatureDrawer has tighter spacing). By documenting conventions in Storybook stories and comments, we provide guidance without sacrificing flexibility. This aligns with the component tier architecture where Tier 1 components compose primitives without enforcing visual design.'
+    answer: 'Document padding conventions'
+
+  - question: 'Should we expose scroll container ref to consumers for programmatic scroll control?'
+    resolved: true
+    options:
+      - option: 'Expose scrollContainerRef prop'
+        description: 'Add optional scrollContainerRef prop forwarded to the scrollable div. Enables scroll-to-top, scroll-to-bottom, scroll-into-view use cases. Adds API surface, requires documentation and testing.'
+        selected: false
+      - option: 'No ref exposure (keep simple)'
+        description: 'Do not expose internal scroll container. Simpler API, less testing burden, but consumers cannot programmatically control scroll position.'
+        selected: true
+    selectionRationale: 'No ref exposure is recommended because there are no current use cases requiring programmatic scroll control in any drawer consumers. Adding API surface without a concrete need increases maintenance burden and testing complexity. If a future use case emerges (e.g., scroll-to-error in forms), we can add the ref prop in a backward-compatible way. YAGNI principle applies here.'
+    answer: 'No ref exposure (keep simple)'
+
+content: |
+  ## Problem Statement
+
+  Currently, the BaseDrawer component has a single scrollable content area where
+  the entire drawer content (header, children, footer) scrolls together. This
+  creates poor UX for drawers with lengthy content:
+
+  1. **Bottom action buttons scroll out of view**: Users must scroll to the
+     bottom to access approve/reject/submit buttons in the DrawerActionBar,
+     making it unclear that actions are available
+  2. **Header context is lost**: When scrolling through content, the drawer
+     title and context disappear from view
+  3. **Inconsistent with common drawer patterns**: Most drawer implementations
+     (GitHub PRs, JIRA tickets, etc.) keep headers/footers fixed for quick access
+
+  The BaseDrawer component (feature #045, just merged) provides slot-based
+  composition with header, children, and footer props, but the footer is
+  currently placed inside the scrollable container. This refactor will restructure
+  the layout to create three fixed regions: header (fixed top), scrollable
+  content (flex-1 overflow-y-auto), and footer (fixed bottom).
+
+  ## Success Criteria
+
+  - [ ] Header (title + close button) remains visible and fixed at the top when scrolling drawer content
+  - [ ] Footer (DrawerActionBar with inputs/buttons) remains visible and fixed at the bottom when scrolling drawer content
+  - [ ] Only the content area (children prop) scrolls when drawer content exceeds available height
+  - [ ] All existing drawer consumers (MergeReview, PrdQuestionnaire, TechDecisionsReview, FeatureDrawer, RepositoryDrawer, SkillDetailDrawer) continue to work without modification
+  - [ ] Storybook "Scrollable Content" story demonstrates fixed header/footer behavior with long content
+  - [ ] Unit tests verify that header and footer elements are outside the scroll container DOM node
+  - [ ] No visual regressions in any drawer when viewed in Storybook (all sizes, modal/non-modal variants)
+  - [ ] DrawerActionBar remains accessible at all times without scrolling in review drawers
+  - [ ] Layout works correctly on various viewport heights (no footer overlap on short screens)
+
+  ## Functional Requirements
+
+  - **FR-1**: BaseDrawer MUST render header slot content (DrawerHeader wrapper) in a fixed position at the top of the drawer, outside the scrollable content area
+  - **FR-2**: BaseDrawer MUST render footer slot content (DrawerFooter wrapper) in a fixed position at the bottom of the drawer, outside the scrollable content area
+  - **FR-3**: BaseDrawer MUST render children prop content in a scrollable container positioned between the header and footer
+  - **FR-4**: The scrollable content area MUST have `overflow-y-auto` to enable vertical scrolling when content exceeds available height
+  - **FR-5**: The scrollable content area MUST have `flex-1` to occupy all available vertical space between header and footer
+  - **FR-6**: The close button (absolute positioned top-right) MUST remain visible and clickable at all times, unaffected by scroll position
+  - **FR-7**: When drawer content is shorter than available height, no scrollbar should appear and layout should distribute space naturally
+  - **FR-8**: All existing BaseDrawer props (open, onOpenChange, header, children, footer, size, modal) MUST continue to work without API changes
+
+  ## Non-Functional Requirements
+
+  - **NFR-1**: **Backward Compatibility** — All drawer consumers MUST work without modification. The change is internal to BaseDrawer layout only.
+  - **NFR-2**: **Performance** — No performance degradation from layout change. Scrolling MUST remain smooth (60fps) even with large content (e.g., 100+ list items).
+  - **NFR-3**: **Accessibility** — Scroll container MUST be keyboard-navigable (Tab, arrow keys) and announce scrollable region to screen readers. Focus management MUST not break with new layout structure.
+  - **NFR-4**: **Responsive Layout** — Layout MUST work correctly on various viewport heights (mobile, tablet, desktop). Footer MUST NOT overlap content on short screens (min-height safeguards).
+  - **NFR-5**: **Visual Consistency** — No visual changes to existing drawers beyond scroll behavior. Spacing, borders, colors remain identical.
+  - **NFR-6**: **Maintainability** — Layout structure MUST be clear and well-commented. Tailwind classes MUST follow existing patterns (flex, flex-col, flex-1, overflow-y-auto, shrink-0).
+  - **NFR-7**: **Testability** — Layout structure MUST be verifiable via DOM queries in unit tests. Test MUST assert that header/footer are siblings of scroll container, not children.
+  - **NFR-8**: **Documentation** — Storybook stories MUST clearly demonstrate fixed header/footer behavior. Comments MUST explain layout structure and spacing conventions.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Should we simplify internal layouts of existing review components (MergeReview, PrdQuestionnaire, TechDecisionsReview)? | Simplify later (separate PR) | Keeps this PR focused on BaseDrawer changes only. Review components already work correctly, so no urgency to modify them. Follow-up PR can systematically simplify all consumers after validating BaseDrawer in production. |
+  | 2 | Should we add min-height constraints to prevent footer from pushing content out of view on short drawers? | Add min-height safeguards | Drawers can be opened on various screen sizes. Without constraints, a large footer could compress content to unusable heights on smaller screens. Simple `min-height: 0` on scrollable area prevents flex shrinking and ensures content is always accessible. |
+  | 3 | Should we add padding/spacing guidelines for drawer content? | Document padding conventions | BaseDrawer is structural and should not impose visual styling. Different drawers have different spacing needs. Document conventions (p-4 for content, border-t for footer) in Storybook and comments to provide guidance without sacrificing flexibility. |
+  | 4 | Should we expose scroll container ref for programmatic scroll control? | No ref exposure (keep simple) | No current use cases require programmatic scroll control. Adding API surface without concrete need increases maintenance burden. If future use case emerges (scroll-to-error), we can add ref prop in backward-compatible way. YAGNI principle. |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `components/common/base-drawer/base-drawer.tsx` | High | Core layout change: restructure flex layout to keep header/footer fixed, only scroll content. Add min-height safeguards and layout comments. |
+  | `components/common/base-drawer/base-drawer.stories.tsx` | Medium | Update Scrollable Content story to verify header/footer remain fixed during scroll. Add story notes documenting padding conventions. |
+  | `tests/unit/presentation/web/components/common/base-drawer/base-drawer.test.tsx` | Medium | Add test for scroll behavior: verify header/footer are siblings of scroll container (not children). Test layout structure with DOM queries. |
+  | `components/common/merge-review/merge-review.tsx` | None | No changes in this PR. Future simplification tracked separately. |
+  | `components/common/prd-questionnaire/prd-questionnaire.tsx` | None | No changes in this PR. Future simplification tracked separately. |
+  | `components/common/tech-decisions-review/tech-decisions-review.tsx` | None | No changes in this PR. Future simplification tracked separately. |
+  | `components/common/feature-drawer/feature-drawer.tsx` | None | Consumes BaseDrawer, no changes needed. |
+  | `components/common/repository-node/repository-drawer.tsx` | None | Consumes BaseDrawer, no changes needed. |
+  | `components/features/skills/skill-detail-drawer.tsx` | None | Consumes BaseDrawer, no changes needed. |
+
+  ## Dependencies
+
+  - **Vaul Drawer primitive** — DrawerContent, DrawerHeader, DrawerFooter components used for structural layout
+  - **BaseDrawer component** — The component being refactored (feature #045)
+  - **DrawerActionBar component** — Common footer pattern for review drawers, should remain fixed at bottom
+  - **Tailwind CSS flexbox utilities** — `flex`, `flex-col`, `flex-1`, `overflow-y-auto`, `shrink-0`, `min-h-0` for layout control
+  - **CVA** — Existing width variant logic remains unchanged
+  - **Storybook** — Stories must verify new scroll behavior and document spacing conventions
+  - **Vitest + React Testing Library** — Unit tests must verify layout structure via DOM queries
+
+  ## Size Estimate
+
+  **M** — This is a focused layout refactor within a single component (BaseDrawer). The change is structural but straightforward:
+
+  1. **Layout restructure** (1-2 hours): Adjust flex layout in BaseDrawer to create three fixed regions: header, scrollable content (with min-height safeguards), footer
+  2. **Story updates** (30 min): Update Scrollable Content story to show fixed header/footer behavior, add documentation of padding conventions
+  3. **Test updates** (1 hour): Add unit tests verifying scroll container structure and fixed regions via DOM queries
+  4. **Manual verification** (1 hour): Test all drawers in Storybook to ensure no visual regressions across sizes and variants
+
+  Total: 4-5 hours of focused work. No new components, no API changes, no consumer code changes — purely internal layout refactoring within BaseDrawer. The risk is low since all consumers use the same slot-based API, and the change is additive (improving scroll behavior without breaking existing functionality).
+
+  Product decisions are pre-answered with AI recommendations. Review components will be simplified in a separate follow-up PR to keep this change focused and testable.

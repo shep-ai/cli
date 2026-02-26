@@ -42,7 +42,7 @@ const defaultActions = {
 /* ─── Standalone MergeReview ─── */
 
 const meta: Meta<typeof MergeReview> = {
-  title: 'Common/MergeReview',
+  title: 'Drawers/Review/MergeReview',
   component: MergeReview,
   tags: ['autodocs'],
   parameters: {
@@ -161,7 +161,6 @@ export const WithPhases: Story = {
 type DrawerStory = StoryObj<typeof MergeReviewDrawer>;
 
 const drawerMeta = {
-  title: 'Common/MergeReviewDrawer',
   component: MergeReviewDrawer,
   tags: ['autodocs'],
   parameters: {

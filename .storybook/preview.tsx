@@ -24,6 +24,18 @@ const ThemeDecorator = (
   );
 };
 
+// Applies full-page context background to all Drawers/ stories automatically
+const DrawerPageDecorator = (Story: React.FC, context: { title?: string }) => {
+  if (!context.title?.startsWith('Drawers/')) {
+    return <Story />;
+  }
+  return (
+    <div style={{ minHeight: '100vh', background: '#f8fafc' }}>
+      <Story />
+    </div>
+  );
+};
+
 const preview: Preview = {
   parameters: {
     controls: {
@@ -46,7 +58,7 @@ const preview: Preview = {
       },
     },
   },
-  decorators: [ThemeDecorator],
+  decorators: [ThemeDecorator, DrawerPageDecorator],
 };
 
 export default preview;

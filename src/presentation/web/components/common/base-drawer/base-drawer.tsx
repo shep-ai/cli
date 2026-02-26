@@ -1,5 +1,6 @@
 'use client';
 
+import { useRef, useEffect } from 'react';
 import { XIcon, Play, Square } from 'lucide-react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
@@ -12,6 +13,7 @@ import {
   DrawerFooter,
   DrawerOverlay,
 } from '@/components/ui/drawer';
+import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useDeployAction, type DeployActionInput } from '@/hooks/use-deploy-action';
 import { featureFlags } from '@/lib/feature-flags';
@@ -52,6 +54,30 @@ export function BaseDrawer({
   'data-testid': testId,
   deployTarget,
 }: BaseDrawerProps) {
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  // Close when clicking outside the drawer panel (no overlay needed — canvas stays draggable).
+  // Uses `click` (not `pointerdown`) so canvas drags don't trigger this.
+  useEffect(() => {
+    if (!open || modal) return;
+
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as Element;
+      if (contentRef.current?.contains(target)) return;
+      // Don't close when clicking inside the canvas or other Radix overlays
+      if (
+        target.closest(
+          '[data-no-drawer-close], [role="alertdialog"], [role="menu"], [role="listbox"], [data-radix-popper-content-wrapper]'
+        )
+      )
+        return;
+      onClose();
+    };
+
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
+  }, [open, modal, onClose]);
+
   return (
     <Drawer
       direction="right"
@@ -64,6 +90,7 @@ export function BaseDrawer({
     >
       {modal ? <DrawerOverlay /> : null}
       <DrawerContent
+        ref={contentRef}
         direction="right"
         showCloseButton={false}
         className={cn(drawerVariants({ size }), className)}
@@ -82,18 +109,20 @@ export function BaseDrawer({
         </button>
 
         {/* Header slot */}
-        {header ? <DrawerHeader>{header}</DrawerHeader> : null}
+        {header ? <DrawerHeader className="shrink-0">{header}</DrawerHeader> : null}
+
+        {/* Separator between header and content — matches review drawer style */}
+        {header ? <Separator /> : null}
 
         {/* Dev server bar — rendered when deployTarget is provided and env deploy is enabled */}
         {featureFlags.envDeploy && deployTarget ? <DeployBar deployTarget={deployTarget} /> : null}
 
-        {/* Scrollable content area */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="flex flex-col">{children}</div>
-        </div>
+        {/* Scrollable content area. Consumers should add p-4 for consistent spacing. */}
+        {/* Footer components like DrawerActionBar typically include border-t. */}
+        <div className="flex min-h-0 flex-1 flex-col">{children}</div>
 
         {/* Footer slot */}
-        {footer ? <DrawerFooter>{footer}</DrawerFooter> : null}
+        {footer ? <DrawerFooter className="shrink-0">{footer}</DrawerFooter> : null}
       </DrawerContent>
     </Drawer>
   );

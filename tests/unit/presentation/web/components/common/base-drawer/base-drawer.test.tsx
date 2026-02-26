@@ -186,19 +186,49 @@ describe('BaseDrawer', () => {
     });
   });
 
-  describe('scrollable content', () => {
-    it('renders children inside scrollable container with overflow-y-auto', () => {
+  describe('content area layout', () => {
+    it('renders children inside a flex-1 min-h-0 flex-col container', () => {
       render(
         <BaseDrawer open onClose={vi.fn()} data-testid="drawer">
-          <p>Scrollable content</p>
+          <p>Content</p>
         </BaseDrawer>
       );
 
-      const content = screen.getByText('Scrollable content');
-      // The scrollable wrapper is the parent of the inner flex-col div
-      const scrollContainer = content.closest('.overflow-y-auto');
-      expect(scrollContainer).toBeInTheDocument();
-      expect(scrollContainer?.className).toContain('flex-1');
+      const content = screen.getByText('Content');
+      const contentArea = content.parentElement;
+      expect(contentArea?.className).toContain('flex-1');
+      expect(contentArea?.className).toContain('min-h-0');
+      expect(contentArea?.className).toContain('flex-col');
+    });
+
+    it('renders header and footer as siblings of the content area', () => {
+      render(
+        <BaseDrawer
+          open
+          onClose={vi.fn()}
+          header={<h2>Test Header</h2>}
+          footer={<button type="button">Test Footer</button>}
+        >
+          <p>Content</p>
+        </BaseDrawer>
+      );
+
+      const content = screen.getByText('Content');
+      const contentArea = content.parentElement;
+
+      const header = screen.getByText('Test Header').closest('[data-slot="drawer-header"]');
+      const footer = screen.getByText('Test Footer').closest('[data-slot="drawer-footer"]');
+
+      // Header and footer should be siblings of content area (not children)
+      expect(header?.parentElement).toBe(contentArea?.parentElement);
+      expect(footer?.parentElement).toBe(contentArea?.parentElement);
+
+      // Header and footer are shrink-0 so they don't compress
+      expect(header?.className).toContain('shrink-0');
+      expect(footer?.className).toContain('shrink-0');
+
+      // Content area fills remaining space
+      expect(contentArea?.className).toContain('min-h-0');
     });
   });
 

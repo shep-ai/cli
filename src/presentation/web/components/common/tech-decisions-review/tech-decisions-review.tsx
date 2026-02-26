@@ -131,7 +131,7 @@ export function TechDecisionsReview({
   if (decisions.length === 0) return null;
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex flex-1 flex-col">
       <div className="flex-1 space-y-4 overflow-y-auto p-4">
         {/* Header */}
         <div className="flex items-start gap-3">
@@ -164,7 +164,6 @@ export function TechDecisionsReview({
         approveLabel="Approve Plan"
         approveIcon={<Check className="mr-1.5 h-4 w-4" />}
         revisionPlaceholder="Ask AI to revise the plan..."
-        rejectDialogTitle="Reject Plan"
         isProcessing={isProcessing}
         isRejecting={isRejecting}
       />
