@@ -401,7 +401,7 @@ WHERE repository_path NOT IN (SELECT path FROM repositories WHERE path IS NOT NU
     version: 24,
     sql: `
 -- Migration 024: Create execution_steps table for hierarchical step monitoring
-CREATE TABLE execution_steps (
+CREATE TABLE IF NOT EXISTS execution_steps (
   id TEXT PRIMARY KEY,
   agent_run_id TEXT NOT NULL,
   parent_id TEXT,
@@ -418,11 +418,11 @@ CREATE TABLE execution_steps (
   updated_at INTEGER NOT NULL
 );
 
-CREATE INDEX idx_execution_steps_run ON execution_steps(agent_run_id);
-CREATE INDEX idx_execution_steps_parent ON execution_steps(parent_id) WHERE parent_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_execution_steps_run ON execution_steps(agent_run_id);
+CREATE INDEX IF NOT EXISTS idx_execution_steps_parent ON execution_steps(parent_id) WHERE parent_id IS NOT NULL;
 
 -- Migrate existing phase_timings data into execution_steps
-INSERT INTO execution_steps (
+INSERT OR IGNORE INTO execution_steps (
   id, agent_run_id, parent_id, name, type, status,
   started_at, completed_at, duration_ms, outcome, metadata,
   sequence_number, created_at, updated_at
