@@ -487,4 +487,76 @@ describe('FeatureDrawer', () => {
       expect(screen.queryByText('Commit')).not.toBeInTheDocument();
     });
   });
+
+  describe('Tab Rendering Logic', () => {
+    it('renders tabs when errorMessage exists', () => {
+      renderDrawer({
+        ...defaultData,
+        state: 'error',
+        errorMessage: 'Build failed',
+      });
+      expect(screen.getByRole('tablist')).toBeInTheDocument();
+    });
+
+    it('does not render tabs when errorMessage is undefined', () => {
+      renderDrawer({
+        ...defaultData,
+        state: 'error',
+        errorMessage: undefined,
+      });
+      expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
+    });
+
+    it('does not render tabs when errorMessage is empty string', () => {
+      renderDrawer({
+        ...defaultData,
+        state: 'error',
+        errorMessage: '',
+      });
+      expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
+    });
+
+    it('does not render tabs when errorMessage is null', () => {
+      renderDrawer({
+        ...defaultData,
+        state: 'error',
+        errorMessage: null as unknown as string,
+      });
+      expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('Default Active Tab', () => {
+    it('Errors tab is active by default when errorMessage exists', () => {
+      renderDrawer({
+        ...defaultData,
+        state: 'error',
+        errorMessage: 'Build failed',
+      });
+
+      // Errors tab content should be visible
+      expect(screen.getByText('Build failed')).toBeInTheDocument();
+    });
+
+    it('can switch from Errors tab to Details tab', async () => {
+      const user = userEvent.setup();
+      renderDrawer({
+        ...defaultData,
+        state: 'error',
+        errorMessage: 'Build failed',
+        description: 'A test description',
+      });
+
+      // Initially Errors tab content is visible
+      expect(screen.getByText('Build failed')).toBeInTheDocument();
+
+      // Click Details tab
+      await user.click(screen.getByRole('tab', { name: /details/i }));
+
+      // Details content should now be visible
+      expect(screen.getByText('A test description')).toBeInTheDocument();
+      // Errors content should be hidden (note: checking for 'Build failed' would still be in DOM but not visible)
+      // We need to check that the description is now the active content
+    });
+  });
 });

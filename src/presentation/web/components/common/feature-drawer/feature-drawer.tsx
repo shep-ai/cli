@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { CometSpinner } from '@/components/ui/comet-spinner';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -120,8 +121,8 @@ export function FeatureDrawer({
 
           <Separator />
 
-          {/* Details */}
-          <DetailsSection data={selectedNode} />
+          {/* Details - conditionally wrapped in tabs if error exists */}
+          <DetailsSectionWithTabs data={selectedNode} />
 
           {/* Delete action */}
           {onDelete ? (
@@ -196,7 +197,34 @@ function StateBadge({ data }: { data: FeatureNodeData }) {
   );
 }
 
-function DetailsSection({ data }: { data: FeatureNodeData }) {
+function DetailsSectionWithTabs({ data }: { data: FeatureNodeData }) {
+  const showTabs = Boolean(data.errorMessage);
+
+  if (showTabs) {
+    return (
+      <Tabs defaultValue="errors" className="px-4">
+        <TabsList className="w-full">
+          <TabsTrigger value="details" className="flex-1">
+            Details
+          </TabsTrigger>
+          <TabsTrigger value="errors" className="flex-1">
+            Errors
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="details">
+          <DetailsSection data={data} showTabs={showTabs} />
+        </TabsContent>
+        <TabsContent value="errors">
+          <div className="p-4">{data.errorMessage}</div>
+        </TabsContent>
+      </Tabs>
+    );
+  }
+
+  return <DetailsSection data={data} showTabs={showTabs} />;
+}
+
+function DetailsSection({ data, showTabs }: { data: FeatureNodeData; showTabs: boolean }) {
   const hasAnyDetail =
     data.description ?? data.agentType ?? data.runtime ?? data.blockedBy ?? data.errorMessage;
 
@@ -208,7 +236,9 @@ function DetailsSection({ data }: { data: FeatureNodeData }) {
       {data.agentType ? <DetailRow label="Agent" value={data.agentType} /> : null}
       {data.runtime ? <DetailRow label="Runtime" value={data.runtime} /> : null}
       {data.blockedBy ? <DetailRow label="Blocked by" value={data.blockedBy} /> : null}
-      {data.errorMessage ? <DetailRow label="Error" value={data.errorMessage} /> : null}
+      {data.errorMessage && !showTabs ? (
+        <DetailRow label="Error" value={data.errorMessage} />
+      ) : null}
     </div>
   );
 }
