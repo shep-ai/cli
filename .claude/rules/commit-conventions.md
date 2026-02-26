@@ -1,11 +1,11 @@
 Commit message should follow Conventional Commits
-<type>(<scope>): <lowercase subject>
+<type>(<scope>): <fully lowercase subject>
 
 ## Rules
 
 1. Must be one of: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert
 1. scope-enum Should be: specs, shep-kit, cli, tui, web, api, domain, agents, deployment, tsp, deps, config, dx, release, ci
-1. Must be lower-case (no capitals: pr not PR)
+1. Must be fully lower-case (no capitals: pr not PR)
 1. Cannot be empty
 1. No trailing period
 1. Max 72 chars
