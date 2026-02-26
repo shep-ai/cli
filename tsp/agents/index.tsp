@@ -79,6 +79,11 @@ import "./agent-definition.tsp";
 import "./approval-gates.tsp";
 import "./phase-timing.tsp";
 
+// Hierarchical execution step monitoring
+import "./enums/execution-step-type.tsp";
+import "./enums/execution-step-status.tsp";
+import "./execution-step.tsp";
+
 // PRD approval/rejection DTOs
 import "./prd-approval.tsp";
 

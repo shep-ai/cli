@@ -41,6 +41,9 @@ import { updateNodeLifecycle } from '../../lifecycle-context.js';
 import { buildCommitPushPrPrompt, buildMergeSquashPrompt } from '../prompts/merge-prompts.js';
 import { parseCommitHash, parsePrUrl } from './merge-output-parser.js';
 import { runCiWatchFixLoop } from './ci-watch-fix-loop.js';
+import { EXECUTION_MONITOR_CONFIG_KEY, EXECUTION_STEP_ID_KEY } from '../../graph-middleware.js';
+import type { ExecutionMonitor } from '../../execution-monitor.js';
+import { ExecutionStepType } from '@/domain/generated/output.js';
 
 export interface MergeNodeDeps {
   executor: IAgentExecutor;
@@ -65,10 +68,18 @@ export interface MergeNodeDeps {
 export function createMergeNode(deps: MergeNodeDeps) {
   const log = createNodeLogger('merge');
 
-  return async (state: FeatureAgentState): Promise<Partial<FeatureAgentState>> => {
+  return async (
+    state: FeatureAgentState,
+    config?: Record<string, unknown>
+  ): Promise<Partial<FeatureAgentState>> => {
     log.info('Starting merge flow');
     reportNodeStart('merge');
     await updateNodeLifecycle('merge');
+
+    // Extract ExecutionMonitor and parent step ID from config (injected by graph middleware)
+    const configurable = (config?.configurable as Record<string, unknown>) ?? {};
+    const monitor = configurable[EXECUTION_MONITOR_CONFIG_KEY] as ExecutionMonitor | undefined;
+    const parentStepId = configurable[EXECUTION_STEP_ID_KEY] as string | undefined;
 
     // --- Rejection detection on resume (same pattern as executeNode) ---
     const completedPhases = getCompletedPhases(state.specDir);
@@ -122,6 +133,10 @@ export function createMergeNode(deps: MergeNodeDeps) {
         const effectiveState = remoteAvailable ? state : { ...state, push: false, openPr: false };
 
         log.info('Agent call 1: commit + push + PR');
+        const commitPushPrStepId =
+          monitor && parentStepId
+            ? await monitor.startSubStep(parentStepId, 'commit-push-pr', ExecutionStepType.subStep)
+            : null;
         const commitPushPrPrompt = buildCommitPushPrPrompt(effectiveState, branch, baseBranch);
         const commitResult = await retryExecute(executor, commitPushPrPrompt, options, {
           logger: log,
@@ -137,6 +152,13 @@ export function createMergeNode(deps: MergeNodeDeps) {
             prNumber = prResult.number;
             messages.push(`[merge] PR created: ${prUrl}`);
           }
+        }
+        if (commitPushPrStepId && monitor) {
+          await monitor.completeStep(commitPushPrStepId, 'success', {
+            commitHash,
+            prUrl,
+            prNumber,
+          });
         }
 
         // --- CI watch/fix loop (when push or openPr is enabled) ---
@@ -157,6 +179,8 @@ export function createMergeNode(deps: MergeNodeDeps) {
               existingAttempts: ciFixAttempts,
               messages,
               log,
+              monitor: monitor ?? undefined,
+              parentStepId: parentStepId ?? undefined,
             }
           );
           ciStatus = ciResult.ciStatus;
@@ -189,6 +213,10 @@ export function createMergeNode(deps: MergeNodeDeps) {
           markPhaseComplete(state.specDir, 'merge', log);
           await recordPhaseEnd(mergeTimingId, Date.now() - startTime);
           await recordApprovalWaitStart(mergeTimingId);
+          // Record approval wait as a sub-step
+          if (monitor && parentStepId) {
+            await monitor.startSubStep(parentStepId, 'approval', ExecutionStepType.approvalWait);
+          }
           const diffSummary = await deps.getDiffSummary(cwd, baseBranch);
           interrupt({
             node: 'merge',

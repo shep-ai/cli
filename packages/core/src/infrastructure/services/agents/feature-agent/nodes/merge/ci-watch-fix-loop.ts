@@ -19,6 +19,8 @@ import type { AgentExecutionOptions } from '@/application/ports/output/agents/ag
 import { buildCiWatchFixPrompt } from '../prompts/merge-prompts.js';
 import { extractRunId, handleCiTerminalFailure, buildCiExhaustedError } from './ci-helpers.js';
 import { getSettings } from '@/infrastructure/services/settings.service.js';
+import type { ExecutionMonitor } from '../../execution-monitor.js';
+import { ExecutionStepType } from '@/domain/generated/output.js';
 
 export interface CiWatchFixDeps {
   executor: IAgentExecutor;
@@ -36,6 +38,10 @@ export interface CiWatchFixParams {
   existingAttempts: number;
   messages: string[];
   log: NodeLogger;
+  /** ExecutionMonitor for recording sub-steps (optional, from graph middleware) */
+  monitor?: ExecutionMonitor;
+  /** Parent step ID for sub-step hierarchy */
+  parentStepId?: string;
 }
 
 export type CiFixStatusValue = 'idle' | 'watching' | 'fixing' | 'success' | 'exhausted' | 'timeout';
@@ -58,7 +64,8 @@ export async function runCiWatchFixLoop(
   params: CiWatchFixParams
 ): Promise<CiWatchFixResult> {
   const { executor, gitPrService } = deps;
-  const { cwd, branch, options, feature, prUrl, prNumber, messages, log } = params;
+  const { cwd, branch, options, feature, prUrl, prNumber, messages, log, monitor, parentStepId } =
+    params;
 
   const settings = getSettings();
   const maxAttempts = settings.workflow?.ciMaxFixAttempts ?? 3;
@@ -81,12 +88,19 @@ export async function runCiWatchFixLoop(
   let runUrl = initialCiStatus.runUrl;
 
   // Initial CI watch
+  const watchStepId =
+    monitor && parentStepId
+      ? await monitor.startSubStep(parentStepId, 'watch-ci', ExecutionStepType.subStep)
+      : null;
   let watchResult;
   try {
     watchResult = await gitPrService.watchCi(cwd, branch, timeoutMs);
   } catch (err) {
     if (err instanceof GitPrError && err.code === GitPrErrorCode.CI_TIMEOUT) {
       log.info('Initial CI watch timed out');
+      if (watchStepId && monitor) {
+        await monitor.failStep(watchStepId, 'timeout');
+      }
       ciFixHistory.push({
         attempt: ciFixAttempts + 1,
         startedAt: new Date().toISOString(),
@@ -101,7 +115,13 @@ export async function runCiWatchFixLoop(
 
   if (watchResult.status === 'success') {
     log.info('CI passed on first watch');
+    if (watchStepId && monitor) {
+      await monitor.completeStep(watchStepId, 'passed');
+    }
     return { ciStatus: CiStatus.Success, ciFixAttempts, ciFixHistory, ciFixStatus: 'success' };
+  }
+  if (watchStepId && monitor) {
+    await monitor.completeStep(watchStepId, 'failed');
   }
 
   // CI failed — enter fix loop
@@ -120,6 +140,17 @@ export async function runCiWatchFixLoop(
 
     log.info(`CI fix attempt ${ciFixAttempts + 1}/${maxAttempts} for run ${runId}`);
 
+    // Record fix attempt as sub-step
+    const fixStepId =
+      monitor && parentStepId
+        ? await monitor.startSubStep(
+            parentStepId,
+            `fix-attempt-${ciFixAttempts + 1}`,
+            ExecutionStepType.subStep,
+            { failureSummary: failureLogs.slice(0, 500), attempt: ciFixAttempts + 1 }
+          )
+        : null;
+
     // Invoke fix executor
     const fixPrompt = buildCiWatchFixPrompt(failureLogs, ciFixAttempts + 1, maxAttempts, branch);
     await retryExecute(executor, fixPrompt, options, { logger: log });
@@ -136,6 +167,9 @@ export async function runCiWatchFixLoop(
     } catch (err) {
       if (err instanceof GitPrError && err.code === GitPrErrorCode.CI_TIMEOUT) {
         log.info(`CI watch timed out during fix attempt ${ciFixAttempts}`);
+        if (fixStepId && monitor) {
+          await monitor.failStep(fixStepId, 'timeout');
+        }
         ciFixHistory.push({
           attempt: ciFixAttempts,
           startedAt,
@@ -149,6 +183,12 @@ export async function runCiWatchFixLoop(
     }
 
     const outcome = fixWatchResult.status === 'success' ? 'fixed' : 'failed';
+    if (fixStepId && monitor) {
+      await monitor.completeStep(fixStepId, outcome, {
+        attempt: ciFixAttempts,
+        outcome,
+      });
+    }
     ciFixHistory.push({
       attempt: ciFixAttempts,
       startedAt,

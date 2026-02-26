@@ -55,6 +55,7 @@ import type { IAgentRegistry } from '../../application/ports/output/agents/agent
 import type { IAgentRunner } from '../../application/ports/output/agents/agent-runner.interface.js';
 import type { IAgentRunRepository } from '../../application/ports/output/agents/agent-run-repository.interface.js';
 import type { IPhaseTimingRepository } from '../../application/ports/output/agents/phase-timing-repository.interface.js';
+import type { IExecutionStepRepository } from '../../application/ports/output/agents/execution-step-repository.interface.js';
 import type { IFeatureAgentProcessService } from '../../application/ports/output/agents/feature-agent-process.interface.js';
 import type { ISpecInitializerService } from '../../application/ports/output/services/spec-initializer.interface.js';
 import type { INotificationService } from '../../application/ports/output/services/notification-service.interface.js';
@@ -66,6 +67,7 @@ import { AgentRegistryService } from '../services/agents/common/agent-registry.s
 import { AgentRunnerService } from '../services/agents/common/agent-runner.service.js';
 import { SQLiteAgentRunRepository } from '../repositories/agent-run.repository.js';
 import { SQLitePhaseTimingRepository } from '../repositories/sqlite-phase-timing.repository.js';
+import { SQLiteExecutionStepRepository } from '../repositories/sqlite-execution-step.repository.js';
 import { FeatureAgentProcessService } from '../services/agents/feature-agent/feature-agent-process.service.js';
 import { SpecInitializerService } from '../services/spec/spec-initializer.service.js';
 import { DesktopNotifier } from '../services/notifications/desktop-notifier.js';
@@ -109,6 +111,7 @@ import { AddRepositoryUseCase } from '../../application/use-cases/repositories/a
 import { ListRepositoriesUseCase } from '../../application/use-cases/repositories/list-repositories.use-case.js';
 import { DeleteRepositoryUseCase } from '../../application/use-cases/repositories/delete-repository.use-case.js';
 import { CheckAndUnblockFeaturesUseCase } from '../../application/use-cases/features/check-and-unblock-features.use-case.js';
+import { GetExecutionHistoryUseCase } from '../../application/use-cases/agents/get-execution-history.use-case.js';
 import { UpdateFeatureLifecycleUseCase } from '../../application/use-cases/features/update/update-feature-lifecycle.use-case.js';
 
 // Session listing
@@ -204,6 +207,13 @@ export async function initializeContainer(): Promise<typeof container> {
     useFactory: (c) => {
       const database = c.resolve<Database.Database>('Database');
       return new SQLitePhaseTimingRepository(database);
+    },
+  });
+
+  container.register<IExecutionStepRepository>('IExecutionStepRepository', {
+    useFactory: (c) => {
+      const database = c.resolve<Database.Database>('Database');
+      return new SQLiteExecutionStepRepository(database);
     },
   });
 
@@ -316,6 +326,13 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton(AddRepositoryUseCase);
   container.registerSingleton(ListRepositoriesUseCase);
   container.registerSingleton(DeleteRepositoryUseCase);
+  container.register('GetExecutionHistoryUseCase', {
+    useFactory: (c) => {
+      const stepRepo = c.resolve<IExecutionStepRepository>('IExecutionStepRepository');
+      return new GetExecutionHistoryUseCase(stepRepo);
+    },
+  });
+
   // CheckAndUnblockFeaturesUseCase must be registered before UpdateFeatureLifecycleUseCase
   // because the latter injects the former via class token.
   container.registerSingleton(CheckAndUnblockFeaturesUseCase);

@@ -1,0 +1,10 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: ExecutionStepStatus.yaml
+type: string
+enum:
+  - pending
+  - running
+  - completed
+  - failed
+  - skipped
+description: Current execution state of a step
