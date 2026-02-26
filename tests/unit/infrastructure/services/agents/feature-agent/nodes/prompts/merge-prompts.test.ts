@@ -1,9 +1,16 @@
 import { describe, it, expect, vi } from 'vitest';
 
 // Mock readSpecFile from node-helpers
-vi.mock('@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js', () => ({
-  readSpecFile: vi.fn().mockReturnValue('name: Test Feature\nsummary: A test feature\n'),
-}));
+vi.mock(
+  '@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js',
+  async (importOriginal) => {
+    const actual = (await importOriginal()) as Record<string, unknown>;
+    return {
+      ...actual,
+      readSpecFile: vi.fn().mockReturnValue('name: Test Feature\nsummary: A test feature\n'),
+    };
+  }
+);
 
 import {
   buildCommitPushPrPrompt,
@@ -112,6 +119,17 @@ describe('buildCommitPushPrPrompt', () => {
     const prompt = buildCommitPushPrPrompt(baseState({ openPr: true }), 'feat/test', 'main');
     expect(prompt).toContain('feature.yaml');
     expect(prompt.toLowerCase()).toContain('prurl');
+  });
+
+  it('should forbid git pull and rebase before pushing', () => {
+    const prompt = buildCommitPushPrPrompt(
+      baseState({ push: true, openPr: false }),
+      'feat/test',
+      'main'
+    );
+    expect(prompt).toContain('Do NOT run `git pull`');
+    expect(prompt).toContain('git rebase');
+    expect(prompt).toContain('git merge');
   });
 
   it('should be deterministic (same input = same output)', () => {

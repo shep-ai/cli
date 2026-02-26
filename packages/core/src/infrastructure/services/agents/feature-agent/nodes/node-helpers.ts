@@ -297,6 +297,33 @@ export function writeSpecFileAtomic(specDir: string, filename: string, content: 
 }
 
 /**
+ * Build a commit + optional push instruction block for prompt suffixes.
+ *
+ * Used by phase prompts to instruct the agent to commit spec/code changes
+ * at the end of each step, and optionally push when the --push flag is set.
+ */
+export function buildCommitPushBlock(opts: {
+  push: boolean;
+  files: string[];
+  commitHint: string;
+}): string {
+  const fileList = opts.files.map((f) => `\`${f}\``).join(', ');
+  const lines = [
+    `## Final Step — Commit Your Work`,
+    ``,
+    `After completing all tasks above:`,
+    `1. Stage the changed files: ${fileList} (use \`git add\` with the specific paths)`,
+    `2. Commit with a conventional commit message — e.g. \`${opts.commitHint}\``,
+    `   - The message should accurately describe what changed`,
+  ];
+  if (opts.push) {
+    lines.push(`3. Push to remote: \`git push -u origin HEAD\``);
+    lines.push(`   - Do NOT wait for or watch CI — just push and finish`);
+  }
+  return lines.join('\n');
+}
+
+/**
  * Execute a node with consistent logging and error handling.
  *
  * Wraps the node's core logic with:

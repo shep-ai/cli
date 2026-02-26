@@ -94,6 +94,17 @@ export class WorktreeService implements IWorktreeService {
     }
   }
 
+  async remoteBranchExists(repoPath: string, branch: string): Promise<boolean> {
+    try {
+      const { stdout } = await this.execFile('git', ['ls-remote', '--heads', 'origin', branch], {
+        cwd: repoPath,
+      });
+      return stdout.trim().length > 0;
+    } catch {
+      return false;
+    }
+  }
+
   async ensureGitRepository(repoPath: string): Promise<void> {
     let isExistingRepo = false;
     try {

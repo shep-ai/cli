@@ -5,7 +5,7 @@
  * then write findings to spec.yaml with complexity estimate and affected areas.
  */
 
-import { readSpecFile } from '../node-helpers.js';
+import { readSpecFile, buildCommitPushBlock } from '../node-helpers.js';
 import type { FeatureAgentState } from '../../state.js';
 
 export function buildAnalyzePrompt(state: FeatureAgentState): string {
@@ -94,5 +94,11 @@ You MUST write the COMPLETE file (not a partial update). Preserve the existing n
 - Do NOT create any other files
 - Do NOT modify any source code
 - Do NOT start implementing the feature
-- Keep your analysis thorough but concise`;
+- Keep your analysis thorough but concise
+
+${buildCommitPushBlock({
+  push: state.push,
+  files: [`${state.specDir}/spec.yaml`],
+  commitHint: 'docs(specs): analyze repository and define spec',
+})}`;
 }

@@ -44,18 +44,41 @@ export class GitPrService implements IGitPrService {
       // No remote HEAD configured — continue to fallbacks
     }
 
-    // 2. Check for common default branch names locally
-    for (const candidate of ['main', 'master']) {
+    // 2. Check for common default branch names locally.
+    //    If both exist, pick the one with the most recent commit.
+    const candidates: string[] = [];
+    for (const name of ['main', 'master']) {
       try {
         const { stdout } = await this.execFile(
           'git',
-          ['rev-parse', '--verify', `refs/heads/${candidate}`],
+          ['rev-parse', '--verify', `refs/heads/${name}`],
           { cwd }
         );
-        if (stdout.trim()) return candidate;
+        if (stdout.trim()) candidates.push(name);
       } catch {
         // Branch doesn't exist — try next
       }
+    }
+    if (candidates.length === 1) return candidates[0];
+    if (candidates.length > 1) {
+      // Pick the branch with the most recent commit
+      try {
+        const { stdout } = await this.execFile(
+          'git',
+          [
+            'for-each-ref',
+            '--sort=-committerdate',
+            '--format=%(refname:short)',
+            ...candidates.map((c) => `refs/heads/${c}`),
+          ],
+          { cwd }
+        );
+        const newest = stdout.trim().split('\n')[0];
+        if (newest) return newest;
+      } catch {
+        // Fall through to first candidate
+      }
+      return candidates[0];
     }
 
     // 3. Check git config init.defaultBranch (user/system-level default)
