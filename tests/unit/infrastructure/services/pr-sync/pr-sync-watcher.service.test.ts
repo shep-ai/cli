@@ -166,8 +166,8 @@ describe('PrSyncWatcherService', () => {
 
       watcher.start(); // second start should be no-op
 
-      await vi.advanceTimersByTimeAsync(3000);
-      // Only 2 polls: one immediate + one after 3s (not 4 from double-start)
+      await vi.advanceTimersByTimeAsync(30000);
+      // Only 2 polls: one immediate + one after 30s (not 4 from double-start)
       expect(featureRepo.list).toHaveBeenCalledTimes(2);
     });
 
@@ -180,10 +180,10 @@ describe('PrSyncWatcherService', () => {
       await vi.advanceTimersByTimeAsync(0);
       expect(featureRepo.list).toHaveBeenCalledTimes(1);
 
-      await vi.advanceTimersByTimeAsync(3000);
+      await vi.advanceTimersByTimeAsync(30000);
       expect(featureRepo.list).toHaveBeenCalledTimes(2);
 
-      await vi.advanceTimersByTimeAsync(3000);
+      await vi.advanceTimersByTimeAsync(30000);
       expect(featureRepo.list).toHaveBeenCalledTimes(3);
     });
 
@@ -393,7 +393,7 @@ describe('PrSyncWatcherService', () => {
 
       watcher.start();
       await vi.advanceTimersByTimeAsync(0);
-      await vi.advanceTimersByTimeAsync(3000);
+      await vi.advanceTimersByTimeAsync(30000);
 
       // On second poll with empty list, no API calls should be made
       // listPrStatuses called only on first poll
@@ -566,7 +566,7 @@ describe('PrSyncWatcherService', () => {
       expect(notificationService.receivedEvents).toHaveLength(1); // PrMerged
 
       notificationService.receivedEvents.length = 0;
-      await vi.advanceTimersByTimeAsync(3000);
+      await vi.advanceTimersByTimeAsync(30000);
       // Feature is still returned by list but state hasn't changed in map
       // No duplicate notification since it's already tracked as Merged
       const prMergedEvents = notificationService.receivedEvents.filter(
@@ -872,7 +872,7 @@ describe('PrSyncWatcherService', () => {
 
       // Should continue polling on next cycle
       vi.mocked(featureRepo.list).mockResolvedValue([]);
-      await vi.advanceTimersByTimeAsync(3000);
+      await vi.advanceTimersByTimeAsync(30000);
       expect(featureRepo.list).toHaveBeenCalledTimes(2);
 
       consoleSpy.mockRestore();
