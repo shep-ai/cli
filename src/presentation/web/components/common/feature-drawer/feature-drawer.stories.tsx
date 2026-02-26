@@ -121,7 +121,7 @@ const errorDataMedium: FeatureNodeData = {
   errorMessage: `Payment processing failed: invalid card token
 
 Error details:
-  - Card token: XXXX-XXXX-XXXX-1234
+  - Card number: **** **** **** 1234
   - Amount: $99.99 USD
   - Customer ID: cus_abc123
   - Error code: card_declined
