@@ -355,7 +355,7 @@ describe('GitPrService', () => {
       expect(mockExec).toHaveBeenCalledTimes(1);
     });
 
-    it('should return failure when gh run watch exits non-zero', async () => {
+    it('should return failure when gh run watch exits non-zero (exit code message)', async () => {
       vi.mocked(mockExec)
         .mockResolvedValueOnce({
           stdout: JSON.stringify([{ databaseId: 789 }]),
@@ -366,6 +366,69 @@ describe('GitPrService', () => {
       const result = await service.watchCi('/repo', 'feat/branch');
 
       expect(result.status).toBe('failure');
+    });
+
+    it('should return failure when gh run watch exits non-zero with real execFile error format', async () => {
+      // This is the ACTUAL error format from Node.js execFile when gh run watch --exit-status
+      // fails because CI failed. The error message is "Command failed: gh run watch <id> --exit-status\n"
+      // and the error object has code (numeric exit code), stdout, and stderr.
+      const execError = new Error('Command failed: gh run watch 789 --exit-status\n') as Error & {
+        code: number;
+        stdout: string;
+        stderr: string;
+      };
+      execError.code = 1;
+      execError.stdout = "Run CI (789) has already completed with 'failure'\n";
+      execError.stderr = '';
+
+      vi.mocked(mockExec)
+        .mockResolvedValueOnce({
+          stdout: JSON.stringify([{ databaseId: 789 }]),
+          stderr: '',
+        })
+        .mockRejectedValueOnce(execError);
+
+      const result = await service.watchCi('/repo', 'feat/branch');
+
+      expect(result.status).toBe('failure');
+      expect(result.logExcerpt).toBeDefined();
+    });
+
+    it('should include stdout in logExcerpt when CI fails with real execFile error', async () => {
+      const execError = new Error('Command failed: gh run watch 789 --exit-status\n') as Error & {
+        code: number;
+        stdout: string;
+        stderr: string;
+      };
+      execError.code = 1;
+      execError.stdout = "Run CI (789) has already completed with 'failure'\n";
+      execError.stderr = 'some stderr info';
+
+      vi.mocked(mockExec)
+        .mockResolvedValueOnce({
+          stdout: JSON.stringify([{ databaseId: 789 }]),
+          stderr: '',
+        })
+        .mockRejectedValueOnce(execError);
+
+      const result = await service.watchCi('/repo', 'feat/branch');
+
+      expect(result.status).toBe('failure');
+      // logExcerpt should contain the actual output, not just the generic "Command failed" message
+      expect(result.logExcerpt).toContain('failure');
+    });
+
+    it('should throw GIT_ERROR for genuine errors (not CI failure)', async () => {
+      vi.mocked(mockExec)
+        .mockResolvedValueOnce({
+          stdout: JSON.stringify([{ databaseId: 789 }]),
+          stderr: '',
+        })
+        .mockRejectedValueOnce(new Error('network connection reset'));
+
+      await expect(service.watchCi('/repo', 'feat/branch')).rejects.toMatchObject({
+        code: GitPrErrorCode.GIT_ERROR,
+      });
     });
 
     it('should throw GitPrError with CI_TIMEOUT on timeout', async () => {
