@@ -431,3 +431,19 @@ rejectionFeedback:
     message: Show only action needed
     phase: merge
     timestamp: '2026-02-25T21:35:59.630Z'
+  - iteration: 2
+    message: >-
+      fix: Runtime Error Server    Attempted to call formatElapsed() from the
+      server but formatElapsed is on the client. It's not possible to invoke a
+      client function from the server, it can only be rendered as a Component or
+      passed to props of a Client Component. src/presentation/web/app/page.tsx
+      (116:35) @ <anonymous>     114 |           run?.startedAt &&   115
+      |           run?.completedAt && { > 116 |             runtime:
+      formatElapsed(       |                                   ^   117
+      |               new Date(run.completedAt).getTime() - new
+      Date(run.startedAt).getTime()   118 |             ),   119 |           }),
+      Call Stack 8  Show 5 ignore-listed frame(s) <anonymous>
+      src/presentation/web/app/page.tsx (116:35) Array.forEach <anonymous>
+      HomePage src/presentation/web/app/page.tsx (77:18)
+    phase: merge
+    timestamp: '2026-02-26T12:29:28.413Z'
