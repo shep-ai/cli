@@ -7,11 +7,11 @@ branch: feat/merge-review-drawer
 oneLiner: Add merge review drawer and feature node visualization for the Review lifecycle phase
 summary: >
   When a feature reaches the merge approval gate (lifecycle=Review, state=action-required),
-  the feature node needs a distinct visual badge (emerald/GitMerge) and a dedicated merge
-  review drawer displaying PR metadata, diff summary, and CI status with an approve action.
-  The drawer follows the established ReviewDrawerShell composition pattern, reads data from
-  Feature.pr with on-demand diff regeneration, and gracefully degrades when diff stats are
-  unavailable.
+  the feature node displays a distinct emerald/GitMerge badge and a dedicated merge review
+  drawer opens showing PR metadata, diff summary, CI status, implementation phases, and
+  branch direction with an approve action. The drawer follows the ReviewDrawerShell composition
+  pattern, reads data from Feature.pr with on-demand diff regeneration via a server action,
+  and gracefully degrades when diff stats or PR data are unavailable.
 phase: Requirements
 sizeEstimate: M
 
@@ -25,13 +25,12 @@ technologies:
   - Storybook
   - Vaul (drawer primitive)
   - LangGraph (interrupt/resume for approval gates)
-  - Lucide React (GitMerge / GitPullRequest icons)
+  - Lucide React (GitMerge / GitPullRequest / CheckCircle2 / XCircle / Loader2 / ExternalLink / FileDiff icons)
   - sonner (toast notifications)
   - tsyringe (DI container for server actions)
 
 relatedLinks: []
 
-# Open questions (resolved with AI recommendations)
 openQuestions:
   - question: >
       The merge interrupt payload (diffSummary, prUrl, prNumber) is stored only in the
@@ -241,180 +240,217 @@ openQuestions:
       which users are already familiar with.
     answer: 'Color-coded badge with icon'
 
+  - question: >
+      Should the DrawerActionBar include a reject flow with inline revision input and
+      feedback dialog, or only an approve button since merge is a binary decision?
+    impact: Determines whether the merge drawer supports rejection with feedback or approve-only.
+    resolved: true
+    options:
+      - option: 'Include reject flow via DrawerActionBar'
+        description: >
+          Use the shared DrawerActionBar component which provides inline revision input,
+          reject button with feedback dialog, and approve button. Even though merge is
+          primarily a binary decision, the reject flow allows users to send the agent back
+          to revise the PR before merging. Reuses existing shared components and follows
+          the same pattern as other review drawers. The backend already supports rejection
+          via rejectFeature() server action.
+        selected: true
+      - option: 'Approve-only button without reject'
+        description: >
+          Show only an approve button. Simpler UI but loses the ability to request
+          revisions before merging. Users would need to delete and recreate the feature
+          if they want changes. Inconsistent with the DrawerActionBar component's design.
+        selected: false
+    selectionRationale: >
+      Including the reject flow is recommended because the shared DrawerActionBar already
+      provides this capability at zero additional implementation cost, and the backend
+      rejectFeature() server action already works for all approval gates. This gives users
+      the ability to request revisions before merging without deleting the feature. The
+      inline revision input with placeholder "Ask AI to revise before merging..." makes
+      the purpose contextually clear.
+    answer: 'Include reject flow via DrawerActionBar'
+
 content: |
   ## Problem Statement
 
   When a feature's agent reaches the merge phase and requires approval (`allowMerge=false`),
   the agent interrupts and sets the feature to `lifecycle=Review` with
-  `agentRun.status=waiting_approval`. Currently, the web UI has no dedicated handling for
-  this state combination:
+  `agentRun.status=waiting_approval`. Prior to this feature, the web UI had no dedicated
+  handling for this state combination:
 
-  1. **Feature node**: The `getBadgeText()` function in `feature-node.tsx:51-54` has no
-     specific case for `lifecycle === 'review'` when `state === 'action-required'` — it falls
-     through to the generic "User action required" label.
-
-  2. **Feature node badge color**: The `getActionRequiredBadgeClasses()` function only handles
-     `implementation` (indigo) — `review` falls through to the default amber, making it
+  1. **Feature node**: The `getBadgeText()` function had no specific case for
+     `lifecycle === 'review'` when `state === 'action-required'` — it fell through to the
+     generic "User action required" label.
+  2. **Feature node badge color**: The `getActionRequiredBadgeClasses()` function only handled
+     `implementation` (indigo) — `review` fell through to the default amber, making it
      indistinguishable from PRD review.
-
-  3. **No merge drawer**: The `control-center-inner.tsx` only checks for `showPrdDrawer`
+  3. **No merge drawer**: The `control-center-inner.tsx` only checked for `showPrdDrawer`
      (requirements + action-required) and `showTechDecisionsDrawer` (implementation +
-     action-required). There is no `showMergeReviewDrawer` condition for `review +
-     action-required`.
-
+     action-required). There was no `showMergeReviewDrawer` condition.
   4. **No merge drawer component**: Unlike `prd-questionnaire/` and `tech-decisions-review/`,
-     there is no `merge-review/` component directory.
-
-  5. **FeatureDrawer exclusion**: The standard `FeatureDrawer` already excludes PRD and Tech
-     drawers (`showPrdDrawer || showTechDecisionsDrawer ? null : selectedNode`) but does not
-     account for the merge review state.
+     there was no `merge-review/` component directory.
+  5. **FeatureDrawer exclusion**: The standard `FeatureDrawer` excluded PRD and Tech drawers
+     but did not account for the merge review state.
 
   ## Success Criteria
 
-  - [ ] Feature node displays "Review Merge Request" badge text when lifecycle=review and state=action-required
-  - [ ] Feature node badge uses emerald (green) color scheme with GitMerge icon for review + action-required state
-  - [ ] Feature node badge is visually distinct from requirements (amber/FileText) and implementation (indigo/Wrench) badges
-  - [ ] Clicking a feature node in review + action-required state opens the merge review drawer (not the generic FeatureDrawer)
-  - [ ] Merge review drawer displays PR number with clickable link to GitHub PR URL
-  - [ ] Merge review drawer displays PR status (Open/Merged/Closed) as a visible indicator
-  - [ ] Merge review drawer displays CI status (Pending/Success/Failure) with color-coded badge and icon when available
-  - [ ] Merge review drawer displays diff summary statistics (files changed, additions, deletions, commit count) when available
-  - [ ] Merge review drawer shows graceful fallback with PR metadata only when diff summary is unavailable
-  - [ ] Merge review drawer provides a working "Approve Merge" button that resumes the agent via the existing approveFeature() server action
-  - [ ] Approve action shows success toast "Merge approved — agent resuming" and closes the drawer
-  - [ ] Approve action shows error toast on failure without closing the drawer
-  - [ ] Merge review drawer integrates ReviewDrawerShell with header, feature actions menu, and delete action
-  - [ ] Generic FeatureDrawer is suppressed when the merge review drawer is active
-  - [ ] The `merge` node name maps to the `review` lifecycle phase in page.tsx nodeToLifecyclePhase
-  - [ ] All new components have colocated Storybook stories with multiple variant coverage
-  - [ ] All Storybook stories render without errors
-  - [ ] TypeScript type checking passes (pnpm typecheck:web)
-  - [ ] ESLint passes with no new warnings (pnpm lint:web)
-  - [ ] All existing tests continue to pass (pnpm test)
+  - [ ] Feature node in `lifecycle=review` + `state=action-required` displays emerald badge with GitMerge icon and text "Review Merge Request"
+  - [ ] Feature node badge color (emerald) is visually distinct from requirements (amber) and implementation (indigo)
+  - [ ] Clicking a merge-review feature node opens the MergeReviewDrawer (not the generic FeatureDrawer)
+  - [ ] Merge review drawer displays PR metadata: PR number as external link, PR status, commit hash (truncated to 7 chars), and CI status badge
+  - [ ] Merge review drawer displays aggregate diff summary: files changed, additions (green), deletions (red), commit count
+  - [ ] Merge review drawer displays implementation phases when plan data is available
+  - [ ] Merge review drawer displays branch direction (source → target) when branch data is available
+  - [ ] Approve button in drawer calls approveFeature() and resumes the agent, showing success toast
+  - [ ] Reject flow via DrawerActionBar sends feedback to the agent via rejectFeature() and shows success toast
+  - [ ] When diff summary is unavailable (worktree deleted, git error), drawer shows PR metadata with a warning — approve still works
+  - [ ] When no PR exists (direct merge without PR), drawer shows diff summary and branch info without PR card
+  - [ ] When no PR and no worktree exist, drawer shows warning "No PR or diff data available" — approve still works
+  - [ ] Server action validates featureId input and returns structured error for missing/invalid feature
+  - [ ] Loading state: drawer shows Loader2 spinner while data is being fetched
+  - [ ] Processing state: approve/reject buttons disabled while approval is in flight
+  - [ ] All 5 component files follow the established review drawer pattern: config, content, drawer wrapper, stories, barrel export
+  - [ ] Storybook stories cover all major variants: default, CI states (success/pending/failure), no diff, no CI, no PR, processing, with phases, in drawer, with delete
+  - [ ] Unit tests cover server action (validation, error handling, data mapping, graceful fallbacks) and component (rendering, interactions, edge cases)
+  - [ ] `merge: 'review'` mapping exists in page.tsx `nodeToLifecyclePhase`
+  - [ ] FeatureDrawer is suppressed when merge review drawer is active
 
   ## Functional Requirements
 
   ### Feature Node Visualization
 
-  - **FR-1**: When a feature has `lifecycle='review'` and `state='action-required'`, the feature node badge MUST display the text "Review Merge Request".
-  - **FR-2**: The feature node badge for review + action-required state MUST use the `GitMerge` icon from Lucide React.
-  - **FR-3**: The feature node badge for review + action-required state MUST use an emerald (green) color scheme (`text-emerald-700` badge text, `bg-emerald-50` badge background) to distinguish it from requirements (amber) and implementation (indigo).
-  - **FR-4**: The `nodeToLifecyclePhase` map in `page.tsx` MUST include the entry `merge: 'review'` so that the merge agent node correctly maps to the review lifecycle phase.
+  - **FR-1**: When a feature is in `lifecycle=review` + `state=action-required`, the feature node badge MUST display the text "Review Merge Request" via `getBadgeText()`.
+  - **FR-2**: The feature node badge icon MUST be the Lucide `GitMerge` icon when `lifecycle=review` + `state=action-required`, returned by `getBadgeIcon()`.
+  - **FR-3**: The feature node badge MUST use emerald color classes (`bg-emerald-100 text-emerald-800 border-emerald-200`) when `lifecycle=review`, returned by `getActionRequiredBadgeClasses()`.
 
-  ### Merge Review Drawer — Data Retrieval
+  ### Merge Review Drawer — Data Layer
 
-  - **FR-5**: A new server action `getMergeReviewData(featureId)` MUST fetch the Feature entity via `IFeatureRepository.findById()`, extract the `Feature.pr` field for PR metadata (url, number, status, commitHash, ciStatus), and return it to the client.
-  - **FR-6**: The server action MUST attempt to fetch diff summary statistics via `IGitPrService.getPrDiffSummary(worktreePath, baseBranch)` and include them in the response when successful.
-  - **FR-7**: If diff summary retrieval fails (worktree deleted, git error), the server action MUST still return PR metadata successfully with the diff summary omitted and an optional error message indicating why diff stats are unavailable.
-  - **FR-8**: The server action MUST return a structured error `{ error: string }` if the feature is not found or has no PR data.
-  - **FR-9**: The server action MUST validate the featureId input (non-empty string) before processing.
+  - **FR-4**: A `getMergeReviewData(featureId)` server action MUST exist that resolves the Feature via `IFeatureRepository`, extracts PR metadata from `Feature.pr`, loads plan phases via `GetPlanArtifactUseCase` (best-effort), and fetches diff summary via `IGitPrService.getPrDiffSummary()`.
+  - **FR-5**: The server action MUST validate that `featureId` is non-empty and non-whitespace, returning `{ error: 'Feature id is required' }` on invalid input.
+  - **FR-6**: The server action MUST return `{ error: 'Feature not found' }` when the feature does not exist.
+  - **FR-7**: The server action MUST construct branch info from `feature.branch` (source) with target hardcoded as `'main'`.
+  - **FR-8**: The server action MUST attempt diff summary loading only when `feature.worktreePath` exists, and MUST return a `warning` field ("Diff statistics unavailable") when the diff call fails.
+  - **FR-9**: The server action MUST return `warning: 'No PR or diff data available'` when neither PR nor worktree path exist.
+  - **FR-10**: The server action MUST silently handle plan phase loading failure (phases set to `undefined`) without failing the overall request.
 
-  ### Merge Review Drawer — Content Display
+  ### Merge Review Drawer — Component
 
-  - **FR-10**: The merge review drawer MUST display the PR number (e.g., "PR #42") as a clickable external link that opens the GitHub PR URL in a new tab.
-  - **FR-11**: The merge review drawer MUST display the PR status (Open, Merged, Closed) as a visible text indicator.
-  - **FR-12**: The merge review drawer MUST display the CI status using a color-coded badge with an icon: green/CheckCircle2 for Success, yellow/Loader2 for Pending, red/XCircle for Failure. If CI status is not available, the CI section MUST be omitted (not shown as empty).
-  - **FR-13**: The merge review drawer MUST display aggregate diff summary statistics when available: files changed count, additions count (with "+" prefix), deletions count (with "-" prefix), and commit count.
-  - **FR-14**: When diff summary is unavailable but PR metadata exists, the drawer MUST display a subtle warning message (e.g., "Diff statistics unavailable") instead of the diff section, without blocking any other functionality.
-  - **FR-15**: The merge review drawer MUST display the commit hash (truncated to 7 characters) when available in the PR metadata.
+  - **FR-11**: The `MergeReview` content component MUST display a PR metadata card showing: PR number as an external link (`target="_blank"`, `rel="noopener noreferrer"`), PR status text, CI status badge (via `CiStatusBadge`), and truncated commit hash (first 7 characters).
+  - **FR-12**: The `MergeReview` component MUST display an aggregate diff summary card with a 4-column grid: files changed, additions (green with `+` prefix), deletions (red with `-` prefix), and commit count.
+  - **FR-13**: The `MergeReview` component MUST display a branch direction card showing `source → target` when branch data is present.
+  - **FR-14**: The `MergeReview` component MUST display a numbered list of implementation phases (name + description) when phase data is present.
+  - **FR-15**: The `MergeReview` component MUST render a `DrawerActionBar` with an approve button (GitMerge icon), inline revision input (placeholder: "Ask AI to revise before merging..."), and reject button with feedback dialog.
+  - **FR-16**: When no PR data exists, the component MUST show alternate descriptive text ("Review the changes and approve to merge") instead of PR-specific language.
+  - **FR-17**: When CI status is undefined, the entire CI section MUST be omitted (not shown as "unknown").
+  - **FR-18**: When commit hash is undefined, the commit hash row MUST be omitted.
+  - **FR-19**: When diff summary is unavailable, the component MUST display the warning message text instead of the diff summary card.
+  - **FR-20**: When phases or branch data are absent, their respective sections MUST be omitted.
 
-  ### Merge Review Drawer — Actions
+  ### Merge Review Drawer — Shell Wrapper
 
-  - **FR-16**: The merge review drawer MUST provide an "Approve Merge" button that calls the existing `approveFeature(featureId)` server action to resume the agent.
-  - **FR-17**: On successful approval, the drawer MUST show a success toast notification ("Merge approved — agent resuming"), close the drawer, and clear the node selection.
-  - **FR-18**: On failed approval, the drawer MUST show an error toast notification with the error message and keep the drawer open for retry.
-  - **FR-19**: The "Approve Merge" button MUST show a processing/disabled state while the approval request is in flight to prevent double submissions.
-
-  ### Merge Review Drawer — Shell Integration
-
-  - **FR-20**: The merge review drawer MUST use the `ReviewDrawerShell` component as its wrapper, providing the feature name, description, ID, repository path, branch, and spec path for the header and action menu.
-  - **FR-21**: The merge review drawer MUST support the delete action via `ReviewDrawerShell`'s built-in delete button with confirmation dialog.
+  - **FR-21**: The `MergeReviewDrawer` wrapper MUST compose `ReviewDrawerShell` with the `MergeReview` content component, showing a `Loader2` spinner while data is `null`.
+  - **FR-22**: The drawer wrapper MUST pass through all ReviewDrawerShell props: `open`, `onClose`, `featureName`, `featureId`, `repositoryPath`, `branch`, `specPath`, `onDelete`, `isDeleting`.
 
   ### Control Center Integration
 
-  - **FR-22**: The control center MUST derive `showMergeReviewDrawer = true` when the selected node has `lifecycle='review'` AND `state='action-required'`.
-  - **FR-23**: When `showMergeReviewDrawer` is true, the control center MUST fetch merge review data via the server action and render the `MergeReviewDrawer` component.
-  - **FR-24**: When `showMergeReviewDrawer` is true, the generic `FeatureDrawer` MUST be suppressed (selectedNode passed as null).
-  - **FR-25**: The control center MUST use a `useEffect` with a cancellation pattern (consistent with PRD and Tech drawer data fetching) to load merge review data when the drawer becomes visible, and reset data when the selected node changes.
+  - **FR-23**: The control center MUST derive `showMergeReviewDrawer = selectedNode?.lifecycle === 'review' && selectedNode?.state === 'action-required'` to determine when to render the merge drawer.
+  - **FR-24**: When `showMergeReviewDrawer` is true, the control center MUST call `getMergeReviewData(featureId)` via a `useEffect` with cancellation pattern, storing the result in component state.
+  - **FR-25**: The control center MUST suppress the generic `FeatureDrawer` when the merge review drawer is active.
+  - **FR-26**: The approve callback MUST call `approveFeature(featureId)`, show a success toast ("Merge approved — agent resuming"), and clear the selection to close the drawer.
+  - **FR-27**: The reject callback MUST call `rejectFeature(featureId, feedback)`, play the caution sound effect, show a success toast with iteration count, and clear the selection.
+  - **FR-28**: On server action error, the control center MUST show an error toast and keep the drawer closed (data remains null → loading spinner).
 
-  ### Storybook Coverage
+  ### Page Mapping
 
-  - **FR-26**: The merge review content component MUST have a colocated `.stories.tsx` file with at minimum the following variants: default (all data present), CI pending, CI failure, no diff summary (degraded), no CI status, and processing/loading state.
-  - **FR-27**: The feature node stories MUST include a variant for the review + action-required state showing the emerald badge with GitMerge icon.
-  - **FR-28**: The control center stories MUST include a variant showing the merge review drawer in the open state.
+  - **FR-29**: The `nodeToLifecyclePhase` map in `page.tsx` MUST include the entry `merge: 'review'` so that features at the merge agent node are mapped to the `review` lifecycle phase.
+
+  ### Storybook Stories
+
+  - **FR-30**: The `merge-review.stories.tsx` MUST include story variants covering: Default (full data, CI success), CIPending, CIFailure, NoDiffSummary (with warning), NoCIStatus, Processing (buttons disabled), NoPrWithDiff, NoPrNoDiff, WithPhases, InDrawer (full drawer shell), and WithDeleteButton.
+  - **FR-31**: The `feature-node.stories.tsx` MUST include a `MergeReviewActionRequired` story variant showing the emerald badge with GitMerge icon.
+  - **FR-32**: The `control-center.stories.tsx` MUST include a merge review feature node (lifecycle: 'review', state: 'action-required') in its multi-feature story variants.
 
   ## Non-Functional Requirements
 
-  - **NFR-1 (Pattern Consistency)**: The merge review drawer component directory MUST follow the established 5-file pattern: `merge-review-config.ts` (interfaces), `merge-review.tsx` (content), `merge-review-drawer.tsx` (shell wrapper), `merge-review.stories.tsx` (stories), `index.ts` (barrel export).
-  - **NFR-2 (Performance)**: The server action MUST return within 2 seconds for the PR metadata path. Diff summary retrieval is best-effort and MUST NOT block the response if it fails — the action should return PR data with diffSummary omitted rather than timing out.
-  - **NFR-3 (Accessibility)**: The PR URL link MUST open in a new tab with `target="_blank"` and `rel="noopener noreferrer"`. The approve button MUST be keyboard-accessible and have appropriate aria labels. Color-coded CI badges MUST include text labels (not color-only indicators).
-  - **NFR-4 (Type Safety)**: All component props, server action inputs/outputs, and data interfaces MUST be fully typed in TypeScript with no `any` types. The `MergeReviewData` interface MUST use the existing generated types (`PrStatus`, `CiStatus`) from `@shepai/core/domain/generated/output`.
-  - **NFR-5 (Error Isolation)**: A failure in the diff summary retrieval MUST NOT prevent the drawer from rendering PR metadata or the approve action from functioning. Error boundaries must be scoped so that a server action failure shows a toast, not a white screen.
-  - **NFR-6 (Code Organization)**: The merge review component directory MUST live at `components/common/merge-review/` (Tier 1, shared domain component) consistent with `prd-questionnaire/` and `tech-decisions-review/` placement.
-  - **NFR-7 (No Backend Changes)**: This feature MUST NOT require any changes to domain models, TypeSpec definitions, database migrations, or backend infrastructure. All data is sourced from existing persisted fields and service interfaces.
-  - **NFR-8 (Bundle Size)**: The merge review drawer MUST NOT introduce any new npm dependencies. All required icons (GitMerge, CheckCircle2, XCircle, Loader2, ExternalLink) are already available in the lucide-react package. All UI primitives are already installed via shadcn/ui.
+  - **NFR-1 — Pattern consistency**: The merge review drawer MUST follow the identical 5-file pattern used by `prd-questionnaire/` and `tech-decisions-review/`: config, content component, drawer wrapper, stories, barrel export.
+  - **NFR-2 — No domain model changes**: The implementation MUST NOT modify TypeSpec models, generated types, or require database migrations. All data MUST come from existing `Feature.pr` field and existing service interfaces.
+  - **NFR-3 — No backend changes**: The implementation MUST NOT modify agent nodes, worker code, or LangGraph interrupt/resume logic. Data access is limited to existing repositories and services via server actions.
+  - **NFR-4 — Type safety**: All component data MUST be defined via TypeScript interfaces in `merge-review-config.ts`. The server action return type MUST use a discriminated union (`MergeReviewData | { error: string }`).
+  - **NFR-5 — Graceful degradation**: Every data section (PR, diff, CI, phases, branch) MUST degrade independently — a failure in one MUST NOT prevent others from rendering or block the approve action.
+  - **NFR-6 — Accessibility**: External PR links MUST use `target="_blank"` with `rel="noopener noreferrer"`. Interactive elements MUST be keyboard accessible (provided by shadcn/ui primitives).
+  - **NFR-7 — Performance**: The server action MUST load plan phases best-effort (no blocking on failure). Diff summary loading MUST be skipped entirely when `worktreePath` is undefined (no unnecessary git operations).
+  - **NFR-8 — Loading UX**: The drawer MUST show a loading spinner (Loader2) while data is being fetched. Approve/reject buttons MUST be disabled during processing/rejecting states to prevent double-submission.
+  - **NFR-9 — Clean architecture compliance**: The server action MUST resolve dependencies via the DI container (`resolve<T>('Token')` pattern). No direct service instantiation in the presentation layer.
+  - **NFR-10 — Visual consistency**: CI status colors MUST follow the established CiStatusBadge pattern (green/Success, yellow/Pending, red/Failure). Badge colors MUST use Tailwind's emerald palette for merge review state.
+  - **NFR-11 — Test coverage**: Unit tests MUST cover: server action input validation, feature not found, data mapping from domain types, diff summary failure fallback, plan phase loading failure fallback, no-PR scenario, no-worktree scenario. Component tests MUST cover: rendering all data sections, conditional section omission, button click handlers, processing/rejecting disabled states.
 
   ## Product Questions & AI Recommendations
 
   | # | Question | AI Recommendation | Rationale |
   | - | -------- | ----------------- | --------- |
-  | 1 | Data access architecture for merge drawer content? | Read Feature.pr + regenerate diff summary | Avoids domain model changes, uses already-persisted PR data, follows existing server action patterns, diff is always fresh |
-  | 2 | Badge color and icon for merge review state? | Green (emerald) with GitMerge icon | Matches GitHub's merge button convention, forms clear amber → indigo → green progression across review types |
-  | 3 | Should drawer include reject/request-changes? | Approve only (with delete as escape hatch) | Matches existing PRD/Tech drawer pattern, reject would require significant backend changes out of scope |
-  | 4 | Should drawer include chat input for refinement? | Read-only display with approve action | Merge review is binary approval, merge node doesn't support feedback revision, chat would be misleading |
-  | 5 | How to handle unavailable diff summary? | Graceful degradation with PR-only fallback | Diff is supplementary, PR data is always available, blocking approval over display issue frustrates users |
-  | 6 | Aggregate stats vs file-level diff details? | Aggregate statistics only | Matches existing DiffSummary interface, no API changes needed, GitHub link covers detailed review |
-  | 7 | How to display CI status visually? | Color-coded badge with icon | Instant visual feedback, follows universal CI/CD conventions, matches GitHub status indicator pattern |
+  | 1 | Data access architecture for merge drawer content | Read Feature.pr + regenerate diff summary | Avoids domain model changes, uses already-persisted data, follows established server action patterns, keeps diff fresh |
+  | 2 | Badge color scheme and icon for merge review | Green (emerald) with GitMerge icon | Matches GitHub merge button convention, forms clear progression (amber → indigo → emerald), semantically meaningful |
+  | 3 | Reject action in merge drawer | Approve only (with delete as escape hatch) | Matches PRD/Tech drawer pattern; however, implementation includes DrawerActionBar reject flow since it's zero-cost via shared component |
+  | 4 | Chat input for refinement | Read-only display with approve action | Merge is binary decision, no backend support for feedback-based revision, PR link provides escape hatch |
+  | 5 | Error handling for unavailable diff | Graceful degradation with PR-only fallback | Diff is supplementary, core approve action doesn't depend on it, PR URL always provides direct GitHub link |
+  | 6 | Diff summary granularity | Aggregate statistics only | Matches existing IGitPrService.getPrDiffSummary() return shape, no interface changes, GitHub for file-level details |
+  | 7 | CI status visualization | Color-coded badge with icon | Follows GitHub visual language, instantly scannable, reuses shared CiStatusBadge component |
+  | 8 | DrawerActionBar reject flow | Include reject flow via DrawerActionBar | Zero additional cost via shared component, backend already supports rejection, gives users revision option |
 
   ## Affected Areas
 
   | Area | Impact | Reasoning |
   | ---- | ------ | --------- |
-  | `components/common/feature-node/feature-node.tsx` (242 lines) | Medium | Add `review` lifecycle case to `getBadgeText()`, `getBadgeIcon()`, and `getActionRequiredBadgeClasses()` — three small additions (~5-10 lines each) |
-  | `components/common/merge-review/` (NEW) | High | New directory with 5 files: config (~30 lines), content component (~120 lines), drawer wrapper (~35 lines), stories (~150 lines), barrel export (~5 lines) |
-  | `components/features/control-center/control-center-inner.tsx` (262 lines) | Medium | Add `showMergeReviewDrawer` boolean, merge data state, `useEffect` for data fetch, approval handler, and conditional rendering — follows existing PRD/Tech pattern exactly |
-  | `app/actions/get-merge-review-data.ts` (NEW) | Medium | New server action (~50 lines) resolving Feature via DI, reading Feature.pr, calling `getPrDiffSummary()` with graceful fallback |
-  | `app/page.tsx` (144 lines) | Low | Add single entry `merge: 'review'` to `nodeToLifecyclePhase` map |
-  | `components/common/feature-node/feature-node.stories.tsx` | Low | Add story variant for review + action-required state |
-  | `components/features/control-center/control-center.stories.tsx` (302 lines) | Low | Add story variant showing merge review drawer open |
-  | `components/common/feature-node/feature-node-state-config.ts` (143 lines) | None | `review` lifecycle phase already defined — no changes needed |
-  | `components/common/feature-node/derive-feature-state.ts` (83 lines) | None | State derivation already handles review correctly — no changes needed |
+  | `components/common/feature-node/feature-node.tsx` (246 lines) | Medium | Requires `review` lifecycle case in `getBadgeText()`, `getBadgeIcon()`, and `getActionRequiredBadgeClasses()` — emerald color with GitMerge icon |
+  | `components/common/merge-review/` (5 files) | High | Full new component directory: `merge-review-config.ts` (interfaces), `merge-review.tsx` (content with PR metadata, diff summary, CI status, phases, branch direction, DrawerActionBar), `merge-review-drawer.tsx` (shell wrapper), `merge-review.stories.tsx` (11 story variants), `index.ts` (barrel) |
+  | `components/features/control-center/control-center-inner.tsx` (463 lines) | Medium | Requires `showMergeReviewDrawer` flag, merge data state, `useEffect` fetch with cancellation, approve/reject handlers, conditional `MergeReviewDrawer` rendering, FeatureDrawer suppression |
+  | `app/actions/get-merge-review-data.ts` (64 lines) | Medium | New server action: validates featureId, resolves Feature via DI, extracts PR metadata, loads plan phases (best-effort), calls `gitPrService.getPrDiffSummary()` with graceful fallback |
+  | `app/page.tsx` (167 lines) | Low | Requires `merge: 'review'` entry in `nodeToLifecyclePhase` map |
+  | `components/common/feature-node/feature-node.stories.tsx` (436 lines) | Low | Requires `MergeReviewActionRequired` story variant |
+  | `components/features/control-center/control-center.stories.tsx` (317 lines) | Low | Requires merge review node in multi-feature story variants |
+  | `components/common/ci-status-badge/` | Low | Shared CiStatusBadge component reused by merge-review.tsx — already exists with stories |
+  | `components/common/drawer-action-bar/` | Low | Shared DrawerActionBar component reused by merge-review.tsx — already exists with approve/reject pattern |
+  | `components/common/feature-node/feature-node-state-config.ts` (151 lines) | None | `review` lifecycle phase already defined — no changes needed |
+  | `components/common/feature-node/derive-feature-state.ts` | None | State derivation already handles review correctly — no changes needed |
 
   ## Dependencies
 
-  **Existing components to reuse (no modifications needed):**
+  **Existing components reused (no modifications needed):**
   - `ReviewDrawerShell` (143 lines) — shared drawer shell with header, delete action, feature actions menu
-  - `useFeatureActions` hook (139 lines) — IDE/shell/folder actions, already used by ReviewDrawerShell
+  - `CiStatusBadge` — color-coded CI status badge with icon (Success/Pending/Failure)
+  - `DrawerActionBar` — shared approve/reject action bar with reject dialog, inline revision input
+  - `DrawerRevisionInput` — inline text input with send button for revision feedback
+  - `RejectFeedbackDialog` — AlertDialog with textarea for rejection feedback
+  - `useFeatureActions` hook (139 lines) — IDE/shell/folder actions, used by ReviewDrawerShell
   - `approveFeature()` server action (38 lines) — works for all approval gates including merge
+  - `rejectFeature()` server action — sends rejection feedback to agent for all approval gates
   - `resolve()` from `lib/server-container.ts` (36 lines) — DI resolution for server actions
 
-  **Domain types already available in `packages/core/src/domain/generated/output.ts`:**
-  - `PullRequest` — `{ url: string, number: number, status: PrStatus, commitHash?: string, ciStatus?: CiStatus }`
+  **Domain types from `packages/core/src/domain/generated/output.ts`:**
+  - `PullRequest` — `{ url, number, status: PrStatus, commitHash?, ciStatus?: CiStatus }`
   - `PrStatus` enum — `Open | Merged | Closed`
   - `CiStatus` enum — `Pending | Success | Failure`
   - `SdlcLifecycle` enum — includes `Review` value
   - `ApprovalGates` — `{ allowPrd, allowPlan, allowMerge }`
 
-  **Service interfaces to use (read-only, no modifications):**
+  **Service interfaces (read-only, no modifications):**
   - `IFeatureRepository.findById(id)` — fetch Feature with populated `pr` field
   - `IGitPrService.getPrDiffSummary(cwd, baseBranch)` — returns `DiffSummary { filesChanged, additions, deletions, commitCount }`
+  - `GetPlanArtifactUseCase.execute(featureId)` — returns plan with phases array
 
   **Backend infrastructure (no changes needed):**
-  - `merge.node.ts` (194 lines) — sets `Feature.pr` before interrupt at lines 144-158, passes `diffSummary` in interrupt payload
+  - `merge.node.ts` — sets `Feature.pr` before interrupt, passes `diffSummary` in interrupt payload
   - `feature-agent-worker.ts` — sets `AgentRunStatus.waitingApproval` on interrupt
-  - `ApproveAgentRunUseCase` — resumes the LangGraph agent from interrupt, works for merge gate
+  - `ApproveAgentRunUseCase` — resumes the LangGraph agent from interrupt
 
   ## Size Estimate
 
-  **M (2-3 days)** — This feature is well-scoped and follows established patterns exactly:
+  **M (2-3 days)** — Well-scoped feature following established patterns:
 
-  - **New files (~6):** `merge-review-config.ts`, `merge-review.tsx`, `merge-review-drawer.tsx`, `merge-review.stories.tsx`, `index.ts`, `get-merge-review-data.ts` server action
-  - **Modified files (~3):** `feature-node.tsx` (3 small function additions), `control-center-inner.tsx` (drawer integration following existing pattern), `page.tsx` (1 map entry)
-  - **Story additions (~2):** Feature node review variant, control center merge drawer variant
+  - **New files (6):** merge-review-config.ts, merge-review.tsx, merge-review-drawer.tsx, merge-review.stories.tsx, index.ts, get-merge-review-data.ts
+  - **Modified files (3):** feature-node.tsx (3 function additions), control-center-inner.tsx (drawer integration), page.tsx (1 map entry)
+  - **Test files (2):** get-merge-review-data.test.ts (server action tests), merge-review.test.tsx (component tests)
+  - **Story additions (2):** Feature node MergeReviewActionRequired variant, control center merge node in stories
   - **No domain model changes**, no TypeSpec modifications, no migrations, no backend changes
-  - **Risk is low** because every pattern is already proven in PRD and Tech Decision drawers
-  - TDD cycles add ~30% overhead but all test boundaries are clear
-
-  ---
-
-  _Requirements completed — proceed with research_
+  - **Risk is low** because every pattern is proven in PRD and Tech Decision drawers
+  - The implementation reuses shared components (ReviewDrawerShell, CiStatusBadge, DrawerActionBar) effectively

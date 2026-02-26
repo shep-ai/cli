@@ -5,6 +5,7 @@ feature:
   branch: feat/045-settings-page-2
   lifecycle: research
   createdAt: '2026-02-25T20:34:56Z'
+  prUrl: https://github.com/shep-ai/cli/pull/147
 status:
   phase: implementation-complete
   progress:

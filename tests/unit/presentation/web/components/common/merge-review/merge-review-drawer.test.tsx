@@ -42,4 +42,26 @@ describe('MergeReviewDrawer', () => {
     // MergeReview content renders the approve button
     expect(screen.getByRole('button', { name: /approve merge/i })).toBeInTheDocument();
   });
+
+  it('shows loading spinner when data is null', () => {
+    render(<MergeReviewDrawer {...defaultProps} data={null} />);
+
+    // MergeReview content should not render
+    expect(screen.queryByRole('button', { name: /approve merge/i })).not.toBeInTheDocument();
+    // Feature name still shows in the shell header
+    expect(screen.getByText('Test Feature')).toBeInTheDocument();
+  });
+
+  it('renders delete button when onDelete and featureId are provided', () => {
+    const onDelete = vi.fn();
+    render(<MergeReviewDrawer {...defaultProps} onDelete={onDelete} />);
+
+    expect(screen.getByTestId('review-drawer-delete')).toBeInTheDocument();
+  });
+
+  it('does not render delete button when onDelete is not provided', () => {
+    render(<MergeReviewDrawer {...defaultProps} onDelete={undefined} />);
+
+    expect(screen.queryByTestId('review-drawer-delete')).not.toBeInTheDocument();
+  });
 });

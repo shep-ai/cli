@@ -261,6 +261,21 @@ const dagreFeatureNodes: FeatureNodeType[] = [
       branch: 'feat/admin-panel',
     },
   },
+  {
+    id: 'feat-merge',
+    type: 'featureNode',
+    position: { x: 0, y: 0 },
+    data: {
+      name: 'Merge Review Feature',
+      description: 'PR ready for merge approval',
+      featureId: '#f6',
+      lifecycle: 'review',
+      state: 'action-required',
+      progress: 95,
+      repositoryPath: '/home/user/my-repo',
+      branch: 'feat/merge-review',
+    },
+  },
 ];
 
 const dagreAddRepo: AddRepositoryNodeType = {
@@ -287,6 +302,12 @@ const dagreEdges: Edge[] = [
     id: 'e-web-admin',
     source: 'repo-web',
     target: 'feat-admin',
+    style: { strokeDasharray: '5 5' },
+  },
+  {
+    id: 'e-web-merge',
+    source: 'repo-web',
+    target: 'feat-merge',
     style: { strokeDasharray: '5 5' },
   },
   // Feature dependencies: Auth → Gateway, SSO → Gateway, Gateway → Admin

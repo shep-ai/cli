@@ -86,7 +86,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
   const [questionnaireData, setQuestionnaireData] = useState<PrdQuestionnaireData | null>(null);
   const [isLoadingQuestionnaire, setIsLoadingQuestionnaire] = useState(false);
 
-  // Reject state (shared by both drawers)
+  // Reject state (shared by all review drawers)
   const [isRejecting, setIsRejecting] = useState(false);
   const rejectSound = useSound('caution', { volume: 0.5 });
 
