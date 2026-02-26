@@ -1,3 +1,9 @@
+# [1.65.0](https://github.com/shep-ai/cli/compare/v1.64.2...v1.65.0) (2026-02-26)
+
+### Features
+
+- **cli:** add shep restart command and daemon lifecycle to upgrade ([#160](https://github.com/shep-ai/cli/issues/160)) ([a13e4ea](https://github.com/shep-ai/cli/commit/a13e4ea84420d9e3ac1b6a1a3bdba8fd5cda785c))
+
 ## [1.64.2](https://github.com/shep-ai/cli/compare/v1.64.1...v1.64.2) (2026-02-26)
 
 ### Bug Fixes
