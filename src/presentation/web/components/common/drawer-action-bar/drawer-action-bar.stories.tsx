@@ -37,7 +37,7 @@ export const WithIcon: Story = {
   },
 };
 
-/** With reject button. Plays "reject" sound on reject click, "approve" on approve. */
+/** With revision input — single line: chat input, send, approve. */
 export const WithReject: Story = {
   args: {
     onReject: fn().mockName('onReject'),
@@ -45,7 +45,7 @@ export const WithReject: Story = {
   },
 };
 
-/** Processing state — buttons disabled, no sounds play. */
+/** Processing state — all controls disabled. */
 export const Processing: Story = {
   args: {
     onReject: fn().mockName('onReject'),
@@ -54,7 +54,7 @@ export const Processing: Story = {
   },
 };
 
-/** Rejecting state — buttons disabled. */
+/** Rejecting state — all controls disabled. */
 export const Rejecting: Story = {
   args: {
     onReject: fn().mockName('onReject'),
@@ -63,20 +63,11 @@ export const Rejecting: Story = {
   },
 };
 
-/** With revision input and reject button. */
+/** Custom revision placeholder. */
 export const WithRevisionInput: Story = {
   args: {
     onReject: fn().mockName('onReject'),
     approveLabel: 'Approve',
     revisionPlaceholder: 'Ask AI to revise the plan...',
-  },
-};
-
-/** Custom reject dialog title. */
-export const CustomRejectTitle: Story = {
-  args: {
-    onReject: fn().mockName('onReject'),
-    approveLabel: 'Approve Plan',
-    rejectDialogTitle: 'Reject Plan',
   },
 };

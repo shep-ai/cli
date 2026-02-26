@@ -164,7 +164,6 @@ export function TechDecisionsReview({
         approveLabel="Approve Plan"
         approveIcon={<Check className="mr-1.5 h-4 w-4" />}
         revisionPlaceholder="Ask AI to revise the plan..."
-        rejectDialogTitle="Reject Plan"
         isProcessing={isProcessing}
         isRejecting={isRejecting}
       />

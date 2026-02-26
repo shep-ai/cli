@@ -186,7 +186,6 @@ export function MergeReview({
           )
         }
         revisionPlaceholder="Ask AI to revise before merging..."
-        rejectDialogTitle="Reject Merge"
         isProcessing={isProcessing}
         isRejecting={isRejecting}
       />

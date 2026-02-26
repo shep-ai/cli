@@ -8,12 +8,10 @@ import { DrawerActionBar } from '@/components/common/drawer-action-bar';
 /* ------------------------------------------------------------------ */
 
 const mockApprovePlay = vi.fn();
-const mockRejectPlay = vi.fn();
 
 vi.mock('@/hooks/use-sound-action', () => ({
   useSoundAction: vi.fn((action: string) => {
     if (action === 'approve') return { play: mockApprovePlay, stop: vi.fn(), isPlaying: false };
-    if (action === 'reject') return { play: mockRejectPlay, stop: vi.fn(), isPlaying: false };
     return { play: vi.fn(), stop: vi.fn(), isPlaying: false };
   }),
 }));
@@ -34,17 +32,19 @@ describe('DrawerActionBar — sound effects', () => {
     expect(onApprove).toHaveBeenCalledOnce();
   });
 
-  it('plays reject sound when reject button is clicked', async () => {
+  it('calls onReject when revision is submitted via chat input', async () => {
     const user = userEvent.setup();
     const onReject = vi.fn();
     render(<DrawerActionBar onApprove={vi.fn()} approveLabel="Approve" onReject={onReject} />);
 
-    await user.click(screen.getByRole('button', { name: /^reject$/i }));
+    const input = screen.getByRole('textbox');
+    await user.type(input, 'please revise this');
+    await user.click(screen.getByRole('button', { name: /send/i }));
 
-    expect(mockRejectPlay).toHaveBeenCalledOnce();
+    expect(onReject).toHaveBeenCalledWith('please revise this');
   });
 
-  it('does not play sounds when buttons are disabled', () => {
+  it('disables all controls when isProcessing is true', () => {
     render(
       <DrawerActionBar
         onApprove={vi.fn()}
@@ -54,12 +54,9 @@ describe('DrawerActionBar — sound effects', () => {
       />
     );
 
-    const approveBtn = screen.getByRole('button', { name: /approve/i });
-    const rejectBtn = screen.getByRole('button', { name: /^reject$/i });
-
-    expect(approveBtn).toBeDisabled();
-    expect(rejectBtn).toBeDisabled();
+    expect(screen.getByRole('textbox')).toBeDisabled();
+    expect(screen.getByRole('button', { name: /send/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /approve/i })).toBeDisabled();
     expect(mockApprovePlay).not.toHaveBeenCalled();
-    expect(mockRejectPlay).not.toHaveBeenCalled();
   });
 });
