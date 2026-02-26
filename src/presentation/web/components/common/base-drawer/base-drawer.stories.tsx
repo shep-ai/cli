@@ -181,7 +181,20 @@ export const WithHeaderAndFooter: Story = {
   ),
 };
 
-/** Drawer with content that exceeds viewport to demonstrate scroll behavior. */
+/**
+ * Drawer with content that exceeds viewport to demonstrate scroll behavior.
+ *
+ * **Fixed Header/Footer Layout:**
+ * - The header (DrawerTitle + DrawerDescription) remains fixed at the top while scrolling
+ * - The footer (if present, e.g., DrawerActionBar) remains fixed at the bottom while scrolling
+ * - Only the content area (children) scrolls when drawer content exceeds available height
+ *
+ * **Spacing Conventions:**
+ * - Content consumers should add `p-4` padding for consistent spacing (as shown in this example)
+ * - Footer components like DrawerActionBar should use `border-t` for visual separation
+ *
+ * Try scrolling the content below to see the fixed header behavior.
+ */
 export const ScrollableContent: Story = {
   render: () => (
     <DrawerTrigger
