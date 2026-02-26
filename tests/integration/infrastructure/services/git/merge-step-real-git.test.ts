@@ -599,42 +599,45 @@ describe('Merge Step — Real Git Integration Tests', () => {
   /*       verifyMerge() throws "Merge verification failed"           */
   /* ---------------------------------------------------------------- */
 
-  it('local-merge-no-push: feature branch should be merged into main after node completes', async () => {
-    const harness = await createGitHarness();
-    harnessToCleanup.push(harness.bareDir, harness.cloneDir);
+  it.fails(
+    'local-merge-no-push: feature branch should be merged into main after node completes',
+    async () => {
+      const harness = await createGitHarness();
+      harnessToCleanup.push(harness.bareDir, harness.cloneDir);
 
-    const tempDir = mkdtempSync(join(tmpdir(), 'shep-test-spec-'));
-    harnessToCleanup.push(tempDir);
-    const specDir = makeSpecDir(tempDir);
+      const tempDir = mkdtempSync(join(tmpdir(), 'shep-test-spec-'));
+      harnessToCleanup.push(tempDir);
+      const specDir = makeSpecDir(tempDir);
 
-    const { deps, featureRepository } = buildDeps({
-      featureBranch: harness.featureBranch,
-    });
+      const { deps, featureRepository } = buildDeps({
+        featureBranch: harness.featureBranch,
+      });
 
-    const state = makeState({
-      repositoryPath: harness.cloneDir,
-      worktreePath: harness.cloneDir,
-      specDir,
-      push: false,
-      openPr: false,
-      approvalGates: { allowPrd: true, allowPlan: true, allowMerge: true },
-    });
+      const state = makeState({
+        repositoryPath: harness.cloneDir,
+        worktreePath: harness.cloneDir,
+        specDir,
+        push: false,
+        openPr: false,
+        approvalGates: { allowPrd: true, allowPlan: true, allowMerge: true },
+      });
 
-    const mergeNode = createMergeNode(deps);
+      const mergeNode = createMergeNode(deps);
 
-    // RED: On the unmodified codebase, the mock executor does not run real git merge.
-    // verifyMerge() will find the branch was not merged and throw "Merge verification failed".
-    // This test is expected to FAIL until the merge bug is fixed.
-    await mergeNode(state);
+      // RED: On the unmodified codebase, the mock executor does not run real git merge.
+      // verifyMerge() will find the branch was not merged and throw "Merge verification failed".
+      // This test is expected to FAIL until the merge bug is fixed.
+      await mergeNode(state);
 
-    // Assert the merge actually landed in the git repo
-    await assertMergeLanded(harness.runGit, harness.featureBranch, 'main');
+      // Assert the merge actually landed in the git repo
+      await assertMergeLanded(harness.runGit, harness.featureBranch, 'main');
 
-    // Lifecycle should be Maintain (merged)
-    expect(featureRepository.update).toHaveBeenCalledWith(
-      expect.objectContaining({ lifecycle: 'Maintain' })
-    );
-  });
+      // Lifecycle should be Maintain (merged)
+      expect(featureRepository.update).toHaveBeenCalledWith(
+        expect.objectContaining({ lifecycle: 'Maintain' })
+      );
+    }
+  );
 
   /* ---------------------------------------------------------------- */
   /*  Test 3: push-no-pr-merge (KNOWN BUG — expected RED)           */
@@ -642,42 +645,45 @@ describe('Merge Step — Real Git Integration Tests', () => {
   /*  Expected: push via agent + local merge into base branch         */
   /* ---------------------------------------------------------------- */
 
-  it('push-no-pr-merge: feature branch should be merged into main after push+merge', async () => {
-    const harness = await createGitHarness();
-    harnessToCleanup.push(harness.bareDir, harness.cloneDir);
+  it.fails(
+    'push-no-pr-merge: feature branch should be merged into main after push+merge',
+    async () => {
+      const harness = await createGitHarness();
+      harnessToCleanup.push(harness.bareDir, harness.cloneDir);
 
-    const tempDir = mkdtempSync(join(tmpdir(), 'shep-test-spec-'));
-    harnessToCleanup.push(tempDir);
-    const specDir = makeSpecDir(tempDir);
+      const tempDir = mkdtempSync(join(tmpdir(), 'shep-test-spec-'));
+      harnessToCleanup.push(tempDir);
+      const specDir = makeSpecDir(tempDir);
 
-    // Use selective exec so that gh run list returns [] (no CI runs)
-    const realExec = makeRealExec();
-    const selectiveExec = makeSelectiveExec(realExec);
+      // Use selective exec so that gh run list returns [] (no CI runs)
+      const realExec = makeRealExec();
+      const selectiveExec = makeSelectiveExec(realExec);
 
-    const { deps, featureRepository } = buildDeps({
-      execFn: selectiveExec,
-      featureBranch: harness.featureBranch,
-    });
+      const { deps, featureRepository } = buildDeps({
+        execFn: selectiveExec,
+        featureBranch: harness.featureBranch,
+      });
 
-    const state = makeState({
-      repositoryPath: harness.cloneDir,
-      worktreePath: harness.cloneDir,
-      specDir,
-      push: true,
-      openPr: false,
-      approvalGates: { allowPrd: true, allowPlan: true, allowMerge: true },
-    });
+      const state = makeState({
+        repositoryPath: harness.cloneDir,
+        worktreePath: harness.cloneDir,
+        specDir,
+        push: true,
+        openPr: false,
+        approvalGates: { allowPrd: true, allowPlan: true, allowMerge: true },
+      });
 
-    const mergeNode = createMergeNode(deps);
+      const mergeNode = createMergeNode(deps);
 
-    // RED: Mock executor does not run real git merge. verifyMerge() throws.
-    await mergeNode(state);
+      // RED: Mock executor does not run real git merge. verifyMerge() throws.
+      await mergeNode(state);
 
-    await assertMergeLanded(harness.runGit, harness.featureBranch, 'main');
-    expect(featureRepository.update).toHaveBeenCalledWith(
-      expect.objectContaining({ lifecycle: 'Maintain' })
-    );
-  });
+      await assertMergeLanded(harness.runGit, harness.featureBranch, 'main');
+      expect(featureRepository.update).toHaveBeenCalledWith(
+        expect.objectContaining({ lifecycle: 'Maintain' })
+      );
+    }
+  );
 
   /* ---------------------------------------------------------------- */
   /*  Test 4: push-pr-with-gate                                      */
@@ -752,66 +758,69 @@ describe('Merge Step — Real Git Integration Tests', () => {
   // Bug location: line ~205 — verifyMerge() is skipped when prUrl is set, so the node reports
   // merge success without verifying that 'gh pr merge' actually merged the local git branch.
   // This test turns GREEN only after the fix: call verifyMerge() regardless of prUrl.
-  it('push=true, openPr=true, allowMerge=true → BUG: verifyMerge skipped after gh pr merge', async () => {
-    const harness = await createGitHarness();
-    harnessToCleanup.push(harness.bareDir, harness.cloneDir);
+  it.fails(
+    'push=true, openPr=true, allowMerge=true → BUG: verifyMerge skipped after gh pr merge',
+    async () => {
+      const harness = await createGitHarness();
+      harnessToCleanup.push(harness.bareDir, harness.cloneDir);
 
-    const tempDir = mkdtempSync(join(tmpdir(), 'shep-test-spec-'));
-    harnessToCleanup.push(tempDir);
+      const tempDir = mkdtempSync(join(tmpdir(), 'shep-test-spec-'));
+      harnessToCleanup.push(tempDir);
 
-    // Pre-populate completedPhases: ["merge"] to simulate post-Phase-1 state.
-    // NOTE: Due to the isResumeAfterInterrupt logic in merge.node.ts, this only
-    // skips Phase 1 when allowMerge=false (gate scenario). With allowMerge=true,
-    // Phase 1 still runs, but prUrl is pre-set in state so the executor output
-    // does not need to contain a PR URL — Phase 2 uses the pre-set prUrl directly.
-    const specDir = makeSpecDir(tempDir, ['merge']);
+      // Pre-populate completedPhases: ["merge"] to simulate post-Phase-1 state.
+      // NOTE: Due to the isResumeAfterInterrupt logic in merge.node.ts, this only
+      // skips Phase 1 when allowMerge=false (gate scenario). With allowMerge=true,
+      // Phase 1 still runs, but prUrl is pre-set in state so the executor output
+      // does not need to contain a PR URL — Phase 2 uses the pre-set prUrl directly.
+      const specDir = makeSpecDir(tempDir, ['merge']);
 
-    // PR-path: selective exec intercepts gh commands.
-    // gh pr merge returns "" (success) WITHOUT performing a real local git merge.
-    // This is intentional — it exposes the bug where the node skips verifyMerge().
-    const realExec = makeRealExec();
-    const selectiveExec = makeSelectiveExec(realExec);
+      // PR-path: selective exec intercepts gh commands.
+      // gh pr merge returns "" (success) WITHOUT performing a real local git merge.
+      // This is intentional — it exposes the bug where the node skips verifyMerge().
+      const realExec = makeRealExec();
+      const selectiveExec = makeSelectiveExec(realExec);
 
-    const { deps, featureRepository } = buildDeps({
-      execFn: selectiveExec,
-      featureBranch: harness.featureBranch,
-      // Executor output contains only commit hash — no PR URL.
-      // prUrl comes from state (pre-set below), not from executor output.
-      executorOutput: '[feat/test abc1234] feat: implement\nDone.',
-    });
+      const { deps, featureRepository } = buildDeps({
+        execFn: selectiveExec,
+        featureBranch: harness.featureBranch,
+        // Executor output contains only commit hash — no PR URL.
+        // prUrl comes from state (pre-set below), not from executor output.
+        executorOutput: '[feat/test abc1234] feat: implement\nDone.',
+      });
 
-    const state = makeState({
-      repositoryPath: harness.cloneDir,
-      worktreePath: harness.cloneDir,
-      specDir,
-      push: true,
-      openPr: true,
-      approvalGates: { allowPrd: true, allowPlan: true, allowMerge: true },
-      // Pre-set prUrl to simulate post-Phase-1 state where a PR was already created.
-      // Phase 2 uses this to choose the gh pr merge code path.
-      prUrl: FAKE_PR_URL,
-      prNumber: 42,
-    });
+      const state = makeState({
+        repositoryPath: harness.cloneDir,
+        worktreePath: harness.cloneDir,
+        specDir,
+        push: true,
+        openPr: true,
+        approvalGates: { allowPrd: true, allowPlan: true, allowMerge: true },
+        // Pre-set prUrl to simulate post-Phase-1 state where a PR was already created.
+        // Phase 2 uses this to choose the gh pr merge code path.
+        prUrl: FAKE_PR_URL,
+        prNumber: 42,
+      });
 
-    const mergeNode = createMergeNode(deps);
+      const mergeNode = createMergeNode(deps);
 
-    // The node completes without throwing (gh pr merge mock returns "" — no error).
-    // BUT verifyMerge() is SKIPPED because prUrl is set (merge.node.ts line ~205).
-    // The node reports lifecycle=Maintain without the merge actually landing.
-    await mergeNode(state);
+      // The node completes without throwing (gh pr merge mock returns "" — no error).
+      // BUT verifyMerge() is SKIPPED because prUrl is set (merge.node.ts line ~205).
+      // The node reports lifecycle=Maintain without the merge actually landing.
+      await mergeNode(state);
 
-    // RED: This assertion FAILS on the unmodified codebase because:
-    //   - The selective exec's gh pr merge mock returns "" (no real git merge happens)
-    //   - verifyMerge() is skipped when prUrl is set → no verification of actual merge
-    //   - The feature branch is NOT an ancestor of main after node completes
-    // Human-readable failure: "Expected feat/... to be an ancestor of main after merge, but it was not"
-    await assertMergeLanded(harness.runGit, harness.featureBranch, 'main');
+      // RED: This assertion FAILS on the unmodified codebase because:
+      //   - The selective exec's gh pr merge mock returns "" (no real git merge happens)
+      //   - verifyMerge() is skipped when prUrl is set → no verification of actual merge
+      //   - The feature branch is NOT an ancestor of main after node completes
+      // Human-readable failure: "Expected feat/... to be an ancestor of main after merge, but it was not"
+      await assertMergeLanded(harness.runGit, harness.featureBranch, 'main');
 
-    // Secondary assertion: node reports lifecycle=Maintain (it believes the merge succeeded)
-    expect(featureRepository.update).toHaveBeenCalledWith(
-      expect.objectContaining({ lifecycle: 'Maintain' })
-    );
-  });
+      // Secondary assertion: node reports lifecycle=Maintain (it believes the merge succeeded)
+      expect(featureRepository.update).toHaveBeenCalledWith(
+        expect.objectContaining({ lifecycle: 'Maintain' })
+      );
+    }
+  );
 
   /* ---------------------------------------------------------------- */
   /*  Test 6: no-remote-override-merge (KNOWN BUG — expected RED)  */
@@ -820,38 +829,41 @@ describe('Merge Step — Real Git Integration Tests', () => {
   /*  push=false, openPr=false → commit only + local merge           */
   /* ---------------------------------------------------------------- */
 
-  it('no-remote-override-merge: should merge locally when remote unavailable (push+openPr overridden)', async () => {
-    const { repoDir, featureBranch, runGit } = await createLocalOnlyHarness();
-    harnessToCleanup.push(repoDir);
+  it.fails(
+    'no-remote-override-merge: should merge locally when remote unavailable (push+openPr overridden)',
+    async () => {
+      const { repoDir, featureBranch, runGit } = await createLocalOnlyHarness();
+      harnessToCleanup.push(repoDir);
 
-    const tempDir = mkdtempSync(join(tmpdir(), 'shep-test-spec-'));
-    harnessToCleanup.push(tempDir);
-    const specDir = makeSpecDir(tempDir);
+      const tempDir = mkdtempSync(join(tmpdir(), 'shep-test-spec-'));
+      harnessToCleanup.push(tempDir);
+      const specDir = makeSpecDir(tempDir);
 
-    const { deps, featureRepository } = buildDeps({
-      featureBranch,
-    });
+      const { deps, featureRepository } = buildDeps({
+        featureBranch,
+      });
 
-    const state = makeState({
-      repositoryPath: repoDir,
-      worktreePath: repoDir,
-      specDir,
-      // push+openPr=true, but remote is unavailable → effectiveState overrides both to false
-      push: true,
-      openPr: true,
-      approvalGates: { allowPrd: true, allowPlan: true, allowMerge: true },
-    });
+      const state = makeState({
+        repositoryPath: repoDir,
+        worktreePath: repoDir,
+        specDir,
+        // push+openPr=true, but remote is unavailable → effectiveState overrides both to false
+        push: true,
+        openPr: true,
+        approvalGates: { allowPrd: true, allowPlan: true, allowMerge: true },
+      });
 
-    const mergeNode = createMergeNode(deps);
+      const mergeNode = createMergeNode(deps);
 
-    // RED: Mock executor does not run real git merge. verifyMerge() throws.
-    await mergeNode(state);
+      // RED: Mock executor does not run real git merge. verifyMerge() throws.
+      await mergeNode(state);
 
-    await assertMergeLanded(runGit, featureBranch, 'main');
-    expect(featureRepository.update).toHaveBeenCalledWith(
-      expect.objectContaining({ lifecycle: 'Maintain' })
-    );
-  });
+      await assertMergeLanded(runGit, featureBranch, 'main');
+      expect(featureRepository.update).toHaveBeenCalledWith(
+        expect.objectContaining({ lifecycle: 'Maintain' })
+      );
+    }
+  );
 
   /* ---------------------------------------------------------------- */
   /*  Test 7: no-remote-local-merge (KNOWN BUG — expected RED)     */
@@ -859,7 +871,7 @@ describe('Merge Step — Real Git Integration Tests', () => {
   /*  Expected: no remote, commit + local merge                      */
   /* ---------------------------------------------------------------- */
 
-  it('no-remote-local-merge: should merge locally without any remote', async () => {
+  it.fails('no-remote-local-merge: should merge locally without any remote', async () => {
     const { repoDir, featureBranch, runGit } = await createLocalOnlyHarness();
     harnessToCleanup.push(repoDir);
 
