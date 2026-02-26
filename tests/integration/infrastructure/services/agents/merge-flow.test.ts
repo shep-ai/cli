@@ -138,6 +138,7 @@ describe('Merge Flow (Graph-level)', () => {
         verifyMerge: vi.fn().mockResolvedValue(overrides?.verifyMerge ?? true),
         featureRepository: featureRepo,
         gitPrService: createMockGitPrService(),
+        cleanupFeatureWorktreeUseCase: { execute: vi.fn().mockResolvedValue(undefined) } as any,
       },
     };
     return { deps, getDiffSummary, featureRepo };
