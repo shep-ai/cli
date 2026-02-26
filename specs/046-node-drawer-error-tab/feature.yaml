@@ -5,6 +5,7 @@ feature:
   branch: feat/046-node-drawer-error-tab
   lifecycle: research
   createdAt: '2026-02-26T12:43:22Z'
+  prUrl: https://github.com/shep-ai/cli/pull/165
 status:
   phase: implementation-complete
   progress:
