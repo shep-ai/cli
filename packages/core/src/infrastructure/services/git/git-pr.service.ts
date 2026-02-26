@@ -208,9 +208,19 @@ export class GitPrService implements IGitPrService {
       if (message.includes('timed out') || message.includes('timeout')) {
         throw new GitPrError(message, GitPrErrorCode.CI_TIMEOUT, cause);
       }
-      // gh run watch --exit-status exits non-zero when the run fails
-      if (message.includes('exit code') || message.includes('exit status')) {
-        return { status: 'failure', logExcerpt: message };
+      // gh run watch --exit-status exits non-zero when the run fails.
+      // Node.js execFile produces errors with a numeric `code` (exit code) and
+      // stdout/stderr from the process. The error.message is typically
+      // "Command failed: gh run watch <id> --exit-status\n" — detect this by
+      // checking for a numeric exit code or the "Command failed" prefix.
+      const exitCode = (error as NodeJS.ErrnoException)?.code;
+      const hasNumericExitCode = typeof exitCode === 'number';
+      const isCommandFailure = message.includes('Command failed') || message.includes('exit code');
+      if (hasNumericExitCode || isCommandFailure) {
+        // Build a useful log excerpt from stdout/stderr if available
+        const errObj = error as { stdout?: string; stderr?: string };
+        const parts = [errObj.stdout, errObj.stderr, message].filter(Boolean);
+        return { status: 'failure', logExcerpt: parts.join('\n').trim() };
       }
       throw new GitPrError(message, GitPrErrorCode.GIT_ERROR, cause);
     }
