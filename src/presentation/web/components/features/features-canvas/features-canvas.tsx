@@ -26,9 +26,11 @@ export interface FeaturesCanvasProps {
   onNodeClick?: (event: React.MouseEvent, node: CanvasNodeType) => void;
   onPaneClick?: (event: React.MouseEvent) => void;
   onRepositoryAdd?: (repoNodeId: string) => void;
+  onRepositoryClick?: (nodeId: string) => void;
   onRepositoryDelete?: (repositoryId: string) => void;
   onConnect?: (connection: Connection) => void;
   onRepositorySelect?: (path: string) => void;
+  onCanvasDrag?: () => void;
   toolbar?: React.ReactNode;
   emptyState?: React.ReactNode;
 }
@@ -44,8 +46,10 @@ export function FeaturesCanvas({
   onNodeClick,
   onPaneClick,
   onRepositoryAdd,
+  onRepositoryClick,
   onRepositoryDelete,
   onRepositorySelect,
+  onCanvasDrag,
   toolbar,
   emptyState,
 }: FeaturesCanvasProps) {
@@ -96,6 +100,7 @@ export function FeaturesCanvas({
             : {}),
           ...(node.type === 'repositoryNode' && {
             onAdd: onRepositoryAdd ? () => onRepositoryAdd(node.id) : undefined,
+            onClick: onRepositoryClick ? () => onRepositoryClick(node.id) : undefined,
             onDelete: onRepositoryDelete,
           }),
           ...(node.type === 'addRepositoryNode' && {
@@ -109,6 +114,7 @@ export function FeaturesCanvas({
       onNodeAction,
       onNodeSettings,
       onRepositoryAdd,
+      onRepositoryClick,
       onRepositoryDelete,
       onRepositorySelect,
     ]
@@ -151,6 +157,7 @@ export function FeaturesCanvas({
           onNodesChange={onNodesChange}
           onNodeClick={onNodeClick}
           onPaneClick={onPaneClick}
+          onMoveStart={onCanvasDrag}
           defaultViewport={{ x: 30, y: 30, zoom: 0.85 }}
           nodesDraggable={false}
           nodesConnectable={false}
