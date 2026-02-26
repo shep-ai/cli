@@ -75,15 +75,17 @@ export function BaseDrawer({
         </button>
 
         {/* Header slot */}
-        {header ? <DrawerHeader>{header}</DrawerHeader> : null}
+        {header ? <DrawerHeader className="shrink-0">{header}</DrawerHeader> : null}
 
-        {/* Scrollable content area */}
-        <div className="flex-1 overflow-y-auto">
+        {/* Scrollable content area. Consumers should add p-4 for consistent spacing. */}
+        {/* Footer components like DrawerActionBar typically include border-t. */}
+        {/* BaseDrawer provides layout structure; consumers control visual styling. */}
+        <div className="min-h-0 flex-1 overflow-y-auto">
           <div className="flex flex-col">{children}</div>
         </div>
 
         {/* Footer slot */}
-        {footer ? <DrawerFooter>{footer}</DrawerFooter> : null}
+        {footer ? <DrawerFooter className="shrink-0">{footer}</DrawerFooter> : null}
       </DrawerContent>
     </Drawer>
   );
