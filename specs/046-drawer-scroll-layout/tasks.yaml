@@ -1,0 +1,267 @@
+name: drawer-scroll-layout
+summary: >
+  8 tasks across 3 phases implementing fixed header/footer layout for BaseDrawer.
+  Phase 1 writes the failing test (TDD RED), Phase 2 implements the CSS changes
+  (TDD GREEN/REFACTOR), Phase 3 validates and documents. Total estimated effort: 4 hours.
+
+relatedFeatures:
+  - '045'
+
+technologies:
+  - React 19
+  - Vaul 1.1.2
+  - Tailwind CSS
+  - Storybook 8
+  - Vitest + React Testing Library
+
+relatedLinks: []
+
+tasks:
+  # ============================================================================
+  # PHASE 1: TDD SETUP — TEST FIRST
+  # ============================================================================
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Write failing unit test for scroll container structure'
+    description: >
+      Create a new unit test in base-drawer.test.tsx that verifies the target DOM
+      structure: header and footer should be siblings of the scroll container (not
+      children). This test will fail initially because the CSS classes haven't been
+      applied yet. Establishes acceptance criteria before implementation (RED phase
+      of TDD).
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - Test renders BaseDrawer with header, children, and footer props
+      - Test queries for scroll container element using .overflow-y-auto selector
+      - Test queries for header element (DrawerHeader wrapper)
+      - Test queries for footer element (DrawerFooter wrapper)
+      - Test asserts header.parentElement === scrollContainer.parentElement
+      - Test asserts footer.parentElement === scrollContainer.parentElement
+      - Test initially fails (header/footer do not have shrink-0, content lacks min-h-0)
+      - Test is properly typed with React Testing Library utilities
+    tdd:
+      red:
+        - 'Add new test case "renders header and footer outside scroll container" in base-drawer.test.tsx'
+        - 'Render BaseDrawer with header={<h2>Test Header</h2>}, footer={<button>Test Footer</button>}, and children={<p>Content</p>}'
+        - 'Query for scroll container using document.querySelector(".overflow-y-auto")'
+        - 'Query for header using screen.getByText("Test Header")'
+        - 'Query for footer using screen.getByText("Test Footer")'
+        - 'Assert expect(header.parentElement).toBe(scrollContainer?.parentElement)'
+        - 'Assert expect(footer.parentElement).toBe(scrollContainer?.parentElement)'
+        - 'Run test with pnpm test:unit — should fail because structure is not yet correct'
+      green: []
+      refactor: []
+    estimatedEffort: '30min'
+
+  # ============================================================================
+  # PHASE 2: LAYOUT IMPLEMENTATION
+  # ============================================================================
+
+  - id: task-2
+    phaseId: phase-2
+    title: 'Add shrink-0 to DrawerHeader wrapper'
+    description: >
+      Apply the shrink-0 CSS class to the DrawerHeader wrapper in base-drawer.tsx
+      to prevent the header from shrinking when content is large. This keeps the
+      title and close button visible at all times (GREEN phase of TDD).
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - DrawerHeader wrapper has className="shrink-0" when header prop is provided
+      - Existing header rendering logic unchanged (conditional {header ? ...: null})
+      - No TypeScript errors introduced
+      - Code remains readable and follows existing patterns
+    tdd:
+      red: []
+      green:
+        - 'Open packages/core/src/presentation/web/components/common/base-drawer/base-drawer.tsx'
+        - 'Locate the DrawerHeader wrapper (around line 78: {header ? <DrawerHeader>...</DrawerHeader> : null})'
+        - 'Add className="shrink-0" to DrawerHeader: <DrawerHeader className="shrink-0">{header}</DrawerHeader>'
+        - 'Run pnpm typecheck:web to verify no type errors'
+      refactor: []
+    estimatedEffort: '5min'
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Add shrink-0 to DrawerFooter wrapper'
+    description: >
+      Apply the shrink-0 CSS class to the DrawerFooter wrapper in base-drawer.tsx
+      to prevent the footer from shrinking when content is large. This keeps action
+      buttons (DrawerActionBar) accessible at all times (GREEN phase of TDD).
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - DrawerFooter wrapper has className="shrink-0" when footer prop is provided
+      - Existing footer rendering logic unchanged (conditional {footer ? ...: null})
+      - No TypeScript errors introduced
+      - Code remains readable and follows existing patterns
+    tdd:
+      red: []
+      green:
+        - 'In base-drawer.tsx, locate the DrawerFooter wrapper (around line 86: {footer ? <DrawerFooter>...</DrawerFooter> : null})'
+        - 'Add className="shrink-0" to DrawerFooter: <DrawerFooter className="shrink-0">{footer}</DrawerFooter>'
+        - 'Run pnpm typecheck:web to verify no type errors'
+      refactor: []
+    estimatedEffort: '5min'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Add min-h-0 to scrollable content container'
+    description: >
+      Add the min-h-0 CSS class to the scrollable content div to prevent flex
+      shrinking below zero height. This ensures content remains accessible via
+      scroll even when footer is large on short screens (GREEN phase of TDD).
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - Scrollable content div has className="flex-1 overflow-y-auto min-h-0"
+      - Existing flex-1 and overflow-y-auto classes retained
+      - Inner flex-col wrapper unchanged
+      - No TypeScript errors introduced
+      - Test from task-1 now passes (pnpm test:unit succeeds)
+    tdd:
+      red: []
+      green:
+        - 'In base-drawer.tsx, locate the scrollable content div (around line 81: <div className="flex-1 overflow-y-auto">)'
+        - 'Add min-h-0 to className: <div className="flex-1 overflow-y-auto min-h-0">'
+        - 'Run pnpm test:unit to verify test from task-1 now passes'
+        - 'Run pnpm typecheck:web to verify no type errors'
+      refactor: []
+    estimatedEffort: '5min'
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Add code comment documenting padding convention'
+    description: >
+      Add a code comment above the scrollable content area in base-drawer.tsx
+      documenting the recommended padding convention for consumers (p-4 for content,
+      border-t for footer). This guides developers without enforcing styling in the
+      structural component (REFACTOR phase of TDD).
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - Comment placed directly above scrollable content div (before line with flex-1 overflow-y-auto min-h-0)
+      - Comment explains padding convention clearly (p-4 for content recommended)
+      - Comment mentions border-t for footer (DrawerActionBar already includes this)
+      - Comment notes that BaseDrawer is structural, not visual (consumers control spacing)
+      - Comment is concise (2-3 lines max)
+    tdd:
+      red: []
+      green: []
+      refactor:
+        - 'In base-drawer.tsx, add comment above scrollable content div (line ~81):'
+        - 'Add: {/* Scrollable content area. Consumers should add p-4 for consistent spacing. */'
+        - 'Add: {/* Footer components like DrawerActionBar typically include border-t. */'
+        - 'Add: {/* BaseDrawer provides layout structure; consumers control visual styling. */}'
+        - 'Verify comment is clear and follows existing code style'
+    estimatedEffort: '10min'
+
+  # ============================================================================
+  # PHASE 3: DOCUMENTATION & VALIDATION
+  # ============================================================================
+
+  - id: task-6
+    phaseId: phase-3
+    title: 'Update ScrollableContent story documentation'
+    description: >
+      Update the ScrollableContent story in base-drawer.stories.tsx to document
+      the fixed header/footer behavior. Add a note in the story description
+      explaining that the header and footer remain visible while scrolling content,
+      with guidance on recommended padding patterns.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - ScrollableContent story (around line 185-207) has updated description
+      - Description notes that header stays fixed at top during scroll
+      - Description notes that footer stays fixed at bottom during scroll
+      - Description mentions recommended p-4 padding for content consumers
+      - Description mentions DrawerActionBar border-t convention for footers
+      - Story code unchanged (already demonstrates long content scrolling)
+      - Story renders correctly in Storybook (pnpm storybook:web)
+    tdd: null
+    estimatedEffort: '20min'
+
+  - id: task-7
+    phaseId: phase-3
+    title: 'Manual verification of all BaseDrawer variants in Storybook'
+    description: >
+      Open Storybook and manually verify all 8 BaseDrawer stories to ensure no
+      visual regressions. Test both size variants (sm, md) and modal/non-modal modes.
+      Verify scroll behavior in ScrollableContent story (header/footer remain fixed).
+      Test on mobile viewport sizes (375x667) to verify footer doesn't overlap content.
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - Default story renders correctly (no header, no footer)
+      - SmallSize story renders correctly (sm variant)
+      - MediumSize story renders correctly (md variant)
+      - Modal story renders correctly (modal=true)
+      - WithHeader story shows header, no visual change from before
+      - WithFooter story shows footer, no visual change from before
+      - WithHeaderAndFooter story shows both, no visual change from before
+      - ScrollableContent story demonstrates fixed header/footer (scroll content, header/footer stay visible)
+      - Footer does not overlap content on mobile viewport (375px x 667px in Storybook viewport controls)
+      - Close button (absolute positioned) remains clickable in all stories
+      - Scroll is smooth (no jank) with 100+ items in ScrollableContent story
+    tdd: null
+    estimatedEffort: '1h'
+
+  - id: task-8
+    phaseId: phase-3
+    title: 'Run full test suite and validation checks'
+    description: >
+      Run all validation commands to ensure the change is production-ready: unit
+      tests, TypeScript checks, linting, and Storybook build. Verify that all
+      checks pass before considering the task complete.
+    state: Todo
+    dependencies:
+      - task-7
+    acceptanceCriteria:
+      - pnpm test:unit passes (all tests including new scroll container test)
+      - pnpm typecheck:web passes (no TypeScript errors)
+      - pnpm lint:fix passes (no lint errors, auto-fixes applied)
+      - pnpm build:storybook passes (stories build without errors)
+      - No console errors or warnings in Storybook during manual verification
+      - Git status shows only expected file changes (base-drawer.tsx, base-drawer.stories.tsx, base-drawer.test.tsx)
+    tdd: null
+    estimatedEffort: '30min'
+
+totalEstimate: '4h'
+openQuestions: []
+
+content: |
+  ## Summary
+
+  This task breakdown implements the drawer scroll layout refactor through three phases:
+
+  **Phase 1 (TDD Setup)** establishes the acceptance criteria by writing a failing unit
+  test that verifies the target DOM structure. The test checks that header and footer
+  elements are siblings of the scroll container (not children), ensuring they're
+  structurally positioned for fixed placement.
+
+  **Phase 2 (Layout Implementation)** applies the minimal CSS changes needed to pass
+  the test: shrink-0 on DrawerHeader and DrawerFooter wrappers to prevent them from
+  shrinking, and min-h-0 on the scrollable content container to prevent flex shrinking
+  below zero. A code comment documents the padding convention for consumers. The test
+  from Phase 1 now passes, demonstrating correct structure.
+
+  **Phase 3 (Documentation & Validation)** ensures the change is production-ready by
+  updating Storybook story documentation, manually verifying all drawer variants for
+  visual regressions, and running the full test suite. This phase validates that the
+  layout works correctly across all use cases (different sizes, modal/non-modal,
+  mobile viewports) and is well-documented for future developers.
+
+  The implementation follows TDD principles (RED → GREEN → REFACTOR) as mandated by
+  CLAUDE.md, maintains backward compatibility (zero API changes), and aligns with
+  existing codebase patterns (MergeReview, PrdQuestionnaire, TechDecisionsReview
+  already use similar flex-col + flex-1 overflow-y-auto layouts).
+
+  Total effort: 4 hours across 8 focused tasks, matching the spec's size estimate (M).

@@ -1,0 +1,301 @@
+name: drawer-scroll-layout
+summary: >
+  Refactor BaseDrawer component to implement fixed header/footer with scrollable
+  content area using CSS flexbox. The implementation adds shrink-0 to DrawerHeader
+  and DrawerFooter wrappers, and min-h-0 to the scrollable content container.
+  This is a pure CSS layout change with zero API modifications, ensuring backward
+  compatibility for all consumers. The approach follows existing patterns from
+  MergeReview, PrdQuestionnaire, and TechDecisionsReview components that already
+  use flex-col + flex-1 overflow-y-auto layouts. Testing includes DOM structure
+  verification via unit tests and visual validation via Storybook stories.
+
+relatedFeatures:
+  - '045'
+
+technologies:
+  - React 19
+  - Vaul 1.1.2
+  - Tailwind CSS
+  - CVA
+  - Storybook 8
+  - Vitest + React Testing Library
+
+relatedLinks:
+  - https://www.sitepoint.com/community/t/how-to-set-flex-fixed-header-and-footers-when-the-page-scrolls/339942
+  - https://gist.github.com/midzer/3893ce8c0bec6f805ec1a7bb3269775d
+  - https://tailwindcss.com/docs/overflow
+  - https://tailwindcss.com/docs/flex-shrink
+
+phases:
+  - id: phase-1
+    name: 'TDD Setup — Test First'
+    description: 'Write failing unit test that verifies scroll container structure (header/footer as siblings, not children). This establishes the target DOM structure before implementation.'
+    parallel: false
+
+  - id: phase-2
+    name: 'Layout Implementation'
+    description: 'Apply CSS class changes to BaseDrawer component: add shrink-0 to header/footer wrappers, add min-h-0 to scrollable content. This implements the fixed header/footer behavior.'
+    parallel: false
+
+  - id: phase-3
+    name: 'Documentation & Validation'
+    description: 'Update Storybook story documentation, add code comments for padding conventions, and manually verify all drawer variants. Ensures developers understand usage patterns and no visual regressions.'
+    parallel: false
+
+filesToCreate: []
+
+filesToModify:
+  - packages/core/src/presentation/web/components/common/base-drawer/base-drawer.tsx
+  - packages/core/src/presentation/web/components/common/base-drawer/base-drawer.stories.tsx
+  - packages/core/tests/unit/presentation/web/components/common/base-drawer/base-drawer.test.tsx
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  BaseDrawer is a **Tier 1 (common/)** component per docs/ui/architecture.md that composes
+  Vaul primitives (Tier 0) with layout logic. It sits between CLI-managed shadcn/Vaul
+  components and domain-specific drawer consumers (Tier 3 features/).
+
+  ### Current Structure
+
+  The existing BaseDrawer (from feature #045) already has the correct DOM hierarchy:
+
+  ```tsx
+  <DrawerContent> {/* flex flex-col */}
+    <button>{/* Close button - absolute positioned */}</button>
+    {header ? <DrawerHeader>{header}</DrawerHeader> : null}
+    <div className="flex-1 overflow-y-auto">
+      <div className="flex flex-col">{children}</div>
+    </div>
+    {footer ? <DrawerFooter>{footer}</DrawerFooter> : null}
+  </DrawerContent>
+  ```
+
+  ### Problem
+
+  Without explicit flex shrink control, the header and footer can shrink when content
+  is large, and the content area can shrink to zero height on short screens when the
+  footer is large (DrawerActionBar with textarea + buttons). This creates poor UX:
+  - Bottom action buttons scroll out of view
+  - Header context disappears during scroll
+  - Footer can compress content on mobile viewports
+
+  ### Solution
+
+  Add three CSS classes to existing elements (no DOM structure changes):
+
+  1. **shrink-0 on DrawerHeader**: Prevents header from shrinking, keeps title + close button visible
+  2. **shrink-0 on DrawerFooter**: Prevents footer from shrinking, keeps action buttons accessible
+  3. **min-h-0 on scrollable content div**: Prevents flex shrinking below zero, ensures content is scrollable even when footer is large
+
+  This matches the pattern already used by drawer consumers (MergeReview line 59-60,
+  PrdQuestionnaire line 49-50, TechDecisionsReview line 134-135).
+
+  ### Backward Compatibility
+
+  Zero API changes. The BaseDrawer props interface remains identical:
+
+  ```typescript
+  export interface BaseDrawerProps extends VariantProps<typeof drawerVariants> {
+    open: boolean;
+    onClose: () => void;
+    modal?: boolean;
+    header?: React.ReactNode;
+    children: React.ReactNode;
+    footer?: React.ReactNode;
+    className?: string;
+    'data-testid'?: string;
+  }
+  ```
+
+  All six consumers (MergeReview, PrdQuestionnaire, TechDecisionsReview, FeatureDrawer,
+  RepositoryDrawer, SkillDetailDrawer) work without modification. This is purely an
+  internal layout enhancement.
+
+  ## Key Design Decisions
+
+  ### Decision 1: CSS Flexbox Over Alternatives
+
+  **Chosen:** Tailwind flexbox utilities (flex-col, shrink-0, flex-1, overflow-y-auto, min-h-0)
+
+  **Alternatives Rejected:**
+  - Absolute positioning: Requires explicit height calculations, z-index management
+  - CSS Grid: More complex for this simple 3-row layout
+  - JavaScript height calculations: Adds unnecessary complexity and layout shift risk
+
+  **Rationale:** Flexbox is the industry-standard solution for fixed header/footer
+  layouts. The codebase already uses this pattern extensively (MergeReview,
+  PrdQuestionnaire, TechDecisionsReview). Research sources (SitePoint, GitHub gists)
+  confirm this is the recommended approach. It's declarative, requires no JavaScript,
+  and works across all modern browsers.
+
+  ### Decision 2: Min-Height Safeguard
+
+  **Chosen:** Add min-h-0 to scrollable content container
+
+  **Alternatives Rejected:**
+  - No min-height constraint: Content can shrink to zero on short screens
+  - Explicit min-h-[200px]: Arbitrary pixel values break responsiveness
+  - JavaScript calculation: Over-engineered
+
+  **Rationale:** The min-h-0 utility is a flexbox-specific safeguard that prevents
+  flex children from shrinking below content size. Without it, flex-1 elements can
+  shrink to zero when siblings (footer) have large content. This is critical for
+  DrawerActionBar which can be quite large (textarea + buttons). The Tailwind docs
+  recommend this pattern for scrollable flex containers. Aligns with research
+  decision #2 and spec open question #2 (add min-height safeguards).
+
+  ### Decision 3: Shrink-0 for Header/Footer
+
+  **Chosen:** Add shrink-0 to DrawerHeader and DrawerFooter wrappers
+
+  **Alternatives Rejected:**
+  - No shrink control: Header/footer could compress when content is large
+  - flex-none: More restrictive than needed
+
+  **Rationale:** shrink-0 (flex-shrink: 0) is the standard flexbox pattern for
+  fixed-size elements. Prevents header/footer from shrinking when content grows,
+  ensuring "fixed" behavior. Aligns with research decision #3 and Tailwind best
+  practices.
+
+  ### Decision 4: Zero API Changes
+
+  **Chosen:** Internal layout refactor only, no new props or components
+
+  **Alternatives Rejected:**
+  - Add scrollable prop to opt in: Forces consumer updates, complicates API
+  - Create BaseDrawerV2: Code duplication, migration burden
+  - Deprecate old layout: No breaking change to deprecate
+
+  **Rationale:** Per spec NFR-1 (Backward Compatibility), all consumers must work
+  without modification. This is the most user-friendly approach—consumers get
+  improved UX automatically. Aligns with research decision #7 and spec open question
+  #1 (consumer simplification deferred to separate PR).
+
+  ### Decision 5: Documentation Strategy
+
+  **Chosen:** Document padding conventions in Storybook stories and code comments
+
+  **Alternatives Rejected:**
+  - Enforce padding in BaseDrawer: Reduces flexibility for custom layouts
+  - Separate style guide doc: Duplication, maintenance burden
+  - No documentation: Inconsistent spacing across drawers
+
+  **Rationale:** Per spec open question #3, we document conventions without enforcing
+  them. BaseDrawer is structural, not visual. Existing consumers use p-4 for content
+  and DrawerActionBar adds border-t, establishing a de facto pattern. We formalize
+  this via comments and Storybook notes. Aligns with research decision #8 and UI
+  Architecture principles (Tier 1 composes primitives without enforcing visual design).
+
+  ### Decision 6: Testing Approach
+
+  **Chosen:** Unit tests for DOM structure + Storybook stories for visual verification
+
+  **Alternatives Rejected:**
+  - E2E tests for scroll behavior: Over-testing, too slow
+  - Visual regression (Chromatic): Adds cost for incremental change
+  - No new tests: Insufficient, need to verify layout structure
+
+  **Rationale:** Unit tests verify the structural change (header/footer as siblings
+  of scroll container) using DOM queries. Storybook provides manual visual verification.
+  This is standard for component layout changes per UI Architecture doc. E2E tests
+  are overkill for deterministic CSS layout. Aligns with research decision #6.
+
+  ## Implementation Strategy
+
+  ### Phase 1: TDD Setup — Test First (30 min)
+
+  Following the mandatory TDD requirement from CLAUDE.md, we start by writing a
+  failing test that verifies the target DOM structure. This test will:
+
+  1. Render BaseDrawer with header, children, and footer
+  2. Query for the scroll container element (has overflow-y-auto)
+  3. Query for header and footer elements
+  4. Assert that header and footer are siblings of scroll container (not children)
+
+  This establishes the acceptance criteria before any implementation changes.
+
+  ### Phase 2: Layout Implementation (1 hour)
+
+  With the failing test in place, we make minimal CSS class changes to BaseDrawer:
+
+  1. Add className="shrink-0" to DrawerHeader wrapper
+  2. Add className="shrink-0" to DrawerFooter wrapper
+  3. Add min-h-0 to scrollable content div className
+
+  The test should now pass (GREEN), demonstrating that the layout structure is correct.
+
+  **Refactor:** Add code comment above scrollable content area documenting the padding
+  convention for consumers.
+
+  ### Phase 3: Documentation & Validation (2 hours)
+
+  With the implementation complete, we validate and document:
+
+  1. Update Scrollable Content story description to note fixed header/footer behavior
+  2. Manually verify all 8 BaseDrawer stories in Storybook (no visual regressions)
+  3. Test scroll behavior with long content (header/footer remain fixed)
+  4. Run full test suite and lint checks
+
+  This phase ensures the change is production-ready and well-documented for consumers.
+
+  ### Rationale for Phase Ordering
+
+  **Why Test First?** TDD is mandatory per CLAUDE.md. Writing the test first clarifies
+  the target structure and prevents implementation drift.
+
+  **Why Implementation Next?** With a clear test, implementation is straightforward—
+  add three CSS classes to existing elements.
+
+  **Why Documentation Last?** Once implementation is verified, we document the behavior
+  and conventions for future developers. Storybook serves as living documentation.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Visual regressions in existing drawers | Manual verification of all 8 Storybook stories (Default, SmallSize, MediumSize, Modal, WithHeader, WithFooter, WithHeaderAndFooter, ScrollableContent). Test all size variants (sm, md) and modal/non-modal modes. |
+  | Footer overlapping content on short screens | The min-h-0 safeguard on scrollable content ensures content is always accessible via scroll, even when footer is large. Test on mobile viewport sizes in Storybook. |
+  | Breaking consumer components | Zero API changes ensures backward compatibility. All consumers use same slot-based API (header, children, footer props) which remains unchanged. Consumers already have their own internal scroll structures that will continue to work. |
+  | Accessibility regressions | Scroll container remains keyboard-navigable (Tab, arrow keys). Native browser scrolling is screen-reader accessible. No JavaScript event listeners or custom scroll logic. |
+  | Performance degradation | Pure CSS change using GPU-accelerated native scrolling. No additional DOM nodes, no React re-renders. Existing consumers already use same pattern without performance issues. |
+  | Unclear spacing conventions | Code comment above scrollable content documents recommended padding (p-4). Storybook story description documents border-t convention for footers. Existing consumers (MergeReview, PrdQuestionnaire, TechDecisionsReview) establish precedent. |
+  | Difficult to test layout changes | Unit test uses DOM queries (querySelector) to verify header/footer are siblings of scroll container. Test is deterministic and doesn't rely on visual assertions or snapshots. |
+  | Min-height behavior not understood | Code comment explains min-h-0 purpose: "Prevents flex shrinking below zero height when footer is large, ensures content is scrollable on short screens." Links to Tailwind docs in research artifact. |
+
+  ## Files Changed
+
+  ### Modified Files (3)
+
+  1. **base-drawer.tsx** — Core implementation
+     - Add `className="shrink-0"` to DrawerHeader wrapper (line ~78)
+     - Add `min-h-0` to scrollable content div (line ~81)
+     - Add `className="shrink-0"` to DrawerFooter wrapper (line ~86)
+     - Add code comment documenting padding convention
+
+  2. **base-drawer.stories.tsx** — Documentation
+     - Update ScrollableContent story description to note fixed header/footer behavior
+     - Add usage note about padding conventions
+
+  3. **base-drawer.test.tsx** — Verification
+     - Add new test: "renders header and footer outside scroll container"
+     - Use DOM queries to assert structure
+     - Verify header/footer are siblings of scroll container (not children)
+
+  ### No New Files
+
+  All changes are within existing files. No new components, utilities, or tests files needed.
+
+  ## Success Metrics
+
+  - [ ] New unit test passes (header/footer as siblings of scroll container)
+  - [ ] All existing BaseDrawer tests pass (no regressions)
+  - [ ] All 8 Storybook stories render without visual changes
+  - [ ] ScrollableContent story demonstrates fixed header/footer (scroll content, header/footer stay in place)
+  - [ ] No TypeScript errors (pnpm typecheck:web passes)
+  - [ ] No lint errors (pnpm lint:fix passes)
+  - [ ] All drawer consumers work without modification (manual spot-check MergeReview, PrdQuestionnaire, TechDecisionsReview in Storybook)
+  - [ ] Footer does not overlap content on mobile viewport sizes (375px width, 667px height)
+  - [ ] Scroll behavior is smooth (60fps) with 100+ items in ScrollableContent story
