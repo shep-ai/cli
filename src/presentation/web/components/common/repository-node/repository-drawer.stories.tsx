@@ -36,7 +36,7 @@ function DrawerTrigger({ data, label }: { data: RepositoryNodeData; label: strin
 }
 
 export const Default: Story = {
-  render: () => <DrawerTrigger data={repoData} label="Open Repository" />,
+  render: () => <RepositoryDrawerShellTemplate data={repoData} />,
 };
 
 export const LongPath: Story = {
@@ -55,4 +55,30 @@ export const WithoutPath: Story = {
   render: () => (
     <DrawerTrigger data={{ ...repoData, repositoryPath: undefined }} label="Open Without Path" />
   ),
+};
+
+/* ---------------------------------------------------------------------------
+ * Shell template — full page context, starts open (matches ReviewDrawerShell pattern)
+ * ------------------------------------------------------------------------- */
+
+function RepositoryDrawerShellTemplate({ data }: { data: RepositoryNodeData }) {
+  const [selected, setSelected] = useState<RepositoryNodeData | null>(data);
+
+  return (
+    <div style={{ height: '100vh', background: '#f8fafc', padding: '2rem' }}>
+      <button
+        type="button"
+        onClick={() => setSelected(data)}
+        style={{ padding: '8px 16px', border: '1px solid #ccc', borderRadius: '6px' }}
+      >
+        Open Drawer
+      </button>
+      <RepositoryDrawer data={selected} onClose={() => setSelected(null)} />
+    </div>
+  );
+}
+
+/** Repository drawer rendered inside a full-page context — starts open. */
+export const InDrawer: Story = {
+  render: () => <RepositoryDrawerShellTemplate data={repoData} />,
 };

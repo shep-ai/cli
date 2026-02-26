@@ -186,6 +186,7 @@ export const WithHeaderAndFooter: Story = {
  *
  * **Fixed Header/Footer Layout:**
  * - The header (DrawerTitle + DrawerDescription) remains fixed at the top while scrolling
+ * - A Separator is automatically rendered below the header — no need to add one manually
  * - The footer (if present, e.g., DrawerActionBar) remains fixed at the bottom while scrolling
  * - Only the content area (children) scrolls when drawer content exceeds available height
  *

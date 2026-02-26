@@ -10,6 +10,7 @@ import {
   DrawerFooter,
   DrawerOverlay,
 } from '@/components/ui/drawer';
+import { Separator } from '@/components/ui/separator';
 
 const drawerVariants = cva('', {
   variants: {
@@ -77,9 +78,11 @@ export function BaseDrawer({
         {/* Header slot */}
         {header ? <DrawerHeader className="shrink-0">{header}</DrawerHeader> : null}
 
+        {/* Separator between header and content — matches review drawer style */}
+        {header ? <Separator /> : null}
+
         {/* Scrollable content area. Consumers should add p-4 for consistent spacing. */}
         {/* Footer components like DrawerActionBar typically include border-t. */}
-        {/* BaseDrawer provides layout structure; consumers control visual styling. */}
         <div className="flex min-h-0 flex-1 flex-col">{children}</div>
 
         {/* Footer slot */}
