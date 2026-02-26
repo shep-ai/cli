@@ -56,6 +56,36 @@ describe('WorktreeService.ensureGitRepository (integration)', () => {
     expect(stdout.trim()).toContain('Initial commit');
   });
 
+  it('should create initial commit for existing git repo with unborn branch (no commits)', async () => {
+    // Simulate a user repo that was `git init` but never committed
+    await execFile('git', ['init'], { cwd: tempDir });
+
+    // Verify it has no commits (unborn branch)
+    await expect(execFile('git', ['rev-parse', 'HEAD'], { cwd: tempDir })).rejects.toThrow();
+
+    await service.ensureGitRepository(tempDir);
+
+    // Now it should have a commit
+    const { stdout } = await execFile('git', ['log', '--oneline'], { cwd: tempDir });
+    expect(stdout.trim()).toContain('Initial commit');
+  });
+
+  it('should allow worktree creation after fixing unborn branch repo', async () => {
+    // Simulate a user repo with git init but no commits
+    await execFile('git', ['init'], { cwd: tempDir });
+
+    await service.ensureGitRepository(tempDir);
+
+    // Worktree creation should now succeed
+    const wtPath = join(tempDir, '.worktrees', 'test-branch');
+    const result = await service.create(tempDir, 'test-branch', wtPath);
+
+    expect(result.branch).toBe('test-branch');
+    expect(existsSync(wtPath)).toBe(true);
+
+    await execFile('git', ['worktree', 'remove', wtPath], { cwd: tempDir });
+  });
+
   it('should not re-initialize an existing git repository', async () => {
     // Manually init the repo with a custom commit message
     await execFile('git', ['init'], { cwd: tempDir });

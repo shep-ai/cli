@@ -95,16 +95,30 @@ export class WorktreeService implements IWorktreeService {
   }
 
   async ensureGitRepository(repoPath: string): Promise<void> {
+    let isExistingRepo = false;
     try {
       await this.execFile('git', ['rev-parse', '--is-inside-work-tree'], { cwd: repoPath });
-      return; // Already a git repo
+      isExistingRepo = true;
     } catch {
-      // Not a git repo — initialize it
+      // Not a git repo — will initialize below
+    }
+
+    if (isExistingRepo) {
+      // Repo exists but may have an unborn branch (no commits).
+      // git worktree add requires at least one commit as a start-point.
+      try {
+        await this.execFile('git', ['rev-parse', 'HEAD'], { cwd: repoPath });
+        return; // Has commits — nothing to do
+      } catch {
+        // Unborn branch (no commits) — create initial commit below
+      }
     }
 
     try {
-      mkdirSync(repoPath, { recursive: true });
-      await this.execFile('git', ['init'], { cwd: repoPath });
+      if (!isExistingRepo) {
+        mkdirSync(repoPath, { recursive: true });
+        await this.execFile('git', ['init'], { cwd: repoPath });
+      }
       await this.execFile('git', ['config', 'user.name', GIT_AUTO_INIT_USER], { cwd: repoPath });
       await this.execFile('git', ['config', 'user.email', GIT_AUTO_INIT_EMAIL], { cwd: repoPath });
       await this.execFile('git', ['commit', '--allow-empty', '-m', 'Initial commit'], {
