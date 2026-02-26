@@ -28,6 +28,10 @@ vi.mock('@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js', 
   writeSpecFileAtomic: vi.fn(),
 }));
 
+vi.mock('@/infrastructure/services/ide-launchers/compute-worktree-path.js', () => ({
+  computeWorktreePath: vi.fn().mockReturnValue('/computed/worktree/path'),
+}));
+
 function createMockRunRepository() {
   return {
     create: vi.fn(),
@@ -158,5 +162,59 @@ describe('RejectAgentRunUseCase', () => {
 
     expect(result.rejected).toBe(false);
     expect(result.reason).toContain('Feedback is required');
+  });
+
+  it('should compute worktree path when feature.worktreePath is undefined', async () => {
+    mockRunRepo.findById.mockResolvedValue(createWaitingRun());
+    mockFeatureRepo.findById.mockResolvedValue({
+      id: 'feat-001',
+      name: 'test-feature',
+      slug: 'test-feature',
+      branch: 'feat/test-feature',
+      repositoryPath: '/test/repo',
+      push: false,
+      openPr: false,
+      specPath: '/test/specs',
+      // worktreePath is intentionally undefined
+    });
+
+    await useCase.execute('run-001', 'fix this');
+
+    // Should pass computed path as 5th argument to spawn
+    expect(mockProcessService.spawn).toHaveBeenCalledWith(
+      'feat-001',
+      'run-001',
+      '/test/repo',
+      '/test/specs',
+      '/computed/worktree/path',
+      expect.any(Object)
+    );
+  });
+
+  it('should use feature.worktreePath when available', async () => {
+    mockRunRepo.findById.mockResolvedValue(createWaitingRun());
+    mockFeatureRepo.findById.mockResolvedValue({
+      id: 'feat-001',
+      name: 'test-feature',
+      slug: 'test-feature',
+      branch: 'feat/test-feature',
+      repositoryPath: '/test/repo',
+      push: false,
+      openPr: false,
+      specPath: '/test/specs',
+      worktreePath: '/existing/worktree',
+    });
+
+    await useCase.execute('run-001', 'fix this');
+
+    // Should use existing worktreePath, not computed one
+    expect(mockProcessService.spawn).toHaveBeenCalledWith(
+      'feat-001',
+      'run-001',
+      '/test/repo',
+      '/test/specs',
+      '/existing/worktree',
+      expect.any(Object)
+    );
   });
 });

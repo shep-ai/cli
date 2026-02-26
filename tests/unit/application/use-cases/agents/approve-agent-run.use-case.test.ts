@@ -8,6 +8,15 @@
 
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+vi.mock('@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js', () => ({
+  writeSpecFileAtomic: vi.fn(),
+}));
+
+vi.mock('@/infrastructure/services/ide-launchers/compute-worktree-path.js', () => ({
+  computeWorktreePath: vi.fn().mockReturnValue('/computed/worktree/path'),
+}));
+
 import { AgentRunStatus } from '@/domain/generated/output.js';
 import type { AgentRun } from '@/domain/generated/output.js';
 import { ApproveAgentRunUseCase } from '@/application/use-cases/agents/approve-agent-run.use-case.js';

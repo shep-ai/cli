@@ -18,6 +18,7 @@ import type { IFeatureRepository } from '../../ports/output/repositories/feature
 import { AgentRunStatus } from '../../../domain/generated/output.js';
 import type { PrdApprovalPayload } from '../../../domain/generated/output.js';
 import { writeSpecFileAtomic } from '../../../infrastructure/services/agents/feature-agent/nodes/node-helpers.js';
+import { computeWorktreePath } from '../../../infrastructure/services/ide-launchers/compute-worktree-path.js';
 
 @injectable()
 export class ApproveAgentRunUseCase {
@@ -101,12 +102,20 @@ export class ApproveAgentRunUseCase {
       // Non-fatal: approval wait timing failure should not block approval
     }
 
+    // Derive worktree path with fallback — the mapper conditionally sets
+    // worktreePath only when the DB column is non-null, so compute it if missing.
+    const worktreePath =
+      feature?.worktreePath ??
+      (feature?.repositoryPath && feature?.branch
+        ? computeWorktreePath(feature.repositoryPath, feature.branch)
+        : undefined);
+
     this.processService.spawn(
       run.featureId ?? '',
       id,
       feature?.repositoryPath ?? run.repositoryPath ?? '',
       feature?.specPath ?? '',
-      feature?.worktreePath,
+      worktreePath,
       {
         resume: true,
         approvalGates: run.approvalGates,

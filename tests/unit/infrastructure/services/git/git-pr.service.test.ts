@@ -30,6 +30,89 @@ describe('GitPrService', () => {
     service = new GitPrService(mockExec);
   });
 
+  describe('getDefaultBranch', () => {
+    it('should return branch from remote HEAD when available', async () => {
+      vi.mocked(mockExec).mockResolvedValueOnce({
+        stdout: 'refs/remotes/origin/develop\n',
+        stderr: '',
+      });
+
+      const result = await service.getDefaultBranch('/repo');
+      expect(result).toBe('develop');
+    });
+
+    it('should fall back to local main branch when remote HEAD fails', async () => {
+      vi.mocked(mockExec)
+        .mockRejectedValueOnce(new Error('not found')) // remote HEAD
+        .mockResolvedValueOnce({ stdout: 'abc123\n', stderr: '' }); // refs/heads/main exists
+
+      const result = await service.getDefaultBranch('/repo');
+      expect(result).toBe('main');
+    });
+
+    it('should fall back to local master branch when main does not exist', async () => {
+      vi.mocked(mockExec)
+        .mockRejectedValueOnce(new Error('not found')) // remote HEAD
+        .mockRejectedValueOnce(new Error('not found')) // refs/heads/main
+        .mockResolvedValueOnce({ stdout: 'def456\n', stderr: '' }); // refs/heads/master exists
+
+      const result = await service.getDefaultBranch('/repo');
+      expect(result).toBe('master');
+    });
+
+    it('should fall back to git config init.defaultBranch', async () => {
+      vi.mocked(mockExec)
+        .mockRejectedValueOnce(new Error('not found')) // remote HEAD
+        .mockRejectedValueOnce(new Error('not found')) // refs/heads/main
+        .mockRejectedValueOnce(new Error('not found')) // refs/heads/master
+        .mockResolvedValueOnce({ stdout: 'trunk\n', stderr: '' }); // git config init.defaultBranch
+
+      const result = await service.getDefaultBranch('/repo');
+      expect(result).toBe('trunk');
+    });
+
+    it('should NOT use current branch when in a feature worktree', async () => {
+      vi.mocked(mockExec)
+        .mockRejectedValueOnce(new Error('not found')) // remote HEAD
+        .mockRejectedValueOnce(new Error('not found')) // refs/heads/main
+        .mockRejectedValueOnce(new Error('not found')) // refs/heads/master
+        .mockRejectedValueOnce(new Error('not configured')) // git config init.defaultBranch
+        .mockResolvedValueOnce({ stdout: '.git/worktrees/feat-branch\n', stderr: '' }) // git-dir
+        .mockResolvedValueOnce({ stdout: '/repo/.git\n', stderr: '' }); // git-common-dir (differs = worktree)
+
+      await expect(service.getDefaultBranch('/repo')).rejects.toThrow(
+        'Unable to determine default branch'
+      );
+    });
+
+    it('should use current branch in main worktree as last resort', async () => {
+      vi.mocked(mockExec)
+        .mockRejectedValueOnce(new Error('not found')) // remote HEAD
+        .mockRejectedValueOnce(new Error('not found')) // refs/heads/main
+        .mockRejectedValueOnce(new Error('not found')) // refs/heads/master
+        .mockRejectedValueOnce(new Error('not configured')) // git config init.defaultBranch
+        .mockResolvedValueOnce({ stdout: '.git\n', stderr: '' }) // git-dir
+        .mockResolvedValueOnce({ stdout: '.git\n', stderr: '' }) // git-common-dir (same = main worktree)
+        .mockResolvedValueOnce({ stdout: 'develop\n', stderr: '' }); // symbolic-ref HEAD
+
+      const result = await service.getDefaultBranch('/repo');
+      expect(result).toBe('develop');
+    });
+
+    it('should throw when all fallbacks fail', async () => {
+      vi.mocked(mockExec)
+        .mockRejectedValueOnce(new Error('not found')) // remote HEAD
+        .mockRejectedValueOnce(new Error('not found')) // refs/heads/main
+        .mockRejectedValueOnce(new Error('not found')) // refs/heads/master
+        .mockRejectedValueOnce(new Error('not configured')) // git config init.defaultBranch
+        .mockRejectedValueOnce(new Error('git error')); // git-dir fails
+
+      await expect(service.getDefaultBranch('/repo')).rejects.toThrow(
+        'Unable to determine default branch'
+      );
+    });
+  });
+
   describe('hasUncommittedChanges', () => {
     it('should return true when git status has output', async () => {
       vi.mocked(mockExec).mockResolvedValue({
