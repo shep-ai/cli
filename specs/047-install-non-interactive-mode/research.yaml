@@ -1,0 +1,387 @@
+name: install-non-interactive-mode
+summary: >
+  This feature is a pure data fix: update command strings in 4 tool JSON metadata
+  files to add gpg --batch --yes flags, DEBIAN_FRONTEND=noninteractive prefixes for
+  apt-get, and replace git.json Darwin's xcode-select with brew install git.
+  No service, TypeSpec, or interface changes are required because the spawn site
+  already hardcodes stdio: ['ignore', 'pipe', 'pipe'], making stdin permanently closed.
+
+relatedFeatures: []
+
+technologies:
+  - Node.js child_process (spawn with stdio ignore)
+  - gpg --dearmor (--batch --yes flags for non-interactive mode)
+  - apt-get / DEBIAN_FRONTEND=noninteractive (debconf suppression)
+  - Homebrew (brew install git as macOS replacement for xcode-select)
+  - JSON tool metadata files (authoritative source for install commands)
+  - Vitest unit tests (command-string assertion tests)
+
+relatedLinks:
+  - https://www.gnupg.org/documentation/manuals/gnupg/Unattended-GPG-key-generation.html
+  - https://www.debian.org/doc/manuals/debian-reference/ch02.en.html#_debian_package_management_operations_with_apt_get
+  - https://docs.brew.sh/Manpage
+
+decisions:
+  - title: 'Non-Interactive Flag Placement for gpg --dearmor'
+    chosen: 'Add --batch --yes inline in JSON command strings for windsurf.json and vscode.json'
+    rejected:
+      - 'Service-level env injection (GNUPGHOME, GPG_AGENT_INFO) — requires TypeSpec changes, schema migration, and service logic; overkill for flags that belong in the command string'
+      - 'Runtime CLI --yes flag on shep install — stdin is already closed via stdio ignore; a CLI knob adds surface area with zero benefit'
+    rationale: >
+      The JSON files are already the authoritative, auditable source for command strings.
+      Placing --batch --yes directly in the gpg invocation keeps the fix co-located with
+      the command, visible in the diff, and requires zero changes to the service layer or
+      TypeSpec schema. Both windsurf.json and vscode.json use the identical pattern:
+      curl | sudo gpg --dearmor -o <file>. In both cases, if the output file already
+      exists, gpg prompts "File exists. Overwrite? (y/N)" and blocks. Adding --batch --yes
+      makes gpg silently overwrite without prompting, which is the correct behavior
+      for scripted/non-interactive contexts.
+
+  - title: 'Non-Interactive Mode for apt-get Commands'
+    chosen: 'Prepend DEBIAN_FRONTEND=noninteractive to each apt-get invocation in JSON command strings'
+    rejected:
+      - 'Spawn-level env override in executeInstall() — requires service-layer pattern matching on command strings, is fragile, and moves configuration out of metadata where it belongs'
+      - 'Export DEBIAN_FRONTEND at start of compound command — less auditable per-call and inconsistent with the inline-per-invocation approach'
+    rationale: >
+      DEBIAN_FRONTEND=noninteractive is the standard, well-documented idiom for
+      non-interactive apt-get usage in scripts and CI. Placing it inline in the JSON
+      command strings keeps the fix visible and auditable. Affected files are
+      windsurf.json (apt-get update + apt-get install), vscode.json (apt-get update +
+      apt-get install), gh.json (apt update + apt-get install wget + apt install gh),
+      and git.json linux (apt-get update + apt-get install). All apt/apt-get invocations
+      must be prefixed since debconf prompts can appear on both update and install steps.
+
+  - title: 'git.json Darwin Command Replacement'
+    chosen: 'Replace xcode-select --install with brew install git'
+    rejected:
+      - 'Leave xcode-select --install as known limitation — xcode-select opens a GUI modal dialog which is inherently interactive and blocks any non-interactive context'
+      - 'Use shell test -f to detect existing Xcode tools and skip — complicates the metadata command string unnecessarily; replacing the command is simpler and more correct'
+    rationale: >
+      xcode-select --install opens a GUI installer dialog on macOS; it cannot be made
+      non-interactive. brew install git is already the pattern used by windsurf, vscode,
+      gh, and cursor on Darwin, making it fully consistent with the existing macOS install
+      strategy. brew is idempotent (exits 0 if already installed), non-interactive by
+      default, and installs a full git binary. This is a drop-in replacement.
+
+  - title: 'Handling External curl-pipe-bash Install Scripts'
+    chosen: 'Document as known limitation — no code change for this feature'
+    rejected:
+      - 'Add CI=true + NONINTERACTIVE=1 env vars to spawn — requires adding an optional env field to ToolMetadata (TypeSpec change) for a hypothetical future problem; violates YAGNI since no curl-pipe-bash tool has been reported as hanging'
+      - 'Audit and patch each third-party script — impossible; shep does not own these scripts and cannot guarantee they honour any env var'
+    rationale: >
+      The confirmed interactive-prompt sources are gpg and apt-get. No curl-pipe-bash
+      tool (claude-code.json, cursor-cli.json, zed.json) has been reported as hanging.
+      Introducing TypeSpec/schema changes now to handle a hypothetical future problem
+      violates YAGNI. The limitation is documented in the spec and will be revisited
+      if a specific external script is reported as hanging.
+
+  - title: 'Scope of Service Layer Changes'
+    chosen: 'No changes to tool-installer.service.ts'
+    rejected:
+      - 'Env merging in executeInstall() to inject DEBIAN_FRONTEND/GPG flags based on command pattern matching — fragile, opaque, moves config away from the JSON source of truth'
+      - 'New non-interactive mode parameter on IToolInstallerService interface — widens the contract, requires TypeSpec changes, adds runtime complexity for a problem solvable at the data layer'
+    rationale: >
+      The service already spawns with stdio: ['ignore', 'pipe', 'pipe'] which permanently
+      closes stdin. The root cause is missing non-interactive flags in the command strings,
+      not a missing service capability. Fixing the data (JSON files) is the minimal, correct
+      solution. NFR-3 in the spec explicitly prohibits service-layer changes for this fix.
+
+  - title: 'Unit Test Strategy for Command String Assertions'
+    chosen: 'Extend tool-metadata.test.ts with targeted string assertions for required flags'
+    rejected:
+      - 'Integration tests that run actual installs — slow, require root/sudo, not suitable for unit test suite'
+      - 'Snapshot tests of entire JSON files — too brittle; any unrelated whitespace or field change breaks the snapshot'
+    rationale: >
+      The existing tool-metadata.test.ts already tests structural properties of tool JSON
+      files (e.g., IDE tools have openDirectory with {dir} placeholder). Extending it with
+      targeted string assertions (e.g., command.includes("--batch")) follows the same
+      pattern, runs fast, and will catch regressions immediately if someone edits a command
+      string and accidentally removes the non-interactive flags.
+
+openQuestions:
+  - question: 'Does gh.json use apt or apt-get and does the distinction matter for DEBIAN_FRONTEND?'
+    resolved: true
+    options:
+      - option: 'Prefix every apt and apt-get invocation individually with DEBIAN_FRONTEND=noninteractive'
+        description: >
+          gh.json linux command mixes apt and apt-get calls. DEBIAN_FRONTEND=noninteractive
+          applies to both since they share the same debconf backend. Prefixing each
+          invocation individually ensures complete coverage regardless of which variant
+          is used and is consistent with the inline-per-invocation approach.
+        selected: true
+      - option: 'Only prefix apt-get, not apt'
+        description: >
+          apt is a higher-level frontend that often uses apt-get internally. Not prefixing
+          apt could leave debconf prompts possible if apt triggers debconf directly.
+          Incomplete fix that leaves a potential gap.
+        selected: false
+      - option: 'Set DEBIAN_FRONTEND at the start of the compound command via export'
+        description: >
+          Use export DEBIAN_FRONTEND=noninteractive at the start of the shell command so
+          it applies to all subsequent apt/apt-get calls. Cleaner for long commands but
+          inconsistent with the inline-per-invocation approach used in windsurf and vscode.
+        selected: false
+    selectionRationale: >
+      Prefixing each invocation individually is consistent with how windsurf.json and
+      vscode.json will be fixed, keeps the fix auditable per-command, and is unambiguous.
+      The gh.json linux command is a long compound shell expression; prefixing each
+      apt/apt-get call ensures no invocation is missed even if the command is reorganized.
+
+  - question: 'Should git.json linux apt-get commands also get DEBIAN_FRONTEND prefix?'
+    resolved: true
+    options:
+      - option: 'Yes — prefix git.json linux apt-get update and apt-get install with DEBIAN_FRONTEND=noninteractive'
+        description: >
+          git.json linux uses "sudo apt-get update && sudo apt-get install -y git".
+          Although git install rarely triggers debconf, DEBIAN_FRONTEND=noninteractive
+          is cheap to add, prevents any locale/debconf prompt edge cases, and satisfies
+          FR-3 which requires ALL apt-get invocations across all tool JSON files to be prefixed.
+        selected: true
+      - option: 'No — git install does not trigger debconf prompts in practice'
+        description: >
+          git is a simple package with no debconf configuration steps. The -y flag
+          already suppresses the install confirmation. Adding DEBIAN_FRONTEND is
+          unnecessary for git specifically and adds visual noise.
+        selected: false
+      - option: 'Only add DEBIAN_FRONTEND if reported as prompting in CI'
+        description: >
+          Apply fixes reactively. Risk: FR-3 of the spec would not be satisfied and
+          future environments or package versions could trigger prompts on git install.
+        selected: false
+    selectionRationale: >
+      The spec's FR-3 is explicit: every apt-get install (and apt-get update) invocation
+      across all tool JSON files MUST be prefixed with DEBIAN_FRONTEND=noninteractive.
+      Consistency and forward-safety outweigh the argument that git rarely prompts.
+
+  - question: 'Is there a risk of gpg --batch --yes silently destroying a valid existing keyring?'
+    resolved: true
+    options:
+      - option: 'Acceptable risk — overwrite is correct behavior for idempotent reinstall'
+        description: >
+          The keyring file is always fetched from the same vendor URL by shep install.
+          If it already exists, it was either written by a previous shep install (same
+          key, safe to overwrite) or manually placed (unlikely to differ for the same
+          tool). Overwriting with the same key is idempotent and safe; blocking the
+          entire install is clearly worse.
+        selected: true
+      - option: 'Check if file exists first with test -f and skip gpg if so'
+        description: >
+          Add shell test before gpg: test -f <keyring> || (curl ... | gpg ...). Avoids
+          overwriting but adds command complexity and cannot detect if the existing file
+          is stale or corrupted. Inconsistent with the simple --batch --yes approach.
+        selected: false
+      - option: 'Remove the keyring file before writing (rm -f <file> && gpg ...)'
+        description: >
+          Pre-delete the file to avoid the prompt, then write fresh. Idempotent and
+          avoids the prompt, but introduces a window where the keyring is absent and
+          an apt-get update could fail. More complex and riskier than --batch --yes.
+        selected: false
+    selectionRationale: >
+      gpg --batch --yes is the canonical solution and the simplest correct fix. The
+      keyring file is always sourced from the same URL, so overwriting is safe and
+      idempotent. This matches what gpg's documentation recommends for scripted usage.
+      The alternative approaches add unnecessary complexity for no real safety benefit.
+
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-02-26
+
+  ## Problem Root Cause
+
+  The `ToolInstallerServiceImpl.executeInstall()` method spawns all install commands with:
+
+  ```typescript
+  spawn('sh', ['-c', installCommand.command], {
+    shell: false,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  ```
+
+  `stdin` is permanently closed (`'ignore'`). Any tool command that prompts for user
+  input (gpg "Overwrite?", debconf questions, xcode-select GUI dialog) blocks
+  indefinitely until the per-tool timeout (default 300,000 ms = 5 minutes) fires and
+  kills the process, resulting in a failed installation with a timeout error message.
+
+  The fix is entirely at the data layer: add the correct non-interactive flags to
+  the affected JSON command strings.
+
+  ## Technology Decisions
+
+  ### 1. gpg --batch --yes for Non-Interactive Dearmor
+
+  **Chosen:** Add `--batch --yes` to each `gpg --dearmor` invocation in JSON command strings.
+
+  **Rejected:**
+  - Service-level env injection — requires TypeSpec/service changes, overkill
+  - Runtime CLI `--yes` flag — stdin already closed, adds surface area with no benefit
+
+  **Rationale:** `--batch` puts gpg in batch mode (no interactive prompts); `--yes` answers
+  "yes" to all confirmation questions including "File exists. Overwrite?". Together they make
+  gpg fully non-interactive. These flags are the gpg-documented way to script dearmor operations.
+
+  Affected files:
+  - `windsurf.json` linux: `sudo gpg --dearmor` → `sudo gpg --batch --yes --dearmor`
+  - `vscode.json` linux: `sudo gpg --dearmor` → `sudo gpg --batch --yes --dearmor`
+
+  ### 2. DEBIAN_FRONTEND=noninteractive for apt/apt-get
+
+  **Chosen:** Prepend `DEBIAN_FRONTEND=noninteractive` inline to each apt/apt-get
+  invocation in JSON command strings.
+
+  **Rejected:**
+  - Spawn-level env override — service pattern matching is fragile, moves config out of JSON
+  - `export DEBIAN_FRONTEND=...` at start of compound command — less auditable per-call
+
+  **Rationale:** `DEBIAN_FRONTEND=noninteractive` tells debconf to use default values for
+  all questions without prompting. It is the standard idiom for CI and scripted apt usage.
+  The `-y` flag already suppresses "Do you want to install?" but does not suppress debconf
+  prompts from package maintainer scripts (locale, timezone, etc.). Both are needed.
+
+  Affected files (all apt-get/apt invocations must be prefixed):
+  - `windsurf.json` linux: two apt-get calls (update + install windsurf)
+  - `vscode.json` linux: two apt-get calls (update + install code)
+  - `gh.json` linux: three apt/apt-get calls (apt update, apt-get install wget, apt install gh)
+  - `git.json` linux: two apt-get calls (update + install git)
+
+  ### 3. git.json Darwin: brew install git
+
+  **Chosen:** Replace `xcode-select --install` with `brew install git`.
+
+  **Rejected:**
+  - Leave as known limitation — xcode-select opens a GUI modal, inherently incompatible
+    with non-interactive spawn
+  - Skip Darwin git install — git is often pre-installed but shep may need it explicitly
+
+  **Rationale:** `brew install git` is already the Darwin pattern for windsurf, vscode, gh,
+  and cursor. It is non-interactive, idempotent (exits 0 if already installed), and installs
+  a full-featured git binary. Consistent with the existing macOS install strategy.
+
+  ### 4. External curl-pipe-bash Scripts: No Change
+
+  **Chosen:** Document as known limitation; no code or schema change.
+
+  **Rejected:**
+  - Add `CI=true`/`NONINTERACTIVE=1` spawn env — requires TypeSpec change for a YAGNI
+    hypothetical; no curl-pipe-bash tool reported as hanging
+  - Audit/patch third-party scripts — shep does not own these scripts
+
+  **Rationale:** claude-code.json, cursor-cli.json, and zed.json all use `curl | bash/sh`
+  patterns invoking third-party install scripts. None have been reported as hanging.
+  The confirmed failure cases are gpg and apt-get. Applying YAGNI prevents premature
+  infrastructure additions.
+
+  ### 5. Service Layer: No Changes
+
+  **Chosen:** `tool-installer.service.ts` remains unchanged.
+
+  **Rejected:**
+  - Env merging in executeInstall() — fragile pattern matching, moves config out of JSON
+  - New interface parameter — widens contract unnecessarily
+
+  **Rationale:** The service is not the root cause. The JSON command strings are. NFR-3
+  of the spec explicitly prohibits service-layer changes for this fix.
+
+  ## Library Analysis
+
+  | Library / Tool | Purpose | Decision | Reasoning |
+  | -------------- | ------- | -------- | --------- |
+  | gpg --batch --yes | Non-interactive dearmor | Use | Official gpg flags for scripted operation |
+  | DEBIAN_FRONTEND=noninteractive | Suppress debconf prompts | Use | Standard CI/scripted apt idiom |
+  | brew install git | macOS git install | Use | Consistent with existing Darwin strategy, non-interactive |
+  | No new npm/Node libraries | — | N/A | Fix is data-only; no new dependencies needed |
+
+  ## Audit of All 10 Tool JSON Files
+
+  | File | Linux gpg issue | Linux apt-get issue | Darwin issue | Action |
+  | ---- | --------------- | ------------------- | ------------ | ------ |
+  | windsurf.json | Missing --batch --yes | Missing DEBIAN_FRONTEND | None | Fix gpg + apt-get |
+  | vscode.json | Missing --batch --yes | Missing DEBIAN_FRONTEND | None | Fix gpg + apt-get |
+  | git.json | No gpg | Missing DEBIAN_FRONTEND | xcode-select (GUI) | Fix apt-get + replace darwin |
+  | gh.json | No gpg (uses wget) | Missing DEBIAN_FRONTEND | None | Fix apt/apt-get |
+  | cursor.json | No commands (autoInstall: false) | N/A | N/A | No action |
+  | cursor-cli.json | curl pipe bash | N/A | N/A | Known limitation, document |
+  | claude-code.json | curl pipe bash | N/A | N/A | Known limitation, document |
+  | zed.json | curl pipe sh | N/A | N/A | Known limitation, document |
+  | gemini-cli.json | npm install -g | N/A | N/A | npm is non-interactive, no action |
+  | antigravity.json | manual (autoInstall: false) | N/A | N/A | No action |
+
+  Total files requiring changes: 4 (windsurf.json, vscode.json, git.json, gh.json)
+
+  ## Security Considerations
+
+  - **gpg --yes overwrites existing keyrings**: The overwritten file is always fetched
+    from the same vendor URL by shep install, so overwriting is safe and idempotent.
+    If a user has manually placed a different key at that path, it will be silently
+    overwritten — acceptable because shep install's job is to set up the tool correctly.
+  - **No new network access**: All commands already fetch from external URLs; no change
+    in network surface area.
+  - **sudo usage unchanged**: All sudo invocations remain as-is. Passwordless sudo is
+    a prerequisite for non-interactive installs (documented limitation).
+  - **DEBIAN_FRONTEND=noninteractive does not bypass security**: It only suppresses
+    interactive prompts; security-relevant package authentication (GPG signed repos)
+    is unchanged.
+
+  ## Performance Implications
+
+  - **No performance change**: The fix adds a few characters to command strings.
+    gpg --batch --yes may run marginally faster by skipping the prompt wait.
+  - **Effective timeout elimination**: Previously, a hung gpg prompt would consume the
+    full 300 s timeout before failing. After the fix, installations complete in
+    normal time (seconds to minutes).
+
+  ## Architecture Notes
+
+  This fix is intentionally constrained to the data layer:
+
+  ```
+  presentation/  — CLI install.command.ts — NO CHANGE
+  application/   — IToolInstallerService interface — NO CHANGE
+  infrastructure — tool-installer.service.ts — NO CHANGE
+                   tools/*.json — CHANGES HERE ONLY
+  domain/        — TypeSpec / generated types — NO CHANGE
+  ```
+
+  The JSON tool metadata files act as configuration data within the infrastructure
+  layer. They are the correct and only place to embed command-level behavior such as
+  non-interactive flags. This keeps the service generic and the per-tool behavior
+  fully visible and auditable in the tool JSON files.
+
+  ## Unit Test Plan
+
+  Extend `tool-metadata.test.ts` with assertions for each updated command string:
+
+  ```typescript
+  // windsurf.json linux — gpg flags + DEBIAN_FRONTEND
+  expect(windsurf.commands.linux).toContain('--batch');
+  expect(windsurf.commands.linux).toContain('--yes');
+  expect(windsurf.commands.linux).toContain('DEBIAN_FRONTEND=noninteractive');
+
+  // vscode.json linux — gpg flags + DEBIAN_FRONTEND
+  expect(vscode.commands.linux).toContain('--batch');
+  expect(vscode.commands.linux).toContain('--yes');
+  expect(vscode.commands.linux).toContain('DEBIAN_FRONTEND=noninteractive');
+
+  // git.json — linux DEBIAN_FRONTEND + darwin brew
+  expect(git.commands.linux).toContain('DEBIAN_FRONTEND=noninteractive');
+  expect(git.commands.darwin).toBe('brew install git');
+
+  // gh.json linux — DEBIAN_FRONTEND
+  expect(gh.commands.linux).toContain('DEBIAN_FRONTEND=noninteractive');
+  ```
+
+  These tests run fast, require no system access, and will immediately catch regressions
+  if someone edits a command string and removes the non-interactive flags.
+
+  ## Known Limitations (for documentation)
+
+  1. **curl-pipe-bash scripts** (claude-code, cursor-cli, zed): Third-party install
+     scripts are opaque; shep cannot guarantee they are non-interactive. No issues
+     reported. Revisit if a specific script is reported as hanging.
+  2. **sudo password prompts**: If the user lacks passwordless sudo, all sudo commands
+     will block regardless of non-interactive flags. This is a system configuration
+     concern outside shep's control.
+  3. **brew git on macOS**: `brew install git` installs Homebrew's git even if Xcode
+     command line tools are already present. Both coexist; PATH order determines which
+     `git` is used. This is benign.
