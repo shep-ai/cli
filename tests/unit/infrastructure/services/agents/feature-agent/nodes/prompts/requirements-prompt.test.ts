@@ -8,10 +8,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock(
   '@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js',
   async (importOriginal) => {
-    const actual =
-      await importOriginal<
-        typeof import('@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js')
-      >();
+    const actual = (await importOriginal()) as Record<string, unknown>;
     return {
       ...actual,
       readSpecFile: vi.fn(),
