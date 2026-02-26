@@ -1,4 +1,10 @@
 export {
+  ControlCenterDrawer,
+  type ControlCenterDrawerProps,
+  computeDrawerView,
+  type DrawerView,
+} from './control-center-drawer';
+export {
   AddRepositoryNode,
   type AddRepositoryNodeData,
   type AddRepositoryNodeType,
