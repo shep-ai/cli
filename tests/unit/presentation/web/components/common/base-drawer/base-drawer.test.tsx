@@ -179,6 +179,38 @@ describe('BaseDrawer', () => {
       expect(scrollContainer).toBeInTheDocument();
       expect(scrollContainer?.className).toContain('flex-1');
     });
+
+    it('renders header and footer outside scroll container', () => {
+      render(
+        <BaseDrawer
+          open
+          onClose={vi.fn()}
+          header={<h2>Test Header</h2>}
+          footer={<button type="button">Test Footer</button>}
+        >
+          <p>Content</p>
+        </BaseDrawer>
+      );
+
+      // Query for the scroll container
+      const scrollContainer = document.querySelector('.overflow-y-auto');
+      expect(scrollContainer).toBeInTheDocument();
+
+      // Query for header and footer elements
+      const header = screen.getByText('Test Header').closest('[data-slot="drawer-header"]');
+      const footer = screen.getByText('Test Footer').closest('[data-slot="drawer-footer"]');
+
+      // Header and footer should be siblings of scroll container (not children)
+      expect(header?.parentElement).toBe(scrollContainer?.parentElement);
+      expect(footer?.parentElement).toBe(scrollContainer?.parentElement);
+
+      // Verify header and footer should have shrink-0 class (will fail initially)
+      expect(header?.className).toContain('shrink-0');
+      expect(footer?.className).toContain('shrink-0');
+
+      // Verify scroll container should have min-h-0 class (will fail initially)
+      expect(scrollContainer?.className).toContain('min-h-0');
+    });
   });
 
   describe('className passthrough', () => {
