@@ -1,0 +1,200 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: execution-step-monitoring
+summary: >
+  Hierarchical execution step monitoring — TypeSpec model, repository, middleware,
+  use case, and CLI presentation refactor across 4 phases.
+
+relatedFeatures:
+  - 'phase-timing (current system being replaced)'
+
+technologies:
+  - TypeSpec
+  - LangGraph
+  - SQLite
+  - Vitest
+
+relatedLinks: []
+
+phases:
+  - id: phase-1
+    name: Domain Model & Repository
+    parallel: false
+    taskIds:
+      - task-1
+      - task-2
+      - task-3
+
+  - id: phase-2
+    name: Application Layer
+    parallel: false
+    taskIds:
+      - task-4
+      - task-5
+
+  - id: phase-3
+    name: Graph Middleware & Node Instrumentation
+    parallel: false
+    taskIds:
+      - task-6
+      - task-7
+      - task-8
+
+  - id: phase-4
+    name: Presentation & Migration
+    parallel: false
+    taskIds:
+      - task-9
+      - task-10
+
+filesToCreate:
+  - tsp/agents/execution-step.tsp
+  - tsp/agents/enums/execution-step-type.tsp
+  - tsp/agents/enums/execution-step-status.tsp
+  - packages/core/src/application/ports/output/agents/execution-step-repository.interface.ts
+  - packages/core/src/application/use-cases/agents/get-execution-history.use-case.ts
+  - packages/core/src/application/dtos/execution-history.dto.ts
+  - packages/core/src/infrastructure/repositories/sqlite-execution-step.repository.ts
+  - packages/core/src/infrastructure/services/agents/feature-agent/execution-monitor.ts
+  - packages/core/src/infrastructure/services/agents/feature-agent/graph-middleware.ts
+  - tests/unit/application/use-cases/agents/get-execution-history.use-case.test.ts
+  - tests/unit/infrastructure/services/agents/feature-agent/execution-monitor.test.ts
+  - tests/unit/infrastructure/services/agents/feature-agent/graph-middleware.test.ts
+  - tests/unit/infrastructure/repositories/sqlite-execution-step.repository.test.ts
+
+filesToModify:
+  - tsp/main.tsp (import new models)
+  - packages/core/src/domain/generated/output.ts (re-generated)
+  - packages/core/src/infrastructure/repositories/sqlite-schema.ts (add execution_steps table)
+  - packages/core/src/infrastructure/di/container.ts (register new repo + use case)
+  - packages/core/src/infrastructure/services/agents/feature-agent/feature-agent-graph.ts (apply middleware)
+  - packages/core/src/infrastructure/services/agents/feature-agent/nodes/merge/merge.node.ts (instrument sub-steps)
+  - packages/core/src/infrastructure/services/agents/feature-agent/nodes/merge/ci-watch-fix-loop.ts (instrument sub-steps)
+  - packages/core/src/application/use-cases/agents/approve-agent-run.use-case.ts (record approval as step metadata)
+  - packages/core/src/application/use-cases/agents/reject-agent-run.use-case.ts (record rejection as step metadata)
+  - src/presentation/cli/commands/feat/show.command.ts (use GetExecutionHistory DTO)
+
+openQuestions: []
+
+content: |
+  ## Status
+
+  - **Phase:** Planning
+  - **Updated:** 2026-02-26
+
+  ## Architecture Overview
+
+  ```
+  ┌─────────────────────────────────────────────────────┐
+  │                    Presentation                      │
+  │  CLI (feat show)  ←──┐                               │
+  │  Web UI (future)  ←──┤  ExecutionHistoryDTO           │
+  └──────────────────────┼──────────────────────────────┘
+                         │
+  ┌──────────────────────┼──────────────────────────────┐
+  │              Application Layer                       │
+  │  GetExecutionHistory ─── assembles tree from flat    │
+  │  ApproveAgentRun ──────── records approval metadata  │
+  │  RejectAgentRun ───────── records rejection metadata │
+  │                                                      │
+  │  IExecutionStepRepository (output port)              │
+  └──────────────────────┬──────────────────────────────┘
+                         │
+  ┌──────────────────────┼──────────────────────────────┐
+  │              Infrastructure Layer                     │
+  │  SqliteExecutionStepRepository                       │
+  │  GraphMiddleware ──── wraps LangGraph nodes           │
+  │  ExecutionMonitor ─── context for sub-step recording  │
+  └─────────────────────────────────────────────────────┘
+                         │
+  ┌──────────────────────┼──────────────────────────────┐
+  │                Domain Layer                          │
+  │  ExecutionStep (TypeSpec)                             │
+  │  ExecutionStepType enum                              │
+  │  ExecutionStepStatus enum                            │
+  └─────────────────────────────────────────────────────┘
+  ```
+
+  ## Implementation Strategy
+
+  **MANDATORY TDD**: All phases with executable code follow RED-GREEN-REFACTOR cycles.
+
+  **Phase 1 (Domain Model & Repository):** Define the TypeSpec model, enums, and SQLite
+  repository. This is foundational — everything else depends on having the entity and
+  persistence layer. Includes DB migration that creates execution_steps table and migrates
+  existing PhaseTiming data.
+
+  **Phase 2 (Application Layer):** Build the GetExecutionHistory use case that assembles
+  the step tree from flat rows. Update approve/reject use cases to record their inputs
+  as step metadata. Define the ExecutionHistoryDTO and ExecutionStepDTO.
+
+  **Phase 3 (Graph Middleware & Node Instrumentation):** Create the graph middleware that
+  auto-wraps every node. Build the ExecutionMonitor context class. Instrument the merge
+  node's inner sub-steps (commit, push, PR, watch-ci, fix-attempts). Replace the old
+  phase-timing-context.ts with the new system.
+
+  **Phase 4 (Presentation & Migration):** Refactor `feat show` to consume the
+  ExecutionHistoryDTO instead of raw PhaseTiming data. All rendering logic stays in CLI
+  but operates on structured DTOs. Remove old PhaseTiming code paths.
+
+  ## Files to Create/Modify
+
+  ### New Files
+
+  | File | Purpose |
+  | ---- | ------- |
+  | tsp/agents/execution-step.tsp | TypeSpec model definition |
+  | tsp/agents/enums/execution-step-type.tsp | Step type enum |
+  | tsp/agents/enums/execution-step-status.tsp | Step status enum |
+  | application/ports/.../execution-step-repository.interface.ts | Repository output port |
+  | application/use-cases/.../get-execution-history.use-case.ts | Tree assembly use case |
+  | application/dtos/execution-history.dto.ts | DTO interfaces |
+  | infrastructure/repositories/sqlite-execution-step.repository.ts | SQLite implementation |
+  | infrastructure/.../execution-monitor.ts | Monitor context class |
+  | infrastructure/.../graph-middleware.ts | Node instrumentation middleware |
+
+  ### Modified Files
+
+  | File | Changes |
+  | ---- | ------- |
+  | tsp/main.tsp | Import new model and enums |
+  | sqlite-schema.ts | Add execution_steps table, migration |
+  | container.ts | Register new repository and use case |
+  | feature-agent-graph.ts | Apply middleware to all nodes |
+  | merge.node.ts | Use ExecutionMonitor for sub-steps |
+  | ci-watch-fix-loop.ts | Use ExecutionMonitor for CI iterations |
+  | approve-agent-run.use-case.ts | Record approval comment as step metadata |
+  | reject-agent-run.use-case.ts | Record rejection message as step metadata |
+  | show.command.ts | Consume ExecutionHistoryDTO |
+
+  ## Testing Strategy (TDD: Tests FIRST)
+
+  **CRITICAL:** Tests are written FIRST in each TDD cycle.
+
+  ### Unit Tests (RED -> GREEN -> REFACTOR)
+
+  - ExecutionStep TypeSpec compilation and type generation
+  - SqliteExecutionStepRepository: save, findByRunId, findByFeatureId, tree queries
+  - ExecutionMonitor: startStep, completeStep, failStep, startSubStep, nesting
+  - GraphMiddleware: wraps nodes, records start/end, handles errors
+  - GetExecutionHistory: tree assembly, total computation, metadata resolution
+
+  ### Integration Tests
+
+  - Full graph execution with middleware records correct step hierarchy
+  - CI watch/fix loop produces nested sub-steps under merge phase
+  - Approval/rejection inputs appear in step metadata
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | PhaseTiming data loss during migration | Migration copies all rows to execution_steps, keeps phase_timings table as backup |
+  | Middleware breaks graph execution | Errors in monitoring are swallowed (non-fatal), same as current phase-timing-context |
+  | LangGraph config injection conflicts | Use a dedicated namespace key in config (e.g., `configurable.executionMonitor`) |
+  | Performance regression from extra DB writes | Writes are async fire-and-forget where possible, benchmarked in tests |
+
+  ---
+
+  _Generated by `/shep-kit:new-feature-fast`_

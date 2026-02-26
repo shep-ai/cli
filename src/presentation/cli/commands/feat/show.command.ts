@@ -15,12 +15,18 @@ import { container } from '@/infrastructure/di/container.js';
 import { ShowFeatureUseCase } from '@/application/use-cases/features/show-feature.use-case.js';
 import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
 import type { IPhaseTimingRepository } from '@/application/ports/output/agents/phase-timing-repository.interface.js';
+import { type GetExecutionHistoryUseCase } from '@/application/use-cases/agents/get-execution-history.use-case.js';
 import type {
   Feature,
   AgentRun,
   PhaseTiming,
   RejectionFeedbackEntry,
 } from '@/domain/generated/output.js';
+import { ExecutionStepStatus, ExecutionStepType } from '@/domain/generated/output.js';
+import type {
+  ExecutionHistoryDTO,
+  ExecutionStepDTO,
+} from '@/application/dtos/execution-history.dto.js';
 import { colors, symbols, messages, renderDetailView } from '../../ui/index.js';
 import { computeWorktreePath } from '@/infrastructure/services/ide-launchers/compute-worktree-path.js';
 
@@ -403,6 +409,133 @@ export function renderPhaseTimings(
   return lines;
 }
 
+/**
+ * Render hierarchical execution history from ExecutionHistoryDTO.
+ * This is the new rendering path that replaces renderPhaseTimings.
+ * @internal Exported for testing only.
+ */
+export function renderExecutionHistory(dto: ExecutionHistoryDTO): string[] {
+  if (dto.steps.length === 0) return [];
+
+  const MAX_BAR = 20;
+
+  // Compute max duration across root steps for consistent bar scaling
+  const rootPhases = dto.steps.filter(
+    (s) => s.type === ExecutionStepType.phase || s.type === ExecutionStepType.subStep
+  );
+  const maxDurationMs = Math.max(...rootPhases.map((s) => s.durationMs ?? 0), 0);
+
+  const lines: string[] = [];
+
+  for (const step of dto.steps) {
+    renderStep(step, lines, maxDurationMs, MAX_BAR, 0);
+  }
+
+  // Summary totals
+  if (dto.totalDurationMs > 0) {
+    lines.push('');
+    lines.push(`${'Total execution'.padEnd(16)} ${formatDuration(dto.totalDurationMs)}`);
+    if (dto.totalWaitMs > 0) {
+      lines.push(`${'Total wait'.padEnd(16)} ${formatDuration(dto.totalWaitMs)}`);
+      lines.push(
+        `${'Total wall-clock'.padEnd(16)} ${formatDuration(dto.totalDurationMs + dto.totalWaitMs)}`
+      );
+    }
+  }
+
+  return lines;
+}
+
+function renderStep(
+  step: ExecutionStepDTO,
+  lines: string[],
+  maxDurationMs: number,
+  maxBar: number,
+  depth: number
+): void {
+  // Lifecycle events - render as a marker line
+  if (step.type === ExecutionStepType.lifecycleEvent) {
+    const event = LIFECYCLE_EVENTS[step.name];
+    if (event) {
+      const sym =
+        step.name === 'run:completed'
+          ? symbols.success
+          : step.name === 'run:failed' || step.name === 'run:crashed'
+            ? symbols.error
+            : step.name === 'run:stopped'
+              ? symbols.warning
+              : symbols.info;
+      lines.push(`  ${event.color(`${sym} ${event.label}`)}`);
+    }
+    return;
+  }
+
+  // Build label with proper indentation
+  const indent = depth > 0 ? '  \u21b3 ' : '';
+  const displayName = depth === 0 ? (NODE_TO_PHASE[step.name] ?? step.name) : step.name;
+  const label = `${indent}${displayName}`.padEnd(16);
+
+  // Render bar and duration
+  if (step.status === ExecutionStepStatus.completed && step.durationMs != null) {
+    const ms = step.durationMs;
+    const secs = (ms / 1000).toFixed(1);
+    const barLen =
+      maxDurationMs > 0
+        ? Math.min(maxBar, Math.max(1, Math.round((ms / maxDurationMs) * maxBar)))
+        : 1;
+
+    const barColor =
+      step.type === ExecutionStepType.approvalWait
+        ? colors.warning
+        : step.outcome === 'failed'
+          ? colors.error
+          : colors.success;
+    const bar = `${barColor('\u2588'.repeat(barLen))}${colors.muted('\u2591'.repeat(maxBar - barLen))}`;
+
+    let suffix = '';
+    if (step.outcome === 'failed') suffix = `  ${colors.error('\u2717 failed')}`;
+    else if (step.outcome === 'passed' || step.outcome === 'fixed')
+      suffix = `  ${colors.success(`\u2713 ${step.outcome}`)}`;
+
+    lines.push(`${label} ${bar} ${secs}s${suffix}`);
+  } else if (step.status === ExecutionStepStatus.running) {
+    const ms = step.durationMs ?? 0;
+    const secs = (ms / 1000).toFixed(1);
+    const barLen =
+      maxDurationMs > 0
+        ? Math.min(maxBar, Math.max(1, Math.round((ms / maxDurationMs) * maxBar)))
+        : 1;
+    const bar = `${colors.info('\u2588'.repeat(barLen))}${colors.muted('\u2591'.repeat(maxBar - barLen))}`;
+    lines.push(`${label} ${bar} ${secs}s (running)`);
+  } else if (step.status === ExecutionStepStatus.failed) {
+    const ms = step.durationMs ?? 0;
+    const secs = (ms / 1000).toFixed(1);
+    const barLen =
+      maxDurationMs > 0
+        ? Math.min(maxBar, Math.max(1, Math.round((ms / maxDurationMs) * maxBar)))
+        : 1;
+    const bar = `${colors.error('\u2588'.repeat(barLen))}${colors.muted('\u2591'.repeat(maxBar - barLen))}`;
+    lines.push(`${label} ${bar} ${secs}s (failed)`);
+  }
+
+  // Show rejection/approval metadata
+  if (step.metadata?.input && step.type === ExecutionStepType.approvalWait) {
+    const input = String(step.metadata.input);
+    const maxLen = 60;
+    const msg = input.length > maxLen ? `${input.slice(0, maxLen)}\u2026` : input;
+    if (step.outcome === 'rejected') {
+      lines.push(`  ${colors.error(`\u21a9 rejected: "${msg}"`)}`);
+    } else {
+      lines.push(`  ${colors.success(`\u2713 approved: "${msg}"`)}`);
+    }
+  }
+
+  // Render children
+  for (const child of step.children) {
+    renderStep(child, lines, maxDurationMs, maxBar, depth + 1);
+  }
+}
+
 export function createShowCommand(): Command {
   return new Command('show')
     .description('Show feature details')
@@ -447,7 +580,23 @@ export function createShowCommand(): Command {
           });
         }
 
-        if (timings.length > 0) {
+        // Try new execution history first, fall back to legacy phase timings
+        let timingRendered = false;
+        try {
+          const historyUseCase = container.resolve<GetExecutionHistoryUseCase>(
+            'GetExecutionHistoryUseCase'
+          );
+          const history = await historyUseCase.execute({ featureId: feature.id });
+          if (history.steps.length > 0) {
+            const lines = renderExecutionHistory(history);
+            textBlocks.push({ title: 'Execution History', content: lines.join('\n') });
+            timingRendered = true;
+          }
+        } catch {
+          // Fall through to legacy rendering
+        }
+
+        if (!timingRendered && timings.length > 0) {
           const rejections = loadRejectionFeedback(feature.specPath);
           const lines = renderPhaseTimings(timings, run, rejections);
           textBlocks.push({ title: 'Phase Timing', content: lines.join('\n') });

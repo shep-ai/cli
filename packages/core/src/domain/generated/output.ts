@@ -1805,6 +1805,69 @@ export type PhaseTiming = BaseEntity & {
    */
   approvalWaitMs?: bigint;
 };
+export enum ExecutionStepType {
+  phase = 'phase',
+  subStep = 'sub_step',
+  lifecycleEvent = 'lifecycle_event',
+  approvalWait = 'approval_wait',
+}
+export enum ExecutionStepStatus {
+  pending = 'pending',
+  running = 'running',
+  completed = 'completed',
+  failed = 'failed',
+  skipped = 'skipped',
+}
+
+/**
+ * Hierarchical execution step within an agent run
+ */
+export type ExecutionStep = BaseEntity & {
+  /**
+   * Agent run this step belongs to
+   */
+  agentRunId: string;
+  /**
+   * Parent step ID for hierarchy (null for root/phase-level steps)
+   */
+  parentId?: string;
+  /**
+   * Human-readable step name (e.g., 'analyze', 'watch-ci', 'fix-attempt-1')
+   */
+  name: string;
+  /**
+   * Step classification determining hierarchy behavior
+   */
+  type: ExecutionStepType;
+  /**
+   * Current execution state
+   */
+  status: ExecutionStepStatus;
+  /**
+   * When the step started executing
+   */
+  startedAt: any;
+  /**
+   * When the step finished executing (null if still running)
+   */
+  completedAt?: any;
+  /**
+   * Duration in milliseconds (computed on completion)
+   */
+  durationMs?: bigint;
+  /**
+   * Step result summary (e.g., 'success', 'failed: timeout', 'rejected: add more detail')
+   */
+  outcome?: string;
+  /**
+   * Arbitrary key-value metadata (JSON). Captures inputs, outputs, error details.
+   */
+  metadata?: string;
+  /**
+   * Ordering within siblings under the same parent. Auto-incremented per parent.
+   */
+  sequenceNumber: number;
+};
 
 /**
  * Change to a question's selected option during PRD review

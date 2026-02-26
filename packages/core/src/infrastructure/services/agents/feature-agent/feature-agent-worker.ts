@@ -28,6 +28,8 @@ import { setHeartbeatContext } from './heartbeat.js';
 import { setPhaseTimingContext, recordLifecycleEvent } from './phase-timing-context.js';
 import { setLifecycleContext } from './lifecycle-context.js';
 import type { IPhaseTimingRepository } from '@/application/ports/output/agents/phase-timing-repository.interface.js';
+import type { IExecutionStepRepository } from '@/application/ports/output/agents/execution-step-repository.interface.js';
+import { ExecutionMonitor } from './execution-monitor.js';
 import { UpdateFeatureLifecycleUseCase } from '@/application/use-cases/features/update/update-feature-lifecycle.use-case.js';
 
 import type { ApprovalGates } from '@/domain/generated/output.js';
@@ -163,12 +165,17 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
   log('Creating executor from configured agent settings...');
   const executor = executorProvider.getExecutor();
 
+  // Create ExecutionMonitor for hierarchical step recording
+  const stepRepository = container.resolve<IExecutionStepRepository>('IExecutionStepRepository');
+  const executionMonitor = new ExecutionMonitor(args.runId, stepRepository);
+
   // Resolve merge node dependencies
   const gitPrService = container.resolve<IGitPrService>('IGitPrService');
   const featureRepository = container.resolve<IFeatureRepository>('IFeatureRepository');
 
   const graphDeps: FeatureAgentGraphDeps = {
     executor,
+    monitor: executionMonitor,
     mergeNodeDeps: {
       getDiffSummary: (cwd: string, baseBranch: string) =>
         gitPrService.getPrDiffSummary(cwd, baseBranch),
@@ -219,8 +226,9 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
   const updateLifecycleUseCase = container.resolve(UpdateFeatureLifecycleUseCase);
   setLifecycleContext(args.featureId, updateLifecycleUseCase);
 
-  // Record lifecycle event
+  // Record lifecycle event (both old and new systems)
   await recordLifecycleEvent(args.resume ? 'run:resumed' : 'run:started');
+  await executionMonitor.recordLifecycleEvent(args.resume ? 'run:resumed' : 'run:started');
 
   try {
     const graphConfig = { configurable: { thread_id: checkpointId } };
@@ -316,6 +324,7 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
         updatedAt: failedAt,
       });
       await recordLifecycleEvent('run:failed');
+      await executionMonitor.recordLifecycleEvent('run:failed');
       log(`Run marked as failed: ${result.error}`);
       return;
     }
@@ -327,6 +336,7 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
       updatedAt: completedAt,
     });
     await recordLifecycleEvent('run:completed');
+    await executionMonitor.recordLifecycleEvent('run:completed');
     log('Run marked as completed');
   } catch (error: unknown) {
     stopHeartbeat();
@@ -339,6 +349,7 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
       updatedAt: failedAt,
     });
     await recordLifecycleEvent('run:failed');
+    await executionMonitor.recordLifecycleEvent('run:failed');
     log('Run marked as failed');
   }
 }
