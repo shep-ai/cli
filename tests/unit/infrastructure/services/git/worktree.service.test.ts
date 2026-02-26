@@ -266,15 +266,20 @@ describe('WorktreeService', () => {
   });
 
   describe('ensureGitRepository', () => {
-    it('should no-op for an existing git repository', async () => {
-      mockExecFile.mockResolvedValueOnce({ stdout: 'true\n', stderr: '' });
+    it('should no-op for an existing git repository with commits', async () => {
+      mockExecFile
+        .mockResolvedValueOnce({ stdout: 'true\n', stderr: '' })
+        .mockResolvedValueOnce({ stdout: 'abc123\n', stderr: '' });
 
       await service.ensureGitRepository('/existing/repo');
 
       expect(mockExecFile).toHaveBeenCalledWith('git', ['rev-parse', '--is-inside-work-tree'], {
         cwd: '/existing/repo',
       });
-      expect(mockExecFile).toHaveBeenCalledTimes(1);
+      expect(mockExecFile).toHaveBeenCalledWith('git', ['rev-parse', 'HEAD'], {
+        cwd: '/existing/repo',
+      });
+      expect(mockExecFile).toHaveBeenCalledTimes(2);
     });
 
     it('should create directory recursively and run git init for a non-git directory', async () => {
@@ -305,6 +310,43 @@ describe('WorktreeService', () => {
         ['commit', '--allow-empty', '-m', 'Initial commit'],
         { cwd: '/plain/dir' }
       );
+    });
+
+    it('should create initial commit for existing repo with unborn branch (no commits)', async () => {
+      mockExecFile
+        // 1. rev-parse --is-inside-work-tree → succeeds (is a git repo)
+        .mockResolvedValueOnce({ stdout: 'true\n', stderr: '' })
+        // 2. rev-parse HEAD → fails (no commits, unborn branch)
+        .mockRejectedValueOnce(new Error("fatal: ambiguous argument 'HEAD'"))
+        // 3. git config user.name
+        .mockResolvedValueOnce({ stdout: '', stderr: '' })
+        // 4. git config user.email
+        .mockResolvedValueOnce({ stdout: '', stderr: '' })
+        // 5. git commit --allow-empty
+        .mockResolvedValueOnce({ stdout: '', stderr: '' });
+
+      await service.ensureGitRepository('/empty/repo');
+
+      expect(mockExecFile).toHaveBeenCalledWith('git', ['rev-parse', 'HEAD'], {
+        cwd: '/empty/repo',
+      });
+      expect(mockExecFile).toHaveBeenCalledWith(
+        'git',
+        ['commit', '--allow-empty', '-m', 'Initial commit'],
+        { cwd: '/empty/repo' }
+      );
+    });
+
+    it('should not create initial commit for existing repo that already has commits', async () => {
+      mockExecFile
+        // 1. rev-parse --is-inside-work-tree → succeeds
+        .mockResolvedValueOnce({ stdout: 'true\n', stderr: '' })
+        // 2. rev-parse HEAD → succeeds (has commits)
+        .mockResolvedValueOnce({ stdout: 'abc123\n', stderr: '' });
+
+      await service.ensureGitRepository('/existing/repo');
+
+      expect(mockExecFile).toHaveBeenCalledTimes(2);
     });
 
     it('should throw WorktreeError when git init fails', async () => {

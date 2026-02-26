@@ -10,7 +10,7 @@ export type {
   AgentExecutionStreamEvent,
   AgentExecutionOptions,
 } from './agent-executor.interface.js';
-export type { IAgentExecutorFactory } from './agent-executor-factory.interface.js';
+export type { IAgentExecutorFactory, AgentCliInfo } from './agent-executor-factory.interface.js';
 export type { IAgentExecutorProvider } from './agent-executor-provider.interface.js';
 export type { IAgentRegistry, AgentDefinitionWithFactory } from './agent-registry.interface.js';
 export type { IAgentRunner, AgentRunOptions } from './agent-runner.interface.js';

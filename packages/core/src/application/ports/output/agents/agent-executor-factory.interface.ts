@@ -21,6 +21,18 @@ import type { AgentType, AgentConfig } from '../../../../domain/generated/output
 import type { IAgentExecutor } from './agent-executor.interface.js';
 
 /**
+ * CLI binary info for an agent executor, used for version detection.
+ */
+export interface AgentCliInfo {
+  /** Agent type identifier (e.g. 'claude-code') */
+  agentType: AgentType;
+  /** CLI binary name (e.g. 'claude') */
+  cmd: string;
+  /** Arguments to get version (e.g. ['--version']) */
+  versionArgs: string[];
+}
+
+/**
  * Port interface for creating agent executor instances.
  *
  * Implementations must:
@@ -44,4 +56,12 @@ export interface IAgentExecutorFactory {
    * @returns Array of supported agent types
    */
   getSupportedAgents(): AgentType[];
+
+  /**
+   * Get CLI binary info for each agent executor (for version detection).
+   * Excludes non-CLI agents (e.g. 'dev').
+   *
+   * @returns Array of CLI info for version-checkable agents
+   */
+  getCliInfo(): AgentCliInfo[];
 }

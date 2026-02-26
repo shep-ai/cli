@@ -50,6 +50,16 @@ export function getDaemonStatePath(): string {
 }
 
 /**
+ * Gets the path to the daemon log file.
+ * Uses SHEP_HOME env var if set (for test isolation), otherwise ~/.shep/daemon.log
+ *
+ * @returns Path to daemon.log
+ */
+export function getDaemonLogPath(): string {
+  return join(resolveShepHomeDir(), 'daemon.log');
+}
+
+/**
  * Ensures the shep home directory exists with correct permissions.
  * Creates the directory if it doesn't exist.
  * Safe to call multiple times (idempotent).
