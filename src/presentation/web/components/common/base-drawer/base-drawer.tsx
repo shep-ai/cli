@@ -1,5 +1,6 @@
 'use client';
 
+import { useRef, useEffect } from 'react';
 import { XIcon } from 'lucide-react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
@@ -46,6 +47,30 @@ export function BaseDrawer({
   className,
   'data-testid': testId,
 }: BaseDrawerProps) {
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  // Close when clicking outside the drawer panel (no overlay needed — canvas stays draggable).
+  // Uses `click` (not `pointerdown`) so canvas drags don't trigger this.
+  useEffect(() => {
+    if (!open || modal) return;
+
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as Element;
+      if (contentRef.current?.contains(target)) return;
+      // Don't close when clicking inside the canvas or other Radix overlays
+      if (
+        target.closest(
+          '[data-no-drawer-close], [role="alertdialog"], [role="menu"], [role="listbox"], [data-radix-popper-content-wrapper]'
+        )
+      )
+        return;
+      onClose();
+    };
+
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
+  }, [open, modal, onClose]);
+
   return (
     <Drawer
       direction="right"
@@ -58,6 +83,7 @@ export function BaseDrawer({
     >
       {modal ? <DrawerOverlay /> : null}
       <DrawerContent
+        ref={contentRef}
         direction="right"
         showCloseButton={false}
         className={cn(drawerVariants({ size }), className)}
