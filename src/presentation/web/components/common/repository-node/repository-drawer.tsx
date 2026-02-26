@@ -30,6 +30,15 @@ export function RepositoryDrawer({ data, onClose }: RepositoryDrawerProps) {
       size="md"
       modal={false}
       data-testid="repository-drawer"
+      deployTarget={
+        data?.repositoryPath
+          ? {
+              targetId: data.repositoryPath,
+              targetType: 'repository',
+              repositoryPath: data.repositoryPath,
+            }
+          : undefined
+      }
       header={
         data ? (
           <div data-testid="repository-drawer-header">

@@ -287,9 +287,9 @@ describe('Merge Flow (Graph-level)', () => {
       );
       expect(getInterrupts(result3)).toHaveLength(0);
 
-      // After resume, lifecycle should be updated to Review (allowMerge=false, no auto-merge)
+      // After resume with approval, merge is performed — lifecycle goes to Maintain
       expect(featureRepo.update).toHaveBeenCalledWith(
-        expect.objectContaining({ lifecycle: 'Review' })
+        expect.objectContaining({ lifecycle: 'Maintain' })
       );
     });
 

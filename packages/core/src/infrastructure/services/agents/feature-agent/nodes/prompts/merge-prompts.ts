@@ -22,20 +22,23 @@ function getMergeRejectionFeedback(specContent: string): string {
     if (rejectionFeedback && rejectionFeedback.length > 0) {
       const mergeRejections = rejectionFeedback.filter((e) => e.phase === 'merge');
       if (mergeRejections.length > 0) {
-        const entries = mergeRejections
-          .map(
-            (entry) => `- **Iteration ${entry.iteration}** (${entry.timestamp}): ${entry.message}`
-          )
-          .join('\n');
+        const latest = mergeRejections[mergeRejections.length - 1];
+        const older = mergeRejections.slice(0, -1);
+        const olderSection =
+          older.length > 0
+            ? `\n### Earlier feedback (for context only)\n${older.map((e) => `- Iteration ${e.iteration}: ${e.message}`).join('\n')}\n`
+            : '';
         return `
-## Previous Merge Rejection Feedback
+## ⚠️ CRITICAL — User Rejection Feedback (MUST ADDRESS)
 
-The user has previously rejected this merge with the following feedback. You MUST address these concerns in your revised output:
+**YOUR PRIMARY TASK: The user rejected the previous result and gave this feedback. You MUST act on it:**
 
-${entries}
+> ${latest.message}
 
-Focus on the most recent feedback (highest iteration number) while ensuring earlier feedback is still addressed.
+(Iteration ${latest.iteration}, ${latest.timestamp})
 
+Do NOT just record this feedback — you must actually make the changes the user requested.
+${olderSection}
 `;
       }
     }
@@ -109,8 +112,9 @@ ${steps.join('\n')}
 ## Constraints
 
 - Write a meaningful conventional commit message derived from the actual diff — do NOT use generic messages
-- Do NOT modify any source code files — only perform git operations
+${rejectionSection ? '- You MUST modify source code files to address the rejection feedback above BEFORE committing' : '- Do NOT modify any source code files — only perform git operations'}
 - Do NOT amend existing commits
+- Do NOT run \`git pull\`, \`git rebase\`, or \`git merge\` — this is a fresh branch, push it directly
 - If there are no changes to commit, skip the commit step and report that no changes were found`;
 }
 

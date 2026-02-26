@@ -5,9 +5,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock node-helpers readSpecFile
-vi.mock('@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js', () => ({
-  readSpecFile: vi.fn(),
-}));
+vi.mock(
+  '@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js',
+  async (importOriginal) => {
+    const actual = (await importOriginal()) as Record<string, unknown>;
+    return {
+      ...actual,
+      readSpecFile: vi.fn(),
+    };
+  }
+);
 
 import { buildRequirementsPrompt } from '@/infrastructure/services/agents/feature-agent/nodes/prompts/requirements.prompt.js';
 import { readSpecFile } from '@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js';
@@ -58,7 +65,7 @@ rejectionFeedback:
 `;
     mockReadSpecFile.mockReturnValue(specContent);
     const prompt = buildRequirementsPrompt(createState());
-    expect(prompt).toContain('Previous Rejection Feedback');
+    expect(prompt).toContain('User Rejection Feedback');
     expect(prompt).toContain('Please add more detail about API endpoints');
     expect(prompt).toContain('Iteration 1');
   });
@@ -66,10 +73,10 @@ rejectionFeedback:
   it('should NOT include rejection feedback section when absent', () => {
     mockReadSpecFile.mockReturnValue('name: test\nsummary: hello\n');
     const prompt = buildRequirementsPrompt(createState());
-    expect(prompt).not.toContain('Previous Rejection Feedback');
+    expect(prompt).not.toContain('User Rejection Feedback');
   });
 
-  it('should handle multiple rejection feedback entries', () => {
+  it('should put latest feedback first and older entries in context section', () => {
     const specContent = `name: test
 rejectionFeedback:
   - iteration: 1
@@ -81,10 +88,12 @@ rejectionFeedback:
 `;
     mockReadSpecFile.mockReturnValue(specContent);
     const prompt = buildRequirementsPrompt(createState());
-    expect(prompt).toContain('Iteration 1');
-    expect(prompt).toContain('Iteration 2');
+    // Latest feedback should be the primary task, quoted prominently
+    expect(prompt).toContain('> Also add rate limiting');
+    expect(prompt).toContain('YOUR PRIMARY TASK');
+    // Older feedback should be in context section
+    expect(prompt).toContain('Earlier feedback');
     expect(prompt).toContain('Add error handling');
-    expect(prompt).toContain('Also add rate limiting');
   });
 
   it('should instruct exactly one option selected per question', () => {

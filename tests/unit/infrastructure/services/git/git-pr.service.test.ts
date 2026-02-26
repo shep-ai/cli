@@ -30,6 +30,101 @@ describe('GitPrService', () => {
     service = new GitPrService(mockExec);
   });
 
+  describe('getDefaultBranch', () => {
+    it('should return branch from remote HEAD when available', async () => {
+      vi.mocked(mockExec).mockResolvedValueOnce({
+        stdout: 'refs/remotes/origin/develop\n',
+        stderr: '',
+      });
+
+      const result = await service.getDefaultBranch('/repo');
+      expect(result).toBe('develop');
+    });
+
+    it('should fall back to local main branch when remote HEAD fails', async () => {
+      vi.mocked(mockExec)
+        .mockRejectedValueOnce(new Error('not found')) // remote HEAD
+        .mockResolvedValueOnce({ stdout: 'abc123\n', stderr: '' }) // refs/heads/main exists
+        .mockRejectedValueOnce(new Error('not found')); // refs/heads/master does not exist
+
+      const result = await service.getDefaultBranch('/repo');
+      expect(result).toBe('main');
+    });
+
+    it('should fall back to local master branch when main does not exist', async () => {
+      vi.mocked(mockExec)
+        .mockRejectedValueOnce(new Error('not found')) // remote HEAD
+        .mockRejectedValueOnce(new Error('not found')) // refs/heads/main
+        .mockResolvedValueOnce({ stdout: 'def456\n', stderr: '' }); // refs/heads/master exists
+
+      const result = await service.getDefaultBranch('/repo');
+      expect(result).toBe('master');
+    });
+
+    it('should pick most recently committed branch when both main and master exist', async () => {
+      vi.mocked(mockExec)
+        .mockRejectedValueOnce(new Error('not found')) // remote HEAD
+        .mockResolvedValueOnce({ stdout: 'abc123\n', stderr: '' }) // refs/heads/main exists
+        .mockResolvedValueOnce({ stdout: 'def456\n', stderr: '' }) // refs/heads/master exists
+        .mockResolvedValueOnce({ stdout: 'master\nmain\n', stderr: '' }); // for-each-ref: master is newer
+
+      const result = await service.getDefaultBranch('/repo');
+      expect(result).toBe('master');
+    });
+
+    it('should fall back to git config init.defaultBranch', async () => {
+      vi.mocked(mockExec)
+        .mockRejectedValueOnce(new Error('not found')) // remote HEAD
+        .mockRejectedValueOnce(new Error('not found')) // refs/heads/main
+        .mockRejectedValueOnce(new Error('not found')) // refs/heads/master
+        .mockResolvedValueOnce({ stdout: 'trunk\n', stderr: '' }); // git config init.defaultBranch
+
+      const result = await service.getDefaultBranch('/repo');
+      expect(result).toBe('trunk');
+    });
+
+    it('should NOT use current branch when in a feature worktree', async () => {
+      vi.mocked(mockExec)
+        .mockRejectedValueOnce(new Error('not found')) // remote HEAD
+        .mockRejectedValueOnce(new Error('not found')) // refs/heads/main
+        .mockRejectedValueOnce(new Error('not found')) // refs/heads/master
+        .mockRejectedValueOnce(new Error('not configured')) // git config init.defaultBranch
+        .mockResolvedValueOnce({ stdout: '.git/worktrees/feat-branch\n', stderr: '' }) // git-dir
+        .mockResolvedValueOnce({ stdout: '/repo/.git\n', stderr: '' }); // git-common-dir (differs = worktree)
+
+      await expect(service.getDefaultBranch('/repo')).rejects.toThrow(
+        'Unable to determine default branch'
+      );
+    });
+
+    it('should use current branch in main worktree as last resort', async () => {
+      vi.mocked(mockExec)
+        .mockRejectedValueOnce(new Error('not found')) // remote HEAD
+        .mockRejectedValueOnce(new Error('not found')) // refs/heads/main
+        .mockRejectedValueOnce(new Error('not found')) // refs/heads/master
+        .mockRejectedValueOnce(new Error('not configured')) // git config init.defaultBranch
+        .mockResolvedValueOnce({ stdout: '.git\n', stderr: '' }) // git-dir
+        .mockResolvedValueOnce({ stdout: '.git\n', stderr: '' }) // git-common-dir (same = main worktree)
+        .mockResolvedValueOnce({ stdout: 'develop\n', stderr: '' }); // symbolic-ref HEAD
+
+      const result = await service.getDefaultBranch('/repo');
+      expect(result).toBe('develop');
+    });
+
+    it('should throw when all fallbacks fail', async () => {
+      vi.mocked(mockExec)
+        .mockRejectedValueOnce(new Error('not found')) // remote HEAD
+        .mockRejectedValueOnce(new Error('not found')) // refs/heads/main
+        .mockRejectedValueOnce(new Error('not found')) // refs/heads/master
+        .mockRejectedValueOnce(new Error('not configured')) // git config init.defaultBranch
+        .mockRejectedValueOnce(new Error('git error')); // git-dir fails
+
+      await expect(service.getDefaultBranch('/repo')).rejects.toThrow(
+        'Unable to determine default branch'
+      );
+    });
+  });
+
   describe('hasUncommittedChanges', () => {
     it('should return true when git status has output', async () => {
       vi.mocked(mockExec).mockResolvedValue({
@@ -300,6 +395,22 @@ describe('GitPrService', () => {
       expect(result.status).toBe('pending');
     });
 
+    it('should throw GitPrError when gh command fails', async () => {
+      vi.mocked(mockExec).mockRejectedValue(new Error('gh: command not found'));
+
+      await expect(service.getCiStatus('/repo', 'feat/branch')).rejects.toThrow(GitPrError);
+    });
+
+    it('should throw GitPrError with GH_NOT_FOUND when gh is not installed', async () => {
+      const error = new Error('ENOENT');
+      (error as NodeJS.ErrnoException).code = 'ENOENT';
+      vi.mocked(mockExec).mockRejectedValue(error);
+
+      await expect(service.getCiStatus('/repo', 'feat/branch')).rejects.toMatchObject({
+        code: GitPrErrorCode.GH_NOT_FOUND,
+      });
+    });
+
     it('should return pending when conclusion is null', async () => {
       const ghOutput = JSON.stringify([
         { conclusion: null, url: 'https://github.com/org/repo/actions/runs/456' },
@@ -355,7 +466,7 @@ describe('GitPrService', () => {
       expect(mockExec).toHaveBeenCalledTimes(1);
     });
 
-    it('should return failure when gh run watch exits non-zero', async () => {
+    it('should return failure when gh run watch exits non-zero (exit code message)', async () => {
       vi.mocked(mockExec)
         .mockResolvedValueOnce({
           stdout: JSON.stringify([{ databaseId: 789 }]),
@@ -366,6 +477,69 @@ describe('GitPrService', () => {
       const result = await service.watchCi('/repo', 'feat/branch');
 
       expect(result.status).toBe('failure');
+    });
+
+    it('should return failure when gh run watch exits non-zero with real execFile error format', async () => {
+      // This is the ACTUAL error format from Node.js execFile when gh run watch --exit-status
+      // fails because CI failed. The error message is "Command failed: gh run watch <id> --exit-status\n"
+      // and the error object has code (numeric exit code), stdout, and stderr.
+      const execError = new Error('Command failed: gh run watch 789 --exit-status\n') as Error & {
+        code: number;
+        stdout: string;
+        stderr: string;
+      };
+      execError.code = 1;
+      execError.stdout = "Run CI (789) has already completed with 'failure'\n";
+      execError.stderr = '';
+
+      vi.mocked(mockExec)
+        .mockResolvedValueOnce({
+          stdout: JSON.stringify([{ databaseId: 789 }]),
+          stderr: '',
+        })
+        .mockRejectedValueOnce(execError);
+
+      const result = await service.watchCi('/repo', 'feat/branch');
+
+      expect(result.status).toBe('failure');
+      expect(result.logExcerpt).toBeDefined();
+    });
+
+    it('should include stdout in logExcerpt when CI fails with real execFile error', async () => {
+      const execError = new Error('Command failed: gh run watch 789 --exit-status\n') as Error & {
+        code: number;
+        stdout: string;
+        stderr: string;
+      };
+      execError.code = 1;
+      execError.stdout = "Run CI (789) has already completed with 'failure'\n";
+      execError.stderr = 'some stderr info';
+
+      vi.mocked(mockExec)
+        .mockResolvedValueOnce({
+          stdout: JSON.stringify([{ databaseId: 789 }]),
+          stderr: '',
+        })
+        .mockRejectedValueOnce(execError);
+
+      const result = await service.watchCi('/repo', 'feat/branch');
+
+      expect(result.status).toBe('failure');
+      // logExcerpt should contain the actual output, not just the generic "Command failed" message
+      expect(result.logExcerpt).toContain('failure');
+    });
+
+    it('should throw GIT_ERROR for genuine errors (not CI failure)', async () => {
+      vi.mocked(mockExec)
+        .mockResolvedValueOnce({
+          stdout: JSON.stringify([{ databaseId: 789 }]),
+          stderr: '',
+        })
+        .mockRejectedValueOnce(new Error('network connection reset'));
+
+      await expect(service.watchCi('/repo', 'feat/branch')).rejects.toMatchObject({
+        code: GitPrErrorCode.GIT_ERROR,
+      });
     });
 
     it('should throw GitPrError with CI_TIMEOUT on timeout', async () => {
@@ -379,6 +553,40 @@ describe('GitPrService', () => {
       await expect(service.watchCi('/repo', 'feat/branch', 5000)).rejects.toMatchObject({
         code: GitPrErrorCode.CI_TIMEOUT,
       });
+    });
+
+    it('should return success when gh run watch exits 0 even if stdout lacks "success" keyword', async () => {
+      // gh run watch --exit-status exits 0 = CI passed. Period.
+      // stdout may contain checkmarks like "✓ build in 1m2s" without "success" or "completed"
+      vi.mocked(mockExec)
+        .mockResolvedValueOnce({
+          stdout: JSON.stringify([{ databaseId: 789 }]),
+          stderr: '',
+        })
+        .mockResolvedValueOnce({
+          stdout: '✓ build (789) in 1m2s\n✓ test (790) in 2m3s\n',
+          stderr: '',
+        });
+
+      const result = await service.watchCi('/repo', 'feat/branch');
+
+      expect(result.status).toBe('success');
+    });
+
+    it('should return success when gh run watch exits 0 with empty stdout', async () => {
+      vi.mocked(mockExec)
+        .mockResolvedValueOnce({
+          stdout: JSON.stringify([{ databaseId: 789 }]),
+          stderr: '',
+        })
+        .mockResolvedValueOnce({
+          stdout: '',
+          stderr: '',
+        });
+
+      const result = await service.watchCi('/repo', 'feat/branch');
+
+      expect(result.status).toBe('success');
     });
 
     it('should pass timeout option to exec', async () => {

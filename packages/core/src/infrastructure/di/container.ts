@@ -44,6 +44,8 @@ import type { IIdeLauncherService } from '../../application/ports/output/service
 import { JsonDrivenIdeLauncherService } from '../services/ide-launchers/json-driven-ide-launcher.service.js';
 import type { IDaemonService } from '../../application/ports/output/services/daemon-service.interface.js';
 import { DaemonPidService } from '../services/daemon/daemon-pid.service.js';
+import type { IDeploymentService } from '../../application/ports/output/services/deployment-service.interface.js';
+import { DeploymentService } from '../services/deployment/deployment.service.js';
 
 // Agent infrastructure interfaces and implementations
 import type { IAgentExecutorFactory } from '../../application/ports/output/agents/agent-executor-factory.interface.js';
@@ -187,6 +189,8 @@ export async function initializeContainer(): Promise<typeof container> {
     JsonDrivenIdeLauncherService
   );
   container.registerSingleton<IDaemonService>('IDaemonService', DaemonPidService);
+  const deploymentService = new DeploymentService();
+  container.registerInstance<IDeploymentService>('IDeploymentService', deploymentService);
 
   // Register agent infrastructure
   container.register<IAgentRunRepository>('IAgentRunRepository', {

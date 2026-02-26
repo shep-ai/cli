@@ -11,4 +11,5 @@ function isEnabled(envVar: string | undefined): boolean {
 
 export const featureFlags = {
   skills: isEnabled(process.env.NEXT_PUBLIC_FLAG_SKILLS),
+  envDeploy: isEnabled(process.env.NEXT_PUBLIC_FLAG_ENV_DEPLOY),
 } as const;

@@ -1,0 +1,287 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feature-env-deploy
+number: 045
+branch: feat/045-feature-env-deploy
+oneLiner: 'Add deploy environment / start dev server action to feature nodes and repository nodes'
+userQuery: >
+  Feature: Add action to deploy env / start server per feature node / repository
+summary: >
+  Add a "Deploy" action button to feature nodes and repository nodes in the web UI canvas.
+  When triggered, the system analyzes the repository to detect deployment configuration
+  (DeploySkill), launches a local dev environment (Deployment), and surfaces the running
+  deployment state (Booting → Ready → Stopped) with an accessible URL directly on the node.
+  Leverages existing TypeSpec domain models (Deployment, DeploySkill, LocalDeployAgent) and
+  follows established action-button patterns from spec 031 (repo-node-actions).
+phase: Requirements
+sizeEstimate: L
+
+# Relationships
+relatedFeatures:
+  - '031-repo-node-actions'
+
+technologies:
+  - TypeScript
+  - Next.js
+  - React
+  - Docker
+  - TypeSpec
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - question: 'What deployment methods should be supported in the initial release?'
+    resolved: true
+    options:
+      - option: 'Script-only (npm/pnpm scripts)'
+        description: >
+          Only support running dev scripts detected in package.json (e.g. npm run dev).
+          Simplest to implement, no Docker dependency, covers the most common local dev
+          workflow. Can be extended to Docker later.
+        selected: true
+      - option: 'Docker Compose + Script'
+        description: >
+          Support both Docker Compose and script-based methods. More powerful but requires
+          Docker to be installed, adds complexity for container lifecycle management.
+        selected: false
+      - option: 'All methods (Docker, DockerCompose, K8s, Script, Manual)'
+        description: >
+          Full implementation of all DeployMethod enum values. Maximum flexibility but
+          significantly larger scope, many edge cases, and most methods are unlikely
+          to be used for local dev environments.
+        selected: false
+    selectionRationale: >
+      Script-only covers 80%+ of local dev use cases (npm run dev, pnpm dev, etc.),
+      requires no external dependencies, and aligns with the POC screenshots showing
+      Next.js dev server output. Docker support can be added incrementally in a follow-up.
+    answer: 'Script-only (npm/pnpm scripts)'
+
+  - question: 'Where should the deploy action appear in the UI?'
+    resolved: true
+    options:
+      - option: 'Action button on feature node + repository node'
+        description: >
+          Add a deploy/start button directly on both feature nodes and repository nodes
+          in the canvas, following the existing action-button pattern. Most discoverable,
+          allows deploying from either context.
+        selected: true
+      - option: 'Feature drawer only'
+        description: >
+          Add deploy action inside the feature settings drawer. Less discoverable but
+          avoids adding visual complexity to already-dense feature nodes.
+        selected: false
+      - option: 'Context menu'
+        description: >
+          Add deploy to a right-click context menu on nodes. Least discoverable,
+          no existing context menu pattern in the codebase.
+        selected: false
+    selectionRationale: >
+      The POC mockups (02-feature-card-action-toolbar) show a "Start Dev Server" button
+      directly on the feature card. Placing it on both feature and repository nodes
+      matches existing patterns (open-in-ide, open-shell, open-folder on repo nodes)
+      and gives maximum discoverability.
+    answer: 'Action button on feature node + repository node'
+
+  - question: 'How should deployment status be displayed on nodes?'
+    resolved: true
+    options:
+      - option: 'Status badge with URL link'
+        description: >
+          Show a small colored badge (Booting=blue, Ready=green, Stopped=gray) on the
+          node with the accessible URL as a clickable link when Ready. Minimal space,
+          consistent with existing badge patterns.
+        selected: true
+      - option: 'Dedicated deployment panel in feature drawer'
+        description: >
+          Show full deployment details (status, URL, ports, logs) in a collapsible
+          section within the feature drawer. More detail but requires opening the drawer.
+        selected: false
+      - option: 'Inline status row on node'
+        description: >
+          Add a full row to the node card showing deployment status, URL, and stop button.
+          Most information at a glance but increases node height.
+        selected: false
+    selectionRationale: >
+      A status badge with URL link provides immediate visibility without adding
+      significant visual weight to the nodes. The feature drawer can show expanded
+      details as a natural extension. This is consistent with how PR status badges
+      already work on feature nodes.
+    answer: 'Status badge with URL link'
+
+  - question: 'Should the deploy action use the agent system (LocalDeployAgent) or a direct service?'
+    resolved: true
+    options:
+      - option: 'Direct service (DeploymentService)'
+        description: >
+          Create a DeploymentService in the infrastructure layer that directly runs
+          scripts and manages processes. Simpler, faster, no agent overhead. Appropriate
+          for the initial script-only scope.
+        selected: true
+      - option: 'Agent-based (LocalDeployAgent)'
+        description: >
+          Route through the agent system via IAgentExecutorProvider. Enables AI-powered
+          repository analysis and intelligent deployment decisions. More complex setup,
+          higher latency, but aligns with the agent architecture for future expansion.
+        selected: false
+    selectionRationale: >
+      For the initial script-only scope, a direct service is simpler and faster.
+      The agent workflow (Analyze → Deploy) adds latency and complexity that isn't
+      justified when we're just running "npm run dev". The service can be wrapped
+      by the agent system later when Docker/K8s support is added.
+    answer: 'Direct service (DeploymentService)'
+
+  - question: 'How should the system detect which script to run for deployment?'
+    resolved: true
+    options:
+      - option: 'Auto-detect from package.json scripts'
+        description: >
+          Scan package.json for common dev scripts (dev, start, serve) and automatically
+          select the best match. Falls back to asking the user if no match is found.
+          Convention-over-configuration approach.
+        selected: true
+      - option: 'Require explicit shep configuration'
+        description: >
+          Require users to configure a deploy command in .shep/config or similar.
+          Predictable but adds friction for first-time use.
+        selected: false
+      - option: 'AI analysis of repository'
+        description: >
+          Use the LocalDeployAgent Analyze operation to intelligently determine the
+          deploy method. Most sophisticated but adds AI call latency and cost.
+        selected: false
+    selectionRationale: >
+      Auto-detection from package.json is the zero-configuration approach that works
+      for the vast majority of Node.js projects. The detection logic is deterministic
+      and fast. A fallback prompt handles edge cases gracefully.
+    answer: 'Auto-detect from package.json scripts'
+
+  - question: 'How should port detection and URL assignment work?'
+    resolved: true
+    options:
+      - option: 'Parse script output for port'
+        description: >
+          Monitor the dev server stdout/stderr for common port announcement patterns
+          (e.g. "listening on port 3000", "Local: http://localhost:3000"). Works with
+          any framework without configuration. May miss non-standard output.
+        selected: true
+      - option: 'Static port from package.json config'
+        description: >
+          Read port from package.json config, .env files, or framework-specific
+          config files. Predictable but doesn't account for dynamic port assignment.
+        selected: false
+      - option: 'Assign a random available port'
+        description: >
+          Force a specific port via environment variable (PORT=XXXX). Guarantees no
+          conflicts but may break frameworks that don't respect PORT env var.
+        selected: false
+    selectionRationale: >
+      Parsing script output is the most universal approach — every dev server prints
+      its URL/port on startup. This works across frameworks (Next.js, Vite, Express,
+      etc.) without requiring any configuration. The POC mockups confirm this pattern
+      (showing "Local: http://localhost:3000" in terminal output).
+    answer: 'Parse script output for port'
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  Users working with features in the Shep web UI canvas currently have no way to
+  launch or manage local development environments for their features or repositories.
+  They must manually navigate to the terminal, find the correct worktree path, and
+  run dev server commands. This breaks the integrated workflow that Shep aims to provide.
+
+  The platform already has well-defined TypeSpec domain models for Deployment, DeploySkill,
+  and LocalDeployAgent, but no infrastructure implementation or UI surface exists yet.
+  The POC mockups (07-09) demonstrate the vision of per-feature dev environments with
+  web preview, VS Code, and terminal tabs — this feature implements the foundational
+  "start dev server" action that enables that vision.
+
+  ## Success Criteria
+
+  - [ ] Feature nodes display a "Deploy" action button (play icon) that starts a dev server for the feature's worktree
+  - [ ] Repository nodes display a "Deploy" action button that starts a dev server for the repository root
+  - [ ] The system auto-detects the dev script from package.json (dev, start, serve) without user configuration
+  - [ ] Running deployment shows a status badge on the node (Booting → Ready with URL)
+  - [ ] The deployment URL is clickable and opens in the user's default browser
+  - [ ] Users can stop a running deployment via a stop button that replaces the deploy button
+  - [ ] Multiple deployments can run simultaneously (one per feature/repo) without port conflicts
+  - [ ] Deployment state persists across page refreshes (polling or SSE for status)
+  - [ ] Deployment process is properly cleaned up when stopped (SIGTERM → SIGKILL after timeout)
+  - [ ] All new UI components have colocated Storybook stories
+  - [ ] All business logic has unit tests following TDD (RED → GREEN → REFACTOR)
+
+  ## Functional Requirements
+
+  - **FR-1**: The system SHALL provide a "Deploy" action button on feature nodes in the web UI canvas that, when clicked, starts a local dev server process in the feature's git worktree directory.
+  - **FR-2**: The system SHALL provide a "Deploy" action button on repository nodes in the web UI canvas that, when clicked, starts a local dev server process in the repository root directory.
+  - **FR-3**: The system SHALL auto-detect the dev server command by scanning package.json for scripts named "dev", "start", or "serve" (in priority order). If no matching script is found, the system SHALL display an error message on the node.
+  - **FR-4**: The system SHALL spawn the dev server as a child process using the detected package manager (npm, pnpm, yarn) and pipe stdout/stderr for port detection and log capture.
+  - **FR-5**: The system SHALL parse dev server stdout/stderr output for port/URL announcements (e.g., "localhost:3000", "listening on port", "Local: http://") and store the detected URL on the Deployment entity.
+  - **FR-6**: The system SHALL display deployment status on the node as a colored badge: blue spinner for Booting, green dot with clickable URL for Ready, gray dot for Stopped.
+  - **FR-7**: When a deployment is in Ready state, clicking the URL badge SHALL open the URL in the user's default browser.
+  - **FR-8**: The deploy button SHALL toggle to a stop button (square icon) when a deployment is active (Booting or Ready state).
+  - **FR-9**: Stopping a deployment SHALL send SIGTERM to the process group. If the process does not exit within 5 seconds, the system SHALL send SIGKILL.
+  - **FR-10**: The system SHALL support multiple concurrent deployments (one per feature or repository) with each running in its own process.
+  - **FR-11**: The system SHALL expose a Next.js server action `deployFeature(featureId)` that triggers deployment for a feature node.
+  - **FR-12**: The system SHALL expose a Next.js server action `deployRepository(repositoryId)` that triggers deployment for a repository node.
+  - **FR-13**: The system SHALL expose a Next.js server action `stopDeployment(deploymentId)` that stops a running deployment.
+  - **FR-14**: The system SHALL expose a Next.js server action `getDeploymentStatus(targetId)` that returns the current deployment state for a feature or repository.
+  - **FR-15**: The web UI SHALL poll for deployment status updates at a reasonable interval (2-5 seconds) to reflect state changes (Booting → Ready → Stopped).
+  - **FR-16**: The system SHALL create a `DeploymentService` in the infrastructure layer that manages process spawning, port detection, and lifecycle (start/stop/status).
+  - **FR-17**: The system SHALL create a `useDeployAction` hook following the same pattern as `useRepositoryActions` — with loading state, error state (5s auto-clear), and stable callback references.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1**: Deployment startup (from button click to Booting state visible) SHALL complete within 500ms. Actual server readiness depends on the project.
+  - **NFR-2**: Port detection SHALL timeout after 30 seconds. If no port is detected, the deployment SHALL remain in Booting state with a warning badge.
+  - **NFR-3**: The DeploymentService SHALL properly clean up all child processes on application shutdown (SIGINT/SIGTERM handlers) to prevent orphaned processes.
+  - **NFR-4**: The deploy action button SHALL follow the existing `ActionButton` component pattern for consistent UX (loading spinner, error state, click isolation with stopPropagation).
+  - **NFR-5**: All deployment operations SHALL log to the application logger for debugging (process start, port detected, stop requested, process exited).
+  - **NFR-6**: The deployment status badge SHALL not increase the feature node height — it replaces or overlays existing space.
+  - **NFR-7**: The feature SHALL work on macOS and Linux. Windows support is not required for the initial release.
+  - **NFR-8**: Every new React component SHALL have a colocated `.stories.tsx` Storybook file covering all visual states (no deployment, booting, ready, stopped, error).
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | What deployment methods to support initially? | Script-only (npm/pnpm scripts) | Covers 80%+ of local dev, no Docker dependency, matches POC |
+  | 2 | Where should the deploy action appear? | Action button on feature + repo nodes | Matches POC mockups, follows spec-031 pattern |
+  | 3 | How to display deployment status? | Status badge with URL link | Minimal visual weight, consistent with PR badge pattern |
+  | 4 | Agent-based or direct service? | Direct DeploymentService | Simpler for script-only scope, agent can wrap later |
+  | 5 | How to detect the dev script? | Auto-detect from package.json | Zero-config, deterministic, fast |
+  | 6 | How to detect the port/URL? | Parse script stdout for port | Universal across frameworks, no config needed |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | Domain layer | Low | Existing TypeSpec models (Deployment, DeploySkill) are sufficient; may need a DeploymentState tracking type |
+  | Infrastructure layer | High | New DeploymentService for process management, port detection, lifecycle |
+  | Application layer | Medium | New use cases: DeployFeature, StopDeployment, GetDeploymentStatus |
+  | Web UI - Feature node | Medium | Add deploy/stop action button, deployment status badge |
+  | Web UI - Repository node | Medium | Add deploy/stop action button, deployment status badge |
+  | Web UI - Server actions | Medium | New server actions for deploy, stop, status |
+  | Web UI - Hooks | Medium | New useDeployAction hook following useRepositoryActions pattern |
+
+  ## Dependencies
+
+  - Existing TypeSpec domain models: Deployment, DeploySkill, DeploymentState, PortMap
+  - Existing ActionButton component (shared from spec 031)
+  - Existing useRepositoryActions hook pattern (reference implementation)
+  - Feature nodes must have worktreePath or repositoryPath available in FeatureNodeData
+  - Repository nodes must have repositoryPath available in RepositoryNodeData
+
+  ## Size Estimate
+
+  **L** — Larger than initially estimated. While UI patterns are well-established, this feature
+  requires a new infrastructure service (DeploymentService with process management), multiple
+  server actions, a new hook, status polling, and modifications to both feature and repository
+  node components. The process lifecycle management (spawn, detect port, cleanup) adds
+  meaningful complexity beyond typical UI features.
+
+  ---
+
+  _Requirements defined — proceed with research phase_

@@ -31,6 +31,25 @@ vi.mock('@/hooks/use-sound-action', () => ({
   useSoundAction: vi.fn(() => ({ play: vi.fn(), stop: vi.fn(), isPlaying: false })),
 }));
 
+// Mock useDeployAction hook (used by BaseDrawer's DeployBar)
+vi.mock('@/hooks/use-deploy-action', () => ({
+  useDeployAction: () => ({
+    deploy: vi.fn(),
+    stop: vi.fn(),
+    deployLoading: false,
+    stopLoading: false,
+    deployError: null,
+    status: null,
+    url: null,
+  }),
+}));
+
+// Mock DeploymentStatusBadge (used by BaseDrawer's DeployBar)
+vi.mock('@/components/common/deployment-status-badge', () => ({
+  DeploymentStatusBadge: ({ status }: { status: string | null }) =>
+    status ? <div data-testid="deployment-status-badge" data-status={status} /> : null,
+}));
+
 const defaultData: FeatureNodeData = {
   name: 'Auth Module',
   description: 'Implement OAuth2 authentication flow',

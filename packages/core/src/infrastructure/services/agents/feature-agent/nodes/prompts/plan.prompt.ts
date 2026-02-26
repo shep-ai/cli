@@ -8,7 +8,7 @@
  */
 
 import yaml from 'js-yaml';
-import { readSpecFile } from '../node-helpers.js';
+import { readSpecFile, buildCommitPushBlock } from '../node-helpers.js';
 import type { FeatureAgentState } from '../../state.js';
 
 export function buildPlanPrompt(state: FeatureAgentState): string {
@@ -26,20 +26,23 @@ export function buildPlanPrompt(state: FeatureAgentState): string {
       // Filter to plan-phase rejections only
       const planRejections = rejectionFeedback.filter((e) => e.phase === 'plan');
       if (planRejections.length > 0) {
-        const entries = planRejections
-          .map(
-            (entry) => `- **Iteration ${entry.iteration}** (${entry.timestamp}): ${entry.message}`
-          )
-          .join('\n');
+        const latest = planRejections[planRejections.length - 1];
+        const older = planRejections.slice(0, -1);
+        const olderSection =
+          older.length > 0
+            ? `\n### Earlier feedback (for context only)\n${older.map((e) => `- Iteration ${e.iteration}: ${e.message}`).join('\n')}\n`
+            : '';
         rejectionFeedbackSection = `
-## Previous Plan Rejection Feedback
+## ⚠️ CRITICAL — User Rejection Feedback (MUST ADDRESS)
 
-The user has previously rejected this plan with the following feedback. You MUST address these concerns in your revised output:
+**YOUR PRIMARY TASK: The user rejected the previous result and gave this feedback. You MUST act on it:**
 
-${entries}
+> ${latest.message}
 
-Focus on the most recent feedback (highest iteration number) while ensuring earlier feedback is still addressed.
+(Iteration ${latest.iteration}, ${latest.timestamp})
 
+Do NOT just record this feedback — you must actually make the changes the user requested.
+${olderSection}
 `;
       }
     }
@@ -204,5 +207,11 @@ You MUST write TWO files:
 - Follow existing codebase conventions for file placement and naming
 - Do NOT create any other files
 - Do NOT modify any source code
-- Do NOT start implementing — planning only`;
+- Do NOT start implementing — planning only
+
+${buildCommitPushBlock({
+  push: state.push,
+  files: [`${state.specDir}/plan.yaml`, `${state.specDir}/tasks.yaml`],
+  commitHint: 'docs(specs): create implementation plan and task breakdown',
+})}`;
 }

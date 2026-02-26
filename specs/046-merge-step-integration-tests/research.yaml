@@ -1,0 +1,396 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: merge-step-integration-tests
+summary: >
+  Integration tests for the merge node use real git binaries in isolated temp directories
+  to expose actual merge bugs through failing assertions. The approach directly instantiates
+  createMergeNode with a real GitPrService (real git ExecFunction) plus a mock IAgentExecutor,
+  using a bare-repo local remote as a GitHub-free network substitute. A selective ExecFunction
+  wrapper intercepts 'gh' commands for PR-path tests while passing 'git' commands through to the
+  real binary, enabling hermetic verification of actual git state on disk.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - TypeScript
+  - Vitest (describe, it, expect, vi.fn, beforeAll, afterAll, beforeEach, afterEach)
+  - Node.js child_process (execFile via promisify — NOT exec, to avoid shell injection)
+  - Node.js fs (mkdtempSync, mkdirSync, writeFileSync, rmSync)
+  - Node.js os (tmpdir)
+  - Node.js path (join)
+  - git binary (bare repo init, clone, commit, push, fetch, merge, merge-base)
+  - ExecFunction (worktree.service.ts injection pattern)
+  - GitPrService (infrastructure/services/git/git-pr.service.ts)
+  - createMergeNode + MergeNodeDeps (merge/merge.node.ts)
+  - IGitPrService (application/ports/output/services/git-pr-service.interface.ts)
+  - initializeSettings / resetSettings (settings singleton for CI watch loop)
+
+relatedLinks: []
+
+# Structured technology decisions
+decisions:
+  - title: 'Test Entry Point: createMergeNode directly vs. full feature agent graph'
+    chosen: 'Invoke createMergeNode directly with MergeNodeDeps — call the returned async function with a constructed state object'
+    rejected:
+      - 'Run full createFeatureAgentGraph — adds redundancy (merge-flow.test.ts already covers this), forces real-git tests to traverse analyze/requirements/plan nodes unrelated to merge bugs, makes failures harder to diagnose'
+      - 'Test GitPrService methods in isolation (unit tests) — cannot exercise the node-level decision logic (approvalGates branching, prUrl detection, effectiveState overrides) that contains the bugs'
+    rationale: >
+      The spec explicitly resolves this question: direct node invocation is the correct approach
+      because full-graph merge integration tests already exist in
+      tests/integration/infrastructure/services/agents/merge-flow.test.ts. createMergeNode returns
+      a plain async function (state, config?) => Promise<Partial<FeatureAgentState>>. Calling it
+      directly bypasses LangGraph orchestration entirely, keeps each test focused, and concentrates
+      assertions on git state — the actual bug surface. The FeatureAgentAnnotation state object is
+      constructed inline per test.
+
+  - title: 'Real-Git Execution Strategy: ExecFunction wiring in test harness'
+    chosen: 'Promisified execFile wrapper — identical pattern to worktree-git-init.test.ts'
+    rejected:
+      - 'vi.fn() mock for all ExecFunction calls — cannot verify real git state; defeats the purpose since mock return values prove nothing about the actual repo on disk'
+      - 'Shell script harness calling pnpm test:int sub-process — adds CI complexity, cannot share TypeScript test helpers, and loses Vitest assertion context for diagnosable failure messages'
+    rationale: >
+      worktree-git-init.test.ts establishes the canonical pattern: wrap promisify(execFileCb) in
+      an adapter satisfying ExecFunction signature and pass it to GitPrService directly. This runs
+      all git commands against real repositories in temp directories created by mkdtempSync. The
+      same adapter is used for the createGitHarness() helper (git init --bare, git clone, git
+      commit, git push) and for the GitPrService instance under test. No new patterns are
+      introduced. Uses execFile (not exec) to avoid shell injection; arguments are always passed
+      as an array, never interpolated into a shell command string.
+
+  - title: 'PR-Path Testing: testing PR merge flow without GitHub CLI or network'
+    chosen: 'Selective ExecFunction wrapper: real git binary for git commands, mock output for gh commands'
+    rejected:
+      - 'Fully mock GitPrService for all PR-path tests — same approach as existing merge-flow.test.ts; cannot verify git state and cannot expose the unverified-PR-merge bug where verifyMerge is skipped after prUrl is set'
+      - 'Install and configure a local git server (gitea/gogs) in CI — massive operational overhead, requires Docker or network, violates hermetic NFR-2, far exceeds M-size estimate'
+    rationale: >
+      The selective wrapper is minimal (~10 lines): a function that checks if the first argument
+      is 'gh' and returns mock output (simulating PR creation -> fake PR URL, PR merge -> success),
+      otherwise calls the real promisified execFile. This lets tests exercise the full merge node
+      code path (prUrl detection via parsePrUrl, gh-conditional branch in Phase 2) while asserting
+      actual git state via git merge-base --is-ancestor. The pattern is implied by the ExecFunction
+      injection design in GitPrService. The 'gh' interception returns hardcoded strings with no
+      user input, so there is no injection risk.
+
+  - title: 'Test Harness Structure: createGitHarness() helper design'
+    chosen: 'Single createGitHarness() function in the test file returning { bareDir, cloneDir, featureBranch, runGit }'
+    rejected:
+      - 'Extract harness to shared test utility module (tests/helpers/git-harness.ts) — adds a new file for a single consumer; spec mandates single-file approach with colocated helper'
+      - 'Inline git setup commands in each test — duplicates 15+ lines of bare-repo init/clone/branch setup across 8+ tests, violating NFR-8'
+    rationale: >
+      The spec (NFR-8) mandates a reusable createGitHarness() helper colocated in the test file.
+      The helper performs: git init --bare (bareDir), git clone (cloneDir), git config user,
+      initial commit on main, git push, git checkout -b feat/branch, initial feature commit.
+      Returns { bareDir, cloneDir, featureBranch, runGit } where runGit is the promisified
+      ExecFunction bound to cloneDir for assertion commands. Each beforeEach call creates fresh
+      isolated directories via mkdtempSync; afterEach calls rmSync({ recursive: true, force: true }).
+
+  - title: 'Known-Buggy Test Handling: leave failing vs. skip/todo'
+    chosen: 'Leave all tests asserting correct behavior — tests covering bugs FAIL (RED phase, TDD discipline)'
+    rejected:
+      - 'Mark known-buggy tests as it.skip() or test.todo() — keeps CI green but defeats the user intent ("find the bug USING tests") and violates the CLAUDE.md TDD mandate'
+      - 'Add failing assertions only as comments or documentation — provides zero executable evidence of the bug; completely useless for CI-driven bug tracking'
+    rationale: >
+      The spec resolves this question explicitly and CLAUDE.md mandates TDD. Tests must assert
+      correct behavior. Tests covering unverified-PR-merge and local-merge-missing bugs will fail
+      immediately on the unmodified codebase — that is the signal. Each failing assertion message
+      must describe which git assertion failed. The failing test suite becomes the bug tracker;
+      bugs are resolved when tests turn GREEN after code fixes.
+
+  - title: 'MergeNodeDeps Wiring: which deps are real vs. mocked'
+    chosen: 'Real GitPrService (real git ExecFunction) for git methods; vi.fn() mock for IAgentExecutor only'
+    rejected:
+      - 'Mock both GitPrService and IAgentExecutor — identical to existing merge-flow.test.ts approach; cannot verify real git state'
+      - 'Real IAgentExecutor (real AI calls) — requires API keys, non-deterministic, makes tests slow and unreliable, violates NFR-2'
+    rationale: >
+      The bug surface is in git operations (merge not landing, verify skipped). Using a real
+      GitPrService with a real ExecFunction means hasRemote(), getDefaultBranch(), verifyMerge(),
+      and mergeBranch() all run real git commands against the temp repo. The IAgentExecutor mock
+      (vi.fn()) returns crafted output strings containing realistic commit hashes
+      ("[feat/branch abc1234]") and PR URLs ("https://github.com/test/repo/pull/42") parsed by
+      parseCommitHash() and parsePrUrl(). The featureRepository mock uses vi.fn() to capture
+      update() calls for lifecycle assertions.
+
+  - title: 'specDir Setup: what files the merge node requires on disk'
+    chosen: 'Create real specDir with feature.yaml (completedPhases: []) and stub spec/research/plan/tasks YAML files following merge-flow.test.ts pattern'
+    rejected:
+      - 'Pass null or empty string for specDir — merge.node.ts calls markPhaseComplete() which writes to specDir; tests throw ENOENT without a valid directory'
+      - 'Mock the file system (memfs) — adds a heavy dependency not used elsewhere in the project; the pattern in merge-flow.test.ts is to create real files in mkdtempSync directories'
+    rationale: >
+      merge.node.ts calls markPhaseComplete(state.specDir, 'merge', log) which writes a phase
+      completion marker. The merge-flow.test.ts reference pattern creates a real specDir in
+      beforeAll via mkdirSync(specDir, { recursive: true }) and writes stub YAML files. Each
+      beforeEach resets feature.yaml with completedPhases: []. This pattern must be replicated
+      exactly. The specDir lives inside the test's temp directory and is cleaned up with rmSync.
+
+  - title: 'Settings Initialization: satisfying the CI watch loop singleton'
+    chosen: 'initializeSettings(createDefaultSettings()) in beforeAll; resetSettings() in afterAll — identical to merge-flow.test.ts'
+    rejected:
+      - 'Skip settings initialization and rely on defaults — the CI watch/fix loop reads settings via getSettings(); without initialization the singleton may throw or use undefined values'
+      - 'Mock the getSettings() module import via vi.mock() — requires module-level mock which can interfere with GitPrService imports; explicit beforeAll initialization is cleaner'
+    rationale: >
+      merge.node.ts's ciWatchFixLoop reads workflow.ciMaxFixAttempts, ciWatchTimeoutMs, and
+      ciLogMaxChars from the settings singleton. Even for tests where the CI loop is not exercised
+      (push=false, openPr=false), settings initialization is required because the module is
+      imported unconditionally. The existing merge-flow.test.ts pattern must be replicated.
+
+  - title: 'Git State Assertion: how to verify a merge actually landed'
+    chosen: 'Run git merge-base --is-ancestor <featureBranch> <baseBranch> via promisified execFile in cloneDir after node completes'
+    rejected:
+      - 'Assert via featureRepository.update called with lifecycle=Maintain — only proves the node set a status field, not that git actually recorded a merge'
+      - 'Assert via verifyMerge() return value — verifyMerge is part of the dependency under test; on the PR path it is not even called (that is the bug)'
+    rationale: >
+      The spec (FR-2) mandates asserting actual git state via git merge-base --is-ancestor. This
+      command exits 0 if the first commit is an ancestor of the second. A non-zero exit code
+      (caught as an error from execFile) proves the merge did not land. For the unverified-PR-merge
+      bug test, the assertion expects rejection — proving the current code never verified the merge.
+      Complementary lifecycle assertions (featureRepository.update with lifecycle=Maintain) remain
+      valid secondary assertions but do not replace git state verification.
+
+# Open questions (should be resolved by end of research)
+openQuestions:
+  - question: 'How should the merge node be invoked as a plain function in tests (not via LangGraph graph.invoke)?'
+    resolved: true
+    options:
+      - option: 'Call the returned node function directly with (state, config) arguments'
+        description: >
+          createMergeNode returns an async function (state, config?) => Promise<Partial<FeatureAgentState>>.
+          Call it directly with a constructed state object and undefined config. Bypasses LangGraph
+          orchestration. Return value contains updated state channels (lifecycle, prUrl, commitHash, etc.).
+          Interrupt is thrown as a special LangGraph error for gate tests.
+        selected: true
+      - option: 'Compile a minimal single-node LangGraph graph and invoke via graph.invoke()'
+        description: >
+          Build a single-node LangGraph graph wrapping createMergeNode, compile with in-memory
+          checkpointer, invoke via graph.invoke(). Adds LangGraph compilation overhead and requires
+          handling interrupts via Command resume — same complexity as merge-flow.test.ts without
+          adding value since interrupt/resume is already tested there.
+        selected: false
+      - option: 'Extract merge node logic into a pure function and test that instead'
+        description: >
+          Refactor merge.node.ts to expose a pure function independent of the LangGraph wrapper,
+          test that function directly. Requires modifying production source which is prohibited by
+          NFR-1 (no production code changes).
+        selected: false
+    selectionRationale: >
+      createMergeNode() returns an async function — LangGraph nodes are plain async functions
+      called with (state, config). Calling it directly in tests is the simplest approach: no
+      graph compilation, no checkpointer, no interrupt handling complexity beyond expect().rejects
+      for gate tests. The return value is the partial state update which tests assert on directly.
+
+  - question: 'Where should the test file be placed to be picked up by pnpm test:int automatically?'
+    resolved: true
+    options:
+      - option: 'tests/integration/infrastructure/services/git/merge-step-real-git.test.ts'
+        description: >
+          Colocated with worktree-git-init.test.ts in the git services integration test directory.
+          Picked up automatically by Vitest via tests/**/*.test.ts glob. No configuration changes
+          required. Logical grouping with other real-git tests.
+        selected: true
+      - option: 'tests/integration/infrastructure/services/agents/merge-step-real-git.test.ts'
+        description: >
+          Colocated with merge-flow.test.ts in the agents integration directory. Groups with merge
+          node tests but mixes real-git tests with mock-executor tests in the same directory,
+          potentially confusing future maintainers about which tests require a git binary.
+        selected: false
+      - option: 'tests/integration/merge-step-real-git.test.ts (top-level integration directory)'
+        description: >
+          Places the file at the top of the integration test tree without a domain-specific
+          subdirectory. Less organized, not consistent with the existing directory structure which
+          mirrors packages/core/src/infrastructure/services/.
+        selected: false
+    selectionRationale: >
+      The spec places the file in tests/integration/infrastructure/services/git/ matching
+      worktree-git-init.test.ts. These tests exercise GitPrService with real git — they belong in
+      the git services directory. The Vitest config uses tests/**/*.test.ts which picks up files
+      at any depth, so no configuration change is needed.
+
+  - question: 'How should the merge node state be constructed for tests that target Phase 2 git operations directly?'
+    resolved: true
+    options:
+      - option: 'Pre-populate state with completedPhases ["merge"] in feature.yaml to simulate post-Phase-1 state'
+        description: >
+          The merge node reads completedPhases from feature.yaml. Writing feature.yaml with
+          status.completedPhases: ["merge"] before invoking the node puts it in post-Phase-1 state,
+          skipping commit/push and jumping directly to Phase 2 merge logic.
+        selected: true
+      - option: 'Run Phase 1 fully (commit prompt), capture interrupt, then resume with Command for Phase 2'
+        description: >
+          Invoke node function, catch interrupt error, then invoke again with _approvalAction="approved".
+          Exercises full two-phase flow but requires handling LangGraph interrupt errors and makes
+          test setup more complex without adding value for git state verification of Phase 2.
+        selected: false
+      - option: 'Always run the full two-phase flow (Phase 1 + Phase 2) in every test'
+        description: >
+          Never pre-populate completedPhases; always run from scratch. Requires mock executor to
+          handle both Phase 1 and Phase 2 prompt calls with different mock responses. Adds complexity
+          to every test case.
+        selected: false
+    selectionRationale: >
+      Pre-populating completedPhases: ["merge"] via feature.yaml cleanly simulates post-Phase-1
+      state for tests focused on Phase 2 git verification. For tests that verify Phase 1 behavior
+      (commit, push, openPr flag handling), the state starts with completedPhases: [] and the mock
+      executor returns the commit hash / PR URL. This hybrid approach minimizes per-test complexity.
+
+# Markdown content (the full research document)
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-02-26
+
+  ## Technology Decisions
+
+  ### 1. Test Entry Point: createMergeNode Directly
+
+  **Chosen:** Instantiate `createMergeNode(deps)` and call the returned async function directly.
+
+  **Rejected:**
+  - Full `createFeatureAgentGraph` — redundant with existing `merge-flow.test.ts`; adds complexity unrelated to git state verification
+  - GitPrService unit tests — cannot exercise the node-level decision logic containing the bugs
+
+  **Rationale:** `createMergeNode` returns an async function `(state, config?) => Promise<Partial<FeatureAgentState>>`. Calling it directly bypasses LangGraph orchestration, keeps tests fast and focused on git state — the actual bug surface.
+
+  ### 2. Real Git Execution via Promisified execFile
+
+  **Chosen:** Wrap `promisify(execFileCb)` with the `ExecFunction` adapter signature, identical to `worktree-git-init.test.ts`.
+
+  **Rejected:**
+  - `vi.fn()` for all ExecFunction — proves nothing about real git state
+  - Shell script sub-process harness — loses TypeScript test context and Vitest assertions
+
+  **Rationale:** The existing pattern in `worktree-git-init.test.ts` is canonical. GitPrService accepts an ExecFunction injection; passing the real promisified execFile runs actual git commands in temp directories. Uses `execFile` (not `exec`) — arguments are always passed as an array to avoid shell injection.
+
+  ### 3. PR-Path Testing: Selective ExecFunction Wrapper
+
+  **Chosen:** ExecFunction wrapper that intercepts `gh` commands (returns mock output) and passes `git` commands to real execFile.
+
+  **Rejected:**
+  - Fully mock GitPrService for PR tests — cannot expose the unverified-PR-merge bug
+  - Real `gh` CLI with GitHub server — violates hermetic NFR-2, requires network access
+
+  **Rationale:** The selective wrapper is ~10 lines. It checks `file === 'gh'` and returns crafted mock output. All `git` commands run against the real bare-repo harness. The only approach that simultaneously exercises real git state AND simulates the GitHub PR workflow.
+
+  ### 4. Bare-Repo Local Remote for Push/Fetch Tests
+
+  **Chosen:** `git init --bare` as local remote + `git clone` as working copy, all in `mkdtempSync` directories.
+
+  **Rejected:**
+  - Local-only tests for all scenarios — cannot test push/remote branches which are primary failure modes for `push=true` paths
+  - Real GitHub remote — violates NFR-2 (network access prohibited)
+
+  **Rationale:** Bare repositories are the standard offline substitute for a remote git server. Industry-standard hermetic git testing pattern that exercises `git push`, `git fetch`, and `git merge-base` without network access.
+
+  ### 5. createGitHarness() Helper
+
+  **Chosen:** Single `createGitHarness()` function colocated in the test file returning `{ bareDir, cloneDir, featureBranch, runGit }`.
+
+  **Rejected:**
+  - Separate test utility module — one consumer does not justify a new file; spec mandates single-file
+  - Inline setup per test — 15+ lines of duplication across 8+ tests violates NFR-8
+
+  **Rationale:** NFR-8 mandates a reusable helper. The helper initializes the bare repo, clones it, makes an initial commit on main, pushes, and creates a feature branch with an initial commit. Returns `runGit` (promisified execFile bound to cloneDir) for assertion commands.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | `node:child_process` execFile + promisify | Real git execution | Use | Already used in worktree-git-init.test.ts; no new dependency; execFile prevents shell injection |
+  | `node:fs` mkdtempSync/rmSync | Isolated temp dirs | Use | Standard Node.js; same pattern as all existing integration tests |
+  | `node:os` tmpdir | System temp dir base | Use | Cross-platform; used in all existing integration tests |
+  | `vitest` | Test framework | Use | Project-mandated; vi.fn(), expect, describe/it/before*/after* |
+  | `memfs` | Virtual file system mock | Reject | Heavy dependency not used elsewhere; real files in mkdtempSync are simpler |
+  | `simple-git` | Higher-level git API | Reject | Not in project dependencies; raw git commands via ExecFunction match existing patterns |
+
+  ## Security Considerations
+
+  - **Temp directory isolation**: Each test creates its own `mkdtempSync` directory with unique prefix. No cross-test contamination of git state.
+  - **No network access**: Bare repo on local filesystem. Selective ExecFunction wrapper ensures `gh` commands never reach a real GitHub endpoint.
+  - **No credentials**: Tests never touch GitHub authentication or API tokens.
+  - **execFile not exec**: All git commands are passed as argument arrays to `execFile`, never interpolated into shell strings. No shell injection risk.
+  - **Temp cleanup on failure**: `rmSync(dir, { recursive: true, force: true })` in `afterEach` runs even when tests fail, preventing disk accumulation in CI.
+
+  ## Performance Implications
+
+  - **Real git I/O**: Each test initializes a bare repo, clones it, makes commits, and potentially pushes. Estimated 100-500ms per test. For 8+ tests, total ~1-5 seconds — within the 10-second Vitest timeout per test.
+  - **No AI calls**: Mock executor returns synchronously via `vi.fn().mockResolvedValue()`. CI watch loop is not exercised in most tests (push=false).
+  - **Settings singleton**: Initialized once in `beforeAll`, not per test. No per-test overhead.
+  - **Parallel test files**: Vitest runs files in parallel. `mkdtempSync` with unique prefix per file prevents conflicts.
+
+  ## Architecture Notes
+
+  ### Merge Node Bug Map
+
+  Based on reading `merge.node.ts`, the key decision paths and bug locations:
+
+  ```
+  Phase 1 (completedPhases does NOT include 'merge'):
+    agent call: commit + push (if push||openPr) + PR creation (if openPr)
+    CI loop:    if push||openPr
+    gate:       shouldInterrupt('merge', approvalGates) -> interrupt()
+
+  Phase 2 (post-interrupt or no-gate):
+    if (approvalGates?.allowMerge) {   <- undefined approvalGates: silent skip [Bug 3]
+      agent call: merge prompt
+        -> gh pr merge (if prUrl)      <- verifyMerge() SKIPPED on PR path [Bug 1]
+        -> local git merge (if !prUrl)
+      if (!prUrl) { verifyMerge() }    <- only called on local path
+    }
+    // local merge (push=false,openPr=false,allowMerge=true) may not land [Bug 2]
+  ```
+
+  ### Key Type Interfaces for Test Construction
+
+  ```typescript
+  // MergeNodeDeps (merge.node.ts)
+  interface MergeNodeDeps {
+    executor: IAgentExecutor;
+    getDiffSummary: (cwd: string, baseBranch: string) => Promise<DiffSummary>;
+    hasRemote: (cwd: string) => Promise<boolean>;
+    getDefaultBranch: (cwd: string) => Promise<string>;
+    featureRepository: Pick<IFeatureRepository, 'findById' | 'update'>;
+    verifyMerge: (cwd: string, featureBranch: string, baseBranch: string) => Promise<boolean>;
+    gitPrService: IGitPrService;
+  }
+
+  // ExecFunction (worktree.service.ts)
+  type ExecFunction = (
+    file: string,
+    args: string[],
+    options?: object
+  ) => Promise<{ stdout: string; stderr: string }>;
+  ```
+
+  ### Assertion Pattern for Real Git State
+
+  ```typescript
+  // Positive: merge DID land (exits 0 if featureBranch is ancestor of main)
+  await runGit('git', ['merge-base', '--is-ancestor', 'feat/branch', 'main']);
+
+  // Negative: merge did NOT land — proves the bug (exits non-zero, rejects)
+  await expect(
+    runGit('git', ['merge-base', '--is-ancestor', 'feat/branch', 'main'])
+  ).rejects.toThrow();
+  ```
+
+  ### State Construction for Phase 2 Tests
+
+  ```typescript
+  // Skip Phase 1 by pre-populating completedPhases in feature.yaml
+  writeFileSync(join(specDir, 'feature.yaml'), 'status:\n  completedPhases: ["merge"]\n');
+
+  const state = {
+    repositoryPath: cloneDir,
+    worktreePath: cloneDir,
+    specDir,
+    branch: 'feat/test-123',
+    push: false,
+    openPr: false,
+    approvalGates: { allowMerge: true },
+    prUrl: null,
+    prNumber: null,
+    commitHash: 'abc1234',
+    // ... other FeatureAgentState channels with defaults
+  };
+  ```

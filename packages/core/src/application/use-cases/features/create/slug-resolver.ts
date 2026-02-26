@@ -2,15 +2,14 @@
  * SlugResolver
  *
  * Resolves unique slugs by checking against database and git branches.
- * Ensures no slug collision by appending numeric suffixes (-2, -3, etc.)
+ * On collision, appends a short random suffix to guarantee uniqueness
+ * without arbitrary iteration limits.
  */
 
+import { randomBytes } from 'node:crypto';
 import { injectable, inject } from 'tsyringe';
 import type { IFeatureRepository } from '../../../ports/output/repositories/feature-repository.interface.js';
 import type { IWorktreeService } from '../../../ports/output/services/worktree-service.interface.js';
-
-/** Maximum number of suffix attempts before giving up */
-const MAX_SUFFIX = 10;
 
 export interface SlugResolutionResult {
   slug: string;
@@ -28,42 +27,50 @@ export class SlugResolver {
   ) {}
 
   /**
-   * Find a unique slug by checking both the feature DB and git branches.
-   * If the original slug conflicts, appends -2, -3, etc. until a free one is found.
+   * Find a unique slug by checking the feature DB, local branches, and remote branches.
+   * If the original slug conflicts, appends a short random hex suffix (e.g., -a3f1).
    */
   async resolveUniqueSlug(
     originalSlug: string,
     repositoryPath: string
   ): Promise<SlugResolutionResult> {
-    for (let suffix = 0; suffix <= MAX_SUFFIX; suffix++) {
-      const slug = suffix === 0 ? originalSlug : `${originalSlug}-${suffix + 1}`;
-      const branch = `feat/${slug}`;
-
-      // Check if a feature with this slug already exists in the DB
-      const existing = await this.featureRepo.findBySlug(slug, repositoryPath);
-      if (existing) {
-        if (suffix === 0) continue; // try suffixed version
-        continue;
-      }
-
-      // Check if the git branch already exists (worktree or standalone branch)
-      const branchInUse = await this.worktreeService.exists(repositoryPath, branch);
-      const branchExists = await this.worktreeService.branchExists(repositoryPath, branch);
-      if (branchInUse || branchExists) continue;
-
-      if (suffix > 0) {
-        return {
-          slug,
-          branch,
-          warning: `Branch "feat/${originalSlug}" already exists, using "${branch}" instead`,
-        };
-      }
-
-      return { slug, branch };
+    // First try the original slug as-is
+    if (await this.isSlugAvailable(originalSlug, repositoryPath)) {
+      return { slug: originalSlug, branch: `feat/${originalSlug}` };
     }
 
-    throw new Error(
-      `Could not find a unique slug for "${originalSlug}" after ${MAX_SUFFIX} attempts`
+    // Collision — generate a random suffix
+    const suffix = randomBytes(3).toString('hex'); // 6 hex chars, e.g. "a3f1b2"
+    const slug = `${originalSlug}-${suffix}`;
+    const branch = `feat/${slug}`;
+
+    return {
+      slug,
+      branch,
+      warning: `Branch "feat/${originalSlug}" already exists, using "${branch}" instead`,
+    };
+  }
+
+  private async isSlugAvailable(slug: string, repositoryPath: string): Promise<boolean> {
+    const branch = `feat/${slug}`;
+
+    // Check if a feature with this slug already exists in the DB
+    const existing = await this.featureRepo.findBySlug(slug, repositoryPath);
+    if (existing) return false;
+
+    // Check if the git branch already exists (worktree, local, or remote)
+    const branchInUse = await this.worktreeService.exists(repositoryPath, branch);
+    if (branchInUse) return false;
+
+    const branchExists = await this.worktreeService.branchExists(repositoryPath, branch);
+    if (branchExists) return false;
+
+    const remoteBranchExists = await this.worktreeService.remoteBranchExists(
+      repositoryPath,
+      branch
     );
+    if (remoteBranchExists) return false;
+
+    return true;
   }
 }

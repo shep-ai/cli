@@ -33,11 +33,13 @@ import type { RejectionFeedbackEntry } from '@/domain/generated/output.js';
 
 /**
  * Extract the rejection feedback section from a prompt.
- * Returns the text between "## Previous * Rejection Feedback" and the next "##" heading,
+ * Returns the text between the CRITICAL feedback heading and the next "##" heading,
  * or empty string if not found.
  */
 function extractFeedbackSection(prompt: string): string {
-  const match = prompt.match(/## Previous.*?Rejection Feedback\n([\s\S]*?)(?=\n##|\n\nYou are)/);
+  const match = prompt.match(
+    /## ⚠️ CRITICAL — User Rejection Feedback[^\n]*\n([\s\S]*?)(?=\n## [^#]|\n\nYou are)/
+  );
   return match ? match[1] : '';
 }
 
@@ -150,7 +152,7 @@ describe('Graph State Transitions › Reject Feedback Propagation', () => {
 
         // 5. Verify the re-execution prompt contains rejection feedback
         const reexecPrompt = ctx.executor.prompts[ctx.executor.prompts.length - 1];
-        expect(reexecPrompt).toContain('Previous Rejection Feedback');
+        expect(reexecPrompt).toContain('CRITICAL — User Rejection Feedback');
         expect(reexecPrompt).toContain(messages[i]);
 
         // 6. Verify ALL previous messages are in the prompt (cumulative)
@@ -235,7 +237,7 @@ describe('Graph State Transitions › Reject Feedback Propagation', () => {
 
         // 5. Verify the plan re-execution prompt contains plan-specific feedback
         const reexecPrompt = ctx.executor.prompts[ctx.executor.prompts.length - 1];
-        expect(reexecPrompt).toContain('Previous Plan Rejection Feedback');
+        expect(reexecPrompt).toContain('CRITICAL — User Rejection Feedback');
         expect(reexecPrompt).toContain(messages[i]);
 
         // 6. Verify cumulative feedback
@@ -321,7 +323,7 @@ describe('Graph State Transitions › Reject Feedback Propagation', () => {
 
         // 5. Verify the merge re-execution prompt contains merge-specific feedback
         const reexecPrompt = ctx.executor.prompts[ctx.executor.prompts.length - 1];
-        expect(reexecPrompt).toContain('Previous Merge Rejection Feedback');
+        expect(reexecPrompt).toContain('CRITICAL — User Rejection Feedback');
         expect(reexecPrompt).toContain(messages[i]);
 
         // 6. Verify cumulative feedback
@@ -384,9 +386,8 @@ describe('Graph State Transitions › Reject Feedback Propagation', () => {
 
         // Verify requirements feedback section in prompt
         const prompt = ctx.executor.prompts[ctx.executor.prompts.length - 1];
-        expect(prompt).toContain('Previous Rejection Feedback');
-        expect(prompt).not.toContain('Previous Plan Rejection Feedback');
-        expect(prompt).not.toContain('Previous Merge Rejection Feedback');
+        expect(prompt).toContain('CRITICAL — User Rejection Feedback');
+        // Phase isolation verified via extractFeedbackSection content checks below
 
         // Verify the feedback section contains only requirements messages
         const section = extractFeedbackSection(prompt);
@@ -416,8 +417,8 @@ describe('Graph State Transitions › Reject Feedback Propagation', () => {
 
         // Verify plan feedback section in prompt
         const prompt = ctx.executor.prompts[ctx.executor.prompts.length - 1];
-        expect(prompt).toContain('Previous Plan Rejection Feedback');
-        expect(prompt).not.toContain('Previous Merge Rejection Feedback');
+        expect(prompt).toContain('CRITICAL — User Rejection Feedback');
+        // Phase isolation verified via extractFeedbackSection content checks below
 
         // Verify the feedback section contains only plan messages
         const section = extractFeedbackSection(prompt);
@@ -448,8 +449,8 @@ describe('Graph State Transitions › Reject Feedback Propagation', () => {
 
         // Verify merge feedback section in prompt
         const prompt = ctx.executor.prompts[ctx.executor.prompts.length - 1];
-        expect(prompt).toContain('Previous Merge Rejection Feedback');
-        expect(prompt).not.toContain('Previous Plan Rejection Feedback');
+        expect(prompt).toContain('CRITICAL — User Rejection Feedback');
+        // Phase isolation verified via extractFeedbackSection content checks below
 
         // Verify the feedback section contains only merge messages
         const section = extractFeedbackSection(prompt);

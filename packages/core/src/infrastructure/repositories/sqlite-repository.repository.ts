@@ -18,13 +18,16 @@ import {
 export class SQLiteRepositoryRepository implements IRepositoryRepository {
   constructor(private readonly db: Database.Database) {}
 
-  async create(repository: Repository): Promise<void> {
+  async create(repository: Repository): Promise<Repository> {
     const row = toDatabase(repository);
-    const stmt = this.db.prepare(`
+    const insertStmt = this.db.prepare(`
       INSERT OR IGNORE INTO repositories (id, name, path, created_at, updated_at)
       VALUES (@id, @name, @path, @created_at, @updated_at)
     `);
-    stmt.run(row);
+    insertStmt.run(row);
+    const selectStmt = this.db.prepare('SELECT * FROM repositories WHERE path = ?');
+    const existing = selectStmt.get(row.path) as RepositoryRow;
+    return fromDatabase(existing);
   }
 
   async findById(id: string): Promise<Repository | null> {

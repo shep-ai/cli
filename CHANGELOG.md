@@ -1,3 +1,61 @@
+## [1.66.4](https://github.com/shep-ai/cli/compare/v1.66.3...v1.66.4) (2026-02-26)
+
+### Bug Fixes
+
+- **agents:** fix ci watch reporting green ci as failure ([#166](https://github.com/shep-ai/cli/issues/166)) ([117950a](https://github.com/shep-ai/cli/commit/117950a7e1d5b2040d821ea266427365fff69e00))
+
+## [1.66.3](https://github.com/shep-ai/cli/compare/v1.66.2...v1.66.3) (2026-02-26)
+
+### Bug Fixes
+
+- **agents:** check remote branches in slug resolver and prevent stale pulls ([#164](https://github.com/shep-ai/cli/issues/164)) ([5dede79](https://github.com/shep-ai/cli/commit/5dede79d02cbd50d44752d7e7679676f26f18241))
+
+## [1.66.2](https://github.com/shep-ai/cli/compare/v1.66.1...v1.66.2) (2026-02-26)
+
+### Bug Fixes
+
+- **agents:** fix merge rejection, worktree path, and default branch bugs ([#163](https://github.com/shep-ai/cli/issues/163)) ([05b6c57](https://github.com/shep-ai/cli/commit/05b6c57ef5917183bb64e114e18df8d9d443644c))
+
+## [1.66.1](https://github.com/shep-ai/cli/compare/v1.66.0...v1.66.1) (2026-02-26)
+
+### Bug Fixes
+
+- **agents:** persist pr data to db before merge approval gate ([#162](https://github.com/shep-ai/cli/issues/162)) ([e078a36](https://github.com/shep-ai/cli/commit/e078a363df33630593cfcdad4f0d930e2625b0a7))
+
+# [1.66.0](https://github.com/shep-ai/cli/compare/v1.65.1...v1.66.0) (2026-02-26)
+
+### Bug Fixes
+
+- **web:** fix repo/feature visibility bug — ensure repo rows created and rendered ([#159](https://github.com/shep-ai/cli/issues/159)) ([df92f6f](https://github.com/shep-ai/cli/commit/df92f6f6a18f6a64f24fd26f6a862d9e0286149d))
+
+### Features
+
+- **web,deployment:** add deploy dev server action to feature and repository nodes ([#150](https://github.com/shep-ai/cli/issues/150)) ([b70c8a9](https://github.com/shep-ai/cli/commit/b70c8a93e38adb46934855e0d312eea209b1f092))
+
+## [1.65.1](https://github.com/shep-ai/cli/compare/v1.65.0...v1.65.1) (2026-02-26)
+
+### Bug Fixes
+
+- **agents:** detect ci failure from real execfile error format + resume-after-error tests ([#155](https://github.com/shep-ai/cli/issues/155)) ([0a8dc03](https://github.com/shep-ai/cli/commit/0a8dc03a1da500535a7125a579a05619a52d7767))
+
+# [1.65.0](https://github.com/shep-ai/cli/compare/v1.64.2...v1.65.0) (2026-02-26)
+
+### Features
+
+- **cli:** add shep restart command and daemon lifecycle to upgrade ([#160](https://github.com/shep-ai/cli/issues/160)) ([a13e4ea](https://github.com/shep-ai/cli/commit/a13e4ea84420d9e3ac1b6a1a3bdba8fd5cda785c))
+
+## [1.64.2](https://github.com/shep-ai/cli/compare/v1.64.1...v1.64.2) (2026-02-26)
+
+### Bug Fixes
+
+- **web:** prevent setstate-in-render in use-sound-enabled ([#157](https://github.com/shep-ai/cli/issues/157)) ([912b033](https://github.com/shep-ai/cli/commit/912b0330caa1202a0460e632da44e09553e4288c))
+
+## [1.64.1](https://github.com/shep-ai/cli/compare/v1.64.0...v1.64.1) (2026-02-26)
+
+### Bug Fixes
+
+- **web:** stop drawer-open sound firing on every re-render ([#156](https://github.com/shep-ai/cli/issues/156)) ([4569852](https://github.com/shep-ai/cli/commit/45698524133525c27e53fbec604e76d9227cb37a))
+
 # [1.64.0](https://github.com/shep-ai/cli/compare/v1.63.0...v1.64.0) (2026-02-26)
 
 ### Features

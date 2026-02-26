@@ -1,0 +1,337 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: daemon-restart-upgrade
+summary: >
+  The feature is a pure CLI-layer addition with no new external dependencies, TypeSpec changes, or
+  domain model updates required. All necessary infrastructure (IDaemonService, startDaemon helper,
+  Commander.js, messages UI) is already in place. The key work is extracting a stopDaemon() helper
+  from stop.command.ts (mirroring the existing daemon/ subdirectory pattern), wiring it into a new
+  restart.command.ts and the upgraded upgrade.command.ts, and covering all new paths with unit and
+  E2E tests following established vitest mock patterns.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - TypeScript
+  - Node.js (child_process, process signals)
+  - Commander.js (CLI framework)
+  - IDaemonService (application port — read, write, delete, isAlive)
+  - DaemonPidService (infrastructure implementation of IDaemonService)
+  - startDaemon helper (src/presentation/cli/commands/daemon/start-daemon.ts)
+  - stopDaemon helper (new — src/presentation/cli/commands/daemon/stop-daemon.ts)
+  - messages UI helpers (src/presentation/cli/ui/messages.ts)
+  - Vitest (unit + E2E testing framework)
+
+relatedLinks: []
+
+# Structured technology decisions
+decisions:
+  - title: 'stopDaemon Helper — Dependency Injection vs Internal Container Resolution'
+    chosen: >
+      Accept IDaemonService as a required function parameter:
+      stopDaemon(daemonService: IDaemonService): Promise<void>
+    rejected:
+      - >
+        Resolve IDaemonService internally from container (as startDaemon() does) — rejected because
+        startDaemon() resolves the service internally, which forces tests to mock the entire
+        container. stopDaemon() will be called by three different commands and needs clean
+        injection so each caller's unit test can supply a focused mock without container setup.
+        The spec explicitly mandates parameter injection via NFR-4.
+      - >
+        Module-level singleton resolved once at import time — rejected because it creates hidden
+        global state, breaks test isolation (mocks applied after import are ignored), and violates
+        the dependency-inversion principles used throughout the CLI layer.
+    rationale: >
+      Parameter injection mirrors what the spec mandates (NFR-4) and what unit tests require.
+      All command action handlers already resolve IDaemonService from the container and can pass it
+      through. This keeps stopDaemon() a pure, easily testable function. The upgrade command test
+      already mocks container.resolve to return fake services — adding IDaemonService follows
+      exactly the same pattern with no structural change to the test file.
+
+  - title: 'stopDaemon Helper — File Location and Module Boundary'
+    chosen: >
+      Create src/presentation/cli/commands/daemon/stop-daemon.ts alongside the existing
+      start-daemon.ts, establishing the daemon/ subdirectory as the home for shared daemon
+      lifecycle helpers.
+    rejected:
+      - >
+        Co-locate in stop.command.ts and export from there — rejected because restart.command.ts
+        and upgrade.command.ts would import from a file named "stop.command.ts", creating an
+        awkward coupling that signals the wrong ownership boundary. The daemon/ subdirectory
+        pattern is already established by start-daemon.ts.
+      - >
+        Place at src/presentation/cli/commands/stop-daemon.ts (top-level commands folder) —
+        rejected because it pollutes the flat commands directory with a helper that is not itself
+        a command. The daemon/ subdirectory groups lifecycle helpers cohesively and matches the
+        existing structure.
+    rationale: >
+      The daemon/ subdirectory already exists with start-daemon.ts. Placing stop-daemon.ts there
+      follows the established convention and makes the start/stop helper symmetry obvious to future
+      maintainers. Import paths in callers become './daemon/stop-daemon.js', consistent with how
+      start.command.ts already imports './daemon/start-daemon.js'.
+
+  - title: 'upgrade.command.ts — IDaemonService Integration Pattern'
+    chosen: >
+      Resolve IDaemonService from the DI container inside the existing action handler (same as
+      IVersionService today), pass it to stopDaemon(), and capture the port before stopping for
+      use in the post-install startDaemon({ port }) call.
+    rejected:
+      - >
+        Add daemonService as a second factory parameter to createUpgradeCommand() alongside
+        spawnFn — rejected because it changes the existing factory signature and would require
+        updating index.ts and all existing upgrade unit tests unnecessarily. The container
+        resolution pattern already used for IVersionService is the established convention.
+      - >
+        Call stopDaemon() without passing daemonService (let it resolve internally) — rejected
+        because NFR-4 mandates parameter injection. If stopDaemon() resolved the service
+        internally, it could not be unit-tested without container setup, and the upgrade command
+        test could not verify that stopDaemon() was called with the right service instance.
+    rationale: >
+      The existing upgrade test mocks container.resolve to return a fake IVersionService via
+      vi.mocked(container.resolve).mockReturnValue(). Adding a second mock return for IDaemonService
+      uses the same mechanism. No factory signature changes means no churn in index.ts or existing
+      tests. The port capture (const previousPort = state.port before stopDaemon) is one variable.
+
+  - title: 'upgrade.command.ts — Daemon Restart on npm install Failure'
+    chosen: >
+      Wrap the runNpmInstall() call in a try/finally block so that daemon restart (stopDaemon +
+      startDaemon) executes regardless of whether npm install succeeds, fails with non-zero exit
+      code, or rejects with a spawn error.
+    rejected:
+      - >
+        if/else branching — only restart when exit code is 0, leave daemon stopped on failure.
+        Rejected: violates the spec decision (open question 2 answer: restart regardless).
+        Leaves users with no running daemon after a transient npm outage, which is a poor UX
+        footgun that requires manual recovery via shep start.
+      - >
+        Catch-only restart — restart the daemon only in the catch block. Rejected: a non-zero
+        exit code from runNpmInstall() resolves the Promise (it does not throw), so the catch
+        block would never see normal npm failure. This approach silently skips restart on the
+        most common failure mode.
+    rationale: >
+      finally is the canonical Node.js pattern for "always clean up". It handles all three
+      outcomes: (a) npm install succeeds (print success, restart daemon), (b) npm install returns
+      non-zero (print install failure, restart daemon on old binary, print NFR-6(d) message),
+      (c) runNpmInstall rejects (caught by the outer try/catch; finally still runs before the
+      catch handler, preserving the daemon). The outer try/catch that already exists in
+      upgrade.command.ts handles (c) without modification.
+
+  - title: 'restart.command.ts — Port Argument Handling'
+    chosen: >
+      Copy the parsePort() validation helper from start.command.ts into restart.command.ts
+      (integer 1024-65535, throws InvalidArgumentError) and pass the result to startDaemon({ port }).
+    rejected:
+      - >
+        Omit the --port flag entirely — rejected: violates the spec decision (open question 3
+        answer: accept --port flag). Diverges from shep start API surface and removes user
+        control in multi-service environments.
+      - >
+        Accept port as a plain string and validate inside startDaemon() — rejected: startDaemon()
+        accepts port as number | undefined. Commander would deliver a raw string without the
+        parseArg converter, causing NaN to flow into findAvailablePort(). Commander's
+        InvalidArgumentError is the right place to fail fast with a user-facing message.
+    rationale: >
+      Parity with shep start --port is the spec requirement (FR-6). Reusing the same validation
+      logic and Commander option declaration pattern keeps the command surface consistent. Copying
+      the small function into restart.command.ts is justified for an S-sized feature; extracting
+      parsePort into a shared utility can happen in a future refactor.
+
+  - title: 'E2E Test Strategy — restart and upgrade-with-daemon scenarios'
+    chosen: >
+      Extend daemon-lifecycle.test.ts with new describe blocks reusing the existing
+      makeTempShepHome, writeDaemonJson, createCliRunner, and sleep-process fake-daemon
+      infrastructure already proven in the alive-daemon-simulation suite.
+    rejected:
+      - >
+        Create a separate e2e test file for restart/upgrade — rejected: the lifecycle test file
+        already provides all scaffolding. A separate file would duplicate all helpers and reduce
+        cohesion. The new scenarios fit naturally into the existing describe hierarchy
+        (restart is a daemon lifecycle operation; upgrade-with-daemon extends upgrade behavior).
+      - >
+        Use real npm install in the E2E upgrade test — rejected: makes the test network-dependent,
+        slow, and CI-hostile. The upgrade unit tests already prove the spawn behavior end-to-end.
+        E2E only needs to verify the daemon lifecycle integration (state check + stop + restart),
+        which is fully testable by injecting a fake spawnFn into createUpgradeCommand().
+    rationale: >
+      Reusing existing E2E infrastructure minimises the diff and the risk of test infrastructure
+      bugs. The fake-process pattern (spawn sleep 60, write daemon.json) is already validated as
+      reliable. For the upgrade-with-daemon E2E block, directly calling createUpgradeCommand with
+      a controlled spawnFn provides the right level of integration: it validates the full daemon
+      lifecycle path without a network dependency.
+
+# Open questions (should be resolved by end of research)
+openQuestions: []
+
+# Markdown content (the full research document)
+content: |
+  ## Technology Decisions
+
+  ### 1. stopDaemon Helper — Dependency Injection vs Internal Container Resolution
+
+  **Chosen:** `stopDaemon(daemonService: IDaemonService): Promise<void>` — parameter injection.
+
+  **Rejected:**
+  - Resolve IDaemonService internally from container (as startDaemon() does) — forces tests to mock
+    the entire container; NFR-4 explicitly mandates parameter injection.
+  - Module-level singleton — hidden global state, breaks test isolation.
+
+  **Rationale:** Parameter injection keeps stopDaemon() a pure, testable function. All three callers
+  (stop.command.ts, restart.command.ts, upgrade.command.ts) already resolve IDaemonService from the
+  container and can trivially pass it through.
+
+  ---
+
+  ### 2. stopDaemon Helper — File Location
+
+  **Chosen:** `src/presentation/cli/commands/daemon/stop-daemon.ts`
+
+  **Rejected:**
+  - Export from stop.command.ts — awkward coupling; restart/upgrade would import from a "stop command" file.
+  - Top-level commands/ directory — pollutes command list with a non-command helper.
+
+  **Rationale:** The `daemon/` subdirectory already exists with `start-daemon.ts`. Placing
+  `stop-daemon.ts` there follows the established pattern and makes the start/stop symmetry obvious.
+
+  ---
+
+  ### 3. upgrade.command.ts — IDaemonService Integration
+
+  **Chosen:** Resolve IDaemonService from container inside action handler (same pattern as IVersionService).
+
+  **Rejected:**
+  - Add daemonService as a second factory parameter — changes factory signature, breaks existing tests.
+  - Let stopDaemon() resolve internally — violates NFR-4.
+
+  **Rationale:** The existing upgrade test already mocks `container.resolve`. Adding a mock for
+  IDaemonService follows the same mechanism. No factory signature changes; no test churn.
+
+  ---
+
+  ### 4. upgrade.command.ts — Daemon Restart on Failure
+
+  **Chosen:** `try/finally` around `runNpmInstall()` — restart always runs when daemon was running.
+
+  **Rejected:**
+  - if/else (only restart on exit code 0) — violates spec decision; leaves users with no daemon.
+  - Catch-only restart — misses non-zero-exit-code path (resolves, does not throw).
+
+  **Rationale:** `finally` handles all three outcomes cleanly. Messages clearly distinguish the
+  three states per NFR-6: (a) success + restart, (b) install failed + daemon restored, (c) spawn error.
+
+  ---
+
+  ### 5. restart.command.ts — Port Argument Handling
+
+  **Chosen:** Copy `parsePort()` validation from start.command.ts; pass result to startDaemon({ port }).
+
+  **Rejected:**
+  - No --port flag — violates spec decision; diverges from shep start API surface.
+  - Raw string to startDaemon() — NaN flows into findAvailablePort(); wrong failure mode.
+
+  **Rationale:** Parity with `shep start --port`. Same validation logic, same Commander option
+  declaration. A future refactor can extract parsePort into a shared utility.
+
+  ---
+
+  ### 6. E2E Test Strategy
+
+  **Chosen:** Extend existing `daemon-lifecycle.test.ts` with new describe blocks using proven
+  sleep-process fake-daemon infrastructure.
+
+  **Rejected:**
+  - New E2E file — duplicates all helpers; reduces cohesion.
+  - Real npm install in upgrade E2E — network-dependent, slow, CI-hostile.
+
+  **Rationale:** Reuses proven scaffolding. Upgrade E2E uses createUpgradeCommand with fake spawnFn
+  to validate daemon lifecycle integration without a network dependency.
+
+  ---
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | Commander.js | CLI command definition | Use (existing) | Already the CLI framework; `--port` uses `InvalidArgumentError` pattern |
+  | IDaemonService | Daemon state r/w/check | Use (existing) | Application port; NFR-5 requires all daemon state access through this interface |
+  | startDaemon() | Spawn daemon helper | Use (existing) | Already handles port resolution, spawn, readiness check, browser open |
+  | stopDaemon() | Stop daemon helper | Create (new) | Extract from stop.command.ts inline logic (~30 lines) |
+  | node:child_process | Spawn npm install | Use (existing) | Already used in upgrade.command.ts |
+  | node:process signals | SIGTERM / SIGKILL | Use (existing) | Already used in stop.command.ts; moved verbatim to stopDaemon() helper |
+  | Vitest | Unit + E2E testing | Use (existing) | Project test framework |
+  | Any new npm package | — | Reject all | NFR-1 explicitly forbids new dependencies |
+
+  ---
+
+  ## Security Considerations
+
+  - **PID validation before kill**: stop.command.ts:64-69 validates the PID is a positive finite
+    integer before `process.kill()`. The extracted `stopDaemon()` helper MUST preserve this check.
+    No user-supplied PID is accepted — only the PID from the atomically-written daemon.json.
+  - **Atomic daemon.json writes**: IDaemonService.write() already uses write-to-temp + rename.
+    New code only reads the state before stopping, then delegates writes to startDaemon().
+    No new atomicity concerns are introduced.
+  - **Port preservation safety**: The captured port is passed to startDaemon({ port }) where
+    findAvailablePort() validates it is bindable. If the port is occupied after upgrade,
+    findAvailablePort() picks the next available port rather than failing hard — a safe fallback.
+
+  ---
+
+  ## Performance Implications
+
+  - **Stop timeout preserved**: SIGTERM → 200 ms poll → 5 s → SIGKILL sequence is copied verbatim
+    into stopDaemon(). The `shep upgrade` command blocks for up to ~5 s while the daemon exits
+    gracefully before spawning the new binary. Acceptable for a user-initiated upgrade.
+  - **Restart readiness polling**: startDaemon() polls for HTTP readiness for up to 30 s.
+    Combined with the stop timeout, the worst-case `shep upgrade` with daemon running is ~35 s.
+    Appropriate for an upgrade operation — not a hot path.
+  - **Negligible state check overhead**: IDaemonService.read() + isAlive() is one file read +
+    process.kill(pid, 0) — adds <1 ms to the upgrade flow before the npm install begins.
+
+  ---
+
+  ## Architecture Notes
+
+  ### Fit Within Clean Architecture
+
+  All new code lives in the **presentation layer** (`src/presentation/cli/`). No domain,
+  application, or infrastructure layer changes are required:
+
+  - `stop-daemon.ts` helper: presentation/cli/commands/daemon/ — pure CLI concern.
+  - `restart.command.ts`: presentation/cli/commands/ — new CLI command.
+  - `upgrade.command.ts` modifications: presentation/cli/commands/ — adds daemon lifecycle awareness.
+  - `index.ts`: presentation/cli/ — registers createRestartCommand().
+
+  Daemon state is accessed exclusively through IDaemonService (application output port),
+  satisfying NFR-5 (no direct fs reads of daemon.json or process.kill outside stopDaemon()).
+
+  ### Existing Pattern References
+
+  | Pattern | Established in | Followed by new code |
+  | ------- | -------------- | -------------------- |
+  | Shared daemon helper in daemon/ subdirectory | start-daemon.ts | stop-daemon.ts |
+  | Container resolution inside action handler | upgrade.command.ts (IVersionService) | upgrade.command.ts (IDaemonService), restart.command.ts |
+  | parsePort + InvalidArgumentError | start.command.ts | restart.command.ts |
+  | messages.info/success/error for all output | stop.command.ts, upgrade.command.ts | all new code paths |
+  | vi.mock container.resolve in unit tests | upgrade.command.test.ts | restart.command.test.ts, stop-daemon.test.ts |
+  | Fake sleep-process for daemon in E2E | daemon-lifecycle.test.ts | new restart + upgrade E2E blocks |
+
+  ### New Files
+
+  | File | Type | Purpose |
+  | ---- | ---- | ------- |
+  | `src/presentation/cli/commands/daemon/stop-daemon.ts` | Helper | SIGTERM → poll → SIGKILL → delete lifecycle |
+  | `src/presentation/cli/commands/restart.command.ts` | Command | `shep restart [--port <n>]` |
+  | `tests/unit/presentation/cli/commands/restart.command.test.ts` | Test | Unit tests: running + not-running paths |
+  | `tests/unit/commands/daemon/stop-daemon.test.ts` | Test | Unit tests: stopDaemon() helper |
+
+  ### Modified Files
+
+  | File | Change |
+  | ---- | ------ |
+  | `src/presentation/cli/commands/stop.command.ts` | Replace inline stop logic with stopDaemon() call |
+  | `src/presentation/cli/commands/upgrade.command.ts` | Add pre/post npm-install daemon lifecycle |
+  | `src/presentation/cli/index.ts` | Register createRestartCommand() |
+  | `tests/unit/presentation/cli/commands/upgrade.command.test.ts` | Add daemon-running + not-running scenarios |
+  | `tests/e2e/cli/daemon-lifecycle.test.ts` | Add restart and upgrade-with-daemon describe blocks |

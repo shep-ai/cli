@@ -1,0 +1,285 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feat-repo-web-sync
+summary: >
+  7 tasks across 4 phases. Phase 1 fixes the infrastructure layer (interface + SQLite
+  implementation). Phase 2 fixes the application layer (use-case guard). Phase 3 adds the
+  compensating migration. Phase 4 fixes the presentation layer (page.tsx orphan fallback).
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - TypeScript
+  - SQLite (better-sqlite3)
+  - Next.js App Router
+  - React / React Flow
+  - Vitest
+relatedLinks: []
+
+# Structured task list
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Update IRepositoryRepository interface: create() returns Promise<Repository>'
+    description: >
+      Change the create() method signature in repository-repository.interface.ts from
+      Promise<void> to Promise<Repository>. This is the contract change that all downstream
+      fixes depend on. The interface is hand-authored TypeScript (not TypeSpec-generated)
+      so no tsp:compile is needed.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'IRepositoryRepository.create() signature is `create(repository: Repository): Promise<Repository>`'
+      - 'TypeScript compiles without errors on the interface file alone'
+      - 'No other files are modified in this task'
+    tdd:
+      red:
+        - >
+          In create-feature.use-case.test.ts, change the mock create() from
+          `vi.fn().mockResolvedValue(undefined)` to `vi.fn().mockResolvedValue(testRepo)`.
+          The unit test suite will fail to compile because the interface still says Promise<void>
+          and TypeScript will complain that the mock return type does not match.
+      green:
+        - >
+          Update `create(repository: Repository): Promise<void>` to
+          `create(repository: Repository): Promise<Repository>` in repository-repository.interface.ts.
+          TypeScript compilation error in the test is resolved.
+      refactor:
+        - 'Confirm no JSDoc or comments reference the old void return type; update if present'
+    estimatedEffort: '15min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Fix sqlite-repository.repository.ts: INSERT OR IGNORE + SELECT, return Repository'
+    description: >
+      Change the create() implementation to append a SELECT by path after the INSERT OR IGNORE
+      stmt.run() call, then map the returned row through fromDatabase() and return it. This
+      ensures the caller always receives the authoritative DB entity regardless of whether the
+      INSERT fired or was silently skipped by the UNIQUE constraint.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'create() returns the inserted Repository entity when the path is new'
+      - 'create() returns the existing Repository entity when the path already exists (UNIQUE conflict)'
+      - 'No existing repository row data is overwritten on conflict'
+      - 'The return type matches Promise<Repository> as declared in the interface'
+      - 'All existing integration tests in sqlite-repository.repository.test.ts pass'
+    tdd:
+      red:
+        - >
+          In tests/integration/infrastructure/repositories/sqlite-repository.repository.test.ts,
+          update the existing idempotency test (line ~48) to capture the return value of the
+          second create() call and assert it equals the first repo:
+          `const result = await repository.create(createTestRepo({ id: 'repo-2' }));
+           expect(result).toMatchObject({ path: '/Users/test/my-project', id: 'repo-1' });`
+          Test fails because current create() returns undefined.
+      green:
+        - >
+          In sqlite-repository.repository.ts, after `stmt.run(row)`, add:
+          `const selectStmt = this.db.prepare('SELECT * FROM repositories WHERE path = ?');`
+          `const existing = selectStmt.get(row.path) as RepositoryRow;`
+          `return fromDatabase(existing);`
+          Change the method return type to `Promise<Repository>`.
+      refactor:
+        - 'Extract the SELECT statement to a private helper or reuse an existing findByPath() query'
+        - 'Confirm fromDatabase() handles all columns including deleted_at (NULL-safe)'
+    estimatedEffort: '30min'
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Guard create() result in CreateFeatureUseCase and throw on failure'
+    description: >
+      In create-feature.use-case.ts, capture the return value of repositoryRepo.create() and
+      throw a descriptive Error if the result is falsy. This makes repository creation failures
+      explicit rather than silent. The use case already throws for other validation failures
+      so this is consistent with existing error-handling patterns.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'CreateFeatureUseCase assigns the return value of repositoryRepo.create() to the repository variable'
+      - 'If create() returns falsy, the use case throws `Error("Failed to create or retrieve repository record for path: <path>")`'
+      - 'If create() returns a valid Repository, execution continues normally'
+      - 'All existing use-case tests pass'
+    tdd:
+      red:
+        - >
+          In tests/unit/application/use-cases/features/create-feature.use-case.test.ts,
+          add a new test: "throws if repositoryRepo.create() returns falsy":
+          `mockRepositoryRepo.create.mockResolvedValue(null as any);`
+          `mockRepositoryRepo.findByPath.mockResolvedValue(null);`
+          `await expect(useCase.execute(dto)).rejects.toThrow('Failed to create or retrieve repository record');`
+          Test fails because the current use case ignores the return value.
+      green:
+        - >
+          Change `await this.repositoryRepo.create(repository);` to
+          `repository = await this.repositoryRepo.create(repository);`
+          Add after: `if (!repository) { throw new Error(\`Failed to create or retrieve repository record for path: \${normalizedPath}\`); }`
+      refactor:
+        - 'Ensure the repository variable is declared with let so it can be reassigned'
+        - 'Review surrounding code to confirm no logic assumes repository is still the locally-constructed object after the create call'
+    estimatedEffort: '20min'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Update create-feature.use-case.test.ts mock to return Repository'
+    description: >
+      Update the mockRepositoryRepo.create mock in the unit test setup from
+      `vi.fn().mockResolvedValue(undefined)` to `vi.fn().mockResolvedValue(testRepository)`
+      where testRepository is a valid Repository fixture. This is required so the existing
+      tests continue to pass after task-3's guard is added. Also verifies that no other
+      mocks in the test file reference the old void return.
+    state: Todo
+    dependencies:
+      - task-1
+      - task-3
+    acceptanceCriteria:
+      - 'mockRepositoryRepo.create returns a valid Repository object in all test cases (except the new falsy-guard test)'
+      - 'All existing tests in create-feature.use-case.test.ts pass'
+      - 'The new falsy-guard test added in task-3 also passes'
+      - 'No TypeScript compilation errors in the test file'
+    tdd:
+      red:
+        - >
+          After task-3 is applied, run the existing test suite — tests that call create()
+          and then read repository fields will fail because the mock returns undefined and
+          the guard throws.
+      green:
+        - >
+          Define a `testRepository` fixture near the top of the test file (matching the shape
+          used in the use case: id, name, path, createdAt, updatedAt).
+          Update mock setup: `create: vi.fn().mockResolvedValue(testRepository)`.
+      refactor:
+        - 'Consolidate the testRepository fixture with any existing repo fixtures in the file to avoid duplication'
+    estimatedEffort: '20min'
+
+  - id: task-5
+    phaseId: phase-3
+    title: 'Add compensating migration v23 to migrations.ts'
+    description: >
+      Add migration version 23 that INSERT OR IGNORE back-fills a repositories row for every
+      distinct repository_path in the features table that has no matching row in repositories.
+      Uses lower(hex(randomblob(16))) for UUID generation (same pattern as migration 15).
+      LATEST_SCHEMA_VERSION is computed dynamically from the last migration version so it
+      updates automatically.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'A new migration object with version: 23 is present in the MIGRATIONS array'
+      - 'The migration SQL uses INSERT OR IGNORE to avoid touching existing rows'
+      - 'After the migration runs, every distinct repository_path in features has a matching row in repositories'
+      - 'Running the migration twice does not duplicate or alter any rows (idempotent)'
+      - 'LATEST_SCHEMA_VERSION equals 23 after the migration is added'
+    tdd:
+      red:
+        - >
+          Add an integration test in sqlite-repository.repository.test.ts (or a new migration
+          test file if one exists) that: creates a features row with repository_path = '/test/path'
+          but no corresponding repositories row, then re-runs the migration runner, and asserts
+          that a repositories row now exists for '/test/path'. Test fails before the migration
+          is added.
+      green:
+        - >
+          Append to MIGRATIONS array:
+          `{ version: 23, sql: \`INSERT OR IGNORE INTO repositories (id, name, path, created_at, updated_at)
+            SELECT lower(hex(randomblob(16))), substr(repository_path, instr(repository_path, '/') + 1),
+            repository_path, strftime('%s','now') * 1000, strftime('%s','now') * 1000
+            FROM (SELECT DISTINCT repository_path FROM features WHERE repository_path IS NOT NULL)
+            WHERE repository_path NOT IN (SELECT path FROM repositories)\` }`
+      refactor:
+        - 'Review migration SQL naming of the synthesised "name" column — use same logic as migration 15 (last path segment)'
+        - 'Add a SQL comment explaining the migration purpose'
+    estimatedEffort: '30min'
+
+  - id: task-6
+    phaseId: phase-4
+    title: 'Add orphan-fallback rendering in page.tsx'
+    description: >
+      After the main `for (const repo of repositories)` loop in page.tsx, add a second pass
+      over allFeatures that groups any feature whose repositoryPath is not already covered by
+      a rendered real-repo node into a synthetic "virtual" repository node
+      (id: `virtual-repo-${repositoryPath}`). Uses a Set of covered paths built during the
+      first loop to avoid duplicates. O(n) time, zero extra DB calls.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'When repositories is empty but features exist, at least one node is rendered per distinct repositoryPath'
+      - 'Virtual repository node id is `virtual-repo-${repositoryPath}` (deterministic, not random)'
+      - 'Features already covered by a real repository node are NOT duplicated under a virtual node'
+      - 'The orphan-fallback pass does not introduce any new DB queries'
+      - 'All existing page snapshot/render tests pass'
+    tdd:
+      red:
+        - >
+          Write a unit/component test for page.tsx (or extend an existing one) that mocks
+          listRepositoriesUseCase.execute() to return [] and listFeaturesUseCase.execute()
+          to return a feature with repositoryPath = '/my/repo'. Assert that the rendered
+          output contains at least one node with id 'virtual-repo-/my/repo'.
+          Test fails before the fallback is added.
+      green:
+        - >
+          After the main repositories loop, build a Set of covered paths:
+          `const coveredPaths = new Set(repositories.map(r => r.path));`
+          Then iterate allFeatures and for each feature whose repositoryPath is not in
+          coveredPaths, group it under `virtual-repo-${feature.repositoryPath}`.
+          For each new virtual path, push a virtual repository node and its feature nodes/edges.
+      refactor:
+        - 'Extract the node-building logic for both real and virtual repos into a shared helper to reduce duplication'
+        - 'Ensure virtual repository nodes have appropriate display data (name derived from last path segment)'
+    estimatedEffort: '45min'
+
+  - id: task-7
+    phaseId: phase-4
+    title: 'Verify full integration: feat new → repo ls → web UI'
+    description: >
+      Run the full test suite (unit + integration) and perform a manual smoke-test to confirm
+      all success criteria are met end-to-end. Also run pnpm validate (lint + format + typecheck)
+      to ensure no regressions.
+    state: Todo
+    dependencies:
+      - task-3
+      - task-4
+      - task-5
+      - task-6
+    acceptanceCriteria:
+      - '`pnpm test:unit` passes with no failures'
+      - '`pnpm test:int` passes with no failures'
+      - '`pnpm validate` passes (lint + format + typecheck)'
+      - 'Manual: after `shep feat new`, `shep repo ls` lists the new repository'
+      - 'Manual: web UI dashboard shows at least one repository node and one feature card'
+    tdd: null
+    estimatedEffort: '20min'
+
+# Total effort estimate
+totalEstimate: '3h'
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Summary
+
+  Seven tasks across four phases implement the full bug fix.
+
+  **Phase 1** (tasks 1–2) fixes the lowest-level root cause: the IRepositoryRepository interface
+  contract is updated to Promise<Repository>, and the SQLite implementation is changed to
+  INSERT OR IGNORE + SELECT so create() always returns the authoritative DB entity. The
+  integration test is extended to assert the return value on the conflict path.
+
+  **Phase 2** (tasks 3–4) fixes the application layer: CreateFeatureUseCase captures the
+  create() return value and throws a descriptive Error if it is falsy. The unit-test mock is
+  updated to return a Repository fixture so existing tests continue to pass.
+
+  **Phase 3** (task 5) adds the compensating migration (version 23) that back-fills repository
+  rows for any orphaned features in existing deployments. The migration is idempotent and runs
+  automatically on next startup.
+
+  **Phase 4** (tasks 6–7) fixes the presentation layer: page.tsx gains an orphan-fallback
+  pass that synthesises virtual repository nodes for features whose repository row is missing.
+  Task 7 is a verification gate — all tests and validate must pass before the feature is
+  considered complete.

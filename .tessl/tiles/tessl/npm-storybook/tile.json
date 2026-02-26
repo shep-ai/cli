@@ -1,0 +1,7 @@
+{
+  "name": "tessl/npm-storybook",
+  "version": "9.1.0",
+  "docs": "docs/index.md",
+  "describes": "pkg:npm/storybook@9.1.4",
+  "summary": "Frontend workshop for building, documenting, and testing UI components in isolation across frameworks"
+}

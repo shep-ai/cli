@@ -70,6 +70,7 @@ function createTestFeature(overrides?: Partial<Feature>): Feature {
     openPr: false,
     approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
     agentRunId: 'run-001',
+    specPath: '/wt/path/specs/001-test-feature',
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,
@@ -131,7 +132,7 @@ describe('ResumeFeatureUseCase', () => {
       'feat-001',
       expect.any(String), // new run ID
       '/test/repo',
-      '/wt/path',
+      '/wt/path/specs/001-test-feature', // specDir from feature.specPath
       '/wt/path',
       expect.objectContaining({
         resume: true,
@@ -237,6 +238,13 @@ describe('ResumeFeatureUseCase', () => {
     runRepo.findById.mockResolvedValue(createTestRun({ status: AgentRunStatus.completed }));
 
     await expect(useCase.execute('feat-001')).rejects.toThrow(/already completed/i);
+  });
+
+  it('should throw when feature.specPath is missing', async () => {
+    featureRepo.findById.mockResolvedValue(createTestFeature({ specPath: undefined }));
+    runRepo.findById.mockResolvedValue(createTestRun({ status: AgentRunStatus.failed }));
+
+    await expect(useCase.execute('feat-001')).rejects.toThrow(/missing specPath/i);
   });
 
   it('should pass workflow flags from feature entity to spawn', async () => {

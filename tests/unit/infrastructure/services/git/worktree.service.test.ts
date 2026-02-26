@@ -265,6 +265,40 @@ describe('WorktreeService', () => {
     });
   });
 
+  describe('remoteBranchExists', () => {
+    it('should return true when remote branch exists', async () => {
+      mockExecFile.mockResolvedValue({
+        stdout: 'abc123def456\trefs/heads/feat/my-branch\n',
+        stderr: '',
+      });
+
+      const result = await service.remoteBranchExists('/repo', 'feat/my-branch');
+
+      expect(result).toBe(true);
+      expect(mockExecFile).toHaveBeenCalledWith(
+        'git',
+        ['ls-remote', '--heads', 'origin', 'feat/my-branch'],
+        { cwd: '/repo' }
+      );
+    });
+
+    it('should return false when remote branch does not exist', async () => {
+      mockExecFile.mockResolvedValue({ stdout: '', stderr: '' });
+
+      const result = await service.remoteBranchExists('/repo', 'feat/nonexistent');
+
+      expect(result).toBe(false);
+    });
+
+    it('should return false when git command fails (e.g., no remote)', async () => {
+      mockExecFile.mockRejectedValue(new Error('fatal: could not read from remote'));
+
+      const result = await service.remoteBranchExists('/repo', 'feat/x');
+
+      expect(result).toBe(false);
+    });
+  });
+
   describe('ensureGitRepository', () => {
     it('should no-op for an existing git repository with commits', async () => {
       mockExecFile

@@ -7,7 +7,7 @@
 import type { Repository } from '../../../../domain/generated/output.js';
 
 export interface IRepositoryRepository {
-  create(repository: Repository): Promise<void>;
+  create(repository: Repository): Promise<Repository>;
   findById(id: string): Promise<Repository | null>;
   findByPath(path: string): Promise<Repository | null>;
   /** Find by path including soft-deleted records (for re-activation). */

@@ -6,7 +6,7 @@
  * Writes to research.yaml.
  */
 
-import { readSpecFile } from '../node-helpers.js';
+import { readSpecFile, buildCommitPushBlock } from '../node-helpers.js';
 import type { FeatureAgentState } from '../../state.js';
 
 export function buildResearchPrompt(state: FeatureAgentState): string {
@@ -134,5 +134,11 @@ Use this YAML structure:
 - Every open question MUST have exactly 3 options to choose from
 - Prefer solutions that follow existing codebase patterns and conventions
 - Do NOT create any other files
-- Do NOT modify any source code`;
+- Do NOT modify any source code
+
+${buildCommitPushBlock({
+  push: state.push,
+  files: [`${state.specDir}/research.yaml`],
+  commitHint: 'docs(specs): research technical decisions and library choices',
+})}`;
 }

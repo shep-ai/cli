@@ -1,0 +1,351 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: merge-step-integration-tests
+summary: >
+  9 tasks across 3 phases. Phase 1 (3 tasks) builds the test infrastructure: createGitHarness()
+  helper, selective ExecFunction wrapper for gh interception, and the scaffolded test file with
+  settings lifecycle and specDir utilities. Phase 2 (4 tasks) implements the 6 non-PR flag
+  combination tests including 2 known-buggy paths that will FAIL (RED). Phase 3 (2 tasks)
+  implements the 2 PR-path tests using the selective wrapper, including the unverified-PR-merge
+  bug test that will FAIL (RED).
+
+# Relationships
+relatedFeatures: []
+technologies: []
+relatedLinks: []
+
+# Structured task list
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Create test file scaffold with settings lifecycle and specDir utility'
+    description: >
+      Create the test file at tests/integration/infrastructure/services/git/merge-step-real-git.test.ts
+      with the outer describe block, imports (reflect-metadata, vitest, node:fs/os/path/child_process,
+      GitPrService, createMergeNode, initializeSettings/resetSettings, createDefaultSettings), and the
+      settings singleton lifecycle (initializeSettings in beforeAll, resetSettings in afterAll). Also
+      implement the makeSpecDir() utility function that creates a real specDir in a given temp directory
+      with the required feature.yaml (completedPhases: []) and stub YAML stubs. All it() blocks are
+      left empty (it.todo) at this point. File must compile and pnpm test:int must pick it up.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'File exists at tests/integration/infrastructure/services/git/merge-step-real-git.test.ts'
+      - 'pnpm test:int runs the file without TypeScript compilation errors'
+      - 'reflect-metadata is the first import (required for dependency injection decorators)'
+      - 'initializeSettings(createDefaultSettings()) is called in beforeAll'
+      - 'resetSettings() is called in afterAll'
+      - 'makeSpecDir(tempDir, completedPhases?) creates specDir with valid feature.yaml inside tempDir'
+      - 'feature.yaml written by makeSpecDir contains status.completedPhases as specified (default [])'
+      - 'All 8 test cases are present as it.todo() stubs matching the matrix names'
+    tdd:
+      red:
+        - 'Write the file with correct imports but incorrect settings call (e.g., call resetSettings in beforeAll) — confirm TypeScript error or test runtime error'
+      green:
+        - 'Fix settings lifecycle: initializeSettings in beforeAll, resetSettings in afterAll'
+        - 'Implement makeSpecDir that creates specDir directory + feature.yaml with completedPhases'
+        - 'Add 8 it.todo() stubs for each flag combination in the matrix'
+      refactor:
+        - 'Ensure imports are ordered: reflect-metadata, vitest, node:*, then project imports'
+        - 'Add JSDoc comment to makeSpecDir explaining its purpose'
+    estimatedEffort: '30min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Implement createGitHarness() helper with bare-repo local remote'
+    description: >
+      Implement the createGitHarness() function inside the test file. The function creates two
+      temp directories: a bare repository (git init --bare) acting as the local remote, and a
+      clone of it (git clone) as the working copy with origin set automatically. It configures
+      git user.email and user.name in the clone, makes an initial commit on main (a README file),
+      pushes to origin, then creates a feature branch (feat/test-TIMESTAMP) with a single
+      feature-file commit and pushes it. Returns { bareDir, cloneDir, featureBranch, runGit }
+      where runGit is the promisified execFile adapter bound to cloneDir with cwd set.
+      Also implements the matching destroyHarness(dirs) cleanup function that calls rmSync.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'createGitHarness() creates a bare repo and a clone in separate mkdtempSync directories'
+      - 'The clone has origin pointing to the bare repo (git remote get-url origin returns bareDir)'
+      - 'main branch exists with at least one commit in both clone and bare repo'
+      - 'Feature branch (feat/test-*) exists in clone with one commit ahead of main'
+      - 'runGit executes git commands with cwd set to cloneDir by default'
+      - 'destroyHarness() removes both bareDir and cloneDir via rmSync({ recursive: true, force: true })'
+      - 'A smoke test (it.only or temporary test) confirms harness setup and teardown work end-to-end'
+    tdd:
+      red:
+        - 'Write a temporary test that calls createGitHarness() and asserts git log --oneline in cloneDir shows 2 commits (initial + feature) — run it to see it fail before implementation'
+      green:
+        - 'Implement createGitHarness(): mkdtempSync for bareDir and cloneDir, git init --bare, git clone, git config user, initial commit + push, checkout -b feat/branch, feature commit + push'
+        - 'Implement destroyHarness() with rmSync calls'
+        - 'Wire runGit as promisified execFile adapter with cwd: cloneDir'
+      refactor:
+        - 'Extract git config user setup into a small helper (configureGitUser) to keep createGitHarness readable'
+        - 'Ensure feature branch name includes a timestamp to prevent conflicts if tests run in parallel'
+        - 'Remove temporary smoke test after verification'
+    estimatedEffort: '45min'
+
+  - id: task-3
+    phaseId: phase-1
+    title: 'Implement selective ExecFunction wrapper for gh command interception'
+    description: >
+      Implement the makeSelectiveExec() factory function in the test file. It returns an ExecFunction
+      that checks if the first argument (file) is 'gh' — if so, it inspects the args array to
+      determine which gh subcommand is being called and returns appropriate mock output:
+      'gh pr create' returns 'https://github.com/test/repo/pull/42\n',
+      'gh pr merge' returns '' (empty string, success),
+      'gh pr view --json state' returns '{"state":"MERGED"}\n' (for CI watch loop),
+      'gh pr view' (any other) returns '{"state":"MERGED","statusCheckRollup":[]}\n'.
+      All other commands (file !== 'gh') are passed through to the real promisified execFile.
+      Also implement makeMockExecutor() that creates a vi.fn() IAgentExecutor mock configured
+      to return a specified output string (commit hash line and/or PR URL).
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'makeSelectiveExec() returns a function satisfying the ExecFunction type signature'
+      - "Calling the wrapper with file='git' and any args passes through to real execFile"
+      - "Calling the wrapper with file='gh' and args=['pr','create',...] returns the fake PR URL without executing gh"
+      - "Calling the wrapper with file='gh' and args=['pr','merge',...] returns empty string without executing gh"
+      - 'makeMockExecutor(output) returns vi.fn() that resolves with the given AIMessage content'
+      - "The mock executor's .invoke or .stream method can be asserted on for call counts"
+    tdd:
+      red:
+        - "Write a unit-style test inside the describe block that calls makeSelectiveExec() with file='gh', args=['pr','create'] and expects the result to contain the fake URL — run to see it fail before implementation"
+      green:
+        - "Implement makeSelectiveExec(): check file === 'gh', branch on args[1] ('pr') + args[2] ('create'/'merge'/'view'), return appropriate mock strings; otherwise call promisify(execFileCb)"
+        - 'Implement makeMockExecutor(output): return { invoke: vi.fn().mockResolvedValue({ content: output }) } casting to IAgentExecutor'
+      refactor:
+        - 'Ensure the gh mock output strings match exactly what parsePrUrl() and parseCommitHash() regexes expect'
+        - 'Add inline comments explaining why each mock output string is formatted as it is'
+    estimatedEffort: '30min'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Test: undefined-gates-silent-skip (no approvalGates → no merge, lifecycle=Review)'
+    description: >
+      Implement the undefined-gates-silent-skip test case. State has approvalGates: undefined,
+      completedPhases: ["merge"] to skip Phase 1. The mock executor should NOT be called for
+      the merge prompt. After node completion, assert: (1) featureRepository.update was called
+      with lifecycle: SdlcLifecycle.Review, (2) git merge-base --is-ancestor feat/branch main
+      exits non-zero (no merge occurred), (3) no error was thrown. This is the simplest test —
+      it verifies the silent-skip path where undefined approvalGates causes Phase 2 to be skipped.
+      Expected to PASS (GREEN) on the unmodified codebase.
+    state: Todo
+    dependencies:
+      - task-2
+      - task-3
+    acceptanceCriteria:
+      - "Test is named 'undefined approvalGates → silently skips merge, lifecycle stays Review'"
+      - 'Node is invoked with state.approvalGates = undefined and completedPhases: ["merge"] in feature.yaml'
+      - 'Mock executor.invoke is not called (assert call count === 0 for the merge prompt)'
+      - 'featureRepository.update is called with a state containing lifecycle: SdlcLifecycle.Review'
+      - 'git merge-base --is-ancestor feat/branch main rejects (merge did not occur)'
+      - 'No error is thrown by the node function'
+    tdd:
+      red:
+        - 'Remove the it.todo() stub and write the full test with assertions — confirm it runs (even if assertions fail initially)'
+      green:
+        - 'Wire createGitHarness() in beforeEach / destroyHarness() in afterEach'
+        - 'Construct state with approvalGates: undefined, completedPhases: ["merge"] in feature.yaml'
+        - 'Assert all acceptance criteria'
+      refactor:
+        - 'Extract state construction into a buildState() helper to reduce boilerplate across tests'
+        - "Use descriptive assertion messages: expect(mergeCheck).rejects.toThrow('Expected feat branch to NOT be ancestor of main — merge should have been skipped')"
+    estimatedEffort: '30min'
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Test: commit-only-with-gate (push=false, openPr=false, allowMerge=false → interrupt)'
+    description: >
+      Implement the commit-only-with-gate test case. State has push: false, openPr: false,
+      approvalGates: { allowMerge: false }, completedPhases: [] (full Phase 1 run). Mock executor
+      returns a commit hash output for the commit prompt. The node should throw a LangGraph
+      interrupt (isGraphBubbleUp error). Assert: (1) node invocation rejects with an interrupt
+      error (check isGraphBubbleUp or error type), (2) git merge-base rejects (no merge occurred),
+      (3) no push happened (remote main still at initial commit). Expected to PASS (GREEN).
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - "Test is named 'push=false, openPr=false, allowMerge=false → commits and interrupts at merge gate'"
+      - 'Node invocation rejects with a LangGraph interrupt/bubble-up error'
+      - 'Mock executor was called exactly once (for the commit+push prompt in Phase 1)'
+      - 'git merge-base --is-ancestor feat/branch main rejects (no merge occurred)'
+      - 'git log origin/main in bareDir shows only 1 commit (no push occurred)'
+    tdd:
+      red:
+        - 'Write test asserting expect(node(state)).rejects.toSatisfy(isGraphBubbleUp) — run to confirm it runs (test framework picks it up)'
+      green:
+        - 'Construct state with push: false, openPr: false, approvalGates: { allowMerge: false }, completedPhases: []'
+        - "Provide mock executor output: '[feat/branch abc1234] test commit' for Phase 1"
+        - 'Assert interrupt thrown, no merge, no push to remote'
+      refactor:
+        - 'Use shared buildState() helper; name the mock executor output constant COMMIT_ONLY_OUTPUT'
+    estimatedEffort: '25min'
+
+  - id: task-6
+    phaseId: phase-2
+    title: 'Test: push-no-pr-merge (push=true, openPr=false, allowMerge=true → push + local merge)'
+    description: >
+      Implement the push-no-pr-merge test case. State has push: true, openPr: false,
+      approvalGates: { allowMerge: true }, completedPhases: []. Mock executor must handle two
+      calls: Phase 1 (commit+push prompt) and Phase 2 (local merge prompt). Phase 1 output
+      contains the commit hash; Phase 2 output should contain the git merge command. After node
+      completion, assert: (1) git fetch origin + git merge-base --is-ancestor feat/branch main
+      resolves (merge landed on remote), (2) featureRepository.update called with lifecycle: Maintain,
+      (3) feature branch was pushed to origin. This tests the push-without-PR path.
+      Expected to PASS or FAIL depending on whether the local merge prompt output is properly
+      executed — may expose Bug 2. Mark as known-potentially-buggy in test description.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - "Test is named 'push=true, openPr=false, allowMerge=true → pushes branch and merges locally'"
+      - 'Mock executor handles two sequential calls (Phase 1 commit+push, Phase 2 merge)'
+      - 'After node completion, git fetch origin succeeds (branch was pushed to remote)'
+      - 'git merge-base --is-ancestor feat/branch main resolves (merge landed in main)'
+      - 'featureRepository.update called with lifecycle: SdlcLifecycle.Maintain'
+    tdd:
+      red:
+        - 'Write test with all assertions — on the unmodified codebase the merge-base assertion may fail (RED) — leave it failing'
+      green:
+        - 'Construct state with push: true, openPr: false, approvalGates: { allowMerge: true }'
+        - 'Wire mock executor with mockResolvedValueOnce for Phase 1 (commit hash output) and Phase 2 (git merge output)'
+        - "Assert push landed on remote via runGit('git', ['fetch', 'origin']) then merge-base check"
+      refactor:
+        - "Add comment: '// BUG: this test may FAIL (RED) if Phase 2 local merge prompt does not execute git merge'"
+        - 'Name Phase 2 output constant MERGE_SQUASH_OUTPUT for clarity'
+    estimatedEffort: '35min'
+
+  - id: task-7
+    phaseId: phase-2
+    title: 'Tests: no-remote-override-merge and no-remote-local-merge (no remote → local merge)'
+    description: >
+      Implement two test cases that exercise the no-remote code path where effectiveState overrides
+      push=false, openPr=false. For no-remote-override-merge: state has push: true, openPr: true,
+      approvalGates: { allowMerge: true }, but the git repo has NO remote configured (use a plain
+      local git repo instead of the bare-repo harness). For no-remote-local-merge: state has push:
+      false, openPr: false, approvalGates: { allowMerge: true }, also no remote. Both tests assert
+      that after node completion, git merge-base --is-ancestor feat/branch main resolves in the
+      local repo. Both tests also assert featureRepository.update was called with lifecycle: Maintain.
+      These paths may expose Bug 2 (local merge not landing) — expected to potentially FAIL (RED).
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'no-remote-override-merge: state has push: true openPr: true but hasRemote returns false (no remote in git config)'
+      - 'no-remote-local-merge: state has push: false openPr: false, no remote'
+      - 'Both tests create a local-only git repo (no bare remote, no origin) using mkdtempSync'
+      - 'Both tests assert git merge-base --is-ancestor feat/branch main resolves after node completion'
+      - 'featureRepository.update called with lifecycle: SdlcLifecycle.Maintain in both tests'
+      - 'Comments in both tests note that FAIL (RED) is expected until Bug 2 is fixed'
+    tdd:
+      red:
+        - 'Write both tests with merge-base assertions — run to confirm they are picked up by pnpm test:int'
+      green:
+        - 'For no-remote repos, use a different setup: git init + initial commit + feature branch in a plain local dir (no bare remote, no git remote add)'
+        - 'Pass the local dir as both repositoryPath and worktreePath in state'
+        - 'Mock executor handles Phase 1 commit prompt + Phase 2 merge prompt with mockResolvedValueOnce'
+      refactor:
+        - 'Extract makeLocalOnlyRepo() as a helper (separate from createGitHarness) for no-remote tests'
+        - 'Add BUG comments explaining expected failure'
+    estimatedEffort: '40min'
+
+  - id: task-8
+    phaseId: phase-3
+    title: 'Test: push-pr-with-gate (push=true, openPr=true, allowMerge=false → push + PR + interrupt)'
+    description: >
+      Implement the push-pr-with-gate test case using the selective ExecFunction wrapper. State has
+      push: true, openPr: true, approvalGates: { allowMerge: false }, completedPhases: []. Mock
+      executor returns commit hash + PR URL for Phase 1. The selective wrapper intercepts gh pr create
+      and returns the fake PR URL. Node should interrupt at the merge gate (allowMerge: false).
+      Assert: (1) node rejects with interrupt/bubble-up error, (2) feature branch was pushed to remote
+      (git fetch origin + log confirms), (3) parsePrUrl extracted the fake URL (check state.prUrl or
+      executor call args), (4) no local merge occurred. Expected to PASS (GREEN).
+    state: Todo
+    dependencies:
+      - task-3
+      - task-5
+    acceptanceCriteria:
+      - 'Test uses makeSelectiveExec() for GitPrService ExecFunction'
+      - 'Node rejects with LangGraph interrupt/bubble-up error (isGraphBubbleUp)'
+      - 'Feature branch commit is visible on origin after node runs (git fetch + log check)'
+      - 'Mock executor Phase 1 output contains both commit hash pattern and PR URL'
+      - 'git merge-base --is-ancestor feat/branch main rejects (no merge occurred)'
+    tdd:
+      red:
+        - 'Write test with interrupt assertion and push-verification assertion — run to confirm test is picked up'
+      green:
+        - 'Wire GitPrService with makeSelectiveExec() output'
+        - 'Construct state with push: true, openPr: true, approvalGates: { allowMerge: false }'
+        - 'Provide Phase 1 mock executor output containing both [feat/branch abc1234] pattern and the fake PR URL'
+        - 'Assert interrupt thrown and push landed on origin'
+      refactor:
+        - 'Share FAKE_PR_URL constant between push-pr-with-gate and push-pr-auto-merge tests'
+        - 'Assert executor call count === 1 (only Phase 1 prompt, no Phase 2 since interrupted)'
+    estimatedEffort: '35min'
+
+  - id: task-9
+    phaseId: phase-3
+    title: 'Test: push-pr-auto-merge (push=true, openPr=true, allowMerge=true → PR + gh merge — KNOWN BUG)'
+    description: >
+      Implement the push-pr-auto-merge test case — the primary bug-exposure test. State has
+      push: true, openPr: true, approvalGates: { allowMerge: true }, completedPhases: ["merge"]
+      to skip Phase 1 (start directly in Phase 2 with prUrl pre-set in state). The selective wrapper
+      intercepts gh pr merge and returns success without running a real git merge. After node
+      completion, assert: (1) git merge-base --is-ancestor feat/branch main REJECTS — the merge
+      did NOT land because verifyMerge() is skipped when prUrl is set (BUG 1). (2) The node
+      returned success (no error thrown). This test documents that the node reports merge success
+      without verifying that the merge actually landed. EXPECTED TO FAIL (RED) on unmodified code.
+    state: Todo
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - "Test is named 'push=true, openPr=true, allowMerge=true → BUG: verifyMerge skipped after gh pr merge'"
+      - 'State starts with completedPhases: ["merge"] and prUrl pre-set to fake PR URL (simulates post-Phase-1 state)'
+      - 'Selective wrapper intercepts gh pr merge and returns success without running git merge'
+      - 'Node completes without throwing (reports success)'
+      - 'git merge-base --is-ancestor feat/branch main REJECTS after node completes (merge did NOT land)'
+      - "Test includes a prominent comment: '// BUG: This test is expected to FAIL (RED) until verifyMerge() is called on the PR path'"
+      - 'Failure message is human-readable: describes which git assertion failed and why'
+    tdd:
+      red:
+        - "Write test asserting await expect(runGit('git', ['merge-base', '--is-ancestor', featureBranch, 'main'])).rejects.toThrow() — this assertion proves the merge did NOT land"
+        - 'Run pnpm test:int to confirm the test fails with a clear assertion message'
+      green:
+        - 'N/A — this test is intentionally left RED (it documents a bug, not a passing feature)'
+        - 'The test turns GREEN only when merge.node.ts is fixed to call verifyMerge() on the PR path'
+      refactor:
+        - 'Ensure the test description and comments clearly communicate that RED is the expected state'
+        - 'Add a link to the spec (spec.yaml) in the test comment for traceability'
+    estimatedEffort: '30min'
+
+totalEstimate: '5h'
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation consists of a single new test file built up in three phases. The foundation
+  phase (tasks 1-3) creates the test infrastructure: the file scaffold with settings lifecycle,
+  the createGitHarness() helper for bare-repo local remotes, and the selective ExecFunction
+  wrapper that intercepts gh commands while passing git commands through to the real binary. This
+  infrastructure is shared by all 8 flag combination tests and must be solid before any test cases
+  are populated.
+
+  The no-PR test phase (tasks 4-7) implements the 6 test cases that do not involve the GitHub PR
+  workflow. These run in order from simplest to most complex: undefined gates (no merge expected),
+  interrupt gate (no merge, just commit), push-without-PR local merge, and no-remote local merge
+  variants. Two of these tests (push-no-pr-merge and no-remote-local-merge) are expected to fail
+  RED on the unmodified codebase, exposing Bug 2 (local merge not landing on the origin repo).
+
+  The PR-path phase (tasks 8-9) adds the two tests that use the selective ExecFunction wrapper.
+  push-pr-with-gate verifies that the feature branch is pushed and a PR is "created" (via mock)
+  before the merge gate interrupts — expected to pass GREEN. push-pr-auto-merge is the primary
+  bug-exposure test: it starts in post-Phase-1 state with prUrl already set and a mock gh pr merge
+  that returns success without running a real git merge. The test then asserts that git merge-base
+  confirms NO merge landed — this assertion is expected to FAIL (RED) because the current code
+  skips verifyMerge() on the PR path. This failing test is the executable proof of Bug 1.

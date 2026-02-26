@@ -1,0 +1,305 @@
+name: feat-repo-web-sync
+summary: >
+  The bug stems from three compounding issues: sqlite-repository.repository.ts create() returns
+  void so silent INSERT OR IGNORE conflicts are never surfaced; CreateFeatureUseCase never
+  verifies the returned entity; and page.tsx only renders nodes for features with a matching row
+  in the repositories DB table. The fix requires changing the create() signature to return
+  Repository (INSERT OR IGNORE + SELECT), adding a guard in the use case, adding an orphan-fallback
+  grouping pass in page.tsx, and adding a compensating migration for existing orphaned rows.
+
+relatedFeatures: []
+
+technologies:
+  - TypeScript
+  - SQLite (better-sqlite3)
+  - Next.js App Router (Server Components)
+  - React / React Flow
+  - Clean Architecture (domain / application / infrastructure / presentation)
+  - Vitest (unit + integration tests)
+
+relatedLinks:
+  - https://www.sqlite.org/lang_insert.html
+  - https://www.sqlite.org/lang_conflict.html
+
+decisions:
+  - title: 'IRepositoryRepository.create() Return Type'
+    chosen: 'Change signature from Promise<void> to Promise<Repository>'
+    rejected:
+      - 'Keep Promise<void> and rely on a separate findByPath() call in the use case — adds a second round-trip and requires callers to handle the null case everywhere; does not fix silent conflict masking'
+      - 'Throw on conflict instead of returning the existing entity — breaks idempotent "ensure-exists" semantics; forces callers to catch and handle UNIQUE constraint errors rather than trusting the interface'
+    rationale: >
+      The root cause is that create() discards the result of the INSERT. Changing the return type
+      to Promise<Repository> forces the implementation to always return a valid entity (either
+      the freshly inserted row or the existing one on conflict) and makes the caller's intent
+      explicit. The IRepositoryRepository port interface at
+      packages/core/src/application/ports/output/repositories/repository-repository.interface.ts
+      must be updated in lockstep, and the mock in the use-case test updated to return a
+      Repository object. This is the minimal change that closes the data loss gap.
+
+  - title: 'SQLite INSERT Conflict Strategy in sqlite-repository.repository.ts'
+    chosen: 'INSERT OR IGNORE + SELECT to always return the persisted entity'
+    rejected:
+      - 'INSERT OR REPLACE (upsert) — destructively overwrites existing row; loses any fields written after initial creation (e.g. deletedAt, future metadata); violates NFR-1 no-data-loss'
+      - 'Plain INSERT without conflict clause — throws SQLITE_CONSTRAINT_UNIQUE on duplicate path; forces callers to handle the error and breaks the idempotent contract'
+    rationale: >
+      INSERT OR IGNORE preserves existing row data (aligns with NFR-1) and is already the
+      pattern used in the current implementation. Appending a SELECT by path after the INSERT
+      ensures the caller always receives the authoritative DB row regardless of whether the
+      INSERT fired or was silently skipped. The existing integration test
+      (sqlite-repository.repository.test.ts line 48) already verifies the idempotency of
+      INSERT OR IGNORE; a second assertion on the return value closes the gap. The implementation
+      uses better-sqlite3's synchronous API (stmt.run() / stmt.get()) which maps naturally to
+      this two-step pattern with no async overhead.
+
+  - title: 'Web UI Orphan-Fallback Strategy in page.tsx'
+    chosen: 'Synthesise virtual repository nodes from repositoryPath for features with no matching DB row'
+    rejected:
+      - 'Hide orphaned features entirely — leaves the dashboard blank for any user who ran feat new before this fix; violates the success criterion that the UI shows all features after fix deployment'
+      - 'Fetch features first then issue a secondary DB query to fill in missing repository rows on the fly — extra round-trip, does not work for features created before the compensating migration runs, and introduces async complexity into a server component that already fetches in parallel'
+    rationale: >
+      page.tsx is a Next.js Server Component that already fetches repositories and features in
+      parallel (Promise.all). The grouping loop at lines 43-60 builds a featuresByRepo map keyed
+      by feature.repositoryPath. Adding a second pass that iterates all features and groups any
+      whose repositoryPath is not already covered by a real repository node costs O(n) and zero
+      extra DB round-trips, satisfying NFR-4. The virtual node uses id virtual-repo-${repositoryPath}
+      consistent with the existing repo-${repo.id} naming convention. This provides immediate
+      visual parity without schema changes, matching the spec's selected option for open question 2.
+
+  - title: 'Compensating Migration for Existing Orphaned Repository Rows'
+    chosen: 'Add a numbered migration (version 23) that INSERT OR IGNORE fills repositories from features'
+    rejected:
+      - 'No migration — rely on application-layer fix only; existing deployments stay broken until a user coincidentally runs feat new again for the same path, which may never happen'
+      - 'One-time repair script run manually by the operator — requires user action, error-prone, and inconsistent with the project migration system that runs automatically on startup'
+    rationale: >
+      migrations.ts currently sits at LATEST_SCHEMA_VERSION = 22. The migration system runs every
+      missing version in order on startup, making version 23 the natural place for the compensating
+      INSERT. The SQL mirrors the backfill logic already used in migration 15 (INSERT OR IGNORE +
+      lower(hex(randomblob(16))) for UUID generation since SQLite has no native UUID function).
+      No schema changes are needed; the statement is purely additive (NFR-2). Users who upgrade
+      get their orphaned rows fixed automatically on next shep startup without any manual steps.
+
+  - title: 'Error Handling in CreateFeatureUseCase After Repository Creation'
+    chosen: 'Guard the create() result and throw a descriptive Error if falsy'
+    rejected:
+      - 'Log a warning and continue — feature row is inserted with a repository_id that points to a non-existent repository row; repo ls and web UI remain broken despite the fix; violates NFR-3 error observability'
+      - 'Return an error result type instead of throwing — inconsistent with existing use-case error handling patterns in the codebase which use thrown errors (see validation guards in create-feature.use-case.ts lines ~70-100); adds new abstraction for no benefit'
+    rationale: >
+      The existing use-case already throws on lifecycle gate failures, parent validation, and
+      cycle detection. Throwing for a missing repository entity is consistent with that pattern
+      and surfaces the problem at the point of failure rather than allowing the feature row to
+      be inserted with a dangling repository_id. The error message includes the repository path
+      for immediate debuggability (NFR-3). Since the compensating migration and the INSERT OR
+      IGNORE + SELECT fix should make this path unreachable in normal operation, the guard acts
+      as a defensive assertion rather than expected control flow.
+
+openQuestions:
+  - question: 'Should the IRepositoryRepository interface create() signature be changed in TypeSpec source (tsp/) or only in the TypeScript interface file?'
+    resolved: true
+    options:
+      - option: 'Change the TypeSpec model and regenerate output.ts'
+        description: >
+          Update the TypeSpec model in tsp/, run pnpm tsp:compile to regenerate output.ts,
+          then update the interface file to match. Keeps TypeSpec as the single source of truth
+          in line with the mandatory TypeSpec-first rule in CLAUDE.md.
+        selected: false
+      - option: 'Change only the TypeScript interface file directly'
+        description: >
+          Edit repository-repository.interface.ts in place without touching tsp/. Faster and
+          avoids a tsp:compile cycle, but the interface drifts from the TypeSpec source of truth,
+          violating the project TypeSpec-first mandate.
+        selected: false
+      - option: 'Change the TypeScript interface directly because port interfaces are hand-authored, not TypeSpec-generated'
+        description: >
+          IRepositoryRepository is an application-layer output port interface, not a domain entity.
+          TypeSpec models entities (Repository, Feature, etc.); port interfaces are hand-authored
+          TypeScript. Changing the interface file directly is correct and does not violate
+          TypeSpec-first — no tsp:compile needed.
+        selected: true
+    selectionRationale: >
+      IRepositoryRepository is an application-layer output port interface, not a domain entity.
+      The TypeSpec-first mandate applies to domain model definitions in tsp/ (entities, value
+      objects, enums). Port interfaces like IRepositoryRepository are hand-authored TypeScript
+      and live in packages/core/src/application/ports/output/. Editing the interface file
+      directly is the correct and established pattern in this codebase.
+
+  - question: 'Should the virtual repository node id in the page.tsx fallback use a hash, a prefixed path string, or a uuid?'
+    resolved: true
+    options:
+      - option: 'Use a deterministic hash (e.g. btoa(path)) as the node id'
+        description: >
+          Produces a compact, stable id. Avoids special characters in the node id string.
+          Adds a dependency on btoa/Buffer and is marginally harder to debug in React DevTools.
+        selected: false
+      - option: 'Use a prefixed path string (e.g. virtual-repo-${repositoryPath})'
+        description: >
+          Simple, readable, stable, and directly traceable to the repository path in DevTools.
+          React Flow node ids are opaque strings with no length constraint. Consistent with
+          the existing pattern of repo-${repo.id} for real nodes.
+        selected: true
+      - option: 'Use a random uuid() at render time'
+        description: >
+          Non-deterministic — every render generates a different id, causing React Flow to
+          remount all edges on each re-render. Not acceptable for a stable graph UI.
+        selected: false
+    selectionRationale: >
+      A prefixed path string is simple, deterministic, and debuggable. The existing node id
+      convention in page.tsx is repo-${repo.id} and feature-${feature.id} — using
+      virtual-repo-${repositoryPath} follows the same pattern. React Flow imposes no constraints
+      on node id format. A random uuid at render time is disqualified because it breaks
+      referential stability across renders.
+
+  - question: 'Should the existing integration test for create() conflict idempotency be updated in place or should a new test case be added?'
+    resolved: true
+    options:
+      - option: 'Update the existing idempotency test to also assert the return value'
+        description: >
+          Minimal change; keeps test count stable. The existing test at line 48 already sets up
+          the conflict scenario — adding an assertion on the return value of the second create()
+          call exercises exactly the new behaviour with no duplication.
+        selected: true
+      - option: 'Add a brand-new test case alongside the existing one'
+        description: >
+          More explicit test naming (e.g. "create() returns existing entity on conflict").
+          Slightly more verbose but maximally clear. Risk of slight duplication with the existing
+          idempotency test setup.
+        selected: false
+      - option: 'Delete the old test and write a replacement from scratch'
+        description: >
+          Cleanest but unnecessary churn. The existing test already validates the INSERT OR IGNORE
+          semantics at the DB level; it just needs the return-value assertion added.
+        selected: false
+    selectionRationale: >
+      The existing integration test at sqlite-repository.repository.test.ts line 48 already
+      constructs the exact conflict scenario (duplicate path) needed to test the new return value.
+      Adding a single expect(result).toEqual(expect.objectContaining({ path: repo.path }))
+      assertion is the minimal change and avoids duplication. New test cases should be added only
+      for genuinely new scenarios: (a) the use-case guard throwing on falsy create() result and
+      (b) the page.tsx orphan-fallback rendering path.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. IRepositoryRepository.create() Return Type
+
+  **Chosen:** Change from `Promise<void>` to `Promise<Repository>`
+
+  **Rejected:**
+  - Keep `Promise<void>` + secondary `findByPath()` call in use case — extra round-trip, does not fix silent conflict masking
+  - Throw on conflict — breaks idempotent "ensure-exists" semantics; requires callers to catch
+
+  **Rationale:** Changing the return type closes the data-loss gap at the lowest level and
+  forces every call site to handle the returned entity. The port interface in
+  `repository-repository.interface.ts` is hand-authored (not TypeSpec-generated) so this
+  is a direct one-line change with no tsp:compile needed.
+
+  ### 2. SQLite INSERT Conflict Strategy
+
+  **Chosen:** `INSERT OR IGNORE` then `SELECT` (return existing row)
+
+  **Rejected:**
+  - `INSERT OR REPLACE` — destructive; overwrites existing data, violates NFR-1
+  - Plain `INSERT` — throws `SQLITE_CONSTRAINT_UNIQUE` on duplicate; breaks idempotent contract
+
+  **Rationale:** `INSERT OR IGNORE` is already in use and preserves existing rows. Appending
+  a `SELECT ... WHERE path = ?` after the `stmt.run()` call costs one extra synchronous
+  operation but guarantees the caller always receives the authoritative DB row. The better-sqlite3
+  synchronous API makes this a natural two-step pattern with no async overhead.
+
+  ### 3. Web UI Orphan-Fallback Strategy
+
+  **Chosen:** Synthesise virtual repository nodes from `repositoryPath` for orphaned features
+
+  **Rejected:**
+  - Hide orphaned features — blank dashboard for existing users, fails success criteria
+  - Secondary DB query to fill gaps — extra round-trip, async complexity, unnecessary
+
+  **Rationale:** `page.tsx` already builds a `featuresByRepo` map keyed by `feature.repositoryPath`.
+  A second pass over `allFeatures` to group any whose `repositoryPath` is not covered by a real
+  repository node is O(n) with zero extra DB calls (NFR-4). The virtual node uses id
+  `virtual-repo-${repositoryPath}` matching the existing `repo-${repo.id}` naming convention.
+
+  ### 4. Compensating Migration (version 23)
+
+  **Chosen:** Add migration 23 that `INSERT OR IGNORE`s repository rows from the features table
+
+  **Rejected:**
+  - No migration — existing orphaned deployments stay broken indefinitely
+  - Manual repair script — requires operator action; inconsistent with automatic migration system
+
+  **Rationale:** `migrations.ts` is at `LATEST_SCHEMA_VERSION = 22`. Adding version 23 with a
+  single idempotent statement mirrors the backfill logic in migration 15 and runs automatically
+  on next `shep` startup. Uses `lower(hex(randomblob(16)))` for UUID generation (same as
+  migration 15) since SQLite has no native UUID function.
+
+  ### 5. Error Handling in CreateFeatureUseCase
+
+  **Chosen:** Guard on `create()` result and throw a descriptive `Error` if falsy
+
+  **Rejected:**
+  - Log warning and continue — feature row inserted with dangling `repository_id`, problem persists
+  - Return error result type — inconsistent with existing throw-based error pattern in the use case
+
+  **Rationale:** The use case already throws for lifecycle gate, parent, and cycle failures.
+  A thrown `Error("Failed to create or retrieve repository record for path: <path>")` is
+  consistent with that pattern (NFR-3) and acts as a defensive assertion.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | better-sqlite3 | SQLite access | Use (already in use) | Synchronous API; INSERT OR IGNORE + SELECT maps cleanly to stmt.run() + stmt.get() |
+  | Next.js App Router | Server Component rendering | Use (already in use) | page.tsx is already a server component; orphan fallback is pure in-memory grouping |
+  | React Flow (@xyflow/react) | Graph rendering | Use (already in use) | Virtual nodes are plain React Flow node objects; no new library API required |
+  | uuid / randomUUID | ID generation | Use (already in use) | CreateFeatureUseCase already uses randomUUID() from Node crypto |
+
+  ## Security Considerations
+
+  - **No new attack surface**: all changes are within the existing SQLite persistence layer and
+    a server-side React component. No new API endpoints, user inputs, or authentication paths.
+  - **SQL injection**: the INSERT OR IGNORE + SELECT pattern uses parameterised queries
+    (`WHERE path = ?`), consistent with all existing queries in the file. No string interpolation.
+  - **Data integrity**: INSERT OR IGNORE + SELECT never overwrites existing rows, preserving
+    data integrity for any fields written after initial creation.
+
+  ## Performance Implications
+
+  - **sqlite-repository.repository.ts**: adds one synchronous `stmt.get()` call per `create()`
+    invocation. For a single `feat new` command this is negligible (one row operation).
+  - **page.tsx orphan fallback**: O(n) pass over `allFeatures` with a Set lookup per feature.
+    For typical shep usage (tens to low hundreds of features per user) this is imperceptible.
+    No additional DB round-trips are introduced (NFR-4).
+  - **Compensating migration**: runs once on startup, executes a single `INSERT OR IGNORE`
+    statement. Cost is proportional to the number of orphaned features; effectively zero for
+    most users.
+
+  ## Architecture Notes
+
+  ### Fit within Clean Architecture
+
+  All changes stay within their existing layers:
+  - **Infrastructure layer**: `sqlite-repository.repository.ts` — implementation detail change only
+  - **Application layer**: `create-feature.use-case.ts` and `repository-repository.interface.ts` — interface contract update + guard logic
+  - **Presentation layer**: `page.tsx` — rendering fallback, no business logic change
+  - **Persistence**: `migrations.ts` — additive migration only
+
+  No new domain entities, abstractions, or cross-layer dependencies are introduced (NFR-6).
+
+  ### Interface Contract Change Impact
+
+  Changing `IRepositoryRepository.create()` from `Promise<void>` to `Promise<Repository>` affects:
+  1. The interface file itself (`repository-repository.interface.ts`)
+  2. The SQLite implementation (`sqlite-repository.repository.ts`)
+  3. The mock in `create-feature.use-case.test.ts` (mock's `create` must return a `Repository`)
+  4. Any other mock implementations referencing `create:` in the test suite
+
+  ### Key Files to Change
+
+  | File | Change |
+  | ---- | ------ |
+  | `packages/core/src/application/ports/output/repositories/repository-repository.interface.ts` | `create()`: `Promise<void>` → `Promise<Repository>` |
+  | `packages/core/src/infrastructure/repositories/sqlite-repository.repository.ts` | `create()`: INSERT OR IGNORE + SELECT, return `Repository` |
+  | `packages/core/src/application/use-cases/features/create/create-feature.use-case.ts` | Guard on `create()` result, throw if falsy |
+  | `src/presentation/web/app/page.tsx` | Add orphan-fallback grouping pass after the main repositories loop |
+  | `packages/core/src/infrastructure/persistence/sqlite/migrations.ts` | Add migration 23, bump `LATEST_SCHEMA_VERSION` to 23 |
+  | `tests/integration/infrastructure/repositories/sqlite-repository.repository.test.ts` | Assert return value on conflict path |
+  | `tests/unit/application/use-cases/features/create-feature.use-case.test.ts` | Update mock + add guard throw test |

@@ -62,31 +62,39 @@ Run completed: success
     expect(result.logExcerpt).toBe(successStdout.trim());
   });
 
-  it('failure: multi-line stdout with no success/completed keyword returns status=failure', async () => {
-    const failureStdout = `
-Waiting for run to complete...
-Run in progress...
-Run concluded: failure
-`.trim();
+  it('failure: gh run watch --exit-status exits non-zero on CI failure, returns status=failure', async () => {
+    // gh run watch --exit-status exits non-zero when the run fails.
+    // Node.js execFile rejects with an error containing stdout/stderr.
+    const execError = new Error('Command failed: gh run watch 12345 --exit-status\n') as Error & {
+      code: number;
+      stdout: string;
+      stderr: string;
+    };
+    execError.code = 1;
+    execError.stdout = "Run CI (12345) has already completed with 'failure'\n";
+    execError.stderr = '';
 
     mockRunList();
-    vi.mocked(mockExec).mockResolvedValueOnce({ stdout: failureStdout, stderr: '' });
+    vi.mocked(mockExec).mockRejectedValueOnce(execError);
 
     const result = await service.watchCi(cwd, branch);
 
     expect(result.status).toBe('failure');
-    expect(result.logExcerpt).toBe(failureStdout.trim());
+    expect(result.logExcerpt).toContain('failure');
   });
 
-  it('cancelled: multi-line stdout with "cancelled" returns status=failure', async () => {
-    const cancelledStdout = `
-Waiting for run to complete...
-Run in progress...
-Run concluded: cancelled
-`.trim();
+  it('cancelled: gh run watch --exit-status exits non-zero on cancelled run, returns status=failure', async () => {
+    const execError = new Error('Command failed: gh run watch 12345 --exit-status\n') as Error & {
+      code: number;
+      stdout: string;
+      stderr: string;
+    };
+    execError.code = 1;
+    execError.stdout = "Run CI (12345) has already completed with 'cancelled'\n";
+    execError.stderr = '';
 
     mockRunList();
-    vi.mocked(mockExec).mockResolvedValueOnce({ stdout: cancelledStdout, stderr: '' });
+    vi.mocked(mockExec).mockRejectedValueOnce(execError);
 
     const result = await service.watchCi(cwd, branch);
 

@@ -107,17 +107,20 @@ export class ResumeFeatureUseCase {
       updatedAt: now,
     });
 
-    // Derive worktree path and spawn resume worker
+    // Derive worktree path and spec dir for resume worker
     const worktreePath = this.worktreeService.getWorktreePath(
       feature.repositoryPath,
       feature.branch
     );
+    if (!feature.specPath) {
+      throw new Error(`Feature "${feature.name}" is missing specPath — cannot resume`);
+    }
 
     this.processService.spawn(
       feature.id,
       newRunId,
       feature.repositoryPath,
-      worktreePath,
+      feature.specPath,
       worktreePath,
       {
         resume: true,

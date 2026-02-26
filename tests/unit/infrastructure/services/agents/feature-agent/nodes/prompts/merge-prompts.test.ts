@@ -1,14 +1,22 @@
 import { describe, it, expect, vi } from 'vitest';
 
 // Mock readSpecFile from node-helpers
-vi.mock('@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js', () => ({
-  readSpecFile: vi.fn().mockReturnValue('name: Test Feature\nsummary: A test feature\n'),
-}));
+vi.mock(
+  '@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js',
+  async (importOriginal) => {
+    const actual = (await importOriginal()) as Record<string, unknown>;
+    return {
+      ...actual,
+      readSpecFile: vi.fn().mockReturnValue('name: Test Feature\nsummary: A test feature\n'),
+    };
+  }
+);
 
 import {
   buildCommitPushPrPrompt,
   buildMergeSquashPrompt,
 } from '@/infrastructure/services/agents/feature-agent/nodes/prompts/merge-prompts.js';
+import { readSpecFile } from '@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js';
 import type { FeatureAgentState } from '@/infrastructure/services/agents/feature-agent/state.js';
 
 function baseState(overrides: Partial<FeatureAgentState> = {}): FeatureAgentState {
@@ -113,11 +121,44 @@ describe('buildCommitPushPrPrompt', () => {
     expect(prompt.toLowerCase()).toContain('prurl');
   });
 
+  it('should forbid git pull and rebase before pushing', () => {
+    const prompt = buildCommitPushPrPrompt(
+      baseState({ push: true, openPr: false }),
+      'feat/test',
+      'main'
+    );
+    expect(prompt).toContain('Do NOT run `git pull`');
+    expect(prompt).toContain('git rebase');
+    expect(prompt).toContain('git merge');
+  });
+
   it('should be deterministic (same input = same output)', () => {
     const state = baseState({ push: true, openPr: true });
     const prompt1 = buildCommitPushPrPrompt(state, 'feat/test', 'main');
     const prompt2 = buildCommitPushPrPrompt(state, 'feat/test', 'main');
     expect(prompt1).toBe(prompt2);
+  });
+
+  it('should forbid source code modification when no rejection feedback', () => {
+    const prompt = buildCommitPushPrPrompt(baseState(), 'feat/test', 'main');
+    expect(prompt).toContain('Do NOT modify any source code files');
+    expect(prompt).not.toContain('MUST modify source code');
+  });
+
+  it('should instruct agent to modify source code when rejection feedback exists', () => {
+    const specWithRejection = [
+      'name: Test Feature',
+      'rejectionFeedback:',
+      '  - iteration: 1',
+      '    message: rename the phase name',
+      '    phase: merge',
+      '    timestamp: "2026-01-01T00:00:00Z"',
+    ].join('\n');
+    vi.mocked(readSpecFile).mockReturnValueOnce(specWithRejection);
+    const prompt = buildCommitPushPrPrompt(baseState(), 'feat/test', 'main');
+    expect(prompt).toContain('MUST modify source code');
+    expect(prompt).not.toContain('Do NOT modify any source code files');
+    expect(prompt).toContain('rename the phase name');
   });
 });
 

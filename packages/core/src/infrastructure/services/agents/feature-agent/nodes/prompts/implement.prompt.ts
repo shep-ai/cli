@@ -119,7 +119,7 @@ ${taskSections}
 2. For tasks with TDD guidance: write tests alongside implementation following the hints provided — use them as guidance, not rigid steps
 3. Follow existing codebase conventions for file placement, naming patterns, and architecture layers
 ${verificationBlock}
-5. Commit your work with descriptive conventional commit messages (e.g. \`feat(scope): description\`)
+5. Commit your work with descriptive conventional commit messages (e.g. \`feat(scope): description\`)${state.push ? `\n6. Push to remote after committing: \`git push -u origin HEAD\`\n   - Do NOT wait for or watch CI — just push and finish` : ''}
 
 ## Working Directory
 

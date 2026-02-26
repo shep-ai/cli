@@ -44,31 +44,72 @@ export class GitPrService implements IGitPrService {
       // No remote HEAD configured — continue to fallbacks
     }
 
-    // 2. Check for common default branch names locally
-    for (const candidate of ['main', 'master']) {
+    // 2. Check for common default branch names locally.
+    //    If both exist, pick the one with the most recent commit.
+    const candidates: string[] = [];
+    for (const name of ['main', 'master']) {
       try {
         const { stdout } = await this.execFile(
           'git',
-          ['rev-parse', '--verify', `refs/heads/${candidate}`],
+          ['rev-parse', '--verify', `refs/heads/${name}`],
           { cwd }
         );
-        if (stdout.trim()) return candidate;
+        if (stdout.trim()) candidates.push(name);
       } catch {
         // Branch doesn't exist — try next
       }
     }
-
-    // 3. Fall back to current branch (works for single-branch / fresh repos)
-    try {
-      const { stdout } = await this.execFile('git', ['symbolic-ref', '--short', 'HEAD'], { cwd });
-      const branch = stdout.trim();
-      if (branch) return branch;
-    } catch {
-      // Detached HEAD — continue
+    if (candidates.length === 1) return candidates[0];
+    if (candidates.length > 1) {
+      // Pick the branch with the most recent commit
+      try {
+        const { stdout } = await this.execFile(
+          'git',
+          [
+            'for-each-ref',
+            '--sort=-committerdate',
+            '--format=%(refname:short)',
+            ...candidates.map((c) => `refs/heads/${c}`),
+          ],
+          { cwd }
+        );
+        const newest = stdout.trim().split('\n')[0];
+        if (newest) return newest;
+      } catch {
+        // Fall through to first candidate
+      }
+      return candidates[0];
     }
 
-    // 4. Ultimate fallback
-    return 'main';
+    // 3. Check git config init.defaultBranch (user/system-level default)
+    try {
+      const { stdout } = await this.execFile('git', ['config', 'init.defaultBranch'], { cwd });
+      const configured = stdout.trim();
+      if (configured) return configured;
+    } catch {
+      // Not configured — continue
+    }
+
+    // 4. Fall back to current branch ONLY in the main worktree (not feature worktrees).
+    // In a feature worktree, symbolic-ref HEAD returns the feature branch, not the default.
+    try {
+      const gitDir = await this.execFile('git', ['rev-parse', '--git-dir'], { cwd });
+      const gitCommonDir = await this.execFile('git', ['rev-parse', '--git-common-dir'], { cwd });
+      const isMainWorktree = gitDir.stdout.trim() === gitCommonDir.stdout.trim();
+      if (isMainWorktree) {
+        const { stdout } = await this.execFile('git', ['symbolic-ref', '--short', 'HEAD'], { cwd });
+        const branch = stdout.trim();
+        if (branch) return branch;
+      }
+    } catch {
+      // Detached HEAD or other error — continue
+    }
+
+    // 5. Ultimate fallback — throw instead of silently guessing
+    throw new Error(
+      `Unable to determine default branch for repository at ${cwd}. ` +
+        `No remote HEAD, no main/master branch, and no init.defaultBranch configured.`
+    );
   }
 
   async hasUncommittedChanges(cwd: string): Promise<boolean> {
@@ -159,21 +200,25 @@ export class GitPrService implements IGitPrService {
   }
 
   async getCiStatus(cwd: string, branch: string): Promise<CiStatusResult> {
-    const { stdout } = await this.execFile(
-      'gh',
-      ['run', 'list', '--branch', branch, '--json', 'conclusion,url', '--limit', '1'],
-      { cwd }
-    );
+    try {
+      const { stdout } = await this.execFile(
+        'gh',
+        ['run', 'list', '--branch', branch, '--json', 'conclusion,url', '--limit', '1'],
+        { cwd }
+      );
 
-    const runs = JSON.parse(stdout) as { conclusion: string | null; url: string }[];
-    if (runs.length === 0 || !runs[0].conclusion) {
-      return { status: 'pending', runUrl: runs[0]?.url };
+      const runs = JSON.parse(stdout) as { conclusion: string | null; url: string }[];
+      if (runs.length === 0 || !runs[0].conclusion) {
+        return { status: 'pending', runUrl: runs[0]?.url };
+      }
+
+      return {
+        status: runs[0].conclusion === 'success' ? 'success' : 'failure',
+        runUrl: runs[0].url,
+      };
+    } catch (error) {
+      throw this.parseGhError(error);
     }
-
-    return {
-      status: runs[0].conclusion === 'success' ? 'success' : 'failure',
-      runUrl: runs[0].url,
-    };
   }
 
   async watchCi(cwd: string, branch: string, timeoutMs?: number): Promise<CiStatusResult> {
@@ -197,9 +242,10 @@ export class GitPrService implements IGitPrService {
         ...(timeoutMs ? { timeout: timeoutMs } : {}),
       });
 
-      const isSuccess = stdout.includes('success') || stdout.includes('completed');
+      // gh run watch --exit-status exits 0 when the run succeeds.
+      // If we reach here (no exception), CI passed — no need for fragile stdout parsing.
       return {
-        status: isSuccess ? 'success' : 'failure',
+        status: 'success',
         logExcerpt: stdout.trim(),
       };
     } catch (error) {
@@ -208,9 +254,19 @@ export class GitPrService implements IGitPrService {
       if (message.includes('timed out') || message.includes('timeout')) {
         throw new GitPrError(message, GitPrErrorCode.CI_TIMEOUT, cause);
       }
-      // gh run watch --exit-status exits non-zero when the run fails
-      if (message.includes('exit code') || message.includes('exit status')) {
-        return { status: 'failure', logExcerpt: message };
+      // gh run watch --exit-status exits non-zero when the run fails.
+      // Node.js execFile produces errors with a numeric `code` (exit code) and
+      // stdout/stderr from the process. The error.message is typically
+      // "Command failed: gh run watch <id> --exit-status\n" — detect this by
+      // checking for a numeric exit code or the "Command failed" prefix.
+      const exitCode = (error as NodeJS.ErrnoException)?.code;
+      const hasNumericExitCode = typeof exitCode === 'number';
+      const isCommandFailure = message.includes('Command failed') || message.includes('exit code');
+      if (hasNumericExitCode || isCommandFailure) {
+        // Build a useful log excerpt from stdout/stderr if available
+        const errObj = error as { stdout?: string; stderr?: string };
+        const parts = [errObj.stdout, errObj.stderr, message].filter(Boolean);
+        return { status: 'failure', logExcerpt: parts.join('\n').trim() };
       }
       throw new GitPrError(message, GitPrErrorCode.GIT_ERROR, cause);
     }

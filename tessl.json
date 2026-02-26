@@ -1,0 +1,16 @@
+{
+  "name": "my-project",
+  "mode": "vendored",
+  "dependencies": {
+    "tessl/npm-storybook": {
+      "version": "9.1.0"
+    },
+    "softaworks/agent-toolkit": {
+      "version": "62b5df50daf75a28d3c0c626d6147539287575fc",
+      "source": "https://github.com/softaworks/agent-toolkit",
+      "include": {
+        "skills": ["react-dev"]
+      }
+    }
+  }
+}

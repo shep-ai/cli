@@ -1,0 +1,279 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feat-repo-web-sync
+number: 046
+branch: feat/046-feat-repo-web-sync
+oneLiner: fix repo/feature visibility bug — feat new creates features but repo ls and web UI show nothing
+userQuery: >
+  we have a bug, im running shep feat new, shep feat ls shows the feature but repo ls (AND UI) dont show the new repo, WEB doesnt even show the features! Fix FAST
+summary: >
+  After running `shep feat new`, features appear in `shep feat ls` (reads from features table)
+  but are invisible in `shep repo ls` and the web UI (both read from repositories table).
+  The root cause is a data source split introduced when the repositories table was added: the
+  CreateFeatureUseCase attempts to auto-create a repository record but the result is never
+  verified, and the web UI only renders features that have a matching repository row.
+  The fix requires: (1) making repositoryRepo.create() return the upserted entity on conflict
+  rather than silently ignoring, (2) verifying repo creation in the use case, (3) adding
+  fallback rendering in the web UI for features whose repository row is missing, and
+  (4) optionally back-filling any existing orphaned repository rows via a compensating migration.
+phase: Requirements
+sizeEstimate: S
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - TypeScript
+  - SQLite (better-sqlite3)
+  - Next.js (App Router)
+  - React
+  - Clean Architecture (domain / application / infrastructure / presentation)
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - question: 'How should sqlite-repository.repository.ts handle an INSERT conflict on the path UNIQUE constraint?'
+    resolved: true
+    options:
+      - option: 'INSERT OR REPLACE (upsert, return new row)'
+        description: >
+          Replace the existing row on conflict and return the inserted entity. Simple and predictable,
+          but destroys any extra data on the existing row (e.g. metadata added after initial creation).
+          Good when repository rows carry no additional mutable state beyond what CreateFeatureUseCase supplies.
+        selected: false
+      - option: 'INSERT OR IGNORE then SELECT (return existing row)'
+        description: >
+          Keep INSERT OR IGNORE but follow it with a SELECT by path so the existing row is always
+          returned. Zero data loss on conflict; the caller always gets a valid entity back.
+          Slightly more SQL but perfectly safe for an idempotent "ensure exists" semantic.
+        selected: true
+      - option: 'Raise error on conflict'
+        description: >
+          Remove the IGNORE and let SQLite throw a UNIQUE constraint error. Requires the caller to
+          catch and handle the error, adding complexity to CreateFeatureUseCase. Does not fit the
+          "ensure a repo row exists" idempotent intent of the call site.
+        selected: false
+    selectionRationale: >
+      "INSERT OR IGNORE then SELECT" is recommended because it achieves idempotent "ensure-exists"
+      semantics without destroying existing data. The caller always receives a fully-populated entity
+      and no information is lost if the row already existed from a prior partial run. This matches
+      the intent at the call site (CreateFeatureUseCase calls create() as a guarantee, not as a
+      first-time-only operation).
+    answer: 'INSERT OR IGNORE then SELECT (return existing row)'
+
+  - question: 'Should the web UI render features whose repository row is missing (orphan fallback)?'
+    resolved: true
+    options:
+      - option: 'Yes — synthesise a virtual repository node from repositoryPath'
+        description: >
+          Group orphaned features under a synthetic repository node derived from their
+          repositoryPath field. No DB change needed; UI is always consistent with what
+          feat ls shows. Provides immediate visual parity and avoids a blank dashboard.
+        selected: true
+      - option: 'No — rely solely on the DB fix, hide orphans'
+        description: >
+          Only render features that have a real repository row. Simple, but any historical
+          orphans (or future partial-run races) will silently disappear from the dashboard
+          until a repo row is written.
+        selected: false
+    selectionRationale: >
+      A defensive fallback in the UI is strongly recommended because it eliminates the blank-dashboard
+      symptom for any existing orphaned data and protects against future races where the feature row
+      is written but the repository row is not yet committed. It costs one extra grouping step in
+      page.tsx and requires no schema changes.
+    answer: 'Yes — synthesise a virtual repository node from repositoryPath'
+
+  - question: 'Should a compensating SQLite migration back-fill missing repository rows for existing features?'
+    resolved: true
+    options:
+      - option: 'Yes — add a compensating migration'
+        description: >
+          Add a numbered migration that INSERTs a repository row for every distinct
+          repository_path in the features table that has no matching row in repositories.
+          Ensures existing databases are consistent after upgrade without any manual steps.
+        selected: true
+      - option: 'No — rely on application-layer fix only'
+        description: >
+          Skip the migration and let the application-layer upsert fix handle new runs.
+          Existing orphaned rows in already-deployed databases will remain invisible in
+          `repo ls` until a new feature is created for that path. Simpler, but leaves
+          deployed instances in a degraded state.
+        selected: false
+    selectionRationale: >
+      A compensating migration is recommended because users who have already run `shep feat new`
+      have orphaned data that the application-layer fix alone will not repair. The migration is
+      a single INSERT … SELECT statement, is idempotent (INSERT OR IGNORE), and runs automatically
+      on next startup — zero user action required.
+    answer: 'Yes — add a compensating migration'
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  Running `shep feat new` creates a feature that is visible via `shep feat ls` but invisible
+  in `shep repo ls` and the web UI. The web UI shows no repositories and no features at all.
+
+  This is a data-consistency bug: two separate data sources diverged after the repositories
+  table was introduced (migration #15). `feat ls` reads from the **features** table;
+  `repo ls` and the web UI read from the **repositories** table. If the repository row is
+  missing, the entire UI goes blank.
+
+  ## Success Criteria
+
+  - [ ] After `shep feat new`, `shep repo ls` lists the repository for that feature in the same shell session.
+  - [ ] After `shep feat new`, the web UI dashboard shows the repository node and the feature card under it.
+  - [ ] `shep repo ls` and the web UI show repositories for all features that were created before this fix (existing orphans are surfaced).
+  - [ ] `sqlite-repository.repository.ts create()` always returns a valid `Repository` entity — never `undefined` or `void`.
+  - [ ] A UNIQUE constraint conflict on `repositories.path` does not silently swallow data; the existing row is returned.
+  - [ ] `CreateFeatureUseCase` throws a descriptive error if repository creation/retrieval fails, rather than continuing silently.
+  - [ ] The web UI dashboard never renders zero nodes when features exist, regardless of whether their repository rows are present.
+  - [ ] All existing unit and integration tests pass after the changes.
+  - [ ] New unit tests cover: (a) `create()` conflict path returns existing entity, (b) use case throws on repo failure, (c) web page renders orphan features via fallback grouping.
+
+  ## Functional Requirements
+
+  - **FR-1**: `IRepositoryRepository.create()` MUST return the persisted `Repository` entity.
+    On a UNIQUE path conflict, it MUST return the existing row rather than silently ignoring the insert.
+
+  - **FR-2**: `CreateFeatureUseCase` MUST verify that a `Repository` entity was returned after calling
+    `repositoryRepo.create()`. If the result is falsy, the use case MUST throw an error with a clear
+    message (e.g. `"Failed to create or retrieve repository record for path: <path>"`).
+
+  - **FR-3**: The SQLite migration sequence MUST include a compensating migration that back-fills a
+    `repositories` row for every distinct `repository_path` in the `features` table that has no
+    corresponding row in `repositories`. The migration MUST be idempotent (INSERT OR IGNORE).
+
+  - **FR-4**: `src/presentation/web/app/page.tsx` MUST render a node for every feature, even when its
+    `repositoryPath` has no matching entry in the `repositories` DB table. Orphaned features MUST be
+    grouped under a synthesised repository node derived from their `repositoryPath` value.
+
+  - **FR-5**: `shep repo ls` MUST list at least one repository entry after `shep feat new` has been
+    run successfully in a repository.
+
+  - **FR-6**: The web dashboard MUST display at least one repository node and at least one feature card
+    after `shep feat new` has been run, without requiring a restart or manual DB repair.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1 — No data loss**: The conflict-handling change in `sqlite-repository.repository.ts` MUST
+    NOT delete or overwrite any existing repository row data. The INSERT OR IGNORE + SELECT pattern
+    preserves all existing fields.
+
+  - **NFR-2 — Backwards compatibility**: The compensating migration MUST be additive only. It must not
+    alter existing schema or drop any rows. Existing repository rows must remain unchanged.
+
+  - **NFR-3 — Error observability**: Any failure in repository row creation MUST surface as an explicit
+    thrown error in `CreateFeatureUseCase`, not a silent no-op. The error message MUST include the
+    affected repository path.
+
+  - **NFR-4 — Performance**: The orphan-fallback grouping in `page.tsx` MUST complete in O(n) time
+    relative to the number of features. No additional DB round-trips are permitted for the fallback path.
+
+  - **NFR-5 — Test coverage**: Each root-cause fix MUST be covered by at least one new unit or
+    integration test exercising the failure path that was previously undetected.
+
+  - **NFR-6 — Minimal scope**: Changes are confined to the 3–5 files identified in Affected Areas.
+    No new domain entities, abstractions, or interfaces are introduced.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | How should `create()` handle a UNIQUE path conflict? | INSERT OR IGNORE then SELECT (return existing row) | Idempotent, no data loss, always returns a valid entity |
+  | 2 | Should the web UI render features with no repository row? | Yes — synthesise virtual repo node from repositoryPath | Eliminates blank dashboard for orphans; costs one grouping step; no schema changes |
+  | 3 | Should a compensating migration back-fill missing repository rows? | Yes — add a compensating migration | Repairs existing deployments automatically on next startup; single idempotent INSERT … SELECT |
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  ```
+  packages/core/src/
+    domain/           — entities: Feature, Repository, AgentRun
+    application/      — use cases: CreateFeatureUseCase, ListFeaturesUseCase, ListRepositoriesUseCase
+    infrastructure/
+      persistence/sqlite/migrations.ts  — DB schema; migration #15 added repositories table
+      repositories/
+        sqlite-feature.repository.ts
+        sqlite-repository.repository.ts
+  src/presentation/
+    cli/commands/feat/   — new.command.ts, ls.command.ts
+    cli/commands/repo/   — ls.command.ts
+    web/app/page.tsx     — main dashboard; groups features under repository nodes
+  ```
+
+  ### Architecture Patterns
+
+  Clean Architecture with inward-pointing dependencies. Use cases are in `application/`,
+  infrastructure implementations satisfy `IFeatureRepository` / `IRepositoryRepository`
+  port interfaces. The web page is a Next.js Server Component that calls use cases directly.
+
+  ### Relevant Technologies
+
+  - **SQLite / better-sqlite3** — synchronous, single-file DB; `INSERT OR IGNORE` used in
+    `sqlite-repository.repository.ts` (can silently swallow failures)
+  - **Next.js App Router** — `page.tsx` is a server component; fetches repos + features in
+    parallel then builds React Flow graph nodes
+
+  ### Data Flow (current, broken)
+
+  ```
+  shep feat new
+      └─ CreateFeatureUseCase
+          ├─ INSERT INTO features (repository_path, ...) ✓
+          └─ repositoryRepo.findByPath() → null
+              └─ repositoryRepo.create(repo)
+                  └─ INSERT OR IGNORE INTO repositories ...
+                      └─ success NOT verified → silent failure possible
+
+  shep feat ls  → SELECT * FROM features          ← sees the feature ✓
+  shep repo ls  → SELECT * FROM repositories      ← empty if row missing ✗
+  Web UI        → ListRepositoriesUseCase (repos table) + ListFeaturesUseCase
+                  → iterates repos, groups features under each repo
+                  → if repos is empty, zero nodes rendered ✗
+  ```
+
+  ### Root Causes
+
+  1. **No post-create verification in CreateFeatureUseCase** (`create-feature.use-case.ts`
+     lines ~140-153): after calling `repositoryRepo.create()` the code never checks that the
+     row actually exists. Any silent failure leaves the repositories table empty.
+
+  2. **`INSERT OR IGNORE` masks errors** (`sqlite-repository.repository.ts` line ~24):
+     if a UNIQUE constraint fires (e.g., path collision from a previous partial run) the
+     insert is swallowed without returning an error or the existing row.
+
+  3. **Web UI only renders features under persisted repository nodes** (`page.tsx` ~line 65):
+     the loop iterates `repositories` (the DB-backed list). Features whose repository row is
+     missing are never rendered — the dashboard appears completely empty.
+
+  4. **No fallback / orphan handling**: the comment on `page.tsx` line ~52 acknowledges
+     "features may still reference paths not yet in repositories table" but the code does
+     not act on that knowledge.
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `packages/core/src/application/use-cases/features/create/create-feature.use-case.ts` | High | Must verify repo creation succeeded; handle/throw on failure |
+  | `packages/core/src/infrastructure/repositories/sqlite-repository.repository.ts` | High | `create()` must return the persisted entity (or existing entity on conflict), not silently ignore |
+  | `src/presentation/web/app/page.tsx` | High | Must render features even when no repository row exists (fallback grouping by repositoryPath) |
+  | `packages/core/src/application/use-cases/repositories/list-repositories.use-case.ts` | Low | May need to derive repos from features table as fallback |
+  | `packages/core/src/infrastructure/persistence/sqlite/migrations.ts` | Low | Compensating migration to back-fill any missing repository rows |
+
+  ## Dependencies
+
+  - `IRepositoryRepository` port and its SQLite implementation
+  - `CreateFeatureUseCase` — orchestrates feature + repository creation
+  - Next.js server component rendering pipeline (`page.tsx`)
+  - SQLite migration system (for compensating back-fill migration)
+
+  ## Size Estimate
+
+  **S** — All changes are confined to 3–5 files. No new abstractions required.
+  The fix is: (1) change `repositoryRepo.create()` to INSERT OR IGNORE + SELECT so it always
+  returns the persisted entity, (2) verify the returned entity in `CreateFeatureUseCase` and
+  throw on failure, (3) add orphan-fallback rendering in `page.tsx`, (4) add a compensating
+  migration for existing deployments. No domain model changes needed.

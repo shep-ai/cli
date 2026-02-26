@@ -137,6 +137,16 @@ export function FeatureDrawer({
           </>
         ) : undefined
       }
+      deployTarget={
+        selectedNode?.repositoryPath && selectedNode.branch
+          ? {
+              targetId: selectedNode.featureId,
+              targetType: 'feature',
+              repositoryPath: selectedNode.repositoryPath,
+              branch: selectedNode.branch,
+            }
+          : undefined
+      }
     >
       {selectedNode ? (
         <div className="flex-1 overflow-y-auto">
