@@ -230,22 +230,14 @@ describe('ControlCenterInner reject handlers', () => {
       });
       await openPrdDrawerOnLastStep();
 
-      // Click reject button
-      const rejectBtn = screen.getByRole('button', { name: /reject/i });
+      // Type feedback in the inline revision input and submit
+      const input = screen.getByLabelText('Ask AI to refine requirements...');
       await act(async () => {
-        fireEvent.click(rejectBtn);
+        fireEvent.change(input, { target: { value: 'Needs more detail' } });
       });
-
-      // Fill in feedback in the dialog
-      const textarea = screen.getByLabelText('Rejection feedback');
+      const sendBtn = screen.getByRole('button', { name: /send/i });
       await act(async () => {
-        fireEvent.change(textarea, { target: { value: 'Needs more detail' } });
-      });
-
-      // Click confirm
-      const confirmBtn = screen.getByRole('button', { name: /confirm reject/i });
-      await act(async () => {
-        fireEvent.click(confirmBtn);
+        fireEvent.click(sendBtn);
       });
 
       await waitFor(() => {
@@ -261,19 +253,13 @@ describe('ControlCenterInner reject handlers', () => {
       mockRejectFeature.mockResolvedValue({ rejected: true, iteration: 5, iterationWarning: true });
       await openPrdDrawerOnLastStep();
 
-      const rejectBtn = screen.getByRole('button', { name: /reject/i });
+      const input = screen.getByLabelText('Ask AI to refine requirements...');
       await act(async () => {
-        fireEvent.click(rejectBtn);
+        fireEvent.change(input, { target: { value: 'Still wrong' } });
       });
-
-      const textarea = screen.getByLabelText('Rejection feedback');
+      const sendBtn = screen.getByRole('button', { name: /send/i });
       await act(async () => {
-        fireEvent.change(textarea, { target: { value: 'Still wrong' } });
-      });
-
-      const confirmBtn = screen.getByRole('button', { name: /confirm reject/i });
-      await act(async () => {
-        fireEvent.click(confirmBtn);
+        fireEvent.click(sendBtn);
       });
 
       await waitFor(() => {
@@ -291,19 +277,13 @@ describe('ControlCenterInner reject handlers', () => {
       mockRejectFeature.mockResolvedValue({ rejected: false, error: 'Not waiting for approval' });
       await openPrdDrawerOnLastStep();
 
-      const rejectBtn = screen.getByRole('button', { name: /reject/i });
+      const input = screen.getByLabelText('Ask AI to refine requirements...');
       await act(async () => {
-        fireEvent.click(rejectBtn);
+        fireEvent.change(input, { target: { value: 'Bad requirements' } });
       });
-
-      const textarea = screen.getByLabelText('Rejection feedback');
+      const sendBtn = screen.getByRole('button', { name: /send/i });
       await act(async () => {
-        fireEvent.change(textarea, { target: { value: 'Bad requirements' } });
-      });
-
-      const confirmBtn = screen.getByRole('button', { name: /confirm reject/i });
-      await act(async () => {
-        fireEvent.click(confirmBtn);
+        fireEvent.click(sendBtn);
       });
 
       await waitFor(() => {
@@ -324,19 +304,13 @@ describe('ControlCenterInner reject handlers', () => {
       });
       await openTechDecisionsDrawer();
 
-      const rejectBtn = screen.getByRole('button', { name: /reject/i });
+      const input = screen.getByLabelText('Ask AI to revise the plan...');
       await act(async () => {
-        fireEvent.click(rejectBtn);
+        fireEvent.change(input, { target: { value: 'Wrong tech choices' } });
       });
-
-      const textarea = screen.getByLabelText('Rejection feedback');
+      const sendBtn = screen.getByRole('button', { name: /send/i });
       await act(async () => {
-        fireEvent.change(textarea, { target: { value: 'Wrong tech choices' } });
-      });
-
-      const confirmBtn = screen.getByRole('button', { name: /confirm reject/i });
-      await act(async () => {
-        fireEvent.click(confirmBtn);
+        fireEvent.click(sendBtn);
       });
 
       await waitFor(() => {
@@ -352,19 +326,13 @@ describe('ControlCenterInner reject handlers', () => {
       mockRejectFeature.mockResolvedValue({ rejected: true, iteration: 6, iterationWarning: true });
       await openTechDecisionsDrawer();
 
-      const rejectBtn = screen.getByRole('button', { name: /reject/i });
+      const input = screen.getByLabelText('Ask AI to revise the plan...');
       await act(async () => {
-        fireEvent.click(rejectBtn);
+        fireEvent.change(input, { target: { value: 'Reconsider approach' } });
       });
-
-      const textarea = screen.getByLabelText('Rejection feedback');
+      const sendBtn = screen.getByRole('button', { name: /send/i });
       await act(async () => {
-        fireEvent.change(textarea, { target: { value: 'Reconsider approach' } });
-      });
-
-      const confirmBtn = screen.getByRole('button', { name: /confirm reject/i });
-      await act(async () => {
-        fireEvent.click(confirmBtn);
+        fireEvent.click(sendBtn);
       });
 
       await waitFor(() => {
@@ -378,19 +346,13 @@ describe('ControlCenterInner reject handlers', () => {
       mockRejectFeature.mockResolvedValue({ rejected: false, error: 'Server error' });
       await openTechDecisionsDrawer();
 
-      const rejectBtn = screen.getByRole('button', { name: /reject/i });
+      const input = screen.getByLabelText('Ask AI to revise the plan...');
       await act(async () => {
-        fireEvent.click(rejectBtn);
+        fireEvent.change(input, { target: { value: 'Feedback' } });
       });
-
-      const textarea = screen.getByLabelText('Rejection feedback');
+      const sendBtn = screen.getByRole('button', { name: /send/i });
       await act(async () => {
-        fireEvent.change(textarea, { target: { value: 'Feedback' } });
-      });
-
-      const confirmBtn = screen.getByRole('button', { name: /confirm reject/i });
-      await act(async () => {
-        fireEvent.click(confirmBtn);
+        fireEvent.click(sendBtn);
       });
 
       await waitFor(() => {
