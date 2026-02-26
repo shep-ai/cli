@@ -185,8 +185,6 @@ export function FeatureDrawer({
             </>
           ) : null}
 
-          <Separator />
-
           {/* Details */}
           <DetailsSection data={selectedNode} />
         </div>
@@ -218,19 +216,20 @@ function StateBadge({ data }: { data: FeatureNodeData }) {
 }
 
 function DetailsSection({ data }: { data: FeatureNodeData }) {
-  const hasAnyDetail =
-    data.description ?? data.agentType ?? data.runtime ?? data.blockedBy ?? data.errorMessage;
+  const hasAnyDetail = data.agentType ?? data.runtime ?? data.blockedBy ?? data.errorMessage;
 
   if (!hasAnyDetail) return null;
 
   return (
-    <div data-testid="feature-drawer-details" className="flex flex-col gap-3 p-4">
-      {data.description ? <DetailRow label="Description" value={data.description} /> : null}
-      {data.agentType ? <DetailRow label="Agent" value={data.agentType} /> : null}
-      {data.runtime ? <DetailRow label="Runtime" value={data.runtime} /> : null}
-      {data.blockedBy ? <DetailRow label="Blocked by" value={data.blockedBy} /> : null}
-      {data.errorMessage ? <DetailRow label="Error" value={data.errorMessage} /> : null}
-    </div>
+    <>
+      <Separator />
+      <div data-testid="feature-drawer-details" className="flex flex-col gap-3 p-4">
+        {data.agentType ? <DetailRow label="Agent" value={data.agentType} /> : null}
+        {data.runtime ? <DetailRow label="Runtime" value={data.runtime} /> : null}
+        {data.blockedBy ? <DetailRow label="Blocked by" value={data.blockedBy} /> : null}
+        {data.errorMessage ? <DetailRow label="Error" value={data.errorMessage} /> : null}
+      </div>
+    </>
   );
 }
 
