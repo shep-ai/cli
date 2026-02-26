@@ -250,11 +250,11 @@ describe('RepositoryNode', () => {
   });
 
   describe('node width', () => {
-    it('uses w-72 class on the main button element', () => {
+    it('uses min-w-[18rem] class on the main button element', () => {
       renderNode(dataWithRepoPath);
 
       const card = screen.getByTestId('repository-node-card');
-      expect(card).toHaveClass('w-72');
+      expect(card).toHaveClass('min-w-[18rem]');
     });
   });
 

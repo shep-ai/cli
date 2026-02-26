@@ -109,7 +109,7 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
             data.onClick?.();
           }
         }}
-        className="nodrag bg-card flex w-72 cursor-default items-center gap-3 rounded-full border px-4 py-3 shadow-sm"
+        className="nodrag bg-card flex min-w-[18rem] cursor-default items-center gap-3 rounded-full border px-4 py-3 shadow-sm"
       >
         <Github className="text-muted-foreground h-5 w-5 shrink-0" />
         <span data-testid="repository-node-name" className="min-w-0 truncate text-sm font-medium">
@@ -183,27 +183,32 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
                 </Tooltip>
               </TooltipProvider>
               {featureFlags.envDeploy ? (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="flex items-center">
-                        <ActionButton
-                          label={isDeploymentActive ? 'Stop Dev Server' : 'Start Dev Server'}
-                          onClick={isDeploymentActive ? deployAction.stop : deployAction.deploy}
-                          loading={deployAction.deployLoading || deployAction.stopLoading}
-                          error={!!deployAction.deployError}
-                          icon={isDeploymentActive ? Square : Play}
-                          iconOnly
-                          variant="ghost"
-                          size="icon-xs"
-                        />
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      {isDeploymentActive ? 'Stop Dev Server' : 'Start Dev Server'}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="flex items-center">
+                          <ActionButton
+                            label={isDeploymentActive ? 'Stop Dev Server' : 'Start Dev Server'}
+                            onClick={isDeploymentActive ? deployAction.stop : deployAction.deploy}
+                            loading={deployAction.deployLoading || deployAction.stopLoading}
+                            error={!!deployAction.deployError}
+                            icon={isDeploymentActive ? Square : Play}
+                            iconOnly
+                            variant="ghost"
+                            size="icon-xs"
+                          />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {isDeploymentActive ? 'Stop Dev Server' : 'Start Dev Server'}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  {isDeploymentActive ? (
+                    <DeploymentStatusBadge status={deployAction.status} url={deployAction.url} />
+                  ) : null}
+                </>
               ) : null}
             </>
           ) : null}
@@ -230,12 +235,6 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
           ) : null}
         </div>
       </div>
-
-      {featureFlags.envDeploy && isDeploymentActive ? (
-        <div className="flex justify-center pt-1">
-          <DeploymentStatusBadge status={deployAction.status} url={deployAction.url} />
-        </div>
-      ) : null}
 
       {/* Source handle — invisible, for edge connections */}
       {data.onAdd || data.showHandles ? (

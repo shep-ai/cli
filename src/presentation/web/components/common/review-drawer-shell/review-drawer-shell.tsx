@@ -20,6 +20,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { OpenActionMenu } from '@/components/common/open-action-menu';
 import { ActionButton } from '@/components/common/action-button';
 import { useFeatureActions } from '@/components/common/feature-drawer/use-feature-actions';
+import { DeploymentStatusBadge } from '@/components/common/deployment-status-badge';
 import { useDeployAction } from '@/hooks/use-deploy-action';
 import { featureFlags } from '@/lib/feature-flags';
 import type { ReviewDrawerShellProps } from './review-drawer-shell-config';
@@ -95,6 +96,9 @@ export function ReviewDrawerShell({
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
+              ) : null}
+              {featureFlags.envDeploy && isDeploymentActive ? (
+                <DeploymentStatusBadge status={deployAction.status} url={deployAction.url} />
               ) : null}
               {onDelete && featureId ? (
                 <AlertDialog>
