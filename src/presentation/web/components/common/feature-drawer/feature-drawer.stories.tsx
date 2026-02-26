@@ -86,9 +86,115 @@ const errorData: FeatureNodeData = {
   lifecycle: 'review',
   state: 'error',
   progress: 30,
-  errorMessage: 'Build failed: type mismatch',
+  errorMessage: `Build failed: type mismatch in src/email/templates.ts
+
+TypeError: Cannot read property 'send' of undefined
+    at EmailService.sendTransactional (src/email/service.ts:45:12)
+    at async UserController.register (src/controllers/user.ts:89:5)
+    at async middleware (src/middleware/auth.ts:23:7)
+
+This error occurs because the SendGrid client is not properly initialized.
+Check your SENDGRID_API_KEY environment variable.`,
   repositoryPath: '/home/user/my-repo',
   branch: 'feat/email-service',
+};
+
+const errorDataShort: FeatureNodeData = {
+  name: 'Auth Module',
+  description: 'OAuth2 authentication flow',
+  featureId: '#f6',
+  lifecycle: 'implementation',
+  state: 'error',
+  progress: 45,
+  errorMessage: 'Build failed: type mismatch in src/auth.ts',
+  repositoryPath: '/home/user/my-repo',
+  branch: 'feat/auth-module',
+};
+
+const errorDataMedium: FeatureNodeData = {
+  name: 'Payment Gateway',
+  description: 'Stripe integration for subscriptions',
+  featureId: '#f7',
+  lifecycle: 'implementation',
+  state: 'error',
+  progress: 60,
+  errorMessage: `Payment processing failed: invalid card token
+
+Error details:
+  - Card token: tok_invalid_12345
+  - Amount: $99.99 USD
+  - Customer ID: cus_abc123
+  - Error code: card_declined
+  - Message: Your card was declined
+
+Please check the card details and try again.`,
+  repositoryPath: '/home/user/my-repo',
+  branch: 'feat/payment-gateway',
+};
+
+const errorDataLongStackTrace: FeatureNodeData = {
+  name: 'Database Migration',
+  description: 'PostgreSQL schema migration for v2.0',
+  featureId: '#f8',
+  lifecycle: 'implementation',
+  state: 'error',
+  progress: 75,
+  errorMessage: `Migration failed: foreign key constraint violation
+
+Error: insert or update on table "orders" violates foreign key constraint "orders_user_id_fkey"
+    at Parser.parseErrorMessage (/app/node_modules/pg-protocol/dist/parser.js:287:98)
+    at Parser.handlePacket (/app/node_modules/pg-protocol/dist/parser.js:126:29)
+    at Parser.parse (/app/node_modules/pg-protocol/dist/parser.js:39:38)
+    at Socket.<anonymous> (/app/node_modules/pg-protocol/dist/index.js:11:42)
+    at Socket.emit (node:events:513:28)
+    at addChunk (node:internal/streams/readable:324:12)
+    at readableAddChunk (node:internal/streams/readable:297:9)
+    at Readable.push (node:internal/streams/readable:234:10)
+    at TCP.onStreamRead (node:internal/stream_base_commons:190:23)
+    at Connection.parseE (/app/node_modules/pg/lib/connection.js:633:11)
+    at Connection.parseMessage (/app/node_modules/pg/lib/connection.js:410:19)
+    at Socket.<anonymous> (/app/node_modules/pg/lib/connection.js:129:22)
+    at Socket.emit (node:events:513:28)
+    at addChunk (node:internal/streams/readable:324:12)
+    at readableAddChunk (node:internal/streams/readable:297:9)
+    at Readable.push (node:internal/streams/readable:234:10)
+    at TCP.onStreamRead (node:internal/stream_base_commons:190:23)
+
+Detail: Key (user_id)=(999) is not present in table "users".
+Hint: Check that the user_id exists in the users table before inserting into orders.
+
+Migration SQL:
+  INSERT INTO orders (id, user_id, total, status, created_at)
+  VALUES (1001, 999, 149.99, 'pending', NOW());
+
+Context:
+  - Migration version: 20260226_001
+  - Database: production_db
+  - Schema: public
+  - User: migration_user
+  - Connection: postgres://localhost:5432/production_db
+
+Failed queries (last 5):
+  1. CREATE INDEX idx_orders_user_id ON orders(user_id);
+  2. CREATE INDEX idx_orders_status ON orders(status);
+  3. ALTER TABLE orders ADD CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users(id);
+  4. INSERT INTO orders (id, user_id, total, status, created_at) VALUES (1001, 999, 149.99, 'pending', NOW());
+  5. ROLLBACK;
+
+The migration has been rolled back. Please fix the data inconsistencies before retrying.`,
+  repositoryPath: '/home/user/my-repo',
+  branch: 'feat/database-migration',
+};
+
+const noErrorData: FeatureNodeData = {
+  name: 'UI Components Library',
+  description: 'Reusable React components with TypeScript',
+  featureId: '#f9',
+  lifecycle: 'implementation',
+  state: 'running',
+  progress: 55,
+  repositoryPath: '/home/user/my-repo',
+  branch: 'feat/ui-components',
 };
 
 /* ---------------------------------------------------------------------------
@@ -130,6 +236,26 @@ export const Blocked: Story = {
 
 export const Error: Story = {
   render: () => <DrawerTrigger data={errorData} label="Open Error" />,
+};
+
+/** Error tab with a short (1-line) error message. */
+export const ErrorShortMessage: Story = {
+  render: () => <DrawerTrigger data={errorDataShort} label="Open Error (Short)" />,
+};
+
+/** Error tab with a medium-length (~10 lines) error message with formatting. */
+export const ErrorMediumMessage: Story = {
+  render: () => <DrawerTrigger data={errorDataMedium} label="Open Error (Medium)" />,
+};
+
+/** Error tab with a very long (~50+ lines) stack trace demonstrating scrolling. */
+export const ErrorLongStackTrace: Story = {
+  render: () => <DrawerTrigger data={errorDataLongStackTrace} label="Open Error (Long)" />,
+};
+
+/** No error state — errorMessage is undefined, tabs should not appear. */
+export const NoErrorState: Story = {
+  render: () => <DrawerTrigger data={noErrorData} label="Open No Error" />,
 };
 
 /* ---------------------------------------------------------------------------
