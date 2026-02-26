@@ -107,27 +107,21 @@ export class ResumeFeatureUseCase {
       updatedAt: now,
     });
 
-    // Derive worktree path and spawn resume worker
+    // Derive worktree path and spec dir for resume worker
     const worktreePath = this.worktreeService.getWorktreePath(
       feature.repositoryPath,
       feature.branch
     );
+    const specDir = feature.specPath ?? worktreePath;
 
-    this.processService.spawn(
-      feature.id,
-      newRunId,
-      feature.repositoryPath,
-      worktreePath,
-      worktreePath,
-      {
-        resume: true,
-        approvalGates: lastRun.approvalGates,
-        threadId: lastRun.threadId,
-        resumeFromInterrupt: lastRun.status === AgentRunStatus.waitingApproval,
-        push: feature.push,
-        openPr: feature.openPr,
-      }
-    );
+    this.processService.spawn(feature.id, newRunId, feature.repositoryPath, specDir, worktreePath, {
+      resume: true,
+      approvalGates: lastRun.approvalGates,
+      threadId: lastRun.threadId,
+      resumeFromInterrupt: lastRun.status === AgentRunStatus.waitingApproval,
+      push: feature.push,
+      openPr: feature.openPr,
+    });
 
     return { feature, newRun };
   }
