@@ -200,21 +200,25 @@ export class GitPrService implements IGitPrService {
   }
 
   async getCiStatus(cwd: string, branch: string): Promise<CiStatusResult> {
-    const { stdout } = await this.execFile(
-      'gh',
-      ['run', 'list', '--branch', branch, '--json', 'conclusion,url', '--limit', '1'],
-      { cwd }
-    );
+    try {
+      const { stdout } = await this.execFile(
+        'gh',
+        ['run', 'list', '--branch', branch, '--json', 'conclusion,url', '--limit', '1'],
+        { cwd }
+      );
 
-    const runs = JSON.parse(stdout) as { conclusion: string | null; url: string }[];
-    if (runs.length === 0 || !runs[0].conclusion) {
-      return { status: 'pending', runUrl: runs[0]?.url };
+      const runs = JSON.parse(stdout) as { conclusion: string | null; url: string }[];
+      if (runs.length === 0 || !runs[0].conclusion) {
+        return { status: 'pending', runUrl: runs[0]?.url };
+      }
+
+      return {
+        status: runs[0].conclusion === 'success' ? 'success' : 'failure',
+        runUrl: runs[0].url,
+      };
+    } catch (error) {
+      throw this.parseGhError(error);
     }
-
-    return {
-      status: runs[0].conclusion === 'success' ? 'success' : 'failure',
-      runUrl: runs[0].url,
-    };
   }
 
   async watchCi(cwd: string, branch: string, timeoutMs?: number): Promise<CiStatusResult> {
@@ -238,9 +242,10 @@ export class GitPrService implements IGitPrService {
         ...(timeoutMs ? { timeout: timeoutMs } : {}),
       });
 
-      const isSuccess = stdout.includes('success') || stdout.includes('completed');
+      // gh run watch --exit-status exits 0 when the run succeeds.
+      // If we reach here (no exception), CI passed — no need for fragile stdout parsing.
       return {
-        status: isSuccess ? 'success' : 'failure',
+        status: 'success',
         logExcerpt: stdout.trim(),
       };
     } catch (error) {
