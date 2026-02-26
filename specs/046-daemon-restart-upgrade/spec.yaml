@@ -1,0 +1,266 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: daemon-restart-upgrade
+number: 046
+branch: feat/046-daemon-restart-upgrade
+oneLiner: auto-restart daemon after upgrade and add `shep restart` command for graceful daemon restart
+userQuery: >
+  we have shep upgrade command which installs latest version of shep, we need to run shep stop start if daemon was running before upgrade! also lets add helper function shep restart - gracefully restart, if daemon wasnt running, just start
+summary: >
+  The upgrade command currently installs the latest shep version but does not handle the running daemon,
+  leaving a stale process behind. This feature adds daemon lifecycle awareness to the upgrade flow (stop
+  before upgrade, restart after if it was running) and introduces a new `shep restart` command that
+  gracefully stops and restarts the daemon, or simply starts it if it was not already running.
+phase: Requirements
+sizeEstimate: S
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - TypeScript
+  - Node.js (child_process / process signals)
+  - Commander.js (CLI framework)
+  - IDaemonService (internal port)
+  - DaemonPidService (internal infrastructure)
+  - startDaemon helper (internal shared logic)
+  - stopDaemon helper (new internal shared logic)
+  - Jest (unit + e2e testing)
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - question: "Should the upgrade command preserve the daemon's original port when restarting after upgrade?"
+    resolved: true
+    options:
+      - option: 'Preserve original port'
+        description: >
+          Read daemon state before stopping, capture the port, then pass it explicitly to startDaemon()
+          after upgrade completes. Users with browser tabs, bookmarks, or local integrations pointing at
+          a specific port (e.g. 3000) get a seamless experience — the URL does not change. Adds a small
+          amount of implementation complexity (~1 extra variable).
+        selected: true
+      - option: 'Let startDaemon pick freely'
+        description: >
+          Do not pass a port override; let startDaemon() call findAvailablePort() as usual. Simpler
+          implementation but may assign a different port after upgrade, breaking existing browser tabs and
+          any URL shortcuts users have saved.
+        selected: false
+    selectionRationale: >
+      Preserving the original port gives users a seamless upgrade experience — the web UI URL stays the
+      same. The implementation cost is trivial (one extra variable captured before stop). Changing port
+      silently on every upgrade is a poor UX footgun.
+    answer: 'Preserve original port'
+
+  - question: 'If the npm install step fails during upgrade, should the daemon be restarted anyway?'
+    resolved: true
+    options:
+      - option: 'Restart regardless (preserve service)'
+        description: >
+          Always restart the daemon if it was running before upgrade, even when npm install fails.
+          The old binary is still present and functional, so the user''s service remains available.
+          Clear messaging explains the upgrade failed but the daemon is back on the old version.
+          Avoids leaving users with a completely dead CLI after a transient npm outage.
+        selected: true
+      - option: 'Only restart on success'
+        description: >
+          Only restart the daemon when npm install exits with code 0. If the upgrade fails, leave the
+          daemon stopped and print an error. Simpler logic, but leaves the user with no running daemon
+          after a failed upgrade — they must manually run `shep start` to recover.
+        selected: false
+    selectionRationale: >
+      Network blips, npm registry outages, or permission errors should not kill the user''s running
+      web UI. Restarting on the old binary preserves availability and makes the failure recoverable
+      without user intervention. The messaging clearly distinguishes "upgrade failed, daemon restored"
+      from "upgrade succeeded, daemon restarted".
+    answer: 'Restart regardless (preserve service)'
+
+  - question: 'Should `shep restart` accept a --port option to override the port on restart?'
+    resolved: true
+    options:
+      - option: 'Accept --port flag'
+        description: >
+          Add an optional --port <number> flag, mirroring `shep start --port`. When not provided,
+          startDaemon() resolves the port automatically (same as today). Consistent API surface across
+          all daemon commands; useful if the default port is in use. No extra implementation complexity.
+        selected: true
+      - option: 'No --port flag'
+        description: >
+          Omit the port flag. Restart always lets startDaemon() pick the available port. Simpler command
+          surface but diverges from `shep start` and removes user control in multi-service environments
+          where port assignment matters.
+        selected: false
+    selectionRationale: >
+      Parity with `shep start --port` is the right default for a command that is semantically a
+      stop-then-start. The flag is optional so it does not complicate the common case. Adding it later
+      would be a breaking change; including it now costs nothing.
+    answer: 'Accept --port flag'
+
+  - question: 'Should `shep restart` auto-open the browser (same behaviour as `shep start`)?'
+    resolved: true
+    options:
+      - option: 'Auto-open browser (delegate to startDaemon)'
+        description: >
+          Call startDaemon() without modification; it opens the browser via BrowserOpenerService as it
+          does for `shep start`. Consistent behaviour — restart is semantically a fresh start. Users
+          who ran `shep restart` explicitly likely want the UI open. Zero extra code; just reuse the
+          existing helper.
+        selected: true
+      - option: 'Skip browser open on restart'
+        description: >
+          Pass a flag to startDaemon() to suppress the browser open. Useful if the user is restarting
+          in the background and already has the browser tab open. Requires adding an option to
+          startDaemon() interface, adding scope to this feature.
+        selected: false
+    selectionRationale: >
+      Delegating to startDaemon() unchanged is the simplest correct implementation and keeps the
+      restart behaviour fully consistent with start. Suppressing the browser open would require
+      modifying the startDaemon() interface, which is out of scope for an S-sized feature. Users can
+      dismiss the browser tab trivially; not having the tab open when expected is more surprising.
+    answer: 'Auto-open browser (delegate to startDaemon)'
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  The `shep upgrade` command runs `npm install -g @shepai/cli@latest` and exits. If the daemon is running
+  at that point, a stale process continues on the old binary. The new binary only takes effect the next
+  time the daemon is manually restarted, which is a footgun for users who expect the fresh version to be
+  active immediately after `shep upgrade`.
+
+  There is also no first-class `shep restart` command. Users who want to reload the daemon must manually
+  run `shep stop && shep start`, with no guarantee that `start` will be called if `stop` fails or the
+  daemon was not running to begin with.
+
+  ## Success Criteria
+
+  - [ ] `shep upgrade` stops the daemon before installing when it was running, and restarts it after
+        (whether or not the install succeeded), preserving the original port.
+  - [ ] `shep upgrade` when daemon was NOT running completes the upgrade without touching the daemon.
+  - [ ] `shep restart` stops then starts the daemon when it is running; exits with success.
+  - [ ] `shep restart` starts the daemon (without prior stop) when it is NOT running; exits with success.
+  - [ ] `shep restart --port <n>` starts the daemon on the specified port.
+  - [ ] `shep restart` and upgrade daemon restart both open the browser (consistent with `shep start`).
+  - [ ] A `stopDaemon()` helper is extracted from `stop.command.ts` and reused by `restart.command.ts`
+        and `upgrade.command.ts`; `stop.command.ts` is updated to call the helper.
+  - [ ] All new code paths are covered by unit tests (upgrade: daemon-was-running and
+        daemon-was-not-running; restart: running and not-running).
+  - [ ] E2E lifecycle test includes restart and upgrade-with-daemon scenarios.
+  - [ ] `pnpm validate` passes (lint, format, typecheck).
+  - [ ] `pnpm test` passes with no regressions.
+
+  ## Functional Requirements
+
+  - **FR-1**: Before executing `npm install`, `upgrade.command.ts` MUST check whether the daemon is
+    alive via `IDaemonService.read()` and `IDaemonService.isAlive()`. If alive, it MUST record the
+    current port and call `stopDaemon()` before proceeding with the install.
+
+  - **FR-2**: After `npm install` completes (regardless of exit code), `upgrade.command.ts` MUST
+    restart the daemon via `startDaemon({ port: previousPort })` if and only if the daemon was running
+    before the upgrade. The restart MUST use the port captured in FR-1.
+
+  - **FR-3**: If `npm install` exits with a non-zero code, `upgrade.command.ts` MUST print an error
+    message for the install failure, then still execute the daemon restart (per FR-2), and print a
+    distinct message indicating the daemon was restored on the previous version.
+
+  - **FR-4**: A new shared helper `stopDaemon(daemonService: IDaemonService): Promise<void>` MUST be
+    created at `src/presentation/cli/commands/daemon/stop-daemon.ts`. It MUST implement the same
+    SIGTERM → 200 ms poll (up to 5 s) → SIGKILL → delete daemon.json sequence currently inlined in
+    `stop.command.ts`. It MUST handle the "not running / invalid PID" case by silently cleaning up
+    daemon.json and returning without error.
+
+  - **FR-5**: `stop.command.ts` MUST be refactored to call `stopDaemon()` from the new helper rather
+    than executing the inline stop logic directly. Externally observable behaviour of `shep stop` MUST
+    remain unchanged.
+
+  - **FR-6**: A new `shep restart` command MUST be created at
+    `src/presentation/cli/commands/restart.command.ts` and registered in `index.ts`. Its behaviour:
+    - If the daemon IS running: call `stopDaemon()`, then call `startDaemon({ port })`.
+    - If the daemon is NOT running: call `startDaemon()` directly (no stop needed).
+    - Accept an optional `--port <number>` option that is forwarded to `startDaemon()`.
+
+  - **FR-7**: `shep restart` MUST surface a clear message when it detects the daemon is not running
+    and proceeds to start it (e.g. "Daemon was not running — starting...").
+
+  - **FR-8**: All user-facing messages for the new daemon lifecycle steps in upgrade MUST be printed
+    using the existing `messages.*` helpers (info / success / warning / error) for visual consistency.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1 — No new npm dependencies**: The implementation MUST reuse existing helpers
+    (`IDaemonService`, `startDaemon()`, `stopDaemon()`) and Node.js built-ins only. No new packages
+    may be added to `package.json`.
+
+  - **NFR-2 — Idempotency**: `stopDaemon()` MUST be safe to call when no daemon is running. It MUST
+    NOT throw or print an error in that case; it MUST silently clean up stale daemon.json if present.
+
+  - **NFR-3 — Stop timeout parity**: The `stopDaemon()` helper MUST preserve the existing 5 s
+    SIGTERM grace window and SIGKILL fallback. The timeout constants MUST be defined in the helper
+    file (not duplicated in callers).
+
+  - **NFR-4 — Testability**: `stopDaemon()` MUST accept `daemonService` as a parameter (not
+    resolve it from the container internally) so it can be injected with a mock in unit tests, matching
+    the pattern established by `startDaemon()`.
+
+  - **NFR-5 — Clean Architecture compliance**: All daemon state access in new code MUST go through
+    `IDaemonService`. No direct `fs` reads of daemon.json or `process.kill` calls outside the
+    `stopDaemon()` helper are permitted in command files.
+
+  - **NFR-6 — Graceful upgrade messaging**: The upgrade command MUST print at minimum:
+    (a) "Stopping daemon before upgrade..." before stop,
+    (b) "Restarting daemon..." before restart,
+    (c) "Daemon restarted successfully." on success,
+    (d) "Upgrade failed — daemon restored on previous version." when npm install failed but daemon
+        was restarted anyway.
+
+  - **NFR-7 — No regression on `shep stop`**: Extracting `stopDaemon()` into a shared helper MUST
+    leave the observable behaviour of `shep stop` (messages, exit codes, signal sequence) identical
+    to the current implementation.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Preserve original port when restarting after upgrade? | Yes — preserve original port | Seamless UX; URL stays the same; trivial implementation cost |
+  | 2 | Restart daemon if npm install fails? | Yes — restart on old binary | Preserves service availability; user recovers without manual intervention |
+  | 3 | Should `shep restart` accept --port flag? | Yes — add --port flag | Parity with `shep start`; adding later would be breaking |
+  | 4 | Should `shep restart` auto-open browser? | Yes — delegate to startDaemon | Zero extra code; consistent with `shep start` behaviour |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `src/presentation/cli/commands/upgrade.command.ts` | High | Must check daemon state before upgrade and restart after if it was running |
+  | `src/presentation/cli/commands/stop.command.ts` | Medium | Stop logic extracted to `daemon/stop-daemon.ts`; command now calls the helper |
+  | `src/presentation/cli/commands/daemon/stop-daemon.ts` | High | New file — shared stop helper (mirrors start-daemon.ts pattern) |
+  | `src/presentation/cli/commands/restart.command.ts` | High | New file — `shep restart` command |
+  | `src/presentation/cli/index.ts` | Low | Register new restart command |
+  | `tests/unit/presentation/cli/commands/upgrade.command.test.ts` | High | Extend with daemon-was-running and daemon-was-not-running scenarios |
+  | `tests/unit/presentation/cli/commands/restart.command.test.ts` | High | New unit test file |
+  | `tests/unit/commands/daemon/stop-daemon.test.ts` | High | New unit test file for extracted stopDaemon helper |
+  | `tests/e2e/cli/daemon-lifecycle.test.ts` | Medium | Add e2e coverage for restart and upgrade-with-daemon scenarios |
+
+  ## Dependencies
+
+  - **IDaemonService** (`read`, `isAlive`, `delete`) — already registered in DI; used by upgrade and
+    restart to determine pre-action daemon state.
+  - **startDaemon()** helper — already exists; called by restart and by upgrade post-install step.
+  - **stopDaemon()** helper — new file extracted from inline stop logic in `stop.command.ts`;
+    located at `src/presentation/cli/commands/daemon/stop-daemon.ts`.
+  - No new npm dependencies required.
+
+  ## Size Estimate
+
+  **S** — The infrastructure is already fully in place. The work is:
+  1. Extract `stopDaemon()` helper from the existing inline stop logic (~30 lines + unit tests).
+  2. Refactor `stop.command.ts` to call `stopDaemon()` (~5 lines changed).
+  3. Add daemon-state check + conditional stop/restart to `upgrade.command.ts` (~25 lines).
+  4. Create `restart.command.ts` calling `stopDaemon()` + `startDaemon()` (~45 lines).
+  5. Register the new command in `index.ts` (2 lines).
+  6. Unit tests for upgrade new paths (~80–100 lines), restart (~80–100 lines), stopDaemon helper (~60 lines).
+  7. Update e2e lifecycle test (~30 lines).
+
+  No new abstractions, no new domain models, no TypeSpec changes required. This is a well-contained
+  CLI-layer addition building entirely on existing patterns.

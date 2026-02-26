@@ -12,6 +12,7 @@
  *   shep              Start the web UI daemon (or run onboarding on first run)
  *   shep start        Start the web UI as a background daemon
  *   shep stop         Stop the running web UI daemon
+ *   shep restart      Restart (or start) the web UI daemon
  *   shep status       Show status and metrics of the running daemon
  *   shep version      Display version information
  *   shep ui           Start the web UI (foreground, interactive)
@@ -51,6 +52,7 @@ import { messages } from './ui/index.js';
 import { createStartCommand } from './commands/start.command.js';
 import { createStopCommand } from './commands/stop.command.js';
 import { createStatusCommand } from './commands/status.command.js';
+import { createRestartCommand } from './commands/restart.command.js';
 import { createServeCommand } from './commands/_serve.command.js';
 import { startDaemon } from './commands/daemon/start-daemon.js';
 
@@ -133,6 +135,7 @@ async function bootstrap() {
     // Daemon lifecycle commands (task-9)
     program.addCommand(createStartCommand());
     program.addCommand(createStopCommand());
+    program.addCommand(createRestartCommand());
     program.addCommand(createStatusCommand());
     program.addCommand(createServeCommand()); // hidden from --help
 

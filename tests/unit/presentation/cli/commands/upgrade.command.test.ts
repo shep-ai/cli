@@ -42,10 +42,24 @@ vi.mock('@cli/presentation/cli/ui/index.js', () => ({
   symbols: {},
 }));
 
+vi.mock('@cli/presentation/cli/commands/daemon/stop-daemon.js', () => ({
+  stopDaemon: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('@cli/presentation/cli/commands/daemon/start-daemon.js', () => ({
+  startDaemon: vi.fn().mockResolvedValue(undefined),
+}));
+
 // Import after mocks
 import { createUpgradeCommand } from '@cli/presentation/cli/commands/upgrade.command.js';
 import { container } from '@/infrastructure/di/container.js';
 import { messages } from '@cli/presentation/cli/ui/index.js';
+import { stopDaemon } from '@cli/presentation/cli/commands/daemon/stop-daemon.js';
+import { startDaemon } from '@cli/presentation/cli/commands/daemon/start-daemon.js';
+import type {
+  IDaemonService,
+  DaemonState,
+} from '@/application/ports/output/services/daemon-service.interface.js';
 
 /**
  * Create a mock ChildProcess that emits events on demand.
@@ -75,6 +89,24 @@ function createMockSpawn() {
   return { spawnFn, processes };
 }
 
+function makeDaemonService(overrides: Partial<IDaemonService> = {}): IDaemonService {
+  return {
+    read: vi.fn().mockResolvedValue(null),
+    write: vi.fn().mockResolvedValue(undefined),
+    delete: vi.fn().mockResolvedValue(undefined),
+    isAlive: vi.fn().mockReturnValue(false),
+    ...overrides,
+  } as unknown as IDaemonService;
+}
+
+const VERSION_SERVICE_MOCK = {
+  getVersion: () => ({
+    version: '1.20.0',
+    name: '@shepai/cli',
+    description: 'Autonomous AI Native SDLC Platform',
+  }),
+};
+
 describe('Upgrade Command', () => {
   const CURRENT_VERSION = '1.20.0';
   let savedExitCode: typeof process.exitCode;
@@ -84,13 +116,11 @@ describe('Upgrade Command', () => {
     savedExitCode = process.exitCode;
     process.exitCode = 0;
 
-    // Mock IVersionService
-    vi.mocked(container.resolve).mockReturnValue({
-      getVersion: () => ({
-        version: CURRENT_VERSION,
-        name: '@shepai/cli',
-        description: 'Autonomous AI Native SDLC Platform',
-      }),
+    // Default: IVersionService returns current version; IDaemonService not running
+    const defaultDaemonService = makeDaemonService();
+    vi.mocked(container.resolve).mockImplementation((token: unknown) => {
+      if (token === 'IDaemonService') return defaultDaemonService;
+      return VERSION_SERVICE_MOCK;
     });
   });
 
@@ -312,6 +342,235 @@ describe('Upgrade Command', () => {
       expect(messages.success).toHaveBeenCalled();
 
       vi.useRealTimers();
+    });
+  });
+
+  // ── Daemon lifecycle — daemon WAS running ──────────────────────────────────
+
+  describe('daemon lifecycle — daemon WAS running', () => {
+    const DAEMON_STATE: DaemonState = {
+      pid: 42,
+      port: 4050,
+      startedAt: '2024-01-01T00:00:00Z',
+    };
+
+    /** Set up container to return a running daemon service alongside the version service. */
+    function setupRunningDaemon(): IDaemonService {
+      const daemonService = makeDaemonService({
+        read: vi.fn().mockResolvedValue(DAEMON_STATE),
+        isAlive: vi.fn().mockReturnValue(true),
+      });
+      vi.mocked(container.resolve).mockImplementation((token: unknown) => {
+        if (token === 'IDaemonService') return daemonService;
+        return VERSION_SERVICE_MOCK;
+      });
+      return daemonService;
+    }
+
+    /** Run the full upgrade flow: emit npm view (newer version), then emit npm install close. */
+    async function runUpgradeFlow(
+      spawnFn: ReturnType<typeof createMockSpawn>['spawnFn'],
+      processes: ReturnType<typeof createMockSpawn>['processes'],
+      installExitCode: number,
+      parsePromise: Promise<unknown>
+    ) {
+      // npm view returns a newer version
+      await vi.waitFor(() => expect(processes.length).toBe(1));
+      const viewProc = processes[0].proc;
+      (viewProc as any).stdout.emit('data', Buffer.from('2.0.0\n'));
+      viewProc.emit('close', 0);
+
+      // npm install spawned
+      await vi.waitFor(() => expect(processes.length).toBe(2));
+      processes[1].proc.emit('close', installExitCode);
+
+      await parsePromise;
+    }
+
+    it('should call stopDaemon() when daemon is running before npm install', async () => {
+      setupRunningDaemon();
+      const { spawnFn, processes } = createMockSpawn();
+      const cmd = createUpgradeCommand(spawnFn as any);
+
+      const parsePromise = cmd.parseAsync(['node', 'test']);
+      await runUpgradeFlow(spawnFn, processes, 0, parsePromise);
+
+      expect(stopDaemon).toHaveBeenCalledTimes(1);
+    });
+
+    it('should print "Stopping daemon before upgrade..." before stopping', async () => {
+      setupRunningDaemon();
+      const { spawnFn, processes } = createMockSpawn();
+      const cmd = createUpgradeCommand(spawnFn as any);
+
+      const parsePromise = cmd.parseAsync(['node', 'test']);
+      await runUpgradeFlow(spawnFn, processes, 0, parsePromise);
+
+      expect(messages.info).toHaveBeenCalledWith(
+        expect.stringMatching(/stopping daemon before upgrade/i)
+      );
+    });
+
+    it('should call startDaemon() with previousPort after successful npm install', async () => {
+      setupRunningDaemon();
+      const { spawnFn, processes } = createMockSpawn();
+      const cmd = createUpgradeCommand(spawnFn as any);
+
+      const parsePromise = cmd.parseAsync(['node', 'test']);
+      await runUpgradeFlow(spawnFn, processes, 0, parsePromise);
+
+      expect(startDaemon).toHaveBeenCalledWith(
+        expect.objectContaining({ port: DAEMON_STATE.port })
+      );
+    });
+
+    it('should print "Restarting daemon..." before restart', async () => {
+      setupRunningDaemon();
+      const { spawnFn, processes } = createMockSpawn();
+      const cmd = createUpgradeCommand(spawnFn as any);
+
+      const parsePromise = cmd.parseAsync(['node', 'test']);
+      await runUpgradeFlow(spawnFn, processes, 0, parsePromise);
+
+      expect(messages.info).toHaveBeenCalledWith(expect.stringMatching(/restarting daemon/i));
+    });
+
+    it('should print "Daemon restarted successfully." after restart', async () => {
+      setupRunningDaemon();
+      const { spawnFn, processes } = createMockSpawn();
+      const cmd = createUpgradeCommand(spawnFn as any);
+
+      const parsePromise = cmd.parseAsync(['node', 'test']);
+      await runUpgradeFlow(spawnFn, processes, 0, parsePromise);
+
+      expect(messages.success).toHaveBeenCalledWith(
+        expect.stringMatching(/daemon restarted successfully/i)
+      );
+    });
+
+    it('should call stopDaemon() BEFORE npm install (order check)', async () => {
+      setupRunningDaemon();
+      const { spawnFn, processes } = createMockSpawn();
+      const cmd = createUpgradeCommand(spawnFn as any);
+
+      const callOrder: string[] = [];
+      vi.mocked(stopDaemon).mockImplementation(async () => {
+        callOrder.push('stopDaemon');
+      });
+
+      const parsePromise = cmd.parseAsync(['node', 'test']);
+
+      // npm view
+      await vi.waitFor(() => expect(processes.length).toBe(1));
+      (processes[0].proc as any).stdout.emit('data', Buffer.from('2.0.0\n'));
+      processes[0].proc.emit('close', 0);
+
+      // After version check, stopDaemon fires before npm install
+      // Wait for stopDaemon to be called, then npm install spawns
+      await vi.waitFor(() => expect(processes.length).toBe(2));
+      // At this point stopDaemon must have already been called (before npm install spawn)
+      expect(callOrder).toContain('stopDaemon');
+      processes[1].proc.emit('close', 0);
+
+      await parsePromise;
+    });
+
+    it('should still call startDaemon() when npm install fails (non-zero)', async () => {
+      setupRunningDaemon();
+      const { spawnFn, processes } = createMockSpawn();
+      const cmd = createUpgradeCommand(spawnFn as any);
+
+      const parsePromise = cmd.parseAsync(['node', 'test']);
+      await runUpgradeFlow(spawnFn, processes, 1, parsePromise);
+
+      expect(startDaemon).toHaveBeenCalledWith(
+        expect.objectContaining({ port: DAEMON_STATE.port })
+      );
+    });
+
+    it('should print NFR-6(d) message when npm install fails', async () => {
+      setupRunningDaemon();
+      const { spawnFn, processes } = createMockSpawn();
+      const cmd = createUpgradeCommand(spawnFn as any);
+
+      const parsePromise = cmd.parseAsync(['node', 'test']);
+      await runUpgradeFlow(spawnFn, processes, 1, parsePromise);
+
+      expect(messages.error).toHaveBeenCalledWith(
+        expect.stringMatching(/upgrade failed.*daemon restored on previous version/i)
+      );
+    });
+
+    it('should set exitCode=1 when npm install fails even with daemon restart', async () => {
+      setupRunningDaemon();
+      const { spawnFn, processes } = createMockSpawn();
+      const cmd = createUpgradeCommand(spawnFn as any);
+
+      const parsePromise = cmd.parseAsync(['node', 'test']);
+      await runUpgradeFlow(spawnFn, processes, 1, parsePromise);
+
+      expect(process.exitCode).toBe(1);
+    });
+  });
+
+  // ── Daemon lifecycle — daemon was NOT running ──────────────────────────────
+
+  describe('daemon lifecycle — daemon was NOT running', () => {
+    it('should NOT call stopDaemon() when daemon is not running', async () => {
+      // beforeEach already sets up not-running daemon service (default)
+      const { spawnFn, processes } = createMockSpawn();
+      const cmd = createUpgradeCommand(spawnFn as any);
+
+      const parsePromise = cmd.parseAsync(['node', 'test']);
+
+      await vi.waitFor(() => expect(processes.length).toBe(1));
+      (processes[0].proc as any).stdout.emit('data', Buffer.from('2.0.0\n'));
+      processes[0].proc.emit('close', 0);
+
+      await vi.waitFor(() => expect(processes.length).toBe(2));
+      processes[1].proc.emit('close', 0);
+
+      await parsePromise;
+
+      expect(stopDaemon).not.toHaveBeenCalled();
+    });
+
+    it('should NOT call startDaemon() after upgrade when daemon was not running', async () => {
+      const { spawnFn, processes } = createMockSpawn();
+      const cmd = createUpgradeCommand(spawnFn as any);
+
+      const parsePromise = cmd.parseAsync(['node', 'test']);
+
+      await vi.waitFor(() => expect(processes.length).toBe(1));
+      (processes[0].proc as any).stdout.emit('data', Buffer.from('2.0.0\n'));
+      processes[0].proc.emit('close', 0);
+
+      await vi.waitFor(() => expect(processes.length).toBe(2));
+      processes[1].proc.emit('close', 0);
+
+      await parsePromise;
+
+      expect(startDaemon).not.toHaveBeenCalled();
+    });
+
+    it('should complete upgrade normally (success message) when daemon was not running', async () => {
+      const { spawnFn, processes } = createMockSpawn();
+      const cmd = createUpgradeCommand(spawnFn as any);
+
+      const parsePromise = cmd.parseAsync(['node', 'test']);
+
+      await vi.waitFor(() => expect(processes.length).toBe(1));
+      (processes[0].proc as any).stdout.emit('data', Buffer.from('2.0.0\n'));
+      processes[0].proc.emit('close', 0);
+
+      await vi.waitFor(() => expect(processes.length).toBe(2));
+      processes[1].proc.emit('close', 0);
+
+      await parsePromise;
+
+      expect(messages.success).toHaveBeenCalledWith(
+        expect.stringContaining('upgraded successfully')
+      );
     });
   });
 });

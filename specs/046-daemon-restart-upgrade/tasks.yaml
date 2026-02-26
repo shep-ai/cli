@@ -1,0 +1,344 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: daemon-restart-upgrade
+summary: >
+  9 tasks across 5 phases. Phase 1 extracts the stopDaemon() helper and refactors
+  stop.command.ts. Phase 2 builds the restart command and registers it. Phase 3 adds daemon
+  lifecycle awareness to upgrade.command.ts. Phase 4 adds E2E test coverage. Phase 5 validates
+  the full suite. Total estimated effort: ~5.5h.
+
+# Relationships
+relatedFeatures: []
+technologies: []
+relatedLinks: []
+
+# Structured task list
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Write unit tests for stopDaemon() helper (RED)'
+    description: >
+      Create tests/unit/commands/daemon/stop-daemon.test.ts covering all branches of the new
+      stopDaemon() helper before any implementation exists. Tests should assert: (a) SIGTERM
+      is sent to a live PID and daemon.json is deleted; (b) SIGKILL is sent when pollUntilDead
+      times out; (c) no signal is sent and daemon.json is silently cleaned up when no daemon
+      is running or PID is invalid; (d) function returns without error when daemon.json is
+      absent. Mock IDaemonService with vi.fn() — no container setup needed because stopDaemon()
+      accepts the service as a parameter.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'Test file exists at tests/unit/commands/daemon/stop-daemon.test.ts'
+      - 'Tests cover SIGTERM path with process dying within grace window'
+      - 'Tests cover SIGKILL fallback path (grace window expires)'
+      - 'Tests cover not-running path (no state / isAlive returns false)'
+      - 'Tests cover invalid PID path (non-positive-integer)'
+      - 'Tests compile and fail at runtime (RED) — stopDaemon file does not exist yet'
+    tdd:
+      red:
+        - 'Import stopDaemon from daemon/stop-daemon.js (will fail — file does not exist)'
+        - 'Write vi.mock for process.kill and IDaemonService mock factory'
+        - 'Write test: alive daemon → SIGTERM sent, daemon.json deleted'
+        - 'Write test: daemon survives SIGTERM grace window → SIGKILL sent'
+        - 'Write test: no daemon state (null) → no kill, delete called silently'
+        - 'Write test: state exists but isAlive returns false → no kill, delete called'
+        - 'Write test: invalid PID (0, NaN, -1) → no kill, delete called'
+      green: []
+      refactor: []
+    estimatedEffort: '45min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Implement stopDaemon() helper (GREEN + REFACTOR)'
+    description: >
+      Create src/presentation/cli/commands/daemon/stop-daemon.ts. Move pollUntilDead(),
+      POLL_INTERVAL_MS (200), and MAX_WAIT_MS (5000) from stop.command.ts into this file as
+      module-private items. Implement stopDaemon(daemonService: IDaemonService): Promise<void>
+      with the same SIGTERM → poll → SIGKILL → delete daemon.json sequence currently inlined
+      in stop.command.ts. Handle the not-running / invalid-PID cases silently. All unit tests
+      from task-1 must pass after this task. Then refactor stop.command.ts to call stopDaemon()
+      rather than running the inline logic, removing pollUntilDead and the timing constants
+      from that file.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'src/presentation/cli/commands/daemon/stop-daemon.ts exists and exports stopDaemon()'
+      - 'stopDaemon accepts IDaemonService as a required parameter'
+      - 'POLL_INTERVAL_MS and MAX_WAIT_MS constants defined in stop-daemon.ts only'
+      - 'pollUntilDead() is module-private (not exported)'
+      - 'All task-1 unit tests pass (GREEN)'
+      - 'stop.command.ts delegates to stopDaemon() — no inline kill/poll logic remains'
+      - 'Existing shep stop behaviour (messages, signal sequence) is unchanged'
+      - 'pnpm test:unit passes with no regressions on existing stop command tests'
+    tdd:
+      red: []
+      green:
+        - 'Create stop-daemon.ts with stopDaemon(daemonService) function'
+        - 'Move pollUntilDead, POLL_INTERVAL_MS, MAX_WAIT_MS from stop.command.ts into stop-daemon.ts'
+        - 'Implement SIGTERM → poll → SIGKILL → delete sequence in stopDaemon()'
+        - 'Handle null state, invalid PID, and isAlive=false cases silently'
+        - 'Run task-1 tests — all should pass'
+      refactor:
+        - 'Replace inline stop logic in stop.command.ts with a stopDaemon() call'
+        - 'Remove pollUntilDead, POLL_INTERVAL_MS, MAX_WAIT_MS from stop.command.ts'
+        - 'Verify pnpm test:unit still passes after refactor'
+    estimatedEffort: '1h'
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Write unit tests for restart.command.ts (RED)'
+    description: >
+      Create tests/unit/presentation/cli/commands/restart.command.test.ts before implementing
+      the command. Tests cover two primary paths: (a) daemon IS running — stopDaemon() called
+      with the resolved daemonService, then startDaemon() called with captured port;
+      (b) daemon is NOT running — "Daemon was not running — starting..." message printed,
+      startDaemon() called without a prior stop. Also test the --port flag forwarding:
+      when --port 4000 is supplied, startDaemon({ port: 4000 }) is called. Use the same
+      container.resolve mock pattern as upgrade.command.test.ts.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'Test file exists at tests/unit/presentation/cli/commands/restart.command.test.ts'
+      - 'Test: running daemon path → stopDaemon called, then startDaemon called'
+      - 'Test: not-running path → "Daemon was not running" message, startDaemon called without stop'
+      - 'Test: --port 4000 forwarded to startDaemon({ port: 4000 })'
+      - 'Tests compile and fail at runtime (RED) — restart.command.ts does not exist yet'
+    tdd:
+      red:
+        - 'Import createRestartCommand from restart.command.js (will fail — file does not exist)'
+        - 'Mock container.resolve to return fake IDaemonService (isAlive, read, delete)'
+        - 'Mock startDaemon and stopDaemon modules with vi.mock'
+        - 'Write test: isAlive returns true → stopDaemon then startDaemon called'
+        - 'Write test: isAlive returns false → "Daemon was not running" message, startDaemon called'
+        - 'Write test: --port 4000 → startDaemon receives { port: 4000 }'
+      green: []
+      refactor: []
+    estimatedEffort: '30min'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Implement restart.command.ts and register in index.ts (GREEN + REFACTOR)'
+    description: >
+      Create src/presentation/cli/commands/restart.command.ts. The command resolves
+      IDaemonService from the container, reads daemon state, and branches: if alive →
+      stopDaemon(daemonService) then startDaemon({ port }); if not alive → print
+      "Daemon was not running — starting..." then startDaemon({ port }). Accepts --port
+      with parsePort() validation copied from start.command.ts. Register the command in
+      src/presentation/cli/index.ts alongside start/stop/status. All task-3 tests must pass.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'src/presentation/cli/commands/restart.command.ts exists and exports createRestartCommand()'
+      - '--port flag validates 1024–65535 with InvalidArgumentError (parity with shep start)'
+      - '"Daemon was not running — starting..." printed when daemon not running'
+      - 'stopDaemon() called before startDaemon() when daemon is alive'
+      - 'startDaemon() called in both paths'
+      - 'Command registered in index.ts'
+      - 'All task-3 unit tests pass (GREEN)'
+      - 'pnpm test:unit passes with no regressions'
+    tdd:
+      red: []
+      green:
+        - 'Create restart.command.ts with createRestartCommand() factory'
+        - 'Resolve IDaemonService from container inside action handler'
+        - 'Implement running-daemon branch: stopDaemon then startDaemon with port'
+        - 'Implement not-running branch: print message then startDaemon'
+        - 'Add --port option with parsePort() validation'
+        - 'Add .addCommand(createRestartCommand()) to index.ts'
+        - 'Run task-3 tests — all should pass'
+      refactor:
+        - 'Ensure import ordering follows project conventions (.js extensions, type imports)'
+        - 'Verify messages.info/success/error used for all user-facing output (NFR-8)'
+    estimatedEffort: '1h'
+
+  - id: task-5
+    phaseId: phase-3
+    title: 'Write unit tests for upgrade.command.ts daemon lifecycle paths (RED)'
+    description: >
+      Extend tests/unit/presentation/cli/commands/upgrade.command.test.ts with new describe
+      blocks for daemon-aware upgrade scenarios. Tests cover: (a) daemon WAS running — stop
+      called before install, restart called after (success case); (b) daemon WAS running,
+      npm install fails → install error printed, daemon restarted on old binary, NFR-6(d)
+      message printed; (c) daemon was NOT running — no stop/restart calls during upgrade.
+      Mock IDaemonService alongside the existing IVersionService mock in container.resolve.
+      Mock stopDaemon and startDaemon modules. Assert previousPort is passed to startDaemon.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'New describe blocks added to existing upgrade.command.test.ts'
+      - 'Test: daemon running + npm succeeds → stopDaemon called, startDaemon({ port }) called'
+      - 'Test: daemon running + npm fails (non-zero) → install failure message, daemon restored message, startDaemon still called'
+      - 'Test: daemon not running → stopDaemon NOT called, startDaemon NOT called after upgrade'
+      - 'Test: previousPort preserved → startDaemon receives the port from pre-upgrade state'
+      - 'New tests fail at runtime (RED) — upgrade.command.ts has no daemon logic yet'
+    tdd:
+      red:
+        - 'Add IDaemonService mock to container.resolve mock (read, isAlive, delete)'
+        - 'Mock stopDaemon and startDaemon modules in upgrade test file'
+        - 'Write test: daemon running + npm exit 0 → stop before install, restart after'
+        - 'Write test: daemon running + npm exit 1 → stop before install, restart after, NFR-6(d) message'
+        - 'Write test: daemon not running → no stop, no restart, existing upgrade behaviour unchanged'
+        - 'Write test: previousPort from state passed to startDaemon({ port: previousPort })'
+      green: []
+      refactor: []
+    estimatedEffort: '45min'
+
+  - id: task-6
+    phaseId: phase-3
+    title: 'Implement daemon lifecycle in upgrade.command.ts (GREEN + REFACTOR)'
+    description: >
+      Modify src/presentation/cli/commands/upgrade.command.ts. Inside the action handler,
+      resolve IDaemonService from the container. Read daemon state and call isAlive() to
+      determine daemonWasRunning. If running, capture previousPort, print
+      "Stopping daemon before upgrade...", and call stopDaemon(daemonService). Wrap
+      runNpmInstall() in try/finally: on success print "Restarting daemon..." and
+      "Daemon restarted successfully." on completion; on non-zero exit print install failure
+      then NFR-6(d) message "Upgrade failed — daemon restored on previous version.".
+      In the finally block call startDaemon({ port: previousPort }) when daemonWasRunning.
+      All task-5 tests must pass. Verify existing upgrade tests still pass (no regression).
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'upgrade.command.ts resolves IDaemonService and checks daemon state before npm install'
+      - '"Stopping daemon before upgrade..." printed before stopDaemon() when daemon running'
+      - 'previousPort captured before stopDaemon() call'
+      - 'try/finally wraps runNpmInstall() for always-restart guarantee'
+      - '"Restarting daemon..." printed before startDaemon in finally block'
+      - '"Daemon restarted successfully." printed after successful restart'
+      - '"Upgrade failed — daemon restored on previous version." printed when npm fails'
+      - 'startDaemon receives { port: previousPort } when daemon was running'
+      - 'No daemon stop/restart when daemon was not running'
+      - 'Factory signature createUpgradeCommand(spawnFn) unchanged'
+      - 'All task-5 tests pass (GREEN); all existing upgrade tests still pass'
+    tdd:
+      red: []
+      green:
+        - 'Add IDaemonService resolution inside action handler after IVersionService'
+        - 'Read state and capture daemonWasRunning boolean and previousPort'
+        - 'Add pre-install stop block guarded by daemonWasRunning'
+        - 'Wrap runNpmInstall() in try/finally with post-install restart in finally'
+        - 'Add NFR-6 messages at each lifecycle step'
+        - 'Run task-5 tests — all should pass'
+        - 'Run existing upgrade tests — all should still pass'
+      refactor:
+        - 'Ensure messages use messages.info/success/warning/error helpers (NFR-8)'
+        - 'Verify message strings match NFR-6 requirements exactly'
+    estimatedEffort: '1h'
+
+  - id: task-7
+    phaseId: phase-4
+    title: 'Extend daemon-lifecycle E2E tests (restart + upgrade-with-daemon)'
+    description: >
+      Add two new describe blocks to tests/e2e/cli/daemon-lifecycle.test.ts using the
+      proven sleep-process fake-daemon infrastructure. Block 1 ("shep restart"): start a
+      real sleep process, write daemon.json, run createRestartCommand action, verify the
+      fake daemon was stopped (process gone) and startDaemon was invoked. Block 2
+      ("shep upgrade with daemon running"): write daemon.json pointing at a live sleep
+      process, call createUpgradeCommand with a fake spawnFn that returns exit code 0,
+      verify stopDaemon was called (daemon.json removed before install) and startDaemon
+      was invoked after. Also cover the not-running variant: upgrade with no daemon.json
+      should not call stop or restart. Use SHEP_SKIP_READINESS_CHECK=1 to bypass the
+      server readiness poll in E2E context.
+    state: Todo
+    dependencies:
+      - task-4
+      - task-6
+    acceptanceCriteria:
+      - 'describe block "shep restart" added to daemon-lifecycle.test.ts'
+      - 'E2E test: restart with running daemon → daemon stopped, startDaemon called'
+      - 'E2E test: restart with no daemon → "Daemon was not running" message, startDaemon called'
+      - 'describe block "shep upgrade with daemon running" added'
+      - 'E2E test: upgrade with running daemon → stop before install, restart after (npm success)'
+      - 'E2E test: upgrade with running daemon + npm failure → daemon restored'
+      - 'E2E test: upgrade with no daemon → no stop/restart'
+      - 'All E2E tests pass with pnpm test:e2e (or the applicable test command)'
+    tdd:
+      red:
+        - 'Write E2E restart describe block importing createRestartCommand'
+        - 'Write E2E upgrade-with-daemon describe block importing createUpgradeCommand'
+        - 'Use writeDaemonJson + sleep process pattern for "daemon running" setup'
+        - 'Assert daemon.json removed after restart (process killed)'
+        - 'Assert daemon not killed when not running (no ESRCH error)'
+      green:
+        - 'Run tests — they should pass because source is complete from phases 1–3'
+      refactor:
+        - 'Extract any repeated setup into shared beforeEach blocks within new describe blocks'
+    estimatedEffort: '45min'
+
+  - id: task-8
+    phaseId: phase-5
+    title: 'Run pnpm validate and fix any issues'
+    description: >
+      Run pnpm validate (lint + format + typecheck + tsp) across the full project. Fix any
+      lint errors, formatting violations, or TypeScript type errors introduced by the new files.
+      Common issues to watch for: missing .js extensions on relative imports (ESM),
+      unused variables, implicit any types, and import ordering. Do not suppress errors with
+      // eslint-disable — fix them.
+    state: Todo
+    dependencies:
+      - task-7
+    acceptanceCriteria:
+      - 'pnpm validate exits with code 0'
+      - 'No lint suppressions added (no eslint-disable comments)'
+      - 'All TypeScript types are explicit — no implicit any'
+      - 'All relative imports use .js extensions (ESM)'
+    tdd: null
+    estimatedEffort: '30min'
+
+  - id: task-9
+    phaseId: phase-5
+    title: 'Run full test suite and confirm zero regressions'
+    description: >
+      Run pnpm test to execute unit tests, integration tests, and E2E tests. Confirm all
+      tests pass with no regressions. If any existing test fails due to changes in this
+      feature, investigate and fix without altering test expectations (only fix source code).
+      Confirm the final count of passing tests is greater than or equal to the pre-feature
+      baseline.
+    state: Todo
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - 'pnpm test exits with code 0'
+      - 'No existing tests changed to make them pass'
+      - 'All new unit tests from tasks 1, 3, 5 pass'
+      - 'All new E2E tests from task 7 pass'
+      - 'Test suite has no skipped or pending tests introduced by this feature'
+    tdd: null
+    estimatedEffort: '15min'
+
+# Total effort estimate
+totalEstimate: '~5.5h'
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Summary
+
+  The implementation proceeds in five phases with nine tasks. The foundation phase (phase-1) is
+  the critical path: extracting stopDaemon() as a shared, parameter-injected helper enables both
+  the restart command and the upgrade enhancement to be built cleanly without duplicating stop
+  logic. The TDD cycle for stopDaemon() runs entirely in phase-1 — tests written first (task-1),
+  implementation and stop.command.ts refactor second (task-2).
+
+  Phase-2 builds the restart command against the now-available stopDaemon(). Tests are written
+  before the command file exists (task-3), then the command is implemented and registered in
+  index.ts (task-4).
+
+  Phase-3 extends the upgrade command. Again, tests come first for the new daemon-aware upgrade
+  paths (task-5), then the implementation (task-6). The try/finally pattern ensures the daemon
+  is always restored when it was running, regardless of whether npm install succeeds.
+
+  Phase-4 adds E2E coverage by extending the existing daemon-lifecycle.test.ts file with two
+  new describe blocks that reuse proven sleep-process fake-daemon infrastructure. No new test
+  scaffolding is needed.
+
+  Phase-5 validates the full suite with pnpm validate and pnpm test, fixing any lint or type
+  issues before declaring the feature complete.

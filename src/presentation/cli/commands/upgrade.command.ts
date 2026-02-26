@@ -11,7 +11,10 @@ import { Command } from 'commander';
 import { spawn as defaultSpawn, type ChildProcess } from 'node:child_process';
 import { container } from '@/infrastructure/di/container.js';
 import type { IVersionService } from '@/application/ports/output/services/version-service.interface.js';
+import type { IDaemonService } from '@/application/ports/output/services/daemon-service.interface.js';
 import { messages } from '../ui/index.js';
+import { stopDaemon } from './daemon/stop-daemon.js';
+import { startDaemon } from './daemon/start-daemon.js';
 
 type SpawnFn = typeof defaultSpawn;
 
@@ -113,13 +116,37 @@ export function createUpgradeCommand(spawnFn: SpawnFn = defaultSpawn): Command {
           messages.info(`Upgrading from v${currentVersion} to latest`);
         }
 
-        // 4. Run npm i -g @shepai/cli@latest with inherited stdio
-        const exitCode = await runNpmInstall(spawnFn);
+        // 4. Check daemon state before install (FR-1)
+        const daemonService = container.resolve<IDaemonService>('IDaemonService');
+        const daemonState = await daemonService.read();
+        const daemonWasRunning = daemonState !== null && daemonService.isAlive(daemonState.pid);
+        const previousPort = daemonWasRunning ? daemonState!.port : undefined;
 
-        if (exitCode === 0) {
+        if (daemonWasRunning) {
+          messages.info('Stopping daemon before upgrade...');
+          await stopDaemon(daemonService);
+        }
+
+        // 5. Run npm i -g @shepai/cli@latest; always restore daemon in finally (FR-2, FR-3)
+        let installExitCode = 1;
+        try {
+          installExitCode = await runNpmInstall(spawnFn);
+        } finally {
+          if (daemonWasRunning) {
+            messages.info('Restarting daemon...');
+            await startDaemon({ port: previousPort });
+            messages.success('Daemon restarted successfully.');
+          }
+        }
+
+        if (installExitCode === 0) {
           messages.success('Shep CLI upgraded successfully');
         } else {
-          messages.error('Upgrade failed');
+          if (daemonWasRunning) {
+            messages.error('Upgrade failed — daemon restored on previous version.');
+          } else {
+            messages.error('Upgrade failed');
+          }
           process.exitCode = 1;
         }
       } catch (error) {
