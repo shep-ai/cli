@@ -1,0 +1,203 @@
+name: scalable-feature-view
+number: 048
+branch: feat/048-scalable-feature-view
+oneLiner: Replace full-graph canvas with a scalable board view, focused dependency inspector, and optional map tab
+summary: >
+  Introduce a multi-view feature management system that replaces the current React Flow canvas as the
+  default view. Phase 1 adds a board view grouped by SDLC lifecycle stage with compact feature rows,
+  a focused dependency inspector right panel, and client-side filtering with saved views. Phase 2
+  converts the existing canvas into an optional "Map" tab with semantic zoom and group containers.
+  Phase 3 adds edge bundling, focus mode, and critical-path visualization.
+phase: Analysis
+sizeEstimate: XL
+
+relatedFeatures: []
+
+technologies:
+  - React 19 (component model, hooks, server components)
+  - Next.js 16 App Router (force-dynamic rendering, server actions)
+  - TypeScript 5.3 (strict mode)
+  - React Flow / @xyflow/react 12.10.0 (graph visualization — Map tab, dependency inspector mini-graph)
+  - dagre (automatic graph layout)
+  - shadcn/ui + Radix UI (headless accessible primitives)
+  - Tailwind CSS v4 (utility-first styling with @theme tokens)
+  - Lucide React (icons)
+  - Sonner (toast notifications)
+  - Vitest + Testing Library (unit tests)
+  - Playwright (e2e tests)
+  - Storybook 8 (component stories — mandatory)
+  - TypeSpec (domain model definitions)
+
+relatedLinks: []
+
+openQuestions:
+  - >
+    Saved views persistence: Should saved views be stored in SQLite (new table) or in
+    browser localStorage? SQLite enables cross-device sync but adds schema migration.
+  - >
+    Owner field: The current Feature domain model does not have an explicit "owner" field.
+    Should we add one to TypeSpec, or derive ownership from agentType/branch conventions?
+  - >
+    Board column mapping: Should board columns map 1:1 to SdlcLifecycle enum values
+    (Started, Analyze, Requirements, Research, Planning, Implementation, Review, Maintain, Blocked)
+    or use a simplified grouping (Requirements, Implementation, Review, Done)?
+  - >
+    Virtualization library: For high-volume lane optimization (100+ items in a column),
+    should we use react-virtuoso, @tanstack/react-virtual, or a lighter approach?
+  - >
+    Milestone/workstream/label fields: These are referenced in filtering and grouping but
+    do not exist on the Feature domain model. Should they be added to TypeSpec or deferred?
+
+content: |
+  ## Problem Statement
+
+  The current feature management UI renders all features as React Flow graph nodes on a single
+  canvas (`FeaturesCanvas` component). Features connect to repository nodes via dashed edges,
+  and parent-child dependencies render as `DependencyEdge` bezier curves. The layout is computed
+  by the dagre algorithm in LR direction.
+
+  This approach breaks down at scale:
+  - With 20-50+ features, the canvas becomes a "spaghetti graph" of overlapping edges
+  - No filtering — every feature is always visible regardless of relevance
+  - No grouping by lifecycle stage — features are positioned by graph layout, not workflow state
+  - Scanning and prioritization require manually panning and zooming the canvas
+  - The single-view architecture (canvas-only) offers no alternative for users who need
+    list-based workflows
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The project follows Clean Architecture with four layers:
+
+  - **Domain** (`packages/core/src/domain/`) — Feature aggregate root defined in TypeSpec
+    (`tsp/domain/entities/feature.tsp`), generated to `domain/generated/output.ts`. Key fields:
+    `id`, `name`, `lifecycle` (SdlcLifecycle enum), `parentId` (dependency), `repositoryPath`,
+    `branch`, `plan`, `messages`, `relatedArtifacts`, `pr`, `agentRunId`
+  - **Application** (`packages/core/src/application/`) — Use cases: `ListFeaturesUseCase`,
+    `ShowFeatureUseCase`, `CreateFeatureUseCase`, `CheckAndUnblockFeaturesUseCase`.
+    Repository interface: `IFeatureRepository` with `list()`, `findByParentId()`, `findById()`
+  - **Infrastructure** (`packages/core/src/infrastructure/`) — SQLite persistence with
+    `FeatureMapper` flattening nested structures. DI via tsyringe
+  - **Presentation** (`src/presentation/web/`) — Next.js 16 App Router with server components,
+    client components, server actions, and SSE for real-time updates
+
+  ### Current Feature View Architecture
+
+  The rendering pipeline flows:
+
+  1. **Server** (`app/page.tsx`) — Resolves `ListFeaturesUseCase` and `ListRepositoriesUseCase`
+     via DI, fetches all features with agent runs, calls `buildGraphNodes()` to produce React Flow
+     nodes/edges, then `layoutWithDagre()` for positioning
+  2. **ControlCenter** — Wraps everything in `ReactFlowProvider`, delegates to `ControlCenterInner`
+  3. **ControlCenterInner** — Manages all state via `useControlCenterState` hook (773 lines).
+     Handles node CRUD, optimistic updates, SSE reconciliation, selection, drawer state
+  4. **FeaturesCanvas** — Renders React Flow with custom node types (`featureNode`,
+     `repositoryNode`, `addRepositoryNode`) and custom edge type (`dependencyEdge`)
+  5. **FeatureNode** — Individual feature card (72x35 dimensions) showing name, status badge,
+     progress, lifecycle label, agent type icon, PR status, delete/settings/action buttons
+  6. **ControlCenterDrawer** — Discriminated union (`DrawerView`) dispatching to feature detail,
+     PRD review, tech review, merge review, feature create, or repository views
+
+  ### Key Data Structures
+
+  - `FeatureNodeData` — UI state interface: name, description, featureId, lifecycle phase,
+    state (creating/running/action-required/done/blocked/error), progress, blockedBy,
+    agentType, PR metadata
+  - `FeatureNodeState` — 6 states: creating, running, action-required, done, blocked, error
+  - `FeatureLifecyclePhase` — 6 phases: requirements, research, implementation, review,
+    deploy, maintain
+  - `SdlcLifecycle` (domain) — 9 values including Started, Analyze, Blocked
+  - `buildGraphNodes()` — Groups features by repository, creates repo→feature edges,
+    adds parent→child dependency edges. Handles orphan features with virtual repo nodes
+
+  ### Existing Reusable Components
+
+  - `FeatureListItem` — Compact sidebar list item (icon, name, elapsed time)
+  - `FeatureStatusGroup` — Groups features by status with count badge and collapsible menu
+  - `FeatureStatusBadges` — Status count indicators (action-needed, in-progress, done)
+  - `feature-status-config.ts` — Status display configuration (icons, colors, labels)
+  - `BaseDrawer` — Drawer shell component
+  - `CategoryFilter` (skills page) — Button-based filter toggle pattern
+  - `AppShell` / `Sidebar` — Layout shell with collapsible sidebar
+  - Shadcn/ui primitives: Tabs, Card, Badge, Button, ScrollArea, Accordion, etc.
+
+  ### Architecture Patterns
+
+  - **Server components** fetch data via DI container → pass as props to client components
+  - **Optimistic UI** — Client creates temp nodes/edges immediately, server action runs async,
+    rollback on failure
+  - **SSE real-time updates** — `useAgentEventsContext` hook processes agent events, updates
+    node state in-place, debounced router.refresh() for reconciliation
+  - **Polling fallback** — 5s interval when active features exist
+  - **Discriminated union** for drawer views with `computeDrawerView()` derivation function
+  - **Conventional commits** with strict scope enforcement
+
+  ### Relevant Technologies
+
+  - **React Flow (@xyflow/react 12.10.0)** — Already in use for the canvas. Will be reused
+    for the dependency inspector mini-graph and the Map tab
+  - **dagre** — Graph layout algorithm. Will continue to be used for Map tab and inspector
+  - **shadcn/ui** — Component library with Tabs, Card, Badge, ScrollArea etc. Core building
+    blocks for the board view
+  - **Tailwind CSS v4** — Design tokens already defined for colors, spacing, dark mode
+  - **Storybook 8** — Every new component needs colocated .stories.tsx
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `src/presentation/web/app/page.tsx` | High | Entry point must support multiple view modes; data fetching may need to return additional metadata for board grouping |
+  | `src/presentation/web/components/features/control-center/` | High | Core orchestrator must be refactored to support board view as default, tab switching between Board and Map, and new state management for filters/selection |
+  | `src/presentation/web/components/features/control-center/use-control-center-state.ts` | High | 773-line state hook must be decomposed; board view needs different state shape than canvas (no React Flow nodes/edges for board mode) |
+  | `src/presentation/web/components/features/features-canvas/` | Medium | Existing canvas becomes the "Map" tab — needs to be wrapped in a tab container but otherwise preserved |
+  | `src/presentation/web/components/common/feature-node/` | Low | Existing node component reused in Map tab; new compact board row component needed alongside it |
+  | `src/presentation/web/components/common/control-center-drawer/` | Medium | Drawer system must coexist with the new dependency inspector panel; may need to distinguish between drawer and inspector contexts |
+  | `src/presentation/web/app/build-graph-nodes.ts` | Medium | Graph node builder still needed for Map tab and dependency inspector; board view needs a separate data grouping function |
+  | `src/presentation/web/lib/layout-with-dagre.ts` | Low | Continues to serve Map tab; dependency inspector mini-graph may use it with smaller subsets |
+  | `src/presentation/web/components/layouts/app-shell/` | Medium | Layout must accommodate the new three-panel structure (filters + board + inspector) |
+  | `src/presentation/web/hooks/` | Medium | New hooks needed for filter state, saved views, view mode persistence, dependency graph traversal |
+  | `packages/core/src/application/use-cases/features/` | Low | Existing ListFeaturesUseCase may need enhanced filtering support (lifecycle, status); findByParentId already exists for dependency queries |
+  | `packages/core/src/application/ports/output/repositories/feature-repository.interface.ts` | Low | FeatureListFilters interface may need additional filter fields if server-side filtering is chosen |
+  | NEW: `src/presentation/web/components/features/board-view/` | High | Entirely new component tree: board container, board column, board row, column header |
+  | NEW: `src/presentation/web/components/features/dependency-inspector/` | High | New right panel: dependency list, mini React Flow graph, blocked-by highlighting |
+  | NEW: `src/presentation/web/components/features/filter-panel/` | Medium | New left panel: filter controls, saved view selector, saved view management |
+
+  ## Dependencies
+
+  **Existing (already in use):**
+  - React Flow (@xyflow/react) — for Map tab and dependency inspector mini-graph
+  - dagre — for graph layout
+  - shadcn/ui Tabs, Card, Badge, Button, ScrollArea — for board layout
+  - Feature domain model (TypeSpec) — lifecycle, parentId, state fields
+  - ListFeaturesUseCase — data fetching
+  - IFeatureRepository.findByParentId() — dependency tree traversal
+  - useAgentEventsContext — real-time state updates
+  - ControlCenterDrawer system — feature detail/review panels
+
+  **Potentially new:**
+  - Virtualization library (react-virtuoso or @tanstack/react-virtual) — for 100+ item columns
+  - No new domain model changes required for Phase 1 (board columns derived from existing
+    SdlcLifecycle enum; dependency data from existing parentId field)
+
+  ## Size Estimate
+
+  **XL** — This is a multi-week effort spanning 3 phases:
+
+  - **Phase 1** (L — ~1 week): Board view with ~8 new components (board container, column,
+    row, filter panel, dependency inspector, mini-graph, saved views, view mode tabs), plus
+    refactoring the 773-line control-center state hook, updating page.tsx data flow, and
+    writing Storybook stories + tests for every component
+  - **Phase 2** (M — ~3-5 days): Converting canvas to Map tab with semantic zoom (3 zoom
+    levels with different node renderers) and group containers (collapsible stage/owner groups)
+  - **Phase 3** (M — ~3-5 days): Edge bundling algorithm, focus mode toggle with
+    n-hop graph filtering, critical path visualization
+
+  The feature touches the entire presentation layer from page entry point through state
+  management to all view components, introduces 10-15 new components each requiring
+  Storybook stories, and fundamentally changes the default user experience. The phased
+  approach allows shipping incremental value but the total scope is XL.
+
+  ---
+
+  _Generated by feature agent — proceed with research_
