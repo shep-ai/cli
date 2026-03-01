@@ -1,0 +1,206 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: server-log-viewer
+summary: >
+  Implementation plan for adding a live server log viewer to the web UI. The feature extends
+  DeploymentService with a ring buffer log accumulator and composed EventEmitter, adds an SSE
+  API route for real-time streaming, and builds a near-full-screen Dialog-based log viewer with
+  auto-scroll. All patterns (SSE, server actions, DI, Dialog, feature flags) are well-established
+  in the codebase, keeping implementation risk low. Work is organized into four phases: backend
+  foundation, SSE transport, UI components, and integration with existing components.
+
+relatedFeatures: []
+
+technologies:
+  - React 18 (client components, hooks, useEffect for SSE lifecycle)
+  - Next.js App Router (server actions, API routes with ReadableStream)
+  - shadcn/ui Dialog (Radix UI Dialog primitive, already available)
+  - Radix UI ScrollArea (already available)
+  - Tailwind CSS (dark terminal styling, monospace fonts)
+  - lucide-react (Terminal icon for button)
+  - Server-Sent Events (ReadableStream + text/event-stream)
+  - EventEmitter (Node.js built-in, composed within DeploymentService)
+  - Storybook (colocated .stories.tsx with autodocs)
+  - Vitest (unit tests with mocked DI and fake timers)
+
+relatedLinks: []
+
+phases:
+  - id: phase-1
+    name: 'Backend Foundation — Log Buffer & Service Interface'
+    description: >
+      Extend the DeploymentService infrastructure with a ring buffer log accumulator and
+      EventEmitter-based notification. This phase establishes the data layer that all
+      subsequent phases depend on: the LogEntry type, the ring buffer implementation,
+      log accumulation in attachOutputListener(), buffer clearing on stop, and the
+      getLogs/on/off methods on the IDeploymentService interface. Must come first because
+      the SSE route, server action, and UI all consume this API.
+    parallel: false
+
+  - id: phase-2
+    name: 'SSE Transport — API Route & Server Action'
+    description: >
+      Build the server-side transport layer: a getDeploymentLogs server action for initial
+      log fetching, and an SSE API route at /api/deployment-logs for real-time streaming.
+      Both follow established codebase patterns (getDeploymentStatus server action and
+      agent-events SSE route). This phase depends on Phase 1 providing the getLogs() and
+      EventEmitter subscription API.
+    parallel: false
+
+  - id: phase-3
+    name: 'UI Components — Log Viewer & Client Hook'
+    description: >
+      Build the client-side consumption layer: a useDeploymentLogs hook that manages
+      initial fetch + EventSource connection + log state, and the ServerLogViewer Dialog
+      component with monospace dark-themed log display, auto-scroll behavior, and stderr
+      color differentiation. Includes mandatory Storybook stories. This phase depends on
+      Phase 2 providing the server action and SSE endpoint.
+    parallel: false
+
+  - id: phase-4
+    name: 'Integration — Wire into Existing Components'
+    description: >
+      Connect the log viewer to the existing UI by adding a View Logs button to
+      DeploymentStatusBadge, threading targetId through parent components (RepositoryNode
+      and BaseDrawer), and ensuring feature flag gating. This is the final phase because
+      it modifies existing stable components and requires all new components to be ready.
+    parallel: false
+
+filesToCreate:
+  - packages/core/src/infrastructure/services/deployment/log-ring-buffer.ts
+  - packages/core/src/infrastructure/services/deployment/__tests__/log-ring-buffer.test.ts
+  - packages/core/src/infrastructure/services/deployment/__tests__/deployment.service.logs.test.ts
+  - src/presentation/web/app/actions/get-deployment-logs.ts
+  - src/presentation/web/app/api/deployment-logs/route.ts
+  - src/presentation/web/hooks/use-deployment-logs.ts
+  - src/presentation/web/hooks/__tests__/use-deployment-logs.test.ts
+  - src/presentation/web/components/common/server-log-viewer/server-log-viewer.tsx
+  - src/presentation/web/components/common/server-log-viewer/server-log-viewer.stories.tsx
+  - src/presentation/web/components/common/server-log-viewer/__tests__/server-log-viewer.test.tsx
+
+filesToModify:
+  - packages/core/src/application/ports/output/services/deployment-service.interface.ts
+  - packages/core/src/infrastructure/services/deployment/deployment.service.ts
+  - src/presentation/web/components/common/deployment-status-badge/deployment-status-badge.tsx
+  - src/presentation/web/components/common/deployment-status-badge/deployment-status-badge.stories.tsx
+  - src/presentation/web/components/common/repository-node/repository-node.tsx
+  - src/presentation/web/components/common/base-drawer/base-drawer.tsx
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  The server log viewer follows the existing Clean Architecture layers, adding components at each
+  level that mirror established patterns already in the codebase:
+
+  **Application Layer (Port):** The `IDeploymentService` interface gains three methods — `getLogs()`,
+  `on()`, `off()` — and a new `LogEntry` type. This is the service contract that the presentation
+  layer programs against. The LogEntry type is defined here (not in TypeSpec) because it is ephemeral
+  in-memory data, not a persisted domain entity.
+
+  **Infrastructure Layer:** `DeploymentService` implements the new interface methods. A `LogRingBuffer`
+  class encapsulates the fixed-size circular buffer logic (~30 lines). Each `DeploymentEntry` gets a
+  `logs: LogRingBuffer` field. The existing `attachOutputListener()` method is extended to push each
+  complete stdout/stderr line into the ring buffer and emit an EventEmitter event. A composed
+  `EventEmitter` instance (not inheritance) keeps the public API clean.
+
+  **Presentation Layer (API):** Two new server-side entry points follow exact existing patterns:
+  - `getDeploymentLogs` server action — mirrors `getDeploymentStatus.ts` (resolve service, call method)
+  - `/api/deployment-logs` SSE route — mirrors `/api/agent-events/route.ts` (ReadableStream, heartbeat,
+    cleanup), but subscribes to EventEmitter instead of polling a database
+
+  **Presentation Layer (Client):** A `useDeploymentLogs(targetId)` hook manages the lifecycle: initial
+  fetch via server action, then EventSource connection for live updates. The `ServerLogViewer` component
+  renders a near-full-screen Dialog with dark terminal styling, auto-scroll, and stderr coloring.
+
+  ### Data Flow
+
+  ```
+  ChildProcess stdout/stderr
+           ↓
+  DeploymentService.attachOutputListener()
+    → push to LogRingBuffer (5,000 line cap)
+    → emit('log', { stream, line, timestamp })
+           ↓                        ↓
+  getLogs() server action    SSE /api/deployment-logs
+    → returns LogEntry[]      → subscribes to EventEmitter
+    → initial load             → streams new LogEntry as SSE
+           ↓                        ↓
+  useDeploymentLogs hook (client)
+    → merges initial + SSE logs
+    → returns { logs, isConnected }
+           ↓
+  ServerLogViewer (Dialog modal)
+    → monospace dark theme
+    → auto-scroll with pause-on-scroll-up
+    → stderr in red/orange
+  ```
+
+  ## Key Design Decisions
+
+  ### 1. Ring Buffer as Separate Class
+  The LogRingBuffer is extracted into its own file (`log-ring-buffer.ts`) rather than inlined in
+  DeploymentService. This enables isolated unit testing of the buffer logic (edge cases: empty,
+  partial fill, wrap-around, capacity enforcement) and keeps DeploymentService focused on process
+  management. The class has a simple API: `push(entry)`, `getAll(): LogEntry[]`, `clear()`, `size`.
+
+  ### 2. Composed EventEmitter (Not Inheritance)
+  DeploymentService composes a private `EventEmitter` instance and exposes typed `on(event, handler)`
+  and `off(event, handler)` methods on the interface. This avoids leaking the full EventEmitter API
+  (emit, removeAllListeners, etc.) and keeps the service interface minimal. The interface only exposes
+  what consumers need: subscribe and unsubscribe for 'log' events.
+
+  ### 3. Separate Initial Load and SSE Streams
+  The client hook first fetches existing logs via the `getDeploymentLogs` server action, then connects
+  to SSE for new lines only. This avoids a race condition on the server (backfill + subscribe atomicity)
+  and keeps each endpoint simple. Any lines emitted during the brief gap are acceptable to miss in a
+  dev tool context.
+
+  ### 4. Auto-Scroll with Scroll-Position Detection
+  Track `isAtBottom` via scroll event math (`scrollTop + clientHeight >= scrollHeight - threshold`).
+  When new logs arrive and `isAtBottom` is true, scroll to bottom. When user scrolls up, auto-scroll
+  pauses. Uses `useRef` to avoid re-renders on scroll events. This is the standard pattern used by
+  every terminal/log viewer.
+
+  ### 5. Simple div-per-line Rendering (Virtualization-Ready)
+  Each log line is a div with conditional styling. At 5,000 lines max, this is within browser
+  capability for a temporarily-opened modal. The component architecture allows later swap to
+  react-window FixedSizeList without changing the line rendering. No virtualization in v1.
+
+  ### 6. Button Inside DeploymentStatusBadge
+  The View Logs button lives inside DeploymentStatusBadge, not in parent components. This ensures
+  it automatically appears in both RepositoryNode and BaseDrawer without duplicating logic (FR-11).
+  The badge gains a `targetId` prop to pass through to the log viewer.
+
+  ## Implementation Strategy
+
+  Work proceeds bottom-up through the architecture layers:
+
+  **Phase 1 (Backend Foundation)** comes first because every other component depends on the
+  log buffer and EventEmitter API. The ring buffer is developed and tested in isolation, then
+  integrated into DeploymentService with its own test suite.
+
+  **Phase 2 (SSE Transport)** builds the server-side API that the client will consume. The server
+  action is trivial (same pattern as getDeploymentStatus). The SSE route follows the agent-events
+  boilerplate with EventEmitter subscription replacing database polling.
+
+  **Phase 3 (UI Components)** builds the client-side hook and the visual log viewer. The hook is
+  tested with mocked EventSource and server actions. The component gets Storybook stories covering
+  all visual states.
+
+  **Phase 4 (Integration)** wires everything together by modifying existing components. This is
+  last because it touches stable code and requires all new components to be ready and tested.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | EventEmitter memory leak from leaked subscriptions | SSE route cleans up with request.signal abort listener; hook cleans up on unmount; test coverage for cleanup paths |
+  | Ring buffer wrap-around bugs | Isolated unit tests for empty, partial, full, and wrapped states with exact line ordering assertions |
+  | Auto-scroll jank with 5,000+ lines | Each line is a lightweight div with text only; threshold-based scroll detection avoids continuous measurement; virtualization can be added in v2 |
+  | SSE connection drops on proxy/load-balancer timeout | 30-second heartbeat (matching agent-events pattern); exponential backoff reconnection in client hook |
+  | Race condition between initial fetch and SSE stream | Accepted: brief gap is tolerable for dev tool; duplicate lines are de-duplicated by timestamp if needed in v2 |
+  | Breaking existing DeploymentStatusBadge consumers | Badge changes are additive (new optional prop); existing rendering unchanged when targetId is not provided |
+  | Feature flag not gating new UI | Log button rendering is conditional on the same featureFlags.envDeploy check already used for deploy buttons |
