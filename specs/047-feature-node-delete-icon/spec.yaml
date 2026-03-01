@@ -21,7 +21,7 @@ relatedFeatures: []
 
 technologies:
   - React 19 (component rendering, hooks)
-  - "@xyflow/react 12 (React Flow node components)"
+  - '@xyflow/react 12 (React Flow node components)'
   - lucide-react (Trash2 icon)
   - Radix UI AlertDialog (confirmation dialog)
   - Radix UI Tooltip (hover label)
