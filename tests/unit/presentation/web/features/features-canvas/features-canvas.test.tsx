@@ -124,6 +124,15 @@ describe('FeaturesCanvas', () => {
       expect(screen.queryByTestId('feature-node-settings-button')).not.toBeInTheDocument();
     });
 
+    it('does not inject onDelete for feature nodes with state "creating"', () => {
+      const onFeatureDelete = vi.fn();
+      render(
+        <FeaturesCanvas nodes={[creatingNode]} edges={[]} onFeatureDelete={onFeatureDelete} />
+      );
+      // The delete button should not be rendered because onDelete is not injected
+      expect(screen.queryByTestId('feature-node-delete-button')).not.toBeInTheDocument();
+    });
+
     it('still injects onAction for feature nodes with state "running"', () => {
       const onNodeAction = vi.fn();
       render(<FeaturesCanvas nodes={[mockNode]} edges={[]} onNodeAction={onNodeAction} />);

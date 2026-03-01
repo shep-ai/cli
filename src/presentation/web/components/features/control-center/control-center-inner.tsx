@@ -407,6 +407,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
         onRepositoryAdd={handleAddFeatureToRepo}
         onRepositoryClick={handleRepositoryClick}
         onRepositoryDelete={handleDeleteRepository}
+        onFeatureDelete={handleDeleteFeature}
         onRepositorySelect={handleAddRepository}
         onCanvasDrag={handleClearDrawers}
         emptyState={<ControlCenterEmptyState onRepositorySelect={handleAddRepository} />}
