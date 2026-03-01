@@ -1,0 +1,27 @@
+{
+  "name": "tmux",
+  "summary": "Terminal multiplexer for session management",
+  "description": "tmux is a terminal multiplexer that lets you create, manage, and switch between multiple terminal sessions. Ideal for remote development, persistent sessions, and multi-pane workflows. Cross-platform (macOS and Linux).",
+  "tags": ["terminal"],
+  "iconUrl": "https://cdn.simpleicons.org/tmux",
+  "binary": "tmux",
+  "packageManager": "brew",
+  "commands": {
+    "darwin": "brew install tmux",
+    "linux": "apt install -y tmux"
+  },
+  "timeout": 300000,
+  "documentationUrl": "https://github.com/tmux/tmux/wiki",
+  "verifyCommand": "tmux -V",
+  "autoInstall": true,
+  "openDirectory": "tmux new-session -c {dir}",
+  "terminalCommand": {
+    "darwin": "osascript -e 'tell application \"Terminal\" to do script \"tmux new-session -c {dir}\"' -e 'tell application \"Terminal\" to activate'",
+    "linux": "x-terminal-emulator -e tmux new-session -c {dir}"
+  },
+  "spawnOptions": {
+    "shell": true,
+    "stdio": "inherit",
+    "detached": false
+  }
+}

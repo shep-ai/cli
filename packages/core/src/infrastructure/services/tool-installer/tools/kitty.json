@@ -1,0 +1,18 @@
+{
+  "name": "Kitty",
+  "summary": "Fast, GPU-based terminal emulator",
+  "description": "Kitty is a fast, feature-rich, GPU-based terminal emulator with advanced graphics support, extensibility via kittens, and modern rendering. Cross-platform (macOS and Linux).",
+  "tags": ["terminal"],
+  "iconUrl": "https://raw.githubusercontent.com/kovidgoyal/kitty/master/logo/kitty.svg",
+  "binary": "kitty",
+  "packageManager": "brew",
+  "commands": {
+    "darwin": "brew install --cask kitty",
+    "linux": "apt install -y kitty"
+  },
+  "timeout": 300000,
+  "documentationUrl": "https://sw.kovidgoyal.net/kitty/",
+  "verifyCommand": "kitty --version",
+  "autoInstall": false,
+  "openDirectory": "kitty --working-directory {dir}"
+}

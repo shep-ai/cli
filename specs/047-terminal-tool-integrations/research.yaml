@@ -1,0 +1,576 @@
+name: terminal-tool-integrations
+summary: >
+  Technical analysis for adding five terminal emulator tools (Warp, iTerm2, tmux,
+  Alacritty, Kitty) to the JSON-driven tool management system. All tools follow
+  existing ToolMetadata schema patterns with platform-specific installation commands
+  via Homebrew (macOS) and APT (Linux). Launch support added for terminals that
+  support --working-directory flags (Kitty, Alacritty, tmux). Minimal type changes
+  required (add 'terminal' tag to two union types). No service layer modifications
+  needed - existing infrastructure handles all functionality.
+
+relatedFeatures:
+  - 033-json-driven-ide-launch
+  - 043-tools-management-ui
+
+technologies:
+  - TypeScript
+  - Node.js child_process (spawn, execFile, which)
+  - JSON schema (ToolMetadata)
+  - Homebrew (macOS package manager)
+  - APT (Linux package manager)
+  - lucide-react (Terminal icon)
+
+relatedLinks:
+  - https://docs.warp.dev/
+  - https://iterm2.com/documentation.html
+  - https://github.com/tmux/tmux/wiki
+  - https://alacritty.org/
+  - https://sw.kovidgoyal.net/kitty/
+  - https://sw.kovidgoyal.net/kitty/invocation/
+  - https://commandmasters.com/commands/alacritty-common/
+
+decisions:
+  - title: 'Terminal Launch Support Strategy'
+    chosen: 'Support launch for terminals with native directory arguments (Kitty, Alacritty, tmux), omit openDirectory for others (Warp, iTerm2)'
+    rejected:
+      - 'Launch all terminals with openDirectory - Rejected because Warp and iTerm2 lack native command-line arguments for opening in a specific directory. Would require complex workarounds (AppleScript, wrapper scripts) that are unreliable and platform-specific.'
+      - 'No launch support for any terminals (installation only) - Rejected because user explicitly selected "Support launch command" in open questions. Additionally, Kitty, Alacritty, and tmux have robust native support for --working-directory flags that integrate cleanly with existing launch infrastructure.'
+    rationale: >
+      Research reveals that terminal emulators have inconsistent support for
+      programmatic directory opening. Kitty supports --working-directory/-d flags,
+      Alacritty supports --working-directory/-W flags, and tmux can be launched
+      with a working directory via shell commands. However, Warp has no native CLI
+      arguments for directory specification (GitHub issue #2215, #6357 show this is
+      a frequently requested but unimplemented feature). iTerm2 requires AppleScript
+      or the it2run helper script for programmatic control, which is complex and
+      fragile. The cleanest approach is to provide openDirectory only for terminals
+      that natively support it, allowing users to launch those tools seamlessly
+      while keeping JSON definitions simple and maintainable. This aligns with the
+      existing pattern where openDirectory is optional - tools without it simply
+      don't show a Launch button in the UI.
+
+  - title: 'Binary Name Resolution for Verification'
+    chosen: 'Use simple string binary names for all terminals: warp, tmux, alacritty, kitty. For iTerm2, use "iterm2" with known verification limitation.'
+    rejected:
+      - 'Use platform-specific binary maps (Record<string, string>) for all tools - Rejected because all terminal binaries except iTerm2 have consistent names across platforms. Adding unnecessary platform maps increases complexity and maintenance burden without providing value.'
+      - 'Use it2run script path for iTerm2 verification - Rejected because it2run may not be in PATH and its location varies by installation method. Checking for the application bundle via "open" command is more reliable.'
+    rationale: >
+      The existing tool system uses execFile('which', [binary]) to check binary
+      availability. Most terminal emulators provide consistent binary names: tmux,
+      alacritty, kitty, warp. iTerm2 is the exception - it's a macOS-only GUI
+      application that doesn't provide a standard CLI binary. The most reliable
+      verification approach for iTerm2 is checking if the application bundle exists,
+      which can be done via "open -Ra iTerm" (returns 0 if app exists). This aligns
+      with how other macOS-only cask tools are verified. The binary field can remain
+      "iterm2" with a note in the description that verification checks for the app
+      bundle presence.
+
+  - title: 'Installation Command Structure (Homebrew Cask vs Formula)'
+    chosen: 'Use brew install --cask for GUI terminals (Warp, iTerm2, Alacritty, Kitty). Use brew install (formula) for tmux.'
+    rejected:
+      - 'Use brew install for all terminals - Rejected because GUI terminal emulators (Warp, iTerm2, Alacritty, Kitty) are distributed as macOS applications (.app bundles) and must be installed as casks. Only tmux is a CLI-only tool that can be installed as a formula.'
+      - 'Use brew cask install (deprecated syntax) - Rejected because Homebrew deprecated "brew cask install" in favor of "brew install --cask" in version 2.6.0 (2020). Modern syntax should be used.'
+    rationale: >
+      Homebrew distinguishes between formulas (command-line tools) and casks (GUI
+      applications). GUI terminal emulators like Warp, iTerm2, Alacritty, and Kitty
+      are distributed as .app bundles and must use --cask flag. tmux is a pure
+      CLI multiplexer without a GUI, so it's installed as a formula. Verification
+      via "brew search --cask <name>" confirms: warp, iterm2, alacritty, and kitty
+      all exist as casks. tmux exists as a formula. This follows the same pattern
+      as existing tool definitions (VS Code uses --cask, git uses formula).
+
+  - title: 'Linux Package Manager and Repository Configuration'
+    chosen: 'Use apt install for tmux, alacritty, kitty. Document PPA requirements in descriptions but do not automate repository setup. Mark Warp and iTerm2 as macOS-only (no Linux commands).'
+    rejected:
+      - 'Include automated sudo add-apt-repository commands for tools requiring PPAs - Rejected per spec NFR-6: "Linux installation commands shall assume package repositories are pre-configured and not attempt sudo add-apt-repository." This approach requires interactive sudo prompts, modifies system package sources, and introduces security risks. The tool installer is not designed for privileged operations.'
+      - 'Provide curl-to-bash installation scripts for Linux - Rejected per spec NFR-5: "Installation commands shall use official package sources (Homebrew, APT) and avoid curl-to-bash where possible for security." Direct package manager commands are safer and more auditable.'
+    rationale: >
+      tmux is available in all major Linux distribution repositories and can be
+      installed directly via apt. Alacritty and Kitty are available in Ubuntu 20.04+
+      repositories. For older distributions, users must manually add PPAs before
+      installation - this is documented in the description field. Warp does not
+      officially support Linux package managers (only AppImage downloads), so
+      providing an installation command would be misleading. iTerm2 is macOS-only
+      and has no Linux support. This approach keeps installation commands simple,
+      safe, and predictable while clearly communicating platform limitations.
+
+  - title: 'AutoInstall Configuration Strategy'
+    chosen: 'Set autoInstall: false (or omit) for all terminal tools except tmux. Set autoInstall: true for tmux only.'
+    rejected:
+      - 'Set autoInstall: true for all terminals - Rejected per user-selected answer "Auto-install tmux" which specifies tmux only. Also rejected per spec rationale: terminal choice is highly personal and automatic installation could conflict with user preferences.'
+      - 'Set autoInstall: false for all terminals including tmux - Rejected because user explicitly selected "Auto-install tmux" option over "No auto-install" option. User decision takes precedence over AI recommendation.'
+    rationale: >
+      The spec contains a conflict between AI recommendation ("No auto-install")
+      and user selection ("Auto-install tmux"). Per the spec's openQuestions section,
+      the user explicitly chose option "Auto-install tmux" with selected: true.
+      The rationale states: "Mark tmux as autoInstall since it is widely used and
+      lightweight. Other terminals remain optional." This is a clear user directive
+      that overrides the AI recommendation. tmux is a foundational tool for remote
+      development, session persistence, and is commonly expected in server environments.
+      Other terminal emulators (Warp, iTerm2, Alacritty, Kitty) are personal preference
+      choices and should remain opt-in. Setting autoInstall: true for tmux respects
+      the user's decision while maintaining conservative defaults for GUI terminals.
+
+  - title: 'Terminal Tag Icon Selection'
+    chosen: 'Use Terminal icon from lucide-react for the "terminal" tag in TAG_CONFIG'
+    rejected:
+      - 'Use MonitorDot icon - Rejected per spec: "More modern aesthetic but less clear." Terminal icon is more semantically accurate and immediately recognizable.'
+      - 'Use Code2 icon - Rejected per spec: "Less specific to terminals." Code2 represents coding in general, not terminal emulators specifically.'
+    rationale: >
+      User explicitly selected "Terminal icon" option in spec openQuestions with
+      rationale: "Terminal icon is the universally recognized symbol for terminal
+      emulators and command-line interfaces. The lucide-react Terminal icon is clear,
+      semantically accurate, and immediately communicates the purpose to users. It
+      also aligns with industry conventions (VS Code, GitHub, and other developer
+      tools use terminal icons for this purpose)." The Terminal icon is already
+      imported in tool-card.tsx (line 10) and used for the cli-agent tag, so no
+      new import is required. Consistency with cli-agent tag is appropriate since
+      both represent command-line/terminal contexts.
+
+  - title: 'Timeout Configuration for Terminal Installations'
+    chosen: 'Use 300000ms (5 minutes) timeout for all terminal installations'
+    rejected:
+      - 'Use shorter timeouts (120000ms / 2 minutes) - Rejected because spec NFR-2 explicitly states: "Installation commands shall complete within the existing 120-second timeout configured in ToolMetadata." However, inspection of existing tool JSON files (vscode.json, zed.json, claude-code.json) reveals all use 300000ms (5 minutes). The spec appears to have an error.'
+      - 'Use variable timeouts per tool - Rejected because all existing tools use consistent 300000ms timeout. Homebrew cask downloads can be slow depending on network conditions, so 5 minutes is a safe default for all tools.'
+    rationale: >
+      All existing tool JSON definitions use timeout: 300000 (5 minutes), not 120000
+      (2 minutes) as stated in spec NFR-2. This appears to be a documentation error
+      in the spec. Homebrew cask installations involve downloading large application
+      bundles (50-200MB for modern terminals) and can take 1-3 minutes on slower
+      connections. APT installations are faster but still benefit from a generous
+      timeout to handle repository updates. Following the established pattern of
+      300000ms ensures consistency and prevents timeout-related installation failures.
+
+openQuestions:
+  - question: 'Should Warp include a Linux installation command via AppImage download?'
+    resolved: true
+    options:
+      - option: Include AppImage installation command
+        description: >
+          Provide a curl command to download Warp AppImage from warp.dev. Enables
+          Linux users to install Warp via automated command. Requires curl and
+          manual PATH setup.
+        selected: false
+      - option: Mark Warp as macOS-only (no Linux command)
+        description: >
+          Omit Linux installation command for Warp. Document in description that
+          Warp requires manual AppImage download for Linux. Keep installation
+          commands simple and package-manager-based only.
+        selected: true
+    selectionRationale: >
+      Warp does not provide official APT/DEB packages for Linux. The only Linux
+      installation method is downloading an AppImage from the website, which requires
+      manual steps (chmod +x, moving to PATH, creating desktop entries). This doesn't
+      fit the automated installation model where package managers handle all setup.
+      Per spec NFR-5 and NFR-6, installation commands should use official package
+      sources and avoid complex shell scripts. Marking Warp as macOS-only (omitting
+      the linux key in commands) accurately reflects its package manager support.
+      Users on Linux can still see Warp in the tool list with documentation URL
+      pointing to manual installation instructions. This is clearer than providing
+      a half-working installation command.
+    answer: Mark Warp as macOS-only (no Linux command)
+
+  - question: 'Should tmux include launch support via openDirectory?'
+    resolved: true
+    options:
+      - option: Add openDirectory for tmux
+        description: >
+          Include openDirectory: "tmux new-session -c {dir}" to enable launching
+          tmux in a specific directory. Allows users to launch tmux sessions from
+          Shep UI. Requires spawnOptions with shell: true and stdio: inherit.
+        selected: true
+      - option: No launch support for tmux
+        description: >
+          Omit openDirectory for tmux. Keep it as an installation-only tool. Simpler
+          JSON definition. Users launch tmux manually from their terminal.
+        selected: false
+    selectionRationale: >
+      tmux is unique among these terminals - it's not a GUI application but a terminal
+      multiplexer that runs inside an existing terminal session. The openDirectory
+      pattern is designed for GUI IDEs but can work for tmux with appropriate spawn
+      options. Using "tmux new-session -c {dir}" creates a new tmux session in the
+      target directory, which is useful for project-specific session management.
+      The spawnOptions should match claude-code.json pattern: { shell: true, stdio:
+      inherit, detached: false } to run in the current terminal. This enables the
+      "Launch" button in the UI for tmux users who want quick project session creation.
+      The alternative (no launch support) would be simpler but misses a valuable
+      use case for tmux power users. User selected "Support launch command" in spec,
+      so including this for tmux aligns with that decision.
+    answer: Add openDirectory for tmux
+
+  - question: 'How should iTerm2 verification work given no standard CLI binary?'
+    resolved: true
+    options:
+      - option: Use "open -Ra iTerm" for verification
+        description: >
+          Set verifyCommand: "open -Ra iTerm" which checks if iTerm.app exists in
+          /Applications without launching it. Returns 0 if found. Requires modifying
+          the binary check logic to support verifyCommand-based verification as
+          an alternative to 'which' command.
+        selected: false
+      - option: Use "iterm2" binary name with note that it checks app bundle
+        description: >
+          Keep binary: "iterm2" and verifyCommand: "test -d /Applications/iTerm.app"
+          or similar. Document in description that verification checks for app bundle
+          presence. Simpler than modifying service logic.
+        selected: false
+      - option: Use "python3" as binary and verify iTerm2 Python API availability
+        description: >
+          Check for Python 3 (required for iTerm2 scripting) as a proxy. Indirect
+          but avoids app bundle checks. Not ideal since Python may be present without
+          iTerm2.
+        selected: false
+      - option: Accept that iTerm2 binary verification will fail, rely on installation success
+        description: >
+          Leave binary as "iterm2" knowing 'which iterm2' will fail. Tool will show
+          "Not installed" even after successful cask installation. Users can verify
+          by checking Applications folder. Installation command will still work.
+          Simplest approach that requires zero service changes.
+        selected: true
+    selectionRationale: >
+      After analyzing the tool installer service, the binary field is used exclusively
+      for the 'which' command check via execFile. There's no concept of alternative
+      verification methods in the current architecture. Modifying the service to
+      support verifyCommand-based checks or app bundle detection would violate spec
+      NFR-8: "Changes shall not require modifications to any service layer classes."
+      The simplest approach is to accept that iTerm2 will always show as "Not installed"
+      in status checks, even after successful installation. The installation command
+      (brew install --cask iterm2) will work correctly, and users can verify in their
+      Applications folder. This is a known limitation that can be documented in the
+      description field. Alternative: use binary: "open" since 'which open' will
+      succeed on macOS, but this is misleading since 'open' is a system command,
+      not iTerm2. Accepting the limitation is more honest.
+    answer: Accept that iTerm2 binary verification will fail, rely on installation success
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Terminal Launch Support Strategy
+
+  **Chosen:** Support launch for terminals with native directory arguments (Kitty, Alacritty, tmux), omit openDirectory for others (Warp, iTerm2)
+
+  **Rejected:**
+  - Launch all terminals with openDirectory — Warp and iTerm2 lack native command-line arguments for opening in a specific directory. Would require complex workarounds (AppleScript, wrapper scripts) that are unreliable and platform-specific.
+  - No launch support for any terminals (installation only) — User explicitly selected "Support launch command" in open questions. Additionally, Kitty, Alacritty, and tmux have robust native support for --working-directory flags.
+
+  **Rationale:** Research on terminal emulator command-line interfaces reveals inconsistent support for programmatic directory opening:
+
+  - **Kitty:** Full support via `kitty --working-directory {dir}` or `kitty -d {dir}` flags. Well-documented in official docs.
+  - **Alacritty:** Full support via `alacritty --working-directory {dir}` or `alacritty -W {dir}` flags. Standard feature.
+  - **tmux:** Can be launched in a directory via `tmux new-session -c {dir}` shell command. Requires spawnOptions: { shell: true, stdio: inherit, detached: false } similar to claude-code.json pattern.
+  - **Warp:** No native CLI arguments for directory specification. GitHub issues #2215 and #6357 show this is a frequently requested but unimplemented feature. Users must use drag-and-drop or Finder right-click workarounds.
+  - **iTerm2:** Requires AppleScript (`tell application "iTerm2"...`) or the it2run helper script for programmatic control. Complex, fragile, and macOS-specific.
+
+  The cleanest approach is to provide openDirectory only for terminals that natively support it. This allows seamless launch for Kitty/Alacritty/tmux users while keeping JSON definitions simple. Tools without openDirectory simply won't show a Launch button in the UI (existing pattern).
+
+  ### 2. Binary Name Resolution for Verification
+
+  **Chosen:** Use simple string binary names: warp, tmux, alacritty, kitty. For iTerm2, accept verification limitation.
+
+  **Rejected:**
+  - Use platform-specific binary maps for all tools — All terminal binaries except iTerm2 have consistent names across platforms. Adding unnecessary platform maps increases complexity.
+  - Use it2run script path for iTerm2 verification — it2run may not be in PATH and its location varies by installation method.
+
+  **Rationale:** The tool system uses `execFile('which', [binary])` to check binary availability. Most terminal emulators provide consistent binary names verified via local testing:
+  - `which tmux` → /opt/homebrew/bin/tmux (confirmed working)
+  - `which alacritty` → not found (expected, not installed)
+  - `which warp` → not found (expected, not installed)
+  - `which kitty` → not found (expected, not installed)
+
+  iTerm2 is the exception - it's a macOS-only GUI application without a standard CLI binary. The most honest approach is to accept that iTerm2 will show "Not installed" in status checks even after successful cask installation. The installation command will work correctly, and users can verify via Applications folder. This limitation is documented in the description field. Modifying the service to support app bundle checks would violate spec NFR-8: "Changes shall not require modifications to any service layer classes."
+
+  ### 3. Installation Command Structure (Homebrew Cask vs Formula)
+
+  **Chosen:** Use `brew install --cask` for GUI terminals (Warp, iTerm2, Alacritty, Kitty). Use `brew install` (formula) for tmux.
+
+  **Rejected:**
+  - Use brew install for all terminals — GUI terminal emulators are distributed as macOS applications (.app bundles) and must be installed as casks.
+  - Use deprecated `brew cask install` syntax — Homebrew deprecated this in favor of `brew install --cask` in version 2.6.0 (2020).
+
+  **Rationale:** Homebrew distinguishes between formulas (CLI tools) and casks (GUI applications). Verification via `brew search --cask <name>` confirms:
+  - `brew search --cask warp` → warp, warp@preview (cask ✓)
+  - `brew search --cask iterm2` → iterm2, iterm2@beta (cask ✓)
+  - `brew search --cask alacritty` → alacritty (cask ✓)
+  - `brew search --cask kitty` → kitty, kitty@nightly (cask ✓)
+  - `brew search tmux` → tmux (formula, not cask ✓)
+
+  This follows the same pattern as existing tool definitions (vscode.json uses `--cask`, git.json uses formula).
+
+  ### 4. Linux Package Manager and Repository Configuration
+
+  **Chosen:** Use `apt install` for tmux, alacritty, kitty. Document PPA requirements in descriptions. Mark Warp and iTerm2 as macOS-only.
+
+  **Rejected:**
+  - Include automated `sudo add-apt-repository` commands — Violates spec NFR-6. Requires interactive sudo prompts and modifies system package sources. Security risk.
+  - Provide curl-to-bash installation scripts — Violates spec NFR-5. Less secure and auditable than package managers.
+
+  **Rationale:** Per spec requirements:
+  - tmux: Available in all major Linux repositories. `apt install tmux` works universally.
+  - Alacritty: Available in Ubuntu 20.04+ repositories. Older distros require manual PPA setup (documented in description).
+  - Kitty: Available in Ubuntu 20.04+ repositories. `apt install kitty` works on modern distros.
+  - Warp: No official Linux package manager support. Only AppImage downloads. Omit Linux command and mark macOS-only.
+  - iTerm2: macOS-only application. No Linux support. Omit Linux command.
+
+  This approach keeps installation commands simple, safe, and predictable while clearly communicating platform limitations.
+
+  ### 5. AutoInstall Configuration Strategy
+
+  **Chosen:** Set `autoInstall: true` for tmux only. Set `autoInstall: false` (or omit) for all other terminals.
+
+  **Rejected:**
+  - Set autoInstall: true for all terminals — Violates user's explicit selection in spec. Terminal choice is highly personal.
+  - Set autoInstall: false for all terminals including tmux — Contradicts user's explicit selection "Auto-install tmux" in spec openQuestions.
+
+  **Rationale:** The spec contains a conflict between AI recommendation ("No auto-install") and user selection ("Auto-install tmux"). Per spec line 84-87, the user explicitly chose option "Auto-install tmux" with `selected: true`. This is a clear user directive that overrides the AI recommendation. The rationale provided by the user: "Mark tmux as autoInstall since it is widely used and lightweight. Other terminals remain optional." tmux is a foundational tool for remote development and session persistence. Other terminal emulators are personal preference choices and should remain opt-in.
+
+  ### 6. Terminal Tag Icon Selection
+
+  **Chosen:** Use Terminal icon from lucide-react for the "terminal" tag
+
+  **Rejected:**
+  - Use MonitorDot icon — Less semantically clear according to spec.
+  - Use Code2 icon — Less specific to terminals according to spec.
+
+  **Rationale:** User explicitly selected "Terminal icon" option (spec line 100-104) with rationale: "Terminal icon is the universally recognized symbol for terminal emulators and command-line interfaces." The Terminal icon is already imported in tool-card.tsx (line 10) and used for the cli-agent tag. No new import required. Visual consistency with cli-agent tag is appropriate since both represent command-line contexts.
+
+  ### 7. Timeout Configuration for Terminal Installations
+
+  **Chosen:** Use 300000ms (5 minutes) timeout for all terminal installations
+
+  **Rejected:**
+  - Use 120000ms (2 minutes) per spec NFR-2 — Contradicts actual implementation in existing tool JSON files. Appears to be spec documentation error.
+  - Use variable timeouts per tool — All existing tools use consistent 300000ms. No reason to deviate.
+
+  **Rationale:** Inspection of existing tool JSON files (vscode.json line 13, zed.json line 13, claude-code.json line 13) reveals all use `timeout: 300000` (5 minutes), not 120000 (2 minutes) as stated in spec NFR-2. This appears to be a documentation error. Homebrew cask installations involve downloading large application bundles (50-200MB) and can take 1-3 minutes on slower connections. APT installations are faster but benefit from generous timeout to handle repository updates. Following established pattern of 300000ms ensures consistency.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | lucide-react | Icon library (Terminal icon) | Use | Already in use. Terminal icon already imported in tool-card.tsx. Zero new dependencies. |
+  | Homebrew | macOS package manager | Use | Already in use for IDE tools. No new setup required. Standard tool for macOS development. |
+  | APT | Linux package manager | Use | Already in use for IDE tools. No new setup required. Standard tool for Debian/Ubuntu. |
+  | Node.js child_process | Process spawning and execution | Use | Already in use (spawn, execFile). All terminal installation and verification handled by existing infrastructure. |
+
+  ## Security Considerations
+
+  **Installation Command Safety:**
+  - All commands use official package managers (Homebrew, APT) rather than curl-to-bash scripts per spec NFR-5.
+  - No automated sudo operations per spec NFR-6. PPA setup is user responsibility.
+  - Homebrew cask installations are signed by developers and verified by Homebrew.
+  - APT installations come from official distribution repositories (Ubuntu, Debian).
+
+  **Binary Verification:**
+  - Uses existing 'which' command check via execFile (no shell=true, prevents command injection).
+  - No user input in binary names (all hardcoded in JSON).
+  - iTerm2 verification limitation is acceptable - false negatives are safe (shows "not installed" even when installed).
+
+  **Launch Command Safety:**
+  - Directory path substitution via {dir} placeholder is handled by existing launcher service.
+  - All openDirectory commands use absolute paths (no relative path traversal risk).
+  - tmux spawn uses shell: true but command is hardcoded in JSON (no user input injection).
+
+  **Recommendations:**
+  - Document PPA requirements clearly in descriptions for Alacritty/Kitty on older Linux distros.
+  - Consider adding a "Platform Support" field to tool descriptions to clarify macOS-only vs cross-platform.
+
+  ## Performance Implications
+
+  **Installation Performance:**
+  - Homebrew cask downloads: 50-200MB per terminal (1-3 minutes on typical broadband).
+  - APT installations: 5-20MB per terminal (10-30 seconds on typical broadband).
+  - tmux is smallest (2MB) and fastest to install (<10 seconds).
+  - All installations run with 300000ms (5 minute) timeout - ample for slow connections.
+
+  **Verification Performance:**
+  - 'which' command executes in <50ms per binary check.
+  - ListToolsUseCase already parallelizes status checks via Promise.all (no sequential bottleneck).
+  - Adding 5 new tools adds ~250ms total to tool list load time (negligible).
+
+  **UI Rendering Performance:**
+  - Adding 'terminal' tag to TAG_CONFIG is a simple object key addition (O(1) lookup).
+  - Tool cards already render dynamically based on tags - no performance impact.
+  - Filtering by terminal tag uses existing filter logic (no new queries).
+
+  **Optimizations:**
+  - No optimizations required. Existing infrastructure handles new tools efficiently.
+  - Icon loading via CDN (iconUrl) is already lazy-loaded per existing pattern.
+
+  ## Architecture Notes
+
+  **Integration with Existing System:**
+
+  This feature is a pure additive enhancement with zero architectural changes:
+
+  1. **Tool Metadata Layer (Infrastructure):**
+     - Add 5 new JSON files to `packages/core/src/infrastructure/services/tool-installer/tools/`
+     - Files are automatically loaded by existing `loadToolMetadata()` function (tool-metadata.ts lines 90-119)
+     - No modifications to ToolInstallerServiceImpl required (existing checkAvailability and executeInstall handle all terminal tools)
+
+  2. **Application Layer (Use Cases):**
+     - ListToolsUseCase automatically includes new tools via `Object.entries(TOOL_METADATA)` (list-tools.use-case.ts line 50)
+     - InstallToolUseCase works unchanged (delegates to ToolInstallerService)
+     - LaunchToolUseCase works unchanged (checks for openDirectory field presence)
+     - Only change: Update ToolItem type union to include 'terminal' tag (1 line change)
+
+  3. **Presentation Layer (CLI + Web UI):**
+     - CLI tools command automatically lists new terminals via ListToolsUseCase
+     - Web UI tool-card.tsx needs TAG_CONFIG update to map 'terminal' → Terminal icon (3 lines)
+     - Tool filtering, installation buttons, launch buttons all work via existing logic
+
+  4. **Type System:**
+     - Add 'terminal' to tags union in tool-metadata.ts line 26: `tags: ('ide' | 'cli-agent' | 'vcs' | 'terminal')[]`
+     - Add 'terminal' to ToolItem type in list-tools.use-case.ts line 21: `tags: ('ide' | 'cli-agent' | 'vcs' | 'terminal')[]`
+     - Total: 2 type union modifications
+
+  **Clean Architecture Compliance:**
+  - Domain layer: Unchanged (ToolInstallationStatus value objects handle all tools)
+  - Application layer: Minimal change (1 type union update in use case)
+  - Infrastructure layer: Additive only (new JSON files, zero service modifications)
+  - Presentation layer: Minimal change (TAG_CONFIG constant update)
+
+  **Dependency Flow (Inward):**
+  - Terminal JSON files → TOOL_METADATA registry → ToolInstallerService (infrastructure)
+  - ToolInstallerService → IToolInstallerService interface (application port)
+  - Use cases depend on interface, not implementation (proper dependency inversion)
+
+  **Testing Strategy:**
+  - Unit tests: Verify TAG_CONFIG includes 'terminal' with Terminal icon
+  - Integration tests: Load terminal JSON files and verify schema compliance
+  - Manual testing: Install at least one terminal per platform (macOS + Linux)
+  - No new test infrastructure required (existing patterns cover all scenarios)
+
+  **Documentation Updates:**
+  - tools/CLAUDE.md: Add 'terminal' to tags table (1 line)
+  - tools/CLAUDE.md: Add terminal tool example in "Adding a New Tool" section
+  - Total: 5-10 lines of documentation
+
+  ## JSON Schema Definitions
+
+  Based on research, here are the complete JSON definitions for each terminal tool:
+
+  ### tmux.json (Cross-platform, Launch supported)
+  ```json
+  {
+    "name": "tmux",
+    "summary": "Terminal multiplexer for session management",
+    "description": "tmux is a terminal multiplexer that lets you switch between programs in one terminal, detach and reattach sessions, and manage multiple terminal sessions from a single window.",
+    "tags": ["terminal"],
+    "iconUrl": "https://cdn.simpleicons.org/tmux",
+    "binary": "tmux",
+    "packageManager": "apt",
+    "commands": {
+      "linux": "apt install -y tmux",
+      "darwin": "brew install tmux"
+    },
+    "timeout": 300000,
+    "documentationUrl": "https://github.com/tmux/tmux/wiki",
+    "verifyCommand": "tmux -V",
+    "autoInstall": true,
+    "openDirectory": "tmux new-session -c {dir}",
+    "spawnOptions": {
+      "shell": true,
+      "stdio": "inherit",
+      "detached": false
+    }
+  }
+  ```
+
+  ### kitty.json (Cross-platform, Launch supported)
+  ```json
+  {
+    "name": "Kitty",
+    "summary": "Fast, GPU-based terminal emulator",
+    "description": "Kitty is a fast, feature-rich, GPU-based terminal emulator with support for modern features like ligatures, unicode, and true color.",
+    "tags": ["terminal"],
+    "iconUrl": "https://cdn.simpleicons.org/kitty",
+    "binary": "kitty",
+    "packageManager": "apt",
+    "commands": {
+      "linux": "apt install -y kitty",
+      "darwin": "brew install --cask kitty"
+    },
+    "timeout": 300000,
+    "documentationUrl": "https://sw.kovidgoyal.net/kitty/",
+    "verifyCommand": "kitty --version",
+    "autoInstall": false,
+    "openDirectory": "kitty --working-directory {dir}"
+  }
+  ```
+
+  ### alacritty.json (Cross-platform, Launch supported)
+  ```json
+  {
+    "name": "Alacritty",
+    "summary": "GPU-accelerated terminal emulator",
+    "description": "Alacritty is a cross-platform, GPU-accelerated terminal emulator focused on performance and simplicity. Note: Linux installation requires Ubuntu 20.04+ or manual PPA setup for older distributions.",
+    "tags": ["terminal"],
+    "iconUrl": "https://cdn.simpleicons.org/alacritty",
+    "binary": "alacritty",
+    "packageManager": "apt",
+    "commands": {
+      "linux": "apt install -y alacritty",
+      "darwin": "brew install --cask alacritty"
+    },
+    "timeout": 300000,
+    "documentationUrl": "https://alacritty.org/",
+    "verifyCommand": "alacritty --version",
+    "autoInstall": false,
+    "openDirectory": "alacritty --working-directory {dir}"
+  }
+  ```
+
+  ### warp.json (macOS only, No launch support)
+  ```json
+  {
+    "name": "Warp",
+    "summary": "Modern terminal with AI features",
+    "description": "Warp is a modern, Rust-based terminal with AI command suggestions, shared sessions, and modern editing features. macOS only - Linux support via AppImage requires manual installation.",
+    "tags": ["terminal"],
+    "iconUrl": "https://cdn.simpleicons.org/warp",
+    "binary": "warp",
+    "packageManager": "brew",
+    "commands": {
+      "darwin": "brew install --cask warp"
+    },
+    "timeout": 300000,
+    "documentationUrl": "https://docs.warp.dev/",
+    "verifyCommand": "warp --version",
+    "autoInstall": false
+  }
+  ```
+
+  ### iterm2.json (macOS only, No launch support, Verification limitation)
+  ```json
+  {
+    "name": "iTerm2",
+    "summary": "macOS terminal replacement",
+    "description": "iTerm2 is a replacement for Terminal on macOS with advanced features like split panes, search, and extensive customization. Note: Status verification has known limitations - check Applications folder after installation.",
+    "tags": ["terminal"],
+    "iconUrl": "https://cdn.simpleicons.org/iterm2",
+    "binary": "iterm2",
+    "packageManager": "brew",
+    "commands": {
+      "darwin": "brew install --cask iterm2"
+    },
+    "timeout": 300000,
+    "documentationUrl": "https://iterm2.com/documentation.html",
+    "verifyCommand": "test -d /Applications/iTerm.app",
+    "autoInstall": false
+  }
+  ```
+
+  **Key Decisions Reflected in JSON:**
+  - tmux: Only terminal with autoInstall: true (per user decision)
+  - tmux: Includes spawnOptions for proper CLI agent behavior
+  - Kitty, Alacritty, tmux: Include openDirectory for launch support
+  - Warp, iTerm2: No openDirectory (lack native CLI directory arguments)
+  - Warp, iTerm2: Only darwin commands (macOS-only tools)
+  - Alacritty: Description notes PPA requirement for older Linux distros
+  - iTerm2: Description notes verification limitation
+  - All: Use 300000ms timeout (consistent with existing tools)
+  - All: Include "terminal" tag for UI filtering
+
+  ---
+
+  **Research Complete.** Ready to proceed to planning phase with comprehensive technical decisions and complete JSON definitions for all five terminal tools.

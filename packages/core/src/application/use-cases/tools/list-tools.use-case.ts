@@ -18,7 +18,7 @@ export interface ToolItem {
   name: string;
   summary: string;
   description: string;
-  tags: ('ide' | 'cli-agent' | 'vcs')[];
+  tags: ('ide' | 'cli-agent' | 'vcs' | 'terminal')[];
   iconUrl: string | undefined;
   autoInstall: boolean;
   required: boolean;

@@ -1,0 +1,437 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: terminal-tool-integrations
+summary: >
+  14 tasks across 4 phases: Phase 1 adds 'terminal' tag to type unions (2 tasks),
+  Phase 2 creates five JSON tool definitions (5 tasks), Phase 3 updates Web UI
+  TAG_CONFIG (1 task), Phase 4 validates integration with documentation and testing
+  (6 tasks). All tasks follow TDD cycles where applicable. Total estimated effort: 3.5 hours.
+
+# Relationships
+relatedFeatures:
+  - 033-json-driven-ide-launch
+  - 043-tools-management-ui
+
+technologies:
+  - TypeScript
+  - JSON schema (ToolMetadata)
+  - Homebrew
+  - APT
+  - lucide-react
+
+relatedLinks: []
+
+# Structured task list
+tasks:
+  # ============================================================================
+  # PHASE 1: Type System Foundation
+  # ============================================================================
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Add terminal tag to ToolMetadata type union'
+    description: >
+      Update the tags field type union in ToolMetadata interface to include 'terminal'
+      as a valid tag value. This enables TypeScript to accept 'terminal' in JSON tool
+      definitions. File location: packages/core/src/infrastructure/services/tool-installer/tool-metadata.ts
+      line 26 (approximate).
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'ToolMetadata tags field includes "terminal" in type union'
+      - 'TypeScript compiler accepts tags: ["terminal"] in JSON files'
+      - 'pnpm validate passes (typecheck succeeds)'
+    tdd:
+      red:
+        - 'Write unit test that creates a ToolMetadata object with tags: ["terminal"] and asserts it compiles without type errors'
+        - 'Expected: Test fails because "terminal" is not in the union type yet'
+      green:
+        - 'Update ToolMetadata tags field from tags: ("ide" | "cli-agent" | "vcs")[] to tags: ("ide" | "cli-agent" | "vcs" | "terminal")[]'
+        - 'Run pnpm validate to confirm TypeScript compilation succeeds'
+        - 'Expected: Test passes, terminal tag is now valid'
+      refactor:
+        - 'No refactoring needed - single line type change'
+        - 'Verify no exhaustive switch statements on tags exist (search codebase for "switch.*tags")'
+    estimatedEffort: '10min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Add terminal tag to ToolItem type union in ListToolsUseCase'
+    description: >
+      Update the tags field type union in ToolItem interface (returned by ListToolsUseCase)
+      to include 'terminal'. This ensures use case return types are consistent with
+      ToolMetadata. File location: packages/core/src/application/use-cases/tools/list-tools.use-case.ts
+      line 21 (approximate).
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'ToolItem tags field includes "terminal" in type union'
+      - 'ListToolsUseCase can return tools with terminal tag without type errors'
+      - 'pnpm validate passes'
+    tdd:
+      red:
+        - 'Write unit test for ListToolsUseCase that mocks a tool with tags: ["terminal"] and asserts the returned ToolItem contains the terminal tag'
+        - 'Expected: Test fails due to type mismatch (terminal not in ToolItem tags union)'
+      green:
+        - 'Update ToolItem tags field from tags: ("ide" | "cli-agent" | "vcs")[] to tags: ("ide" | "cli-agent" | "vcs" | "terminal")[]'
+        - 'Run unit test and verify it passes'
+      refactor:
+        - 'No refactoring needed - single line type change'
+        - 'Verify type consistency between ToolMetadata and ToolItem (both should have identical tag unions)'
+    estimatedEffort: '10min'
+
+  # ============================================================================
+  # PHASE 2: Terminal Tool JSON Definitions
+  # ============================================================================
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Create tmux.json tool definition'
+    description: >
+      Create JSON file for tmux (terminal multiplexer) with cross-platform support.
+      Include autoInstall: true per user decision, openDirectory for launch support,
+      and spawnOptions for proper CLI execution. Platform commands: macOS (brew install tmux),
+      Linux (apt install -y tmux).
+    state: Todo
+    dependencies:
+      - task-1
+      - task-2
+    acceptanceCriteria:
+      - 'tmux.json exists in packages/core/src/infrastructure/services/tool-installer/tools/'
+      - 'JSON includes all required fields: name, summary, description, tags, binary, commands, timeout, documentationUrl'
+      - 'tags field contains ["terminal"]'
+      - 'autoInstall field is true'
+      - 'openDirectory field is "tmux new-session -c {dir}"'
+      - 'spawnOptions includes { shell: true, stdio: "inherit", detached: false }'
+      - 'commands.darwin is "brew install tmux"'
+      - 'commands.linux is "apt install -y tmux"'
+      - 'timeout is 300000 (5 minutes)'
+      - 'JSON parses without errors (valid JSON syntax)'
+    tdd: null
+    estimatedEffort: '20min'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Create kitty.json tool definition'
+    description: >
+      Create JSON file for Kitty (GPU-based terminal emulator) with cross-platform support.
+      Include openDirectory for launch support. Platform commands: macOS (brew install --cask kitty),
+      Linux (apt install -y kitty).
+    state: Todo
+    dependencies:
+      - task-1
+      - task-2
+    acceptanceCriteria:
+      - 'kitty.json exists in packages/core/src/infrastructure/services/tool-installer/tools/'
+      - 'JSON includes all required fields: name, summary, description, tags, binary, commands, timeout, documentationUrl'
+      - 'tags field contains ["terminal"]'
+      - 'autoInstall field is false or omitted'
+      - 'openDirectory field is "kitty --working-directory {dir}"'
+      - 'commands.darwin is "brew install --cask kitty"'
+      - 'commands.linux is "apt install -y kitty"'
+      - 'timeout is 300000'
+      - 'JSON parses without errors'
+    tdd: null
+    estimatedEffort: '15min'
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Create alacritty.json tool definition'
+    description: >
+      Create JSON file for Alacritty (GPU-accelerated terminal) with cross-platform support.
+      Include openDirectory for launch support. Document PPA requirement for older Linux distros
+      in description. Platform commands: macOS (brew install --cask alacritty),
+      Linux (apt install -y alacritty).
+    state: Todo
+    dependencies:
+      - task-1
+      - task-2
+    acceptanceCriteria:
+      - 'alacritty.json exists in packages/core/src/infrastructure/services/tool-installer/tools/'
+      - 'JSON includes all required fields'
+      - 'tags field contains ["terminal"]'
+      - 'autoInstall field is false or omitted'
+      - 'openDirectory field is "alacritty --working-directory {dir}"'
+      - 'description mentions PPA requirement for older Linux distributions'
+      - 'commands.darwin is "brew install --cask alacritty"'
+      - 'commands.linux is "apt install -y alacritty"'
+      - 'timeout is 300000'
+      - 'JSON parses without errors'
+    tdd: null
+    estimatedEffort: '15min'
+
+  - id: task-6
+    phaseId: phase-2
+    title: 'Create warp.json tool definition'
+    description: >
+      Create JSON file for Warp (modern terminal with AI features) with macOS-only support.
+      Omit openDirectory (no launch support due to lack of CLI directory arguments).
+      Omit Linux command (no official package manager support). Platform commands: macOS only
+      (brew install --cask warp).
+    state: Todo
+    dependencies:
+      - task-1
+      - task-2
+    acceptanceCriteria:
+      - 'warp.json exists in packages/core/src/infrastructure/services/tool-installer/tools/'
+      - 'JSON includes all required fields'
+      - 'tags field contains ["terminal"]'
+      - 'autoInstall field is false or omitted'
+      - 'openDirectory field is omitted (no launch support)'
+      - 'description mentions macOS-only and Linux AppImage requirement for manual installation'
+      - 'commands.darwin is "brew install --cask warp"'
+      - 'commands.linux is omitted (undefined)'
+      - 'timeout is 300000'
+      - 'JSON parses without errors'
+    tdd: null
+    estimatedEffort: '15min'
+
+  - id: task-7
+    phaseId: phase-2
+    title: 'Create iterm2.json tool definition'
+    description: >
+      Create JSON file for iTerm2 (macOS terminal replacement) with macOS-only support.
+      Omit openDirectory (no launch support due to AppleScript requirement). Include
+      verifyCommand for app bundle verification. Document verification limitation in description.
+      Platform commands: macOS only (brew install --cask iterm2).
+    state: Todo
+    dependencies:
+      - task-1
+      - task-2
+    acceptanceCriteria:
+      - 'iterm2.json exists in packages/core/src/infrastructure/services/tool-installer/tools/'
+      - 'JSON includes all required fields'
+      - 'tags field contains ["terminal"]'
+      - 'autoInstall field is false or omitted'
+      - 'openDirectory field is omitted (no launch support)'
+      - 'verifyCommand field is "test -d /Applications/iTerm.app"'
+      - 'description mentions verification approach and macOS-only support'
+      - 'commands.darwin is "brew install --cask iterm2"'
+      - 'commands.linux is omitted (undefined)'
+      - 'timeout is 300000'
+      - 'JSON parses without errors'
+    tdd: null
+    estimatedEffort: '20min'
+
+  # ============================================================================
+  # PHASE 3: Web UI Tag Configuration
+  # ============================================================================
+
+  - id: task-8
+    phaseId: phase-3
+    title: 'Add terminal tag to TAG_CONFIG in Web UI'
+    description: >
+      Update TAG_CONFIG constant in tool-card.tsx to include terminal tag entry with
+      Terminal icon from lucide-react. This enables terminal tool filtering and visual
+      identification in Web UI. Terminal icon is already imported (line 10) and used
+      for cli-agent tag.
+    state: Todo
+    dependencies:
+      - task-3
+      - task-4
+      - task-5
+      - task-6
+      - task-7
+    acceptanceCriteria:
+      - 'TAG_CONFIG constant includes terminal key'
+      - 'terminal config has icon: Terminal'
+      - 'terminal config has label: "Terminal"'
+      - 'TAG_CONFIG terminal entry follows same structure as existing tags (ide, cli-agent, vcs)'
+      - 'pnpm validate passes'
+    tdd:
+      red:
+        - 'Write unit test that imports TAG_CONFIG and asserts TAG_CONFIG.terminal is defined'
+        - 'Assert TAG_CONFIG.terminal.icon equals Terminal component'
+        - 'Assert TAG_CONFIG.terminal.label equals "Terminal"'
+        - 'Expected: Test fails because terminal key does not exist in TAG_CONFIG yet'
+      green:
+        - 'Add terminal entry to TAG_CONFIG constant: terminal: { icon: Terminal, label: "Terminal" }'
+        - 'Run unit test and verify it passes'
+      refactor:
+        - 'Verify alphabetical ordering of TAG_CONFIG keys if other tags follow that pattern'
+        - 'Verify consistent formatting (spacing, indentation) with existing tag entries'
+    estimatedEffort: '15min'
+
+  # ============================================================================
+  # PHASE 4: Documentation & Validation
+  # ============================================================================
+
+  - id: task-9
+    phaseId: phase-4
+    title: 'Update tools/CLAUDE.md with terminal tag documentation'
+    description: >
+      Add terminal tag to the tags table and provide example JSON snippet showing
+      proper terminal tool definition format. Include guidance on when to use terminal
+      tag vs other tags. Cross-reference existing tool documentation patterns.
+    state: Todo
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - 'tools/CLAUDE.md includes "terminal" in the valid tags table'
+      - 'Documentation includes example JSON snippet for terminal tool (using tmux as reference)'
+      - 'Documentation explains when to use terminal tag (for terminal emulators and multiplexers)'
+      - 'Documentation notes platform-specific command patterns (brew --cask for GUI terminals, brew formula for CLI tools)'
+      - 'Documentation mentions launch support guidance (openDirectory for terminals with --working-directory flags)'
+    tdd: null
+    estimatedEffort: '20min'
+
+  - id: task-10
+    phaseId: phase-4
+    title: 'Validate JSON files load correctly'
+    description: >
+      Start CLI or Web UI in dev mode and verify all five terminal tool JSON files
+      load without errors. Check console output for parsing errors or schema validation
+      failures. Verify TOOL_METADATA registry includes all terminals.
+    state: Todo
+    dependencies:
+      - task-3
+      - task-4
+      - task-5
+      - task-6
+      - task-7
+    acceptanceCriteria:
+      - 'pnpm dev:cli starts without errors'
+      - 'No JSON parsing errors in console output'
+      - 'No schema validation warnings for terminal tools'
+      - 'TOOL_METADATA registry size increased from 8 to 13 (verified via debug log or code inspection)'
+    tdd: null
+    estimatedEffort: '10min'
+
+  - id: task-11
+    phaseId: phase-4
+    title: 'Test CLI tool listing with terminal tools'
+    description: >
+      Run "shep tools list" command and verify all five terminal tools appear in the
+      output with correct names, summaries, and installation status. Verify terminal
+      tools are mixed with existing tools in alphabetical or category order.
+    state: Todo
+    dependencies:
+      - task-10
+    acceptanceCriteria:
+      - 'shep tools list shows 13 total tools (8 existing + 5 terminals)'
+      - 'tmux appears in output with summary "Terminal multiplexer for session management"'
+      - 'Kitty appears with summary "Fast, GPU-based terminal emulator"'
+      - 'Alacritty appears with summary "GPU-accelerated terminal emulator"'
+      - 'Warp appears with summary "Modern terminal with AI features"'
+      - 'iTerm2 appears with summary "macOS terminal replacement"'
+      - 'Installation status shows "Not installed" for terminals not yet installed'
+    tdd: null
+    estimatedEffort: '10min'
+
+  - id: task-12
+    phaseId: phase-4
+    title: 'Test Web UI terminal tag filtering'
+    description: >
+      Open Web UI tools page in browser and verify terminal tools display with Terminal
+      icon badge. Click terminal tag filter and verify only the five terminal tools
+      are shown. Verify tag visual styling matches existing tags (badge style, hover effects).
+    state: Todo
+    dependencies:
+      - task-8
+      - task-10
+    acceptanceCriteria:
+      - 'Web UI tools page displays all five terminal tools'
+      - 'Each terminal tool card shows Terminal icon badge'
+      - 'Terminal icon badge has consistent styling with ide/cli-agent/vcs badges'
+      - 'Clicking terminal tag filter shows exactly 5 tools'
+      - 'Clicking terminal tag filter hides all non-terminal tools'
+      - 'Terminal tag badge has hover effect (if other tags have hover effects)'
+    tdd: null
+    estimatedEffort: '15min'
+
+  - id: task-13
+    phaseId: phase-4
+    title: 'Test terminal tool installation (tmux)'
+    description: >
+      Install tmux via CLI ("shep tools install tmux") on current platform and verify
+      installation completes successfully. Check status updates to "Installed" after
+      installation. Verify binary verification works (which tmux returns valid path).
+      Test on both macOS and Linux if possible.
+    state: Todo
+    dependencies:
+      - task-11
+    acceptanceCriteria:
+      - 'shep tools install tmux completes successfully on macOS (brew install tmux)'
+      - 'shep tools install tmux completes successfully on Linux (apt install -y tmux) - test if Linux available'
+      - 'Installation output shows progress and completion message'
+      - 'which tmux returns valid path after installation (e.g., /opt/homebrew/bin/tmux)'
+      - 'shep tools list shows tmux status as "Installed" after installation'
+      - 'Installation completes within 30 seconds (typically 5-10 seconds for tmux)'
+    tdd: null
+    estimatedEffort: '20min'
+
+  - id: task-14
+    phaseId: phase-4
+    title: 'Test terminal launch functionality (Kitty or Alacritty)'
+    description: >
+      Test launch command for a terminal with openDirectory support (Kitty or Alacritty).
+      If terminal is not installed, install it first. Verify "shep tools launch kitty /path/to/project"
+      opens Kitty terminal in the specified directory. Verify Warp and iTerm2 do not
+      show Launch button in Web UI (no openDirectory field). Verify tmux launch works
+      with shell execution.
+    state: Todo
+    dependencies:
+      - task-12
+      - task-13
+    acceptanceCriteria:
+      - 'shep tools launch kitty /path/to/project opens Kitty terminal in specified directory (if Kitty installed)'
+      - 'Alternatively: shep tools launch alacritty /path/to/project works (if Alacritty installed)'
+      - 'Launched terminal working directory is correct (verify via pwd command)'
+      - 'shep tools launch tmux /path/to/project creates new tmux session in specified directory'
+      - 'Web UI Launch button appears for tmux, Kitty, Alacritty (tools with openDirectory)'
+      - 'Web UI Launch button does NOT appear for Warp and iTerm2 (no openDirectory field)'
+      - 'Launch command fails gracefully with clear error if terminal not installed'
+    tdd: null
+    estimatedEffort: '25min'
+
+# Total effort estimate
+totalEstimate: '3.5 hours'
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Summary
+
+  The implementation consists of 14 tasks organized across 4 sequential phases:
+
+  **Phase 1: Type System Foundation** (20 minutes total)
+  - Adds 'terminal' to the ToolMetadata and ToolItem type unions, enabling type-safe
+    terminal tool definitions. This foundational step must complete first as all subsequent
+    JSON files and UI updates depend on these type changes compiling successfully.
+
+  **Phase 2: Terminal Tool JSON Definitions** (85 minutes total)
+  - Creates five JSON tool definition files following the established ToolMetadata schema.
+    These tasks can run in parallel as they have no inter-dependencies. Each JSON file
+    includes platform-specific installation commands (Homebrew for macOS, APT for Linux),
+    verification commands, documentation URLs, and launch support where terminals provide
+    native CLI directory arguments. tmux receives special configuration (autoInstall: true,
+    spawnOptions for shell execution). Warp and iTerm2 are macOS-only with no launch support.
+
+  **Phase 3: Web UI Tag Configuration** (15 minutes total)
+  - Updates the TAG_CONFIG constant to map 'terminal' tag to Terminal icon from lucide-react.
+    This single update enables terminal tool filtering and visual identification in the Web UI.
+    The Terminal icon is already imported and requires no new dependencies.
+
+  **Phase 4: Documentation & Validation** (100 minutes total)
+  - Validates the complete integration through documentation updates and comprehensive testing.
+    Updates tools/CLAUDE.md with terminal tag documentation and examples. Manual testing verifies
+    JSON loading, CLI tool listing, Web UI rendering, installation commands, and launch functionality.
+    Tests cover both macOS and Linux platforms where applicable, ensuring terminal tools integrate
+    seamlessly with existing tool management infrastructure.
+
+  **Key Characteristics:**
+  - Strict phase ordering (no phase can start until previous phase completes)
+  - Phase 2 tasks can execute in parallel (five independent JSON files)
+  - Zero service layer modifications (existing infrastructure handles all operations)
+  - Minimal type changes (two union type updates in total)
+  - All code changes follow TDD cycles with RED-GREEN-REFACTOR pattern
+  - Non-code tasks (JSON files, documentation) use null TDD cycles
+  - Conservative time estimates include buffer for testing and validation
+
+  ---
+
+  _Task breakdown complete. Total estimated effort: 3.5 hours across 14 tasks._
