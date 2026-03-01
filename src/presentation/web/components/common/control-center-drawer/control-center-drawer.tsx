@@ -520,6 +520,24 @@ export function ControlCenterDrawer({
     );
   }
 
+  // ── Deploy target (lost during drawer unification — restore for BaseDrawer) ──
+
+  const deployTarget =
+    featureNode?.repositoryPath && featureNode.branch
+      ? {
+          targetId: featureNode.featureId,
+          targetType: 'feature' as const,
+          repositoryPath: featureNode.repositoryPath,
+          branch: featureNode.branch,
+        }
+      : repoData?.repositoryPath
+        ? {
+            targetId: repoData.repositoryPath,
+            targetType: 'repository' as const,
+            repositoryPath: repoData.repositoryPath,
+          }
+        : undefined;
+
   // ── Render ──────────────────────────────────────────────────────────────
 
   return (
@@ -531,6 +549,7 @@ export function ControlCenterDrawer({
         size="md"
         modal={false}
         header={header}
+        deployTarget={deployTarget}
         data-testid={
           view?.type === 'feature'
             ? 'feature-drawer'
