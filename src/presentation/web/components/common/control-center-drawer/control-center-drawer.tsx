@@ -381,7 +381,11 @@ export function ControlCenterDrawer({
                   </Tooltip>
                 </TooltipProvider>
                 {isFeatureDeployActive ? (
-                  <DeploymentStatusBadge status={deployAction.status} url={deployAction.url} />
+                  <DeploymentStatusBadge
+                    status={deployAction.status}
+                    url={deployAction.url}
+                    targetId={featureDeployTarget?.targetId}
+                  />
                 ) : null}
               </>
             ) : null}
