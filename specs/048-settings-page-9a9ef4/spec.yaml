@@ -1,0 +1,135 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: settings-page-9a9ef4
+number: 048
+branch: feat/048-settings-page-9a9ef4
+oneLiner: Add a web UI settings page for viewing and editing global Shep configuration
+userQuery: >
+  Feature: Settings Page
+summary: >
+  Add a Settings page to the web UI that allows users to view and edit all global
+  Shep configuration — model selections, user profile, environment preferences,
+  system config, agent selection, notification preferences, and workflow defaults.
+  The backend use cases (LoadSettings, UpdateSettings) and repository already exist;
+  this feature adds the presentation layer (page route, API routes, form components,
+  sidebar navigation, Storybook stories, and tests).
+phase: Analysis
+sizeEstimate: M
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - Next.js 16 App Router (server/client component split)
+  - shadcn/ui + Radix UI (form primitives — Input, Select, Checkbox, Tabs, Card, Label, Switch)
+  - Tailwind CSS 4 (styling with semantic design tokens)
+  - React Hook Form + Zod (form state management and validation)
+  - lucide-react (icons — Settings, Save, User, Monitor, Bell, GitBranch, Bot)
+  - Sonner (toast notifications for save success/error feedback)
+  - tsyringe DI (server-side use case resolution via resolve())
+  - Vitest + Testing Library (unit tests)
+  - Storybook 8 (component stories — mandatory)
+  - TypeSpec-generated Settings type (domain/generated/output.ts)
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  The Shep web UI currently has no way to view or modify global settings. Users must use
+  CLI commands (`shep settings show`, `shep settings agent`, `shep settings ide`) to
+  configure the platform. The backend infrastructure is fully implemented — TypeSpec domain
+  model, SQLite repository, settings singleton service, and Load/Update use cases — but
+  there is no web presentation layer. The `components/features/settings/` directory exists
+  as an empty placeholder (`.gitkeep` only).
+
+  This feature adds a `/settings` page with tabbed sections that surface the full Settings
+  model through an intuitive form UI, following the same patterns established by the
+  existing Tools and Skills pages.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The repository follows Clean Architecture with four layers in `packages/core/src/`:
+
+  - **Domain** (`domain/`) — TypeSpec-generated types including `Settings`, `ModelConfiguration`, `UserProfile`, `EnvironmentConfig`, `SystemConfig`, `AgentConfig`, `NotificationPreferences`, `WorkflowConfig`
+  - **Application** (`application/`) — Use cases: `LoadSettingsUseCase`, `UpdateSettingsUseCase`, `InitializeSettingsUseCase`; port interface `ISettingsRepository`
+  - **Infrastructure** (`infrastructure/`) — `SQLiteSettingsRepository`, `SettingsMapper`, `settings.service.ts` singleton (`getSettings()`/`initializeSettings()`)
+  - **Presentation** (`src/presentation/`) — CLI, TUI, and Web UI layers
+
+  The web UI lives at `src/presentation/web/` using Next.js 16 App Router with a four-tier component hierarchy:
+
+  | Tier | Directory | Purpose |
+  | ---- | --------- | ------- |
+  | 0 | `components/ui/` | shadcn/ui primitives (Button, Input, Card, Tabs, Select, etc.) |
+  | 1 | `components/common/` | Cross-feature composed components (PageHeader, EmptyState) |
+  | 2 | `components/layouts/` | App shell, sidebar, header |
+  | 3 | `components/features/` | Domain-specific route-bound UI |
+
+  ### Architecture Patterns
+
+  **Page pattern**: Server component resolves use cases from DI container via `resolve<T>('token')`, calls `execute()`, passes data to client component as props.
+
+  ```
+  app/settings/page.tsx (server) → resolve LoadSettingsUseCase → SettingsPageClient (client)
+  ```
+
+  **API routes**: Next.js route handlers at `app/api/` for mutations. Client components call `fetch('/api/...')` for POST/PUT operations.
+
+  **Navigation**: Sidebar (`AppSidebar`) renders `SidebarNavItem` components with icons, labels, hrefs, and active state based on `usePathname()`.
+
+  **Component conventions**: Named exports, `data-testid` on root elements, `className` prop for composability, `cn()` utility for Tailwind class merging. Every component requires a colocated `.stories.tsx` file.
+
+  ### Relevant Technologies
+
+  - **Next.js 16 App Router** — `export const dynamic = 'force-dynamic'` for DI access
+  - **shadcn/ui** — Comprehensive component library already installed (40+ components including Input, Select, Checkbox, Tabs, Card, Label, Switch, Separator)
+  - **Tailwind CSS 4** — Semantic tokens (`bg-background`, `text-muted-foreground`, `border-input`)
+  - **tsyringe** — DI container for server-side use case resolution
+  - **Sonner** — Toast notifications already integrated in root layout
+  - **TypeSpec** — Settings model defined in `tsp/domain/entities/settings.tsp`
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `src/presentation/web/app/settings/` | High | New page route — server component resolving LoadSettingsUseCase |
+  | `src/presentation/web/app/api/settings/` | High | New API route for PUT/PATCH settings mutations |
+  | `src/presentation/web/components/features/settings/` | High | New client components — SettingsPageClient, section forms (Models, Profile, Environment, System, Agent, Notifications, Workflow) |
+  | `src/presentation/web/components/layouts/app-sidebar/` | Medium | Add Settings nav item to sidebar (icon + link + active state) |
+  | `tests/unit/presentation/web/features/` | Medium | Unit tests for settings page components and form interactions |
+  | `packages/core/src/application/use-cases/settings/` | Low | Existing use cases consumed as-is (LoadSettingsUseCase, UpdateSettingsUseCase) — no changes needed |
+  | `packages/core/src/infrastructure/services/settings.service.ts` | Low | Existing singleton service consumed as-is — no changes needed |
+
+  ## Dependencies
+
+  **Existing (no changes needed):**
+  - `LoadSettingsUseCase` — loads settings from SQLite via `ISettingsRepository`
+  - `UpdateSettingsUseCase` — persists updated settings via `ISettingsRepository`
+  - `Settings` type from `packages/core/src/domain/generated/output.ts` (TypeSpec-generated)
+  - `settings.service.ts` singleton — provides `getSettings()` for server-side access
+  - DI container bindings for `'LoadSettingsUseCase'` and `'UpdateSettingsUseCase'` tokens
+  - shadcn/ui components: Input, Select, Checkbox, Tabs, Card, Label, Switch, Button, Separator
+  - Sonner toast for save feedback
+
+  **New (to be created):**
+  - `/settings` page route (server component)
+  - `/api/settings` API route (PUT handler)
+  - Settings feature components (client-side forms)
+  - Sidebar navigation entry for Settings
+  - Storybook stories for all new components
+  - Unit tests for all new components
+
+  ## Size Estimate
+
+  **M** — The backend is fully implemented (domain model, repository, use cases, singleton service). This feature is purely presentation-layer work: one page route, one API route, ~5-7 form section components, sidebar nav update, stories, and tests. The Settings model is comprehensive (7 configuration sections) but each section maps straightforwardly to existing shadcn/ui form primitives. Following established patterns from the Tools page keeps complexity manageable. Estimated at 3-5 days of implementation.
+
+  ---
+
+  _Generated by feature agent — proceed with research_
