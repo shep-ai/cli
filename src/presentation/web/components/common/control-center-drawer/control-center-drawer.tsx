@@ -457,7 +457,7 @@ export function ControlCenterDrawer({
 
   if (view?.type === 'feature' && featureNode) {
     body = (
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1">
         <div data-testid="feature-drawer-status" className="flex flex-col gap-3 p-4">
           <div className="text-muted-foreground text-xs font-semibold tracking-wider">
             {lifecycleDisplayLabels[featureNode.lifecycle]}
