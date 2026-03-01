@@ -1,0 +1,241 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feature-node-delete-icon
+summary: >
+  7 tasks across 3 phases. Phase 1 extends the interface and wires the callback pipeline.
+  Phase 2 adds the delete button UI to the FeatureNode component. Phase 3 writes tests
+  and Storybook stories.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - React 19
+  - '@xyflow/react 12'
+  - lucide-react
+  - '@radix-ui/react-alert-dialog'
+  - '@radix-ui/react-tooltip'
+  - TailwindCSS 4
+  - Vitest
+  - Storybook 8
+relatedLinks: []
+
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Add onDelete to FeatureNodeData interface'
+    description: >
+      Extend the FeatureNodeData interface in feature-node-state-config.ts with an optional
+      onDelete callback typed as (featureId: string) => void. This is the foundation that
+      all subsequent tasks depend on.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'FeatureNodeData interface includes onDelete?: (featureId: string) => void'
+      - 'The [key: string]: unknown index signature accommodates the new property'
+      - 'pnpm validate passes with no type errors'
+    tdd:
+      red:
+        - 'Write a type-level test asserting FeatureNodeData accepts onDelete callback (create a const with onDelete property and verify it compiles)'
+      green:
+        - 'Add onDelete?: (featureId: string) => void to FeatureNodeData interface in feature-node-state-config.ts'
+      refactor:
+        - 'Verify property placement is consistent with existing optional callbacks (onAction, onSettings)'
+    estimatedEffort: '10min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Add onFeatureDelete prop to FeaturesCanvas and inject into enrichedNodes'
+    description: >
+      Add onFeatureDelete prop to the FeaturesCanvas component interface. In the enrichedNodes
+      useMemo, inject onDelete: onFeatureDelete into feature node data within the existing
+      state !== "creating" conditional block. Add onFeatureDelete to the useMemo dependency array.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'FeaturesCanvas accepts onFeatureDelete?: (featureId: string) => void prop'
+      - 'enrichedNodes injects onDelete: onFeatureDelete for feature nodes when state !== "creating"'
+      - 'onDelete is NOT injected for feature nodes in "creating" state'
+      - 'onFeatureDelete is included in the useMemo dependency array'
+      - 'pnpm validate passes'
+    tdd:
+      red:
+        - 'Write test in features-canvas.test.tsx asserting enriched feature nodes receive onDelete when onFeatureDelete prop is provided'
+        - 'Write test asserting feature nodes in creating state do NOT receive onDelete'
+      green:
+        - 'Add onFeatureDelete prop to FeaturesCanvas component props interface'
+        - 'Add onDelete: onFeatureDelete inside the existing featureNode && state !== "creating" conditional in enrichedNodes useMemo'
+        - 'Add onFeatureDelete to the useMemo dependency array'
+      refactor:
+        - 'Verify the conditional block structure matches the existing onAction/onSettings pattern'
+    estimatedEffort: '20min'
+
+  - id: task-3
+    phaseId: phase-1
+    title: 'Wire handleDeleteFeature from ControlCenterInner to FeaturesCanvas'
+    description: >
+      In control-center-inner.tsx, pass handleDeleteFeature (from useControlCenterState) as
+      the onFeatureDelete prop to the FeaturesCanvas component. This completes the callback
+      pipeline from state management to the canvas.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'ControlCenterInner passes handleDeleteFeature as onFeatureDelete prop to FeaturesCanvas'
+      - 'pnpm validate passes'
+    tdd:
+      red:
+        - 'Verify TypeScript compilation succeeds with the new prop (type-level validation)'
+      green:
+        - 'Add onFeatureDelete={handleDeleteFeature} to the FeaturesCanvas JSX in control-center-inner.tsx'
+      refactor:
+        - 'Verify prop placement is consistent with other callback props (onRepositoryDelete, etc.)'
+    estimatedEffort: '10min'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Add delete button with Tooltip and AlertDialog to FeatureNode'
+    description: >
+      Add the Trash2 icon button to feature-node.tsx, positioned to the left of the card with
+      group-hover visibility. Wrap in TooltipProvider/Tooltip with "Delete feature" content.
+      Add AlertDialog confirmation with "Delete feature?" title, feature name in description,
+      and "Delete" destructive action button. Add useState for dialog open state. Add
+      e.stopPropagation() on button click. Guard rendering on data.onDelete && data.featureId.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Trash2 icon button renders when data.onDelete and data.featureId are present'
+      - 'Button is positioned absolute top-1/2 -left-10 -translate-y-1/2 with opacity-0 group-hover:opacity-100'
+      - 'Button styled as h-7 w-7 rounded-full bg-card with hover:border-destructive hover:text-destructive'
+      - 'Tooltip wraps button with "Delete feature" content'
+      - 'AlertDialog opens on button click with title "Delete feature?"'
+      - 'AlertDialog description includes feature name via <strong>{data.name}</strong>'
+      - 'AlertDialog has Cancel button and Delete button with variant="destructive"'
+      - 'Confirming calls data.onDelete(data.featureId)'
+      - 'Button click calls e.stopPropagation()'
+      - 'Button has aria-label="Delete feature" and data-testid="feature-node-delete-button"'
+      - 'Delete button does NOT render when data.onDelete is undefined'
+      - 'useState manages confirmOpen state locally'
+      - 'New imports added: useState, Trash2, AlertDialog components, Tooltip components'
+      - 'pnpm validate passes'
+    tdd:
+      red:
+        - 'Write test asserting Trash2 button renders when onDelete and featureId provided'
+        - 'Write test asserting button does NOT render when onDelete is undefined'
+        - 'Write test asserting button does NOT render when featureId is empty/undefined'
+        - 'Write test asserting clicking button opens AlertDialog'
+        - 'Write test asserting confirming dialog calls onDelete with correct featureId'
+        - 'Write test asserting canceling dialog does not call onDelete'
+        - 'Write test asserting button click stops propagation'
+      green:
+        - 'Add imports: useState from react, Trash2 from lucide-react, AlertDialog components, Tooltip components'
+        - 'Add const [confirmOpen, setConfirmOpen] = useState(false) in FeatureNode component'
+        - 'Add delete button JSX after the card div, inside the group relative wrapper'
+        - 'Add AlertDialog JSX with confirmation copy and destructive action'
+      refactor:
+        - 'Verify JSX structure matches repository-node.tsx pattern exactly'
+        - 'Ensure all className values match NFR-1 requirements'
+    estimatedEffort: '30min'
+
+  - id: task-5
+    phaseId: phase-3
+    title: 'Write FeatureNode delete button unit tests'
+    description: >
+      Add comprehensive unit tests for the delete button in feature-node.test.tsx, mirroring
+      the repository-node.test.tsx test structure. Mock AlertDialog and Tooltip components
+      using the established pattern. Cover: icon rendering, conditional rendering (no onDelete,
+      creating state), dialog open/confirm/cancel, callback invocation with correct featureId,
+      and e.stopPropagation.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'AlertDialog mock renders children conditionally based on open prop'
+      - 'Tooltip mock passes through children'
+      - 'Test: delete button renders when onDelete and featureId provided'
+      - 'Test: delete button does NOT render when onDelete absent'
+      - 'Test: delete button does NOT render for creating state nodes (onDelete not injected)'
+      - 'Test: clicking delete button opens confirmation dialog'
+      - 'Test: confirming dialog invokes onDelete with correct featureId'
+      - 'Test: canceling dialog does not invoke onDelete'
+      - 'Test: delete button click calls stopPropagation'
+      - 'All existing feature-node tests continue to pass'
+      - 'pnpm test:unit passes'
+    tdd:
+      red:
+        - 'Write all test cases listed in acceptance criteria with assertions that will fail before the mocks and component changes are in place'
+      green:
+        - 'Add AlertDialog and Tooltip mocks matching repository-node.test.tsx pattern'
+        - 'Verify all tests pass against the Phase 2 implementation'
+      refactor:
+        - 'Group delete-related tests in a describe("delete button") block'
+        - 'Extract common test setup (mock data with onDelete) to reduce duplication'
+    estimatedEffort: '30min'
+
+  - id: task-6
+    phaseId: phase-3
+    title: 'Add FeaturesCanvas onFeatureDelete wiring test'
+    description: >
+      Add a test in features-canvas.test.tsx verifying that the onFeatureDelete prop is
+      correctly passed to feature node data as onDelete. Verify it is NOT passed when
+      the feature node is in creating state.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'Test: non-creating feature nodes receive onDelete when onFeatureDelete prop provided'
+      - 'Test: creating feature nodes do NOT receive onDelete'
+      - 'All existing features-canvas tests continue to pass'
+      - 'pnpm test:unit passes'
+    tdd:
+      red:
+        - 'Write test rendering FeaturesCanvas with onFeatureDelete prop and asserting enriched node data includes onDelete'
+        - 'Write test with creating-state feature node and asserting onDelete is absent'
+      green:
+        - 'Tests should pass against the Phase 1 implementation (task-2)'
+      refactor:
+        - 'Ensure test naming is consistent with existing FeaturesCanvas test patterns'
+    estimatedEffort: '15min'
+
+  - id: task-7
+    phaseId: phase-3
+    title: 'Add WithDeleteButton Storybook story'
+    description: >
+      Add a WithDeleteButton story variant to feature-node.stories.tsx demonstrating the
+      delete button on hover. Use a Storybook action for the onDelete callback.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'WithDeleteButton story exists in feature-node.stories.tsx'
+      - 'Story provides onDelete callback (Storybook action) and featureId in node data'
+      - 'Story uses an active/non-creating state so the delete button is visible on hover'
+      - 'Story follows existing FeatureNodeCanvas wrapper pattern'
+      - 'pnpm validate passes'
+    tdd: null
+    estimatedEffort: '15min'
+
+totalEstimate: '2h 10min'
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation is split into 7 tasks across 3 phases. Phase 1 establishes the data flow
+  foundation: extending the FeatureNodeData interface with onDelete, injecting it through the
+  FeaturesCanvas enrichedNodes useMemo (gated by creating state), and wiring handleDeleteFeature
+  from ControlCenterInner. Phase 2 adds the visible UI — the Trash2 icon button with Tooltip
+  and AlertDialog confirmation — to the FeatureNode component, replicating the repository node
+  pattern exactly. Phase 3 validates everything with unit tests (mirroring repository-node test
+  structure) and a Storybook story.
+
+  The task ordering ensures each piece can be verified incrementally: interface first, then
+  data flow wiring, then component UI, then tests to lock it all in. Tasks 5 and 6 (tests)
+  and task 7 (story) in Phase 3 can be worked in parallel since they are independent of each
+  other.
+
+  ---
+
+  _Task breakdown created — 2026-03-01_
