@@ -12,5 +12,6 @@
   "timeout": 300000,
   "documentationUrl": "https://docs.warp.dev/",
   "verifyCommand": "test -d /Applications/Warp.app",
-  "autoInstall": false
+  "autoInstall": false,
+  "openDirectory": "open -a Warp {dir}"
 }

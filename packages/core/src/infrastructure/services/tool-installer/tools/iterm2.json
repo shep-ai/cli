@@ -12,5 +12,6 @@
   "timeout": 300000,
   "documentationUrl": "https://iterm2.com/documentation.html",
   "verifyCommand": "test -d /Applications/iTerm.app",
-  "autoInstall": false
+  "autoInstall": false,
+  "openDirectory": "open -a iTerm {dir}"
 }
