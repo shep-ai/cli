@@ -1,0 +1,329 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: scalable-feature-view
+summary: >
+  Replace the full-graph canvas with a multi-view feature management system. Phase 1 decomposes
+  the 773-line useControlCenterState hook into focused hooks with a shared ControlCenterProvider
+  context, introduces a board view as the default with 5 lifecycle columns and virtualized rows,
+  adds a collapsible dependency inspector right panel with a mini React Flow graph, implements
+  client-side filtering with URL-synced state and localStorage-persisted saved views, and wraps
+  the existing canvas as a Map tab. All work is presentation-layer only — no domain, application,
+  or infrastructure changes required.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - React 19
+  - Next.js 16 App Router
+  - TypeScript 5.3
+  - '@xyflow/react 12.10.0'
+  - '@dagrejs/dagre 2.0.4'
+  - '@tanstack/react-virtual'
+  - shadcn/ui (Tabs, Card, Badge, Button, ScrollArea)
+  - Radix UI primitives
+  - Tailwind CSS v4
+  - Lucide React
+  - Sonner
+  - Vitest + Testing Library
+  - Playwright
+  - Storybook 8
+
+relatedLinks: []
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'Foundation — Install dependency, data types, column mapping'
+    description: >
+      Install @tanstack/react-virtual, define the board data types (BoardColumn, BoardColumnId,
+      column mapping from SdlcLifecycle), and create the pure buildBoardData() grouping function.
+      This establishes the data layer that all board components will consume, with no UI yet.
+      Comes first because every subsequent phase depends on these types and utilities.
+    parallel: false
+
+  - id: phase-2
+    name: 'State decomposition — Extract focused hooks from useControlCenterState'
+    description: >
+      Decompose the 773-line useControlCenterState into focused hooks: useFeatureSelection,
+      useFeatureSSE, useOptimisticUpdates, useCanvasState, useFilterState, and useSavedViews.
+      Wrap them in a ControlCenterProvider context so both Board and Map views share selection,
+      SSE, and optimistic update state. This is the highest-risk phase — each extraction must
+      maintain full backward compatibility with existing canvas behavior and pass all existing
+      tests. Comes before UI work because the new components need these decomposed hooks.
+    parallel: false
+
+  - id: phase-3
+    name: 'View switching — Tab bar with URL-synced Board/Map tabs'
+    description: >
+      Introduce the ViewTabs component using shadcn Tabs with controlled value synced to URL
+      search params (?view=board or ?view=map). Modify ControlCenterInner to render through
+      the tab container. The Map tab wraps the existing FeaturesCanvas (lazily mounted). The
+      Board tab initially renders a placeholder. This phase validates the tab switching and
+      URL persistence without building full board UI yet.
+    parallel: false
+
+  - id: phase-4
+    name: 'Board view — Columns, rows, virtualization, keyboard navigation'
+    description: >
+      Build the board view component tree: BoardView container, BoardColumn (x5), ColumnHeader
+      with count badge, and BoardRow (compact feature row reusing featureNodeStateConfig). Add
+      @tanstack/react-virtual per-column virtualization for columns exceeding 30 items. Implement
+      roving tabindex keyboard navigation with ARIA listbox semantics. Wire board rows to the
+      shared selection state and feature CRUD operations.
+    parallel: false
+
+  - id: phase-5
+    name: 'Filter system — Filter bar, URL sync, saved views'
+    description: >
+      Build the FilterBar with multi-select controls for lifecycle, status, agentType, and
+      repository dimensions. Wire useFilterState to serialize active filters as URL search
+      parameters. Add useSavedViews hook for localStorage CRUD of named filter combinations.
+      Build the SavedViewSelector dropdown. Integrate filters with useBoardState to re-derive
+      grouped columns on filter changes.
+    parallel: false
+
+  - id: phase-6
+    name: 'Dependency inspector — Right panel with mini React Flow graph'
+    description: >
+      Build the collapsible DependencyInspector right panel with upstream/downstream dependency
+      lists and an embedded mini React Flow graph showing the selected feature's 1-hop
+      neighborhood. Wire panel visibility to feature selection state. Add CSS-based
+      collapse/expand with localStorage persistence. Ensure ControlCenterDrawer continues
+      to work independently (opens on top of inspector).
+    parallel: false
+
+  - id: phase-7
+    name: 'Integration — page.tsx changes, responsive layout, e2e tests'
+    description: >
+      Extend page.tsx to pass featuresWithRuns alongside graph nodes to ControlCenter. Update
+      the three-panel layout for responsive breakpoints (5-column grid at 1024px+, horizontal
+      scroll 768-1023px, vertical stack below 768px). Write Playwright e2e tests for board view
+      loading, filter interaction, tab switching, dependency inspector, and keyboard navigation.
+      Verify all existing e2e tests pass without modification.
+    parallel: false
+
+# File change tracking
+filesToCreate:
+  # Phase 1 — Foundation
+  - src/presentation/web/lib/build-board-data.ts
+  - tests/unit/presentation/web/lib/build-board-data.test.ts
+
+  # Phase 2 — State decomposition
+  - src/presentation/web/hooks/use-feature-selection.ts
+  - src/presentation/web/hooks/use-feature-sse.ts
+  - src/presentation/web/hooks/use-optimistic-updates.ts
+  - src/presentation/web/hooks/use-filter-state.ts
+  - src/presentation/web/hooks/use-saved-views.ts
+  - src/presentation/web/components/features/control-center/control-center-provider.tsx
+  - tests/unit/presentation/web/hooks/use-feature-selection.test.ts
+  - tests/unit/presentation/web/hooks/use-feature-sse.test.ts
+  - tests/unit/presentation/web/hooks/use-optimistic-updates.test.ts
+  - tests/unit/presentation/web/hooks/use-filter-state.test.ts
+  - tests/unit/presentation/web/hooks/use-saved-views.test.ts
+
+  # Phase 3 — View switching
+  - src/presentation/web/components/features/view-tabs/view-tabs.tsx
+  - src/presentation/web/components/features/view-tabs/view-tabs.stories.tsx
+  - src/presentation/web/components/features/view-tabs/index.ts
+  - tests/unit/presentation/web/components/features/view-tabs/view-tabs.test.tsx
+
+  # Phase 4 — Board view
+  - src/presentation/web/components/features/board-view/board-view.tsx
+  - src/presentation/web/components/features/board-view/board-column.tsx
+  - src/presentation/web/components/features/board-view/board-row.tsx
+  - src/presentation/web/components/features/board-view/column-header.tsx
+  - src/presentation/web/components/features/board-view/use-board-state.ts
+  - src/presentation/web/components/features/board-view/use-keyboard-navigation.ts
+  - src/presentation/web/components/features/board-view/index.ts
+  - src/presentation/web/components/features/board-view/board-view.stories.tsx
+  - src/presentation/web/components/features/board-view/board-column.stories.tsx
+  - src/presentation/web/components/features/board-view/board-row.stories.tsx
+  - tests/unit/presentation/web/components/features/board-view/board-view.test.tsx
+  - tests/unit/presentation/web/components/features/board-view/board-row.test.tsx
+  - tests/unit/presentation/web/components/features/board-view/use-board-state.test.ts
+  - tests/unit/presentation/web/components/features/board-view/use-keyboard-navigation.test.ts
+
+  # Phase 5 — Filter system
+  - src/presentation/web/components/features/filter-bar/filter-bar.tsx
+  - src/presentation/web/components/features/filter-bar/filter-controls.tsx
+  - src/presentation/web/components/features/filter-bar/saved-view-selector.tsx
+  - src/presentation/web/components/features/filter-bar/index.ts
+  - src/presentation/web/components/features/filter-bar/filter-bar.stories.tsx
+  - tests/unit/presentation/web/components/features/filter-bar/filter-bar.test.tsx
+  - tests/unit/presentation/web/components/features/filter-bar/filter-controls.test.tsx
+
+  # Phase 6 — Dependency inspector
+  - src/presentation/web/components/features/dependency-inspector/dependency-inspector.tsx
+  - src/presentation/web/components/features/dependency-inspector/dependency-list.tsx
+  - src/presentation/web/components/features/dependency-inspector/dependency-mini-graph.tsx
+  - src/presentation/web/components/features/dependency-inspector/index.ts
+  - src/presentation/web/components/features/dependency-inspector/dependency-inspector.stories.tsx
+  - tests/unit/presentation/web/components/features/dependency-inspector/dependency-inspector.test.tsx
+  - tests/unit/presentation/web/components/features/dependency-inspector/dependency-mini-graph.test.tsx
+
+  # Phase 7 — Integration / e2e
+  - tests/e2e/board-view.spec.ts
+
+filesToModify:
+  - src/presentation/web/app/page.tsx
+  - src/presentation/web/components/features/control-center/control-center.tsx
+  - src/presentation/web/components/features/control-center/control-center-inner.tsx
+  - src/presentation/web/components/features/control-center/use-control-center-state.ts
+  - src/presentation/web/components/features/control-center/control-center.stories.tsx
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Status
+
+  - **Phase:** Planning
+  - **Updated:** 2026-03-01
+
+  ## Architecture Overview
+
+  The scalable feature view operates entirely within the **presentation layer**
+  (`src/presentation/web/`), following the project's Clean Architecture — no domain,
+  application, or infrastructure changes are required. The board view derives its state
+  from the same `FeatureWithRun[]` data that the current canvas consumes, using a pure
+  client-side grouping function rather than new server-side queries.
+
+  ### Current Architecture
+
+  ```
+  page.tsx (Server) → buildGraphNodes() → layoutWithDagre() → ControlCenter (Client)
+    → useControlCenterState (773-line monolith)
+      → FeaturesCanvas (React Flow)
+      → ControlCenterDrawer
+  ```
+
+  ### Target Architecture
+
+  ```
+  page.tsx (Server) → buildGraphNodes() + pass raw featuresWithRuns
+    → ControlCenter (Client)
+      → ControlCenterProvider (shared context: selection, SSE, optimistic updates, filters)
+        → ViewTabs (shadcn Tabs, URL-synced)
+          → Board tab: BoardView → BoardColumn × 5 → BoardRow × n (virtualized)
+          → Map tab: FeaturesCanvas (lazy mount, existing canvas preserved)
+        → DependencyInspector (collapsible right panel, mini React Flow graph)
+        → ControlCenterDrawer (unchanged, opens on top of inspector)
+  ```
+
+  The three-panel layout follows the pattern: Sidebar (existing) + Content (Board or Map) +
+  Inspector (new right panel). The AppShell layout already provides the sidebar via
+  SidebarProvider/SidebarInset, so the new panels nest inside the existing `<main>` element.
+
+  ## Key Design Decisions
+
+  ### 1. State Decomposition Strategy
+
+  The 773-line `useControlCenterState` hook conflates six concerns that must be separated
+  for the board view to work without depending on React Flow data structures.
+
+  **Decomposition map:**
+
+  | New Hook | Lines from current hook | Shared or view-specific |
+  | -------- | ---------------------- | ----------------------- |
+  | useFeatureSelection | Selection state, click handler, selectFeatureById, Escape handler | Shared (context) |
+  | useFeatureSSE | SSE event processing (lines 193-241), targeted state updates | Shared (context) |
+  | useOptimisticUpdates | Create/delete feature handlers, rollback logic, server action calls | Shared (context) |
+  | useCanvasState | React Flow nodes/edges state, sync effects, layout, connection handling | Map-only |
+  | useFilterState | New — filter dimensions, URL serialization | Shared (context) |
+  | useSavedViews | New — localStorage CRUD | Shared (context) |
+
+  **Critical constraint:** The decomposition must not change any external behavior. After
+  extraction, the Map tab must pass all existing Playwright e2e tests and Storybook stories.
+  The extraction is done incrementally — one hook at a time — with tests verifying each step.
+
+  **Shared state via context:** A new `ControlCenterProvider` wraps both views and composes
+  the shared hooks. This follows the established `AgentEventsProvider` pattern (34 lines,
+  `src/presentation/web/hooks/agent-events-provider.tsx`). View-specific hooks
+  (`useCanvasState`, `useBoardState`) consume the context internally.
+
+  ### 2. Board Data Derivation
+
+  The board view does NOT reuse React Flow nodes. Instead, a pure `buildBoardData()` function
+  takes `FeatureWithRun[]` (the same input as `buildGraphNodes()`) and produces grouped column
+  arrays. This clean separation means:
+
+  - Board components have zero React Flow imports
+  - Board state is a simple `Map<BoardColumnId, FeatureNodeData[]>`
+  - Filtering is `Array.filter()` before grouping — O(n) and instantaneous for <500 features
+  - The column mapping (SdlcLifecycle → 5 columns) is defined once and tested in isolation
+
+  ### 3. View Switching via shadcn Tabs
+
+  The existing shadcn Tabs component (`src/presentation/web/components/ui/tabs.tsx`) wraps
+  Radix TabsPrimitive with project styling. Using controlled mode with URL sync:
+
+  - `value` bound to URL search param `?view` (default: `'board'`)
+  - `onValueChange` calls `router.replace()` with updated search params
+  - Map tab lazily mounts `ReactFlowProvider` + `FeaturesCanvas` only when selected
+  - Board tab renders immediately as default — no React Flow initialization overhead
+
+  ### 4. Dependency Inspector as Collapsible Right Panel
+
+  The inspector is a CSS-based collapsible panel (width transition + overflow hidden), not a
+  resizable panel. The panel contains:
+
+  - Upstream list: features that block the selected feature (walking `parentId` chain)
+  - Downstream list: features blocked by the selected feature
+  - Mini React Flow graph: embedded `ReactFlowProvider` scoped to a 1-hop subgraph
+
+  The existing `ControlCenterDrawer` (vaul-based modal) continues to work independently,
+  opening on top of the inspector when triggered by double-click or review actions.
+
+  ### 5. Virtualization Strategy
+
+  `@tanstack/react-virtual` provides a headless `useVirtualizer` hook per column. The
+  virtualizer activates only when a column exceeds 30 items (FR-10), falling back to
+  simple `.map()` rendering for smaller columns. This avoids unnecessary complexity while
+  ensuring the board scales to 100+ features per column with <50 DOM nodes each.
+
+  ### 6. Filter Architecture
+
+  Purely client-side. Four filter dimensions (lifecycle, status, agentType, repository)
+  stored as Sets in `useFilterState`. Serialized to URL search params as comma-separated
+  values (e.g., `?status=running,blocked&lifecycle=implementation`). Changes call
+  `router.replace()` to update URL without navigation history pollution. Saved views
+  stored in `localStorage` under `'shep:saved-views'` following the existing pattern
+  (`'shep-theme'`, `'shep:notification-banner-dismissed'`).
+
+  ## Implementation Strategy
+
+  The implementation follows a bottom-up, incremental approach where each phase builds on
+  the previous one:
+
+  1. **Foundation first** — Types and pure functions that everything else depends on
+  2. **State decomposition** — The highest-risk refactoring, done before adding new UI
+  3. **View switching shell** — Tab infrastructure with placeholder content
+  4. **Board UI** — The primary visual deliverable
+  5. **Filters** — Enhancement to board usability
+  6. **Inspector** — Advanced dependency visualization
+  7. **Integration** — Server component changes, responsive layout, e2e validation
+
+  This ordering minimizes risk: the state decomposition (Phase 2) is validated against
+  existing tests before any new UI is added. Each phase produces independently testable
+  artifacts. The Map tab (existing canvas) serves as a fallback throughout development.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | State decomposition breaks existing canvas behavior | Extract one hook at a time with tests at each step. Run full Playwright suite after each extraction. Map tab wraps existing FeaturesCanvas unchanged — serves as behavioral oracle. |
+  | React Flow initialization overhead when both views mount | Lazy mount Map tab content — ReactFlowProvider only initializes when Map tab is selected. Unmount on switch back to free memory. |
+  | useControlCenterState closures break after extraction | Preserve the ref-based pattern (edgesRef, nodesRef) in extracted hooks. The ControlCenterProvider passes latest values through context, avoiding stale closure issues. |
+  | @tanstack/react-virtual bundle size impact | Library is ~3KB gzipped. Verify with bundle analyzer that total web package increase stays under 5KB. |
+  | Filter URL parameters conflict with existing URL usage | Current page.tsx uses no search parameters, so collision risk is minimal. Use descriptive names (lifecycle, status, agentType, repo). |
+  | Keyboard navigation conflicts with existing Escape handler | The existing Escape handler (line 283 of use-control-center-state.ts) moves to useFeatureSelection. Board keyboard navigation adds ArrowUp/Down/Left/Right scoped to the board container via event delegation, not global listeners. |
+  | SSE updates cause board re-render jank with many features | SSE events update the shared feature data array; useBoardState re-derives columns. React reconciliation only re-renders affected columns/rows. Virtualization ensures minimal DOM updates for large columns. |
+  | ControlCenterDrawer conflicts with DependencyInspector | Inspector is a persistent panel in the layout flow. Drawer is a modal overlay (vaul). They occupy different z-layers and do not conflict. |
+  | Responsive layout breaks existing canvas on narrow viewports | The Map tab renders FeaturesCanvas unchanged — no responsive changes to the canvas. Board responsive behavior is new CSS that only applies to board components. |
+
+  ---
+
+  _Plan complete — proceed with task breakdown_

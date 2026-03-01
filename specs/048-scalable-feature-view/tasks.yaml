@@ -1,0 +1,1054 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: scalable-feature-view
+summary: >
+  28 tasks across 7 phases. Begins with foundation types and pure functions, progresses through
+  state decomposition (highest-risk), view switching shell, board UI with virtualization,
+  filter system with URL sync, dependency inspector panel, and concludes with integration
+  and e2e testing.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - React 19
+  - Next.js 16 App Router
+  - TypeScript 5.3
+  - '@xyflow/react 12.10.0'
+  - '@tanstack/react-virtual'
+  - shadcn/ui
+  - Tailwind CSS v4
+  - Vitest + Testing Library
+  - Playwright
+  - Storybook 8
+relatedLinks: []
+
+# Structured task list
+tasks:
+  # ── Phase 1: Foundation ──────────────────────────────────────────────
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Install @tanstack/react-virtual dependency'
+    description: >
+      Add @tanstack/react-virtual to the web package. Verify the dependency resolves
+      correctly and does not introduce version conflicts with the existing pnpm workspace.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - '@tanstack/react-virtual is listed in packages/web/package.json (or root if hoisted)'
+      - 'pnpm install succeeds with no peer dependency warnings for this package'
+      - 'pnpm build completes successfully after adding the dependency'
+    tdd: null
+    estimatedEffort: '15min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Define board data types and column mapping'
+    description: >
+      Create the buildBoardData module with TypeScript types for BoardColumnId (5-value union),
+      BoardColumn (id, label, lifecycles mapping), and the BOARD_COLUMNS constant. Implement the
+      pure buildBoardData() function that takes FeatureWithRun[] and returns a Map of grouped
+      FeatureNodeData[] per column. Handle blocked features (show in most recent non-blocked column
+      with blockedBy field). Reuse deriveNodeState and deriveProgress from existing codebase.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'BoardColumnId type has exactly 5 values: backlog, requirements, implementation, review, done'
+      - 'BOARD_COLUMNS maps SdlcLifecycle.Started → backlog, Analyze/Requirements/Research → requirements, Planning/Implementation → implementation, Review → review, Maintain → done'
+      - 'Blocked features appear in their most recent non-blocked column with blockedBy populated'
+      - 'buildBoardData() returns all 5 columns even when some are empty'
+      - 'Each column entry has correct FeatureNodeData with state, lifecycle, progress derived'
+      - 'Unit tests cover: empty input, single feature per column, blocked features, mixed lifecycles, all columns populated'
+    tdd:
+      red:
+        - 'Write test: buildBoardData([]) returns 5 empty columns'
+        - 'Write test: feature with SdlcLifecycle.Started lands in backlog column'
+        - 'Write test: feature with SdlcLifecycle.Analyze lands in requirements column'
+        - 'Write test: feature with SdlcLifecycle.Planning lands in implementation column'
+        - 'Write test: feature with SdlcLifecycle.Blocked appears in its last non-blocked column with blockedBy set'
+        - 'Write test: features are grouped correctly across all 5 columns with mixed lifecycles'
+      green:
+        - 'Implement BOARD_COLUMNS constant with lifecycle-to-column mapping'
+        - 'Implement buildBoardData() with grouping logic and blocked-feature handling'
+        - 'Reuse deriveNodeState() and deriveProgress() from derive-feature-state.ts'
+      refactor:
+        - 'Extract lifecycle-to-column lookup into a standalone function for reuse in filters'
+        - 'Ensure type exports are clean and documented'
+    estimatedEffort: '2h'
+
+  # ── Phase 2: State Decomposition ─────────────────────────────────────
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Extract useFeatureSelection hook'
+    description: >
+      Extract selection state (selectedNode, setSelectedNode), clearSelection, handleNodeClick,
+      selectFeatureById, and the Escape keydown listener from useControlCenterState into a new
+      useFeatureSelection hook. The hook manages which feature is currently selected across both
+      Board and Map views. Includes the nodesRef pattern for stable selectFeatureById identity.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'useFeatureSelection returns: selectedNode, clearSelection, handleNodeClick, selectFeatureById, setSelectedNode'
+      - 'Escape key deselects the current feature'
+      - 'handleNodeClick plays click sound, closes create drawer (via callback), sets selected node'
+      - 'selectFeatureById finds feature by featureId in a ref-tracked node list'
+      - 'Creating-state features cannot be selected'
+      - 'Existing control-center tests continue to pass after integration'
+    tdd:
+      red:
+        - 'Write test: initial selectedNode is null'
+        - 'Write test: handleNodeClick sets selectedNode to the clicked feature data'
+        - 'Write test: handleNodeClick ignores creating-state features'
+        - 'Write test: clearSelection sets selectedNode to null'
+        - 'Write test: Escape keydown calls clearSelection'
+        - 'Write test: selectFeatureById finds and selects a feature from the tracked list'
+      green:
+        - 'Implement useFeatureSelection with useState for selectedNode'
+        - 'Move Escape keydown listener from use-control-center-state lines 283-291'
+        - 'Move handleNodeClick logic from lines 269-280'
+        - 'Move selectFeatureById with nodesRef pattern from lines 728-743'
+      refactor:
+        - 'Remove extracted code from useControlCenterState, replace with useFeatureSelection call'
+        - 'Verify no unused imports remain in useControlCenterState'
+    estimatedEffort: '1.5h'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Extract useFeatureSSE hook'
+    description: >
+      Extract SSE event processing logic from useControlCenterState into useFeatureSSE. This
+      includes the processedEventCountRef, targeted node/selection updates from SSE events,
+      debounced router.refresh() reconciliation (3s), and the fallback notifications for
+      server-refresh state transitions (prevFeatureStatesRef logic).
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'useFeatureSSE processes new SSE events and calls an updateFeature callback for each'
+      - 'Debounced reconciliation fires router.refresh() 3s after the last SSE batch'
+      - 'Fallback notifications fire when SSE did not cover a state transition (prevFeatureStatesRef)'
+      - 'processedEventCountRef prevents duplicate processing of already-seen events'
+      - 'Hook accepts callbacks for node update and selection update (decoupled from React Flow)'
+    tdd:
+      red:
+        - 'Write test: new SSE events trigger updateFeature callback with derived state and lifecycle'
+        - 'Write test: already-processed events (by count) are skipped'
+        - 'Write test: debounced reconciliation calls router.refresh after 3s of no new events'
+        - 'Write test: fallback toast fires for state transitions not covered by SSE'
+        - 'Write test: fallback toast does NOT fire when SSE already covered the transition'
+      green:
+        - 'Implement useFeatureSSE consuming useAgentEventsContext'
+        - 'Move SSE processing logic from lines 193-241'
+        - 'Move fallback notification logic from lines 149-188'
+        - 'Accept updateFeature and updateSelection callbacks instead of directly calling setNodes/setSelectedNode'
+      refactor:
+        - 'Replace extracted code in useControlCenterState with useFeatureSSE call'
+        - 'Clean up unused refs and imports in useControlCenterState'
+    estimatedEffort: '2h'
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Extract useOptimisticUpdates hook'
+    description: >
+      Extract optimistic create/delete feature handlers from useControlCenterState. This hook
+      encapsulates the pattern of: optimistic UI insertion → server action → reconciliation or
+      rollback. Also handles repository create/delete with the same pattern. The hook accepts
+      callbacks for node mutation (addNode, removeNode, updateNode) to stay decoupled from
+      React Flow state.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'handleCreateFeatureSubmit creates optimistic node, fires server action, rolls back on error'
+      - 'handleDeleteFeature removes node optimistically, calls deleteFeature server action, rolls back on error'
+      - 'handleDeleteRepository removes repo node and edges, calls deleteRepository server action'
+      - 'handleAddRepository adds optimistic repo node, persists via server action, rolls back on error'
+      - 'Sound effects play on create, delete success'
+      - 'Toast notifications on error with rollback'
+      - 'isDeleting state tracks deletion in progress'
+    tdd:
+      red:
+        - 'Write test: handleCreateFeatureSubmit calls addNode with creating state, then fires server action'
+        - 'Write test: successful create plays sound and triggers refresh'
+        - 'Write test: failed create rolls back (calls removeNode) and shows error toast'
+        - 'Write test: handleDeleteFeature sets isDeleting, calls server action, resets on completion'
+        - 'Write test: handleDeleteRepository removes node and edges optimistically'
+      green:
+        - 'Implement useOptimisticUpdates accepting node mutation callbacks'
+        - 'Move create/delete handlers from useControlCenterState'
+        - 'Move repository handlers'
+        - 'Preserve sound effect integration (useSoundAction calls)'
+      refactor:
+        - 'Replace extracted code in useControlCenterState with useOptimisticUpdates call'
+        - 'Simplify callback signatures where possible'
+    estimatedEffort: '2.5h'
+
+  - id: task-6
+    phaseId: phase-2
+    title: 'Extract useCanvasState hook (React Flow-specific state)'
+    description: >
+      Extract all React Flow-specific state management into useCanvasState: nodes/edges state,
+      setNodes/setEdges with ref sync, initialNodes/initialEdges sync effects, onNodesChange
+      (applyNodeChanges), handleConnect, handleLayout, createFeatureNode (auto-positioning),
+      and the polling fallback effect. This hook is only mounted when the Map tab is active.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'useCanvasState manages React Flow nodes and edges as local state'
+      - 'Server prop sync effects (initialNodeKey/initialEdgeKey) work correctly'
+      - 'edgesRef pattern preserved for closure-safe edge reads in createFeatureNode'
+      - 'handleConnect validates connections (prevents duplicate repo sources)'
+      - 'handleLayout applies dagre layout to current nodes/edges'
+      - 'createFeatureNode auto-positions new features (sibling, first child, standalone logic)'
+      - 'Polling fallback refreshes every 5s when active features exist'
+      - 'All existing control-center and features-canvas tests continue to pass'
+    tdd:
+      red:
+        - 'Write test: initial nodes/edges match provided initialNodes/initialEdges'
+        - 'Write test: node sync effect merges server nodes with client positions'
+        - 'Write test: optimistic creating nodes survive server sync'
+        - 'Write test: handleConnect blocks duplicate repo-to-feature connections'
+        - 'Write test: createFeatureNode positions first child to right of parent (x+488)'
+        - 'Write test: createFeatureNode positions sibling below bottom-most (y+gap)'
+        - 'Write test: polling starts when active features exist, stops when none'
+      green:
+        - 'Implement useCanvasState with all React Flow state management'
+        - 'Move node/edge state, sync effects, and handlers from useControlCenterState'
+        - 'Preserve the ref-based setEdges wrapper and edgesRef pattern'
+      refactor:
+        - 'Replace remaining useControlCenterState body with composed hook calls'
+        - 'useControlCenterState becomes a thin orchestrator or is replaced by provider'
+    estimatedEffort: '3h'
+
+  - id: task-7
+    phaseId: phase-2
+    title: 'Create ControlCenterProvider context'
+    description: >
+      Create a React context provider that composes the shared hooks (useFeatureSelection,
+      useFeatureSSE, useOptimisticUpdates, useFilterState) and exposes their combined state.
+      Both Board and Map views consume this context. Follow the AgentEventsProvider pattern.
+      Update ControlCenter component to wrap children in ControlCenterProvider instead of
+      directly using useControlCenterState.
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'ControlCenterProvider wraps children and provides shared state via context'
+      - 'useControlCenterContext() hook throws if used outside provider'
+      - 'Context exposes: selectedNode, clearSelection, selectFeatureById, features data, isDeleting, handlers'
+      - 'Both Board and Map views can consume the context independently'
+      - 'ControlCenterInner uses the provider and context instead of useControlCenterState directly'
+      - 'All existing tests and Storybook stories continue to pass'
+    tdd:
+      red:
+        - 'Write test: useControlCenterContext throws outside provider'
+        - 'Write test: provider exposes selectedNode from useFeatureSelection'
+        - 'Write test: provider exposes optimistic update handlers'
+        - 'Write test: child component can read and update selection through context'
+      green:
+        - 'Implement ControlCenterProvider composing shared hooks'
+        - 'Implement useControlCenterContext with null check and error'
+        - 'Update ControlCenter and ControlCenterInner to use provider'
+      refactor:
+        - 'Remove or deprecate direct useControlCenterState usage'
+        - 'Update Storybook stories to wrap in ControlCenterProvider'
+        - 'Verify all existing tests pass end-to-end'
+    estimatedEffort: '2h'
+
+  - id: task-8
+    phaseId: phase-2
+    title: 'Implement useFilterState hook with URL synchronization'
+    description: >
+      Create useFilterState hook that manages four filter dimensions (lifecycle, status,
+      agentType, repository) as Sets of selected values. Syncs state to URL search parameters
+      via useSearchParams and router.replace(). Reads initial state from URL on mount.
+      Provides toggle, clear, and clearAll operations.
+    state: Todo
+    dependencies:
+      - task-7
+    acceptanceCriteria:
+      - 'useFilterState returns: filters (4 Sets), toggleFilter, clearFilter, clearAllFilters, hasActiveFilters'
+      - 'Active filters serialize to URL as comma-separated params (e.g., ?status=running,blocked)'
+      - 'Initial state reads from URL search params on mount'
+      - 'clearAllFilters removes all filter search params from URL'
+      - 'router.replace used (not push) to avoid history pollution'
+      - 'Empty filter dimensions are omitted from URL (not serialized as empty string)'
+    tdd:
+      red:
+        - 'Write test: initial state with no URL params returns empty filter sets'
+        - 'Write test: initial state with URL params populates correct filter sets'
+        - 'Write test: toggleFilter adds value to set and updates URL'
+        - 'Write test: toggleFilter removes value when already present'
+        - 'Write test: clearFilter empties a specific dimension'
+        - 'Write test: clearAllFilters resets all dimensions and clears URL params'
+        - 'Write test: hasActiveFilters returns true when any filter is set'
+      green:
+        - 'Implement useFilterState with useState for 4 filter Sets'
+        - 'Implement URL serialization/deserialization with useSearchParams'
+        - 'Implement toggle, clear, clearAll operations'
+      refactor:
+        - 'Extract URL serialization into helper functions for testability'
+        - 'Memoize filter objects to prevent unnecessary re-renders'
+    estimatedEffort: '1.5h'
+
+  - id: task-9
+    phaseId: phase-2
+    title: 'Implement useSavedViews hook with localStorage'
+    description: >
+      Create useSavedViews hook for CRUD operations on saved filter combinations stored in
+      localStorage under 'shep:saved-views'. Each saved view stores name, filter state
+      (4 arrays), and creation timestamp. Validate data on read to handle schema changes.
+    state: Todo
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - 'useSavedViews returns: views, saveView, deleteView, renameView, applyView'
+      - 'Data stored in localStorage under key "shep:saved-views"'
+      - 'saveView creates a new entry with name, filters, and timestamp'
+      - 'deleteView removes by id'
+      - 'renameView updates the name of an existing view'
+      - 'applyView calls useFilterState methods to apply the saved filter combination'
+      - 'Corrupted localStorage data is handled gracefully (returns empty array)'
+      - 'Unit tests mock localStorage'
+    tdd:
+      red:
+        - 'Write test: initial state returns empty array when localStorage is empty'
+        - 'Write test: saveView persists to localStorage and appears in views list'
+        - 'Write test: deleteView removes from localStorage'
+        - 'Write test: renameView updates the name'
+        - 'Write test: applyView calls filter state setters with saved values'
+        - 'Write test: corrupted JSON in localStorage returns empty array without throwing'
+      green:
+        - 'Implement useSavedViews with useState synced to localStorage'
+        - 'Implement CRUD operations'
+        - 'Add try-catch on JSON.parse with fallback to empty array'
+      refactor:
+        - 'Extract localStorage read/write into helper for reuse'
+        - 'Add schema version field for future migration support'
+    estimatedEffort: '1h'
+
+  # ── Phase 3: View Switching ──────────────────────────────────────────
+
+  - id: task-10
+    phaseId: phase-3
+    title: 'Build ViewTabs component with URL-synced tab state'
+    description: >
+      Create the ViewTabs component using shadcn Tabs in controlled mode. Tab value syncs to
+      URL search parameter (?view=board or ?view=map). Default is board when no parameter
+      present. Two tabs: Board (LayoutGrid icon) and Map (Network icon). Tab switching
+      preserves feature selection state through the shared context.
+    state: Todo
+    dependencies:
+      - task-9
+    acceptanceCriteria:
+      - 'ViewTabs renders Board and Map tabs using shadcn Tabs/TabsList/TabsTrigger'
+      - 'Default tab is board when no ?view param in URL'
+      - 'Selecting a tab updates URL via router.replace()'
+      - 'Tab content renders children based on active tab value'
+      - 'Feature selection persists across tab switches'
+      - 'Storybook story shows both tab states'
+    tdd:
+      red:
+        - 'Write test: default tab is "board" when no URL param'
+        - 'Write test: ?view=map selects Map tab on mount'
+        - 'Write test: clicking Map tab updates URL to ?view=map'
+        - 'Write test: clicking Board tab updates URL to ?view=board'
+        - 'Write test: tab content renders correct children for each tab'
+      green:
+        - 'Implement ViewTabs with shadcn Tabs, useSearchParams, router.replace'
+        - 'Add LayoutGrid and Network icons from Lucide for tab triggers'
+        - 'Render TabsContent with children slot for each tab'
+      refactor:
+        - 'Create Storybook story for ViewTabs with both states'
+        - 'Extract URL param name to constant'
+    estimatedEffort: '1.5h'
+
+  - id: task-11
+    phaseId: phase-3
+    title: 'Integrate ViewTabs into ControlCenterInner with lazy Map tab'
+    description: >
+      Modify ControlCenterInner to render through ViewTabs. The Board tab renders a placeholder
+      (will be replaced in Phase 4). The Map tab wraps the existing FeaturesCanvas in conditional
+      rendering that only mounts when the Map tab is selected, avoiding React Flow initialization
+      overhead in board mode. Move ReactFlowProvider from ControlCenter into the Map tab content.
+    state: Todo
+    dependencies:
+      - task-10
+    acceptanceCriteria:
+      - 'ControlCenterInner renders ViewTabs with Board and Map tabs'
+      - 'Map tab renders FeaturesCanvas with all existing props and handlers'
+      - 'Board tab renders a placeholder div (to be replaced)'
+      - 'ReactFlowProvider wraps only the Map tab content, not the entire ControlCenter'
+      - 'Switching to Map tab initializes React Flow; switching away unmounts it'
+      - 'All existing canvas interactions work in Map tab without regression'
+      - 'ControlCenterDrawer renders outside of tabs (available in both views)'
+      - 'Empty state (no repositories) still renders correctly'
+    tdd:
+      red:
+        - 'Write test: ControlCenterInner renders ViewTabs'
+        - 'Write test: Map tab renders FeaturesCanvas with correct props'
+        - 'Write test: Board tab renders placeholder content'
+        - 'Write test: ReactFlowProvider is only rendered when Map tab is active'
+        - 'Write test: ControlCenterDrawer renders outside tabs'
+      green:
+        - 'Modify ControlCenterInner to use ViewTabs'
+        - 'Move ReactFlowProvider from ControlCenter to Map tab content'
+        - 'Add conditional rendering for Map tab (lazy mount)'
+        - 'Keep ControlCenterDrawer rendering outside the tab container'
+      refactor:
+        - 'Update ControlCenter stories to show tab switching'
+        - 'Remove ReactFlowProvider from control-center.tsx'
+        - 'Run existing e2e tests to verify no canvas regression'
+    estimatedEffort: '2h'
+
+  # ── Phase 4: Board View ──────────────────────────────────────────────
+
+  - id: task-12
+    phaseId: phase-4
+    title: 'Build BoardRow component'
+    description: >
+      Create the compact BoardRow component (~48-56px height) that renders a single feature
+      in a board column. Displays: feature name, status badge (icon + color from
+      featureNodeStateConfig), lifecycle label, agent type icon, progress indicator, and PR
+      status. Click selects the feature. Hover reveals quick-action buttons (details, delete).
+      Uses the same FeatureNodeData type as the canvas FeatureNode for visual consistency.
+    state: Todo
+    dependencies:
+      - task-11
+    acceptanceCriteria:
+      - 'BoardRow renders feature name, status badge with correct icon/color per featureNodeStateConfig'
+      - 'BoardRow renders lifecycle label, agent type icon, progress bar, PR status when available'
+      - 'Click calls onSelect with the feature data'
+      - 'Selected row has visual highlight (distinct background)'
+      - 'Hover reveals quick-action buttons (detail drawer trigger, delete)'
+      - 'Blocked features show "Blocked by [name]" indicator'
+      - 'All 6 feature states visually distinguishable'
+      - 'Storybook story covers all 6 states, with/without PR, blocked variant'
+      - 'ARIA: role="option", aria-selected reflects selection state'
+    tdd:
+      red:
+        - 'Write test: renders feature name and status badge'
+        - 'Write test: uses correct icon and color from featureNodeStateConfig for each state'
+        - 'Write test: click calls onSelect with feature data'
+        - 'Write test: selected row has aria-selected="true"'
+        - 'Write test: blocked feature shows blockedBy indicator'
+        - 'Write test: PR status renders when pr data is present'
+      green:
+        - 'Implement BoardRow with FeatureNodeData props'
+        - 'Import featureNodeStateConfig for icon/color mapping'
+        - 'Add click handler, hover actions, ARIA attributes'
+        - 'Style with Tailwind for compact 48-56px height'
+      refactor:
+        - 'Create Storybook stories for all 6 states and variants'
+        - 'Extract status badge into a reusable sub-component if needed'
+    estimatedEffort: '2h'
+
+  - id: task-13
+    phaseId: phase-4
+    title: 'Build ColumnHeader component'
+    description: >
+      Create the ColumnHeader component that displays the column name and a count badge
+      showing the number of features in the column (after filtering). Uses shadcn Badge
+      for the count indicator.
+    state: Todo
+    dependencies:
+      - task-12
+    acceptanceCriteria:
+      - 'ColumnHeader renders column label and count badge'
+      - 'Count badge shows correct number (reflects filtered count)'
+      - 'Count badge uses muted variant for zero, default for non-zero'
+      - 'Storybook story shows zero count, small count, large count variants'
+    tdd:
+      red:
+        - 'Write test: renders column label text'
+        - 'Write test: renders count badge with correct number'
+        - 'Write test: zero count renders muted badge'
+      green:
+        - 'Implement ColumnHeader with label and count props'
+        - 'Use shadcn Badge for count display'
+      refactor:
+        - 'Create Storybook story with variants'
+    estimatedEffort: '30min'
+
+  - id: task-14
+    phaseId: phase-4
+    title: 'Build BoardColumn component with virtualization'
+    description: >
+      Create BoardColumn that renders a ColumnHeader and a list of BoardRow components.
+      When the column has more than 30 items, use @tanstack/react-virtual's useVirtualizer
+      hook for virtualized scrolling. Below 30 items, render with simple .map(). Each column
+      scrolls independently with a fixed header.
+    state: Todo
+    dependencies:
+      - task-13
+    acceptanceCriteria:
+      - 'BoardColumn renders ColumnHeader + scrollable list of BoardRow components'
+      - 'Columns with <= 30 items render all rows directly (no virtualization)'
+      - 'Columns with > 30 items use useVirtualizer for virtual scrolling'
+      - 'Virtualized columns keep DOM node count under 50 regardless of total items'
+      - 'Column scrolls independently (overflow-y-auto on scroll container)'
+      - 'ARIA: role="listbox" on the column, each row is role="option"'
+      - 'Storybook story shows empty column, small column (5 items), large column (100 items)'
+    tdd:
+      red:
+        - 'Write test: renders ColumnHeader with correct label and count'
+        - 'Write test: renders all BoardRow items for small lists (< 30)'
+        - 'Write test: virtualizes rows when item count exceeds 30'
+        - 'Write test: column has role="listbox" attribute'
+        - 'Write test: empty column renders header with zero count'
+      green:
+        - 'Implement BoardColumn with conditional virtualization'
+        - 'Use useVirtualizer from @tanstack/react-virtual when count > 30'
+        - 'Add scroll container with overflow-y-auto'
+        - 'Wire BoardRow props from column data'
+      refactor:
+        - 'Create Storybook stories for empty, small, and large column variants'
+        - 'Extract virtualization threshold to a constant'
+    estimatedEffort: '2h'
+
+  - id: task-15
+    phaseId: phase-4
+    title: 'Build useBoardState hook'
+    description: >
+      Create useBoardState hook that consumes ControlCenterContext (features data + filter state)
+      and derives the board column data. Uses buildBoardData() from Phase 1, applies active
+      filters before grouping, and memoizes the result. Returns the 5 grouped columns and
+      total filtered count.
+    state: Todo
+    dependencies:
+      - task-14
+    acceptanceCriteria:
+      - 'useBoardState returns: columns (Map<BoardColumnId, FeatureNodeData[]>), totalCount'
+      - 'Applies active filters from useFilterState before calling buildBoardData()'
+      - 'Re-derives columns when features data or filters change'
+      - 'Memoized to prevent unnecessary re-computation on unrelated state changes'
+      - 'Works with empty features array (returns 5 empty columns)'
+    tdd:
+      red:
+        - 'Write test: returns 5 columns with no filters applied'
+        - 'Write test: applies lifecycle filter (only matching features appear)'
+        - 'Write test: applies status filter (only matching states appear)'
+        - 'Write test: applies combined filters (AND logic)'
+        - 'Write test: returns empty columns when all features are filtered out'
+        - 'Write test: totalCount reflects filtered count, not total'
+      green:
+        - 'Implement useBoardState consuming context and applying filters'
+        - 'Use useMemo to memoize buildBoardData result'
+        - 'Filter FeatureWithRun[] by active filter sets before grouping'
+      refactor:
+        - 'Extract filter-matching logic into a pure function for testability'
+    estimatedEffort: '1.5h'
+
+  - id: task-16
+    phaseId: phase-4
+    title: 'Build BoardView container component'
+    description: >
+      Create BoardView as the top-level board container that renders a CSS Grid of 5
+      BoardColumn components. Uses grid-template-columns: repeat(5, minmax(180px, 1fr)) for
+      equal flexible columns. Wires useBoardState for column data and useFeatureSelection
+      for selection handlers. Renders FilterBar slot above the grid (placeholder for Phase 5).
+    state: Todo
+    dependencies:
+      - task-15
+    acceptanceCriteria:
+      - 'BoardView renders 5 BoardColumn components in a CSS Grid'
+      - 'Grid uses repeat(5, minmax(180px, 1fr)) for equal flexible columns'
+      - 'Columns receive correct data from useBoardState'
+      - 'Clicking a BoardRow selects the feature via shared context'
+      - 'Filter bar slot renders above the board grid'
+      - 'Board fills available height (flex-1 or h-full)'
+      - 'Storybook story shows board with mixed data across all columns'
+    tdd:
+      red:
+        - 'Write test: renders 5 columns with correct labels'
+        - 'Write test: features are distributed to correct columns'
+        - 'Write test: clicking a row triggers selection'
+        - 'Write test: board renders with empty data (5 empty columns)'
+      green:
+        - 'Implement BoardView with CSS Grid layout'
+        - 'Wire useBoardState and useFeatureSelection from context'
+        - 'Pass handlers to BoardColumn and BoardRow'
+      refactor:
+        - 'Create comprehensive Storybook story'
+        - 'Ensure responsive grid classes are in place'
+    estimatedEffort: '1.5h'
+
+  - id: task-17
+    phaseId: phase-4
+    title: 'Implement keyboard navigation for board'
+    description: >
+      Create useKeyboardNavigation hook implementing roving tabindex pattern for the board.
+      Arrow keys (Up/Down) navigate within a column, Left/Right move between columns,
+      Enter selects the focused row, Escape deselects. Only the focused row has tabindex="0";
+      all others have tabindex="-1". Scoped to the board container via event delegation.
+    state: Todo
+    dependencies:
+      - task-16
+    acceptanceCriteria:
+      - 'ArrowDown moves focus to next row in same column'
+      - 'ArrowUp moves focus to previous row in same column'
+      - 'ArrowRight moves focus to same-index row in next column (or nearest)'
+      - 'ArrowLeft moves focus to same-index row in previous column (or nearest)'
+      - 'Enter selects the focused row (triggers onSelect)'
+      - 'Escape deselects current selection'
+      - 'Tab moves focus out of board to next focusable element'
+      - 'Only focused row has tabindex="0"; all others have tabindex="-1"'
+      - 'Focus indicators are visible (WCAG 2.1 AA)'
+    tdd:
+      red:
+        - 'Write test: ArrowDown moves focus to next row'
+        - 'Write test: ArrowUp moves focus to previous row'
+        - 'Write test: ArrowRight moves focus to next column'
+        - 'Write test: ArrowLeft moves focus to previous column'
+        - 'Write test: Enter calls onSelect for focused row'
+        - 'Write test: only focused element has tabindex="0"'
+      green:
+        - 'Implement useKeyboardNavigation with roving tabindex logic'
+        - 'Add event delegation on board container for keyboard events'
+        - 'Track focused column/row indices in state'
+        - 'Manage tabindex attributes on row elements'
+      refactor:
+        - 'Wire into BoardView component'
+        - 'Ensure focus ring styles comply with WCAG 2.1 AA'
+    estimatedEffort: '2h'
+
+  - id: task-18
+    phaseId: phase-4
+    title: 'Wire board view into ViewTabs (replace placeholder)'
+    description: >
+      Replace the Board tab placeholder in ControlCenterInner with the real BoardView
+      component. Pass featuresWithRuns data from server component through to the board.
+      Verify board renders correctly with real data and interacts with the shared context
+      (selection, drawer).
+    state: Todo
+    dependencies:
+      - task-17
+    acceptanceCriteria:
+      - 'Board tab renders BoardView with real feature data'
+      - 'Feature data flows from page.tsx → ControlCenter → ControlCenterProvider → BoardView'
+      - 'Selecting a board row opens the feature detail drawer'
+      - 'Double-clicking a row opens the ControlCenterDrawer'
+      - 'All feature CRUD operations work from board view (create, delete)'
+      - 'SSE updates reflect in board view (features move between columns on state change)'
+    tdd:
+      red:
+        - 'Write test: Board tab renders BoardView with feature data from context'
+        - 'Write test: board row selection opens dependency inspector (or highlights row)'
+        - 'Write test: SSE event updates feature state and moves it to correct column'
+      green:
+        - 'Replace Board tab placeholder with BoardView component'
+        - 'Pass featuresWithRuns through ControlCenter props to provider'
+        - 'Wire double-click handler for drawer opening'
+      refactor:
+        - 'Update existing ControlCenter stories to show board view'
+        - 'Verify no regressions in Map tab'
+    estimatedEffort: '1.5h'
+
+  # ── Phase 5: Filter System ──────────────────────────────────────────
+
+  - id: task-19
+    phaseId: phase-5
+    title: 'Build FilterControls component'
+    description: >
+      Create FilterControls that renders multi-select filter groups for the four filter
+      dimensions: lifecycle (5 values), status (6 values), agentType (dynamic from data),
+      and repository (dynamic from data). Each group renders as toggle buttons or checkboxes.
+      Active filters are visually distinct. Uses existing shadcn Button/Badge components.
+    state: Todo
+    dependencies:
+      - task-18
+    acceptanceCriteria:
+      - 'FilterControls renders 4 filter groups: lifecycle, status, agentType, repository'
+      - 'Lifecycle options: Backlog, Requirements, Implementation, Review, Done'
+      - 'Status options: creating, running, action-required, done, blocked, error'
+      - 'AgentType and repository options derived from current feature data'
+      - 'Clicking a filter option toggles it (calls toggleFilter from useFilterState)'
+      - 'Active filters have distinct visual style (filled vs outline)'
+      - 'Storybook story shows all filter groups with various active states'
+    tdd:
+      red:
+        - 'Write test: renders all 4 filter groups'
+        - 'Write test: lifecycle group shows 5 options'
+        - 'Write test: status group shows 6 options'
+        - 'Write test: clicking option calls toggleFilter'
+        - 'Write test: active filter shows filled/highlighted style'
+      green:
+        - 'Implement FilterControls with 4 filter groups'
+        - 'Use shadcn Button variant="outline" for inactive, variant="default" for active'
+        - 'Wire toggleFilter from useFilterState context'
+      refactor:
+        - 'Create Storybook story with multiple active filters'
+        - 'Extract individual filter group into a sub-component if groups share logic'
+    estimatedEffort: '1.5h'
+
+  - id: task-20
+    phaseId: phase-5
+    title: 'Build SavedViewSelector component'
+    description: >
+      Create SavedViewSelector dropdown that lists saved views, allows one-click application,
+      and provides save/rename/delete actions. Uses shadcn DropdownMenu. Save action opens
+      an inline input for naming the view. Delete action has confirmation.
+    state: Todo
+    dependencies:
+      - task-19
+    acceptanceCriteria:
+      - 'Dropdown lists all saved views from useSavedViews'
+      - 'Clicking a saved view applies its filter combination'
+      - 'Save button captures current filter state with a user-provided name'
+      - 'Rename action allows editing the view name inline'
+      - 'Delete action removes the view with confirmation'
+      - 'Empty state shows "No saved views" message'
+      - 'Storybook story shows empty, with views, and save/delete interactions'
+    tdd:
+      red:
+        - 'Write test: renders dropdown with saved views list'
+        - 'Write test: clicking a view calls applyView'
+        - 'Write test: save button calls saveView with current filters and provided name'
+        - 'Write test: delete button calls deleteView after confirmation'
+        - 'Write test: empty state renders message when no saved views'
+      green:
+        - 'Implement SavedViewSelector with shadcn DropdownMenu'
+        - 'Wire useSavedViews hook for CRUD operations'
+        - 'Add inline name input for save action'
+      refactor:
+        - 'Create Storybook story with variants'
+    estimatedEffort: '1.5h'
+
+  - id: task-21
+    phaseId: phase-5
+    title: 'Build FilterBar container and integrate with board'
+    description: >
+      Create FilterBar container that combines FilterControls and SavedViewSelector. Includes
+      a "Clear all" button when any filter is active. Shows active filter count. Integrate
+      FilterBar into BoardView above the column grid.
+    state: Todo
+    dependencies:
+      - task-20
+    acceptanceCriteria:
+      - 'FilterBar renders FilterControls and SavedViewSelector side by side'
+      - 'Clear all button visible when hasActiveFilters is true'
+      - 'Clear all calls clearAllFilters and resets URL params'
+      - 'Active filter count badge shows total number of active individual filters'
+      - 'FilterBar renders in the filter slot above BoardView grid'
+      - 'Applying filters updates board columns immediately (client-side re-grouping)'
+      - 'Storybook story shows FilterBar with and without active filters'
+    tdd:
+      red:
+        - 'Write test: renders FilterControls and SavedViewSelector'
+        - 'Write test: Clear all button appears only when filters are active'
+        - 'Write test: Clear all calls clearAllFilters'
+        - 'Write test: active filter count is correct'
+      green:
+        - 'Implement FilterBar composing FilterControls and SavedViewSelector'
+        - 'Add clear all button with conditional visibility'
+        - 'Integrate into BoardView component'
+      refactor:
+        - 'Create Storybook story'
+        - 'Verify filter → board column update latency is < 50ms (manual check)'
+    estimatedEffort: '1h'
+
+  # ── Phase 6: Dependency Inspector ────────────────────────────────────
+
+  - id: task-22
+    phaseId: phase-6
+    title: 'Build DependencyList component'
+    description: >
+      Create DependencyList that renders a list of upstream (blocked-by) or downstream
+      (blocks) feature dependencies. Each item shows feature name, status badge, and a click
+      handler that navigates to (selects) that feature. Sections labeled "Blocked by" and
+      "Blocks" with empty state when no dependencies exist.
+    state: Todo
+    dependencies:
+      - task-21
+    acceptanceCriteria:
+      - 'DependencyList renders a labeled list of feature dependencies'
+      - 'Each item shows feature name and status badge'
+      - 'Clicking an item calls onSelect to navigate to that feature'
+      - 'Empty state shows "No dependencies" message'
+      - 'Upstream (Blocked by) and Downstream (Blocks) variants supported via direction prop'
+      - 'Storybook story shows empty, single, and multiple dependency variants'
+    tdd:
+      red:
+        - 'Write test: renders list of dependencies with name and status badge'
+        - 'Write test: clicking a dependency calls onSelect with feature id'
+        - 'Write test: empty state renders when no dependencies provided'
+        - 'Write test: renders correct section label based on direction prop'
+      green:
+        - 'Implement DependencyList with direction prop (upstream/downstream)'
+        - 'Render feature items with status badges from featureNodeStateConfig'
+        - 'Wire click handler to onSelect'
+      refactor:
+        - 'Create Storybook story with variants'
+    estimatedEffort: '1h'
+
+  - id: task-23
+    phaseId: phase-6
+    title: 'Build DependencyMiniGraph component'
+    description: >
+      Create an embedded mini React Flow graph showing the selected feature and its 1-hop
+      upstream/downstream neighbors. Read-only (no drag, no connect). Uses its own
+      ReactFlowProvider to avoid conflicts with the Map tab instance. Reuses layoutWithDagre
+      for automatic positioning. Clicking a node selects that feature in the main view.
+      Auto-zooms to fit content via fitView.
+    state: Todo
+    dependencies:
+      - task-22
+    acceptanceCriteria:
+      - 'Mini-graph renders selected feature and 1-hop neighbors'
+      - 'Uses own ReactFlowProvider (independent from Map tab)'
+      - 'Nodes are not draggable, not connectable, but selectable'
+      - 'Uses layoutWithDagre for automatic positioning'
+      - 'fitView auto-zooms to show all nodes'
+      - 'Clicking a node calls onFeatureSelect to navigate to that feature'
+      - 'Selected feature node visually distinguished (border or background)'
+      - 'Dependency edges rendered between nodes'
+      - 'Storybook story shows: single node (no deps), linear chain, branching deps'
+    tdd:
+      red:
+        - 'Write test: renders the selected feature as a node'
+        - 'Write test: renders upstream parent as a node with edge'
+        - 'Write test: renders downstream children as nodes with edges'
+        - 'Write test: clicking a node calls onFeatureSelect'
+        - 'Write test: nodes are not draggable (nodesDraggable=false)'
+      green:
+        - 'Implement DependencyMiniGraph with embedded ReactFlowProvider'
+        - 'Build subgraph from selected feature + 1-hop neighbors'
+        - 'Apply layoutWithDagre to subgraph nodes and edges'
+        - 'Configure React Flow as read-only with fitView'
+      refactor:
+        - 'Create Storybook stories for variants'
+        - 'Extract subgraph builder function for testability'
+    estimatedEffort: '2.5h'
+
+  - id: task-24
+    phaseId: phase-6
+    title: 'Build DependencyInspector panel with collapse/expand'
+    description: >
+      Create the DependencyInspector as a collapsible right panel that renders when a feature
+      is selected. Contains: feature name header, DependencyList (upstream), DependencyList
+      (downstream), and DependencyMiniGraph. Collapse/expand via toggle button with CSS
+      width transition. Collapsed state persists in localStorage under 'shep:inspector-collapsed'.
+    state: Todo
+    dependencies:
+      - task-23
+    acceptanceCriteria:
+      - 'Panel renders when a feature is selected, hides when none selected'
+      - 'Panel header shows selected feature name'
+      - 'Panel contains upstream list, downstream list, and mini-graph'
+      - 'Toggle button collapses/expands panel with smooth width transition'
+      - 'Collapsed state persists in localStorage'
+      - 'Panel width approximately 320px when expanded'
+      - 'Panel has overflow-y-auto for long dependency lists'
+      - 'ControlCenterDrawer opens on top of (not replaced by) inspector'
+      - 'Storybook story shows expanded and collapsed states, with/without dependencies'
+    tdd:
+      red:
+        - 'Write test: panel renders when feature is selected'
+        - 'Write test: panel hidden when no feature selected'
+        - 'Write test: toggle button collapses panel'
+        - 'Write test: collapsed state persists to localStorage'
+        - 'Write test: panel shows upstream and downstream dependency lists'
+        - 'Write test: panel shows mini-graph'
+      green:
+        - 'Implement DependencyInspector with CSS-based collapse'
+        - 'Compose DependencyList (upstream + downstream) and DependencyMiniGraph'
+        - 'Add toggle button and localStorage persistence'
+        - 'Wire to ControlCenterContext for selected feature data'
+      refactor:
+        - 'Create Storybook story with expanded/collapsed variants'
+        - 'Ensure keyboard focus is not trapped in panel (NFR-9)'
+    estimatedEffort: '2h'
+
+  - id: task-25
+    phaseId: phase-6
+    title: 'Integrate DependencyInspector into ControlCenterInner layout'
+    description: >
+      Add the DependencyInspector to the ControlCenterInner layout alongside ViewTabs.
+      Use a flex layout where ViewTabs takes flex-1 and DependencyInspector takes its
+      collapsed/expanded width. Ensure the inspector renders in both Board and Map views
+      (it is tab-independent). Verify ControlCenterDrawer continues to work.
+    state: Todo
+    dependencies:
+      - task-24
+    acceptanceCriteria:
+      - 'DependencyInspector renders as a right panel next to ViewTabs content'
+      - 'Inspector visible in both Board and Map tabs'
+      - 'Board grid adjusts width when inspector opens/closes'
+      - 'ControlCenterDrawer (vaul modal) opens on top of inspector'
+      - 'Double-clicking a board row opens the drawer while inspector stays visible'
+      - 'Layout does not break when inspector is expanded and drawer is open'
+    tdd:
+      red:
+        - 'Write test: inspector renders alongside board view'
+        - 'Write test: inspector renders alongside map view'
+        - 'Write test: board area shrinks when inspector opens'
+        - 'Write test: drawer opens on top of inspector'
+      green:
+        - 'Add DependencyInspector to ControlCenterInner layout'
+        - 'Use flex layout with flex-1 for content and auto for inspector'
+        - 'Verify drawer z-index is above inspector'
+      refactor:
+        - 'Update ControlCenter Storybook stories to show inspector'
+    estimatedEffort: '1h'
+
+  # ── Phase 7: Integration ─────────────────────────────────────────────
+
+  - id: task-26
+    phaseId: phase-7
+    title: 'Extend page.tsx to pass featuresWithRuns to ControlCenter'
+    description: >
+      Modify page.tsx server component to pass the raw featuresWithRuns array as a prop to
+      ControlCenter alongside the existing initialNodes and initialEdges. Update ControlCenter
+      and ControlCenterProvider prop types to accept this data. Board view derives columns
+      from featuresWithRuns; Map view continues to use initialNodes/initialEdges.
+    state: Todo
+    dependencies:
+      - task-25
+    acceptanceCriteria:
+      - 'page.tsx passes featuresWithRuns as a prop to ControlCenter'
+      - 'ControlCenter prop type includes featuresWithRuns: FeatureWithRun[]'
+      - 'ControlCenterProvider receives and distributes featuresWithRuns to board hooks'
+      - 'Map tab continues to work with initialNodes/initialEdges (no regression)'
+      - 'Board tab receives featuresWithRuns and renders columns correctly'
+    tdd:
+      red:
+        - 'Write test: ControlCenter accepts featuresWithRuns prop'
+        - 'Write test: provider distributes featuresWithRuns to consuming hooks'
+      green:
+        - 'Add featuresWithRuns prop to ControlCenterProps'
+        - 'Pass featuresWithRuns through provider context'
+        - 'Update page.tsx to pass the array'
+      refactor:
+        - 'Verify page.tsx change is minimal (one additional prop)'
+    estimatedEffort: '1h'
+
+  - id: task-27
+    phaseId: phase-7
+    title: 'Implement responsive layout for board view'
+    description: >
+      Add responsive CSS breakpoints to the board layout: 5-column grid at >= 1024px,
+      horizontal scrollable columns at 768-1023px, vertical stacked columns at < 768px.
+      DependencyInspector collapses to a bottom sheet on narrow viewports. Use Tailwind
+      responsive utilities (md:, lg:) for breakpoint transitions.
+    state: Todo
+    dependencies:
+      - task-26
+    acceptanceCriteria:
+      - 'At >= 1024px: 5 columns in CSS Grid with inspector right panel'
+      - 'At 768-1023px: columns in horizontal scrollable row (overflow-x-auto)'
+      - 'At < 768px: columns stacked vertically'
+      - 'Inspector panel collapses or converts to bottom sheet on narrow viewports'
+      - 'Column minimum width 180px prevents unreadable compression'
+      - 'No horizontal overflow at any breakpoint'
+      - 'Map tab unaffected by responsive changes'
+    tdd:
+      red:
+        - 'Write test: board uses grid layout at large viewport'
+        - 'Write test: board uses scrollable row at medium viewport'
+        - 'Write test: board uses vertical stack at small viewport'
+      green:
+        - 'Add Tailwind responsive classes to BoardView and BoardColumn'
+        - 'Add responsive behavior to DependencyInspector'
+        - 'Use CSS Grid with minmax for flexible column widths'
+      refactor:
+        - 'Verify layout at 1920px, 1024px, 768px, and 375px widths'
+        - 'Update Storybook stories with viewport decorator for responsive testing'
+    estimatedEffort: '1.5h'
+
+  - id: task-28
+    phaseId: phase-7
+    title: 'Write Playwright e2e tests for board view'
+    description: >
+      Write comprehensive Playwright e2e tests covering: board view loads as default,
+      features appear in correct columns, filter interaction updates columns, tab switching
+      between Board and Map preserves selection, dependency inspector opens on feature select,
+      keyboard navigation works, and all existing canvas e2e tests pass without modification.
+    state: Todo
+    dependencies:
+      - task-27
+    acceptanceCriteria:
+      - 'Test: board view renders as default when navigating to Control Center'
+      - 'Test: features grouped into correct lifecycle columns'
+      - 'Test: clicking a feature row selects it and opens inspector'
+      - 'Test: filter controls reduce visible features'
+      - 'Test: clear all filters restores full feature list'
+      - 'Test: switching to Map tab renders canvas with features'
+      - 'Test: switching back to Board preserves selection'
+      - 'Test: keyboard navigation (arrow keys, Enter, Escape) works'
+      - 'Test: existing canvas Playwright tests pass without modification (regression check)'
+      - 'All e2e tests pass in CI'
+    tdd:
+      red:
+        - 'Write e2e test: board view is default view'
+        - 'Write e2e test: features in correct columns'
+        - 'Write e2e test: filter interaction'
+        - 'Write e2e test: tab switching preserves selection'
+        - 'Write e2e test: keyboard navigation'
+        - 'Write e2e test: dependency inspector opens/closes'
+      green:
+        - 'Implement all e2e tests using Playwright test patterns'
+        - 'Use data-testid attributes for reliable element selection'
+        - 'Set up test fixtures with known feature data'
+      refactor:
+        - 'Run full existing e2e suite to verify no regressions'
+        - 'Ensure tests are stable and not flaky (add appropriate waits)'
+    estimatedEffort: '3h'
+
+# Total effort estimate
+totalEstimate: '46h'
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Status
+
+  - **Phase:** Planning
+  - **Updated:** 2026-03-01
+
+  ## Summary
+
+  28 tasks across 7 phases totaling approximately 46 hours of estimated effort.
+
+  The implementation begins with **foundation work** (Phase 1): installing @tanstack/react-virtual
+  and creating the pure `buildBoardData()` function that groups features into 5 board columns.
+  These types and utilities are the data layer everything else builds on.
+
+  **State decomposition** (Phase 2) is the highest-risk phase: the 773-line
+  `useControlCenterState` hook is incrementally decomposed into 6 focused hooks
+  (useFeatureSelection, useFeatureSSE, useOptimisticUpdates, useCanvasState, useFilterState,
+  useSavedViews) composed by a new `ControlCenterProvider` context. Each extraction step is
+  validated against existing tests before proceeding.
+
+  **View switching** (Phase 3) introduces the tab infrastructure using shadcn Tabs with URL
+  sync, wrapping the existing canvas as the Map tab and rendering a placeholder for the Board
+  tab. This validates the switching mechanism before the full board is built.
+
+  **Board view** (Phase 4) builds the component tree bottom-up: BoardRow (compact feature row),
+  ColumnHeader (name + count badge), BoardColumn (with conditional @tanstack/react-virtual
+  virtualization), useBoardState (grouping + filtering logic), BoardView (CSS Grid container),
+  and keyboard navigation (roving tabindex pattern).
+
+  **Filter system** (Phase 5) adds FilterControls (4 multi-select groups), SavedViewSelector
+  (localStorage CRUD dropdown), and FilterBar (container with clear-all action). Filters
+  integrate with useBoardState to instantly re-derive column groupings.
+
+  **Dependency inspector** (Phase 6) builds the collapsible right panel: DependencyList
+  (upstream/downstream feature lists), DependencyMiniGraph (embedded read-only React Flow
+  showing 1-hop neighbors), and DependencyInspector (panel container with collapse/expand
+  persisted to localStorage).
+
+  **Integration** (Phase 7) ties everything together: extending page.tsx to pass
+  featuresWithRuns, adding responsive breakpoints (5-column ≥1024px, scrollable 768-1023px,
+  stacked <768px), and writing comprehensive Playwright e2e tests that cover the full board
+  workflow while verifying no regression in existing canvas tests.
+
+  ---
+
+  _Task breakdown complete — ready for implementation_
