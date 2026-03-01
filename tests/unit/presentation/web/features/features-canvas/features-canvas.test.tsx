@@ -145,6 +145,12 @@ describe('FeaturesCanvas', () => {
       expect(screen.getByTestId('feature-node-settings-button')).toBeInTheDocument();
     });
 
+    it('injects onDelete for non-creating feature nodes when onFeatureDelete provided', () => {
+      const onFeatureDelete = vi.fn();
+      render(<FeaturesCanvas nodes={[mockNode]} edges={[]} onFeatureDelete={onFeatureDelete} />);
+      expect(screen.getByTestId('feature-node-delete-button')).toBeInTheDocument();
+    });
+
     it('injects onAction for running nodes but not creating nodes in mixed array', () => {
       const onNodeAction = vi.fn();
       render(

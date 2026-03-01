@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
-import { expect, waitFor } from '@storybook/test';
+import { expect, fn, waitFor } from '@storybook/test';
 import { ReactFlowProvider, ReactFlow, useNodesState } from '@xyflow/react';
 import { FeatureNode } from './feature-node';
 import type { AgentTypeValue } from './agent-type-icons';
@@ -347,6 +347,19 @@ export const ErrorWithMessage: Story = {
     state: 'error',
     progress: 30,
     errorMessage: 'Build failed: type mismatch',
+  },
+  render: (args) => <FeatureNodeCanvas data={args} />,
+};
+
+export const WithDeleteButton: Story = {
+  args: {
+    name: 'Auth Module',
+    description: 'Implement OAuth2 authentication flow',
+    featureId: '#f1',
+    lifecycle: 'implementation',
+    state: 'running',
+    progress: 45,
+    onDelete: fn(),
   },
   render: (args) => <FeatureNodeCanvas data={args} />,
 };
