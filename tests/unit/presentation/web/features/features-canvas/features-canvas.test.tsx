@@ -124,6 +124,15 @@ describe('FeaturesCanvas', () => {
       expect(screen.queryByTestId('feature-node-settings-button')).not.toBeInTheDocument();
     });
 
+    it('does not inject onDelete for feature nodes with state "creating"', () => {
+      const onFeatureDelete = vi.fn();
+      render(
+        <FeaturesCanvas nodes={[creatingNode]} edges={[]} onFeatureDelete={onFeatureDelete} />
+      );
+      // The delete button should not be rendered because onDelete is not injected
+      expect(screen.queryByTestId('feature-node-delete-button')).not.toBeInTheDocument();
+    });
+
     it('still injects onAction for feature nodes with state "running"', () => {
       const onNodeAction = vi.fn();
       render(<FeaturesCanvas nodes={[mockNode]} edges={[]} onNodeAction={onNodeAction} />);
@@ -134,6 +143,12 @@ describe('FeaturesCanvas', () => {
       const onNodeSettings = vi.fn();
       render(<FeaturesCanvas nodes={[mockNode]} edges={[]} onNodeSettings={onNodeSettings} />);
       expect(screen.getByTestId('feature-node-settings-button')).toBeInTheDocument();
+    });
+
+    it('injects onDelete for non-creating feature nodes when onFeatureDelete provided', () => {
+      const onFeatureDelete = vi.fn();
+      render(<FeaturesCanvas nodes={[mockNode]} edges={[]} onFeatureDelete={onFeatureDelete} />);
+      expect(screen.getByTestId('feature-node-delete-button')).toBeInTheDocument();
     });
 
     it('injects onAction for running nodes but not creating nodes in mixed array', () => {

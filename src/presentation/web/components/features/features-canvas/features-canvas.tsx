@@ -28,6 +28,7 @@ export interface FeaturesCanvasProps {
   onRepositoryAdd?: (repoNodeId: string) => void;
   onRepositoryClick?: (nodeId: string) => void;
   onRepositoryDelete?: (repositoryId: string) => void;
+  onFeatureDelete?: (featureId: string) => void;
   onConnect?: (connection: Connection) => void;
   onRepositorySelect?: (path: string) => void;
   onCanvasDrag?: () => void;
@@ -48,6 +49,7 @@ export function FeaturesCanvas({
   onRepositoryAdd,
   onRepositoryClick,
   onRepositoryDelete,
+  onFeatureDelete,
   onRepositorySelect,
   onCanvasDrag,
   toolbar,
@@ -96,6 +98,7 @@ export function FeaturesCanvas({
             ? {
                 onAction: onNodeAction ? () => onNodeAction(node.id) : undefined,
                 onSettings: onNodeSettings ? () => onNodeSettings(node.id) : undefined,
+                onDelete: onFeatureDelete,
               }
             : {}),
           ...(node.type === 'repositoryNode' && {
@@ -113,6 +116,7 @@ export function FeaturesCanvas({
       edges.length,
       onNodeAction,
       onNodeSettings,
+      onFeatureDelete,
       onRepositoryAdd,
       onRepositoryClick,
       onRepositoryDelete,

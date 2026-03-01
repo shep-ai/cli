@@ -1,0 +1,151 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feature-node-delete-icon
+summary: >
+  Replicate the repository node hover-delete pattern onto feature nodes. The implementation
+  threads an onDelete callback from useControlCenterState through ControlCenterInner and
+  FeaturesCanvas into FeatureNode, gated by the existing "creating" state suppression.
+  The FeatureNode component gains a Trash2 icon button with Tooltip and AlertDialog confirmation,
+  styled identically to the repository node. All required libraries are already in the project —
+  no new dependencies. Work is split into three phases: interface and data flow, component UI,
+  and tests plus stories.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - React 19
+  - '@xyflow/react 12'
+  - lucide-react (Trash2)
+  - '@radix-ui/react-alert-dialog'
+  - '@radix-ui/react-tooltip'
+  - TailwindCSS 4
+  - Vitest
+  - Storybook 8
+relatedLinks: []
+
+phases:
+  - id: phase-1
+    name: 'Interface & Data Flow'
+    description: >
+      Extend the FeatureNodeData interface with onDelete, add onFeatureDelete prop to
+      FeaturesCanvas and inject it into enrichedNodes, then wire ControlCenterInner to pass
+      handleDeleteFeature. This phase establishes the full callback pipeline before any UI
+      changes, enabling isolated testing of the data flow.
+    parallel: false
+
+  - id: phase-2
+    name: 'Component UI — Delete Button & Dialog'
+    description: >
+      Add the Trash2 icon button, Tooltip wrapper, and AlertDialog confirmation to the
+      FeatureNode component, replicating the repository node pattern. This phase depends on
+      phase-1 because the component needs the onDelete callback in its data interface.
+    parallel: false
+
+  - id: phase-3
+    name: 'Tests & Stories'
+    description: >
+      Write unit tests for FeatureNode delete behavior (mirroring repository-node test
+      structure), add a FeaturesCanvas test for onFeatureDelete wiring, and create a
+      WithDeleteButton Storybook story. This phase validates all prior work and satisfies
+      the mandatory TDD and Storybook requirements.
+    parallel: false
+
+filesToCreate: []
+
+filesToModify:
+  - src/presentation/web/components/common/feature-node/feature-node-state-config.ts
+  - src/presentation/web/components/common/feature-node/feature-node.tsx
+  - src/presentation/web/components/features/features-canvas/features-canvas.tsx
+  - src/presentation/web/components/features/control-center/control-center-inner.tsx
+  - tests/unit/presentation/web/components/common/feature-node/feature-node.test.tsx
+  - tests/unit/presentation/web/features/features-canvas/features-canvas.test.tsx
+  - src/presentation/web/components/common/feature-node/feature-node.stories.tsx
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  This feature adds a hover-visible delete icon to feature nodes on the React Flow canvas,
+  replicating the pattern already established by repository nodes. The implementation follows
+  the existing clean architecture data flow:
+
+  ```
+  useControlCenterState.handleDeleteFeature (application layer)
+    → ControlCenterInner (presentation — passes as onFeatureDelete prop)
+      → FeaturesCanvas (presentation — injects into enrichedNodes useMemo)
+        → FeatureNode (presentation — renders button + AlertDialog)
+          → User confirms → data.onDelete(data.featureId)
+            → handleDeleteFeature → deleteFeature server action
+  ```
+
+  No new layers, services, or dependencies are introduced. The delete server action and
+  state management callback already exist — this feature only adds the UI affordance and
+  threads the existing callback to the component.
+
+  ## Key Design Decisions
+
+  ### 1. Replicate repository-node pattern exactly (no shared abstraction)
+
+  The repository-node.tsx delete button JSX (lines 52-94) is the exact template. While both
+  nodes share the same visual pattern, extracting a shared DeleteNodeButton component would be
+  premature abstraction — the two consumers have different dialog copy ("Delete feature?" vs
+  "Remove repository?"), different callback signatures (featureId vs repositoryId), and different
+  conditional rendering guards. The marginal DRY benefit does not justify the indirection.
+
+  ### 2. Thread onFeatureDelete through FeaturesCanvas props
+
+  The FeaturesCanvas enrichedNodes useMemo (lines 88-121) is the canonical injection point for
+  node callbacks. It already threads onRepositoryDelete to repository nodes (line 104) and
+  onAction/onSettings to feature nodes (lines 95-100). Adding onFeatureDelete to the same
+  conditional block keeps the data flow consistent and predictable.
+
+  ### 3. Gate on `state !== 'creating'` only
+
+  The existing FeaturesCanvas enrichment suppresses onAction and onSettings for feature nodes
+  in "creating" state (line 95). The onDelete callback is added to the same conditional block,
+  ensuring all interactive controls are suppressed together. Running/queued states are not
+  suppressed because the existing handleDeleteFeature handles cleanup gracefully.
+
+  ### 4. "Delete" (not "Remove") for dialog copy
+
+  Feature deletion permanently removes specs, branches, and progress data — unlike repository
+  removal which only unlinks. The dialog uses "Delete feature?" with a permanent deletion
+  warning, and the action button uses variant="destructive" with label "Delete".
+
+  ### 5. Mirror repository-node test structure with mocked Radix components
+
+  Tests mock AlertDialog and Tooltip as simple DOM wrappers, following the proven pattern in
+  repository-node.test.tsx. This avoids flaky tests from Radix portal rendering and animations.
+
+  ## Implementation Strategy
+
+  **Phase 1 (Interface & Data Flow)** comes first because the FeatureNode component needs the
+  onDelete property in its data interface before the UI can be built. This phase also wires
+  the full callback pipeline (ControlCenterInner → FeaturesCanvas → FeatureNode) so the UI
+  work in Phase 2 can invoke a real callback immediately.
+
+  **Phase 2 (Component UI)** adds the visible delete button, tooltip, and confirmation dialog
+  to the FeatureNode component. This is the core implementation work and depends on Phase 1
+  for the interface and callback availability.
+
+  **Phase 3 (Tests & Stories)** validates everything. While TDD ideally writes tests first,
+  the strict phase ordering here reflects that the test mocks and assertions depend on
+  understanding the exact component structure from Phase 2. Each task within phases still
+  follows RED-GREEN-REFACTOR cycles.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Breaking existing feature node rendering | Run existing tests after every change; no existing tests should fail |
+  | AlertDialog portal not rendering in tests | Use proven mock pattern from repository-node.test.tsx |
+  | Click propagation triggering node selection | e.stopPropagation() on delete button click handler; test verifies propagation is stopped |
+  | Accidental deletion without confirmation | AlertDialog is mandatory; no inline delete path exists |
+  | enrichedNodes useMemo dependency array stale | Add onFeatureDelete to the dependency array alongside existing callbacks |
+  | TypeScript errors from interface change | onDelete is optional (?) so existing code is unaffected |
+
+  ---
+
+  _Plan created — 2026-03-01_

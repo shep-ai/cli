@@ -1,8 +1,20 @@
 'use client';
 
+import { useState } from 'react';
 import { Handle, Position } from '@xyflow/react';
-import { Settings, Plus, FileText, Wrench, GitMerge, type LucideIcon } from 'lucide-react';
+import { Settings, Plus, FileText, Wrench, GitMerge, Trash2, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   featureNodeStateConfig,
   lifecycleDisplayLabels,
@@ -74,6 +86,7 @@ export function FeatureNode({
 }) {
   const config = featureNodeStateConfig[data.state];
   const Icon = config.icon;
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   return (
     <div className="group relative">
@@ -84,6 +97,53 @@ export function FeatureNode({
           isConnectable={false}
           className="opacity-0!"
         />
+      ) : null}
+
+      {/* Delete button — visible on hover, positioned to the left */}
+      {data.onDelete && data.featureId ? (
+        <>
+          <div className="absolute top-1/2 -left-10 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    aria-label="Delete feature"
+                    data-testid="feature-node-delete-button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setConfirmOpen(true);
+                    }}
+                    className="bg-card text-muted-foreground hover:border-destructive hover:text-destructive flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border shadow-sm transition-colors"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>Delete feature</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+
+          <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+            <AlertDialogContent size="sm">
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete feature?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete <strong>{data.name}</strong> and all associated data
+                  including specs, branches, and progress.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  variant="destructive"
+                  onClick={() => data.onDelete?.(data.featureId)}
+                >
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </>
       ) : null}
 
       <div
