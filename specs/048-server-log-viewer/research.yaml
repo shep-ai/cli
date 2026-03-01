@@ -1,0 +1,453 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: server-log-viewer
+summary: >
+  Technical research for the server log viewer feature. Key decisions: extend DeploymentService
+  with a ring buffer log accumulator and EventEmitter-based notification; add an SSE API route
+  following the existing agent-events pattern; build a near-full-screen Dialog-based log viewer
+  with auto-scroll; use plain TypeScript interfaces (no TypeSpec model needed for ephemeral logs).
+  All patterns are well-established in the codebase, keeping implementation risk low.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - React 18 (client components, hooks, useEffect for SSE lifecycle)
+  - Next.js App Router (server actions, API routes with ReadableStream)
+  - shadcn/ui Dialog (Radix UI Dialog primitive, already in components/ui/dialog.tsx)
+  - Radix UI ScrollArea (already in components/ui/scroll-area.tsx)
+  - Tailwind CSS (dark terminal styling, monospace fonts)
+  - lucide-react (Terminal or ScrollText icon for button)
+  - Server-Sent Events (ReadableStream + text/event-stream, existing pattern)
+  - EventEmitter (Node.js built-in, for log notification from service to SSE route)
+  - Storybook (colocated .stories.tsx, autodocs tag)
+  - Vitest (unit tests with fake timers and mocked DI)
+
+relatedLinks: []
+
+decisions:
+  - title: 'Log buffer data structure'
+    chosen: 'Array-based ring buffer with index tracking'
+    rejected:
+      - 'Linked list — More complex implementation, no real benefit for sequential append/read; arrays are cache-friendly and simpler to serialize for SSE/server-action responses.'
+      - 'Circular typed array (ArrayBuffer) — Over-engineered for string data; TypedArrays are designed for binary/numeric data, not variable-length strings.'
+      - 'External ring buffer library (e.g., ring-buffer-ts) — Adds an unnecessary dependency for a trivial data structure (array + modular index). The logic is ~20 lines of code.'
+    rationale: >
+      A simple array with a max capacity of 5,000 entries and a write index provides O(1) append
+      and O(n) read. When the array reaches capacity, new entries overwrite the oldest (circular).
+      The implementation is straightforward: push until full, then overwrite at (writeIndex % capacity).
+      For getLogs(), return items in chronological order by slicing from writeIndex. This matches
+      the spec requirement for a FIFO ring buffer and keeps memory bounded at ~1MB per deployment.
+
+  - title: 'Log entry shape'
+    chosen: 'Plain TypeScript interface { stream: "stdout" | "stderr"; line: string; timestamp: number }'
+    rejected:
+      - 'TypeSpec model (DeploymentLogEntry) — TypeSpec is for domain entities that are persisted to the database. Log entries are ephemeral in-memory data that exist only while the deployment process is running. Adding TypeSpec overhead (compile step, generated output) for a transient type is unnecessary.'
+      - 'Flat string with prefix (e.g., "[stderr] line content") — Loses structured data; parsing the prefix in the client is fragile and prevents proper typing of stream source for color differentiation.'
+    rationale: >
+      A plain TypeScript interface defined alongside the IDeploymentService interface port is the
+      right abstraction level. The stream field enables the client to apply red/orange coloring
+      for stderr lines. The timestamp (Date.now()) enables chronological ordering and could support
+      future features like relative timestamps. This type is defined in the application layer
+      (output port) since it's part of the service contract, not a persisted domain entity.
+
+  - title: 'Log notification mechanism (service to SSE route)'
+    chosen: 'Node.js EventEmitter on DeploymentService'
+    rejected:
+      - 'Polling from SSE route — The existing agent-events SSE route polls the database every 500ms, but logs are in-memory on the same process, so polling would add unnecessary latency and CPU overhead. EventEmitter provides instant push notification.'
+      - 'RxJS Observable — The codebase does not use RxJS anywhere. Adding it for a single use case would introduce an unnecessary dependency and unfamiliar pattern. Node.js EventEmitter is built-in and well-understood.'
+      - 'Callback registration (onLog(targetId, callback)) — Requires manual subscription management (add/remove callbacks, handle multiple subscribers). EventEmitter provides this out of the box with on/off/removeListener and is battle-tested.'
+    rationale: >
+      DeploymentService is a singleton registered in the DI container and lives in the same Node.js
+      process as the Next.js API routes. Making it extend EventEmitter (or compose one) allows the
+      SSE route to subscribe to log events with emitter.on("log", handler) and unsubscribe on
+      disconnect with emitter.off("log", handler). This is the most natural Node.js pattern for
+      push-based in-process communication. The event payload is the LogEntry object. The SSE route
+      forwards it as an SSE event to the client. No polling delay, no external dependencies.
+
+  - title: 'SSE endpoint design'
+    chosen: 'New API route at /api/deployment-logs following agent-events pattern'
+    rejected:
+      - 'Extend existing /api/agent-events route — The agent-events route is purpose-built for agent run notifications with specific event types, caching, and feature-based filtering. Adding deployment log streaming would conflate two unrelated concerns and make the route harder to maintain.'
+      - 'WebSocket endpoint — The codebase has no WebSocket infrastructure. SSE is simpler (unidirectional), works over HTTP/1.1, and the exact boilerplate is already proven in agent-events. WebSocket would require a new server setup and client library.'
+    rationale: >
+      A dedicated /api/deployment-logs?targetId=xxx route keeps concerns separated. It follows the
+      exact same pattern as /api/agent-events/route.ts: ReadableStream constructor, TextEncoder,
+      enqueue helper, heartbeat interval (30s), request.signal abort listener for cleanup, and
+      force-dynamic export. The only difference is the data source: instead of polling a database,
+      it subscribes to the DeploymentService EventEmitter for real-time log events. On initial
+      connection, it sends all buffered logs, then streams new ones as they arrive.
+
+  - title: 'Client-side SSE consumption'
+    chosen: 'Custom useDeploymentLogs hook with native EventSource'
+    rejected:
+      - 'Service Worker approach (like agent-events) — The agent-events SSE uses a Service Worker to share a single connection across tabs. For deployment logs, this is unnecessary because: (1) only one tab typically views logs at a time, (2) logs are scoped to a specific targetId, and (3) the Service Worker adds significant complexity. A simple EventSource per viewer is sufficient.'
+      - 'Reuse useAgentEvents hook — The hook is tightly coupled to NotificationEvent types and agent run filtering. Adapting it for log streaming would require significant refactoring of a working system.'
+      - 'fetch() with ReadableStream reader — More code than EventSource for the same result. EventSource handles reconnection automatically, parses SSE format natively, and is simpler to use. The browser API is purpose-built for this.'
+    rationale: >
+      A dedicated useDeploymentLogs(targetId) hook encapsulates: (1) initial log fetch via the
+      getDeploymentLogs server action, (2) EventSource connection to /api/deployment-logs?targetId=xxx,
+      (3) log state accumulation, (4) cleanup on unmount. EventSource is the browser-native API
+      for SSE consumption — it handles reconnection, event parsing, and error events automatically.
+      The hook returns { logs: LogEntry[], isConnected: boolean } for the component to render.
+
+  - title: 'Log viewer UI component architecture'
+    chosen: 'Single ServerLogViewer component using shadcn Dialog with custom full-screen sizing'
+    rejected:
+      - 'Sheet/Drawer (slide-in panel) — Drawers have limited width which would truncate long log lines. The existing Vaul Drawer maxes at md:w-xl (~576px). Logs often have lines 100+ characters wide, requiring near-full viewport width.'
+      - 'Separate page/route — Over-engineered for an overlay. Would require navigation, lose the context of the current page, and break the flow of the deployment management UI.'
+      - 'Compound component (LogViewerProvider + LogViewerContent + LogViewerTrigger) — Unnecessary abstraction for a single-use component. The Dialog already provides the compound pattern (DialogTrigger + DialogContent). Adding another layer adds complexity without benefit.'
+    rationale: >
+      The shadcn/ui Dialog component (already in the codebase at components/ui/dialog.tsx) supports
+      custom sizing via className overrides on DialogContent. Applying classes like
+      "max-w-[calc(100vw-48px)] max-h-[calc(100vh-48px)] w-full h-full" creates a near-full-screen
+      modal with a 24px inset on all sides. The Dialog provides built-in overlay, Escape key close,
+      focus trapping, and accessibility features from Radix UI. The ServerLogViewer component owns
+      the Dialog state and renders the log content inside DialogContent.
+
+  - title: 'Auto-scroll behavior implementation'
+    chosen: 'Scroll position detection with isAtBottom flag and scrollTo on new logs'
+    rejected:
+      - 'CSS scroll-snap — Designed for pagination-style snapping, not continuous log streaming. Does not support the "pause on manual scroll up" requirement.'
+      - 'Intersection Observer on a sentinel element — Elegant but adds complexity. Requires a dummy element at the bottom and observer setup/teardown. Simple scroll math (scrollTop + clientHeight >= scrollHeight - threshold) is sufficient and more predictable.'
+      - 'Always auto-scroll (no pause) — Poor UX. Users need to scroll up to read earlier logs without being yanked back to the bottom on every new line. Every terminal/log viewer implements scroll-pause.'
+    rationale: >
+      Track whether the user is "at the bottom" by checking on scroll events:
+      isAtBottom = scrollTop + clientHeight >= scrollHeight - threshold (e.g., 50px).
+      When new logs arrive and isAtBottom is true, call scrollTo({ top: scrollHeight }).
+      When the user scrolls up, isAtBottom becomes false and auto-scroll pauses.
+      When they scroll back to the bottom, isAtBottom becomes true and auto-scroll resumes.
+      This is the standard pattern used by every log viewer and terminal emulator.
+      A useRef tracks the scroll container; a separate useRef tracks isAtBottom to avoid
+      re-renders on scroll events.
+
+  - title: 'Log line rendering performance'
+    chosen: 'Simple div-per-line rendering with potential virtualization hook point'
+    rejected:
+      - 'Virtualized list (react-window or @tanstack/virtual) — Adds a dependency and complexity for v1. The spec explicitly states virtualization is NOT required for v1 but should be architecturally possible. With 5,000 lines max and modern browsers, a simple list should perform adequately. Each line is a lightweight div with text content.'
+      - "Single pre block with innerHTML — No per-line styling possible (can't color stderr differently). Also, innerHTML introduces XSS risk if log content contains HTML-like strings."
+      - 'Canvas-based rendering — Massively over-engineered. This is a web app, not a GPU-accelerated terminal.'
+    rationale: >
+      Rendering each log line as a div with conditional styling (red for stderr, default for stdout)
+      is the simplest approach that meets all requirements. At 5,000 lines, this creates 5,000 DOM
+      nodes — within browser capability for a modal that the user opens temporarily. The component
+      architecture wraps lines in a container that can later be swapped for a virtualized list
+      (react-window's FixedSizeList has the same children API pattern) without changing the line
+      rendering component. For v1, simplicity wins.
+
+  - title: 'Where to place the View Logs button'
+    chosen: 'Inside DeploymentStatusBadge component, next to the URL text'
+    rejected:
+      - 'Separate button in parent components (RepositoryNode, BaseDrawer) — Would require duplicating the button logic in every parent that renders DeploymentStatusBadge. Putting it inside the badge ensures it appears automatically wherever the badge is used, satisfying FR-11 (works in both flow canvas and BaseDrawer).'
+      - 'Replace the URL link with a logs button — Users need the URL link to click through to the running server. Replacing it removes functionality.'
+    rationale: >
+      The DeploymentStatusBadge already renders in both RepositoryNode and BaseDrawer's DeployBar.
+      Adding the View Logs button inside the badge (as a sibling to the URL link) ensures it
+      automatically appears in both locations without any changes to parent components. The button
+      renders a Terminal or ScrollText icon from lucide-react. It opens the ServerLogViewer dialog.
+      The badge already receives status and url props; it will also accept the targetId to pass
+      to the log viewer for SSE connection.
+
+  - title: 'Log buffer clearing strategy'
+    chosen: 'Clear on stop() and stopAll(), auto-clear on process exit event'
+    rejected:
+      - 'Never clear (persist until process restart) — Stale logs from a previous deployment session would confuse users on re-deploy. The spec explicitly requires clearing on stop (FR-12).'
+      - 'Clear on start() only — Would not clear logs if the process crashes or is force-killed without going through stop(). The exit event handler ensures cleanup regardless of how the process ends.'
+    rationale: >
+      Logs are cleared in three places matching the existing cleanup pattern in DeploymentService:
+      (1) stop() — explicit user-initiated stop, (2) stopAll() — daemon shutdown,
+      (3) process exit event handler — crash or external kill. This mirrors how the deployments
+      Map entry is already cleaned up. The log buffer is a property of DeploymentEntry, so when
+      the entry is deleted from the Map, the log buffer is garbage-collected automatically.
+      Additionally, explicitly clearing the array in stop()/stopAll() before the async exit
+      ensures the SSE route stops receiving events immediately.
+
+openQuestions:
+  - question: 'Should DeploymentService extend EventEmitter or compose one?'
+    resolved: true
+    options:
+      - option: 'Compose (private EventEmitter instance with public on/off methods)'
+        description: >
+          Add a private EventEmitter instance to DeploymentService and expose typed on() and off()
+          methods on the IDeploymentService interface. This keeps the service interface clean with
+          only the methods consumers need (on/off for 'log' events). No inheritance coupling.
+        selected: true
+      - option: 'Extend EventEmitter class'
+        description: >
+          Make DeploymentService extend Node.js EventEmitter. Simpler to implement (one line) but
+          exposes the entire EventEmitter API (emit, removeAllListeners, etc.) through the class.
+          The interface would need to extend EventEmitter or expose unrelated methods.
+        selected: false
+      - option: 'Use a separate LogEmitter service'
+        description: >
+          Create a dedicated LogEmitter service registered in DI, separate from DeploymentService.
+          DeploymentService writes to it, SSE route reads from it. Adds an extra DI registration
+          and service but provides clean separation. Over-engineered for the current scope.
+        selected: false
+    selectionRationale: >
+      Composition is preferred over inheritance here. The IDeploymentService interface should only
+      expose what consumers need: on(event, handler) and off(event, handler) for 'log' events.
+      Extending EventEmitter would leak the full EventEmitter API. A composed EventEmitter is
+      created in the constructor, emit() is called internally when log lines arrive, and on/off
+      are delegated methods on the interface. This follows the existing pattern of keeping
+      interfaces minimal and focused.
+
+  - question: 'How should the SSE route get the initial log backfill on connection?'
+    resolved: true
+    options:
+      - option: 'SSE route calls getLogs() then subscribes to events'
+        description: >
+          On new SSE connection, the route first calls deploymentService.getLogs(targetId) to get
+          the full buffer, sends all lines as SSE events, then subscribes to the EventEmitter for
+          new lines. Simple two-phase approach. Risk: lines emitted between getLogs() and subscribe
+          could be missed.
+        selected: false
+      - option: 'Client fetches initial logs via server action, SSE only streams new lines'
+        description: >
+          The client hook first calls getDeploymentLogs() server action to load existing logs,
+          then connects to SSE for new lines only. The SSE route only streams new events from
+          the EventEmitter. Eliminates the race condition in the server because the SSE route
+          never needs to backfill. The client may briefly show a gap but this is negligible
+          for a dev tool.
+        selected: true
+      - option: 'SSE route accepts a cursor/offset parameter'
+        description: >
+          Client sends last-known log index. SSE route replays from that index, then streams
+          live. Most robust but requires index tracking in the buffer and adds complexity to
+          both client and server. Over-engineered for a dev server log viewer.
+        selected: false
+    selectionRationale: >
+      Separating initial load (server action) from live streaming (SSE) is the cleanest approach.
+      The server action getDeploymentLogs() returns the current buffer snapshot synchronously.
+      The SSE route only forwards new EventEmitter events. The client hook manages merging:
+      it loads initial logs, sets them as state, then appends new SSE events. Any lines that
+      arrive during the brief gap between the server action response and SSE connection are
+      acceptable to miss in a dev tool context — the user will see them on the next re-open
+      or they were already included in the initial fetch. This avoids complex coordination
+      between the SSE route's backfill and live phases.
+
+  - question: 'Should the log viewer handle deployment state transitions (Booting→Ready→Stopped)?'
+    resolved: true
+    options:
+      - option: 'Show a status indicator in the log viewer header, close on stop'
+        description: >
+          Display the current deployment state (Booting/Ready) in the log viewer modal header.
+          When the deployment stops, show a "Server stopped" message in the log and optionally
+          auto-close the modal after a delay. Provides good UX feedback.
+        selected: true
+      - option: 'Ignore state in the log viewer, just show logs'
+        description: >
+          The log viewer is purely a log display. It does not track or display deployment state.
+          If the deployment stops, the SSE connection closes and no more logs arrive, but the
+          viewer stays open showing the last logs. Simple but may confuse users.
+        selected: false
+      - option: 'Auto-close the modal immediately on stop'
+        description: >
+          When deployment state changes to Stopped, immediately close the log viewer modal.
+          Users lose the ability to read the final logs (e.g., error messages that caused a crash).
+          Bad UX for the primary debugging use case.
+        selected: false
+    selectionRationale: >
+      The log viewer should show a deployment state indicator in its header (e.g., a colored dot
+      or badge matching DeploymentStatusBadge styling). When the SSE connection closes due to
+      deployment stopping, append a visual "[Server stopped]" marker to the log stream and keep
+      the modal open so users can review the final output. This supports the debugging use case
+      where users need to see the last error output. The state can be derived from the SSE
+      connection status and the existing deployment status polling in useDeployAction.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Log Buffer Data Structure
+
+  **Chosen:** Array-based ring buffer with index tracking
+
+  **Rejected:**
+  - Linked list — More complex, no benefit for sequential append/read; arrays are cache-friendly and simpler to serialize.
+  - Circular typed array (ArrayBuffer) — Over-engineered for string data.
+  - External ring buffer library — Unnecessary dependency for ~20 lines of code.
+
+  **Rationale:** A simple array with max capacity of 5,000 entries and a write index provides O(1) append and O(n) read. When full, new entries overwrite the oldest. This matches the spec's FIFO ring buffer requirement and keeps memory bounded at ~1MB per deployment.
+
+  ### 2. Log Entry Shape
+
+  **Chosen:** Plain TypeScript interface `{ stream: "stdout" | "stderr"; line: string; timestamp: number }`
+
+  **Rejected:**
+  - TypeSpec model (DeploymentLogEntry) — TypeSpec is for persisted domain entities. Log entries are ephemeral in-memory data. Adding TypeSpec overhead for a transient type is unnecessary.
+  - Flat string with prefix (e.g., `[stderr] line`) — Loses structured data; parsing prefixes is fragile.
+
+  **Rationale:** Defined alongside IDeploymentService in the application layer. The `stream` field enables client-side color differentiation. The `timestamp` enables chronological ordering.
+
+  ### 3. Log Notification Mechanism (Service → SSE Route)
+
+  **Chosen:** Node.js EventEmitter composed within DeploymentService
+
+  **Rejected:**
+  - Polling from SSE route — Logs are in-memory on the same process; polling adds unnecessary latency vs. instant push.
+  - RxJS Observable — Not used anywhere in the codebase; unnecessary new dependency.
+  - Callback registration (onLog) — EventEmitter provides this built-in with on/off/removeListener.
+
+  **Rationale:** DeploymentService is a singleton in the same Node.js process as the Next.js API routes. A composed EventEmitter allows the SSE route to subscribe with `service.on('log', handler)` and unsubscribe on disconnect. This is the most natural Node.js pattern for push-based in-process communication.
+
+  ### 4. SSE Endpoint Design
+
+  **Chosen:** New API route at `/api/deployment-logs` following agent-events pattern
+
+  **Rejected:**
+  - Extend existing /api/agent-events — Conflates two unrelated concerns; makes the route harder to maintain.
+  - WebSocket endpoint — No WebSocket infrastructure in the codebase; SSE is simpler and already proven.
+
+  **Rationale:** A dedicated route keeps concerns separated. It follows the exact same boilerplate as /api/agent-events/route.ts: ReadableStream, TextEncoder, enqueue helper, 30s heartbeat, request.signal abort listener, and `export const dynamic = 'force-dynamic'`. The only difference is the data source: EventEmitter subscription instead of database polling.
+
+  ### 5. Client-Side SSE Consumption
+
+  **Chosen:** Custom `useDeploymentLogs` hook with native EventSource
+
+  **Rejected:**
+  - Service Worker approach — Unnecessary for single-tab log viewing scoped to a specific targetId.
+  - Reuse useAgentEvents hook — Tightly coupled to NotificationEvent types and agent run filtering.
+  - fetch() with ReadableStream reader — More code than EventSource for the same result.
+
+  **Rationale:** A dedicated hook encapsulates initial log fetch (server action), EventSource connection, log state accumulation, and cleanup. EventSource handles reconnection and SSE parsing natively.
+
+  ### 6. Log Viewer UI Component
+
+  **Chosen:** Single ServerLogViewer using shadcn Dialog with custom full-screen sizing
+
+  **Rejected:**
+  - Sheet/Drawer — Limited width truncates long log lines (Vaul Drawer maxes at ~576px).
+  - Separate page/route — Over-engineered; loses context of current page.
+  - Compound component pattern — Unnecessary abstraction; Dialog already provides compound pattern.
+
+  **Rationale:** The existing shadcn/ui Dialog supports custom sizing via className overrides: `max-w-[calc(100vw-48px)] max-h-[calc(100vh-48px)]` creates a near-full-screen modal with 24px inset. Built-in overlay, Escape close, and focus trapping from Radix UI.
+
+  ### 7. Auto-Scroll Behavior
+
+  **Chosen:** Scroll position detection with isAtBottom flag and scrollTo on new logs
+
+  **Rejected:**
+  - CSS scroll-snap — Designed for pagination, not continuous streaming.
+  - Intersection Observer on sentinel element — Adds complexity; simple scroll math is sufficient.
+  - Always auto-scroll (no pause) — Poor UX; users need to read earlier logs without being yanked back.
+
+  **Rationale:** Standard log viewer pattern: check `scrollTop + clientHeight >= scrollHeight - threshold` on scroll events. Auto-scroll when at bottom, pause when user scrolls up, resume when they scroll back down. Track with useRef to avoid re-renders.
+
+  ### 8. Log Line Rendering
+
+  **Chosen:** Simple div-per-line rendering (virtualization-ready architecture)
+
+  **Rejected:**
+  - Virtualized list (react-window) — Adds dependency and complexity for v1; 5,000 lines is within browser capability.
+  - Single pre block with innerHTML — No per-line styling; XSS risk.
+  - Canvas-based rendering — Massively over-engineered.
+
+  **Rationale:** Each line as a div with conditional styling (red for stderr). At 5,000 lines max, DOM performance is adequate for a temporary modal. Architecture allows later swap to virtualized list.
+
+  ### 9. View Logs Button Placement
+
+  **Chosen:** Inside DeploymentStatusBadge component, next to the URL text
+
+  **Rejected:**
+  - Separate button in parent components — Would require duplicating logic in RepositoryNode and BaseDrawer.
+  - Replace URL link — Users need the URL to click through to the server.
+
+  **Rationale:** The badge already renders in both RepositoryNode and BaseDrawer. Adding the button inside ensures it appears automatically in both locations (FR-11) without parent changes. The badge receives a new targetId prop for the log viewer's SSE connection.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | shadcn/ui Dialog | Full-screen modal | Use (existing) | Already in `components/ui/dialog.tsx`; supports custom sizing via className |
+  | Radix UI ScrollArea | Scrollable log container | Use (existing) | Already in `components/ui/scroll-area.tsx`; styled scrollbar |
+  | lucide-react | Terminal/ScrollText icon | Use (existing) | Already used throughout the codebase for icons |
+  | EventEmitter (Node.js) | Log event notification | Use (built-in) | Zero-dependency; standard Node.js pattern for in-process events |
+  | EventSource (browser) | SSE client consumption | Use (built-in) | Browser-native SSE API; handles reconnection and parsing |
+  | react-window | Virtualized list rendering | Reject (v1) | Not needed for 5,000 lines max; can add in v2 if scroll perf issues arise |
+  | RxJS | Reactive event streams | Reject | Not used in codebase; EventEmitter covers the use case |
+  | ring-buffer-ts | Ring buffer implementation | Reject | ~20 lines of code; no need for external dependency |
+  | xterm.js | Terminal emulator in browser | Reject | Massive dependency (~500KB); we don't need terminal input or escape code parsing |
+  | ansi-to-html | ANSI color code rendering | Reject (v1) | Dev server output may contain ANSI codes but v1 strips them; can add in follow-up |
+
+  ## Security Considerations
+
+  ### Log Content Safety
+  - **XSS Prevention:** Log lines MUST be rendered as text content (React's default), never as `dangerouslySetInnerHTML`. React automatically escapes HTML entities in text nodes, preventing XSS from log content that may contain HTML-like strings (e.g., JSX compilation output, HTML error messages).
+  - **No Sensitive Data Exposure:** The log viewer only shows stdout/stderr from a local dev server running on the user's machine. The data never leaves the local network (Next.js dev server runs on localhost). No additional access controls are needed beyond the existing feature flag gating.
+  - **SSE Endpoint Validation:** The `/api/deployment-logs` route MUST validate the `targetId` parameter (non-empty string check, same as existing server actions). If the targetId doesn't correspond to an active deployment, return an appropriate SSE event and close the stream.
+
+  ### Process Safety
+  - The log viewer is read-only — it cannot send input to the server process. The `stdio` configuration already sets stdin to `'ignore'`, preventing any command injection vector.
+  - Log buffer size is capped at 5,000 lines, preventing memory exhaustion from a malicious or runaway process.
+
+  ## Performance Implications
+
+  ### Memory
+  - **Per-deployment overhead:** ~1MB for 5,000 log lines at ~200 bytes average. Negligible for a local dev tool.
+  - **Client-side state:** The hook accumulates log entries in React state. With 5,000 entries, this is ~1MB in the browser — well within acceptable limits.
+  - **DOM nodes:** 5,000 divs in the log viewer. Modern browsers handle this without jank for a temporarily-opened modal. If profiling shows issues, virtualization can be added later.
+
+  ### Network
+  - **SSE overhead:** Minimal. Each log line is sent as a small SSE event (~200 bytes). The heartbeat adds one 20-byte comment every 30 seconds.
+  - **Initial load:** The server action returns the full buffer (~1MB max) in a single response. This is acceptable for a local dev tool.
+
+  ### CPU
+  - **EventEmitter overhead:** Negligible. Node.js EventEmitter is optimized for high-frequency events.
+  - **Re-renders:** Each new log line triggers a React state update. For typical dev server output (2-5 lines per request), this is ~5-10 re-renders per user action. During rapid output (e.g., build step), React batches updates automatically in React 18.
+
+  ## Architecture Notes
+
+  ### Layer Mapping (Clean Architecture)
+
+  | Layer | Component | Responsibility |
+  | ----- | --------- | -------------- |
+  | **Application (Port)** | `IDeploymentService` | Add `getLogs()`, `on()`, `off()` to interface; define `LogEntry` type |
+  | **Infrastructure** | `DeploymentService` | Implement ring buffer, EventEmitter composition, log accumulation in `attachOutputListener()` |
+  | **Presentation (API)** | `/api/deployment-logs/route.ts` | SSE endpoint: resolve service, subscribe to events, stream to client |
+  | **Presentation (Action)** | `getDeploymentLogs.ts` | Server action: resolve service, call `getLogs()`, return snapshot |
+  | **Presentation (Hook)** | `useDeploymentLogs.ts` | Client hook: fetch initial logs, connect EventSource, manage state |
+  | **Presentation (UI)** | `ServerLogViewer` | Dialog modal: render logs, auto-scroll, dark terminal theme |
+  | **Presentation (UI)** | `DeploymentStatusBadge` | Add View Logs icon button, pass targetId to ServerLogViewer |
+
+  ### Data Flow
+
+  ```
+  ChildProcess stdout/stderr
+           ↓
+  DeploymentService.attachOutputListener()
+    → accumulate in ring buffer (LogEntry[])
+    → emit('log', logEntry) via EventEmitter
+           ↓                        ↓
+  getLogs() server action    SSE /api/deployment-logs
+    → returns LogEntry[]      → subscribes to EventEmitter
+    → initial load             → streams new LogEntry as SSE events
+           ↓                        ↓
+  useDeploymentLogs hook (client)
+    → merges initial + SSE logs
+    → returns logs state
+           ↓
+  ServerLogViewer component
+    → renders in Dialog modal
+    → auto-scroll behavior
+    → stderr colored red/orange
+  ```
+
+  ### Key Integration Points
+
+  1. **DeploymentService (infrastructure):** The `attachOutputListener()` method already splits chunks into lines. The change is minimal: after splitting, push each complete line into the ring buffer and emit an event. The existing port-detection logic continues to work unchanged.
+
+  2. **IDeploymentService interface (application port):** Add three methods: `getLogs(targetId)` returns the buffer snapshot, `on(event, handler)` subscribes to log events, `off(event, handler)` unsubscribes. Define the `LogEntry` interface here.
+
+  3. **DeploymentStatusBadge (presentation):** Currently receives `{ status, url }` props. Add `targetId` prop. Render a Terminal icon button next to the URL when status is Booting or Ready. The button opens the ServerLogViewer dialog.
+
+  4. **Parent components (RepositoryNode, BaseDrawer):** Pass `targetId` through to DeploymentStatusBadge. Both already have access to the targetId via their deploy action props.
+
+  ### Existing Patterns Leveraged
+
+  - **SSE boilerplate:** Copied from `/api/agent-events/route.ts` with minimal adaptation
+  - **Server action pattern:** Same as `getDeploymentStatus.ts` — validate input, resolve service, return data
+  - **DI resolution:** Same `resolve<IDeploymentService>('IDeploymentService')` pattern
+  - **Feature flag gating:** Same `featureFlags.envDeploy` check already used in BaseDrawer and RepositoryNode
+  - **Storybook stories:** Same meta/StoryObj pattern with `tags: ['autodocs']`
+  - **Test pattern:** Same vitest mocking of `resolve()` and fake timers for async behavior

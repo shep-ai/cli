@@ -12,6 +12,18 @@
 
 import type { DeploymentState } from '@/domain/generated/output.js';
 
+/** A single log line captured from a deployment's stdout or stderr. */
+export interface LogEntry {
+  /** Which deployment produced this line. */
+  targetId: string;
+  /** Which output stream produced this line. */
+  stream: 'stdout' | 'stderr';
+  /** The line content (without trailing newline). */
+  line: string;
+  /** Timestamp (ms since epoch) when the line was captured. */
+  timestamp: number;
+}
+
 /** Status snapshot returned by getStatus(). */
 export interface DeploymentStatus {
   /** Current lifecycle state of the deployment. */
@@ -64,4 +76,30 @@ export interface IDeploymentService {
    * Called during daemon shutdown to prevent orphaned dev server processes.
    */
   stopAll(): void;
+
+  // --- Log accumulation ---
+
+  /**
+   * Get the accumulated log buffer for a deployment.
+   *
+   * @param targetId - Unique identifier for the deployment target
+   * @returns Array of log entries in chronological order, or null if no deployment exists
+   */
+  getLogs(targetId: string): LogEntry[] | null;
+
+  /**
+   * Subscribe to real-time log events from all deployments.
+   *
+   * @param event - Event name (only 'log' is supported)
+   * @param handler - Callback invoked with each new log entry
+   */
+  on(event: 'log', handler: (entry: LogEntry) => void): void;
+
+  /**
+   * Unsubscribe from real-time log events.
+   *
+   * @param event - Event name (only 'log' is supported)
+   * @param handler - The same callback reference passed to on()
+   */
+  off(event: 'log', handler: (entry: LogEntry) => void): void;
 }

@@ -1,0 +1,487 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: server-log-viewer
+summary: >
+  14 tasks across 4 phases implementing the server log viewer feature. Phase 1 builds the backend
+  log buffer and service extensions. Phase 2 adds the SSE transport layer. Phase 3 creates the
+  client hook and UI component. Phase 4 integrates into existing components.
+
+relatedFeatures: []
+technologies: []
+relatedLinks: []
+
+tasks:
+  # ── Phase 1: Backend Foundation ──────────────────────────────────────────
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Implement LogRingBuffer class'
+    description: >
+      Create a generic ring buffer class that stores LogEntry objects with a configurable max
+      capacity. Supports push (O(1) append with oldest eviction), getAll (chronological order),
+      clear, and size. This is the core data structure for accumulating deployment logs. Extracted
+      into its own file for isolated testability.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'LogRingBuffer push() adds entries and getAll() returns them in insertion order'
+      - 'When buffer reaches capacity, oldest entries are evicted (FIFO)'
+      - 'getAll() returns entries in chronological order even after wrap-around'
+      - 'clear() empties the buffer and resets size to 0'
+      - 'Default capacity is 5000; custom capacity accepted via constructor'
+      - 'size property reflects current number of entries'
+    tdd:
+      red:
+        - 'Test push/getAll with fewer entries than capacity returns all in order'
+        - 'Test push at capacity evicts oldest entry'
+        - 'Test getAll returns chronological order after wrap-around (push capacity+N entries, verify order)'
+        - 'Test clear resets buffer to empty state'
+        - 'Test size property tracks current count correctly through push and clear'
+        - 'Test default capacity is 5000'
+      green:
+        - 'Implement LogRingBuffer with internal array, writeIndex, and count tracking'
+        - 'push: if count < capacity, append; else overwrite at writeIndex % capacity'
+        - 'getAll: slice from oldest entry position and concat to produce chronological order'
+        - 'clear: reset array, writeIndex, and count'
+      refactor:
+        - 'Ensure method naming matches codebase conventions'
+        - 'Add JSDoc comments if logic is non-obvious'
+    estimatedEffort: '1h'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Define LogEntry type and extend IDeploymentService interface'
+    description: >
+      Add the LogEntry interface (stream, line, timestamp) to the deployment service interface
+      file. Extend IDeploymentService with getLogs(targetId), on(event, handler), and off(event,
+      handler) methods. This establishes the contract that the infrastructure layer implements
+      and the presentation layer consumes.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'LogEntry type exported with stream ("stdout" | "stderr"), line (string), timestamp (number)'
+      - 'IDeploymentService has getLogs(targetId: string): LogEntry[] | null'
+      - 'IDeploymentService has on(event: "log", handler: (entry: LogEntry) => void): void'
+      - 'IDeploymentService has off(event: "log", handler: (entry: LogEntry) => void): void'
+      - 'TypeScript compiles without errors (pnpm build passes)'
+    tdd:
+      red:
+        - 'Type-check test: verify DeploymentService (infrastructure) fails to compile without implementing new methods'
+      green:
+        - 'Add LogEntry interface to deployment-service.interface.ts'
+        - 'Add getLogs, on, off method signatures to IDeploymentService'
+      refactor:
+        - 'Ensure LogEntry type is exported alongside DeploymentStatus'
+        - 'Group log-related methods together in the interface with a comment separator'
+    estimatedEffort: '30min'
+
+  - id: task-3
+    phaseId: phase-1
+    title: 'Integrate LogRingBuffer into DeploymentService'
+    description: >
+      Add a LogRingBuffer to each DeploymentEntry, compose an EventEmitter instance in
+      DeploymentService, and implement getLogs/on/off. Modify attachOutputListener to push
+      each complete stdout/stderr line into the ring buffer and emit a log event. Clear the
+      buffer on stop(), stopAll(), and process exit. This is the core backend change that
+      enables all downstream features.
+    state: Todo
+    dependencies:
+      - task-1
+      - task-2
+    acceptanceCriteria:
+      - 'Each deployment accumulates stdout lines as LogEntry with stream="stdout"'
+      - 'Each deployment accumulates stderr lines as LogEntry with stream="stderr"'
+      - 'getLogs(targetId) returns all buffered entries in chronological order'
+      - 'getLogs returns null for non-existent targetId'
+      - 'EventEmitter emits "log" event for each new line with the LogEntry payload'
+      - 'Log buffer is cleared when stop() is called'
+      - 'Log buffer is cleared when stopAll() is called'
+      - 'Log buffer is cleared on process exit event'
+      - 'Existing port detection behavior is unchanged'
+    tdd:
+      red:
+        - 'Test getLogs returns null for unknown targetId'
+        - 'Test start() + write to stdout → getLogs returns LogEntry with stream="stdout"'
+        - 'Test start() + write to stderr → getLogs returns LogEntry with stream="stderr"'
+        - 'Test on("log") handler receives LogEntry when line is emitted'
+        - 'Test stop() clears the log buffer (getLogs returns null after stop)'
+        - 'Test existing port detection still works after log integration'
+      green:
+        - 'Add logs: LogRingBuffer to DeploymentEntry'
+        - 'Compose private EventEmitter in DeploymentService constructor'
+        - 'In attachOutputListener, after splitting lines, push to ring buffer and emit event'
+        - 'Implement getLogs by looking up deployment and calling buffer.getAll()'
+        - 'Implement on/off by delegating to composed EventEmitter'
+        - 'Clear buffer in stop(), stopAll(), and exit handler before deleting entry'
+      refactor:
+        - 'Extract log-pushing logic into a private method if attachOutputListener gets too long'
+        - 'Ensure EventEmitter listeners are properly typed'
+    estimatedEffort: '2h'
+
+  # ── Phase 2: SSE Transport ──────────────────────────────────────────────
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Create getDeploymentLogs server action'
+    description: >
+      Create a server action at src/presentation/web/app/actions/get-deployment-logs.ts that
+      resolves IDeploymentService from DI and returns the log buffer for a given targetId.
+      Follows the exact pattern of the existing getDeploymentStatus server action.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'Exported async function getDeploymentLogs(targetId: string): Promise<LogEntry[] | null>'
+      - 'Returns null for empty/missing targetId (input validation)'
+      - 'Resolves IDeploymentService via resolve() from server-container'
+      - 'Returns the result of deploymentService.getLogs(targetId)'
+      - 'File has "use server" directive at top'
+    tdd:
+      red:
+        - 'Test returns null when targetId is empty string'
+        - 'Test returns null when targetId is whitespace-only'
+        - 'Test calls resolve and getLogs with correct targetId'
+        - 'Test returns LogEntry array from service'
+      green:
+        - 'Create get-deployment-logs.ts following getDeploymentStatus.ts pattern'
+        - 'Validate targetId, resolve service, return getLogs result'
+      refactor:
+        - 'Ensure import paths match codebase conventions'
+    estimatedEffort: '30min'
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Create /api/deployment-logs SSE endpoint'
+    description: >
+      Create an SSE API route at src/presentation/web/app/api/deployment-logs/route.ts that
+      streams log events from DeploymentService to the client in real-time. Follows the
+      agent-events SSE pattern: ReadableStream, TextEncoder, heartbeat (30s), abort cleanup.
+      The key difference is subscribing to EventEmitter instead of polling a database.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'GET handler returns Response with Content-Type text/event-stream'
+      - 'Accepts targetId query parameter'
+      - 'Returns error SSE event and closes stream if targetId is missing'
+      - 'Subscribes to service.on("log") for real-time events'
+      - 'Emits SSE events with "data: JSON" format for each log line'
+      - 'Sends heartbeat comment every 30 seconds'
+      - 'Cleans up EventEmitter subscription on client disconnect (abort signal)'
+      - 'Exports dynamic = "force-dynamic"'
+      - 'Handles case where deployment does not exist gracefully'
+    tdd:
+      red:
+        - 'Test returns text/event-stream content type'
+        - 'Test returns error event when targetId is missing'
+        - 'Test subscribes to service.on("log") on connection'
+        - 'Test unsubscribes service.off("log") on abort'
+        - 'Test emits SSE-formatted data for log events'
+        - 'Test heartbeat is sent at 30s interval'
+      green:
+        - 'Create route.ts with GET handler following agent-events boilerplate'
+        - 'Parse targetId from URL searchParams'
+        - 'Create ReadableStream with EventEmitter subscription in start()'
+        - 'Forward log events as SSE data frames'
+        - 'Set up heartbeat interval and abort cleanup'
+      refactor:
+        - 'Extract SSE helper utilities if shared with agent-events (only if clearly beneficial)'
+        - 'Ensure error handling matches codebase conventions'
+    estimatedEffort: '1.5h'
+
+  # ── Phase 3: UI Components ─────────────────────────────────────────────
+
+  - id: task-6
+    phaseId: phase-3
+    title: 'Create useDeploymentLogs client hook'
+    description: >
+      Build a React hook that manages the full log lifecycle: initial fetch via
+      getDeploymentLogs server action, EventSource connection to /api/deployment-logs for
+      live updates, log state accumulation, and connection status tracking. Returns
+      { logs, isConnected } for the component to consume.
+    state: Todo
+    dependencies:
+      - task-4
+      - task-5
+    acceptanceCriteria:
+      - 'Hook accepts targetId string parameter'
+      - 'On mount, fetches initial logs via getDeploymentLogs server action'
+      - 'Connects EventSource to /api/deployment-logs?targetId=xxx'
+      - 'Appends new SSE log events to state'
+      - 'Returns logs array and isConnected boolean'
+      - 'Cleans up EventSource on unmount'
+      - 'Handles reconnection with backoff on error'
+      - 'Does not connect when targetId is null/undefined'
+    tdd:
+      red:
+        - 'Test initial logs are fetched via server action on mount'
+        - 'Test EventSource connects to correct URL with targetId'
+        - 'Test new SSE events are appended to logs state'
+        - 'Test EventSource is closed on unmount'
+        - 'Test isConnected reflects connection status'
+        - 'Test does not connect when targetId is falsy'
+      green:
+        - 'Create useDeploymentLogs hook with useState for logs and isConnected'
+        - 'useEffect to fetch initial logs and set up EventSource'
+        - 'EventSource onmessage parses JSON and appends to logs'
+        - 'Return cleanup function that closes EventSource'
+      refactor:
+        - 'Extract EventSource setup into a helper if the hook grows complex'
+        - 'Ensure state updates are batched properly with React 18'
+    estimatedEffort: '1.5h'
+
+  - id: task-7
+    phaseId: phase-3
+    title: 'Build ServerLogViewer component (dialog, log rendering, auto-scroll)'
+    description: >
+      Create the ServerLogViewer component: a near-full-screen Dialog modal with dark terminal
+      styling, monospace font, and scrollable log content. Renders each log line as a div with
+      conditional coloring (red/orange for stderr). Implements auto-scroll behavior that pauses
+      when user scrolls up and resumes when they scroll to the bottom.
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'Renders a Dialog with near-full-screen sizing (calc(100vw-48px) x calc(100vh-48px))'
+      - 'Dialog has DialogTitle for accessibility'
+      - 'Dark background with monospace font (terminal aesthetic)'
+      - 'Each log line rendered as a separate div'
+      - 'Stderr lines displayed in red/orange color'
+      - 'Stdout lines displayed in default light/white color'
+      - 'Auto-scrolls to bottom when new lines arrive'
+      - 'Auto-scroll pauses when user scrolls up (more than 50px from bottom)'
+      - 'Auto-scroll resumes when user scrolls back to bottom'
+      - 'Shows deployment status indicator in header'
+      - 'Shows "[Server stopped]" message when SSE disconnects'
+      - 'Component is a client component (use client directive)'
+      - 'Accessible: Escape closes, focus trapped, Tab navigation works'
+    tdd:
+      red:
+        - 'Test renders Dialog with log lines when open'
+        - 'Test stderr lines have red/orange styling class'
+        - 'Test stdout lines have default styling class'
+        - 'Test renders empty state message when no logs'
+        - 'Test Dialog can be closed via onOpenChange'
+        - 'Test renders DialogTitle for accessibility'
+      green:
+        - 'Create ServerLogViewer with Dialog, ScrollArea, and log line rendering'
+        - 'Accept open/onOpenChange/targetId props'
+        - 'Use useDeploymentLogs hook for log data'
+        - 'Implement auto-scroll with useRef and scroll event handler'
+        - 'Apply conditional className for stderr vs stdout lines'
+      refactor:
+        - 'Extract LogLine sub-component if rendering logic is complex'
+        - 'Ensure Tailwind classes follow codebase patterns'
+        - 'Verify dark theme contrast ratios meet accessibility standards'
+    estimatedEffort: '2.5h'
+
+  - id: task-8
+    phaseId: phase-3
+    title: 'Create ServerLogViewer Storybook stories'
+    description: >
+      Create colocated Storybook stories for ServerLogViewer covering all representative visual
+      states. Stories must mock the useDeploymentLogs hook to provide controlled log data.
+      This is mandatory per project rules — all UI components must have stories.
+    state: Todo
+    dependencies:
+      - task-7
+    acceptanceCriteria:
+      - 'Stories file at server-log-viewer/server-log-viewer.stories.tsx'
+      - 'Meta has title "Common/ServerLogViewer" and tags ["autodocs"]'
+      - 'Story: Empty — no log lines, shows empty state'
+      - 'Story: FewLines — 5-10 stdout-only lines'
+      - 'Story: MixedOutput — interleaved stdout and stderr showing color differentiation'
+      - 'Story: ManyLines — 100+ lines demonstrating scrollable content'
+      - 'Story: LongLines — lines exceeding viewport width showing wrap/scroll behavior'
+      - 'Story: Disconnected — shows server stopped state'
+    tdd: null
+    estimatedEffort: '1h'
+
+  - id: task-9
+    phaseId: phase-3
+    title: 'Create useDeploymentLogs hook tests'
+    description: >
+      Write comprehensive tests for the useDeploymentLogs hook covering initialization,
+      EventSource lifecycle, state management, and cleanup. Uses renderHook from
+      testing-library, mocked server actions, and mock EventSource.
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'Tests cover initial fetch, SSE connection, state updates, cleanup, and error handling'
+      - 'All tests pass with pnpm test:unit'
+    tdd:
+      red:
+        - 'Test hook returns empty logs initially then populates after fetch'
+        - 'Test EventSource receives events and appends to logs'
+        - 'Test cleanup closes EventSource on unmount'
+        - 'Test reconnection attempts on EventSource error'
+        - 'Test does not fetch or connect when targetId is null'
+      green:
+        - 'Already implemented in task-6; this task adds additional edge case tests'
+      refactor:
+        - 'Consolidate test setup into beforeEach helpers'
+        - 'Ensure test isolation with proper mock cleanup'
+    estimatedEffort: '1h'
+
+  # ── Phase 4: Integration ───────────────────────────────────────────────
+
+  - id: task-10
+    phaseId: phase-4
+    title: 'Add View Logs button to DeploymentStatusBadge'
+    description: >
+      Modify the DeploymentStatusBadge component to accept a targetId prop and render a
+      Terminal icon button next to the server URL when deployment state is Booting or Ready.
+      The button opens the ServerLogViewer dialog. The button must be visually integrated
+      with the existing badge styling. This ensures the log viewer appears automatically
+      in both RepositoryNode and BaseDrawer (FR-11).
+    state: Todo
+    dependencies:
+      - task-7
+    acceptanceCriteria:
+      - 'DeploymentStatusBadgeProps extended with optional targetId: string'
+      - 'Terminal icon button rendered next to URL when status is Booting or Ready'
+      - 'Button click opens ServerLogViewer dialog with targetId'
+      - 'Button has accessible label (aria-label="View server logs")'
+      - 'No button rendered when targetId is not provided (backward compatible)'
+      - 'No button rendered when status is null or other states'
+      - 'ServerLogViewer dialog manages its own open/close state'
+    tdd:
+      red:
+        - 'Test no button rendered when targetId is undefined'
+        - 'Test button rendered when status is Booting and targetId provided'
+        - 'Test button rendered when status is Ready and targetId provided'
+        - 'Test no button rendered when status is null even with targetId'
+        - 'Test button click opens the log viewer dialog'
+        - 'Test button has correct aria-label'
+      green:
+        - 'Add targetId prop to DeploymentStatusBadgeProps'
+        - 'Add state for dialog open/close'
+        - 'Render Terminal icon button conditionally in Booting and Ready cases'
+        - 'Render ServerLogViewer dialog controlled by state'
+      refactor:
+        - 'Ensure button styling integrates with existing badge layout'
+        - 'Verify button does not affect existing badge tests'
+    estimatedEffort: '1h'
+
+  - id: task-11
+    phaseId: phase-4
+    title: 'Update DeploymentStatusBadge Storybook stories'
+    description: >
+      Add new stories to the existing DeploymentStatusBadge stories file showing the View Logs
+      button in Booting and Ready states. Update existing stories if needed to reflect the new
+      targetId prop.
+    state: Todo
+    dependencies:
+      - task-10
+    acceptanceCriteria:
+      - 'Story: BootingWithLogs — shows badge with log button in booting state'
+      - 'Story: ReadyWithLogs — shows badge with URL and log button'
+      - 'Existing stories still work without targetId (backward compatible)'
+    tdd: null
+    estimatedEffort: '30min'
+
+  - id: task-12
+    phaseId: phase-4
+    title: 'Thread targetId through RepositoryNode to DeploymentStatusBadge'
+    description: >
+      Pass the targetId from useDeployAction through to DeploymentStatusBadge in the
+      RepositoryNode component so the log viewer button connects to the correct deployment.
+      The targetId is already available in the deploy action input.
+    state: Todo
+    dependencies:
+      - task-10
+    acceptanceCriteria:
+      - 'DeploymentStatusBadge in RepositoryNode receives targetId prop'
+      - 'targetId is the correct deployment target ID from deploy action input'
+      - 'Feature flag gating (featureFlags.envDeploy) still applies'
+      - 'No changes to RepositoryNode behavior when envDeploy flag is disabled'
+    tdd:
+      red:
+        - 'Test DeploymentStatusBadge receives targetId when rendered in RepositoryNode'
+        - 'Test targetId is not passed when featureFlags.envDeploy is false'
+      green:
+        - 'Pass targetId from deployActionInput to DeploymentStatusBadge in RepositoryNode'
+      refactor:
+        - 'Verify no unnecessary re-renders from new prop'
+    estimatedEffort: '30min'
+
+  - id: task-13
+    phaseId: phase-4
+    title: 'Thread targetId through BaseDrawer DeployBar to DeploymentStatusBadge'
+    description: >
+      Pass the targetId from the deploy action through to DeploymentStatusBadge in the
+      BaseDrawer's DeployBar section. Similar to RepositoryNode integration — ensure the
+      log viewer works from the drawer context too.
+    state: Todo
+    dependencies:
+      - task-10
+    acceptanceCriteria:
+      - 'DeploymentStatusBadge in BaseDrawer DeployBar receives targetId prop'
+      - 'targetId is the correct deployment target ID from deployTarget prop'
+      - 'Feature flag gating still applies'
+      - 'No changes to BaseDrawer behavior when envDeploy flag is disabled'
+    tdd:
+      red:
+        - 'Test DeploymentStatusBadge receives targetId in BaseDrawer DeployBar context'
+      green:
+        - 'Pass targetId from deployTarget to DeploymentStatusBadge in BaseDrawer'
+      refactor:
+        - 'Ensure DeployBar component signature remains clean'
+    estimatedEffort: '30min'
+
+  - id: task-14
+    phaseId: phase-4
+    title: 'End-to-end validation and type-check'
+    description: >
+      Run the full validation suite (pnpm validate) and unit tests (pnpm test:unit) to
+      ensure all new code integrates correctly, types compile, lint passes, and no regressions
+      are introduced. Fix any issues found.
+    state: Todo
+    dependencies:
+      - task-10
+      - task-11
+      - task-12
+      - task-13
+    acceptanceCriteria:
+      - 'pnpm validate passes (lint + format + typecheck + tsp)'
+      - 'pnpm test:unit passes with all new and existing tests'
+      - 'pnpm build succeeds'
+      - 'No TypeScript errors in new or modified files'
+      - 'All Storybook stories render without errors'
+    tdd: null
+    estimatedEffort: '1h'
+
+totalEstimate: '14h'
+
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation is organized into 14 tasks across 4 phases, following a bottom-up approach
+  through the Clean Architecture layers.
+
+  **Phase 1 (Backend Foundation, ~3.5h)** establishes the data layer: a LogRingBuffer class is
+  built and tested in isolation, then the IDeploymentService interface is extended with log methods
+  (getLogs, on, off) and the LogEntry type, and finally DeploymentService integrates the buffer
+  with EventEmitter-based notifications in its existing attachOutputListener method.
+
+  **Phase 2 (SSE Transport, ~2h)** builds the server-side API layer: a getDeploymentLogs server
+  action for initial log fetching (mirroring the existing getDeploymentStatus pattern) and an
+  SSE API route at /api/deployment-logs for real-time streaming (mirroring the agent-events SSE
+  boilerplate but using EventEmitter subscription instead of database polling).
+
+  **Phase 3 (UI Components, ~6h)** builds the client-side layer: a useDeploymentLogs hook managing
+  initial fetch + EventSource + state, the ServerLogViewer Dialog component with terminal styling
+  and auto-scroll, plus mandatory Storybook stories and thorough hook tests.
+
+  **Phase 4 (Integration, ~3.5h)** wires everything together: the View Logs button is added to
+  DeploymentStatusBadge (ensuring it appears in both RepositoryNode and BaseDrawer automatically),
+  targetId is threaded through parent components, Storybook stories are updated, and a final
+  validation pass ensures everything compiles, tests pass, and lint is clean.
+
+  Each code task follows TDD discipline: write failing tests first (RED), implement the minimum
+  code to pass (GREEN), then clean up (REFACTOR). Non-code tasks (stories, validation) skip TDD.

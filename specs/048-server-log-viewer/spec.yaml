@@ -1,0 +1,292 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: server-log-viewer
+number: 048
+branch: feat/048-server-log-viewer
+oneLiner: Add a log viewer button near the server URL that opens a full-screen modal showing live dev server stdout/stderr
+summary: >
+  When a dev server is running via "click to deploy", users currently see only a URL badge but have
+  no way to view the server's stdout/stderr output. This feature adds a "View Logs" button next to
+  the server URL in the DeploymentStatusBadge that opens a full-screen Dialog modal with
+  auto-scrolling, live-updating log output streamed from the DeploymentService. The backend must
+  accumulate complete log history (currently discarded after port detection) and expose it via a
+  new getLogs() interface method and server action, with an SSE endpoint for real-time streaming.
+phase: Requirements
+sizeEstimate: M
+
+relatedFeatures: []
+
+technologies:
+  - React 18 (client components, hooks, state management)
+  - Next.js App Router (server actions, SSE API routes)
+  - shadcn/ui Dialog (Radix UI Dialog primitive for full-screen modal)
+  - Tailwind CSS (styling, dark theme for log viewer)
+  - lucide-react (icons for log viewer button)
+  - TypeSpec (if DeploymentStatus model needs logs field)
+  - Storybook (mandatory colocated stories for new components)
+  - Radix UI ScrollArea (scrollable log content container)
+  - Server-Sent Events (real-time log streaming to browser)
+
+relatedLinks: []
+
+openQuestions:
+  - question: 'Should log delivery use polling or Server-Sent Events (SSE)?'
+    resolved: true
+    options:
+      - option: 'SSE streaming'
+        description: >
+          Use a dedicated SSE endpoint (like the existing /api/agent-events pattern) to push new
+          log lines to the client in real-time. Lower latency (~instant), lower server load (no
+          repeated request overhead), and a proven pattern already in the codebase. Requires a new
+          API route but the boilerplate is well-established.
+        selected: true
+      - option: 'Polling (extend existing 3s pattern)'
+        description: >
+          Reuse the existing polling approach from useDeployAction at 3s intervals. Simpler to
+          implement but introduces 0-3s latency for log updates, higher server load from repeated
+          requests, and transfers full log payload each time (or requires cursor-based diffing).
+        selected: false
+      - option: 'Polling at 1s interval'
+        description: >
+          Faster polling (1s) reduces latency but increases server load 3x compared to current
+          polling. Still not real-time and still requires cursor/offset logic to avoid re-sending
+          the full log each time.
+        selected: false
+    selectionRationale: >
+      SSE is recommended because the codebase already has a well-tested SSE pattern in
+      /api/agent-events/route.ts with heartbeat, cleanup, and ReadableStream setup. Logs are
+      inherently a streaming use case — users expect to see output appear as it happens, not with
+      a multi-second delay. SSE delivers sub-100ms latency with lower server overhead than polling.
+    answer: 'SSE streaming'
+
+  - question: 'Should stdout and stderr be displayed as separate streams or interleaved?'
+    resolved: true
+    options:
+      - option: 'Interleaved (single stream)'
+        description: >
+          Merge stdout and stderr into a single chronological stream, similar to how a terminal
+          displays output. Simpler UI, matches user mental model of "seeing the terminal output".
+          Stderr lines can be visually distinguished with red/orange coloring. This is the most
+          common pattern in log viewer UIs (e.g., Vercel, Railway, Docker Desktop).
+        selected: true
+      - option: 'Separate tabs or panels'
+        description: >
+          Show stdout and stderr in separate tabs or split panels. Allows focused viewing of one
+          stream. More complex UI, splits the user's attention, and loses chronological ordering
+          between the two streams. Useful for high-volume servers but over-engineered for dev servers.
+        selected: false
+      - option: 'Interleaved with filter toggles'
+        description: >
+          Single interleaved stream with toggle buttons to show/hide stdout or stderr independently.
+          Best of both worlds but adds UI complexity. Could be a future enhancement.
+        selected: false
+    selectionRationale: >
+      Interleaved display is recommended because dev server output is typically low-to-moderate
+      volume where chronological ordering matters most. Users want to see "what just happened" in
+      order, not switch between tabs. Stderr lines visually marked in red/orange provide sufficient
+      differentiation. This matches the mental model of watching a terminal. Filter toggles can be
+      added in a future iteration if users request it.
+    answer: 'Interleaved (single stream)'
+
+  - question: 'What should the maximum log buffer size be to prevent memory issues?'
+    resolved: true
+    options:
+      - option: '5,000 lines'
+        description: >
+          Keeps roughly 500KB-1MB in memory per deployment (assuming ~100-200 bytes per line).
+          Sufficient for most dev server sessions. Older lines are dropped from the front (ring
+          buffer). Low memory footprint, covers 15-30 minutes of typical dev server output.
+        selected: true
+      - option: '10,000 lines'
+        description: >
+          Covers longer sessions (~30-60 minutes of output). Higher memory use (~1-2MB per
+          deployment) but still reasonable. May be more than users can meaningfully scroll through.
+        selected: false
+      - option: '1,000 lines'
+        description: >
+          Very conservative. Only covers ~3-5 minutes of output. Users may lose important context
+          from earlier in the session. Low memory but potentially frustrating.
+        selected: false
+      - option: 'Unlimited (no cap)'
+        description: >
+          No line limit. Risks unbounded memory growth for long-running dev servers. Not suitable
+          for an in-memory buffer without disk persistence.
+        selected: false
+    selectionRationale: >
+      5,000 lines balances memory safety with usability. A typical dev server emits 2-5 lines per
+      request, so 5,000 lines covers hundreds of requests — more than enough for debugging. The
+      ~1MB memory overhead per deployment is negligible. A ring buffer (FIFO) ensures the most
+      recent output is always available.
+    answer: '5,000 lines'
+
+  - question: 'When should the View Logs button be visible?'
+    resolved: true
+    options:
+      - option: 'Booting and Ready states'
+        description: >
+          Show the button as soon as deployment starts (Booting) and keep it visible while Ready.
+          Users can watch startup logs in real-time, which is the primary debugging use case
+          (e.g., seeing compilation errors, missing env vars). Disappears when Stopped.
+        selected: true
+      - option: 'Ready state only'
+        description: >
+          Only show once the server is confirmed running. Misses the critical startup phase where
+          most errors occur. Users cannot see boot logs until the server is fully up — defeating
+          the primary debugging purpose.
+        selected: false
+      - option: 'Always (including after stop)'
+        description: >
+          Keep the button visible even after the server stops so users can review final logs.
+          More complex state management and the DeploymentStatusBadge currently disappears on
+          stop, so this would require restructuring the badge visibility logic.
+        selected: false
+    selectionRationale: >
+      Showing during both Booting and Ready states is essential because the primary use case is
+      debugging startup failures — users need to see why a server failed to boot or what errors
+      occur during initialization. The button should appear alongside the DeploymentStatusBadge
+      which already renders during both states.
+    answer: 'Booting and Ready states'
+
+  - question: 'Should the log viewer support text search/filtering?'
+    resolved: true
+    options:
+      - option: 'No search (v1)'
+        description: >
+          Keep the first version simple — just scrollable log output with auto-scroll. Text search
+          adds significant UI complexity (search bar, highlight matches, navigate between matches).
+          Users can use browser Cmd+F as a stopgap. Search can be added in a follow-up feature.
+        selected: true
+      - option: 'Basic search with highlight'
+        description: >
+          Add a search input that highlights matching lines. Useful but increases scope
+          significantly — needs debounced search, match counting, keyboard navigation between
+          matches, and scroll-to-match behavior.
+        selected: false
+    selectionRationale: >
+      Omitting search in v1 keeps the feature focused and shippable. The primary need is visibility
+      into server output, not searching through it. Browser Cmd+F works as a fallback. A follow-up
+      feature can add proper search if user feedback indicates demand.
+    answer: 'No search (v1)'
+
+  - question: 'Should the log viewer modal be full-screen or a large centered dialog?'
+    resolved: true
+    options:
+      - option: 'Near-full-screen dialog (inset)'
+        description: >
+          A dialog taking ~95% of the viewport with a small border/margin, showing the overlay
+          behind it. Familiar modal UX with clear dismissal affordances (X button, overlay click,
+          Escape key). The slight inset reminds users they are in a modal and can close it.
+          This is the Vercel/Railway log viewer pattern.
+        selected: true
+      - option: 'True full-screen (100% viewport)'
+        description: >
+          Takes the entire screen with no border. Maximizes log viewing area but loses the modal
+          context — users may not realize they can close it. Requires custom close button placement.
+        selected: false
+      - option: 'Side panel (drawer)'
+        description: >
+          Slides in from the right as a panel. Preserves the main UI context but provides limited
+          width for log lines which are often long. The codebase already uses Vaul Drawer but its
+          max width may truncate log lines.
+        selected: false
+    selectionRationale: >
+      A near-full-screen inset dialog provides maximum log viewing area while maintaining clear
+      modal semantics. The existing shadcn/ui Dialog component supports custom sizing via className
+      overrides. The slight inset (e.g., 16-24px margin) with visible overlay gives users clear
+      context about how to dismiss the viewer.
+    answer: 'Near-full-screen dialog (inset)'
+
+content: |
+  ## Problem Statement
+
+  When a dev server is running via the "click to deploy" feature, users can see the server URL in
+  a green `DeploymentStatusBadge` but have no way to view the server's stdout/stderr output from
+  the web UI. This makes it impossible to debug server startup issues, see request logs, or
+  diagnose errors without switching to a terminal.
+
+  The `DeploymentService` already captures stdout and stderr from the child process, but complete
+  lines are currently discarded after port detection — only incomplete trailing lines remain in
+  `stdoutBuffer`/`stderrBuffer`. A full log history must be accumulated separately and exposed
+  through the service interface.
+
+  ## Success Criteria
+
+  - [ ] A "View Logs" icon button appears next to the server URL in DeploymentStatusBadge when deployment state is Booting or Ready
+  - [ ] Clicking the button opens a near-full-screen Dialog modal with monospace-formatted log output
+  - [ ] The log viewer displays interleaved stdout/stderr lines in chronological order with stderr visually distinguished (red/orange text)
+  - [ ] New log lines appear in the viewer within 1 second of being emitted by the server process (via SSE)
+  - [ ] The log viewer auto-scrolls to the bottom as new lines arrive, unless the user has manually scrolled up
+  - [ ] The modal can be closed via X button, Escape key, or clicking the overlay
+  - [ ] The DeploymentService accumulates up to 5,000 log lines per deployment in a ring buffer
+  - [ ] The log viewer works identically in both the flow canvas (RepositoryNode) and the BaseDrawer DeployBar
+  - [ ] All new UI components have colocated Storybook stories
+  - [ ] All new code has unit test coverage following TDD (RED → GREEN → REFACTOR)
+  - [ ] The feature is gated behind the existing `featureFlags.envDeploy` flag
+
+  ## Functional Requirements
+
+  - **FR-1**: The `DeploymentService` MUST accumulate all stdout and stderr lines in a per-deployment log buffer, separate from the existing port-detection buffers. Each log entry MUST include the source stream (stdout/stderr) and the line content.
+  - **FR-2**: The log buffer MUST implement a ring buffer (FIFO) with a maximum capacity of 5,000 lines per deployment. When the buffer is full, the oldest lines MUST be dropped.
+  - **FR-3**: The `IDeploymentService` interface MUST expose a `getLogs(targetId: string)` method that returns the accumulated log lines for a given deployment, or null if the deployment does not exist.
+  - **FR-4**: A new server action `getDeploymentLogs(targetId)` MUST fetch the current log buffer contents from the DeploymentService for initial log loading when the modal opens.
+  - **FR-5**: A new SSE API route (`/api/deployment-logs`) MUST stream new log lines to the client in real-time. It MUST accept a `targetId` query parameter, emit log lines as SSE events, send periodic heartbeats (every 30s), and clean up on client disconnect.
+  - **FR-6**: The `DeploymentStatusBadge` component MUST render a "View Logs" icon button (Terminal or ScrollText icon from lucide-react) next to the server URL when the deployment state is Booting or Ready.
+  - **FR-7**: A new `ServerLogViewer` component MUST render a near-full-screen Dialog modal containing the log output. The modal MUST display log lines in a monospace font with a dark background (terminal aesthetic).
+  - **FR-8**: Stderr lines in the log viewer MUST be visually distinguished from stdout lines using red or orange text coloring.
+  - **FR-9**: The log viewer MUST auto-scroll to the bottom as new lines arrive. If the user manually scrolls up (away from the bottom), auto-scroll MUST pause. Auto-scroll MUST resume when the user scrolls back to the bottom.
+  - **FR-10**: The log viewer MUST connect to the SSE endpoint on mount and disconnect on unmount or modal close. On initial open, it MUST fetch existing logs via the server action, then subscribe to the SSE stream for new lines.
+  - **FR-11**: The log viewer MUST be accessible from both the flow canvas DeploymentStatusBadge (in RepositoryNode) and the BaseDrawer DeployBar.
+  - **FR-12**: The log buffer MUST be cleared when a deployment is stopped (via `stop()` or `stopAll()`), so stale logs from a previous session are not shown on re-deploy.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1**: Log lines MUST appear in the viewer within 1 second of being emitted by the server process (SSE latency target).
+  - **NFR-2**: The log viewer MUST handle at least 5,000 lines without noticeable scroll jank or UI lag. Virtualized rendering is NOT required for v1 but the component architecture should allow it to be added later.
+  - **NFR-3**: The SSE connection MUST include a 30-second heartbeat to prevent proxy/load-balancer timeouts, following the existing agent-events SSE pattern.
+  - **NFR-4**: Memory usage per deployment MUST NOT exceed ~2MB for the log buffer (5,000 lines × ~200 bytes average line length + overhead).
+  - **NFR-5**: The log viewer MUST be keyboard-accessible: Escape to close, Tab to navigate interactive elements within the modal.
+  - **NFR-6**: The log viewer MUST use the existing `featureFlags.envDeploy` feature flag — it MUST NOT render if the flag is disabled.
+  - **NFR-7**: All new components MUST have colocated `.stories.tsx` files with representative states (empty logs, few lines, many lines, mixed stdout/stderr, long lines).
+  - **NFR-8**: The ServerLogViewer component MUST be a client component (`'use client'`) since it manages SSE connections and scroll state.
+  - **NFR-9**: The SSE endpoint MUST gracefully handle the case where the requested targetId does not exist or the deployment has stopped, by sending an appropriate event and closing the stream.
+  - **NFR-10**: The log viewer font size MUST be readable (14px monospace minimum) and long lines MUST wrap or be horizontally scrollable, not truncated silently.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Should log delivery use polling or SSE? | SSE streaming | Codebase already has SSE pattern; logs are inherently streaming; sub-100ms latency vs 0-3s with polling |
+  | 2 | Should stdout/stderr be separate or interleaved? | Interleaved (single stream) | Matches terminal mental model; dev server volume is low enough; stderr distinguished by color |
+  | 3 | What maximum log buffer size? | 5,000 lines | ~1MB memory; covers hundreds of requests; ring buffer drops oldest lines |
+  | 4 | When should View Logs button be visible? | Booting and Ready states | Startup debugging is the primary use case; button disappears when badge disappears on stop |
+  | 5 | Should the log viewer support text search? | No search (v1) | Keeps scope focused; browser Cmd+F is a stopgap; can add in follow-up |
+  | 6 | Full-screen or large centered dialog? | Near-full-screen dialog (inset) | Maximizes log area while maintaining modal semantics; matches Vercel/Railway pattern |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `packages/core/src/application/ports/output/services/deployment-service.interface.ts` | High | Add `getLogs(targetId)` method to `IDeploymentService` interface |
+  | `packages/core/src/infrastructure/services/deployment/deployment.service.ts` | High | Add log accumulation ring buffer to DeploymentEntry; implement `getLogs()`; clear logs on stop |
+  | `tsp/deployment/deployment.tsp` or `tsp/common/enums/deployment.tsp` | Low | May need a `DeploymentLogEntry` model if we want typed log responses, or can use a simple interface |
+  | `src/presentation/web/app/actions/get-deployment-logs.ts` | High | New server action to fetch logs from DeploymentService |
+  | `src/presentation/web/app/api/deployment-logs/route.ts` | High | New SSE endpoint for real-time log streaming |
+  | `src/presentation/web/components/common/deployment-status-badge/deployment-status-badge.tsx` | High | Add "View Logs" icon button next to the server URL when deployment is Booting or Ready |
+  | `src/presentation/web/components/common/server-log-viewer/` | High | New component: near-full-screen Dialog modal with monospace log output, auto-scroll, and live updates |
+  | `src/presentation/web/components/common/server-log-viewer/server-log-viewer.stories.tsx` | High | Mandatory Storybook stories for the new component |
+  | `src/presentation/web/components/common/base-drawer/base-drawer.tsx` | Medium | DeployBar also renders DeploymentStatusBadge — log button integration needed here too |
+  | `src/presentation/web/hooks/use-deployment-logs.ts` | Medium | New hook managing SSE connection, initial log fetch, and log state accumulation |
+  | `src/presentation/web/components/common/repository-node/repository-node.tsx` | Low | May need minor adjustments if DeploymentStatusBadge API changes (likely just props pass-through) |
+
+  ## Dependencies
+
+  - **DeploymentService log accumulation**: The current implementation discards complete stdout/stderr lines after port detection. A separate log buffer (array of `{stream, line}` entries) must be added to `DeploymentEntry` to retain full history.
+  - **shadcn/ui Dialog**: Already available in `components/ui/dialog.tsx` — no new library needed.
+  - **Radix UI ScrollArea**: Available in `components/ui/scroll-area.tsx` for scrollable log content.
+  - **Feature flag**: Log viewer is gated behind the existing `featureFlags.envDeploy` flag (`NEXT_PUBLIC_FLAG_ENV_DEPLOY`).
+  - **SSE pattern reference**: `/api/agent-events/route.ts` provides the exact boilerplate for ReadableStream, heartbeat, and cleanup.
+
+  ## Size Estimate
+
+  **M** — This feature touches ~10-12 files across 3 layers (infrastructure, application ports, presentation). The backend changes are straightforward (add a log buffer array + getLogs method + SSE endpoint following existing patterns). The main complexity is in the UI: building a performant near-full-screen log viewer with auto-scroll, SSE integration, and proper dark-themed terminal styling. All patterns (Dialog, SSE, server actions, DI resolution) already exist in the codebase. Estimated effort includes TDD test cycles and mandatory Storybook stories.

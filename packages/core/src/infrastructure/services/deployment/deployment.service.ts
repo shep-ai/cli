@@ -8,14 +8,17 @@
  */
 
 import { spawn, type ChildProcess } from 'node:child_process';
+import { EventEmitter } from 'node:events';
 import { DeploymentState } from '@/domain/generated/output.js';
 import type {
   IDeploymentService,
   DeploymentStatus,
+  LogEntry,
 } from '@/application/ports/output/services/deployment-service.interface.js';
 import { detectDevScript } from './detect-dev-script.js';
 import { createDeploymentLogger } from './deployment-logger.js';
 import { parsePort } from './parse-port.js';
+import { LogRingBuffer } from './log-ring-buffer.js';
 
 const log = createDeploymentLogger('[DeploymentService]');
 const POLL_INTERVAL_MS = 200;
@@ -29,6 +32,7 @@ interface DeploymentEntry {
   targetId: string;
   stdoutBuffer: string;
   stderrBuffer: string;
+  logs: LogRingBuffer;
 }
 
 export interface DeploymentServiceDeps {
@@ -55,6 +59,7 @@ const defaultDeps: DeploymentServiceDeps = {
 export class DeploymentService implements IDeploymentService {
   private readonly deployments = new Map<string, DeploymentEntry>();
   private readonly deps: DeploymentServiceDeps;
+  private readonly emitter = new EventEmitter();
 
   constructor(deps: Partial<DeploymentServiceDeps> = {}) {
     this.deps = { ...defaultDeps, ...deps };
@@ -112,6 +117,7 @@ export class DeploymentService implements IDeploymentService {
       targetId,
       stdoutBuffer: '',
       stderrBuffer: '',
+      logs: new LogRingBuffer(),
     };
 
     this.deployments.set(targetId, entry);
@@ -170,6 +176,8 @@ export class DeploymentService implements IDeploymentService {
 
     log.info(`stop("${targetId}") — sending SIGTERM to process group (pid=${entry.pid})`);
 
+    entry.logs.clear();
+
     // Send SIGTERM to process group
     try {
       this.deps.kill(-entry.pid, 'SIGTERM');
@@ -205,8 +213,32 @@ export class DeploymentService implements IDeploymentService {
    */
   stopAll(): void {
     for (const entry of this.deployments.values()) {
+      entry.logs.clear();
       this.killProcess(entry);
     }
+  }
+
+  /**
+   * Get the accumulated log buffer for a deployment.
+   */
+  getLogs(targetId: string): LogEntry[] | null {
+    const entry = this.deployments.get(targetId);
+    if (!entry) return null;
+    return entry.logs.getAll();
+  }
+
+  /**
+   * Subscribe to real-time log events.
+   */
+  on(event: 'log', handler: (entry: LogEntry) => void): void {
+    this.emitter.on(event, handler);
+  }
+
+  /**
+   * Unsubscribe from real-time log events.
+   */
+  off(event: 'log', handler: (entry: LogEntry) => void): void {
+    this.emitter.off(event, handler);
   }
 
   /**
@@ -221,7 +253,8 @@ export class DeploymentService implements IDeploymentService {
   }
 
   /**
-   * Attach a line-buffered listener on stdout or stderr that calls parsePort.
+   * Attach a line-buffered listener on stdout or stderr that calls parsePort
+   * and accumulates log entries.
    */
   private attachOutputListener(entry: DeploymentEntry, stream: 'stdout' | 'stderr'): void {
     const bufferKey = stream === 'stdout' ? 'stdoutBuffer' : 'stderrBuffer';
@@ -245,13 +278,24 @@ export class DeploymentService implements IDeploymentService {
         if (!line.trim()) continue;
         log.debug(`[${entry.targetId}] ${stream}: ${line}`);
 
-        if (entry.state !== DeploymentState.Booting) break;
-        const url = parsePort(line);
-        if (url) {
-          log.info(`[${entry.targetId}] Port detected — url="${url}" (from ${stream})`);
-          entry.state = DeploymentState.Ready;
-          entry.url = url;
-          break;
+        // Accumulate in log buffer and emit event
+        const logEntry: LogEntry = {
+          targetId: entry.targetId,
+          stream,
+          line,
+          timestamp: Date.now(),
+        };
+        entry.logs.push(logEntry);
+        this.emitter.emit('log', logEntry);
+
+        // Port detection (only while Booting)
+        if (entry.state === DeploymentState.Booting) {
+          const url = parsePort(line);
+          if (url) {
+            log.info(`[${entry.targetId}] Port detected — url="${url}" (from ${stream})`);
+            entry.state = DeploymentState.Ready;
+            entry.url = url;
+          }
         }
       }
     });

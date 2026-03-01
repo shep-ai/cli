@@ -156,7 +156,11 @@ function DeployBar({ deployTarget }: { deployTarget: DeployActionInput }) {
         </Tooltip>
       </TooltipProvider>
       {isDeploymentActive ? (
-        <DeploymentStatusBadge status={deployAction.status} url={deployAction.url} />
+        <DeploymentStatusBadge
+          status={deployAction.status}
+          url={deployAction.url}
+          targetId={deployTarget.targetId}
+        />
       ) : null}
     </div>
   );

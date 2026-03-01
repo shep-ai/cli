@@ -33,3 +33,13 @@ export const Stopped: Story = {
 export const NoDeployment: Story = {
   args: { status: null },
 };
+
+/** Booting with View Logs button — shows log button next to spinner. */
+export const BootingWithLogs: Story = {
+  args: { status: DeploymentState.Booting, targetId: 'demo-target' },
+};
+
+/** Ready with View Logs button — shows URL and log button. */
+export const ReadyWithLogs: Story = {
+  args: { status: DeploymentState.Ready, url: 'http://localhost:3000', targetId: 'demo-target' },
+};

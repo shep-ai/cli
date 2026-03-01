@@ -206,7 +206,11 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
                     </Tooltip>
                   </TooltipProvider>
                   {isDeploymentActive ? (
-                    <DeploymentStatusBadge status={deployAction.status} url={deployAction.url} />
+                    <DeploymentStatusBadge
+                      status={deployAction.status}
+                      url={deployAction.url}
+                      targetId={data.repositoryPath}
+                    />
                   ) : null}
                 </>
               ) : null}

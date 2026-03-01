@@ -51,9 +51,22 @@ vi.mock('@/lib/feature-flags', () => ({
 
 // Mock DeploymentStatusBadge
 vi.mock('@/components/common/deployment-status-badge', () => ({
-  DeploymentStatusBadge: ({ status, url }: { status: string | null; url?: string | null }) =>
+  DeploymentStatusBadge: ({
+    status,
+    url,
+    targetId,
+  }: {
+    status: string | null;
+    url?: string | null;
+    targetId?: string;
+  }) =>
     status ? (
-      <div data-testid="deployment-status-badge" data-status={status} data-url={url} />
+      <div
+        data-testid="deployment-status-badge"
+        data-status={status}
+        data-url={url}
+        data-target-id={targetId}
+      />
     ) : null,
 }));
 
@@ -374,6 +387,18 @@ describe('RepositoryNode', () => {
       renderNode(dataWithRepoPath);
 
       expect(screen.queryByTestId('deployment-status-badge')).not.toBeInTheDocument();
+    });
+
+    it('passes targetId (repositoryPath) to DeploymentStatusBadge', () => {
+      mockDeployHookReturn = {
+        ...mockDeployHookReturn,
+        status: 'Ready',
+        url: 'http://localhost:3000',
+      };
+      renderNode(dataWithRepoPath);
+
+      const badge = screen.getByTestId('deployment-status-badge');
+      expect(badge).toHaveAttribute('data-target-id', '/home/user/my-repo');
     });
   });
 

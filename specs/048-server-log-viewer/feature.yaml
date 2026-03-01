@@ -1,0 +1,42 @@
+feature:
+  id: 048-server-log-viewer
+  name: server-log-viewer
+  number: 48
+  branch: feat/048-server-log-viewer
+  lifecycle: research
+  createdAt: '2026-03-01T17:45:34Z'
+status:
+  phase: implementation-complete
+  progress:
+    completed: 14
+    total: 14
+    percentage: 100
+  currentTask: null
+  lastUpdated: '2026-03-01T18:32:55.740Z'
+  lastUpdatedBy: feature-agent:implement
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+    - plan
+    - phase-1
+    - phase-2
+    - phase-3
+    - phase-4
+    - merge
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-03-01T17:45:34Z'
+    completedBy: feature-agent
+prUrl: https://github.com/shep-ai/cli/pull/176
+errors:
+  current: null
+  history: []
