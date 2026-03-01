@@ -1,3 +1,9 @@
+## [1.68.1](https://github.com/shep-ai/cli/compare/v1.68.0...v1.68.1) (2026-03-01)
+
+### Bug Fixes
+
+- **web:** inline deploy button with open menu and right-align delete ([#172](https://github.com/shep-ai/cli/issues/172)) ([a986b1a](https://github.com/shep-ai/cli/commit/a986b1af330d626207fc84e06a781eb06d49887e))
+
 # [1.68.0](https://github.com/shep-ai/cli/compare/v1.67.0...v1.68.0) (2026-03-01)
 
 ### Features
