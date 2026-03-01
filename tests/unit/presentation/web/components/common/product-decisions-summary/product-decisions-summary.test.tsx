@@ -60,11 +60,13 @@ describe('ProductDecisionsSummary', () => {
       expect(screen.getByText('Optional TOTP')).toBeInTheDocument();
     });
 
-    it('renders rationale text for each question', () => {
+    it('does not render rationale text', () => {
       render(<ProductDecisionsSummary data={mockData} />);
 
-      expect(screen.getByText('Industry standard with broad provider support')).toBeInTheDocument();
-      expect(screen.getByText('Stateless and scalable across services')).toBeInTheDocument();
+      expect(
+        screen.queryByText('Industry standard with broad provider support')
+      ).not.toBeInTheDocument();
+      expect(screen.queryByText('Stateless and scalable across services')).not.toBeInTheDocument();
     });
   });
 
