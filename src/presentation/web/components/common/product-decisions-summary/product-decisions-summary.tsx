@@ -25,10 +25,6 @@ function ProductDecisionCard({ item, index }: { item: ProductDecisionItem; index
             </div>
           </div>
         </div>
-
-        {item.rationale ? (
-          <p className="text-muted-foreground text-xs leading-relaxed">{item.rationale}</p>
-        ) : null}
       </div>
     </div>
   );
