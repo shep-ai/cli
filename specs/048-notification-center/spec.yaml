@@ -1,0 +1,172 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: notification-center
+number: 048
+branch: feat/048-notification-center
+oneLiner: Persistent in-app notification center with chronological feed, read/unread state, and filtering
+
+summary: >
+  Add a Notification Center to the Shep web UI — a persistent, scrollable panel accessible via a bell icon
+  that aggregates all agent lifecycle notification events (including dismissed toasts) into a durable,
+  filterable feed with read/unread state, severity grouping, deep-link navigation, and bulk mark-as-read.
+
+phase: Analysis
+sizeEstimate: L
+
+relatedFeatures: []
+
+technologies:
+  - TypeScript
+  - TypeSpec (tsp/ domain models)
+  - React 19 (client components, hooks, context)
+  - Next.js 16+ (App Router, server components, API routes)
+  - shadcn/ui + Radix primitives (Popover, ScrollArea, Badge, Button)
+  - Tailwind CSS 4 (styling, cn() utility)
+  - Sonner (existing toast system — integration point)
+  - SQLite / better-sqlite3 (notification persistence)
+  - SSE / EventSource (existing real-time event delivery)
+  - Service Worker (existing agent-events-sw.js)
+  - Vitest + Testing Library (unit tests)
+  - Storybook 8 (component stories)
+  - Playwright (e2e tests)
+  - lucide-react (Bell, BellDot, Check, Filter icons)
+  - class-variance-authority (CVA variants)
+  - tsyringe (DI container registration)
+
+relatedLinks: []
+
+openQuestions: []
+
+content: |
+  ## Problem Statement
+
+  Currently, the Shep web UI dispatches agent lifecycle notifications exclusively as ephemeral Sonner toasts
+  and optional browser/desktop notifications (via `useNotifications` hook in `app-shell.tsx`). Once a toast
+  is dismissed or auto-hidden, the notification is permanently lost — there is no persistent history. Users
+  who step away from the browser, have multiple features running, or simply miss a toast have no way to
+  review past events. This creates a reliability gap: important status changes (agent failures, approval
+  requests, phase completions) can be silently missed, eroding trust in the autonomous workflow.
+
+  The Notification Center solves this by converting the ephemeral toast stream into a durable, queryable
+  notification log with a dedicated UI panel. Every `NotificationEvent` delivered via SSE will be both
+  shown as a toast (existing behavior) AND persisted into a new `notifications` SQLite table. The UI will
+  provide a bell icon with unread badge, a popover/drawer feed, read/unread management, severity-based
+  filtering, and deep-link navigation to the relevant feature.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The repository follows a monorepo layout with a core package and a Next.js web UI:
+
+  ```
+  packages/core/src/
+    domain/           — TypeSpec-generated models, value objects, factories
+    application/      — Use cases, port interfaces (output ports for repositories & services)
+    infrastructure/   — SQLite repos, agent services, notifications, DI container
+  src/presentation/
+    cli/              — Commander-based CLI
+    web/              — Next.js 16 App Router web UI
+      app/            — Pages, API routes, server actions
+      components/     — Four-tier hierarchy (ui → common → layouts → features)
+      hooks/          — Client-side hooks (agent-events, notifications, sound, theme)
+      lib/            — Utilities (server-container.ts, utils.ts)
+  tsp/                — TypeSpec domain model source (.tsp files)
+  tests/              — Unit, integration, e2e test suites
+  ```
+
+  ### Architecture Patterns
+
+  - **Clean Architecture** with strict dependency direction: Domain ← Application ← Infrastructure ← Presentation
+  - **TypeSpec-first modeling**: All domain types defined in `tsp/`, compiled to `packages/core/src/domain/generated/output.ts`. Never edit generated files.
+  - **DI via tsyringe**: All dependencies registered in `packages/core/src/infrastructure/di/container.ts` with string tokens for web route resolution.
+  - **SSE-based real-time updates**: `GET /api/agent-events` polls the DB every 500ms, diffs against a per-connection cache, and streams `NotificationEvent` deltas via SSE. A Service Worker (`agent-events-sw.js`) maintains the single SSE connection and broadcasts to all tabs.
+  - **Notification pipeline**: `NotificationService` (infrastructure) fans out `NotificationEvent` to the notification bus (EventEmitter singleton) and desktop notifier. The bus feeds the SSE endpoint. On the client, `useAgentEvents` hook → `AgentEventsProvider` context → `useNotifications` hook dispatches Sonner toasts and browser notifications.
+  - **Four-tier component hierarchy**: `ui/` (shadcn primitives) → `common/` (cross-feature composed) → `layouts/` (page shells) → `features/` (domain-specific). Each component has colocated `.stories.tsx` and `index.ts` barrel export.
+  - **Repository pattern**: Output port interfaces in `application/ports/output/`, concrete SQLite implementations in `infrastructure/repositories/`.
+  - **SQLite migrations**: Inline TypeScript migration list in `infrastructure/persistence/sqlite/migrations.ts`, tracked via `PRAGMA user_version`.
+
+  ### Relevant Technologies
+
+  | Technology | Role in Feature |
+  | --- | --- |
+  | TypeSpec | Define `Notification` entity model with id, read/unread, severity, timestamps |
+  | SQLite | New `notifications` table for persistent storage |
+  | tsyringe DI | Register `INotificationRepository`, new use cases |
+  | SSE / agent-events | Existing delivery channel — intercept events for persistence |
+  | React hooks | New `useNotificationCenter` hook for feed state, filters, mark-as-read |
+  | shadcn/ui Popover | Bell icon trigger + notification feed panel |
+  | Sonner | Continue existing toast behavior alongside persistence |
+  | lucide-react | Bell, BellDot, Check, Filter, CheckCheck icons |
+  | Storybook | Stories for all new components |
+  | Vitest | Unit tests for repository, use cases, hooks, components |
+  | Playwright | E2e tests for notification flow |
+
+  ### Existing Notification Infrastructure
+
+  The codebase already has a mature notification pipeline:
+
+  1. **Domain model** (`tsp/domain/entities/notification-event.tsp`): `NotificationEvent` value object with `eventType`, `agentRunId`, `featureId`, `featureName`, `phaseName`, `message`, `severity`, `timestamp`. Currently ephemeral — not persisted.
+  2. **Notification service** (`infrastructure/services/notifications/notification.service.ts`): Implements `INotificationService` port, fans out to bus + desktop notifier based on settings.
+  3. **Notification bus** (`infrastructure/services/notifications/notification-bus.ts`): `EventEmitter` singleton on `globalThis`, shared across module boundaries.
+  4. **SSE API route** (`app/api/agent-events/route.ts`): Polls DB every 500ms, diffs feature/agent-run state, emits `NotificationEvent` as SSE `notification` events.
+  5. **Client hooks**: `useAgentEvents` (SSE/SW connection), `AgentEventsProvider` (React context), `useNotifications` (toast dispatch + browser notification + sound).
+  6. **Settings**: `NotificationPreferences` with per-channel enable/disable (`inApp`, `browser`, `desktop`) and per-event-type filters.
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `tsp/domain/entities/` | High | New `Notification` entity model (persisted version of `NotificationEvent` with `id`, `isRead`, `readAt`) |
+  | `packages/core/src/domain/generated/output.ts` | High | Auto-generated from new TypeSpec model (do not edit directly) |
+  | `packages/core/src/application/ports/output/repositories/` | High | New `INotificationRepository` output port interface |
+  | `packages/core/src/application/use-cases/notifications/` | High | New use cases: `ListNotificationsUseCase`, `MarkNotificationReadUseCase`, `MarkAllNotificationsReadUseCase`, `GetUnreadCountUseCase` |
+  | `packages/core/src/infrastructure/repositories/` | High | New `SQLiteNotificationRepository` implementation |
+  | `packages/core/src/infrastructure/persistence/sqlite/migrations.ts` | High | New migration (version 24) creating `notifications` table |
+  | `packages/core/src/infrastructure/persistence/sqlite/mappers/` | Medium | New `notification.mapper.ts` for row-to-entity mapping |
+  | `packages/core/src/infrastructure/di/container.ts` | Medium | Register new repository, use cases, and string-token aliases |
+  | `packages/core/src/infrastructure/services/notifications/notification.service.ts` | Medium | Intercept `notify()` to also persist `NotificationEvent` as a `Notification` entity |
+  | `src/presentation/web/app/api/notifications/` | High | New API routes: `GET /api/notifications` (list), `PATCH /api/notifications/:id/read`, `POST /api/notifications/mark-all-read`, `GET /api/notifications/unread-count` |
+  | `src/presentation/web/hooks/` | High | New `useNotificationCenter` hook (fetch feed, filters, mark-as-read, unread count, polling/SSE integration) |
+  | `src/presentation/web/components/common/notification-center/` | High | New Tier 1 component: bell icon trigger, popover panel, notification list, notification item, filter bar, empty state |
+  | `src/presentation/web/components/layouts/app-shell/app-shell.tsx` | Medium | Add `NotificationCenter` bell icon to the top-right action bar |
+  | `src/presentation/web/components/common/index.ts` | Low | Re-export new notification-center component |
+  | `tests/unit/` | High | Unit tests for repository, mapper, use cases, hook, components |
+  | `tests/integration/` | Medium | Integration tests for notification persistence and API routes |
+  | `tests/e2e/` | Medium | Playwright tests for notification center UI flow |
+
+  ## Dependencies
+
+  ### Existing Code Dependencies
+  - **`NotificationEvent` type** (`domain/generated/output.ts`): The new `Notification` entity wraps this existing type with persistence metadata.
+  - **`NotificationService`** (`infrastructure/services/notifications/notification.service.ts`): Must be modified to persist events alongside existing fan-out.
+  - **`INotificationService` port** (`application/ports/output/services/notification-service.interface.ts`): May need a persistence callback or the repository can be injected directly into the service.
+  - **SSE pipeline** (`app/api/agent-events/route.ts`, `useAgentEvents`, `AgentEventsProvider`): Existing real-time delivery mechanism stays unchanged; notification center reads from DB.
+  - **`AppShell`** (`components/layouts/app-shell/app-shell.tsx`): Integration point for the bell icon.
+  - **SQLite connection and migration system** (`infrastructure/persistence/sqlite/`): Pattern for new table.
+  - **DI container** (`infrastructure/di/container.ts`): Registration pattern for new repository and use cases.
+
+  ### Library Dependencies (already installed)
+  - `better-sqlite3` — database
+  - `radix-ui` (via shadcn/ui) — Popover, ScrollArea primitives
+  - `lucide-react` — Bell/notification icons
+  - `class-variance-authority` — CVA for notification item variants
+  - `sonner` — toast integration (existing)
+  - `zod` — input validation for API routes
+
+  ### No New External Dependencies Required
+  All needed libraries are already in the project's dependency tree.
+
+  ## Size Estimate
+
+  **L** — This feature spans all four Clean Architecture layers (domain model, application use cases,
+  infrastructure repository/migrations/service, presentation API routes + hooks + components), requires
+  a new SQLite table with migration, multiple API routes, a new React hook with polling, a multi-component
+  UI (bell icon, popover, feed list, filter bar, notification items), and comprehensive test coverage
+  (unit, integration, e2e, Storybook stories). Estimated at 5-7 working days of implementation including
+  TDD cycles across ~20+ files.
+
+  ---
+
+  _Generated by feature agent — proceed with research_
