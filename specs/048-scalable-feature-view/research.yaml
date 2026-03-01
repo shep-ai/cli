@@ -1,0 +1,593 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: scalable-feature-view
+summary: >
+  Technical research for replacing the full-graph canvas with a scalable board view.
+  Key decisions: decompose the 773-line useControlCenterState into focused hooks, use
+  shadcn Tabs with URL-synced state for view switching, derive board columns purely
+  from in-memory feature data with @tanstack/react-virtual for large columns, and add
+  a collapsible dependency inspector panel using a mini React Flow graph. No domain or
+  infrastructure layer changes required — all work is in the presentation layer.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - React 19
+  - Next.js 16 App Router
+  - TypeScript 5.3
+  - '@xyflow/react 12.10.0'
+  - '@dagrejs/dagre 2.0.4'
+  - '@tanstack/react-virtual (new dependency)'
+  - shadcn/ui (Tabs, Card, Badge, Button, ScrollArea)
+  - Radix UI primitives
+  - Tailwind CSS v4
+  - Lucide React
+  - Sonner
+  - Vitest + Testing Library
+  - Playwright
+  - Storybook 8
+
+relatedLinks: []
+
+# Structured technology decisions
+decisions:
+  - title: 'State management decomposition strategy'
+    chosen: 'Extract focused hooks from useControlCenterState with a shared context provider'
+    rejected:
+      - 'Keep monolithic hook and extend with board state — The 773-line hook already manages React Flow nodes/edges, selection, optimistic updates, SSE, polling, and drawer state. Adding board grouping, filtering, and saved views would push it past 1000 lines with interleaved concerns. Testing individual behaviors is difficult when everything is coupled in one hook.'
+      - 'Use external state library (Zustand/Jotai) — Introduces a new dependency and paradigm shift. The codebase uses React hooks + context exclusively. Zustand would be architecturally inconsistent and require migrating existing state patterns. The decomposition achieves the same separation without adding a library.'
+    rationale: >
+      The existing useControlCenterState (773 lines) conflates six concerns: React Flow
+      node/edge management, feature selection, optimistic CRUD operations, SSE event processing,
+      polling fallback, and drawer state. Decomposing into focused hooks — useFeatureSelection,
+      useBoardState, useCanvasState, useFilterState, useOptimisticUpdates, useFeatureSSE —
+      follows the project's existing hooks pattern (useNotifications, useAgentEvents, useSoundAction).
+      A shared ControlCenterProvider context wraps these hooks and provides the composed state to
+      both Board and Map views. Each hook is independently testable. The canvas-specific state
+      (React Flow nodes/edges, dagre layout, connection handling) stays in useCanvasState and is
+      only mounted when the Map tab is active, while shared concerns (selection, SSE, optimistic
+      updates) are available to both views through the context.
+
+  - title: 'Board view data derivation approach'
+    chosen: 'Pure client-side grouping function that derives board columns from the feature data array'
+    rejected:
+      - 'Reuse React Flow nodes as board data source — Would couple the board view to React Flow''s node/edge data structures (CanvasNodeType, position, handles). The board has no concept of graph layout; it needs grouped arrays. Coupling to React Flow types would make the board dependent on graph library internals and prevent independent rendering.'
+      - 'Add a server-side grouped query endpoint — Over-engineers the solution. Features are already fully loaded client-side via ListFeaturesUseCase in page.tsx. Adding a server-side grouping endpoint introduces network round-trips for filter changes, requires new use case methods, and violates the "no infrastructure changes for Phase 1" constraint.'
+    rationale: >
+      The board view needs features grouped into 5 columns (Backlog, Requirements, Implementation,
+      Review, Done) derived from SdlcLifecycle enum values. This is a pure transformation:
+      take the FeatureWithRun[] array already fetched in page.tsx, apply deriveNodeState and
+      deriveProgress to each feature (same as build-graph-nodes.ts does), and group by the
+      column mapping function. This creates a clean separation: build-graph-nodes.ts produces
+      React Flow nodes for the Map tab, while a new buildBoardData() function produces grouped
+      column arrays for the Board tab. Both consume the same FeatureWithRun[] input from the
+      server component. Client-side filtering is a simple array.filter() before grouping.
+
+  - title: 'View switching architecture'
+    chosen: 'shadcn Tabs component with URL search parameter synchronization via useSearchParams'
+    rejected:
+      - 'Custom tab implementation with conditional rendering — Reinvents accessible tab semantics that Radix/shadcn already provides. Would need manual ARIA roles, keyboard navigation, and focus management. The project already has the shadcn Tabs component installed and the established pattern is to use shadcn primitives.'
+      - 'Next.js parallel routes (app/@board and app/@map) — Would require restructuring the app directory, creating parallel route segments, and managing shared state across route boundaries. Overly complex for two views that share the same data source and selection state. URL parameters are simpler and more maintainable.'
+    rationale: >
+      The project already has shadcn/ui Tabs (wrapping Radix TabsPrimitive) installed at
+      src/presentation/web/components/ui/tabs.tsx. Using the existing Tabs component for
+      Board/Map switching maintains consistency with the component library. The active tab
+      value syncs to a URL search parameter (?view=board or ?view=map) via Next.js
+      useSearchParams + useRouter.replace(). This enables deep-linking, browser back/forward
+      support, and persistence across refreshes. The default (no parameter) falls back to
+      board view. Tab content uses conditional rendering — the Map tab lazily mounts the
+      ReactFlowProvider and FeaturesCanvas only when selected, avoiding React Flow initialization
+      cost when in board mode.
+
+  - title: 'Dependency inspector panel implementation'
+    chosen: 'Collapsible right panel with ResizablePanelGroup pattern and embedded mini React Flow graph'
+    rejected:
+      - 'Reuse ControlCenterDrawer for dependency info — The drawer is a modal overlay (BaseDrawer component using vaul) that covers content. It serves feature detail, review, and create workflows. Adding dependency info to the drawer would conflict with its existing discriminated union DrawerView type and prevent side-by-side comparison of board rows while inspecting dependencies.'
+      - 'Popover/tooltip on hover — Ephemeral and cannot display a dependency graph. Users need to click between features and compare dependency trees, which requires persistent visibility. Popovers close on outside click and cannot host interactive React Flow mini-graphs.'
+    rationale: >
+      The three-panel layout (sidebar + board + inspector) requires a persistent,
+      collapsible right panel. The inspector displays upstream dependencies (walking parentId
+      chain upward), downstream dependents (features whose parentId equals selected feature),
+      and a mini React Flow graph showing the 1-hop dependency neighborhood. The panel uses
+      a CSS-based collapsible approach (width transition to 0 with overflow hidden) rather
+      than a heavy resizable library, keeping the implementation simple. Collapsed/expanded
+      state persists in localStorage under 'shep:inspector-collapsed'. The mini-graph reuses
+      the existing @xyflow/react and layoutWithDagre utilities already in the codebase,
+      scoped to a small subgraph (typically 3-10 nodes). The existing ControlCenterDrawer
+      continues to work independently — it opens on top of the inspector panel when
+      triggered by double-click or review actions.
+
+  - title: 'Board column virtualization strategy'
+    chosen: '@tanstack/react-virtual with per-column useVirtualizer instances'
+    rejected:
+      - 'react-virtuoso — Larger bundle (~15KB vs ~3KB), more opinionated API with built-in scroll containers that may conflict with shadcn ScrollArea styling. Less composable with the project''s headless component pattern.'
+      - 'No virtualization — For columns with 100+ features, rendering all DOM nodes causes jank on scroll and increases memory. Retrofitting virtualization later requires rewriting scroll containers and item rendering. Starting with virtualization is cheaper than adding it retroactively.'
+    rationale: >
+      @tanstack/react-virtual provides a headless useVirtualizer hook that returns virtual items
+      with positioning data, leaving DOM rendering entirely to the consumer. This composability
+      is ideal for the project's pattern of shadcn/Tailwind-styled components. Each board column
+      gets its own useVirtualizer instance with an estimated row height. The virtualizer only
+      activates when a column exceeds 30 items (FR-10), falling back to simple rendering for
+      smaller columns to avoid unnecessary complexity. The library is ~3KB gzipped, has no
+      peer dependencies, and is maintained by the TanStack team. It needs to be added as a
+      new dependency to the web package.
+
+  - title: 'Filter state management and URL synchronization'
+    chosen: 'Custom useFilterState hook with URL search parameter serialization'
+    rejected:
+      - 'nuqs (type-safe search params library) — Adds a new dependency for URL parameter management. The filter state is simple enough (4 dimensions, each an array of selected values) that manual serialization via URLSearchParams is sufficient and avoids introducing a library that abstracts basic functionality.'
+      - 'React state only (no URL sync) — Filters would be lost on page refresh and not shareable via URL. The spec requires FR-24: "Active filters SHALL be reflected in URL search parameters."'
+    rationale: >
+      The useFilterState hook manages four filter dimensions: lifecycle (5 columns), status
+      (6 states), agentType, and repository. Each dimension is a Set of selected values.
+      The hook serializes active filters to URL search parameters using comma-separated values
+      (e.g., ?status=running,blocked&lifecycle=implementation). It reads initial state from
+      the URL on mount and updates the URL on filter changes via router.replace() to avoid
+      navigation history pollution. A "clear all" action removes all filter parameters.
+      This approach is pure presentation-layer logic with no external dependencies.
+
+  - title: 'Saved views persistence mechanism'
+    chosen: 'localStorage with namespaced key and JSON serialization'
+    rejected:
+      - 'SQLite new table — Requires schema migration, new IRepository interface, use case, and mapper for a feature that stores simple JSON objects. Adds infrastructure-layer scope for a presentation-layer concern. Cross-device sync is not needed for a local development tool.'
+      - 'IndexedDB — Overpowered for storing a small array of JSON objects (typical user has < 20 saved views). localStorage is simpler, synchronous, and sufficient for the data size. IndexedDB adds async complexity without benefit.'
+    rationale: >
+      Saved views are small JSON objects containing a name, filter state (4 arrays), and
+      timestamp. The project already uses localStorage for theme ('shep-theme') and notification
+      dismissal ('shep:notification-banner-dismissed'). Following the same pattern, saved views
+      store under 'shep:saved-views' as a JSON array. A useSavedViews hook provides CRUD
+      operations (list, save, rename, delete, apply). The hook validates data on read to handle
+      schema changes gracefully. This keeps the feature entirely in the presentation layer with
+      zero backend impact.
+
+  - title: 'Board row component design'
+    chosen: 'New compact BoardRow component reusing feature-node-state-config for visual consistency'
+    rejected:
+      - 'Reuse FeatureNode component directly — FeatureNode is designed for React Flow canvas rendering with Handle elements (source/target connection points), absolute positioning, and drag interaction concerns. It renders as a 288x140px card with handles, which is too large for a dense board row and includes React Flow-specific markup.'
+      - 'Generic list item component — A generic component would not encode the domain-specific state visualization (6 states with distinct colors/icons, lifecycle labels, PR status). A purpose-built BoardRow component ensures type safety with FeatureNodeData and reuses the existing featureNodeStateConfig/deriveNodeState/deriveProgress utilities.'
+    rationale: >
+      The BoardRow is a new component that renders a feature as a compact horizontal row
+      (~48-56px height) optimized for information density. It reuses the same FeatureNodeData
+      type and featureNodeStateConfig color/icon mappings as the canvas FeatureNode, ensuring
+      visual consistency between Board and Map views. The row displays: feature name, status
+      badge (icon + color from config), lifecycle label, agent type icon (from getAgentTypeIcon),
+      progress indicator, and PR status. Click selects the feature (shared selection state).
+      Hover reveals quick-action buttons (details drawer, delete). The component has no React
+      Flow dependencies, making it independently testable and storybook-able.
+
+  - title: 'Keyboard navigation implementation'
+    chosen: 'Roving tabindex pattern with ARIA listbox semantics'
+    rejected:
+      - 'Global keyboard event listeners — Captures all keyboard events regardless of focus context, which conflicts with other keyboard handlers (existing Escape handler in useControlCenterState, input fields, drawer interactions). Difficult to scope to the board view only.'
+      - 'Focus trap per column — Traps focus within a column, preventing Tab navigation to other columns or the filter bar. Too restrictive for a multi-column layout where users need to move between columns and other UI elements.'
+    rationale: >
+      The roving tabindex pattern is the standard approach for composite widgets like listboxes
+      and grids (WAI-ARIA APG). Each board column uses role="listbox" and each row uses
+      role="option" with aria-selected. Only the focused row has tabindex="0"; all others
+      have tabindex="-1". Arrow keys (Up/Down) move focus within a column. Left/Right arrows
+      move focus between columns (maintaining row index or moving to nearest row). Enter
+      selects the focused row (opening inspector). Escape deselects. This integrates with
+      the existing keyboard handler pattern and scopes navigation to the board component.
+      Tab moves focus out of the board to the next focusable element (filter bar, inspector).
+
+  - title: 'Responsive layout strategy for narrow viewports'
+    chosen: 'CSS-based single-column stack with horizontal scroll option at medium breakpoints'
+    rejected:
+      - 'Hide board on mobile, show list only — Removes functionality rather than adapting it. The board is the primary view and should degrade gracefully.'
+      - 'Virtualized horizontal scroll for all breakpoints — Horizontal scrolling on mobile is unintuitive for a kanban board. A vertical stack is the natural mobile layout for column-based content.'
+    rationale: >
+      NFR-16 requires responsive behavior below 768px. The board uses CSS Grid with
+      grid-template-columns that adapts by breakpoint: >= 1024px shows all 5 columns;
+      768-1023px shows a horizontal scrollable row of columns (overflow-x-auto); < 768px
+      stacks columns vertically. The dependency inspector panel collapses to a bottom sheet
+      on narrow viewports. Tailwind responsive utilities (md:, lg:) handle breakpoint
+      transitions without JavaScript. The column width uses minmax() to prevent columns
+      from becoming too narrow.
+
+  - title: 'Server component data flow for board view'
+    chosen: 'Extend page.tsx to pass FeatureWithRun[] alongside graph nodes, board derives client-side'
+    rejected:
+      - 'Separate server component for board data — Creates a parallel data fetch path, duplicating the ListFeaturesUseCase + IAgentRunRepository queries already in page.tsx. Increases server load and complicates cache invalidation.'
+      - 'Build board data in page.tsx server component — Server components cannot use hooks or client-side state. Board grouping depends on client-side filter state, so grouping must happen client-side. Passing pre-grouped data from the server would require re-fetching on every filter change.'
+    rationale: >
+      Currently, page.tsx fetches repositories and featuresWithRuns, then calls
+      buildGraphNodes() to produce React Flow nodes/edges. The board view needs the same
+      FeatureWithRun[] data but grouped differently. Rather than building board columns on the
+      server (which can't account for client-side filters), page.tsx will pass the raw
+      featuresWithRuns array as a prop alongside the existing nodes/edges. The ControlCenter
+      client component passes this to useBoardState, which applies filters and groups features
+      into columns client-side. This is a minimal change to page.tsx (one additional prop)
+      and keeps the data flow consistent with the existing pattern.
+
+  - title: 'Mini dependency graph in inspector panel'
+    chosen: 'Embedded React Flow instance with layoutWithDagre, read-only, scoped to 1-hop neighborhood'
+    rejected:
+      - 'Static SVG rendering of dependency tree — Requires building a custom SVG renderer for node positioning, edge drawing, and text layout. The project already has React Flow with node/edge types and dagre layout. Reusing existing infrastructure is more maintainable.'
+      - 'Text-only dependency list without graph — Loses the visual context of dependency relationships. A graph makes it immediately obvious which features are upstream vs downstream and how they connect. The inspector''s primary value is visual dependency comprehension.'
+    rationale: >
+      The dependency inspector renders a mini React Flow graph showing the selected feature
+      and its 1-hop upstream/downstream neighbors. This reuses the existing @xyflow/react
+      integration, the FeatureNode component (in a compact variant), and layoutWithDagre
+      for automatic positioning. The mini-graph is read-only (nodesDraggable=false,
+      nodesConnectable=false, elementsSelectable=true) and uses fitView to auto-zoom. Clicking
+      a node in the mini-graph selects that feature in the main board view. The graph is
+      wrapped in its own ReactFlowProvider to avoid conflicts with the Map tab's React Flow
+      instance. The subgraph typically contains 3-10 nodes, so performance is not a concern.
+
+# Open questions (should be resolved by end of research)
+openQuestions:
+  - question: 'How should the ControlCenter component orchestrate Board and Map tab rendering?'
+    resolved: true
+    options:
+      - option: 'Controlled Tabs with lazy tab content mounting'
+        description: >
+          Use shadcn Tabs in controlled mode (value/onValueChange) with the active tab
+          synced to URL search params. Each TabsContent renders its view component. The Map
+          tab wraps FeaturesCanvas in a React.lazy or conditional render that only mounts
+          the ReactFlowProvider when the Map tab is selected. This avoids React Flow
+          initialization overhead when in board mode. The Board tab renders immediately as
+          the default view.
+        selected: true
+      - option: 'Both tabs always mounted with CSS visibility toggle'
+        description: >
+          Mount both Board and Map components at all times, using CSS display:none to hide
+          the inactive tab. Preserves React Flow's internal state (viewport position, zoom)
+          across tab switches. Downside: React Flow initializes even if the user never visits
+          the Map tab, adding ~50ms initialization and ongoing memory overhead for the canvas.
+        selected: false
+      - option: 'Route-based tabs (separate pages)'
+        description: >
+          Each view is a separate Next.js page (/features/board, /features/map). Clean
+          separation but breaks the shared selection state, requires duplicating the data
+          fetch in each page, and loses the "instant switch" feel since page navigation
+          triggers a full server render cycle.
+        selected: false
+    selectionRationale: >
+      Controlled Tabs with lazy mounting is the best balance of performance, UX, and
+      implementation simplicity. The board view (default) renders immediately with no
+      React Flow overhead. The Map tab initializes only when first selected and unmounts
+      when switching back to board, freeing memory. Selection state is managed above the
+      tab level in the shared ControlCenterProvider context, so it persists across switches
+      (FR-3). This matches the shadcn Tabs API already in the codebase.
+
+  - question: 'How should the decomposed hooks share state across Board and Map views?'
+    resolved: true
+    options:
+      - option: 'React Context provider wrapping both views'
+        description: >
+          A ControlCenterProvider component wraps the tab container and provides shared state
+          (selection, SSE events, optimistic updates, features data) via context. Both Board
+          and Map views consume this context. View-specific state (React Flow nodes for Map,
+          grouped columns for Board) lives in view-local hooks. This follows the existing
+          AgentEventsProvider pattern in the codebase.
+        selected: true
+      - option: 'Prop drilling from parent component'
+        description: >
+          Pass all shared state as props from ControlCenterInner down to Board and Map
+          components. Simple and explicit but creates a very large props interface (20+
+          handlers and state values). Adding new shared state requires threading props
+          through intermediate components.
+        selected: false
+      - option: 'Shared hook with useRef-based state'
+        description: >
+          Store shared state in refs accessible via a shared hook instance. Avoids context
+          re-renders but breaks React''s rendering model — ref changes don''t trigger
+          re-renders, requiring manual forceUpdate patterns. Fragile and non-idiomatic.
+        selected: false
+    selectionRationale: >
+      React Context follows the established codebase pattern (AgentEventsProvider,
+      SidebarProvider) and cleanly separates shared concerns from view-specific state.
+      The ControlCenterProvider composes the focused hooks (useFeatureSelection,
+      useOptimisticUpdates, useFeatureSSE) and exposes their values via context. Board-
+      and Map-specific hooks (useBoardState, useCanvasState) consume the context internally.
+      This avoids prop drilling, keeps the component tree clean, and is easily testable
+      by wrapping tests in the provider with mock values.
+
+  - question: 'Should board column widths be fixed or flexible?'
+    resolved: true
+    options:
+      - option: 'Equal flexible columns with CSS Grid fr units'
+        description: >
+          All 5 columns share available width equally using grid-template-columns: repeat(5, 1fr).
+          Columns expand to fill the viewport. Simple, consistent, and adapts to any screen width.
+          With the sidebar (~256px) and optional inspector panel (~320px), each column gets
+          roughly 150-200px on a 1920px screen, which is sufficient for compact rows.
+        selected: true
+      - option: 'Proportional columns weighted by item count'
+        description: >
+          Columns with more features get more width. Dynamic and responsive to data but creates
+          unstable layouts as features move between columns. Visual inconsistency as users
+          filter and the proportions shift. More complex to implement and test.
+        selected: false
+      - option: 'Fixed-width columns with horizontal scroll'
+        description: >
+          Each column has a fixed width (e.g., 280px). Horizontal scroll when columns exceed
+          viewport. Predictable but requires horizontal scrolling on narrow screens, which is
+          a poor UX for a primary view.
+        selected: false
+    selectionRationale: >
+      Equal flexible columns using CSS Grid fr units provide a clean, consistent layout that
+      adapts to the available space. The layout uses grid-template-columns: repeat(5, minmax(180px, 1fr))
+      to ensure columns never shrink below a readable minimum. When the inspector panel opens,
+      the board area shrinks proportionally and columns adjust automatically. This is the
+      simplest approach, works well with Tailwind's grid utilities, and matches the responsive
+      requirements (NFR-16).
+
+# Markdown content (the full research document)
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-03-01
+
+  ## Technology Decisions
+
+  ### 1. State Management Decomposition Strategy
+
+  **Chosen:** Extract focused hooks from useControlCenterState with a shared context provider
+
+  **Rejected:**
+  - Keep monolithic hook — Already 773 lines managing 6 concerns. Adding board state would push past 1000 lines with untestable coupling.
+  - External state library (Zustand/Jotai) — Codebase uses React hooks + context exclusively. Would be architecturally inconsistent.
+
+  **Rationale:** The existing hook conflates React Flow management, selection, optimistic updates,
+  SSE processing, polling, and drawer state. Decomposition into useFeatureSelection, useBoardState,
+  useCanvasState, useFilterState, useOptimisticUpdates, and useFeatureSSE follows the project's
+  existing hooks pattern. A shared ControlCenterProvider context wraps these hooks for both views.
+
+  **Proposed hook decomposition:**
+
+  | New Hook | Responsibility | Shared/View-specific |
+  | -------- | -------------- | -------------------- |
+  | useFeatureSelection | Selected feature state, select/deselect handlers | Shared (context) |
+  | useFeatureSSE | SSE event processing, targeted state updates | Shared (context) |
+  | useOptimisticUpdates | Create/delete feature with optimistic UI + rollback | Shared (context) |
+  | useCanvasState | React Flow nodes/edges, layout, connection handling | Map-only |
+  | useBoardState | Column grouping, sorting, derived board data | Board-only |
+  | useFilterState | Filter dimensions, URL sync, clear/apply | Shared (context) |
+  | useSavedViews | localStorage CRUD for saved filter combinations | Shared (context) |
+
+  ### 2. Board View Data Derivation
+
+  **Chosen:** Pure client-side grouping from FeatureWithRun[] array
+
+  **Rejected:**
+  - Reuse React Flow nodes — Couples board to graph library internals
+  - Server-side grouped endpoint — Unnecessary network round-trips; data already loaded
+
+  **Rationale:** The board derives its view from the same FeatureWithRun[] that page.tsx already
+  fetches. A buildBoardData() function groups features by lifecycle into 5 columns, applying
+  deriveNodeState and deriveProgress (same utilities the canvas uses). Client-side filtering is
+  simple array.filter() before grouping.
+
+  **Column mapping:**
+
+  | Board Column | SdlcLifecycle Values |
+  | ------------ | -------------------- |
+  | Backlog | Started |
+  | Requirements | Analyze, Requirements, Research |
+  | Implementation | Planning, Implementation |
+  | Review | Review |
+  | Done | Maintain |
+  | _(Blocked features show badge in their most recent non-blocked column)_ | Blocked |
+
+  ### 3. View Switching Architecture
+
+  **Chosen:** shadcn Tabs with URL search parameter sync via useSearchParams
+
+  **Rejected:**
+  - Custom tab implementation — Reinvents accessible semantics shadcn already provides
+  - Next.js parallel routes — Over-complex for two views sharing the same data
+
+  **Rationale:** The project already has shadcn Tabs installed. Controlled mode with URL sync
+  enables deep-linking and browser history support. Default is board view. Map tab lazily mounts
+  ReactFlowProvider only when selected.
+
+  ### 4. Dependency Inspector Panel
+
+  **Chosen:** Collapsible right panel with embedded mini React Flow graph
+
+  **Rejected:**
+  - Reuse ControlCenterDrawer — Modal overlay conflicts with side-by-side comparison
+  - Hover popover — Cannot host interactive graphs or persist across clicks
+
+  **Rationale:** Three-panel layout (sidebar + board + inspector) is proven in project management
+  tools. Panel uses CSS-based collapse (width transition + overflow hidden). Mini-graph reuses
+  existing @xyflow/react and layoutWithDagre. ControlCenterDrawer continues to work independently
+  (opens on top of inspector).
+
+  ### 5. Board Column Virtualization
+
+  **Chosen:** @tanstack/react-virtual with per-column useVirtualizer instances
+
+  **Rejected:**
+  - react-virtuoso — Larger bundle, opinionated API conflicts with shadcn styling
+  - No virtualization — Risk of jank with 100+ items; retrofitting is costly
+
+  **Rationale:** Headless hook composable with shadcn/Tailwind patterns. ~3KB gzipped. Activated
+  per-column only when item count exceeds 30 (FR-10). New dependency to install.
+
+  ### 6. Filter State and URL Synchronization
+
+  **Chosen:** Custom useFilterState hook with URL search parameter serialization
+
+  **Rejected:**
+  - nuqs library — Adds dependency for simple parameter management
+  - React state only — Loses filters on refresh, violates FR-24
+
+  **Rationale:** Four filter dimensions serialized as comma-separated URL params. Uses
+  router.replace() to avoid history pollution. Zero external dependencies.
+
+  ### 7. Saved Views Persistence
+
+  **Chosen:** localStorage with namespaced key ('shep:saved-views')
+
+  **Rejected:**
+  - SQLite table — Infrastructure-layer scope for a presentation concern
+  - IndexedDB — Overpowered for small JSON arrays
+
+  **Rationale:** Follows existing localStorage patterns (shep-theme, shep:notification-banner-dismissed).
+  useSavedViews hook provides CRUD. Data validated on read for schema evolution.
+
+  ### 8. Board Row Component Design
+
+  **Chosen:** New compact BoardRow component reusing feature-node-state-config
+
+  **Rejected:**
+  - Reuse FeatureNode — Contains React Flow Handles, absolute positioning, 288x140px size
+  - Generic list item — Loses domain-specific state visualization
+
+  **Rationale:** Compact horizontal row (~48-56px) displaying name, status badge, lifecycle label,
+  agent icon, progress, and PR status. Reuses FeatureNodeData type and featureNodeStateConfig
+  color/icon mappings for visual consistency with canvas view.
+
+  ### 9. Keyboard Navigation
+
+  **Chosen:** Roving tabindex pattern with ARIA listbox semantics
+
+  **Rejected:**
+  - Global keyboard listeners — Conflicts with existing handlers and input fields
+  - Focus trap per column — Too restrictive for multi-column layout
+
+  **Rationale:** Standard WAI-ARIA APG pattern for composite widgets. Columns use role="listbox",
+  rows use role="option". Arrow keys navigate within/between columns. Enter selects, Escape
+  deselects. Tab exits board to next focusable element.
+
+  ### 10. Server Component Data Flow
+
+  **Chosen:** Extend page.tsx to pass FeatureWithRun[] alongside graph nodes
+
+  **Rejected:**
+  - Separate server component — Duplicates data fetching
+  - Build board data server-side — Cannot account for client-side filter state
+
+  **Rationale:** page.tsx already fetches featuresWithRuns. Pass it as an additional prop to
+  ControlCenter. Board view derives grouped columns client-side with filters applied. Minimal
+  change to existing server component.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | @tanstack/react-virtual | Column virtualization for 30+ items | **Install (new)** | Headless hook, ~3KB, composable with shadcn/Tailwind. No current virtualization solution in the project. |
+  | @xyflow/react 12.10.0 | Map tab canvas + inspector mini-graph | **Keep (existing)** | Already integrated with custom node/edge types. Reused in dependency inspector mini-graph. |
+  | @dagrejs/dagre 2.0.4 | Graph layout for Map tab + inspector mini-graph | **Keep (existing)** | Used by layoutWithDagre utility. Reused for inspector mini-graph layout. |
+  | shadcn/ui Tabs | Board/Map view switching | **Use (existing)** | Already installed. Wraps Radix TabsPrimitive with project styling. |
+  | shadcn/ui Badge, Card, Button, ScrollArea | Board row and filter UI | **Use (existing)** | Already installed. Consistent with project component library. |
+  | react-virtuoso | Alternative virtualizer | **Reject** | Larger bundle (~15KB), opinionated API, conflicts with custom scroll styling. |
+  | nuqs | Type-safe URL search params | **Reject** | Simple filter serialization doesn't warrant a new dependency. |
+  | Zustand/Jotai | External state management | **Reject** | Inconsistent with codebase patterns (React hooks + context). |
+  | react-resizable-panels | Panel resizing | **Reject** | Inspector panel only needs collapse/expand, not continuous resizing. CSS transition is sufficient. |
+
+  ## Security Considerations
+
+  - **localStorage saved views:** Saved views contain only filter state (enum values and
+    repository paths). No sensitive data (credentials, tokens, PII) is stored. JSON.parse
+    on read should be wrapped in try-catch to handle corrupted data gracefully.
+  - **URL search parameters:** Filter parameters are user-controlled strings reflected in
+    the URL. Since filtering is purely client-side (no server queries), there is no injection
+    risk. Parameters should be validated against known enum values before use to prevent
+    unexpected behavior.
+  - **No new API endpoints:** Phase 1 introduces no new server actions or API routes. All
+    board logic operates on data already fetched by the existing page.tsx server component.
+  - **XSS prevention:** Feature names displayed in board rows come from the database via
+    server components. React's JSX escaping handles rendering safely. No dangerouslySetInnerHTML.
+
+  ## Performance Implications
+
+  ### Board View Rendering
+  - **Initial render:** Board derives 5 grouped arrays from the feature list — O(n) grouping
+    operation, negligible for < 500 features (NFR-2: < 50ms).
+  - **Filter response:** Client-side array.filter() + re-group — instantaneous for expected
+    scale (FR-26: no loading state needed).
+  - **Virtual scrolling:** Columns with 30+ items use @tanstack/react-virtual, keeping DOM
+    nodes < 50 per column regardless of total items (NFR-3).
+  - **Tab switching:** Map tab lazily mounts React Flow only when first selected. Unmounts
+    on switch back, freeing memory. Target < 300ms (NFR-4).
+
+  ### SSE and Real-Time Updates
+  - **Board updates:** SSE events update the shared feature data array, which triggers
+    re-derivation of board columns. Only affected columns re-render due to React's
+    reconciliation. No React Flow overhead when in board mode.
+  - **Inspector mini-graph:** Small subgraph (3-10 nodes) re-layouts in < 10ms on selection
+    change. Not performance-sensitive.
+
+  ### Memory
+  - **No React Flow in board mode:** Board view avoids React Flow's node/edge internal state,
+    reducing memory footprint compared to the current canvas-only approach.
+  - **Virtualizer overhead:** @tanstack/react-virtual maintains a lightweight position cache
+    per column. Negligible memory impact.
+
+  ## Architecture Notes
+
+  ### Component Tree (Phase 1)
+
+  ```
+  page.tsx (Server Component)
+    ├─ Fetch repositories, featuresWithRuns (existing)
+    ├─ buildGraphNodes() → nodes, edges (existing, for Map tab)
+    ├─ layoutWithDagre() → laid.nodes, laid.edges (existing, for Map tab)
+    └─ ControlCenter (Client Component)
+        └─ ControlCenterProvider (new context)
+            ├─ useFeatureSelection
+            ├─ useFeatureSSE
+            ├─ useOptimisticUpdates
+            └─ useFilterState
+                ├─ ViewTabs (new — shadcn Tabs with URL sync)
+                │   ├─ BoardView (new — board container)
+                │   │   ├─ FilterBar (new)
+                │   │   │   ├─ FilterControls (lifecycle, status, agent, repo)
+                │   │   │   └─ SavedViewSelector (new)
+                │   │   └─ BoardColumns (new — CSS Grid)
+                │   │       └─ BoardColumn × 5 (new)
+                │   │           ├─ ColumnHeader (name + count badge)
+                │   │           └─ BoardRow × n (new — compact feature row)
+                │   │               └─ (virtualized via useVirtualizer when count > 30)
+                │   └─ MapView (existing FeaturesCanvas, lazily mounted)
+                │       └─ useCanvasState (extracted from current hook)
+                │           └─ FeaturesCanvas (existing)
+                ├─ DependencyInspector (new — collapsible right panel)
+                │   ├─ UpstreamList (blocked-by chain)
+                │   ├─ DownstreamList (dependents)
+                │   └─ DependencyMiniGraph (new — embedded React Flow)
+                └─ ControlCenterDrawer (existing — opens on top)
+  ```
+
+  ### Clean Architecture Compliance
+
+  - **Presentation layer only:** All new code is in `src/presentation/web/`. No changes to
+    domain, application, or infrastructure layers.
+  - **Data flow:** Server component fetches via use cases → passes props to client components
+    → client components derive view-specific state. Follows existing pattern.
+  - **No direct infrastructure imports:** Board components receive data as props from the
+    server component. No imports from `infrastructure/` or `domain/generated/`.
+  - **Use case reuse:** ListFeaturesUseCase and IAgentRunRepository queries remain unchanged.
+
+  ### Testing Strategy
+
+  - **Unit tests (Vitest + Testing Library):** Each decomposed hook tested in isolation with
+    mock data. Board grouping logic tested with edge cases (empty columns, blocked features,
+    mixed lifecycles). Filter state tested with URL parameter serialization/deserialization.
+  - **Component tests:** BoardRow, BoardColumn, FilterBar, DependencyInspector tested with
+    Testing Library. Verify rendering, click handlers, ARIA attributes.
+  - **Storybook stories:** Every new component gets a colocated .stories.tsx file exercising
+    all visual states (empty column, full column, selected row, filtered view, etc.).
+  - **E2e tests (Playwright):** Board view loading, filter interaction, tab switching,
+    dependency inspector opening. Existing canvas e2e tests must continue passing.
+
+  ### Migration Path
+
+  The board view is additive — the existing FeaturesCanvas is preserved as the Map tab with
+  zero functional changes. The state decomposition refactors internal implementation without
+  changing the public API of the ControlCenter component. This means:
+
+  1. The refactoring can be done incrementally (extract one hook at a time)
+  2. Existing Playwright e2e tests continue to pass at each step
+  3. The Map tab can be verified against the current canvas behavior
+  4. If issues arise, the Map tab serves as a fallback while board issues are resolved
+
+  ---
+
+  _Research complete — proceed with planning phase_
