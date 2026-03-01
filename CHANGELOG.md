@@ -1,3 +1,9 @@
+# [1.68.0](https://github.com/shep-ai/cli/compare/v1.67.0...v1.68.0) (2026-03-01)
+
+### Features
+
+- **web:** add hover delete icon to feature node ([#170](https://github.com/shep-ai/cli/issues/170)) ([b361cda](https://github.com/shep-ai/cli/commit/b361cda1c5020c4e0093c24af64d627a10c06c19))
+
 # [1.67.0](https://github.com/shep-ai/cli/compare/v1.66.4...v1.67.0) (2026-02-26)
 
 ### Features
