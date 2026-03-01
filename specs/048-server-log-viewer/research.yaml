@@ -126,7 +126,7 @@ decisions:
     chosen: 'Simple div-per-line rendering with potential virtualization hook point'
     rejected:
       - 'Virtualized list (react-window or @tanstack/virtual) — Adds a dependency and complexity for v1. The spec explicitly states virtualization is NOT required for v1 but should be architecturally possible. With 5,000 lines max and modern browsers, a simple list should perform adequately. Each line is a lightweight div with text content.'
-      - 'Single pre block with innerHTML — No per-line styling possible (can''t color stderr differently). Also, innerHTML introduces XSS risk if log content contains HTML-like strings.'
+      - "Single pre block with innerHTML — No per-line styling possible (can't color stderr differently). Also, innerHTML introduces XSS risk if log content contains HTML-like strings."
       - 'Canvas-based rendering — Massively over-engineered. This is a web app, not a GPU-accelerated terminal.'
     rationale: >
       Rendering each log line as a div with conditional styling (red for stderr, default for stdout)
