@@ -1,0 +1,310 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feature-node-delete-icon
+summary: >
+  Technical research for adding a hover delete icon to feature nodes, replicating the established
+  repository node pattern. All required libraries (Trash2, AlertDialog, Tooltip) are already in use.
+  The implementation threads an onDelete callback through ControlCenterInner -> FeaturesCanvas ->
+  FeatureNode, gated by the existing "creating" state suppression pattern. No new dependencies,
+  no data model changes, and no security concerns beyond the existing deleteFeature server action.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - React 19
+  - '@xyflow/react 12'
+  - lucide-react (Trash2 icon)
+  - '@radix-ui/react-alert-dialog (via @/components/ui/alert-dialog)'
+  - '@radix-ui/react-tooltip (via @/components/ui/tooltip)'
+  - TailwindCSS 4
+  - Vitest
+  - Storybook 8
+
+relatedLinks: []
+
+decisions:
+  - title: 'Component pattern for delete button JSX'
+    chosen: 'Replicate repository-node delete button pattern exactly'
+    rejected:
+      - 'Extract shared DeleteNodeButton component — Premature abstraction for only two consumers. The feature and repository nodes have different dialog copy, different callback signatures (featureId vs repositoryId), and different conditional rendering guards. Extracting a shared component would require multiple props/generics for marginal DRY benefit, violating the codebase principle of avoiding premature abstractions.'
+      - 'Inline delete without confirmation dialog — Violates NFR-4 which mandates AlertDialog confirmation to prevent accidental deletions. Feature deletion is destructive (removes specs, branches, progress) and cannot be undone.'
+    rationale: >
+      The repository-node.tsx already implements the exact pattern needed: absolute-positioned Trash2 icon
+      with group-hover visibility, Tooltip wrapper, and AlertDialog confirmation with local useState.
+      Replicating this pattern line-for-line in feature-node.tsx ensures visual consistency across canvas
+      nodes and follows the established codebase convention. The two nodes have different dialog copy
+      ("Delete feature?" vs "Remove repository?") and different callback shapes, making extraction
+      unnecessary at this stage.
+
+  - title: 'Callback threading approach for onDelete'
+    chosen: 'Thread onFeatureDelete through FeaturesCanvas props, matching onRepositoryDelete pattern'
+    rejected:
+      - 'Pass handleDeleteFeature directly to FeatureNode via React context — Breaks the established prop-drilling pattern used by onAction, onSettings, onRepositoryDelete. The FeaturesCanvas enrichedNodes useMemo is the canonical injection point for node callbacks, and bypassing it would create an inconsistent data flow.'
+      - 'Use a global event bus or zustand store for delete — Over-engineered for a simple callback. The existing pattern (control-center-inner -> FeaturesCanvas prop -> enrichedNodes useMemo -> node data) is well-tested and understood. Adding state management for a single callback would violate the NFR-5 requirement to use local useState for dialog state.'
+    rationale: >
+      The FeaturesCanvas already threads onRepositoryDelete to repository nodes via the enrichedNodes
+      useMemo (line 104 of features-canvas.tsx). Adding onFeatureDelete as a new prop and injecting it
+      into feature nodes inside the same useMemo (gated by state !== 'creating') follows the identical
+      pattern. This keeps the data flow consistent: ControlCenterInner -> FeaturesCanvas -> FeatureNode,
+      with the canvas acting as the callback injection layer.
+
+  - title: 'State gating for delete icon visibility'
+    chosen: 'Gate on state !== "creating" inside FeaturesCanvas enrichedNodes, matching onAction/onSettings'
+    rejected:
+      - 'Gate inside FeatureNode component based on data.state — Moves business logic into the presentation component. The existing pattern gates callbacks at the FeaturesCanvas enrichment layer (line 95), keeping the FeatureNode component a pure renderer that shows/hides based on whether callbacks are defined. Gating inside the component would break this separation.'
+      - 'Gate on multiple states (creating, running, queued) — The spec explicitly resolves this: hide only during "creating" state, matching the existing onAction/onSettings suppression. The handleDeleteFeature callback already handles cleanup of in-progress work gracefully.'
+    rationale: >
+      The FeaturesCanvas enrichedNodes useMemo already has a condition at line 95:
+      `node.type === 'featureNode' && (node.data as FeatureNodeData).state !== 'creating'`.
+      Adding onDelete to this same conditional block ensures all interactive controls (onAction,
+      onSettings, onDelete) are suppressed together for "creating" nodes. The FeatureNode component
+      simply checks `if (data.onDelete && data.featureId)` to decide whether to render the button,
+      mirroring the repository node's `if (data.onDelete && data.id)` guard.
+
+  - title: 'Delete icon positioning and styling'
+    chosen: 'Match repository node exactly: absolute top-1/2 -left-10 -translate-y-1/2, h-7 w-7 rounded-full'
+    rejected:
+      - 'Position inside the card (e.g. top-right corner next to settings gear) — Clutters the card header which already has a lifecycle label and optional settings icon. The repository node pattern of placing the delete icon outside the card to the left is cleaner and avoids competing with existing card elements.'
+      - 'Custom offset adjusted for feature node card width — The feature node card is 288px (w-72) vs the repository node card. However, the -left-10 offset is relative to the card edge, not its width, so the same offset works correctly. Custom positioning adds complexity and breaks visual consistency across node types.'
+    rationale: >
+      NFR-1 explicitly requires matching the repository node delete icon pattern exactly. The -left-10
+      offset (40px) is relative to the node's left edge, so it works identically regardless of card
+      width. The feature node already has a `group relative` wrapper (line 79 of feature-node.tsx)
+      which provides the positioning context needed for absolute positioning and the group-hover
+      trigger for opacity transitions.
+
+  - title: 'AlertDialog copy and action button labeling'
+    chosen: 'Title: "Delete feature?", action button: "Delete" with variant="destructive"'
+    rejected:
+      - 'Use "Remove feature?" with "Remove" action button (match repository node copy) — Inaccurate for feature deletion which is a destructive operation that permanently removes specs, branches, and progress data. Repository "Remove" only unlinks the repository from the workspace without deleting files. Using "Remove" would understate the permanence of feature deletion.'
+      - 'Use generic "Are you sure?" title — Less informative than naming the specific action. The repository node pattern uses a specific question ("Remove repository?") and the feature node should follow the same pattern with the appropriate verb ("Delete feature?").'
+    rationale: >
+      The spec open questions explicitly resolve this: feature deletion permanently removes specs,
+      branches, and progress data — it is a true delete, not a soft unlink. The dialog description
+      should include the feature name via <strong>{data.name}</strong> and warn about permanent
+      data loss. Using "Delete" instead of "Remove" differentiates from the repository node's softer
+      operation and helps users make informed decisions about destructive actions.
+
+  - title: 'Test strategy for delete functionality'
+    chosen: 'Mirror repository-node test structure with mocked AlertDialog and Tooltip'
+    rejected:
+      - 'Use real AlertDialog/Tooltip components in tests — Real Radix UI components require DOM measurement, portal rendering, and animation timing that make tests flaky and slow. The repository node tests already establish a pattern of mocking these components as simple DOM wrappers, which the feature node tests should follow.'
+      - 'Test only through FeaturesCanvas integration tests — Insufficient coverage. The repository node pattern has dedicated unit tests for the component (icon rendering, conditional rendering, dialog open/confirm/cancel, callback invocation) plus canvas-level tests for prop threading. Both levels are needed to catch regressions.'
+    rationale: >
+      The repository-node.test.tsx file (tests/unit/presentation/web/components/common/repository-node/)
+      provides an established mock strategy: AlertDialog renders children only when open is truthy,
+      AlertDialogAction and AlertDialogCancel get dedicated test IDs (alert-dialog-confirm, alert-dialog-cancel),
+      and Tooltip components are pass-through wrappers. The feature node tests should use identical
+      mocks for consistency and add test cases covering: icon rendering when onDelete provided,
+      no icon when onDelete absent, no icon in creating state, dialog open/confirm/cancel flows,
+      callback invocation with correct featureId, and e.stopPropagation on button click.
+
+openQuestions:
+  - question: 'Should onDelete be passed directly or wrapped in a closure in enrichedNodes?'
+    resolved: true
+    options:
+      - option: 'Pass onFeatureDelete directly (like onRepositoryDelete)'
+        description: >
+          Pass the canvas-level onFeatureDelete prop directly as onDelete in the node data,
+          without wrapping it in a closure. The FeatureNode component calls data.onDelete(data.featureId)
+          with the featureId from its own data, so the canvas does not need to bind the ID.
+          This matches how onRepositoryDelete is passed: `onDelete: onRepositoryDelete` (line 104).
+        selected: true
+      - option: 'Wrap in closure binding node.id (like onAction/onSettings)'
+        description: >
+          Wrap the callback as `onDelete: () => onFeatureDelete(node.id)` similar to how
+          onAction is wrapped as `onAction: () => onNodeAction(node.id)`. This binds the
+          node ID at the canvas level rather than relying on the component to pass it.
+        selected: false
+      - option: 'Pass both callback and featureId separately'
+        description: >
+          Pass onDelete as a no-arg callback and the featureId separately, letting the canvas
+          handle the binding. This would change the FeatureNode interface to have onDelete?: () => void
+          instead of (featureId: string) => void.
+        selected: false
+    selectionRationale: >
+      The repository node pattern passes onDelete directly: `onDelete: onRepositoryDelete` (line 104
+      of features-canvas.tsx). The RepositoryNode component then calls `data.onDelete?.(data.id!)`,
+      passing its own ID. The FeatureNode should follow the same pattern: receive onDelete as
+      (featureId: string) => void and call `data.onDelete(data.featureId)`. This avoids creating
+      unnecessary closures in the useMemo and keeps the pattern consistent across node types.
+
+  - question: 'Should the feature-node.tsx import useState or does it already have it?'
+    resolved: true
+    options:
+      - option: 'Add useState import — not currently imported'
+        description: >
+          The current feature-node.tsx does not import useState from React (it only imports
+          Handle and Position from @xyflow/react, plus lucide icons and local utilities).
+          Adding useState is required for the confirmOpen dialog state. This is a minimal
+          addition matching the repository node pattern.
+        selected: true
+      - option: 'Use useReducer instead of useState for dialog state'
+        description: >
+          Use useReducer for managing open/close state. Over-engineered for a simple boolean
+          toggle. The repository node uses useState(false) which is the simplest correct solution.
+        selected: false
+      - option: 'Manage dialog state via parent component'
+        description: >
+          Lift dialog state to FeaturesCanvas or ControlCenterInner. Violates NFR-5 which
+          requires local useState for dialog open/close state, and breaks encapsulation by
+          making the parent aware of the dialog lifecycle.
+        selected: false
+    selectionRationale: >
+      The feature-node.tsx currently has no React state imports. Adding `import { useState } from 'react'`
+      is necessary for the `const [confirmOpen, setConfirmOpen] = useState(false)` pattern used by
+      the repository node. This is the simplest approach and is explicitly required by NFR-5.
+
+  - question: 'What additional imports are needed in feature-node.tsx?'
+    resolved: true
+    options:
+      - option: 'Add useState, Trash2, AlertDialog components, and Tooltip components'
+        description: >
+          The feature node needs: (1) useState from react, (2) Trash2 from lucide-react,
+          (3) AlertDialog/AlertDialogAction/AlertDialogCancel/AlertDialogContent/AlertDialogDescription/
+          AlertDialogFooter/AlertDialogHeader/AlertDialogTitle from @/components/ui/alert-dialog,
+          (4) Tooltip/TooltipContent/TooltipProvider/TooltipTrigger from @/components/ui/tooltip.
+          All of these are already used in repository-node.tsx and available in the project.
+        selected: true
+      - option: 'Import only Trash2 and use inline HTML dialog'
+        description: >
+          Use a native HTML dialog element instead of Radix AlertDialog. Breaks visual
+          consistency with the repository node pattern and loses accessibility features
+          provided by Radix.
+        selected: false
+      - option: 'Create a shared confirmation hook to reduce imports'
+        description: >
+          Create a useConfirmationDialog hook that encapsulates AlertDialog rendering.
+          Premature abstraction for two consumers with different dialog copy. Adds a new
+          file and indirection without meaningful benefit.
+        selected: false
+    selectionRationale: >
+      The repository-node.tsx imports establish the exact set of dependencies needed. All libraries
+      are already in the project (NFR-8 confirms no new dependencies). The imports follow established
+      path aliases (@/components/ui/...) and the feature node should use identical import paths.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Component Pattern for Delete Button JSX
+
+  **Chosen:** Replicate repository-node delete button pattern exactly
+
+  **Rejected:**
+  - Extract shared DeleteNodeButton component — Premature abstraction for only two consumers with different dialog copy, callback signatures, and conditional rendering guards
+  - Inline delete without confirmation dialog — Violates NFR-4 mandating AlertDialog confirmation for destructive operations
+
+  **Rationale:** The repository-node.tsx implements the exact pattern needed. Replicating it ensures visual consistency and follows codebase conventions. The two nodes have different dialog copy and callback shapes, making extraction unnecessary.
+
+  ### 2. Callback Threading Approach
+
+  **Chosen:** Thread onFeatureDelete through FeaturesCanvas props, matching onRepositoryDelete pattern
+
+  **Rejected:**
+  - React context for handleDeleteFeature — Breaks established prop-drilling pattern used by onAction, onSettings, onRepositoryDelete
+  - Global event bus or zustand store — Over-engineered for a single callback; violates NFR-5
+
+  **Rationale:** FeaturesCanvas already threads onRepositoryDelete via enrichedNodes useMemo (line 104). Adding onFeatureDelete follows the identical pattern: ControlCenterInner -> FeaturesCanvas -> FeatureNode.
+
+  ### 3. State Gating for Delete Icon Visibility
+
+  **Chosen:** Gate on `state !== 'creating'` inside FeaturesCanvas enrichedNodes, matching onAction/onSettings
+
+  **Rejected:**
+  - Gate inside FeatureNode component — Moves business logic into presentation; breaks existing separation pattern
+  - Gate on multiple states (creating, running, queued) — Spec resolves this: creating only
+
+  **Rationale:** The existing condition at line 95 of features-canvas.tsx already gates onAction and onSettings. Adding onDelete to the same block ensures all interactive controls are suppressed together for "creating" nodes.
+
+  ### 4. Delete Icon Positioning and Styling
+
+  **Chosen:** Match repository node: `absolute top-1/2 -left-10 -translate-y-1/2`, `h-7 w-7 rounded-full`
+
+  **Rejected:**
+  - Inside the card (top-right) — Clutters header which already has lifecycle label and settings
+  - Custom offset for feature node — Unnecessary since -left-10 is relative to card edge
+
+  **Rationale:** NFR-1 explicitly requires matching repository node styling. The feature node already has `group relative` wrapper enabling this pattern.
+
+  ### 5. AlertDialog Copy and Action Button
+
+  **Chosen:** Title: "Delete feature?", action: "Delete" with `variant="destructive"`
+
+  **Rejected:**
+  - "Remove feature?" / "Remove" — Understates permanence; feature deletion removes specs, branches, progress
+  - Generic "Are you sure?" — Less informative; breaks established pattern of specific action titles
+
+  **Rationale:** Feature deletion is permanent and destructive, unlike repository removal which only unlinks. Copy should accurately communicate this.
+
+  ### 6. Test Strategy
+
+  **Chosen:** Mirror repository-node test structure with mocked AlertDialog and Tooltip
+
+  **Rejected:**
+  - Real Radix components — Flaky and slow due to DOM measurement, portals, animations
+  - Canvas integration tests only — Insufficient coverage; need unit tests for component behavior
+
+  **Rationale:** Repository-node tests establish proven mock patterns. Feature node tests should use identical mocks and cover the same scenarios.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | `lucide-react` (Trash2) | Delete icon | Use (already imported) | Same icon used by repository node; consistent iconography |
+  | `@/components/ui/alert-dialog` | Confirmation dialog | Use (already imported) | Radix-based AlertDialog already used by repository node |
+  | `@/components/ui/tooltip` | Hover tooltip | Use (already imported) | Radix-based Tooltip already used by repository node |
+  | `react` (useState) | Dialog open state | Use (add import) | NFR-5 requires local useState; repository node uses same pattern |
+  | `@xyflow/react` | React Flow node | Already imported | No additional imports needed |
+  | `tailwindcss` | Styling | Already configured | Uses existing utility classes |
+
+  No new dependencies are required (NFR-8). All libraries are already in `package.json` and imported by the repository-node component.
+
+  ## Security Considerations
+
+  - **No new attack surface:** The delete button invokes the existing `handleDeleteFeature` callback which calls the existing `deleteFeature` server action. No new server-side code is introduced.
+  - **Confirmation dialog prevents accidental deletion:** The AlertDialog requires explicit user confirmation before invoking the callback (NFR-4).
+  - **Event propagation stopped:** `e.stopPropagation()` on the delete button click prevents unintended side effects from parent click handlers (FR-12).
+  - **Server-side validation preserved:** The `deleteFeature` server action validates `featureId` is non-empty and resolves `DeleteFeatureUseCase` from the DI container, which enforces authorization.
+
+  ## Performance Implications
+
+  - **No performance concerns:** The delete button adds minimal JSX to each feature node. The `useState` for dialog state is local and lightweight.
+  - **No additional re-renders:** The `confirmOpen` state only triggers re-renders of the individual FeatureNode component, not the entire canvas.
+  - **enrichedNodes useMemo unchanged:** Adding `onDelete` to the existing conditional block in the useMemo does not change the dependency array or computation cost.
+  - **No network overhead until confirmation:** The server action is only called after the user confirms deletion in the AlertDialog.
+
+  ## Architecture Notes
+
+  ### Data Flow
+
+  ```
+  useControlCenterState.handleDeleteFeature
+    → ControlCenterInner (passes as onFeatureDelete prop)
+      → FeaturesCanvas (receives onFeatureDelete, injects into enrichedNodes)
+        → FeatureNode (receives data.onDelete, renders button + dialog)
+          → User confirms → data.onDelete(data.featureId)
+            → handleDeleteFeature(featureId) → deleteFeature server action
+  ```
+
+  ### Files to Modify (in implementation order)
+
+  1. **`feature-node-state-config.ts`** — Add `onDelete?: (featureId: string) => void` to `FeatureNodeData`
+  2. **`feature-node.tsx`** — Add imports, useState, delete button JSX with Tooltip + AlertDialog
+  3. **`features-canvas.tsx`** — Add `onFeatureDelete` prop, inject into enrichedNodes for non-creating feature nodes
+  4. **`control-center-inner.tsx`** — Pass `handleDeleteFeature` as `onFeatureDelete` to FeaturesCanvas
+  5. **`feature-node.test.tsx`** — Add delete button test cases mirroring repository-node tests
+  6. **`features-canvas.test.tsx`** — Add test verifying onFeatureDelete is wired to feature nodes
+  7. **`feature-node.stories.tsx`** — Add `WithDeleteButton` story variant
+
+  ### Key Patterns to Follow
+
+  - **Repository node as reference:** `repository-node.tsx` lines 52-94 contain the exact JSX pattern
+  - **AlertDialog mock pattern:** `repository-node.test.tsx` lines 84-108 define the proven mock strategy
+  - **enrichedNodes injection:** `features-canvas.tsx` lines 88-121 show the callback enrichment pattern
+  - **Creating state suppression:** `features-canvas.tsx` line 95 shows the gating condition to extend
+
+  ---
+
+  _Research phase complete — 2026-03-01_
