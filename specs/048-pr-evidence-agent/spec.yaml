@@ -1,0 +1,150 @@
+name: pr-evidence-agent
+number: 048
+branch: feat/048-pr-evidence-agent
+oneLiner: Add a new graph node that collects and attaches evidence artifacts to pull requests during the merge phase
+summary: >
+  Introduce a PR evidence node in the feature-agent LangGraph that runs after implementation
+  and before the merge node. The node instructs the agent executor to capture validation evidence
+  (screenshots, test output, build logs, or other artifacts), upload them to the PR via GitHub
+  comments or commit them to the branch, and embed references in the PR body so reviewers can
+  verify the implementation visually and functionally.
+phase: Analysis
+sizeEstimate: M
+
+relatedFeatures: []
+
+technologies:
+  - LangGraph (StateGraph, Annotation, interrupt)
+  - TypeSpec (domain model generation)
+  - GitHub CLI (gh pr comment, gh api for uploading images)
+  - Vitest (TDD unit and integration tests)
+  - js-yaml (YAML parsing for spec artifacts)
+  - Zod (validation schemas)
+
+relatedLinks: []
+
+openQuestions:
+  - Where should evidence artifacts be stored — committed to the branch, uploaded via GitHub API, or attached as PR comments with inline images?
+  - Should the evidence node be mandatory or opt-in (configurable via approval gates or a flag)?
+  - What types of evidence should be captured automatically (screenshots, test output, build logs) vs. manually provided?
+  - Should evidence collection happen before the merge approval gate (so reviewers see it) or as a separate approval gate?
+
+content: |
+  ## Problem Statement
+
+  During the validation phase of a feature, there is no mechanism to provide evidence that
+  the implementation works as expected. Reviewers must trust the CI status alone, with no
+  visual or functional proof. Adding evidence (screenshots, test output, build artifacts)
+  to the pull request would give reviewers significantly higher confidence in the result.
+
+  Currently, the feature-agent graph flows directly from `implement` to `merge` with no
+  intermediate evidence-gathering step. The merge node creates the PR and optionally watches
+  CI, but never attaches proof-of-work artifacts to the PR for human review.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The repository follows Clean Architecture with four layers:
+
+  - **Domain** (`packages/core/src/domain/`) — Generated from TypeSpec (`tsp/`), contains enums like `ArtifactCategory`, `ArtifactFormat`, `ArtifactState`, and entities like `Artifact`
+  - **Application** (`packages/core/src/application/`) — Use cases and output port interfaces (`IAgentExecutor`, `IGitPrService`, `IAgentExecutorProvider`)
+  - **Infrastructure** (`packages/core/src/infrastructure/`) — LangGraph agent implementations, git services, repositories
+  - **Presentation** (`src/presentation/`) — CLI, TUI, and Next.js web UI
+
+  The feature-agent graph lives at `packages/core/src/infrastructure/services/agents/feature-agent/` with:
+  - `state.ts` — `FeatureAgentAnnotation` defining all state channels
+  - `feature-agent-graph.ts` — Graph factory wiring nodes and edges
+  - `nodes/` — Individual node implementations (analyze, requirements, research, plan, implement, validate, repair, merge)
+  - `nodes/prompts/` — Prompt builder functions for each node
+  - `nodes/schemas/` — Zod validation schemas for YAML artifacts
+
+  ### Architecture Patterns
+
+  **Agent Resolution (MANDATORY):** All nodes receive an `IAgentExecutor` via dependency injection from `IAgentExecutorProvider`. No node hardcodes an agent type — resolution comes from `getSettings().agent.type` via `AgentExecutorFactory`.
+
+  **Node Pattern:** Each node is a factory function returning an async function `(state: FeatureAgentState) => Promise<Partial<FeatureAgentState>>`. Nodes read from state, call the executor with a prompt, parse results, and return partial state updates.
+
+  **Validation/Repair Loops:** Producer nodes are followed by validate nodes that check YAML against schemas. On failure, a repair node attempts auto-fix, then re-validates (max 3 retries).
+
+  **Approval Gates:** Nodes use `interrupt()` from LangGraph for human-in-the-loop approval. The `shouldInterrupt()` helper checks `state.approvalGates` configuration.
+
+  **Graph Flow:**
+  ```
+  START → analyze → validate → requirements → validate → research → validate → plan → validate → implement → merge → END
+  ```
+
+  ### Relevant Technologies
+
+  - **LangGraph** (`@langchain/langgraph`) — StateGraph for workflow orchestration with Annotation API, conditional edges, interrupt() for HITL
+  - **GitHub CLI** (`gh`) — PR creation (`gh pr create`), PR merging (`gh pr merge`), CI watching (`gh run watch`), failure log retrieval (`gh run view --log-failed`)
+  - **TypeSpec** — Domain model definitions in `tsp/`, compiled to `packages/core/src/domain/generated/output.ts`
+  - **Vitest** — Test framework with mocking (`vi.mock`, `vi.fn`) for TDD
+  - **js-yaml** — YAML parsing for spec files
+
+  ### Existing Artifact System
+
+  The domain already has an `Artifact` entity (`tsp/domain/entities/artifact.tsp`) with:
+  - `ArtifactCategory`: PRD, API, Design, Other
+  - `ArtifactFormat`: Markdown, Text, Yaml, Other
+  - `ArtifactState`: Todo, Elaborating, Done
+
+  This system currently handles documentation artifacts but does NOT support binary evidence like screenshots or videos. The `ArtifactFormat` enum would need extension (e.g., PNG, MP4) or evidence could use a separate model.
+
+  ### Merge Node Current Flow
+
+  The merge node (`nodes/merge/merge.node.ts`) has two agent calls:
+  1. **Commit + Push + PR creation** — uses `buildCommitPushPrPrompt()` to commit changes, push, and create PR via `gh pr create`
+  2. **Merge/Squash** — after approval gate, merges via `gh pr merge` or local merge
+
+  Between these two calls, it runs a CI watch/fix loop. Evidence attachment would fit naturally after PR creation and before the approval gate (or as a separate node before merge).
+
+  ### PR Creation Prompt
+
+  The `buildCommitPushPrPrompt()` function in `nodes/prompts/merge-prompts.ts` already:
+  - Reads `spec.yaml` for context
+  - Instructs the agent to write a rich PR body
+  - References the spec context
+
+  Evidence could be added to the PR body by this prompt, or a separate node could add PR comments with evidence after PR creation.
+
+  ### IGitPrService Interface
+
+  The `IGitPrService` interface (`application/ports/output/services/git-pr-service.interface.ts`) currently supports:
+  - `createPr()`, `mergePr()`, `push()`, `commitAll()`
+  - `getCiStatus()`, `watchCi()`, `getFailureLogs()`
+  - `getPrDiffSummary()`, `listPrStatuses()`
+
+  It does NOT currently have methods for adding PR comments or uploading assets. A new method like `addPrComment()` would be needed, or the evidence node could use the agent executor to run `gh pr comment` directly.
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `packages/core/src/infrastructure/services/agents/feature-agent/state.ts` | Medium | Add evidence-related state channels (evidenceArtifacts, evidenceStatus) |
+  | `packages/core/src/infrastructure/services/agents/feature-agent/feature-agent-graph.ts` | Medium | Wire new evidence node into graph between implement and merge |
+  | `packages/core/src/infrastructure/services/agents/feature-agent/nodes/` (new file) | High | New evidence node implementation |
+  | `packages/core/src/infrastructure/services/agents/feature-agent/nodes/prompts/` (new file) | High | New evidence prompt builder |
+  | `packages/core/src/application/ports/output/services/git-pr-service.interface.ts` | Low | Possibly add addPrComment() method |
+  | `packages/core/src/infrastructure/services/git/git-pr.service.ts` | Low | Implement addPrComment() if added to interface |
+  | `tsp/common/enums/artifact.tsp` | Low | Possibly extend ArtifactCategory/ArtifactFormat for evidence types |
+  | `tsp/domain/entities/` | Low | Possibly add Evidence value object or extend Artifact |
+  | `tests/unit/infrastructure/services/agents/feature-agent/nodes/` (new file) | High | Unit tests for evidence node (TDD) |
+  | `tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/` (new file) | Medium | Unit tests for evidence prompt builder |
+
+  ## Dependencies
+
+  - **Existing merge node** — Evidence node runs before or is integrated into the merge flow
+  - **IAgentExecutor** — Used to instruct the agent to capture and attach evidence
+  - **IGitPrService** — May need extension for PR comment attachment
+  - **FeatureAgentAnnotation state** — New channels for evidence tracking
+  - **GitHub CLI** (`gh pr comment`, `gh api`) — For uploading images/artifacts to PRs
+  - **LangGraph** — StateGraph APIs for node addition and edge wiring
+
+  ## Size Estimate
+
+  **M** — This feature involves adding a new LangGraph node (following established patterns), extending state channels, creating prompt builders, and writing TDD tests. The patterns are well-established in the codebase (analyze, research, plan, implement nodes all follow the same factory pattern). The main complexity is in deciding the evidence storage strategy (PR comments vs committed files vs GitHub API uploads) and handling binary artifacts. Core implementation is 2-4 days.
+
+  ---
+
+  _Generated by feature agent — proceed with research_
