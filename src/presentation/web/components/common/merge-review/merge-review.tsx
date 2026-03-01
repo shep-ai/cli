@@ -56,7 +56,7 @@ export function MergeReview({
   const { pr, diffSummary, phases, branch, warning } = data;
 
   return (
-    <div className="flex flex-1 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex-1 space-y-4 overflow-y-auto p-4">
         {/* Header */}
         <div className="flex items-start gap-3">

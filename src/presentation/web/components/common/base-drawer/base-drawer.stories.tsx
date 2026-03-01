@@ -232,7 +232,7 @@ export const ScrollableContent: Story = {
         </>
       }
     >
-      <div className="flex flex-col gap-4 p-4">
+      <div className="flex flex-col gap-4 overflow-y-auto p-4">
         {Array.from({ length: 30 }, (_, i) => (
           <div key={i} className="border-border rounded-md border p-3">
             <h4 className="text-sm font-medium">Item {i + 1}</h4>
