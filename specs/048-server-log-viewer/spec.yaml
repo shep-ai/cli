@@ -1,0 +1,107 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: server-log-viewer
+number: 048
+branch: feat/048-server-log-viewer
+oneLiner: Add a log viewer button near the server URL that opens a full-screen modal showing live dev server stdout/stderr
+summary: >
+  When a dev server is running via "click to deploy", users currently see only a URL badge but have
+  no way to view the server's stdout/stderr output. This feature adds a "View Logs" button next to
+  the server URL in the DeploymentStatusBadge that opens a full-screen Dialog modal with
+  auto-scrolling, live-updating log output streamed from the DeploymentService buffers.
+phase: Analysis
+sizeEstimate: M
+
+relatedFeatures: []
+
+technologies:
+  - React 18 (client components, hooks, state management)
+  - Next.js App Router (server actions, SSE API routes)
+  - shadcn/ui Dialog (Radix UI Dialog primitive for full-screen modal)
+  - Tailwind CSS (styling, dark theme for log viewer)
+  - lucide-react (icons for log viewer button)
+  - TypeSpec (if DeploymentStatus model needs logs field)
+  - Storybook (mandatory colocated stories for new components)
+
+relatedLinks: []
+
+openQuestions: []
+
+content: |
+  ## Problem Statement
+
+  When a dev server is running via the "click to deploy" feature, users can see the server URL in
+  a green `DeploymentStatusBadge` but have no way to view the server's stdout/stderr output from
+  the web UI. This makes it impossible to debug server startup issues, see request logs, or
+  diagnose errors without switching to a terminal.
+
+  The `DeploymentService` already buffers stdout and stderr in `DeploymentEntry.stdoutBuffer` and
+  `stderrBuffer`, but this data is not exposed through any API endpoint or surfaced in the UI.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The codebase follows Clean Architecture with four layers in `packages/core/src/`:
+
+  - **Domain** (`domain/`) — Generated from TypeSpec. Contains `DeploymentState` enum (Booting, Ready, Stopped) and `DeploymentStatus` type (state + url).
+  - **Application** (`application/`) — Use cases and output port interfaces. `IDeploymentService` defines `start()`, `stop()`, `getStatus()`, `stopAll()`.
+  - **Infrastructure** (`infrastructure/`) — `DeploymentService` manages an in-memory `Map<targetId, DeploymentEntry>` with process spawning, stdout/stderr buffering, and port detection.
+  - **Presentation** (`presentation/`) — Web UI in `src/presentation/web/` using Next.js App Router, React components, shadcn/ui.
+
+  The web UI is organized as:
+  - `app/` — Next.js pages and API routes
+  - `app/actions/` — Server actions (`deploy-feature.ts`, `get-deployment-status.ts`, `stop-deployment.ts`)
+  - `components/common/` — Reusable components (`deployment-status-badge/`, `base-drawer/`, `repository-node/`, `feature-node/`)
+  - `components/ui/` — shadcn/ui primitives (`dialog.tsx`, `alert-dialog.tsx`, `drawer.tsx`, `scroll-area.tsx`)
+  - `hooks/` — Custom hooks (`use-deploy-action.ts` manages deploy lifecycle with 3s polling)
+
+  ### Architecture Patterns
+
+  - **Server Actions**: Business logic runs server-side via `'use server'` functions that resolve services from a DI container (`resolve<IDeploymentService>('IDeploymentService')`).
+  - **Polling**: `useDeployAction` polls `getDeploymentStatus()` every 3 seconds for status updates. The log viewer can extend this pattern or use a dedicated SSE endpoint.
+  - **SSE**: An existing SSE pattern exists at `/api/agent-events/route.ts` for real-time agent lifecycle events — this can serve as a reference for a log streaming SSE endpoint.
+  - **Feature Flags**: Deployment UI is gated behind `featureFlags.envDeploy` (`NEXT_PUBLIC_FLAG_ENV_DEPLOY`).
+  - **Modal/Dialog Patterns**: The codebase uses Radix UI Dialog (shadcn/ui `dialog.tsx`) for modals and Vaul Drawer for side panels. The full-screen log viewer should use Dialog with custom sizing.
+
+  ### Relevant Technologies
+
+  - **DeploymentService** (`packages/core/src/infrastructure/services/deployment/deployment.service.ts`): Already buffers stdout/stderr in `DeploymentEntry`. The `attachOutputListener` method processes lines for port detection but retains buffer data.
+  - **DeploymentStatusBadge** (`src/presentation/web/components/common/deployment-status-badge/`): Renders the server URL badge. This is where the "View Logs" button will be added.
+  - **BaseDrawer DeployBar** (`src/presentation/web/components/common/base-drawer/base-drawer.tsx`): Also renders `DeploymentStatusBadge` — needs the same log button.
+  - **Dialog component** (`src/presentation/web/components/ui/dialog.tsx`): Radix UI Dialog with overlay, animations, and close button — base for full-screen modal.
+  - **CLI log-viewer** (`src/presentation/cli/commands/log-viewer.ts`): Reference implementation for file-based log tailing with follow mode. The web version will stream from in-memory buffers instead.
+
+  ### Key Integration Points
+
+  1. **Backend**: `IDeploymentService` interface needs a `getLogs(targetId)` method (or the existing `getStatus` can be extended to optionally include logs).
+  2. **Server Action**: New `get-deployment-logs.ts` server action to fetch buffered stdout/stderr.
+  3. **Hook**: Either extend `useDeployAction` to include log data or create a separate `useDeploymentLogs` hook with its own polling/SSE.
+  4. **UI**: New `ServerLogViewer` component (Dialog-based full-screen modal) and a "View Logs" button in `DeploymentStatusBadge`.
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `packages/core/src/application/ports/output/services/deployment-service.interface.ts` | High | Add `getLogs(targetId)` method to `IDeploymentService` interface |
+  | `packages/core/src/infrastructure/services/deployment/deployment.service.ts` | High | Implement `getLogs()` — return accumulated stdout/stderr buffers. May need to store complete log history (current buffers only keep incomplete trailing lines after port detection) |
+  | `tsp/deployment/deployment.tsp` or `tsp/common/enums/deployment.tsp` | Low | May need a `DeploymentLogs` model if we want typed log responses, or can use a simple string return |
+  | `src/presentation/web/app/actions/get-deployment-logs.ts` | High | New server action to fetch logs from DeploymentService |
+  | `src/presentation/web/components/common/deployment-status-badge/deployment-status-badge.tsx` | High | Add "View Logs" icon button next to the server URL when deployment is Ready |
+  | `src/presentation/web/components/common/server-log-viewer/` | High | New component: full-screen Dialog modal with monospace log output, auto-scroll, and live updates |
+  | `src/presentation/web/components/common/server-log-viewer/server-log-viewer.stories.tsx` | High | Mandatory Storybook stories for the new component |
+  | `src/presentation/web/components/common/base-drawer/base-drawer.tsx` | Medium | DeployBar also renders DeploymentStatusBadge — log button integration needed here too |
+  | `src/presentation/web/hooks/use-deployment-logs.ts` | Medium | New hook for polling/streaming log data with auto-refresh |
+  | `src/presentation/web/components/common/repository-node/repository-node.tsx` | Low | May need minor adjustments if DeploymentStatusBadge API changes (likely just props pass-through) |
+
+  ## Dependencies
+
+  - **DeploymentService stdout/stderr buffers**: The current implementation only keeps incomplete trailing lines in `stdoutBuffer`/`stderrBuffer` (complete lines are consumed for port detection). A full log history needs to be accumulated separately.
+  - **shadcn/ui Dialog**: Already available in `components/ui/dialog.tsx` — no new library needed.
+  - **Feature flag**: Log viewer should be gated behind the existing `featureFlags.envDeploy` flag.
+  - **Radix UI ScrollArea**: Available in `components/ui/scroll-area.tsx` for scrollable log content.
+
+  ## Size Estimate
+
+  **M** — This feature touches ~8-10 files across 3 layers (infrastructure, application ports, presentation). The backend changes are straightforward (expose buffered logs via a new method + server action). The main complexity is in the UI: building a performant full-screen log viewer with auto-scroll, live updates, and proper styling. All patterns (Dialog, polling, server actions) already exist in the codebase to follow. Estimated 2-3 days of implementation including tests and stories.
