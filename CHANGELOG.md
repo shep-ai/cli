@@ -1,3 +1,9 @@
+## [1.70.2](https://github.com/shep-ai/cli/compare/v1.70.1...v1.70.2) (2026-03-01)
+
+### Bug Fixes
+
+- **web:** drawer content scroll with fixed action bar ([#179](https://github.com/shep-ai/cli/issues/179)) ([3fec301](https://github.com/shep-ai/cli/commit/3fec301243e10b12639db47d465575b98596fcb8)), closes [#4](https://github.com/shep-ai/cli/issues/4)
+
 ## [1.70.1](https://github.com/shep-ai/cli/compare/v1.70.0...v1.70.1) (2026-03-01)
 
 ### Bug Fixes
