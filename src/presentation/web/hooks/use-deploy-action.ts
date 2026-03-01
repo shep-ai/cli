@@ -1,4 +1,5 @@
 'use client';
+/* eslint-disable no-console */
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import type { DeploymentState } from '@shepai/core/domain/generated/output';
@@ -23,6 +24,16 @@ export interface DeployActionState {
   status: DeploymentState | null;
   url: string | null;
 }
+
+const PREFIX = '[useDeployAction]';
+const isDebug = !!process.env.NEXT_PUBLIC_DEBUG;
+const noop = () => undefined;
+const log = {
+  info: isDebug ? (...args: unknown[]) => console.info(PREFIX, ...args) : noop,
+  debug: isDebug ? (...args: unknown[]) => console.debug(PREFIX, ...args) : noop,
+  warn: (...args: unknown[]) => console.warn(PREFIX, ...args),
+  error: (...args: unknown[]) => console.error(PREFIX, ...args),
+};
 
 const ERROR_CLEAR_DELAY = 5000;
 const POLL_INTERVAL = 3000;
@@ -56,6 +67,7 @@ export function useDeployAction(input: DeployActionInput | null): DeployActionSt
 
   const stopPolling = useCallback(() => {
     if (pollIntervalRef.current) {
+      log.debug('stopping polling');
       clearInterval(pollIntervalRef.current);
       pollIntervalRef.current = null;
     }
@@ -64,6 +76,7 @@ export function useDeployAction(input: DeployActionInput | null): DeployActionSt
   const startPolling = useCallback(
     (targetId: string) => {
       stopPolling();
+      log.debug(`starting polling for "${targetId}" every ${POLL_INTERVAL}ms`);
 
       pollIntervalRef.current = setInterval(async () => {
         if (!mountedRef.current) {
@@ -76,20 +89,37 @@ export function useDeployAction(input: DeployActionInput | null): DeployActionSt
         if (!mountedRef.current) return;
 
         if (!result || result.state === 'Stopped') {
+          log.info(
+            `poll result: ${result ? `state=${result.state}` : 'null (deployment gone)'} — stopping poll`
+          );
           setStatus(null);
           setUrl(null);
           stopPolling();
         } else {
+          if (result.state !== status) {
+            log.info(`poll state changed: ${status} → ${result.state}, url=${result.url}`);
+          }
           setStatus(result.state as DeploymentState);
           setUrl(result.url);
         }
       }, POLL_INTERVAL);
     },
-    [stopPolling]
+    [stopPolling, status]
   );
 
   const handleDeploy = useCallback(async () => {
-    if (!input || deployLoading) return;
+    if (!input) {
+      log.warn('deploy() called but input is null — no-op');
+      return;
+    }
+    if (deployLoading) {
+      log.warn('deploy() called but already loading — no-op');
+      return;
+    }
+
+    log.info(
+      `deploy() — targetType="${input.targetType}", targetId="${input.targetId}", repositoryPath="${input.repositoryPath}"`
+    );
 
     if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
 
@@ -102,13 +132,20 @@ export function useDeployAction(input: DeployActionInput | null): DeployActionSt
           ? await deployFeature(input.targetId)
           : await deployRepository(input.repositoryPath);
 
-      if (!mountedRef.current) return;
+      log.info('server action result:', result);
+
+      if (!mountedRef.current) {
+        log.warn('component unmounted after deploy — discarding result');
+        return;
+      }
 
       if (!result.success) {
         const errorMessage = result.error ?? 'An unexpected error occurred';
+        log.error(`deploy failed: ${errorMessage}`);
         setDeployError(errorMessage);
         errorTimerRef.current = setTimeout(() => setDeployError(null), ERROR_CLEAR_DELAY);
       } else {
+        log.info(`deploy succeeded — initial state=${result.state}, starting polling`);
         setStatus(result.state ?? null);
         setUrl(null);
         startPolling(input.targetId);
@@ -116,6 +153,7 @@ export function useDeployAction(input: DeployActionInput | null): DeployActionSt
     } catch (err: unknown) {
       if (!mountedRef.current) return;
       const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
+      log.error(`deploy threw exception: ${errorMessage}`, err);
       setDeployError(errorMessage);
       errorTimerRef.current = setTimeout(() => setDeployError(null), ERROR_CLEAR_DELAY);
     } finally {
@@ -128,10 +166,12 @@ export function useDeployAction(input: DeployActionInput | null): DeployActionSt
   const handleStop = useCallback(async () => {
     if (!input || stopLoading) return;
 
+    log.info(`stop() — targetId="${input.targetId}"`);
     setStopLoading(true);
 
     try {
       const result = await stopDeployment(input.targetId);
+      log.info('stop result:', result);
 
       if (!mountedRef.current) return;
 
@@ -140,8 +180,8 @@ export function useDeployAction(input: DeployActionInput | null): DeployActionSt
         setStatus(null);
         setUrl(null);
       }
-    } catch {
-      // Stop errors are non-critical; process may have already exited
+    } catch (err) {
+      log.warn('stop error (non-critical):', err);
     } finally {
       if (mountedRef.current) {
         setStopLoading(false);

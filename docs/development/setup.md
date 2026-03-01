@@ -265,6 +265,15 @@ DEBUG=shep:* pnpm dev
 
 # Or specific modules
 DEBUG=shep:agents:* pnpm dev
+
+# Enable deployment service logging (dev server start/stop, port detection)
+DEBUG=1 pnpm dev
+```
+
+For web UI client-side debug logging, add to `src/presentation/web/.env.local`:
+
+```bash
+NEXT_PUBLIC_DEBUG=1
 ```
 
 ### Debug Agent Execution

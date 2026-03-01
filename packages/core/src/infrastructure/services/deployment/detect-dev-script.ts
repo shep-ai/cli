@@ -8,6 +8,7 @@
 
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { createDeploymentLogger } from './deployment-logger.js';
 
 /** Script names to search for, in priority order */
 const SCRIPT_PRIORITY = ['dev', 'start', 'serve'] as const;
@@ -33,6 +34,8 @@ export interface DetectDevScriptError {
 
 export type DetectDevScriptResult = DetectDevScriptSuccess | DetectDevScriptError;
 
+const log = createDeploymentLogger('[detectDevScript]');
+
 /**
  * Detect the dev script and package manager for a project directory.
  *
@@ -40,23 +43,31 @@ export type DetectDevScriptResult = DetectDevScriptSuccess | DetectDevScriptErro
  * @returns Detection result with command info, or an error
  */
 export function detectDevScript(dirPath: string): DetectDevScriptResult {
+  log.info(`scanning dirPath="${dirPath}"`);
+
   // Read and parse package.json
   let packageJson: { scripts?: Record<string, string> };
   try {
     const raw = readFileSync(join(dirPath, 'package.json'), 'utf-8');
     packageJson = JSON.parse(raw);
-  } catch {
-    return { success: false, error: `No package.json found in ${dirPath}` };
+  } catch (err) {
+    const msg = `No package.json found in ${dirPath}`;
+    log.error(msg, err);
+    return { success: false, error: msg };
   }
 
   // Find the first matching script in priority order
   const scripts = packageJson.scripts ?? {};
+  const availableScripts = Object.keys(scripts);
+  log.info(
+    `available scripts: [${availableScripts.join(', ')}], looking for: [${SCRIPT_PRIORITY.join(', ')}]`
+  );
+
   const scriptName = SCRIPT_PRIORITY.find((name) => name in scripts);
   if (!scriptName) {
-    return {
-      success: false,
-      error: `No dev script found in package.json. Expected one of: ${SCRIPT_PRIORITY.join(', ')}`,
-    };
+    const msg = `No dev script found in package.json. Expected one of: ${SCRIPT_PRIORITY.join(', ')}`;
+    log.warn(msg);
+    return { success: false, error: msg };
   }
 
   // Detect package manager from lockfile
@@ -66,6 +77,9 @@ export function detectDevScript(dirPath: string): DetectDevScriptResult {
   const command =
     packageManager === 'npm' ? `npm run ${scriptName}` : `${packageManager} ${scriptName}`;
 
+  log.info(
+    `detected — packageManager="${packageManager}", scriptName="${scriptName}", command="${command}"`
+  );
   return { success: true, packageManager, scriptName, command };
 }
 

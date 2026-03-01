@@ -291,12 +291,14 @@ shep config reset --all
 
 Override configuration with environment variables:
 
-| Variable         | Config Path     | Description    |
-| ---------------- | --------------- | -------------- |
-| `SHEP_PORT`      | `server.port`   | Server port    |
-| `SHEP_HOST`      | `server.host`   | Server host    |
-| `SHEP_API_KEY`   | `auth.token`    | Claude API key |
-| `SHEP_LOG_LEVEL` | `logging.level` | Log verbosity  |
+| Variable            | Config Path     | Description                                         |
+| ------------------- | --------------- | --------------------------------------------------- |
+| `SHEP_PORT`         | `server.port`   | Server port                                         |
+| `SHEP_HOST`         | `server.host`   | Server host                                         |
+| `SHEP_API_KEY`      | `auth.token`    | Claude API key                                      |
+| `SHEP_LOG_LEVEL`    | `logging.level` | Log verbosity                                       |
+| `DEBUG`             | —               | Enable server-side debug logging (deployment, etc.) |
+| `NEXT_PUBLIC_DEBUG` | —               | Enable web UI client-side debug logging             |
 
 Example:
 
