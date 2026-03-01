@@ -1,3 +1,9 @@
+# [1.69.0](https://github.com/shep-ai/cli/compare/v1.68.1...v1.69.0) (2026-03-01)
+
+### Features
+
+- **web:** pending action features sidebar ([#173](https://github.com/shep-ai/cli/issues/173)) ([43ce9fe](https://github.com/shep-ai/cli/commit/43ce9fe2d972aaac4710a19f2547511c72a9d911)), closes [#148](https://github.com/shep-ai/cli/issues/148)
+
 ## [1.68.1](https://github.com/shep-ai/cli/compare/v1.68.0...v1.68.1) (2026-03-01)
 
 ### Bug Fixes
