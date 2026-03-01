@@ -1,3 +1,10 @@
+# [1.71.0](https://github.com/shep-ai/cli/compare/v1.70.2...v1.71.0) (2026-03-01)
+
+### Features
+
+- **web:** add product decisions tab to tech review drawer ([#180](https://github.com/shep-ai/cli/issues/180)) ([365e55d](https://github.com/shep-ai/cli/commit/365e55db39e1548adba63c5c90d6bf9089f4bce0))
+- **web:** server log viewer for deployments ([#176](https://github.com/shep-ai/cli/issues/176)) ([0c2834f](https://github.com/shep-ai/cli/commit/0c2834fdcc71b908bbf45b8e380118f6422200e7))
+
 ## [1.70.2](https://github.com/shep-ai/cli/compare/v1.70.1...v1.70.2) (2026-03-01)
 
 ### Bug Fixes
