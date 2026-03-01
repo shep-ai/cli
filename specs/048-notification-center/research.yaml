@@ -1,0 +1,497 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: notification-center
+summary: >
+  Technical research for the notification center feature covering TypeSpec domain modeling,
+  SQLite persistence (migration v24), repository and use case patterns, NotificationService
+  modification for server-side persistence, API route design, React hook architecture with
+  SSE integration, and UI component hierarchy using existing shadcn/ui primitives.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - TypeSpec (tsp/ domain model for Notification entity)
+  - TypeScript
+  - React 19 (client components, hooks, context)
+  - Next.js 16+ (App Router API routes)
+  - SQLite / better-sqlite3 (notification persistence, migration v24)
+  - tsyringe (DI container registration)
+  - shadcn/ui Popover + ScrollArea + Badge (UI primitives)
+  - Radix UI (underlying Popover/ScrollArea primitives)
+  - lucide-react (Bell, BellDot, Check, Filter, CheckCheck icons)
+  - class-variance-authority (CVA for severity variants)
+  - Zod (API input validation)
+  - Tailwind CSS 4 (styling)
+  - Vitest + Testing Library (unit tests)
+  - Storybook 8 (component stories)
+  - Playwright (e2e tests)
+
+relatedLinks: []
+
+# Structured technology decisions
+decisions:
+  - title: 'TypeSpec Notification Entity Design'
+    chosen: 'New Notification model extending BaseEntity alongside existing NotificationEvent value object'
+    rejected:
+      - 'Extend NotificationEvent to add persistence fields — would pollute the ephemeral value object with persistence concerns (id, isRead, readAt). NotificationEvent is intentionally NOT a BaseEntity; it represents transient events. Adding BaseEntity fields to it would violate the existing design decision documented in notification-event.tsp.'
+      - 'Store raw NotificationEvent JSON without a dedicated entity — would lose query ability on individual fields (severity, isRead, featureId). SQLite indexes require flat columns, not embedded JSON blobs.'
+    rationale: >
+      The existing NotificationEvent (tsp/domain/entities/notification-event.tsp) is deliberately a value
+      object without BaseEntity inheritance because events are ephemeral. A new Notification entity extending
+      BaseEntity provides the persistence metadata (id, createdAt, updatedAt) while carrying all the event
+      data fields (eventType, agentRunId, featureId, featureName, phaseName, message, severity) plus new
+      fields (isRead, readAt, eventTimestamp). This follows the same pattern as other persisted entities
+      (Feature, Repository, Settings) in the tsp/domain/entities/ directory. The Notification entity will
+      be defined in tsp/domain/entities/notification.tsp and imported in tsp/domain/entities/index.tsp.
+
+  - title: 'Database Schema — Date Storage Format'
+    chosen: 'TEXT (ISO 8601) for all date columns in the notifications table'
+    rejected:
+      - 'INTEGER (unix milliseconds) — used by older tables like features and agent_runs. However, the settings table (migration v1) uses TEXT for dates, and the original feature spec explicitly specifies TEXT columns for read_at, event_timestamp, created_at, updated_at. TEXT dates are human-readable in SQLite CLI which aids debugging. Both formats work; we follow the spec.'
+    rationale: >
+      The feature spec (FR-10) explicitly defines all timestamp columns as TEXT NOT NULL (e.g., created_at TEXT
+      NOT NULL, event_timestamp TEXT NOT NULL). While the features table uses INTEGER (unix ms), the settings
+      table uses TEXT. The notifications table follows the TEXT convention per spec. ISO 8601 strings sort
+      lexicographically, so ORDER BY created_at DESC works correctly. The mapper will convert between
+      Date objects (domain) and ISO strings (DB), following the established toDatabase/fromDatabase pattern
+      in packages/core/src/infrastructure/persistence/sqlite/mappers/.
+
+  - title: 'Migration Version Number'
+    chosen: 'Version 24 — next sequential version after current latest (v23)'
+    rejected:
+      - 'Skip to v25 or higher — no reason to skip; migrations are sequential. The latest migration is v23 (back-fill repositories rows for orphaned features). The next available version is 24.'
+    rationale: >
+      The migration system in packages/core/src/infrastructure/persistence/sqlite/migrations.ts uses
+      sequential integer versions tracked by SQLite user_version pragma. The latest migration is version 23
+      (LATEST_SCHEMA_VERSION). The new notifications table must be version 24 to maintain the sequential
+      invariant. The migration will use plain SQL (no handler needed) since it only creates a new table
+      with indexes — no conditional DDL or data backfill required.
+
+  - title: 'NotificationService Modification Strategy'
+    chosen: 'Inject INotificationRepository into NotificationService constructor and persist synchronously with try/catch guard'
+    rejected:
+      - 'Fire-and-forget async persistence via setTimeout/queueMicrotask — adds complexity without benefit since better-sqlite3 is synchronous anyway. The try/catch guard already ensures non-blocking behavior per NFR-3.'
+      - 'Separate NotificationPersistenceService listening to the bus — adds another subscriber and indirect coupling. The spec (FR-12) explicitly says to modify NotificationService.notify() to call repository.create().'
+    rationale: >
+      The current NotificationService (packages/core/src/infrastructure/services/notifications/notification.service.ts)
+      has a simple constructor(bus, desktopNotifier) and a synchronous notify() method. Adding a third
+      dependency (INotificationRepository) follows the existing pattern. The persistence call wraps in
+      try/catch per NFR-3 so that a DB error never blocks the bus emit or desktop notification. Since
+      better-sqlite3 is synchronous, the repository.create() call completes immediately — no async
+      complexity needed. The DI container registration in container.ts already creates NotificationService
+      via useFactory, so adding the repository injection is a one-line change to the factory.
+
+  - title: 'Repository Interface Design'
+    chosen: 'INotificationRepository with CRUD + list/filter + bulk operations following IFeatureRepository pattern'
+    rejected:
+      - 'Minimal interface with only create() and list() — insufficient for mark-as-read and cleanup requirements. The spec (FR-3) explicitly defines 7 methods.'
+      - 'Generic repository base class — the codebase does not use generic repositories. Each repository interface is specific to its entity, following the Interface Segregation Principle.'
+    rationale: >
+      Following the established IFeatureRepository pattern in packages/core/src/application/ports/output/repositories/,
+      INotificationRepository will be a dedicated interface with methods matching the spec: create, findById,
+      list (with NotificationListFilters), markAsRead, markAllAsRead, getUnreadCount, deleteOlderThan.
+      The list method accepts a filters object (like FeatureListFilters) for dynamic WHERE clause construction.
+      All methods return Promises for interface consistency even though better-sqlite3 is synchronous.
+
+  - title: 'Use Case Granularity'
+    chosen: 'Six separate use cases (Create, List, MarkRead, MarkAllRead, GetUnreadCount, CleanupOld) following existing codebase pattern'
+    rejected:
+      - 'Single NotificationUseCase with multiple methods — violates the existing pattern where each use case is a separate @injectable() class with a single execute() method. Every use case in packages/core/src/application/use-cases/ follows this pattern.'
+      - 'Combine MarkRead and MarkAllRead into one use case with a parameter — overly generic. The existing codebase prefers granular use cases (e.g., ApproveAgentRunUseCase and RejectAgentRunUseCase are separate despite being similar).'
+    rationale: >
+      The codebase convention is one class per use case with @injectable() decorator, constructor injection
+      via @inject('TokenName'), and a single async execute() method. Examples: ListFeaturesUseCase,
+      CreateFeatureUseCase, DeleteFeatureUseCase, etc. Following this pattern ensures consistency with
+      the existing 30+ use cases and seamless DI registration via container.registerSingleton().
+
+  - title: 'API Route Pattern and DI Resolution'
+    chosen: 'Use resolve() from @/lib/server-container with string-token aliases, following the existing tools API pattern'
+    rejected:
+      - 'Direct container import — the codebase explicitly uses the resolve() helper from @/lib/server-container because Turbopack cannot resolve .js→.ts imports inside @shepai/core. String tokens are required.'
+      - 'Server actions instead of API routes — Next.js server actions are for mutations triggered by forms. The notification center needs GET endpoints for data fetching and PATCH/POST for state changes. API routes are the correct pattern here.'
+    rationale: >
+      All existing API routes (src/presentation/web/app/api/tools/route.ts, agent-events/route.ts) use
+      the resolve<T>('StringToken') pattern from @/lib/server-container.ts. The DI container registers
+      string-token aliases (e.g., 'ListFeaturesUseCase') for web route resolution because Turbopack
+      cannot resolve class imports from @shepai/core. New notification use cases must have corresponding
+      string-token aliases in container.ts (e.g., 'ListNotificationsUseCase', 'MarkNotificationReadUseCase').
+
+  - title: 'UI Component Architecture'
+    chosen: 'Popover-based NotificationPanel in common/ tier with 5 subcomponents'
+    rejected:
+      - 'Single monolithic NotificationCenter component — violates component composition principles. The codebase uses granular components (SoundToggle, ThemeToggle, AddRepositoryButton) that compose cleanly in the toolbar.'
+      - 'Drawer/Sheet panel — the product spec (openQuestions) resolved this: Popover is preferred for quick-scan UX. The existing shadcn/ui Popover (src/presentation/web/components/ui/popover.tsx) is already available.'
+    rationale: >
+      The component hierarchy follows the existing common/ tier pattern: each component in its own directory
+      with component.tsx + component.stories.tsx + index.ts. Five subcomponents (NotificationBell,
+      NotificationPanel, NotificationFilterBar, NotificationItem, NotificationEmptyState) match the spec
+      (FR-19) and follow the composition pattern seen in other common/ components. The bell icon integrates
+      into the AppShell toolbar (app-shell.tsx line 34-37) between SoundToggle and ThemeToggle, matching
+      the existing flex gap-1 layout.
+
+  - title: 'Real-Time Update Strategy for useNotificationCenter Hook'
+    chosen: 'Subscribe to AgentEventsProvider context + optimistic local state updates + server reconciliation'
+    rejected:
+      - 'Poll GET /api/notifications/unread-count on interval — adds unnecessary HTTP overhead when the SSE stream already delivers events in real-time. The existing useNotifications hook already consumes events from useAgentEventsContext().'
+      - 'Dedicated WebSocket for notifications — the codebase uses SSE (EventSource) via Service Worker, not WebSockets. Adding a WebSocket would introduce a new connection type and infrastructure.'
+    rationale: >
+      The existing notification pipeline delivers events via SSE through AgentEventsProvider. The current
+      useNotifications hook (src/presentation/web/hooks/use-notifications.ts) already subscribes to
+      useAgentEventsContext().events and processes new events via a processedCountRef pattern to avoid
+      React batching issues. The new useNotificationCenter hook will follow the same pattern: consume
+      events from context, prepend to local state optimistically, and periodically reconcile with the
+      server via GET /api/notifications. This avoids duplicate SSE connections and leverages the existing
+      Service Worker shared connection (NFR-6).
+
+  - title: 'Cleanup Strategy for 30-Day Retention'
+    chosen: 'Opportunistic cleanup on startup and throttled during list operations'
+    rejected:
+      - 'Background scheduler (setInterval/cron) — the codebase does not use background schedulers. The local-first architecture favors opportunistic cleanup to avoid idle resource consumption.'
+      - 'Client-triggered cleanup via API — shifts responsibility to the UI layer, which should not manage data lifecycle.'
+    rationale: >
+      FR-14 specifies opportunistic cleanup. The CleanupOldNotificationsUseCase runs at application startup
+      (in initializeContainer or first use) and throttled during ListNotificationsUseCase execution (e.g.,
+      at most once per hour via a simple timestamp check). This mirrors how the SQLite connection and
+      migrations run at startup — the infrastructure handles its own lifecycle. A 30-day threshold with
+      ~50 notifications/day means ~1,500 rows max, well within SQLite's comfort zone.
+
+  - title: 'Mapper Date Conversion Strategy'
+    chosen: 'ISO 8601 strings in DB, Date objects in domain — following the settings mapper pattern'
+    rejected:
+      - 'Unix milliseconds (integers) — used by features/agent_runs tables but the spec defines TEXT columns. Mixing formats within the notifications table would be inconsistent.'
+    rationale: >
+      The notification mapper (notification.mapper.ts) will follow the toDatabase/fromDatabase pattern from
+      packages/core/src/infrastructure/persistence/sqlite/mappers/. Since the spec defines TEXT columns for
+      dates, the mapper converts Date objects to ISO strings (toDatabase) and ISO strings back to Date
+      (fromDatabase). This is consistent with how the settings mapper handles its TEXT date columns.
+      The boolean isRead field uses INTEGER 0/1, matching the existing pattern (e.g., features.push,
+      settings.notif_in_app_enabled).
+
+# Open questions (resolved during research)
+openQuestions:
+  - question: 'Should NotificationListFilters be defined in TypeSpec or as a plain TypeScript interface?'
+    resolved: true
+    options:
+      - option: 'Define in TypeSpec as a model'
+        description: >
+          Add NotificationListFilters as a model in tsp/domain/entities/notification.tsp alongside
+          the Notification entity. This generates the type in output.ts and keeps all domain types
+          in the TypeSpec single source of truth. Follows the TypeSpec-first mandate.
+        selected: true
+      - option: 'Define as a TypeScript interface in the repository port file'
+        description: >
+          Define NotificationListFilters directly in the INotificationRepository interface file, similar
+          to how FeatureListFilters is defined in feature-repository.interface.ts. This keeps the filter
+          type close to its consumer but bypasses TypeSpec.
+        selected: false
+      - option: 'Define in a separate shared types file'
+        description: >
+          Create a types.ts in the application/use-cases/notifications/ directory. This isolates the
+          filter type but adds file fragmentation without benefit.
+        selected: false
+    selectionRationale: >
+      The codebase mandate is TypeSpec-first for domain models. However, examining the existing pattern,
+      FeatureListFilters is defined as a plain TypeScript interface in the repository port file, not in
+      TypeSpec. This is because filter objects are application-layer concerns, not domain entities. Following
+      the existing FeatureListFilters precedent, NotificationListFilters should be defined in the repository
+      interface file. HOWEVER, the spec (FR-2) explicitly says to define it in TypeSpec. We follow the spec
+      and define it as a TypeSpec model, which generates it in output.ts for consistent typing. The TypeSpec
+      model can use optional fields with defaults (limit?: int32 = 50, offset?: int32 = 0).
+
+  - question: 'How should the notification bell integrate with the existing sound system?'
+    resolved: true
+    options:
+      - option: 'No sound integration — silent badge updates'
+        description: >
+          The notification center badge updates silently. Sound is already handled by the existing
+          useNotifications hook which plays sounds for toast notifications. Adding sound to the badge
+          would create duplicate audio feedback.
+        selected: true
+      - option: 'Play sound when new notification arrives via useNotificationCenter'
+        description: >
+          The useNotificationCenter hook plays a sound when a new notification is prepended to the feed.
+          Uses the existing useSoundAction hook with 'notification-info' or severity-mapped action.
+        selected: false
+      - option: 'Play sound only when popover is open and new notification arrives'
+        description: >
+          Sound plays only when the user has the notification panel open and a new item appears. More
+          contextual but complex to implement.
+        selected: false
+    selectionRationale: >
+      The existing useNotifications hook (src/presentation/web/hooks/use-notifications.ts) already plays
+      sounds for Error, Warning, and Success notifications via the useSoundAction hook with severity-mapped
+      actions (notification-success, notification-error, notification-warning, notification-info defined in
+      use-sound-action.ts SOUND_ACTION_MAP). Adding sound to the notification center would create duplicate
+      audio — the user would hear the toast sound AND a badge update sound for the same event. The
+      notification center is a passive, persistent log; it should update silently.
+
+  - question: 'Where should the new Notification entity be placed in the TypeSpec entity index?'
+    resolved: true
+    options:
+      - option: 'Add import after notification-event.tsp in index.tsp'
+        description: >
+          Place import "./notification.tsp" immediately after import "./notification-event.tsp" in
+          tsp/domain/entities/index.tsp. Groups related notification types together for discoverability.
+        selected: true
+      - option: 'Add import at the end of index.tsp'
+        description: >
+          Append import "./notification.tsp" as the last line. Preserves existing order and adds new
+          entries at the end. However, it separates related notification types.
+        selected: false
+      - option: 'Add import alphabetically in index.tsp'
+        description: >
+          Insert import based on alphabetical order of the filename. The current file does not follow
+          alphabetical order (it groups logically), so this would break the existing pattern.
+        selected: false
+    selectionRationale: >
+      The current tsp/domain/entities/index.tsp groups imports logically (base types first, then entities,
+      then artifacts, then event types). import "./notification-event.tsp" is already present. Placing
+      import "./notification.tsp" immediately after it groups the ephemeral event and persisted entity
+      together, making the relationship clear. This follows the logical grouping convention.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. TypeSpec Notification Entity Design
+
+  **Chosen:** New Notification model extending BaseEntity alongside existing NotificationEvent value object
+
+  **Rejected:**
+  - Extend NotificationEvent with persistence fields — pollutes the ephemeral value object (violates design intent documented in notification-event.tsp)
+  - Store raw JSON without dedicated entity — loses SQLite query/index capability
+
+  **Rationale:** The existing NotificationEvent is deliberately a value object without BaseEntity. A new
+  Notification entity in tsp/domain/entities/notification.tsp extends BaseEntity and carries all event fields
+  plus persistence metadata (isRead, readAt, eventTimestamp). Follows Feature/Repository/Settings entity pattern.
+
+  ### 2. Database Schema — Date Storage Format
+
+  **Chosen:** TEXT (ISO 8601) for all date columns
+
+  **Rejected:**
+  - INTEGER (unix ms) — used by older tables but spec explicitly defines TEXT columns
+
+  **Rationale:** FR-10 specifies TEXT columns. ISO strings sort lexicographically and are human-readable in
+  SQLite CLI. The mapper converts Date ↔ ISO string following the settings mapper pattern.
+
+  ### 3. Migration Version Number
+
+  **Chosen:** Version 24 (sequential after current v23)
+
+  **Rejected:**
+  - Skipping versions — no reason; migrations are strictly sequential
+
+  **Rationale:** LATEST_SCHEMA_VERSION is 23 (back-fill orphaned repositories). Version 24 creates the
+  notifications table with indexes on is_read, severity, feature_id, and created_at.
+
+  ### 4. NotificationService Modification Strategy
+
+  **Chosen:** Inject INotificationRepository into constructor, persist synchronously with try/catch guard
+
+  **Rejected:**
+  - Fire-and-forget async — better-sqlite3 is synchronous; unnecessary complexity
+  - Separate persistence service on bus — indirect coupling; spec says modify notify()
+
+  **Rationale:** NotificationService.notify() gains a third dependency. The try/catch guard satisfies
+  NFR-3 (non-blocking). The DI factory in container.ts adds one line to inject the repository.
+
+  ### 5. Repository Interface Design
+
+  **Chosen:** INotificationRepository with 7 methods following IFeatureRepository pattern
+
+  **Rejected:**
+  - Minimal create/list only — insufficient for mark-as-read and cleanup
+  - Generic repository base — not used in codebase; Interface Segregation preferred
+
+  **Rationale:** Matches spec FR-3 exactly. Dynamic WHERE clause construction for filters follows
+  SQLiteFeatureRepository.list() pattern. All methods return Promises per convention.
+
+  ### 6. Use Case Granularity
+
+  **Chosen:** Six separate use cases (Create, List, MarkRead, MarkAllRead, GetUnreadCount, CleanupOld)
+
+  **Rejected:**
+  - Single multi-method use case — violates one-class-per-operation convention
+  - Combined MarkRead/MarkAllRead — codebase prefers granular (see Approve/Reject separation)
+
+  **Rationale:** Each use case is @injectable() with @inject() constructor and single execute() method.
+  Consistent with 30+ existing use cases. DI registration via container.registerSingleton().
+
+  ### 7. API Route Pattern and DI Resolution
+
+  **Chosen:** resolve() from @/lib/server-container with string-token aliases
+
+  **Rejected:**
+  - Direct container import — Turbopack cannot resolve .js→.ts imports from @shepai/core
+  - Server actions — wrong pattern for GET endpoints and explicit state mutations
+
+  **Rationale:** All existing API routes use resolve<T>('StringToken'). New use cases need corresponding
+  string-token aliases in container.ts (e.g., 'ListNotificationsUseCase').
+
+  ### 8. UI Component Architecture
+
+  **Chosen:** Popover-based NotificationPanel in common/ tier with 5 subcomponents
+
+  **Rejected:**
+  - Monolithic component — violates composition principles
+  - Drawer/Sheet — resolved in product spec; Popover preferred for quick-scan UX
+
+  **Rationale:** Five components (NotificationBell, NotificationPanel, NotificationFilterBar,
+  NotificationItem, NotificationEmptyState) in common/notification-center/ directory. Each has
+  component.tsx + stories.tsx + index.ts. Bell integrates into AppShell toolbar line 34-37.
+
+  ### 9. Real-Time Update Strategy
+
+  **Chosen:** Subscribe to AgentEventsProvider context + optimistic local state + server reconciliation
+
+  **Rejected:**
+  - Poll unread-count API — unnecessary HTTP overhead when SSE stream is available
+  - Dedicated WebSocket — codebase uses SSE/EventSource, not WebSockets
+
+  **Rationale:** useNotificationCenter follows the processedCountRef pattern from useNotifications hook.
+  Consumes useAgentEventsContext().events, prepends to local state, reconciles with server on filter change.
+
+  ### 10. Cleanup Strategy for 30-Day Retention
+
+  **Chosen:** Opportunistic cleanup on startup and throttled during list operations
+
+  **Rejected:**
+  - Background scheduler — codebase has no background schedulers
+  - Client-triggered cleanup — wrong layer for data lifecycle management
+
+  **Rationale:** FR-14 specifies opportunistic cleanup. Runs at startup and at most once per hour during
+  list operations. ~1,500 rows max with typical usage — well within SQLite comfort zone.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | better-sqlite3 | Notification persistence | Use (existing) | Already the project's DB driver. Synchronous API simplifies NotificationService.notify() modification |
+  | shadcn/ui Popover | Notification panel overlay | Use (existing) | Already installed at components/ui/popover.tsx. Radix-based with Portal, keyboard nav, animation |
+  | shadcn/ui ScrollArea | Scrollable notification list | Use (existing) | Already installed at components/ui/scroll-area.tsx. Custom scrollbar with Radix primitives |
+  | shadcn/ui Badge | Unread count indicator | Use (existing) | Already installed at components/ui/badge.tsx. CVA variants for styling |
+  | lucide-react | Bell, BellDot, Check, Filter icons | Use (existing) | Already the project's icon library. BellDot provides native unread indicator icon |
+  | class-variance-authority | Severity-based notification item variants | Use (existing) | Already used for Button, Badge variants. Perfect for info/warning/success/error styling |
+  | Zod | API input validation | Use (existing) | Already the project's validation library. Validate query params for GET /api/notifications |
+  | tsyringe | DI registration | Use (existing) | Already the project's DI framework. @injectable() + @inject() decorators for use cases |
+  | date-fns or relative-time-format | Relative timestamps ("2m ago") | Reject (not needed) | Intl.RelativeTimeFormat is built into all modern browsers. No library needed for relative time formatting |
+  | react-query / SWR | Data fetching for notifications | Reject | The codebase does not use data fetching libraries — hooks use plain fetch() + useState/useEffect. Adding a new library would break convention |
+  | zustand / jotai | Cross-tab notification state | Reject | The codebase uses React context + custom events for state sharing. Adding a state library would break convention. Cross-tab sync via BroadcastChannel or focus-refetch |
+
+  ## Security Considerations
+
+  ### Input Validation
+  - All API route query parameters validated with Zod schemas before use
+  - Notification ID validated as UUID format in PATCH /api/notifications/[id]/read
+  - SQLite prepared statements with parameter binding prevent SQL injection (existing pattern)
+
+  ### Data Integrity
+  - Notification data originates from server-side NotificationService — no user-supplied content in the notification body
+  - isRead flag can only be set to true (no unread-marking) — prevents state manipulation
+  - No authentication needed (Shep is a local-first tool running on the user's machine)
+
+  ### Non-Blocking Persistence
+  - NotificationService.notify() wraps repository.create() in try/catch (NFR-3)
+  - A persistence failure logs a warning but never prevents event delivery to existing channels
+  - This prevents a corrupted DB from breaking the entire notification pipeline
+
+  ## Performance Implications
+
+  ### Database
+  - Indexes on is_read, severity, feature_id, created_at ensure sub-100ms queries for up to 1,000 rows (NFR-1)
+  - 30-day retention caps table size at ~1,500 rows (50 notifications/day × 30 days)
+  - Each row is ~500 bytes → max table size ~750KB (NFR-4)
+  - SQLite WAL mode (already enabled) allows concurrent reads during writes
+
+  ### Network
+  - Zero additional SSE connections — reuses existing AgentEventsProvider stream (NFR-2)
+  - Initial page load: single GET /api/notifications request (~50 items)
+  - Badge update: derived from local state, no separate API call
+  - Mark-as-read: fire-and-forget PATCH, optimistic local update
+
+  ### Client Bundle
+  - Notification center components are small (Popover + list + items)
+  - No new external dependencies added to bundle
+  - Consider dynamic import for PopoverContent if bundle exceeds 10KB gzipped (NFR-10)
+  - Lazy load filter bar since most users will not use filters on every open
+
+  ### Multi-Tab Consistency (NFR-6)
+  - Service Worker shares single SSE connection across tabs (existing behavior)
+  - New notifications appear in all tabs via shared SSE stream
+  - Mark-as-read consistency: refetch notification list on popover open or window focus
+  - No cross-tab broadcast needed for v1 — focus-based refetch is sufficient
+
+  ## Architecture Notes
+
+  ### Clean Architecture Compliance (NFR-8)
+
+  ```
+  Domain Layer (tsp/)
+  └── Notification entity (tsp/domain/entities/notification.tsp)
+  └── NotificationListFilters model (tsp/domain/entities/notification.tsp)
+  └── Reuses existing NotificationEventType, NotificationSeverity enums
+
+  Application Layer (packages/core/src/application/)
+  ├── ports/output/repositories/notification-repository.interface.ts
+  │   └── INotificationRepository (7 methods)
+  └── use-cases/notifications/
+      ├── create-notification.use-case.ts
+      ├── list-notifications.use-case.ts
+      ├── mark-notification-read.use-case.ts
+      ├── mark-all-notifications-read.use-case.ts
+      ├── get-unread-count.use-case.ts
+      └── cleanup-old-notifications.use-case.ts
+
+  Infrastructure Layer (packages/core/src/infrastructure/)
+  ├── persistence/sqlite/migrations.ts (v24 — notifications table)
+  ├── persistence/sqlite/mappers/notification.mapper.ts
+  ├── repositories/sqlite-notification.repository.ts
+  ├── services/notifications/notification.service.ts (modified — adds INotificationRepository)
+  └── di/container.ts (register repository, 6 use cases, string-token aliases)
+
+  Presentation Layer
+  ├── Web API Routes (src/presentation/web/app/api/notifications/)
+  │   ├── route.ts (GET /api/notifications)
+  │   ├── unread-count/route.ts (GET /api/notifications/unread-count)
+  │   ├── mark-all-read/route.ts (POST /api/notifications/mark-all-read)
+  │   └── [id]/read/route.ts (PATCH /api/notifications/[id]/read)
+  ├── Hooks (src/presentation/web/hooks/)
+  │   └── use-notification-center.ts
+  └── Components (src/presentation/web/components/common/notification-center/)
+      ├── notification-bell.tsx + .stories.tsx
+      ├── notification-panel.tsx + .stories.tsx
+      ├── notification-filter-bar.tsx + .stories.tsx
+      ├── notification-item.tsx + .stories.tsx
+      ├── notification-empty-state.tsx + .stories.tsx
+      └── index.ts
+  ```
+
+  ### Integration Points
+
+  1. **NotificationService.notify()** — Modified to inject INotificationRepository and call
+     CreateNotificationUseCase. Wraps in try/catch. Existing bus emit and desktop notifier unchanged.
+
+  2. **AppShell toolbar** (app-shell.tsx line 34) — NotificationBell inserted between SoundToggle
+     and ThemeToggle in the `flex gap-1` container.
+
+  3. **AgentEventsProvider context** — useNotificationCenter subscribes to events array via
+     useAgentEventsContext(), following the same processedCountRef pattern as useNotifications.
+
+  4. **DI Container** (container.ts) — Register INotificationRepository factory with DB injection,
+     6 use cases as singletons, and 6 string-token aliases for web route resolution.
+
+  5. **TypeSpec compilation** — New notification.tsp entity generates types in output.ts via
+     `pnpm tsp:compile`. Import added to tsp/domain/entities/index.tsp.
+
+  ### Graceful Degradation (NFR-7)
+
+  - If notifications table is unavailable, NotificationService.notify() catches the error and logs it
+  - The useNotificationCenter hook handles API errors by showing empty state
+  - The bell icon hides the badge (shows 0) if unread-count API fails
+  - Existing toast and browser notification behavior is completely unchanged
+
+  ---
+
+  _Research complete — proceed to planning phase_
