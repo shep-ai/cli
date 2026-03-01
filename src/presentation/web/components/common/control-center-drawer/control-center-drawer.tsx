@@ -10,6 +10,8 @@ import {
   Code2,
   Terminal,
   FolderOpen,
+  Play,
+  Square,
 } from 'lucide-react';
 import type {
   PrdApprovalPayload,
@@ -22,12 +24,16 @@ import { getFeatureArtifact } from '@/app/actions/get-feature-artifact';
 import { getResearchArtifact } from '@/app/actions/get-research-artifact';
 import { getMergeReviewData } from '@/app/actions/get-merge-review-data';
 import { cn } from '@/lib/utils';
+import { featureFlags } from '@/lib/feature-flags';
 import { useSoundAction } from '@/hooks/use-sound-action';
+import { useDeployAction } from '@/hooks/use-deploy-action';
 import { BaseDrawer } from '@/components/common/base-drawer';
+import { DeploymentStatusBadge } from '@/components/common/deployment-status-badge';
 import { DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { CometSpinner } from '@/components/ui/comet-spinner';
 import {
   AlertDialog,
@@ -303,6 +309,31 @@ export function ControlCenterDrawer({
     repoData?.repositoryPath ? { repositoryPath: repoData.repositoryPath } : null
   );
 
+  // ── Deploy targets ──────────────────────────────────────────────────────
+  // Feature deploy is rendered inline in the header; repo deploy uses BaseDrawer's bar.
+
+  const featureDeployTarget =
+    featureNode?.repositoryPath && featureNode.branch
+      ? {
+          targetId: featureNode.featureId,
+          targetType: 'feature' as const,
+          repositoryPath: featureNode.repositoryPath,
+          branch: featureNode.branch,
+        }
+      : null;
+
+  const repoDeployTarget = repoData?.repositoryPath
+    ? {
+        targetId: repoData.repositoryPath,
+        targetType: 'repository' as const,
+        repositoryPath: repoData.repositoryPath,
+      }
+    : undefined;
+
+  const deployAction = useDeployAction(featureDeployTarget);
+  const isFeatureDeployActive =
+    deployAction.status === 'Booting' || deployAction.status === 'Ready';
+
   // ── Header ──────────────────────────────────────────────────────────────
 
   let header: React.ReactNode = undefined;
@@ -326,57 +357,82 @@ export function ControlCenterDrawer({
               repositoryPath={featureActionsInput.repositoryPath}
               showSpecs={!!featureActionsInput.specPath}
             />
-            {onDelete && featureNode.featureId ? (
+            {featureFlags.envDeploy && featureDeployTarget ? (
               <>
-                <div className="bg-border mx-1 h-4 w-px" />
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label="Delete feature"
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span>
+                        <ActionButton
+                          label={isFeatureDeployActive ? 'Stop Dev Server' : 'Start Dev Server'}
+                          onClick={isFeatureDeployActive ? deployAction.stop : deployAction.deploy}
+                          loading={deployAction.deployLoading || deployAction.stopLoading}
+                          error={!!deployAction.deployError}
+                          icon={isFeatureDeployActive ? Square : Play}
+                          iconOnly
+                          variant="outline"
+                          size="icon-sm"
+                        />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {isFeatureDeployActive ? 'Stop Dev Server' : 'Start Dev Server'}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                {isFeatureDeployActive ? (
+                  <DeploymentStatusBadge status={deployAction.status} url={deployAction.url} />
+                ) : null}
+              </>
+            ) : null}
+            {onDelete && featureNode.featureId ? (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="Delete feature"
+                    disabled={isDeleting}
+                    className="text-muted-foreground hover:text-destructive ml-auto"
+                    data-testid="feature-drawer-delete"
+                  >
+                    {isDeleting ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="size-4" />
+                    )}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete feature?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently delete <strong>{featureNode.name}</strong> (
+                      {featureNode.featureId}). This action cannot be undone.
+                      {featureNode.state === 'running' ? (
+                        <> This feature has a running agent that will be stopped.</>
+                      ) : null}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      variant="destructive"
                       disabled={isDeleting}
-                      className="text-muted-foreground hover:text-destructive"
-                      data-testid="feature-drawer-delete"
+                      onClick={() => onDelete(featureNode.featureId)}
                     >
                       {isDeleting ? (
-                        <Loader2 className="size-4 animate-spin" />
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Deleting…
+                        </>
                       ) : (
-                        <Trash2 className="size-4" />
+                        'Delete'
                       )}
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Delete feature?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This will permanently delete <strong>{featureNode.name}</strong> (
-                        {featureNode.featureId}). This action cannot be undone.
-                        {featureNode.state === 'running' ? (
-                          <> This feature has a running agent that will be stopped.</>
-                        ) : null}
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-                      <AlertDialogAction
-                        variant="destructive"
-                        disabled={isDeleting}
-                        onClick={() => onDelete(featureNode.featureId)}
-                      >
-                        {isDeleting ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Deleting…
-                          </>
-                        ) : (
-                          'Delete'
-                        )}
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </>
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             ) : null}
           </div>
         ) : null}
@@ -520,24 +576,6 @@ export function ControlCenterDrawer({
     );
   }
 
-  // ── Deploy target (lost during drawer unification — restore for BaseDrawer) ──
-
-  const deployTarget =
-    featureNode?.repositoryPath && featureNode.branch
-      ? {
-          targetId: featureNode.featureId,
-          targetType: 'feature' as const,
-          repositoryPath: featureNode.repositoryPath,
-          branch: featureNode.branch,
-        }
-      : repoData?.repositoryPath
-        ? {
-            targetId: repoData.repositoryPath,
-            targetType: 'repository' as const,
-            repositoryPath: repoData.repositoryPath,
-          }
-        : undefined;
-
   // ── Render ──────────────────────────────────────────────────────────────
 
   return (
@@ -549,7 +587,7 @@ export function ControlCenterDrawer({
         size="md"
         modal={false}
         header={header}
-        deployTarget={deployTarget}
+        deployTarget={repoDeployTarget}
         data-testid={
           view?.type === 'feature'
             ? 'feature-drawer'
