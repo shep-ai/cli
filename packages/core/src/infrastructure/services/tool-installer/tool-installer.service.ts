@@ -13,7 +13,7 @@
  */
 
 import { injectable } from 'tsyringe';
-import { execFile, spawn } from 'node:child_process';
+import { exec, execFile, spawn } from 'node:child_process';
 import { platform } from 'node:os';
 import type { IToolInstallerService } from '../../../application/ports/output/services/tool-installer.service.js';
 import type {
@@ -65,10 +65,20 @@ const checkBinaryExists = (
   });
 };
 
+/**
+ * Run a shell command and resolve true when it exits 0, false otherwise.
+ * Used as a fallback for GUI apps whose binary isn't in PATH (e.g. Warp, iTerm2).
+ */
+const runVerifyCommand = (command: string): Promise<boolean> =>
+  new Promise((resolve) => {
+    exec(command, (err) => resolve(!err));
+  });
+
 @injectable()
 export class ToolInstallerServiceImpl implements IToolInstallerService {
   /**
-   * Check if a tool binary is available on the system (PATH check)
+   * Check if a tool binary is available on the system (PATH check,
+   * with verifyCommand fallback for GUI apps).
    */
   async checkAvailability(toolName: string): Promise<ToolInstallationStatus> {
     const metadata = TOOL_METADATA[toolName];
@@ -82,6 +92,14 @@ export class ToolInstallerServiceImpl implements IToolInstallerService {
 
       if (result.found) {
         return createAvailableStatus(toolName);
+      }
+
+      // Binary not in PATH — try verifyCommand as fallback (handles GUI .app bundles)
+      if (result.notInPath && metadata.verifyCommand) {
+        const verified = await runVerifyCommand(metadata.verifyCommand);
+        if (verified) {
+          return createAvailableStatus(toolName);
+        }
       }
 
       if (result.notInPath) {
