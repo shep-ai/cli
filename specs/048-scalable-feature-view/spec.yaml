@@ -8,7 +8,7 @@ summary: >
   a focused dependency inspector right panel, and client-side filtering with saved views. Phase 2
   converts the existing canvas into an optional "Map" tab with semantic zoom and group containers.
   Phase 3 adds edge bundling, focus mode, and critical-path visualization.
-phase: Analysis
+phase: Requirements
 sizeEstimate: XL
 
 relatedFeatures: []
@@ -27,26 +27,231 @@ technologies:
   - Playwright (e2e tests)
   - Storybook 8 (component stories — mandatory)
   - TypeSpec (domain model definitions)
+  - '@tanstack/react-virtual (list virtualization for high-volume columns)'
 
 relatedLinks: []
 
 openQuestions:
-  - >
-    Saved views persistence: Should saved views be stored in SQLite (new table) or in
-    browser localStorage? SQLite enables cross-device sync but adds schema migration.
-  - >
-    Owner field: The current Feature domain model does not have an explicit "owner" field.
-    Should we add one to TypeSpec, or derive ownership from agentType/branch conventions?
-  - >
-    Board column mapping: Should board columns map 1:1 to SdlcLifecycle enum values
-    (Started, Analyze, Requirements, Research, Planning, Implementation, Review, Maintain, Blocked)
-    or use a simplified grouping (Requirements, Implementation, Review, Done)?
-  - >
-    Virtualization library: For high-volume lane optimization (100+ items in a column),
-    should we use react-virtuoso, @tanstack/react-virtual, or a lighter approach?
-  - >
-    Milestone/workstream/label fields: These are referenced in filtering and grouping but
-    do not exist on the Feature domain model. Should they be added to TypeSpec or deferred?
+  - question: >
+      Saved views persistence: Should saved views be stored in SQLite (new table) or in
+      browser localStorage?
+    resolved: true
+    options:
+      - option: 'Browser localStorage'
+        description: >
+          Zero migration cost, instant to implement, no backend changes needed. Views are
+          per-browser which is acceptable since this is a local development tool running on
+          one machine. Avoids schema migration and keeps the feature purely in the presentation
+          layer. Can be promoted to SQLite later if cross-device sync becomes a real need.
+        selected: true
+      - option: 'SQLite new table'
+        description: >
+          Enables cross-device sync and server-side persistence. Requires a new table, migration,
+          repository interface, use case, and mapper. Adds significant scope to Phase 1 for a
+          feature that may not be needed given the tool runs locally.
+        selected: false
+    selectionRationale: >
+      localStorage is recommended because shep is a local development tool — users interact with
+      it on a single machine. Cross-device sync is not a current need. Keeping saved views in
+      localStorage avoids schema migration, repository changes, and keeps complexity in the
+      presentation layer only. If cross-device sync becomes needed later, promoting to SQLite is
+      a straightforward migration path.
+    answer: 'Browser localStorage'
+
+  - question: >
+      Owner field: Should the Feature domain model include an explicit "owner" field, or should
+      ownership be derived from existing fields like agentType or branch conventions?
+    resolved: true
+    options:
+      - option: 'Defer — derive from existing fields'
+        description: >
+          No TypeSpec or domain model changes needed. The board view can use agentType for
+          grouping and branch naming conventions for display. Avoids scope creep in Phase 1.
+          An explicit owner field can be added in a future spec when multi-user workflows
+          or assignment features are designed.
+        selected: true
+      - option: 'Add owner field to TypeSpec now'
+        description: >
+          Adds a new string field to the Feature entity for explicit ownership. Requires
+          TypeSpec change, migration, mapper update, and UI for setting/displaying owner.
+          Provides cleaner semantics but adds scope without a concrete multi-user use case.
+        selected: false
+    selectionRationale: >
+      Deferring is recommended because ownership is not a core concept in the current single-user
+      local development workflow. The board view can derive meaningful groupings from agentType
+      and lifecycle without an explicit owner. Adding it now would expand scope with TypeSpec
+      changes, migration, and UI affordances for a use case that does not yet exist.
+    answer: 'Defer — derive from existing fields'
+
+  - question: >
+      Board column mapping: Should board columns map 1:1 to all 9 SdlcLifecycle enum values
+      or use a simplified grouping?
+    resolved: true
+    options:
+      - option: 'Simplified 5-column grouping'
+        description: >
+          Columns: Backlog (Started), Requirements (Analyze + Requirements + Research),
+          Implementation (Planning + Implementation), Review, Done (Maintain). Blocked features
+          show a blocked badge in their current column rather than a separate column. Reduces
+          visual noise, fits common screen widths without horizontal scrolling, and matches
+          mental model of a kanban board. Each column header shows the count of features in it.
+        selected: true
+      - option: 'Full 9-column 1:1 mapping'
+        description: >
+          One column per SdlcLifecycle value (Started, Analyze, Requirements, Research, Planning,
+          Implementation, Review, Maintain, Blocked). Most accurate representation of domain state
+          but creates many empty columns in typical workflows, requires horizontal scrolling, and
+          the Blocked column conflates a state condition with a workflow stage.
+        selected: false
+      - option: 'Simplified 4-column grouping'
+        description: >
+          Columns: Requirements, Implementation, Review, Done. Even simpler but loses the Backlog
+          distinction and groups too many stages together, reducing visibility into early-stage
+          features.
+        selected: false
+    selectionRationale: >
+      A 5-column grouping balances information density with usability. It avoids horizontal
+      scrolling on standard screens, treats Blocked as a cross-cutting status badge rather than
+      a column (which is semantically correct — blocked is a condition, not a lifecycle stage),
+      and separates Backlog from active Requirements work. The mapping is deterministic from the
+      existing SdlcLifecycle enum so no domain changes are needed.
+    answer: 'Simplified 5-column grouping'
+
+  - question: >
+      Virtualization library: For columns with 100+ items, which virtualization approach should
+      be used?
+    resolved: true
+    options:
+      - option: '@tanstack/react-virtual'
+        description: >
+          Headless virtualizer with minimal API surface (useVirtualizer hook). Maintained by
+          the TanStack team with active releases. Small bundle size (~3KB). Integrates cleanly
+          with custom scroll containers. Works well with variable-height items. Already aligned
+          with the project ecosystem (TanStack is a well-known React library family).
+        selected: true
+      - option: 'react-virtuoso'
+        description: >
+          Full-featured virtualization component with built-in scroll restoration, grouping,
+          and sticky headers. Larger bundle (~15KB) and more opinionated API. May conflict
+          with custom styling patterns (shadcn/Tailwind).
+        selected: false
+      - option: 'No virtualization — defer until needed'
+        description: >
+          Skip virtualization entirely in Phase 1. Simpler implementation but risks poor
+          performance with 50+ features in a single column. Adding virtualization retroactively
+          requires refactoring scroll containers and item rendering.
+        selected: false
+    selectionRationale: >
+      @tanstack/react-virtual is recommended for its headless design (composable with shadcn/Tailwind
+      patterns), small bundle footprint, and strong maintenance track record. Its useVirtualizer
+      hook integrates naturally with React's component model. Implementing virtualization from the
+      start avoids costly retrofitting and ensures the board scales from day one.
+    answer: '@tanstack/react-virtual'
+
+  - question: >
+      Milestone/workstream/label fields: Should these be added to the Feature domain model
+      now or deferred to a future spec?
+    resolved: true
+    options:
+      - option: 'Defer to future spec'
+        description: >
+          Phase 1 filtering uses only existing fields (lifecycle, status, agentType, repository).
+          These fields provide sufficient filtering granularity for current workflows. Adding
+          milestone/workstream/label requires TypeSpec changes, migration, UI for CRUD operations
+          on those fields, and design decisions about taxonomy. Better suited as a dedicated
+          feature spec when the need is concrete.
+        selected: true
+      - option: 'Add labels field only'
+        description: >
+          Add a string array labels field to Feature. Lightweight tagging without the complexity
+          of milestones or workstreams. Still requires TypeSpec change, migration, and tag
+          management UI.
+        selected: false
+    selectionRationale: >
+      Deferring is recommended because the existing fields (lifecycle, status/state, agentType,
+      repository) provide four independent filter dimensions that cover the primary use cases.
+      Adding labels or milestones expands scope significantly (TypeSpec, migration, tag CRUD UI)
+      without a validated user need. The filter architecture should be designed to be extensible
+      so that adding new filter dimensions later is straightforward.
+    answer: 'Defer to future spec'
+
+  - question: >
+      Filter architecture: Should filtering be performed client-side or server-side?
+    resolved: true
+    options:
+      - option: 'Client-side filtering'
+        description: >
+          All features are already fetched by ListFeaturesUseCase and available on the client.
+          Client-side filtering provides instant feedback with no network round-trips. Simpler
+          implementation — pure JavaScript filter/group operations on the existing data array.
+          Appropriate for the expected scale (tens to low hundreds of features per repository).
+          No changes needed to the repository layer or use cases.
+        selected: true
+      - option: 'Server-side filtering'
+        description: >
+          Filter parameters sent to ListFeaturesUseCase which passes them to the repository
+          query. Better for very large datasets (1000+) but adds latency for every filter
+          change, requires repository interface changes, and over-engineers for the expected
+          feature count.
+        selected: false
+    selectionRationale: >
+      Client-side filtering is recommended because the full feature list is already loaded
+      into the client for the current canvas view. Filtering hundreds of objects in-memory
+      is instantaneous, provides snappy UX with no loading states, and avoids changes to the
+      application and infrastructure layers. The board can simply derive its grouped/filtered
+      view from the same data source the canvas already uses.
+    answer: 'Client-side filtering'
+
+  - question: >
+      Dependency inspector panel behavior: Should the inspector be a persistent right panel
+      or a contextual drawer/popover?
+    resolved: true
+    options:
+      - option: 'Persistent right panel (collapsible)'
+        description: >
+          A dedicated right panel that shows when a feature is selected and collapses when
+          deselected. Stays visible while navigating between features, enabling rapid comparison
+          of dependency trees. Coexists with the existing ControlCenterDrawer (drawer opens on
+          top of or replaces the panel based on context). Panel width is resizable. Follows
+          the three-panel layout pattern (sidebar + board + inspector).
+        selected: true
+      - option: 'Contextual drawer overlay'
+        description: >
+          Reuses the existing ControlCenterDrawer system. Dependency info becomes a tab or
+          section within the feature detail drawer. Less screen real estate needed but requires
+          opening the drawer to see dependencies, and loses the at-a-glance side-by-side view.
+        selected: false
+    selectionRationale: >
+      A persistent collapsible right panel is recommended because dependency inspection is a
+      primary workflow — users need to quickly scan which features block which others. A
+      persistent panel enables selecting different features and immediately seeing their
+      dependency graph without open/close overhead. The three-panel layout (sidebar + board +
+      inspector) is a proven pattern in project management tools.
+    answer: 'Persistent right panel (collapsible)'
+
+  - question: >
+      View mode persistence: How should the selected view tab (Board vs Map) persist across
+      page navigations and sessions?
+    resolved: true
+    options:
+      - option: 'URL search parameter'
+        description: >
+          Store the active tab in a URL query parameter (e.g., ?view=board or ?view=map).
+          Enables deep-linking to a specific view, works with browser back/forward, and
+          persists across refreshes. Follows Next.js App Router conventions with useSearchParams.
+          Falls back to board view when no parameter is present.
+        selected: true
+      - option: 'localStorage only'
+        description: >
+          Persist view preference in localStorage. Simpler but not shareable via URL and does
+          not integrate with browser navigation history.
+        selected: false
+    selectionRationale: >
+      URL search parameter is recommended because it integrates with Next.js App Router
+      conventions, enables deep-linking, and works with browser navigation. The default
+      (no parameter) renders the board view, and ?view=map switches to the map tab. This is
+      the standard pattern for tab-based navigation in modern web apps.
+    answer: 'URL search parameter'
 
 content: |
   ## Problem Statement
@@ -64,84 +269,157 @@ content: |
   - The single-view architecture (canvas-only) offers no alternative for users who need
     list-based workflows
 
-  ## Codebase Analysis
+  The scalable feature view replaces the canvas as the default view with a kanban-style board
+  grouped by lifecycle stage, adds a focused dependency inspector panel, and preserves the
+  canvas as an optional "Map" tab for users who prefer the graph visualization.
 
-  ### Project Structure
+  ## Success Criteria
 
-  The project follows Clean Architecture with four layers:
+  - [ ] Board view renders as the default view when navigating to the Control Center page
+  - [ ] Features are grouped into 5 columns (Backlog, Requirements, Implementation, Review, Done) derived from SdlcLifecycle enum values
+  - [ ] Each board column displays a feature count badge in the header
+  - [ ] Board rows show feature name, status badge, lifecycle label, agent type icon, progress indicator, and PR status at a glance
+  - [ ] Clicking a board row selects the feature and opens the dependency inspector right panel
+  - [ ] Dependency inspector displays upstream (blocked-by) and downstream (blocks) dependency lists for the selected feature
+  - [ ] Dependency inspector includes a mini React Flow graph showing the selected feature's dependency neighborhood
+  - [ ] Filter panel allows filtering by lifecycle stage, feature status (creating/running/action-required/done/blocked/error), agent type, and repository
+  - [ ] Active filters are reflected in the URL as search parameters for shareability
+  - [ ] Users can save filter combinations as named views stored in localStorage
+  - [ ] Users can switch between Board and Map (canvas) views via a tab control, with the active tab persisted in the URL
+  - [ ] Map tab renders the existing FeaturesCanvas component without functional regression
+  - [ ] All existing feature interactions (create, delete, action, settings, drawer) continue to work in both Board and Map views
+  - [ ] Real-time SSE updates and optimistic UI continue to function across both views
+  - [ ] Board view renders 100+ features without perceptible lag (< 100ms filter response, smooth scrolling)
+  - [ ] Every new component has a colocated Storybook story file
+  - [ ] All new components have unit tests with >= 80% branch coverage
+  - [ ] The existing 773-line use-control-center-state hook is decomposed into focused, testable hooks
+  - [ ] Keyboard navigation: arrow keys move between board rows, Enter opens feature detail, Escape deselects
+  - [ ] Board columns are virtualized to handle large feature counts without DOM bloat
 
-  - **Domain** (`packages/core/src/domain/`) — Feature aggregate root defined in TypeSpec
-    (`tsp/domain/entities/feature.tsp`), generated to `domain/generated/output.ts`. Key fields:
-    `id`, `name`, `lifecycle` (SdlcLifecycle enum), `parentId` (dependency), `repositoryPath`,
-    `branch`, `plan`, `messages`, `relatedArtifacts`, `pr`, `agentRunId`
-  - **Application** (`packages/core/src/application/`) — Use cases: `ListFeaturesUseCase`,
-    `ShowFeatureUseCase`, `CreateFeatureUseCase`, `CheckAndUnblockFeaturesUseCase`.
-    Repository interface: `IFeatureRepository` with `list()`, `findByParentId()`, `findById()`
-  - **Infrastructure** (`packages/core/src/infrastructure/`) — SQLite persistence with
-    `FeatureMapper` flattening nested structures. DI via tsyringe
-  - **Presentation** (`src/presentation/web/`) — Next.js 16 App Router with server components,
-    client components, server actions, and SSE for real-time updates
+  ## Functional Requirements
 
-  ### Current Feature View Architecture
+  ### Phase 1 — Board View (Primary Deliverable)
 
-  The rendering pipeline flows:
+  #### View Mode System
 
-  1. **Server** (`app/page.tsx`) — Resolves `ListFeaturesUseCase` and `ListRepositoriesUseCase`
-     via DI, fetches all features with agent runs, calls `buildGraphNodes()` to produce React Flow
-     nodes/edges, then `layoutWithDagre()` for positioning
-  2. **ControlCenter** — Wraps everything in `ReactFlowProvider`, delegates to `ControlCenterInner`
-  3. **ControlCenterInner** — Manages all state via `useControlCenterState` hook (773 lines).
-     Handles node CRUD, optimistic updates, SSE reconciliation, selection, drawer state
-  4. **FeaturesCanvas** — Renders React Flow with custom node types (`featureNode`,
-     `repositoryNode`, `addRepositoryNode`) and custom edge type (`dependencyEdge`)
-  5. **FeatureNode** — Individual feature card (72x35 dimensions) showing name, status badge,
-     progress, lifecycle label, agent type icon, PR status, delete/settings/action buttons
-  6. **ControlCenterDrawer** — Discriminated union (`DrawerView`) dispatching to feature detail,
-     PRD review, tech review, merge review, feature create, or repository views
+  - **FR-1**: The Control Center page SHALL render a tab bar with "Board" and "Map" tabs. The Board tab is selected by default when no URL parameter is present.
+  - **FR-2**: The active tab SHALL be persisted as a URL search parameter (`?view=board` or `?view=map`) so that the selected view survives page refreshes and can be deep-linked.
+  - **FR-3**: Switching between tabs SHALL preserve feature selection state — if a feature is selected in Board view, it remains selected when switching to Map view, and vice versa.
+  - **FR-4**: The Map tab SHALL render the existing `FeaturesCanvas` component with no functional changes, preserving all current canvas interactions.
 
-  ### Key Data Structures
+  #### Board View Layout
 
-  - `FeatureNodeData` — UI state interface: name, description, featureId, lifecycle phase,
-    state (creating/running/action-required/done/blocked/error), progress, blockedBy,
-    agentType, PR metadata
-  - `FeatureNodeState` — 6 states: creating, running, action-required, done, blocked, error
-  - `FeatureLifecyclePhase` — 6 phases: requirements, research, implementation, review,
-    deploy, maintain
-  - `SdlcLifecycle` (domain) — 9 values including Started, Analyze, Blocked
-  - `buildGraphNodes()` — Groups features by repository, creates repo→feature edges,
-    adds parent→child dependency edges. Handles orphan features with virtual repo nodes
+  - **FR-5**: The board view SHALL display features in a horizontal column layout with 5 columns: Backlog, Requirements, Implementation, Review, and Done.
+  - **FR-6**: Column mapping from `SdlcLifecycle` enum values SHALL be: Backlog ← Started; Requirements ← Analyze, Requirements, Research; Implementation ← Planning, Implementation; Review ← Review; Done ← Maintain.
+  - **FR-7**: Features with `SdlcLifecycle.Blocked` SHALL appear in their most recent non-blocked column with a "Blocked" badge overlay, NOT in a separate Blocked column.
+  - **FR-8**: Each column header SHALL display the column name and a count badge showing the number of features in that column (after filtering).
+  - **FR-9**: Columns SHALL be scrollable independently when their content exceeds the viewport height.
+  - **FR-10**: Columns with more than 30 visible items SHALL use virtual scrolling via `@tanstack/react-virtual` to maintain smooth performance.
 
-  ### Existing Reusable Components
+  #### Board Row Component
 
-  - `FeatureListItem` — Compact sidebar list item (icon, name, elapsed time)
-  - `FeatureStatusGroup` — Groups features by status with count badge and collapsible menu
-  - `FeatureStatusBadges` — Status count indicators (action-needed, in-progress, done)
-  - `feature-status-config.ts` — Status display configuration (icons, colors, labels)
-  - `BaseDrawer` — Drawer shell component
-  - `CategoryFilter` (skills page) — Button-based filter toggle pattern
-  - `AppShell` / `Sidebar` — Layout shell with collapsible sidebar
-  - Shadcn/ui primitives: Tabs, Card, Badge, Button, ScrollArea, Accordion, etc.
+  - **FR-11**: Each feature in a board column SHALL be rendered as a compact row displaying: feature name, status badge (with icon and color per `feature-node-state-config`), lifecycle label, agent type icon, progress indicator, and PR status (if applicable).
+  - **FR-12**: Board rows SHALL support click-to-select, highlighting the selected row and opening the dependency inspector panel.
+  - **FR-13**: Board rows SHALL display a hover state with quick-action buttons: open feature detail drawer, delete feature.
+  - **FR-14**: Board rows SHALL display a "blocked by [feature name]" indicator when the feature's `parentId` references a non-completed parent feature.
+  - **FR-15**: Board rows SHALL visually distinguish the 6 feature states (creating, running, action-required, done, blocked, error) using the existing color and icon system from `feature-node-state-config.ts`.
 
-  ### Architecture Patterns
+  #### Dependency Inspector Panel
 
-  - **Server components** fetch data via DI container → pass as props to client components
-  - **Optimistic UI** — Client creates temp nodes/edges immediately, server action runs async,
-    rollback on failure
-  - **SSE real-time updates** — `useAgentEventsContext` hook processes agent events, updates
-    node state in-place, debounced router.refresh() for reconciliation
-  - **Polling fallback** — 5s interval when active features exist
-  - **Discriminated union** for drawer views with `computeDrawerView()` derivation function
-  - **Conventional commits** with strict scope enforcement
+  - **FR-16**: When a feature is selected (in either Board or Map view), a collapsible right panel SHALL display the feature's dependency information.
+  - **FR-17**: The inspector SHALL show an "Upstream" section listing features that block the selected feature (walking `parentId` chain upward).
+  - **FR-18**: The inspector SHALL show a "Downstream" section listing features that depend on the selected feature (features whose `parentId` equals the selected feature's ID).
+  - **FR-19**: The inspector SHALL include a mini React Flow graph visualizing the selected feature's dependency neighborhood (1-hop upstream and downstream by default).
+  - **FR-20**: Clicking a feature in the dependency list or mini-graph SHALL navigate to (select) that feature in the board view.
+  - **FR-21**: The inspector panel SHALL be collapsible via a toggle button, and its collapsed/expanded state SHALL persist in localStorage.
 
-  ### Relevant Technologies
+  #### Filter System
 
-  - **React Flow (@xyflow/react 12.10.0)** — Already in use for the canvas. Will be reused
-    for the dependency inspector mini-graph and the Map tab
-  - **dagre** — Graph layout algorithm. Will continue to be used for Map tab and inspector
-  - **shadcn/ui** — Component library with Tabs, Card, Badge, ScrollArea etc. Core building
-    blocks for the board view
-  - **Tailwind CSS v4** — Design tokens already defined for colors, spacing, dark mode
-  - **Storybook 8** — Every new component needs colocated .stories.tsx
+  - **FR-22**: A filter bar SHALL allow users to filter features by: lifecycle stage (the 5 board columns), feature status (6 states), agent type, and repository.
+  - **FR-23**: Filters SHALL be combinable (AND logic) — selecting "Implementation" lifecycle AND "running" status shows only running features in the Implementation column.
+  - **FR-24**: Active filters SHALL be reflected in URL search parameters for shareability and persistence across refreshes.
+  - **FR-25**: A "Clear all filters" action SHALL reset all filters to their default (show all) state.
+  - **FR-26**: Filter changes SHALL take effect immediately with no loading state (client-side filtering on already-loaded data).
+
+  #### Saved Views
+
+  - **FR-27**: Users SHALL be able to save the current filter combination as a named view.
+  - **FR-28**: Saved views SHALL be stored in browser localStorage under a namespaced key.
+  - **FR-29**: A saved view selector dropdown SHALL list all saved views and allow one-click application.
+  - **FR-30**: Users SHALL be able to rename and delete saved views.
+  - **FR-31**: Saved views SHALL store: view name, filter state (lifecycle, status, agentType, repository selections), and creation timestamp.
+
+  #### State Management Refactoring
+
+  - **FR-32**: The existing `use-control-center-state` hook (773 lines) SHALL be decomposed into focused hooks: `useFeatureSelection`, `useBoardState`, `useCanvasState`, `useFilterState`, `useOptimisticUpdates`, `useFeatureSSE`.
+  - **FR-33**: The decomposed hooks SHALL maintain all existing functionality — optimistic UI, SSE reconciliation, polling fallback, drawer integration — without regression.
+  - **FR-34**: Board view state SHALL NOT depend on React Flow node/edge data structures. Board state derives directly from the feature data array.
+
+  #### Feature Interactions
+
+  - **FR-35**: All existing feature CRUD operations (create, delete) SHALL work in Board view using the same server actions as the current canvas.
+  - **FR-36**: The "Add Feature" button SHALL be accessible from both Board and Map views.
+  - **FR-37**: The feature detail drawer (ControlCenterDrawer) SHALL open when double-clicking a board row or using a dedicated "details" action.
+  - **FR-38**: Feature review workflows (PRD review, tech review, merge review) SHALL be accessible from board rows via the existing drawer system.
+
+  ### Phase 2 — Enhanced Map Tab
+
+  - **FR-39**: The Map tab SHALL support semantic zoom with 3 levels: zoomed-out (cluster dots), medium (compact cards), zoomed-in (full feature nodes with details).
+  - **FR-40**: The Map tab SHALL support group containers — features can be visually grouped by lifecycle stage or repository, with collapsible group boundaries.
+
+  ### Phase 3 — Advanced Visualization
+
+  - **FR-41**: The Map tab SHALL support edge bundling to reduce visual clutter when many dependency edges cross.
+  - **FR-42**: A focus mode toggle SHALL filter the graph to show only the selected feature and its n-hop dependency neighborhood (configurable: 1, 2, or 3 hops).
+  - **FR-43**: A critical-path visualization SHALL highlight the longest dependency chain in the graph using a distinct edge style.
+
+  ## Non-Functional Requirements
+
+  ### Performance
+
+  - **NFR-1**: Board view SHALL render the initial column layout in < 200ms for up to 200 features, measured as Time to Interactive after data is available on the client.
+  - **NFR-2**: Filter operations SHALL complete in < 50ms for up to 500 features (client-side array filtering and re-grouping).
+  - **NFR-3**: Virtual scrolling SHALL maintain 60fps scroll performance with 100+ items in a single column, keeping DOM node count under 50 per column regardless of total items.
+  - **NFR-4**: View tab switching (Board ↔ Map) SHALL complete in < 300ms with no visible layout shift.
+  - **NFR-5**: SSE event processing SHALL update the board view within 100ms of event receipt, matching current canvas update latency.
+
+  ### Accessibility
+
+  - **NFR-6**: Board columns and rows SHALL use appropriate ARIA roles (role="list", role="listitem") and labels for screen reader navigation.
+  - **NFR-7**: Keyboard navigation SHALL support: Tab to move between columns, arrow keys to move between rows within a column, Enter to select/open, Escape to deselect.
+  - **NFR-8**: All interactive elements SHALL have visible focus indicators compliant with WCAG 2.1 AA contrast requirements.
+  - **NFR-9**: The dependency inspector panel SHALL be navigable via keyboard without trapping focus.
+
+  ### Maintainability
+
+  - **NFR-10**: Each new component SHALL have a colocated `.stories.tsx` file exercising all visual states and interactive behaviors.
+  - **NFR-11**: New hooks and utility functions SHALL have unit tests with >= 80% branch coverage.
+  - **NFR-12**: The board view component tree SHALL follow the project's established patterns: server components for data fetching, client components for interactivity, discriminated unions for variant rendering.
+  - **NFR-13**: No new components SHALL directly import from `infrastructure/` or `domain/generated/` — all data flows through props from server components or application layer use cases.
+
+  ### Compatibility
+
+  - **NFR-14**: All existing Playwright e2e tests SHALL continue to pass without modification (no regression to current canvas functionality).
+  - **NFR-15**: The board view SHALL render correctly in Chrome, Firefox, and Safari latest versions.
+  - **NFR-16**: The board view SHALL be responsive, collapsing to a single-column stacked layout on viewports narrower than 768px.
+
+  ### Data Integrity
+
+  - **NFR-17**: Optimistic UI updates in board view SHALL maintain the same rollback guarantees as the current canvas — failed server actions revert the UI to the pre-action state with a toast notification.
+  - **NFR-18**: Real-time SSE updates SHALL reconcile board state without losing user's current scroll position or selection state.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Saved views persistence: SQLite or localStorage? | localStorage | Shep runs locally on one machine; no cross-device need. Avoids schema migration and backend complexity. Can promote to SQLite later. |
+  | 2 | Owner field: Add to domain model or defer? | Defer — derive from existing fields | No multi-user workflow exists today. agentType and lifecycle provide sufficient grouping dimensions. Reduces scope. |
+  | 3 | Board column mapping: Full 9-column or simplified? | Simplified 5-column (Backlog, Requirements, Implementation, Review, Done) | Fits standard screens without horizontal scroll. Blocked is a condition, not a stage. Matches kanban mental model. |
+  | 4 | Virtualization library? | @tanstack/react-virtual | Headless design fits shadcn/Tailwind patterns. Small bundle (~3KB). Prevents costly retroactive refactoring. |
+  | 5 | Milestone/workstream/label fields? | Defer to future spec | Existing 4 filter dimensions (lifecycle, status, agentType, repo) cover current needs. Adding labels expands scope significantly. |
+  | 6 | Filter architecture: client-side or server-side? | Client-side | Full feature list already loaded. Instant feedback, no network round-trips, no backend changes. Appropriate for expected scale. |
+  | 7 | Dependency inspector: persistent panel or drawer? | Persistent collapsible right panel | Enables rapid dependency comparison without open/close overhead. Three-panel layout is proven in project management tools. |
+  | 8 | View mode persistence mechanism? | URL search parameter | Integrates with Next.js App Router, enables deep-linking, works with browser history. Standard pattern for tab navigation. |
 
   ## Affected Areas
 
@@ -157,47 +435,55 @@ content: |
   | `src/presentation/web/lib/layout-with-dagre.ts` | Low | Continues to serve Map tab; dependency inspector mini-graph may use it with smaller subsets |
   | `src/presentation/web/components/layouts/app-shell/` | Medium | Layout must accommodate the new three-panel structure (filters + board + inspector) |
   | `src/presentation/web/hooks/` | Medium | New hooks needed for filter state, saved views, view mode persistence, dependency graph traversal |
-  | `packages/core/src/application/use-cases/features/` | Low | Existing ListFeaturesUseCase may need enhanced filtering support (lifecycle, status); findByParentId already exists for dependency queries |
-  | `packages/core/src/application/ports/output/repositories/feature-repository.interface.ts` | Low | FeatureListFilters interface may need additional filter fields if server-side filtering is chosen |
+  | `packages/core/src/application/use-cases/features/` | Low | Existing ListFeaturesUseCase sufficient; no server-side filtering changes needed (client-side filtering chosen) |
+  | `packages/core/src/application/ports/output/repositories/feature-repository.interface.ts` | None | No changes needed — client-side filtering avoids repository interface modifications |
   | NEW: `src/presentation/web/components/features/board-view/` | High | Entirely new component tree: board container, board column, board row, column header |
   | NEW: `src/presentation/web/components/features/dependency-inspector/` | High | New right panel: dependency list, mini React Flow graph, blocked-by highlighting |
-  | NEW: `src/presentation/web/components/features/filter-panel/` | Medium | New left panel: filter controls, saved view selector, saved view management |
+  | NEW: `src/presentation/web/components/features/view-tabs/` | Medium | Tab bar component for Board/Map switching with URL persistence |
+  | NEW: `src/presentation/web/components/features/filter-bar/` | Medium | Filter controls, saved view selector, saved view management |
+  | NEW: `src/presentation/web/hooks/use-board-state.ts` | High | Board grouping/filtering logic, column derivation from feature data |
+  | NEW: `src/presentation/web/hooks/use-filter-state.ts` | Medium | Filter state management with URL synchronization |
+  | NEW: `src/presentation/web/hooks/use-saved-views.ts` | Low | localStorage CRUD for saved filter combinations |
+  | NEW: `src/presentation/web/hooks/use-feature-selection.ts` | Medium | Shared selection state across Board and Map views |
 
   ## Dependencies
 
   **Existing (already in use):**
   - React Flow (@xyflow/react) — for Map tab and dependency inspector mini-graph
-  - dagre — for graph layout
-  - shadcn/ui Tabs, Card, Badge, Button, ScrollArea — for board layout
-  - Feature domain model (TypeSpec) — lifecycle, parentId, state fields
-  - ListFeaturesUseCase — data fetching
-  - IFeatureRepository.findByParentId() — dependency tree traversal
-  - useAgentEventsContext — real-time state updates
-  - ControlCenterDrawer system — feature detail/review panels
+  - dagre — for graph layout in Map tab and inspector mini-graph
+  - shadcn/ui Tabs, Card, Badge, Button, ScrollArea — for board layout and filter controls
+  - Feature domain model (TypeSpec) — lifecycle, parentId, state fields used for grouping and filtering
+  - ListFeaturesUseCase — data fetching (no changes needed)
+  - IFeatureRepository.findByParentId() — dependency tree traversal for inspector
+  - useAgentEventsContext — real-time SSE state updates (shared across views)
+  - ControlCenterDrawer system — feature detail/review panels (preserved, coexists with inspector)
+  - feature-node-state-config.ts — status display configuration (reused for board rows)
+  - derive-feature-state.ts — state derivation logic (reused for board row rendering)
 
-  **Potentially new:**
-  - Virtualization library (react-virtuoso or @tanstack/react-virtual) — for 100+ item columns
-  - No new domain model changes required for Phase 1 (board columns derived from existing
-    SdlcLifecycle enum; dependency data from existing parentId field)
+  **New:**
+  - @tanstack/react-virtual — list virtualization for board columns with 30+ items
+
+  **No domain or infrastructure changes required for Phase 1.** The board view operates
+  entirely within the presentation layer, deriving its state from the same feature data
+  that the canvas currently consumes.
 
   ## Size Estimate
 
-  **XL** — This is a multi-week effort spanning 3 phases:
+  **XL** — This is a multi-phase effort:
 
-  - **Phase 1** (L — ~1 week): Board view with ~8 new components (board container, column,
-    row, filter panel, dependency inspector, mini-graph, saved views, view mode tabs), plus
-    refactoring the 773-line control-center state hook, updating page.tsx data flow, and
-    writing Storybook stories + tests for every component
-  - **Phase 2** (M — ~3-5 days): Converting canvas to Map tab with semantic zoom (3 zoom
-    levels with different node renderers) and group containers (collapsible stage/owner groups)
-  - **Phase 3** (M — ~3-5 days): Edge bundling algorithm, focus mode toggle with
-    n-hop graph filtering, critical path visualization
+  - **Phase 1** (L): Board view with ~10 new components (view tabs, board container, board
+    column, board row, filter bar, filter controls, saved view selector, dependency inspector,
+    dependency list, dependency mini-graph), plus decomposition of the 773-line state hook into
+    5-6 focused hooks, Storybook stories and unit tests for every new component/hook, and
+    Playwright e2e tests for board interactions. Estimated 15-20 files changed/created.
+  - **Phase 2** (M): Semantic zoom with 3 node renderers and group containers for the Map tab.
+    Estimated 5-8 files changed/created.
+  - **Phase 3** (M): Edge bundling algorithm, focus mode, critical-path visualization.
+    Estimated 5-8 files changed/created.
 
-  The feature touches the entire presentation layer from page entry point through state
-  management to all view components, introduces 10-15 new components each requiring
-  Storybook stories, and fundamentally changes the default user experience. The phased
-  approach allows shipping incremental value but the total scope is XL.
+  Phase 1 is the primary deliverable and can be shipped independently. Phases 2 and 3 are
+  enhancements to the Map tab and can be planned as separate follow-up specs if desired.
 
   ---
 
-  _Generated by feature agent — proceed with research_
+  _Requirements defined — proceed with research_
