@@ -457,7 +457,7 @@ export function ControlCenterDrawer({
 
   if (view?.type === 'feature' && featureNode) {
     body = (
-      <div className="flex-1">
+      <div className="flex-1 overflow-y-auto">
         <div data-testid="feature-drawer-status" className="flex flex-col gap-3 p-4">
           <div className="text-muted-foreground text-xs font-semibold tracking-wider">
             {lifecycleDisplayLabels[featureNode.lifecycle]}
@@ -536,7 +536,7 @@ export function ControlCenterDrawer({
     );
   } else if (view?.type === 'repository' && repoData?.repositoryPath) {
     body = (
-      <>
+      <div className="flex-1 overflow-y-auto">
         <Separator />
         <div className="flex flex-col gap-3 p-4">
           <div className="text-muted-foreground text-xs font-semibold tracking-wider">
@@ -572,7 +572,7 @@ export function ControlCenterDrawer({
             />
           </div>
         </div>
-      </>
+      </div>
     );
   }
 

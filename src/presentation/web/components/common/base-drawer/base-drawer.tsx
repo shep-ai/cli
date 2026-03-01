@@ -119,7 +119,7 @@ export function BaseDrawer({
 
         {/* Scrollable content area. Consumers should add p-4 for consistent spacing. */}
         {/* Footer components like DrawerActionBar typically include border-t. */}
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">{children}</div>
+        <div className="flex min-h-0 flex-1 flex-col">{children}</div>
 
         {/* Footer slot */}
         {footer ? <DrawerFooter className="shrink-0">{footer}</DrawerFooter> : null}
