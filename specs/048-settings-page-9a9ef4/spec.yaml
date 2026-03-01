@@ -14,7 +14,7 @@ summary: >
   The backend use cases (LoadSettings, UpdateSettings) and repository already exist;
   this feature adds the presentation layer (page route, API routes, form components,
   sidebar navigation, Storybook stories, and tests).
-phase: Analysis
+phase: Requirements
 sizeEstimate: M
 
 # Relationships
@@ -35,9 +35,154 @@ technologies:
 relatedLinks: []
 
 # Open questions (must be resolved before implementation)
-openQuestions: []
+openQuestions:
+  - question: 'Should settings sections be organized as Tabs or as a single scrollable form with Card sections?'
+    resolved: true
+    options:
+      - option: 'Tabbed layout'
+        description: >
+          Each settings section (Models, Profile, Environment, System, Agent, Notifications, Workflow)
+          gets its own tab. Only one section visible at a time. Reduces visual clutter but requires
+          extra clicks to navigate between sections. Consistent with many settings UIs (VS Code, GitHub).
+        selected: true
+      - option: 'Single scrollable page'
+        description: >
+          All sections rendered as stacked Card components on one scrollable page. Everything visible
+          at once (via scrolling). Simpler to implement but can feel overwhelming with 7 sections.
+          Users can see all settings without switching tabs.
+        selected: false
+      - option: 'Sidebar navigation with content area'
+        description: >
+          A secondary left sidebar within the settings page listing section names, with the selected
+          section rendered in the main content area. More complex layout but scales well if sections
+          grow. Similar to macOS System Settings.
+        selected: false
+    selectionRationale: >
+      Tabbed layout is recommended because the codebase already has a Tabs component (shadcn/ui) and
+      the Tools page uses tabs for filtering. Seven sections is too many for a single scrollable page
+      without feeling cluttered. Tabs keep each section focused and discoverable while staying
+      consistent with existing UI patterns. A sidebar-within-sidebar would add layout complexity
+      and visual confusion with the existing app sidebar.
+    answer: 'Tabbed layout'
 
-# Markdown content (the actual spec)
+  - question: 'Should each settings section save independently or should there be a single global Save button?'
+    resolved: true
+    options:
+      - option: 'Per-section Save button'
+        description: >
+          Each tab/section has its own Save button that persists only that section's changes.
+          Users can edit and save one section without affecting others. Requires partial update
+          logic or merging with current settings before calling UpdateSettingsUseCase.
+        selected: false
+      - option: 'Global Save button'
+        description: >
+          A single Save button at the top or bottom of the page persists all settings at once.
+          Simpler implementation — collect all form values and call UpdateSettingsUseCase with
+          the full Settings object. Users must remember to save before navigating away.
+        selected: true
+      - option: 'Auto-save on change'
+        description: >
+          Settings are persisted automatically as the user changes each field, with debouncing.
+          No explicit save action needed. Risk of partial/unintended saves and more complex
+          error handling. Can feel unpredictable for users who expect explicit save.
+        selected: false
+    selectionRationale: >
+      Global Save is recommended because UpdateSettingsUseCase.execute() accepts a full Settings
+      object (not partial updates). A single save action is simpler to implement, easier to reason
+      about, and avoids partial state issues. The page loads the complete Settings object from
+      LoadSettingsUseCase so the form always has the full state. A dirty-state indicator and
+      unsaved-changes warning provide sufficient UX safety.
+    answer: 'Global Save button'
+
+  - question: 'How should the agent token field handle sensitive data display?'
+    resolved: true
+    options:
+      - option: 'Masked with reveal toggle'
+        description: >
+          Token is displayed as dots/asterisks by default with a show/hide toggle button.
+          Standard pattern for password/token fields. Prevents shoulder-surfing while allowing
+          users to verify the value when needed.
+        selected: true
+      - option: 'Always hidden, set-only'
+        description: >
+          Token field shows "••••••••" if set, or empty if not. Users can only replace/clear,
+          never view the current value. More secure but users cannot verify what token is configured.
+        selected: false
+    selectionRationale: >
+      Masked with reveal toggle is the standard UX pattern for API tokens. Since this is a local
+      desktop app (not a shared web service), the security risk of reveal is low. Users need to
+      verify their token is correct, especially when troubleshooting auth issues. The token is
+      already stored in plaintext in SQLite, so masking is a convenience feature, not a security boundary.
+    answer: 'Masked with reveal toggle'
+
+  - question: 'Should the settings page validate form inputs client-side before saving?'
+    resolved: true
+    options:
+      - option: 'Client-side validation with Zod'
+        description: >
+          Define a Zod schema matching the Settings type and validate on submit. Shows inline
+          field-level error messages. Prevents invalid data from reaching the API. Requires
+          adding react-hook-form and zod as web UI dependencies.
+        selected: true
+      - option: 'No client-side validation'
+        description: >
+          Submit form data directly to the API route and rely on server-side validation or
+          database constraints. Simpler implementation but worse UX — users see generic error
+          toasts instead of inline field-level feedback.
+        selected: false
+    selectionRationale: >
+      Client-side validation with Zod is recommended because the Settings model has typed fields
+      (enums, optional strings, booleans, numbers) that benefit from immediate validation feedback.
+      Zod schemas can be derived from the TypeSpec-generated types, and react-hook-form + Zod is
+      an established pattern listed in the project technologies. This prevents round-trips to the
+      server for basic validation errors (e.g., invalid email format, empty required fields).
+    answer: 'Client-side validation with Zod'
+
+  - question: 'Where should the Settings nav item be placed in the sidebar?'
+    resolved: true
+    options:
+      - option: 'Bottom of nav section, before features'
+        description: >
+          Place Settings after Tools and Skills in the main navigation section, before the
+          collapsible Features section. Keeps it grouped with other platform-level pages.
+          Natural position for a global settings link.
+        selected: true
+      - option: 'Sidebar footer'
+        description: >
+          Place Settings as a footer item below all other navigation. Common pattern in apps
+          like Slack and Discord. Visually separated from content navigation. May require
+          adding a footer section to the sidebar layout.
+        selected: false
+    selectionRationale: >
+      Bottom of the main nav section is recommended because the sidebar already has a clear
+      structure (Home, Tools, Skills, Features). Settings fits naturally after the platform-level
+      pages (Tools, Skills) and before the project-level section (Features). Adding a footer
+      section would require layout changes to the AppSidebar component. Keeping Settings in the
+      main nav list is simpler and consistent with the existing pattern.
+    answer: 'Bottom of nav section, before features'
+
+  - question: 'Should the page warn users about unsaved changes when navigating away?'
+    resolved: true
+    options:
+      - option: 'Yes, with dirty-state detection'
+        description: >
+          Track form dirty state via react-hook-form. Show a confirmation dialog or browser
+          beforeunload prompt when the user navigates away with unsaved changes. Prevents
+          accidental data loss. Standard UX pattern for settings pages.
+        selected: true
+      - option: 'No unsaved-changes warning'
+        description: >
+          Allow free navigation without warnings. Simpler implementation but users may lose
+          edits unknowingly. Acceptable for auto-save UIs but risky with explicit save.
+        selected: false
+    selectionRationale: >
+      Dirty-state detection is recommended because the page uses an explicit global Save button.
+      Without a warning, users who edit multiple fields and then click a sidebar link will lose
+      all their changes silently. React-hook-form provides formState.isDirty out of the box,
+      making this trivial to implement. A simple browser beforeunload event is sufficient —
+      no custom modal needed.
+    answer: 'Yes, with dirty-state detection'
+
 content: |
   ## Problem Statement
 
@@ -51,6 +196,84 @@ content: |
   This feature adds a `/settings` page with tabbed sections that surface the full Settings
   model through an intuitive form UI, following the same patterns established by the
   existing Tools and Skills pages.
+
+  ## Success Criteria
+
+  - [ ] A `/settings` route exists and renders the settings page when navigated to
+  - [ ] The sidebar contains a Settings nav item with a Settings icon that links to `/settings`
+  - [ ] The settings page loads current settings from LoadSettingsUseCase on server render
+  - [ ] All 7 settings sections are accessible via tabs: Models, Profile, Environment, System, Agent, Notifications, Workflow
+  - [ ] Each section displays the correct form fields matching the domain model types
+  - [ ] Users can edit fields and save changes via a global Save button
+  - [ ] Save triggers a PUT request to `/api/settings` which calls UpdateSettingsUseCase
+  - [ ] Success/error feedback is shown via Sonner toast notifications
+  - [ ] Form validates input client-side using Zod before submission
+  - [ ] Unsaved changes trigger a browser warning when navigating away
+  - [ ] The agent token field is masked by default with a reveal toggle
+  - [ ] All new components have colocated `.stories.tsx` files
+  - [ ] All new components have unit tests with >= 80% coverage
+  - [ ] The page is responsive and matches existing UI patterns (Tailwind semantic tokens, shadcn/ui)
+  - [ ] `pnpm validate` passes with no errors
+  - [ ] `pnpm test:unit` passes with no regressions
+
+  ## Functional Requirements
+
+  - **FR-1: Settings page route** — A server component at `app/settings/page.tsx` resolves `LoadSettingsUseCase` via DI, calls `execute()`, and passes the `Settings` object to a `SettingsPageClient` client component as props. The page uses `export const dynamic = 'force-dynamic'`.
+
+  - **FR-2: Settings API route** — A PUT handler at `app/api/settings/route.ts` parses the request body as a `Settings` object, resolves `UpdateSettingsUseCase` via DI, calls `execute(settings)`, and returns the updated settings as JSON. Returns 400 for invalid input and 500 for server errors.
+
+  - **FR-3: Sidebar navigation entry** — A new `SidebarNavItem` with the `Settings` icon from lucide-react, label "Settings", href `/settings`, and active state based on `usePathname()`. Positioned after Tools/Skills in the main nav section.
+
+  - **FR-4: Tabbed settings layout** — The `SettingsPageClient` component renders a `Tabs` component with 7 tab triggers: Models, Profile, Environment, System, Agent, Notifications, Workflow. Each tab renders its corresponding section form component.
+
+  - **FR-5: Models section** — Form fields for `models.analyze`, `models.requirements`, `models.plan`, and `models.implement`. Each field is a text Input (model identifier string). Labels describe which SDLC agent uses the model.
+
+  - **FR-6: Profile section** — Form fields for `user.name` (text Input, optional), `user.email` (email Input, optional), and `user.githubUsername` (text Input, optional). All fields are optional with appropriate placeholder text.
+
+  - **FR-7: Environment section** — Form fields for `environment.defaultEditor` (Select dropdown with EditorType enum values: vscode, cursor, windsurf, zed, antigravity) and `environment.shellPreference` (text Input, default "bash").
+
+  - **FR-8: System section** — Form fields for `system.autoUpdate` (Switch toggle) and `system.logLevel` (Select dropdown or text Input with common values: debug, info, warn, error).
+
+  - **FR-9: Agent section** — Form fields for `agent.type` (Select dropdown with AgentType enum values), `agent.authMethod` (Select dropdown with AgentAuthMethod enum values: session, token), and `agent.token` (password Input with reveal toggle, conditionally shown only when authMethod is "token").
+
+  - **FR-10: Notifications section** — Channel toggles for `notifications.inApp.enabled`, `notifications.browser.enabled`, `notifications.desktop.enabled` (each a Switch). Event type toggles for all 9 event booleans in `notifications.events` (agentStarted, phaseCompleted, waitingApproval, agentCompleted, agentFailed, prMerged, prClosed, prChecksPassed, prChecksFailed).
+
+  - **FR-11: Workflow section** — Form fields for `workflow.openPrOnImplementationComplete` (Switch), `workflow.approvalGateDefaults.allowPrd` (Switch), `workflow.approvalGateDefaults.allowPlan` (Switch), `workflow.approvalGateDefaults.allowMerge` (Switch), `workflow.approvalGateDefaults.pushOnImplementationComplete` (Switch), `workflow.ciMaxFixAttempts` (number Input, optional), `workflow.ciWatchTimeoutMs` (number Input, optional), `workflow.ciLogMaxChars` (number Input, optional).
+
+  - **FR-12: Global Save action** — A Save button (with Save icon) at the top of the page that collects all form values, merges them with the original Settings object (preserving `id`, `createdAt`, `updatedAt`, `onboardingComplete`), sends a PUT request to `/api/settings`, and shows a success or error toast via Sonner.
+
+  - **FR-13: Form validation** — A Zod schema validates all form fields before submission. Email must be valid format if provided. Enum fields must match allowed values. Number fields (ciMaxFixAttempts, ciWatchTimeoutMs, ciLogMaxChars) must be positive integers if provided.
+
+  - **FR-14: Dirty state tracking** — The form tracks dirty state via react-hook-form's `formState.isDirty`. When dirty, the browser `beforeunload` event prompts the user before navigating away. The Save button is visually distinguished (enabled/primary) when dirty vs. muted when clean.
+
+  - **FR-15: Loading and error states** — The page shows a loading skeleton while settings load on the server. If LoadSettingsUseCase throws, a user-friendly error state is displayed. The Save button shows a loading spinner during the PUT request.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1: Performance** — The settings page must load within 500ms on a local dev server (server component render + client hydration). No unnecessary re-renders when switching tabs.
+
+  - **NFR-2: Accessibility** — All form inputs must have associated `<label>` elements or `aria-label` attributes. Tab navigation must work between fields. Focus must be managed correctly when switching tabs. Color contrast must meet WCAG AA standards (inherited from shadcn/ui).
+
+  - **NFR-3: Responsiveness** — The settings page must be usable on viewports from 768px to 1920px wide. Form fields should stack vertically on narrower viewports and use a two-column grid on wider viewports where appropriate.
+
+  - **NFR-4: Error resilience** — API route failures must return structured JSON error responses with appropriate HTTP status codes. Client-side fetch errors must be caught and displayed as toast notifications, never as unhandled exceptions.
+
+  - **NFR-5: Maintainability** — All new components must follow the established four-tier component hierarchy. Feature components go in `components/features/settings/`. Every component must have a colocated `.stories.tsx` file and unit tests.
+
+  - **NFR-6: Consistency** — The settings page must use the same layout patterns, spacing, typography, and color tokens as the existing Tools and Skills pages. No custom CSS — only Tailwind utility classes with semantic design tokens.
+
+  - **NFR-7: Security** — The agent token field must be rendered as a password input (type="password") by default. The API route must not log or expose token values in error messages.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Tabs vs. scrollable page vs. sidebar nav for section layout? | Tabbed layout | Consistent with existing Tabs component usage; 7 sections is too many for a single page; avoids sidebar-in-sidebar confusion |
+  | 2 | Per-section save, global save, or auto-save? | Global Save button | UpdateSettingsUseCase accepts full Settings object; simpler implementation; avoids partial state issues |
+  | 3 | How to display the agent token field? | Masked with reveal toggle | Standard UX pattern; local app so reveal risk is low; users need to verify tokens |
+  | 4 | Client-side validation or server-only? | Client-side with Zod | Immediate feedback; prevents unnecessary API calls; react-hook-form + Zod is a project-listed technology |
+  | 5 | Settings nav placement in sidebar? | Bottom of main nav, before features | Natural grouping with platform pages (Tools, Skills); no layout changes needed |
+  | 6 | Unsaved changes warning? | Yes, with dirty-state detection | Prevents silent data loss; trivial with react-hook-form's formState.isDirty |
 
   ## Codebase Analysis
 
@@ -100,7 +323,7 @@ content: |
   | Area | Impact | Reasoning |
   | ---- | ------ | --------- |
   | `src/presentation/web/app/settings/` | High | New page route — server component resolving LoadSettingsUseCase |
-  | `src/presentation/web/app/api/settings/` | High | New API route for PUT/PATCH settings mutations |
+  | `src/presentation/web/app/api/settings/` | High | New API route for PUT settings mutations |
   | `src/presentation/web/components/features/settings/` | High | New client components — SettingsPageClient, section forms (Models, Profile, Environment, System, Agent, Notifications, Workflow) |
   | `src/presentation/web/components/layouts/app-sidebar/` | Medium | Add Settings nav item to sidebar (icon + link + active state) |
   | `tests/unit/presentation/web/features/` | Medium | Unit tests for settings page components and form interactions |
@@ -126,10 +349,15 @@ content: |
   - Storybook stories for all new components
   - Unit tests for all new components
 
+  **New dependencies (npm packages):**
+  - `react-hook-form` — form state management (if not already installed)
+  - `zod` — schema validation (if not already installed)
+  - `@hookform/resolvers` — Zod resolver for react-hook-form (if not already installed)
+
   ## Size Estimate
 
-  **M** — The backend is fully implemented (domain model, repository, use cases, singleton service). This feature is purely presentation-layer work: one page route, one API route, ~5-7 form section components, sidebar nav update, stories, and tests. The Settings model is comprehensive (7 configuration sections) but each section maps straightforwardly to existing shadcn/ui form primitives. Following established patterns from the Tools page keeps complexity manageable. Estimated at 3-5 days of implementation.
+  **M** — The backend is fully implemented (domain model, repository, use cases, singleton service). This feature is purely presentation-layer work: one page route, one API route, ~8-10 form section components, sidebar nav update, stories, and tests. The Settings model is comprehensive (7 configuration sections) but each section maps straightforwardly to existing shadcn/ui form primitives. Following established patterns from the Tools page keeps complexity manageable.
 
   ---
 
-  _Generated by feature agent — proceed with research_
+  _Generated by feature agent — requirements defined_
