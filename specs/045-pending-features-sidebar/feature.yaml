@@ -23,6 +23,7 @@ status:
     - phase-2
     - phase-3
     - phase-4
+    - merge
 validation:
   lastRun: null
   gatesPassed: []
