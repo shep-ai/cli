@@ -14,6 +14,8 @@ import type { DeploymentState } from '@/domain/generated/output.js';
 
 /** A single log line captured from a deployment's stdout or stderr. */
 export interface LogEntry {
+  /** Which deployment produced this line. */
+  targetId: string;
   /** Which output stream produced this line. */
   stream: 'stdout' | 'stderr';
   /** The line content (without trailing newline). */

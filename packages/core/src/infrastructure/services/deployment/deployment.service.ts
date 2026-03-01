@@ -279,7 +279,12 @@ export class DeploymentService implements IDeploymentService {
         log.debug(`[${entry.targetId}] ${stream}: ${line}`);
 
         // Accumulate in log buffer and emit event
-        const logEntry: LogEntry = { stream, line, timestamp: Date.now() };
+        const logEntry: LogEntry = {
+          targetId: entry.targetId,
+          stream,
+          line,
+          timestamp: Date.now(),
+        };
         entry.logs.push(logEntry);
         this.emitter.emit('log', logEntry);
 

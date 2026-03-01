@@ -14,7 +14,7 @@ import { LogRingBuffer } from '@/infrastructure/services/deployment/log-ring-buf
 import type { LogEntry } from '@/application/ports/output/services/deployment-service.interface.js';
 
 function makeEntry(line: string, stream: 'stdout' | 'stderr' = 'stdout'): LogEntry {
-  return { stream, line, timestamp: Date.now() };
+  return { targetId: 'test', stream, line, timestamp: Date.now() };
 }
 
 describe('LogRingBuffer', () => {
