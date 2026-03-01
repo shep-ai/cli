@@ -1,0 +1,480 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: pending-features-sidebar
+summary: >
+  Technical research for wiring real feature data into the AppSidebar. The implementation
+  uses a dedicated SidebarFeaturesContext (following the existing AgentEventsProvider pattern)
+  to lift feature node data from ControlCenterInner up to AppShellInner. A pure mapping
+  function converts the 6-state FeatureNodeState to the 3-state sidebar FeatureStatus.
+  No new libraries are needed — all functionality is built on existing React patterns and
+  the established CustomEvent communication mechanism.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - React Context (createContext + useContext)
+  - React hooks (useState, useEffect, useCallback, useMemo)
+  - CustomEvent (window.dispatchEvent for shep:select-feature)
+  - TypeScript (strict typing with FeatureNodeState → FeatureStatus mapping)
+  - Vitest + React Testing Library (unit tests)
+  - Storybook (story updates for new FeatureItem.featureId field)
+
+relatedLinks: []
+
+# Structured technology decisions
+decisions:
+  - title: 'Cross-component data sharing pattern'
+    chosen: 'Dedicated React Context (SidebarFeaturesContext)'
+    rejected:
+      - >
+        CustomEvent on window — The existing shep:select-feature/shep:open-create-drawer pattern
+        works well for discrete actions (click events), but is unsuitable for continuous state
+        synchronization. CustomEvents are fire-and-forget: if the listener mounts after the
+        event fires, it misses the data. Initial sidebar population would require a separate
+        mechanism (e.g., a synchronous query), and every node state change would need a manual
+        dispatch. The AgentEventsProvider already demonstrates the project prefers React Context
+        for shared reactive state, reserving CustomEvent for imperative cross-tree commands.
+      - >
+        Duplicate server fetch in layout — AppShell is a client component ('use client'), so
+        it cannot do server-side data fetching. Moving it to a server component would require
+        restructuring the client/server boundary and breaking the existing AgentEventsProvider
+        pattern. Even if feasible, it duplicates the fetch already in page.tsx and does not
+        provide real-time SSE updates without additional plumbing. The spec's NFR-5 explicitly
+        prohibits new network requests.
+    rationale: >
+      React Context is the natural fit because: (1) The codebase already uses this exact pattern
+      with AgentEventsProvider — a context wrapping the tree so descendants can publish/consume
+      shared state. (2) The provider can be placed inside AgentEventsProvider in AppShell,
+      maintaining the existing component hierarchy. (3) When ControlCenterInner's nodes update
+      (from SSE events or server refresh), a useEffect publishes derived sidebar data to the
+      context — AppShellInner consumes it reactively with zero additional plumbing. (4) NFR-1
+      is automatically satisfied because the context update happens in the same render cycle
+      as the node state change.
+
+  - title: 'Sidebar click-to-drawer communication'
+    chosen: 'Dispatch existing shep:select-feature CustomEvent from AppShellInner'
+    rejected:
+      - >
+        Add new React Context for selection state — Would require a shared selection context
+        between AppShellInner and ControlCenterInner. Over-engineers the interaction since
+        ControlCenterInner already has a robust selectFeatureById() function that handles
+        drawer opening, state transitions, and sound effects. Duplicating or sharing this
+        logic across contexts adds complexity for no benefit.
+      - >
+        Direct function callback via context — Pass selectFeatureById through a context so
+        AppShellInner can call it directly. This tightly couples the sidebar to ControlCenter's
+        internal implementation. The CustomEvent pattern provides clean decoupling — the sidebar
+        dispatches an event, and ControlCenterInner listens for it, just as use-notifications.ts
+        already does (line 32).
+    rationale: >
+      The shep:select-feature CustomEvent is already used in two places: use-notifications.ts
+      (toast action "Review" click) and use-control-center-state.ts (state transition toast).
+      ControlCenterInner already has a listener (lines 343-350) that calls selectFeatureById(),
+      which finds the feature node, checks it's not 'creating', closes the create drawer, and
+      sets the selected node — triggering the correct drawer (PRD questionnaire, tech decisions,
+      or merge review) based on the feature's state and lifecycle. Reusing this event from
+      sidebar clicks requires ~5 lines of code in AppShellInner and zero changes to ControlCenter.
+
+  - title: 'FeatureNodeState to FeatureStatus mapping approach'
+    chosen: 'Pure standalone function in a new utils file colocated with sidebar context'
+    rejected:
+      - >
+        Inline mapping inside ControlCenterInner's useEffect — Violates NFR-2 which requires
+        the mapping to be a pure function testable in isolation. Inlining makes it impossible
+        to unit test the mapping logic without rendering the full ControlCenter component tree.
+      - >
+        Extend featureStatusConfig to include mapping logic — The existing featureStatusConfig
+        in feature-status-config.ts maps FeatureStatus → visual config (icon, colors, label).
+        Adding FeatureNodeState → FeatureStatus mapping conflates two concerns: status display
+        configuration and state derivation. Keeping them separate follows SRP and makes the
+        mapping independently testable.
+    rationale: >
+      A pure function mapNodeStateToSidebarStatus(state: FeatureNodeState): FeatureStatus | null
+      is the cleanest approach. It can live in the same file as the SidebarFeaturesContext (or a
+      colocated utils file) since it's only used by the context provider's mapping logic. The
+      mapping is: action-required → action-needed, running → in-progress, done → done,
+      blocked → in-progress, error → in-progress, creating → null (excluded). Returning null
+      for 'creating' lets the caller filter out optimistic-UI features cleanly. This function
+      is trivially unit-testable with a simple input/output table test.
+
+  - title: 'FeatureItem interface extension strategy'
+    chosen: 'Add featureId field to existing FeatureItem interface in app-sidebar.tsx'
+    rejected:
+      - >
+        Create a new SidebarFeatureItem type — Introducing a separate type creates confusion
+        about which FeatureItem to use where. The existing FeatureItem is only used by
+        AppSidebar and the context provider — extending it in place is the minimal change
+        with the most clarity.
+      - >
+        Pass full FeatureNodeData to sidebar — Over-engineers the interface by exposing canvas
+        concerns (progress, branch, specPath, etc.) that the sidebar doesn't need. The sidebar
+        only needs name, status, featureId, startedAt, and duration. Keeping the interface
+        minimal follows the project's principle of avoiding over-engineering.
+    rationale: >
+      Adding featureId: string to the existing FeatureItem interface is the minimal change.
+      The FeatureItem already has name, status, startedAt, and duration. The featureId is
+      needed for the onFeatureClick callback to dispatch shep:select-feature with the UUID.
+      The onFeatureClick signature changes from (name: string) => void to (featureId: string)
+      => void, matching the event's detail shape. Storybook stories need featureId added to
+      mock data — a simple update.
+
+  - title: 'startedAt field source for in-progress features'
+    chosen: 'Add startedAt to FeatureNodeData, populated from AgentRun.startedAt in page.tsx'
+    rejected:
+      - >
+        Use Feature.createdAt as startedAt — Feature.createdAt represents when the feature
+        was created, not when the current agent run started. A feature may have multiple runs
+        (e.g., requirements phase run completes, then implementation phase run starts). Using
+        createdAt would show total feature age, not the current run's elapsed time, which
+        is misleading for the "In Progress" timer.
+      - >
+        Omit elapsed time for in-progress features — The existing Storybook stories show
+        elapsed time for in-progress features via the ElapsedTime component with startedAt.
+        Omitting it would be a visible UX regression compared to the designed UI. The data
+        is readily available from AgentRun.startedAt.
+    rationale: >
+      AgentRun.startedAt (typed as optional any, available at domain/generated/output.ts:1720)
+      is the correct timestamp for elapsed time. It represents when the current agent run
+      began executing, which directly maps to the sidebar's "In Progress" elapsed-time counter.
+      The FeatureNodeData interface has a [key: string]: unknown index signature so adding
+      startedAt is technically backward-compatible, but adding it explicitly (startedAt?: number)
+      improves type safety. In page.tsx, the AgentRun is already fetched per feature — adding
+      startedAt to node data construction is ~1 line: ...(run?.startedAt && { startedAt:
+      new Date(run.startedAt).getTime() }).
+
+  - title: 'Context provider placement in component tree'
+    chosen: 'Place SidebarFeaturesProvider inside AgentEventsProvider, wrapping AppShellInner'
+    rejected:
+      - >
+        Place above AgentEventsProvider — The SidebarFeaturesContext doesn't depend on SSE
+        events directly (it's populated by ControlCenterInner which does), but placing it
+        above AgentEventsProvider creates an unnecessary nesting level and separates it from
+        its logical scope. The context only matters within the shell — not for the entire
+        app tree.
+      - >
+        Place inside ControlCenter — Would make the context inaccessible to AppShellInner
+        since AppShellInner is a parent of ControlCenter in the tree. The whole point is
+        lifting data UP from ControlCenter to the sidebar.
+    rationale: >
+      The provider must wrap both AppShellInner (consumer, passes features to AppSidebar) and
+      the page content tree containing ControlCenter (publisher, derives and publishes sidebar
+      features). Placing it inside AppShell's render, between AgentEventsProvider and
+      AppShellInner, satisfies both requirements. The component tree becomes:
+      AppShell → AgentEventsProvider → SidebarFeaturesProvider → AppShellInner → (SidebarProvider
+      → AppSidebar + children → page.tsx → ControlCenter). This mirrors the existing pattern
+      where AgentEventsProvider wraps AppShellInner.
+
+# Open questions (resolved during research)
+openQuestions:
+  - question: 'Should the SidebarFeaturesContext hold FeatureItem[] directly or an intermediate representation?'
+    resolved: true
+    options:
+      - option: 'Hold FeatureItem[] directly (sidebar-ready format)'
+        description: >
+          The context stores an array of FeatureItem objects exactly as the sidebar expects them.
+          ControlCenterInner performs the full mapping from FeatureNodeData → FeatureItem
+          (including status mapping, featureId extraction, startedAt/duration threading) and
+          publishes the result. AppShellInner simply passes the array through to AppSidebar.
+          Pro: minimal logic in the consumer. Con: the publisher (ControlCenterInner) needs to
+          know the FeatureItem interface shape.
+        selected: true
+      - option: 'Hold FeatureNodeData[] (raw canvas data)'
+        description: >
+          The context stores raw FeatureNodeData objects. AppShellInner performs the mapping to
+          FeatureItem. Pro: ControlCenterInner doesn't need to know about sidebar types. Con:
+          moves mapping logic into AppShellInner which should be a thin pass-through, and
+          requires AppShellInner to import mapping utilities and FeatureNodeData types.
+        selected: false
+      - option: 'Hold a custom intermediate SidebarFeature type'
+        description: >
+          A third type that's neither FeatureNodeData nor FeatureItem. Con: introduces yet
+          another type for no clear benefit — the FeatureItem type already serves as the
+          sidebar's data contract. Adding an intermediate type means two mapping steps instead
+          of one.
+        selected: false
+    selectionRationale: >
+      Holding FeatureItem[] directly minimizes logic at the consumption point. AppShellInner
+      becomes a simple pass-through (const { features } = useSidebarFeaturesContext();
+      <AppSidebar features={features} />). The mapping responsibility sits naturally in
+      ControlCenterInner's useEffect, which already has access to nodes and all the data
+      needed for the transformation. The FeatureItem interface is a simple, stable type —
+      importing it in ControlCenterInner adds minimal coupling.
+
+  - question: 'How should the runtime/duration field be derived for done features?'
+    resolved: true
+    options:
+      - option: 'Use FeatureNodeData.runtime directly (already a human-readable string)'
+        description: >
+          The FeatureNodeData interface already has a runtime?: string field described as
+          "Human-readable runtime for done state (e.g. '2h 15m')". However, page.tsx currently
+          does NOT populate this field. The spec requires populating it in page.tsx using
+          AgentRun.startedAt and AgentRun.completedAt, then mapping it to FeatureItem.duration
+          in the sidebar context. Pro: uses the existing field contract. Con: runtime is currently
+          unpopulated, so we need to add population logic in page.tsx.
+        selected: true
+      - option: 'Compute duration at sidebar mapping time from startedAt + completedAt'
+        description: >
+          Pass both startedAt and completedAt through FeatureNodeData and compute the duration
+          string in the mapping function. Pro: raw timestamps are more flexible. Con: the
+          FeatureNodeData.runtime field already exists for this purpose — computing it elsewhere
+          duplicates responsibility and ignores the existing interface contract.
+        selected: false
+      - option: 'Omit duration for done features initially'
+        description: >
+          Ship without duration display. The sidebar would show done features with their name
+          and status icon but no duration. Pro: simpler. Con: the Storybook stories show duration
+          for done features, and omitting it would be a UX regression.
+        selected: false
+    selectionRationale: >
+      FeatureNodeData.runtime is the intended field for this purpose. Page.tsx needs to populate
+      it by computing a human-readable string from AgentRun.startedAt and AgentRun.completedAt
+      (or Feature.createdAt as fallback). The sidebar mapping function then maps
+      data.runtime → FeatureItem.duration. This keeps the runtime computation centralized in
+      the server-side data preparation (page.tsx), not scattered across client components.
+
+  - question: 'How should the useEffect in ControlCenterInner be structured to avoid infinite re-render loops?'
+    resolved: true
+    options:
+      - option: 'useEffect with serialized node state as dependency'
+        description: >
+          Use useEffect with a dependency on a serialized representation of the feature nodes
+          (e.g., JSON.stringify of featureId+state pairs). This avoids re-running on every
+          render while still catching all state changes. Similar to the existing pattern in
+          useControlCenterState where initialNodes changes are detected via stringified IDs.
+          Pro: precise change detection. Con: JSON.stringify on every render has minor cost.
+        selected: true
+      - option: 'useEffect with nodes array as dependency'
+        description: >
+          Use useEffect(() => { ... }, [nodes]). Since nodes is a new array reference on every
+          setNodes call, this fires on every node change including position changes from
+          dragging. Pro: simple. Con: fires too often — sidebar doesn't care about position
+          changes, only state/data changes. Could cause unnecessary context re-renders.
+        selected: false
+      - option: 'useMemo to derive sidebar features without useEffect'
+        description: >
+          Instead of useEffect + context setter, use useMemo in ControlCenterInner to derive
+          sidebar features, then pass them to context. Pro: avoids double-render (effect fires
+          after render). Con: useMemo computes on every render regardless of whether sidebar
+          data actually changed, and the context setter pattern is cleaner for cross-component
+          communication where the publisher and consumer are in different subtrees.
+        selected: false
+    selectionRationale: >
+      Serialized dependency detection is the most precise approach and follows the existing
+      pattern in useControlCenterState (lines ~140-188) where initialNodes changes are detected
+      via stringified IDs. For the sidebar useEffect, the dependency can be a useMemo that
+      produces a stable string of featureId:state pairs — the effect only re-runs when a
+      feature's state actually changes, not when nodes are dragged or repositioned. This
+      satisfies NFR-1 (updates within 1 render cycle) while avoiding unnecessary re-renders
+      from position-only changes.
+
+# Markdown content (the full research document)
+content: |
+  ## Technology Decisions
+
+  ### 1. Cross-Component Data Sharing Pattern
+
+  **Chosen:** Dedicated React Context (`SidebarFeaturesContext`)
+
+  **Rejected:**
+  - CustomEvent on window — Fire-and-forget semantics are unsuitable for continuous state sync;
+    misses events if listener mounts late; requires manual dispatch on every change
+  - Duplicate server fetch in layout — AppShell is `'use client'`, cannot do server fetching;
+    duplicates page.tsx fetch; no SSE updates without additional plumbing; violates NFR-5
+
+  **Rationale:** Follows the existing `AgentEventsProvider` pattern. The context provider slots
+  into the AppShell tree between `AgentEventsProvider` and `AppShellInner`. ControlCenterInner
+  publishes derived sidebar data via a setter in useEffect. AppShellInner consumes the context
+  and passes features to AppSidebar. SSE-driven state changes propagate automatically because
+  the mapping derives from the same `nodes` state that SSE events update.
+
+  ### 2. Sidebar Click-to-Drawer Communication
+
+  **Chosen:** Dispatch existing `shep:select-feature` CustomEvent from AppShellInner
+
+  **Rejected:**
+  - New selection context — Over-engineers the interaction; ControlCenterInner already has
+    `selectFeatureById()` which handles all drawer opening logic
+  - Direct function callback via context — Tightly couples sidebar to ControlCenter internals
+
+  **Rationale:** The `shep:select-feature` CustomEvent is already used by `use-notifications.ts`
+  and `use-control-center-state.ts`. ControlCenterInner's listener (lines 343-350) calls
+  `selectFeatureById()` which handles state checking, drawer selection, and sound effects.
+  Reusing this event requires ~5 lines in AppShellInner and zero changes to ControlCenter.
+
+  ### 3. FeatureNodeState → FeatureStatus Mapping
+
+  **Chosen:** Pure standalone function `mapNodeStateToSidebarStatus()`
+
+  **Rejected:**
+  - Inline in ControlCenterInner useEffect — Not independently testable; violates NFR-2
+  - Extend featureStatusConfig — Conflates display config with state derivation (SRP violation)
+
+  **Rationale:** A pure function with clear input/output contract:
+  - `action-required` → `action-needed`
+  - `running` → `in-progress`
+  - `done` → `done`
+  - `blocked` → `in-progress`
+  - `error` → `in-progress`
+  - `creating` → `null` (excluded from sidebar)
+
+  Returns `null` for `creating` so the caller can filter out optimistic-UI features. Trivially
+  testable with a table-driven test.
+
+  ### 4. FeatureItem Interface Extension
+
+  **Chosen:** Add `featureId: string` to existing `FeatureItem` interface
+
+  **Rejected:**
+  - New SidebarFeatureItem type — Unnecessary type proliferation
+  - Pass full FeatureNodeData — Over-exposes canvas concerns to the sidebar
+
+  **Rationale:** Minimal change to existing interface. The `onFeatureClick` signature changes
+  from `(name: string) => void` to `(featureId: string) => void`. Storybook stories and tests
+  need `featureId` added to mock data — straightforward updates.
+
+  ### 5. startedAt Source for In-Progress Features
+
+  **Chosen:** Add `startedAt?: number` to `FeatureNodeData`, populated from `AgentRun.startedAt`
+
+  **Rejected:**
+  - Use Feature.createdAt — Represents feature creation time, not current run start; misleading
+  - Omit elapsed time — UX regression vs. designed Storybook stories
+
+  **Rationale:** `AgentRun.startedAt` is available in the domain model (output.ts:1720). It
+  represents when the current run began, which is exactly what the elapsed-time counter needs.
+  Population in page.tsx is ~1 line alongside existing `run?.agentType` and `run?.error` spreads.
+
+  ### 6. Context Provider Placement
+
+  **Chosen:** Inside `AgentEventsProvider`, wrapping `AppShellInner`
+
+  **Rejected:**
+  - Above AgentEventsProvider — Unnecessary nesting, separates from logical scope
+  - Inside ControlCenter — Inaccessible to AppShellInner (parent in tree)
+
+  **Rationale:** Tree becomes: `AppShell → AgentEventsProvider → SidebarFeaturesProvider →
+  AppShellInner → [AppSidebar + children → ControlCenter]`. Both publisher (ControlCenter)
+  and consumer (AppShellInner/AppSidebar) are within the provider's scope.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | React Context (built-in) | Cross-component state sharing | Use | Already used (AgentEventsProvider); no external deps needed |
+  | CustomEvent (Web API) | Click-to-drawer dispatch | Use (existing) | Already used for shep:select-feature; 3 existing consumers |
+  | shadcn/ui sidebar primitives | Sidebar UI structure | Use (existing) | Already used by AppSidebar, FeatureListItem, FeatureStatusGroup |
+  | zustand/jotai/redux | State management | Reject | Overkill for a single context with a simple array; project has no external state lib |
+  | EventEmitter / mitt | Event bus alternative | Reject | CustomEvent already serves this role; adding a lib for one event is unnecessary |
+
+  ## Security Considerations
+
+  - **No new attack surface:** The feature adds no new API endpoints, network requests, or
+    user inputs. All data is derived from already-fetched server data passed through React
+    props and context.
+  - **CustomEvent safety:** The `shep:select-feature` event only carries a `featureId` (UUID
+    string). The listener in ControlCenterInner validates the feature exists in the nodes
+    array before acting. No injection vector exists.
+  - **No XSS risk:** Feature names are rendered via React's JSX escaping. The sidebar uses
+    the same `FeatureListItem` component already in production.
+  - **Context isolation:** `SidebarFeaturesContext` is a dedicated context that only holds
+    sidebar-formatted data (name, status, featureId, timing). No sensitive data (credentials,
+    tokens) flows through it.
+
+  ## Performance Implications
+
+  - **No additional network requests (NFR-5):** Sidebar data is derived entirely from
+    already-fetched canvas node state. The mapping is a lightweight O(n) array map where n
+    is the number of features (typically <50).
+  - **Minimal re-renders (NFR-3):** The context uses a dedicated provider, so only components
+    that consume `useSidebarFeaturesContext()` re-render on updates. The serialized dependency
+    in the publishing useEffect prevents re-computation on position-only node changes.
+  - **Click latency (NFR-6):** CustomEvent dispatch is synchronous. `selectFeatureById()` does
+    an O(n) node lookup and sets state. Total latency is sub-millisecond for the dispatch +
+    one React render cycle for the drawer to appear.
+  - **Memory:** One additional array (FeatureItem[]) in context. Negligible overhead — each
+    FeatureItem is ~5 fields, and the feature count is small.
+
+  ## Architecture Notes
+
+  ### Component Tree (after implementation)
+
+  ```
+  AppShell
+    AgentEventsProvider              (existing — SSE context)
+      SidebarFeaturesProvider        (NEW — sidebar features context)
+        AppShellInner                (MODIFIED — consumes sidebar context)
+          SidebarProvider            (existing — shadcn sidebar state)
+            AppSidebar               (MODIFIED — receives real features, featureId in FeatureItem)
+          SidebarInset
+            main > {children}
+              page.tsx (HomePage)    (MODIFIED — populates startedAt + runtime in FeatureNodeData)
+                ControlCenter
+                  ControlCenterInner (MODIFIED — publishes sidebar features to context)
+  ```
+
+  ### Data Flow
+
+  1. **Server (page.tsx):** Fetches features + AgentRun, builds FeatureNodeData with startedAt
+     and runtime fields, passes to ControlCenter.
+  2. **ControlCenterInner:** useEffect watches nodes, maps FeatureNodeData → FeatureItem[] via
+     `mapNodeStateToSidebarStatus()`, publishes to SidebarFeaturesContext.
+  3. **AppShellInner:** Consumes context, passes features to AppSidebar.
+  4. **AppSidebar:** Renders features grouped by status (unchanged rendering logic).
+  5. **Click flow:** AppShellInner's onFeatureClick dispatches `shep:select-feature` with
+     featureId → ControlCenterInner's listener calls selectFeatureById() → drawer opens.
+  6. **Real-time flow:** SSE event → useControlCenterState updates nodes → useEffect re-derives
+     sidebar features → context updates → sidebar re-renders with new state.
+
+  ### Files to Create
+
+  | File | Purpose |
+  | ---- | ------- |
+  | `src/presentation/web/hooks/sidebar-features-context.tsx` | SidebarFeaturesProvider, useSidebarFeaturesContext, mapNodeStateToSidebarStatus |
+
+  ### Files to Modify
+
+  | File | Changes |
+  | ---- | ------- |
+  | `src/presentation/web/components/layouts/app-shell/app-shell.tsx` | Import SidebarFeaturesProvider + useSidebarFeaturesContext; wrap AppShellInner in provider; consume context in AppShellInner; implement onFeatureClick handler |
+  | `src/presentation/web/components/features/control-center/control-center-inner.tsx` | Import useSidebarFeaturesContext; add useEffect to derive and publish sidebar features from nodes |
+  | `src/presentation/web/components/layouts/app-sidebar/app-sidebar.tsx` | Add featureId to FeatureItem interface; change onFeatureClick signature to (featureId: string) => void; pass featureId in onClick closure |
+  | `src/presentation/web/components/common/feature-node/feature-node-state-config.ts` | Add startedAt?: number to FeatureNodeData interface |
+  | `src/presentation/web/app/page.tsx` | Populate startedAt from AgentRun.startedAt and runtime from AgentRun.startedAt+completedAt in FeatureNodeData construction |
+  | `src/presentation/web/components/layouts/app-sidebar/app-sidebar.stories.tsx` | Add featureId to mock feature data |
+
+  ### Test Files to Create/Modify
+
+  | File | Purpose |
+  | ---- | ------- |
+  | `tests/unit/presentation/web/hooks/sidebar-features-context.test.tsx` | NEW: Test context provider, mapNodeStateToSidebarStatus, initial state, update propagation |
+  | `tests/unit/presentation/web/layouts/app-sidebar.test.tsx` | MODIFY: Add featureId to mock data, test onFeatureClick receives featureId |
+  | `tests/unit/presentation/web/layouts/app-shell.test.tsx` | MODIFY: Test context consumption, onFeatureClick dispatches shep:select-feature |
+
+  ### Key Implementation Details
+
+  **mapNodeStateToSidebarStatus mapping table:**
+  | FeatureNodeState | FeatureStatus | Rationale |
+  | ---------------- | ------------- | --------- |
+  | `action-required` | `action-needed` | Direct mapping — user needs to review |
+  | `running` | `in-progress` | Agent is executing |
+  | `done` | `done` | Feature complete |
+  | `blocked` | `in-progress` | Still active, just waiting on dependency |
+  | `error` | `in-progress` | Still active, agent errored but feature not done |
+  | `creating` | `null` | Optimistic UI — exclude from sidebar per spec |
+
+  **ControlCenterInner useEffect dependency strategy:**
+  The useEffect should depend on a useMemo-derived string that serializes each feature node's
+  `featureId + state + lifecycle + runtime + startedAt`. This ensures the effect fires only
+  when sidebar-relevant data changes, not on position-only updates from dragging nodes.
+
+  **Runtime computation in page.tsx:**
+  For done features with both `run.startedAt` and `run.completedAt`, compute a human-readable
+  duration string. Use a simple utility like `formatDuration(startMs, endMs)` that produces
+  strings like "2h 15m", "45m", "3h". This populates `FeatureNodeData.runtime` which maps
+  to `FeatureItem.duration` in the sidebar.
+
+  ---
+
+  _Research completed 2026-02-25_

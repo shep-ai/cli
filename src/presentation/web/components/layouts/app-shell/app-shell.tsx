@@ -7,6 +7,10 @@ import { AddRepositoryButton } from '@/components/common/add-repository-node';
 import { ThemeToggle } from '@/components/common/theme-toggle';
 import { SoundToggle } from '@/components/common/sound-toggle';
 import { AgentEventsProvider } from '@/hooks/agent-events-provider';
+import {
+  SidebarFeaturesProvider,
+  useSidebarFeaturesContext,
+} from '@/hooks/sidebar-features-context';
 import { useNotifications } from '@/hooks/use-notifications';
 
 interface AppShellProps {
@@ -18,8 +22,14 @@ function AppShellInner({ children }: AppShellProps) {
   // Subscribe to agent lifecycle events and dispatch toast/browser notifications
   useNotifications();
 
+  const { features } = useSidebarFeaturesContext();
+
   const handleNewFeature = useCallback(() => {
     window.dispatchEvent(new CustomEvent('shep:open-create-drawer'));
+  }, []);
+
+  const handleFeatureClick = useCallback((featureId: string) => {
+    window.dispatchEvent(new CustomEvent('shep:select-feature', { detail: { featureId } }));
   }, []);
 
   const handleRepositorySelect = useCallback((path: string) => {
@@ -28,7 +38,11 @@ function AppShellInner({ children }: AppShellProps) {
 
   return (
     <SidebarProvider>
-      <AppSidebar features={[]} onNewFeature={handleNewFeature} />
+      <AppSidebar
+        features={features}
+        onNewFeature={handleNewFeature}
+        onFeatureClick={handleFeatureClick}
+      />
       <SidebarInset>
         <div className="relative h-full">
           <div className="absolute top-3 right-3 z-50 flex gap-1">
@@ -46,7 +60,9 @@ function AppShellInner({ children }: AppShellProps) {
 export function AppShell({ children }: AppShellProps) {
   return (
     <AgentEventsProvider>
-      <AppShellInner>{children}</AppShellInner>
+      <SidebarFeaturesProvider>
+        <AppShellInner>{children}</AppShellInner>
+      </SidebarFeaturesProvider>
     </AgentEventsProvider>
   );
 }

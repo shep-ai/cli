@@ -1,0 +1,169 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: pending-features-sidebar
+summary: >
+  Wire real feature data into the AppSidebar using a dedicated SidebarFeaturesContext.
+  ControlCenterInner publishes sidebar-formatted features derived from canvas nodes;
+  AppShellInner consumes the context and passes features to AppSidebar. A pure mapping
+  function converts the 6-state FeatureNodeState to the 3-state sidebar FeatureStatus.
+  Sidebar clicks dispatch the existing shep:select-feature CustomEvent to open the
+  correct review drawer. startedAt and runtime fields are threaded through FeatureNodeData
+  from page.tsx to enable elapsed-time counters and duration display.
+
+relatedFeatures: []
+technologies:
+  - React Context (createContext + useContext)
+  - React hooks (useState, useEffect, useMemo)
+  - CustomEvent (shep:select-feature)
+  - TypeScript
+  - Vitest + React Testing Library
+  - Storybook
+
+relatedLinks: []
+
+phases:
+  - id: phase-1
+    name: 'Pure mapping function + context foundation'
+    description: >
+      Create the SidebarFeaturesContext provider and the pure mapNodeStateToSidebarStatus
+      function. This is the foundation layer — no existing files are modified, only a new
+      file is created. Fully unit-testable in isolation. Must come first because all
+      subsequent phases depend on importing from this file.
+    parallel: false
+
+  - id: phase-2
+    name: 'Data threading — FeatureNodeData + page.tsx'
+    description: >
+      Extend FeatureNodeData with startedAt and populate both startedAt and runtime in
+      page.tsx node construction. This ensures the canvas node data carries the timing
+      information the sidebar needs. Comes second because the publisher (phase 3) needs
+      these fields available on FeatureNodeData to map them to FeatureItem.
+    parallel: false
+
+  - id: phase-3
+    name: 'Interface changes — FeatureItem + onFeatureClick'
+    description: >
+      Add featureId to the FeatureItem interface, change onFeatureClick signature from
+      (name: string) to (featureId: string), update the onClick closure in AppSidebar,
+      and update Storybook stories and existing tests with the new featureId field. This
+      must happen before the integration phase so the sidebar API is ready to receive
+      context data and dispatch events with featureId.
+    parallel: false
+
+  - id: phase-4
+    name: 'Integration — wire context through component tree'
+    description: >
+      Connect everything: wrap AppShellInner with SidebarFeaturesProvider, publish sidebar
+      features from ControlCenterInner via useEffect, consume context in AppShellInner and
+      pass to AppSidebar, implement onFeatureClick handler that dispatches shep:select-feature.
+      This is the final phase because it depends on the context (phase 1), data fields
+      (phase 2), and interface changes (phase 3) all being in place.
+    parallel: false
+
+filesToCreate:
+  - src/presentation/web/hooks/sidebar-features-context.tsx
+
+filesToModify:
+  - src/presentation/web/components/common/feature-node/feature-node-state-config.ts
+  - src/presentation/web/app/page.tsx
+  - src/presentation/web/components/layouts/app-sidebar/app-sidebar.tsx
+  - src/presentation/web/components/layouts/app-sidebar/app-sidebar.stories.tsx
+  - src/presentation/web/components/layouts/app-shell/app-shell.tsx
+  - src/presentation/web/components/features/control-center/control-center-inner.tsx
+  - tests/unit/presentation/web/layouts/app-sidebar.test.tsx
+  - tests/unit/presentation/web/layouts/app-shell.test.tsx
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  The implementation follows the existing codebase patterns precisely:
+
+  **Context pattern** — mirrors `AgentEventsProvider` (hooks/agent-events-provider.tsx):
+  a dedicated context with a provider component and a `useSidebarFeaturesContext()` hook.
+  The provider holds `FeatureItem[]` state with a setter. It slots into the component tree
+  between `AgentEventsProvider` and `AppShellInner`, so both the publisher (ControlCenterInner,
+  a descendant of AppShellInner) and consumer (AppShellInner itself) are within scope.
+
+  **Component tree after implementation:**
+  ```
+  AppShell
+    AgentEventsProvider
+      SidebarFeaturesProvider          ← NEW
+        AppShellInner                  ← consumes context
+          SidebarProvider
+            AppSidebar                 ← receives features prop
+          SidebarInset
+            {children}
+              page.tsx → ControlCenter
+                ControlCenterInner     ← publishes to context
+  ```
+
+  **Data flow:**
+  1. page.tsx (server) builds FeatureNodeData with startedAt + runtime from AgentRun
+  2. ControlCenterInner watches nodes via useEffect with serialized dependency
+  3. Pure mapping: FeatureNodeData → FeatureItem (via mapNodeStateToSidebarStatus)
+  4. Published to SidebarFeaturesContext
+  5. AppShellInner consumes context, passes features to AppSidebar
+  6. Click dispatches shep:select-feature → ControlCenterInner listener → selectFeatureById
+
+  **CustomEvent reuse** — The shep:select-feature event is already used by use-notifications.ts
+  (line 31-33) and use-control-center-state.ts (line 172-176). ControlCenterInner already
+  listens for it (lines 343-350) and calls selectFeatureById(), which handles drawer routing
+  based on lifecycle+state. Zero changes needed in ControlCenter for click-to-drawer.
+
+  ## Key Design Decisions
+
+  ### 1. Dedicated React Context (not CustomEvent for state sync)
+  CustomEvents are fire-and-forget — unsuitable for continuous state synchronization.
+  React Context provides reactive updates and follows the AgentEventsProvider precedent.
+  The context holds `FeatureItem[]` directly (sidebar-ready format) so AppShellInner is
+  a simple pass-through with no mapping logic.
+
+  ### 2. Pure mapping function
+  `mapNodeStateToSidebarStatus(state: FeatureNodeState): FeatureStatus | null` is a
+  standalone pure function colocated with the context file. The mapping:
+  - action-required → action-needed
+  - running → in-progress
+  - done → done
+  - blocked → in-progress
+  - error → in-progress
+  - creating → null (excluded from sidebar)
+  Returning null lets the caller filter out optimistic-UI nodes cleanly.
+
+  ### 3. Serialized useEffect dependency
+  The useEffect in ControlCenterInner that publishes sidebar features uses a useMemo-derived
+  string of `featureId:state:runtime:startedAt` pairs as its dependency. This prevents the
+  effect from re-running on position-only node changes (dragging), satisfying NFR-1 while
+  avoiding unnecessary re-renders.
+
+  ### 4. FeatureItem gains featureId, onFeatureClick changes to (featureId: string)
+  Minimal interface change. The shep:select-feature event requires a UUID, not a name.
+  The existing FeatureListItem component receives onClick as a closure, so it doesn't
+  need any changes — only the closure creation in AppSidebar changes.
+
+  ### 5. startedAt + runtime threaded through FeatureNodeData
+  startedAt is sourced from AgentRun.startedAt (current run start, not feature creation).
+  runtime is computed from AgentRun.startedAt + completedAt for done features using
+  `formatElapsed` from the existing elapsed-time utility. Both are populated in page.tsx
+  during node construction alongside existing `run?.agentType` spreads.
+
+  ## Implementation Strategy
+
+  The phases are ordered by dependency: foundation first (context + mapping function),
+  then data threading (FeatureNodeData fields), then interface changes (FeatureItem +
+  callback), and finally integration (wiring everything together). Each phase is
+  independently testable. The first three phases don't change runtime behavior — the
+  sidebar remains empty until phase 4 connects everything.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | useEffect infinite loop from nodes dependency | Serialize only sidebar-relevant fields (featureId:state:runtime:startedAt) via useMemo; the effect only re-runs when these change, not on position drag |
+  | Context re-renders unrelated components | Dedicated context (SidebarFeaturesContext) consumed only by AppShellInner; components that don't call useSidebarFeaturesContext are unaffected |
+  | Storybook stories break from FeatureItem change | Phase 3 updates stories + tests before integration; stories run with static mock data so featureId is just an added field |
+  | AgentRun.startedAt missing for some features | startedAt is optional on FeatureNodeData; sidebar maps it only for in-progress features; null/undefined startedAt results in no elapsed-time display (graceful degradation) |
+  | Race between context publish and consume | Not possible — both happen in the same React render tree; useEffect publish triggers re-render of consumers synchronously within React's batching |
