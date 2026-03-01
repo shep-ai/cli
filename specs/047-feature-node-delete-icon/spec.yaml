@@ -1,0 +1,123 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feature-node-delete-icon
+number: 047
+branch: feat/047-feature-node-delete-icon
+oneLiner: Add hover delete (trash) icon to feature nodes, matching repository node pattern
+userQuery: >
+  Feature: Add on hover delete bin icon on feature node like repository node
+summary: >
+  Add a delete (Trash2) icon that appears on hover to the left of feature node cards,
+  mirroring the existing pattern on repository nodes. Clicking the icon opens an AlertDialog
+  confirmation before invoking the existing deleteFeature server action. This requires updating
+  the FeatureNodeData interface, the FeatureNode component, the FeaturesCanvas enrichment logic,
+  and associated tests and Storybook stories.
+phase: Analysis
+sizeEstimate: S
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - React 19 (component rendering, hooks)
+  - "@xyflow/react 12 (React Flow node components)"
+  - lucide-react (Trash2 icon)
+  - Radix UI AlertDialog (confirmation dialog)
+  - Radix UI Tooltip (hover label)
+  - TailwindCSS 4 (styling, group-hover visibility)
+  - Vitest (unit testing)
+  - Storybook 8 (component stories)
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  Feature nodes on the React Flow canvas currently lack a quick-delete affordance.
+  Users must click a feature node to open the FeatureDrawer, scroll to the bottom,
+  and click the "Delete feature" button — a 3-step flow. Repository nodes already
+  have a hover-visible trash icon positioned to their left that triggers an
+  AlertDialog confirmation, providing a fast 1-click delete. Feature nodes should
+  have the same pattern for consistency and efficiency.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The relevant code lives entirely within the web presentation layer:
+
+  - `src/presentation/web/components/common/feature-node/` — Feature node component, config, state config, stories
+  - `src/presentation/web/components/common/repository-node/` — Reference implementation with working delete icon
+  - `src/presentation/web/components/features/features-canvas/` — Canvas that enriches nodes with callbacks
+  - `src/presentation/web/components/features/control-center/` — State management hook + inner component that wires everything together
+  - `src/presentation/web/app/actions/delete-feature.ts` — Existing server action for feature deletion
+  - `tests/unit/presentation/web/common/feature-node/` — Existing unit tests
+  - `tests/unit/presentation/web/features/features-canvas/` — Existing canvas tests
+
+  ### Architecture Patterns
+
+  **Callback enrichment pattern**: The `FeaturesCanvas` component enriches raw node data with
+  callbacks (`onAction`, `onSettings`, `onDelete`) inside a `useMemo` block. Repository nodes
+  already receive `onDelete` via this pattern — feature nodes need the same treatment.
+
+  **Data flow**: `useControlCenterState` hook → `ControlCenterInner` → `FeaturesCanvas` →
+  individual node components. The `handleDeleteFeature` callback already exists in
+  `useControlCenterState` and is passed to the `FeatureDrawer`. It needs to also flow to
+  `FeaturesCanvas` and through to feature node data.
+
+  **Delete confirmation pattern**: Repository nodes use a local `useState(false)` for
+  `confirmOpen`, render an `AlertDialog` with destructive variant action button, and call
+  `data.onDelete?.(data.id!)` on confirm. Feature nodes should replicate this exact pattern
+  using `data.onDelete?.(data.featureId)`.
+
+  ### Relevant Technologies
+
+  - **lucide-react**: `Trash2` icon (already used in repository-node.tsx)
+  - **Radix UI AlertDialog**: Already imported in repository-node.tsx — same components needed
+  - **Radix UI Tooltip**: Already imported in repository-node.tsx — same wrapping pattern
+  - **TailwindCSS group-hover**: `opacity-0 group-hover:opacity-100` pattern for show-on-hover
+  - **React Flow Handle**: Feature node already wraps content in `<div className="group relative">`, which is the parent needed for `group-hover` to work
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `src/presentation/web/components/common/feature-node/feature-node-state-config.ts` | Low | Add `onDelete?: (featureId: string) => void` to `FeatureNodeData` interface |
+  | `src/presentation/web/components/common/feature-node/feature-node.tsx` | High | Add delete button with Tooltip, AlertDialog confirmation, and group-hover visibility |
+  | `src/presentation/web/components/features/features-canvas/features-canvas.tsx` | Medium | Add `onFeatureDelete` prop and pass it to feature nodes via enrichedNodes |
+  | `src/presentation/web/components/features/control-center/control-center-inner.tsx` | Low | Pass `handleDeleteFeature` as `onFeatureDelete` prop to `FeaturesCanvas` |
+  | `src/presentation/web/components/common/feature-node/feature-node.stories.tsx` | Medium | Add `WithDeleteButton` story variant |
+  | `tests/unit/presentation/web/common/feature-node/feature-node.test.tsx` | Medium | Add tests for delete button rendering, hover visibility, confirmation dialog, callback invocation |
+  | `tests/unit/presentation/web/features/features-canvas/features-canvas.test.tsx` | Low | Add test verifying onFeatureDelete is passed to feature nodes |
+
+  ## Dependencies
+
+  All dependencies are already present in the codebase:
+  - `deleteFeature` server action exists at `src/presentation/web/app/actions/delete-feature.ts`
+  - `handleDeleteFeature` callback exists in `useControlCenterState` hook
+  - `Trash2` icon, `AlertDialog`, `Tooltip` components are already used by repository-node
+  - The feature node already has the `group relative` wrapper div needed for group-hover
+
+  ## Success Criteria
+
+  - [ ] Trash icon appears on hover to the left of the feature node card (matching repository node positioning)
+  - [ ] Trash icon is hidden when not hovering (opacity-0 → group-hover:opacity-100)
+  - [ ] Clicking trash icon opens an AlertDialog confirmation with feature name
+  - [ ] Confirming deletion calls the existing deleteFeature flow
+  - [ ] Delete icon does NOT appear on nodes in "creating" state
+  - [ ] Unit tests cover: icon rendering, hover visibility, dialog open/confirm/cancel, callback invocation
+  - [ ] Storybook story demonstrates the delete button variant
+  - [ ] All existing tests continue to pass
+
+  ## Size Estimate
+
+  **S** — This is a well-scoped UI feature that replicates an existing pattern (repository node delete icon) onto a sibling component (feature node). The data flow infrastructure (server action, state management callback) already exists. The work is limited to: adding a prop to an interface, adding ~40 lines of JSX to the feature node, threading one new prop through FeaturesCanvas, and adding tests + stories. Estimated at a few hours of work.
+
+  ---
+
+  _Generated by feature agent — proceed with research_
