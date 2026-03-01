@@ -12,13 +12,14 @@ export interface ToolsPageClientProps {
   className?: string;
 }
 
-type TabValue = 'all' | 'ide' | 'cli-agent' | 'vcs';
+type TabValue = 'all' | 'ide' | 'cli-agent' | 'vcs' | 'terminal';
 
 const TAB_FILTER: Record<TabValue, (tool: ToolItem) => boolean> = {
   all: () => true,
   ide: (tool) => tool.tags.includes('ide'),
   'cli-agent': (tool) => tool.tags.includes('cli-agent'),
   vcs: (tool) => tool.tags.includes('vcs'),
+  terminal: (tool) => tool.tags.includes('terminal'),
 };
 
 export function ToolsPageClient({ tools: initialTools, className }: ToolsPageClientProps) {
@@ -71,6 +72,9 @@ export function ToolsPageClient({ tools: initialTools, className }: ToolsPageCli
           </TabsTrigger>
           <TabsTrigger value="vcs" data-testid="tools-tab-vcs" className="px-2.5 text-xs">
             Version Control
+          </TabsTrigger>
+          <TabsTrigger value="terminal" data-testid="tools-tab-terminal" className="px-2.5 text-xs">
+            Terminals
           </TabsTrigger>
         </TabsList>
 

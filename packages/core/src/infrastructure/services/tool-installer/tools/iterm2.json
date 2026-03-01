@@ -1,0 +1,16 @@
+{
+  "name": "iTerm2",
+  "summary": "macOS terminal replacement",
+  "description": "iTerm2 is a feature-rich replacement for the default macOS Terminal.app with split panes, search, autocomplete, and extensive customization. macOS only. Verified by checking for the iTerm.app bundle in /Applications.",
+  "tags": ["terminal"],
+  "iconUrl": "https://cdn.simpleicons.org/iterm2",
+  "binary": "iterm2",
+  "packageManager": "brew",
+  "commands": {
+    "darwin": "brew install --cask iterm2"
+  },
+  "timeout": 300000,
+  "documentationUrl": "https://iterm2.com/documentation.html",
+  "verifyCommand": "test -d /Applications/iTerm.app",
+  "autoInstall": false
+}

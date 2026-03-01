@@ -23,7 +23,7 @@ export interface ToolMetadata {
   description: string;
 
   /** Tool tags for grouping in listings. A tool can belong to multiple categories. */
-  tags: ('ide' | 'cli-agent' | 'vcs')[];
+  tags: ('ide' | 'cli-agent' | 'vcs' | 'terminal')[];
 
   /** URL to the tool's icon/logo image */
   iconUrl?: string;

@@ -1,0 +1,371 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: terminal-tool-integrations
+summary: >
+  Add support for five terminal emulator tools (tmux, Kitty, Alacritty, Warp, iTerm2)
+  to the existing JSON-driven tool management system. Implementation requires minimal
+  type changes (add 'terminal' tag to two union types), creation of five JSON tool
+  definitions following established ToolMetadata schema patterns, and a single UI
+  constant update (TAG_CONFIG) to map the terminal tag to a Terminal icon. Zero
+  service layer modifications required - existing infrastructure handles all
+  installation, verification, and launch functionality. Launch support included for
+  terminals with native --working-directory flags (Kitty, Alacritty, tmux). tmux
+  configured for auto-install per user decision. Platform-specific commands for
+  macOS (Homebrew) and Linux (APT) where supported.
+
+# Relationships
+relatedFeatures:
+  - 033-json-driven-ide-launch
+  - 043-tools-management-ui
+
+technologies:
+  - TypeScript
+  - JSON schema (ToolMetadata)
+  - Homebrew (macOS package manager)
+  - APT (Linux package manager)
+  - lucide-react (Terminal icon)
+  - Node.js child_process
+
+relatedLinks:
+  - https://docs.warp.dev/
+  - https://iterm2.com/documentation.html
+  - https://github.com/tmux/tmux/wiki
+  - https://alacritty.org/
+  - https://sw.kovidgoyal.net/kitty/
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'Type System Foundation'
+    description: 'Add "terminal" tag to ToolMetadata and ToolItem type unions to enable type-safe terminal tool definitions. This must come first as all subsequent JSON files depend on this type change. Includes updating both infrastructure (tool-metadata.ts) and application (list-tools.use-case.ts) type definitions.'
+    parallel: false
+
+  - id: phase-2
+    name: 'Terminal Tool JSON Definitions'
+    description: 'Create five JSON tool definition files following established ToolMetadata schema. Each file includes platform-specific installation commands, verification commands, documentation URLs, and launch support where applicable (Kitty, Alacritty, tmux). Files are automatically loaded by existing TOOL_METADATA registry with zero code changes required.'
+    parallel: false
+
+  - id: phase-3
+    name: 'Web UI Tag Configuration'
+    description: 'Update TAG_CONFIG constant in tool-card.tsx to map "terminal" tag to Terminal icon from lucide-react. Enables terminal tool filtering and visual identification in Web UI. Terminal icon already imported and used for cli-agent tag, so no new dependencies required.'
+    parallel: false
+
+  - id: phase-4
+    name: 'Documentation & Validation'
+    description: 'Update tools/CLAUDE.md with terminal tag documentation and example. Validate all terminal tool JSON files load correctly, verify schema compliance, and confirm UI rendering. Manual testing of installation commands on both macOS and Linux where applicable.'
+    parallel: false
+
+# File change tracking
+filesToCreate:
+  - packages/core/src/infrastructure/services/tool-installer/tools/tmux.json
+  - packages/core/src/infrastructure/services/tool-installer/tools/kitty.json
+  - packages/core/src/infrastructure/services/tool-installer/tools/alacritty.json
+  - packages/core/src/infrastructure/services/tool-installer/tools/warp.json
+  - packages/core/src/infrastructure/services/tool-installer/tools/iterm2.json
+
+filesToModify:
+  - packages/core/src/infrastructure/services/tool-installer/tool-metadata.ts
+  - packages/core/src/application/use-cases/tools/list-tools.use-case.ts
+  - src/presentation/web/components/features/tools/tool-card.tsx
+  - packages/core/src/infrastructure/services/tool-installer/tools/CLAUDE.md
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Architecture Overview
+
+  This feature is a pure additive enhancement to the existing JSON-driven tool management
+  system with zero architectural changes. The implementation leverages four key architectural
+  patterns already established in the codebase:
+
+  ### 1. JSON-Driven Tool Registry (Infrastructure Layer)
+
+  **Existing Pattern (packages/core/src/infrastructure/services/tool-installer/tool-metadata.ts):**
+  - `loadToolMetadata()` function (lines 90-119) dynamically loads all .json files from tools/ directory
+  - `TOOL_METADATA` constant aggregates loaded tools into a registry keyed by tool name
+  - Tools are defined declaratively in JSON following ToolMetadata schema
+  - No code changes needed to add new tools - just drop JSON files in tools/ directory
+
+  **How Terminal Tools Leverage This:**
+  - Five new JSON files (tmux.json, kitty.json, alacritty.json, warp.json, iterm2.json) are automatically discovered and loaded
+  - Each JSON follows the exact same ToolMetadata schema as existing IDE tools (vscode.json, zed.json, cursor.json)
+  - TOOL_METADATA registry expands from 8 tools to 13 tools with zero code modifications
+
+  ### 2. Service Layer Abstraction (Application → Infrastructure)
+
+  **Existing Pattern:**
+  - `IToolInstallerService` interface (application layer port) defines contracts for tool operations
+  - `ToolInstallerServiceImpl` (infrastructure layer) implements installation, verification, and launch logic
+  - Use cases (ListToolsUseCase, InstallToolUseCase, LaunchToolUseCase) depend on interface, not implementation
+
+  **How Terminal Tools Leverage This:**
+  - `ToolInstallerServiceImpl.checkAvailability()` uses `execFile('which', [binary])` for all tools - works unchanged for terminal binaries (tmux, kitty, alacritty, etc.)
+  - `ToolInstallerServiceImpl.executeInstall()` spawns platform-specific commands from JSON - works unchanged for Homebrew and APT terminal installations
+  - `LaunchToolService.launchTool()` checks for openDirectory field presence - works unchanged for terminals with launch support (Kitty, Alacritty, tmux)
+  - Zero service modifications required per spec NFR-8
+
+  ### 3. Tag-Based Categorization (Presentation Layer)
+
+  **Existing Pattern (src/presentation/web/components/features/tools/tool-card.tsx):**
+  - TAG_CONFIG constant (lines 30-67) maps tag strings to icon components and display labels
+  - Existing tags: 'ide', 'cli-agent', 'vcs'
+  - Tool cards render tags dynamically, filtering by selected tags
+
+  **How Terminal Tools Leverage This:**
+  - Add 'terminal' entry to TAG_CONFIG with Terminal icon from lucide-react (already imported line 10)
+  - Terminal icon already used for cli-agent tag - visual consistency maintained
+  - Tool filtering, badge rendering, and hover effects work automatically via existing logic
+
+  ### 4. Clean Architecture Dependency Flow
+
+  **Domain Layer:** Unchanged
+  - ToolInstallationStatus value objects handle all tools generically
+  - No tool-specific domain logic exists (correct by design)
+
+  **Application Layer:** Minimal change (1 type union update)
+  - ListToolsUseCase returns ToolItem[] with tags field
+  - ToolItem type union must include 'terminal' for type safety
+  - No logic changes - use case iterates over TOOL_METADATA registry unchanged
+
+  **Infrastructure Layer:** Additive only
+  - Five new JSON files (data, not code)
+  - One type union update in ToolMetadata schema (tags field)
+  - Services unchanged
+
+  **Presentation Layer:** Minimal change (TAG_CONFIG constant)
+  - CLI: Automatically lists terminal tools via ListToolsUseCase (zero changes)
+  - Web UI: Add TAG_CONFIG entry for terminal tag (3 lines)
+
+  ## Key Design Decisions
+
+  ### Decision 1: Selective Launch Support Based on Native CLI Capabilities
+
+  **Chosen:** Include openDirectory field for Kitty, Alacritty, and tmux only. Omit for Warp and iTerm2.
+
+  **Rationale:** Research reveals terminal emulators have inconsistent CLI support for directory specification:
+  - **Kitty:** Native `--working-directory {dir}` or `-d {dir}` flags (well-documented)
+  - **Alacritty:** Native `--working-directory {dir}` or `-W {dir}` flags (standard feature)
+  - **tmux:** Can launch in directory via `new-session -c {dir}` with shell execution
+  - **Warp:** No CLI directory arguments (GitHub issues #2215, #6357 confirm unimplemented)
+  - **iTerm2:** Requires AppleScript or it2run helper (complex, fragile, macOS-specific)
+
+  Including openDirectory only for terminals with robust native support keeps JSON definitions
+  simple and maintainable. Tools without openDirectory won't show Launch buttons in UI
+  (existing pattern). This aligns with user's decision to "Support launch command" while
+  avoiding unreliable workarounds for Warp and iTerm2.
+
+  **Alternatives Considered:**
+  - Launch all terminals with openDirectory → Rejected due to Warp/iTerm2 lacking native support
+  - No launch support for any terminals → Rejected as user explicitly selected "Support launch command"
+
+  ### Decision 2: tmux Special Handling with spawnOptions
+
+  **Chosen:** Include spawnOptions: { shell: true, stdio: inherit, detached: false } for tmux only.
+
+  **Rationale:** tmux differs from GUI terminals - it's a terminal multiplexer that runs inside
+  an existing terminal session rather than launching a new window. The openDirectory pattern
+  (designed for GUI IDEs) can work for tmux with appropriate spawn options that match the
+  claude-code.json pattern (lines 17-21). Using `tmux new-session -c {dir}` creates a new
+  tmux session in the target directory, useful for project-specific session management.
+  The spawnOptions ensure tmux runs in the current terminal with proper I/O inheritance.
+
+  **Alternatives Considered:**
+  - No launch support for tmux → Rejected as tmux has native -c flag for directory specification
+  - Same spawn options as GUI terminals → Rejected as tmux requires shell execution and stdio inheritance
+
+  ### Decision 3: tmux Auto-Install Configuration
+
+  **Chosen:** Set autoInstall: true for tmux only. All other terminals have autoInstall: false (or omitted).
+
+  **Rationale:** Spec contains explicit user decision that overrides AI recommendation. Per
+  spec lines 84-87, user selected "Auto-install tmux" option with rationale: "Mark tmux as
+  autoInstall since it is widely used and lightweight. Other terminals remain optional."
+  tmux is a foundational tool for remote development and session persistence (2MB, installs
+  in <10 seconds). Other terminal emulators are personal preference choices (Warp's AI
+  features vs iTerm2's customization vs Alacritty's performance) and should remain opt-in.
+
+  **Alternatives Considered:**
+  - No auto-install for any terminals → Rejected as contradicts explicit user selection
+  - Auto-install all terminals → Rejected as violates user's "other terminals remain optional" rationale
+
+  ### Decision 4: Platform-Specific Installation Commands
+
+  **Chosen:** Use `brew install --cask` for GUI terminals on macOS (Warp, iTerm2, Alacritty, Kitty).
+  Use `brew install` (formula) for tmux on macOS. Use `apt install -y` for Linux where supported.
+  Omit Linux commands for macOS-only tools (Warp, iTerm2).
+
+  **Rationale:** Homebrew distinguishes between formulas (CLI tools) and casks (GUI applications).
+  Verification via local `brew search --cask` confirms warp, iterm2, alacritty, and kitty all
+  exist as casks. tmux exists as a formula. APT support verified for tmux (universal), kitty
+  (Ubuntu 20.04+), and alacritty (Ubuntu 20.04+ or manual PPA). Warp has no official Linux
+  package manager support (only AppImage downloads). iTerm2 is macOS-only by design. This
+  approach follows spec NFR-5 (use official package sources) and NFR-6 (no automated PPA setup).
+
+  **Alternatives Considered:**
+  - Include curl-to-bash for Warp on Linux → Rejected per spec NFR-5 (security concerns)
+  - Include automated PPA setup commands → Rejected per spec NFR-6 (requires sudo, modifies system)
+  - Use deprecated `brew cask install` syntax → Rejected (deprecated since Homebrew 2.6.0 in 2020)
+
+  ### Decision 5: iTerm2 Verification Strategy
+
+  **Chosen:** Use binary: "iterm2" with verifyCommand: "test -d /Applications/iTerm.app"
+  to check for app bundle presence. Document limitation in description.
+
+  **Rationale:** iTerm2 is a macOS-only GUI application without a standard CLI binary. The
+  existing tool system uses `execFile('which', [binary])` for verification (tool-metadata.ts).
+  The verifyCommand field exists in the schema for custom verification - using `test -d /Applications/iTerm.app`
+  provides accurate status checks without service changes. Installation via `brew install --cask iterm2`
+  works correctly regardless of verification approach.
+
+  **Alternatives Considered:**
+  - Use "open" as binary → Rejected (misleading - open is a system command, not iTerm2)
+  - Modify service to check app bundles → Rejected (violates spec NFR-8)
+  - Accept always showing "Not installed" → Rejected (verifyCommand provides better UX)
+
+  ### Decision 6: Timeout Configuration (300000ms)
+
+  **Chosen:** Use timeout: 300000 (5 minutes) for all terminal installations.
+
+  **Rationale:** Spec NFR-2 states "Installation commands shall complete within the existing
+  120-second timeout" but inspection of actual tool JSON files (vscode.json line 13, zed.json
+  line 13, claude-code.json line 13) reveals all use timeout: 300000 (5 minutes). This appears
+  to be a documentation error in the spec. Homebrew cask installations involve downloading
+  large application bundles (50-200MB for modern terminals) and can take 1-3 minutes on slower
+  connections. APT installations are faster but still benefit from generous timeout for
+  repository updates. Following the established pattern ensures consistency and prevents
+  timeout-related failures.
+
+  **Alternatives Considered:**
+  - Use 120000ms per spec → Rejected (contradicts actual implementation in existing tools)
+  - Use variable timeouts per tool → Rejected (all existing tools use consistent 300000ms)
+
+  ## Implementation Strategy
+
+  The implementation follows a strict dependency-ordered sequence across four phases:
+
+  ### Phase 1: Type System Foundation (MUST come first)
+  Add 'terminal' to type unions in two locations:
+  1. Infrastructure layer: ToolMetadata tags union (tool-metadata.ts line 26)
+  2. Application layer: ToolItem tags union (list-tools.use-case.ts line 21)
+
+  This enables TypeScript to accept 'terminal' as a valid tag value in JSON files and use
+  case return types. All subsequent work depends on these type changes compiling successfully.
+
+  ### Phase 2: Terminal Tool JSON Definitions (Depends on Phase 1)
+  Create five JSON files in parallel (no inter-dependencies):
+  1. tmux.json - Cross-platform, launch supported, auto-install enabled
+  2. kitty.json - Cross-platform, launch supported
+  3. alacritty.json - Cross-platform, launch supported
+  4. warp.json - macOS-only, no launch support
+  5. iterm2.json - macOS-only, no launch support, custom verification
+
+  Each file follows identical schema structure with platform-specific commands and configuration.
+  Files are data (not code), so no compilation step - they're loaded at runtime by existing
+  loadToolMetadata() function.
+
+  ### Phase 3: Web UI Tag Configuration (Depends on Phase 2 for testing)
+  Update TAG_CONFIG constant in tool-card.tsx to add terminal tag entry with Terminal icon.
+  This is a single 4-line addition:
+  ```typescript
+  terminal: {
+    icon: Terminal,
+    label: 'Terminal'
+  }
+  ```
+
+  Must come after JSON files exist so manual testing can verify terminal tools appear with
+  correct icon and filtering behavior.
+
+  ### Phase 4: Documentation & Validation (Final integration check)
+  Update tools/CLAUDE.md with terminal tag documentation. Perform manual testing:
+  - Verify JSON files load without errors (check pnpm dev:cli output)
+  - Test `shep tools list` shows all five terminals
+  - Test Web UI displays terminal tools with Terminal icon
+  - Test filtering by terminal tag in Web UI
+  - Test installation command for at least one terminal per platform (tmux on macOS and Linux)
+  - Test launch command for terminals with openDirectory (Kitty or Alacritty)
+
+  ### Parallelization Opportunities
+  - Phase 2 tasks (five JSON files) can be created in parallel - no inter-dependencies
+  - Phase 4 documentation and testing can overlap (write docs while testing)
+  - NO parallelization between phases - strict ordering required
+
+  ### Why This Order?
+  1. Type changes first → Enables JSON files to compile and load
+  2. JSON files second → Provides data for UI rendering and testing
+  3. UI config third → Requires JSON files to exist for visual verification
+  4. Documentation/testing last → Validates complete integration
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | JSON schema validation failures | Use existing tool JSON files as templates (vscode.json, zed.json). Validate required fields: name, summary, description, tags, binary, commands, timeout, documentationUrl. Test JSON loading via `pnpm dev:cli` before committing. |
+  | Platform-specific command failures | Test installation commands on both macOS and Linux before finalizing. Document PPA requirements for Alacritty/Kitty on older Linux distros. Use known-good package names verified via `brew search --cask` and `apt search`. |
+  | iTerm2 verification with verifyCommand | The verifyCommand field with app bundle check provides accurate status. Installation command works correctly regardless. Document this approach clearly in description field. |
+  | Launch commands failing for tmux | Use exact spawnOptions from claude-code.json (proven pattern). Test `tmux new-session -c /path` manually before adding to JSON. Ensure shell: true and stdio: inherit are set correctly. |
+  | Type union changes breaking existing code | Only add 'terminal' to unions, don't remove existing values. Run `pnpm validate` (includes typecheck) after type changes. Search codebase for exhaustive switch statements on tags (none expected based on code review). |
+  | Terminal icon not imported | Terminal icon already imported in tool-card.tsx line 10 and used for cli-agent tag. No new import needed. Verify icon renders correctly in TAG_CONFIG before committing. |
+  | Auto-install causing unwanted installations | Only tmux has autoInstall: true per user decision. tmux is 2MB and widely expected in dev environments. Other terminals remain opt-in. No risk of surprising users with large unwanted installations. |
+  | Timeout too short for slow connections | Use 300000ms (5 minutes) timeout matching existing tools. This is generous for all terminals: tmux (2MB, ~10s), Homebrew casks (50-200MB, 1-3 minutes). Conservative timeout prevents false failures. |
+  | Missing tools/ directory or loadToolMetadata failures | Existing infrastructure is battle-tested (8 tools currently loading). New JSON files follow identical pattern. If loadToolMetadata fails, existing tools would also fail (high visibility). |
+  | Documentation drift from implementation | Update tools/CLAUDE.md in same commit as type and JSON changes. Include terminal tag in tags table and provide example JSON snippet for future contributors. Cross-reference existing tool documentation patterns. |
+
+  ## Testing Strategy
+
+  ### Unit Testing
+  - Verify TAG_CONFIG includes 'terminal' key with Terminal icon component
+  - Verify TAG_CONFIG.terminal.label equals 'Terminal'
+  - No other unit tests required (JSON files are data, services unchanged)
+
+  ### Integration Testing
+  - Load all terminal JSON files and verify no parsing errors
+  - Verify TOOL_METADATA registry includes all five terminals
+  - Verify ListToolsUseCase returns terminal tools with correct status
+  - Verify tool tags include 'terminal' in returned ToolItem objects
+
+  ### Manual Testing (Required per spec)
+  1. **CLI Testing:**
+     - Run `shep tools list` and verify all five terminals appear
+     - Run `shep tools install tmux` on macOS and Linux
+     - Verify tmux shows "Installed" status after installation
+     - Test installation failure handling (network timeout simulation)
+
+  2. **Web UI Testing:**
+     - Open Web UI tools page
+     - Verify terminal tools display with Terminal icon badge
+     - Click terminal tag filter and verify only terminal tools shown
+     - Test Install button for uninstalled terminals
+     - Verify "Installed" status badge after installation
+     - Test Launch button for Kitty/Alacritty (should open in project directory)
+     - Verify Warp and iTerm2 don't show Launch button (no openDirectory)
+
+  3. **Platform-Specific Testing:**
+     - macOS: Test Homebrew cask installations (brew install --cask)
+     - Linux: Test APT installations (apt install -y)
+     - Verify platform-only tools (Warp, iTerm2) show correct status on each platform
+     - Test tmux launch with working directory on both platforms
+
+  4. **Edge Case Testing:**
+     - Test iTerm2 verification with and without app installed
+     - Test behavior when Homebrew not installed (should show clear error)
+     - Test behavior when APT not available (Linux systems without apt)
+     - Test timeout behavior (simulate slow network)
+
+  ### Acceptance Criteria
+  - [ ] All five terminal JSON files load without errors
+  - [ ] `shep tools list` shows 13 total tools (8 existing + 5 new terminals)
+  - [ ] Web UI terminal tag filter shows exactly 5 tools
+  - [ ] tmux installation completes successfully on macOS and Linux (<30 seconds)
+  - [ ] Kitty launch opens terminal in specified directory
+  - [ ] Warp and iTerm2 show no Launch button (as expected)
+  - [ ] Terminal icon renders consistently in Web UI tool cards
+  - [ ] Documentation in tools/CLAUDE.md includes terminal tag example
+  - [ ] `pnpm validate` passes (lint + format + typecheck + tsp)
+
+  ---
+
+  _Implementation plan complete. Ready to proceed to task breakdown._

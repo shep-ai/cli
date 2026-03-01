@@ -1,0 +1,16 @@
+{
+  "name": "Warp",
+  "summary": "Modern terminal with AI features",
+  "description": "Warp is a modern terminal with AI-powered features, intelligent command suggestions, and a collaborative workflow. macOS only — Linux users can install manually via AppImage from https://www.warp.dev/.",
+  "tags": ["terminal"],
+  "iconUrl": "https://cdn.simpleicons.org/warp",
+  "binary": "warp",
+  "packageManager": "brew",
+  "commands": {
+    "darwin": "brew install --cask warp"
+  },
+  "timeout": 300000,
+  "documentationUrl": "https://docs.warp.dev/",
+  "verifyCommand": "test -d /Applications/Warp.app",
+  "autoInstall": false
+}

@@ -28,6 +28,7 @@ const TAG_CONFIG: Record<string, { label: string; icon: typeof Monitor }> = {
   ide: { label: 'IDE', icon: Monitor },
   'cli-agent': { label: 'CLI Agent', icon: Terminal },
   vcs: { label: 'VCS', icon: GitBranch },
+  terminal: { label: 'Terminal', icon: Terminal },
 };
 
 export function ToolCard({ tool, onRefresh, className }: ToolCardProps) {

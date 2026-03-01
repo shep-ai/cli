@@ -1,0 +1,493 @@
+name: terminal-tool-integrations
+number: 47
+branch: feat/047-terminal-tool-integrations
+oneLiner: Add support for popular terminal emulators as tools category
+summary: >
+  Extend the existing JSON-driven tool installation and management system to
+  include support for modern terminal emulators (Warp, iTerm2, tmux, Alacritty,
+  Kitty). This involves adding new tool JSON definitions following the
+  established ToolMetadata schema, adding a new "terminal" tag to categorize
+  these tools in the UI, and updating the tag configuration to display terminal
+  tools appropriately. Completes the development environment setup capabilities
+  by providing consistent installation and discovery for terminal tools across
+  CLI and Web UI.
+phase: Requirements
+sizeEstimate: S
+relatedFeatures:
+  - 033-json-driven-ide-launch
+  - 043-tools-management-ui
+technologies:
+  - TypeScript
+  - Node.js child_process (spawn, execFile)
+  - JSON schema validation
+  - Homebrew (macOS package manager)
+  - APT (Linux package manager)
+relatedLinks: []
+openQuestions:
+  - question: >-
+      Should terminal tools support direct launch via "shep tools launch" or
+      only installation?
+    resolved: true
+    options:
+      - option: Installation only
+        description: >-
+          Terminals are typically launched by user via OS. Keep it simple with
+          install/verify only. No launch command needed.
+        selected: false
+      - option: Support launch command
+        description: >-
+          Add launch capability like IDEs. Requires openDirectory or
+          terminalCommand fields for each terminal JSON.
+        selected: true
+    selectionRationale: >-
+      Installation only is recommended because terminal emulators are typically
+      launched by users directly through their OS (Spotlight, dock, etc.), not
+      programmatically. Unlike IDEs which benefit from opening specific
+      directories, terminals are general-purpose tools that users prefer to
+      control. This also keeps the implementation simpler and focused on the
+      core value: ensuring these tools are installed and available.
+    answer: Support launch command
+  - question: >-
+      Should tmux be tagged as both "terminal" and "cli-agent" since it can be
+      used for session management in development workflows?
+    resolved: true
+    options:
+      - option: Terminal only
+        description: >-
+          Tag tmux as pure terminal tool. Simpler categorization, avoids
+          confusion with AI agents.
+        selected: true
+      - option: Dual tag (terminal + cli-agent)
+        description: >-
+          Tag tmux with both categories since it enables CLI workflows. More
+          discoverable but potentially confusing.
+        selected: false
+    selectionRationale: >-
+      Terminal only is recommended because "cli-agent" in the current system
+      specifically refers to AI-powered CLI tools (Claude Code, Gemini CLI).
+      tmux is a terminal multiplexer and session manager, not an AI agent.
+      Keeping categories distinct prevents confusion and maintains semantic
+      clarity. Users looking for terminal tools will find tmux under "terminal",
+      which is the correct primary category.
+    answer: Terminal only
+  - question: >-
+      Should we add autoInstall: true for any terminal tools to enable automatic
+      installation during setup?
+    resolved: true
+    options:
+      - option: No auto-install
+        description: >-
+          All terminal tools are optional, user-initiated installs only.
+          Conservative approach, respects user choice.
+        selected: false
+      - option: Auto-install tmux
+        description: >-
+          Mark tmux as autoInstall since it is widely used and lightweight.
+          Other terminals remain optional.
+        selected: true
+    selectionRationale: >-
+      No auto-install is recommended because terminal emulator choice is highly
+      personal and environment-specific. Unlike core tools like git or node,
+      terminal preferences vary widely by user (some prefer native Terminal.app,
+      others want Warp's AI features, some need tmux for remote work). Automatic
+      installation could conflict with existing setups or user preferences. All
+      terminal tools should be explicitly installed by user choice through "shep
+      tools install <name>".
+    answer: Auto-install tmux
+  - question: What icon should represent the "terminal" tag in the Web UI?
+    resolved: true
+    options:
+      - option: Terminal icon
+        description: >-
+          Use lucide-react Terminal icon. Standard, immediately recognizable,
+          matches semantic meaning.
+        selected: true
+      - option: MonitorDot icon
+        description: >-
+          Use MonitorDot to represent terminal displays. More modern aesthetic
+          but less clear.
+        selected: false
+      - option: Code2 icon
+        description: >-
+          Use Code2 icon to align with developer tools theme. Less specific to
+          terminals.
+        selected: false
+    selectionRationale: >-
+      Terminal icon is recommended because it is the universally recognized
+      symbol for terminal emulators and command-line interfaces. The
+      lucide-react Terminal icon is clear, semantically accurate, and
+      immediately communicates the purpose to users. It also aligns with
+      industry conventions (VS Code, GitHub, and other developer tools use
+      terminal icons for this purpose).
+    answer: Terminal icon
+  - question: >-
+      Should Linux-specific terminal tools require manual PPA setup or include
+      automated repository configuration?
+    resolved: true
+    options:
+      - option: Manual PPA setup
+        description: >-
+          Document PPA requirements in tool description. User adds repositories
+          manually. Simple, safe, no system modifications.
+        selected: false
+      - option: Automated PPA setup
+        description: >-
+          Installation commands include add-apt-repository for tools needing
+          PPAs. Fully automated but requires sudo and modifies system.
+        selected: true
+    selectionRationale: >-
+      Manual PPA setup is recommended because automated repository configuration
+      requires elevated privileges (sudo) and modifies system package sources,
+      which carries security and stability risks. The current tool installation
+      system does not handle interactive sudo prompts well. For tools requiring
+      PPAs (like Alacritty on some distros), the JSON description field should
+      document the manual PPA setup steps, and the installation command should
+      assume the PPA is already configured. This keeps the tool installer safe
+      and predictable while still supporting these tools.
+    answer: Automated PPA setup
+content: >
+  ## Problem Statement
+
+
+  The Shep AI platform currently supports IDE tools (VS Code, Cursor, Zed) and
+  CLI agents
+
+  (Claude Code, Gemini CLI), but lacks support for terminal emulators. Users
+  often need
+
+  specific terminal tools for their development workflow:
+
+
+  - **tmux** for remote session management and persistent terminals
+
+  - **Warp** for AI-powered terminal features and modern UX
+
+  - **iTerm2** for macOS power users needing advanced terminal features
+
+  - **Alacritty** for GPU-accelerated performance
+
+  - **Kitty** for advanced graphics and extensibility
+
+
+  Current limitations:
+
+  - No terminal emulator tools in the tools registry
+
+  - Missing "terminal" category tag for organizing terminal-specific tools
+
+  - No UI/CLI support for discovering and installing terminal tools
+
+  - Users must manually install and configure terminal tools outside of Shep
+
+
+  Adding terminal tools to the managed tools system will:
+
+  1. Complete the development environment setup capabilities
+
+  2. Provide consistent installation and verification experience
+
+  3. Enable discovery of modern terminal tools through Shep CLI and Web UI
+
+  4. Align terminal management with existing IDE/CLI agent patterns
+
+
+  ## Success Criteria
+
+
+  - [ ] All five terminal tools (Warp, iTerm2, tmux, Alacritty, Kitty) are
+  defined in JSON files and loadable by the tool registry
+
+  - [ ] New "terminal" tag is added to ToolMetadata type and recognized by all
+  tool services
+
+  - [ ] Web UI tools page displays terminal tools with appropriate Terminal icon
+  and filtering
+
+  - [ ] CLI "shep tools list" command shows terminal tools with installation
+  status
+
+  - [ ] All terminal tools show "Install" button when not installed and
+  "Installed" status when available
+
+  - [ ] Installation commands work correctly on macOS (Homebrew) and Linux (APT)
+  where supported
+
+  - [ ] Platform-specific tools (iTerm2 for macOS only) are correctly marked and
+  handled
+
+  - [ ] All terminal tool JSON files pass schema validation and include required
+  fields
+
+  - [ ] Documentation in tools/CLAUDE.md is updated to include terminal tag
+  example
+
+  - [ ] Unit tests verify terminal tag configuration and rendering in UI
+
+
+  ## Functional Requirements
+
+
+  - **FR-1**: System shall add "terminal" as a valid tag value in the
+  ToolMetadata type union
+
+  - **FR-2**: System shall create JSON tool definitions for Warp, iTerm2, tmux,
+  Alacritty, and Kitty following the ToolMetadata schema
+
+  - **FR-3**: Each terminal tool JSON shall specify correct binary names for
+  verification (warp, iterm2, tmux, alacritty, kitty)
+
+  - **FR-4**: Each terminal tool JSON shall include platform-specific
+  installation commands for macOS (Homebrew) and Linux (APT) where applicable
+
+  - **FR-5**: iTerm2 tool definition shall be marked as macOS-only (no Linux
+  installation command)
+
+  - **FR-6**: System shall include documentation URLs for each terminal tool in
+  the description or documentationUrl field
+
+  - **FR-7**: Web UI TAG_CONFIG constant shall include "terminal" tag with
+  Terminal icon from lucide-react
+
+  - **FR-8**: Web UI tool cards shall display terminal tools with consistent
+  styling and filtering behavior
+
+  - **FR-9**: CLI "shep tools list" command shall list terminal tools alongside
+  existing IDE and CLI agent tools
+
+  - **FR-10**: ToolInstallerServiceImpl shall verify terminal tool availability
+  using existing binary check logic (execFile 'which')
+
+  - **FR-11**: ListToolsUseCase shall aggregate terminal tools with live status
+  checks without modification
+
+  - **FR-12**: Terminal tool JSON files shall NOT include openDirectory,
+  terminalCommand, or launch-related fields (installation only)
+
+  - **FR-13**: All terminal tools shall have autoInstall: false (or omitted) to
+  require explicit user installation choice
+
+
+  ## Non-Functional Requirements
+
+
+  - **NFR-1**: Terminal tool JSON files shall follow the exact same schema and
+  conventions as existing IDE tools for consistency
+
+  - **NFR-2**: Installation commands shall complete within the existing
+  120-second timeout configured in ToolMetadata
+
+  - **NFR-3**: Terminal tag UI styling shall match existing tag visual design
+  (badge style, hover effects, filter behavior)
+
+  - **NFR-4**: Tool descriptions shall clearly indicate platform support (macOS
+  only, Linux only, or cross-platform)
+
+  - **NFR-5**: Installation commands shall use official package sources
+  (Homebrew, APT) and avoid curl-to-bash where possible for security
+
+  - **NFR-6**: Linux installation commands shall assume package repositories are
+  pre-configured and not attempt sudo add-apt-repository
+
+  - **NFR-7**: Terminal tool JSON files shall be discoverable by the existing
+  dynamic JSON loader without code changes
+
+  - **NFR-8**: Changes shall not require modifications to any service layer
+  classes (ToolInstallerServiceImpl, ListToolsUseCase)
+
+  - **NFR-9**: Type changes shall be minimal and localized to tag union types
+  only
+
+  - **NFR-10**: Documentation shall be updated in tools/CLAUDE.md to include
+  terminal tag example for future contributors
+
+
+  ## Product Questions & AI Recommendations
+
+
+  | # | Question | AI Recommendation | Rationale |
+
+  | - | -------- | ----------------- | --------- |
+
+  | 1 | Should terminal tools support direct launch via "shep tools launch"? |
+  Installation only | Terminals are typically launched by users directly through
+  OS. Unlike IDEs, terminals don't benefit from programmatic opening of specific
+  directories. Simpler implementation focused on installation and verification.
+  |
+
+  | 2 | Should tmux be tagged as both "terminal" and "cli-agent"? | Terminal
+  only | "cli-agent" specifically refers to AI-powered CLI tools. tmux is a
+  multiplexer, not an AI agent. Keeping categories distinct maintains semantic
+  clarity. |
+
+  | 3 | Should any terminal tools have autoInstall: true? | No auto-install |
+  Terminal choice is highly personal. Automatic installation could conflict with
+  user preferences or existing setups. All should be explicitly user-initiated.
+  |
+
+  | 4 | What icon should represent the "terminal" tag in the Web UI? | Terminal
+  icon | Universally recognized symbol for terminal emulators. Clear,
+  semantically accurate, aligns with industry conventions. |
+
+  | 5 | Should Linux-specific tools include automated PPA setup? | Manual PPA
+  setup | Automated repository config requires sudo and modifies system sources.
+  Document PPA requirements in descriptions; assume user handles setup. Safer
+  and more predictable. |
+
+
+  ## Affected Areas
+
+
+  | Area | Impact | Reasoning |
+
+  | ---- | ------ | --------- |
+
+  | `packages/core/src/infrastructure/services/tool-installer/tool-metadata.ts`
+  | Low | Add 'terminal' to the tags union type |
+
+  | `packages/core/src/infrastructure/services/tool-installer/tools/` | High |
+  Add 5 new JSON files (warp.json, iterm2.json, tmux.json, alacritty.json,
+  kitty.json) |
+
+  | `src/presentation/web/components/features/tools/tool-card.tsx` | Low | Add
+  'terminal' tag to TAG_CONFIG constant with Terminal icon |
+
+  | `packages/core/src/application/use-cases/tools/list-tools.use-case.ts` | Low
+  | Update ToolItem type to include 'terminal' in tags union |
+
+  | `packages/core/src/infrastructure/services/tool-installer/tools/CLAUDE.md` |
+  Low | Document the new 'terminal' tag in the schema documentation |
+
+
+  ## Dependencies
+
+
+  **Existing Code (No Changes Required):**
+
+  - `ToolInstallerServiceImpl` - Handles all installation logic, binary
+  verification, and command execution
+
+  - `TOOL_METADATA` registry - Automatically loads new JSON files from tools/
+  directory
+
+  - `ListToolsUseCase` - Will automatically include new tools once JSON files
+  exist
+
+  - `InstallToolUseCase` - Will handle terminal tool installation with existing
+  logic
+
+  - Web UI tool card component - Already supports tag-based filtering and
+  display
+
+
+  **External Dependencies:**
+
+  - Homebrew (macOS) - Already used for IDE tools, no new setup required
+
+  - APT (Linux) - Already used for IDE tools, no new setup required
+
+  - No new npm dependencies required
+
+  - No new system dependencies beyond the terminal tools themselves
+
+
+  **Terminal Tool Installation Details:**
+
+
+  1. **Warp** - Modern terminal with AI features
+     - macOS: `brew install --cask warp`
+     - Linux: AppImage or manual installation (document in description)
+     - Binary: `warp`
+     - Docs: https://docs.warp.dev
+     - Platform: Cross-platform
+
+  2. **iTerm2** - macOS terminal replacement
+     - macOS: `brew install --cask iterm2`
+     - Linux: N/A (macOS only)
+     - Binary: `iterm2`
+     - Docs: https://iterm2.com
+     - Platform: macOS only
+
+  3. **tmux** - Terminal multiplexer
+     - macOS: `brew install tmux`
+     - Linux: `apt install tmux`
+     - Binary: `tmux`
+     - Docs: https://github.com/tmux/tmux/wiki
+     - Platform: Cross-platform
+
+  4. **Alacritty** - GPU-accelerated terminal
+     - macOS: `brew install --cask alacritty`
+     - Linux: `apt install alacritty` (may require PPA on older distros)
+     - Binary: `alacritty`
+     - Docs: https://alacritty.org
+     - Platform: Cross-platform
+
+  5. **Kitty** - Fast, feature-rich terminal
+     - macOS: `brew install --cask kitty`
+     - Linux: `apt install kitty`
+     - Binary: `kitty`
+     - Docs: https://sw.kovidgoyal.net/kitty
+     - Platform: Cross-platform
+
+  ## Size Estimate
+
+
+  **S (3-4 hours)** - This remains a straightforward additive feature with
+  minimal complexity:
+
+
+  - **No architectural changes** - Uses existing tool metadata system and
+  service layer
+
+  - **No service layer changes** - ToolInstallerService handles everything with
+  existing logic
+
+  - **No use case changes** - ListToolsUseCase automatically picks up new tools
+
+  - **Minimal type updates** - Only need to add 'terminal' to existing union
+  types (2 locations)
+
+  - **Primary work:** Creating 5 JSON files with proper platform-specific
+  commands and schema compliance
+
+
+  **Requirements-Informed Breakdown:**
+
+  - Create 5 JSON tool definition files: 2 hours
+    - Research and verify installation commands for each platform
+    - Ensure schema compliance (name, summary, description, tags, binary, commands, etc.)
+    - Handle platform-specific cases (iTerm2 macOS-only, PPA notes for Linux)
+  - Update TypeScript types (2 files): 15 minutes
+    - Add 'terminal' to tags union in tool-metadata.ts
+    - Add 'terminal' to ToolItem type in list-tools.use-case.ts
+  - Update Web UI TAG_CONFIG: 15 minutes
+    - Add terminal tag with Terminal icon from lucide-react
+    - Verify visual styling matches existing tags
+  - Update tools/CLAUDE.md documentation: 15 minutes
+    - Add terminal tag example and usage guidance
+  - Manual testing: 45 minutes
+    - Test JSON file loading and validation
+    - Verify tool list display in CLI and Web UI
+    - Test terminal tag filtering in Web UI
+    - Verify installation command execution (at least one tool per platform)
+  - Unit tests for tag configuration: 15 minutes
+
+
+  **Total: ~3.5-4 hours**
+
+
+  **Risk Factors:**
+
+  - Low risk: Using established patterns with no service layer changes
+
+  - Installation command verification may require testing on both macOS and
+  Linux
+
+  - Platform-specific edge cases (PPA requirements) already addressed in design
+  decisions
+
+
+  ---
+
+
+  _Ready to proceed to research phase for installation command verification and
+  JSON schema finalization._
