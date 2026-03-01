@@ -1,3 +1,9 @@
+## [1.70.1](https://github.com/shep-ai/cli/compare/v1.70.0...v1.70.1) (2026-03-01)
+
+### Bug Fixes
+
+- **deployment:** add debug logging and fix silent failures in dev server start ([#175](https://github.com/shep-ai/cli/issues/175)) ([737e699](https://github.com/shep-ai/cli/commit/737e6993aa7d6261efd9f5088ed6660d9b2c640b))
+
 # [1.70.0](https://github.com/shep-ai/cli/compare/v1.69.0...v1.70.0) (2026-03-01)
 
 ### Features
