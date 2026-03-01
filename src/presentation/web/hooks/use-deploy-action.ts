@@ -25,7 +25,16 @@ export interface DeployActionState {
   url: string | null;
 }
 
-const LOG_PREFIX = '[useDeployAction]';
+const PREFIX = '[useDeployAction]';
+const isDebug = !!process.env.NEXT_PUBLIC_DEBUG;
+const noop = () => undefined;
+const log = {
+  info: isDebug ? (...args: unknown[]) => console.info(PREFIX, ...args) : noop,
+  debug: isDebug ? (...args: unknown[]) => console.debug(PREFIX, ...args) : noop,
+  warn: (...args: unknown[]) => console.warn(PREFIX, ...args),
+  error: (...args: unknown[]) => console.error(PREFIX, ...args),
+};
+
 const ERROR_CLEAR_DELAY = 5000;
 const POLL_INTERVAL = 3000;
 
@@ -58,7 +67,7 @@ export function useDeployAction(input: DeployActionInput | null): DeployActionSt
 
   const stopPolling = useCallback(() => {
     if (pollIntervalRef.current) {
-      console.debug(`${LOG_PREFIX} stopping polling`);
+      log.debug('stopping polling');
       clearInterval(pollIntervalRef.current);
       pollIntervalRef.current = null;
     }
@@ -67,7 +76,7 @@ export function useDeployAction(input: DeployActionInput | null): DeployActionSt
   const startPolling = useCallback(
     (targetId: string) => {
       stopPolling();
-      console.debug(`${LOG_PREFIX} starting polling for "${targetId}" every ${POLL_INTERVAL}ms`);
+      log.debug(`starting polling for "${targetId}" every ${POLL_INTERVAL}ms`);
 
       pollIntervalRef.current = setInterval(async () => {
         if (!mountedRef.current) {
@@ -80,17 +89,15 @@ export function useDeployAction(input: DeployActionInput | null): DeployActionSt
         if (!mountedRef.current) return;
 
         if (!result || result.state === 'Stopped') {
-          console.info(
-            `${LOG_PREFIX} poll result: ${result ? `state=${result.state}` : 'null (deployment gone)'} — stopping poll`
+          log.info(
+            `poll result: ${result ? `state=${result.state}` : 'null (deployment gone)'} — stopping poll`
           );
           setStatus(null);
           setUrl(null);
           stopPolling();
         } else {
           if (result.state !== status) {
-            console.info(
-              `${LOG_PREFIX} poll state changed: ${status} → ${result.state}, url=${result.url}`
-            );
+            log.info(`poll state changed: ${status} → ${result.state}, url=${result.url}`);
           }
           setStatus(result.state as DeploymentState);
           setUrl(result.url);
@@ -102,16 +109,16 @@ export function useDeployAction(input: DeployActionInput | null): DeployActionSt
 
   const handleDeploy = useCallback(async () => {
     if (!input) {
-      console.warn(`${LOG_PREFIX} deploy() called but input is null — no-op`);
+      log.warn('deploy() called but input is null — no-op');
       return;
     }
     if (deployLoading) {
-      console.warn(`${LOG_PREFIX} deploy() called but already loading — no-op`);
+      log.warn('deploy() called but already loading — no-op');
       return;
     }
 
-    console.info(
-      `${LOG_PREFIX} deploy() — targetType="${input.targetType}", targetId="${input.targetId}", repositoryPath="${input.repositoryPath}"`
+    log.info(
+      `deploy() — targetType="${input.targetType}", targetId="${input.targetId}", repositoryPath="${input.repositoryPath}"`
     );
 
     if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
@@ -125,22 +132,20 @@ export function useDeployAction(input: DeployActionInput | null): DeployActionSt
           ? await deployFeature(input.targetId)
           : await deployRepository(input.repositoryPath);
 
-      console.info(`${LOG_PREFIX} server action result:`, result);
+      log.info('server action result:', result);
 
       if (!mountedRef.current) {
-        console.warn(`${LOG_PREFIX} component unmounted after deploy — discarding result`);
+        log.warn('component unmounted after deploy — discarding result');
         return;
       }
 
       if (!result.success) {
         const errorMessage = result.error ?? 'An unexpected error occurred';
-        console.error(`${LOG_PREFIX} deploy failed: ${errorMessage}`);
+        log.error(`deploy failed: ${errorMessage}`);
         setDeployError(errorMessage);
         errorTimerRef.current = setTimeout(() => setDeployError(null), ERROR_CLEAR_DELAY);
       } else {
-        console.info(
-          `${LOG_PREFIX} deploy succeeded — initial state=${result.state}, starting polling`
-        );
+        log.info(`deploy succeeded — initial state=${result.state}, starting polling`);
         setStatus(result.state ?? null);
         setUrl(null);
         startPolling(input.targetId);
@@ -148,7 +153,7 @@ export function useDeployAction(input: DeployActionInput | null): DeployActionSt
     } catch (err: unknown) {
       if (!mountedRef.current) return;
       const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
-      console.error(`${LOG_PREFIX} deploy threw exception: ${errorMessage}`, err);
+      log.error(`deploy threw exception: ${errorMessage}`, err);
       setDeployError(errorMessage);
       errorTimerRef.current = setTimeout(() => setDeployError(null), ERROR_CLEAR_DELAY);
     } finally {
@@ -161,12 +166,12 @@ export function useDeployAction(input: DeployActionInput | null): DeployActionSt
   const handleStop = useCallback(async () => {
     if (!input || stopLoading) return;
 
-    console.info(`${LOG_PREFIX} stop() — targetId="${input.targetId}"`);
+    log.info(`stop() — targetId="${input.targetId}"`);
     setStopLoading(true);
 
     try {
       const result = await stopDeployment(input.targetId);
-      console.info(`${LOG_PREFIX} stop result:`, result);
+      log.info('stop result:', result);
 
       if (!mountedRef.current) return;
 
@@ -176,7 +181,7 @@ export function useDeployAction(input: DeployActionInput | null): DeployActionSt
         setUrl(null);
       }
     } catch (err) {
-      console.warn(`${LOG_PREFIX} stop error (non-critical):`, err);
+      log.warn('stop error (non-critical):', err);
     } finally {
       if (mountedRef.current) {
         setStopLoading(false);

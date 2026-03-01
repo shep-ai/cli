@@ -5,10 +5,10 @@
  * scripts (dev, start, serve), and detects the package manager from lockfile
  * presence. Returns the detected command or an error.
  */
-/* eslint-disable no-console */
 
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { createDeploymentLogger } from './deployment-logger.js';
 
 /** Script names to search for, in priority order */
 const SCRIPT_PRIORITY = ['dev', 'start', 'serve'] as const;
@@ -34,7 +34,7 @@ export interface DetectDevScriptError {
 
 export type DetectDevScriptResult = DetectDevScriptSuccess | DetectDevScriptError;
 
-const LOG_PREFIX = '[detectDevScript]';
+const log = createDeploymentLogger('[detectDevScript]');
 
 /**
  * Detect the dev script and package manager for a project directory.
@@ -43,7 +43,7 @@ const LOG_PREFIX = '[detectDevScript]';
  * @returns Detection result with command info, or an error
  */
 export function detectDevScript(dirPath: string): DetectDevScriptResult {
-  console.info(`${LOG_PREFIX} scanning dirPath="${dirPath}"`);
+  log.info(`scanning dirPath="${dirPath}"`);
 
   // Read and parse package.json
   let packageJson: { scripts?: Record<string, string> };
@@ -52,21 +52,21 @@ export function detectDevScript(dirPath: string): DetectDevScriptResult {
     packageJson = JSON.parse(raw);
   } catch (err) {
     const msg = `No package.json found in ${dirPath}`;
-    console.error(`${LOG_PREFIX} ${msg}`, err);
+    log.error(msg, err);
     return { success: false, error: msg };
   }
 
   // Find the first matching script in priority order
   const scripts = packageJson.scripts ?? {};
   const availableScripts = Object.keys(scripts);
-  console.info(
-    `${LOG_PREFIX} available scripts: [${availableScripts.join(', ')}], looking for: [${SCRIPT_PRIORITY.join(', ')}]`
+  log.info(
+    `available scripts: [${availableScripts.join(', ')}], looking for: [${SCRIPT_PRIORITY.join(', ')}]`
   );
 
   const scriptName = SCRIPT_PRIORITY.find((name) => name in scripts);
   if (!scriptName) {
     const msg = `No dev script found in package.json. Expected one of: ${SCRIPT_PRIORITY.join(', ')}`;
-    console.warn(`${LOG_PREFIX} ${msg}`);
+    log.warn(msg);
     return { success: false, error: msg };
   }
 
@@ -77,8 +77,8 @@ export function detectDevScript(dirPath: string): DetectDevScriptResult {
   const command =
     packageManager === 'npm' ? `npm run ${scriptName}` : `${packageManager} ${scriptName}`;
 
-  console.info(
-    `${LOG_PREFIX} detected — packageManager="${packageManager}", scriptName="${scriptName}", command="${command}"`
+  log.info(
+    `detected — packageManager="${packageManager}", scriptName="${scriptName}", command="${command}"`
   );
   return { success: true, packageManager, scriptName, command };
 }

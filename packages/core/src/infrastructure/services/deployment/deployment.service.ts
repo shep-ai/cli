@@ -6,7 +6,6 @@
  * Handles process spawning, stdout-based port detection, and graceful
  * shutdown (SIGTERM → poll → SIGKILL).
  */
-/* eslint-disable no-console */
 
 import { spawn, type ChildProcess } from 'node:child_process';
 import { DeploymentState } from '@/domain/generated/output.js';
@@ -15,9 +14,10 @@ import type {
   DeploymentStatus,
 } from '@/application/ports/output/services/deployment-service.interface.js';
 import { detectDevScript } from './detect-dev-script.js';
+import { createDeploymentLogger } from './deployment-logger.js';
 import { parsePort } from './parse-port.js';
 
-const LOG_PREFIX = '[DeploymentService]';
+const log = createDeploymentLogger('[DeploymentService]');
 const POLL_INTERVAL_MS = 200;
 const MAX_WAIT_MS = 5000;
 
@@ -65,16 +65,12 @@ export class DeploymentService implements IDeploymentService {
    * If a deployment already exists for this target, it is stopped first.
    */
   start(targetId: string, targetPath: string): void {
-    console.info(
-      `${LOG_PREFIX} start() called — targetId="${targetId}", targetPath="${targetPath}"`
-    );
+    log.info(`start() called — targetId="${targetId}", targetPath="${targetPath}"`);
 
     // Stop any existing deployment for this target
     const existing = this.deployments.get(targetId);
     if (existing) {
-      console.info(
-        `${LOG_PREFIX} Stopping existing deployment for "${targetId}" (pid=${existing.pid})`
-      );
+      log.info(`Stopping existing deployment for "${targetId}" (pid=${existing.pid})`);
       this.killProcess(existing);
       this.deployments.delete(targetId);
     }
@@ -82,7 +78,7 @@ export class DeploymentService implements IDeploymentService {
     // Detect the dev script
     const detection = this.deps.detectDevScript(targetPath);
     if (!detection.success) {
-      console.error(`${LOG_PREFIX} Dev script detection failed: ${detection.error}`);
+      log.error(`Dev script detection failed: ${detection.error}`);
       throw new Error(detection.error);
     }
 
@@ -90,8 +86,8 @@ export class DeploymentService implements IDeploymentService {
     const { packageManager, scriptName, command } = detection;
     const args = packageManager === 'npm' ? ['run', scriptName] : [scriptName];
 
-    console.info(
-      `${LOG_PREFIX} Spawning dev server: command="${command}", packageManager="${packageManager}", scriptName="${scriptName}", cwd="${targetPath}"`
+    log.info(
+      `Spawning dev server: command="${command}", packageManager="${packageManager}", scriptName="${scriptName}", cwd="${targetPath}"`
     );
 
     const child = this.deps.spawn(packageManager, args, {
@@ -102,11 +98,11 @@ export class DeploymentService implements IDeploymentService {
     });
 
     if (!child.pid) {
-      console.error(`${LOG_PREFIX} spawn() returned no PID — process failed to start`);
+      log.error('spawn() returned no PID — process failed to start');
       throw new Error('Failed to spawn dev server: no PID returned');
     }
 
-    console.info(`${LOG_PREFIX} Process spawned — pid=${child.pid}`);
+    log.info(`Process spawned — pid=${child.pid}`);
 
     const entry: DeploymentEntry = {
       pid: child.pid,
@@ -126,9 +122,7 @@ export class DeploymentService implements IDeploymentService {
 
     // Handle spawn errors (command not found, permission denied, etc.)
     (child as ChildProcess).on('error', (err) => {
-      console.error(
-        `${LOG_PREFIX} Child process error for "${targetId}" (pid=${entry.pid}): ${err.message}`
-      );
+      log.error(`Child process error for "${targetId}" (pid=${entry.pid}): ${err.message}`);
       entry.state = DeploymentState.Stopped;
       this.deployments.delete(targetId);
     });
@@ -136,12 +130,12 @@ export class DeploymentService implements IDeploymentService {
     // Clean up on process exit
     (child as ChildProcess).on('exit', (code, signal) => {
       const wasBooting = entry.state === DeploymentState.Booting;
-      console.info(
-        `${LOG_PREFIX} Process exited for "${targetId}" (pid=${entry.pid}) — code=${code}, signal=${signal}, wasBooting=${wasBooting}`
+      log.info(
+        `Process exited for "${targetId}" (pid=${entry.pid}) — code=${code}, signal=${signal}, wasBooting=${wasBooting}`
       );
       if (wasBooting) {
-        console.warn(
-          `${LOG_PREFIX} Process exited while still in Booting state — dev server likely crashed on startup. Check stderr output above.`
+        log.warn(
+          'Process exited while still in Booting state — dev server likely crashed on startup. Check stderr output above.'
         );
       }
       this.deployments.delete(targetId);
@@ -155,11 +149,11 @@ export class DeploymentService implements IDeploymentService {
   getStatus(targetId: string): DeploymentStatus | null {
     const entry = this.deployments.get(targetId);
     if (!entry) {
-      console.debug(`${LOG_PREFIX} getStatus("${targetId}") — no deployment found`);
+      log.debug(`getStatus("${targetId}") — no deployment found`);
       return null;
     }
-    console.debug(
-      `${LOG_PREFIX} getStatus("${targetId}") — state=${entry.state}, url=${entry.url}, pid=${entry.pid}`
+    log.debug(
+      `getStatus("${targetId}") — state=${entry.state}, url=${entry.url}, pid=${entry.pid}`
     );
     return { state: entry.state, url: entry.url };
   }
@@ -170,19 +164,17 @@ export class DeploymentService implements IDeploymentService {
   async stop(targetId: string): Promise<void> {
     const entry = this.deployments.get(targetId);
     if (!entry) {
-      console.info(`${LOG_PREFIX} stop("${targetId}") — no deployment found, nothing to stop`);
+      log.info(`stop("${targetId}") — no deployment found, nothing to stop`);
       return;
     }
 
-    console.info(
-      `${LOG_PREFIX} stop("${targetId}") — sending SIGTERM to process group (pid=${entry.pid})`
-    );
+    log.info(`stop("${targetId}") — sending SIGTERM to process group (pid=${entry.pid})`);
 
     // Send SIGTERM to process group
     try {
       this.deps.kill(-entry.pid, 'SIGTERM');
     } catch {
-      console.info(`${LOG_PREFIX} stop("${targetId}") — process already dead on SIGTERM`);
+      log.info(`stop("${targetId}") — process already dead on SIGTERM`);
       this.deployments.delete(targetId);
       return;
     }
@@ -191,8 +183,8 @@ export class DeploymentService implements IDeploymentService {
     const died = await this.pollUntilDead(entry.pid, MAX_WAIT_MS, POLL_INTERVAL_MS);
 
     if (!died) {
-      console.warn(
-        `${LOG_PREFIX} stop("${targetId}") — process did not exit after ${MAX_WAIT_MS}ms, escalating to SIGKILL`
+      log.warn(
+        `stop("${targetId}") — process did not exit after ${MAX_WAIT_MS}ms, escalating to SIGKILL`
       );
       // Escalate to SIGKILL
       try {
@@ -201,7 +193,7 @@ export class DeploymentService implements IDeploymentService {
         // Process may have exited between check and kill
       }
     } else {
-      console.info(`${LOG_PREFIX} stop("${targetId}") — process exited gracefully`);
+      log.info(`stop("${targetId}") — process exited gracefully`);
     }
 
     // Wait for the exit event to clean up the map
@@ -235,9 +227,7 @@ export class DeploymentService implements IDeploymentService {
     const bufferKey = stream === 'stdout' ? 'stdoutBuffer' : 'stderrBuffer';
     const childStream = entry.child[stream];
     if (!childStream) {
-      console.warn(
-        `${LOG_PREFIX} [${entry.targetId}] No ${stream} stream available — cannot attach listener`
-      );
+      log.warn(`[${entry.targetId}] No ${stream} stream available — cannot attach listener`);
       return;
     }
 
@@ -253,14 +243,12 @@ export class DeploymentService implements IDeploymentService {
 
       for (const line of lines) {
         if (!line.trim()) continue;
-        console.debug(`${LOG_PREFIX} [${entry.targetId}] ${stream}: ${line}`);
+        log.debug(`[${entry.targetId}] ${stream}: ${line}`);
 
         if (entry.state !== DeploymentState.Booting) break;
         const url = parsePort(line);
         if (url) {
-          console.info(
-            `${LOG_PREFIX} [${entry.targetId}] Port detected — url="${url}" (from ${stream})`
-          );
+          log.info(`[${entry.targetId}] Port detected — url="${url}" (from ${stream})`);
           entry.state = DeploymentState.Ready;
           entry.url = url;
           break;
@@ -272,20 +260,18 @@ export class DeploymentService implements IDeploymentService {
       // Flush remaining buffer content
       const remaining = entry[bufferKey].trim();
       if (remaining) {
-        console.debug(`${LOG_PREFIX} [${entry.targetId}] ${stream} (flush): ${remaining}`);
+        log.debug(`[${entry.targetId}] ${stream} (flush): ${remaining}`);
         if (entry.state === DeploymentState.Booting) {
           const url = parsePort(remaining);
           if (url) {
-            console.info(
-              `${LOG_PREFIX} [${entry.targetId}] Port detected in flushed buffer — url="${url}"`
-            );
+            log.info(`[${entry.targetId}] Port detected in flushed buffer — url="${url}"`);
             entry.state = DeploymentState.Ready;
             entry.url = url;
           }
         }
         entry[bufferKey] = '';
       }
-      console.debug(`${LOG_PREFIX} [${entry.targetId}] ${stream} stream ended`);
+      log.debug(`[${entry.targetId}] ${stream} stream ended`);
     });
   }
 
