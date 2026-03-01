@@ -1,3 +1,9 @@
+# [1.70.0](https://github.com/shep-ai/cli/compare/v1.69.0...v1.70.0) (2026-03-01)
+
+### Features
+
+- **cli:** add terminal emulator tool integrations ([#174](https://github.com/shep-ai/cli/issues/174)) ([b350ac7](https://github.com/shep-ai/cli/commit/b350ac7d5e504433594e40ced6a1be975c919fe2))
+
 # [1.69.0](https://github.com/shep-ai/cli/compare/v1.68.1...v1.69.0) (2026-03-01)
 
 ### Features
