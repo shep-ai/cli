@@ -7,7 +7,11 @@ import { Check, ChevronRight, GitCompareArrows, Layers } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { DrawerActionBar } from '@/components/common/drawer-action-bar';
 import { useSoundAction } from '@/hooks/use-sound-action';
-import type { TechDecisionsReviewProps, TechDecision } from './tech-decisions-review-config';
+import type {
+  TechDecisionsReviewProps,
+  TechDecisionsReviewData,
+  TechDecision,
+} from './tech-decisions-review-config';
 
 const markdownComponents: Components = {
   p: ({ children }) => (
@@ -119,6 +123,44 @@ function DecisionCard({ decision, index }: { decision: TechDecision; index: numb
   );
 }
 
+/**
+ * Renders the tech decisions content (header + decision cards) without the action bar.
+ * Used by TechReviewTabs to compose with a shared DrawerActionBar.
+ */
+export function TechDecisionsContent({ data }: { data: TechDecisionsReviewData }) {
+  const { summary, decisions } = data;
+
+  if (decisions.length === 0) return null;
+
+  return (
+    <div className="space-y-4 p-4">
+      {/* Header */}
+      <div className="flex items-start gap-3">
+        <div className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-blue-500" />
+        <div className="flex-1">
+          <h2 className="text-foreground text-sm font-bold">
+            Technical Implementation Plan Review
+          </h2>
+          {summary ? (
+            <p className="text-muted-foreground mt-1 text-xs leading-relaxed">{summary}</p>
+          ) : null}
+        </div>
+      </div>
+
+      {/* Section heading */}
+      <div className="flex items-center gap-2 pt-1">
+        <GitCompareArrows className="text-primary h-4 w-4" />
+        <h3 className="text-foreground text-sm font-bold">Technical Decisions</h3>
+      </div>
+
+      {/* Decision cards */}
+      {decisions.map((decision, i) => (
+        <DecisionCard key={decision.title} decision={decision} index={i} />
+      ))}
+    </div>
+  );
+}
+
 export function TechDecisionsReview({
   data,
   onApprove,
@@ -126,36 +168,12 @@ export function TechDecisionsReview({
   isProcessing = false,
   isRejecting = false,
 }: TechDecisionsReviewProps) {
-  const { summary, decisions } = data;
-
-  if (decisions.length === 0) return null;
+  if (data.decisions.length === 0) return null;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex-1 space-y-4 overflow-y-auto p-4">
-        {/* Header */}
-        <div className="flex items-start gap-3">
-          <div className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-blue-500" />
-          <div className="flex-1">
-            <h2 className="text-foreground text-sm font-bold">
-              Technical Implementation Plan Review
-            </h2>
-            {summary ? (
-              <p className="text-muted-foreground mt-1 text-xs leading-relaxed">{summary}</p>
-            ) : null}
-          </div>
-        </div>
-
-        {/* Section heading */}
-        <div className="flex items-center gap-2 pt-1">
-          <GitCompareArrows className="text-primary h-4 w-4" />
-          <h3 className="text-foreground text-sm font-bold">Technical Decisions</h3>
-        </div>
-
-        {/* Decision cards */}
-        {decisions.map((decision, i) => (
-          <DecisionCard key={decision.title} decision={decision} index={i} />
-        ))}
+      <div className="flex-1 overflow-y-auto">
+        <TechDecisionsContent data={data} />
       </div>
 
       <DrawerActionBar

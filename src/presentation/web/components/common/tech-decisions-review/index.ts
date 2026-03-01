@@ -1,4 +1,4 @@
-export { TechDecisionsReview } from './tech-decisions-review';
+export { TechDecisionsReview, TechDecisionsContent } from './tech-decisions-review';
 export { TechDecisionsDrawer } from './tech-decisions-drawer';
 export type {
   TechDecisionsReviewProps,
