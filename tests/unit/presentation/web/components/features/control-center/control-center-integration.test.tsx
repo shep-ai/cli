@@ -2,7 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, act, fireEvent, waitFor } from '@testing-library/react';
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ refresh: vi.fn() }),
+  useRouter: () => ({ refresh: vi.fn(), replace: vi.fn() }),
+  useSearchParams: () => new URLSearchParams('view=map'),
+  usePathname: () => '/',
 }));
 
 vi.mock('@/hooks/agent-events-provider', () => ({
@@ -130,19 +132,15 @@ describe('ControlCenterInner + FeatureDrawer integration', () => {
   });
 
   describe('drawer opens on node click', () => {
-    it('opens the drawer displaying the clicked feature name', () => {
+    it('opens the drawer displaying the clicked feature description', () => {
       renderControlCenter();
-
-      // Drawer should be closed initially
-      expect(screen.queryByText('Auth Module')).not.toBeInTheDocument();
 
       // Simulate clicking feature node A via the captured onNodeClick callback
       act(() => {
         capturedCanvasProps.onNodeClick?.({} as React.MouseEvent, featureNodeA);
       });
 
-      // Drawer should now show the feature name and description
-      expect(screen.getByText('Auth Module')).toBeInTheDocument();
+      // Drawer should now show the feature description (unique to drawer)
       expect(screen.getByText('OAuth2 authentication')).toBeInTheDocument();
     });
 
@@ -176,14 +174,14 @@ describe('ControlCenterInner + FeatureDrawer integration', () => {
         capturedCanvasProps.onNodeClick?.({} as React.MouseEvent, featureNodeA);
       });
 
-      expect(screen.getByText('Auth Module')).toBeInTheDocument();
+      expect(screen.getByText('OAuth2 authentication')).toBeInTheDocument();
 
       // Click the pane to close
       act(() => {
         capturedCanvasProps.onPaneClick?.({} as React.MouseEvent);
       });
 
-      expect(screen.queryByText('Auth Module')).not.toBeInTheDocument();
+      expect(screen.queryByText('OAuth2 authentication')).not.toBeInTheDocument();
     });
   });
 
@@ -196,14 +194,14 @@ describe('ControlCenterInner + FeatureDrawer integration', () => {
         capturedCanvasProps.onNodeClick?.({} as React.MouseEvent, featureNodeA);
       });
 
-      expect(screen.getByText('Auth Module')).toBeInTheDocument();
+      expect(screen.getByText('OAuth2 authentication')).toBeInTheDocument();
 
       // Press Escape
       act(() => {
         fireEvent.keyDown(document, { key: 'Escape' });
       });
 
-      expect(screen.queryByText('Auth Module')).not.toBeInTheDocument();
+      expect(screen.queryByText('OAuth2 authentication')).not.toBeInTheDocument();
     });
   });
 
@@ -216,18 +214,16 @@ describe('ControlCenterInner + FeatureDrawer integration', () => {
         capturedCanvasProps.onNodeClick?.({} as React.MouseEvent, featureNodeA);
       });
 
-      expect(screen.getByText('Auth Module')).toBeInTheDocument();
       expect(screen.getByText('OAuth2 authentication')).toBeInTheDocument();
-      expect(screen.queryByText('Payment Gateway')).not.toBeInTheDocument();
+      expect(screen.queryByText('Stripe integration')).not.toBeInTheDocument();
 
       // Click node B — drawer should switch to node B data
       act(() => {
         capturedCanvasProps.onNodeClick?.({} as React.MouseEvent, featureNodeB);
       });
 
-      expect(screen.getByText('Payment Gateway')).toBeInTheDocument();
       expect(screen.getByText('Stripe integration')).toBeInTheDocument();
-      expect(screen.queryByText('Auth Module')).not.toBeInTheDocument();
+      expect(screen.queryByText('OAuth2 authentication')).not.toBeInTheDocument();
     });
 
     it('updates the state badge when switching to a node with a different state', () => {
@@ -310,8 +306,8 @@ describe('ControlCenterInner + FeatureDrawer integration', () => {
         capturedCanvasProps.onNodeClick?.({} as React.MouseEvent, mergeReviewNode);
       });
 
-      // Unified drawer renders the feature header for all feature-based views
-      expect(screen.getByText('Merge Review Feature')).toBeInTheDocument();
+      // Unified drawer renders the feature description for all feature-based views
+      expect(screen.getByText('Feature awaiting merge approval')).toBeInTheDocument();
     });
 
     it('calls getMergeReviewData when review + action-required node is clicked', async () => {

@@ -2,7 +2,9 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ refresh: vi.fn() }),
+  useRouter: () => ({ refresh: vi.fn(), replace: vi.fn() }),
+  useSearchParams: () => new URLSearchParams('view=map'),
+  usePathname: () => '/',
 }));
 
 vi.mock('@/hooks/agent-events-provider', () => ({

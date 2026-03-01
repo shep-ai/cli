@@ -8,7 +8,9 @@ const mockGetFeatureArtifact = vi.fn();
 const mockGetResearchArtifact = vi.fn();
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ refresh: vi.fn() }),
+  useRouter: () => ({ refresh: vi.fn(), replace: vi.fn() }),
+  useSearchParams: () => new URLSearchParams('view=map'),
+  usePathname: () => '/',
 }));
 
 vi.mock('@/hooks/agent-events-provider', () => ({

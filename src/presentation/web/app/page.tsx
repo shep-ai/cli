@@ -34,7 +34,11 @@ export default async function HomePage() {
 
   return (
     <div className="h-screen w-full">
-      <ControlCenter initialNodes={laid.nodes} initialEdges={laid.edges} />
+      <ControlCenter
+        initialNodes={laid.nodes}
+        initialEdges={laid.edges}
+        featuresWithRuns={featuresWithRuns}
+      />
     </div>
   );
 }
