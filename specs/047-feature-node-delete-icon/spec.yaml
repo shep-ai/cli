@@ -13,7 +13,7 @@ summary: >
   confirmation before invoking the existing deleteFeature server action. This requires updating
   the FeatureNodeData interface, the FeatureNode component, the FeaturesCanvas enrichment logic,
   and associated tests and Storybook stories.
-phase: Analysis
+phase: Requirements
 sizeEstimate: S
 
 # Relationships
@@ -32,7 +32,54 @@ technologies:
 relatedLinks: []
 
 # Open questions (must be resolved before implementation)
-openQuestions: []
+openQuestions:
+  - question: 'Should the delete icon position match the repository node exactly (-left-10) or be adjusted for the feature node card width?'
+    resolved: true
+    options:
+      - option: 'Match repository node (-left-10)'
+        description: 'Use identical positioning to the repository node delete icon. Ensures visual consistency across all node types on the canvas. The feature node already uses group relative wrapper so this works out of the box.'
+        selected: true
+      - option: 'Custom position for feature node'
+        description: 'Adjust the left offset to account for feature node card width differences. Adds complexity and breaks visual consistency for marginal positioning improvement.'
+        selected: false
+    selectionRationale: 'Matching the repository node positioning exactly ensures visual consistency across the canvas and reduces implementation complexity. The feature node already has the group relative wrapper needed for this pattern.'
+    answer: 'Match repository node (-left-10)'
+
+  - question: 'What confirmation dialog copy should be used for feature deletion?'
+    resolved: true
+    options:
+      - option: 'Delete feature permanently'
+        description: 'Title: "Delete feature?" with description "This will permanently delete <feature name> and all associated data including specs, branches, and progress." Communicates the destructive nature clearly since feature deletion removes real data unlike repository removal.'
+        selected: true
+      - option: 'Soft remove like repository'
+        description: 'Title: "Remove feature?" with description matching repository pattern. Less accurate since feature deletion is destructive (deletes specs, branches) unlike repository removal which only unlinks.'
+        selected: false
+    selectionRationale: 'Feature deletion is a destructive operation that removes specs, branches, and progress data. The dialog copy should clearly communicate this permanent nature, unlike repository removal which only unlinks. Using "Delete" instead of "Remove" and mentioning permanent data loss helps prevent accidental deletions.'
+    answer: 'Delete feature permanently'
+
+  - question: 'Should the delete icon be hidden during active agent operations (running, queued states) in addition to the creating state?'
+    resolved: true
+    options:
+      - option: 'Hide only during creating state'
+        description: 'Only suppress the delete icon when the feature node is in "creating" state, matching the existing pattern for onAction and onSettings callbacks in the FeaturesCanvas enrichment. Users can still delete running features if they choose to.'
+        selected: true
+      - option: 'Hide during creating, running, and queued states'
+        description: 'Suppress the delete icon when the feature is in creating, running, or queued states to prevent deleting features with active work. Adds extra safety but restricts user control and requires additional state checks.'
+        selected: false
+    selectionRationale: 'The existing FeaturesCanvas enrichment pattern only suppresses callbacks for the "creating" state. Matching this pattern keeps behavior consistent. The handleDeleteFeature callback already handles cleanup of in-progress work gracefully, and users should retain the ability to cancel/delete features they no longer want regardless of agent state.'
+    answer: 'Hide only during creating state'
+
+  - question: 'Should the AlertDialog action button say "Delete" or "Remove" for the confirmation action?'
+    resolved: true
+    options:
+      - option: 'Delete (destructive action label)'
+        description: 'Use "Delete" as the action button text. More accurately communicates the permanent nature of feature deletion. Differentiates from repository "Remove" which is a softer unlinking operation.'
+        selected: true
+      - option: 'Remove (match repository pattern)'
+        description: 'Use "Remove" to match the repository node dialog exactly. Provides consistency in action button text but may understate the permanence of feature deletion.'
+        selected: false
+    selectionRationale: 'Feature deletion permanently removes specs, branches, and progress — it is a true delete, not a soft unlink like repository removal. Using "Delete" as the action label accurately communicates the permanence and helps users make informed decisions.'
+    answer: 'Delete (destructive action label)'
 
 # Markdown content (the actual spec)
 content: |
@@ -45,43 +92,59 @@ content: |
   AlertDialog confirmation, providing a fast 1-click delete. Feature nodes should
   have the same pattern for consistency and efficiency.
 
-  ## Codebase Analysis
+  ## Success Criteria
 
-  ### Project Structure
+  - [ ] Trash2 icon appears on hover to the left of the feature node card, positioned at `-left-10` matching repository node
+  - [ ] Trash icon is hidden when not hovering (opacity-0 → group-hover:opacity-100 transition)
+  - [ ] Trash icon button is a 7x7 rounded-full circle with card background, matching repository node styling exactly
+  - [ ] Clicking trash icon opens an AlertDialog confirmation displaying the feature name
+  - [ ] AlertDialog uses destructive variant action button labeled "Delete"
+  - [ ] Confirming deletion invokes the existing `handleDeleteFeature` callback via `data.onDelete(data.featureId)`
+  - [ ] Delete icon does NOT appear on nodes in "creating" state (matching existing onAction/onSettings suppression)
+  - [ ] Delete icon does NOT render when `onDelete` callback is not provided
+  - [ ] Tooltip with "Delete feature" text wraps the trash icon button
+  - [ ] Click event on delete button calls `e.stopPropagation()` to prevent node selection
+  - [ ] `onDelete` callback is threaded from `useControlCenterState.handleDeleteFeature` → `ControlCenterInner` → `FeaturesCanvas` → `FeatureNode`
+  - [ ] Unit tests cover: icon rendering, conditional rendering (no onDelete, creating state), dialog open/confirm/cancel, callback invocation with correct featureId
+  - [ ] FeaturesCanvas test verifies `onFeatureDelete` prop is correctly wired to feature node `onDelete`
+  - [ ] Storybook story `WithDeleteButton` demonstrates the delete button variant
+  - [ ] All existing tests continue to pass
+  - [ ] `pnpm validate` passes (lint, format, typecheck, tsp)
 
-  The relevant code lives entirely within the web presentation layer:
+  ## Functional Requirements
 
-  - `src/presentation/web/components/common/feature-node/` — Feature node component, config, state config, stories
-  - `src/presentation/web/components/common/repository-node/` — Reference implementation with working delete icon
-  - `src/presentation/web/components/features/features-canvas/` — Canvas that enriches nodes with callbacks
-  - `src/presentation/web/components/features/control-center/` — State management hook + inner component that wires everything together
-  - `src/presentation/web/app/actions/delete-feature.ts` — Existing server action for feature deletion
-  - `tests/unit/presentation/web/common/feature-node/` — Existing unit tests
-  - `tests/unit/presentation/web/features/features-canvas/` — Existing canvas tests
+  - **FR-1**: The `FeatureNodeData` interface in `feature-node-state-config.ts` MUST include an optional `onDelete` callback typed as `(featureId: string) => void`
+  - **FR-2**: The `FeatureNode` component MUST render a `Trash2` icon button to the left of the card when `data.onDelete` is provided and `data.featureId` is present
+  - **FR-3**: The delete button MUST be wrapped in a `TooltipProvider > Tooltip > TooltipTrigger` with `TooltipContent` text "Delete feature"
+  - **FR-4**: Clicking the delete button MUST open a Radix UI `AlertDialog` with size `sm`
+  - **FR-5**: The AlertDialog MUST display title "Delete feature?" and a description that includes the feature name via `<strong>{data.name}</strong>`
+  - **FR-6**: The AlertDialog MUST have a "Cancel" button and a "Delete" button with `variant="destructive"`
+  - **FR-7**: Clicking the "Delete" action button MUST invoke `data.onDelete(data.featureId)`
+  - **FR-8**: The delete button MUST NOT render when `data.onDelete` is undefined or when the node is in "creating" state
+  - **FR-9**: The `FeaturesCanvas` component MUST accept an `onFeatureDelete` prop typed as `(featureId: string) => void`
+  - **FR-10**: The `FeaturesCanvas` enrichedNodes `useMemo` MUST pass `onDelete: onFeatureDelete` to feature nodes, gated by `state !== 'creating'` (same conditional block as `onAction` and `onSettings`)
+  - **FR-11**: The `ControlCenterInner` component MUST pass `handleDeleteFeature` as the `onFeatureDelete` prop to `FeaturesCanvas`
+  - **FR-12**: The delete button click handler MUST call `e.stopPropagation()` to prevent the click from triggering node selection or other parent handlers
 
-  ### Architecture Patterns
+  ## Non-Functional Requirements
 
-  **Callback enrichment pattern**: The `FeaturesCanvas` component enriches raw node data with
-  callbacks (`onAction`, `onSettings`, `onDelete`) inside a `useMemo` block. Repository nodes
-  already receive `onDelete` via this pattern — feature nodes need the same treatment.
+  - **NFR-1**: The delete icon positioning, sizing, and styling MUST exactly match the repository node delete icon pattern (`absolute top-1/2 -left-10 -translate-y-1/2`, `h-7 w-7 rounded-full`, `bg-card text-muted-foreground hover:border-destructive hover:text-destructive`)
+  - **NFR-2**: The hover visibility transition MUST use `opacity-0 transition-opacity group-hover:opacity-100` for smooth show/hide behavior
+  - **NFR-3**: The delete button MUST have `aria-label="Delete feature"` and `data-testid="feature-node-delete-button"` for accessibility and testability
+  - **NFR-4**: The AlertDialog confirmation MUST prevent accidental deletions — no inline delete without confirmation
+  - **NFR-5**: The component MUST use local `useState` for dialog open/close state, not external state management
+  - **NFR-6**: All new code MUST pass `pnpm validate` (lint, format, typecheck, tsp checks)
+  - **NFR-7**: A colocated Storybook story file MUST include a `WithDeleteButton` story variant demonstrating the delete affordance
+  - **NFR-8**: The implementation MUST NOT introduce any new dependencies — all required libraries (lucide-react, Radix AlertDialog, Radix Tooltip) are already in the project
 
-  **Data flow**: `useControlCenterState` hook → `ControlCenterInner` → `FeaturesCanvas` →
-  individual node components. The `handleDeleteFeature` callback already exists in
-  `useControlCenterState` and is passed to the `FeatureDrawer`. It needs to also flow to
-  `FeaturesCanvas` and through to feature node data.
+  ## Product Questions & AI Recommendations
 
-  **Delete confirmation pattern**: Repository nodes use a local `useState(false)` for
-  `confirmOpen`, render an `AlertDialog` with destructive variant action button, and call
-  `data.onDelete?.(data.id!)` on confirm. Feature nodes should replicate this exact pattern
-  using `data.onDelete?.(data.featureId)`.
-
-  ### Relevant Technologies
-
-  - **lucide-react**: `Trash2` icon (already used in repository-node.tsx)
-  - **Radix UI AlertDialog**: Already imported in repository-node.tsx — same components needed
-  - **Radix UI Tooltip**: Already imported in repository-node.tsx — same wrapping pattern
-  - **TailwindCSS group-hover**: `opacity-0 group-hover:opacity-100` pattern for show-on-hover
-  - **React Flow Handle**: Feature node already wraps content in `<div className="group relative">`, which is the parent needed for `group-hover` to work
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Should the delete icon position match the repository node exactly? | Match repository node (-left-10) | Visual consistency across canvas; feature node already has the group relative wrapper |
+  | 2 | What confirmation dialog copy should be used? | "Delete feature?" with permanent deletion warning | Feature deletion is destructive (removes specs, branches, progress) unlike repository removal which only unlinks |
+  | 3 | Should delete be hidden during running/queued states too? | Hide only during creating state | Matches existing FeaturesCanvas suppression pattern; handleDeleteFeature handles cleanup gracefully |
+  | 4 | Should the action button say "Delete" or "Remove"? | "Delete" (destructive label) | Accurately communicates permanence; differentiates from repository "Remove" which is softer |
 
   ## Affected Areas
 
@@ -103,21 +166,10 @@ content: |
   - `Trash2` icon, `AlertDialog`, `Tooltip` components are already used by repository-node
   - The feature node already has the `group relative` wrapper div needed for group-hover
 
-  ## Success Criteria
-
-  - [ ] Trash icon appears on hover to the left of the feature node card (matching repository node positioning)
-  - [ ] Trash icon is hidden when not hovering (opacity-0 → group-hover:opacity-100)
-  - [ ] Clicking trash icon opens an AlertDialog confirmation with feature name
-  - [ ] Confirming deletion calls the existing deleteFeature flow
-  - [ ] Delete icon does NOT appear on nodes in "creating" state
-  - [ ] Unit tests cover: icon rendering, hover visibility, dialog open/confirm/cancel, callback invocation
-  - [ ] Storybook story demonstrates the delete button variant
-  - [ ] All existing tests continue to pass
-
   ## Size Estimate
 
-  **S** — This is a well-scoped UI feature that replicates an existing pattern (repository node delete icon) onto a sibling component (feature node). The data flow infrastructure (server action, state management callback) already exists. The work is limited to: adding a prop to an interface, adding ~40 lines of JSX to the feature node, threading one new prop through FeaturesCanvas, and adding tests + stories. Estimated at a few hours of work.
+  **S** — This is a well-scoped UI feature that replicates an existing pattern (repository node delete icon) onto a sibling component (feature node). The data flow infrastructure (server action, state management callback) already exists. The work is limited to: adding a prop to an interface, adding ~40 lines of JSX to the feature node, threading one new prop through FeaturesCanvas, and adding tests + stories.
 
   ---
 
-  _Generated by feature agent — proceed with research_
+  _Generated by feature agent — requirements phase complete_
