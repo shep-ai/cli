@@ -1,0 +1,130 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: decision-review-chat
+number: 049
+branch: feat/049-decision-review-chat
+oneLiner: Add agent-based chat for discussing product and technical decisions during review
+summary: >
+  Add a conversational chat interface within the tech review and PRD review drawers
+  so users can discuss, question, and reason about product and technical decisions
+  with an AI agent before approving or rejecting. This extends the existing
+  DrawerActionBar revision input into a full chat experience with message history,
+  streaming responses, and decision-context-aware agent prompts.
+phase: Analysis
+sizeEstimate: M
+
+relatedFeatures: []
+
+technologies:
+  - React (Next.js App Router)
+  - TypeSpec (domain model generation)
+  - Shadcn/ui + Radix UI (drawer, tabs, input components)
+  - Tailwind CSS
+  - Server-Sent Events (SSE) for real-time streaming
+  - LangGraph (agent orchestration / checkpointing)
+  - tsyringe (dependency injection)
+  - Vitest (unit testing)
+  - Storybook (component stories)
+
+relatedLinks: []
+
+openQuestions:
+  - Should chat messages persist across drawer close/reopen, or reset each session?
+  - Should the chat agent have access to the full spec (research.yaml, plan.yaml) as context, or only the decisions being reviewed?
+  - Should chat history be stored in the database (new repository) or kept in ephemeral component state?
+  - Is chat scoped per review phase (PRD review chat vs tech review chat) or shared across phases?
+  - Should streaming responses use the existing SSE agent-events endpoint or a dedicated chat SSE route?
+
+content: |
+  ## Problem Statement
+
+  Currently, users reviewing product decisions (PRD questionnaire) and technical
+  decisions (tech review tabs) can only approve or reject with a single revision
+  message via the DrawerActionBar. There is no way to have a back-and-forth
+  conversation with an AI agent to explore decisions, ask "why", challenge
+  rationale, or think through alternatives before committing to an approval or
+  rejection.
+
+  The existing DrawerActionBar (`drawer-action-bar.tsx`) provides a single text
+  input that fires `onReject(text)` — a one-shot feedback mechanism. Users need a
+  multi-turn chat experience to reason about decisions before acting on them.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  Clean Architecture with four layers:
+
+  - **Domain** (`packages/core/src/domain/`) — Entities, value objects, generated TypeSpec output.
+    Key types: `TechDecision`, `AgentSession`, `AgentSessionMessage`, `MessageRole`.
+  - **Application** (`packages/core/src/application/`) — Use cases and output port interfaces.
+    Relevant: `RunAgentUseCase`, `ApproveAgentRunUseCase`, `RejectAgentRunUseCase`,
+    `IAgentExecutorProvider`, `IAgentRunner`.
+  - **Infrastructure** (`packages/core/src/infrastructure/`) — Agent executors, LangGraph
+    orchestration, DI container (tsyringe), repositories, persistence.
+  - **Presentation** (`src/presentation/web/`) — Next.js web UI with components, hooks,
+    server actions, and API routes.
+
+  ### Architecture Patterns
+
+  - **Agent resolution**: All AI execution goes through `IAgentExecutorProvider.getExecutor()`.
+    No hardcoded agent types. The executor supports `execute()`, `executeStream()`,
+    and feature detection via `supportsFeature()`.
+  - **Drawer composition**: `BaseDrawer` → `ReviewDrawerShell` / `ControlCenterDrawer` →
+    content component (e.g. `TechReviewTabs`, `PrdQuestionnaire`) → `DrawerActionBar` footer.
+  - **Server actions**: All mutations use Next.js server actions (`approve-feature`,
+    `reject-feature`, etc.) that resolve use cases from the DI container.
+  - **SSE streaming**: `/api/agent-events` route polls DB state every 500ms, emits
+    `NotificationEvent` deltas. Client uses `useAgentEvents` hook with Service Worker fallback.
+  - **TypeSpec-first**: All domain models in `tsp/`, compiled to
+    `packages/core/src/domain/generated/output.ts`. Never edit generated files.
+
+  ### Relevant Technologies
+
+  - **React/Next.js**: App Router with server actions, SSE API routes
+  - **Shadcn/ui**: Drawer, Tabs, Input, Button, ScrollArea components
+  - **LangGraph**: Agent graph orchestration with checkpointing for resumable sessions
+  - **AgentSession/AgentSessionMessage**: Existing TypeSpec models for tracking conversations
+  - **IAgentExecutor**: Supports streaming (`executeStream`) and session resume
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `src/presentation/web/components/common/drawer-action-bar/` | High | Extend or replace single-input pattern with chat message list + input |
+  | `src/presentation/web/components/common/tech-review-tabs/` | High | Integrate chat panel alongside or within the review tabs UI |
+  | `src/presentation/web/components/common/control-center-drawer/` | Medium | Add chat state management, message history, streaming handlers |
+  | `src/presentation/web/app/actions/` | Medium | New server action(s) for sending chat messages to agent |
+  | `src/presentation/web/hooks/` | Medium | New hook (e.g. `useDecisionChat`) for managing chat state and streaming |
+  | `tsp/` | Low-Medium | Potentially new TypeSpec model for DecisionChatMessage if persisted |
+  | `packages/core/src/application/use-cases/` | Low-Medium | New use case for decision chat if chat goes through application layer |
+  | `packages/core/src/infrastructure/services/agents/` | Low | May need a chat-specific prompt builder or context assembler |
+  | `src/presentation/web/app/api/` | Low | New SSE route if chat streaming is separate from agent-events |
+  | `.storybook/` | Low | New stories for chat components (mandatory per CLAUDE.md) |
+
+  ## Dependencies
+
+  - **Existing agent infrastructure**: `IAgentExecutorProvider`, `IAgentExecutor.executeStream()`,
+    `AgentSession`, `AgentSessionMessage` — foundation for chat execution
+  - **Existing drawer system**: `BaseDrawer`, `DrawerActionBar`, `ReviewDrawerShell` —
+    UI shell where chat will be embedded
+  - **Existing review data**: `TechDecisionsReviewData`, `PrdQuestionnaireData`,
+    `ProductDecisionsSummaryData` — context to feed into chat agent prompts
+  - **Existing server actions**: `getResearchArtifact`, `getFeatureArtifact` —
+    data fetching patterns to follow
+  - **Shadcn/ui components**: ScrollArea, Input, Button already available
+  - **SSE infrastructure**: `/api/agent-events` route and `useAgentEvents` hook
+
+  ## Size Estimate
+
+  **M** — This feature involves creating new UI components (chat message list,
+  chat input, streaming indicator), a new server action or API route for chat,
+  a custom hook for chat state management, and integration into existing drawer
+  components. The heavy lifting of agent execution and streaming is already built.
+  The main effort is the presentation layer (chat UI, state management, context
+  assembly) plus Storybook stories and tests. Estimated at several days of work.
+
+  ---
+
+  _Analysis complete — proceed with research phase_
