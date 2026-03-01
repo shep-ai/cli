@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BaseDrawer } from '@/components/common/base-drawer';
@@ -7,24 +7,33 @@ vi.mock('@/lib/feature-flags', () => ({
   featureFlags: { envDeploy: true, skills: false },
 }));
 
+const mockDeployAction = {
+  deploy: vi.fn(),
+  stop: vi.fn(),
+  deployLoading: false,
+  stopLoading: false,
+  deployError: null,
+  status: null as string | null,
+  url: null as string | null,
+};
+
 vi.mock('@/hooks/use-deploy-action', () => ({
-  useDeployAction: () => ({
-    deploy: vi.fn(),
-    stop: vi.fn(),
-    deployLoading: false,
-    stopLoading: false,
-    deployError: null,
-    status: null,
-    url: null,
-  }),
+  useDeployAction: () => mockDeployAction,
 }));
 
 vi.mock('@/components/common/deployment-status-badge', () => ({
-  DeploymentStatusBadge: ({ status }: { status: string | null }) =>
-    status ? <div data-testid="deployment-status-badge" data-status={status} /> : null,
+  DeploymentStatusBadge: ({ status, targetId }: { status: string | null; targetId?: string }) =>
+    status ? (
+      <div data-testid="deployment-status-badge" data-status={status} data-target-id={targetId} />
+    ) : null,
 }));
 
 describe('BaseDrawer', () => {
+  beforeEach(() => {
+    mockDeployAction.status = null;
+    mockDeployAction.url = null;
+  });
+
   describe('rendering', () => {
     it('renders children content when open=true', () => {
       render(
@@ -251,6 +260,29 @@ describe('BaseDrawer', () => {
 
       expect(screen.getByTestId('base-drawer-deploy-bar')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /start dev server/i })).toBeInTheDocument();
+    });
+
+    it('passes targetId to DeploymentStatusBadge when deployment is active', () => {
+      mockDeployAction.status = 'Ready';
+      mockDeployAction.url = 'http://localhost:3000';
+
+      render(
+        <BaseDrawer
+          open
+          onClose={vi.fn()}
+          deployTarget={{
+            targetId: 'f1',
+            targetType: 'feature',
+            repositoryPath: '/repo',
+            branch: 'main',
+          }}
+        >
+          <p>Content</p>
+        </BaseDrawer>
+      );
+
+      const badge = screen.getByTestId('deployment-status-badge');
+      expect(badge).toHaveAttribute('data-target-id', 'f1');
     });
 
     it('does not render deploy bar when deployTarget is omitted', () => {

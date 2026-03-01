@@ -1,7 +1,19 @@
-import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { DeploymentState } from '@shepai/core/domain/generated/output';
 import { DeploymentStatusBadge } from '@/components/common/deployment-status-badge';
+
+// Mock the ServerLogViewer component
+vi.mock('@/components/common/server-log-viewer', () => ({
+  ServerLogViewer: ({
+    open,
+    targetId,
+  }: {
+    open: boolean;
+    onOpenChange: (v: boolean) => void;
+    targetId: string;
+  }) => (open ? <div data-testid="server-log-viewer" data-target-id={targetId} /> : null),
+}));
 
 describe('DeploymentStatusBadge', () => {
   it('renders spinning loader badge when status is Booting', () => {
@@ -45,5 +57,84 @@ describe('DeploymentStatusBadge', () => {
     const { container } = render(<DeploymentStatusBadge status={null} />);
 
     expect(container.innerHTML).toBe('');
+  });
+
+  describe('View Logs button', () => {
+    it('does not render log button when targetId is undefined', () => {
+      render(<DeploymentStatusBadge status={DeploymentState.Booting} />);
+
+      expect(screen.queryByRole('button', { name: /view server logs/i })).not.toBeInTheDocument();
+    });
+
+    it('renders log button when status is Booting and targetId is provided', () => {
+      render(<DeploymentStatusBadge status={DeploymentState.Booting} targetId="my-target" />);
+
+      expect(screen.getByRole('button', { name: /view server logs/i })).toBeInTheDocument();
+    });
+
+    it('renders log button when status is Ready and targetId is provided', () => {
+      render(
+        <DeploymentStatusBadge
+          status={DeploymentState.Ready}
+          url="http://localhost:3000"
+          targetId="my-target"
+        />
+      );
+
+      expect(screen.getByRole('button', { name: /view server logs/i })).toBeInTheDocument();
+    });
+
+    it('does not render log button when status is null even with targetId', () => {
+      render(<DeploymentStatusBadge status={null} targetId="my-target" />);
+
+      expect(screen.queryByRole('button', { name: /view server logs/i })).not.toBeInTheDocument();
+    });
+
+    it('does not render log button when status is Stopped even with targetId', () => {
+      render(<DeploymentStatusBadge status={DeploymentState.Stopped} targetId="my-target" />);
+
+      expect(screen.queryByRole('button', { name: /view server logs/i })).not.toBeInTheDocument();
+    });
+
+    it('button has correct aria-label', () => {
+      render(<DeploymentStatusBadge status={DeploymentState.Ready} targetId="my-target" />);
+
+      expect(screen.getByRole('button', { name: /view server logs/i })).toHaveAttribute(
+        'aria-label',
+        'View server logs'
+      );
+    });
+
+    it('clicking the button opens the log viewer dialog', () => {
+      render(
+        <DeploymentStatusBadge
+          status={DeploymentState.Ready}
+          url="http://localhost:3000"
+          targetId="my-target"
+        />
+      );
+
+      expect(screen.queryByTestId('server-log-viewer')).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: /view server logs/i }));
+
+      expect(screen.getByTestId('server-log-viewer')).toBeInTheDocument();
+      expect(screen.getByTestId('server-log-viewer')).toHaveAttribute(
+        'data-target-id',
+        'my-target'
+      );
+    });
+
+    it('clicking the button in Booting state opens the log viewer dialog', () => {
+      render(<DeploymentStatusBadge status={DeploymentState.Booting} targetId="boot-target" />);
+
+      fireEvent.click(screen.getByRole('button', { name: /view server logs/i }));
+
+      expect(screen.getByTestId('server-log-viewer')).toBeInTheDocument();
+      expect(screen.getByTestId('server-log-viewer')).toHaveAttribute(
+        'data-target-id',
+        'boot-target'
+      );
+    });
   });
 });

@@ -85,8 +85,8 @@ export function ServerLogViewerContent({
           {logs.length === 0 ? (
             <p className="text-zinc-500">Waiting for log output...</p>
           ) : (
-            logs.map((entry, index) => (
-              <LogLine key={`${entry.timestamp}-${index}`} entry={entry} />
+            logs.map((entry) => (
+              <LogLine key={`${entry.timestamp}-${entry.stream}-${entry.line}`} entry={entry} />
             ))
           )}
           {!isConnected && logs.length > 0 && (
