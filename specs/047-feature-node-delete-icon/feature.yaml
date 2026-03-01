@@ -4,6 +4,7 @@ feature:
   number: 47
   branch: feat/047-feature-node-delete-icon
   lifecycle: research
+  prUrl: https://github.com/shep-ai/cli/pull/170
   createdAt: '2026-03-01T10:08:02Z'
 status:
   phase: implementation-complete
