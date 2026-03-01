@@ -51,7 +51,8 @@ import { ActionButton } from '@/components/common/action-button';
 import { OpenActionMenu } from '@/components/common/open-action-menu';
 import { FeatureCreateDrawer } from '@/components/common/feature-create-drawer';
 import { PrdQuestionnaire } from '@/components/common/prd-questionnaire';
-import { TechDecisionsReview } from '@/components/common/tech-decisions-review';
+import { TechReviewTabs } from '@/components/common/tech-review-tabs';
+import type { ProductDecisionsSummaryData } from '@/components/common/product-decisions-summary';
 import { MergeReview } from '@/components/common/merge-review';
 import { featureNodeStateConfig, lifecycleDisplayLabels } from '@/components/common/feature-node';
 import type { FeatureNodeData } from '@/components/common/feature-node';
@@ -88,6 +89,12 @@ export function ControlCenterDrawer({
   // ── Tech decisions state ────────────────────────────────────────────────
   const [techData, setTechData] = useState<TechDecisionsReviewData | null>(null);
   const [isLoadingTech, setIsLoadingTech] = useState(false);
+
+  // ── Product decisions state (for tech review Product tab) ─────────────
+  const [techProductData, setTechProductData] = useState<
+    ProductDecisionsSummaryData | null | undefined
+  >(undefined);
+  const [isLoadingTechProduct, setIsLoadingTechProduct] = useState(false);
 
   // ── Merge review state ──────────────────────────────────────────────────
   const [mergeData, setMergeData] = useState<MergeReviewData | null>(null);
@@ -156,6 +163,32 @@ export function ControlCenterDrawer({
       })
       .finally(() => {
         if (!cancelled) setIsLoadingTech(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [techFeatureId]);
+
+  // Fetch product decisions for the Product tab in tech review
+  useEffect(() => {
+    setTechProductData(undefined);
+    if (!techFeatureId) return;
+
+    let cancelled = false;
+    setIsLoadingTechProduct(true);
+    getFeatureArtifact(techFeatureId)
+      .then((result) => {
+        if (cancelled) return;
+        if (result.productDecisions) {
+          setTechProductData(result.productDecisions);
+        }
+        // Silent failure — product tab shows "not available"
+      })
+      .catch(() => {
+        // Silent failure — the product tab is supplementary
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingTechProduct(false);
       });
     return () => {
       cancelled = true;
@@ -512,8 +545,9 @@ export function ControlCenterDrawer({
     );
   } else if (view?.type === 'tech-review') {
     body = techData ? (
-      <TechDecisionsReview
-        data={techData}
+      <TechReviewTabs
+        techData={techData}
+        productData={isLoadingTechProduct ? null : techProductData}
         onApprove={handleTechApprove}
         onReject={handleTechReject}
         isProcessing={isLoadingTech}
