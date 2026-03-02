@@ -1,0 +1,437 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: decision-review-chat
+summary: >
+  12 tasks across 3 phases implementing agent-based chat for decision review drawers.
+  Phase 1 builds the streaming API route and custom hook. Phase 2 creates the three
+  chat UI components with stories. Phase 3 integrates into existing review drawers.
+
+relatedFeatures: []
+technologies: []
+relatedLinks: []
+
+tasks:
+  # ── Phase 1: Chat Hook & API Route ──────────────────────────────────────────
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Create /api/decision-chat POST route with streaming response'
+    description: >
+      Build the server-side API route that accepts a POST request with conversation
+      history and review context, constructs a system prompt from the review data,
+      resolves IAgentExecutorProvider from the DI container, calls executeStream(),
+      and pipes AgentExecutionStreamEvent objects as newline-delimited JSON over a
+      ReadableStream. Includes input validation (featureId, messages array) and error
+      handling. Follow the patterns from /api/agent-events (ReadableStream + TextEncoder)
+      and /api/deployment-logs (event format).
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'POST /api/decision-chat accepts { featureId, reviewType, reviewContext, messages } body'
+      - 'Route resolves IAgentExecutorProvider via resolve() from server-container'
+      - 'System prompt includes feature name, review type, and serialized review data'
+      - 'User messages from history are concatenated into the prompt string'
+      - 'Response streams AgentExecutionStreamEvent as newline-delimited JSON chunks'
+      - 'Returns 400 for missing featureId or empty messages array'
+      - 'Returns 500 with JSON error body when executor fails to resolve'
+      - 'export const dynamic = "force-dynamic" prevents Next.js caching'
+    tdd:
+      red:
+        - 'Write integration test that POSTs to the route with valid body and asserts a streaming response with expected chunk format'
+        - 'Write test for 400 response when featureId is missing'
+        - 'Write test for 400 response when messages array is empty'
+        - 'Write test that verifies the system prompt includes review context data'
+      green:
+        - 'Implement route.ts with POST handler, input validation, DI resolution, prompt construction, and ReadableStream piping'
+        - 'Use TextEncoder to encode chunks, iterate over executeStream() AsyncIterable'
+      refactor:
+        - 'Extract system prompt template construction into a helper function for testability'
+        - 'Ensure consistent error response format across all error paths'
+    estimatedEffort: '2h'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Create useDecisionChat hook with streaming state management'
+    description: >
+      Build the custom React hook that manages chat state: message array, isStreaming
+      flag, error state, sendMessage function, and reset function. The hook calls
+      /api/decision-chat via fetch(), reads the streaming response body using
+      getReader(), parses newline-delimited JSON chunks, and incrementally appends
+      content to the last assistant message. Creates an AbortController per request
+      for cancellation. Messages reset when featureId changes via useEffect. Follow
+      the pattern from useDeploymentLogs (streaming with cleanup).
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Hook accepts (reviewType, featureId) parameters'
+      - 'Returns { messages, isStreaming, error, sendMessage, resetChat }'
+      - 'sendMessage(text, reviewContext) adds user message, sets isStreaming, calls fetch, streams response'
+      - 'During streaming, assistant message content is incrementally updated'
+      - 'After streaming completes, isStreaming resets to false'
+      - 'On fetch error, error state is set and isStreaming resets to false'
+      - 'Messages reset when featureId changes'
+      - 'AbortController cancels in-flight request on unmount'
+      - 'Input text is not accepted while isStreaming is true'
+    tdd:
+      red:
+        - 'Write test that calling sendMessage adds a user message to the messages array'
+        - 'Write test that sendMessage sets isStreaming to true and calls fetch with correct body'
+        - 'Write test that streaming response chunks incrementally update the assistant message'
+        - 'Write test that isStreaming resets to false after stream completes'
+        - 'Write test that fetch error sets error state and resets isStreaming'
+        - 'Write test that messages reset when featureId changes'
+        - 'Write test that AbortController.abort() is called on cleanup'
+      green:
+        - 'Implement useDecisionChat with useState for messages, isStreaming, error'
+        - 'Implement sendMessage with fetch call, ReadableStream reader, chunk parsing loop'
+        - 'Implement useEffect for featureId change cleanup and AbortController lifecycle'
+      refactor:
+        - 'Extract chunk parsing logic into a separate parseStreamChunk utility'
+        - 'Ensure consistent ChatMessage type used throughout'
+    estimatedEffort: '2.5h'
+
+  # ── Phase 2: Chat UI Components ─────────────────────────────────────────────
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Extract shared markdownComponents to a reusable utility'
+    description: >
+      The markdownComponents map in tech-decisions-review.tsx (lines 16-50) provides
+      styled react-markdown component overrides. Extract it to a shared utility file
+      so both TechDecisionsReview and the new ChatMessageBubble can reuse it without
+      duplication. This is a prerequisite for ChatMessageBubble which needs the same
+      markdown rendering.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'markdownComponents is exported from a shared utility location'
+      - 'TechDecisionsReview imports from the shared location instead of defining inline'
+      - 'No visual regression in TechDecisionsReview markdown rendering'
+      - 'Shared module is importable by any component in the web app'
+    tdd:
+      red:
+        - 'Write test that the shared markdownComponents object has all expected keys (p, strong, em, code, pre, ul, ol, li, a)'
+        - 'Write test that links render with target="_blank" and rel="noopener noreferrer"'
+      green:
+        - 'Create shared utility file with markdownComponents export'
+        - 'Update TechDecisionsReview to import from the shared location'
+      refactor:
+        - 'Verify no other components duplicate the same markdown component map'
+    estimatedEffort: '30min'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Create ChatMessageBubble component with config and stories'
+    description: >
+      Build the ChatMessageBubble component that renders a single chat message.
+      User messages align right with a distinct background. Assistant messages align
+      left and render content as markdown using the shared markdownComponents. Error
+      messages (role: "system") display with warning styling. Each message shows a
+      role indicator. Follow the component.tsx + config.ts + stories.tsx + index.ts
+      convention.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'ChatMessageBubble renders user messages with right alignment and primary background'
+      - 'ChatMessageBubble renders assistant messages with left alignment and muted background'
+      - 'Assistant messages render content through react-markdown with markdownComponents'
+      - 'Error/system messages display with destructive/warning styling'
+      - 'Props interface defined in chat-message-bubble-config.ts'
+      - 'Storybook stories cover: user message, assistant message, assistant with markdown, system error, long message wrapping'
+      - 'Component is accessible (proper ARIA roles)'
+    tdd:
+      red:
+        - 'Write test that user role renders with right-aligned styling'
+        - 'Write test that assistant role renders with left-aligned styling and markdown'
+        - 'Write test that system role renders with error/warning styling'
+      green:
+        - 'Create chat-message-bubble-config.ts with ChatMessage type and ChatMessageBubbleProps'
+        - 'Create chat-message-bubble.tsx with role-based conditional styling and markdown rendering'
+        - 'Create index.ts barrel export'
+      refactor:
+        - 'Create chat-message-bubble.stories.tsx with all story variants'
+        - 'Fine-tune spacing and typography to match drawer design language'
+    estimatedEffort: '1.5h'
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Create ChatMessageList component with config and stories'
+    description: >
+      Build the ChatMessageList component that renders a scrollable list of
+      ChatMessageBubble components. Uses shadcn ScrollArea for styled scrolling.
+      Auto-scrolls to the latest message when new messages are added or content
+      updates during streaming. Includes an ARIA live region for screen reader
+      announcements (NFR-3). Shows an empty state when there are no messages.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'ChatMessageList renders a list of ChatMessageBubble components'
+      - 'Uses ScrollArea from shadcn/ui for scrollable container'
+      - 'Auto-scrolls to bottom when messages array changes'
+      - 'Auto-scrolls during streaming (content updates to last message)'
+      - 'Includes ARIA live region (aria-live="polite") for new message announcements'
+      - 'Shows empty state when messages array is empty (optional helper text)'
+      - 'Props interface defined in chat-message-list-config.ts'
+      - 'Storybook stories cover: empty, single message, multiple messages, long conversation, streaming state'
+    tdd:
+      red:
+        - 'Write test that renders the correct number of ChatMessageBubble components'
+        - 'Write test that auto-scrolls to bottom when messages change (mock scrollIntoView)'
+        - 'Write test that renders empty state when messages is empty array'
+        - 'Write test that ARIA live region is present'
+      green:
+        - 'Create chat-message-list-config.ts with ChatMessageListProps'
+        - 'Create chat-message-list.tsx with ScrollArea, map over messages, useRef + useEffect for auto-scroll'
+        - 'Create index.ts barrel export'
+      refactor:
+        - 'Create chat-message-list.stories.tsx with story variants'
+        - 'Extract auto-scroll logic to useAutoScroll hook if complexity warrants it'
+    estimatedEffort: '1.5h'
+
+  - id: task-6
+    phaseId: phase-2
+    title: 'Create DecisionChatPanel component with config and stories'
+    description: >
+      Build the DecisionChatPanel container component that composes ChatMessageList,
+      text input, send button, and approve/reject action buttons. This component
+      replaces DrawerActionBar in review contexts. It accepts the same onApprove,
+      onReject, approveLabel, approveIcon, and children props as DrawerActionBar
+      for backward compatibility. Additionally accepts featureId, reviewType, and
+      reviewContext for the chat functionality. Uses the useDecisionChat hook
+      internally. The input is disabled during streaming (FR-8). Send button is
+      disabled when input is empty or streaming. Pressing Enter submits the message.
+    state: Todo
+    dependencies:
+      - task-2
+      - task-5
+    acceptanceCriteria:
+      - 'DecisionChatPanel renders ChatMessageList above the input area'
+      - 'Text input + Send button submit messages via useDecisionChat.sendMessage'
+      - 'Approve button calls onApprove callback (same as DrawerActionBar)'
+      - 'Input is disabled while isStreaming is true'
+      - 'Send button is disabled when input is empty or isStreaming'
+      - 'Pressing Enter in the input submits the message'
+      - 'Input clears after message submission'
+      - 'Children prop renders between message list and input (for progress bar)'
+      - 'Accepts approveLabel, approveIcon, isProcessing, isRejecting props from DrawerActionBar'
+      - 'Error messages from useDecisionChat appear in the chat as system messages'
+      - 'Props interface defined in decision-chat-panel-config.ts'
+      - 'Storybook stories cover: empty state, with messages, streaming, error, with progress bar child, processing state'
+    tdd:
+      red:
+        - 'Write test that typing and pressing Enter calls sendMessage with input text'
+        - 'Write test that input clears after submission'
+        - 'Write test that input is disabled while isStreaming is true'
+        - 'Write test that send button is disabled when input is empty'
+        - 'Write test that approve button calls onApprove'
+        - 'Write test that children render in the expected position'
+      green:
+        - 'Create decision-chat-panel-config.ts with DecisionChatPanelProps extending DrawerActionBar-compatible props'
+        - 'Create decision-chat-panel.tsx composing ChatMessageList + form + buttons with useDecisionChat'
+        - 'Create index.ts barrel export'
+      refactor:
+        - 'Create decision-chat-panel.stories.tsx with all story variants'
+        - 'Ensure layout matches DrawerActionBar when no messages are present (minimal visual diff)'
+    estimatedEffort: '2h'
+
+  # ── Phase 3: Drawer Integration ─────────────────────────────────────────────
+
+  - id: task-7
+    phaseId: phase-3
+    title: 'Update TechReviewTabs to use DecisionChatPanel'
+    description: >
+      Replace the DrawerActionBar usage in TechReviewTabs (line 49) with
+      DecisionChatPanel. Add featureId and reviewContext props to TechReviewTabsProps.
+      The reviewContext is the serialized TechDecisionsReviewData. Pass existing
+      onApprove, onReject, isProcessing, isRejecting through to DecisionChatPanel.
+      Update the config file with the new props.
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'TechReviewTabs renders DecisionChatPanel instead of DrawerActionBar'
+      - 'TechReviewTabsProps includes featureId: string and reviewContext: string'
+      - 'onApprove and onReject callbacks are passed through to DecisionChatPanel'
+      - 'approveLabel, approveIcon, isProcessing, isRejecting are forwarded correctly'
+      - 'Existing approve/reject functionality is unchanged'
+      - 'Tech review chat uses reviewType "tech"'
+    tdd:
+      red:
+        - 'Write test that TechReviewTabs renders DecisionChatPanel (not DrawerActionBar)'
+        - 'Write test that approve callback fires correctly through DecisionChatPanel'
+        - 'Write test that reject callback fires correctly through DecisionChatPanel'
+      green:
+        - 'Update tech-review-tabs-config.ts to add featureId and reviewContext to TechReviewTabsProps'
+        - 'Update tech-review-tabs.tsx to import DecisionChatPanel and replace DrawerActionBar'
+        - 'Pass featureId, reviewType="tech", and reviewContext to DecisionChatPanel'
+      refactor:
+        - 'Update TechReviewTabs stories if they exist to include the new props'
+        - 'Verify no other imports of DrawerActionBar from TechReviewTabs'
+    estimatedEffort: '1h'
+
+  - id: task-8
+    phaseId: phase-3
+    title: 'Update PrdQuestionnaire to use DecisionChatPanel'
+    description: >
+      Replace the DrawerActionBar usage in PrdQuestionnaire (line 166) with
+      DecisionChatPanel. Add featureId and reviewContext props to PrdQuestionnaireProps.
+      The reviewContext is the serialized PrdQuestionnaireData summary. Ensure the
+      progress bar child (lines 174-194) still renders correctly through
+      DecisionChatPanel's children prop.
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'PrdQuestionnaire renders DecisionChatPanel instead of DrawerActionBar'
+      - 'PrdQuestionnaireProps includes featureId: string and reviewContext: string'
+      - 'Progress bar renders correctly as children of DecisionChatPanel'
+      - 'onApprove and onReject callbacks are passed through correctly'
+      - 'PRD chat uses reviewType "prd"'
+      - 'Existing questionnaire navigation and selection are unchanged'
+    tdd:
+      red:
+        - 'Write test that PrdQuestionnaire renders DecisionChatPanel (not DrawerActionBar)'
+        - 'Write test that progress bar still renders between message list and input'
+        - 'Write test that approve callback fires correctly through DecisionChatPanel'
+      green:
+        - 'Update prd-questionnaire-config.ts to add featureId and reviewContext to PrdQuestionnaireProps'
+        - 'Update prd-questionnaire.tsx to import DecisionChatPanel and replace DrawerActionBar'
+        - 'Pass children (progress bar) through to DecisionChatPanel'
+      refactor:
+        - 'Verify progress bar styling and animation are preserved'
+        - 'Update PrdQuestionnaire stories if they exist to include the new props'
+    estimatedEffort: '1h'
+
+  - id: task-9
+    phaseId: phase-3
+    title: 'Update ControlCenterDrawer to pass featureId and reviewContext'
+    description: >
+      Update ControlCenterDrawer to pass featureId and serialized review context
+      to TechReviewTabs and PrdQuestionnaire. For tech review, serialize the
+      TechDecisionsReviewData (feature name + summary + decisions) into a string
+      context. For PRD review, serialize the PrdQuestionnaireData summary. The
+      featureId is already available as techFeatureId/prdFeatureId.
+    state: Todo
+    dependencies:
+      - task-7
+      - task-8
+    acceptanceCriteria:
+      - 'ControlCenterDrawer passes featureId to TechReviewTabs'
+      - 'ControlCenterDrawer passes serialized techData as reviewContext to TechReviewTabs'
+      - 'ControlCenterDrawer passes featureId to PrdQuestionnaire'
+      - 'ControlCenterDrawer passes serialized prdData summary as reviewContext to PrdQuestionnaire'
+      - 'Review context is a string (JSON-serialized data for the agent prompt)'
+      - 'No changes to existing approve/reject/delete handlers'
+    tdd:
+      red:
+        - 'Write test that TechReviewTabs receives featureId prop from ControlCenterDrawer'
+        - 'Write test that TechReviewTabs receives non-empty reviewContext when techData is loaded'
+        - 'Write test that PrdQuestionnaire receives featureId prop from ControlCenterDrawer'
+      green:
+        - 'Add featureId prop to TechReviewTabs usage in ControlCenterDrawer'
+        - 'Serialize techData into reviewContext string and pass to TechReviewTabs'
+        - 'Add featureId prop to PrdQuestionnaire usage in ControlCenterDrawer'
+        - 'Serialize prdData summary into reviewContext string and pass to PrdQuestionnaire'
+      refactor:
+        - 'Extract review context serialization into a helper function'
+        - 'Verify the serialized context is compact enough for agent prompts (< 2KB)'
+    estimatedEffort: '1h'
+
+  - id: task-10
+    phaseId: phase-3
+    title: 'Update existing stories for modified components'
+    description: >
+      Update Storybook stories for TechReviewTabs, PrdQuestionnaire, and any other
+      components that now accept new props (featureId, reviewContext). Ensure stories
+      demonstrate both the chat-active and chat-empty states. Verify all existing
+      story variants still render correctly with the new props.
+    state: Todo
+    dependencies:
+      - task-7
+      - task-8
+    acceptanceCriteria:
+      - 'TechReviewTabs stories include featureId and reviewContext props'
+      - 'PrdQuestionnaire stories include featureId and reviewContext props'
+      - 'Stories demonstrate chat panel in empty state (no messages)'
+      - 'All existing story variants still render without errors'
+    tdd: null
+    estimatedEffort: '45min'
+
+  - id: task-11
+    phaseId: phase-3
+    title: 'Verify end-to-end chat flow and existing functionality'
+    description: >
+      Run the full test suite to verify no regressions. Manually verify the chat flow
+      works end-to-end: open tech review drawer, type a message, see streaming response,
+      approve/reject still works. Repeat for PRD review. Check that drawer close/reopen
+      preserves messages, and switching features resets them.
+    state: Todo
+    dependencies:
+      - task-9
+      - task-10
+    acceptanceCriteria:
+      - 'All unit tests pass (pnpm test:unit)'
+      - 'All integration tests pass (pnpm test:int)'
+      - 'Lint passes (pnpm lint:fix)'
+      - 'Type check passes (pnpm validate)'
+      - 'Build succeeds (pnpm build)'
+      - 'No regression in existing approve/reject functionality'
+      - 'Chat messages persist across drawer close/reopen within session'
+      - 'Chat messages reset when switching features'
+    tdd: null
+    estimatedEffort: '1h'
+
+  - id: task-12
+    phaseId: phase-3
+    title: 'Accessibility audit of chat components'
+    description: >
+      Review all new chat components for WCAG 2.1 AA compliance. Verify keyboard
+      navigation (Tab through input, Enter to send, focus management). Check that
+      ARIA live regions announce new messages. Ensure all interactive elements have
+      accessible labels. Test with screen reader if possible.
+    state: Todo
+    dependencies:
+      - task-9
+    acceptanceCriteria:
+      - 'Message input has an accessible label (aria-label)'
+      - 'Send button has an accessible label'
+      - 'ARIA live region announces new assistant messages'
+      - 'All interactive elements are keyboard navigable (Tab, Enter, Escape)'
+      - 'Focus returns to input after message submission'
+      - 'Color contrast meets WCAG AA for message text and backgrounds'
+    tdd: null
+    estimatedEffort: '45min'
+
+totalEstimate: '14.5h'
+
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation is broken into 12 tasks across 3 phases, totaling an estimated
+  14.5 hours of work.
+
+  Phase 1 establishes the streaming data pipeline: a POST API route at
+  /api/decision-chat that wraps IAgentExecutor.executeStream() in a ReadableStream,
+  and a useDecisionChat React hook that manages messages, streaming state, and
+  AbortController lifecycle. These two pieces form the backend-to-frontend data
+  flow that all UI components depend on.
+
+  Phase 2 builds the visual layer bottom-up. First, the shared markdownComponents
+  utility is extracted from TechDecisionsReview for reuse. Then ChatMessageBubble
+  handles individual message rendering with role-based styling and markdown.
+  ChatMessageList composes bubbles in a scrollable container with auto-scroll.
+  Finally, DecisionChatPanel brings everything together — message list, input, send
+  button, and approve/reject buttons — as a drop-in replacement for DrawerActionBar
+  in chat-enabled contexts.
+
+  Phase 3 wires the components into the existing drawer system. TechReviewTabs and
+  PrdQuestionnaire swap DrawerActionBar for DecisionChatPanel. ControlCenterDrawer
+  threads featureId and serialized review context down to the review components.
+  Stories are updated, tests are run, and accessibility is audited to ensure no
+  regressions and WCAG compliance.

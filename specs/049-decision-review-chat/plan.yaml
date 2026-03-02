@@ -1,0 +1,210 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: decision-review-chat
+summary: >
+  Implementation plan for adding agent-based chat to the tech review and PRD review
+  drawers. The approach replaces DrawerActionBar with a new DecisionChatPanel component
+  that provides multi-turn chat alongside approve/reject actions. A custom useDecisionChat
+  hook manages messages and streaming state. A POST API route at /api/decision-chat
+  streams agent responses via ReadableStream, resolving the executor through
+  IAgentExecutorProvider. Three new presentational components (DecisionChatPanel,
+  ChatMessageList, ChatMessageBubble) follow existing codebase conventions with
+  colocated config and stories files. No new dependencies or domain/infrastructure
+  changes are required — the feature is entirely in the presentation layer.
+
+relatedFeatures: []
+
+technologies:
+  - React (Next.js App Router)
+  - TypeScript
+  - Tailwind CSS
+  - Shadcn/ui (ScrollArea, Input, Button)
+  - react-markdown
+  - ReadableStream (Web Streams API)
+  - IAgentExecutorProvider / IAgentExecutor (existing agent infra)
+  - tsyringe (DI container)
+  - Vitest (unit testing)
+  - Storybook (component stories)
+
+relatedLinks: []
+
+phases:
+  - id: phase-1
+    name: 'Chat Hook & API Route'
+    description: >
+      Build the foundational streaming infrastructure: the useDecisionChat hook for
+      client-side chat state management and the /api/decision-chat POST route for
+      server-side agent streaming. These are the core building blocks that all UI
+      components depend on. The hook manages messages, streaming state, AbortController
+      lifecycle, and error handling. The API route resolves IAgentExecutorProvider,
+      constructs a system prompt from review context, and pipes executeStream() events
+      as newline-delimited JSON over a ReadableStream. This phase comes first because
+      the UI components in Phase 2 cannot function without the hook and route.
+    parallel: false
+
+  - id: phase-2
+    name: 'Chat UI Components'
+    description: >
+      Create the three presentational components that compose the chat interface:
+      ChatMessageBubble (renders a single user or assistant message with markdown),
+      ChatMessageList (scrollable list of bubbles with auto-scroll), and
+      DecisionChatPanel (container composing the message list, input, send button,
+      and approve/reject buttons). Each component follows the codebase convention of
+      component.tsx + config.ts + stories.tsx in a named directory. Components are
+      built bottom-up (bubble then list then panel) so each can be tested and storied
+      independently before composition.
+    parallel: false
+
+  - id: phase-3
+    name: 'Drawer Integration'
+    description: >
+      Wire DecisionChatPanel into the existing review drawer system. Replace
+      DrawerActionBar usage in TechReviewTabs and PrdQuestionnaire with
+      DecisionChatPanel, threading featureId and reviewContext through from
+      ControlCenterDrawer. Update config types to include the new props. Verify
+      that existing approve/reject functionality remains unchanged while the new
+      chat capabilities are available. This phase is last because it depends on
+      both the hook (Phase 1) and the UI components (Phase 2) being complete.
+    parallel: false
+
+filesToCreate:
+  - src/presentation/web/hooks/use-decision-chat.ts
+  - src/presentation/web/hooks/__tests__/use-decision-chat.test.ts
+  - src/presentation/web/app/api/decision-chat/route.ts
+  - src/presentation/web/app/api/decision-chat/__tests__/route.test.ts
+  - src/presentation/web/components/common/chat-message-bubble/chat-message-bubble.tsx
+  - src/presentation/web/components/common/chat-message-bubble/chat-message-bubble-config.ts
+  - src/presentation/web/components/common/chat-message-bubble/chat-message-bubble.stories.tsx
+  - src/presentation/web/components/common/chat-message-bubble/index.ts
+  - src/presentation/web/components/common/chat-message-list/chat-message-list.tsx
+  - src/presentation/web/components/common/chat-message-list/chat-message-list-config.ts
+  - src/presentation/web/components/common/chat-message-list/chat-message-list.stories.tsx
+  - src/presentation/web/components/common/chat-message-list/index.ts
+  - src/presentation/web/components/common/decision-chat-panel/decision-chat-panel.tsx
+  - src/presentation/web/components/common/decision-chat-panel/decision-chat-panel-config.ts
+  - src/presentation/web/components/common/decision-chat-panel/decision-chat-panel.stories.tsx
+  - src/presentation/web/components/common/decision-chat-panel/index.ts
+
+filesToModify:
+  - src/presentation/web/components/common/tech-review-tabs/tech-review-tabs.tsx
+  - src/presentation/web/components/common/tech-review-tabs/tech-review-tabs-config.ts
+  - src/presentation/web/components/common/prd-questionnaire/prd-questionnaire.tsx
+  - src/presentation/web/components/common/prd-questionnaire/prd-questionnaire-config.ts
+  - src/presentation/web/components/common/control-center-drawer/control-center-drawer.tsx
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  This feature is entirely within the **presentation layer** of the Clean Architecture.
+  No domain models, repositories, or infrastructure changes are needed. The chat uses
+  the existing `IAgentExecutorProvider` output port (application layer) to resolve an
+  agent executor and call `executeStream()` — the same mechanism used by all agent
+  interactions in the codebase.
+
+  The architecture follows three tiers:
+
+  1. **API Route** (`/api/decision-chat/route.ts`) — Server-side POST handler that
+     receives conversation history + review context, constructs a system prompt,
+     resolves `IAgentExecutorProvider` from the DI container via `resolve()`, calls
+     `executeStream()`, and pipes `AgentExecutionStreamEvent` objects as newline-delimited
+     JSON chunks over a `ReadableStream`. This follows the same pattern as
+     `/api/agent-events` and `/api/deployment-logs`.
+
+  2. **Custom Hook** (`useDecisionChat`) — Client-side state management for messages,
+     streaming status, error state, and AbortController lifecycle. Calls the API route
+     via `fetch()`, reads the streaming response body, and incrementally updates the
+     last assistant message. Follows the pattern of `useDeploymentLogs` (streaming
+     connection with cleanup on unmount/dependency change).
+
+  3. **UI Components** — Three components following the codebase convention of
+     `component.tsx` + `config.ts` + `stories.tsx` + `index.ts` in named directories:
+     - `ChatMessageBubble` — Single message with user/assistant styling, markdown rendering
+     - `ChatMessageList` — Scrollable list of bubbles with auto-scroll
+     - `DecisionChatPanel` — Container composing list + input + approve/reject buttons
+
+  ### Component Hierarchy After Integration
+
+  ```
+  ControlCenterDrawer (pass featureId + reviewContext down)
+  ├── TechReviewTabs (replace DrawerActionBar with DecisionChatPanel)
+  │   ├── Tabs (Product | Technical)
+  │   └── DecisionChatPanel (reviewType='tech', featureId, reviewContext)
+  │       ├── ChatMessageList
+  │       │   └── ChatMessageBubble × N (uses markdownComponents)
+  │       ├── Input + Send button
+  │       └── Approve + Reject buttons
+  └── PrdQuestionnaire (replace DrawerActionBar with DecisionChatPanel)
+      ├── Question cards + navigation
+      └── DecisionChatPanel (reviewType='prd', featureId, reviewContext)
+  ```
+
+  ## Key Design Decisions
+
+  ### 1. POST API Route with ReadableStream (not Server Action)
+
+  Next.js server actions serialize their entire return value before sending, making
+  true token-by-token streaming impossible. A POST API route wrapping a `ReadableStream`
+  is the correct pattern — it matches `/api/agent-events` and `/api/deployment-logs`.
+  The route uses `AgentExecutionStreamEvent` objects (type: 'progress' | 'result' |
+  'error') as the streaming protocol, encoded as newline-delimited JSON.
+
+  ### 2. Custom useDecisionChat Hook (not Vercel AI SDK)
+
+  The Vercel AI SDK (`useChat`) would add a new runtime dependency (violating NFR-8)
+  and assumes a specific API contract incompatible with `IAgentExecutor`. A custom hook
+  is lightweight, follows existing patterns (`useDeploymentLogs`), and directly
+  integrates with the project's streaming protocol.
+
+  ### 3. Replace DrawerActionBar (not Modify It)
+
+  DrawerActionBar is used by 4+ components (TechReviewTabs, PrdQuestionnaire,
+  TechDecisionsReview, MergeReview). Modifying it to support chat would break SRP
+  and risk regressions. Instead, `DecisionChatPanel` is a new component that subsumes
+  DrawerActionBar's responsibilities (input + approve/reject) and adds chat capabilities.
+  Callers that don't need chat continue using DrawerActionBar unchanged.
+
+  ### 4. Stateless Server, Full History in Each Request
+
+  Each POST includes the complete message history array. The API route builds the
+  prompt from this history plus the system prompt. No server-side session management
+  needed. This matches how existing server actions work (stateless with all context
+  in the payload) and keeps the implementation simple.
+
+  ### 5. Reuse markdownComponents from TechDecisionsReview
+
+  The existing `markdownComponents` map in `tech-decisions-review.tsx` (lines 16-50)
+  provides styled markdown rendering with secure link handling. Extract it to a shared
+  utility and reuse in ChatMessageBubble for consistent styling across the review UI.
+
+  ## Implementation Strategy
+
+  The three phases build bottom-up:
+
+  **Phase 1 (Hook & API Route)** establishes the streaming data flow. The API route
+  is tested with integration tests mocking `IAgentExecutorProvider`. The hook is tested
+  with unit tests using `fetch` mocks and `ReadableStream` simulation. This phase
+  produces the core infrastructure that the UI depends on.
+
+  **Phase 2 (UI Components)** builds the visual layer from atoms up: bubble, then
+  list, then panel. Each component is purely presentational (receives props, renders
+  UI) and can be storied independently. The panel composes the others and connects to
+  the `useDecisionChat` hook.
+
+  **Phase 3 (Integration)** wires everything together by replacing `DrawerActionBar`
+  in `TechReviewTabs` and `PrdQuestionnaire` with `DecisionChatPanel`, threading
+  `featureId` and review data through the component hierarchy. The existing
+  approve/reject callbacks are passed through unchanged.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | DrawerActionBar replacement breaks existing approve/reject | DecisionChatPanel accepts the same onApprove/onReject callback signatures; integration tests verify approve/reject still work |
+  | Streaming response parsing errors corrupt chat state | The useDecisionChat hook validates each parsed chunk has a 'type' field before processing; malformed chunks are logged and skipped |
+  | PrdQuestionnaire progress bar child breaks with DecisionChatPanel | DecisionChatPanel accepts children prop (same as DrawerActionBar) so the progress bar renders identically |
+  | Agent executor unavailable (no DI container in dev mode) | API route returns 500 with a clear error message; useDecisionChat surfaces this as a system error message in the chat |
+  | Large conversation history exceeds agent prompt limits | Unlikely for review conversations (5-20 messages), but the API route can add a message count guard and truncate oldest messages if needed |
+  | Bundle size regression from new components | No new dependencies; components use existing shadcn/ui and react-markdown; estimated < 5KB gzipped additional code |
