@@ -12,7 +12,7 @@ summary: >
   the Next.js route resolution, DI container initialization in the web context, or potential
   mismatch between the frontend request and the backend route structure.
 
-phase: Analysis
+phase: Requirements
 sizeEstimate: S
 
 relatedFeatures:
@@ -27,9 +27,59 @@ technologies:
 relatedLinks: []
 
 openQuestions:
-  - "Is the DI container being properly initialized before API routes are called?"
-  - "Is there a middleware or configuration that might intercept /api/tools/[id]/install requests?"
-  - "Does the 404 occur in dev mode, production mode, or both?"
+  - question: "Is the DI container being properly initialized before API routes are called?"
+    resolved: true
+    options:
+      - option: "Container initialization issue"
+        description: "The globalThis.__shepContainer may not be set when API routes execute, causing the resolve() call to throw before the route can respond."
+        selected: true
+      - option: "Container is properly initialized"
+        description: "Container initialization is confirmed working and the issue lies elsewhere."
+        selected: false
+    selectionRationale: "Based on code analysis, the dev-server.ts initializes the container and sets globalThis.__shepContainer. However, the 404 suggests the route handler itself is not being invoked at all, which points to route discovery rather than container issues. Investigation should verify container availability first as a baseline check."
+    answer: "Container initialization issue"
+
+  - question: "Is there a middleware or configuration that might intercept /api/tools/[id]/install requests?"
+    resolved: true
+    options:
+      - option: "No middleware interference"
+        description: "No middleware.ts file exists in the web app. Next.js App Router processes the dynamic route directly."
+        selected: true
+      - option: "Middleware is blocking requests"
+        description: "A middleware file intercepts and blocks requests to the API route."
+        selected: false
+    selectionRationale: "Glob search confirmed no middleware.ts file exists in src/presentation/web/. The instrumentation.ts is a no-op. Route blocking by middleware is ruled out."
+    answer: "No middleware interference"
+
+  - question: "Does the 404 occur in dev mode, production mode, or both?"
+    resolved: true
+    options:
+      - option: "Dev mode (Turbopack)"
+        description: "The issue occurs specifically in development mode using Turbopack, which has known issues with dynamic imports from external packages."
+        selected: true
+      - option: "Production mode only"
+        description: "The issue only manifests in production builds."
+        selected: false
+      - option: "Both modes"
+        description: "The issue occurs in both development and production environments."
+        selected: false
+    selectionRationale: "Given the codebase comments about Turbopack not being able to bundle tsyringe/reflect-metadata and the need for string tokens instead of class refs, Turbopack-specific dynamic route resolution is the most likely culprit. The sibling launch route uses identical patterns, so testing both routes will confirm if this is route-specific or systemic."
+    answer: "Dev mode (Turbopack)"
+
+  - question: "What debugging approach should be used to identify the root cause?"
+    resolved: true
+    options:
+      - option: "Add logging to route handler"
+        description: "Add console.log statements at the start of the POST handler to verify if the route is being invoked at all. If logs appear, the route is discovered but fails internally. If no logs, the route is not being resolved by Next.js."
+        selected: true
+      - option: "Check Next.js build output"
+        description: "Examine .next directory to verify route compilation and registration."
+        selected: false
+      - option: "Test with curl directly"
+        description: "Use curl to call the endpoint and inspect raw responses, bypassing frontend behavior."
+        selected: false
+    selectionRationale: "Adding logging to the route handler is the fastest way to distinguish between route discovery failure (404 from Next.js before handler runs) vs. handler execution failure (404 returned by handler code). This should be the first diagnostic step."
+    answer: "Add logging to route handler"
 
 content: |
   ## Problem Statement
@@ -38,94 +88,46 @@ content: |
   `/api/tools/zed/install` endpoint. Users clicking the "Install" button on tool cards
   receive an error response instead of triggering tool installation.
 
-  ## Codebase Analysis
+  The route file exists at `src/presentation/web/app/api/tools/[id]/install/route.ts`, exports
+  a properly-typed `POST` handler, and the DI container has the required `InstallToolUseCase`
+  registered with both class and string tokens. The sibling `/api/tools/[id]/launch` route
+  uses identical patterns.
 
-  ### Project Structure
+  ## Success Criteria
 
-  The project follows Clean Architecture with clear separation of concerns:
+  - [ ] POST /api/tools/zed/install returns 200 with installation status (not 404)
+  - [ ] POST /api/tools/[id]/install works for all tools in TOOL_METADATA
+  - [ ] Tool installation can be triggered from the web UI tool cards
+  - [ ] Diagnostic logging confirms route handler is invoked
+  - [ ] Root cause is documented for future reference
+  - [ ] Fix does not break the existing launch endpoint
+  - [ ] Unit tests pass for the API route
+  - [ ] Integration test confirms end-to-end tool installation flow
 
-  ```
-  packages/core/src/
-  ├── domain/              # Business logic, no external deps
-  ├── application/         # Use cases, port interfaces
-  │   └── use-cases/tools/ # InstallToolUseCase, ListToolsUseCase, etc.
-  ├── infrastructure/      # Services, repositories, DI
-  │   ├── di/container.ts  # tsyringe DI configuration
-  │   └── services/tool-installer/ # Tool installation service
-  └── presentation/        # CLI, TUI (not web)
+  ## Functional Requirements
 
-  src/presentation/web/
-  ├── app/api/tools/       # Next.js API routes
-  │   ├── route.ts         # GET /api/tools
-  │   └── [id]/
-  │       ├── install/route.ts  # POST /api/tools/[id]/install
-  │       └── launch/route.ts   # POST /api/tools/[id]/launch
-  ├── components/features/tools/ # Tool management UI components
-  └── lib/server-container.ts    # DI container accessor for API routes
-  ```
+  - **FR-1**: The POST /api/tools/[id]/install endpoint must accept a tool ID as a dynamic route parameter and return JSON with the installation status.
+  - **FR-2**: The endpoint must validate that the requested tool ID exists in TOOL_METADATA and return 404 with `{error: 'Tool not found'}` for unknown tools.
+  - **FR-3**: The endpoint must resolve InstallToolUseCase from the DI container using the string token 'InstallToolUseCase' and invoke its execute() method.
+  - **FR-4**: The endpoint must return 500 with an error message if the use case execution fails.
+  - **FR-5**: The endpoint must be discoverable by Next.js App Router as a dynamic API route.
 
-  ### Architecture Patterns
+  ## Non-Functional Requirements
 
-  1. **Clean Architecture**: Four layers with dependencies pointing inward
-  2. **Use Case Pattern**: Single-responsibility classes wrapping service calls
-  3. **Port/Adapter Pattern**: Interfaces in application layer, implementations in infrastructure
-  4. **DI Container**: tsyringe with two-step registration (class token + string alias for web routes)
+  - **NFR-1**: Response time for the endpoint health check (excluding actual installation) must be under 200ms.
+  - **NFR-2**: The fix must not require changes to the DI container registration patterns used by other API routes.
+  - **NFR-3**: The solution must work in both development (Turbopack) and production (webpack) modes.
+  - **NFR-4**: Error responses must follow the existing JSON error format `{error: string}` for consistency with other API routes.
+  - **NFR-5**: The fix must be minimal and targeted — no refactoring of working code.
 
-  ### Relevant Technologies
+  ## Product Questions & AI Recommendations
 
-  - **Next.js 14 App Router**: Dynamic API routes using `[id]` folder pattern
-  - **tsyringe**: DI container with `@injectable()` and `@inject()` decorators
-  - **React**: Frontend components using `fetch()` to call API endpoints
-  - **TypeScript**: Strict typing throughout
-
-  ## Current Implementation Analysis
-
-  ### API Route (Exists)
-
-  File: `src/presentation/web/app/api/tools/[id]/install/route.ts`
-
-  The route handler exists and:
-  - Exports a `POST` handler function
-  - Extracts the `id` param from the dynamic route
-  - Validates tool ID against `TOOL_METADATA`
-  - Resolves `InstallToolUseCase` via string token
-  - Returns JSON responses with appropriate status codes
-
-  ### Use Case (Exists)
-
-  File: `packages/core/src/application/use-cases/tools/install-tool.use-case.ts`
-
-  The use case:
-  - Uses `@injectable()` decorator
-  - Injects `IToolInstallerService` via `@inject('IToolInstallerService')`
-  - Delegates to `executeInstall()` method on the service
-
-  ### DI Registration (Exists)
-
-  File: `packages/core/src/infrastructure/di/container.ts`
-
-  Both registrations are present:
-  - `container.registerSingleton(InstallToolUseCase)` (class token)
-  - `container.register('InstallToolUseCase', { useFactory: (c) => c.resolve(InstallToolUseCase) })` (string alias)
-
-  ### Frontend Call (Correct)
-
-  File: `src/presentation/web/components/features/tools/tool-card.tsx:50`
-
-  The frontend correctly calls: `fetch(\`/api/tools/\${tool.id}/install\`, { method: 'POST' })`
-
-  ## Potential Root Causes
-
-  1. **DI Container Not Initialized**: The `server-container.ts` throws an error if the container
-     isn't available on `globalThis.__shepContainer`. This must be set by CLI bootstrap or dev-server.
-
-  2. **Route Discovery Issue**: Next.js might not be discovering the route if there's a build/cache
-     issue or if the route file has syntax errors preventing compilation.
-
-  3. **HTTP Method Mismatch**: Though unlikely, confirm the route exports `POST` and the client uses `POST`.
-
-  4. **Module Resolution**: The route imports from `@shepai/core` which requires proper TypeScript
-     path resolution in the Next.js context.
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Is the DI container properly initialized? | Container initialization issue | Dev-server sets globalThis.__shepContainer but 404 suggests route isn't invoked at all |
+  | 2 | Is middleware blocking requests? | No middleware interference | No middleware.ts file exists in the web app |
+  | 3 | Which environment has the issue? | Dev mode (Turbopack) | Known Turbopack limitations with dynamic imports match the symptoms |
+  | 4 | What debugging approach first? | Add logging to route handler | Fastest way to distinguish route discovery vs. handler execution failure |
 
   ## Affected Areas
 
@@ -134,8 +136,9 @@ content: |
   | `src/presentation/web/app/api/tools/[id]/install/route.ts` | High | Main API route being debugged |
   | `src/presentation/web/lib/server-container.ts` | High | DI container access for API routes |
   | `packages/core/src/infrastructure/di/container.ts` | Medium | DI registrations must be correct |
-  | `src/presentation/web/instrumentation.ts` | Medium | May handle container initialization |
+  | `src/presentation/web/instrumentation.ts` | Low | Currently a no-op, confirmed not blocking |
   | `src/presentation/web/components/features/tools/tool-card.tsx` | Low | Frontend caller, appears correct |
+  | `src/presentation/web/app/api/tools/[id]/launch/route.ts` | Medium | Sibling route for comparison testing |
 
   ## Dependencies
 
@@ -143,20 +146,13 @@ content: |
   - `TOOL_METADATA` from `@shepai/core/infrastructure/services/tool-installer/tool-metadata`
   - `IToolInstallerService` implementation registered in DI container
   - Next.js App Router dynamic route support
+  - globalThis.__shepContainer initialization by dev-server.ts or CLI bootstrap
 
   ## Size Estimate
 
   **S** — The infrastructure appears complete; this is likely a configuration or initialization
   issue rather than missing implementation. Investigation and fix should be straightforward once
-  the root cause is identified.
-
-  ## Success Criteria
-
-  - [ ] POST /api/tools/zed/install returns 200 with installation status (not 404)
-  - [ ] POST /api/tools/[id]/install works for all tools in TOOL_METADATA
-  - [ ] Tool installation can be triggered from the web UI tool cards
-  - [ ] Unit tests pass for the API route
-  - [ ] Integration test confirms end-to-end tool installation flow
+  the root cause is identified through diagnostic logging.
 
   ---
 
