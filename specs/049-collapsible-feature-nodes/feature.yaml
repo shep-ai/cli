@@ -1,0 +1,40 @@
+feature:
+  id: 049-collapsible-feature-nodes
+  name: collapsible-feature-nodes
+  number: 49
+  branch: feat/049-collapsible-feature-nodes
+  lifecycle: research
+  createdAt: '2026-03-02T05:42:22Z'
+status:
+  phase: implementation-complete
+  progress:
+    completed: 12
+    total: 12
+    percentage: 100
+  currentTask: null
+  lastUpdated: '2026-03-02T14:53:11.117Z'
+  lastUpdatedBy: feature-agent:implement
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+    - plan
+    - phase-1
+    - phase-2
+    - phase-3
+    - phase-4
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-03-02T05:42:22Z'
+    completedBy: feature-agent
+errors:
+  current: null
+  history: []

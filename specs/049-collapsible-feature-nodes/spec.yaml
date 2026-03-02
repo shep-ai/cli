@@ -1,58 +1,54 @@
-# Feature Specification (YAML)
-# This is the source of truth. Markdown is auto-generated from this file.
-
 name: collapsible-feature-nodes
-number: 049
+number: 49
 branch: feat/049-collapsible-feature-nodes
 oneLiner: Allow parent feature nodes to collapse/expand their child nodes on the canvas
-userQuery: >
+userQuery: |
   Feature: Collapsable/Stackable feature nodes
 summary: >
   Add collapse/expand behavior to feature nodes that have children (via parentId
-  dependency edges). When a parent node is collapsed, its child nodes and connecting
-  dependency edges are hidden from the canvas and the parent displays a stacked
-  visual indicator showing the count of hidden children. The layout algorithm
-  recalculates positions when nodes are collapsed or expanded. Collapsed children
-  remain accessible in the sidebar feature list. State is ephemeral (resets on
-  page reload). The collapse toggle is a chevron button on the node, consistent
-  with existing Radix UI accordion patterns.
+  dependency edges). When a parent node is collapsed, its child nodes and
+  connecting dependency edges are hidden from the canvas and the parent displays
+  a stacked visual indicator showing the count of hidden children. The layout
+  algorithm recalculates positions when nodes are collapsed or expanded.
+  Collapsed children remain accessible in the sidebar feature list. State is
+  ephemeral (resets on page reload). The collapse toggle is a chevron button on
+  the node, consistent with existing Radix UI accordion patterns.
 phase: Requirements
 sizeEstimate: M
-
-# Relationships
 relatedFeatures: []
-
 technologies:
-  - "@xyflow/react v12 (React Flow)"
-  - "@dagrejs/dagre (graph layout)"
-  - "React (useState, useCallback, useMemo)"
-  - "Tailwind CSS (styling and animations)"
-  - "Radix UI (existing accordion/collapse patterns)"
-  - "Lucide React (icons — ChevronDown, ChevronRight)"
-  - "Vitest + React Testing Library (unit tests)"
-  - "Storybook (component documentation)"
-
+  - '@xyflow/react v12 (React Flow)'
+  - '@dagrejs/dagre (graph layout)'
+  - React (useState, useCallback, useMemo)
+  - Tailwind CSS (styling and animations)
+  - Radix UI (existing accordion/collapse patterns)
+  - Lucide React (icons — ChevronDown, ChevronRight)
+  - Vitest + React Testing Library (unit tests)
+  - Storybook (component documentation)
 relatedLinks: []
-
 openQuestions:
-  - question: "Should collapse state persist across page reloads (localStorage) or be ephemeral?"
-    context: "Currently no per-node UI state is persisted client-side. The control center state hook manages nodes/edges in React state only."
+  - question: >-
+      Should collapse state persist across page reloads (localStorage) or be
+      ephemeral?
+    context: >-
+      Currently no per-node UI state is persisted client-side. The control
+      center state hook manages nodes/edges in React state only.
     resolved: true
     options:
-      - option: "Ephemeral (in-memory only)"
+      - option: Ephemeral (in-memory only)
         description: >
           Collapse state resets on page reload. Simplest to implement — just a
           Set<string> in the useControlCenterState hook. No localStorage, no
           serialization edge cases, no stale-state bugs. Consistent with how
           node positions are currently handled (recomputed on load).
-        selected: true
-      - option: "Persist in localStorage"
+        selected: false
+      - option: Persist in localStorage
         description: >
           Collapse state survives page reloads. Requires serialization logic,
           migration handling if node IDs change, and cleanup when features are
           deleted. Adds complexity for a modest UX gain.
-        selected: false
-      - option: "Persist in URL search params"
+        selected: true
+      - option: Persist in URL search params
         description: >
           Collapse state encoded in URL, making it shareable. Adds URL
           complexity and length limits. Overkill for this use case.
@@ -65,30 +61,34 @@ openQuestions:
       migration concerns — all for a feature where users typically want to see
       the full graph on fresh page loads. Persistence can be added later as a
       follow-up if user feedback indicates demand.
-    answer: "Ephemeral (in-memory only)"
-
-  - question: "Should the stacked visual show child count only, or also a mini summary (e.g. '3 running, 1 done')?"
-    context: "Determines complexity of the collapsed node indicator. More detail helps users decide whether to expand, but adds visual noise and implementation complexity."
+    answer: Persist in localStorage
+  - question: >-
+      Should the stacked visual show child count only, or also a mini summary
+      (e.g. '3 running, 1 done')?
+    context: >-
+      Determines complexity of the collapsed node indicator. More detail helps
+      users decide whether to expand, but adds visual noise and implementation
+      complexity.
     resolved: true
     options:
-      - option: "Count only"
+      - option: Count only
         description: >
           Display a simple badge like '+3' on the stacked indicator. Minimal
           visual noise, fast to scan. Users who need details can expand the
           node. Simple to implement — just count children from edges.
         selected: true
-      - option: "Count with status summary"
+      - option: Count with status summary
         description: >
           Display something like '3 children: 2 running, 1 done'. Richer
           information at a glance, but requires aggregating child states,
           updating on SSE events, and fitting more text in a compact space.
           Increases node width or requires tooltips.
         selected: false
-      - option: "Mini status dots"
+      - option: Mini status dots
         description: >
           Show small colored dots representing each child's state (green for
-          done, blue for running, etc.). Compact and visual, but harder to
-          read at a glance and requires color-blind accessible design.
+          done, blue for running, etc.). Compact and visual, but harder to read
+          at a glance and requires color-blind accessible design.
         selected: false
     selectionRationale: >
       Count-only is recommended because it keeps the collapsed node compact and
@@ -99,28 +99,32 @@ openQuestions:
       implementation complexity (subscribe to child state changes, recompute
       summaries) for marginal UX gain in this first iteration. Status dots or
       summaries can be added as a fast follow-up.
-    answer: "Count only"
-
-  - question: "Should collapsed nodes be searchable/selectable from the sidebar feature list?"
-    context: "The sidebar syncs features via SidebarFeaturesContext. Currently, features in 'creating' state are excluded. Collapsing is a UI-only canvas concern, not a data concern."
+    answer: Count only
+  - question: >-
+      Should collapsed nodes be searchable/selectable from the sidebar feature
+      list?
+    context: >-
+      The sidebar syncs features via SidebarFeaturesContext. Currently, features
+      in 'creating' state are excluded. Collapsing is a UI-only canvas concern,
+      not a data concern.
     resolved: true
     options:
-      - option: "Always visible in sidebar"
+      - option: Always visible in sidebar
         description: >
           Collapsed children remain in the sidebar list at all times. Sidebar
-          reflects the data model, not the canvas view state. Users can find
-          and interact with any feature regardless of canvas collapse state.
-          Clicking a collapsed child in the sidebar could auto-expand its
-          parent on the canvas.
+          reflects the data model, not the canvas view state. Users can find and
+          interact with any feature regardless of canvas collapse state.
+          Clicking a collapsed child in the sidebar could auto-expand its parent
+          on the canvas.
         selected: true
-      - option: "Hidden from sidebar when collapsed"
+      - option: Hidden from sidebar when collapsed
         description: >
           Sidebar mirrors canvas visibility — collapsed children disappear from
           the sidebar. Creates a consistent 'hidden' metaphor but makes it
-          harder to find features. Users must remember to expand parents to
-          find children.
+          harder to find features. Users must remember to expand parents to find
+          children.
         selected: false
-      - option: "Visible but dimmed in sidebar"
+      - option: Visible but dimmed in sidebar
         description: >
           Collapsed children appear in sidebar with reduced opacity. Signals
           they are collapsed on the canvas without hiding them entirely. Adds
@@ -133,15 +137,20 @@ openQuestions:
       users who don't realize collapsing affects the sidebar. The existing
       pattern already excludes only 'creating' (optimistic) features — a
       transient data state, not a UI state. Keeping all features visible in the
-      sidebar means the sidebar remains a reliable navigation tool regardless
-      of canvas collapse state.
-    answer: "Always visible in sidebar"
-
-  - question: "What is the interaction to toggle collapse — click a chevron on the node, double-click, or a context menu?"
-    context: "The node currently has a Settings (gear) button always visible in the top-right, a Delete (trash) button on hover to the left, and an Action (+) button on hover at the bottom handle. A collapse toggle needs a clear, discoverable affordance."
+      sidebar means the sidebar remains a reliable navigation tool regardless of
+      canvas collapse state.
+    answer: Always visible in sidebar
+  - question: >-
+      What is the interaction to toggle collapse — click a chevron on the node,
+      double-click, or a context menu?
+    context: >-
+      The node currently has a Settings (gear) button always visible in the
+      top-right, a Delete (trash) button on hover to the left, and an Action (+)
+      button on hover at the bottom handle. A collapse toggle needs a clear,
+      discoverable affordance.
     resolved: true
     options:
-      - option: "Chevron button on node"
+      - option: Chevron button on node
         description: >
           Add a dedicated chevron icon button (ChevronDown/ChevronRight) to the
           node, always visible when the node has children. Follows the existing
@@ -149,21 +158,21 @@ openQuestions:
           discoverable, accessible via keyboard, and familiar to users. Can be
           placed in the top-left area of the node header.
         selected: true
-      - option: "Double-click node"
+      - option: Double-click node
         description: >
           Double-clicking the node toggles collapse. No visible UI affordance
           needed. However, double-click is not discoverable — users won't know
           the feature exists without documentation. Also conflicts with
           potential future double-click interactions (e.g. open detail view).
         selected: false
-      - option: "Context menu option"
+      - option: Context menu option
         description: >
           Right-click context menu with 'Collapse children' / 'Expand children'
           option. Keeps the node UI clean but hides the feature behind a
-          right-click that many users never try. Requires implementing a
-          context menu system that doesn't exist yet.
+          right-click that many users never try. Requires implementing a context
+          menu system that doesn't exist yet.
         selected: false
-      - option: "Hover-revealed toggle button"
+      - option: Hover-revealed toggle button
         description: >
           Similar to the existing delete button pattern — show collapse toggle
           on hover only. Keeps the node clean when not hovered, but makes the
@@ -179,42 +188,46 @@ openQuestions:
       node header gives it clear visual hierarchy. It's also keyboard-accessible
       and can have a tooltip for additional clarity. The existing Settings
       button provides precedent for always-visible buttons on nodes.
-    answer: "Chevron button on node"
-
-  - question: "Should collapsing a node also recursively collapse its grandchildren?"
-    context: "A feature tree can be multiple levels deep (parent → child → grandchild). When collapsing a parent, grandchildren could either be individually managed or automatically included."
+    answer: Chevron button on node
+  - question: Should collapsing a node also recursively collapse its grandchildren?
+    context: >-
+      A feature tree can be multiple levels deep (parent → child → grandchild).
+      When collapsing a parent, grandchildren could either be individually
+      managed or automatically included.
     resolved: true
     options:
-      - option: "Recursive collapse (hide entire subtree)"
+      - option: Recursive collapse (hide entire subtree)
         description: >
           Collapsing a parent hides all descendants — children, grandchildren,
           etc. The child count badge shows the total descendant count. Simpler
           mental model: 'collapse' means 'hide everything below'. Prevents
           confusing partial-visibility states.
         selected: true
-      - option: "Single-level collapse only"
+      - option: Single-level collapse only
         description: >
-          Collapsing hides only direct children. Grandchildren remain visible
-          if their immediate parent is not collapsed. Allows fine-grained
-          control but creates confusing states where deeply nested nodes float
-          without visible parents.
+          Collapsing hides only direct children. Grandchildren remain visible if
+          their immediate parent is not collapsed. Allows fine-grained control
+          but creates confusing states where deeply nested nodes float without
+          visible parents.
         selected: false
     selectionRationale: >
       Recursive collapse is recommended because it provides a cleaner mental
       model — collapsing a parent means 'hide everything below this node'. With
-      single-level collapse, a grandchild could appear on the canvas without
-      its parent visible, creating confusing orphan nodes. Recursive collapse
-      is also simpler to implement (walk the subtree from dependency edges) and
+      single-level collapse, a grandchild could appear on the canvas without its
+      parent visible, creating confusing orphan nodes. Recursive collapse is
+      also simpler to implement (walk the subtree from dependency edges) and
       matches how file tree collapse works in IDEs, which users are familiar
       with. The badge count shows total hidden descendants, giving users a
       complete picture.
-    answer: "Recursive collapse (hide entire subtree)"
-
-  - question: "What animation should accompany the collapse/expand transition?"
-    context: "The codebase already has accordion animations (0.2s ease-out) and uses transition-opacity for hover reveals. React Flow nodes can animate position changes."
+    answer: Recursive collapse (hide entire subtree)
+  - question: What animation should accompany the collapse/expand transition?
+    context: >-
+      The codebase already has accordion animations (0.2s ease-out) and uses
+      transition-opacity for hover reveals. React Flow nodes can animate
+      position changes.
     resolved: true
     options:
-      - option: "Chevron rotation only (no node animation)"
+      - option: Chevron rotation only (no node animation)
         description: >
           Animate only the chevron icon rotation (200ms, matching existing
           accordion pattern). Nodes appear/disappear instantly, Dagre re-layout
@@ -222,14 +235,14 @@ openQuestions:
           node animation. Layout recalculation is fast enough that the snap
           feels responsive.
         selected: true
-      - option: "Fade in/out with layout transition"
+      - option: Fade in/out with layout transition
         description: >
           Child nodes fade out (opacity 0→1) and positions animate smoothly to
           new Dagre layout. Visually polished but requires coordinating React
-          Flow node animations with Dagre re-layout timing, which is complex
-          and can cause jank with many nodes.
+          Flow node animations with Dagre re-layout timing, which is complex and
+          can cause jank with many nodes.
         selected: false
-      - option: "Slide and collapse animation"
+      - option: Slide and collapse animation
         description: >
           Child nodes slide toward the parent and shrink before disappearing.
           Most visually impressive but extremely complex to implement with React
@@ -244,39 +257,73 @@ openQuestions:
       sufficient visual feedback that the state changed. More elaborate
       animations can be explored later but risk introducing jank, especially
       with large graphs, and significantly increase implementation scope.
-    answer: "Chevron rotation only (no node animation)"
-
-content: |
+    answer: Chevron rotation only (no node animation)
+content: >
   ## Problem Statement
 
+
   When a repository has many features — especially with parent-child hierarchies
+
   created via the "add feature to feature" flow — the canvas becomes cluttered.
+
   Users lose overview because every feature node is always visible regardless of
-  its relevance. There is no way to group or minimize completed or child features
+
+  its relevance. There is no way to group or minimize completed or child
+  features
+
   to focus on what matters.
 
+
   Collapsible/stackable feature nodes solve this by letting users collapse a
+
   parent feature node so its children are hidden, replaced by a compact stacked
+
   indicator. Expanding restores the full subtree.
+
 
   ## Success Criteria
 
-  - [ ] Parent feature nodes with children display a collapse/expand chevron button
-  - [ ] Clicking the chevron collapses the node, hiding all descendant nodes and their edges from the canvas
-  - [ ] Collapsed parent nodes display a stacked visual indicator with a child count badge (e.g. '+3')
-  - [ ] Clicking the chevron on a collapsed node expands it, restoring all descendant nodes and edges
-  - [ ] Dagre layout recalculates positions after collapse/expand, preventing gaps or overlaps
+
+  - [ ] Parent feature nodes with children display a collapse/expand chevron
+  button
+
+  - [ ] Clicking the chevron collapses the node, hiding all descendant nodes and
+  their edges from the canvas
+
+  - [ ] Collapsed parent nodes display a stacked visual indicator with a child
+  count badge (e.g. '+3')
+
+  - [ ] Clicking the chevron on a collapsed node expands it, restoring all
+  descendant nodes and edges
+
+  - [ ] Dagre layout recalculates positions after collapse/expand, preventing
+  gaps or overlaps
+
   - [ ] Feature nodes without children do NOT display a collapse toggle
-  - [ ] Collapsed children remain visible and interactable in the sidebar feature list
+
+  - [ ] Collapsed children remain visible and interactable in the sidebar
+  feature list
+
   - [ ] Collapse state is ephemeral (resets on page reload)
-  - [ ] Collapsing is recursive — hiding a parent hides the entire subtree (children, grandchildren, etc.)
-  - [ ] All new UI elements have Storybook stories covering collapsed and expanded states
-  - [ ] Unit tests cover collapse toggle rendering, state management, node/edge filtering, and layout recalculation
-  - [ ] No regressions to existing node interactions (Settings, Delete, Add Child, drag, select)
+
+  - [ ] Collapsing is recursive — hiding a parent hides the entire subtree
+  (children, grandchildren, etc.)
+
+  - [ ] All new UI elements have Storybook stories covering collapsed and
+  expanded states
+
+  - [ ] Unit tests cover collapse toggle rendering, state management, node/edge
+  filtering, and layout recalculation
+
+  - [ ] No regressions to existing node interactions (Settings, Delete, Add
+  Child, drag, select)
+
 
   ## Functional Requirements
 
-  - **FR-1: Collapse toggle button** — Feature nodes that have at least one child
+
+  - **FR-1: Collapse toggle button** — Feature nodes that have at least one
+  child
     (determined by outgoing `dep-*` edges) MUST display a chevron button in the
     node header area. The chevron points down when expanded and right when
     collapsed, using a 200ms rotation transition matching the existing accordion
@@ -288,18 +335,21 @@ content: |
     hidden nodes MUST also be removed. This includes `dep-*` dependency edges and
     `edge-*` repo-to-feature edges for hidden child nodes.
 
-  - **FR-3: Stacked visual indicator** — When a parent node is collapsed, the node
+  - **FR-3: Stacked visual indicator** — When a parent node is collapsed, the
+  node
     MUST display a stacked/layered visual effect behind it (e.g. offset shadow
     layers or stacked card edges) and a badge showing the total count of hidden
     descendants (e.g. '+3'). The stacked visual MUST be implemented using CSS
     (pseudo-elements or additional divs), not additional React Flow nodes.
 
-  - **FR-4: Expand restores subtree** — Clicking the chevron on a collapsed parent
+  - **FR-4: Expand restores subtree** — Clicking the chevron on a collapsed
+  parent
     MUST restore all previously hidden descendant nodes and edges to the canvas.
     The expanded state MUST be identical to the state before collapsing (same
     nodes, same edges, same data).
 
-  - **FR-5: Layout recalculation** — After any collapse or expand action, the Dagre
+  - **FR-5: Layout recalculation** — After any collapse or expand action, the
+  Dagre
     layout algorithm MUST be re-invoked with only the visible nodes and edges.
     The layout MUST produce a clean graph without gaps where hidden nodes were.
     Disconnected nodes MUST continue to be placed below the main graph per the
@@ -311,13 +361,15 @@ content: |
     node enrichment to the FeatureNode component. The collapse state MUST be
     ephemeral (not persisted to localStorage or URL).
 
-  - **FR-7: FeatureNodeData extension** — The `FeatureNodeData` interface MUST be
+  - **FR-7: FeatureNodeData extension** — The `FeatureNodeData` interface MUST
+  be
     extended with the following optional fields: `isCollapsed?: boolean`,
     `childCount?: number`, `onToggleCollapse?: () => void`. All new fields MUST
     have sensible defaults (false, 0, undefined) to maintain backward
     compatibility.
 
-  - **FR-8: Sidebar independence** — The sidebar feature list MUST NOT be affected
+  - **FR-8: Sidebar independence** — The sidebar feature list MUST NOT be
+  affected
     by canvas collapse state. All features (including children of collapsed nodes)
     MUST remain visible and interactable in the sidebar. The
     `SidebarFeaturesContext` MUST NOT filter based on collapse state.
@@ -334,69 +386,136 @@ content: |
 
   ## Non-Functional Requirements
 
-  - **NFR-1: Performance** — Collapse/expand toggle MUST complete within 100ms for
+
+  - **NFR-1: Performance** — Collapse/expand toggle MUST complete within 100ms
+  for
     graphs with up to 50 feature nodes. The Dagre re-layout is already fast for
     this scale; the additional filtering step must not introduce perceptible delay.
 
-  - **NFR-2: Accessibility** — The collapse toggle button MUST be keyboard-focusable
+  - **NFR-2: Accessibility** — The collapse toggle button MUST be
+  keyboard-focusable
     and operable via Enter/Space. It MUST have an `aria-expanded` attribute
     reflecting the current state and an `aria-label` describing the action (e.g.
     'Collapse child features' / 'Expand child features').
 
-  - **NFR-3: Visual consistency** — The collapse chevron MUST use Lucide React icons
+  - **NFR-3: Visual consistency** — The collapse chevron MUST use Lucide React
+  icons
     (ChevronDown/ChevronRight) at the same size as existing node icons (h-3.5
     w-3.5). The stacked visual and badge MUST use existing Tailwind color tokens
     and utility classes. No custom CSS files; all styling via Tailwind utilities.
 
-  - **NFR-4: No existing interaction regressions** — Collapsing/expanding MUST NOT
+  - **NFR-4: No existing interaction regressions** — Collapsing/expanding MUST
+  NOT
     interfere with existing node interactions: Settings button click, Delete button
     click, Add Child (+) action, node drag, node selection, and edge drawing. The
     collapse button MUST use the `nodrag` class to prevent drag interference.
 
-  - **NFR-5: Storybook coverage** — New and modified components MUST have Storybook
+  - **NFR-5: Storybook coverage** — New and modified components MUST have
+  Storybook
     stories covering: (a) expanded node with children, (b) collapsed node with
     stacked indicator and child count, (c) node without children (no toggle), (d)
     expand/collapse interaction. Stories MUST use the existing `FeatureNodeCanvas`
     wrapper pattern.
 
-  - **NFR-6: Test coverage** — Unit tests MUST cover: (a) collapse toggle rendering
+  - **NFR-6: Test coverage** — Unit tests MUST cover: (a) collapse toggle
+  rendering
     based on `childCount > 0`, (b) chevron rotation state, (c) stacked visual and
     badge rendering, (d) `toggleCollapse` callback invocation, (e) node/edge
     filtering logic in FeaturesCanvas, (f) layout recalculation after toggle,
     (g) edge cases (delete collapsed child, add child to collapsed parent).
 
-  - **NFR-7: Backward compatibility** — All new fields on `FeatureNodeData` MUST be
+  - **NFR-7: Backward compatibility** — All new fields on `FeatureNodeData` MUST
+  be
     optional with defaults. Existing node data without collapse fields MUST render
     identically to current behavior (no toggle, no stacked visual). The feature
     MUST be inert for nodes without children.
 
   ## Product Questions & AI Recommendations
 
+
   | # | Question | AI Recommendation | Rationale |
+
   | - | -------- | ----------------- | --------- |
-  | 1 | Should collapse state persist across page reloads? | Ephemeral (in-memory only) | No precedent for per-node UI persistence; positions already recompute on load. Persistence adds complexity for marginal gain. |
-  | 2 | Should the stacked visual show child count or status summary? | Count only (e.g. '+3') | Keeps indicator compact and scannable. Status details available by expanding. Avoids child-state aggregation complexity. |
-  | 3 | Should collapsed children be visible in the sidebar? | Always visible | Sidebar is data-oriented, not view-state-dependent. Hiding features from sidebar would impair navigation. |
-  | 4 | What interaction toggles collapse? | Chevron button on node | Highest discoverability, matches existing accordion pattern, keyboard-accessible, familiar affordance. |
-  | 5 | Should collapse be recursive (hide entire subtree)? | Yes, recursive | Cleaner mental model, prevents orphan nodes, matches IDE tree collapse behavior. |
-  | 6 | What animation for collapse/expand? | Chevron rotation only (no node animation) | Consistent with existing instant layout snaps. Complex node animations risk jank and increase scope significantly. |
+
+  | 1 | Should collapse state persist across page reloads? | Ephemeral
+  (in-memory only) | No precedent for per-node UI persistence; positions already
+  recompute on load. Persistence adds complexity for marginal gain. |
+
+  | 2 | Should the stacked visual show child count or status summary? | Count
+  only (e.g. '+3') | Keeps indicator compact and scannable. Status details
+  available by expanding. Avoids child-state aggregation complexity. |
+
+  | 3 | Should collapsed children be visible in the sidebar? | Always visible |
+  Sidebar is data-oriented, not view-state-dependent. Hiding features from
+  sidebar would impair navigation. |
+
+  | 4 | What interaction toggles collapse? | Chevron button on node | Highest
+  discoverability, matches existing accordion pattern, keyboard-accessible,
+  familiar affordance. |
+
+  | 5 | Should collapse be recursive (hide entire subtree)? | Yes, recursive |
+  Cleaner mental model, prevents orphan nodes, matches IDE tree collapse
+  behavior. |
+
+  | 6 | What animation for collapse/expand? | Chevron rotation only (no node
+  animation) | Consistent with existing instant layout snaps. Complex node
+  animations risk jank and increase scope significantly. |
+
 
   ## Affected Areas
 
+
   | Area | Impact | Reasoning |
+
   | ---- | ------ | --------- |
-  | `src/presentation/web/components/common/feature-node/feature-node.tsx` | High | Add collapse/expand chevron button and stacked visual indicator to node UI |
-  | `src/presentation/web/components/common/feature-node/feature-node-state-config.ts` | Medium | Extend FeatureNodeData with `isCollapsed`, `childCount`, and `onToggleCollapse` fields |
-  | `src/presentation/web/components/features/features-canvas/features-canvas.tsx` | High | Filter collapsed descendants from rendered nodes/edges; inject collapse callbacks into enrichedNodes |
-  | `src/presentation/web/components/features/control-center/use-control-center-state.ts` | High | Manage collapse state (collapsed node IDs set); expose toggleCollapse; re-layout on toggle; derive visible nodes/edges |
-  | `src/presentation/web/lib/layout-with-dagre.ts` | Medium | Accept filtered node/edge sets (no code change needed if filtering happens before layout call) |
-  | `src/presentation/web/components/common/feature-node/feature-node.stories.tsx` | Medium | Add stories for collapsed state, stacked indicator, expand/collapse interaction, and no-children state |
-  | `tests/unit/presentation/web/common/feature-node/feature-node.test.tsx` | Medium | Test collapse toggle rendering, child count indicator, click behavior, accessibility attributes |
-  | `tests/unit/presentation/web/features/features-canvas/features-canvas.test.tsx` | Medium | Test node/edge filtering when parent is collapsed |
-  | `tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx` | Medium | Test collapse toggle state management, recursive hiding, and layout recalculation |
-  | `src/presentation/web/hooks/sidebar-features-context.tsx` | None | No changes needed — sidebar remains independent of collapse state |
+
+  | `src/presentation/web/components/common/feature-node/feature-node.tsx` |
+  High | Add collapse/expand chevron button and stacked visual indicator to node
+  UI |
+
+  |
+  `src/presentation/web/components/common/feature-node/feature-node-state-config.ts`
+  | Medium | Extend FeatureNodeData with `isCollapsed`, `childCount`, and
+  `onToggleCollapse` fields |
+
+  |
+  `src/presentation/web/components/features/features-canvas/features-canvas.tsx`
+  | High | Filter collapsed descendants from rendered nodes/edges; inject
+  collapse callbacks into enrichedNodes |
+
+  |
+  `src/presentation/web/components/features/control-center/use-control-center-state.ts`
+  | High | Manage collapse state (collapsed node IDs set); expose
+  toggleCollapse; re-layout on toggle; derive visible nodes/edges |
+
+  | `src/presentation/web/lib/layout-with-dagre.ts` | Medium | Accept filtered
+  node/edge sets (no code change needed if filtering happens before layout call)
+  |
+
+  |
+  `src/presentation/web/components/common/feature-node/feature-node.stories.tsx`
+  | Medium | Add stories for collapsed state, stacked indicator, expand/collapse
+  interaction, and no-children state |
+
+  | `tests/unit/presentation/web/common/feature-node/feature-node.test.tsx` |
+  Medium | Test collapse toggle rendering, child count indicator, click
+  behavior, accessibility attributes |
+
+  |
+  `tests/unit/presentation/web/features/features-canvas/features-canvas.test.tsx`
+  | Medium | Test node/edge filtering when parent is collapsed |
+
+  |
+  `tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx`
+  | Medium | Test collapse toggle state management, recursive hiding, and layout
+  recalculation |
+
+  | `src/presentation/web/hooks/sidebar-features-context.tsx` | None | No
+  changes needed — sidebar remains independent of collapse state |
+
 
   ## Dependencies
+
 
   - **Existing parent-child edge system**: The `dependencyEdge` type and
     `handleAddFeatureToFeature` flow must be stable. Collapse operates on
@@ -416,18 +535,33 @@ content: |
 
   ## Size Estimate
 
+
   **M** — This is a UI-only feature scoped to the presentation/web layer.
+
   The main work is:
-  1. Extending FeatureNodeData and the FeatureNode component (collapse toggle + stacked visual)
-  2. Adding collapse state management to useControlCenterState (Set<string>, toggleCollapse, recursive subtree computation)
-  3. Filtering nodes/edges in FeaturesCanvas before passing to ReactFlow and layout
+
+  1. Extending FeatureNodeData and the FeatureNode component (collapse toggle +
+  stacked visual)
+
+  2. Adding collapse state management to useControlCenterState (Set<string>,
+  toggleCollapse, recursive subtree computation)
+
+  3. Filtering nodes/edges in FeaturesCanvas before passing to ReactFlow and
+  layout
+
   4. Edge cases: auto-expand on child add, graceful handling of child deletion
+
   5. Storybook stories + comprehensive unit tests
 
+
   No domain model changes, no TypeSpec changes, no API changes needed.
+
   All changes are in the React presentation layer with well-defined
+
   component boundaries.
 
+
   ---
+
 
   _Requirements defined — proceed with research_

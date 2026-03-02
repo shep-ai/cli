@@ -1,0 +1,98 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: collapsible-feature-nodes
+summary: Technical analysis for 049-collapsible-feature-nodes
+
+# Relationships
+relatedFeatures: []
+technologies: []
+relatedLinks: []
+
+# Structured technology decisions
+decisions:
+  - title: 'Collapse state persistence'
+    chosen: 'Persist in localStorage'
+    rejected:
+      - 'Ephemeral (in-memory only) — Simplest approach but collapse state resets on every page reload, requiring users to re-collapse nodes each session.'
+      - 'Persist in URL search params — Encodes collapse state in URL for shareability, but adds URL complexity and length limits. Overkill for this use case.'
+    rationale: >
+      localStorage persistence was selected so that users retain their collapse preferences across page
+      reloads without re-collapsing nodes each session. While the codebase has no precedent for per-node
+      UI persistence, the implementation is straightforward (serialize Set<string> to JSON) and provides
+      meaningful UX improvement. Migration concerns are minimal since stale IDs are simply ignored.
+
+  - title: 'Stacked visual indicator content'
+    chosen: 'Count only (e.g. +3)'
+    rejected:
+      - 'Count with status summary (e.g. 3 children: 2 running, 1 done) — Richer information but requires aggregating child states, subscribing to SSE events for hidden nodes, and fitting more text in compact space. Increases complexity for marginal UX gain.'
+      - 'Mini status dots — Compact colored dots per child state. Harder to read at a glance and requires color-blind accessible design. Over-engineered for first iteration.'
+    rationale: >
+      A simple count badge (+3) keeps the collapsed node compact and scannable. The stacked visual
+      primarily signals "there are hidden children" — the exact count provides enough information to
+      decide whether to expand. Status details are available by expanding, which is a single click.
+      Avoids child-state aggregation complexity.
+
+  - title: 'Sidebar behavior for collapsed children'
+    chosen: 'Always visible in sidebar'
+    rejected:
+      - 'Hidden from sidebar when collapsed — Mirrors canvas visibility but makes features hard to find. Users must remember to expand parents to locate children.'
+      - 'Visible but dimmed in sidebar — Shows collapsed children with reduced opacity. Adds visual complexity to sidebar without clear benefit.'
+    rationale: >
+      The sidebar is a data-oriented list of all features, while collapse is a canvas-only visual
+      concern. Hiding features from the sidebar would impair navigation. The existing pattern already
+      excludes only "creating" (optimistic) features — a transient data state, not a UI state. Keeping
+      all features visible means the sidebar remains a reliable navigation tool regardless of canvas
+      collapse state.
+
+  - title: 'Collapse toggle interaction'
+    chosen: 'Chevron button on node'
+    rejected:
+      - 'Double-click node — Not discoverable; users will not know the feature exists without documentation. Also conflicts with potential future double-click interactions.'
+      - 'Context menu option — Hides the feature behind a right-click. Requires implementing a context menu system that does not exist yet.'
+      - 'Hover-revealed toggle button — Similar to existing delete button pattern but less discoverable than an always-visible chevron for this common action.'
+    rationale: >
+      A dedicated chevron button provides the highest discoverability and matches the existing Radix UI
+      accordion pattern already used in the codebase. The chevron rotation animation (ChevronDown when
+      expanded, ChevronRight when collapsed) is a universally understood affordance. Keyboard-accessible
+      and can have a tooltip for additional clarity.
+
+  - title: 'Recursive vs single-level collapse'
+    chosen: 'Recursive collapse (hide entire subtree)'
+    rejected:
+      - 'Single-level collapse only — Hides only direct children. Grandchildren remain visible if their immediate parent is not collapsed. Creates confusing states where deeply nested nodes float without visible parents.'
+    rationale: >
+      Recursive collapse provides a cleaner mental model — collapsing a parent means "hide everything
+      below this node". With single-level collapse, grandchildren could appear on canvas without their
+      parent visible, creating confusing orphan nodes. Recursive collapse is simpler to implement (walk
+      the subtree from dependency edges) and matches how file tree collapse works in IDEs.
+
+  - title: 'Collapse/expand animation'
+    chosen: 'Chevron rotation only (no node animation)'
+    rejected:
+      - 'Fade in/out with layout transition — Visually polished but requires coordinating React Flow node animations with Dagre re-layout timing. Complex and can cause jank with many nodes.'
+      - 'Slide and collapse animation — Most visually impressive but extremely complex to implement with React Flow rendering model and Dagre layout recalculation.'
+    rationale: >
+      Chevron rotation only delivers a responsive, predictable interaction without the complexity of
+      coordinating React Flow node animations with Dagre layout recalculation. The existing codebase
+      uses instant layout snaps when nodes are added or removed, so users already expect this behavior.
+      The 200ms chevron rotation provides sufficient visual feedback. More elaborate animations risk
+      introducing jank with large graphs.
+
+# Open questions (should be resolved by end of research)
+openQuestions: []
+
+# Markdown content (the full research document)
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-03-02
+
+  ## Technology Decisions
+
+  TBD
+
+  ---
+
+  _To be updated during research phase_
