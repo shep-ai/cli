@@ -88,6 +88,11 @@ const REQUIRED_FIELDS: (keyof ToolMetadata)[] = [
 ];
 
 function loadToolMetadata(): Record<string, ToolMetadata> {
+  // NOTE: This module uses import.meta.url to resolve the tools/ directory.
+  // It works correctly when loaded in the Node.js CLI bootstrap context but
+  // breaks when bundled by Turbopack (import.meta.url points to the chunk
+  // location where tools/ doesn't exist). API routes should access tool
+  // metadata via the DI container, not by importing this module directly.
   const toolsDir = join(fileURLToPath(import.meta.url), '..', 'tools');
   const metadata: Record<string, ToolMetadata> = {};
 
