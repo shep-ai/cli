@@ -63,6 +63,10 @@ export function BaseDrawer({
 
     const handleClick = (e: MouseEvent) => {
       const target = e.target as Element;
+      // If the clicked element was unmounted by React before the event reached
+      // the document (e.g. a "Next" button removed on the last step), it is no
+      // longer in the DOM tree — treat it as an internal click, not an outside one.
+      if (!document.body.contains(target)) return;
       if (contentRef.current?.contains(target)) return;
       // Don't close when clicking inside the canvas or other Radix overlays
       if (
