@@ -2035,6 +2035,12 @@ export type PrdQuestionnaireData = {
    */
   finalAction: PrdFinalAction;
 };
+export enum EvidenceStatus {
+  Skipped = 'Skipped',
+  Success = 'Success',
+  Partial = 'Partial',
+  Failed = 'Failed',
+}
 export enum AgentFeature {
   sessionResume = 'session-resume',
   streaming = 'streaming',

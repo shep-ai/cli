@@ -1,5 +1,5 @@
 import { Annotation } from '@langchain/langgraph';
-import type { ApprovalGates, CiFixRecord } from '@/domain/generated/output.js';
+import { EvidenceStatus, type ApprovalGates, type CiFixRecord } from '@/domain/generated/output.js';
 
 /**
  * State annotation for the feature-agent graph.
@@ -89,6 +89,15 @@ export const FeatureAgentAnnotation = Annotation.Root({
   ciFixStatus: Annotation<'idle' | 'watching' | 'fixing' | 'success' | 'exhausted' | 'timeout'>({
     reducer: (_prev, next) => next,
     default: () => 'idle',
+  }),
+  // --- Evidence collection state ---
+  evidenceStatus: Annotation<EvidenceStatus>({
+    reducer: (_prev, next) => next,
+    default: () => EvidenceStatus.Skipped,
+  }),
+  evidenceArtifacts: Annotation<string[]>({
+    reducer: (_prev, next) => next,
+    default: () => [],
   }),
 });
 

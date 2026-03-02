@@ -33,3 +33,21 @@ enum CiStatus {
   @doc("CI has failed one or more checks")
   Failure,
 }
+
+/**
+ * Status of evidence collection for a pull request.
+ */
+@doc("PR evidence collection status")
+enum EvidenceStatus {
+  @doc("Evidence collection was skipped (no PR created)")
+  Skipped,
+
+  @doc("All evidence types were collected successfully")
+  Success,
+
+  @doc("Some evidence types were collected but others failed")
+  Partial,
+
+  @doc("Evidence collection failed entirely")
+  Failed,
+}
