@@ -2,7 +2,16 @@
 
 import { useState } from 'react';
 import { Handle, Position } from '@xyflow/react';
-import { Settings, Plus, FileText, Wrench, GitMerge, Trash2, type LucideIcon } from 'lucide-react';
+import {
+  Settings,
+  Plus,
+  FileText,
+  Wrench,
+  GitMerge,
+  Trash2,
+  ChevronDown,
+  type LucideIcon,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   AlertDialog,
@@ -87,6 +96,8 @@ export function FeatureNode({
   const config = featureNodeStateConfig[data.state];
   const Icon = config.icon;
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const showCollapseToggle = !!(data.childCount && data.childCount > 0 && data.onToggleCollapse);
+  const showStackedVisual = !!(data.isCollapsed && data.childCount && data.childCount > 0);
 
   return (
     <div className="group relative">
@@ -146,22 +157,58 @@ export function FeatureNode({
         </>
       ) : null}
 
+      {/* Stacked visual indicator — offset layers behind the card when collapsed */}
+      {showStackedVisual ? (
+        <div data-testid="feature-node-stacked-indicator" className="absolute inset-0">
+          <div className="bg-card absolute top-1.5 left-1.5 h-full w-full rounded-lg border shadow-sm" />
+          <div className="bg-card absolute top-3 left-3 h-full w-full rounded-lg border shadow-sm" />
+          <div
+            data-testid="feature-node-child-count-badge"
+            className="bg-muted text-muted-foreground absolute -right-2 -bottom-2 z-10 flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-semibold shadow-sm"
+          >
+            +{data.childCount}
+          </div>
+        </div>
+      ) : null}
+
       <div
         data-testid="feature-node-card"
         aria-busy={data.state === 'creating' ? 'true' : undefined}
         className={cn(
-          'bg-card flex min-h-35 w-72 flex-col rounded-lg border p-3 shadow-sm',
+          'bg-card relative z-10 flex min-h-35 w-72 flex-col rounded-lg border p-3 shadow-sm',
           selected && 'ring-primary ring-2'
         )}
       >
-        {/* Top row: lifecycle label + settings */}
+        {/* Top row: collapse toggle + lifecycle label + settings */}
         <div className="flex items-center justify-between">
-          <span
-            data-testid="feature-node-lifecycle-label"
-            className={cn('text-[10px] font-semibold tracking-wider')}
-          >
-            {data.state === 'blocked' ? 'BLOCKED' : lifecycleDisplayLabels[data.lifecycle]}
-          </span>
+          <div className="flex items-center gap-1">
+            {showCollapseToggle ? (
+              <button
+                type="button"
+                data-testid="feature-node-collapse-button"
+                aria-expanded={!data.isCollapsed}
+                aria-label={data.isCollapsed ? 'Expand child features' : 'Collapse child features'}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  data.onToggleCollapse?.();
+                }}
+                className="nodrag text-muted-foreground hover:text-foreground -ml-1 p-0.5 transition-colors"
+              >
+                <ChevronDown
+                  className={cn(
+                    'h-3.5 w-3.5 transition-transform duration-200',
+                    data.isCollapsed && '-rotate-90'
+                  )}
+                />
+              </button>
+            ) : null}
+            <span
+              data-testid="feature-node-lifecycle-label"
+              className={cn('text-[10px] font-semibold tracking-wider')}
+            >
+              {data.state === 'blocked' ? 'BLOCKED' : lifecycleDisplayLabels[data.lifecycle]}
+            </span>
+          </div>
           {data.onSettings ? (
             <button
               type="button"

@@ -156,6 +156,14 @@ function HookTestHarness({
       <button data-testid="add-repository" onClick={() => state.handleAddRepository('my-org/repo')}>
         Add Repository
       </button>
+      <div data-testid="collapsed-node-ids">{JSON.stringify([...state.collapsedNodeIds])}</div>
+      <div data-testid="hidden-node-ids">{JSON.stringify([...state.hiddenNodeIds])}</div>
+      <button data-testid="toggle-collapse-feat-1" onClick={() => state.toggleCollapse('feat-1')}>
+        Toggle Collapse feat-1
+      </button>
+      <button data-testid="toggle-collapse-feat-2" onClick={() => state.toggleCollapse('feat-2')}>
+        Toggle Collapse feat-2
+      </button>
       <button data-testid="clear-selection" onClick={state.clearSelection}>
         Clear
       </button>
@@ -1616,6 +1624,241 @@ describe('useControlCenterState', () => {
         // Both edges were connected to feat-1, so 0 edges remain
         expect(capturedState!.edges).toHaveLength(0);
       });
+    });
+  });
+
+  describe('collapse state management', () => {
+    const parentNode: FeatureNodeType = {
+      id: 'feat-1',
+      type: 'featureNode',
+      position: { x: 100, y: 100 },
+      data: {
+        name: 'Parent Feature',
+        featureId: '#p1',
+        lifecycle: 'implementation',
+        state: 'running',
+        progress: 50,
+        repositoryPath: '/home/user/my-repo',
+        branch: 'feat/parent',
+      },
+    };
+
+    const childNode: FeatureNodeType = {
+      id: 'feat-child-1',
+      type: 'featureNode',
+      position: { x: 400, y: 100 },
+      data: {
+        name: 'Child Feature',
+        featureId: '#c1',
+        lifecycle: 'requirements',
+        state: 'done',
+        progress: 0,
+        repositoryPath: '/home/user/my-repo',
+        branch: 'feat/child',
+      },
+    };
+
+    const grandchildNode: FeatureNodeType = {
+      id: 'feat-grandchild-1',
+      type: 'featureNode',
+      position: { x: 700, y: 100 },
+      data: {
+        name: 'Grandchild Feature',
+        featureId: '#gc1',
+        lifecycle: 'requirements',
+        state: 'done',
+        progress: 0,
+        repositoryPath: '/home/user/my-repo',
+        branch: 'feat/grandchild',
+      },
+    };
+
+    const depEdgeParentChild: Edge = {
+      id: 'dep-feat-1-feat-child-1',
+      source: 'feat-1',
+      target: 'feat-child-1',
+      type: 'dependencyEdge',
+    };
+
+    const depEdgeChildGrandchild: Edge = {
+      id: 'dep-feat-child-1-feat-grandchild-1',
+      source: 'feat-child-1',
+      target: 'feat-grandchild-1',
+      type: 'dependencyEdge',
+    };
+
+    it('collapsedNodeIds is empty initially', () => {
+      renderHook([parentNode, childNode] as CanvasNodeType[], [depEdgeParentChild]);
+      expect(screen.getByTestId('collapsed-node-ids')).toHaveTextContent('[]');
+    });
+
+    it('toggleCollapse adds nodeId to collapsedNodeIds', () => {
+      renderHook([parentNode, childNode] as CanvasNodeType[], [depEdgeParentChild]);
+
+      act(() => {
+        fireEvent.click(screen.getByTestId('toggle-collapse-feat-1'));
+      });
+
+      expect(screen.getByTestId('collapsed-node-ids')).toHaveTextContent('["feat-1"]');
+    });
+
+    it('toggleCollapse twice removes nodeId (toggle behavior)', () => {
+      renderHook([parentNode, childNode] as CanvasNodeType[], [depEdgeParentChild]);
+
+      act(() => {
+        fireEvent.click(screen.getByTestId('toggle-collapse-feat-1'));
+      });
+      expect(screen.getByTestId('collapsed-node-ids')).toHaveTextContent('["feat-1"]');
+
+      act(() => {
+        fireEvent.click(screen.getByTestId('toggle-collapse-feat-1'));
+      });
+      expect(screen.getByTestId('collapsed-node-ids')).toHaveTextContent('[]');
+    });
+
+    it('hiddenNodeIds returns descendants of collapsed parent', () => {
+      renderHook([parentNode, childNode] as CanvasNodeType[], [depEdgeParentChild]);
+
+      act(() => {
+        fireEvent.click(screen.getByTestId('toggle-collapse-feat-1'));
+      });
+
+      const hidden = JSON.parse(screen.getByTestId('hidden-node-ids').textContent!);
+      expect(hidden).toContain('feat-child-1');
+    });
+
+    it('hiddenNodeIds returns recursive descendants (grandchildren)', () => {
+      renderHook([parentNode, childNode, grandchildNode] as CanvasNodeType[], [
+        depEdgeParentChild,
+        depEdgeChildGrandchild,
+      ]);
+
+      act(() => {
+        fireEvent.click(screen.getByTestId('toggle-collapse-feat-1'));
+      });
+
+      const hidden = JSON.parse(screen.getByTestId('hidden-node-ids').textContent!);
+      expect(hidden).toContain('feat-child-1');
+      expect(hidden).toContain('feat-grandchild-1');
+    });
+
+    it('hiddenNodeIds returns union of descendants when multiple parents collapsed', () => {
+      const secondParent: FeatureNodeType = {
+        id: 'feat-2',
+        type: 'featureNode',
+        position: { x: 100, y: 300 },
+        data: {
+          name: 'Second Parent',
+          featureId: '#p2',
+          lifecycle: 'implementation',
+          state: 'running',
+          progress: 30,
+          repositoryPath: '/home/user/my-repo',
+          branch: 'feat/parent-2',
+        },
+      };
+      const secondChild: FeatureNodeType = {
+        id: 'feat-child-2',
+        type: 'featureNode',
+        position: { x: 400, y: 300 },
+        data: {
+          name: 'Second Child',
+          featureId: '#c2',
+          lifecycle: 'requirements',
+          state: 'done',
+          progress: 0,
+          repositoryPath: '/home/user/my-repo',
+          branch: 'feat/child-2',
+        },
+      };
+      const depEdge2: Edge = {
+        id: 'dep-feat-2-feat-child-2',
+        source: 'feat-2',
+        target: 'feat-child-2',
+        type: 'dependencyEdge',
+      };
+
+      renderHook([parentNode, childNode, secondParent, secondChild] as CanvasNodeType[], [
+        depEdgeParentChild,
+        depEdge2,
+      ]);
+
+      act(() => {
+        fireEvent.click(screen.getByTestId('toggle-collapse-feat-1'));
+      });
+      act(() => {
+        fireEvent.click(screen.getByTestId('toggle-collapse-feat-2'));
+      });
+
+      const hidden = JSON.parse(screen.getByTestId('hidden-node-ids').textContent!);
+      expect(hidden).toContain('feat-child-1');
+      expect(hidden).toContain('feat-child-2');
+    });
+
+    it('calls localStorage.setItem when collapsedNodeIds changes', async () => {
+      renderHook([parentNode, childNode] as CanvasNodeType[], [depEdgeParentChild]);
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('toggle-collapse-feat-1'));
+      });
+
+      expect(localStorage.setItem).toHaveBeenCalledWith('shep-collapsed-nodes', expect.any(String));
+      // Find the last call with our key and verify it contains feat-1
+      // (the persist effect also fires on mount with the initial empty set)
+      const calls = vi.mocked(localStorage.setItem).mock.calls;
+      const ourCall = calls.filter((c) => c[0] === 'shep-collapsed-nodes').pop();
+      expect(ourCall).toBeDefined();
+      const parsed = JSON.parse(ourCall![1]);
+      expect(parsed).toContain('feat-1');
+    });
+
+    it('reads from localStorage on mount for hydration', () => {
+      vi.mocked(localStorage.getItem).mockImplementation((key: string) => {
+        if (key === 'shep-collapsed-nodes') return JSON.stringify(['feat-1']);
+        return null;
+      });
+
+      renderHook([parentNode, childNode] as CanvasNodeType[], [depEdgeParentChild]);
+
+      expect(screen.getByTestId('collapsed-node-ids')).toHaveTextContent('["feat-1"]');
+    });
+
+    it('silently ignores corrupt localStorage data', () => {
+      vi.mocked(localStorage.getItem).mockImplementation((key: string) => {
+        if (key === 'shep-collapsed-nodes') return 'not-valid-json';
+        return null;
+      });
+
+      renderHook([parentNode, childNode] as CanvasNodeType[], [depEdgeParentChild]);
+
+      // Should gracefully fall back to empty set
+      expect(screen.getByTestId('collapsed-node-ids')).toHaveTextContent('[]');
+    });
+
+    it('filters stale IDs during localStorage persistence', async () => {
+      vi.mocked(localStorage.getItem).mockImplementation((key: string) => {
+        if (key === 'shep-collapsed-nodes') {
+          return JSON.stringify(['feat-1', 'stale-nonexistent-node']);
+        }
+        return null;
+      });
+
+      renderHook([parentNode, childNode] as CanvasNodeType[], [depEdgeParentChild]);
+
+      // feat-1 should be loaded
+      expect(screen.getByTestId('collapsed-node-ids')).toHaveTextContent('feat-1');
+
+      // Trigger a state change so the persist effect runs
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('toggle-collapse-feat-2'));
+      });
+
+      // Verify localStorage.setItem was called and stale ID was filtered out
+      const calls = vi.mocked(localStorage.setItem).mock.calls;
+      const lastCall = calls.filter((c) => c[0] === 'shep-collapsed-nodes').pop();
+      expect(lastCall).toBeDefined();
+      const persisted = JSON.parse(lastCall![1]);
+      expect(persisted).not.toContain('stale-nonexistent-node');
     });
   });
 });

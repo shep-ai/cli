@@ -446,3 +446,105 @@ export const Interactive: Story = {
     await waitFor(() => expect(nodeWrapper).toBeTruthy());
   },
 };
+
+/** Expanded parent node with children — chevron visible, no stacked visual. */
+export const ExpandedWithChildren: Story = {
+  args: {
+    name: 'API Gateway',
+    description: 'Centralized API gateway service',
+    featureId: '#f10',
+    lifecycle: 'implementation',
+    state: 'running',
+    progress: 50,
+    childCount: 3,
+    isCollapsed: false,
+    onToggleCollapse: fn(),
+  },
+  render: (args) => <FeatureNodeCanvas data={args} />,
+};
+
+/** Collapsed parent node — stacked visual with child count badge. */
+export const CollapsedWithChildren: Story = {
+  args: {
+    name: 'API Gateway',
+    description: 'Centralized API gateway service',
+    featureId: '#f10',
+    lifecycle: 'implementation',
+    state: 'running',
+    progress: 50,
+    childCount: 5,
+    isCollapsed: true,
+    onToggleCollapse: fn(),
+  },
+  render: (args) => <FeatureNodeCanvas data={args} />,
+};
+
+/** Node without children — no collapse toggle visible. */
+export const NoChildren: Story = {
+  args: {
+    name: 'Logging Service',
+    description: 'Structured logging with Pino',
+    featureId: '#f11',
+    lifecycle: 'review',
+    state: 'done',
+    progress: 100,
+    runtime: '45m',
+    childCount: 0,
+  },
+  render: (args) => <FeatureNodeCanvas data={args} />,
+};
+
+/** Side-by-side comparison of all collapse states. */
+export const CollapseStates: Story = {
+  render: () => (
+    <div className="flex flex-wrap gap-6">
+      <FeatureNodeCanvas
+        style={{ width: 500, height: 350 }}
+        data={{
+          name: 'Parent (Expanded)',
+          description: 'Has 3 children, currently expanded',
+          featureId: '#c1',
+          lifecycle: 'implementation' as FeatureLifecyclePhase,
+          state: 'running' as FeatureNodeState,
+          progress: 40,
+          repositoryPath: '/home/user/my-repo',
+          branch: 'feat/parent',
+          childCount: 3,
+          isCollapsed: false,
+          onToggleCollapse: fn(),
+        }}
+      />
+      <FeatureNodeCanvas
+        style={{ width: 500, height: 350 }}
+        data={{
+          name: 'Parent (Collapsed)',
+          description: 'Has 5 children, currently collapsed',
+          featureId: '#c2',
+          lifecycle: 'implementation' as FeatureLifecyclePhase,
+          state: 'running' as FeatureNodeState,
+          progress: 40,
+          repositoryPath: '/home/user/my-repo',
+          branch: 'feat/parent-collapsed',
+          childCount: 5,
+          isCollapsed: true,
+          onToggleCollapse: fn(),
+        }}
+      />
+      <FeatureNodeCanvas
+        style={{ width: 500, height: 350 }}
+        data={{
+          name: 'Leaf Node',
+          description: 'No children — no collapse toggle',
+          featureId: '#c3',
+          lifecycle: 'deploy' as FeatureLifecyclePhase,
+          state: 'done' as FeatureNodeState,
+          progress: 100,
+          runtime: '1h 20m',
+          repositoryPath: '/home/user/my-repo',
+          branch: 'feat/leaf',
+          childCount: 0,
+        }}
+      />
+    </div>
+  ),
+};

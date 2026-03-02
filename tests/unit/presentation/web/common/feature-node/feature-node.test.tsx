@@ -332,6 +332,106 @@ describe('FeatureNode', () => {
     });
   });
 
+  describe('collapse toggle button', () => {
+    it('renders chevron button when childCount > 0', () => {
+      renderFeatureNode({ childCount: 3, onToggleCollapse: vi.fn() });
+      expect(screen.getByTestId('feature-node-collapse-button')).toBeInTheDocument();
+    });
+
+    it('does NOT render chevron button when childCount is 0', () => {
+      renderFeatureNode({ childCount: 0 });
+      expect(screen.queryByTestId('feature-node-collapse-button')).not.toBeInTheDocument();
+    });
+
+    it('does NOT render chevron button when childCount is undefined', () => {
+      renderFeatureNode({});
+      expect(screen.queryByTestId('feature-node-collapse-button')).not.toBeInTheDocument();
+    });
+
+    it('does NOT render chevron button when onToggleCollapse is undefined', () => {
+      renderFeatureNode({ childCount: 3 });
+      expect(screen.queryByTestId('feature-node-collapse-button')).not.toBeInTheDocument();
+    });
+
+    it('has aria-expanded="true" when expanded (isCollapsed=false)', () => {
+      renderFeatureNode({ childCount: 3, isCollapsed: false, onToggleCollapse: vi.fn() });
+      const button = screen.getByTestId('feature-node-collapse-button');
+      expect(button).toHaveAttribute('aria-expanded', 'true');
+    });
+
+    it('has aria-expanded="false" when collapsed (isCollapsed=true)', () => {
+      renderFeatureNode({ childCount: 3, isCollapsed: true, onToggleCollapse: vi.fn() });
+      const button = screen.getByTestId('feature-node-collapse-button');
+      expect(button).toHaveAttribute('aria-expanded', 'false');
+    });
+
+    it('has descriptive aria-label when expanded', () => {
+      renderFeatureNode({ childCount: 3, isCollapsed: false, onToggleCollapse: vi.fn() });
+      const button = screen.getByTestId('feature-node-collapse-button');
+      expect(button).toHaveAttribute('aria-label', 'Collapse child features');
+    });
+
+    it('has descriptive aria-label when collapsed', () => {
+      renderFeatureNode({ childCount: 3, isCollapsed: true, onToggleCollapse: vi.fn() });
+      const button = screen.getByTestId('feature-node-collapse-button');
+      expect(button).toHaveAttribute('aria-label', 'Expand child features');
+    });
+
+    it('calls onToggleCollapse when clicked', () => {
+      const onToggleCollapse = vi.fn();
+      renderFeatureNode({ childCount: 3, onToggleCollapse });
+      fireEvent.click(screen.getByTestId('feature-node-collapse-button'));
+      expect(onToggleCollapse).toHaveBeenCalledOnce();
+    });
+
+    it('has nodrag class to prevent drag interference', () => {
+      renderFeatureNode({ childCount: 3, onToggleCollapse: vi.fn() });
+      const button = screen.getByTestId('feature-node-collapse-button');
+      expect(button.className).toContain('nodrag');
+    });
+  });
+
+  describe('stacked visual indicator', () => {
+    it('renders stacked visual when isCollapsed=true and childCount > 0', () => {
+      renderFeatureNode({ isCollapsed: true, childCount: 3, onToggleCollapse: vi.fn() });
+      expect(screen.getByTestId('feature-node-stacked-indicator')).toBeInTheDocument();
+    });
+
+    it('does NOT render stacked visual when isCollapsed=false', () => {
+      renderFeatureNode({ isCollapsed: false, childCount: 3, onToggleCollapse: vi.fn() });
+      expect(screen.queryByTestId('feature-node-stacked-indicator')).not.toBeInTheDocument();
+    });
+
+    it('does NOT render stacked visual when childCount is 0 even if isCollapsed=true', () => {
+      renderFeatureNode({ isCollapsed: true, childCount: 0 });
+      expect(screen.queryByTestId('feature-node-stacked-indicator')).not.toBeInTheDocument();
+    });
+
+    it('displays "+N" badge where N is childCount', () => {
+      renderFeatureNode({ isCollapsed: true, childCount: 5, onToggleCollapse: vi.fn() });
+      expect(screen.getByTestId('feature-node-child-count-badge')).toHaveTextContent('+5');
+    });
+
+    it('displays "+1" badge for single child', () => {
+      renderFeatureNode({ isCollapsed: true, childCount: 1, onToggleCollapse: vi.fn() });
+      expect(screen.getByTestId('feature-node-child-count-badge')).toHaveTextContent('+1');
+    });
+  });
+
+  describe('collapse fields backward compatibility', () => {
+    it('renders without throwing when collapse fields are provided', () => {
+      const onToggleCollapse = vi.fn();
+      renderFeatureNode({ isCollapsed: true, childCount: 3, onToggleCollapse });
+      expect(screen.getByTestId('feature-node-card')).toBeInTheDocument();
+    });
+
+    it('renders identically without collapse fields (backward compatible)', () => {
+      renderFeatureNode();
+      expect(screen.getByTestId('feature-node-card')).toBeInTheDocument();
+      expect(screen.getByText('Auth Module')).toBeInTheDocument();
+    });
+  });
+
   describe('selected highlight', () => {
     it('applies ring classes when selected is true', () => {
       renderFeatureNode(undefined, { selected: true });

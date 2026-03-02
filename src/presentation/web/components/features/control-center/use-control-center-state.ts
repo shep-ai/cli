@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { applyNodeChanges } from '@xyflow/react';
@@ -9,6 +9,7 @@ import type { FeatureNodeData } from '@/components/common/feature-node';
 import type { FeatureCreatePayload } from '@/components/common/feature-create-drawer';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 import { layoutWithDagre, type LayoutDirection } from '@/lib/layout-with-dagre';
+import { getDescendantIds } from '@/lib/get-descendant-ids';
 import { createFeature } from '@/app/actions/create-feature';
 import { deleteFeature } from '@/app/actions/delete-feature';
 import { addRepository } from '@/app/actions/add-repository';
@@ -47,6 +48,37 @@ export interface ControlCenterState {
     dataOverride?: Partial<FeatureNodeData>
   ) => string;
   selectFeatureById: (featureId: string) => void;
+  /** Set of node IDs whose children are currently collapsed */
+  collapsedNodeIds: Set<string>;
+  /** Toggle collapse state for a node */
+  toggleCollapse: (nodeId: string) => void;
+  /** Set of node IDs hidden because an ancestor is collapsed */
+  hiddenNodeIds: Set<string>;
+}
+
+const COLLAPSED_NODES_STORAGE_KEY = 'shep-collapsed-nodes';
+
+/** Read collapsed node IDs from localStorage, returning an empty Set on failure. */
+function readCollapsedFromStorage(): Set<string> {
+  try {
+    const raw = localStorage.getItem(COLLAPSED_NODES_STORAGE_KEY);
+    if (!raw) return new Set();
+    const parsed: unknown = JSON.parse(raw);
+    if (Array.isArray(parsed))
+      return new Set(parsed.filter((v): v is string => typeof v === 'string'));
+  } catch {
+    // Corrupt data — ignore
+  }
+  return new Set();
+}
+
+/** Write collapsed node IDs to localStorage. */
+function writeCollapsedToStorage(ids: Set<string>): void {
+  try {
+    localStorage.setItem(COLLAPSED_NODES_STORAGE_KEY, JSON.stringify([...ids]));
+  } catch {
+    // Storage full or unavailable — silently ignore
+  }
 }
 
 let nextFeatureId = 0;
@@ -77,6 +109,48 @@ export function useControlCenterState(
   const createSound = useSoundAction('create');
   const clickSound = useSoundAction('click');
   const [pendingRepoNodeId, setPendingRepoNodeId] = useState<string | null>(null);
+
+  // --- Collapse state management ---
+  const [collapsedNodeIds, setCollapsedNodeIds] = useState<Set<string>>(() =>
+    readCollapsedFromStorage()
+  );
+
+  // Filter stale IDs on initial hydration — IDs that don't match any current node are removed
+  const nodeIdSetRef = useRef<Set<string>>(new Set(initialNodes.map((n) => n.id)));
+  useEffect(() => {
+    nodeIdSetRef.current = new Set(initialNodes.map((n) => n.id));
+  }, [initialNodes]);
+
+  // Persist collapsed IDs to localStorage whenever they change
+  useEffect(() => {
+    // Filter out stale IDs before persisting
+    const validIds = new Set([...collapsedNodeIds].filter((id) => nodeIdSetRef.current.has(id)));
+    writeCollapsedToStorage(validIds);
+  }, [collapsedNodeIds]);
+
+  const toggleCollapse = useCallback((nodeId: string) => {
+    setCollapsedNodeIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(nodeId)) {
+        next.delete(nodeId);
+      } else {
+        next.add(nodeId);
+      }
+      return next;
+    });
+  }, []);
+
+  // Derived: union of all descendants of all collapsed nodes
+  const hiddenNodeIds = useMemo(() => {
+    if (collapsedNodeIds.size === 0) return new Set<string>();
+    const hidden = new Set<string>();
+    for (const collapsedId of collapsedNodeIds) {
+      for (const descendantId of getDescendantIds(collapsedId, edges)) {
+        hidden.add(descendantId);
+      }
+    }
+    return hidden;
+  }, [collapsedNodeIds, edges]);
 
   // Sync server props into local state when router.refresh() delivers new data
   const initialNodeKey = initialNodes
@@ -769,5 +843,8 @@ export function useControlCenterState(
     isDeleting,
     createFeatureNode,
     selectFeatureById,
+    collapsedNodeIds,
+    toggleCollapse,
+    hiddenNodeIds,
   };
 }

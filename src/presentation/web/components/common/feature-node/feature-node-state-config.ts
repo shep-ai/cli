@@ -71,6 +71,12 @@ export interface FeatureNodeData {
     ciStatus?: CiStatus;
     commitHash?: string;
   };
+  /** Whether this node's children are collapsed (hidden from canvas) */
+  isCollapsed?: boolean;
+  /** Number of child nodes (direct + transitive descendants) */
+  childCount?: number;
+  /** Callback to toggle collapse state for this node */
+  onToggleCollapse?: () => void;
   onAction?: () => void;
   onSettings?: () => void;
   onDelete?: (featureId: string) => void;
