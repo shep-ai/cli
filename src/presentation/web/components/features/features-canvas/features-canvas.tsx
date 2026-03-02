@@ -19,6 +19,7 @@ export type CanvasNodeType = FeatureNodeType | RepositoryNodeType | AddRepositor
 export interface FeaturesCanvasProps {
   nodes: CanvasNodeType[];
   edges: Edge[];
+  selectedFeatureId?: string | null;
   onNodesChange?: (changes: NodeChange<CanvasNodeType>[]) => void;
   onAddFeature?: () => void;
   onNodeAction?: (nodeId: string) => void;
@@ -39,6 +40,7 @@ export interface FeaturesCanvasProps {
 export function FeaturesCanvas({
   nodes,
   edges,
+  selectedFeatureId,
   onNodesChange,
   onAddFeature,
   onNodeAction,
@@ -91,6 +93,12 @@ export function FeaturesCanvas({
     () =>
       nodes.map((node) => ({
         ...node,
+        // React Flow passes `selected` as a prop to the node component
+        ...(node.type === 'featureNode' && {
+          selected:
+            selectedFeatureId != null &&
+            (node.data as FeatureNodeData).featureId === selectedFeatureId,
+        }),
         data: {
           ...node.data,
           showHandles: edges.length > 0,
@@ -114,6 +122,7 @@ export function FeaturesCanvas({
     [
       nodes,
       edges.length,
+      selectedFeatureId,
       onNodeAction,
       onNodeSettings,
       onFeatureDelete,

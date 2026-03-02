@@ -1,19 +1,19 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import type { Edge } from '@xyflow/react';
 import { FeaturesCanvas } from '@/components/features/features-canvas';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 import type { FeatureNodeData } from '@/components/common/feature-node';
-import { ControlCenterDrawer, computeDrawerView } from '@/components/common/control-center-drawer';
 import type { RepositoryNodeData } from '@/components/common/repository-node';
 import { NotificationPermissionBanner } from '@/components/common/notification-permission-banner';
-import { getWorkflowDefaults } from '@/app/actions/get-workflow-defaults';
-import type { WorkflowDefaults } from '@/app/actions/get-workflow-defaults';
 import {
   useSidebarFeaturesContext,
   mapNodeStateToSidebarStatus,
 } from '@/hooks/sidebar-features-context';
+import { useSelectedFeatureId } from '@/hooks/use-selected-feature-id';
+import { useSoundAction } from '@/hooks/use-sound-action';
 import { ControlCenterEmptyState } from './control-center-empty-state';
 import { useControlCenterState } from './use-control-center-state';
 
@@ -23,27 +23,20 @@ interface ControlCenterInnerProps {
 }
 
 export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenterInnerProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const selectedFeatureId = useSelectedFeatureId();
+  const clickSound = useSoundAction('click');
+
   const {
     nodes,
     edges,
-    selectedNode,
-    isCreateDrawerOpen,
-    isDeleting,
-    pendingRepositoryPath,
     onNodesChange,
     handleConnect,
-    handleAddFeature,
-    handleAddFeatureToRepo,
-    handleAddFeatureToFeature,
     handleAddRepository,
-    handleNodeClick,
-    clearSelection,
-    handleCreateFeatureSubmit,
     handleDeleteFeature,
     handleDeleteRepository,
-    closeCreateDrawer,
-    selectFeatureById,
-    pendingParentFeatureId,
+    createFeatureNode,
   } = useControlCenterState(initialNodes, initialEdges);
 
   // Publish sidebar features to context whenever feature node data changes
@@ -86,68 +79,75 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     setSidebarFeatures(sidebarItems);
   }, [sidebarKey, nodes, setSidebarFeatures]);
 
-  // Feature list for the parent selector in the create drawer
-  const featureOptions = useMemo(
-    () =>
-      nodes
-        .filter((n) => n.type === 'featureNode')
-        .map((n) => {
-          const data = n.data as FeatureNodeData;
-          return { id: data.featureId, name: data.name };
-        })
-        .filter((f) => f.id && !f.id.startsWith('#')),
-    [nodes]
+  // ── URL-based navigation handlers ────────────────────────────────────
+
+  const handleNodeClick = useCallback(
+    (_event: React.MouseEvent, node: CanvasNodeType) => {
+      if (node.type === 'featureNode') {
+        const data = node.data as FeatureNodeData;
+        if (data.state === 'creating') return;
+        clickSound.play();
+        router.push(`/feature/${data.featureId}`);
+      }
+    },
+    [router, clickSound]
   );
 
-  // Workflow defaults for the create-feature drawer
-  const [workflowDefaults, setWorkflowDefaults] = useState<WorkflowDefaults | undefined>();
-  useEffect(() => {
-    getWorkflowDefaults()
-      .then(setWorkflowDefaults)
-      .catch(() => {
-        // Settings unavailable — create drawer falls back to all-false defaults
-      });
-  }, []);
+  const handleAddFeature = useCallback(() => {
+    clickSound.play();
+    router.push('/create');
+  }, [router, clickSound]);
 
-  // Repository drawer state (independent of feature selection)
-  const [selectedRepoNode, setSelectedRepoNode] = useState<RepositoryNodeData | null>(null);
+  const handleAddFeatureToRepo = useCallback(
+    (repoNodeId: string) => {
+      clickSound.play();
+      const node = nodes.find((n) => n.id === repoNodeId);
+      const repoPath = (node?.data as { repositoryPath?: string } | undefined)?.repositoryPath;
+      if (repoPath) {
+        router.push(`/create?repo=${encodeURIComponent(repoPath)}`);
+      } else {
+        router.push('/create');
+      }
+    },
+    [nodes, router, clickSound]
+  );
 
-  // Close all drawers — used on pane click and canvas drag
-  const handleClearDrawers = useCallback(() => {
-    clearSelection();
-    setSelectedRepoNode(null);
-    closeCreateDrawer();
-  }, [clearSelection, closeCreateDrawer]);
+  const handleAddFeatureToFeature = useCallback(
+    (featureNodeId: string) => {
+      const featureId = featureNodeId.startsWith('feat-') ? featureNodeId.slice(5) : featureNodeId;
+      // Find the repo node that owns this feature
+      const repoEdge = edges.find((e) => e.target === featureNodeId);
+      const repoNode = repoEdge ? nodes.find((n) => n.id === repoEdge.source) : null;
+      const repoPath = (repoNode?.data as { repositoryPath?: string } | undefined)?.repositoryPath;
 
-  // Open repository drawer when a repo node is clicked
+      clickSound.play();
+      const params = new URLSearchParams();
+      if (repoPath) params.set('repo', repoPath);
+      params.set('parent', featureId);
+      router.push(`/create?${params.toString()}`);
+    },
+    [nodes, edges, router, clickSound]
+  );
+
   const handleRepositoryClick = useCallback(
     (nodeId: string) => {
       const node = nodes.find((n) => n.id === nodeId);
       if (node?.type === 'repositoryNode') {
-        clearSelection();
-        setSelectedRepoNode(node.data as RepositoryNodeData);
+        const data = node.data as RepositoryNodeData;
+        if (data.id) {
+          router.push(`/repository/${data.id}`);
+        }
       }
     },
-    [nodes, clearSelection]
+    [nodes, router]
   );
 
-  // Derive the single active drawer view from all current state
-  const drawerView = computeDrawerView({
-    selectedNode,
-    isCreateDrawerOpen,
-    pendingRepositoryPath,
-    pendingParentFeatureId,
-    selectedRepoNode,
-    features: featureOptions,
-    workflowDefaults,
-  });
-
-  // Listen for global "open create drawer" events from the sidebar
-  useEffect(() => {
-    const handler = () => handleAddFeature();
-    window.addEventListener('shep:open-create-drawer', handler);
-    return () => window.removeEventListener('shep:open-create-drawer', handler);
-  }, [handleAddFeature]);
+  // Close all drawers — navigate back to root
+  const handleClearDrawers = useCallback(() => {
+    if (pathname !== '/') {
+      router.push('/');
+    }
+  }, [router, pathname]);
 
   // Listen for global "add repository" events from the top bar button
   useEffect(() => {
@@ -159,15 +159,30 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     return () => window.removeEventListener('shep:add-repository', handler);
   }, [handleAddRepository]);
 
-  // Listen for notification "Review" clicks to open the relevant drawer
+  // Listen for optimistic create events from the create drawer
   useEffect(() => {
     const handler = (e: Event) => {
-      const featureId = (e as CustomEvent<{ featureId: string }>).detail.featureId;
-      selectFeatureById(featureId);
+      const detail = (
+        e as CustomEvent<{ name: string; description?: string; repositoryPath: string }>
+      ).detail;
+
+      // Find the repo node to connect to
+      const repoNode = nodes.find(
+        (n) =>
+          n.type === 'repositoryNode' &&
+          (n.data as { repositoryPath?: string }).repositoryPath === detail.repositoryPath
+      );
+
+      createFeatureNode(repoNode?.id ?? null, {
+        state: 'creating',
+        name: detail.name,
+        description: detail.description,
+        repositoryPath: detail.repositoryPath,
+      });
     };
-    window.addEventListener('shep:select-feature', handler);
-    return () => window.removeEventListener('shep:select-feature', handler);
-  }, [selectFeatureById]);
+    window.addEventListener('shep:feature-created', handler);
+    return () => window.removeEventListener('shep:feature-created', handler);
+  }, [nodes, createFeatureNode]);
 
   const hasRepositories = nodes.some((n) => n.type === 'repositoryNode');
 
@@ -176,13 +191,6 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
       <>
         <NotificationPermissionBanner />
         <ControlCenterEmptyState onRepositorySelect={handleAddRepository} />
-        <ControlCenterDrawer
-          view={drawerView}
-          onClose={handleClearDrawers}
-          onDelete={handleDeleteFeature}
-          isDeleting={isDeleting}
-          onCreateSubmit={handleCreateFeatureSubmit}
-        />
       </>
     );
   }
@@ -193,6 +201,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
       <FeaturesCanvas
         nodes={nodes}
         edges={edges}
+        selectedFeatureId={selectedFeatureId}
         onNodesChange={onNodesChange}
         onConnect={handleConnect}
         onAddFeature={handleAddFeature}
@@ -205,13 +214,6 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
         onFeatureDelete={handleDeleteFeature}
         onRepositorySelect={handleAddRepository}
         emptyState={<ControlCenterEmptyState onRepositorySelect={handleAddRepository} />}
-      />
-      <ControlCenterDrawer
-        view={drawerView}
-        onClose={handleClearDrawers}
-        onDelete={handleDeleteFeature}
-        isDeleting={isDeleting}
-        onCreateSubmit={handleCreateFeatureSubmit}
       />
     </>
   );

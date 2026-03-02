@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import type { NotificationEvent } from '@shepai/core/domain/generated/output';
 import { NotificationEventType, NotificationSeverity } from '@shepai/core/domain/generated/output';
@@ -20,21 +21,20 @@ const SEVERITY_TO_TOAST: Record<NotificationSeverity, 'success' | 'error' | 'war
   [NotificationSeverity.Info]: 'info',
 };
 
-function dispatchToast(event: NotificationEvent): void {
+function dispatchToast(event: NotificationEvent, navigate?: (path: string) => void): void {
   const method = SEVERITY_TO_TOAST[event.severity] ?? 'info';
   const isActionable = event.eventType === NotificationEventType.WaitingApproval;
   toast[method](event.featureName, {
     description: event.message,
-    ...(isActionable && {
-      action: {
-        label: 'Review',
-        onClick: () => {
-          window.dispatchEvent(
-            new CustomEvent('shep:select-feature', { detail: { featureId: event.featureId } })
-          );
+    ...(isActionable &&
+      navigate && {
+        action: {
+          label: 'Review',
+          onClick: () => {
+            navigate(`/feature/${event.featureId}`);
+          },
         },
-      },
-    }),
+      }),
   });
 }
 
@@ -56,6 +56,7 @@ const SEVERITY_TO_ACTION: Record<NotificationSeverity, SoundAction> = {
 };
 
 export function useNotifications(): UseNotificationsResult {
+  const router = useRouter();
   const { events } = useAgentEventsContext();
 
   const successSound = useSoundAction('notification-success');
@@ -101,13 +102,13 @@ export function useNotifications(): UseNotificationsResult {
         continue;
       }
 
-      dispatchToast(event);
+      dispatchToast(event, (path) => router.push(path as Parameters<typeof router.push>[0]));
       dispatchBrowserNotification(event);
 
       const actionName = SEVERITY_TO_ACTION[event.severity];
       soundsByAction[actionName]?.play();
     }
-  }, [events, soundsByAction]);
+  }, [events, soundsByAction, router]);
 
   const requestBrowserPermission = useCallback(async () => {
     if (typeof globalThis.Notification === 'undefined') return;

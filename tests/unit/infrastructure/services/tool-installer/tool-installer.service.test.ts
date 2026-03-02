@@ -5,6 +5,7 @@ import { EventEmitter } from 'node:events';
 
 const mockSpawn = vi.hoisted(() => vi.fn());
 const mockExecFile = vi.hoisted(() => vi.fn());
+const mockExec = vi.hoisted(() => vi.fn());
 
 vi.mock('node:child_process', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
@@ -12,6 +13,7 @@ vi.mock('node:child_process', async (importOriginal) => {
     ...actual,
     spawn: mockSpawn,
     execFile: mockExecFile,
+    exec: mockExec,
   };
 });
 
@@ -68,6 +70,10 @@ describe('ToolInstallerServiceImpl', () => {
           cb(new Error('Command failed: which code'));
         }
       );
+      // verifyCommand fallback should also fail when the tool is truly missing
+      mockExec.mockImplementation((_cmd: string, cb: (err: Error | null) => void) => {
+        cb(new Error('Command failed'));
+      });
 
       const result = await service.checkAvailability('vscode');
 

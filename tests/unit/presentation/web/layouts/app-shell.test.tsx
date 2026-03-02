@@ -1,10 +1,13 @@
 import React, { useEffect } from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+const mockPush = vi.fn();
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/',
+  useRouter: () => ({ push: mockPush, refresh: vi.fn() }),
 }));
 
 import { AppShell } from '@/components/layouts/app-shell';
@@ -28,6 +31,10 @@ function ContextPublisher({
 }
 
 describe('AppShell', () => {
+  beforeEach(() => {
+    mockPush.mockClear();
+  });
+
   it('renders children within the dashboard layout', () => {
     render(
       <AppShell>
@@ -91,15 +98,11 @@ describe('AppShell', () => {
     expect(screen.getByText('Dashboard')).toBeInTheDocument();
   });
 
-  it('dispatches shep:select-feature CustomEvent when onFeatureClick fires', async () => {
+  it('navigates to feature route when sidebar feature is clicked', async () => {
     const user = userEvent.setup();
     const features = [
       { featureId: 'f-42', name: 'Click Target', status: 'action-needed' as const },
     ];
-
-    const dispatchedEvents: CustomEvent[] = [];
-    const handler = (e: Event) => dispatchedEvents.push(e as CustomEvent);
-    window.addEventListener('shep:select-feature', handler);
 
     render(
       <AppShell>
@@ -109,9 +112,6 @@ describe('AppShell', () => {
 
     await user.click(screen.getByText('Click Target'));
 
-    window.removeEventListener('shep:select-feature', handler);
-
-    expect(dispatchedEvents).toHaveLength(1);
-    expect(dispatchedEvents[0].detail).toEqual({ featureId: 'f-42' });
+    expect(mockPush).toHaveBeenCalledWith('/feature/f-42');
   });
 });

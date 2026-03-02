@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, type ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layouts/app-sidebar';
 import { AddRepositoryButton } from '@/components/common/add-repository-node';
@@ -19,18 +20,23 @@ interface AppShellProps {
 
 /** Inner shell that consumes the agent-events context for notifications. */
 function AppShellInner({ children }: AppShellProps) {
+  const router = useRouter();
+
   // Subscribe to agent lifecycle events and dispatch toast/browser notifications
   useNotifications();
 
   const { features } = useSidebarFeaturesContext();
 
   const handleNewFeature = useCallback(() => {
-    window.dispatchEvent(new CustomEvent('shep:open-create-drawer'));
-  }, []);
+    router.push('/create');
+  }, [router]);
 
-  const handleFeatureClick = useCallback((featureId: string) => {
-    window.dispatchEvent(new CustomEvent('shep:select-feature', { detail: { featureId } }));
-  }, []);
+  const handleFeatureClick = useCallback(
+    (featureId: string) => {
+      router.push(`/feature/${featureId}`);
+    },
+    [router]
+  );
 
   const handleRepositorySelect = useCallback((path: string) => {
     window.dispatchEvent(new CustomEvent('shep:add-repository', { detail: { path } }));
