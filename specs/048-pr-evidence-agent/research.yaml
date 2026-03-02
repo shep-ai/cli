@@ -1,0 +1,568 @@
+name: pr-evidence-agent
+summary: >
+  Technical research for adding evidence collection to the merge node. The evidence phase
+  integrates into the existing merge node between CI watch/fix and the approval gate, using
+  the agent executor to gather text evidence (test results, build status, spec compliance)
+  and binary artifacts (screenshots, videos, generated files). Text evidence is posted as a
+  structured PR comment via `gh pr comment`; binary artifacts are committed to an `evidence/`
+  directory on the feature branch and linked from the comment. The implementation follows
+  existing patterns: prompt builder in `evidence-prompts.ts`, agent execution via injected
+  `IAgentExecutor`, and graceful degradation on failure.
+
+relatedFeatures:
+  - 036-agent-driven-merge
+  - 041-ci-watch-fix-loop
+
+technologies:
+  - LangGraph (StateGraph, Annotation, interrupt)
+  - TypeSpec (domain model generation for evidenceStatus)
+  - GitHub CLI (gh pr comment for posting evidence)
+  - Playwright (screenshot and video capture for UI evidence)
+  - Vitest (TDD unit tests)
+  - js-yaml (YAML parsing for spec artifacts)
+
+relatedLinks: []
+
+decisions:
+  - title: 'Evidence phase placement within merge node'
+    chosen: 'Integrated into merge node between CI watch/fix loop and approval gate'
+    rejected:
+      - >
+        Separate LangGraph graph node — Rejected because evidence collection requires
+        PR metadata (prUrl, prNumber) that is only available after the merge node creates
+        the PR in Agent Call 1. A separate node would need PR data passed through state,
+        but the interrupt() in the merge node means state is not returned before the
+        approval gate. Would require splitting the merge node into create-pr and merge
+        sub-nodes, which is a much larger refactor with no architectural benefit.
+      - >
+        Post-merge evidence node — Rejected because evidence must be available BEFORE
+        the reviewer approves the merge. Posting evidence after merge defeats its purpose
+        of informing the merge decision.
+    rationale: >
+      The merge node already follows a multi-phase flow: commit/push/PR → CI watch/fix →
+      approval gate → merge. Evidence collection fits naturally after CI watch/fix and
+      before the approval gate, exactly where reviewers need it. The merge node already
+      has access to prUrl, prNumber, ciStatus, and ciFixHistory — all data the evidence
+      prompt needs. This avoids graph topology changes and follows the existing pattern
+      where the merge node handles multiple sequential concerns. The merge node is already
+      310 lines with clear internal phases; adding evidence as another phase is consistent
+      with the ci-watch-fix-loop integration pattern (lines 142-166 in merge.node.ts).
+
+  - title: 'Evidence prompt builder architecture'
+    chosen: 'New `evidence-prompts.ts` file with `buildEvidencePrompt()` function following existing prompt builder pattern'
+    rejected:
+      - >
+        Inline prompt construction in merge node — Rejected because all existing prompts
+        are in dedicated files under `nodes/prompts/`. Inlining would violate NFR-2
+        (maintainability) and the established separation of concerns. Every phase
+        (analyze, research, requirements, plan, implement, merge) has its own prompt file.
+      - >
+        Single monolithic evidence function — Rejected in favor of a main
+        `buildEvidencePrompt()` function with extracted helper functions for screenshot
+        instructions, artifact discovery instructions, and comment formatting. This follows
+        the pattern in `implement.prompt.ts` which has `formatTaskSection()` as a helper.
+    rationale: >
+      The existing codebase has a clear pattern: each phase gets a prompt file in
+      `nodes/prompts/` with a `build<Phase>Prompt()` function. The evidence prompt builder
+      follows this exactly. The function signature is
+      `buildEvidencePrompt(state: FeatureAgentState, prNumber: number, prUrl: string,
+      ciStatus: string | null, ciFixHistory: CiFixRecord[], branch: string): string`.
+      It uses `readSpecFile()` from `node-helpers.ts` to access spec.yaml, plan.yaml, and
+      tasks.yaml for spec compliance checking. Helper functions extract reusable sections
+      (screenshot instructions, artifact discovery, comment template). This matches
+      `merge-prompts.ts` which has `getMergeRejectionFeedback()` as a private helper.
+
+  - title: 'Evidence text delivery mechanism'
+    chosen: 'PR comment via `gh pr comment` executed by the agent'
+    rejected:
+      - >
+        Direct `IGitPrService` method call — Rejected because the `IGitPrService` interface
+        does not currently have a `commentOnPr()` method. Adding one would require interface
+        changes, implementation changes, and DI wiring changes. The agent executor already
+        has `gh` CLI access and can run `gh pr comment` directly during prompt execution,
+        which is simpler and consistent with how the agent creates PRs (via `gh pr create`
+        in the commit/push/PR prompt).
+      - >
+        GitHub REST API via fetch — Rejected because it would require GitHub token management,
+        HTTP client setup, and additional authentication handling. The `gh` CLI already handles
+        authentication transparently.
+    rationale: >
+      The agent executor approach is consistent with the existing architecture. In Agent Call 1,
+      the agent runs `gh pr create` directly. The evidence phase instructs the agent to run
+      `gh pr comment <prNumber> --body <markdown>` in the same way. For idempotent updates,
+      the agent first checks for existing evidence comments (via `gh pr view` or searching
+      comment body for the marker), then uses `gh api` to update if found. This requires no
+      interface changes, no new dependencies, and no additional DI wiring. The agent has full
+      shell access and can execute any `gh` command.
+
+  - title: 'Binary artifact storage strategy'
+    chosen: 'Commit to `evidence/` directory on feature branch via agent'
+    rejected:
+      - >
+        GitHub issue attachment API — Rejected because GitHub's attachment API is
+        undocumented/unsupported for programmatic use, has unpredictable CDN retention
+        policies, and requires multipart form upload which is complex to instruct an
+        agent to perform. Would also need special authentication handling.
+      - >
+        External storage (S3, GCS) — Rejected because it introduces external infrastructure
+        dependencies, requires credentials management, and complicates the setup for users
+        who just want local/GitHub-based evidence.
+    rationale: >
+      Committing to an `evidence/` directory on the feature branch is the simplest approach
+      that uses existing infrastructure. The agent can `git add evidence/ && git commit && git push`
+      using the same patterns it already uses for committing code. GitHub natively renders
+      images in PR comments when linked via raw file URLs. The `evidence/` directory is cleaned
+      up before merge (FR-9) to prevent binary files from landing on main. The cleanup commit
+      follows the existing conventional commit pattern. This approach requires zero new
+      infrastructure or API surface.
+
+  - title: 'Screenshot capture approach'
+    chosen: 'Agent-driven Playwright capture with dev server startup'
+    rejected:
+      - >
+        Extract from CI e2e test artifacts — Rejected as a primary approach because e2e tests
+        may not exist for all features, and CI artifacts may not be accessible from the agent
+        environment. However, this can be a secondary source: the evidence prompt instructs
+        the agent to check for existing Playwright artifacts in `test-results/` before
+        attempting fresh capture.
+      - >
+        Puppeteer instead of Playwright — Rejected because the project already has Playwright
+        fully configured (playwright.config.ts, existing e2e tests, showcase project with
+        video recording). Adding Puppeteer would introduce a redundant browser automation
+        dependency.
+    rationale: >
+      The project already has Playwright configured with screenshot and video capabilities.
+      The playwright.config.ts shows the dev server starts via `PORT=3001 pnpm dev:web` with
+      a 120-second timeout, and the showcase project demonstrates video recording with
+      `video: 'on'`. The evidence prompt instructs the agent to: (1) detect UI-relevant
+      file changes (paths matching `src/presentation/web/`), (2) start the dev server,
+      (3) use Playwright to navigate to affected pages and capture screenshots, (4) save
+      to `evidence/screenshots/`. The agent has full shell access and can run `npx playwright`
+      commands. If no UI changes are detected, this step is skipped entirely.
+
+  - title: 'Evidence state tracking'
+    chosen: 'Add `evidenceStatus` and `evidenceArtifacts` channels to FeatureAgentAnnotation'
+    rejected:
+      - >
+        Store evidence state in feature repository only — Rejected because other state
+        channels (ciStatus, ciFixAttempts) are tracked in both graph state and the feature
+        record. Evidence state needs to be in graph state so the interrupt payload can
+        include it (FR-13), and so downstream logic can branch on it.
+      - >
+        Detailed evidence state object with per-type status — Rejected in favor of a simple
+        enum status plus a list of artifact paths. Over-engineering the state would add
+        complexity without benefit. The PR comment itself contains the detailed breakdown;
+        state only needs to track overall outcome for the approval gate UI.
+    rationale: >
+      Following the existing pattern for `ciStatus` and `ciFixStatus`, add two new channels:
+      `evidenceStatus: 'skipped' | 'success' | 'partial' | 'failed'` (last-wins reducer,
+      default 'skipped') and `evidenceArtifacts: string[]` (last-wins reducer, default []).
+      The `evidenceStatus` channel tracks overall evidence collection outcome. `evidenceArtifacts`
+      lists paths of committed artifacts (e.g., `evidence/screenshots/dashboard.png`). Both
+      are included in the interrupt payload so the approval UI can display evidence availability.
+      This is minimal state (NFR-5) — the actual evidence content lives in the PR comment
+      and committed files.
+
+  - title: 'Graceful degradation strategy'
+    chosen: 'Try-catch per evidence sub-step with partial success tracking'
+    rejected:
+      - >
+        All-or-nothing with single try-catch — Rejected because evidence has three independent
+        sub-steps (text evidence, screenshot capture, artifact collection). If screenshot
+        capture fails (e.g., no dev server), text evidence should still be posted. A single
+        try-catch would lose all evidence on any single failure.
+      - >
+        Retry with backoff for each sub-step — Rejected because `retryExecute()` already
+        handles transient API errors for the agent executor call. Additional retry logic
+        for evidence sub-steps would add latency without clear benefit. The evidence phase
+        should fail fast and continue with partial results rather than retrying.
+    rationale: >
+      The merge node wraps the evidence agent call in a try-catch. On failure, it logs a
+      warning, sets evidenceStatus to 'partial' or 'failed', and continues to the approval
+      gate. This matches the spec's FR-11 requirement that evidence failure MUST NOT prevent
+      merge. The pattern follows how runCiWatchFixLoop handles terminal failures — log and
+      continue rather than blocking the flow.
+
+  - title: 'Evidence comment idempotency'
+    chosen: 'HTML comment marker with agent-driven find-and-update'
+    rejected:
+      - >
+        Store comment ID in graph state — Rejected because the comment ID is only known
+        after posting, and on re-runs the graph state may be reset. The marker-based
+        approach is self-contained and works regardless of state.
+      - >
+        Always post a new comment — Rejected because re-runs would create duplicate
+        evidence comments, cluttering the PR timeline. The spec explicitly requires
+        idempotent comments (FR-4).
+    rationale: >
+      The evidence comment includes `<!-- shep-evidence-v1 -->` as its first line. On
+      re-runs, the prompt instructs the agent to: (1) use `gh api` to list PR comments
+      and search for the marker, (2) if found, use `gh api` with PATCH to update the
+      existing comment, (3) if not found, use `gh pr comment` to create a new one. This
+      is fully self-contained — no state needed across runs. The marker version (`v1`)
+      allows future format changes without conflicting with old comments.
+
+  - title: 'Evidence cleanup mechanism'
+    chosen: 'Agent removes evidence/ directory before merge, commits removal'
+    rejected:
+      - >
+        .gitattributes merge strategy — Rejected because .gitattributes merge strategies
+        are unreliable across git versions, don't work with squash merges (which is the
+        default merge strategy used by the merge node), and would confuse contributors
+        examining the repo configuration.
+      - >
+        Post-merge cleanup branch — Rejected because it would require a separate branch
+        and PR just to clean up evidence, adding complexity and another review cycle.
+    rationale: >
+      The simplest reliable approach: after the merge approval gate passes but before
+      executing `gitPrService.mergePr()` or the local merge agent call, add a step that
+      instructs the agent to `git rm -r evidence/ && git commit && git push`. This uses
+      the same commit/push pattern the agent already follows. Evidence files remain accessible
+      in the PR's commit history for future reference. The cleanup commit is a minor overhead
+      (one additional commit) that keeps the main branch clean. This integrates naturally
+      into the merge node's post-approval, pre-merge phase.
+
+  - title: 'Evidence collection scope and maxTurns'
+    chosen: 'Single agent call with maxTurns=5 for full evidence collection'
+    rejected:
+      - >
+        Separate agent calls per evidence type (text, screenshots, artifacts) — Rejected
+        because each agent call has startup overhead (session initialization, context
+        loading). Three separate calls would triple the latency. The agent can handle all
+        evidence types in a single session since they are sequential operations.
+      - >
+        maxTurns=3 for evidence — Rejected because the agent needs enough turns to:
+        (1) read spec files and CI data, (2) compose the evidence comment, (3) post via
+        gh CLI, (4) optionally start dev server and capture screenshots, (5) discover
+        and commit artifacts. Three turns is too few for the full evidence suite.
+    rationale: >
+      A single agent call with `maxTurns=5` provides enough room for the agent to complete
+      all evidence sub-steps. The evidence prompt is comprehensive and instructs the agent
+      to perform all steps sequentially. If the agent runs out of turns, it will have
+      completed at least the text evidence (the highest-priority sub-step) since the prompt
+      orders operations by priority. The 120-second timeout (NFR-1) provides a hard ceiling.
+      The `retryExecute()` wrapper handles transient API errors.
+
+openQuestions:
+  - question: 'Should evidence collection use a single agent call or multiple calls?'
+    resolved: true
+    options:
+      - option: Single agent call with maxTurns=5
+        description: >
+          One comprehensive agent call that handles all evidence types sequentially:
+          text evidence → screenshots → artifact discovery → commit → PR comment.
+          Pros: minimal startup overhead, agent has full context across steps, simpler
+          merge node logic. Cons: if the agent fails mid-way, earlier steps may be lost
+          (mitigated by the agent posting the PR comment early and updating it).
+        selected: true
+      - option: Three separate agent calls (text, screenshots, artifacts)
+        description: >
+          Dedicated agent calls for each evidence type with independent try-catch.
+          Pros: fine-grained failure isolation, each call can have its own maxTurns.
+          Cons: triple the startup overhead (~15-30 seconds per call), more complex
+          merge node orchestration, agent loses context between calls.
+        selected: false
+      - option: Two agent calls (text + binary)
+        description: >
+          Split into text-only evidence (fast, always succeeds) and binary evidence
+          (screenshots + artifacts, may fail). Pros: guarantees text evidence is posted
+          even if binary collection fails. Cons: still doubles startup overhead.
+        selected: false
+    selectionRationale: >
+      A single agent call is the pragmatic choice. The prompt is ordered so that the
+      agent posts text evidence first (the PR comment), then captures screenshots, then
+      discovers artifacts. If the agent runs out of turns or hits a timeout, the text
+      evidence (highest value) will already be posted. The merge node wraps the entire
+      evidence call in a try-catch, and on failure, sets evidenceStatus to 'partial'
+      or 'failed'. This approach has the lowest latency and simplest orchestration.
+
+  - question: 'How should the evidence prompt instruct the agent to handle sensitive files?'
+    resolved: true
+    options:
+      - option: Explicit exclusion list in the prompt
+        description: >
+          The evidence prompt includes an explicit list of file patterns to NEVER commit
+          to the evidence directory: .env, .env.*, credentials.json, *secret*, *token*,
+          *.key, *.pem, id_rsa, *.p12. The agent is instructed to skip any discovered
+          artifacts matching these patterns. Pros: deterministic, easy to audit and extend.
+          Cons: may not cover all sensitive patterns.
+        selected: true
+      - option: Agent judgment with guidelines
+        description: >
+          The prompt tells the agent to "avoid committing files that may contain secrets"
+          without a specific list. Pros: flexible, adapts to new patterns. Cons: relies
+          entirely on agent judgment, inconsistent across runs, may miss patterns.
+        selected: false
+      - option: Automated secret scanning before commit
+        description: >
+          Run a secret scanner (e.g., gitleaks, trufflehog) on the evidence directory
+          before committing. Pros: comprehensive detection. Cons: adds a dependency,
+          requires tool installation, increases latency, may produce false positives
+          that block evidence.
+        selected: false
+    selectionRationale: >
+      An explicit exclusion list provides deterministic security without external
+      dependencies. The list covers the most common sensitive file patterns from OWASP
+      guidelines. The prompt is clear and auditable. The agent will skip any files matching
+      these patterns during artifact discovery. This is consistent with how the codebase
+      handles security concerns — explicit rules rather than AI judgment or external tools.
+
+  - question: 'How should the evidence prompt handle very large artifacts?'
+    resolved: true
+    options:
+      - option: File size check with skip and notice
+        description: >
+          The evidence prompt instructs the agent to check file sizes before committing.
+          Individual files exceeding 10 MB are skipped with a note in the PR comment.
+          Total evidence directory exceeding 50 MB causes remaining files to be skipped.
+          Pros: prevents repo bloat, clear limits, graceful handling. Cons: may miss
+          large but important artifacts.
+        selected: true
+      - option: Compress large files before committing
+        description: >
+          Large artifacts are compressed (gzip/zip) before committing to reduce size.
+          Pros: preserves all artifacts. Cons: compressed files lose GitHub preview
+          capability (images won't render inline), adds compression step complexity.
+        selected: false
+      - option: No size limits
+        description: >
+          Commit all discovered artifacts regardless of size. Pros: simplest approach.
+          Cons: risk of committing very large files (video recordings, database dumps)
+          that bloat the repository.
+        selected: false
+    selectionRationale: >
+      Size limits match NFR-6 requirements. The agent checks file sizes before committing.
+      The 10 MB per-file limit allows screenshots (typically 100 KB - 2 MB), short videos
+      (typically 1-5 MB), and most generated files (CSV, PDF typically less than 10 MB)
+      while blocking accidentally large files. The 50 MB total limit prevents aggregate
+      bloat. Skipped files are noted in the PR comment so reviewers know what was omitted
+      and can inspect manually if needed.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Evidence Phase Placement
+
+  **Chosen:** Integrated into merge node between CI watch/fix loop and approval gate
+
+  **Rejected:**
+  - Separate LangGraph graph node — Evidence needs PR metadata (prUrl, prNumber) from merge node's first phase. Separate node would require splitting merge node or duplicating PR creation logic.
+  - Post-merge evidence node — Evidence must inform the merge decision; posting after merge defeats its purpose.
+
+  **Rationale:** The merge node already has a multi-phase flow (commit/push/PR → CI watch → approve → merge). Evidence collection slots in after CI watch and before approval, giving reviewers a complete picture. The merge node has all required data (prUrl, prNumber, ciStatus, ciFixHistory) already available as local variables at the insertion point (after line 166 in merge.node.ts, before line 186).
+
+  ### 2. Prompt Builder Architecture
+
+  **Chosen:** New `evidence-prompts.ts` file with `buildEvidencePrompt()` function
+
+  **Rejected:**
+  - Inline prompt in merge node — Violates established separation of concerns; all prompts are in dedicated files.
+  - Single monolithic function — Helpers improve readability and testability.
+
+  **Rationale:** Follows the exact pattern of `merge-prompts.ts`, `implement.prompt.ts`, and other prompt files. The function takes state plus evidence-specific parameters (prNumber, prUrl, ciStatus, ciFixHistory, branch) and returns a prompt string. Helper functions handle section generation for screenshots, artifacts, and comment formatting.
+
+  ### 3. Text Evidence Delivery
+
+  **Chosen:** PR comment via `gh pr comment` executed by the agent
+
+  **Rejected:**
+  - Direct `IGitPrService` method — Interface lacks `commentOnPr()` method; adding one is unnecessary when agent can use `gh` CLI directly.
+  - GitHub REST API — Requires token management and HTTP client setup; `gh` CLI handles auth transparently.
+
+  **Rationale:** Consistent with how Agent Call 1 creates PRs via `gh pr create`. The agent has shell access and can execute `gh pr comment <prNumber> --body <markdown>`. For idempotent updates, the agent searches for the `<!-- shep-evidence-v1 -->` marker and uses `gh api` to update if found.
+
+  ### 4. Binary Artifact Storage
+
+  **Chosen:** Commit to `evidence/` directory on feature branch
+
+  **Rejected:**
+  - GitHub issue attachment API — Undocumented, unpredictable CDN retention, complex auth.
+  - External storage (S3) — Adds infrastructure dependency.
+
+  **Rationale:** Uses existing git infrastructure. Agent runs `git add evidence/ && git commit && git push`. GitHub natively renders linked images. Evidence is cleaned up before merge to prevent main branch pollution.
+
+  ### 5. Screenshot Capture
+
+  **Chosen:** Agent-driven Playwright capture with dev server startup
+
+  **Rejected:**
+  - Extract from CI e2e artifacts — Not always available; useful as secondary source.
+  - Puppeteer — Redundant; project already has Playwright fully configured.
+
+  **Rationale:** Playwright is already configured (playwright.config.ts) with dev server at PORT=3001, screenshot support, and video recording in the showcase project. The agent detects UI changes by inspecting changed files for `src/presentation/web/` paths, starts the dev server, and uses Playwright to capture screenshots.
+
+  ### 6. State Tracking
+
+  **Chosen:** `evidenceStatus` and `evidenceArtifacts` channels in FeatureAgentAnnotation
+
+  **Rejected:**
+  - Feature repository only — State needs to be in graph for interrupt payload (FR-13).
+  - Detailed per-type status object — Over-engineering; simple enum + artifact list suffices.
+
+  **Rationale:** Follows `ciStatus`/`ciFixStatus` pattern. `evidenceStatus` is a string union with last-wins reducer and default 'skipped'. `evidenceArtifacts` is `string[]` with last-wins reducer and default `[]`. Both included in interrupt payload for approval UI.
+
+  ### 7. Graceful Degradation
+
+  **Chosen:** Try-catch per evidence sub-step with partial success tracking
+
+  **Rejected:**
+  - All-or-nothing single try-catch — Would lose text evidence if screenshot capture fails.
+  - Retry per sub-step — `retryExecute()` already handles transient errors; additional retry adds latency.
+
+  **Rationale:** The merge node wraps the evidence agent call in a try-catch. On failure, it logs a warning, sets `evidenceStatus` to 'partial' or 'failed', and continues to the approval gate. This matches FR-11 exactly. The pattern mirrors how `runCiWatchFixLoop` handles terminal failures.
+
+  ### 8. Evidence Comment Idempotency
+
+  **Chosen:** HTML comment marker (`<!-- shep-evidence-v1 -->`) with agent-driven find-and-update
+
+  **Rejected:**
+  - Store comment ID in state — State may be reset on re-runs.
+  - Always post new comment — Creates duplicates, violates FR-4.
+
+  **Rationale:** Self-contained approach. The agent searches for the marker via `gh api`, updates if found, creates if not. Version suffix (`v1`) allows future format evolution.
+
+  ### 9. Evidence Cleanup
+
+  **Chosen:** Agent removes `evidence/` before merge via commit
+
+  **Rejected:**
+  - .gitattributes merge strategy — Unreliable with squash merges (the default strategy).
+  - Post-merge cleanup branch — Adds complexity and another review cycle.
+
+  **Rationale:** After approval gate, before `mergePr()`, the merge node instructs the agent (or directly uses git commands) to remove `evidence/` and push. Evidence remains in PR commit history. Follows conventional commit format: `chore(agents): remove evidence artifacts`.
+
+  ### 10. Agent Call Strategy
+
+  **Chosen:** Single agent call with maxTurns=5
+
+  **Rejected:**
+  - Three separate calls (text, screenshots, artifacts) — Triple startup overhead.
+  - maxTurns=3 — Too few for full evidence suite.
+
+  **Rationale:** Prompt is ordered by priority: text evidence first, then screenshots, then artifacts. If the agent runs out of turns, text evidence (highest value) is already posted. The 120-second timeout provides a hard ceiling.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | Playwright | Screenshot and video capture | Use (existing) | Already configured with dev server, screenshot, and video support |
+  | GitHub CLI (gh) | PR comments, API calls | Use (existing) | Already used for PR creation, CI status, merge operations |
+  | js-yaml | Parse spec YAML files | Use (existing) | Already used by all prompt builders via `readSpecFile()` |
+  | LangGraph | State management, interrupt | Use (existing) | Graph framework already in use; new channels added to existing Annotation |
+  | Vitest | Unit testing | Use (existing) | Project test framework; all tests follow established patterns |
+  | node:fs | File operations | Use (existing) | Already used by `readSpecFile()` and `writeSpecFileAtomic()` in node-helpers |
+
+  No new libraries are needed. All required functionality is available through existing dependencies and the agent executor's shell access.
+
+  ## Security Considerations
+
+  ### Sensitive File Exclusion (NFR-9)
+  The evidence prompt includes an explicit exclusion list for artifact discovery:
+  - `.env`, `.env.*` — Environment variable files
+  - `credentials.json`, `*secret*`, `*token*` — Credential files
+  - `*.key`, `*.pem`, `*.p12`, `id_rsa` — Private keys and certificates
+  - `node_modules/`, `.git/` — Framework and VCS directories
+
+  The agent is instructed to NEVER commit files matching these patterns to `evidence/`.
+
+  ### Artifact Size Limits (NFR-6)
+  - Individual file limit: 10 MB (prevents large binaries from bloating the repo)
+  - Total directory limit: 50 MB (aggregate cap)
+  - Oversized files are skipped with a notice in the PR comment
+
+  ### Evidence Cleanup (FR-9)
+  Evidence files are removed before merge to prevent binary artifacts from landing on main. The cleanup commit is automated and follows conventional commit format.
+
+  ### PR Comment Content
+  The evidence comment contains only project-related data (test results, build status, file lists). No secrets, tokens, or authentication data should appear. The prompt explicitly instructs the agent to redact any accidentally captured sensitive data.
+
+  ## Performance Implications
+
+  ### Evidence Phase Timing (NFR-1)
+  - **Target:** 120 seconds total for the evidence phase
+  - **Text evidence:** ~10-30 seconds (agent reads spec files, composes comment, posts via gh CLI)
+  - **Screenshot capture:** ~30-60 seconds (dev server startup + Playwright navigation + capture)
+  - **Artifact discovery:** ~10-20 seconds (workspace inspection + git add/commit/push)
+  - **Total:** ~50-110 seconds for full evidence suite, well within 120-second target
+
+  ### Agent Executor Configuration
+  - `maxTurns: 5` — Sufficient for all evidence sub-steps in a single agent call
+  - `retryExecute()` with default 3 attempts handles transient API failures
+  - `disableMcp: true` — Follows existing pattern from `buildExecutorOptions()`
+
+  ### Impact on Merge Flow
+  - Evidence phase adds ~50-110 seconds between CI watch completion and approval gate
+  - Graceful skip when no PR (`state.openPr === false`) adds zero latency
+  - On failure, evidence is skipped entirely (no blocking), adding only error handling overhead
+
+  ## Architecture Notes
+
+  ### Integration Point in Merge Node
+
+  The evidence phase inserts into `merge.node.ts` at the following location:
+
+  ```
+  Agent Call 1: Commit + Push + PR (line 117)
+    |
+  CI Watch/Fix Loop (line 142)
+    |
+  Persist PR data (line 168)
+    |
+  ** EVIDENCE PHASE (new — between lines 184 and 186) **
+    |
+  Merge Approval Gate (line 186)
+    |
+  ** EVIDENCE CLEANUP (new — between approval and merge, around line 216) **
+    |
+  Merge (line 220)
+  ```
+
+  ### State Changes
+
+  New channels in `FeatureAgentAnnotation` (state.ts):
+  - `evidenceStatus` — `'skipped' | 'success' | 'partial' | 'failed'`, default 'skipped', last-wins reducer
+  - `evidenceArtifacts` — `string[]`, default [], last-wins reducer
+
+  ### Interrupt Payload Changes
+
+  The merge approval interrupt (line 193) will include new fields:
+  - `evidenceStatus` — Overall evidence collection outcome
+  - `evidenceArtifacts` — List of committed artifact paths (for UI display)
+
+  ### Files to Create
+  - `packages/core/src/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.ts`
+  - `tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts`
+  - `tests/unit/infrastructure/services/agents/feature-agent/nodes/merge/merge.node.evidence.test.ts`
+
+  ### Files to Modify
+  - `packages/core/src/infrastructure/services/agents/feature-agent/state.ts` — Add evidenceStatus and evidenceArtifacts channels
+  - `packages/core/src/infrastructure/services/agents/feature-agent/nodes/merge/merge.node.ts` — Add evidence phase and cleanup phase
+
+  ### Test Strategy (TDD)
+
+  1. **Evidence prompt builder tests** (`evidence-prompts.test.ts`):
+     - Test prompt includes all required sections
+     - Test conditional screenshot section (present when UI changes detected)
+     - Test conditional artifact section
+     - Test CI fix history inclusion
+     - Test idempotency marker presence
+     - Test sensitive file exclusion instructions
+     - Test determinism
+
+  2. **Evidence phase integration tests** (`merge.node.evidence.test.ts`):
+     - Test evidence collection after CI watch, before approval gate
+     - Test graceful skip when openPr=false
+     - Test graceful degradation on agent executor failure
+     - Test evidenceStatus set correctly for success/partial/failed
+     - Test evidence data included in interrupt payload
+     - Test evidence cleanup before merge execution
+
+  3. **Mock strategy** (following existing test patterns):
+     - Mock `IAgentExecutor.execute()` — verify prompt content and options
+     - Mock `readSpecFile()` — provide controlled spec/plan/tasks content
+     - Mock file system operations for artifact discovery
+     - No actual Playwright or dev server in unit tests
+
+  ---
+
+  _Research complete — proceed to planning phase_
