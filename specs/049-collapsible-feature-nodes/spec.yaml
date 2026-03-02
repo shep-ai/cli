@@ -1,0 +1,146 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: collapsible-feature-nodes
+number: 049
+branch: feat/049-collapsible-feature-nodes
+oneLiner: Allow parent feature nodes to collapse/expand their child nodes on the canvas
+userQuery: >
+  Feature: Collapsable/Stackable feature nodes
+summary: >
+  Add collapse/expand behavior to feature nodes that have children (via parentId
+  dependency edges). When a parent node is collapsed, its child nodes and connecting
+  dependency edges are hidden from the canvas and the parent displays a stacked
+  visual indicator showing the count of hidden children. The layout algorithm
+  recalculates positions when nodes are collapsed or expanded.
+phase: Analysis
+sizeEstimate: M
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - "@xyflow/react v12 (React Flow)"
+  - "@dagrejs/dagre (graph layout)"
+  - "React (useState, useCallback, useMemo)"
+  - "Tailwind CSS (styling and animations)"
+  - "Radix UI (existing accordion/collapse patterns)"
+  - "Lucide React (icons)"
+  - "Vitest + React Testing Library (unit tests)"
+  - "Storybook (component documentation)"
+
+relatedLinks: []
+
+openQuestions:
+  - question: "Should collapse state persist across page reloads (localStorage) or be ephemeral?"
+    context: "Currently no per-node UI state is persisted client-side."
+  - question: "Should the stacked visual show child count only, or also a mini summary (e.g. '3 running, 1 done')?"
+    context: "Determines complexity of the collapsed node indicator."
+  - question: "Should collapsed nodes be searchable/selectable from the sidebar feature list?"
+    context: "Sidebar syncs features from canvas nodes; collapsing may hide them from the sidebar too."
+  - question: "What is the interaction to toggle collapse — click a chevron on the node, double-click, or a context menu?"
+    context: "The node currently has Settings and Action (+) buttons. A collapse toggle needs a clear affordance."
+
+content: |
+  ## Problem Statement
+
+  When a repository has many features — especially with parent-child hierarchies
+  created via the "add feature to feature" flow — the canvas becomes cluttered.
+  Users lose overview because every feature node is always visible regardless of
+  its relevance. There is no way to group or minimize completed or child features
+  to focus on what matters.
+
+  Collapsible/stackable feature nodes solve this by letting users collapse a
+  parent feature node so its children are hidden, replaced by a compact stacked
+  indicator. Expanding restores the full subtree.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The feature lives entirely in the **presentation/web** layer:
+
+  | Directory | Purpose |
+  | --------- | ------- |
+  | `src/presentation/web/components/common/feature-node/` | FeatureNode component, state config, agent icons, derive-feature-state |
+  | `src/presentation/web/components/features/features-canvas/` | FeaturesCanvas (ReactFlow wrapper), DependencyEdge custom edge |
+  | `src/presentation/web/components/features/control-center/` | ControlCenter, ControlCenterInner, useControlCenterState hook |
+  | `src/presentation/web/lib/layout-with-dagre.ts` | Dagre-based graph layout algorithm |
+  | `src/presentation/web/hooks/sidebar-features-context.tsx` | Sidebar feature list sync |
+  | `tests/unit/presentation/web/` | Unit tests (Vitest + RTL) |
+
+  ### Architecture Patterns
+
+  - **React Flow** (`@xyflow/react` v12) renders the node graph with registered
+    custom node types (`featureNode`, `repositoryNode`, `addRepositoryNode`) and
+    a custom `DependencyEdge` edge type.
+  - **useControlCenterState** hook is the central state manager: it owns `nodes`
+    and `edges` arrays, handles optimistic updates via SSE events, and runs
+    `layoutWithDagre()` on structural changes (delete, connect).
+  - **Node enrichment** happens in `FeaturesCanvas.enrichedNodes` — callbacks
+    (`onAction`, `onSettings`, `onDelete`) are injected into node data before
+    passing to ReactFlow.
+  - **Parent-child edges** use `type: 'dependencyEdge'` with IDs prefixed
+    `dep-<parent>-<child>`. The parent's `(+)` action button triggers
+    `handleAddFeatureToFeature()` which opens the create drawer with
+    `pendingParentFeatureId` set.
+  - **Layout**: `layoutWithDagre()` uses Dagre's hierarchical DAG layout with
+    known node dimensions (featureNode: 288x140). Disconnected nodes are placed
+    below the graph. Layout direction is configurable (LR used after delete).
+
+  ### Relevant Technologies
+
+  - **@xyflow/react v12**: Custom nodes via `nodeTypes`, `onNodesChange` for
+    position updates, `Handle` components for edges.
+  - **@dagrejs/dagre**: Hierarchical layout computation. Must be updated to
+    exclude collapsed children from the graph.
+  - **Tailwind CSS**: All styling uses utility classes. Animations exist for
+    accordion open/close and indeterminate progress.
+  - **Storybook**: FeatureNode stories use a `FeatureNodeCanvas` wrapper that
+    creates a minimal ReactFlow instance. Stories test all states/lifecycles.
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `src/presentation/web/components/common/feature-node/feature-node.tsx` | High | Add collapse/expand toggle button and stacked visual indicator to node UI |
+  | `src/presentation/web/components/common/feature-node/feature-node-state-config.ts` | Medium | Extend FeatureNodeData with `isCollapsed`, `childCount`, and `childSummary` fields |
+  | `src/presentation/web/components/features/features-canvas/features-canvas.tsx` | High | Filter out collapsed children from rendered nodes/edges; inject collapse callbacks into enrichedNodes |
+  | `src/presentation/web/components/features/control-center/use-control-center-state.ts` | High | Manage collapse state (collapsed node IDs set); re-layout on toggle; derive visible nodes/edges |
+  | `src/presentation/web/lib/layout-with-dagre.ts` | Medium | Accept collapsed node IDs to exclude from layout; adjust dimensions for stacked nodes |
+  | `src/presentation/web/components/common/feature-node/feature-node.stories.tsx` | Medium | Add stories for collapsed state, stacked indicator, and expand/collapse interaction |
+  | `tests/unit/presentation/web/common/feature-node/feature-node.test.tsx` | Medium | Test collapse toggle rendering, child count indicator, click behavior |
+  | `tests/unit/presentation/web/features/features-canvas/features-canvas.test.tsx` | Medium | Test node/edge filtering when parent is collapsed |
+  | `tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx` | Medium | Test collapse toggle state management and layout recalculation |
+  | `src/presentation/web/hooks/sidebar-features-context.tsx` | Low | Decide whether collapsed children remain in sidebar list or are filtered |
+
+  ## Dependencies
+
+  - **Existing parent-child edge system**: The `dependencyEdge` type and
+    `handleAddFeatureToFeature` flow must be stable. Collapse operates on
+    nodes connected by `dep-*` edges.
+  - **Dagre layout algorithm**: Collapse/expand triggers re-layout. The
+    `layoutWithDagre()` function needs to handle filtered node sets.
+  - **FeatureNodeData type**: Extending with new fields must be backward
+    compatible (all new fields optional with defaults).
+  - **@xyflow/react**: Node visibility can be handled by filtering the nodes
+    array or setting `hidden: true` (React Flow supports both patterns).
+  - **Storybook**: Must add stories for the new collapsed/expanded states
+    per CLAUDE.md mandatory rules.
+
+  ## Size Estimate
+
+  **M** — This is a UI-only feature scoped to the presentation/web layer.
+  The main work is:
+  1. Extending FeatureNodeData and the FeatureNode component (~1 day)
+  2. Adding collapse state management to useControlCenterState (~0.5 day)
+  3. Filtering nodes/edges in FeaturesCanvas + layout adjustments (~0.5 day)
+  4. Storybook stories + unit tests (~0.5 day)
+
+  No domain model changes, no TypeSpec changes, no API changes needed.
+  All changes are in the React presentation layer with well-defined
+  component boundaries.
+
+  ---
+
+  _Generated by feature agent — proceed with research_
