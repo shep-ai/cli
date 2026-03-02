@@ -121,8 +121,9 @@ describe('Merge Step — Gate Tests', () => {
     // Should interrupt (LangGraph bubble-up error)
     await expect(mergeNode(state)).rejects.toThrow();
 
-    // Agent was called once for commit+push+PR (no Phase 2 since interrupted)
-    expect(executor.execute).toHaveBeenCalledTimes(1);
+    // Agent was called twice: once for commit+push+PR, once for evidence collection
+    // (no Phase 2 merge since interrupted at gate)
+    expect(executor.execute).toHaveBeenCalledTimes(2);
 
     // Feature branch should be visible on origin (harness pushed it in setup)
     await harness.runGit(['fetch', 'origin']);
