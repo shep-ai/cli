@@ -61,48 +61,54 @@ export function DecisionChatPanel({
       ) : null}
       {children}
       {onReject ? (
-        <form onSubmit={handleSend} className="flex items-center gap-2 p-4">
-          <Input
-            type="text"
-            placeholder="Ask about these decisions..."
-            aria-label="Chat about decisions"
-            disabled={disabled}
-            value={chatInput}
-            onChange={(e) => setChatInput(e.target.value)}
-            className="flex-1"
-          />
-          <Button
-            type="submit"
-            variant="secondary"
-            size="icon"
-            aria-label="Send"
-            disabled={disabled || !chatInput.trim()}
-          >
-            <Send />
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            aria-label="Reject"
-            disabled={disabled || !chatInput.trim()}
-            onClick={handleReject}
-          >
-            <X className="mr-1 h-3.5 w-3.5" />
-            Reject
-          </Button>
-          <Button
-            type="button"
-            disabled={disabled}
-            onClick={() => {
-              approveSound.play();
-              onApprove();
-            }}
-          >
-            {approveIcon}
-            {approveLabel}
-          </Button>
-        </form>
+        <div className="space-y-2 p-4">
+          <form onSubmit={handleSend} className="flex items-center gap-2">
+            <Input
+              type="text"
+              placeholder="Ask about these decisions..."
+              aria-label="Chat about decisions"
+              disabled={disabled}
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              className="flex-1"
+            />
+            <Button
+              type="submit"
+              variant="secondary"
+              size="icon"
+              aria-label="Send"
+              disabled={disabled || !chatInput.trim()}
+            >
+              <Send />
+            </Button>
+          </form>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              aria-label="Reject"
+              disabled={disabled || !chatInput.trim()}
+              onClick={handleReject}
+              className="flex-1"
+            >
+              <X className="mr-1 h-3.5 w-3.5" />
+              Reject
+            </Button>
+            <Button
+              type="button"
+              className="flex-1"
+              disabled={disabled}
+              onClick={() => {
+                approveSound.play();
+                onApprove();
+              }}
+            >
+              {approveIcon}
+              {approveLabel}
+            </Button>
+          </div>
+        </div>
       ) : (
         <div className="flex items-center gap-2 px-4 pb-4">
           <Button
