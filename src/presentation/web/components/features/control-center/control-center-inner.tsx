@@ -44,6 +44,9 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     closeCreateDrawer,
     selectFeatureById,
     pendingParentFeatureId,
+    collapsedNodeIds,
+    toggleCollapse,
+    hiddenNodeIds,
   } = useControlCenterState(initialNodes, initialEdges);
 
   // Publish sidebar features to context whenever feature node data changes
@@ -204,6 +207,9 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
         onRepositoryDelete={handleDeleteRepository}
         onFeatureDelete={handleDeleteFeature}
         onRepositorySelect={handleAddRepository}
+        collapsedNodeIds={collapsedNodeIds}
+        hiddenNodeIds={hiddenNodeIds}
+        toggleCollapse={toggleCollapse}
         emptyState={<ControlCenterEmptyState onRepositorySelect={handleAddRepository} />}
       />
       <ControlCenterDrawer

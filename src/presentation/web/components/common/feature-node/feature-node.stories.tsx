@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import { expect, fn, waitFor } from '@storybook/test';
 import { ReactFlowProvider, ReactFlow, useNodesState } from '@xyflow/react';
@@ -492,6 +492,37 @@ export const NoChildren: Story = {
     childCount: 0,
   },
   render: (args) => <FeatureNodeCanvas data={args} />,
+};
+
+/** Interactive collapse/expand — click the chevron to toggle state. */
+function CollapseInteractionCanvas() {
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  const data: FeatureNodeData = {
+    name: 'API Gateway',
+    description: 'Click the chevron to toggle collapse state',
+    featureId: '#f12',
+    lifecycle: 'implementation' as FeatureLifecyclePhase,
+    state: 'running' as FeatureNodeState,
+    progress: 50,
+    repositoryPath: '/home/user/my-repo',
+    branch: 'feat/api-gateway',
+    childCount: isCollapsed ? 4 : 2,
+    isCollapsed,
+    onToggleCollapse: () => setIsCollapsed((prev) => !prev),
+  };
+
+  return <FeatureNodeCanvas data={data} style={{ width: 600, height: 400 }} />;
+}
+
+export const CollapseInteraction: Story = {
+  render: () => <CollapseInteractionCanvas />,
+  play: async ({ canvasElement }) => {
+    const collapseButton = canvasElement.querySelector(
+      '[data-testid="feature-node-collapse-button"]'
+    ) as HTMLElement;
+    await waitFor(() => expect(collapseButton).toBeTruthy());
+  },
 };
 
 /** Side-by-side comparison of all collapse states. */

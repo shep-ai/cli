@@ -45,7 +45,8 @@ export interface ControlCenterState {
   isDeleting: boolean;
   createFeatureNode: (
     sourceNodeId: string | null,
-    dataOverride?: Partial<FeatureNodeData>
+    dataOverride?: Partial<FeatureNodeData>,
+    edgeType?: string
   ) => string;
   selectFeatureById: (featureId: string) => void;
   /** Set of node IDs whose children are currently collapsed */
@@ -514,6 +515,16 @@ export function useControlCenterState(
         ]);
       }
 
+      // Auto-expand collapsed parent when a child is added via dependency edge
+      if (edgeType === 'dependencyEdge' && sourceNodeId) {
+        setCollapsedNodeIds((prev) => {
+          if (!prev.has(sourceNodeId)) return prev;
+          const next = new Set(prev);
+          next.delete(sourceNodeId);
+          return next;
+        });
+      }
+
       if (newFeatureData.state !== 'creating') {
         setSelectedNode(newFeatureData);
       }
@@ -606,6 +617,29 @@ export function useControlCenterState(
             nodesep: 60,
           });
           setEdges(result.edges);
+
+          // Collapse cleanup: remove deleted node from collapsedNodeIds and
+          // un-collapse any parent that no longer has dep-* children
+          setCollapsedNodeIds((prev) => {
+            let next = prev;
+            // Remove the deleted node itself
+            if (next.has(featureId)) {
+              next = new Set(next);
+              next.delete(featureId);
+            }
+            // Check remaining collapsed parents — if any lost all children, remove them
+            for (const collapsedId of next) {
+              const hasChildren = remainingEdges.some(
+                (e) => e.id.startsWith('dep-') && e.source === collapsedId
+              );
+              if (!hasChildren) {
+                if (next === prev) next = new Set(next);
+                next.delete(collapsedId);
+              }
+            }
+            return next;
+          });
+
           return result.nodes;
         });
         deleteSound.play();

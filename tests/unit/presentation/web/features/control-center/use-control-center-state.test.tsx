@@ -1835,6 +1835,171 @@ describe('useControlCenterState', () => {
       expect(screen.getByTestId('collapsed-node-ids')).toHaveTextContent('[]');
     });
 
+    it('auto-expands collapsed parent when child feature is added', () => {
+      renderHook([parentNode, childNode] as CanvasNodeType[], [depEdgeParentChild]);
+
+      // Collapse the parent
+      act(() => {
+        fireEvent.click(screen.getByTestId('toggle-collapse-feat-1'));
+      });
+      expect(screen.getByTestId('collapsed-node-ids')).toHaveTextContent('["feat-1"]');
+
+      // Create a new child feature on the collapsed parent via createFeatureNode
+      let capturedState: ControlCenterState | null = null;
+      const { unmount } = render(
+        <HookTestHarness
+          initialNodes={[parentNode, childNode] as CanvasNodeType[]}
+          initialEdges={[depEdgeParentChild]}
+          onStateChange={(state) => {
+            capturedState = state;
+          }}
+        />
+      );
+
+      // Collapse the parent in the new harness
+      act(() => {
+        capturedState!.toggleCollapse('feat-1');
+      });
+      expect(capturedState!.collapsedNodeIds.has('feat-1')).toBe(true);
+
+      // Add a child feature to the collapsed parent (dependencyEdge)
+      act(() => {
+        capturedState!.createFeatureNode('feat-1', { name: 'New Child' }, 'dependencyEdge');
+      });
+
+      // Parent should be auto-expanded (removed from collapsedNodeIds)
+      expect(capturedState!.collapsedNodeIds.has('feat-1')).toBe(false);
+
+      unmount();
+    });
+
+    it('removes collapsed parent from collapsedNodeIds when last child is deleted', async () => {
+      mockDeleteFeature.mockResolvedValue({ feature: { id: 'c1' } });
+
+      let capturedState: ControlCenterState | null = null;
+      render(
+        <HookTestHarness
+          initialNodes={[parentNode, childNode] as CanvasNodeType[]}
+          initialEdges={[depEdgeParentChild]}
+          onStateChange={(state) => {
+            capturedState = state;
+          }}
+        />
+      );
+
+      // Collapse the parent
+      act(() => {
+        capturedState!.toggleCollapse('feat-1');
+      });
+      expect(capturedState!.collapsedNodeIds.has('feat-1')).toBe(true);
+
+      // Delete the only child
+      await act(async () => {
+        await capturedState!.handleDeleteFeature('feat-child-1');
+      });
+
+      // Parent should be removed from collapsedNodeIds since it has no children left
+      expect(capturedState!.collapsedNodeIds.has('feat-1')).toBe(false);
+    });
+
+    it('keeps parent collapsed when deleting one of two children', async () => {
+      mockDeleteFeature.mockResolvedValue({ feature: { id: 'c1' } });
+
+      const childNode2: FeatureNodeType = {
+        id: 'feat-child-2',
+        type: 'featureNode',
+        position: { x: 400, y: 300 },
+        data: {
+          name: 'Child Feature 2',
+          featureId: '#c2',
+          lifecycle: 'requirements',
+          state: 'done',
+          progress: 0,
+          repositoryPath: '/home/user/my-repo',
+          branch: 'feat/child-2',
+        },
+      };
+      const depEdge2: Edge = {
+        id: 'dep-feat-1-feat-child-2',
+        source: 'feat-1',
+        target: 'feat-child-2',
+        type: 'dependencyEdge',
+      };
+
+      let capturedState: ControlCenterState | null = null;
+      render(
+        <HookTestHarness
+          initialNodes={[parentNode, childNode, childNode2] as CanvasNodeType[]}
+          initialEdges={[depEdgeParentChild, depEdge2]}
+          onStateChange={(state) => {
+            capturedState = state;
+          }}
+        />
+      );
+
+      // Collapse the parent
+      act(() => {
+        capturedState!.toggleCollapse('feat-1');
+      });
+      expect(capturedState!.collapsedNodeIds.has('feat-1')).toBe(true);
+
+      // Delete one child
+      await act(async () => {
+        await capturedState!.handleDeleteFeature('feat-child-1');
+      });
+
+      // Parent should remain collapsed — it still has another child
+      expect(capturedState!.collapsedNodeIds.has('feat-1')).toBe(true);
+    });
+
+    it('removes a deleted node from collapsedNodeIds if it was collapsed itself', async () => {
+      mockDeleteFeature.mockResolvedValue({ feature: { id: 'c1' } });
+
+      // childNode is collapsed (has grandchild), then childNode is deleted
+      let capturedState: ControlCenterState | null = null;
+      render(
+        <HookTestHarness
+          initialNodes={[parentNode, childNode, grandchildNode] as CanvasNodeType[]}
+          initialEdges={[depEdgeParentChild, depEdgeChildGrandchild]}
+          onStateChange={(state) => {
+            capturedState = state;
+          }}
+        />
+      );
+
+      // Collapse the child node (intermediate collapsed node)
+      act(() => {
+        capturedState!.toggleCollapse('feat-child-1');
+      });
+      expect(capturedState!.collapsedNodeIds.has('feat-child-1')).toBe(true);
+
+      // Delete the child node
+      await act(async () => {
+        await capturedState!.handleDeleteFeature('feat-child-1');
+      });
+
+      // feat-child-1 should be removed from collapsedNodeIds
+      expect(capturedState!.collapsedNodeIds.has('feat-child-1')).toBe(false);
+    });
+
+    it('does not change collapsedNodeIds when child is added to expanded parent', () => {
+      let capturedState: ControlCenterState | null = null;
+      renderHook([parentNode, childNode] as CanvasNodeType[], [depEdgeParentChild], (state) => {
+        capturedState = state;
+      });
+
+      // Parent is NOT collapsed — collapsedNodeIds should be empty
+      expect(capturedState!.collapsedNodeIds.size).toBe(0);
+
+      // Add a child feature to the expanded parent
+      act(() => {
+        capturedState!.createFeatureNode('feat-1', { name: 'New Child' }, 'dependencyEdge');
+      });
+
+      // collapsedNodeIds should still be empty
+      expect(capturedState!.collapsedNodeIds.size).toBe(0);
+    });
+
     it('filters stale IDs during localStorage persistence', async () => {
       vi.mocked(localStorage.getItem).mockImplementation((key: string) => {
         if (key === 'shep-collapsed-nodes') {

@@ -432,6 +432,52 @@ describe('FeatureNode', () => {
     });
   });
 
+  describe('regression: existing interactions with collapse toggle visible', () => {
+    const collapseData = {
+      childCount: 3,
+      isCollapsed: false,
+      onToggleCollapse: vi.fn(),
+    };
+
+    it('settings button works on nodes with collapse toggle', () => {
+      const onSettings = vi.fn();
+      renderFeatureNode({ ...collapseData, onSettings });
+      fireEvent.click(screen.getByTestId('feature-node-settings-button'));
+      expect(onSettings).toHaveBeenCalledOnce();
+    });
+
+    it('delete button works on nodes with collapse toggle', () => {
+      const onDelete = vi.fn();
+      renderFeatureNode({ ...collapseData, onDelete, featureId: '#f1' });
+      fireEvent.click(screen.getByTestId('feature-node-delete-button'));
+      fireEvent.click(screen.getByTestId('alert-dialog-confirm'));
+      expect(onDelete).toHaveBeenCalledWith('#f1');
+    });
+
+    it('action button works on nodes with collapse toggle', () => {
+      const onAction = vi.fn();
+      renderFeatureNode({ ...collapseData, onAction });
+      fireEvent.click(screen.getByTestId('feature-node-action-button'));
+      expect(onAction).toHaveBeenCalledOnce();
+    });
+
+    it('collapse toggle click does not invoke other callbacks', () => {
+      const onAction = vi.fn();
+      const onSettings = vi.fn();
+      const onToggleCollapse = vi.fn();
+      renderFeatureNode({
+        childCount: 3,
+        onToggleCollapse,
+        onAction,
+        onSettings,
+      });
+      fireEvent.click(screen.getByTestId('feature-node-collapse-button'));
+      expect(onToggleCollapse).toHaveBeenCalledOnce();
+      expect(onAction).not.toHaveBeenCalled();
+      expect(onSettings).not.toHaveBeenCalled();
+    });
+  });
+
   describe('selected highlight', () => {
     it('applies ring classes when selected is true', () => {
       renderFeatureNode(undefined, { selected: true });

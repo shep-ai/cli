@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/common/empty-state';
 import { FeatureNode } from '@/components/common/feature-node';
 import type { FeatureNodeType, FeatureNodeData } from '@/components/common/feature-node';
+import { getDescendantIds } from '@/lib/get-descendant-ids';
 import { RepositoryNode } from '@/components/common/repository-node';
 import type { RepositoryNodeType } from '@/components/common/repository-node';
 import { AddRepositoryNode } from '@/components/common/add-repository-node';
@@ -34,6 +35,12 @@ export interface FeaturesCanvasProps {
   onCanvasDrag?: () => void;
   toolbar?: React.ReactNode;
   emptyState?: React.ReactNode;
+  /** Set of node IDs whose children are currently collapsed */
+  collapsedNodeIds?: Set<string>;
+  /** Set of node IDs hidden because an ancestor is collapsed */
+  hiddenNodeIds?: Set<string>;
+  /** Toggle collapse state for a node */
+  toggleCollapse?: (nodeId: string) => void;
 }
 
 export function FeaturesCanvas({
@@ -54,6 +61,9 @@ export function FeaturesCanvas({
   onCanvasDrag,
   toolbar,
   emptyState,
+  collapsedNodeIds,
+  hiddenNodeIds,
+  toggleCollapse,
 }: FeaturesCanvasProps) {
   const nodeTypes = useMemo(
     () => ({
@@ -87,33 +97,73 @@ export function FeaturesCanvas({
     [nodes, edges]
   );
 
+  // Pre-compute direct child count per node from dep-* edges
+  const directChildCountMap = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const edge of edges) {
+      if (!edge.id.startsWith('dep-')) continue;
+      map.set(edge.source, (map.get(edge.source) ?? 0) + 1);
+    }
+    return map;
+  }, [edges]);
+
+  // Filter out hidden nodes (descendants of collapsed parents)
+  const visibleNodes = useMemo(() => {
+    if (!hiddenNodeIds || hiddenNodeIds.size === 0) return nodes;
+    return nodes.filter((n) => !hiddenNodeIds.has(n.id));
+  }, [nodes, hiddenNodeIds]);
+
+  // Filter out edges where source or target is hidden
+  const visibleEdges = useMemo(() => {
+    if (!hiddenNodeIds || hiddenNodeIds.size === 0) return edges;
+    return edges.filter((e) => !hiddenNodeIds.has(e.source) && !hiddenNodeIds.has(e.target));
+  }, [edges, hiddenNodeIds]);
+
   const enrichedNodes = useMemo(
     () =>
-      nodes.map((node) => ({
-        ...node,
-        data: {
-          ...node.data,
-          showHandles: edges.length > 0,
-          ...(node.type === 'featureNode' && (node.data as FeatureNodeData).state !== 'creating'
-            ? {
-                onAction: onNodeAction ? () => onNodeAction(node.id) : undefined,
-                onSettings: onNodeSettings ? () => onNodeSettings(node.id) : undefined,
-                onDelete: onFeatureDelete,
-              }
-            : {}),
-          ...(node.type === 'repositoryNode' && {
-            onAdd: onRepositoryAdd ? () => onRepositoryAdd(node.id) : undefined,
-            onClick: onRepositoryClick ? () => onRepositoryClick(node.id) : undefined,
-            onDelete: onRepositoryDelete,
-          }),
-          ...(node.type === 'addRepositoryNode' && {
-            onSelect: onRepositorySelect ? (path: string) => onRepositorySelect(path) : undefined,
-          }),
-        },
-      })) as CanvasNodeType[],
+      visibleNodes.map((node) => {
+        const directChildren = directChildCountMap.get(node.id) ?? 0;
+        const isCollapsed = collapsedNodeIds?.has(node.id) ?? false;
+
+        // When collapsed, show total descendant count (for the badge);
+        // when expanded, show direct child count (for toggle visibility)
+        const childCount = isCollapsed ? getDescendantIds(node.id, edges).size : directChildren;
+
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            showHandles: edges.length > 0,
+            ...(node.type === 'featureNode' && (node.data as FeatureNodeData).state !== 'creating'
+              ? {
+                  onAction: onNodeAction ? () => onNodeAction(node.id) : undefined,
+                  onSettings: onNodeSettings ? () => onNodeSettings(node.id) : undefined,
+                  onDelete: onFeatureDelete,
+                }
+              : {}),
+            ...(node.type === 'featureNode' && {
+              childCount,
+              isCollapsed,
+              onToggleCollapse:
+                directChildren > 0 && toggleCollapse ? () => toggleCollapse(node.id) : undefined,
+            }),
+            ...(node.type === 'repositoryNode' && {
+              onAdd: onRepositoryAdd ? () => onRepositoryAdd(node.id) : undefined,
+              onClick: onRepositoryClick ? () => onRepositoryClick(node.id) : undefined,
+              onDelete: onRepositoryDelete,
+            }),
+            ...(node.type === 'addRepositoryNode' && {
+              onSelect: onRepositorySelect ? (path: string) => onRepositorySelect(path) : undefined,
+            }),
+          },
+        };
+      }) as CanvasNodeType[],
     [
-      nodes,
-      edges.length,
+      visibleNodes,
+      edges,
+      directChildCountMap,
+      collapsedNodeIds,
+      toggleCollapse,
       onNodeAction,
       onNodeSettings,
       onFeatureDelete,
@@ -157,7 +207,7 @@ export function FeaturesCanvas({
       <ReactFlowProvider>
         <ReactFlow
           nodes={enrichedNodes}
-          edges={edges}
+          edges={visibleEdges}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
           isValidConnection={isValidConnection}
