@@ -1,12 +1,12 @@
 name: pr-evidence-agent
 summary: >
-  10 tasks across 4 phases implementing PR evidence collection in the merge node.
+  9 tasks across 4 phases implementing PR evidence collection in the merge node.
   Phase 1 sets up the TypeSpec enum and state channels. Phase 2 builds the evidence
-  prompt with full TDD coverage — notably, artifact discovery uses agent-driven spec
-  inspection where the agent reads spec.yaml/plan.yaml/tasks.yaml to understand what
-  the feature produces and searches for those specific artifacts. Phase 3 integrates
-  evidence collection and cleanup into the merge node with integration tests. Phase 4
-  validates the complete system.
+  prompt with full TDD coverage — e2e test execution, dynamic port detection for the
+  dev server (not hardcoded), screenshot/video capture, agent-driven spec inspection
+  for artifact discovery, GitHub API upload (artifacts NOT committed to branch), and
+  structured PR comment formatting. Phase 3 integrates evidence collection into the
+  merge node BEFORE the CI watch/fix loop (not after). Phase 4 validates the system.
 
 relatedFeatures:
   - 036-agent-driven-merge
@@ -15,8 +15,8 @@ relatedFeatures:
 technologies:
   - LangGraph (StateGraph, Annotation, interrupt)
   - TypeSpec (EvidenceStatus enum)
-  - GitHub CLI (gh pr comment)
-  - Playwright (screenshot/video capture)
+  - GitHub CLI (gh pr comment, gh api for uploads)
+  - Playwright (e2e test execution, screenshot/video capture)
   - Vitest (TDD)
   - js-yaml (YAML parsing)
 
@@ -54,6 +54,8 @@ tasks:
       evidenceStatus uses the generated EvidenceStatus type (or a string union
       matching the enum) with a last-wins reducer and default 'Skipped'.
       evidenceArtifacts is string[] with a last-wins reducer and default [].
+      evidenceArtifacts stores URLs of uploaded artifacts (GitHub API URLs),
+      not file paths on the branch.
     state: Todo
     dependencies:
       - task-1
@@ -78,19 +80,20 @@ tasks:
     title: 'Create evidence-prompts.ts with buildEvidencePrompt() core function'
     description: >
       Create the main prompt builder function that constructs a comprehensive prompt
-      instructing the agent to gather text evidence (test summaries, build status,
-      spec compliance, files changed, CI fix history), capture screenshots for UI
-      features, discover generated artifacts via spec inspection, commit binary
-      evidence, and post a structured PR comment. The function reads spec files via
-      readSpecFile() and takes evidence-specific parameters (prNumber, prUrl, branch,
-      ciStatus, ciFixHistory).
+      instructing the agent to: (1) run e2e tests via Playwright to validate the
+      feature, (2) capture screenshots of UI changes with dynamic port detection
+      (the dev server starts on a random port — detect it from stdout, never hardcode),
+      (3) discover generated artifacts via spec inspection, (4) upload binary evidence
+      via GitHub API (NOT committed to the branch), (5) post a structured PR comment
+      with evidence links. The function reads spec files via readSpecFile() and takes
+      evidence-specific parameters (prNumber, prUrl, branch, ciStatus, ciFixHistory).
     state: Todo
     dependencies:
       - task-2
     acceptanceCriteria:
       - 'buildEvidencePrompt() exported from evidence-prompts.ts'
       - 'Function signature: (state, prNumber, prUrl, ciStatus, ciFixHistory, branch) => string'
-      - 'Prompt includes all required sections: implementation summary, test results, build verification, files changed, spec compliance, CI status'
+      - 'Prompt includes all required sections: implementation summary, test results, build verification, files changed, spec compliance'
       - 'Prompt includes the idempotency marker instruction (<!-- shep-evidence-v1 -->)'
       - 'Prompt includes the gh pr comment posting instruction'
       - 'Prompt reads spec.yaml, plan.yaml, and tasks.yaml via readSpecFile()'
@@ -114,76 +117,87 @@ tasks:
 
   - id: task-4
     phaseId: phase-2
-    title: 'Add screenshot capture instructions to evidence prompt'
+    title: 'Add e2e test execution and screenshot capture instructions with dynamic port detection'
     description: >
-      Add conditional screenshot instructions to the evidence prompt. When the prompt
-      detects UI-relevant file changes (paths matching src/presentation/web/), it
-      includes instructions for the agent to start the dev server, use Playwright to
-      capture screenshots, and save them to evidence/screenshots/. When no UI changes
-      are detected, the screenshot section is omitted.
+      Add instructions for the agent to run e2e tests via Playwright and capture
+      screenshots of UI changes. Critical: the dev server starts on a RANDOM port
+      (not hardcoded 3001). The prompt instructs the agent to start the dev server
+      with `pnpm dev:web`, parse the port from the server stdout output (e.g.,
+      "ready on localhost:XXXX" or "started server on 0.0.0.0:XXXX"), and use that
+      detected port for Playwright baseURL. The prompt also includes instructions
+      to run `pnpm test:e2e` for e2e test execution, collecting screenshots and
+      video artifacts from the Playwright output directory. When no UI changes are
+      detected (no files in src/presentation/web/), the screenshot section is skipped.
     state: Todo
     dependencies:
       - task-3
     acceptanceCriteria:
+      - 'Prompt includes e2e test execution instructions using pnpm test:e2e'
       - 'Prompt includes screenshot capture instructions when state indicates UI file changes'
+      - 'Prompt instructs agent to start dev server with pnpm dev:web (no PORT= env var, no hardcoded port)'
+      - 'Prompt instructs agent to parse the actual port from dev server stdout output'
+      - 'Prompt explicitly states: do NOT hardcode port 3001 or any other port number'
+      - 'Prompt instructs agent to use the detected port for Playwright baseURL'
       - 'Prompt omits screenshot section when no UI changes detected'
-      - 'Screenshot instructions reference pnpm dev:web for dev server startup'
-      - 'Screenshot instructions specify evidence/screenshots/ as the output directory'
-      - 'Instructions include Playwright usage guidance'
+      - 'Prompt includes instructions to collect video artifacts from Playwright output directory'
+      - 'Instructions specify evidence artifacts should be saved to a temp directory (not committed to branch)'
     tdd:
       red:
+        - 'Write test that prompt includes e2e test execution instructions referencing pnpm test:e2e'
+        - 'Write test that prompt includes dynamic port detection instructions (parse port from stdout)'
+        - 'Write test that prompt does NOT contain hardcoded port 3001'
         - 'Write test that prompt includes screenshot instructions when messages contain web UI file paths'
-        - 'Write test that prompt omits screenshot section when no UI changes are mentioned in messages'
-        - 'Write test that screenshot section references pnpm dev:web and Playwright'
+        - 'Write test that prompt omits screenshot section when no UI changes are mentioned'
+        - 'Write test that prompt includes Playwright video artifact collection instructions'
       green:
-        - 'Add a helper function that generates the screenshot capture section'
-        - 'Conditionally include the section based on evidence of UI file changes in state.messages or spec context'
+        - 'Add e2e test execution section to the evidence prompt'
+        - 'Add a helper function that generates screenshot capture section with dynamic port detection'
+        - 'Conditionally include the section based on UI file changes in state.messages or spec context'
+        - 'Add video artifact collection instructions referencing test-results/ directory'
       refactor:
         - 'Extract the UI change detection logic into a focused helper for testability'
-    estimatedEffort: '1h'
+        - 'Extract port detection instructions into a reusable prompt block'
+    estimatedEffort: '1.5h'
 
   - id: task-5
     phaseId: phase-2
-    title: 'Add spec-driven artifact discovery and security exclusion instructions to evidence prompt'
+    title: 'Add spec-driven artifact discovery, GitHub API upload, and security exclusions'
     description: >
       Add instructions for agent-driven spec inspection to discover generated
-      artifacts. The prompt instructs the agent to: (1) read spec.yaml, plan.yaml,
-      and tasks.yaml to understand what the feature is designed to produce (e.g.,
-      CSV exports, PDF reports, HTML dashboards); (2) extract expected artifacts
-      from success criteria, task descriptions, and acceptance criteria; (3) search
-      the workspace for those specific artifacts based on spec context; (4) as a
-      fallback, check common output patterns only if the spec provides no artifact
-      hints. Include the explicit security exclusion list (NFR-9) and size limits
-      (NFR-6). Add video collection instructions for Playwright e2e test output.
+      artifacts. The prompt instructs the agent to read spec files to understand
+      what the feature produces, then search for those specific artifacts. Critically,
+      artifacts are NOT committed to the feature branch — they are uploaded via
+      GitHub API (using gh api to upload as issue/PR attachments) and linked from
+      the PR comment. Include the explicit security exclusion list (NFR-9), size
+      limits (NFR-6), and the commit instruction for evidence/ is REMOVED.
     state: Todo
     dependencies:
       - task-3
     acceptanceCriteria:
       - 'Prompt instructs agent to read spec.yaml, plan.yaml, tasks.yaml to identify expected artifacts'
       - 'Prompt instructs agent to extract artifact expectations from success criteria and task acceptance criteria'
-      - 'Prompt instructs agent to search for artifacts matching what the spec describes, not generic directory scanning'
+      - 'Prompt instructs agent to search for artifacts matching what the spec describes'
       - 'Prompt includes a fallback to common output patterns only when spec provides no artifact hints'
+      - 'Prompt instructs agent to upload binary artifacts via GitHub API (gh api), NOT git commit'
+      - 'Prompt explicitly states: do NOT commit artifacts to the feature branch'
       - 'Prompt includes explicit security exclusion list (.env, *.key, *.pem, credentials.json, etc.)'
       - 'Prompt includes size limits (10 MB per file, 50 MB total)'
-      - 'Prompt includes video collection instructions for Playwright test output'
-      - 'Prompt includes git commit instructions for evidence/ directory with conventional commit message'
     tdd:
       red:
         - 'Write test that prompt instructs agent to read spec files for artifact identification'
         - 'Write test that prompt references success criteria and acceptance criteria as artifact sources'
         - 'Write test that prompt includes spec-driven search as the primary discovery strategy'
         - 'Write test that prompt includes fallback to common output patterns as secondary strategy'
+        - 'Write test that prompt includes GitHub API upload instructions (gh api)'
+        - 'Write test that prompt does NOT include git commit instructions for evidence artifacts'
         - 'Write test that prompt includes the security exclusion patterns (.env, *.key, *.pem, credentials.json)'
         - 'Write test that prompt includes size limit instructions (10 MB per file, 50 MB total)'
-        - 'Write test that prompt includes video collection instructions referencing test-results/'
-        - 'Write test that prompt includes git commit instruction with chore(agents): add evidence artifacts'
       green:
         - 'Add spec-driven artifact discovery section that instructs agent to analyze spec for expected outputs'
         - 'Add fallback common output pattern section for specs with no artifact hints'
+        - 'Add GitHub API upload instructions replacing the git commit/push approach'
         - 'Add security exclusion list as a constant array, embedded in prompt text'
         - 'Add size limit instructions'
-        - 'Add video collection section referencing Playwright output directory'
-        - 'Add git commit/push instruction section for evidence/ directory'
       refactor:
         - 'Ensure the exclusion list is a single constant that can be maintained easily'
         - 'Group spec-driven discovery and fallback scanning under clear sub-headings'
@@ -223,14 +237,17 @@ tasks:
 
   - id: task-7
     phaseId: phase-3
-    title: 'Add evidence collection phase to merge node'
+    title: 'Add evidence collection phase to merge node BEFORE CI watch'
     description: >
-      Add the evidence collection phase to merge.node.ts after CI watch/fix
-      (after line 184) and before the approval gate (line 186). Import
-      buildEvidencePrompt, call retryExecute with maxTurns=5, wrap in try-catch
-      for graceful degradation, set evidenceStatus and evidenceArtifacts in the
-      return state. Include evidenceStatus in the interrupt payload. The evidence
-      phase only runs when openPr is true and prNumber is available.
+      Add the evidence collection phase to merge.node.ts BEFORE the CI watch/fix
+      loop — immediately after Agent Call 1 (commit/push/PR) and PR URL parsing,
+      but before runCiWatchFixLoop is called. This is a critical change from the
+      previous plan which placed evidence AFTER CI watch. The new flow is:
+      Agent Call 1 -> parse PR -> EVIDENCE -> CI watch -> persist data -> approval gate.
+      Import buildEvidencePrompt, call retryExecute with maxTurns=5, wrap in try-catch
+      for graceful degradation, set evidenceStatus and evidenceArtifacts.
+      Include evidenceStatus in the interrupt payload. Evidence only runs when
+      openPr is true and prNumber is available.
     state: Todo
     dependencies:
       - task-3
@@ -238,26 +255,28 @@ tasks:
       - task-5
       - task-6
     acceptanceCriteria:
-      - 'Evidence collection runs after CI watch/fix and before the approval gate'
+      - 'Evidence collection runs AFTER Agent Call 1 (commit/push/PR) and BEFORE CI watch/fix loop'
       - 'Evidence is skipped when openPr is false or prNumber is null — evidenceStatus set to Skipped'
       - 'buildEvidencePrompt is called with correct parameters from local merge node state'
       - 'retryExecute is called with executor, prompt, and options (maxTurns overridden to 5)'
       - 'On success, evidenceStatus is set to Success'
-      - 'On failure (try-catch), evidenceStatus is set to Failed, warning logged, flow continues'
+      - 'On failure (try-catch), evidenceStatus is set to Failed, warning logged, flow continues to CI watch'
       - 'evidenceStatus and evidenceArtifacts are included in the interrupt() payload'
       - 'evidenceStatus and evidenceArtifacts are included in the return state object'
       - 'Evidence phase does not run on resume after interrupt (isResumeAfterInterrupt check)'
+      - 'No evidence/ directory cleanup needed (artifacts uploaded via API, not committed)'
     tdd:
       red:
-        - 'Write test that evidence agent call is made after CI watch and before interrupt when openPr=true and prNumber exists'
+        - 'Write test that evidence agent call is made AFTER PR creation and BEFORE CI watch when openPr=true and prNumber exists'
         - 'Write test that evidence is skipped (no agent call) when openPr=false'
         - 'Write test that evidence is skipped when prNumber is null'
-        - 'Write test that on agent executor failure, evidenceStatus is Failed and flow continues to interrupt'
+        - 'Write test that on agent executor failure, evidenceStatus is Failed and flow continues to CI watch'
+        - 'Write test that CI watch still runs after evidence failure'
         - 'Write test that evidenceStatus appears in interrupt payload'
         - 'Write test that evidenceStatus and evidenceArtifacts appear in return state'
         - 'Write test that evidence phase does not run on resume after interrupt'
       green:
-        - 'Add evidence collection block after PR data persistence and before the approval gate'
+        - 'Add evidence collection block AFTER PR URL parsing (line ~140) and BEFORE CI watch/fix loop (line 142)'
         - 'Import buildEvidencePrompt from evidence-prompts.ts'
         - 'Call retryExecute with maxTurns=5 override in options'
         - 'Wrap in try-catch, set evidenceStatus on success or failure'
@@ -269,39 +288,6 @@ tasks:
     estimatedEffort: '2h'
 
   - id: task-8
-    phaseId: phase-3
-    title: 'Add evidence cleanup phase before merge'
-    description: >
-      Add evidence cleanup after the approval gate passes but before the merge
-      operation. When evidenceArtifacts is non-empty (indicating evidence was
-      committed to the branch), instruct the agent to remove the evidence/
-      directory and commit the removal with chore(agents): remove evidence
-      artifacts. Wrap in try-catch — cleanup failure must not block merge.
-    state: Todo
-    dependencies:
-      - task-7
-    acceptanceCriteria:
-      - 'Cleanup runs after approval gate and before merge when evidenceArtifacts is non-empty'
-      - 'Cleanup is skipped when evidenceArtifacts is empty'
-      - 'Cleanup agent call uses a prompt instructing git rm -r evidence/ and commit/push'
-      - 'Cleanup failure (try-catch) logs a warning but does not block merge'
-      - 'Cleanup uses conventional commit message: chore(agents): remove evidence artifacts'
-    tdd:
-      red:
-        - 'Write test that cleanup agent call is made before merge when evidenceArtifacts is non-empty'
-        - 'Write test that cleanup is skipped when evidenceArtifacts is empty'
-        - 'Write test that cleanup failure does not prevent merge from executing'
-        - 'Write test that cleanup prompt includes git rm -r evidence/ instruction'
-      green:
-        - 'Add cleanup block between approval gate resume and merge execution'
-        - 'Check evidenceArtifacts length before calling cleanup'
-        - 'Build a simple cleanup prompt inline (too small for a separate prompt builder)'
-        - 'Wrap in try-catch with warning log on failure'
-      refactor:
-        - 'Ensure cleanup only runs in the PR path (prUrl exists), not the local merge path'
-    estimatedEffort: '1h'
-
-  - id: task-9
     phaseId: phase-3
     title: 'Persist evidenceStatus in feature record before approval gate'
     description: >
@@ -327,7 +313,7 @@ tasks:
         - 'Verify the feature record schema can accommodate the new field without migration'
     estimatedEffort: '30min'
 
-  - id: task-10
+  - id: task-9
     phaseId: phase-4
     title: 'Full integration validation'
     description: >
@@ -339,7 +325,6 @@ tasks:
     dependencies:
       - task-7
       - task-8
-      - task-9
     acceptanceCriteria:
       - 'pnpm tsp:compile succeeds'
       - 'pnpm validate (lint + format + typecheck + tsp) passes'
@@ -349,39 +334,46 @@ tasks:
     tdd: null
     estimatedEffort: '1h'
 
-totalEstimate: '10.5h'
+totalEstimate: '10.25h'
 openQuestions: []
 
 content: |
   ## Summary
 
-  The implementation is organized into 10 tasks across 4 phases. Phase 1 establishes
+  The implementation is organized into 9 tasks across 4 phases. Phase 1 establishes
   the type foundation — the EvidenceStatus TypeSpec enum and the two new state channels
   (evidenceStatus, evidenceArtifacts) in FeatureAgentAnnotation. Phase 2 builds the
   evidence prompt builder as a pure function with full TDD coverage across 4 tasks:
-  the core prompt, screenshot instructions, spec-driven artifact discovery with security
-  exclusions, and CI fix history with edge cases. Phase 3 integrates everything into
-  the merge node across 3 tasks: the evidence collection phase, the cleanup phase, and
-  feature record persistence. Phase 4 runs the full validation suite.
+  the core prompt, e2e test execution with dynamic port detection for screenshots,
+  spec-driven artifact discovery with GitHub API upload (no branch commits), and CI
+  fix history with edge cases. Phase 3 integrates everything into the merge node
+  across 2 tasks: the evidence collection phase (placed BEFORE CI watch) and feature
+  record persistence. Phase 4 runs the full validation suite.
 
-  The critical change from the previous iteration is in task 5: artifact discovery now
-  uses **agent-driven spec inspection** as the primary strategy. Instead of scanning
-  common directories (output/, dist/, exports/) for files with known extensions, the
-  prompt instructs the agent to read the feature's spec.yaml, plan.yaml, and tasks.yaml
-  to understand what artifacts the feature is designed to produce. The agent extracts
-  artifact expectations from success criteria, task descriptions, and acceptance criteria,
-  then searches for those specific outputs. Generic directory scanning is retained only
-  as a fallback when the spec provides no artifact hints.
+  Key changes from the previous iteration addressing user feedback:
+
+  1. **Evidence runs BEFORE CI watch** — The evidence phase (e2e tests, screenshots,
+     artifact discovery) executes immediately after PR creation, before CI monitoring
+     starts. This ensures evidence artifacts are on the PR before CI results arrive.
+
+  2. **Artifacts are NOT committed to the feature branch** — Binary evidence
+     (screenshots, videos, generated files) is uploaded via GitHub API and linked from
+     the PR comment. This eliminates the evidence/ directory, the cleanup commit before
+     merge, and task-8 from the previous plan (evidence cleanup phase).
+
+  3. **Dynamic dev server port** — The prompt instructs the agent to detect the actual
+     port from `pnpm dev:web` stdout, never hardcoding 3001 or any other port number.
+     The dev server picks a random available port.
+
+  4. **Agent-driven spec inspection** for artifact discovery remains the primary
+     strategy, with generic directory scanning as a fallback only.
 
   The dependency chain ensures each task builds on prior work: TypeSpec enum -> state
   channels -> prompt builder -> merge node integration -> validation. Within Phase 2,
   tasks 4, 5, and 6 all depend only on task 3 (the core prompt) and can be worked in
-  sequence or parallel. Phase 3 tasks 8 and 9 depend on task 7 (evidence phase) and
-  build incrementally on the merge node changes.
+  sequence or parallel. Phase 3 task 8 depends on task 7 (evidence phase).
 
   All code tasks follow TDD: write failing tests first (RED), implement minimal code
   to pass (GREEN), then clean up (REFACTOR). Tests follow the patterns established in
   merge-prompts.test.ts (baseState factory, readSpecFile mocking) and merge.node.test.ts
-  (vi.hoisted mocks, full dependency injection). The prompt builder tests are pure
-  function tests with controlled inputs; the merge node tests verify integration with
-  mocked executor, repository, and git service dependencies.
+  (vi.hoisted mocks, full dependency injection).

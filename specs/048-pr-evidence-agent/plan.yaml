@@ -1,16 +1,16 @@
 name: pr-evidence-agent
 summary: >
-  Integrate a PR evidence collection phase into the existing merge node that
-  gathers text evidence (test summaries, build status, spec compliance), captures
-  screenshots/videos via Playwright for UI features, discovers generated artifacts
-  through agent-driven spec inspection (reading spec.yaml, plan.yaml, tasks.yaml
-  to understand what the feature produces), commits binary evidence to an evidence/
-  directory on the feature branch, posts a structured PR comment, and cleans up
-  evidence before merge. The implementation adds two state channels (evidenceStatus,
-  evidenceArtifacts), a new TypeSpec enum (EvidenceStatus), a new prompt builder file
-  (evidence-prompts.ts), and evidence collection + cleanup logic within the merge
-  node — all following established patterns (prompt builders, retryExecute, try-catch
-  degradation, TDD).
+  Integrate a PR evidence collection phase into the existing merge node that runs
+  BEFORE CI watch — after commit/push/PR creation but before CI monitoring begins.
+  The evidence phase runs e2e tests via Playwright, captures screenshots/videos of
+  UI changes, discovers generated artifacts through agent-driven spec inspection,
+  uploads binary evidence via GitHub API (not committed to the feature branch), and
+  posts a structured PR comment linking all evidence. The dev server port is detected
+  dynamically (not hardcoded) since `pnpm dev:web` assigns a random available port.
+  The implementation adds two state channels (evidenceStatus, evidenceArtifacts), a
+  new TypeSpec enum (EvidenceStatus), a new prompt builder file (evidence-prompts.ts),
+  and evidence collection logic within the merge node — all following established
+  patterns (prompt builders, retryExecute, try-catch degradation, TDD).
 
 relatedFeatures:
   - 036-agent-driven-merge
@@ -19,8 +19,8 @@ relatedFeatures:
 technologies:
   - LangGraph (StateGraph, Annotation, interrupt)
   - TypeSpec (domain model generation for EvidenceStatus enum)
-  - GitHub CLI (gh pr comment for posting evidence)
-  - Playwright (screenshot and video capture for UI evidence)
+  - GitHub CLI (gh pr comment for posting evidence, gh api for uploading artifacts)
+  - Playwright (e2e test execution, screenshot and video capture for UI evidence)
   - Vitest (TDD unit tests)
   - js-yaml (YAML parsing for spec artifacts)
 
@@ -41,21 +41,20 @@ phases:
     description: >
       Create evidence-prompts.ts with buildEvidencePrompt() and helper functions
       for section generation, spec-driven artifact discovery instructions,
-      security exclusions, and comment formatting. The artifact discovery
-      approach is agent-driven spec inspection — the prompt instructs the agent
-      to read the feature spec (spec.yaml, plan.yaml, tasks.yaml) to understand
-      what artifacts the feature is expected to produce, then search for those
-      specific artifacts rather than blindly scanning directories. This is the
-      pure-function core — ideal for TDD with no external dependencies. Must be
-      complete before merge node integration because the merge node calls this
-      function.
+      security exclusions, and comment formatting. The prompt instructs the agent
+      to run e2e tests, capture screenshots with dynamic port detection, discover
+      artifacts via spec inspection, upload binaries via GitHub API, and post a
+      structured PR comment. This is the pure-function core — ideal for TDD with
+      no external dependencies.
     parallel: false
 
   - id: phase-3
     name: 'Merge Node Evidence Integration'
     description: >
-      Wire the evidence phase into merge.node.ts between CI watch/fix and the
-      approval gate. Add the evidence cleanup phase between approval and merge.
+      Wire the evidence phase into merge.node.ts BEFORE the CI watch/fix loop —
+      after commit/push/PR creation (Agent Call 1) but before CI monitoring begins.
+      This allows e2e tests and screenshot capture to complete before CI runs,
+      ensuring evidence artifacts are available on the PR before CI status is known.
       Include evidenceStatus and evidenceArtifacts in the interrupt payload and
       the return state. Implement graceful degradation via try-catch.
     parallel: false
@@ -84,33 +83,62 @@ content: |
   ## Architecture Overview
 
   The PR evidence feature integrates into the existing merge node's multi-phase flow
-  without changing the LangGraph graph topology. The merge node already follows a
-  sequential pattern: Agent Call 1 (commit/push/PR) -> CI watch/fix loop -> approval
-  gate -> merge. Evidence collection inserts as a new phase between CI watch/fix and
-  the approval gate, and evidence cleanup inserts between approval and merge.
+  without changing the LangGraph graph topology. The key architectural change from
+  previous iterations is the **placement and timing** of evidence collection:
 
-  This follows the established pattern from feature #041 (CI watch/fix loop), which
-  also integrated a new capability into the merge node without graph topology changes.
+  ### Revised Flow Order
 
-  ### Integration Points in merge.node.ts
+  Evidence collection runs BEFORE CI watch, not after. This is because:
+  1. E2e tests and screenshots should be captured before CI runs — they ARE part of
+     the validation that CI will verify
+  2. Screenshots and artifacts should be available on the PR before CI status is known
+  3. The evidence phase effectively runs the project's e2e tests as part of evidence
+     gathering, producing screenshots and videos as proof
 
   ```
   Agent Call 1: Commit + Push + PR (line 117)
     |
-  CI Watch/Fix Loop (line 142)
+  Parse PR URL/number (line 130-140)
+    |
+  * EVIDENCE PHASE (new — after PR creation, BEFORE CI watch)
+  *   1. Run e2e tests via Playwright (captures screenshots + videos)
+  *   2. Discover generated artifacts via spec inspection
+  *   3. Upload binary evidence via GitHub API
+  *   4. Post structured PR comment with evidence links
+    |
+  CI Watch/Fix Loop (line 142) — now runs AFTER evidence is collected
     |
   Persist PR data (line 168)
     |
-  * EVIDENCE PHASE (new — after line 184, before line 186)
-    |
-  Merge Approval Gate (line 186) — now includes evidenceStatus in interrupt payload
+  Merge Approval Gate (line 186) — includes evidenceStatus in interrupt payload
     |
   Resume after approval (line 202)
     |
-  * EVIDENCE CLEANUP (new — after approval, before merge at line 220)
-    |
   Merge (line 220)
   ```
+
+  ### Key Changes from Previous Iteration
+
+  1. **Evidence BEFORE CI watch** — Evidence collection (e2e tests, screenshots,
+     artifacts) runs immediately after PR creation, before CI monitoring starts.
+     This means evidence artifacts are already on the PR when CI begins.
+
+  2. **No evidence committed to feature branch** — Binary artifacts (screenshots,
+     videos, generated files) are uploaded via GitHub API instead of being committed
+     to the feature branch. This eliminates the need for an evidence cleanup phase
+     before merge and avoids polluting the branch with binary files. The agent uses
+     `gh api` to upload files as PR comment attachments or issue attachments, then
+     links them from the evidence comment.
+
+  3. **Dynamic dev server port** — The dev server (`pnpm dev:web`) starts on a
+     random available port, not hardcoded 3001. The evidence prompt instructs the
+     agent to: start the dev server, parse the port from stdout, and use that port
+     for Playwright navigation. This matches the actual behavior where `pnpm dev:web`
+     picks an available port.
+
+  4. **No evidence cleanup phase** — Since artifacts are uploaded via GitHub API
+     (not committed to the branch), there is no `evidence/` directory to clean up
+     before merge. This simplifies the merge flow significantly.
 
   ### File Organization
 
@@ -119,7 +147,7 @@ content: |
   +-- state.ts                          # + evidenceStatus, evidenceArtifacts channels
   +-- nodes/
   |   +-- merge/
-  |   |   +-- merge.node.ts             # + evidence phase + cleanup phase
+  |   |   +-- merge.node.ts             # + evidence phase (before CI watch)
   |   +-- prompts/
   |       +-- evidence-prompts.ts        # NEW: buildEvidencePrompt() + helpers
   tsp/
@@ -133,112 +161,111 @@ content: |
 
   ## Key Design Decisions
 
-  ### 1. Agent-Driven Spec Inspection for Artifact Discovery
+  ### 1. Evidence BEFORE CI Watch (User Feedback #3)
 
-  Generated artifacts (CSV, PDF, etc.) are discovered through **agent-driven spec
-  inspection** rather than blind directory scanning. The evidence prompt instructs
-  the agent to:
-  1. Read the feature's spec.yaml, plan.yaml, and tasks.yaml
-  2. Understand what the feature is designed to produce (e.g., "generates CSV exports",
-     "produces PDF reports", "creates HTML dashboards")
-  3. Identify expected output artifacts from the spec's success criteria, task
-     descriptions, and acceptance criteria
-  4. Search the workspace for those specific artifacts based on the spec context
-  5. Use the spec's technology list and affected areas to narrow the search
+  The user explicitly stated: "it should go before the CI watch, before creating
+  pull request we need to do e2e testing and create the screenshots for the pr."
+  This means evidence collection (including e2e test execution and screenshot
+  capture) happens AFTER the PR is created but BEFORE CI monitoring begins. The
+  e2e tests and screenshots are captured locally by the agent, then uploaded to
+  the PR. CI watch monitors the remote CI pipeline separately.
 
-  This is fundamentally different from generic workspace scanning (which looks in
-  common directories like output/, dist/, exports/ for known extensions). Spec
-  inspection means the agent uses its understanding of the feature's purpose to
-  find the right artifacts — even in non-standard locations. If a spec says "the
-  feature generates a report at reports/monthly.pdf", the agent knows to look there
-  specifically, rather than hoping a generic glob picks it up.
+  **Rejected:** Evidence after CI watch — the user specifically wanted evidence
+  gathered before CI, not after.
 
-  **Rejected:** Generic workspace scanning with hardcoded directories and extensions —
-  too noisy (catches build artifacts, temp files), misses artifacts in non-standard
-  locations, and ignores what the feature actually produces.
+  ### 2. No Artifacts Committed to Feature Branch (User Feedback #3)
 
-  **Rejected:** Explicit artifact manifest in spec — requires spec authors to predict
-  output paths upfront, adding burden and missing dynamically named files.
+  The user stated: "the artifact shouldnt get commited." Binary evidence is uploaded
+  via GitHub API (`gh api` for file uploads or using issue comment attachment
+  workflow) instead of being committed to the feature branch. This eliminates:
+  - The evidence/ directory on the branch
+  - The cleanup commit before merge
+  - Binary file pollution in git history
 
-  ### 2. Single Agent Call with maxTurns=5 (Research Decision #10)
+  Text evidence is posted as a PR comment. Binary files (screenshots, videos,
+  generated artifacts) are uploaded and linked from the comment.
 
-  Evidence collection uses one comprehensive agent call rather than separate calls
-  per evidence type. The prompt is ordered by priority (text evidence first, then
-  screenshots, then artifacts) so that if the agent runs out of turns, the
-  highest-value evidence is already posted. This minimizes startup overhead and
-  keeps orchestration simple.
+  **Rejected:** Committing to evidence/ directory — user explicitly said artifacts
+  should not be committed to the branch.
 
-  **Rejected:** Three separate agent calls would triple startup latency (~15-30s
-  per call) with minimal isolation benefit.
+  ### 3. Dynamic Dev Server Port (User Feedback #3)
 
-  ### 3. Integrated into Merge Node (Research Decision #1)
+  The user stated: "the dev start starts on a random port so dont have it hard
+  coded on 3001 as it can change." The evidence prompt instructs the agent to:
+  1. Start the dev server with `pnpm dev:web`
+  2. Parse the server output to find the actual port (e.g., "ready on port XXXX")
+  3. Use the detected port for Playwright navigation
+  4. Never assume port 3001
+
+  This is robust against port conflicts and environment differences.
+
+  **Rejected:** Hardcoded PORT=3001 — the dev server picks a random available port.
+
+  ### 4. Agent-Driven Spec Inspection for Artifact Discovery (User Feedback #2)
+
+  Generated artifacts (CSV, PDF, etc.) are discovered through agent-driven spec
+  inspection. The agent reads spec.yaml, plan.yaml, and tasks.yaml to understand
+  what the feature produces, then searches for those specific artifacts.
+
+  **Rejected:** Generic workspace scanning with hardcoded directories — too noisy,
+  misses non-standard locations.
+
+  ### 5. Single Agent Call with maxTurns=5 (Research Decision #10)
+
+  Evidence collection uses one comprehensive agent call. The prompt is ordered by
+  priority: (1) run e2e tests, (2) capture screenshots, (3) discover artifacts,
+  (4) upload binaries via GitHub API, (5) post PR comment.
+
+  ### 6. Integrated into Merge Node (Research Decision #1)
 
   Evidence needs PR metadata (prUrl, prNumber) from the merge node's first agent
-  call and CI results from the watch/fix loop. A separate graph node would require
-  splitting the merge node or complex state passing across interrupt boundaries.
+  call. A separate graph node would require splitting the merge node.
 
-  **Rejected:** Separate LangGraph node — would need PR data from merge's first
-  phase, requiring graph topology changes.
+  ### 7. Agent-Driven gh CLI for PR Comments (Research Decision #3)
 
-  ### 4. Agent-Driven gh CLI for PR Comments (Research Decision #3)
+  The agent posts evidence via `gh pr comment` and uploads binaries via `gh api`.
 
-  The agent posts evidence via `gh pr comment` rather than a new `IGitPrService`
-  method. This is consistent with how Agent Call 1 creates PRs via `gh pr create`.
+  ### 8. HTML Comment Marker for Idempotency (Research Decision #8)
 
-  **Rejected:** Adding `commentOnPr()` to `IGitPrService` — unnecessary interface,
-  implementation, and DI changes when the agent has shell access.
+  `<!-- shep-evidence-v1 -->` marker enables find-and-update on re-runs.
 
-  ### 5. HTML Comment Marker for Idempotency (Research Decision #8)
+  ### 9. Try-Catch Degradation (Research Decision #7)
 
-  The evidence comment includes `<!-- shep-evidence-v1 -->` at the top. On re-runs,
-  the agent finds and updates the existing comment via `gh api` rather than creating
-  a duplicate. Version suffix enables future format evolution.
+  Evidence failure does not block CI watch or merge. On failure, evidenceStatus is
+  set to 'failed' and the flow continues.
 
-  ### 6. Try-Catch Degradation (Research Decision #7)
+  ### 10. TypeSpec-First for EvidenceStatus Enum
 
-  The evidence agent call is wrapped in try-catch. On failure, evidenceStatus is set
-  to 'failed' and the merge flow continues to the approval gate. The prompt itself
-  handles sub-step failures (e.g., screenshot capture fails but text posts). This
-  matches how `runCiWatchFixLoop` handles terminal failures — log and continue.
-
-  ### 7. Evidence Cleanup Before Merge (Research Decision #9)
-
-  After the approval gate but before `mergePr()` or local merge, a cleanup step
-  removes the `evidence/` directory with commit `chore(agents): remove evidence
-  artifacts`. Evidence files remain accessible in the PR's commit history.
-
-  ### 8. TypeSpec-First for EvidenceStatus Enum
-
-  Following the mandatory TypeSpec-first rule, the EvidenceStatus enum is defined in
-  `tsp/common/enums/workflow.tsp` alongside CiStatus and PrStatus. The generated
-  output provides the type used in FeatureAgentAnnotation.
+  Following the mandatory TypeSpec-first rule, the EvidenceStatus enum is defined
+  in `tsp/common/enums/workflow.tsp` alongside CiStatus and PrStatus.
 
   ## Implementation Strategy
 
   Phase 1 (Foundation) comes first because state channels and TypeSpec types are
   dependencies for all other code. Phase 2 (Prompt Builder) follows because it is
-  a pure function with no external dependencies — ideal for TDD isolation. The key
-  change in Phase 2 is the artifact discovery approach: instead of hardcoded directory
-  patterns, the prompt instructs the agent to read the spec and understand what
-  artifacts the feature produces, then search for those specific outputs. Phase 3
-  (Merge Node Integration) wires everything together, requiring both state channels
-  and the prompt builder. Phase 4 (Validation) confirms the system works end-to-end.
+  a pure function — ideal for TDD isolation. The key changes in Phase 2 are:
+  (a) the prompt instructs e2e test execution before screenshot capture,
+  (b) the dev server port is dynamically detected, not hardcoded,
+  (c) artifacts are uploaded via GitHub API rather than committed,
+  (d) artifact discovery uses agent-driven spec inspection.
+  Phase 3 (Merge Node Integration) wires the evidence phase BEFORE the CI watch/fix
+  loop and removes the evidence cleanup phase (no longer needed since artifacts
+  aren't committed). Phase 4 (Validation) confirms the system works end-to-end.
 
   Each phase follows strict TDD: failing tests first (RED), minimal implementation
-  (GREEN), then cleanup (REFACTOR). Tests mock IAgentExecutor, readSpecFile, and
-  file system operations following patterns from merge.node.test.ts and
-  merge-prompts.test.ts.
+  (GREEN), then cleanup (REFACTOR).
 
   ## Risk Mitigation
 
   | Risk | Mitigation |
   | ---- | ---------- |
-  | Evidence phase adds latency before approval gate | 120s timeout; text evidence posted first (10-30s); screenshots/artifacts are additive |
-  | Screenshot capture fails (no dev server, Playwright error) | Prompt instructs agent to skip on failure; evidenceStatus tracks partial success; merge continues |
-  | Large binary artifacts bloat the repository | 10 MB per-file, 50 MB total limits; agent skips oversized files; evidence/ cleaned up before merge |
-  | Sensitive files accidentally committed to evidence/ | Explicit exclusion list in prompt (.env, *.key, *.pem, credentials.json, etc.) |
-  | Agent runs out of turns | Prompt ordered by priority: text then screenshots then artifacts; partial evidence better than none |
+  | Evidence phase adds latency before CI watch | 120s timeout; text evidence posted first; screenshots/artifacts are additive and non-blocking |
+  | Screenshot capture fails (Playwright error) | Prompt instructs agent to skip on failure; evidenceStatus tracks partial success; CI watch proceeds |
+  | Dev server port detection fails | Agent falls back to checking common ports or skipping screenshots; evidence degrades gracefully |
+  | GitHub API upload fails for binary artifacts | Agent logs warning, posts text-only evidence comment, continues to CI watch |
+  | Agent runs out of turns | Prompt ordered by priority: e2e tests then screenshots then artifacts then comment; partial evidence better than none |
   | Merge node grows too large | Evidence follows ci-watch-fix-loop pattern: focused try-catch + single agent call; prompt in separate file |
   | Re-runs create duplicate PR comments | HTML marker <!-- shep-evidence-v1 --> enables find-and-update via gh api |
-  | Evidence cleanup fails before merge | Best-effort; merge proceeds regardless |
-  | Spec lacks artifact details | Agent falls back to searching common output patterns as a secondary strategy when spec provides no artifact hints |
+  | Spec lacks artifact details | Agent falls back to searching common output patterns as a secondary strategy |
+  | Sensitive files accidentally uploaded | Explicit exclusion list in prompt (.env, *.key, *.pem, credentials.json, etc.) |
+  | Large binary artifacts | 10 MB per-file, 50 MB total limits; agent skips oversized files |
