@@ -2,8 +2,11 @@ name: pr-evidence-agent
 summary: >
   10 tasks across 4 phases implementing PR evidence collection in the merge node.
   Phase 1 sets up the TypeSpec enum and state channels. Phase 2 builds the evidence
-  prompt with full TDD coverage. Phase 3 integrates evidence collection and cleanup
-  into the merge node with integration tests. Phase 4 validates the complete system.
+  prompt with full TDD coverage — notably, artifact discovery uses agent-driven spec
+  inspection where the agent reads spec.yaml/plan.yaml/tasks.yaml to understand what
+  the feature produces and searches for those specific artifacts. Phase 3 integrates
+  evidence collection and cleanup into the merge node with integration tests. Phase 4
+  validates the complete system.
 
 relatedFeatures:
   - 036-agent-driven-merge
@@ -77,10 +80,10 @@ tasks:
       Create the main prompt builder function that constructs a comprehensive prompt
       instructing the agent to gather text evidence (test summaries, build status,
       spec compliance, files changed, CI fix history), capture screenshots for UI
-      features, discover generated artifacts, commit binary evidence, and post a
-      structured PR comment. The function reads spec files via readSpecFile() and
-      takes evidence-specific parameters (prNumber, prUrl, branch, ciStatus,
-      ciFixHistory).
+      features, discover generated artifacts via spec inspection, commit binary
+      evidence, and post a structured PR comment. The function reads spec files via
+      readSpecFile() and takes evidence-specific parameters (prNumber, prUrl, branch,
+      ciStatus, ciFixHistory).
     state: Todo
     dependencies:
       - task-2
@@ -141,39 +144,50 @@ tasks:
 
   - id: task-5
     phaseId: phase-2
-    title: 'Add artifact discovery and security exclusion instructions to evidence prompt'
+    title: 'Add spec-driven artifact discovery and security exclusion instructions to evidence prompt'
     description: >
-      Add instructions for the agent to discover generated artifacts (CSV, PDF, etc.)
-      in the workspace and commit them to evidence/artifacts/. Include the explicit
-      security exclusion list (NFR-9) and size limits (NFR-6). Add video collection
-      instructions for Playwright e2e test output.
+      Add instructions for agent-driven spec inspection to discover generated
+      artifacts. The prompt instructs the agent to: (1) read spec.yaml, plan.yaml,
+      and tasks.yaml to understand what the feature is designed to produce (e.g.,
+      CSV exports, PDF reports, HTML dashboards); (2) extract expected artifacts
+      from success criteria, task descriptions, and acceptance criteria; (3) search
+      the workspace for those specific artifacts based on spec context; (4) as a
+      fallback, check common output patterns only if the spec provides no artifact
+      hints. Include the explicit security exclusion list (NFR-9) and size limits
+      (NFR-6). Add video collection instructions for Playwright e2e test output.
     state: Todo
     dependencies:
       - task-3
     acceptanceCriteria:
-      - 'Prompt includes artifact discovery instructions with common output directory patterns'
+      - 'Prompt instructs agent to read spec.yaml, plan.yaml, tasks.yaml to identify expected artifacts'
+      - 'Prompt instructs agent to extract artifact expectations from success criteria and task acceptance criteria'
+      - 'Prompt instructs agent to search for artifacts matching what the spec describes, not generic directory scanning'
+      - 'Prompt includes a fallback to common output patterns only when spec provides no artifact hints'
       - 'Prompt includes explicit security exclusion list (.env, *.key, *.pem, credentials.json, etc.)'
       - 'Prompt includes size limits (10 MB per file, 50 MB total)'
       - 'Prompt includes video collection instructions for Playwright test output'
       - 'Prompt includes git commit instructions for evidence/ directory with conventional commit message'
-      - 'Prompt includes evidence/ cleanup instruction format for later use'
     tdd:
       red:
+        - 'Write test that prompt instructs agent to read spec files for artifact identification'
+        - 'Write test that prompt references success criteria and acceptance criteria as artifact sources'
+        - 'Write test that prompt includes spec-driven search as the primary discovery strategy'
+        - 'Write test that prompt includes fallback to common output patterns as secondary strategy'
         - 'Write test that prompt includes the security exclusion patterns (.env, *.key, *.pem, credentials.json)'
         - 'Write test that prompt includes size limit instructions (10 MB per file, 50 MB total)'
-        - 'Write test that prompt includes artifact discovery directory patterns (output/, dist/, exports/, generated/)'
         - 'Write test that prompt includes video collection instructions referencing test-results/'
         - 'Write test that prompt includes git commit instruction with chore(agents): add evidence artifacts'
       green:
-        - 'Add artifact discovery section builder with output directory patterns and file extensions'
+        - 'Add spec-driven artifact discovery section that instructs agent to analyze spec for expected outputs'
+        - 'Add fallback common output pattern section for specs with no artifact hints'
         - 'Add security exclusion list as a constant array, embedded in prompt text'
         - 'Add size limit instructions'
         - 'Add video collection section referencing Playwright output directory'
         - 'Add git commit/push instruction section for evidence/ directory'
       refactor:
         - 'Ensure the exclusion list is a single constant that can be maintained easily'
-        - 'Group related instructions under clear sub-headings in the prompt'
-    estimatedEffort: '1h'
+        - 'Group spec-driven discovery and fallback scanning under clear sub-headings'
+    estimatedEffort: '1.5h'
 
   - id: task-6
     phaseId: phase-2
@@ -335,7 +349,7 @@ tasks:
     tdd: null
     estimatedEffort: '1h'
 
-totalEstimate: '10h'
+totalEstimate: '10.5h'
 openQuestions: []
 
 content: |
@@ -345,10 +359,19 @@ content: |
   the type foundation — the EvidenceStatus TypeSpec enum and the two new state channels
   (evidenceStatus, evidenceArtifacts) in FeatureAgentAnnotation. Phase 2 builds the
   evidence prompt builder as a pure function with full TDD coverage across 4 tasks:
-  the core prompt, screenshot instructions, artifact discovery with security exclusions,
-  and CI fix history with edge cases. Phase 3 integrates everything into the merge node
-  across 3 tasks: the evidence collection phase, the cleanup phase, and feature record
-  persistence. Phase 4 runs the full validation suite.
+  the core prompt, screenshot instructions, spec-driven artifact discovery with security
+  exclusions, and CI fix history with edge cases. Phase 3 integrates everything into
+  the merge node across 3 tasks: the evidence collection phase, the cleanup phase, and
+  feature record persistence. Phase 4 runs the full validation suite.
+
+  The critical change from the previous iteration is in task 5: artifact discovery now
+  uses **agent-driven spec inspection** as the primary strategy. Instead of scanning
+  common directories (output/, dist/, exports/) for files with known extensions, the
+  prompt instructs the agent to read the feature's spec.yaml, plan.yaml, and tasks.yaml
+  to understand what artifacts the feature is designed to produce. The agent extracts
+  artifact expectations from success criteria, task descriptions, and acceptance criteria,
+  then searches for those specific outputs. Generic directory scanning is retained only
+  as a fallback when the spec provides no artifact hints.
 
   The dependency chain ensures each task builds on prior work: TypeSpec enum -> state
   channels -> prompt builder -> merge node integration -> validation. Within Phase 2,

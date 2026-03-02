@@ -2,13 +2,15 @@ name: pr-evidence-agent
 summary: >
   Integrate a PR evidence collection phase into the existing merge node that
   gathers text evidence (test summaries, build status, spec compliance), captures
-  screenshots/videos via Playwright for UI features, discovers generated artifacts,
-  commits binary evidence to an evidence/ directory on the feature branch, posts a
-  structured PR comment, and cleans up evidence before merge. The implementation
-  adds two state channels (evidenceStatus, evidenceArtifacts), a new TypeSpec enum
-  (EvidenceStatus), a new prompt builder file (evidence-prompts.ts), and evidence
-  collection + cleanup logic within the merge node — all following established
-  patterns (prompt builders, retryExecute, try-catch degradation, TDD).
+  screenshots/videos via Playwright for UI features, discovers generated artifacts
+  through agent-driven spec inspection (reading spec.yaml, plan.yaml, tasks.yaml
+  to understand what the feature produces), commits binary evidence to an evidence/
+  directory on the feature branch, posts a structured PR comment, and cleans up
+  evidence before merge. The implementation adds two state channels (evidenceStatus,
+  evidenceArtifacts), a new TypeSpec enum (EvidenceStatus), a new prompt builder file
+  (evidence-prompts.ts), and evidence collection + cleanup logic within the merge
+  node — all following established patterns (prompt builders, retryExecute, try-catch
+  degradation, TDD).
 
 relatedFeatures:
   - 036-agent-driven-merge
@@ -38,10 +40,15 @@ phases:
     name: 'Evidence Prompt Builder'
     description: >
       Create evidence-prompts.ts with buildEvidencePrompt() and helper functions
-      for section generation, security exclusions, and comment formatting. This
-      is the pure-function core — ideal for TDD with no external dependencies.
-      Must be complete before merge node integration because the merge node
-      calls this function.
+      for section generation, spec-driven artifact discovery instructions,
+      security exclusions, and comment formatting. The artifact discovery
+      approach is agent-driven spec inspection — the prompt instructs the agent
+      to read the feature spec (spec.yaml, plan.yaml, tasks.yaml) to understand
+      what artifacts the feature is expected to produce, then search for those
+      specific artifacts rather than blindly scanning directories. This is the
+      pure-function core — ideal for TDD with no external dependencies. Must be
+      complete before merge node integration because the merge node calls this
+      function.
     parallel: false
 
   - id: phase-3
@@ -126,7 +133,34 @@ content: |
 
   ## Key Design Decisions
 
-  ### 1. Single Agent Call with maxTurns=5 (Research Decision #10)
+  ### 1. Agent-Driven Spec Inspection for Artifact Discovery
+
+  Generated artifacts (CSV, PDF, etc.) are discovered through **agent-driven spec
+  inspection** rather than blind directory scanning. The evidence prompt instructs
+  the agent to:
+  1. Read the feature's spec.yaml, plan.yaml, and tasks.yaml
+  2. Understand what the feature is designed to produce (e.g., "generates CSV exports",
+     "produces PDF reports", "creates HTML dashboards")
+  3. Identify expected output artifacts from the spec's success criteria, task
+     descriptions, and acceptance criteria
+  4. Search the workspace for those specific artifacts based on the spec context
+  5. Use the spec's technology list and affected areas to narrow the search
+
+  This is fundamentally different from generic workspace scanning (which looks in
+  common directories like output/, dist/, exports/ for known extensions). Spec
+  inspection means the agent uses its understanding of the feature's purpose to
+  find the right artifacts — even in non-standard locations. If a spec says "the
+  feature generates a report at reports/monthly.pdf", the agent knows to look there
+  specifically, rather than hoping a generic glob picks it up.
+
+  **Rejected:** Generic workspace scanning with hardcoded directories and extensions —
+  too noisy (catches build artifacts, temp files), misses artifacts in non-standard
+  locations, and ignores what the feature actually produces.
+
+  **Rejected:** Explicit artifact manifest in spec — requires spec authors to predict
+  output paths upfront, adding burden and missing dynamically named files.
+
+  ### 2. Single Agent Call with maxTurns=5 (Research Decision #10)
 
   Evidence collection uses one comprehensive agent call rather than separate calls
   per evidence type. The prompt is ordered by priority (text evidence first, then
@@ -137,7 +171,7 @@ content: |
   **Rejected:** Three separate agent calls would triple startup latency (~15-30s
   per call) with minimal isolation benefit.
 
-  ### 2. Integrated into Merge Node (Research Decision #1)
+  ### 3. Integrated into Merge Node (Research Decision #1)
 
   Evidence needs PR metadata (prUrl, prNumber) from the merge node's first agent
   call and CI results from the watch/fix loop. A separate graph node would require
@@ -146,7 +180,7 @@ content: |
   **Rejected:** Separate LangGraph node — would need PR data from merge's first
   phase, requiring graph topology changes.
 
-  ### 3. Agent-Driven gh CLI for PR Comments (Research Decision #3)
+  ### 4. Agent-Driven gh CLI for PR Comments (Research Decision #3)
 
   The agent posts evidence via `gh pr comment` rather than a new `IGitPrService`
   method. This is consistent with how Agent Call 1 creates PRs via `gh pr create`.
@@ -154,26 +188,26 @@ content: |
   **Rejected:** Adding `commentOnPr()` to `IGitPrService` — unnecessary interface,
   implementation, and DI changes when the agent has shell access.
 
-  ### 4. HTML Comment Marker for Idempotency (Research Decision #8)
+  ### 5. HTML Comment Marker for Idempotency (Research Decision #8)
 
   The evidence comment includes `<!-- shep-evidence-v1 -->` at the top. On re-runs,
   the agent finds and updates the existing comment via `gh api` rather than creating
   a duplicate. Version suffix enables future format evolution.
 
-  ### 5. Try-Catch Degradation (Research Decision #7)
+  ### 6. Try-Catch Degradation (Research Decision #7)
 
   The evidence agent call is wrapped in try-catch. On failure, evidenceStatus is set
   to 'failed' and the merge flow continues to the approval gate. The prompt itself
   handles sub-step failures (e.g., screenshot capture fails but text posts). This
   matches how `runCiWatchFixLoop` handles terminal failures — log and continue.
 
-  ### 6. Evidence Cleanup Before Merge (Research Decision #9)
+  ### 7. Evidence Cleanup Before Merge (Research Decision #9)
 
   After the approval gate but before `mergePr()` or local merge, a cleanup step
   removes the `evidence/` directory with commit `chore(agents): remove evidence
   artifacts`. Evidence files remain accessible in the PR's commit history.
 
-  ### 7. TypeSpec-First for EvidenceStatus Enum
+  ### 8. TypeSpec-First for EvidenceStatus Enum
 
   Following the mandatory TypeSpec-first rule, the EvidenceStatus enum is defined in
   `tsp/common/enums/workflow.tsp` alongside CiStatus and PrStatus. The generated
@@ -183,7 +217,10 @@ content: |
 
   Phase 1 (Foundation) comes first because state channels and TypeSpec types are
   dependencies for all other code. Phase 2 (Prompt Builder) follows because it is
-  a pure function with no external dependencies — ideal for TDD isolation. Phase 3
+  a pure function with no external dependencies — ideal for TDD isolation. The key
+  change in Phase 2 is the artifact discovery approach: instead of hardcoded directory
+  patterns, the prompt instructs the agent to read the spec and understand what
+  artifacts the feature produces, then search for those specific outputs. Phase 3
   (Merge Node Integration) wires everything together, requiring both state channels
   and the prompt builder. Phase 4 (Validation) confirms the system works end-to-end.
 
@@ -204,3 +241,4 @@ content: |
   | Merge node grows too large | Evidence follows ci-watch-fix-loop pattern: focused try-catch + single agent call; prompt in separate file |
   | Re-runs create duplicate PR comments | HTML marker <!-- shep-evidence-v1 --> enables find-and-update via gh api |
   | Evidence cleanup fails before merge | Best-effort; merge proceeds regardless |
+  | Spec lacks artifact details | Agent falls back to searching common output patterns as a secondary strategy when spec provides no artifact hints |
