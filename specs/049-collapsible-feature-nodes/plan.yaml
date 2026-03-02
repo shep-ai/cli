@@ -1,0 +1,181 @@
+name: collapsible-feature-nodes
+summary: >
+  Implement collapse/expand behavior for parent feature nodes on the canvas. Extends
+  FeatureNodeData with collapse fields, adds a chevron toggle and stacked visual to
+  FeatureNode, manages collapse state in useControlCenterState with localStorage persistence,
+  filters hidden descendants from the rendered node/edge arrays in FeaturesCanvas, and
+  re-invokes Dagre layout after each toggle. Recursive subtree hiding ensures the entire
+  descendant tree is hidden. Edge cases (child added to collapsed parent, collapsed child
+  deleted) are handled gracefully. Sidebar remains independent of collapse state.
+
+relatedFeatures: []
+technologies:
+  - '@xyflow/react v12 (React Flow)'
+  - '@dagrejs/dagre (graph layout)'
+  - React (useState, useCallback, useMemo, useEffect)
+  - Tailwind CSS (styling and animations)
+  - Lucide React (ChevronDown, ChevronRight)
+  - Vitest + React Testing Library (unit tests)
+  - Storybook (component documentation)
+relatedLinks: []
+
+phases:
+  - id: phase-1
+    name: 'Data model & state management'
+    description: >
+      Extend FeatureNodeData with collapse-related fields (isCollapsed, childCount,
+      onToggleCollapse). Build the collapse state management layer in useControlCenterState:
+      collapsed node IDs as a Set<string>, toggleCollapse callback, recursive subtree
+      computation from dependency edges, and localStorage persistence. This phase comes
+      first because all subsequent UI and filtering work depends on the data model and
+      state being in place.
+    parallel: false
+
+  - id: phase-2
+    name: 'Node/edge filtering & layout integration'
+    description: >
+      Implement the node and edge filtering pipeline in FeaturesCanvas that removes
+      collapsed descendants and their edges before passing to ReactFlow and Dagre layout.
+      Enrich nodes with collapse data (isCollapsed, childCount, onToggleCollapse callback)
+      during the existing enrichedNodes mapping. This phase bridges state management and
+      the visual layer — filtering must work correctly before the UI can display collapsed
+      states.
+    parallel: false
+
+  - id: phase-3
+    name: 'FeatureNode UI — collapse toggle & stacked visual'
+    description: >
+      Add the chevron collapse/expand button to the FeatureNode component header (visible
+      only when childCount > 0) and the stacked visual indicator with child count badge
+      when the node is collapsed. Implement chevron rotation animation (200ms), accessibility
+      attributes (aria-expanded, aria-label), and the nodrag class to prevent drag interference.
+      Stacked visual uses CSS pseudo-elements or additional divs with Tailwind utilities.
+    parallel: false
+
+  - id: phase-4
+    name: 'Edge cases, Storybook stories & integration polish'
+    description: >
+      Handle edge cases: auto-expand parent when a child is added to a collapsed node,
+      graceful cleanup when a collapsed child is deleted (remove from collapsed set, hide
+      toggle if no children remain). Add comprehensive Storybook stories for all collapse
+      states. Verify no regressions to existing interactions. Polish and final cleanup.
+    parallel: false
+
+filesToCreate: []
+
+filesToModify:
+  - src/presentation/web/components/common/feature-node/feature-node-state-config.ts
+  - src/presentation/web/components/features/control-center/use-control-center-state.ts
+  - src/presentation/web/components/features/features-canvas/features-canvas.tsx
+  - src/presentation/web/components/common/feature-node/feature-node.tsx
+  - src/presentation/web/components/common/feature-node/feature-node.stories.tsx
+  - tests/unit/presentation/web/common/feature-node/feature-node.test.tsx
+  - tests/unit/presentation/web/features/features-canvas/features-canvas.test.tsx
+  - tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  This feature operates entirely within the **presentation/web** layer. No domain model,
+  TypeSpec, or API changes are needed — collapse is a canvas-only UI concern.
+
+  The implementation follows the existing data flow:
+
+  ```
+  useControlCenterState (state + callbacks)
+    -> FeaturesCanvas (enrichment + filtering)
+      -> ReactFlow (renders visible nodes/edges)
+        -> FeatureNode (collapse toggle UI)
+  ```
+
+  **Collapse state** is a `Set<string>` of collapsed node IDs managed in
+  `useControlCenterState`. It is persisted to `localStorage` so users retain
+  their collapse preferences across page reloads. Stale IDs (features deleted
+  between sessions) are silently ignored during hydration.
+
+  **Subtree computation** walks dependency edges (`dep-*` prefix) to build a
+  recursive descendant set for each collapsed node. This reuses the existing
+  edge ID convention — no new data structures needed.
+
+  **Node/edge filtering** happens in `FeaturesCanvas` during the existing
+  `enrichedNodes` mapping pass. Collapsed descendants are excluded from the
+  arrays passed to both `<ReactFlow>` and `layoutWithDagre()`, so the layout
+  algorithm naturally fills gaps without code changes.
+
+  **FeatureNode UI** adds a chevron button to the node header (left of the
+  lifecycle label) and a stacked card visual behind the node when collapsed.
+  The chevron follows the existing button pattern: `nodrag` class, `e.stopPropagation()`,
+  consistent icon sizing (`h-3.5 w-3.5`), and Tailwind utilities only.
+
+  ## Key Design Decisions
+
+  ### 1. localStorage persistence (from research)
+  **Chosen:** Persist collapsed node IDs in localStorage.
+  **Rationale:** Users retain their collapse preferences across page reloads without
+  re-collapsing nodes each session. Implementation is straightforward — serialize
+  `Set<string>` to JSON array. Stale IDs from deleted features are ignored on read.
+  The localStorage key is scoped per-page to avoid cross-context conflicts.
+
+  ### 2. Filtering vs hidden property
+  **Chosen:** Filter nodes/edges from arrays before passing to ReactFlow.
+  **Rejected:** Using React Flow's `hidden: true` node property.
+  **Rationale:** Filtering produces cleaner edge removal (edges to hidden nodes
+  automatically disappear) and ensures Dagre layout only considers visible nodes.
+  With `hidden: true`, edges would need separate hiding logic and Dagre would
+  allocate space for invisible nodes, causing gaps. The spec explicitly requires
+  filtering over hiding.
+
+  ### 3. Subtree computation via edge walking
+  **Chosen:** Walk `dep-*` edges recursively to find all descendants.
+  **Rationale:** The existing edge ID convention (`dep-${parentId}-${childId}`)
+  provides a reliable parent-child relationship graph. Building an adjacency map
+  from edges and performing BFS/DFS gives the complete subtree for any node.
+  This avoids introducing a separate tree data structure.
+
+  ### 4. Collapse toggle placement
+  **Chosen:** Chevron button in node header, left of lifecycle label.
+  **Rationale:** The top-left area is currently unused (lifecycle label + settings
+  button span the header). Placing the chevron there gives it clear visual
+  hierarchy without competing with the settings button (top-right) or delete
+  button (hover, left of card). Always visible when `childCount > 0`.
+
+  ### 5. Stacked visual via CSS
+  **Chosen:** CSS pseudo-elements or offset divs behind the card.
+  **Rationale:** The spec requires the stacked visual to NOT be additional React
+  Flow nodes. Using `::before`/`::after` pseudo-elements or absolute-positioned
+  divs with slight offset and matching border/shadow creates the layered card
+  effect. A badge overlay shows the `+N` count.
+
+  ## Implementation Strategy
+
+  The work proceeds in four phases, ordered by dependency:
+
+  **Phase 1 (Data model & state)** establishes the foundation. FeatureNodeData
+  gets three new optional fields. The useControlCenterState hook gains collapse
+  state management with localStorage persistence and a subtree computation
+  utility. All subsequent phases depend on this.
+
+  **Phase 2 (Filtering & layout)** connects state to rendering. FeaturesCanvas
+  learns to filter out collapsed descendants and their edges, then passes the
+  reduced set to Dagre and ReactFlow. Node enrichment injects collapse data.
+
+  **Phase 3 (UI)** builds the visible affordance. The FeatureNode component gets
+  a chevron button and stacked visual. This is the most visible change but depends
+  on the data flowing correctly from phases 1-2.
+
+  **Phase 4 (Edge cases & stories)** handles the tricky scenarios: auto-expand
+  on child creation, cleanup on child deletion. Storybook stories document all
+  states. Final regression checks ensure no existing interactions break.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Stale localStorage IDs after feature deletion | Ignore unknown IDs during hydration; clean up IDs when features are deleted |
+  | Dagre layout jank with rapid toggle | Collapse toggle is synchronous state update; Dagre runs on filtered arrays which is fast for <50 nodes |
+  | SSE updates for hidden nodes lost | SSE updates flow through useControlCenterState which updates ALL node data regardless of visibility — filtering is a render-time concern only |
+  | Chevron button interfering with node drag | Use `nodrag` CSS class (same pattern as existing Settings button) |
+  | Edge cases with deeply nested trees | BFS subtree walk has O(n) complexity where n is total nodes — acceptable for graphs up to 50 nodes |
+  | Breaking existing node interactions | Comprehensive regression tests for Settings, Delete, Add Child, drag, and select interactions |

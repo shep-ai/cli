@@ -1,0 +1,422 @@
+name: collapsible-feature-nodes
+summary: >
+  12 tasks across 4 phases. Phase 1 extends the data model and builds collapse state
+  management with localStorage persistence. Phase 2 wires node/edge filtering and layout
+  recalculation. Phase 3 adds the FeatureNode collapse toggle UI and stacked visual.
+  Phase 4 handles edge cases, adds Storybook stories, and verifies no regressions.
+
+relatedFeatures: []
+technologies:
+  - '@xyflow/react v12 (React Flow)'
+  - '@dagrejs/dagre (graph layout)'
+  - React (useState, useCallback, useMemo, useEffect)
+  - Tailwind CSS
+  - Lucide React (ChevronDown, ChevronRight)
+  - Vitest + React Testing Library
+  - Storybook
+relatedLinks: []
+
+tasks:
+  # ── Phase 1: Data model & state management ──────────────────────────────
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Extend FeatureNodeData with collapse fields'
+    description: >
+      Add three optional fields to the FeatureNodeData interface in
+      feature-node-state-config.ts: isCollapsed (boolean), childCount (number),
+      and onToggleCollapse (callback). All fields are optional with falsy defaults
+      to maintain backward compatibility with existing node data.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'FeatureNodeData has isCollapsed?: boolean field'
+      - 'FeatureNodeData has childCount?: number field'
+      - 'FeatureNodeData has onToggleCollapse?: () => void field'
+      - 'Existing tests pass without modification (backward compatible)'
+    tdd:
+      red:
+        - 'Write test in feature-node.test.tsx asserting that a node rendered with isCollapsed=true, childCount=3, and onToggleCollapse callback does not throw'
+        - 'Write test asserting node rendered WITHOUT new fields renders identically to current behavior'
+      green:
+        - 'Add the three optional fields to FeatureNodeData interface'
+        - 'Verify existing tests still pass'
+      refactor:
+        - 'Ensure field ordering and JSDoc comments are consistent with existing interface style'
+    estimatedEffort: '30min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Build recursive subtree computation utility'
+    description: >
+      Create a pure function getDescendantIds(nodeId, edges) that walks dep-* edges
+      recursively to find all descendant node IDs of a given parent. Uses BFS with an
+      adjacency map built from edges whose IDs start with "dep-". Returns a Set<string>
+      of all descendant IDs (not including the parent itself).
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Given a parent with 2 direct children via dep-* edges, returns Set with 2 IDs'
+      - 'Given a 3-level tree (parent -> child -> grandchild), returns Set with child + grandchild IDs'
+      - 'Given a node with no children, returns empty Set'
+      - 'Handles cycles gracefully (visited set prevents infinite loop)'
+      - 'Only considers dep-* edges, ignores edge-* edges'
+    tdd:
+      red:
+        - 'Write test: getDescendantIds("parent", [dep-parent-child1, dep-parent-child2]) returns Set(["child1", "child2"])'
+        - 'Write test: getDescendantIds("parent", [dep-parent-child, dep-child-grandchild]) returns Set(["child", "grandchild"])'
+        - 'Write test: getDescendantIds("leaf", [dep-parent-child]) returns empty Set'
+        - 'Write test: only dep-* edges are traversed, edge-* edges are ignored'
+      green:
+        - 'Implement getDescendantIds: build adjacency map from dep-* edges, BFS from nodeId, return visited set'
+      refactor:
+        - 'Extract adjacency map builder if used elsewhere; ensure function is exported for direct testing'
+    estimatedEffort: '45min'
+
+  - id: task-3
+    phaseId: phase-1
+    title: 'Add collapse state management to useControlCenterState'
+    description: >
+      Add a collapsedNodeIds state (Set<string>) to useControlCenterState. Expose a
+      toggleCollapse(nodeId) callback that adds/removes the ID from the set. Initialize
+      from localStorage on mount and persist to localStorage on change. Include a
+      getHiddenNodeIds() derived computation that unions the descendant sets of all
+      collapsed nodes.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'collapsedNodeIds is a Set<string> in hook state'
+      - 'toggleCollapse adds nodeId when not present, removes when present'
+      - 'getHiddenNodeIds returns union of all descendants of all collapsed nodes'
+      - 'Collapsed IDs are persisted to localStorage on change'
+      - 'Collapsed IDs are hydrated from localStorage on mount'
+      - 'Stale IDs in localStorage (not matching any current node) are silently ignored'
+      - 'toggleCollapse triggers Dagre re-layout via existing handleLayout'
+    tdd:
+      red:
+        - 'Write test: toggleCollapse("node-1") adds "node-1" to collapsedNodeIds'
+        - 'Write test: toggleCollapse("node-1") twice removes "node-1" (toggle behavior)'
+        - 'Write test: getHiddenNodeIds returns descendants of all collapsed parents'
+        - 'Write test: localStorage is written when collapsedNodeIds changes'
+        - 'Write test: collapsedNodeIds is initialized from localStorage on mount'
+        - 'Write test: stale IDs in localStorage are filtered out during hydration'
+      green:
+        - 'Add useState for collapsedNodeIds initialized from localStorage'
+        - 'Implement toggleCollapse callback with Set add/remove logic'
+        - 'Implement getHiddenNodeIds using getDescendantIds for each collapsed node'
+        - 'Add useEffect to persist collapsedNodeIds to localStorage'
+        - 'Call handleLayout after state update in toggleCollapse'
+      refactor:
+        - 'Memoize getHiddenNodeIds with useMemo to avoid recomputation on unrelated renders'
+        - 'Extract localStorage key as a constant'
+    estimatedEffort: '1.5h'
+
+  # ── Phase 2: Node/edge filtering & layout integration ──────────────────
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Compute child counts per node from dependency edges'
+    description: >
+      During the enrichedNodes mapping in FeaturesCanvas, compute the direct child
+      count for each feature node by counting outgoing dep-* edges. This childCount
+      is injected into each node's data so FeatureNode knows whether to show the
+      collapse toggle. Also inject the total descendant count for collapsed nodes
+      (used by the badge).
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'Feature nodes with dep-* outgoing edges have childCount > 0 in their data'
+      - 'Feature nodes without dep-* outgoing edges have childCount = 0'
+      - 'Collapsed nodes have childCount set to total hidden descendant count (for the badge)'
+      - 'Non-feature nodes (repositoryNode, addRepositoryNode) are not affected'
+    tdd:
+      red:
+        - 'Write test: feature node with 2 dep-* edges as source has childCount=2 in enriched data'
+        - 'Write test: feature node with no dep-* source edges has childCount=0'
+        - 'Write test: collapsed node shows total descendant count (not just direct children)'
+      green:
+        - 'In FeaturesCanvas enrichedNodes mapping, count dep-* edges per source node'
+        - 'Inject childCount into FeatureNodeData during enrichment'
+      refactor:
+        - 'Pre-compute a childCount map once before the mapping loop for efficiency'
+    estimatedEffort: '45min'
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Filter collapsed descendants from rendered nodes and edges'
+    description: >
+      In FeaturesCanvas, after enriching nodes, filter out all node IDs present in
+      the hiddenNodeIds set (provided by useControlCenterState). Also filter edges
+      where either source or target is in the hidden set. Pass only the filtered
+      nodes and edges to ReactFlow and layoutWithDagre.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'When parent is collapsed, its descendant nodes are not passed to ReactFlow'
+      - 'Edges connecting to or between hidden nodes are not passed to ReactFlow'
+      - 'The collapsed parent node itself remains visible'
+      - 'Repository nodes and their edges are unaffected by collapse'
+      - 'layoutWithDagre receives only visible nodes and edges'
+    tdd:
+      red:
+        - 'Write test: collapsing parent with 2 children removes 2 nodes from rendered array'
+        - 'Write test: dep-* edges to hidden children are removed'
+        - 'Write test: edge-* edges to hidden children are removed'
+        - 'Write test: collapsed parent remains in rendered array'
+        - 'Write test: unrelated nodes and edges are not affected'
+      green:
+        - 'Add filtering step after enrichment: nodes.filter(n => !hiddenNodeIds.has(n.id))'
+        - 'Add edge filtering: edges.filter(e => !hiddenNodeIds.has(e.source) && !hiddenNodeIds.has(e.target))'
+        - 'Pass filtered arrays to layoutWithDagre and ReactFlow'
+      refactor:
+        - 'Memoize filtering with useMemo keyed on nodes, edges, and hiddenNodeIds'
+    estimatedEffort: '1h'
+
+  - id: task-6
+    phaseId: phase-2
+    title: 'Inject collapse callbacks and state into enriched nodes'
+    description: >
+      During FeaturesCanvas node enrichment, inject isCollapsed (from collapsedNodeIds
+      set), childCount (from pre-computed map), and onToggleCollapse callback into
+      each feature node's data. The callback should call the toggleCollapse function
+      from useControlCenterState with the node's ID.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'Feature nodes with children have onToggleCollapse callback in their data'
+      - 'Feature nodes without children do NOT have onToggleCollapse'
+      - 'isCollapsed reflects whether nodeId is in collapsedNodeIds set'
+      - 'childCount reflects the count of direct children (or total descendants when collapsed)'
+      - 'Clicking the toggle in FeatureNode invokes toggleCollapse with correct nodeId'
+    tdd:
+      red:
+        - 'Write test: enriched feature node with children has onToggleCollapse defined'
+        - 'Write test: enriched feature node without children has onToggleCollapse undefined'
+        - 'Write test: enriched collapsed node has isCollapsed=true'
+        - 'Write test: enriched expanded node has isCollapsed=false'
+      green:
+        - 'In FeaturesCanvas enrichment, add isCollapsed, childCount, onToggleCollapse to feature node data'
+        - 'Only add onToggleCollapse for nodes with childCount > 0'
+      refactor:
+        - 'Group collapse-related enrichment logic for clarity'
+    estimatedEffort: '45min'
+
+  # ── Phase 3: FeatureNode UI — collapse toggle & stacked visual ─────────
+
+  - id: task-7
+    phaseId: phase-3
+    title: 'Add chevron collapse toggle button to FeatureNode header'
+    description: >
+      Add a chevron button to the FeatureNode header area, visible only when
+      childCount > 0. Uses ChevronDown (expanded) / ChevronRight (collapsed) from
+      Lucide React with a 200ms rotation transition. Button uses nodrag class,
+      stopPropagation, aria-expanded, and aria-label. Placed left of the lifecycle
+      label in the header row.
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'Chevron button renders when childCount > 0'
+      - 'Chevron does NOT render when childCount is 0 or undefined'
+      - 'ChevronDown shown when expanded, rotates to ChevronRight when collapsed'
+      - 'Clicking chevron calls onToggleCollapse'
+      - 'Button has nodrag class to prevent drag interference'
+      - 'Button has aria-expanded attribute matching isCollapsed state'
+      - 'Button has descriptive aria-label'
+      - 'Chevron icon uses h-3.5 w-3.5 sizing consistent with other node icons'
+    tdd:
+      red:
+        - 'Write test: chevron button renders when childCount=3'
+        - 'Write test: chevron button does NOT render when childCount=0'
+        - 'Write test: chevron has aria-expanded="true" when expanded (isCollapsed=false)'
+        - 'Write test: chevron has aria-expanded="false" when collapsed (isCollapsed=true)'
+        - 'Write test: clicking chevron calls onToggleCollapse'
+        - 'Write test: chevron click does not trigger node drag (stopPropagation)'
+      green:
+        - 'Add conditional chevron button to FeatureNode header, left of lifecycle label'
+        - 'Use ChevronDown with rotate-[-90deg] transform when isCollapsed'
+        - 'Wire onClick to data.onToggleCollapse with e.stopPropagation()'
+        - 'Add nodrag class, aria-expanded, aria-label attributes'
+      refactor:
+        - 'Extract chevron transition classes to ensure 200ms timing matches accordion pattern'
+    estimatedEffort: '1h'
+
+  - id: task-8
+    phaseId: phase-3
+    title: 'Add stacked visual indicator and child count badge'
+    description: >
+      When a node is collapsed (isCollapsed=true and childCount > 0), render a stacked
+      card visual behind the node and a badge showing "+N" (where N is the hidden
+      descendant count). The stacked visual uses offset divs or pseudo-element styling
+      with Tailwind utilities to create a layered card effect. The badge is positioned
+      at the bottom-right of the stacked area.
+    state: Todo
+    dependencies:
+      - task-7
+    acceptanceCriteria:
+      - 'Stacked visual renders when isCollapsed=true AND childCount > 0'
+      - 'Stacked visual does NOT render when isCollapsed=false'
+      - 'Badge displays "+N" where N is childCount'
+      - 'Stacked visual uses Tailwind utilities only (no custom CSS files)'
+      - 'Visual layers are behind the main card (z-ordering correct)'
+      - 'Stacked visual uses existing Tailwind color tokens (bg-card, border, shadow-sm)'
+    tdd:
+      red:
+        - 'Write test: stacked visual renders when isCollapsed=true and childCount=3'
+        - 'Write test: stacked visual does NOT render when isCollapsed=false'
+        - 'Write test: badge shows "+3" when childCount=3'
+        - 'Write test: stacked visual does NOT render when childCount=0 even if isCollapsed=true'
+      green:
+        - 'Add conditional stacked div(s) behind the main card div when collapsed'
+        - 'Position with absolute + slight offset (e.g. top-1 left-1 or similar) and matching border/bg'
+        - 'Add badge element with "+{childCount}" text'
+      refactor:
+        - 'Fine-tune offset spacing, shadow, and badge positioning for visual polish'
+    estimatedEffort: '1h'
+
+  # ── Phase 4: Edge cases, Storybook stories & integration polish ────────
+
+  - id: task-9
+    phaseId: phase-4
+    title: 'Handle auto-expand when child added to collapsed parent'
+    description: >
+      When a new child feature is created via the "add feature to feature" flow
+      (handleAddFeatureToFeature in useControlCenterState) and the parent is currently
+      collapsed, automatically remove the parent from collapsedNodeIds to reveal the
+      new child. This ensures users see the feature they just created.
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'Creating a child feature on a collapsed parent auto-expands the parent'
+      - 'The new child node is visible on canvas after creation'
+      - 'Creating a child on an already-expanded parent has no side effect'
+      - 'localStorage is updated to reflect the expansion'
+    tdd:
+      red:
+        - 'Write test: creating child feature on collapsed parent removes parent from collapsedNodeIds'
+        - 'Write test: creating child feature on expanded parent does not change collapsedNodeIds'
+      green:
+        - 'In createFeatureNode (or handleAddFeatureToFeature path), check if parent is collapsed and remove from set'
+      refactor:
+        - 'Ensure the auto-expand fires before layout recalculation so the new child is positioned correctly'
+    estimatedEffort: '30min'
+
+  - id: task-10
+    phaseId: phase-4
+    title: 'Handle collapsed child deletion gracefully'
+    description: >
+      When a hidden descendant is deleted (via handleDeleteFeature), update collapse
+      state gracefully. If the collapsed parent has no remaining children after
+      deletion, remove the parent from collapsedNodeIds (the toggle disappears
+      naturally since childCount becomes 0). Clean up any deleted node IDs from
+      collapsedNodeIds in case a collapsed intermediate node is deleted.
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'Deleting the last child of a collapsed parent removes parent from collapsedNodeIds'
+      - 'Deleting a non-last child keeps parent collapsed with updated childCount'
+      - 'Deleting a collapsed intermediate node removes it from collapsedNodeIds'
+      - 'localStorage is updated to reflect changes'
+    tdd:
+      red:
+        - 'Write test: deleting last child of collapsed parent removes parent from collapsedNodeIds'
+        - 'Write test: deleting one of two children of collapsed parent keeps parent collapsed'
+        - 'Write test: deleting a node that is itself in collapsedNodeIds removes it from the set'
+      green:
+        - 'In handleDeleteFeature, after removing node, check if any collapsed parent lost all children'
+        - 'Remove the deleted node ID from collapsedNodeIds if present'
+        - 'Recompute dependent state'
+      refactor:
+        - 'Consolidate cleanup logic to run after edge removal so child counts are accurate'
+    estimatedEffort: '45min'
+
+  - id: task-11
+    phaseId: phase-4
+    title: 'Add Storybook stories for collapse states'
+    description: >
+      Add comprehensive Storybook stories to feature-node.stories.tsx covering all
+      collapse-related visual states. Uses the existing FeatureNodeCanvas wrapper
+      pattern. Stories must demonstrate the visual appearance and interaction for
+      each collapse scenario.
+    state: Todo
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - 'Story: expanded node with children (chevron visible, no stacked visual)'
+      - 'Story: collapsed node with stacked indicator and child count badge'
+      - 'Story: node without children (no toggle visible)'
+      - 'Story: collapse/expand interaction (toggle click changes state)'
+      - 'Stories use FeatureNodeCanvas wrapper pattern consistent with existing stories'
+      - 'Stories render correctly in Storybook without errors'
+    tdd: null
+    estimatedEffort: '45min'
+
+  - id: task-12
+    phaseId: phase-4
+    title: 'Regression test existing node interactions'
+    description: >
+      Verify that collapse/expand does not interfere with existing node interactions:
+      Settings button click, Delete button click, Add Child (+) action, node drag,
+      node selection, and edge drawing. Add specific regression tests for these
+      interactions on nodes that have the collapse toggle visible.
+    state: Todo
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - 'Settings button works on nodes with collapse toggle'
+      - 'Delete button works on nodes with collapse toggle'
+      - 'Add Child (+) action works on nodes with collapse toggle'
+      - 'Node drag works (chevron has nodrag class)'
+      - 'Node selection works alongside collapse toggle'
+      - 'All pre-existing feature-node tests still pass'
+    tdd:
+      red:
+        - 'Write test: clicking settings on node with collapse toggle invokes onSettings'
+        - 'Write test: clicking delete on node with collapse toggle invokes onDelete'
+        - 'Write test: clicking action on node with collapse toggle invokes onAction'
+        - 'Write test: collapse toggle click does not propagate to node selection'
+      green:
+        - 'Verify existing implementation handles these cases (tests should pass without code changes if nodrag and stopPropagation are correct)'
+      refactor:
+        - 'Remove redundant tests if covered by earlier tasks'
+    estimatedEffort: '30min'
+
+totalEstimate: '9h'
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation is organized into 12 tasks across 4 phases, totaling an estimated
+  9 hours of work.
+
+  Phase 1 establishes the data foundation: extending FeatureNodeData with collapse
+  fields, building a recursive subtree computation utility that walks dep-* edges, and
+  adding collapse state management to useControlCenterState with localStorage persistence.
+  This phase is the critical path — all other work depends on it.
+
+  Phase 2 connects state to rendering by computing child counts during node enrichment,
+  filtering collapsed descendants and their edges from the rendered arrays, and injecting
+  collapse callbacks into enriched node data. After this phase, collapsing a node correctly
+  hides its descendants and triggers Dagre re-layout.
+
+  Phase 3 builds the visible UI: a chevron toggle button in the FeatureNode header with
+  rotation animation and accessibility attributes, plus a stacked card visual with a "+N"
+  badge when collapsed. These are the user-facing affordances.
+
+  Phase 4 handles edge cases (auto-expand on child creation, graceful child deletion),
+  adds Storybook stories covering all collapse states, and verifies no regressions to
+  existing node interactions like Settings, Delete, Add Child, drag, and selection.
+
+  The TDD approach ensures each piece is tested in isolation before integration. Tests
+  are written first for each task (RED), minimal implementation follows (GREEN), then
+  cleanup (REFACTOR). The subtree utility and filtering logic are pure functions that
+  are straightforward to unit test. The FeatureNode UI tests follow the existing pattern
+  using React Testing Library with the mockFeatureNode fixture extended with collapse fields.
