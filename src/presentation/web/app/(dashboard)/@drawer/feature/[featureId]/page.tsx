@@ -39,8 +39,7 @@ export default async function FeatureDrawerPage({ params }: FeatureDrawerPagePro
     if (!view) return null;
 
     return <FeatureDrawerClient view={view} />;
-  } catch (error) {
-    console.error('[drawer] Error in FeatureDrawerPage:', error);
+  } catch {
     // Feature not found — render nothing (drawer stays closed)
     return null;
   }
