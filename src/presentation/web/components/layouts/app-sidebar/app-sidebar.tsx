@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { Home, Wrench, Puzzle, Plus } from 'lucide-react';
+import { Home, Wrench, Puzzle, Plus, Settings } from 'lucide-react';
 import {
   Sidebar,
   SidebarHeader,
@@ -96,6 +96,12 @@ export function AppSidebar({
               active={pathname === '/skills'}
             />
           ) : null}
+          <SidebarNavItem
+            icon={Settings}
+            label="Settings"
+            href="/settings"
+            active={pathname === '/settings'}
+          />
         </SidebarMenu>
       </SidebarHeader>
 
