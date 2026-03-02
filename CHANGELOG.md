@@ -1,3 +1,9 @@
+# [1.72.0](https://github.com/shep-ai/cli/compare/v1.71.0...v1.72.0) (2026-03-02)
+
+### Features
+
+- **web:** route-based control center drawer with parallel routes ([#183](https://github.com/shep-ai/cli/issues/183)) ([1691f22](https://github.com/shep-ai/cli/commit/1691f22256ffc02b4e2be91b1fc64e18ab973a64))
+
 # [1.71.0](https://github.com/shep-ai/cli/compare/v1.70.2...v1.71.0) (2026-03-01)
 
 ### Features
