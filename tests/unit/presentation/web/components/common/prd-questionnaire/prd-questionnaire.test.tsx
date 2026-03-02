@@ -3,6 +3,24 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { PrdQuestionnaire } from '@/components/common/prd-questionnaire';
 import type { PrdQuestionnaireProps } from '@/components/common/prd-questionnaire';
 
+vi.mock('@/hooks/use-decision-chat', () => ({
+  useDecisionChat: vi.fn(() => ({
+    messages: [],
+    isStreaming: false,
+    error: null,
+    sendMessage: vi.fn(),
+    resetChat: vi.fn(),
+  })),
+}));
+
+vi.mock('@/hooks/use-sound-action', () => ({
+  useSoundAction: vi.fn(() => ({
+    play: vi.fn(),
+    stop: vi.fn(),
+    isPlaying: false,
+  })),
+}));
+
 function makeOption(
   overrides: Partial<{
     id: string;
@@ -57,6 +75,8 @@ const defaultProps: PrdQuestionnaireProps = {
   selections: {},
   onSelect: vi.fn(),
   onApprove: vi.fn(),
+  featureId: 'feat-test',
+  reviewContext: { question: 'Review Requirements', context: 'Please review.' },
 };
 
 describe('PrdQuestionnaire', () => {
@@ -164,7 +184,7 @@ describe('PrdQuestionnaire', () => {
       const onReject = vi.fn();
       render(<PrdQuestionnaire {...defaultProps} onReject={onReject} />);
 
-      const input = screen.getByLabelText('Ask AI to refine requirements...');
+      const input = screen.getByLabelText('Chat about decisions');
       fireEvent.change(input, { target: { value: 'Make it simpler' } });
 
       const sendButton = screen.getByRole('button', { name: /send/i });
@@ -234,7 +254,7 @@ describe('PrdQuestionnaire', () => {
       expect(sendButton).toBeDisabled();
 
       // Chat input is disabled
-      const input = screen.getByLabelText('Ask AI to refine requirements...');
+      const input = screen.getByLabelText('Chat about decisions');
       expect(input).toBeDisabled();
     });
   });
@@ -247,7 +267,7 @@ describe('PrdQuestionnaire', () => {
       const stepDots = screen.getAllByRole('button', { name: /Go to question/ });
       fireEvent.click(stepDots[stepDots.length - 1]);
 
-      expect(screen.queryByLabelText('Ask AI to refine requirements...')).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('Chat about decisions')).not.toBeInTheDocument();
     });
 
     it('renders revision input on last step when onReject is provided', () => {
@@ -258,14 +278,14 @@ describe('PrdQuestionnaire', () => {
       const stepDots = screen.getAllByRole('button', { name: /Go to question/ });
       fireEvent.click(stepDots[stepDots.length - 1]);
 
-      expect(screen.getByLabelText('Ask AI to refine requirements...')).toBeInTheDocument();
+      expect(screen.getByLabelText('Chat about decisions')).toBeInTheDocument();
     });
 
     it('renders revision input on all steps when onReject is provided', () => {
       const onReject = vi.fn();
       render(<PrdQuestionnaire {...defaultProps} onReject={onReject} />);
 
-      expect(screen.getByLabelText('Ask AI to refine requirements...')).toBeInTheDocument();
+      expect(screen.getByLabelText('Chat about decisions')).toBeInTheDocument();
     });
 
     it('revision input is disabled when isRejecting is true', () => {
@@ -283,7 +303,7 @@ describe('PrdQuestionnaire', () => {
       const stepDots = screen.getAllByRole('button', { name: /Go to question/ });
       fireEvent.click(stepDots[stepDots.length - 1]);
 
-      expect(screen.getByLabelText('Ask AI to refine requirements...')).toBeDisabled();
+      expect(screen.getByLabelText('Chat about decisions')).toBeDisabled();
     });
 
     it('revision input is disabled when isProcessing is true', () => {
@@ -301,7 +321,7 @@ describe('PrdQuestionnaire', () => {
       const stepDots = screen.getAllByRole('button', { name: /Go to question/ });
       fireEvent.click(stepDots[stepDots.length - 1]);
 
-      expect(screen.getByLabelText('Ask AI to refine requirements...')).toBeDisabled();
+      expect(screen.getByLabelText('Chat about decisions')).toBeDisabled();
     });
 
     it('submitting revision input calls onReject with feedback', () => {
@@ -312,7 +332,7 @@ describe('PrdQuestionnaire', () => {
       const stepDots = screen.getAllByRole('button', { name: /Go to question/ });
       fireEvent.click(stepDots[stepDots.length - 1]);
 
-      const input = screen.getByLabelText('Ask AI to refine requirements...');
+      const input = screen.getByLabelText('Chat about decisions');
       fireEvent.change(input, { target: { value: 'Needs more detail' } });
       fireEvent.click(screen.getByRole('button', { name: /send/i }));
 
@@ -332,8 +352,8 @@ describe('PrdQuestionnaire', () => {
       const onReject = vi.fn();
       render(<PrdQuestionnaire {...defaultProps} onReject={onReject} />);
 
-      const input = screen.getByLabelText('Ask AI to refine requirements...');
-      expect(input).toHaveAttribute('aria-label', 'Ask AI to refine requirements...');
+      const input = screen.getByLabelText('Chat about decisions');
+      expect(input).toHaveAttribute('aria-label', 'Chat about decisions');
     });
   });
 });

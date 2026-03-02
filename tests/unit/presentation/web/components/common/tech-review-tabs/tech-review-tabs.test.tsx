@@ -5,6 +5,24 @@ import { TechReviewTabs } from '@/components/common/tech-review-tabs';
 import type { TechDecisionsReviewData } from '@/components/common/tech-decisions-review';
 import type { ProductDecisionsSummaryData } from '@/components/common/product-decisions-summary';
 
+vi.mock('@/hooks/use-decision-chat', () => ({
+  useDecisionChat: vi.fn(() => ({
+    messages: [],
+    isStreaming: false,
+    error: null,
+    sendMessage: vi.fn(),
+    resetChat: vi.fn(),
+  })),
+}));
+
+vi.mock('@/hooks/use-sound-action', () => ({
+  useSoundAction: vi.fn(() => ({
+    play: vi.fn(),
+    stop: vi.fn(),
+    isPlaying: false,
+  })),
+}));
+
 const mockTechData: TechDecisionsReviewData = {
   name: 'Test Feature',
   summary: 'A test feature summary',
@@ -44,10 +62,19 @@ const mockProductData: ProductDecisionsSummaryData = {
   ],
 };
 
+const defaultReviewContext = { name: 'Test Feature', summary: 'A test feature summary' };
+
 describe('TechReviewTabs', () => {
   describe('tab rendering', () => {
     it('renders Product and Technical tab triggers', () => {
-      render(<TechReviewTabs techData={mockTechData} onApprove={vi.fn()} />);
+      render(
+        <TechReviewTabs
+          techData={mockTechData}
+          onApprove={vi.fn()}
+          featureId="feat-1"
+          reviewContext={defaultReviewContext}
+        />
+      );
 
       expect(screen.getByRole('tab', { name: 'Product' })).toBeInTheDocument();
       expect(screen.getByRole('tab', { name: 'Technical' })).toBeInTheDocument();
@@ -55,7 +82,13 @@ describe('TechReviewTabs', () => {
 
     it('shows Technical tab as active by default', () => {
       render(
-        <TechReviewTabs techData={mockTechData} productData={mockProductData} onApprove={vi.fn()} />
+        <TechReviewTabs
+          techData={mockTechData}
+          productData={mockProductData}
+          onApprove={vi.fn()}
+          featureId="feat-1"
+          reviewContext={defaultReviewContext}
+        />
       );
 
       const techTab = screen.getByRole('tab', { name: 'Technical' });
@@ -64,7 +97,13 @@ describe('TechReviewTabs', () => {
 
     it('shows tech decisions content in Technical tab by default', () => {
       render(
-        <TechReviewTabs techData={mockTechData} productData={mockProductData} onApprove={vi.fn()} />
+        <TechReviewTabs
+          techData={mockTechData}
+          productData={mockProductData}
+          onApprove={vi.fn()}
+          featureId="feat-1"
+          reviewContext={defaultReviewContext}
+        />
       );
 
       expect(screen.getByText('Database Choice')).toBeInTheDocument();
@@ -76,7 +115,13 @@ describe('TechReviewTabs', () => {
     it('shows product decisions when Product tab is clicked', async () => {
       const user = userEvent.setup();
       render(
-        <TechReviewTabs techData={mockTechData} productData={mockProductData} onApprove={vi.fn()} />
+        <TechReviewTabs
+          techData={mockTechData}
+          productData={mockProductData}
+          onApprove={vi.fn()}
+          featureId="feat-1"
+          reviewContext={defaultReviewContext}
+        />
       );
 
       await user.click(screen.getByRole('tab', { name: 'Product' }));
@@ -89,7 +134,13 @@ describe('TechReviewTabs', () => {
     it('hides tech decisions when Product tab is active', async () => {
       const user = userEvent.setup();
       render(
-        <TechReviewTabs techData={mockTechData} productData={mockProductData} onApprove={vi.fn()} />
+        <TechReviewTabs
+          techData={mockTechData}
+          productData={mockProductData}
+          onApprove={vi.fn()}
+          featureId="feat-1"
+          reviewContext={defaultReviewContext}
+        />
       );
 
       await user.click(screen.getByRole('tab', { name: 'Product' }));
@@ -101,7 +152,15 @@ describe('TechReviewTabs', () => {
   describe('product data states', () => {
     it('shows loading spinner when productData is null', async () => {
       const user = userEvent.setup();
-      render(<TechReviewTabs techData={mockTechData} productData={null} onApprove={vi.fn()} />);
+      render(
+        <TechReviewTabs
+          techData={mockTechData}
+          productData={null}
+          onApprove={vi.fn()}
+          featureId="feat-1"
+          reviewContext={defaultReviewContext}
+        />
+      );
 
       await user.click(screen.getByRole('tab', { name: 'Product' }));
 
@@ -110,7 +169,14 @@ describe('TechReviewTabs', () => {
 
     it('shows not available message when productData is undefined', async () => {
       const user = userEvent.setup();
-      render(<TechReviewTabs techData={mockTechData} onApprove={vi.fn()} />);
+      render(
+        <TechReviewTabs
+          techData={mockTechData}
+          onApprove={vi.fn()}
+          featureId="feat-1"
+          reviewContext={defaultReviewContext}
+        />
+      );
 
       await user.click(screen.getByRole('tab', { name: 'Product' }));
 
@@ -118,30 +184,52 @@ describe('TechReviewTabs', () => {
     });
   });
 
-  describe('shared action bar', () => {
-    it('renders approve button', () => {
-      render(<TechReviewTabs techData={mockTechData} onApprove={vi.fn()} />);
+  describe('chat panel', () => {
+    it('renders DecisionChatPanel with approve button', () => {
+      render(
+        <TechReviewTabs
+          techData={mockTechData}
+          onApprove={vi.fn()}
+          featureId="feat-1"
+          reviewContext={defaultReviewContext}
+        />
+      );
 
       expect(screen.getByRole('button', { name: /approve plan/i })).toBeInTheDocument();
     });
 
     it('calls onApprove when approve button is clicked', () => {
       const onApprove = vi.fn();
-      render(<TechReviewTabs techData={mockTechData} onApprove={onApprove} />);
+      render(
+        <TechReviewTabs
+          techData={mockTechData}
+          onApprove={onApprove}
+          featureId="feat-1"
+          reviewContext={defaultReviewContext}
+        />
+      );
 
       fireEvent.click(screen.getByRole('button', { name: /approve plan/i }));
 
       expect(onApprove).toHaveBeenCalledOnce();
     });
 
-    it('renders revision input when onReject is provided', () => {
+    it('renders chat input when onReject is provided', () => {
       const onReject = vi.fn();
-      render(<TechReviewTabs techData={mockTechData} onApprove={vi.fn()} onReject={onReject} />);
+      render(
+        <TechReviewTabs
+          techData={mockTechData}
+          onApprove={vi.fn()}
+          onReject={onReject}
+          featureId="feat-1"
+          reviewContext={defaultReviewContext}
+        />
+      );
 
-      expect(screen.getByLabelText('Ask AI to revise the plan...')).toBeInTheDocument();
+      expect(screen.getByLabelText('Chat about decisions')).toBeInTheDocument();
     });
 
-    it('action bar persists across tab switches', async () => {
+    it('chat panel persists across tab switches', async () => {
       const user = userEvent.setup();
       render(
         <TechReviewTabs
@@ -149,6 +237,8 @@ describe('TechReviewTabs', () => {
           productData={mockProductData}
           onApprove={vi.fn()}
           onReject={vi.fn()}
+          featureId="feat-1"
+          reviewContext={defaultReviewContext}
         />
       );
 
@@ -163,7 +253,15 @@ describe('TechReviewTabs', () => {
     });
 
     it('disables approve button when isProcessing is true', () => {
-      render(<TechReviewTabs techData={mockTechData} onApprove={vi.fn()} isProcessing />);
+      render(
+        <TechReviewTabs
+          techData={mockTechData}
+          onApprove={vi.fn()}
+          isProcessing
+          featureId="feat-1"
+          reviewContext={defaultReviewContext}
+        />
+      );
 
       expect(screen.getByRole('button', { name: /approve plan/i })).toBeDisabled();
     });
@@ -172,7 +270,12 @@ describe('TechReviewTabs', () => {
   describe('edge cases', () => {
     it('returns null when tech decisions array is empty', () => {
       const { container } = render(
-        <TechReviewTabs techData={{ ...mockTechData, decisions: [] }} onApprove={vi.fn()} />
+        <TechReviewTabs
+          techData={{ ...mockTechData, decisions: [] }}
+          onApprove={vi.fn()}
+          featureId="feat-1"
+          reviewContext={defaultReviewContext}
+        />
       );
 
       expect(container.firstChild).toBeNull();

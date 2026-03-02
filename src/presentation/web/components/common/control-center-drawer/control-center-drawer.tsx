@@ -537,6 +537,8 @@ export function ControlCenterDrawer({
         onReject={handlePrdReject}
         isProcessing={isLoadingPrd}
         isRejecting={isRejecting}
+        featureId={prdFeatureId!}
+        reviewContext={{ question: prdData.question, context: prdData.context }}
       />
     ) : (
       <div className="flex items-center justify-center p-8">
@@ -552,6 +554,13 @@ export function ControlCenterDrawer({
         onReject={handleTechReject}
         isProcessing={isLoadingTech}
         isRejecting={isRejecting}
+        featureId={techFeatureId!}
+        reviewContext={{
+          name: techData.name,
+          summary: techData.summary,
+          decisions: techData.decisions,
+          technologies: techData.technologies,
+        }}
       />
     ) : (
       <div className="flex items-center justify-center p-8">

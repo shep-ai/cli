@@ -14,4 +14,8 @@ export interface TechReviewTabsProps {
   isProcessing?: boolean;
   /** Whether a reject operation is in flight */
   isRejecting?: boolean;
+  /** Feature ID for scoping chat state */
+  featureId: string;
+  /** Serialized review context for the chat agent */
+  reviewContext: Record<string, unknown>;
 }

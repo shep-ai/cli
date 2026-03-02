@@ -196,7 +196,13 @@ const mockData: PrdQuestionnaireData = {
 
 /** Default state — first step shown, no selections. Click options to auto-advance. Plays "select" on option click, "navigate" on step/nav buttons. */
 export const Default: Story = {
-  render: () => <InteractiveQuestionnaire data={mockData} />,
+  render: () => (
+    <InteractiveQuestionnaire
+      data={mockData}
+      featureId="feat-mock"
+      reviewContext={{ question: mockData.question, context: mockData.context }}
+    />
+  ),
 };
 
 /** Starting with partial selections — step dots reflect answered state. */
@@ -204,6 +210,8 @@ export const WithSelections: Story = {
   render: () => (
     <InteractiveQuestionnaire
       data={mockData}
+      featureId="feat-mock"
+      reviewContext={{ question: mockData.question, context: mockData.context }}
       selections={{
         problem: 'user_pain',
         priority: 'p1',
@@ -218,6 +226,8 @@ export const AllAnswered: Story = {
   render: () => (
     <InteractiveQuestionnaire
       data={mockData}
+      featureId="feat-mock"
+      reviewContext={{ question: mockData.question, context: mockData.context }}
       selections={{
         problem: 'user_pain',
         priority: 'p1',
@@ -234,6 +244,8 @@ export const AllAnswered: Story = {
 export const Refining: Story = {
   args: {
     data: mockData,
+    featureId: 'feat-mock',
+    reviewContext: { question: mockData.question, context: mockData.context },
     selections: {
       problem: 'user_pain',
       priority: 'p1',
@@ -246,6 +258,8 @@ export const Refining: Story = {
 export const MinimalData: Story = {
   render: () => (
     <InteractiveQuestionnaire
+      featureId="feat-mock"
+      reviewContext={{ question: 'Quick Check', context: 'A simple yes/no decision.' }}
       data={{
         question: 'Quick Check',
         context: 'A simple yes/no decision.',
@@ -395,6 +409,8 @@ export const WithRejectButton: Story = {
   render: () => (
     <InteractiveQuestionnaire
       data={mockData}
+      featureId="feat-mock"
+      reviewContext={{ question: mockData.question, context: mockData.context }}
       selections={allAnsweredSelections}
       onReject={fn().mockName('onReject')}
     />
@@ -405,6 +421,8 @@ export const WithRejectButton: Story = {
 export const RejectingState: Story = {
   args: {
     data: mockData,
+    featureId: 'feat-mock',
+    reviewContext: { question: mockData.question, context: mockData.context },
     selections: allAnsweredSelections,
     onReject: fn().mockName('onReject'),
     isRejecting: true,

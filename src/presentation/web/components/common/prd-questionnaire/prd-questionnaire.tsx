@@ -5,7 +5,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { DrawerActionBar } from '@/components/common/drawer-action-bar';
+import { DecisionChatPanel } from '@/components/common/decision-chat-panel';
 import { useSoundAction } from '@/hooks/use-sound-action';
 import type { PrdQuestionnaireProps } from './prd-questionnaire-config';
 
@@ -18,6 +18,8 @@ export function PrdQuestionnaire({
   isProcessing = false,
   isRejecting = false,
   showHeader = false,
+  featureId,
+  reviewContext,
 }: PrdQuestionnaireProps) {
   const { question, context, questions, finalAction } = data;
   const [currentStep, setCurrentStep] = useState(0);
@@ -163,12 +165,14 @@ export function PrdQuestionnaire({
         </div>
       </div>
 
-      <DrawerActionBar
+      <DecisionChatPanel
+        featureId={featureId}
+        reviewType="prd"
+        reviewContext={reviewContext}
         onReject={onReject}
         onApprove={() => onApprove(finalAction.id)}
         approveLabel={finalAction.label}
         approveIcon={<Check className="mr-1.5 h-4 w-4" />}
-        revisionPlaceholder="Ask AI to refine requirements..."
         isProcessing={isProcessing}
         isRejecting={isRejecting}
       >
@@ -192,7 +196,7 @@ export function PrdQuestionnaire({
             />
           )}
         </div>
-      </DrawerActionBar>
+      </DecisionChatPanel>
     </div>
   );
 }

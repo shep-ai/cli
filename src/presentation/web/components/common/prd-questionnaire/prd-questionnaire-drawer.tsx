@@ -33,7 +33,12 @@ export function PrdQuestionnaireDrawer({
       isDeleting={isDeleting}
     >
       {data ? (
-        <PrdQuestionnaire data={data} {...questionnaireProps} />
+        <PrdQuestionnaire
+          data={data}
+          featureId={featureId ?? ''}
+          reviewContext={{ question: data.question, context: data.context }}
+          {...questionnaireProps}
+        />
       ) : (
         <div className="flex items-center justify-center p-8">
           <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" />

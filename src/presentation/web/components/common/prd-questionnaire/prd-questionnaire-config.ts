@@ -24,9 +24,14 @@ export interface PrdQuestionnaireProps {
   isRejecting?: boolean;
   /** Show the goal/context header (default: false) */
   showHeader?: boolean;
+  /** Feature ID for scoping chat state */
+  featureId: string;
+  /** Serialized review context for the chat agent */
+  reviewContext: Record<string, unknown>;
 }
 
-export interface PrdQuestionnaireDrawerProps extends Omit<PrdQuestionnaireProps, 'data'> {
+export interface PrdQuestionnaireDrawerProps
+  extends Omit<PrdQuestionnaireProps, 'data' | 'featureId' | 'reviewContext'> {
   /** Questionnaire data — null while loading */
   data: PrdQuestionnaireData | null;
   /** Whether the drawer is open */

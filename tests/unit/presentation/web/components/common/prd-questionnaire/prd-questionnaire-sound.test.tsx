@@ -18,6 +18,16 @@ vi.mock('@/hooks/use-sound-action', () => ({
   }),
 }));
 
+vi.mock('@/hooks/use-decision-chat', () => ({
+  useDecisionChat: vi.fn(() => ({
+    messages: [],
+    isStreaming: false,
+    error: null,
+    sendMessage: vi.fn(),
+    resetChat: vi.fn(),
+  })),
+}));
+
 const defaultProps: PrdQuestionnaireProps = {
   data: {
     question: 'Review Requirements',
@@ -47,6 +57,8 @@ const defaultProps: PrdQuestionnaireProps = {
   selections: {},
   onSelect: vi.fn(),
   onApprove: vi.fn(),
+  featureId: 'feat-test',
+  reviewContext: { question: 'Review Requirements', context: 'Please review.' },
 };
 
 describe('PrdQuestionnaire — sound effects', () => {

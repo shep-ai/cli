@@ -2,7 +2,7 @@
 
 import { Check, Loader2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { DrawerActionBar } from '@/components/common/drawer-action-bar';
+import { DecisionChatPanel } from '@/components/common/decision-chat-panel';
 import { TechDecisionsContent } from '@/components/common/tech-decisions-review';
 import { ProductDecisionsSummary } from '@/components/common/product-decisions-summary';
 import type { TechReviewTabsProps } from './tech-review-tabs-config';
@@ -14,6 +14,8 @@ export function TechReviewTabs({
   onReject,
   isProcessing = false,
   isRejecting = false,
+  featureId,
+  reviewContext,
 }: TechReviewTabsProps) {
   if (techData.decisions.length === 0) return null;
 
@@ -46,12 +48,14 @@ export function TechReviewTabs({
         </TabsContent>
       </Tabs>
 
-      <DrawerActionBar
+      <DecisionChatPanel
+        featureId={featureId}
+        reviewType="tech"
+        reviewContext={reviewContext}
         onReject={onReject}
         onApprove={onApprove}
         approveLabel="Approve Plan"
         approveIcon={<Check className="mr-1.5 h-4 w-4" />}
-        revisionPlaceholder="Ask AI to revise the plan..."
         isProcessing={isProcessing}
         isRejecting={isRejecting}
       />
