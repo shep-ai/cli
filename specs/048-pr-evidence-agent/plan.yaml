@@ -1,0 +1,206 @@
+name: pr-evidence-agent
+summary: >
+  Integrate a PR evidence collection phase into the existing merge node that
+  gathers text evidence (test summaries, build status, spec compliance), captures
+  screenshots/videos via Playwright for UI features, discovers generated artifacts,
+  commits binary evidence to an evidence/ directory on the feature branch, posts a
+  structured PR comment, and cleans up evidence before merge. The implementation
+  adds two state channels (evidenceStatus, evidenceArtifacts), a new TypeSpec enum
+  (EvidenceStatus), a new prompt builder file (evidence-prompts.ts), and evidence
+  collection + cleanup logic within the merge node — all following established
+  patterns (prompt builders, retryExecute, try-catch degradation, TDD).
+
+relatedFeatures:
+  - 036-agent-driven-merge
+  - 041-ci-watch-fix-loop
+
+technologies:
+  - LangGraph (StateGraph, Annotation, interrupt)
+  - TypeSpec (domain model generation for EvidenceStatus enum)
+  - GitHub CLI (gh pr comment for posting evidence)
+  - Playwright (screenshot and video capture for UI evidence)
+  - Vitest (TDD unit tests)
+  - js-yaml (YAML parsing for spec artifacts)
+
+relatedLinks: []
+
+phases:
+  - id: phase-1
+    name: 'State & Domain Foundation'
+    description: >
+      Add EvidenceStatus enum to TypeSpec, compile generated output, and add
+      evidenceStatus and evidenceArtifacts channels to FeatureAgentAnnotation.
+      This must come first because all subsequent code depends on these state
+      channels and types existing.
+    parallel: false
+
+  - id: phase-2
+    name: 'Evidence Prompt Builder'
+    description: >
+      Create evidence-prompts.ts with buildEvidencePrompt() and helper functions
+      for section generation, security exclusions, and comment formatting. This
+      is the pure-function core — ideal for TDD with no external dependencies.
+      Must be complete before merge node integration because the merge node
+      calls this function.
+    parallel: false
+
+  - id: phase-3
+    name: 'Merge Node Evidence Integration'
+    description: >
+      Wire the evidence phase into merge.node.ts between CI watch/fix and the
+      approval gate. Add the evidence cleanup phase between approval and merge.
+      Include evidenceStatus and evidenceArtifacts in the interrupt payload and
+      the return state. Implement graceful degradation via try-catch.
+    parallel: false
+
+  - id: phase-4
+    name: 'Integration Validation & Polish'
+    description: >
+      Run full test suite, verify TypeSpec compilation, ensure lint/typecheck
+      pass, and validate the complete evidence flow end-to-end through the merge
+      node test harness. Fix any issues discovered during integration.
+    parallel: false
+
+filesToCreate:
+  - packages/core/src/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.ts
+  - tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts
+  - tests/unit/infrastructure/services/agents/feature-agent/nodes/merge/merge.node.evidence.test.ts
+
+filesToModify:
+  - tsp/common/enums/workflow.tsp
+  - packages/core/src/infrastructure/services/agents/feature-agent/state.ts
+  - packages/core/src/infrastructure/services/agents/feature-agent/nodes/merge/merge.node.ts
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  The PR evidence feature integrates into the existing merge node's multi-phase flow
+  without changing the LangGraph graph topology. The merge node already follows a
+  sequential pattern: Agent Call 1 (commit/push/PR) -> CI watch/fix loop -> approval
+  gate -> merge. Evidence collection inserts as a new phase between CI watch/fix and
+  the approval gate, and evidence cleanup inserts between approval and merge.
+
+  This follows the established pattern from feature #041 (CI watch/fix loop), which
+  also integrated a new capability into the merge node without graph topology changes.
+
+  ### Integration Points in merge.node.ts
+
+  ```
+  Agent Call 1: Commit + Push + PR (line 117)
+    |
+  CI Watch/Fix Loop (line 142)
+    |
+  Persist PR data (line 168)
+    |
+  * EVIDENCE PHASE (new — after line 184, before line 186)
+    |
+  Merge Approval Gate (line 186) — now includes evidenceStatus in interrupt payload
+    |
+  Resume after approval (line 202)
+    |
+  * EVIDENCE CLEANUP (new — after approval, before merge at line 220)
+    |
+  Merge (line 220)
+  ```
+
+  ### File Organization
+
+  ```
+  packages/core/src/infrastructure/services/agents/feature-agent/
+  +-- state.ts                          # + evidenceStatus, evidenceArtifacts channels
+  +-- nodes/
+  |   +-- merge/
+  |   |   +-- merge.node.ts             # + evidence phase + cleanup phase
+  |   +-- prompts/
+  |       +-- evidence-prompts.ts        # NEW: buildEvidencePrompt() + helpers
+  tsp/
+  +-- common/enums/workflow.tsp         # + EvidenceStatus enum
+  tests/unit/.../nodes/
+  +-- merge/
+  |   +-- merge.node.evidence.test.ts   # NEW: evidence phase integration tests
+  +-- prompts/
+      +-- evidence-prompts.test.ts      # NEW: prompt builder unit tests
+  ```
+
+  ## Key Design Decisions
+
+  ### 1. Single Agent Call with maxTurns=5 (Research Decision #10)
+
+  Evidence collection uses one comprehensive agent call rather than separate calls
+  per evidence type. The prompt is ordered by priority (text evidence first, then
+  screenshots, then artifacts) so that if the agent runs out of turns, the
+  highest-value evidence is already posted. This minimizes startup overhead and
+  keeps orchestration simple.
+
+  **Rejected:** Three separate agent calls would triple startup latency (~15-30s
+  per call) with minimal isolation benefit.
+
+  ### 2. Integrated into Merge Node (Research Decision #1)
+
+  Evidence needs PR metadata (prUrl, prNumber) from the merge node's first agent
+  call and CI results from the watch/fix loop. A separate graph node would require
+  splitting the merge node or complex state passing across interrupt boundaries.
+
+  **Rejected:** Separate LangGraph node — would need PR data from merge's first
+  phase, requiring graph topology changes.
+
+  ### 3. Agent-Driven gh CLI for PR Comments (Research Decision #3)
+
+  The agent posts evidence via `gh pr comment` rather than a new `IGitPrService`
+  method. This is consistent with how Agent Call 1 creates PRs via `gh pr create`.
+
+  **Rejected:** Adding `commentOnPr()` to `IGitPrService` — unnecessary interface,
+  implementation, and DI changes when the agent has shell access.
+
+  ### 4. HTML Comment Marker for Idempotency (Research Decision #8)
+
+  The evidence comment includes `<!-- shep-evidence-v1 -->` at the top. On re-runs,
+  the agent finds and updates the existing comment via `gh api` rather than creating
+  a duplicate. Version suffix enables future format evolution.
+
+  ### 5. Try-Catch Degradation (Research Decision #7)
+
+  The evidence agent call is wrapped in try-catch. On failure, evidenceStatus is set
+  to 'failed' and the merge flow continues to the approval gate. The prompt itself
+  handles sub-step failures (e.g., screenshot capture fails but text posts). This
+  matches how `runCiWatchFixLoop` handles terminal failures — log and continue.
+
+  ### 6. Evidence Cleanup Before Merge (Research Decision #9)
+
+  After the approval gate but before `mergePr()` or local merge, a cleanup step
+  removes the `evidence/` directory with commit `chore(agents): remove evidence
+  artifacts`. Evidence files remain accessible in the PR's commit history.
+
+  ### 7. TypeSpec-First for EvidenceStatus Enum
+
+  Following the mandatory TypeSpec-first rule, the EvidenceStatus enum is defined in
+  `tsp/common/enums/workflow.tsp` alongside CiStatus and PrStatus. The generated
+  output provides the type used in FeatureAgentAnnotation.
+
+  ## Implementation Strategy
+
+  Phase 1 (Foundation) comes first because state channels and TypeSpec types are
+  dependencies for all other code. Phase 2 (Prompt Builder) follows because it is
+  a pure function with no external dependencies — ideal for TDD isolation. Phase 3
+  (Merge Node Integration) wires everything together, requiring both state channels
+  and the prompt builder. Phase 4 (Validation) confirms the system works end-to-end.
+
+  Each phase follows strict TDD: failing tests first (RED), minimal implementation
+  (GREEN), then cleanup (REFACTOR). Tests mock IAgentExecutor, readSpecFile, and
+  file system operations following patterns from merge.node.test.ts and
+  merge-prompts.test.ts.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Evidence phase adds latency before approval gate | 120s timeout; text evidence posted first (10-30s); screenshots/artifacts are additive |
+  | Screenshot capture fails (no dev server, Playwright error) | Prompt instructs agent to skip on failure; evidenceStatus tracks partial success; merge continues |
+  | Large binary artifacts bloat the repository | 10 MB per-file, 50 MB total limits; agent skips oversized files; evidence/ cleaned up before merge |
+  | Sensitive files accidentally committed to evidence/ | Explicit exclusion list in prompt (.env, *.key, *.pem, credentials.json, etc.) |
+  | Agent runs out of turns | Prompt ordered by priority: text then screenshots then artifacts; partial evidence better than none |
+  | Merge node grows too large | Evidence follows ci-watch-fix-loop pattern: focused try-catch + single agent call; prompt in separate file |
+  | Re-runs create duplicate PR comments | HTML marker <!-- shep-evidence-v1 --> enables find-and-update via gh api |
+  | Evidence cleanup fails before merge | Best-effort; merge proceeds regardless |
