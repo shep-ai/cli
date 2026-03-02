@@ -6,10 +6,8 @@ import { toast } from 'sonner';
 import { applyNodeChanges } from '@xyflow/react';
 import type { Connection, Edge, NodeChange } from '@xyflow/react';
 import type { FeatureNodeData } from '@/components/common/feature-node';
-import type { FeatureCreatePayload } from '@/components/common/feature-create-drawer';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 import { layoutWithDagre, type LayoutDirection } from '@/lib/layout-with-dagre';
-import { createFeature } from '@/app/actions/create-feature';
 import { deleteFeature } from '@/app/actions/delete-feature';
 import { addRepository } from '@/app/actions/add-repository';
 import { deleteRepository } from '@/app/actions/delete-repository';
@@ -23,30 +21,16 @@ import {
 export interface ControlCenterState {
   nodes: CanvasNodeType[];
   edges: Edge[];
-  selectedNode: FeatureNodeData | null;
-  isCreateDrawerOpen: boolean;
-  pendingRepositoryPath: string;
-  /** Parent feature ID pre-selected when (+) is clicked on a feature node. */
-  pendingParentFeatureId: string | undefined;
   onNodesChange: (changes: NodeChange<CanvasNodeType>[]) => void;
   handleConnect: (connection: Connection) => void;
-  clearSelection: () => void;
-  handleNodeClick: (event: React.MouseEvent, node: CanvasNodeType) => void;
-  handleAddFeature: () => void;
-  handleAddFeatureToRepo: (repoNodeId: string) => void;
-  handleAddFeatureToFeature: (featureNodeId: string) => void;
   handleAddRepository: (path: string) => void;
   handleLayout: (direction: LayoutDirection) => void;
-  handleCreateFeatureSubmit: (data: FeatureCreatePayload) => void;
-  closeCreateDrawer: () => void;
   handleDeleteFeature: (featureId: string) => Promise<void>;
   handleDeleteRepository: (repositoryId: string) => Promise<void>;
-  isDeleting: boolean;
   createFeatureNode: (
     sourceNodeId: string | null,
     dataOverride?: Partial<FeatureNodeData>
   ) => string;
-  selectFeatureById: (featureId: string) => void;
 }
 
 let nextFeatureId = 0;
@@ -70,13 +54,8 @@ export function useControlCenterState(
       return next;
     });
   }, []);
-  const [selectedNode, setSelectedNode] = useState<FeatureNodeData | null>(null);
-  const [isCreateDrawerOpen, setIsCreateDrawerOpen] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
   const deleteSound = useSoundAction('delete');
   const createSound = useSoundAction('create');
-  const clickSound = useSoundAction('click');
-  const [pendingRepoNodeId, setPendingRepoNodeId] = useState<string | null>(null);
 
   // Sync server props into local state when router.refresh() delivers new data
   const initialNodeKey = initialNodes
@@ -169,11 +148,7 @@ export function useControlCenterState(
               action: {
                 label: 'Review',
                 onClick: () => {
-                  window.dispatchEvent(
-                    new CustomEvent('shep:select-feature', {
-                      detail: { featureId: data.featureId },
-                    })
-                  );
+                  router.push(`/feature/${data.featureId}`);
                 },
               },
             });
@@ -185,7 +160,7 @@ export function useControlCenterState(
 
       prevStates.set(node.id, data.state);
     }
-  }, [initialDataKey, initialNodes, events]);
+  }, [initialDataKey, initialNodes, events, router]);
 
   // Targeted optimistic updates from SSE agent events + debounced reconciliation.
   // Uses `events` array (not `lastEvent`) so that React batching cannot silently
@@ -223,16 +198,6 @@ export function useControlCenterState(
           };
         })
       );
-
-      // Update drawer if it's showing the matched feature
-      setSelectedNode((prev) => {
-        if (prev?.featureId !== event.featureId) return prev;
-        return {
-          ...prev,
-          state: newState,
-          ...(newLifecycle !== undefined && { lifecycle: newLifecycle }),
-        };
-      });
     }
 
     // Debounced background reconciliation (3s after last SSE event)
@@ -261,34 +226,6 @@ export function useControlCenterState(
   const onNodesChange = useCallback((changes: NodeChange<CanvasNodeType>[]) => {
     setNodes((ns) => applyNodeChanges(changes, ns));
   }, []);
-
-  const clearSelection = useCallback(() => {
-    setSelectedNode(null);
-  }, []);
-
-  const handleNodeClick = useCallback(
-    (_event: React.MouseEvent, node: CanvasNodeType) => {
-      if (node.type === 'featureNode') {
-        const data = node.data as FeatureNodeData;
-        if (data.state === 'creating') return;
-        clickSound.play();
-        setIsCreateDrawerOpen(false);
-        setSelectedNode(data);
-      }
-    },
-    [clickSound]
-  );
-
-  // Keyboard shortcut: Escape to deselect
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        clearSelection();
-      }
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [clearSelection]);
 
   const handleConnect = useCallback(
     (connection: Connection) => {
@@ -440,78 +377,13 @@ export function useControlCenterState(
         ]);
       }
 
-      if (newFeatureData.state !== 'creating') {
-        setSelectedNode(newFeatureData);
-      }
-
       return id;
     },
     [setEdges]
   );
 
-  const handleAddFeature = useCallback(() => {
-    clickSound.play();
-    setSelectedNode(null);
-    setIsCreateDrawerOpen(true);
-  }, [clickSound]);
-
-  const [pendingParentFeatureId, setPendingParentFeatureId] = useState<string | undefined>();
-
-  const handleCreateFeatureSubmit = useCallback(
-    (data: FeatureCreatePayload) => {
-      // 1. Insert optimistic node instantly
-      // For child features, connect to the parent feature node instead of the repo node
-      const sourceNodeId = pendingParentFeatureId
-        ? `feat-${pendingParentFeatureId}`
-        : pendingRepoNodeId;
-      const tempId = createFeatureNode(
-        sourceNodeId,
-        {
-          state: 'creating',
-          name: data.name,
-          description: data.description,
-          repositoryPath: data.repositoryPath,
-        },
-        pendingParentFeatureId ? 'dependencyEdge' : undefined
-      );
-
-      // 2. Close drawer and clear pending state immediately
-      setIsCreateDrawerOpen(false);
-      setPendingRepoNodeId(null);
-      setPendingParentFeatureId(undefined);
-
-      // 3. Fire server action in the background
-      createFeature(data)
-        .then((result) => {
-          if (result.error) {
-            // Rollback: remove optimistic node and edge
-            setNodes((prev) => prev.filter((n) => n.id !== tempId));
-            setEdges((prev) => prev.filter((e) => e.target !== tempId));
-            toast.error(result.error);
-            return;
-          }
-
-          createSound.play();
-          router.refresh();
-        })
-        .catch(() => {
-          // Rollback: remove optimistic node and edge
-          setNodes((prev) => prev.filter((n) => n.id !== tempId));
-          setEdges((prev) => prev.filter((e) => e.target !== tempId));
-          toast.error('Failed to create feature');
-        });
-    },
-    [router, createFeatureNode, pendingRepoNodeId, createSound, pendingParentFeatureId, setEdges]
-  );
-
-  const closeCreateDrawer = useCallback(() => {
-    setIsCreateDrawerOpen(false);
-    setPendingParentFeatureId(undefined);
-  }, []);
-
   const handleDeleteFeature = useCallback(
     async (featureId: string) => {
-      setIsDeleting(true);
       try {
         const result = await deleteFeature(featureId);
 
@@ -520,27 +392,24 @@ export function useControlCenterState(
           return;
         }
 
-        setSelectedNode(null);
         setNodes((currentNodes) => {
           const remainingNodes = currentNodes.filter((n) => n.id !== featureId);
           const remainingEdges = edges.filter(
             (e) => e.source !== featureId && e.target !== featureId
           );
-          const result = layoutWithDagre(remainingNodes, remainingEdges, {
+          const layoutResult = layoutWithDagre(remainingNodes, remainingEdges, {
             direction: 'LR',
             ranksep: 200,
             nodesep: 60,
           });
-          setEdges(result.edges);
-          return result.nodes;
+          setEdges(layoutResult.edges);
+          return layoutResult.nodes;
         });
         deleteSound.play();
         toast.success('Feature deleted successfully');
         router.refresh();
       } catch {
         toast.error('Failed to delete feature');
-      } finally {
-        setIsDeleting(false);
       }
     },
     [router, edges, deleteSound, setEdges]
@@ -572,33 +441,6 @@ export function useControlCenterState(
       }
     },
     [router, deleteSound, setEdges]
-  );
-
-  const handleAddFeatureToRepo = useCallback(
-    (repoNodeId: string) => {
-      clickSound.play();
-      setSelectedNode(null);
-      setPendingRepoNodeId(repoNodeId);
-      setIsCreateDrawerOpen(true);
-    },
-    [clickSound]
-  );
-
-  const handleAddFeatureToFeature = useCallback(
-    (featureNodeId: string) => {
-      // Extract feature ID from node ID (format: "feat-<uuid>")
-      const featureId = featureNodeId.startsWith('feat-') ? featureNodeId.slice(5) : featureNodeId;
-      // Find the repo node that owns this feature
-      const repoEdge = edges.find((e) => e.target === featureNodeId);
-      const repoNodeId = repoEdge?.source ?? null;
-
-      clickSound.play();
-      setSelectedNode(null);
-      setPendingRepoNodeId(repoNodeId);
-      setPendingParentFeatureId(featureId);
-      setIsCreateDrawerOpen(true);
-    },
-    [edges, clickSound]
   );
 
   const handleLayout = useCallback(
@@ -725,49 +567,15 @@ export function useControlCenterState(
     [router, createSound, setEdges]
   );
 
-  // Ref keeps latest nodes so selectFeatureById has a stable identity
-  const nodesRef = useRef(nodes);
-  nodesRef.current = nodes;
-
-  const selectFeatureById = useCallback((featureId: string) => {
-    const node = nodesRef.current.find(
-      (n) => n.type === 'featureNode' && (n.data as FeatureNodeData).featureId === featureId
-    );
-    if (node) {
-      const data = node.data as FeatureNodeData;
-      if (data.state !== 'creating') {
-        setIsCreateDrawerOpen(false);
-        setSelectedNode(data);
-      }
-    }
-  }, []);
-
-  const pendingNode = pendingRepoNodeId ? nodes.find((n) => n.id === pendingRepoNodeId) : null;
-  const pendingRepositoryPath =
-    (pendingNode?.data as { repositoryPath?: string } | undefined)?.repositoryPath ?? '';
-
   return {
     nodes,
     edges,
-    selectedNode,
-    isCreateDrawerOpen,
-    pendingRepositoryPath,
-    pendingParentFeatureId,
     onNodesChange,
     handleConnect,
-    clearSelection,
-    handleNodeClick,
-    handleAddFeature,
-    handleAddFeatureToRepo,
-    handleAddFeatureToFeature,
     handleAddRepository,
     handleLayout,
-    handleCreateFeatureSubmit,
-    closeCreateDrawer,
     handleDeleteFeature,
     handleDeleteRepository,
-    isDeleting,
     createFeatureNode,
-    selectFeatureById,
   };
 }

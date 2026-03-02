@@ -1,15 +1,13 @@
-import { ControlCenter } from '@/components/features/control-center';
 import { resolve } from '@/lib/server-container';
 import type { ListFeaturesUseCase } from '@shepai/core/application/use-cases/features/list-features.use-case';
 import type { ListRepositoriesUseCase } from '@shepai/core/application/use-cases/repositories/list-repositories.use-case';
 import type { IAgentRunRepository } from '@shepai/core/application/ports/output/agents/agent-run-repository.interface';
 import { layoutWithDagre } from '@/lib/layout-with-dagre';
 import { buildGraphNodes } from '@/app/build-graph-nodes';
+import type { CanvasNodeType } from '@/components/features/features-canvas';
+import type { Edge } from '@xyflow/react';
 
-/** Skip static pre-rendering since we need runtime DI container and server context. */
-export const dynamic = 'force-dynamic';
-
-export default async function HomePage() {
+export async function getGraphData(): Promise<{ nodes: CanvasNodeType[]; edges: Edge[] }> {
   const listFeatures = resolve<ListFeaturesUseCase>('ListFeaturesUseCase');
   const listRepos = resolve<ListRepositoriesUseCase>('ListRepositoriesUseCase');
   const agentRunRepo = resolve<IAgentRunRepository>('IAgentRunRepository');
@@ -25,16 +23,9 @@ export default async function HomePage() {
 
   const { nodes, edges } = buildGraphNodes(repositories, featuresWithRuns);
 
-  // Use dagre LR layout for compact, automatic positioning
-  const laid = layoutWithDagre(nodes, edges, {
+  return layoutWithDagre(nodes, edges, {
     direction: 'LR',
     ranksep: 200,
     nodesep: 15,
   });
-
-  return (
-    <div className="h-screen w-full">
-      <ControlCenter initialNodes={laid.nodes} initialEdges={laid.edges} />
-    </div>
-  );
 }

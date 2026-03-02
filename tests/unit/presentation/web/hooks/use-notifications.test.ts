@@ -19,6 +19,10 @@ vi.mock('sonner', () => ({
 let mockEvents: NotificationEvent[] = [];
 let mockLastEvent: NotificationEvent | null = null;
 
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+}));
+
 vi.mock('../../../../../src/presentation/web/hooks/agent-events-provider.js', () => ({
   useAgentEventsContext: () => ({
     events: mockEvents,
