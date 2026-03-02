@@ -1,0 +1,163 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: tool-install-endpoint-25d43b
+number: 049
+branch: feat/049-tool-install-endpoint-25d43b
+oneLiner: Diagnose and fix tool installation API endpoint 404 errors
+
+summary: >
+  The web UI's tool installation feature reports 404 errors when calling /api/tools/zed/install.
+  The API route, use case, and DI registrations already exist. The issue requires investigating
+  the Next.js route resolution, DI container initialization in the web context, or potential
+  mismatch between the frontend request and the backend route structure.
+
+phase: Analysis
+sizeEstimate: S
+
+relatedFeatures:
+  - "043-tools-management-ui"
+
+technologies:
+  - Next.js 14 App Router (dynamic API routes)
+  - tsyringe (DI container)
+  - TypeScript
+  - React (frontend tool-card component)
+
+relatedLinks: []
+
+openQuestions:
+  - "Is the DI container being properly initialized before API routes are called?"
+  - "Is there a middleware or configuration that might intercept /api/tools/[id]/install requests?"
+  - "Does the 404 occur in dev mode, production mode, or both?"
+
+content: |
+  ## Problem Statement
+
+  The web UI's tool installation feature is failing with 404 errors when calling the
+  `/api/tools/zed/install` endpoint. Users clicking the "Install" button on tool cards
+  receive an error response instead of triggering tool installation.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The project follows Clean Architecture with clear separation of concerns:
+
+  ```
+  packages/core/src/
+  ├── domain/              # Business logic, no external deps
+  ├── application/         # Use cases, port interfaces
+  │   └── use-cases/tools/ # InstallToolUseCase, ListToolsUseCase, etc.
+  ├── infrastructure/      # Services, repositories, DI
+  │   ├── di/container.ts  # tsyringe DI configuration
+  │   └── services/tool-installer/ # Tool installation service
+  └── presentation/        # CLI, TUI (not web)
+
+  src/presentation/web/
+  ├── app/api/tools/       # Next.js API routes
+  │   ├── route.ts         # GET /api/tools
+  │   └── [id]/
+  │       ├── install/route.ts  # POST /api/tools/[id]/install
+  │       └── launch/route.ts   # POST /api/tools/[id]/launch
+  ├── components/features/tools/ # Tool management UI components
+  └── lib/server-container.ts    # DI container accessor for API routes
+  ```
+
+  ### Architecture Patterns
+
+  1. **Clean Architecture**: Four layers with dependencies pointing inward
+  2. **Use Case Pattern**: Single-responsibility classes wrapping service calls
+  3. **Port/Adapter Pattern**: Interfaces in application layer, implementations in infrastructure
+  4. **DI Container**: tsyringe with two-step registration (class token + string alias for web routes)
+
+  ### Relevant Technologies
+
+  - **Next.js 14 App Router**: Dynamic API routes using `[id]` folder pattern
+  - **tsyringe**: DI container with `@injectable()` and `@inject()` decorators
+  - **React**: Frontend components using `fetch()` to call API endpoints
+  - **TypeScript**: Strict typing throughout
+
+  ## Current Implementation Analysis
+
+  ### API Route (Exists)
+
+  File: `src/presentation/web/app/api/tools/[id]/install/route.ts`
+
+  The route handler exists and:
+  - Exports a `POST` handler function
+  - Extracts the `id` param from the dynamic route
+  - Validates tool ID against `TOOL_METADATA`
+  - Resolves `InstallToolUseCase` via string token
+  - Returns JSON responses with appropriate status codes
+
+  ### Use Case (Exists)
+
+  File: `packages/core/src/application/use-cases/tools/install-tool.use-case.ts`
+
+  The use case:
+  - Uses `@injectable()` decorator
+  - Injects `IToolInstallerService` via `@inject('IToolInstallerService')`
+  - Delegates to `executeInstall()` method on the service
+
+  ### DI Registration (Exists)
+
+  File: `packages/core/src/infrastructure/di/container.ts`
+
+  Both registrations are present:
+  - `container.registerSingleton(InstallToolUseCase)` (class token)
+  - `container.register('InstallToolUseCase', { useFactory: (c) => c.resolve(InstallToolUseCase) })` (string alias)
+
+  ### Frontend Call (Correct)
+
+  File: `src/presentation/web/components/features/tools/tool-card.tsx:50`
+
+  The frontend correctly calls: `fetch(\`/api/tools/\${tool.id}/install\`, { method: 'POST' })`
+
+  ## Potential Root Causes
+
+  1. **DI Container Not Initialized**: The `server-container.ts` throws an error if the container
+     isn't available on `globalThis.__shepContainer`. This must be set by CLI bootstrap or dev-server.
+
+  2. **Route Discovery Issue**: Next.js might not be discovering the route if there's a build/cache
+     issue or if the route file has syntax errors preventing compilation.
+
+  3. **HTTP Method Mismatch**: Though unlikely, confirm the route exports `POST` and the client uses `POST`.
+
+  4. **Module Resolution**: The route imports from `@shepai/core` which requires proper TypeScript
+     path resolution in the Next.js context.
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `src/presentation/web/app/api/tools/[id]/install/route.ts` | High | Main API route being debugged |
+  | `src/presentation/web/lib/server-container.ts` | High | DI container access for API routes |
+  | `packages/core/src/infrastructure/di/container.ts` | Medium | DI registrations must be correct |
+  | `src/presentation/web/instrumentation.ts` | Medium | May handle container initialization |
+  | `src/presentation/web/components/features/tools/tool-card.tsx` | Low | Frontend caller, appears correct |
+
+  ## Dependencies
+
+  - `InstallToolUseCase` from `@shepai/core/application/use-cases/tools/install-tool.use-case`
+  - `TOOL_METADATA` from `@shepai/core/infrastructure/services/tool-installer/tool-metadata`
+  - `IToolInstallerService` implementation registered in DI container
+  - Next.js App Router dynamic route support
+
+  ## Size Estimate
+
+  **S** — The infrastructure appears complete; this is likely a configuration or initialization
+  issue rather than missing implementation. Investigation and fix should be straightforward once
+  the root cause is identified.
+
+  ## Success Criteria
+
+  - [ ] POST /api/tools/zed/install returns 200 with installation status (not 404)
+  - [ ] POST /api/tools/[id]/install works for all tools in TOOL_METADATA
+  - [ ] Tool installation can be triggered from the web UI tool cards
+  - [ ] Unit tests pass for the API route
+  - [ ] Integration test confirms end-to-end tool installation flow
+
+  ---
+
+  _Generated by feature agent — proceed with research_
