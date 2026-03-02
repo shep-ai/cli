@@ -1,0 +1,40 @@
+feature:
+  id: 048-pr-evidence-agent
+  name: pr-evidence-agent
+  number: 48
+  branch: feat/048-pr-evidence-agent
+  lifecycle: research
+  createdAt: '2026-03-01T20:54:15Z'
+status:
+  phase: implementation-complete
+  progress:
+    completed: 9
+    total: 9
+    percentage: 100
+  currentTask: null
+  lastUpdated: '2026-03-02T15:24:06.819Z'
+  lastUpdatedBy: feature-agent:implement
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+    - plan
+    - phase-1
+    - phase-2
+    - phase-3
+    - phase-4
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-03-01T20:54:15Z'
+    completedBy: feature-agent
+errors:
+  current: null
+  history: []

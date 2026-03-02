@@ -3,14 +3,15 @@ number: 48
 branch: feat/048-pr-evidence-agent
 oneLiner: >-
   Add a new graph node that collects and attaches evidence artifacts — including
-  screenshots, videos, and generated files — to pull requests during the merge phase
+  screenshots, videos, and generated files — to pull requests during the merge
+  phase
 summary: >
   Introduce a PR evidence phase in the feature-agent LangGraph merge node that
   runs after PR creation and CI watch, but before the merge approval gate. The
-  phase instructs the agent executor to capture validation evidence — test output
-  summaries, build verification, lint/typecheck results, implementation notes,
-  screenshots of UI changes, and any generated artifacts (CSV, PDF, etc.) —
-  then attaches them to the PR. Text evidence is posted as a structured PR
+  phase instructs the agent executor to capture validation evidence — test
+  output summaries, build verification, lint/typecheck results, implementation
+  notes, screenshots of UI changes, and any generated artifacts (CSV, PDF, etc.)
+  — then attaches them to the PR. Text evidence is posted as a structured PR
   comment via `gh pr comment`. Binary artifacts (screenshots, videos, generated
   files) are committed to a dedicated `evidence/` directory on the feature
   branch and linked from the PR comment. This gives reviewers concrete
@@ -46,7 +47,7 @@ openQuestions:
           required; uses existing git and gh CLI tooling. Cons: binary files add
           to git history (mitigated by the `evidence/` directory being excluded
           from merge via .gitattributes or cleaned up post-merge).
-        selected: true
+        selected: false
       - option: PR comments only (text-based)
         description: >
           All evidence posted as a structured markdown comment. Pros: no binary
@@ -61,16 +62,17 @@ openQuestions:
           Cons: requires undocumented attachment API or GitHub release assets,
           complex authentication, CDN retention policies, and additional API
           surface area.
-        selected: false
+        selected: true
     selectionRationale: >
-      The hybrid approach gives the best balance: text evidence appears inline in
-      the PR timeline for immediate reviewer visibility, while binary artifacts
-      (screenshots, videos, CSVs, PDFs) are committed to an `evidence/` directory
-      on the feature branch where GitHub renders them natively. This avoids
-      external hosting dependencies, uses existing git infrastructure, and supports
-      all artifact types the user requested. The `evidence/` directory can be
-      cleaned up post-merge or excluded via branch-specific configuration.
-    answer: Hybrid — PR comment + branch commit
+      The hybrid approach gives the best balance: text evidence appears inline
+      in the PR timeline for immediate reviewer visibility, while binary
+      artifacts (screenshots, videos, CSVs, PDFs) are committed to an
+      `evidence/` directory on the feature branch where GitHub renders them
+      natively. This avoids external hosting dependencies, uses existing git
+      infrastructure, and supports all artifact types the user requested. The
+      `evidence/` directory can be cleaned up post-merge or excluded via
+      branch-specific configuration.
+    answer: Uploaded via GitHub API
   - question: Should the evidence node be mandatory or opt-in?
     resolved: true
     options:
@@ -112,28 +114,28 @@ openQuestions:
           Capture all evidence types: (1) text evidence — test summaries,
           build/lint/typecheck status, implementation notes, spec compliance;
           (2) screenshots — captured via Playwright for features that involve
-          web UI changes (agent detects UI-related file changes and launches
-          dev server + Playwright to capture screenshots of affected pages);
-          (3) videos — Playwright video recording of key user flows if the
-          feature includes e2e test scenarios; (4) generated artifacts — any
-          files produced by the feature's execution such as CSV exports, PDF
-          reports, or other output files that demonstrate the feature works.
-          Pros: comprehensive proof-of-work covering all evidence categories,
-          visual proof for UI changes, output artifacts for data-oriented
-          features. Cons: higher complexity, requires Playwright integration
-          for screenshots/videos, needs artifact discovery logic.
+          web UI changes (agent detects UI-related file changes and launches dev
+          server + Playwright to capture screenshots of affected pages); (3)
+          videos — Playwright video recording of key user flows if the feature
+          includes e2e test scenarios; (4) generated artifacts — any files
+          produced by the feature's execution such as CSV exports, PDF reports,
+          or other output files that demonstrate the feature works. Pros:
+          comprehensive proof-of-work covering all evidence categories, visual
+          proof for UI changes, output artifacts for data-oriented features.
+          Cons: higher complexity, requires Playwright integration for
+          screenshots/videos, needs artifact discovery logic.
         selected: true
       - option: Text + screenshots only
         description: >
           Capture text evidence and screenshots but not videos or generated
           artifacts. Pros: simpler than full artifact support while still
-          providing visual proof. Cons: misses video evidence and generated
-          file artifacts that demonstrate non-UI feature functionality.
+          providing visual proof. Cons: misses video evidence and generated file
+          artifacts that demonstrate non-UI feature functionality.
         selected: false
       - option: Text-based evidence only
         description: >
-          Capture only test summaries, build status, and implementation notes
-          as text/markdown. Pros: simplest implementation, no binary handling.
+          Capture only test summaries, build status, and implementation notes as
+          text/markdown. Pros: simplest implementation, no binary handling.
           Cons: no visual proof for UI changes, no generated artifact evidence,
           does not address the user's explicit requirement for screenshots,
           videos, and generated files.
@@ -145,11 +147,11 @@ openQuestions:
       existing Playwright infrastructure already configured in the project.
       Generated artifact discovery is handled by the agent inspecting the
       workspace for output files produced during implementation and testing.
-      Each evidence type degrades gracefully — if screenshot capture fails (e.g.,
-      no UI changes), the evidence falls back to text-only without blocking.
+      Each evidence type degrades gracefully — if screenshot capture fails
+      (e.g., no UI changes), the evidence falls back to text-only without
+      blocking.
     answer: Text + screenshots + videos + generated artifacts
-  - question: >-
-      How should screenshots and videos be captured for UI features?
+  - question: How should screenshots and videos be captured for UI features?
     resolved: true
     options:
       - option: Playwright-based capture via agent
@@ -161,16 +163,16 @@ openQuestions:
           optionally records a short video of key interactions. The agent uses
           the existing Playwright infrastructure already configured in the
           project. Pros: automated, consistent, leverages existing tooling.
-          Cons: requires dev server startup (adds latency), may not capture
-          all relevant states.
+          Cons: requires dev server startup (adds latency), may not capture all
+          relevant states.
         selected: true
       - option: Extract from e2e test artifacts
         description: >
           If Playwright e2e tests ran during CI, extract their screenshot and
           video artifacts from the test output directory. Pros: no additional
-          capture needed, reuses CI test artifacts. Cons: only available if
-          e2e tests exist for the feature, test artifacts may not be accessible
-          from the agent's environment, depends on CI configuration.
+          capture needed, reuses CI test artifacts. Cons: only available if e2e
+          tests exist for the feature, test artifacts may not be accessible from
+          the agent's environment, depends on CI configuration.
         selected: false
       - option: Agent-driven manual capture instructions
         description: >
@@ -222,13 +224,13 @@ openQuestions:
           ratio.
         selected: false
     selectionRationale: >
-      Agent-driven workspace inspection is the most practical approach. The agent
-      can use its understanding of the feature (from the spec and changed files)
-      to identify relevant output artifacts. This is flexible enough to handle
-      CSV, PDF, and any other generated file type without requiring upfront
-      configuration. The agent's judgment is guided by the spec context and
-      common output patterns. If no artifacts are found, the evidence gracefully
-      omits the artifacts section.
+      Agent-driven workspace inspection is the most practical approach. The
+      agent can use its understanding of the feature (from the spec and changed
+      files) to identify relevant output artifacts. This is flexible enough to
+      handle CSV, PDF, and any other generated file type without requiring
+      upfront configuration. The agent's judgment is guided by the spec context
+      and common output patterns. If no artifacts are found, the evidence
+      gracefully omits the artifacts section.
     answer: Agent-driven workspace inspection
   - question: >-
       Should evidence collection happen before the merge approval gate or as a
@@ -278,7 +280,7 @@ openQuestions:
           topology changes, evidence has direct access to merge state (prUrl,
           prNumber, ciStatus), simpler implementation. Cons: makes the merge
           node larger.
-        selected: true
+        selected: false
       - option: Separate graph node before merge
         description: >
           Add a new `evidence` node in the graph between `implement` and
@@ -287,7 +289,7 @@ openQuestions:
           creates the PR — a separate pre-merge node would not have this data.
           Would require splitting the merge node into create-pr and merge
           sub-nodes.
-        selected: false
+        selected: true
       - option: Separate graph node after merge
         description: >
           Add a new `evidence` node after `merge` in the graph. Pros: clean
@@ -305,19 +307,18 @@ openQuestions:
       duplicating PR creation logic. The merge node's existing structure
       (multiple agent calls with intermediate logic) already accommodates this
       pattern.
-    answer: Integrated into merge node
-  - question: >-
-      How should the evidence/ directory be handled after merge?
+    answer: Separate graph node before merge
+  - question: How should the evidence/ directory be handled after merge?
     resolved: true
     options:
       - option: Agent cleans up evidence/ before merge
         description: >
           After the merge approval gate is passed but before the actual merge,
           the agent removes the `evidence/` directory and commits the removal.
-          The evidence files remain accessible in the PR's commit history but
-          do not land on the main branch. Pros: clean main branch, evidence
-          still accessible via PR commit links. Cons: adds an extra commit to
-          the PR, slightly more complex merge flow.
+          The evidence files remain accessible in the PR's commit history but do
+          not land on the main branch. Pros: clean main branch, evidence still
+          accessible via PR commit links. Cons: adds an extra commit to the PR,
+          slightly more complex merge flow.
         selected: true
       - option: Evidence/ lands on main branch
         description: >
@@ -340,42 +341,106 @@ openQuestions:
       the repo. The cleanup commit is a minor overhead that keeps the repository
       clean.
     answer: Agent cleans up evidence/ before merge
-content: |
+content: >
   ## Problem Statement
 
-  During the validation phase of a feature, there is no mechanism to provide evidence that
-  the implementation works as expected. Reviewers must trust the CI status alone, with no
-  structured proof-of-work summary. Adding evidence — test output summaries, build
-  verification, implementation notes, screenshots of UI changes, and generated artifacts
-  (CSV, PDF, etc.) — to the pull request would give reviewers significantly higher
+
+  During the validation phase of a feature, there is no mechanism to provide
+  evidence that
+
+  the implementation works as expected. Reviewers must trust the CI status
+  alone, with no
+
+  structured proof-of-work summary. Adding evidence — test output summaries,
+  build
+
+  verification, implementation notes, screenshots of UI changes, and generated
+  artifacts
+
+  (CSV, PDF, etc.) — to the pull request would give reviewers significantly
+  higher
+
   confidence in the result.
 
-  Currently, the feature-agent graph's merge node creates the PR, watches CI, and then
-  presents a merge approval gate — but never attaches proof-of-work artifacts to the PR for
-  human review. Reviewers must manually inspect CI logs and the diff to verify correctness.
-  For UI features, there is no visual evidence at all. For features that generate output
-  files, there is no way to verify the outputs are correct without checking out the branch.
+
+  Currently, the feature-agent graph's merge node creates the PR, watches CI,
+  and then
+
+  presents a merge approval gate — but never attaches proof-of-work artifacts to
+  the PR for
+
+  human review. Reviewers must manually inspect CI logs and the diff to verify
+  correctness.
+
+  For UI features, there is no visual evidence at all. For features that
+  generate output
+
+  files, there is no way to verify the outputs are correct without checking out
+  the branch.
+
 
   ## Success Criteria
 
-  - [ ] SC-1: After the merge node creates a PR and CI completes, a structured evidence comment is posted to the PR via `gh pr comment` before the merge approval gate
-  - [ ] SC-2: The evidence comment includes at minimum: test summary, build/lint verification status, implementation summary derived from spec artifacts, and list of files changed
-  - [ ] SC-3: For features with web UI changes, screenshots are captured via Playwright and committed to `evidence/` on the feature branch, with links in the PR comment
-  - [ ] SC-4: For features that generate output artifacts (CSV, PDF, etc.), those artifacts are discovered by the agent, committed to `evidence/`, and linked from the PR comment
-  - [ ] SC-5: If Playwright e2e tests produce video recordings, those videos are included in the `evidence/` directory and linked from the PR comment
-  - [ ] SC-6: Evidence collection is skipped gracefully when no PR is created (state.openPr is false) with no errors or interrupts
-  - [ ] SC-7: Evidence collection failure (e.g., gh CLI error, Playwright crash, missing dev server) does not block the merge flow — it logs a warning and continues to the approval gate with whatever evidence was successfully collected
-  - [ ] SC-8: The evidence prompt builder has unit tests covering all evidence sections and edge cases (empty CI data, missing spec files, no UI changes, no artifacts)
-  - [ ] SC-9: The merge node's evidence phase has unit tests verifying the integration (agent call, gh pr comment execution, artifact commit, graceful skip/failure)
-  - [ ] SC-10: The evidence comment is formatted as a collapsible markdown section with clear headers for each evidence category
-  - [ ] SC-11: The evidence comment includes a machine-readable marker (e.g., HTML comment tag) so it can be identified and replaced on re-runs rather than duplicated
-  - [ ] SC-12: The `evidence/` directory is cleaned up (removed and committed) before the actual merge to prevent binary artifacts from landing on main
+
+  - [ ] SC-1: After the merge node creates a PR and CI completes, a structured
+  evidence comment is posted to the PR via `gh pr comment` before the merge
+  approval gate
+
+  - [ ] SC-2: The evidence comment includes at minimum: test summary, build/lint
+  verification status, implementation summary derived from spec artifacts, and
+  list of files changed
+
+  - [ ] SC-3: For features with web UI changes, screenshots are captured via
+  Playwright and committed to `evidence/` on the feature branch, with links in
+  the PR comment
+
+  - [ ] SC-4: For features that generate output artifacts (CSV, PDF, etc.),
+  those artifacts are discovered by the agent, committed to `evidence/`, and
+  linked from the PR comment
+
+  - [ ] SC-5: If Playwright e2e tests produce video recordings, those videos are
+  included in the `evidence/` directory and linked from the PR comment
+
+  - [ ] SC-6: Evidence collection is skipped gracefully when no PR is created
+  (state.openPr is false) with no errors or interrupts
+
+  - [ ] SC-7: Evidence collection failure (e.g., gh CLI error, Playwright crash,
+  missing dev server) does not block the merge flow — it logs a warning and
+  continues to the approval gate with whatever evidence was successfully
+  collected
+
+  - [ ] SC-8: The evidence prompt builder has unit tests covering all evidence
+  sections and edge cases (empty CI data, missing spec files, no UI changes, no
+  artifacts)
+
+  - [ ] SC-9: The merge node's evidence phase has unit tests verifying the
+  integration (agent call, gh pr comment execution, artifact commit, graceful
+  skip/failure)
+
+  - [ ] SC-10: The evidence comment is formatted as a collapsible markdown
+  section with clear headers for each evidence category
+
+  - [ ] SC-11: The evidence comment includes a machine-readable marker (e.g.,
+  HTML comment tag) so it can be identified and replaced on re-runs rather than
+  duplicated
+
+  - [ ] SC-12: The `evidence/` directory is cleaned up (removed and committed)
+  before the actual merge to prevent binary artifacts from landing on main
+
 
   ## Functional Requirements
 
-  - **FR-1: Evidence collection phase in merge node** — Add a new phase to the merge node that runs after CI watch completes and before the merge approval gate. This phase instructs the agent executor to gather all evidence types and post/commit them. The phase has three sub-steps: (a) collect text evidence and post PR comment, (b) capture screenshots/videos for UI features, (c) discover and collect generated artifacts.
 
-  - **FR-2: Evidence prompt builder** — Create a `buildEvidencePrompt(state, specDir)` function that constructs a prompt instructing the agent to:
+  - **FR-1: Evidence collection phase in merge node** — Add a new phase to the
+  merge node that runs after CI watch completes and before the merge approval
+  gate. This phase instructs the agent executor to gather all evidence types and
+  post/commit them. The phase has three sub-steps: (a) collect text evidence and
+  post PR comment, (b) capture screenshots/videos for UI features, (c) discover
+  and collect generated artifacts.
+
+
+  - **FR-2: Evidence prompt builder** — Create a `buildEvidencePrompt(state,
+  specDir)` function that constructs a prompt instructing the agent to:
     - Read test output or CI status from the workflow state
     - Summarize the implementation against the spec's requirements and success criteria
     - List files changed with brief descriptions of each change
@@ -386,7 +451,8 @@ content: |
     - Format and post the text evidence as a structured markdown PR comment with links to committed artifacts
     - Post the comment using `gh pr comment <prNumber> --body <markdown>`
 
-  - **FR-3: Evidence comment structure** — The PR comment MUST include these sections:
+  - **FR-3: Evidence comment structure** — The PR comment MUST include these
+  sections:
     - **Implementation Summary**: What was implemented, referencing spec requirements
     - **Test Results**: Summary of test execution (pass/fail counts, coverage if available)
     - **Build Verification**: Build, lint, and typecheck status
@@ -397,9 +463,17 @@ content: |
     - **Videos** (conditional): If video recordings were captured, link to the video files in `evidence/`
     - **Generated Artifacts** (conditional): If output artifacts (CSV, PDF, etc.) were discovered, list them with links to the files in `evidence/`
 
-  - **FR-4: Idempotent evidence comments** — The evidence comment MUST include a machine-readable marker (HTML comment like `<!-- shep-evidence-v1 -->`) at the top. On re-runs, the prompt MUST instruct the agent to find and update the existing evidence comment rather than posting a duplicate. The agent should use `gh pr comment --edit` if a prior evidence comment exists, or `gh pr comment` for the first post.
+  - **FR-4: Idempotent evidence comments** — The evidence comment MUST include a
+  machine-readable marker (HTML comment like `<!-- shep-evidence-v1 -->`) at the
+  top. On re-runs, the prompt MUST instruct the agent to find and update the
+  existing evidence comment rather than posting a duplicate. The agent should
+  use `gh pr comment --edit` if a prior evidence comment exists, or `gh pr
+  comment` for the first post.
 
-  - **FR-5: Screenshot capture for UI features** — When the agent detects that changed files include web UI components (paths matching `src/presentation/web/`), it MUST:
+
+  - **FR-5: Screenshot capture for UI features** — When the agent detects that
+  changed files include web UI components (paths matching
+  `src/presentation/web/`), it MUST:
     - Start the dev server (`pnpm dev:web`)
     - Wait for the server to be ready
     - Use Playwright to navigate to pages affected by the changes
@@ -408,113 +482,252 @@ content: |
     - Shut down the dev server
     - If no UI changes are detected, skip this step entirely with a debug log
 
-  - **FR-6: Video capture for e2e scenarios** — When Playwright e2e tests have been executed (either in CI or locally) and produced video recordings, the agent MUST:
+  - **FR-6: Video capture for e2e scenarios** — When Playwright e2e tests have
+  been executed (either in CI or locally) and produced video recordings, the
+  agent MUST:
     - Locate video artifacts from the Playwright output directory
     - Copy relevant videos to `evidence/videos/` on the feature branch
     - If no videos are available, skip this step entirely
 
-  - **FR-7: Generated artifact collection** — The agent MUST inspect the workspace for output artifacts generated by the feature. Discovery strategy:
+  - **FR-7: Generated artifact collection** — The agent MUST inspect the
+  workspace for output artifacts generated by the feature. Discovery strategy:
     - Check common output directories (`output/`, `dist/`, `exports/`, `generated/`, `tmp/`)
     - Look for files matching output extensions (`.csv`, `.pdf`, `.xlsx`, `.json` exports, `.html` reports)
     - Cross-reference with spec artifacts and test output for mentioned file paths
     - Copy relevant artifacts to `evidence/artifacts/` on the feature branch
     - If no generated artifacts are found, skip this step with a debug log
 
-  - **FR-8: Evidence artifact commit** — All binary evidence (screenshots, videos, generated files) MUST be committed to the feature branch under an `evidence/` directory structure:
+  - **FR-8: Evidence artifact commit** — All binary evidence (screenshots,
+  videos, generated files) MUST be committed to the feature branch under an
+  `evidence/` directory structure:
     - `evidence/screenshots/` — Captured screenshots
     - `evidence/videos/` — Video recordings
     - `evidence/artifacts/` — Generated files (CSV, PDF, etc.)
     - The commit message MUST follow conventional commits: `chore(agents): add evidence artifacts`
     - The commit MUST be pushed to the remote feature branch before the PR comment is posted (so GitHub links to the files work)
 
-  - **FR-9: Evidence cleanup before merge** — After the merge approval gate is passed but before executing the merge, the agent MUST:
+  - **FR-9: Evidence cleanup before merge** — After the merge approval gate is
+  passed but before executing the merge, the agent MUST:
     - Remove the `evidence/` directory from the branch
     - Commit the removal with message `chore(agents): remove evidence artifacts`
     - Push the cleanup commit
     - This prevents binary evidence files from landing on the main branch
 
-  - **FR-10: Graceful skip when no PR** — When `state.openPr` is false or `state.prNumber` is null, the evidence phase MUST be skipped entirely with a debug log message. No agent call should be made.
+  - **FR-10: Graceful skip when no PR** — When `state.openPr` is false or
+  `state.prNumber` is null, the evidence phase MUST be skipped entirely with a
+  debug log message. No agent call should be made.
 
-  - **FR-11: Graceful degradation on failure** — If any evidence sub-step fails (agent executor error, gh CLI error, Playwright crash, dev server failure, timeout), the merge node MUST:
+
+  - **FR-11: Graceful degradation on failure** — If any evidence sub-step fails
+  (agent executor error, gh CLI error, Playwright crash, dev server failure,
+  timeout), the merge node MUST:
     - Log a warning with the specific failure
     - Continue to the next evidence sub-step (partial evidence is better than no evidence)
     - Record the failure in messages
     - Continue to the merge approval gate with whatever evidence was successfully collected
     - Evidence failure MUST NOT prevent merge
 
-  - **FR-12: Evidence state tracking** — Add an `evidenceStatus` channel to FeatureAgentAnnotation with values: `'skipped' | 'success' | 'partial' | 'failed'`. The merge node sets this after the evidence phase. `'partial'` indicates some evidence types were collected but others failed (e.g., text evidence posted but screenshot capture failed).
+  - **FR-12: Evidence state tracking** — Add an `evidenceStatus` channel to
+  FeatureAgentAnnotation with values: `'skipped' | 'success' | 'partial' |
+  'failed'`. The merge node sets this after the evidence phase. `'partial'`
+  indicates some evidence types were collected but others failed (e.g., text
+  evidence posted but screenshot capture failed).
 
-  - **FR-13: Evidence metadata in interrupt payload** — When the merge node interrupts for approval, include `evidenceStatus` and `evidenceArtifacts` (list of committed artifact paths) in the interrupt payload so the approval UI can indicate what evidence is available.
 
-  - **FR-14: Spec context in evidence** — The evidence prompt MUST have access to the spec directory path and read relevant spec artifacts (spec.yaml, plan.yaml, tasks.yaml) to produce the spec compliance checklist and implementation summary.
+  - **FR-13: Evidence metadata in interrupt payload** — When the merge node
+  interrupts for approval, include `evidenceStatus` and `evidenceArtifacts`
+  (list of committed artifact paths) in the interrupt payload so the approval UI
+  can indicate what evidence is available.
 
-  - **FR-15: CI fix history in evidence** — If the CI watch/fix loop ran fix attempts, the evidence comment MUST include a summary of fix attempts (count, what was fixed) from `state.ciFixHistory`.
+
+  - **FR-14: Spec context in evidence** — The evidence prompt MUST have access
+  to the spec directory path and read relevant spec artifacts (spec.yaml,
+  plan.yaml, tasks.yaml) to produce the spec compliance checklist and
+  implementation summary.
+
+
+  - **FR-15: CI fix history in evidence** — If the CI watch/fix loop ran fix
+  attempts, the evidence comment MUST include a summary of fix attempts (count,
+  what was fixed) from `state.ciFixHistory`.
+
 
   ## Non-Functional Requirements
 
-  - **NFR-1: Performance** — The evidence collection phase MUST complete within 120 seconds total. Text evidence collection should use a `maxTurns` limit of 3. Screenshot capture should timeout after 60 seconds. The agent executor call for artifact collection should use `maxTurns` of 5 to allow for dev server startup, Playwright capture, and artifact discovery.
 
-  - **NFR-2: Maintainability** — The evidence prompt builder MUST be a separate function in a new `evidence-prompts.ts` file, following the existing prompt builder pattern. Screenshot capture logic and artifact discovery logic SHOULD be separate helper functions. Evidence logic MUST NOT be inlined in the merge node.
+  - **NFR-1: Performance** — The evidence collection phase MUST complete within
+  120 seconds total. Text evidence collection should use a `maxTurns` limit of
+  3. Screenshot capture should timeout after 60 seconds. The agent executor call
+  for artifact collection should use `maxTurns` of 5 to allow for dev server
+  startup, Playwright capture, and artifact discovery.
 
-  - **NFR-3: Testability (TDD)** — All new code MUST follow TDD (red-green-refactor). The evidence prompt builder, screenshot capture helpers, artifact discovery logic, and merge node evidence phase MUST have dedicated unit tests. Tests MUST mock IAgentExecutor, Playwright, and file system operations.
 
-  - **NFR-4: Agent resolution compliance** — The evidence phase MUST use the injected IAgentExecutor from merge node dependencies. It MUST NOT hardcode an agent type or instantiate executors directly.
+  - **NFR-2: Maintainability** — The evidence prompt builder MUST be a separate
+  function in a new `evidence-prompts.ts` file, following the existing prompt
+  builder pattern. Screenshot capture logic and artifact discovery logic SHOULD
+  be separate helper functions. Evidence logic MUST NOT be inlined in the merge
+  node.
 
-  - **NFR-5: Minimal state footprint** — Add only `evidenceStatus` and `evidenceArtifacts` channels to state. Evidence content lives in the PR comment and committed files, not in graph state.
 
-  - **NFR-6: Artifact size limits** — Individual artifact files MUST NOT exceed 10 MB. Total evidence directory size MUST NOT exceed 50 MB. If limits are exceeded, the agent should skip oversized files and note the omission in the PR comment.
+  - **NFR-3: Testability (TDD)** — All new code MUST follow TDD
+  (red-green-refactor). The evidence prompt builder, screenshot capture helpers,
+  artifact discovery logic, and merge node evidence phase MUST have dedicated
+  unit tests. Tests MUST mock IAgentExecutor, Playwright, and file system
+  operations.
 
-  - **NFR-7: Conventional commit compliance** — All commits produced by the evidence phase (artifact commit, cleanup commit) MUST follow the project's conventional commit format.
 
-  - **NFR-8: Backward compatibility** — The evidence phase MUST NOT change the merge node's existing behavior for users who don't create PRs. The merge flow for `openPr: false` MUST remain identical to current behavior.
+  - **NFR-4: Agent resolution compliance** — The evidence phase MUST use the
+  injected IAgentExecutor from merge node dependencies. It MUST NOT hardcode an
+  agent type or instantiate executors directly.
 
-  - **NFR-9: Security** — The evidence agent MUST NOT commit files that could contain secrets (`.env`, credential files, tokens). The artifact discovery logic MUST exclude sensitive file patterns.
+
+  - **NFR-5: Minimal state footprint** — Add only `evidenceStatus` and
+  `evidenceArtifacts` channels to state. Evidence content lives in the PR
+  comment and committed files, not in graph state.
+
+
+  - **NFR-6: Artifact size limits** — Individual artifact files MUST NOT exceed
+  10 MB. Total evidence directory size MUST NOT exceed 50 MB. If limits are
+  exceeded, the agent should skip oversized files and note the omission in the
+  PR comment.
+
+
+  - **NFR-7: Conventional commit compliance** — All commits produced by the
+  evidence phase (artifact commit, cleanup commit) MUST follow the project's
+  conventional commit format.
+
+
+  - **NFR-8: Backward compatibility** — The evidence phase MUST NOT change the
+  merge node's existing behavior for users who don't create PRs. The merge flow
+  for `openPr: false` MUST remain identical to current behavior.
+
+
+  - **NFR-9: Security** — The evidence agent MUST NOT commit files that could
+  contain secrets (`.env`, credential files, tokens). The artifact discovery
+  logic MUST exclude sensitive file patterns.
+
 
   ## Product Questions & AI Recommendations
 
+
   | # | Question | AI Recommendation | Rationale |
+
   | - | -------- | ----------------- | --------- |
-  | 1 | Where should evidence be stored? | Hybrid — PR comment for text, branch commit for binaries | Text is visible inline; binaries are accessible via GitHub file viewer; no external hosting needed |
-  | 2 | Should evidence be mandatory or opt-in? | Always-on (no opt-out) | Low cost, high value, purely additive, degrades gracefully, skips when no PR |
-  | 3 | What evidence types to capture? | Text + screenshots + videos + generated artifacts | User explicitly requested screenshots, videos, and artifacts like CSV/PDF; Playwright infrastructure already exists |
-  | 4 | How to capture screenshots/videos? | Playwright-based capture via agent | Project already has Playwright configured with screenshot and video support; agent detects UI changes |
-  | 5 | How to discover generated artifacts? | Agent-driven workspace inspection | Agent uses spec context and common output patterns to find CSV, PDF, and other generated files |
-  | 6 | When should evidence be collected? | Before merge approval gate (integrated into merge node) | Evidence informs the merge decision; must be visible before reviewer approves |
-  | 7 | Separate node or integrated into merge? | Integrated into merge node | Evidence needs PR metadata from merge's first phase; avoids graph topology changes |
-  | 8 | How to handle evidence/ after merge? | Agent cleans up before merge | Prevents binary artifacts from landing on main; evidence preserved in PR commit history |
+
+  | 1 | Where should evidence be stored? | Hybrid — PR comment for text, branch
+  commit for binaries | Text is visible inline; binaries are accessible via
+  GitHub file viewer; no external hosting needed |
+
+  | 2 | Should evidence be mandatory or opt-in? | Always-on (no opt-out) | Low
+  cost, high value, purely additive, degrades gracefully, skips when no PR |
+
+  | 3 | What evidence types to capture? | Text + screenshots + videos +
+  generated artifacts | User explicitly requested screenshots, videos, and
+  artifacts like CSV/PDF; Playwright infrastructure already exists |
+
+  | 4 | How to capture screenshots/videos? | Playwright-based capture via agent
+  | Project already has Playwright configured with screenshot and video support;
+  agent detects UI changes |
+
+  | 5 | How to discover generated artifacts? | Agent-driven workspace inspection
+  | Agent uses spec context and common output patterns to find CSV, PDF, and
+  other generated files |
+
+  | 6 | When should evidence be collected? | Before merge approval gate
+  (integrated into merge node) | Evidence informs the merge decision; must be
+  visible before reviewer approves |
+
+  | 7 | Separate node or integrated into merge? | Integrated into merge node |
+  Evidence needs PR metadata from merge's first phase; avoids graph topology
+  changes |
+
+  | 8 | How to handle evidence/ after merge? | Agent cleans up before merge |
+  Prevents binary artifacts from landing on main; evidence preserved in PR
+  commit history |
+
 
   ## Affected Areas
 
+
   | Area | Impact | Reasoning |
+
   | ---- | ------ | --------- |
-  | `packages/core/src/infrastructure/services/agents/feature-agent/state.ts` | Low | Add `evidenceStatus` and `evidenceArtifacts` channels to FeatureAgentAnnotation |
-  | `packages/core/src/infrastructure/services/agents/feature-agent/nodes/merge/merge.node.ts` | High | Add evidence collection phase between CI watch and approval gate, add cleanup before merge |
-  | `packages/core/src/infrastructure/services/agents/feature-agent/nodes/prompts/` | High | New `evidence-prompts.ts` file with `buildEvidencePrompt()` function |
-  | `tests/unit/infrastructure/services/agents/feature-agent/nodes/merge/` | High | Unit tests for evidence phase in merge node including all evidence types and graceful degradation |
-  | `tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/` | High | Unit tests for evidence prompt builder covering all artifact types and edge cases |
+
+  | `packages/core/src/infrastructure/services/agents/feature-agent/state.ts` |
+  Low | Add `evidenceStatus` and `evidenceArtifacts` channels to
+  FeatureAgentAnnotation |
+
+  |
+  `packages/core/src/infrastructure/services/agents/feature-agent/nodes/merge/merge.node.ts`
+  | High | Add evidence collection phase between CI watch and approval gate, add
+  cleanup before merge |
+
+  |
+  `packages/core/src/infrastructure/services/agents/feature-agent/nodes/prompts/`
+  | High | New `evidence-prompts.ts` file with `buildEvidencePrompt()` function
+  |
+
+  | `tests/unit/infrastructure/services/agents/feature-agent/nodes/merge/` |
+  High | Unit tests for evidence phase in merge node including all evidence
+  types and graceful degradation |
+
+  | `tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/` |
+  High | Unit tests for evidence prompt builder covering all artifact types and
+  edge cases |
+
 
   ## Dependencies
 
-  - **Existing merge node** — Evidence phase is added within the merge node's existing flow
+
+  - **Existing merge node** — Evidence phase is added within the merge node's
+  existing flow
+
   - **IAgentExecutor** — Used to instruct the agent to gather and post evidence
-  - **FeatureAgentAnnotation state** — New `evidenceStatus` and `evidenceArtifacts` channels
+
+  - **FeatureAgentAnnotation state** — New `evidenceStatus` and
+  `evidenceArtifacts` channels
+
   - **GitHub CLI** (`gh pr comment`) — For posting evidence comments to PRs
-  - **Playwright** — For screenshot and video capture of UI features (already configured in project)
-  - **LangGraph** — No graph topology changes needed (evidence is internal to merge node)
-  - **Spec artifacts** — Evidence prompt reads spec.yaml, plan.yaml, tasks.yaml for compliance checking
-  - **Dev server** (`pnpm dev:web`) — Required for Playwright screenshot capture of UI changes
-  - **Git** — For committing evidence artifacts to the feature branch and cleanup before merge
+
+  - **Playwright** — For screenshot and video capture of UI features (already
+  configured in project)
+
+  - **LangGraph** — No graph topology changes needed (evidence is internal to
+  merge node)
+
+  - **Spec artifacts** — Evidence prompt reads spec.yaml, plan.yaml, tasks.yaml
+  for compliance checking
+
+  - **Dev server** (`pnpm dev:web`) — Required for Playwright screenshot capture
+  of UI changes
+
+  - **Git** — For committing evidence artifacts to the feature branch and
+  cleanup before merge
+
 
   ## Size Estimate
 
-  **L** — The scope has expanded from the original M estimate to include screenshot capture via
-  Playwright, video collection, generated artifact discovery, binary file commit/cleanup, and
-  graceful degradation across multiple evidence types. The core pattern is still well-established
-  (merge node multi-phase execution, prompt builders, TDD), but the addition of Playwright-based
-  capture, artifact discovery, branch commit/cleanup, and per-sub-step error handling increases
-  the implementation surface. Estimated 4-5 days including TDD tests for all evidence types.
+
+  **L** — The scope has expanded from the original M estimate to include
+  screenshot capture via
+
+  Playwright, video collection, generated artifact discovery, binary file
+  commit/cleanup, and
+
+  graceful degradation across multiple evidence types. The core pattern is still
+  well-established
+
+  (merge node multi-phase execution, prompt builders, TDD), but the addition of
+  Playwright-based
+
+  capture, artifact discovery, branch commit/cleanup, and per-sub-step error
+  handling increases
+
+  the implementation surface. Estimated 4-5 days including TDD tests for all
+  evidence types.
+
 
   ---
+
 
   _Requirements defined — proceed with research_
 rejectionFeedback:
@@ -525,3 +738,17 @@ rejectionFeedback:
       what generated in the feature
     phase: requirements
     timestamp: '2026-03-01T21:44:15.725Z'
+  - iteration: 2
+    message: >-
+      regarding  How should generated artifacts (CSV, PDF, etc.) be discovered
+      and collected? it should be agent driven spec inspection
+    phase: plan
+    timestamp: '2026-03-02T13:56:44.445Z'
+  - iteration: 3
+    message: >-
+      it should go before the CI watch, before creating pull request we need to
+      do e2e testing and create the screenshots for the pr. the artifact
+      shouldnt get commited the dev start starts on. a random port so dont have
+      it hard coded on 3001 as it can change
+    phase: plan
+    timestamp: '2026-03-02T14:11:18.267Z'

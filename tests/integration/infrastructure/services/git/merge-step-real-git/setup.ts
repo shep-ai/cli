@@ -11,6 +11,7 @@ import type { IAgentExecutor } from '@/application/ports/output/agents/agent-exe
 import type { ExecFunction } from '@/infrastructure/services/git/worktree.service.js';
 import type { FeatureAgentState } from '@/infrastructure/services/agents/feature-agent/state.js';
 import type { DiffSummary } from '@/application/ports/output/services/git-pr-service.interface.js';
+import { EvidenceStatus } from '@/domain/generated/output.js';
 import { FAKE_PR_URL, makeMockExecutor } from './fixtures.js';
 
 const execFileRaw = promisify(execFileCb);
@@ -284,6 +285,8 @@ export function makeState(overrides: Partial<FeatureAgentState>): FeatureAgentSt
     ciFixAttempts: 0,
     ciFixHistory: [],
     ciFixStatus: 'idle',
+    evidenceStatus: EvidenceStatus.Skipped,
+    evidenceArtifacts: [],
     ...overrides,
   };
 }

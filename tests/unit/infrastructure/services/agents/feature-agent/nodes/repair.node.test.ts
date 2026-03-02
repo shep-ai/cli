@@ -22,6 +22,7 @@ import {
 } from '@/infrastructure/services/agents/feature-agent/nodes/repair.node.js';
 import type { FeatureAgentState } from '@/infrastructure/services/agents/feature-agent/state.js';
 import type { IAgentExecutor } from '@/application/ports/output/agents/agent-executor.interface.js';
+import { EvidenceStatus } from '@/domain/generated/output.js';
 
 function createMockExecutor(): IAgentExecutor {
   return {
@@ -57,6 +58,8 @@ function baseState(_overrides: Partial<FeatureAgentState> = {}): FeatureAgentSta
     ciFixAttempts: 0,
     ciFixHistory: [],
     ciFixStatus: 'idle',
+    evidenceStatus: EvidenceStatus.Skipped,
+    evidenceArtifacts: [],
   } as FeatureAgentState;
 }
 
