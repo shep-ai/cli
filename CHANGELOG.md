@@ -1,3 +1,9 @@
+## [1.72.1](https://github.com/shep-ai/cli/compare/v1.72.0...v1.72.1) (2026-03-02)
+
+### Bug Fixes
+
+- **web:** prevent drawer close when clicked element is unmounted ([#184](https://github.com/shep-ai/cli/issues/184)) ([580f08b](https://github.com/shep-ai/cli/commit/580f08bc428f3acf91c7dcc44e377afa177da0b4))
+
 # [1.72.0](https://github.com/shep-ai/cli/compare/v1.71.0...v1.72.0) (2026-03-02)
 
 ### Features
