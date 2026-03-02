@@ -16,7 +16,7 @@ phase: Requirements
 sizeEstimate: S
 
 relatedFeatures:
-  - "043-tools-management-ui"
+  - '043-tools-management-ui'
 
 technologies:
   - Next.js 14 App Router (dynamic API routes)
@@ -27,59 +27,59 @@ technologies:
 relatedLinks: []
 
 openQuestions:
-  - question: "Is the DI container being properly initialized before API routes are called?"
+  - question: 'Is the DI container being properly initialized before API routes are called?'
     resolved: true
     options:
-      - option: "Container initialization issue"
-        description: "The globalThis.__shepContainer may not be set when API routes execute, causing the resolve() call to throw before the route can respond."
+      - option: 'Container initialization issue'
+        description: 'The globalThis.__shepContainer may not be set when API routes execute, causing the resolve() call to throw before the route can respond.'
         selected: true
-      - option: "Container is properly initialized"
-        description: "Container initialization is confirmed working and the issue lies elsewhere."
+      - option: 'Container is properly initialized'
+        description: 'Container initialization is confirmed working and the issue lies elsewhere.'
         selected: false
-    selectionRationale: "Based on code analysis, the dev-server.ts initializes the container and sets globalThis.__shepContainer. However, the 404 suggests the route handler itself is not being invoked at all, which points to route discovery rather than container issues. Investigation should verify container availability first as a baseline check."
-    answer: "Container initialization issue"
+    selectionRationale: 'Based on code analysis, the dev-server.ts initializes the container and sets globalThis.__shepContainer. However, the 404 suggests the route handler itself is not being invoked at all, which points to route discovery rather than container issues. Investigation should verify container availability first as a baseline check.'
+    answer: 'Container initialization issue'
 
-  - question: "Is there a middleware or configuration that might intercept /api/tools/[id]/install requests?"
+  - question: 'Is there a middleware or configuration that might intercept /api/tools/[id]/install requests?'
     resolved: true
     options:
-      - option: "No middleware interference"
-        description: "No middleware.ts file exists in the web app. Next.js App Router processes the dynamic route directly."
+      - option: 'No middleware interference'
+        description: 'No middleware.ts file exists in the web app. Next.js App Router processes the dynamic route directly.'
         selected: true
-      - option: "Middleware is blocking requests"
-        description: "A middleware file intercepts and blocks requests to the API route."
+      - option: 'Middleware is blocking requests'
+        description: 'A middleware file intercepts and blocks requests to the API route.'
         selected: false
-    selectionRationale: "Glob search confirmed no middleware.ts file exists in src/presentation/web/. The instrumentation.ts is a no-op. Route blocking by middleware is ruled out."
-    answer: "No middleware interference"
+    selectionRationale: 'Glob search confirmed no middleware.ts file exists in src/presentation/web/. The instrumentation.ts is a no-op. Route blocking by middleware is ruled out.'
+    answer: 'No middleware interference'
 
-  - question: "Does the 404 occur in dev mode, production mode, or both?"
+  - question: 'Does the 404 occur in dev mode, production mode, or both?'
     resolved: true
     options:
-      - option: "Dev mode (Turbopack)"
-        description: "The issue occurs specifically in development mode using Turbopack, which has known issues with dynamic imports from external packages."
+      - option: 'Dev mode (Turbopack)'
+        description: 'The issue occurs specifically in development mode using Turbopack, which has known issues with dynamic imports from external packages.'
         selected: true
-      - option: "Production mode only"
-        description: "The issue only manifests in production builds."
+      - option: 'Production mode only'
+        description: 'The issue only manifests in production builds.'
         selected: false
-      - option: "Both modes"
-        description: "The issue occurs in both development and production environments."
+      - option: 'Both modes'
+        description: 'The issue occurs in both development and production environments.'
         selected: false
-    selectionRationale: "Given the codebase comments about Turbopack not being able to bundle tsyringe/reflect-metadata and the need for string tokens instead of class refs, Turbopack-specific dynamic route resolution is the most likely culprit. The sibling launch route uses identical patterns, so testing both routes will confirm if this is route-specific or systemic."
-    answer: "Dev mode (Turbopack)"
+    selectionRationale: 'Given the codebase comments about Turbopack not being able to bundle tsyringe/reflect-metadata and the need for string tokens instead of class refs, Turbopack-specific dynamic route resolution is the most likely culprit. The sibling launch route uses identical patterns, so testing both routes will confirm if this is route-specific or systemic.'
+    answer: 'Dev mode (Turbopack)'
 
-  - question: "What debugging approach should be used to identify the root cause?"
+  - question: 'What debugging approach should be used to identify the root cause?'
     resolved: true
     options:
-      - option: "Add logging to route handler"
-        description: "Add console.log statements at the start of the POST handler to verify if the route is being invoked at all. If logs appear, the route is discovered but fails internally. If no logs, the route is not being resolved by Next.js."
+      - option: 'Add logging to route handler'
+        description: 'Add console.log statements at the start of the POST handler to verify if the route is being invoked at all. If logs appear, the route is discovered but fails internally. If no logs, the route is not being resolved by Next.js.'
         selected: true
-      - option: "Check Next.js build output"
-        description: "Examine .next directory to verify route compilation and registration."
+      - option: 'Check Next.js build output'
+        description: 'Examine .next directory to verify route compilation and registration.'
         selected: false
-      - option: "Test with curl directly"
-        description: "Use curl to call the endpoint and inspect raw responses, bypassing frontend behavior."
+      - option: 'Test with curl directly'
+        description: 'Use curl to call the endpoint and inspect raw responses, bypassing frontend behavior.'
         selected: false
-    selectionRationale: "Adding logging to the route handler is the fastest way to distinguish between route discovery failure (404 from Next.js before handler runs) vs. handler execution failure (404 returned by handler code). This should be the first diagnostic step."
-    answer: "Add logging to route handler"
+    selectionRationale: 'Adding logging to the route handler is the fastest way to distinguish between route discovery failure (404 from Next.js before handler runs) vs. handler execution failure (404 returned by handler code). This should be the first diagnostic step.'
+    answer: 'Add logging to route handler'
 
 content: |
   ## Problem Statement

@@ -8,7 +8,7 @@ summary: >
   fix based on diagnostic findings. Phase 3 adds tests and verifies the fix in both environments.
 
 relatedFeatures:
-  - "043-tools-management-ui"
+  - '043-tools-management-ui'
 
 technologies:
   - Next.js 14 App Router
@@ -20,7 +20,7 @@ relatedLinks: []
 tasks:
   - id: task-1
     phaseId: phase-1
-    title: "Add diagnostic logging to install route handler"
+    title: 'Add diagnostic logging to install route handler'
     description: >
       Add console.log statements at the very start of the POST handler to determine if
       Next.js/Turbopack is discovering and invoking the route. Log the tool ID and
@@ -29,21 +29,21 @@ tasks:
     dependencies: []
     acceptanceCriteria:
       - "Console.log statement at line 11 logs 'POST handler invoked' with tool ID"
-      - "Console.log statement logs Object.keys(TOOL_METADATA) to show available tools"
-      - "Logging occurs BEFORE the TOOL_METADATA validation check"
+      - 'Console.log statement logs Object.keys(TOOL_METADATA) to show available tools'
+      - 'Logging occurs BEFORE the TOOL_METADATA validation check'
     tdd:
       red:
-        - "N/A - Diagnostic task, no test first. Verification is manual via server logs."
+        - 'N/A - Diagnostic task, no test first. Verification is manual via server logs.'
       green:
         - "Add console.log('[install route] POST handler invoked, id:', id) after params extraction"
         - "Add console.log('[install route] TOOL_METADATA keys:', Object.keys(TOOL_METADATA))"
       refactor:
-        - "N/A - Temporary diagnostic code, will be removed in Phase 3"
-    estimatedEffort: "10min"
+        - 'N/A - Temporary diagnostic code, will be removed in Phase 3'
+    estimatedEffort: '10min'
 
   - id: task-2
     phaseId: phase-1
-    title: "Add diagnostic logging to TOOL_METADATA loader"
+    title: 'Add diagnostic logging to TOOL_METADATA loader'
     description: >
       Add console.log statements to the loadToolMetadata function to reveal the resolved
       tools directory path and which tool files are being loaded. This will show if the
@@ -51,23 +51,23 @@ tasks:
     state: Todo
     dependencies: []
     acceptanceCriteria:
-      - "Console.log statement logs the resolved toolsDir path"
-      - "Console.log statement logs the list of JSON files found"
-      - "Console.log statement logs each successfully loaded tool name"
+      - 'Console.log statement logs the resolved toolsDir path'
+      - 'Console.log statement logs the list of JSON files found'
+      - 'Console.log statement logs each successfully loaded tool name'
     tdd:
       red:
-        - "N/A - Diagnostic task, no test first. Verification is manual via server logs."
+        - 'N/A - Diagnostic task, no test first. Verification is manual via server logs.'
       green:
         - "Add console.log('[tool-metadata] toolsDir:', toolsDir) after path resolution"
         - "Add console.log('[tool-metadata] found files:', files) after directory read"
         - "Add console.log('[tool-metadata] loaded:', toolName) for each successful parse"
       refactor:
-        - "N/A - Temporary diagnostic code, will be removed in Phase 3"
-    estimatedEffort: "10min"
+        - 'N/A - Temporary diagnostic code, will be removed in Phase 3'
+    estimatedEffort: '10min'
 
   - id: task-3
     phaseId: phase-1
-    title: "Run diagnostics and analyze logs"
+    title: 'Run diagnostics and analyze logs'
     description: >
       Start the dev server, trigger the install endpoint via curl or browser, and analyze
       the server logs to determine the root cause. Document findings to inform the fix.
@@ -76,16 +76,16 @@ tasks:
       - task-1
       - task-2
     acceptanceCriteria:
-      - "Dev server started with pnpm dev:web"
-      - "Endpoint called via curl POST /api/tools/zed/install"
-      - "Server logs analyzed and root cause identified"
-      - "Findings documented: which scenario (A, B, or C from plan) applies"
+      - 'Dev server started with pnpm dev:web'
+      - 'Endpoint called via curl POST /api/tools/zed/install'
+      - 'Server logs analyzed and root cause identified'
+      - 'Findings documented: which scenario (A, B, or C from plan) applies'
     tdd: null
-    estimatedEffort: "15min"
+    estimatedEffort: '15min'
 
   - id: task-4
     phaseId: phase-2
-    title: "Implement fix based on diagnostic findings"
+    title: 'Implement fix based on diagnostic findings'
     description: >
       Apply the targeted fix based on Phase 1 findings. Most likely: fix TOOL_METADATA
       path resolution for Turbopack compatibility. The fix must be minimal and not
@@ -94,26 +94,26 @@ tasks:
     dependencies:
       - task-3
     acceptanceCriteria:
-      - "Fix addresses the specific root cause identified in task-3"
-      - "POST /api/tools/zed/install returns 200 with installation status"
-      - "POST /api/tools/[id]/install works for all tools in TOOL_METADATA"
-      - "Sibling launch route still works: POST /api/tools/zed/launch returns correctly"
-      - "No changes to shared infrastructure code (server-container.ts, container.ts)"
+      - 'Fix addresses the specific root cause identified in task-3'
+      - 'POST /api/tools/zed/install returns 200 with installation status'
+      - 'POST /api/tools/[id]/install works for all tools in TOOL_METADATA'
+      - 'Sibling launch route still works: POST /api/tools/zed/launch returns correctly'
+      - 'No changes to shared infrastructure code (server-container.ts, container.ts)'
     tdd:
       red:
-        - "Write test that asserts POST /api/tools/zed/install returns 200 (currently fails with 404)"
+        - 'Write test that asserts POST /api/tools/zed/install returns 200 (currently fails with 404)'
       green:
-        - "Implement the minimal fix based on diagnostic findings"
-        - "If path resolution issue: adjust toolsDir path calculation in tool-metadata.ts"
-        - "If route discovery issue: check for import errors, clear .next cache"
+        - 'Implement the minimal fix based on diagnostic findings'
+        - 'If path resolution issue: adjust toolsDir path calculation in tool-metadata.ts'
+        - 'If route discovery issue: check for import errors, clear .next cache'
       refactor:
-        - "Ensure fix follows existing code patterns"
-        - "Add inline comment documenting root cause for future reference"
-    estimatedEffort: "30min"
+        - 'Ensure fix follows existing code patterns'
+        - 'Add inline comment documenting root cause for future reference'
+    estimatedEffort: '30min'
 
   - id: task-5
     phaseId: phase-3
-    title: "Write unit tests for install route handler"
+    title: 'Write unit tests for install route handler'
     description: >
       Create a test file for the install route handler that mocks the DI container
       and TOOL_METADATA to verify correct behavior for valid/invalid tool IDs and
@@ -122,27 +122,27 @@ tasks:
     dependencies:
       - task-4
     acceptanceCriteria:
-      - "Test file created at src/presentation/web/app/api/tools/[id]/install/route.test.ts"
-      - "Test: valid tool ID returns 200 with { status: ... }"
+      - 'Test file created at src/presentation/web/app/api/tools/[id]/install/route.test.ts'
+      - 'Test: valid tool ID returns 200 with { status: ... }'
       - "Test: invalid tool ID returns 404 with { error: 'Tool not found' }"
-      - "Test: use case failure returns 500 with { error: message }"
-      - "All tests pass with pnpm test:unit"
+      - 'Test: use case failure returns 500 with { error: message }'
+      - 'All tests pass with pnpm test:unit'
     tdd:
       red:
-        - "Write test for valid tool ID returning 200 - should pass after fix"
-        - "Write test for invalid tool ID returning 404"
-        - "Write test for use case execution failure returning 500"
+        - 'Write test for valid tool ID returning 200 - should pass after fix'
+        - 'Write test for invalid tool ID returning 404'
+        - 'Write test for use case execution failure returning 500'
       green:
-        - "Tests should pass since fix is already implemented in task-4"
-        - "If any test fails, fix the implementation to match expected behavior"
+        - 'Tests should pass since fix is already implemented in task-4'
+        - 'If any test fails, fix the implementation to match expected behavior'
       refactor:
-        - "Extract test helpers if patterns emerge"
-        - "Ensure test follows project conventions (AAA pattern, clear naming)"
-    estimatedEffort: "30min"
+        - 'Extract test helpers if patterns emerge'
+        - 'Ensure test follows project conventions (AAA pattern, clear naming)'
+    estimatedEffort: '30min'
 
   - id: task-6
     phaseId: phase-3
-    title: "Remove diagnostic logging"
+    title: 'Remove diagnostic logging'
     description: >
       Remove or gate the diagnostic console.log statements added in Phase 1.
       Logging should not appear in production or normal development mode.
@@ -150,15 +150,15 @@ tasks:
     dependencies:
       - task-5
     acceptanceCriteria:
-      - "Diagnostic logs removed from route handler (or gated behind DEBUG env var)"
-      - "Diagnostic logs removed from tool-metadata.ts (or gated behind DEBUG env var)"
-      - "No console.log output appears when running pnpm dev:web normally"
+      - 'Diagnostic logs removed from route handler (or gated behind DEBUG env var)'
+      - 'Diagnostic logs removed from tool-metadata.ts (or gated behind DEBUG env var)'
+      - 'No console.log output appears when running pnpm dev:web normally'
     tdd: null
-    estimatedEffort: "10min"
+    estimatedEffort: '10min'
 
   - id: task-7
     phaseId: phase-3
-    title: "Verify fix in both dev and production modes"
+    title: 'Verify fix in both dev and production modes'
     description: >
       Verify the fix works in development mode (Turbopack) and production build (webpack).
       Run the full test suite to ensure no regressions.
@@ -166,14 +166,14 @@ tasks:
     dependencies:
       - task-6
     acceptanceCriteria:
-      - "pnpm dev:web - POST /api/tools/zed/install returns 200"
-      - "pnpm build && pnpm start - POST /api/tools/zed/install returns 200"
-      - "pnpm test passes (no regressions)"
-      - "pnpm validate passes (lint, format, typecheck)"
+      - 'pnpm dev:web - POST /api/tools/zed/install returns 200'
+      - 'pnpm build && pnpm start - POST /api/tools/zed/install returns 200'
+      - 'pnpm test passes (no regressions)'
+      - 'pnpm validate passes (lint, format, typecheck)'
     tdd: null
-    estimatedEffort: "15min"
+    estimatedEffort: '15min'
 
-totalEstimate: "2h"
+totalEstimate: '2h'
 
 openQuestions: []
 

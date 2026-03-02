@@ -9,7 +9,7 @@ summary: >
   root cause identified through diagnostics, following the principle of minimal targeted changes.
 
 relatedFeatures:
-  - "043-tools-management-ui"
+  - '043-tools-management-ui'
 
 technologies:
   - Next.js 14 App Router (dynamic API routes)
@@ -23,7 +23,7 @@ relatedLinks:
 
 phases:
   - id: phase-1
-    name: "Diagnostic & Root Cause Analysis"
+    name: 'Diagnostic & Root Cause Analysis'
     description: >
       Add targeted logging to the route handler and TOOL_METADATA loader to identify
       whether the 404 originates from Next.js/Turbopack not discovering the route
@@ -32,7 +32,7 @@ phases:
     parallel: false
 
   - id: phase-2
-    name: "Fix Implementation"
+    name: 'Fix Implementation'
     description: >
       Based on diagnostic findings, implement the minimal fix required. If TOOL_METADATA
       is empty due to path resolution, fix the loader. If route discovery fails, investigate
@@ -40,7 +40,7 @@ phases:
     parallel: false
 
   - id: phase-3
-    name: "Testing & Verification"
+    name: 'Testing & Verification'
     description: >
       Add unit tests for the API route handler to prevent regression. Verify the fix works
       in both development (Turbopack) and production (webpack) modes. Remove or gate
