@@ -15,7 +15,6 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { BaseDrawer } from '@/components/common/base-drawer/base-drawer';
-import { cn } from '@/lib/utils';
 import { useToolInstallStream } from '@/hooks/use-tool-install-stream';
 import type { ToolItem } from '@shepai/core/application/use-cases/tools/list-tools.use-case';
 
