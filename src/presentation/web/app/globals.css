@@ -182,8 +182,3 @@
     @apply bg-background text-foreground;
   }
 }
-
-/* Disable canvas interactions when a modal dialog overlay is open */
-body:has([data-slot='alert-dialog-overlay'][data-state='open']) [data-testid='features-canvas'] {
-  pointer-events: none;
-}

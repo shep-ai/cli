@@ -93,30 +93,33 @@ vi.mock('radix-ui', () => ({
   },
 }));
 
-// Mock shadcn AlertDialog — controlled by `open` prop
-vi.mock('@/components/ui/alert-dialog', () => ({
-  AlertDialog: ({ children, open }: { children: React.ReactNode; open?: boolean }) =>
+// Mock shadcn Dialog — controlled by `open` prop
+vi.mock('@/components/ui/dialog', () => ({
+  Dialog: ({ children, open }: { children: React.ReactNode; open?: boolean }) =>
     open ? <>{children}</> : null,
-  AlertDialogContent: ({ children }: { children: React.ReactNode }) => (
-    <div role="alertdialog">{children}</div>
+  DialogContent: ({ children }: { children: React.ReactNode }) => (
+    <div role="dialog">{children}</div>
   ),
-  AlertDialogHeader: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  AlertDialogFooter: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  AlertDialogTitle: ({ children }: { children: React.ReactNode }) => <h2>{children}</h2>,
-  AlertDialogDescription: ({ children }: { children: React.ReactNode }) => <p>{children}</p>,
-  AlertDialogAction: ({
+  DialogHeader: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  DialogFooter: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  DialogTitle: ({ children }: { children: React.ReactNode }) => <h2>{children}</h2>,
+  DialogDescription: ({ children }: { children: React.ReactNode }) => <p>{children}</p>,
+  DialogClose: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+
+vi.mock('@/components/ui/button', () => ({
+  Button: ({
     children,
     onClick,
+    ...props
   }: {
     children: React.ReactNode;
-    onClick?: () => void;
+    onClick?: (e: React.MouseEvent) => void;
+    [key: string]: unknown;
   }) => (
-    <button data-testid="alert-dialog-confirm" onClick={onClick}>
+    <button onClick={onClick} {...props}>
       {children}
     </button>
-  ),
-  AlertDialogCancel: ({ children }: { children: React.ReactNode }) => (
-    <button data-testid="alert-dialog-cancel">{children}</button>
   ),
 }));
 
@@ -297,7 +300,7 @@ describe('RepositoryNode', () => {
 
       fireEvent.click(screen.getByTestId('repository-node-delete-button'));
 
-      expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
       expect(screen.getByText('Remove repository?')).toBeInTheDocument();
     });
 
@@ -308,7 +311,7 @@ describe('RepositoryNode', () => {
       fireEvent.click(screen.getByTestId('repository-node-delete-button'));
       expect(onDelete).not.toHaveBeenCalled();
 
-      fireEvent.click(screen.getByTestId('alert-dialog-confirm'));
+      fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
       expect(onDelete).toHaveBeenCalledWith('repo-abc');
     });
 
@@ -317,7 +320,7 @@ describe('RepositoryNode', () => {
       renderNode({ ...dataWithRepoPath, id: 'repo-abc', onDelete });
 
       fireEvent.click(screen.getByTestId('repository-node-delete-button'));
-      fireEvent.click(screen.getByTestId('alert-dialog-cancel'));
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
       expect(onDelete).not.toHaveBeenCalled();
     });

@@ -6,15 +6,15 @@ import { Github, Plus, Code2, Terminal, FolderOpen, Trash2, Play, Square } from 
 import { cn } from '@/lib/utils';
 import { ActionButton } from '@/components/common/action-button';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { DeploymentStatusBadge } from '@/components/common/deployment-status-badge';
 import { useDeployAction } from '@/hooks/use-deploy-action';
@@ -73,23 +73,31 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
             </TooltipProvider>
           </div>
 
-          <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-            <AlertDialogContent size="sm">
-              <AlertDialogHeader>
-                <AlertDialogTitle>Remove repository?</AlertDialogTitle>
-                <AlertDialogDescription>
+          <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+            <DialogContent className="max-w-xs">
+              <DialogHeader>
+                <DialogTitle>Remove repository?</DialogTitle>
+                <DialogDescription>
                   This will remove <strong>{data.name}</strong> from your workspace. The repository
                   files on disk won&apos;t be affected.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction variant="destructive" onClick={() => data.onDelete?.(data.id!)}>
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="grid grid-cols-2 gap-2 sm:flex-none">
+                <DialogClose asChild>
+                  <Button variant="outline">Cancel</Button>
+                </DialogClose>
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    setConfirmOpen(false);
+                    data.onDelete?.(data.id!);
+                  }}
+                >
                   Remove
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </>
       ) : null}
 
