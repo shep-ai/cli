@@ -1,0 +1,215 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: install-non-interactive-mode
+summary: >
+  Pure data-layer fix: add non-interactive flags to command strings in 4 tool JSON
+  metadata files (windsurf.json, vscode.json, git.json, gh.json) following TDD.
+  Tests are written first to document the required flags, then JSON files are updated
+  to make them pass. No service, TypeSpec, or interface changes are required.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - Node.js child_process (spawn with stdio ignore)
+  - gpg --batch --yes (non-interactive dearmor)
+  - DEBIAN_FRONTEND=noninteractive (debconf suppression)
+  - Homebrew (brew install git as macOS replacement)
+  - JSON tool metadata files
+  - Vitest unit tests
+relatedLinks:
+  - https://www.gnupg.org/documentation/manuals/gnupg/Unattended-GPG-key-generation.html
+  - https://www.debian.org/doc/manuals/debian-reference/ch02.en.html#_debian_package_management_operations_with_apt_get
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'TDD Red — Write Failing Tests'
+    parallel: false
+    description: >
+      Extend tool-metadata.test.ts with targeted string assertions for all required
+      non-interactive flags across windsurf, vscode, git, and gh. Tests are written
+      FIRST and must fail at this stage because the JSON files have not yet been updated.
+  - id: phase-2
+    name: 'TDD Green — Update JSON Metadata Files'
+    parallel: false
+    description: >
+      Update the 4 affected tool JSON files so that all tests written in phase-1 pass.
+      Add --batch --yes to gpg invocations, prefix apt/apt-get calls with
+      DEBIAN_FRONTEND=noninteractive, and replace git.json Darwin command with
+      brew install git. No other files are modified.
+  - id: phase-3
+    name: 'TDD Refactor — Validate & Document'
+    parallel: false
+    description: >
+      Run the full validate suite (pnpm validate), confirm all tests pass, and document
+      the known limitations for curl-pipe-bash tools. Ensure the feature is complete
+      and CI-ready.
+
+# File change tracking
+filesToCreate: []
+
+filesToModify:
+  - tests/unit/infrastructure/services/tool-installer/tool-metadata.test.ts
+  - packages/core/src/infrastructure/services/tool-installer/tools/windsurf.json
+  - packages/core/src/infrastructure/services/tool-installer/tools/vscode.json
+  - packages/core/src/infrastructure/services/tool-installer/tools/git.json
+  - packages/core/src/infrastructure/services/tool-installer/tools/gh.json
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content — architecture, strategy, and risks only.
+# Task-level detail lives in tasks.yaml (no duplication).
+content: |
+  ## Status
+
+  - **Phase:** Planning
+  - **Updated:** 2026-02-26
+
+  ## Architecture Overview
+
+  This fix is entirely within the infrastructure data layer:
+
+  ```
+  presentation/  — CLI install.command.ts           — NO CHANGE
+  application/   — IToolInstallerService interface   — NO CHANGE
+  infrastructure — tool-installer.service.ts         — NO CHANGE
+                   tools/windsurf.json               — UPDATE command strings
+                   tools/vscode.json                 — UPDATE command strings
+                   tools/git.json                    — UPDATE command strings
+                   tools/gh.json                     — UPDATE command strings
+                   tools/*.json (6 others)            — NO CHANGE (audited, clean)
+  domain/        — TypeSpec / generated types        — NO CHANGE
+  tests/         — tool-metadata.test.ts             — ADD flag assertions
+  ```
+
+  The spawn site in `tool-installer.service.ts` already uses `stdio: ['ignore', 'pipe', 'pipe']`,
+  permanently closing stdin. Any command that prompts for user input blocks indefinitely until
+  the 300 s timeout. The fix is to embed the correct non-interactive flags directly in the JSON
+  command strings — the authoritative, auditable configuration source.
+
+  ## Key Design Decisions
+
+  ### 1. Inline flags in JSON command strings (not service-layer injection)
+
+  **Chosen:** Embed `--batch --yes` (gpg) and `DEBIAN_FRONTEND=noninteractive` (apt/apt-get)
+  directly in the JSON command strings.
+
+  **Rejected:** Service-level env injection (requires TypeSpec/schema changes, pattern matching
+  on command strings — fragile, moves config out of the JSON source of truth).
+
+  **Rationale:** The JSON files are already the auditable source of truth for all per-tool
+  behavior. Placing non-interactive flags here keeps the fix co-located with the command and
+  visible in code review. NFR-3 of the spec explicitly prohibits service-layer changes.
+
+  ### 2. git.json Darwin: brew install git
+
+  **Chosen:** Replace `xcode-select --install` with `brew install git`.
+
+  **Rationale:** `xcode-select --install` opens a GUI modal dialog — inherently incompatible
+  with non-interactive spawning. `brew install git` is already the pattern for windsurf, vscode,
+  gh, and cursor on Darwin. It is non-interactive, idempotent, and consistent.
+
+  ### 3. gh.json: prefix every apt and apt-get invocation individually
+
+  **Chosen:** Prefix each `apt` and `apt-get` call inline with `DEBIAN_FRONTEND=noninteractive`.
+
+  **Rationale:** gh.json mixes `apt` and `apt-get` in a single compound command. Prefixing
+  each invocation individually ensures complete coverage regardless of which variant is used
+  and is consistent with the per-invocation approach in windsurf and vscode.
+
+  ### 4. No CLI flag (--yes / -y on shep install)
+
+  **Chosen:** No CLI flag added.
+
+  **Rationale:** stdin is permanently closed at the spawn site. Non-interactive flags belong
+  in the metadata command strings. A CLI flag would add surface area with zero benefit.
+
+  ### 5. curl-pipe-bash scripts: document as known limitation
+
+  **Chosen:** No code change for claude-code.json, cursor-cli.json, zed.json.
+
+  **Rationale:** None have been reported as hanging. YAGNI — adding TypeSpec/schema
+  infrastructure for a hypothetical future problem is not justified.
+
+  ## Implementation Strategy
+
+  **MANDATORY TDD**: All phases follow RED-GREEN-REFACTOR.
+
+  The implementation order is driven by TDD discipline:
+
+  1. **Phase 1 (RED)**: Write failing tests first. This documents the intended behavior
+     as executable specifications and provides a safety net against regressions.
+
+  2. **Phase 2 (GREEN)**: Update the 4 JSON files with the minimal changes to make all
+     tests pass. Each file change is focused and reviewable in isolation.
+
+  3. **Phase 3 (REFACTOR)**: Validate the full suite passes, confirm no existing tests
+     were broken, and document known limitations.
+
+  ## Files to Create/Modify
+
+  ### New Files
+
+  None — this is a data-only fix with no new files required.
+
+  ### Modified Files
+
+  | File | Changes |
+  | ---- | ------- |
+  | `tests/unit/infrastructure/services/tool-installer/tool-metadata.test.ts` | Add assertions for --batch, --yes, DEBIAN_FRONTEND flags on all 4 affected tools |
+  | `packages/core/src/infrastructure/services/tool-installer/tools/windsurf.json` | Add --batch --yes to gpg; prefix apt-get calls with DEBIAN_FRONTEND=noninteractive |
+  | `packages/core/src/infrastructure/services/tool-installer/tools/vscode.json` | Add --batch --yes to gpg; prefix apt-get calls with DEBIAN_FRONTEND=noninteractive |
+  | `packages/core/src/infrastructure/services/tool-installer/tools/git.json` | Prefix apt-get calls with DEBIAN_FRONTEND=noninteractive; replace Darwin xcode-select with brew install git |
+  | `packages/core/src/infrastructure/services/tool-installer/tools/gh.json` | Prefix all apt/apt-get calls with DEBIAN_FRONTEND=noninteractive |
+
+  ## Testing Strategy (TDD: Tests FIRST)
+
+  **CRITICAL:** Tests are written FIRST in each TDD cycle.
+
+  ### Unit Tests (RED -> GREEN -> REFACTOR)
+
+  Extend `tool-metadata.test.ts` with a new describe block for non-interactive flags:
+
+  ```typescript
+  describe('non-interactive install flags', () => {
+    // windsurf.json linux
+    it('windsurf linux command includes gpg --batch --yes', ...)
+    it('windsurf linux command includes DEBIAN_FRONTEND=noninteractive', ...)
+
+    // vscode.json linux
+    it('vscode linux command includes gpg --batch --yes', ...)
+    it('vscode linux command includes DEBIAN_FRONTEND=noninteractive', ...)
+
+    // git.json
+    it('git linux command includes DEBIAN_FRONTEND=noninteractive', ...)
+    it('git darwin command is brew install git', ...)
+
+    // gh.json linux
+    it('gh linux command includes DEBIAN_FRONTEND=noninteractive', ...)
+  });
+  ```
+
+  These tests run fast, require no system access, and catch regressions immediately.
+
+  ### Integration/E2E Tests
+
+  No new integration or E2E tests required. The fix is data-only with no service
+  behavior change. Existing integration tests for the tool installer service remain
+  unchanged and continue to validate spawning mechanics.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | gpg --yes silently overwrites a manually-placed keyring | Acceptable: keyring is always fetched from the same vendor URL; overwriting is idempotent and correct for reinstall |
+  | DEBIAN_FRONTEND=noninteractive hides a legitimate prompt | Does not bypass security (GPG-signed repos remain authenticated); only suppresses debconf interactive questions |
+  | brew install git on Darwin installs Homebrew git alongside Xcode tools | Benign: both coexist; PATH order determines which git is used; both are functional |
+  | Command string edit breaks JSON parsing | Caught immediately by existing TOOL_METADATA loading test |
+  | Regression removes a non-interactive flag | Caught immediately by the new unit test assertions |
+  | curl-pipe-bash tools gain an interactive prompt in a future version | Documented as known limitation; will be handled on a case-by-case basis when reported |
+
+  ---
+
+  _Updated by `/shep-kit:plan` — see tasks.yaml for detailed task breakdown_

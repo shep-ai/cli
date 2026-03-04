@@ -66,6 +66,44 @@ describe('ToolMetadata', () => {
     });
   });
 
+  describe('non-interactive install flags', () => {
+    it('windsurf linux command includes gpg --batch', () => {
+      expect(TOOL_METADATA['windsurf'].commands.linux).toContain('--batch');
+    });
+
+    it('windsurf linux command includes gpg --yes', () => {
+      expect(TOOL_METADATA['windsurf'].commands.linux).toContain('--yes');
+    });
+
+    it('windsurf linux command includes DEBIAN_FRONTEND=noninteractive', () => {
+      expect(TOOL_METADATA['windsurf'].commands.linux).toContain('DEBIAN_FRONTEND=noninteractive');
+    });
+
+    it('vscode linux command includes gpg --batch', () => {
+      expect(TOOL_METADATA['vscode'].commands.linux).toContain('--batch');
+    });
+
+    it('vscode linux command includes gpg --yes', () => {
+      expect(TOOL_METADATA['vscode'].commands.linux).toContain('--yes');
+    });
+
+    it('vscode linux command includes DEBIAN_FRONTEND=noninteractive', () => {
+      expect(TOOL_METADATA['vscode'].commands.linux).toContain('DEBIAN_FRONTEND=noninteractive');
+    });
+
+    it('git linux command includes DEBIAN_FRONTEND=noninteractive', () => {
+      expect(TOOL_METADATA['git'].commands.linux).toContain('DEBIAN_FRONTEND=noninteractive');
+    });
+
+    it('git darwin command is brew install git', () => {
+      expect(TOOL_METADATA['git'].commands.darwin).toBe('brew install git');
+    });
+
+    it('gh linux command includes DEBIAN_FRONTEND=noninteractive', () => {
+      expect(TOOL_METADATA['gh'].commands.linux).toContain('DEBIAN_FRONTEND=noninteractive');
+    });
+  });
+
   describe('openDirectory type support', () => {
     it('accepts string format for openDirectory', () => {
       const meta: ToolMetadata = {
