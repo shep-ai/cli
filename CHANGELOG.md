@@ -1,3 +1,9 @@
+## [1.72.2](https://github.com/shep-ai/cli/compare/v1.72.1...v1.72.2) (2026-03-04)
+
+### Bug Fixes
+
+- **web:** derive drawer open state from url pathname ([#193](https://github.com/shep-ai/cli/issues/193)) ([6483249](https://github.com/shep-ai/cli/commit/6483249875fcea3979d9f7a876b8c83e8387590c)), closes [#188](https://github.com/shep-ai/cli/issues/188)
+
 ## [1.72.1](https://github.com/shep-ai/cli/compare/v1.72.0...v1.72.1) (2026-03-02)
 
 ### Bug Fixes
