@@ -1,0 +1,395 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: batch-branch-rebase
+summary: >
+  11 tasks across 3 phases. Phase 1 extends IGitPrService with 5 new methods (interface +
+  implementation + tests). Phase 2 builds the BatchRebaseFeaturesUseCase with comprehensive
+  unit tests covering all status paths. Phase 3 wires the CLI command with DI registration.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - TypeScript
+  - commander.js
+  - tsyringe
+  - vitest
+  - git
+
+relatedLinks: []
+
+# Structured task list
+tasks:
+  # =========================================================================
+  # Phase 1: IGitPrService Extension
+  # =========================================================================
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Add fetchOrigin, mergeLocalBranch, rebaseBranch, mergeAbort, rebaseAbort to IGitPrService interface'
+    description: >
+      Extend the IGitPrService interface with five new method signatures. These are the
+      low-level git building blocks the use case will compose. The interface changes are
+      the foundation for everything else.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'IGitPrService interface has fetchOrigin(cwd: string): Promise<void>'
+      - 'IGitPrService interface has mergeLocalBranch(cwd: string, source: string): Promise<void>'
+      - 'IGitPrService interface has rebaseBranch(cwd: string, onto: string): Promise<void>'
+      - 'IGitPrService interface has mergeAbort(cwd: string): Promise<void>'
+      - 'IGitPrService interface has rebaseAbort(cwd: string): Promise<void>'
+      - 'Each method has JSDoc comments with @param and @throws annotations'
+      - 'TypeScript compiles without errors'
+    tdd:
+      red:
+        - 'Write tests for each new method verifying expected git commands are called'
+        - 'Tests call methods that do not exist yet — compilation and tests fail (RED)'
+      green:
+        - 'Add the 5 method signatures to IGitPrService interface'
+        - 'Add stub implementations in GitPrService that throw "not implemented"'
+        - 'Tests now compile but stubs throw — partially GREEN'
+      refactor:
+        - 'Ensure JSDoc comments follow existing interface conventions'
+    estimatedEffort: '30min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Implement fetchOrigin in GitPrService'
+    description: >
+      Implement fetchOrigin(cwd) using `git fetch origin`. Follows the existing try/catch
+      + parseGitError pattern used by mergeBranch and push.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'fetchOrigin calls execFile with ["git", ["fetch", "origin"], { cwd }]'
+      - 'On error, throws GitPrError via parseGitError'
+      - 'Unit test verifies execFile is called with correct arguments'
+      - 'Unit test verifies error handling wraps errors as GitPrError'
+    tdd:
+      red:
+        - 'Write test: fetchOrigin calls git fetch origin with correct cwd'
+        - 'Write test: fetchOrigin wraps errors via parseGitError'
+      green:
+        - 'Implement fetchOrigin in GitPrService: try { await execFile("git", ["fetch", "origin"], { cwd }) } catch { throw parseGitError }'
+      refactor:
+        - 'Verify method ordering in class matches interface ordering'
+    estimatedEffort: '15min'
+
+  - id: task-3
+    phaseId: phase-1
+    title: 'Implement mergeLocalBranch in GitPrService'
+    description: >
+      Implement mergeLocalBranch(cwd, source) using `git merge <source>`. Unlike the
+      existing mergeBranch, this does NOT checkout or push. It operates on the current
+      branch in the given working directory.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'mergeLocalBranch calls execFile with ["git", ["merge", source], { cwd }]'
+      - 'On conflict, throws GitPrError with MERGE_CONFLICT code'
+      - 'On other errors, throws GitPrError via parseGitError'
+      - 'Does NOT call checkout or push'
+      - 'Unit test verifies execFile args'
+      - 'Unit test verifies conflict error code'
+    tdd:
+      red:
+        - 'Write test: mergeLocalBranch calls git merge with source and cwd'
+        - 'Write test: mergeLocalBranch throws MERGE_CONFLICT on conflict stderr'
+        - 'Write test: mergeLocalBranch does not call checkout or push'
+      green:
+        - 'Implement: try { await execFile("git", ["merge", source], { cwd }) } catch { throw parseGitError }'
+      refactor:
+        - 'Confirm parseGitError correctly detects conflict keywords for merge output'
+    estimatedEffort: '20min'
+
+  - id: task-4
+    phaseId: phase-1
+    title: 'Implement rebaseBranch, mergeAbort, and rebaseAbort in GitPrService'
+    description: >
+      Implement the remaining three methods. rebaseBranch(cwd, onto) runs `git rebase <onto>`.
+      mergeAbort(cwd) runs `git merge --abort`. rebaseAbort(cwd) runs `git rebase --abort`.
+      All follow the same try/catch + parseGitError pattern.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'rebaseBranch calls execFile with ["git", ["rebase", onto], { cwd }]'
+      - 'rebaseBranch throws GitPrError with MERGE_CONFLICT on conflict'
+      - 'mergeAbort calls execFile with ["git", ["merge", "--abort"], { cwd }]'
+      - 'rebaseAbort calls execFile with ["git", ["rebase", "--abort"], { cwd }]'
+      - 'All three wrap errors via parseGitError'
+      - 'Unit tests verify all three methods'
+    tdd:
+      red:
+        - 'Write test: rebaseBranch calls git rebase with onto and cwd'
+        - 'Write test: rebaseBranch throws MERGE_CONFLICT on conflict'
+        - 'Write test: mergeAbort calls git merge --abort'
+        - 'Write test: rebaseAbort calls git rebase --abort'
+      green:
+        - 'Implement rebaseBranch: try { await execFile("git", ["rebase", onto], { cwd }) } catch { throw parseGitError }'
+        - 'Implement mergeAbort: try { await execFile("git", ["merge", "--abort"], { cwd }) } catch { throw parseGitError }'
+        - 'Implement rebaseAbort: try { await execFile("git", ["rebase", "--abort"], { cwd }) } catch { throw parseGitError }'
+      refactor:
+        - 'Review all 5 new methods for consistency in error handling and JSDoc'
+    estimatedEffort: '20min'
+
+  # =========================================================================
+  # Phase 2: BatchRebaseFeaturesUseCase
+  # =========================================================================
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Create BatchRebaseFeaturesUseCase with basic merge success path'
+    description: >
+      Create the use case class with constructor injection of IFeatureRepository,
+      IGitPrService, and IWorktreeService. Implement the execute() method with the
+      basic happy path: fetch origin, get default branch, list features, iterate and
+      merge each one, return results. Start with features that have existing worktrees.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Use case is @injectable() with @inject tokens for all three dependencies'
+      - 'execute() calls fetchOrigin once at the start'
+      - 'execute() calls getDefaultBranch to determine the merge source'
+      - 'execute() calls featureRepo.list with repositoryPath filter'
+      - 'For each feature with worktreePath, calls mergeLocalBranch(worktreePath, origin/defaultBranch)'
+      - 'Returns BatchRebaseResult[] with status success for each merged feature'
+      - 'onProgress callback is called for each feature with index, total, and name'
+    tdd:
+      red:
+        - 'Write test: execute fetches origin and gets default branch before processing'
+        - 'Write test: execute merges each feature with origin/defaultBranch'
+        - 'Write test: execute returns success result for each successfully merged feature'
+        - 'Write test: onProgress is called for each feature with correct index and total'
+      green:
+        - 'Create BatchRebaseFeaturesUseCase class with execute method'
+        - 'Define BatchRebaseOptions and BatchRebaseResult interfaces'
+        - 'Implement basic iterate-and-merge logic'
+      refactor:
+        - 'Extract result building into a helper method'
+    estimatedEffort: '45min'
+
+  - id: task-6
+    phaseId: phase-2
+    title: 'Add rebase strategy support'
+    description: >
+      Extend the use case to support the rebase strategy. When options.strategy is "rebase",
+      use rebaseBranch instead of mergeLocalBranch. On conflict, call rebaseAbort instead
+      of mergeAbort.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'When strategy is "merge" (default), calls mergeLocalBranch'
+      - 'When strategy is "rebase", calls rebaseBranch'
+      - 'On merge conflict with strategy "merge", calls mergeAbort'
+      - 'On merge conflict with strategy "rebase", calls rebaseAbort'
+      - 'Result reason reflects the strategy: "merge conflicts" or "rebase conflicts"'
+    tdd:
+      red:
+        - 'Write test: with strategy "rebase", calls rebaseBranch instead of mergeLocalBranch'
+        - 'Write test: with strategy "rebase" and conflict, calls rebaseAbort'
+        - 'Write test: result reason says "rebase conflicts" for rebase strategy'
+      green:
+        - 'Add strategy branching: if merge use mergeLocalBranch+mergeAbort, if rebase use rebaseBranch+rebaseAbort'
+      refactor:
+        - 'Extract merge/rebase dispatch into a private method to reduce duplication'
+    estimatedEffort: '20min'
+
+  - id: task-7
+    phaseId: phase-2
+    title: 'Add skip paths: dirty worktree, missing branch, no remote'
+    description: >
+      Implement the skip conditions: features with dirty worktrees (uncommitted changes),
+      features whose branch does not exist, and the early exit when the repo has no remote.
+      Each skip path records the feature as "skipped" with a descriptive reason.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'Features with dirty worktrees are skipped with reason "uncommitted changes"'
+      - 'Features whose branch does not exist locally are skipped with reason "branch not found"'
+      - 'If hasRemote returns false, execute throws an error before processing any features'
+      - 'Skipped features do not have mergeLocalBranch or rebaseBranch called'
+      - 'onProgress is still called for skipped features'
+    tdd:
+      red:
+        - 'Write test: dirty worktree feature is skipped with correct reason'
+        - 'Write test: feature with non-existent branch is skipped'
+        - 'Write test: no remote throws error before any feature processing'
+        - 'Write test: skipped features do not trigger merge/rebase calls'
+      green:
+        - 'Add hasRemote check at the start, throw if false'
+        - 'Add hasUncommittedChanges check per feature before merge/rebase'
+        - 'Add branchExists check per feature before merge/rebase'
+      refactor:
+        - 'Order pre-checks logically: remote > per-feature (branch exists > dirty > merge)'
+    estimatedEffort: '30min'
+
+  - id: task-8
+    phaseId: phase-2
+    title: 'Add conflict abort-and-continue and unexpected error handling'
+    description: >
+      Handle merge/rebase conflicts by catching GitPrError with MERGE_CONFLICT code,
+      aborting the operation, recording the feature as failed, and continuing to the next
+      feature. Also catch unexpected errors (non-GitPrError) and record as failed with
+      the error message.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'On MERGE_CONFLICT error, mergeAbort/rebaseAbort is called to clean up'
+      - 'Conflicting feature is recorded as failed with reason "merge conflicts" or "rebase conflicts"'
+      - 'Processing continues to the next feature after a conflict'
+      - 'Unexpected errors are caught and recorded as failed with error.message as reason'
+      - 'Unexpected errors do not abort the batch'
+    tdd:
+      red:
+        - 'Write test: merge conflict triggers mergeAbort and records failed result'
+        - 'Write test: after conflict, next feature is still processed'
+        - 'Write test: unexpected error records failed result with error message'
+        - 'Write test: unexpected error does not stop batch processing'
+      green:
+        - 'Wrap merge/rebase call in try/catch'
+        - 'Check for GitPrError with MERGE_CONFLICT code, call appropriate abort'
+        - 'Catch all other errors and record as failed'
+      refactor:
+        - 'Consolidate error handling into a processFeature helper method'
+    estimatedEffort: '30min'
+
+  - id: task-9
+    phaseId: phase-2
+    title: 'Add temporary worktree creation for features without worktrees'
+    description: >
+      For features where worktreePath is undefined or the path does not exist on disk,
+      create a temporary worktree via IWorktreeService.create() in os.tmpdir(), perform
+      the merge/rebase there, and remove the worktree in a finally block.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'Features without worktreePath get a temporary worktree created'
+      - 'Temporary worktree path uses os.tmpdir() with feature ID for uniqueness'
+      - 'Merge/rebase operates in the temporary worktree directory'
+      - 'Temporary worktree is removed in a finally block after the operation'
+      - 'If worktree already exists for the branch (checked via worktreeService.exists), use existing path instead of creating temp'
+      - 'Cleanup errors during worktree removal are caught and do not affect the result'
+    tdd:
+      red:
+        - 'Write test: feature without worktreePath triggers temp worktree creation'
+        - 'Write test: merge operates in the temp worktree directory'
+        - 'Write test: temp worktree is removed after successful merge'
+        - 'Write test: temp worktree is removed even after merge failure (finally block)'
+        - 'Write test: worktree cleanup error is swallowed gracefully'
+      green:
+        - 'Check if feature.worktreePath exists on disk (use fs.existsSync or similar check)'
+        - 'If not, create temp worktree via worktreeService.create'
+        - 'Use the resolved path for merge/rebase'
+        - 'Remove temp worktree in finally block'
+      refactor:
+        - 'Extract worktree resolution into a resolveWorkingDirectory helper'
+    estimatedEffort: '30min'
+
+  - id: task-10
+    phaseId: phase-2
+    title: 'Add lifecycle and feature ID filtering'
+    description: >
+      Support the optional lifecycle filter (passed to IFeatureRepository.list) and
+      feature ID selection (using IFeatureRepository.findByIdPrefix for each specified ID).
+      When feature IDs are provided, only matching features are processed.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'When lifecycle is provided, it is passed as a filter to featureRepo.list'
+      - 'When featureIds are provided, each ID is resolved via findByIdPrefix'
+      - 'Only resolved features are processed (not the full list)'
+      - 'If a featureId does not match any feature, it is skipped with a warning in results'
+      - 'When both lifecycle and featureIds are provided, featureIds take precedence'
+    tdd:
+      red:
+        - 'Write test: lifecycle filter is passed to featureRepo.list'
+        - 'Write test: featureIds resolve via findByIdPrefix and only those are processed'
+        - 'Write test: unmatched featureId produces skipped result with reason'
+      green:
+        - 'Pass lifecycle to featureRepo.list filters when provided'
+        - 'When featureIds provided, resolve each via findByIdPrefix, skip nulls'
+      refactor:
+        - 'Ensure filter logic is clean and well-separated from iteration logic'
+    estimatedEffort: '25min'
+
+  # =========================================================================
+  # Phase 3: CLI Command & DI Wiring
+  # =========================================================================
+
+  - id: task-11
+    phaseId: phase-3
+    title: 'Create rebase CLI command, register in feat group, wire DI'
+    description: >
+      Create src/presentation/cli/commands/feat/rebase.command.ts with createRebaseCommand()
+      factory function. Add --strategy, --lifecycle options and variadic [featureIds...]
+      argument. Resolve BatchRebaseFeaturesUseCase from DI container. Render results using
+      renderListView. Display aggregate summary with color-coded counts. Set exit code 1
+      if any features failed. Register in feat/index.ts and add use case to DI container.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'createRebaseCommand() returns a Commander.js Command instance'
+      - 'Command is named "rebase" with description'
+      - '--strategy <merge|rebase> option with default "merge"'
+      - '--lifecycle <phase> option'
+      - 'Variadic [featureIds...] argument'
+      - 'Resolves BatchRebaseFeaturesUseCase from container'
+      - 'Passes onProgress callback that calls messages.info'
+      - 'Renders results table using renderListView with Feature, Branch, Status, Reason columns'
+      - 'Displays aggregate summary: N succeeded, N skipped, N failed'
+      - 'Exits with code 1 if any features failed'
+      - 'Errors caught and displayed via messages.error'
+      - 'Command registered in feat/index.ts via .addCommand(createRebaseCommand())'
+      - 'BatchRebaseFeaturesUseCase registered in DI container via registerSingleton'
+      - 'Unit test verifies command creation and option registration'
+    tdd:
+      red:
+        - 'Write test: createRebaseCommand returns a Command with name "rebase"'
+        - 'Write test: command has --strategy and --lifecycle options'
+        - 'Write test: command has variadic featureIds argument'
+      green:
+        - 'Create rebase.command.ts with createRebaseCommand factory'
+        - 'Implement action handler: resolve use case, call execute, render results'
+        - 'Add import and .addCommand in feat/index.ts'
+        - 'Add container.registerSingleton(BatchRebaseFeaturesUseCase) in container.ts'
+      refactor:
+        - 'Ensure consistent formatting with other feat commands'
+        - 'Verify renderListView column widths work well with typical data'
+    estimatedEffort: '45min'
+
+# Total effort estimate
+totalEstimate: '5h'
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Summary
+
+  The implementation is broken into 11 tasks across 3 phases. Phase 1 extends the
+  IGitPrService interface and implementation with 5 new git operation methods (fetch,
+  local merge, rebase, merge abort, rebase abort) — these are the building blocks.
+  Phase 2 builds the BatchRebaseFeaturesUseCase which orchestrates the batch operation:
+  feature discovery, filtering, worktree resolution, dirty/missing branch detection,
+  merge/rebase execution with conflict abort-and-continue, and typed result aggregation.
+  Phase 3 wires everything together with the CLI command, DI registration, and
+  result rendering.
+
+  Tasks within Phase 1 (task-2, task-3, task-4) are independent and can be developed
+  in parallel after the interface is defined in task-1. Tasks within Phase 2 all depend
+  on the base use case (task-5) but are otherwise independent, so task-6 through task-10
+  can be developed in any order after task-5. Task-11 (CLI) depends on the use case
+  interface from task-5 but can be developed in parallel with the Phase 2 refinement
+  tasks since it mocks the use case.

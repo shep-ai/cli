@@ -1,0 +1,160 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: batch-branch-rebase
+summary: >
+  Implement a CLI command `shep feat rebase` that batch-updates all feature branches
+  with the latest remote default branch. The implementation follows Clean Architecture
+  with three phases: (1) extend IGitPrService with new local merge/rebase/abort/fetch
+  methods in both interface and implementation, (2) build the BatchRebaseFeaturesUseCase
+  that orchestrates per-feature iteration with error isolation and progress callbacks,
+  (3) wire the CLI command with options for strategy, lifecycle filter, and feature ID
+  selection, rendering results via renderListView.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - TypeScript
+  - commander.js (CLI framework)
+  - tsyringe (dependency injection)
+  - git (rebase/merge/fetch operations)
+  - SQLite (feature persistence via IFeatureRepository)
+  - vitest (testing)
+
+relatedLinks: []
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'IGitPrService Extension'
+    description: >
+      Extend the IGitPrService interface and GitPrService implementation with five new
+      methods: fetchOrigin, mergeLocalBranch, rebaseBranch, mergeAbort, and rebaseAbort.
+      These are the low-level git building blocks that the use case will compose. This
+      phase comes first because the use case depends on these methods. Each method follows
+      the existing pattern of try/catch wrapping parseGitError for consistent error typing.
+    parallel: false
+
+  - id: phase-2
+    name: 'BatchRebaseFeaturesUseCase'
+    description: >
+      Create the core application-layer use case that orchestrates the batch operation.
+      Handles feature discovery, filtering, worktree resolution (permanent or temporary),
+      dirty worktree detection, branch existence validation, merge/rebase execution with
+      conflict abort-and-continue, and result aggregation. Returns a typed result array
+      for the CLI to render. Accepts an onProgress callback for real-time feedback.
+    parallel: false
+
+  - id: phase-3
+    name: 'CLI Command & DI Wiring'
+    description: >
+      Create the rebase.command.ts CLI command following the existing factory function
+      pattern. Wire --strategy, --lifecycle, and variadic featureIds options. Register
+      the use case in the DI container. Render results using renderListView and display
+      aggregate summary with color-coded counts. Set exit code based on failure status.
+    parallel: false
+
+# File change tracking
+filesToCreate:
+  - packages/core/src/application/use-cases/features/batch-rebase-features.use-case.ts
+  - src/presentation/cli/commands/feat/rebase.command.ts
+  - tests/unit/application/use-cases/features/batch-rebase-features.use-case.test.ts
+  - tests/unit/commands/feat/rebase.command.test.ts
+  - tests/unit/infrastructure/services/git/git-pr-service.rebase.test.ts
+
+filesToModify:
+  - packages/core/src/application/ports/output/services/git-pr-service.interface.ts
+  - packages/core/src/infrastructure/services/git/git-pr.service.ts
+  - packages/core/src/infrastructure/di/container.ts
+  - src/presentation/cli/commands/feat/index.ts
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Architecture Overview
+
+  The batch branch rebase feature fits cleanly into the existing Clean Architecture:
+
+  - **Domain Layer** — No changes. The existing `Feature` entity already has `branch`,
+    `worktreePath`, `lifecycle`, and `repositoryPath` fields needed for iteration.
+
+  - **Application Layer** — New `BatchRebaseFeaturesUseCase` in
+    `packages/core/src/application/use-cases/features/`. Depends on three port interfaces:
+    `IFeatureRepository` (feature discovery + filtering), `IGitPrService` (git operations),
+    and `IWorktreeService` (worktree resolution + temporary worktree lifecycle). Follows
+    the existing use case pattern: `@injectable()` class with `execute()` method.
+
+  - **Infrastructure Layer** — `IGitPrService` gains five new methods. `GitPrService`
+    implements them using the injected `ExecFunction`, following the same try/catch +
+    `parseGitError()` pattern as existing methods like `mergeBranch()` and `push()`.
+
+  - **Presentation Layer** — New `rebase.command.ts` CLI command registered in the
+    `feat` command group. Follows the `createXxxCommand()` factory function pattern
+    used by all other feat commands.
+
+  ## Key Design Decisions
+
+  ### 1. New mergeLocalBranch vs reusing mergeBranch
+
+  The existing `mergeBranch()` performs checkout + merge + push (git-pr.service.ts:192-200).
+  The auto-push violates NFR-7 (no remote side effects). A new `mergeLocalBranch(cwd, source)`
+  method performs only `git merge <source>` — no checkout (worktree is already on the correct
+  branch) and no push. This preserves the existing contract.
+
+  ### 2. Typed result array for batch outcomes
+
+  The use case returns `BatchRebaseResult[]` where each entry has `featureId`, `featureName`,
+  `branch`, `status` (success | skipped | failed), and optional `reason`. This maps directly
+  to `renderListView()` rows and allows the CLI to compute aggregate counts via reduce.
+  Event emitters and async generators were rejected as over-engineering.
+
+  ### 3. onProgress callback for real-time feedback
+
+  The use case accepts an optional `onProgress` callback that the CLI passes to display
+  "Processing feature N/M: name..." lines. This follows the Dependency Inversion Principle
+  — the use case defines what it needs, the presentation layer provides the implementation.
+  Easy to mock in tests (just pass a no-op or spy).
+
+  ### 4. Temporary worktrees for branch-only features
+
+  Features without permanent worktrees get a temporary worktree created in `os.tmpdir()`
+  via `IWorktreeService.create()`. The temp worktree is removed in a `finally` block.
+  This ensures all features are updated without disrupting the main repo working directory.
+
+  ### 5. Conflict abort-and-continue
+
+  When merge/rebase fails with `GitPrError` code `MERGE_CONFLICT`, the use case calls
+  `mergeAbort()` or `rebaseAbort()` to clean up, records the result as failed, and continues
+  to the next feature. This maximizes batch throughput.
+
+  ### 6. Extending IGitPrService (not creating a new interface)
+
+  All five new methods (fetchOrigin, mergeLocalBranch, rebaseBranch, mergeAbort, rebaseAbort)
+  are thematically consistent with the existing IGitPrService which already has mergeBranch,
+  push, hasRemote, getDefaultBranch, deleteBranch. Creating a separate interface would
+  fragment related operations without clear benefit.
+
+  ## Implementation Strategy
+
+  Phase 1 (IGitPrService Extension) comes first because it provides the git building blocks.
+  The methods are simple, self-contained, and independently testable. Phase 2 (Use Case)
+  depends on the Phase 1 interface but tests mock it entirely, so implementation only needs
+  the interface to be defined. Phase 3 (CLI) depends on the use case but again resolves it
+  from DI and can be tested with mocks.
+
+  Each phase follows strict TDD: write failing tests first (RED), implement minimally to
+  pass (GREEN), then refactor for clarity. Tests use vitest with the existing mock patterns
+  (vi.fn(), vi.mock(), manual mock objects matching interface shapes).
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Temporary worktree cleanup failure leaves orphaned worktrees | Use `finally` block for cleanup. Temp worktrees are in `os.tmpdir()` which the OS cleans periodically. |
+  | parseGitError may not detect rebase conflict messages | Test with realistic stderr output. The existing conflict detection checks for 'conflict' substring which covers both merge and rebase conflicts. |
+  | Git lock contention with concurrent worktree operations | Features are processed sequentially (NFR-1). No parallel git operations. |
+  | IWorktreeService.create() may fail for branches already checked out in another worktree | Check if worktree already exists before creating temp one. Use the existing worktree if found. |
+  | Feature branch may not exist locally (only remote) | Validate branch existence before processing. Skip with clear message if branch not found. |
+  | Large number of features could make the summary table unwieldy | The existing renderListView handles arbitrary row counts. No special handling needed. |
