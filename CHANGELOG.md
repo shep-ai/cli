@@ -1,3 +1,9 @@
+## [1.72.3](https://github.com/shep-ai/cli/compare/v1.72.2...v1.72.3) (2026-03-04)
+
+### Bug Fixes
+
+- **agents:** fix verify merge failing after squash merge ([#198](https://github.com/shep-ai/cli/issues/198)) ([f0dec6c](https://github.com/shep-ai/cli/commit/f0dec6cf6ac00deba40ea9496d43b09f7651d924))
+
 ## [1.72.2](https://github.com/shep-ai/cli/compare/v1.72.1...v1.72.2) (2026-03-04)
 
 ### Bug Fixes
