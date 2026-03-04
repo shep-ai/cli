@@ -28,7 +28,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
   const pathname = usePathname();
   const selectedFeatureId = useSelectedFeatureId();
   const clickSound = useSoundAction('click');
-  const { guardedNavigate } = useDrawerCloseGuard();
+  const { guardedNavigate, getIsDirty } = useDrawerCloseGuard();
 
   const {
     nodes,
@@ -39,7 +39,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     handleDeleteFeature,
     handleDeleteRepository,
     createFeatureNode,
-  } = useControlCenterState(initialNodes, initialEdges);
+  } = useControlCenterState(initialNodes, initialEdges, getIsDirty);
 
   // Publish sidebar features to context whenever feature node data changes
   const { setFeatures: setSidebarFeatures } = useSidebarFeaturesContext();

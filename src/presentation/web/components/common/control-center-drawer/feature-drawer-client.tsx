@@ -99,8 +99,9 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
       const newState = mapEventTypeToState(event.eventType);
       const newLifecycle = mapPhaseNameToLifecycle(event.phaseName);
 
-      // Trigger a server refresh to get the latest drawer view
-      router.refresh();
+      // Trigger a server refresh to get the latest drawer view,
+      // but skip when the user has unsaved changes to avoid losing form state.
+      if (!isDirtyRef.current) router.refresh();
 
       // Optimistically update the node data for immediate UI feedback
       setView((prev) => {
@@ -293,6 +294,11 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
     view.type === 'prd-review' &&
     Object.keys(prdDefaultSelections).some((k) => prdDefaultSelections[k] !== prdSelections[k]);
   const isDirty = isChatDirty || isPrdDirty;
+
+  // Keep dirty state in a ref so the SSE handler can read the latest value
+  // without re-running the effect on every keystroke.
+  const isDirtyRef = useRef(isDirty);
+  isDirtyRef.current = isDirty;
 
   const onReset = useCallback(() => {
     setChatInput('');

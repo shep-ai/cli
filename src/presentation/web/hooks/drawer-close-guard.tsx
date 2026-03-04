@@ -29,6 +29,8 @@ interface DrawerCloseGuardContextValue {
   setGuard: (guard: { isDirty: boolean; onReset: () => void } | null) => void;
   /** Navigate only if no dirty drawer is registered; otherwise show confirmation. */
   guardedNavigate: (navigate: () => void) => void;
+  /** Returns true when any drawer has unsaved changes. Safe to call from effects/intervals. */
+  getIsDirty: () => boolean;
 }
 
 const DrawerCloseGuardContext = createContext<DrawerCloseGuardContextValue | null>(null);
@@ -69,8 +71,10 @@ export function DrawerCloseGuardProvider({ children }: { children: ReactNode }) 
     pendingNavigateRef.current = null;
   }, []);
 
+  const getIsDirty = useCallback(() => guardRef.current?.isDirty ?? false, []);
+
   return (
-    <DrawerCloseGuardContext value={{ setGuard, guardedNavigate }}>
+    <DrawerCloseGuardContext value={{ setGuard, guardedNavigate, getIsDirty }}>
       {children}
 
       <AlertDialog open={showConfirmation}>
