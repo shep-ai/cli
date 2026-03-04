@@ -1,0 +1,212 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: issue-cluster-triage
+summary: >
+  Implementation plan for `shep feat triage` — a CLI subcommand that fetches open
+  GitHub issues, clusters them semantically via IStructuredAgentCaller, presents
+  clusters for interactive review, and creates features via CreateFeatureUseCase.
+  The plan follows Clean Architecture layering: extend the port interface first
+  (application layer), implement the infrastructure adapter, build the use case,
+  wire DI, then add the CLI command. All code reuses existing patterns
+  (MetadataGenerator for AI calls, GitHubIssueFetcher for gh CLI, @inquirer/prompts
+  for interactive review). No new external dependencies are required.
+
+relatedFeatures: []
+technologies:
+  - TypeScript
+  - Commander.js (CLI framework — existing)
+  - tsyringe (DI — existing)
+  - '@inquirer/prompts (interactive CLI — existing v8.2.0)'
+  - IStructuredAgentCaller (structured AI calls — existing)
+  - GitHub CLI gh (issue fetching — existing pattern)
+  - Vitest (testing — existing)
+relatedLinks:
+  - https://github.com/orgs/shep-ai/projects/1/views/6
+
+phases:
+  - id: phase-1
+    name: 'Port interface extension and types'
+    description: >
+      Extend the existing IExternalIssueFetcher port interface with a
+      listIssues() method and ListIssuesOptions type. Add an optional `number`
+      field to ExternalIssue. Define the transient IssueCluster, TriageIssuesInput,
+      and TriageIssuesResult types for the use case. This phase comes first
+      because all subsequent phases depend on these type definitions. No
+      infrastructure or presentation code is touched — only application-layer
+      interfaces and types.
+    parallel: false
+
+  - id: phase-2
+    name: 'Infrastructure adapter — GitHubIssueFetcher.listIssues()'
+    description: >
+      Implement the listIssues() method in GitHubIssueFetcher using the existing
+      gh CLI subprocess pattern. The implementation calls
+      `gh issue list --json number,title,body,labels,url --limit N` with optional
+      --label and --repo flags. This phase builds the data source that the use
+      case will consume. Unit tests mock execFile following the existing
+      github-issue.service.test.ts pattern.
+    parallel: false
+
+  - id: phase-3
+    name: 'Application use case — TriageIssuesUseCase'
+    description: >
+      Create the TriageIssuesUseCase that orchestrates the fetch-then-cluster
+      pipeline. The use case calls IExternalIssueFetcher.listIssues() to get
+      issues, then IStructuredAgentCaller.call() with a clustering JSON schema
+      to group them. It returns the raw clusters to the presentation layer —
+      interactive review is NOT handled here (Clean Architecture). This is the
+      core business logic phase and depends on the types and interface from
+      phase 1.
+    parallel: false
+
+  - id: phase-4
+    name: 'DI registration and CLI command'
+    description: >
+      Register IExternalIssueFetcher and TriageIssuesUseCase in the DI container.
+      Create the triage.command.ts CLI command with interactive cluster review
+      using @inquirer/prompts. The command parses options (--repo, --label,
+      --limit, --yes), calls the use case, presents clusters for review, and
+      calls CreateFeatureUseCase for each approved cluster. Print a summary at
+      the end. This is the final integration phase.
+    parallel: false
+
+filesToCreate:
+  - packages/core/src/application/use-cases/triage/types.ts
+  - packages/core/src/application/use-cases/triage/triage-issues.use-case.ts
+  - src/presentation/cli/commands/feat/triage.command.ts
+  - tests/unit/application/use-cases/triage/triage-issues.use-case.test.ts
+  - tests/unit/infrastructure/services/external/github-issue-list.test.ts
+
+filesToModify:
+  - packages/core/src/application/ports/output/services/external-issue-fetcher.interface.ts
+  - packages/core/src/infrastructure/services/external/github-issue.service.ts
+  - packages/core/src/infrastructure/di/container.ts
+  - src/presentation/cli/commands/feat/index.ts
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  The feature follows the established Clean Architecture layering with dependencies
+  pointing inward:
+
+  ```
+  Presentation (triage.command.ts)
+    → Application (TriageIssuesUseCase, IExternalIssueFetcher port)
+      → Infrastructure (GitHubIssueFetcher, container.ts)
+  ```
+
+  **Application layer** owns the port interface (`IExternalIssueFetcher`) and the
+  use case (`TriageIssuesUseCase`). Transient types (`IssueCluster`, `TriageIssuesInput`,
+  `TriageIssuesResult`) live alongside the use case in a co-located `types.ts`,
+  following the pattern set by `create-feature/types.ts`.
+
+  **Infrastructure layer** provides the `GitHubIssueFetcher` adapter (extended with
+  `listIssues()`) and DI wiring in `container.ts`.
+
+  **Presentation layer** provides the CLI command (`triage.command.ts`) which handles
+  interactive review via `@inquirer/prompts` and delegates to `CreateFeatureUseCase`
+  for approved clusters. This keeps I/O concerns out of the use case.
+
+  ## Key Design Decisions
+
+  ### 1. Use case scope — fetch + cluster only, no I/O
+
+  The `TriageIssuesUseCase` handles fetching issues and clustering them via AI, then
+  returns the clusters to the caller. Interactive review stays in the CLI layer. This
+  follows Clean Architecture: the use case is I/O-agnostic. The CLI command handles
+  `@inquirer/prompts` interaction and calls `CreateFeatureUseCase` for each approved
+  cluster. This mirrors how `new.command.ts` resolves use cases from the container
+  and orchestrates the user-facing flow.
+
+  **Alternative rejected:** Putting the entire pipeline (including review) in the use
+  case — would violate Clean Architecture by mixing application logic with stdin/stdout.
+
+  ### 2. Extend IExternalIssueFetcher, not a new interface
+
+  Adding `listIssues()` to the existing `IExternalIssueFetcher` keeps the issue-fetching
+  concern cohesive. The interface is small (2 existing methods) so a third method is
+  appropriate. The `GitHubIssueFetcher` currently implements
+  `Pick<IExternalIssueFetcher, 'fetchGitHubIssue'>` — this will be updated to include
+  `listIssues`.
+
+  **Alternative rejected:** Separate `IIssueListerService` interface — fragments the
+  concern without benefit.
+
+  ### 3. Optional `number` field on ExternalIssue
+
+  Issue numbers are required for cluster output (FR-2) and feature descriptions (FR-4).
+  Making `number` optional preserves backward compatibility — existing callers of
+  `fetchGitHubIssue` don't use it. The `listIssues` implementation always populates it
+  from the gh CLI JSON response.
+
+  **Alternative rejected:** Separate `ListedIssue` type — unnecessary divergence.
+
+  ### 4. Single-shot IStructuredAgentCaller clustering
+
+  Follows the MetadataGenerator pattern exactly: define a const JSON schema, craft a
+  prompt with issue context, call with `silent: true` and `allowedTools: []`. The prompt
+  includes issue numbers and titles plus truncated bodies (~200 chars) for semantic
+  context. The constraint "every issue must appear in exactly one cluster" ensures
+  completeness.
+
+  **Alternative rejected:** LangGraph agent or embeddings+k-means — overengineered for
+  a single-shot reasoning task.
+
+  ### 5. @inquirer/prompts for interactive review
+
+  The codebase already uses `@inquirer/prompts` v8.2.0 — `confirm` in `del.command.ts`
+  and `select` in `ide.command.ts`. Using `select` for approve/skip/edit and `input` for
+  editing follows established patterns. The `--yes` flag bypasses prompts.
+  `ExitPromptError` handles Ctrl+C (NFR-7).
+
+  ### 6. DI registration via factory for IExternalIssueFetcher
+
+  Register with string token `'IExternalIssueFetcher'` using `useFactory` that resolves
+  the existing `'ExecFunction'` token and creates `GitHubIssueFetcher`. This follows the
+  same factory pattern used for `IStructuredAgentCaller` and other services.
+  `TriageIssuesUseCase` uses `registerSingleton` like all other use cases.
+
+  ### 7. Continue-on-error for feature creation
+
+  If `CreateFeatureUseCase` fails for one cluster, the remaining clusters are still
+  processed. Failures are collected and reported in the summary. This matches NFR-2's
+  requirement for graceful error handling.
+
+  ## Implementation Strategy
+
+  The phases are ordered by dependency: types first (everything depends on them),
+  then infrastructure (the data source), then the use case (consumes the data source),
+  then DI + CLI (integrates everything). Each phase builds on the previous one with
+  clear boundaries.
+
+  Phase 1 is pure type definitions — no logic, just contracts. This enables TDD from
+  phase 2 onward: tests can import the types and mock the interfaces.
+
+  Phase 2 adds the concrete data source. Tests mock `execFile` (already proven in
+  `github-issue.service.test.ts`).
+
+  Phase 3 builds the core business logic. Tests mock both `IExternalIssueFetcher` and
+  `IStructuredAgentCaller` (following `metadata-generator.test.ts` pattern).
+
+  Phase 4 wires everything together and adds the user-facing command. The CLI command
+  is tested indirectly via integration tests (existing pattern) — unit tests focus on
+  the use case and infrastructure layers.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | LLM returns malformed clusters (missing issues, duplicates) | Validate that every fetched issue number appears in exactly one cluster. If validation fails, surface a clear error and suggest re-running |
+  | gh CLI not installed or not authenticated | Reuse existing IssueServiceUnavailableError and IssueAuthenticationError with actionable messages (install URL, `gh auth login` instructions) |
+  | Large issue backlogs exceed token limits | Truncate issue bodies to ~200 chars and enforce --limit (default 100). The prompt stays within context limits |
+  | User cancels mid-review (Ctrl+C) | Catch @inquirer/prompts ExitPromptError. Only clusters explicitly approved before cancellation are processed (NFR-7) |
+  | CreateFeatureUseCase fails for a cluster | Continue-on-error: collect failures, process remaining clusters, report all failures in summary |
+  | ExternalIssue interface change breaks existing code | The `number` field is optional, so existing callers (fetchGitHubIssue, fetchJiraTicket) are unaffected |
+  | GitHubIssueFetcher Pick type needs updating | Update the Pick type union to include `listIssues` alongside `fetchGitHubIssue` |
+
+  ---
+
+  _Generated by planning phase — proceed with task breakdown_

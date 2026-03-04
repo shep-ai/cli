@@ -1,0 +1,365 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: issue-cluster-triage
+summary: >
+  10 tasks across 4 phases implementing `shep feat triage` — from port interface
+  extension through infrastructure adapter, use case, DI registration, and CLI
+  command with interactive review.
+
+relatedFeatures: []
+technologies:
+  - TypeScript
+  - Commander.js
+  - tsyringe
+  - '@inquirer/prompts'
+  - IStructuredAgentCaller
+  - GitHub CLI gh
+  - Vitest
+relatedLinks: []
+
+tasks:
+  # ── Phase 1: Port interface extension and types ──────────────────────
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Add optional number field and ListIssuesOptions to IExternalIssueFetcher'
+    description: >
+      Extend the ExternalIssue interface with an optional `number` field.
+      Add the ListIssuesOptions interface (repo?, labels?, limit?) and the
+      listIssues() method signature to IExternalIssueFetcher. This is the
+      foundation that all subsequent tasks build on.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'ExternalIssue has an optional `number?: number` field'
+      - 'ListIssuesOptions interface exists with repo?, labels?, limit? fields'
+      - 'IExternalIssueFetcher has a listIssues(options?: ListIssuesOptions) method returning Promise<ExternalIssue[]>'
+      - 'Existing fetchGitHubIssue and fetchJiraTicket signatures are unchanged'
+      - 'pnpm build compiles without errors'
+    tdd:
+      red:
+        - 'Verify that the existing github-issue.service.test.ts still passes (no regressions)'
+        - 'Write a type-level test: assign a mock object implementing the updated IExternalIssueFetcher to verify listIssues exists in the type'
+      green:
+        - 'Add `number?: number` to ExternalIssue interface'
+        - 'Add ListIssuesOptions interface to the same file'
+        - 'Add listIssues(options?: ListIssuesOptions): Promise<ExternalIssue[]> to IExternalIssueFetcher'
+      refactor:
+        - 'Ensure JSDoc comments on the new method and interface match the style of existing JSDoc in the file'
+    estimatedEffort: '30min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Create triage use case types (IssueCluster, TriageIssuesInput, TriageIssuesResult)'
+    description: >
+      Define the transient TypeScript interfaces used by TriageIssuesUseCase.
+      Co-located in packages/core/src/application/use-cases/triage/types.ts,
+      following the create-feature/types.ts pattern. These are not persisted —
+      they exist only during a single triage command execution.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'IssueCluster has name (string), description (string), issueNumbers (number[]) fields'
+      - 'TriageIssuesInput has repositoryPath (string), repo? (string), labels? (string[]), limit? (number) fields'
+      - 'TriageIssuesResult has issues (ExternalIssue[]) and clusters (IssueCluster[]) fields'
+      - 'All types are exported from types.ts'
+      - 'File compiles without errors'
+    tdd:
+      red:
+        - 'Write a type-level test: create mock objects conforming to IssueCluster, TriageIssuesInput, and TriageIssuesResult — should fail because types do not exist yet'
+      green:
+        - 'Create packages/core/src/application/use-cases/triage/types.ts with all three interfaces'
+      refactor:
+        - 'Review field names for consistency with existing types (e.g., CreateFeatureInput uses repositoryPath)'
+    estimatedEffort: '20min'
+
+  # ── Phase 2: Infrastructure adapter ─────────────────────────────────
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Write unit tests for GitHubIssueFetcher.listIssues()'
+    description: >
+      Write RED tests for the listIssues() method in the existing
+      GitHubIssueFetcher. Tests go in a new test file
+      tests/unit/infrastructure/services/external/github-issue-list.test.ts.
+      Mock execFile following the pattern in github-issue.service.test.ts.
+      Cover: successful fetch, label filtering, repo override, limit option,
+      empty results, gh CLI not installed, and authentication errors.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Test file exists at tests/unit/infrastructure/services/external/github-issue-list.test.ts'
+      - 'Tests cover: successful fetch with multiple issues, label filtering via --label flags, --repo override, --limit option, empty result set, ENOENT error (gh not installed), API error handling'
+      - 'All tests fail (RED) because listIssues() is not implemented yet'
+    tdd:
+      red:
+        - 'Write test: should fetch issues with default options (no filters)'
+        - 'Write test: should pass --label flags for each provided label'
+        - 'Write test: should pass --repo flag when repo option is provided'
+        - 'Write test: should pass --limit flag (default 100)'
+        - 'Write test: should return empty array when no issues exist'
+        - 'Write test: should throw IssueServiceUnavailableError when gh is not installed'
+        - 'Write test: should populate number field on returned ExternalIssue objects'
+        - 'Write test: should handle null body gracefully'
+      green:
+        - 'Deferred to task-4'
+      refactor:
+        - 'Deferred to task-4'
+    estimatedEffort: '45min'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Implement GitHubIssueFetcher.listIssues()'
+    description: >
+      Add the listIssues() method to GitHubIssueFetcher. Constructs gh CLI
+      arguments: `gh issue list --json number,title,body,labels,url --state open
+      --limit N`. Adds --label for each label filter and --repo if specified.
+      Parses JSON stdout into ExternalIssue[] with the number field populated.
+      Updates the `implements Pick<...>` to include 'listIssues'.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'GitHubIssueFetcher.listIssues(options?) is implemented'
+      - 'The Pick<IExternalIssueFetcher, ...> type includes listIssues'
+      - 'All tests from task-3 pass (GREEN)'
+      - 'Default limit is 100 when not specified'
+      - 'Error handling follows the same pattern as fetchGitHubIssue (ENOENT, API errors)'
+    tdd:
+      red:
+        - 'All tests from task-3 are still failing'
+      green:
+        - 'Implement listIssues() using execFile("gh", [...args], { timeout: 30_000 })'
+        - 'Parse JSON stdout array into ExternalIssue[] objects'
+        - 'Map labels from {name: string}[] to string[]'
+        - 'Handle null body as empty string'
+        - 'Update Pick type to include listIssues'
+      refactor:
+        - 'Extract shared error handling logic between fetchGitHubIssue and listIssues into a private helper if duplication is significant'
+        - 'Ensure consistent timeout and error message patterns'
+    estimatedEffort: '45min'
+
+  # ── Phase 3: Application use case ───────────────────────────────────
+
+  - id: task-5
+    phaseId: phase-3
+    title: 'Write unit tests for TriageIssuesUseCase'
+    description: >
+      Write RED tests for the TriageIssuesUseCase. Tests go in
+      tests/unit/application/use-cases/triage/triage-issues.use-case.test.ts.
+      Mock IExternalIssueFetcher and IStructuredAgentCaller following the
+      metadata-generator.test.ts pattern. Cover: successful triage pipeline,
+      empty issue list, AI call failure, cluster validation (all issues assigned),
+      and input forwarding (labels, limit, repo passed to listIssues).
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'Test file exists at tests/unit/application/use-cases/triage/triage-issues.use-case.test.ts'
+      - 'Tests mock IExternalIssueFetcher.listIssues and IStructuredAgentCaller.call'
+      - 'Tests cover: successful pipeline (issues fetched + clustered), empty issues returns empty clusters, AI failure propagates, input options forwarded to listIssues, returned result contains both issues and clusters'
+      - 'All tests fail (RED) because TriageIssuesUseCase does not exist yet'
+    tdd:
+      red:
+        - 'Write test: should fetch issues and return AI-generated clusters'
+        - 'Write test: should return empty clusters when no issues are found'
+        - 'Write test: should forward repo, labels, and limit options to listIssues'
+        - 'Write test: should propagate IStructuredAgentCaller errors'
+        - 'Write test: should pass correct JSON schema to IStructuredAgentCaller'
+        - 'Write test: should include issue numbers and titles in the AI prompt'
+        - 'Write test: should truncate long issue bodies in the prompt'
+      green:
+        - 'Deferred to task-6'
+      refactor:
+        - 'Deferred to task-6'
+    estimatedEffort: '45min'
+
+  - id: task-6
+    phaseId: phase-3
+    title: 'Implement TriageIssuesUseCase'
+    description: >
+      Create the TriageIssuesUseCase at
+      packages/core/src/application/use-cases/triage/triage-issues.use-case.ts.
+      Injectable via tsyringe with @inject tokens for IExternalIssueFetcher and
+      IStructuredAgentCaller. The execute() method: (1) calls listIssues() with
+      forwarded options, (2) returns early if no issues, (3) builds a prompt with
+      issue context, (4) calls structuredCaller.call() with a clustering schema,
+      (5) returns TriageIssuesResult with issues and clusters.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'TriageIssuesUseCase class exists with @injectable() decorator'
+      - 'Constructor uses @inject("IExternalIssueFetcher") and @inject("IStructuredAgentCaller")'
+      - 'execute(input: TriageIssuesInput) returns Promise<TriageIssuesResult>'
+      - 'All tests from task-5 pass (GREEN)'
+      - 'Issue bodies are truncated to ~200 chars in the prompt'
+      - 'JSON schema defines clusters as array of {name, description, issueNumbers}'
+      - 'Prompt instructs LLM to assign every issue to exactly one cluster'
+    tdd:
+      red:
+        - 'All tests from task-5 are still failing'
+      green:
+        - 'Create triage-issues.use-case.ts with @injectable class'
+        - 'Implement execute() with fetch → build prompt → call AI → return result'
+        - 'Define CLUSTER_SCHEMA const for the JSON schema'
+        - 'Truncate issue bodies to 200 chars in prompt construction'
+      refactor:
+        - 'Extract prompt building into a private method for clarity'
+        - 'Ensure the schema const is well-documented'
+    estimatedEffort: '1h'
+
+  # ── Phase 4: DI registration and CLI command ────────────────────────
+
+  - id: task-7
+    phaseId: phase-4
+    title: 'Register IExternalIssueFetcher and TriageIssuesUseCase in DI container'
+    description: >
+      Add DI registrations in container.ts. Register IExternalIssueFetcher with
+      a string token using useFactory that resolves ExecFunction and creates
+      GitHubIssueFetcher. Register TriageIssuesUseCase as a singleton. Add a
+      string-token alias for TriageIssuesUseCase (for web route compatibility).
+    state: Todo
+    dependencies:
+      - task-4
+      - task-6
+    acceptanceCriteria:
+      - 'container.ts registers IExternalIssueFetcher with string token and factory'
+      - 'container.ts registers TriageIssuesUseCase as singleton'
+      - 'GitHubIssueFetcher receives the ExecFunction instance from the container'
+      - 'pnpm build compiles without errors'
+      - 'Existing tests still pass (no DI regressions)'
+    tdd:
+      red:
+        - 'Verify that resolving IExternalIssueFetcher from the container currently throws (not registered)'
+      green:
+        - 'Add IExternalIssueFetcher factory registration using ExecFunction token'
+        - 'Add TriageIssuesUseCase singleton registration'
+        - 'Add string-token alias for TriageIssuesUseCase'
+        - 'Add necessary imports for GitHubIssueFetcher and TriageIssuesUseCase'
+      refactor:
+        - 'Ensure registration order follows the existing pattern in container.ts (services before use cases)'
+    estimatedEffort: '30min'
+
+  - id: task-8
+    phaseId: phase-4
+    title: 'Create triage.command.ts with interactive cluster review'
+    description: >
+      Create the CLI command at src/presentation/cli/commands/feat/triage.command.ts.
+      Exports createTriageCommand() returning a Commander Command. Parses options:
+      --repo, --label (repeatable), --limit (default 100), --yes/-y. Resolves
+      TriageIssuesUseCase from the container, calls execute(), then enters the
+      interactive review loop using @inquirer/prompts select (approve/skip/edit)
+      and input (edit name/description). For each approved cluster, calls
+      CreateFeatureUseCase with the cluster description and issue numbers as
+      userInput. Handles Ctrl+C via ExitPromptError catch. Prints summary at end.
+    state: Todo
+    dependencies:
+      - task-7
+    acceptanceCriteria:
+      - 'triage.command.ts exists and exports createTriageCommand()'
+      - 'Command registered as "triage" with description'
+      - 'Options: --repo <owner/repo>, --label <label> (repeatable), --limit <n> (default 100), --yes/-y'
+      - 'Resolves TriageIssuesUseCase and CreateFeatureUseCase from container'
+      - 'Uses spinner() for fetch and clustering operations'
+      - 'Presents each cluster with select prompt: approve / skip / edit'
+      - '--yes flag auto-approves all clusters without prompts'
+      - 'For each approved cluster, calls CreateFeatureUseCase.execute() with cluster description + issue numbers'
+      - 'Handles Ctrl+C gracefully — exits without creating partial features'
+      - 'Prints summary: issues fetched, clusters proposed/approved, features created, skipped clusters'
+      - 'Error handling: gh not installed, no issues found, AI failure, per-cluster feature creation failure'
+    tdd:
+      red:
+        - 'Write test: createTriageCommand() returns a Command with name "triage"'
+        - 'Write test: command has --repo, --label, --limit, --yes options'
+      green:
+        - 'Create triage.command.ts with full implementation'
+        - 'Implement interactive review loop with @inquirer/prompts'
+        - 'Implement continue-on-error for feature creation with failure collection'
+        - 'Implement summary output using messages and colors helpers'
+      refactor:
+        - 'Extract cluster display formatting into a helper function'
+        - 'Ensure consistent use of messages.error, messages.success, messages.info'
+    estimatedEffort: '2h'
+
+  - id: task-9
+    phaseId: phase-4
+    title: 'Register triage command in feat command group'
+    description: >
+      Import createTriageCommand from triage.command.ts and add it to the feat
+      command group in src/presentation/cli/commands/feat/index.ts via
+      .addCommand(createTriageCommand()). Update the file header comment to
+      include triage in the usage examples.
+    state: Todo
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - 'feat/index.ts imports createTriageCommand from triage.command.js'
+      - 'createFeatCommand() includes .addCommand(createTriageCommand())'
+      - 'Running `pnpm dev:cli -- feat --help` shows triage as a subcommand'
+      - 'pnpm build compiles without errors'
+    tdd:
+      red:
+        - 'Verify that `shep feat triage --help` currently fails (command not registered)'
+      green:
+        - 'Add import for createTriageCommand'
+        - 'Add .addCommand(createTriageCommand()) to createFeatCommand()'
+        - 'Update header comment to include triage usage'
+      refactor:
+        - 'Ensure import ordering follows the existing alphabetical/logical pattern in the file'
+    estimatedEffort: '15min'
+
+  - id: task-10
+    phaseId: phase-4
+    title: 'End-to-end verification: build, test, validate'
+    description: >
+      Run pnpm build, pnpm test, and pnpm validate to ensure the full
+      implementation compiles, all tests pass (existing + new), and there are
+      no lint or type errors. Fix any issues found.
+    state: Todo
+    dependencies:
+      - task-9
+    acceptanceCriteria:
+      - 'pnpm build completes with zero errors'
+      - 'pnpm test passes with zero failures (all existing + new tests)'
+      - 'pnpm validate passes (lint + format + typecheck + tsp)'
+      - 'No regressions in existing functionality'
+    tdd: null
+    estimatedEffort: '30min'
+
+totalEstimate: '7h'
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation is broken into 10 tasks across 4 phases, following strict
+  TDD cycles (RED → GREEN → REFACTOR) for all code tasks.
+
+  First, the application-layer contracts are established: the IExternalIssueFetcher
+  port interface is extended with listIssues() and the transient cluster types are
+  defined. This gives all subsequent phases stable type definitions to build against.
+
+  Next, the infrastructure adapter (GitHubIssueFetcher.listIssues) is built with
+  tests written first against the mocked execFile — the same proven pattern from
+  the existing github-issue.service.test.ts.
+
+  Then the core business logic is implemented in TriageIssuesUseCase, which
+  orchestrates fetch → cluster via IStructuredAgentCaller. Tests mock both
+  dependencies following the MetadataGenerator test pattern. The use case returns
+  clusters to the caller without handling I/O.
+
+  Finally, DI wiring connects the pieces, the CLI command adds the interactive
+  review loop via @inquirer/prompts, and the triage command is registered in the
+  feat command group. A full build/test/validate cycle confirms zero regressions.
+
+  The task ordering ensures each piece is testable in isolation before integration.
+  Tests are always written before implementation (RED phase), keeping TDD discipline
+  throughout.
+
+  ---
+
+  _Task breakdown for implementation tracking_
