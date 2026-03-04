@@ -1,0 +1,502 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: batch-branch-rebase
+summary: >
+  Technical research for implementing the batch branch rebase CLI command. Key decisions include
+  adding new IGitPrService methods (rebaseBranch, mergeLocalBranch) rather than reusing the
+  existing mergeBranch (which auto-pushes), using a result-object pattern for per-feature
+  status tracking, and leveraging temporary worktrees for branch-only features. All patterns
+  align with existing Clean Architecture conventions in the codebase.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - TypeScript
+  - commander.js (CLI framework)
+  - tsyringe (dependency injection)
+  - git (rebase/merge/fetch operations)
+  - SQLite (feature persistence via IFeatureRepository)
+
+relatedLinks: []
+
+# Structured technology decisions
+decisions:
+  - title: 'Git merge strategy: new mergeLocalBranch method vs reuse existing mergeBranch'
+    chosen: 'Add new mergeLocalBranch() method to IGitPrService that does NOT push'
+    rejected:
+      - >
+        Reuse existing mergeBranch() — Rejected because the current implementation at
+        git-pr.service.ts:192-200 calls `git push` after merge. The spec explicitly
+        requires NFR-7 (no remote side effects beyond git fetch), so we cannot reuse it.
+        Modifying the existing method to conditionally skip push would break the existing
+        callers that depend on the push behavior.
+      - >
+        Shell out directly from the use case — Rejected because it violates Clean Architecture
+        (NFR-3, NFR-4). The use case must depend only on port interfaces, not on ExecFunction.
+    rationale: >
+      The existing mergeBranch() at git-pr.service.ts:192 performs checkout + merge + push.
+      The batch rebase feature requires merge WITHOUT push (NFR-7). Adding a separate
+      mergeLocalBranch(cwd, source) method that performs only `git merge <source>` (no checkout,
+      no push) keeps the existing API contract intact and follows the interface segregation
+      principle. The use case operates within a worktree already checked out to the correct
+      branch, so no checkout step is needed either.
+
+  - title: 'Rebase implementation: new rebaseBranch method on IGitPrService'
+    chosen: 'Add rebaseBranch(cwd, onto) to IGitPrService for git rebase operations'
+    rejected:
+      - >
+        Add rebase to IWorktreeService — Rejected because worktree service is for worktree
+        lifecycle management (create/remove/list), not git branch operations. Rebase is a
+        branch operation that belongs with other branch operations in IGitPrService.
+      - >
+        Create a separate IBranchUpdateService interface — Rejected as over-engineering.
+        IGitPrService already handles branch operations (merge, push, delete). Adding rebase
+        there is a natural extension. A new interface would fragment related operations across
+        two service ports.
+    rationale: >
+      IGitPrService already contains mergeBranch, push, deleteBranch, and other branch
+      operations. Adding rebaseBranch follows the existing pattern. The method signature
+      rebaseBranch(cwd: string, onto: string): Promise<void> mirrors the simplicity of the
+      merge method. Implementation uses `git rebase <onto>` which rebase the current branch
+      onto the specified branch. Error handling uses the existing parseGitError() which already
+      detects conflict messages via GitPrErrorCode.MERGE_CONFLICT.
+
+  - title: 'Conflict abort: how to abort failed merge/rebase'
+    chosen: 'Add mergeAbort(cwd) and rebaseAbort(cwd) methods to IGitPrService'
+    rejected:
+      - >
+        Let the use case call ExecFunction directly for abort — Rejected because it violates
+        Clean Architecture. The use case must not depend on ExecFunction directly (NFR-3, NFR-4).
+      - >
+        Catch and auto-abort within mergeLocalBranch/rebaseBranch — Rejected because the caller
+        needs to know the operation failed (to record the status), and auto-abort within the
+        method would hide the failure. The use case needs to explicitly call abort after catching
+        the conflict error.
+    rationale: >
+      When merge/rebase fails with conflicts, the working directory is left in an intermediate
+      state. The use case needs to abort (`git merge --abort` / `git rebase --abort`) before
+      proceeding to the next feature. Adding explicit abort methods keeps the service interface
+      clean and testable, and follows the same pattern as the existing method granularity.
+
+  - title: 'Use case result type: how to represent per-feature outcomes'
+    chosen: 'Return a typed result array with status enum (success/skipped/failed) and reason string'
+    rejected:
+      - >
+        Throw on first failure — Rejected because the spec requires abort-and-continue semantics.
+        The whole point is batch processing where one failure does not block others.
+      - >
+        Use event emitter pattern for streaming results — Rejected as over-engineering. The
+        features are processed sequentially, and the CLI command can just await the full result
+        array. An event emitter adds complexity without benefit for a synchronous iteration.
+    rationale: >
+      A result array with typed status per feature is the simplest approach that satisfies all
+      requirements. The use case returns BatchRebaseResult[] where each entry has featureId,
+      featureName, branch, status (success | skipped | failed), and an optional reason string.
+      The CLI command maps this directly to renderListView() rows. The aggregate summary
+      (N succeeded, N skipped, N failed) is a simple reduce over the array.
+
+  - title: 'Worktree handling for branch-only features'
+    chosen: 'Create temporary worktree, perform operation, remove worktree in finally block'
+    rejected:
+      - >
+        Skip features without worktrees — Rejected because the spec explicitly requires all
+        features to be updated (open question 5 resolved to "use worktree if available, temp
+        worktree as fallback").
+      - >
+        Operate in main repo directory by checking out branch — Rejected because it disrupts
+        the user's current working state. If the user is on a branch with uncommitted changes,
+        checkout would fail or require stashing.
+    rationale: >
+      IWorktreeService.create() already supports creating worktrees at arbitrary paths with
+      existing branches. For features without worktrees, the use case creates a temporary
+      worktree (in the .shep/.tmp/ directory), performs the merge/rebase there, and removes
+      it in a finally block. This leverages existing infrastructure and keeps the main repo
+      working directory untouched.
+
+  - title: 'Fetch strategy: how and when to fetch remote'
+    chosen: 'Single git fetch origin at the start via ExecFunction injected into the use case'
+    rejected:
+      - >
+        Fetch per-feature before each merge — Rejected because it's wasteful. A single fetch
+        at the start gets all remote refs. Per-feature fetch would multiply network calls by
+        the number of features.
+      - >
+        Add a fetch method to IGitPrService — This is actually a reasonable option, but since
+        fetch is a simple one-liner and the use case already needs the repo path context, adding
+        it as a pass-through on the service interface adds indirection without clear benefit.
+        However, for testability, we WILL add a fetchOrigin(cwd) method to IGitPrService to
+        keep the use case free of direct ExecFunction dependency.
+    rationale: >
+      Adding fetchOrigin(cwd: string) to IGitPrService is the cleanest approach. This keeps
+      the use case decoupled from ExecFunction and allows mocking in tests. The implementation
+      is simply `git fetch origin`. Placing it on IGitPrService alongside other remote operations
+      (push, hasRemote) is a natural fit.
+
+  - title: 'CLI command structure and option design'
+    chosen: 'Factory function pattern with --strategy and --lifecycle options plus variadic featureIds argument'
+    rejected:
+      - >
+        Interactive wizard with prompts — Rejected because the command should work in
+        non-interactive/CI environments. The spec does not call for interactive prompts.
+      - >
+        Subcommands per strategy (shep feat rebase-merge, shep feat rebase-rebase) — Rejected
+        as unintuitive naming. A single command with a --strategy flag is cleaner and follows
+        the existing option pattern in other commands.
+    rationale: >
+      Following the existing command factory pattern (createLsCommand, createDelCommand, etc.),
+      the new createRebaseCommand() exports a factory that returns a Commander.js Command
+      instance. Options follow existing conventions: short + long flags (-s/--strategy,
+      -l/--lifecycle), variadic positional argument for feature IDs. The command resolves
+      BatchRebaseFeaturesUseCase from the DI container, same as all other feat commands.
+
+  - title: 'Progress reporting during batch execution'
+    chosen: 'Use existing CLI messages helper for per-feature progress lines during execution'
+    rejected:
+      - >
+        Use a progress bar (e.g., cli-progress) — Rejected because progress bars are better
+        for known-duration tasks. Git operations per feature have unpredictable duration.
+        A simple "Processing feature N/M: name..." line is more informative.
+      - >
+        Silent execution with only the final summary — Rejected because NFR-6 requires
+        real-time progress indication. The user needs to know the command is working,
+        especially for large batches.
+    rationale: >
+      The existing `messages` UI helper (from src/presentation/cli/ui/) provides info(),
+      success(), warning(), and error() methods for formatted console output. Using
+      messages.info() for "Processing feature N/M: name..." during iteration, followed by
+      renderListView() for the final summary table, follows the established UI patterns.
+      No new dependencies needed.
+
+# Open questions (resolved during research)
+openQuestions:
+  - question: >
+      Should the new IGitPrService methods (mergeLocalBranch, rebaseBranch, mergeAbort,
+      rebaseAbort, fetchOrigin) be added to the existing interface or split into a new
+      interface?
+    resolved: true
+    options:
+      - option: 'Extend existing IGitPrService interface'
+        description: >
+          Add all new methods to the existing IGitPrService. This keeps all git branch/merge
+          operations in one place and follows the existing pattern. The interface is already
+          15+ methods and these additions are thematically consistent.
+        selected: true
+      - option: 'Create a new IBranchUpdateService interface'
+        description: >
+          Split the new methods into a separate interface for branch update operations.
+          This would provide better interface segregation but introduces a new service,
+          a new DI token, and fragments related operations.
+        selected: false
+      - option: 'Create a new IBatchGitService interface'
+        description: >
+          Create a dedicated interface for batch git operations including fetch, local merge,
+          rebase, and abort. Would colocate batch-specific operations but most methods are
+          general-purpose git operations not specific to batching.
+        selected: false
+    selectionRationale: >
+      IGitPrService already contains mergeBranch, push, deleteBranch, getDefaultBranch,
+      hasRemote, and hasUncommittedChanges. The new methods (mergeLocalBranch, rebaseBranch,
+      mergeAbort, rebaseAbort, fetchOrigin) are all standard git operations that fit
+      thematically. Creating a separate interface would fragment operations that share the
+      same underlying ExecFunction dependency and error handling (parseGitError). The cost
+      of a slightly larger interface is far lower than the cost of maintaining a separate
+      service with its own DI registration.
+
+  - question: >
+      How should the temporary worktree path be computed for branch-only features?
+    resolved: true
+    options:
+      - option: 'Use IWorktreeService.getWorktreePath() with a .tmp suffix'
+        description: >
+          Compute the path using the existing getWorktreePath() convention and append -tmp
+          to distinguish from permanent worktrees. This reuses the hash-based path computation
+          and is discoverable.
+        selected: false
+      - option: 'Use a fixed .shep/.tmp/<feature-id> directory'
+        description: >
+          Place temporary worktrees under the repository .shep/.tmp/ directory, named by
+          feature ID. This clearly separates temp worktrees from permanent ones and makes
+          cleanup straightforward.
+        selected: false
+      - option: 'Use os.tmpdir() with a unique prefix'
+        description: >
+          Use the OS temp directory (e.g., /tmp/shep-rebase-<uuid>) for temporary worktrees.
+          Auto-cleaned on reboot and does not pollute the repo directory. The worktree is
+          only needed for the duration of the merge/rebase.
+        selected: true
+    selectionRationale: >
+      The temporary worktree is only needed for the duration of a single merge/rebase
+      operation (seconds at most). Using os.tmpdir() avoids polluting the repository directory
+      structure, is automatically cleaned on OS reboot if cleanup fails, and uses a standard
+      Node.js API. The path can be generated with path.join(os.tmpdir(), `shep-rebase-${featureId}`)
+      for uniqueness. Cleanup happens in a finally block via IWorktreeService.remove().
+
+  - question: >
+      Should the use case accept a callback or return results for progress reporting?
+    resolved: true
+    options:
+      - option: 'Accept an onProgress callback parameter'
+        description: >
+          The use case execute() method accepts an optional onProgress callback that is
+          invoked for each feature as it starts processing. This allows the CLI layer to
+          display progress without the use case knowing about console output.
+        selected: true
+      - option: 'Return an async generator yielding per-feature results'
+        description: >
+          Use async generator (async function*) to yield results as each feature completes.
+          More idiomatic for streaming but harder to test and doesn't match the existing
+          use case pattern of returning a single result from execute().
+        selected: false
+      - option: 'Emit events via EventEmitter'
+        description: >
+          The use case extends EventEmitter and emits progress events. Adds a Node.js-specific
+          dependency to the application layer and doesn't match the existing use case pattern.
+        selected: false
+    selectionRationale: >
+      A callback parameter is the simplest approach that cleanly separates concerns. The use
+      case calls onProgress({ featureIndex, totalFeatures, featureName }) before processing
+      each feature. The CLI command passes a callback that calls messages.info(). This follows
+      the Dependency Inversion Principle — the use case defines what it needs (a callback shape)
+      and the presentation layer provides the implementation. Easy to mock in tests.
+
+# Markdown content (the full research document)
+content: |
+  ## Technology Decisions
+
+  ### 1. Git merge strategy: new mergeLocalBranch vs reuse existing mergeBranch
+
+  **Chosen:** Add new `mergeLocalBranch(cwd, source)` method to `IGitPrService` that merges
+  without pushing.
+
+  **Rejected:**
+  - Reuse existing `mergeBranch()` — The current implementation (git-pr.service.ts:192-200)
+    performs `git checkout target && git merge source && git push`. The auto-push violates
+    NFR-7 (no remote side effects). Cannot modify it without breaking existing callers.
+  - Shell out directly from use case — Violates Clean Architecture (NFR-3, NFR-4).
+
+  **Rationale:** The new method performs only `git merge <source>` in the current working
+  directory. No checkout (the worktree is already on the correct branch) and no push. This
+  preserves the existing `mergeBranch()` contract while providing the batch-safe variant.
+
+  ### 2. Rebase implementation via new rebaseBranch method
+
+  **Chosen:** Add `rebaseBranch(cwd, onto)` to `IGitPrService`.
+
+  **Rejected:**
+  - Add to `IWorktreeService` — Worktree service manages worktree lifecycle, not branch ops.
+  - Create `IBranchUpdateService` — Over-engineering; fragments related operations.
+
+  **Rationale:** `IGitPrService` already contains `mergeBranch`, `push`, `deleteBranch`.
+  Adding `rebaseBranch` is a natural extension. Implementation: `git rebase <onto>`.
+
+  ### 3. Conflict abort via explicit abort methods
+
+  **Chosen:** Add `mergeAbort(cwd)` and `rebaseAbort(cwd)` to `IGitPrService`.
+
+  **Rejected:**
+  - Use case calls ExecFunction directly — Violates Clean Architecture.
+  - Auto-abort inside merge/rebase methods — Hides the failure from the caller.
+
+  **Rationale:** The use case catches `MERGE_CONFLICT` errors, calls the appropriate abort
+  method, records the failure, and continues to the next feature.
+
+  ### 4. Result type: typed result array
+
+  **Chosen:** Return `BatchRebaseResult[]` with status enum and reason string.
+
+  **Rejected:**
+  - Throw on first failure — Breaks batch semantics.
+  - Event emitter — Over-engineering for sequential processing.
+
+  **Rationale:** Simple array of results maps directly to `renderListView()` rows.
+
+  ### 5. Worktree handling for branch-only features
+
+  **Chosen:** Create temporary worktree in `os.tmpdir()`, operate, cleanup in finally block.
+
+  **Rejected:**
+  - Skip features without worktrees — Spec requires all features updated.
+  - Operate in main repo directory — Disrupts user's working state.
+
+  **Rationale:** `IWorktreeService.create()` supports creating worktrees with existing branches.
+  Temp path: `path.join(os.tmpdir(), 'shep-rebase-<featureId>')`. Cleanup via
+  `IWorktreeService.remove()` in finally block.
+
+  ### 6. Fetch strategy: single fetchOrigin at start
+
+  **Chosen:** Add `fetchOrigin(cwd)` to `IGitPrService`, call once before batch.
+
+  **Rejected:**
+  - Fetch per-feature — Wasteful network multiplication.
+  - Call ExecFunction directly — Violates Clean Architecture.
+
+  **Rationale:** Single fetch gets all remote refs. Adding to `IGitPrService` alongside
+  `hasRemote()` and `push()` is thematically consistent.
+
+  ### 7. CLI command structure
+
+  **Chosen:** Factory function pattern with `--strategy` and `--lifecycle` options.
+
+  **Rejected:**
+  - Interactive wizard — Not CI-friendly.
+  - Subcommands per strategy — Unintuitive naming.
+
+  **Rationale:** Follows `createLsCommand()`, `createDelCommand()` conventions. Options:
+  `--strategy <merge|rebase>` (default: merge), `--lifecycle <phase>`, variadic `[featureIds...]`.
+
+  ### 8. Progress reporting
+
+  **Chosen:** `onProgress` callback parameter on the use case.
+
+  **Rejected:**
+  - Progress bar library — Unpredictable per-feature duration.
+  - Silent with final summary only — Violates NFR-6.
+
+  **Rationale:** Callback keeps use case decoupled from CLI concerns. CLI passes a function
+  that calls `messages.info()`.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | commander.js | CLI command framework | Use (existing) | Already used for all CLI commands. No additional dependency. |
+  | tsyringe | Dependency injection | Use (existing) | Already used for all use case and service DI. No additional dependency. |
+  | chalk/colors | CLI output coloring | Use (existing) | Already wrapped in `src/presentation/cli/ui/colors.ts`. No new dependency. |
+  | cli-progress | Progress bar | Reject | Git operations have unpredictable duration. Simple text progress is better. |
+  | execa | Shell execution | Reject | The codebase uses `promisify(execFile)` as `ExecFunction`. Consistency over convenience. |
+  | simple-git | High-level git API | Reject | The codebase has its own git abstraction via `IGitPrService`. Adding simple-git would create a parallel API. |
+
+  ## Security Considerations
+
+  - **No remote side effects:** The command only performs `git fetch origin` (read-only) and
+    local merge/rebase operations. No branches are pushed. This is a deliberate security
+    boundary to prevent accidental force-pushes, especially with the rebase strategy.
+  - **No credential exposure:** All git operations go through the existing `ExecFunction`
+    which inherits the user's git credential configuration. No credentials are stored or
+    logged by the feature.
+  - **Conflict abort safety:** When conflicts are detected, the operation is immediately
+    aborted (`git merge --abort` / `git rebase --abort`), leaving the working directory
+    clean. This prevents a half-merged state from corrupting the branch.
+  - **Worktree isolation:** Temporary worktrees ensure the main repo working directory is
+    never modified. Even if cleanup fails, the temp worktree is in `os.tmpdir()` and will
+    be cleaned by the OS.
+  - **No database mutations:** The command does not modify feature records in SQLite. It
+    only reads feature data for iteration.
+
+  ## Performance Implications
+
+  - **Sequential processing (NFR-1):** Features are processed one at a time to avoid git
+    lock contention. Git uses lockfiles (.git/index.lock) that prevent concurrent operations
+    in the same repository. Even with worktrees, certain operations may contend on the shared
+    .git directory.
+  - **Single fetch optimization:** One `git fetch origin` at the start avoids N network
+    round-trips. This is the primary optimization for batch operations.
+  - **Worktree creation overhead:** For features without permanent worktrees, creating and
+    removing a temporary worktree adds ~100-200ms per feature (filesystem operations +
+    git worktree add/remove). For 20 features, this is ~2-4 seconds total, well within
+    the 60-second NFR-1 budget.
+  - **No-op merges are fast:** When a branch is already up-to-date, `git merge` returns
+    immediately with "Already up to date." This satisfies NFR-2 (idempotency) with
+    negligible overhead.
+
+  ## Architecture Notes
+
+  ### Fit Within Clean Architecture Layers
+
+  - **Application Layer:** `BatchRebaseFeaturesUseCase` in
+    `packages/core/src/application/use-cases/features/batch-rebase-features.use-case.ts`.
+    Depends on port interfaces: `IFeatureRepository`, `IGitPrService`, `IWorktreeService`.
+  - **Infrastructure Layer:** `GitPrService` gains new methods (mergeLocalBranch, rebaseBranch,
+    mergeAbort, rebaseAbort, fetchOrigin). `WorktreeService` is used as-is.
+  - **Presentation Layer:** `rebase.command.ts` in
+    `src/presentation/cli/commands/feat/rebase.command.ts`. Resolves use case from DI container.
+  - **Domain Layer:** No changes. Existing Feature entity has all needed fields (branch,
+    worktreePath, lifecycle, repositoryPath).
+
+  ### New IGitPrService Methods
+
+  ```typescript
+  // Added to IGitPrService interface:
+  fetchOrigin(cwd: string): Promise<void>;
+  mergeLocalBranch(cwd: string, source: string): Promise<void>;
+  rebaseBranch(cwd: string, onto: string): Promise<void>;
+  mergeAbort(cwd: string): Promise<void>;
+  rebaseAbort(cwd: string): Promise<void>;
+  ```
+
+  ### BatchRebaseFeaturesUseCase Signature
+
+  ```typescript
+  interface BatchRebaseOptions {
+    repositoryPath: string;
+    strategy: 'merge' | 'rebase';
+    lifecycle?: SdlcLifecycle;
+    featureIds?: string[];
+    onProgress?: (info: { index: number; total: number; name: string }) => void;
+  }
+
+  interface BatchRebaseResult {
+    featureId: string;
+    featureName: string;
+    branch: string;
+    status: 'success' | 'skipped' | 'failed';
+    reason?: string;
+  }
+
+  class BatchRebaseFeaturesUseCase {
+    constructor(
+      @inject('IFeatureRepository') featureRepo: IFeatureRepository,
+      @inject('IGitPrService') gitPrService: IGitPrService,
+      @inject('IWorktreeService') worktreeService: IWorktreeService,
+    ) {}
+
+    async execute(options: BatchRebaseOptions): Promise<BatchRebaseResult[]>;
+  }
+  ```
+
+  ### DI Registration
+
+  Add to `packages/core/src/infrastructure/di/container.ts`:
+  ```typescript
+  container.registerSingleton(BatchRebaseFeaturesUseCase);
+  ```
+
+  ### CLI Command Registration
+
+  Add to `src/presentation/cli/commands/feat/index.ts`:
+  ```typescript
+  import { createRebaseCommand } from './rebase.command.js';
+  // In createFeatCommand():
+  .addCommand(createRebaseCommand())
+  ```
+
+  ### Existing mergeBranch Implementation (Critical Finding)
+
+  The existing `mergeBranch()` at git-pr.service.ts:192-200:
+  ```typescript
+  async mergeBranch(cwd, sourceBranch, targetBranch) {
+    await this.execFile('git', ['checkout', targetBranch], { cwd });
+    await this.execFile('git', ['merge', sourceBranch], { cwd });
+    await this.execFile('git', ['push'], { cwd });  // <-- auto-push!
+  }
+  ```
+  This auto-push is why we CANNOT reuse it. We need `mergeLocalBranch()` that does merge-only.
+
+  ### Error Flow
+
+  1. Use case catches `GitPrError` with code `MERGE_CONFLICT` from merge/rebase
+  2. Calls `mergeAbort(cwd)` or `rebaseAbort(cwd)` to clean up
+  3. Records result as `{ status: 'failed', reason: 'merge conflicts' }`
+  4. Catches any other Error as unexpected failure
+  5. Records result as `{ status: 'failed', reason: error.message }`
+  6. Continues to next feature in both cases (NFR-5)
+
+  ### Worktree Resolution Flow
+
+  For each feature:
+  1. If `feature.worktreePath` exists and is a directory on disk → use it
+  2. Else → create temp worktree via `worktreeService.create(repoPath, feature.branch, tempPath)`
+  3. Perform merge/rebase in the resolved working directory
+  4. If temp worktree was created → remove it in finally block
