@@ -8,11 +8,11 @@
   "packageManager": "brew",
   "commands": {
     "darwin": "brew install --cask alacritty",
-    "linux": "apt install -y alacritty"
+    "linux": "sudo apt-get update && sudo apt-get install -y alacritty"
   },
   "timeout": 300000,
   "documentationUrl": "https://alacritty.org/",
   "verifyCommand": "alacritty --version",
-  "autoInstall": false,
+  "autoInstall": true,
   "openDirectory": "alacritty --working-directory {dir}"
 }

@@ -8,7 +8,7 @@
   "packageManager": "brew",
   "commands": {
     "darwin": "brew install tmux",
-    "linux": "apt install -y tmux"
+    "linux": "sudo apt-get update && sudo apt-get install -y tmux"
   },
   "timeout": 300000,
   "documentationUrl": "https://github.com/tmux/tmux/wiki",

@@ -8,11 +8,11 @@
   "packageManager": "brew",
   "commands": {
     "darwin": "brew install --cask kitty",
-    "linux": "apt install -y kitty"
+    "linux": "sudo apt-get update && sudo apt-get install -y kitty"
   },
   "timeout": 300000,
   "documentationUrl": "https://sw.kovidgoyal.net/kitty/",
   "verifyCommand": "kitty --version",
-  "autoInstall": false,
+  "autoInstall": true,
   "openDirectory": "kitty --working-directory {dir}"
 }
