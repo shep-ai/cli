@@ -1,0 +1,493 @@
+name: animated-theme-toggler
+summary: >
+  The implementation is a focused, self-contained replacement of the existing
+  ThemeToggle component that inlines the MagicUI AnimatedThemeToggler pattern
+  without introducing any new npm packages. The core change wraps the existing
+  setTheme call inside document.startViewTransition, captures click coordinates
+  as CSS custom properties (--x, --y) to drive a clip-path circular reveal, and
+  adds matching @keyframes to globals.css with a prefers-reduced-motion override.
+  All existing hooks (useTheme, useSoundAction), icons (lucide-react Sun/Moon),
+  and the zero-prop component API are preserved.
+
+relatedFeatures: []
+
+technologies:
+  - React 19 (TypeScript) — 'use client' component
+  - View Transitions API (document.startViewTransition) — browser native, no install
+  - CSS clip-path circle() — circular reveal animation origin
+  - CSS custom properties (--x, --y) — click coordinate injection
+  - Tailwind CSS v4 (CSS-first @theme, @custom-variant dark)
+  - lucide-react (Sun, Moon icons)
+  - shadcn/ui Button (ghost icon variant)
+  - useTheme hook (localStorage + system preference)
+  - useSoundAction hook (toggle-on / toggle-off)
+  - Vitest + @testing-library/react + userEvent
+  - Storybook 8 (mandatory colocated stories)
+  - prefers-reduced-motion media query
+
+relatedLinks:
+  - https://magicui.design/docs/components/animated-theme-toggler
+  - https://developer.mozilla.org/en-US/docs/Web/API/Document/startViewTransition
+  - https://developer.mozilla.org/en-US/docs/Web/CSS/::view-transition-new
+  - https://developer.mozilla.org/en-US/docs/Web/CSS/clip-path
+  - https://developer.mozilla.org/en-US/docs/Web/CSS/@media/prefers-reduced-motion
+  - https://vitest.dev/api/vi.html#vi-stubglobal
+
+decisions:
+  - title: 'View Transition Integration — Where to Wrap startViewTransition'
+    chosen: >
+      Inline in the component's click handler: capture MouseEvent coordinates,
+      set --x/--y on document.documentElement.style, play sound immediately,
+      then call document.startViewTransition(() => setTheme(...)). The entire
+      logic stays in the existing toggleTheme function, now typed as
+      (e: React.MouseEvent<HTMLButtonElement>) => void.
+    rejected:
+      - >
+        Custom hook (e.g. useViewTransitionTheme): Extracts the logic but adds
+        an extra abstraction layer for a single-use component with no other
+        consumers. YAGNI — the component is only used once in app-shell.
+      - >
+        Higher-order wrapper component: Wraps ThemeToggle in a separate
+        component that intercepts clicks and injects the transition. Creates
+        unnecessary component nesting and makes the component tree harder to
+        follow for no benefit given the zero-prop API requirement.
+    rationale: >
+      The existing ThemeToggle.toggleTheme function already encapsulates all
+      theme-switching logic. Extending it inline to accept a MouseEvent and
+      wrap setTheme in startViewTransition is the minimal, correct change.
+      The component remains a single 'use client' file with no new files or
+      hooks. This mirrors the MagicUI reference implementation pattern where
+      the animation logic lives directly in the click handler.
+
+  - title: 'Click Coordinate Injection Mechanism'
+    chosen: >
+      Before calling startViewTransition, write the click coordinates to CSS
+      custom properties directly on the document root:
+      document.documentElement.style.setProperty('--x', e.clientX + 'px')
+      and document.documentElement.style.setProperty('--y', e.clientY + 'px').
+      The @keyframes in globals.css reference these as the clip-path origin.
+    rejected:
+      - >
+        Inline style on a wrapper div: Scopes the CSS variables to the
+        component's DOM subtree, but ::view-transition-new/old pseudo-elements
+        are top-level browser-painted layers outside the component's DOM tree,
+        so scoped CSS vars would not be accessible to the keyframe animation.
+      - >
+        Fixed position fallback (top-right corner, e.g. 100% 0): Simpler to
+        implement but produces a noticeably worse visual since the reveal does
+        not originate from the actual click point. Violates the canonical
+        MagicUI design intent which the user explicitly requested.
+    rationale: >
+      The ::view-transition-new(*) and ::view-transition-old(*) pseudo-elements
+      are rendered by the browser at the document level, not within the React
+      component tree. CSS custom properties on :root / document.documentElement
+      are globally accessible to all selectors including these pseudo-elements.
+      This is the canonical technique used by all documented View Transitions
+      circular-reveal implementations and matches the MagicUI reference code.
+
+  - title: 'CSS Keyframe Design for Circular Reveal in globals.css'
+    chosen: >
+      Add rules to globals.css (outside @theme, compatible with Tailwind v4):
+      ::view-transition-old(*) set to animation: none (hide immediately).
+      ::view-transition-new(*) animate clip-path from circle(0 at var(--x) var(--y))
+      to circle(max(100vw, 100vh) at var(--x) var(--y)) over 400ms ease-in-out.
+      Add a @media (prefers-reduced-motion: reduce) block that sets both
+      pseudo-elements to animation: none.
+    rejected:
+      - >
+        Using the default View Transitions API crossfade (no custom keyframes):
+        Produces a generic opacity crossfade, not the circular reveal animation.
+        This defeats the entire purpose of the feature.
+      - >
+        Injecting keyframes dynamically via JavaScript (e.g. document.styleSheets):
+        More complex, harder to read, harder to test, and unnecessary since
+        globals.css is the established project-wide stylesheet. Tailwind v4
+        CSS-first configuration fully supports plain @keyframes outside @theme.
+    rationale: >
+      globals.css already uses @keyframes for accordion, spinner, and progress
+      animations (visible in the @theme block's --animate-* tokens). Plain
+      @keyframes outside the @theme block are valid in Tailwind v4's CSS-first
+      approach (they are passed through as standard CSS). The ::view-transition-*
+      pseudo-elements are browser-native and require no special Tailwind support.
+      Keeping the keyframes in globals.css co-locates all animation definitions
+      in one place, consistent with the project's existing pattern.
+
+  - title: 'Reduced Motion Handling Strategy'
+    chosen: >
+      Two-layer approach: (1) CSS layer — @media (prefers-reduced-motion: reduce)
+      in globals.css sets animation: none on both ::view-transition-new(*) and
+      ::view-transition-old(*), disabling the clip-path animation. (2) JS layer —
+      in the click handler, check window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      before calling startViewTransition; if true, call setTheme directly
+      (same as the unsupported-browser fallback path). This prevents the
+      animation overhead entirely for motion-sensitive users.
+    rejected:
+      - >
+        CSS-only approach (suppress animation via @media without JS check):
+        The View Transitions API still runs its capture/apply/animate cycle
+        even when the CSS animation is suppressed. Adds unnecessary computational
+        overhead with no visual benefit for reduced-motion users.
+      - >
+        JS-only approach (window.matchMedia check only, no CSS override):
+        Skips startViewTransition but is fragile if matchMedia is unavailable
+        (SSR, certain test environments). No defensive CSS layer if bypassed.
+    rationale: >
+      NFR-8 explicitly requires prefers-reduced-motion support. The two-layer
+      approach is the MDN-recommended pattern and provides defence-in-depth: the
+      JS check eliminates all transition overhead for motion-sensitive users, and
+      the CSS override is a safety net. The fallback code path is DRY — both the
+      unsupported-browser and reduced-motion scenarios call setTheme directly.
+
+  - title: 'Browser Fallback for Missing View Transitions API'
+    chosen: >
+      Guard with if (document.startViewTransition && !prefersReducedMotion).
+      If falsy (Firefox, older browsers), call setTheme(newTheme) directly with
+      no animation. No polyfill, no CSS fallback layer.
+    rejected:
+      - >
+        view-transitions-polyfill npm package: Adds a dependency (violates
+        NFR-1 — no new npm packages) and is overkill for a cosmetic enhancement.
+        The feature works correctly without animation in unsupported browsers.
+      - >
+        CSS opacity fade fallback: Would require adding JS to toggle a class
+        and extra CSS keyframes for a path exercised only in Firefox. The gain
+        is minimal since the existing icon transitions already provide some
+        visual feedback; the added complexity is not justified.
+    rationale: >
+      NFR-1 forbids new npm packages. The feature requirement is an enhancement —
+      the toggle must work correctly in all browsers (FR-4), but the circular
+      animation is a progressive enhancement. Firefox users get a functional,
+      instantly-switching toggle which is the existing behavior. This is the
+      explicit choice documented in the feature spec.
+
+  - title: 'Test Mocking Strategy for document.startViewTransition'
+    chosen: >
+      Use vi.stubGlobal / Object.defineProperty or direct assignment to stub
+      document.startViewTransition as a vi.fn() that immediately invokes its
+      callback. This ensures setTheme is called synchronously within the mock
+      so existing assertions work without async changes. Restore in afterEach
+      via vi.unstubAllGlobals(). A separate test sets document.startViewTransition
+      to undefined to verify the fallback path calls setTheme directly.
+    rejected:
+      - >
+        Object.defineProperty on document (manual, no auto-restore): More verbose
+        and requires manual cleanup. vi.stubGlobal is the idiomatic Vitest pattern
+        and automatically tracked for cleanup via vi.unstubAllGlobals().
+      - >
+        Extracting startViewTransition to a utility module to mock via vi.mock:
+        Adds indirection for a single browser API call. The existing test file
+        mocks hooks with vi.mock; browser globals are the correct domain for
+        vi.stubGlobal.
+    rationale: >
+      The existing test file uses vi.mock for useTheme and useSoundAction —
+      vi.stubGlobal is the natural Vitest companion for browser globals. Invoking
+      the startViewTransition callback synchronously in the mock simplifies
+      assertions and avoids async overhead in otherwise synchronous tests.
+      FR-10 (assert called on click) and FR-11 (fallback path) are both covered
+      cleanly with this approach.
+
+  - title: 'Storybook Story Structure and startViewTransition Mocking'
+    chosen: >
+      Export four named stories: Default, InContext, LightMode, DarkMode.
+      Use a beforeAll/setup decorator to stub document.startViewTransition as
+      a no-op that immediately calls its callback. LightMode and DarkMode stories
+      use className on a wrapper div (class="dark") to force the appropriate
+      theme state. All four stories render without error in the Storybook iframe.
+    rejected:
+      - >
+        Live stories with real startViewTransition (no mock): Storybook 8
+        runs in an iframe; View Transitions API behaviour across iframe boundaries
+        is undefined and produces errors or broken previews in some
+        browser/Storybook version combinations. Risks breaking the Storybook build.
+      - >
+        Two stories only (Default + InContext, no LightMode/DarkMode): Violates
+        FR-12 which explicitly requires LightMode and DarkMode variants. Provides
+        insufficient visual documentation of both toggle states for review.
+    rationale: >
+      CLAUDE.md mandates Storybook stories for every component (commits without
+      stories are rejected). The existing file has Default and InContext; the
+      spec requires LightMode and DarkMode variants. Mocking startViewTransition
+      in stories is consistent with the unit test approach and keeps Storybook
+      stable across browsers and CI environments.
+
+  - title: 'MouseEvent Type for Button onClick Handler'
+    chosen: >
+      Change the Button onClick prop from () => void to
+      (e: React.MouseEvent<HTMLButtonElement>) => void. Read e.clientX and
+      e.clientY for coordinate injection. Keyboard activation (Enter/Space)
+      fires a synthetic click event from the browser with clientX/clientY = 0 —
+      acceptable since the keyboard fallback animates from the origin rather
+      than the button position.
+    rejected:
+      - >
+        Using a ref + getBoundingClientRect() for keyboard activation: Requires
+        a useRef on the button and special keyboard event handling to compute
+        button centre for Enter/Space. Adds complexity for a negligible visual
+        improvement in an edge case (keyboard users triggering a cosmetic animation).
+      - >
+        Separate onKeyDown handler duplicating the toggle logic: Breaks DRY.
+        The Button component already handles keyboard-to-click translation;
+        a single onClick handler with MouseEvent is sufficient to satisfy NFR-3.
+    rationale: >
+      React's synthetic MouseEvent from keyboard activation provides
+      clientX/clientY = 0, resulting in animation from the top-left corner —
+      an acceptable degradation, not a regression. NFR-3 requires keyboard
+      activation to trigger the view transition, and a single
+      React.MouseEvent<HTMLButtonElement> onClick handler satisfies this.
+      The shadcn/ui Button component passes the native event through its onClick prop.
+
+openQuestions:
+  - question: >
+      Should the ::view-transition-old(*) rule hide the old snapshot immediately
+      or fade it out over the animation duration?
+    resolved: true
+    options:
+      - option: 'Immediately hide old snapshot (animation: none on old)'
+        description: >
+          Sets the old page snapshot to be invisible from frame 0. Only the
+          new theme's circular reveal is visible. This is the visual used in
+          the canonical MagicUI reference: the new theme grows in on top of
+          an already-hidden old snapshot, producing a clean reveal without
+          a competing fade.
+        selected: true
+      - option: 'Fade old snapshot out simultaneously (opacity 1 to 0 over 400ms)'
+        description: >
+          The old snapshot fades out at the same time the new snapshot clips in.
+          Creates a blended double-animation effect. Can produce a grey/washed-out
+          middle state as two semi-transparent renders overlap.
+        selected: false
+      - option: 'Keep old snapshot visible until covered (z-index layering)'
+        description: >
+          Old snapshot remains at full opacity; new snapshot expands in clip-path
+          on top. When circle reaches 100%, old content disappears naturally.
+          Requires explicit z-index on both pseudo-elements. More CSS complexity
+          for visually equivalent result.
+        selected: false
+    selectionRationale: >
+      Hiding the old snapshot immediately via animation: none on ::view-transition-old(*)
+      matches the MagicUI reference behaviour and is the simplest CSS rule. The
+      circular reveal feels like the new theme "growing in" which is the intended
+      effect. The z-index layering option is visually equivalent but requires
+      additional CSS; the simultaneous fade produces an undesirable double-animation.
+
+  - question: >
+      What should the animation duration be for the circular reveal?
+    resolved: true
+    options:
+      - option: '400ms ease-in-out'
+        description: >
+          Fast enough to feel responsive on repeated toggles, slow enough to
+          show the circular grow effect clearly. Within the 500ms upper bound
+          specified by NFR-2. Matches the MagicUI reference implementation.
+        selected: true
+      - option: '250ms ease-out (snappy)'
+        description: >
+          Very fast — the animation completes before the user can fully perceive
+          the reveal. May feel underwhelming or visually indistinguishable from
+          the instant fallback. Below the perceptible threshold for a full-page
+          circular animation.
+        selected: false
+      - option: '600ms ease-in-out (immersive)'
+        description: >
+          Exceeds the 500ms upper limit in NFR-2. On rapid repeated clicks
+          the animation queues and lags, creating a sluggish feeling. Explicitly
+          ruled out by the non-functional requirements.
+        selected: false
+    selectionRationale: >
+      400ms is the sweet spot for this animation: visible and polished without
+      feeling slow. NFR-2 sets a hard upper bound of 500ms. Existing project
+      animations range from 200ms (accordion) to 1500ms (indeterminate-progress) —
+      400ms is appropriate for a full-page transition triggered by deliberate
+      user intent.
+
+  - question: >
+      Should the component read window.matchMedia for reduced motion in the
+      click handler, or rely solely on CSS @media (prefers-reduced-motion)?
+    resolved: true
+    options:
+      - option: 'Both: JS matchMedia check + CSS @media override (two-layer)'
+        description: >
+          JS check skips startViewTransition entirely for motion-sensitive users,
+          falling back to direct setTheme. CSS @media also sets animation: none
+          on pseudo-elements as a safety net. Eliminates animation overhead at
+          the JS level and provides defence-in-depth.
+        selected: true
+      - option: 'CSS @media only (no JS matchMedia check)'
+        description: >
+          CSS suppresses the animation visually but document.startViewTransition
+          still runs its capture/apply cycle. Simpler JS but transition overhead
+          remains for motion-sensitive users with a small risk of a flash during
+          the unanimated transition cycle.
+        selected: false
+      - option: 'JS matchMedia check only (no CSS override)'
+        description: >
+          Skips startViewTransition in JS and calls setTheme directly. Works
+          correctly but fragile if matchMedia is unavailable. No defensive CSS
+          layer if the check is bypassed or unavailable in edge cases.
+        selected: false
+    selectionRationale: >
+      NFR-8 requires prefers-reduced-motion support. The two-layer approach is
+      the MDN-recommended pattern: the JS check eliminates all transition overhead
+      for motion-sensitive users, and the CSS override is a fallback safety net.
+      The fallback code path is DRY — both unsupported-browser and reduced-motion
+      scenarios share the same direct setTheme call.
+
+content: |
+  ## Status
+
+  - **Phase:** Research (complete)
+  - **Updated:** 2026-03-04
+
+  ## Architecture Notes
+
+  This feature is entirely confined to the **presentation layer** (`src/presentation/web/`).
+  No domain, application, or infrastructure files are modified. The implementation
+  touches exactly four files:
+
+  | File | Change Type |
+  | ---- | ----------- |
+  | `src/presentation/web/components/common/theme-toggle/theme-toggle.tsx` | Replace toggleTheme logic; add startViewTransition + coordinate injection |
+  | `src/presentation/web/components/common/theme-toggle/theme-toggle.stories.tsx` | Add LightMode + DarkMode story variants; mock startViewTransition |
+  | `src/presentation/web/app/globals.css` | Add ::view-transition-new/old keyframes + prefers-reduced-motion override |
+  | `tests/unit/presentation/web/components/common/theme-toggle/theme-toggle.test.tsx` | Add startViewTransition mock tests + fallback test + reduced-motion test |
+
+  The existing `useTheme` hook's `setTheme` function applies the theme by
+  manipulating `document.documentElement.classList` (adds/removes 'dark' class).
+  This is called **inside** the `startViewTransition` callback — the browser
+  captures the current visual state, the callback mutates the DOM (theme class change),
+  and then the browser animates the transition between old and new states.
+
+  ## Technology Decisions
+
+  ### 1. View Transition Integration — Inline in Click Handler
+
+  **Chosen:** Inline `document.startViewTransition` wrapping `setTheme` in the
+  component's onClick handler, with MouseEvent coordinate injection.
+
+  **Rejected:**
+  - Custom hook abstraction — YAGNI for a single-use component
+  - Higher-order wrapper component — unnecessary indirection
+
+  **Rationale:** Minimal diff from existing code. The `toggleTheme` function
+  already has all the logic; it just needs to accept a MouseEvent, inject CSS
+  vars, and wrap `setTheme` in `startViewTransition`.
+
+  ### 2. CSS Custom Properties for Click Coordinates
+
+  **Chosen:** `document.documentElement.style.setProperty('--x', ...)` and
+  `document.documentElement.style.setProperty('--y', ...)` before calling
+  `startViewTransition`. Referenced in `clip-path: circle(0 at var(--x) var(--y))`.
+
+  **Rejected:**
+  - Inline style on wrapper div — inaccessible to top-level ::view-transition pseudo-elements
+  - Fixed corner position — produces inferior UX, violates MagicUI design intent
+
+  ### 3. CSS Keyframes in globals.css
+
+  **Chosen:** Standard `@keyframes` syntax outside `@theme` block in `globals.css`.
+  `::view-transition-old(*)` hidden immediately; `::view-transition-new(*)`
+  clip-path expands from `var(--x) var(--y)` over 400ms.
+
+  **Rejected:**
+  - Default View Transitions API crossfade — does not produce circular reveal
+  - Dynamic JS style injection — complex and inconsistent with project patterns
+
+  ### 4. Reduced Motion — Two-Layer Approach
+
+  **Chosen:** JS matchMedia check skips `startViewTransition` entirely; CSS
+  `@media (prefers-reduced-motion: reduce)` overrides `animation: none` on both
+  pseudo-elements as fallback.
+
+  **Rejected:**
+  - CSS-only — transition overhead still runs for reduced-motion users
+  - JS-only — no defensive CSS safety net
+
+  ### 5. Browser Fallback
+
+  **Chosen:** Guard `if (document.startViewTransition && !prefersReducedMotion)`;
+  direct `setTheme` call on falsy. No polyfill, no CSS fallback.
+
+  **Rejected:**
+  - view-transitions-polyfill — violates NFR-1 (no new packages)
+  - CSS opacity fade — unnecessary complexity for a cosmetic enhancement
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | view-transitions-polyfill | Cross-browser polyfill | **Reject** | Violates NFR-1; feature is progressive enhancement |
+  | framer-motion | Animation library | **Reject** | Explicitly forbidden by NFR-4; browser View Transitions API is sufficient |
+  | document.startViewTransition (browser) | View Transitions API | **Use** | Native browser API, no install required, Chrome 111+/Edge 111+/Safari 18+ |
+
+  ## Security Considerations
+
+  - **No injection risk**: `--x` and `--y` CSS custom properties are set from
+    `e.clientX` / `e.clientY` which are integers from the browser event system,
+    not user-controlled text. No sanitisation needed.
+  - **No new data surfaces**: Purely client-side UI animation. No network requests,
+    no user input processing, no data persistence changes.
+  - **CSP compatibility**: `style.setProperty` on `document.documentElement` sets
+    inline styles on the root element, which is not blocked by standard
+    `style-src 'self'` CSP directives.
+
+  ## Performance Implications
+
+  - **GPU-composited animation**: The browser's native View Transitions API uses
+    GPU-composited layers for snapshot capture and animation — no layout thrashing.
+  - **Clip-path on large viewports**: `clip-path: circle()` expanding to
+    `max(100vw, 100vh)` is GPU-accelerated in modern browsers.
+  - **Reduced-motion users**: JS-level skip means zero overhead — no snapshot
+    capture, no animation frame, direct DOM mutation.
+  - **Rapid clicking**: View Transitions API queues transitions. 400ms duration
+    ensures this does not feel laggy for typical use (theme toggle is low-frequency).
+
+  ## Implementation Sketch
+
+  ```typescript
+  // theme-toggle.tsx (key changes only)
+  const toggleTheme = (e: React.MouseEvent<HTMLButtonElement>) => {
+    const currentResolved = theme === 'system' ? resolvedTheme : theme;
+    const goingToDark = currentResolved !== 'dark';
+
+    if (goingToDark) { toggleOnSound.play(); } else { toggleOffSound.play(); }
+
+    const newTheme = theme === 'system'
+      ? (resolvedTheme === 'dark' ? 'light' : 'dark')
+      : (theme === 'dark' ? 'light' : 'dark');
+
+    const prefersReducedMotion =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (!document.startViewTransition || prefersReducedMotion) {
+      setTheme(newTheme);
+      return;
+    }
+
+    document.documentElement.style.setProperty('--x', e.clientX + 'px');
+    document.documentElement.style.setProperty('--y', e.clientY + 'px');
+
+    document.startViewTransition(() => { setTheme(newTheme); });
+  };
+  ```
+
+  ```css
+  /* globals.css — outside @theme block */
+  ::view-transition-old(*) {
+    animation: none;
+  }
+
+  ::view-transition-new(*) {
+    animation: theme-reveal 400ms ease-in-out;
+  }
+
+  @keyframes theme-reveal {
+    from { clip-path: circle(0 at var(--x) var(--y)); }
+    to   { clip-path: circle(max(100vw, 100vh) at var(--x) var(--y)); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    ::view-transition-old(*),
+    ::view-transition-new(*) { animation: none; }
+  }
+  ```
