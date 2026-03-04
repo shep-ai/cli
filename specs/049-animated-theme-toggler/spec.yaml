@@ -1,0 +1,148 @@
+name: animated-theme-toggler
+number: 049
+branch: feat/049-animated-theme-toggler
+oneLiner: replace theme toggle with MagicUI animated-theme-toggler using view transitions api
+userQuery: >
+  Feature: change theme
+
+  https://magicui.design/docs/components/animated-theme-toggler change theme toggler to use this one
+summary: >
+  Replace the current Sun/Moon icon toggle in the app shell with the MagicUI
+  AnimatedThemeToggler, which uses the browser's View Transitions API
+  (document.startViewTransition) to produce a full-page animated wipe/ripple
+  effect when switching between light and dark mode. The component will be
+  adapted to work with the project's existing custom useTheme hook and sound
+  system, and will ship with all required Storybook stories and unit tests.
+phase: Analysis
+sizeEstimate: S
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - React 19 (TypeScript)
+  - Next.js 16
+  - Tailwind CSS v4 (CSS-first theming, @theme directive)
+  - View Transitions API (document.startViewTransition)
+  - lucide-react (icon library — Sun/Moon icons retained or replaced)
+  - shadcn/ui Button component
+  - Custom useTheme hook (localStorage + system preference detection)
+  - useSoundAction hook (semantic sound effects)
+  - Storybook 8 (mandatory stories)
+  - Vitest (unit tests)
+
+relatedLinks:
+  - https://magicui.design/docs/components/animated-theme-toggler
+  - https://developer.mozilla.org/en-US/docs/Web/API/Document/startViewTransition
+
+openQuestions: []
+
+content: |
+  ## Problem Statement
+
+  The current theme toggle (`src/presentation/web/components/common/theme-toggle/`)
+  is a minimal icon-based button that swaps a Sun and Moon icon using CSS
+  scale/rotation transitions. While functional, it lacks a polished animated
+  transition that modern design systems provide. The user wants to adopt the
+  [MagicUI AnimatedThemeToggler](https://magicui.design/docs/components/animated-theme-toggler),
+  which triggers a full-page animated wipe or ripple using the browser's
+  native View Transitions API when the theme is switched.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The web presentation layer lives at `src/presentation/web/` and follows
+  strict Clean Architecture conventions. The current theme toggle is a
+  self-contained common component:
+
+  ```
+  src/presentation/web/
+  ├── components/
+  │   ├── common/
+  │   │   └── theme-toggle/
+  │   │       ├── theme-toggle.tsx          # Component (46 lines)
+  │   │       ├── theme-toggle.stories.tsx  # Storybook story (29 lines)
+  │   │       └── index.ts                  # Re-export barrel
+  │   └── layouts/
+  │       └── app-shell/
+  │           └── app-shell.tsx             # Renders ThemeToggle (top-right, z-50)
+  ├── hooks/
+  │   ├── useTheme.ts                       # Custom theme hook
+  │   └── use-sound-action.ts              # Semantic sound map hook
+  ├── types/
+  │   └── theme.ts                          # Theme = 'light' | 'dark' | 'system'
+  └── app/
+      ├── globals.css                        # Tailwind @theme tokens, .dark overrides
+      └── layout.tsx                         # Root layout — includes FOUC-prevention script
+  ```
+
+  Tests live at:
+  `tests/unit/presentation/web/components/common/theme-toggle/theme-toggle.test.tsx`
+
+  ### Architecture Patterns
+
+  - **Presentation layer only** — no domain or application layer changes needed.
+  - **CSS-first theming**: Tailwind v4 `@theme` directive; `.dark` class on `<html>`.
+  - **Custom theme management** (no next-themes): `useTheme` hook reads/writes
+    localStorage key `'shep-theme'` and applies `'light'`/`'dark'` class to
+    `document.documentElement`.
+  - **Sound effects**: `useSoundAction()` maps semantic actions (`'toggle-on'`,
+    `'toggle-off'`) to audio files — this integration must be preserved.
+  - **No animation libraries**: The project uses CSS transitions only;
+    `framer-motion` is not installed and should not be introduced.
+  - **Mandatory Storybook stories**: every component ships a `.stories.tsx` file.
+
+  ### Relevant Technologies
+
+  - **View Transitions API** (`document.startViewTransition`): the core mechanism
+    behind MagicUI's AnimatedThemeToggler. Supported in Chrome/Edge/Safari;
+    not yet supported in Firefox. A graceful fallback (direct theme switch
+    without animation) is required.
+  - **CSS `::view-transition-*` pseudo-elements**: used to style/clip the
+    transition animation. Custom keyframes must be added to `globals.css` to
+    create the circular reveal effect.
+  - **MagicUI component**: copy-paste implementation — no npm package install.
+    Source is adapted from the MagicUI registry and integrated with the
+    project's `useTheme` hook and sound system.
+  - **lucide-react**: current icon library. The MagicUI component may use
+    different icon representations; existing Sun/Moon icons can be retained or
+    swapped depending on the final design.
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `src/presentation/web/components/common/theme-toggle/theme-toggle.tsx` | High | Primary file to replace with MagicUI-inspired implementation |
+  | `src/presentation/web/components/common/theme-toggle/theme-toggle.stories.tsx` | Medium | Stories must be updated to reflect new component API/visuals |
+  | `src/presentation/web/app/globals.css` | Low | Add `::view-transition-*` keyframes for the circular reveal animation |
+  | `tests/unit/presentation/web/components/common/theme-toggle/theme-toggle.test.tsx` | Medium | Tests must be updated; mock `document.startViewTransition` |
+  | `src/presentation/web/components/layouts/app-shell/app-shell.tsx` | Low | No import change expected; may need minor prop updates |
+
+  ## Dependencies
+
+  - **Existing**: `useTheme` hook, `useSoundAction` hook, `Button` (shadcn/ui),
+    lucide-react icons, Tailwind CSS v4, `cn()` utility.
+  - **New CSS API**: `document.startViewTransition` (browser native — no install).
+    Must add browser-support guard (`if (!document.startViewTransition) { ... }`).
+  - **No new npm packages**: the MagicUI component is copy-paste, not a package.
+
+  ## Success Criteria
+
+  - [ ] Theme toggle renders with the MagicUI animated style
+  - [ ] Switching themes triggers a full-page animated transition via View Transitions API
+  - [ ] Graceful fallback for browsers without View Transitions API support (Firefox)
+  - [ ] Sound effects (`toggle-on`/`toggle-off`) are preserved
+  - [ ] Existing `useTheme` hook integration unchanged
+  - [ ] Storybook story updated and renders correctly
+  - [ ] All unit tests pass (with `document.startViewTransition` mocked)
+  - [ ] `pnpm validate` passes (lint + typecheck + build)
+
+  ## Size Estimate
+
+  **S** — This is a focused, single-component replacement confined to the
+  presentation layer. The MagicUI component is copy-paste; the main work is
+  adapting it to the existing `useTheme` hook, adding CSS keyframes for the
+  view-transition animation, updating Storybook stories, and updating unit tests
+  to mock the View Transitions API. No domain, application, or infrastructure
+  changes are required. Estimated effort: 2–4 hours.
