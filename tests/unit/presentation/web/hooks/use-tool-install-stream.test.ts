@@ -106,6 +106,22 @@ describe('useToolInstallStream', () => {
     expect(es.close).toHaveBeenCalled();
   });
 
+  it('transitions to error state on onerror', () => {
+    const { result } = renderHook(() => useToolInstallStream('tmux'));
+
+    act(() => {
+      result.current.startInstall();
+    });
+
+    const es = MockEventSource.instances[0];
+    act(() => {
+      es.onerror?.(new Event('error'));
+    });
+
+    expect(result.current.status).toBe('error');
+    expect(es.close).toHaveBeenCalled();
+  });
+
   it('closes EventSource on unmount', () => {
     const { result, unmount } = renderHook(() => useToolInstallStream('tmux'));
 
