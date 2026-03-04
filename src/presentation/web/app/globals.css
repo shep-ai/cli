@@ -151,6 +151,31 @@
   }
 }
 
+/* View Transition — Circular Reveal Animation */
+::view-transition-old(*) {
+  animation: none;
+}
+
+::view-transition-new(*) {
+  animation: theme-reveal 400ms ease-in-out;
+}
+
+@keyframes theme-reveal {
+  from {
+    clip-path: circle(0 at var(--x) var(--y));
+  }
+  to {
+    clip-path: circle(max(100vw, 100vh) at var(--x) var(--y));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none;
+  }
+}
+
 /* Sidebar Theme Variables */
 :root {
   --sidebar: var(--color-background);
