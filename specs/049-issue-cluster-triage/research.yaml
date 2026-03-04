@@ -1,0 +1,574 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: issue-cluster-triage
+summary: >
+  Technical research for implementing `shep feat triage` — a CLI subcommand that
+  fetches open GitHub issues, clusters them semantically via IStructuredAgentCaller,
+  presents clusters for interactive review using @inquirer/prompts, and creates
+  features via CreateFeatureUseCase. All patterns follow existing codebase conventions
+  with no new external dependencies required.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - TypeScript
+  - Commander.js (CLI framework — existing)
+  - tsyringe (DI — existing)
+  - '@inquirer/prompts (interactive CLI — existing v8.2.0)'
+  - IStructuredAgentCaller (structured AI calls — existing)
+  - GitHub CLI gh (issue fetching — existing pattern)
+  - Vitest (testing — existing)
+
+relatedLinks:
+  - https://github.com/orgs/shep-ai/projects/1/views/6
+
+decisions:
+  - title: 'IExternalIssueFetcher extension strategy'
+    chosen: >
+      Add a listIssues(options?) method to the existing IExternalIssueFetcher
+      interface. Implement in GitHubIssueFetcher using `gh issue list --json`.
+      Add an `number` field to ExternalIssue for issue numbers.
+    rejected:
+      - >
+        Create a separate IIssueListerService interface — fragments the issue-fetching
+        concern across two interfaces without benefit. The existing interface is small
+        (2 methods) and adding a third keeps it cohesive.
+      - >
+        Use the GitHub REST API directly via fetch — adds HTTP client complexity and
+        authentication handling that `gh` already solves. The codebase already uses
+        `gh` subprocess calls in GitHubIssueFetcher via execFile.
+    rationale: >
+      The existing GitHubIssueFetcher uses `execFile('gh', ...)` to call the GitHub
+      CLI. Adding `listIssues()` follows the same pattern: `gh issue list --json
+      number,title,body,labels,url --limit N`. The ExternalIssue type needs a
+      `number` field added (currently missing) since issue numbers are needed for
+      cluster output and feature descriptions. The interface is small (2 existing
+      methods) so a third method keeps it cohesive. GitHubIssueFetcher currently
+      implements `Pick<IExternalIssueFetcher, 'fetchGitHubIssue'>` — this will be
+      updated to include the new method.
+
+  - title: 'ExternalIssue type extension'
+    chosen: >
+      Add a `number` field (type: number) to the existing ExternalIssue interface
+      in the port interface file. This is needed because issue numbers are required
+      for cluster output and feature descriptions.
+    rejected:
+      - >
+        Create a separate ListedIssue type — introduces unnecessary type divergence.
+        A listed issue IS an external issue with a number; keeping one type is simpler.
+      - >
+        Parse issue numbers from the URL at consumption time — fragile and couples
+        consumers to GitHub URL format. Better to have the fetcher provide it directly.
+    rationale: >
+      The ExternalIssue interface currently has title, description, labels, url, and
+      source. The `number` field is a natural addition since GitHub issues are
+      identified by number. The field is required for FR-2 (clusters reference
+      issueNumbers) and FR-4 (feature descriptions include issue numbers). Adding
+      it to ExternalIssue rather than a separate type keeps the model cohesive.
+
+  - title: 'AI clustering implementation via IStructuredAgentCaller'
+    chosen: >
+      Use IStructuredAgentCaller.call<T>() with a JSON schema defining an array
+      of clusters. Each cluster has name (string), description (string), and
+      issueNumbers (number[]). Follow the MetadataGenerator pattern: define a
+      const schema object, craft a prompt including issue titles and bodies,
+      call with silent: true and allowedTools: [].
+    rejected:
+      - >
+        Build a LangGraph agent with tool use — massively overengineered for a
+        single-shot clustering task. The IStructuredAgentCaller pattern is proven
+        (MetadataGenerator uses it), simpler, and doesn't require graph setup.
+      - >
+        Use embeddings + k-means clustering — requires additional ML dependencies
+        (e.g., @tensorflow/tfjs or similar), embedding API calls, and manual cluster
+        count tuning. The LLM can do semantic clustering in a single call with
+        better contextual understanding of issue relationships.
+    rationale: >
+      The MetadataGenerator (metadata-generator.ts) provides the exact pattern to
+      follow: define a JSON schema, send a prompt with context, get typed results.
+      The schema will be an object with a `clusters` array property. The prompt
+      will include all issue titles and abbreviated bodies, asking the LLM to
+      group them by semantic similarity. The call uses `silent: true` and
+      `allowedTools: []` since no tool use is needed — this is a pure reasoning
+      task. The IStructuredAgentCaller handles both native structured output and
+      prompt-based JSON extraction fallback transparently.
+
+  - title: 'Interactive review UX approach'
+    chosen: >
+      Use @inquirer/prompts (already in dependencies at v8.2.0) with `select`
+      for per-cluster approve/skip/edit choices and `input` for editing cluster
+      name/description. Present clusters sequentially.
+    rejected:
+      - >
+        Build a custom readline-based prompt — @inquirer/prompts is already a
+        dependency and provides polished, tested prompts. No need to reinvent.
+      - >
+        Use a full-screen TUI (e.g., ink or blessed) — significantly more complex,
+        no existing TUI framework is used for CLI commands (the TUI is a separate
+        presentation layer for the dashboard). Sequential prompts match the existing
+        `feat del` confirmation pattern.
+    rationale: >
+      The codebase already uses @inquirer/prompts v8.2.0 — `confirm` in
+      del.command.ts and `select` in ide.command.ts. Adding `select` and `input`
+      prompts for cluster review follows established patterns. The `--yes` flag
+      will bypass interactive prompts (auto-approve all), matching the convention
+      used in other CLI tools. For cancellation (Ctrl+C), @inquirer/prompts throws
+      an ExitPromptError that can be caught to exit cleanly (NFR-7).
+
+  - title: 'TriageIssuesUseCase architecture'
+    chosen: >
+      Create a TriageIssuesUseCase in the application layer that orchestrates
+      fetch → cluster → return clusters. The use case does NOT handle interactive
+      review (that's the CLI's job). It returns proposed clusters to the
+      presentation layer, which handles user interaction, then the CLI calls
+      CreateFeatureUseCase directly for each approved cluster.
+    rejected:
+      - >
+        Put the entire pipeline (including review) in the use case — violates Clean
+        Architecture by mixing application logic with interactive I/O. The use case
+        should not depend on stdin/stdout.
+      - >
+        Split into separate FetchIssuesUseCase and ClusterIssuesUseCase — over-
+        granular. The triage operation is a single logical workflow; splitting it
+        creates unnecessary indirection for a pipeline that's always called together.
+    rationale: >
+      Clean Architecture requires the application layer to be I/O-agnostic. The
+      TriageIssuesUseCase handles the pure business logic: fetching issues and
+      clustering them via AI. The interactive review loop belongs in the CLI
+      presentation layer (triage.command.ts), which processes the returned clusters,
+      prompts the user, and calls CreateFeatureUseCase for approved ones. This
+      mirrors how new.command.ts resolves use cases from the container and
+      orchestrates the user-facing flow. The use case is injectable via tsyringe
+      with @inject tokens for IExternalIssueFetcher and IStructuredAgentCaller.
+
+  - title: 'DI registration strategy'
+    chosen: >
+      Register IExternalIssueFetcher with a string token in container.ts using
+      useFactory that creates GitHubIssueFetcher with the existing ExecFunction
+      instance. Register TriageIssuesUseCase as a singleton. The CLI command
+      resolves both from the container.
+    rejected:
+      - >
+        Register GitHubIssueFetcher directly without the interface token — breaks
+        the port/adapter pattern. Other implementations (e.g., Jira) should be
+        swappable via the same token.
+      - >
+        Create a composite ExternalIssueFetcher that delegates to GitHub and Jira
+        — over-engineered for v1. The triage command only needs GitHub. The
+        interface can support a composite later if needed.
+    rationale: >
+      The container.ts follows a consistent pattern: interface tokens for port
+      interfaces (e.g., 'IStructuredAgentCaller', 'IWorktreeService') and
+      class-based singletons for use cases. IExternalIssueFetcher is currently
+      NOT registered in the container (GitHubIssueFetcher is only used directly
+      in tests). Adding a factory registration with the 'IExternalIssueFetcher'
+      token follows the established pattern. The factory resolves 'ExecFunction'
+      (already registered as promisify(execFile)) to inject into
+      GitHubIssueFetcher. TriageIssuesUseCase uses registerSingleton like all
+      other use cases.
+
+  - title: 'CLI command structure and options'
+    chosen: >
+      Create triage.command.ts in src/presentation/cli/commands/feat/ exporting
+      createTriageCommand(). Register it in feat/index.ts. Options: --repo,
+      --label (repeatable), --limit (default 100), --yes/-y (auto-approve).
+    rejected:
+      - >
+        Put it in a separate top-level commands/triage/ directory — triage
+        produces features, so it belongs in the feat command group per the spec
+        decision.
+      - >
+        Use positional arguments instead of options — the command takes no
+        required positional args (it fetches from the current repo by default).
+        Options are more flexible and match the commander.js pattern used by
+        other feat subcommands.
+    rationale: >
+      The feat command group (feat/index.ts) aggregates subcommands via
+      .addCommand(). Adding createTriageCommand() follows the exact same pattern
+      as createNewCommand(), createLsCommand(), etc. The --label option uses
+      Commander's .option('-l, --label <label...>') for repeatable values. The
+      --yes flag follows the common CLI convention for non-interactive mode.
+      The --repo option mirrors the existing -r/--repo from new.command.ts.
+
+  - title: 'Cluster type definitions location'
+    chosen: >
+      Define IssueCluster and TriageResult as plain TypeScript interfaces in a
+      types.ts file co-located with the TriageIssuesUseCase in the application
+      layer (packages/core/src/application/use-cases/triage/).
+    rejected:
+      - >
+        Define types in the domain layer — clusters are transient computation
+        results, not domain entities. They're never persisted to the database.
+      - >
+        Define types in TypeSpec — would add compilation overhead for types that
+        exist only during a single command execution. TypeSpec is for persistent
+        domain models.
+    rationale: >
+      The spec explicitly decided that plain TypeScript interfaces are appropriate
+      for cluster types since they're transient. Co-locating them with the use case
+      follows the pattern of create-feature.use-case.ts which has its own types.ts
+      (CreateFeatureInput, CreateFeatureResult) in the same directory.
+
+  - title: 'Error handling strategy'
+    chosen: >
+      Reuse existing error classes from the IExternalIssueFetcher interface
+      (IssueServiceUnavailableError, IssueFetcherError) for gh CLI errors. Catch
+      StructuredCallError for AI failures. Handle CreateFeatureUseCase errors
+      per-cluster with continue-on-error semantics. All errors surfaced via
+      messages.error() in the CLI layer.
+    rejected:
+      - >
+        Create new error classes specific to triage — unnecessary. The existing
+        error hierarchy (IssueFetcherError, IssueServiceUnavailableError,
+        IssueAuthenticationError) covers the gh CLI failure modes. StructuredCallError
+        covers AI failures.
+      - >
+        Fail the entire command on any single cluster's feature creation failure —
+        too aggressive. If cluster 3 of 5 fails, clusters 4 and 5 should still be
+        processed. The summary output reports failures.
+    rationale: >
+      NFR-2 requires graceful error handling with specific scenarios: gh not installed
+      (IssueServiceUnavailableError), no issues (informational exit), LLM failure
+      (StructuredCallError), and per-cluster CreateFeatureUseCase failure. The
+      continue-on-error pattern for feature creation matches NFR-2's requirement
+      to "continue with remaining clusters, report failures at the end." The CLI
+      command catches errors at two levels: top-level for fetch/cluster failures
+      (abort), and per-cluster for feature creation failures (continue + collect).
+
+openQuestions:
+  - question: >
+      Should the listIssues method accept filter options or should filtering be
+      handled by the CLI layer before calling the use case?
+    resolved: true
+    options:
+      - option: Accept filter options in listIssues method
+        description: >
+          The listIssues method accepts an options object with label, limit, and
+          repo filters. These are passed directly to the `gh issue list` command
+          arguments. Keeps filtering logic in the infrastructure layer where the
+          gh CLI arguments are constructed.
+        selected: true
+      - option: Return all issues and filter in the use case
+        description: >
+          The listIssues method returns all issues and the use case or CLI layer
+          filters them. Wastes API calls and bandwidth by fetching more data than
+          needed. The gh CLI supports native filtering which is more efficient.
+        selected: false
+      - option: Pass raw gh CLI arguments through
+        description: >
+          Let the caller pass arbitrary gh CLI arguments. Leaks infrastructure
+          concerns into the application layer and breaks the port abstraction.
+        selected: false
+    selectionRationale: >
+      The gh CLI natively supports --label and --limit flags which are far more
+      efficient than post-filtering. The listIssues method should accept a typed
+      options object (ListIssuesOptions) that maps cleanly to gh CLI arguments
+      without exposing the CLI details. This keeps the port interface clean while
+      leveraging the underlying tool's capabilities.
+
+  - question: >
+      How should the prompt be structured to get reliable clustering results from
+      the LLM?
+    resolved: true
+    options:
+      - option: Single prompt with all issues and explicit clustering instructions
+        description: >
+          Send one prompt with all issue titles and truncated bodies, explicit
+          instructions to group by semantic similarity, and the JSON schema for
+          the response. Include constraints like "every issue must appear in
+          exactly one cluster" and "aim for 3-7 clusters." Simple, follows the
+          MetadataGenerator single-call pattern.
+        selected: true
+      - option: Two-phase approach — first extract topics, then assign issues
+        description: >
+          First call to identify topic categories, second call to assign each
+          issue to a category. More structured but doubles the API calls and
+          latency, and the LLM can handle both tasks in a single call.
+        selected: false
+      - option: Iterative refinement with multiple calls
+        description: >
+          Make an initial clustering call, then refine with follow-up prompts.
+          Significantly increases latency and cost with marginal quality
+          improvement for a task the LLM handles well in one shot.
+        selected: false
+    selectionRationale: >
+      A single prompt with clear instructions and the JSON schema constraint is
+      sufficient for reliable clustering. The MetadataGenerator pattern proves
+      that IStructuredAgentCaller handles single-shot structured output well.
+      The prompt should include issue numbers and titles (always), plus truncated
+      bodies (first ~200 chars) to give semantic context without exceeding token
+      limits. The constraint "every issue must appear in exactly one cluster"
+      ensures completeness. Targeting 3-7 clusters provides reasonable granularity
+      for most backlogs.
+
+  - question: >
+      How should the ExternalIssue number field interact with Jira tickets
+      which use string keys (e.g., PROJ-123)?
+    resolved: true
+    options:
+      - option: Make number field optional on ExternalIssue, required in ListIssuesOptions result
+        description: >
+          Add `number?: number` to ExternalIssue as optional. The listIssues
+          implementation for GitHub always populates it. Jira issues would leave
+          it undefined and use a separate key field if needed later. Doesn't
+          break existing fetchGitHubIssue or fetchJiraTicket callers.
+        selected: true
+      - option: Add number as required and set to 0 for Jira
+        description: >
+          Make number required and use 0 or -1 for non-numeric issue keys.
+          Semantically incorrect — Jira tickets don't have numeric IDs in the
+          same sense.
+        selected: false
+      - option: Create a GitHubIssue subtype that extends ExternalIssue with number
+        description: >
+          Create a separate type for GitHub-specific fields. Adds type complexity
+          for a single field. Over-engineered for the current need.
+        selected: false
+    selectionRationale: >
+      Making `number` optional preserves backward compatibility — existing callers
+      of fetchGitHubIssue don't use a number field, so nothing breaks. The
+      listIssues implementation for GitHub will always populate it from the
+      gh CLI JSON response. The triage use case can safely access it since it
+      only works with GitHub issues (Jira triage is out of scope for v1).
+
+content: |
+  ## Technology Decisions
+
+  ### 1. IExternalIssueFetcher Extension Strategy
+
+  **Chosen:** Add a `listIssues(options?)` method to the existing IExternalIssueFetcher
+  interface, implemented in GitHubIssueFetcher using `gh issue list --json`.
+
+  **Rejected:**
+  - Separate IIssueListerService interface — fragments the issue-fetching concern
+  - Direct GitHub REST API — adds HTTP client complexity when `gh` already solves auth
+
+  **Rationale:** The existing GitHubIssueFetcher uses `execFile('gh', ...)`. Adding
+  `listIssues()` follows the same subprocess pattern. The interface is small (2 methods)
+  so a third keeps it cohesive.
+
+  ### 2. ExternalIssue Type Extension
+
+  **Chosen:** Add an optional `number` field to ExternalIssue.
+
+  **Rejected:**
+  - Separate ListedIssue type — unnecessary type divergence
+  - Parse numbers from URL — fragile, couples to GitHub URL format
+
+  **Rationale:** Issue numbers are needed for cluster output (FR-2) and feature
+  descriptions (FR-4). Optional field preserves backward compatibility with Jira.
+
+  ### 3. AI Clustering via IStructuredAgentCaller
+
+  **Chosen:** Single-shot `IStructuredAgentCaller.call<T>()` with a JSON schema
+  defining an array of clusters (name, description, issueNumbers).
+
+  **Rejected:**
+  - LangGraph agent — overengineered for single-shot clustering
+  - Embeddings + k-means — requires ML dependencies and cluster count tuning
+
+  **Rationale:** Follows the MetadataGenerator pattern exactly. Define a const
+  schema, craft a prompt with issue context, call with `silent: true` and
+  `allowedTools: []`. The caller handles native vs prompt-based JSON extraction.
+
+  ### 4. Interactive Review UX
+
+  **Chosen:** `@inquirer/prompts` (already v8.2.0 in deps) with `select` for
+  per-cluster approve/skip/edit and `input` for name/description editing.
+
+  **Rejected:**
+  - Custom readline prompts — @inquirer/prompts already in deps, tested and polished
+  - Full-screen TUI — too complex, not used in other CLI commands
+
+  **Rationale:** Existing usage in del.command.ts (confirm) and ide.command.ts
+  (select) proves the pattern. ExitPromptError handles Ctrl+C (NFR-7). The `--yes`
+  flag bypasses prompts for CI/scripted usage.
+
+  ### 5. TriageIssuesUseCase Architecture
+
+  **Chosen:** Use case handles fetch → cluster → return clusters. Interactive review
+  stays in the CLI layer. CLI calls CreateFeatureUseCase for approved clusters.
+
+  **Rejected:**
+  - Entire pipeline in use case — violates Clean Architecture (I/O in app layer)
+  - Separate FetchIssuesUseCase + ClusterIssuesUseCase — over-granular
+
+  **Rationale:** Clean Architecture requires the use case to be I/O-agnostic. The
+  review loop (stdin/stdout) belongs in the presentation layer. This mirrors
+  new.command.ts which resolves use cases from the container.
+
+  ### 6. DI Registration Strategy
+
+  **Chosen:** Register IExternalIssueFetcher with string token in container.ts.
+  Factory creates GitHubIssueFetcher with existing ExecFunction. TriageIssuesUseCase
+  as singleton.
+
+  **Rejected:**
+  - Register without interface token — breaks port/adapter pattern
+  - Composite fetcher for GitHub+Jira — overengineered for v1
+
+  **Rationale:** The container uses string tokens for port interfaces. The ExecFunction
+  instance is already registered. IExternalIssueFetcher is currently NOT in the
+  container — this registration fills that gap.
+
+  ### 7. CLI Command Structure
+
+  **Chosen:** `triage.command.ts` in `feat/` directory. Options: `--repo`, `--label`
+  (repeatable), `--limit` (default 100), `--yes`/`-y`.
+
+  **Rejected:**
+  - Separate top-level directory — triage produces features, belongs in feat group
+  - Positional arguments — no required args, options are more flexible
+
+  **Rationale:** Follows the feat command group aggregation pattern in feat/index.ts.
+
+  ### 8. Cluster Type Definitions Location
+
+  **Chosen:** Plain TypeScript interfaces in `application/use-cases/triage/types.ts`.
+
+  **Rejected:**
+  - Domain layer — clusters are transient, not domain entities
+  - TypeSpec — overhead for non-persisted types
+
+  **Rationale:** Mirrors create-feature's co-located types.ts pattern.
+
+  ### 9. Error Handling Strategy
+
+  **Chosen:** Reuse existing error classes (IssueFetcherError hierarchy,
+  StructuredCallError). Continue-on-error for per-cluster feature creation failures.
+
+  **Rejected:**
+  - New triage-specific error classes — existing hierarchy covers all cases
+  - Fail-fast on any cluster error — too aggressive per NFR-2
+
+  **Rationale:** NFR-2 requires graceful handling. Catch at two levels: top-level
+  for fetch/cluster failures (abort), per-cluster for feature creation (continue).
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | @inquirer/prompts (v8.2.0) | Interactive cluster review prompts | Use (existing) | Already in deps, used by del.command.ts and ide.command.ts |
+  | commander (existing) | CLI command registration | Use (existing) | All CLI commands use it |
+  | tsyringe (existing) | Dependency injection | Use (existing) | All use cases and services use it |
+  | GitHub CLI (gh) | Issue fetching subprocess | Use (existing) | GitHubIssueFetcher already uses this pattern |
+  | IStructuredAgentCaller | AI clustering calls | Use (existing) | MetadataGenerator proves the pattern |
+  | vitest (existing) | Unit testing | Use (existing) | All tests use it |
+
+  No new external dependencies are required. All libraries needed are already in
+  the project's dependency tree.
+
+  ## Security Considerations
+
+  **gh CLI authentication:** The `gh` CLI handles authentication independently.
+  The triage command delegates to the existing GitHubIssueFetcher pattern which
+  checks for ENOENT (gh not installed) and authentication errors. No credentials
+  are stored or transmitted by the triage feature itself.
+
+  **Issue content in AI prompts:** Issue titles and bodies are sent to the configured
+  LLM via IStructuredAgentCaller. This is the same security model as MetadataGenerator
+  sending user input to the LLM. No additional risk beyond what's already accepted.
+
+  **No shell injection risk:** The execFile function (not exec) is used for gh CLI
+  calls, which prevents shell injection. Arguments are passed as an array, not
+  interpolated into a shell string.
+
+  **Truncation of issue bodies:** Issue bodies are truncated before sending to the
+  LLM to prevent prompt injection via overly long issue content and to stay within
+  token limits.
+
+  ## Performance Implications
+
+  **Issue fetching:** A single `gh issue list` call fetches up to `--limit` issues
+  (default 100). The gh CLI handles pagination internally. The 30-second timeout
+  from the existing execFile pattern is sufficient (NFR-1 requires < 60s total).
+
+  **AI clustering call:** A single IStructuredAgentCaller.call() for up to 100
+  issues. With truncated bodies (~200 chars each), the prompt stays well within
+  context limits. The call is wrapped in a spinner for UX.
+
+  **Feature creation:** Sequential CreateFeatureUseCase.execute() for each approved
+  cluster. Each call creates a worktree and spawns an agent. This is intentionally
+  sequential to avoid overwhelming the system with parallel worktree creations.
+
+  **Memory:** Transient cluster data is small (names, descriptions, issue number
+  arrays). No caching or persistence is needed.
+
+  ## Architecture Notes
+
+  ### Layer Responsibilities
+
+  | Layer | Component | Responsibility |
+  | ----- | --------- | -------------- |
+  | Application | TriageIssuesUseCase | Fetch issues → cluster via AI → return clusters |
+  | Application | types.ts | IssueCluster, TriageInput, TriageResult interfaces |
+  | Application | IExternalIssueFetcher | Port interface with new listIssues() method |
+  | Infrastructure | GitHubIssueFetcher | Implements listIssues() via gh CLI subprocess |
+  | Infrastructure | container.ts | Registers IExternalIssueFetcher + TriageIssuesUseCase |
+  | Presentation | triage.command.ts | CLI command: parse options → call use case → interactive review → create features |
+
+  ### Data Flow
+
+  ```
+  CLI (triage.command.ts)
+    → TriageIssuesUseCase.execute(input)
+      → IExternalIssueFetcher.listIssues(options)
+        → gh issue list --json ... (subprocess)
+      → IStructuredAgentCaller.call<ClusterResult>(prompt, schema)
+        → LLM returns clustered issues
+      ← returns IssueCluster[]
+    → Interactive review loop (@inquirer/prompts)
+    → For each approved cluster:
+      → CreateFeatureUseCase.execute({ userInput, repositoryPath })
+    → Print summary
+  ```
+
+  ### Key Interfaces (to be created)
+
+  ```typescript
+  // In application/use-cases/triage/types.ts
+  interface IssueCluster {
+    name: string;
+    description: string;
+    issueNumbers: number[];
+  }
+
+  interface TriageIssuesInput {
+    repositoryPath: string;
+    repo?: string;       // owner/repo override
+    labels?: string[];   // filter by labels
+    limit?: number;      // max issues (default 100)
+  }
+
+  interface TriageIssuesResult {
+    issues: ExternalIssue[];
+    clusters: IssueCluster[];
+  }
+
+  // Added to IExternalIssueFetcher
+  interface ListIssuesOptions {
+    repo?: string;
+    labels?: string[];
+    limit?: number;
+  }
+  ```
+
+  ### Files to Create/Modify
+
+  | File | Action | Description |
+  | ---- | ------ | ----------- |
+  | `packages/core/src/application/ports/output/services/external-issue-fetcher.interface.ts` | Modify | Add `number?` to ExternalIssue, add `listIssues()` to interface, add `ListIssuesOptions` |
+  | `packages/core/src/infrastructure/services/external/github-issue.service.ts` | Modify | Implement `listIssues()` using `gh issue list --json` |
+  | `packages/core/src/application/use-cases/triage/types.ts` | Create | IssueCluster, TriageIssuesInput, TriageIssuesResult |
+  | `packages/core/src/application/use-cases/triage/triage-issues.use-case.ts` | Create | TriageIssuesUseCase (fetch → cluster → return) |
+  | `packages/core/src/infrastructure/di/container.ts` | Modify | Register IExternalIssueFetcher and TriageIssuesUseCase |
+  | `src/presentation/cli/commands/feat/triage.command.ts` | Create | CLI command with interactive review |
+  | `src/presentation/cli/commands/feat/index.ts` | Modify | Add createTriageCommand() |
+  | `tests/unit/application/use-cases/triage/triage-issues.use-case.test.ts` | Create | Unit tests for use case |
+  | `tests/unit/infrastructure/services/external/github-issue-list.test.ts` | Create | Unit tests for listIssues |
+
+  ---
+
+  _Research completed 2026-03-04 — ready for planning phase_
