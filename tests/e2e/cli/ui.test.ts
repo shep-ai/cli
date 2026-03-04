@@ -95,8 +95,11 @@ describe('CLI: ui', { timeout: 300_000 }, () => {
 
   describe('default port behavior', () => {
     it('should start on port 4050 and serve the /version page', async () => {
+      // Arrange - use a dynamic free port to avoid EADDRINUSE from stale processes
+      const port = await findFreePort();
+
       // Act
-      const server = await startTrackedServer();
+      const server = await startTrackedServer(`--port ${port}`);
 
       // Assert - server started on some valid port
       expect(server.port).toBeGreaterThan(0);
