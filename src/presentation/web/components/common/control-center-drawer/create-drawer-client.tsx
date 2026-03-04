@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { toast } from 'sonner';
 import { createFeature } from '@/app/actions/create-feature';
@@ -31,8 +31,18 @@ export function CreateDrawerClient({
   // content during soft navigation, so this component is NOT unmounted when
   // navigating to `/`. We watch the pathname and let Vaul handle the close
   // animation when the path no longer matches the create route.
+  // When submitting, force the drawer closed immediately — router.push('/')
+  // is async and the pathname may not update before the next render.
   const pathname = usePathname();
-  const isOpen = pathname.startsWith('/create');
+  const isOpen = !isSubmitting && pathname.startsWith('/create');
+
+  // Safety net: if the drawer is closed (e.g. via form submit + isSubmitting)
+  // but router.push('/') hasn't taken effect yet, force-clear the route.
+  useEffect(() => {
+    if (!isOpen && pathname.startsWith('/create')) {
+      router.replace('/');
+    }
+  }, [isOpen, pathname, router]);
 
   const onClose = useCallback(() => {
     router.push('/');
@@ -49,6 +59,7 @@ export function CreateDrawerClient({
             name: data.name,
             description: data.description,
             repositoryPath: data.repositoryPath,
+            parentId: data.parentId,
           },
         })
       );
@@ -66,7 +77,6 @@ export function CreateDrawerClient({
             return;
           }
           createSound.play();
-          router.refresh();
         })
         .catch(() => {
           toast.error('Failed to create feature');

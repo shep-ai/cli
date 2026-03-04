@@ -7,7 +7,11 @@ import { applyNodeChanges } from '@xyflow/react';
 import type { Connection, Edge, NodeChange } from '@xyflow/react';
 import type { FeatureNodeData } from '@/components/common/feature-node';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
-import { layoutWithDagre, type LayoutDirection } from '@/lib/layout-with-dagre';
+import {
+  layoutWithDagre,
+  CANVAS_LAYOUT_DEFAULTS,
+  type LayoutDirection,
+} from '@/lib/layout-with-dagre';
 import { deleteFeature } from '@/app/actions/delete-feature';
 import { addRepository } from '@/app/actions/add-repository';
 import { deleteRepository } from '@/app/actions/delete-repository';
@@ -25,11 +29,12 @@ export interface ControlCenterState {
   handleConnect: (connection: Connection) => void;
   handleAddRepository: (path: string) => void;
   handleLayout: (direction: LayoutDirection) => void;
-  handleDeleteFeature: (featureId: string) => Promise<void>;
+  handleDeleteFeature: (featureId: string) => void;
   handleDeleteRepository: (repositoryId: string) => Promise<void>;
   createFeatureNode: (
     sourceNodeId: string | null,
-    dataOverride?: Partial<FeatureNodeData>
+    dataOverride?: Partial<FeatureNodeData>,
+    edgeType?: string
   ) => string;
 }
 
@@ -37,9 +42,7 @@ let nextFeatureId = 0;
 
 export function useControlCenterState(
   initialNodes: CanvasNodeType[],
-  initialEdges: Edge[],
-  /** When true, background router.refresh() calls (polling / SSE debounce) are suppressed. */
-  isRefreshBlocked?: () => boolean
+  initialEdges: Edge[]
 ): ControlCenterState {
   const router = useRouter();
   const [nodes, setNodes] = useState<CanvasNodeType[]>(initialNodes);
@@ -59,7 +62,7 @@ export function useControlCenterState(
   const deleteSound = useSoundAction('delete');
   const createSound = useSoundAction('create');
 
-  // Sync server props into local state when router.refresh() delivers new data
+  // Sync server props into local state when parent re-renders with new data
   const initialNodeKey = initialNodes
     .map((n) => n.id)
     .sort()
@@ -98,8 +101,9 @@ export function useControlCenterState(
           !serverIds.has(n.id)
       );
 
-      // Merge server nodes with client positions
-      return initialNodes.map((serverNode) => {
+      // Merge server nodes with client positions, tracking if relayout is needed
+      let needsRelayout = false;
+      const merged = initialNodes.map((serverNode) => {
         // Node already exists on canvas — keep its position, update data
         const existing = currentById.get(serverNode.id);
         if (existing) {
@@ -112,19 +116,36 @@ export function useControlCenterState(
           return { ...serverNode, position: donor.position };
         }
 
-        // Truly new node with no optimistic counterpart — use server position
+        // Truly new node with no optimistic counterpart — needs relayout
+        needsRelayout = true;
         return serverNode;
       });
+
+      // Also check if non-creating nodes were removed (graph got smaller)
+      if (!needsRelayout) {
+        needsRelayout = currentNodes.some(
+          (cn) =>
+            !serverIds.has(cn.id) &&
+            !(cn.type === 'featureNode' && (cn.data as FeatureNodeData).state === 'creating')
+        );
+      }
+
+      if (needsRelayout) {
+        const layoutResult = layoutWithDagre(merged, initialEdges, CANVAS_LAYOUT_DEFAULTS);
+        setEdges(layoutResult.edges);
+        return layoutResult.nodes;
+      }
+
+      return merged;
     });
-  }, [initialNodeKey, initialNodes]);
+  }, [initialNodeKey, initialNodes, initialEdges, setEdges]);
 
   useEffect(() => {
     setEdges(initialEdges);
   }, [initialEdgeKey, initialEdges, setEdges]);
 
-  // Fallback notifications from server-refresh state transitions.
-  // Fires only when SSE didn't already deliver the matching event for a feature,
-  // e.g. when the SSE connection was down or the event was seeded into the cache.
+  // Fallback notifications from server-prop state transitions.
+  // Fires only when SSE didn't already deliver the matching event for a feature.
   const { events } = useAgentEventsContext();
 
   useEffect(() => {
@@ -164,15 +185,10 @@ export function useControlCenterState(
     }
   }, [initialDataKey, initialNodes, events, router]);
 
-  // Targeted optimistic updates from SSE agent events + debounced reconciliation.
+  // Targeted optimistic updates from SSE agent events.
   // Uses `events` array (not `lastEvent`) so that React batching cannot silently
   // drop events when multiple SSE messages arrive in the same tick.
   const processedEventCountRef = useRef(0);
-  const reconcileTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
-
-  useEffect(() => {
-    return () => clearTimeout(reconcileTimerRef.current);
-  }, []);
 
   useEffect(() => {
     if (events.length <= processedEventCountRef.current) return;
@@ -201,33 +217,7 @@ export function useControlCenterState(
         })
       );
     }
-
-    // Debounced background reconciliation (3s after last SSE event)
-    clearTimeout(reconcileTimerRef.current);
-    reconcileTimerRef.current = setTimeout(() => {
-      if (!isRefreshBlocked?.()) router.refresh();
-    }, 3000);
-  }, [events, router, isRefreshBlocked]);
-
-  // Periodic polling fallback: refresh server data every 5s when any feature
-  // is in an active state (running/action-required). This ensures the UI stays
-  // current even if the SSE connection drops — belt-and-suspenders alongside SSE.
-  useEffect(() => {
-    const hasActiveFeature = nodes.some((n) => {
-      if (n.type !== 'featureNode') return false;
-      const data = n.data as FeatureNodeData;
-      return (
-        data.state === 'running' || data.state === 'action-required' || data.state === 'creating'
-      );
-    });
-
-    if (!hasActiveFeature) return;
-
-    const interval = setInterval(() => {
-      if (!isRefreshBlocked?.()) router.refresh();
-    }, 5_000);
-    return () => clearInterval(interval);
-  }, [nodes, router, isRefreshBlocked]);
+  }, [events]);
 
   const onNodesChange = useCallback((changes: NodeChange<CanvasNodeType>[]) => {
     setNodes((ns) => applyNodeChanges(changes, ns));
@@ -285,103 +275,54 @@ export function useControlCenterState(
       };
 
       setNodes((currentNodes) => {
-        // Read edges from ref to avoid closure dependency on `edges` state.
-        // edgesRef is kept in sync by the setEdges wrapper.
-        const siblingIds = sourceNodeId
-          ? new Set(edgesRef.current.filter((e) => e.source === sourceNodeId).map((e) => e.target))
-          : new Set<string>();
-        const siblings = currentNodes.filter((n) => siblingIds.has(n.id));
+        const newNode = {
+          id,
+          type: 'featureNode' as const,
+          position: { x: 0, y: 0 },
+          data: newFeatureData,
+        } as CanvasNodeType;
 
-        let position: { x: number; y: number };
+        const newEdge = sourceNodeId
+          ? {
+              id:
+                edgeType === 'dependencyEdge'
+                  ? `dep-${sourceNodeId}-${id}`
+                  : `edge-${sourceNodeId}-${id}`,
+              source: sourceNodeId,
+              target: id,
+              ...(edgeType ? { type: edgeType } : { style: { strokeDasharray: '5 5' } }),
+            }
+          : null;
 
-        if (siblings.length > 0) {
-          // Place below the bottom-most sibling, matching X
-          const sortedYs = siblings.map((n) => n.position.y).sort((a, b) => a - b);
-          const maxY = sortedYs[sortedYs.length - 1];
-          // Derive gap from existing spacing between siblings, or use default
-          const gap = sortedYs.length > 1 ? sortedYs[1] - sortedYs[0] : 160;
-          position = { x: siblings[0].position.x, y: maxY + gap };
-        } else if (sourceNodeId) {
-          // First child — position to the right of parent
-          const parent = currentNodes.find((n) => n.id === sourceNodeId);
-          // Parent width (288) + 200px gap matching dagre ranksep
-          const xOffset = 488;
-          position = parent
-            ? { x: parent.position.x + xOffset, y: parent.position.y }
-            : { x: 400, y: 200 };
-        } else {
-          // Standalone feature — place below all existing nodes
-          const maxY =
-            currentNodes.length > 0 ? Math.max(...currentNodes.map((n) => n.position.y)) : 0;
-          position = { x: 400, y: currentNodes.length > 0 ? maxY + 160 : 200 };
+        const allEdges = newEdge
+          ? [...edgesRef.current.filter((e) => e.id !== newEdge.id), newEdge]
+          : edgesRef.current;
+
+        // Insert the new node after the last sibling connected to the same source,
+        // so dagre's input-order preservation keeps repo groups together.
+        let insertIndex = currentNodes.length;
+        if (sourceNodeId) {
+          const siblingIds = new Set(
+            allEdges.filter((e) => e.source === sourceNodeId).map((e) => e.target)
+          );
+          for (let i = currentNodes.length - 1; i >= 0; i--) {
+            if (siblingIds.has(currentNodes[i].id)) {
+              insertIndex = i + 1;
+              break;
+            }
+          }
         }
-
-        // The new node's bottom edge (featureNode height = 140)
-        const newBottom = position.y + 140;
-
-        // Find the old group bottom before adding the new node
-        const groupNodeIds = new Set([sourceNodeId, ...siblingIds]);
-        const oldGroupBottom = currentNodes
-          .filter((n) => groupNodeIds.has(n.id))
-          .reduce((max, n) => {
-            const h = n.type === 'featureNode' ? 140 : 50;
-            return Math.max(max, n.position.y + h);
-          }, 0);
-
-        // Shift amount: how much the group grew past its old bottom
-        const shift = Math.max(0, newBottom - oldGroupBottom);
-
-        // Push down all nodes that are below the old group bottom
-        const shifted =
-          shift > 0
-            ? currentNodes.map((n) => {
-                if (groupNodeIds.has(n.id) || siblingIds.has(n.id)) return n;
-                if (n.position.y >= oldGroupBottom) {
-                  return { ...n, position: { ...n.position, y: n.position.y + shift } };
-                }
-                return n;
-              })
-            : currentNodes;
-
-        // Re-center the parent node vertically to its children
-        const recentered = sourceNodeId
-          ? shifted.map((n) => {
-              if (n.id !== sourceNodeId) return n;
-              const allChildYs = [...siblings.map((s) => s.position.y), position.y];
-              const groupCenter = (Math.min(...allChildYs) + Math.max(...allChildYs) + 140) / 2;
-              const parentHeight = n.type === 'featureNode' ? 140 : 50;
-              return {
-                ...n,
-                position: { ...n.position, y: groupCenter - parentHeight / 2 },
-              };
-            })
-          : shifted;
-
-        return [
-          ...recentered,
-          {
-            id,
-            type: 'featureNode' as const,
-            position,
-            data: newFeatureData,
-          } as CanvasNodeType,
+        const allNodes = [
+          ...currentNodes.slice(0, insertIndex),
+          newNode,
+          ...currentNodes.slice(insertIndex),
         ];
-      });
 
-      if (sourceNodeId) {
-        setEdges((currentEdges) => [
-          ...currentEdges,
-          {
-            id:
-              edgeType === 'dependencyEdge'
-                ? `dep-${sourceNodeId}-${id}`
-                : `edge-${sourceNodeId}-${id}`,
-            source: sourceNodeId,
-            target: id,
-            ...(edgeType ? { type: edgeType } : { style: { strokeDasharray: '5 5' } }),
-          },
-        ]);
-      }
+        // Run dagre layout on the full graph so the new node is positioned consistently
+        const layoutResult = layoutWithDagre(allNodes, allEdges, CANVAS_LAYOUT_DEFAULTS);
+        setEdges(layoutResult.edges);
+        return layoutResult.nodes;
+      });
 
       return id;
     },
@@ -389,80 +330,115 @@ export function useControlCenterState(
   );
 
   const handleDeleteFeature = useCallback(
-    async (featureId: string) => {
-      try {
-        const result = await deleteFeature(featureId);
+    (featureId: string) => {
+      const nodeId = `feat-${featureId}`;
 
-        if (result.error) {
-          toast.error(result.error);
-          return;
-        }
+      // Snapshot current state for rollback
+      const prevNodes = nodes;
+      const prevEdges = edgesRef.current;
 
-        setNodes((currentNodes) => {
-          const remainingNodes = currentNodes.filter((n) => n.id !== featureId);
-          const remainingEdges = edges.filter(
-            (e) => e.source !== featureId && e.target !== featureId
-          );
-          const layoutResult = layoutWithDagre(remainingNodes, remainingEdges, {
-            direction: 'LR',
-            ranksep: 200,
-            nodesep: 60,
-          });
-          setEdges(layoutResult.edges);
-          return layoutResult.nodes;
+      // Optimistic removal — update UI immediately
+      setNodes((currentNodes) => {
+        const remainingNodes = currentNodes.filter((n) => n.id !== nodeId);
+        const remainingEdges = edgesRef.current.filter(
+          (e) => e.source !== nodeId && e.target !== nodeId
+        );
+        const layoutResult = layoutWithDagre(
+          remainingNodes,
+          remainingEdges,
+          CANVAS_LAYOUT_DEFAULTS
+        );
+        setEdges(layoutResult.edges);
+        return layoutResult.nodes;
+      });
+      deleteSound.play();
+      toast.success('Feature deleted successfully');
+      router.push('/');
+
+      // Persist in background — rollback on failure
+      deleteFeature(featureId)
+        .then((result) => {
+          if (result.error) {
+            setNodes(prevNodes);
+            setEdges(prevEdges);
+            toast.error(result.error);
+          }
+        })
+        .catch(() => {
+          setNodes(prevNodes);
+          setEdges(prevEdges);
+          toast.error('Failed to delete feature');
         });
-        deleteSound.play();
-        toast.success('Feature deleted successfully');
-        router.refresh();
-      } catch {
-        toast.error('Failed to delete feature');
-      }
     },
-    [router, edges, deleteSound, setEdges]
+    [nodes, router, deleteSound, setEdges]
   );
 
   const handleDeleteRepository = useCallback(
     async (repositoryId: string) => {
       const repoNodeId = `repo-${repositoryId}`;
 
-      // Optimistic: remove node and its edges immediately
-      setNodes((prev) => prev.filter((n) => n.id !== repoNodeId));
-      setEdges((prev) => prev.filter((e) => e.source !== repoNodeId && e.target !== repoNodeId));
+      // Snapshot for rollback
+      const prevNodes = nodes;
+      const prevEdges = edgesRef.current;
+
+      // Optimistic: remove repo node, its child feature nodes, and all related edges
+      setNodes((currentNodes) => {
+        // Find feature node IDs connected to this repo via edges
+        const childFeatureIds = new Set(
+          edgesRef.current.filter((e) => e.source === repoNodeId).map((e) => e.target)
+        );
+        const remainingNodes = currentNodes.filter(
+          (n) => n.id !== repoNodeId && !childFeatureIds.has(n.id)
+        );
+        const remainingEdges = edgesRef.current.filter(
+          (e) =>
+            e.source !== repoNodeId &&
+            e.target !== repoNodeId &&
+            !childFeatureIds.has(e.source) &&
+            !childFeatureIds.has(e.target)
+        );
+        const layoutResult = layoutWithDagre(
+          remainingNodes,
+          remainingEdges,
+          CANVAS_LAYOUT_DEFAULTS
+        );
+        setEdges(layoutResult.edges);
+        return layoutResult.nodes;
+      });
 
       try {
         const result = await deleteRepository(repositoryId);
 
         if (!result.success) {
           toast.error(result.error ?? 'Failed to remove repository');
-          router.refresh();
+          setNodes(prevNodes);
+          setEdges(prevEdges);
           return;
         }
 
         deleteSound.play();
         toast.success('Repository removed');
-        router.refresh();
       } catch {
         toast.error('Failed to remove repository');
-        router.refresh();
+        setNodes(prevNodes);
+        setEdges(prevEdges);
       }
     },
-    [router, deleteSound, setEdges]
+    [nodes, deleteSound, setEdges]
   );
 
   const handleLayout = useCallback(
     (direction: LayoutDirection) => {
       setNodes((currentNodes) => {
-        const currentEdges = edges;
-        const result = layoutWithDagre(currentNodes, currentEdges, {
+        const result = layoutWithDagre(currentNodes, edgesRef.current, {
+          ...CANVAS_LAYOUT_DEFAULTS,
           direction,
-          ranksep: 60,
-          nodesep: 20,
         });
         setEdges(result.edges);
         return result.nodes;
       });
     },
-    [edges, setEdges]
+    [setEdges]
   );
 
   const handleAddRepository = useCallback(
@@ -474,58 +450,36 @@ export function useControlCenterState(
           .split(/[\\/]/)
           .pop() ?? path;
 
-      // Optimistic UI: add node immediately
-      let savedAddRepoY = 0;
+      // Optimistic UI: add node and re-layout immediately
       setNodes((currentNodes) => {
-        const repoNodes = currentNodes.filter((n) => n.type === 'repositoryNode');
-        const addRepoNode = currentNodes.find((n) => n.type === 'addRepositoryNode');
-
-        // Save addRepoNode's original Y for rollback on error
-        if (addRepoNode) savedAddRepoY = addRepoNode.position.y;
-
-        // Place in the repo column, at the addRepoNode's current position
-        const repoX = repoNodes[0]?.position.x ?? addRepoNode?.position.x ?? 50;
-        const repoHeight = 50; // repositoryNode height
-        const gap = 15; // match dagre nodesep
-
-        const position = {
-          x: repoX,
-          y: addRepoNode ? addRepoNode.position.y : 0,
-        };
-
         const newNode = {
           id: tempId,
           type: 'repositoryNode' as const,
-          position,
+          position: { x: 0, y: 0 },
           data: { name: repoName, repositoryPath: path, id: tempId },
         } as CanvasNodeType;
 
-        // Shift addRepo button down by exactly one slot
-        const addRepoY = addRepoNode
-          ? addRepoNode.position.y + repoHeight + gap
-          : position.y + repoHeight + gap;
-
-        return currentNodes
-          .map((n) =>
-            n.type === 'addRepositoryNode' ? { ...n, position: { ...n.position, y: addRepoY } } : n
-          )
-          .concat(newNode);
+        const allNodes = [...currentNodes, newNode];
+        const layoutResult = layoutWithDagre(allNodes, edgesRef.current, CANVAS_LAYOUT_DEFAULTS);
+        setEdges(layoutResult.edges);
+        return layoutResult.nodes;
       });
 
       // Persist via server action
       addRepository({ path, name: repoName })
         .then((result) => {
           if (result.error) {
-            // Rollback optimistic node and restore addRepoNode position
-            setNodes((prev) =>
-              prev
-                .filter((n) => n.id !== tempId)
-                .map((n) =>
-                  n.type === 'addRepositoryNode'
-                    ? { ...n, position: { ...n.position, y: savedAddRepoY } }
-                    : n
-                )
-            );
+            // Rollback optimistic node and re-layout
+            setNodes((prev) => {
+              const remaining = prev.filter((n) => n.id !== tempId);
+              const layoutResult = layoutWithDagre(
+                remaining,
+                edgesRef.current,
+                CANVAS_LAYOUT_DEFAULTS
+              );
+              setEdges(layoutResult.edges);
+              return layoutResult.nodes;
+            });
             toast.error(result.error);
             return;
           }
@@ -554,23 +508,23 @@ export function useControlCenterState(
           );
 
           createSound.play();
-          router.refresh();
         })
         .catch(() => {
-          // Rollback optimistic node and restore addRepoNode position
-          setNodes((prev) =>
-            prev
-              .filter((n) => n.id !== tempId)
-              .map((n) =>
-                n.type === 'addRepositoryNode'
-                  ? { ...n, position: { ...n.position, y: savedAddRepoY } }
-                  : n
-              )
-          );
+          // Rollback optimistic node and re-layout
+          setNodes((prev) => {
+            const remaining = prev.filter((n) => n.id !== tempId);
+            const layoutResult = layoutWithDagre(
+              remaining,
+              edgesRef.current,
+              CANVAS_LAYOUT_DEFAULTS
+            );
+            setEdges(layoutResult.edges);
+            return layoutResult.nodes;
+          });
           toast.error('Failed to add repository');
         });
     },
-    [router, createSound, setEdges]
+    [createSound, setEdges]
   );
 
   return {

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildGraphNodes } from '@/app/build-graph-nodes';
+import { layoutWithDagre, CANVAS_LAYOUT_DEFAULTS } from '@/lib/layout-with-dagre';
 import { SdlcLifecycle } from '@shepai/core/domain/generated/output';
 import type { Feature, Repository } from '@shepai/core/domain/generated/output';
 
@@ -139,6 +140,87 @@ describe('buildGraphNodes', () => {
       expect(nodes.find((n) => n.id === 'repo-repo-1')).toBeDefined();
       expect(nodes.find((n) => n.id === 'virtual-repo-/orphan/repo')).toBeDefined();
       expect(nodes.find((n) => n.id === 'virtual-repo-/real/repo')).toBeUndefined();
+    });
+  });
+
+  describe('feature ordering by createdAt', () => {
+    it('sorts feature nodes so newest appears last (bottom)', () => {
+      const repo = makeRepo({ path: '/my/repo' });
+      const oldest = makeFeature({
+        id: 'feat-old',
+        repositoryPath: '/my/repo',
+        createdAt: new Date('2025-01-01'),
+      });
+      const middle = makeFeature({
+        id: 'feat-mid',
+        repositoryPath: '/my/repo',
+        createdAt: new Date('2025-06-01'),
+      });
+      const newest = makeFeature({
+        id: 'feat-new',
+        repositoryPath: '/my/repo',
+        createdAt: new Date('2026-01-01'),
+      });
+
+      // Pass features in reverse order to verify sorting
+      const { nodes } = buildGraphNodes(
+        [repo],
+        [
+          { feature: newest, run: null },
+          { feature: oldest, run: null },
+          { feature: middle, run: null },
+        ]
+      );
+
+      const featureNodes = nodes.filter((n) => n.type === 'featureNode');
+      expect(featureNodes.map((n) => n.id)).toEqual([
+        'feat-feat-old',
+        'feat-feat-mid',
+        'feat-feat-new',
+      ]);
+    });
+  });
+
+  describe('feature ordering after Dagre layout', () => {
+    it('newest feature has the largest Y position after full layout pipeline', () => {
+      const repo = makeRepo({ path: '/my/repo' });
+      const oldest = makeFeature({
+        id: 'feat-old',
+        name: 'Oldest Feature',
+        repositoryPath: '/my/repo',
+        createdAt: new Date('2025-01-01'),
+      });
+      const middle = makeFeature({
+        id: 'feat-mid',
+        name: 'Middle Feature',
+        repositoryPath: '/my/repo',
+        createdAt: new Date('2025-06-01'),
+      });
+      const newest = makeFeature({
+        id: 'feat-new',
+        name: 'Newest Feature',
+        repositoryPath: '/my/repo',
+        createdAt: new Date('2026-01-01'),
+      });
+
+      // Pass features in scrambled order
+      const { nodes, edges } = buildGraphNodes(
+        [repo],
+        [
+          { feature: newest, run: null },
+          { feature: oldest, run: null },
+          { feature: middle, run: null },
+        ]
+      );
+
+      const laid = layoutWithDagre(nodes, edges, CANVAS_LAYOUT_DEFAULTS);
+
+      const oldNode = laid.nodes.find((n) => n.id === 'feat-feat-old')!;
+      const midNode = laid.nodes.find((n) => n.id === 'feat-feat-mid')!;
+      const newNode = laid.nodes.find((n) => n.id === 'feat-feat-new')!;
+
+      expect(oldNode.position.y).toBeLessThan(midNode.position.y);
+      expect(midNode.position.y).toBeLessThan(newNode.position.y);
     });
   });
 

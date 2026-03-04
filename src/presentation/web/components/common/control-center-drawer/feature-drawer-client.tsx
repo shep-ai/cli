@@ -100,8 +100,9 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
       const newLifecycle = mapPhaseNameToLifecycle(event.phaseName);
 
       // Trigger a server refresh to get the latest drawer view,
-      // but skip when the user has unsaved changes to avoid losing form state.
-      if (!isDirtyRef.current) router.refresh();
+      // but skip when the user has unsaved changes or a rejection is in-flight
+      // to avoid the refresh interfering with the reject handler's navigation.
+      if (!isDirtyRef.current && !isRejectingRef.current) router.refresh();
 
       // Optimistically update the node data for immediate UI feedback
       setView((prev) => {
@@ -163,6 +164,7 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
 
   // ── Shared reject state ────────────────────────────────────────────────
   const [isRejecting, setIsRejecting] = useState(false);
+  const isRejectingRef = useRef(false);
 
   // Reset chat input whenever the view type changes
   const viewType = view.type;
@@ -317,6 +319,7 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
   const handleReject = useCallback(
     async (feedback: string, label: string, onDone?: () => void) => {
       if (!reviewNode?.featureId) return;
+      isRejectingRef.current = true;
       setIsRejecting(true);
       try {
         const result = await rejectFeature(reviewNode.featureId, feedback);
@@ -335,6 +338,7 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
         onClose();
         onDone?.();
       } finally {
+        isRejectingRef.current = false;
         setIsRejecting(false);
       }
     },

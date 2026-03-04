@@ -5,15 +5,15 @@ import { Handle, Position } from '@xyflow/react';
 import { Settings, Plus, FileText, Wrench, GitMerge, Trash2, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   featureNodeStateConfig,
@@ -123,26 +123,32 @@ export function FeatureNode({
             </TooltipProvider>
           </div>
 
-          <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-            <AlertDialogContent size="sm">
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete feature?</AlertDialogTitle>
-                <AlertDialogDescription>
+          <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+            <DialogContent className="max-w-xs">
+              <DialogHeader>
+                <DialogTitle>Delete feature?</DialogTitle>
+                <DialogDescription>
                   This will permanently delete <strong>{data.name}</strong> and all associated data
                   including specs, branches, and progress.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="grid grid-cols-2 gap-2 sm:flex-none">
+                <DialogClose asChild>
+                  <Button variant="outline">Cancel</Button>
+                </DialogClose>
+                <Button
                   variant="destructive"
-                  onClick={() => data.onDelete?.(data.featureId)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setConfirmOpen(false);
+                    data.onDelete?.(data.featureId);
+                  }}
                 >
                   Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </>
       ) : null}
 

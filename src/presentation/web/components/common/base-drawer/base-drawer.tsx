@@ -34,6 +34,8 @@ export interface BaseDrawerProps extends VariantProps<typeof drawerVariants> {
   open: boolean;
   onClose: () => void;
   modal?: boolean;
+  /** When true, clicking anywhere outside the drawer closes it, ignoring `data-no-drawer-close` guards. */
+  dismissOnOutsideClick?: boolean;
   header?: React.ReactNode;
   children: React.ReactNode;
   footer?: React.ReactNode;
@@ -46,6 +48,7 @@ export function BaseDrawer({
   open,
   onClose,
   modal = false,
+  dismissOnOutsideClick = false,
   size,
   header,
   children,
@@ -68,19 +71,18 @@ export function BaseDrawer({
       // longer in the DOM tree — treat it as an internal click, not an outside one.
       if (!document.body.contains(target)) return;
       if (contentRef.current?.contains(target)) return;
-      // Don't close when clicking inside the canvas or other Radix overlays
-      if (
-        target.closest(
-          '[data-no-drawer-close], [role="alertdialog"], [role="menu"], [role="listbox"], [data-radix-popper-content-wrapper]'
-        )
-      )
-        return;
+      // Don't close when clicking inside Radix overlays.
+      // When dismissOnOutsideClick is false (default), also respect data-no-drawer-close guards.
+      const ignoreSelector = dismissOnOutsideClick
+        ? '[role="alertdialog"], [role="dialog"], [role="menu"], [role="listbox"], [data-radix-popper-content-wrapper]'
+        : '[data-no-drawer-close], [role="alertdialog"], [role="dialog"], [role="menu"], [role="listbox"], [data-radix-popper-content-wrapper]';
+      if (target.closest(ignoreSelector)) return;
       onClose();
     };
 
     document.addEventListener('click', handleClick);
     return () => document.removeEventListener('click', handleClick);
-  }, [open, modal, onClose]);
+  }, [open, modal, onClose, dismissOnOutsideClick]);
 
   return (
     <Drawer
