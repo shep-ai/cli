@@ -78,8 +78,8 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
               <DialogHeader>
                 <DialogTitle>Remove repository?</DialogTitle>
                 <DialogDescription>
-                  This will remove <strong>{data.name}</strong> from your workspace. The repository
-                  files on disk won&apos;t be affected.
+                  This will remove <strong>{data.name}</strong> and all its features from your
+                  workspace. The repository files on disk won&apos;t be affected.
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter className="grid grid-cols-2 gap-2 sm:flex-none">

@@ -374,11 +374,21 @@ export function useControlCenterState(
     async (repositoryId: string) => {
       const repoNodeId = `repo-${repositoryId}`;
 
-      // Optimistic: remove node and its edges, then re-layout
+      // Optimistic: remove repo node, its child feature nodes, and all related edges
       setNodes((currentNodes) => {
-        const remainingNodes = currentNodes.filter((n) => n.id !== repoNodeId);
+        // Find feature node IDs connected to this repo via edges
+        const childFeatureIds = new Set(
+          edgesRef.current.filter((e) => e.source === repoNodeId).map((e) => e.target)
+        );
+        const remainingNodes = currentNodes.filter(
+          (n) => n.id !== repoNodeId && !childFeatureIds.has(n.id)
+        );
         const remainingEdges = edgesRef.current.filter(
-          (e) => e.source !== repoNodeId && e.target !== repoNodeId
+          (e) =>
+            e.source !== repoNodeId &&
+            e.target !== repoNodeId &&
+            !childFeatureIds.has(e.source) &&
+            !childFeatureIds.has(e.target)
         );
         const layoutResult = layoutWithDagre(
           remainingNodes,
