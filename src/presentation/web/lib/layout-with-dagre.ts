@@ -108,15 +108,64 @@ export function layoutWithDagre<N extends Node>(
   const { targetPosition, sourcePosition } = getHandlePositions(direction);
   const result: N[] = [];
 
-  // Map laid-out nodes, converting dagre center-coords to React Flow top-left
+  // Dagre may reorder nodes within a rank (crossing-minimization).
+  // Preserve the input order by collecting positions per rank, then
+  // reassigning Y values in input order.
+  const isHorizontal = direction === 'LR' || direction === 'RL';
+
+  // Build a lookup of dagre-assigned positions keyed by node id
+  const posMap = new Map<string, { x: number; y: number; width: number; height: number }>();
   for (const node of graphNodes) {
     const pos = g.node(node.id);
     const size = getNodeSize(node, nodeSize);
+    posMap.set(node.id, { x: pos.x, y: pos.y, width: size.width, height: size.height });
+  }
+
+  // Group nodes by their rank coordinate (X for LR/RL, Y for TB/BT)
+  const rankKey = (pos: { x: number; y: number }) =>
+    isHorizontal ? Math.round(pos.x) : Math.round(pos.y);
+
+  const rankGroups = new Map<number, string[]>();
+  for (const node of graphNodes) {
+    const pos = posMap.get(node.id)!;
+    const key = rankKey(pos);
+    if (!rankGroups.has(key)) rankGroups.set(key, []);
+    rankGroups.get(key)!.push(node.id);
+  }
+
+  // For each rank with multiple nodes, sort the dagre-assigned secondary-axis
+  // values and redistribute them in input order
+  for (const [, ids] of rankGroups) {
+    if (ids.length <= 1) continue;
+
+    // Collect the secondary-axis center values dagre chose, sorted ascending
+    const secondaryValues = ids
+      .map((id) => {
+        const p = posMap.get(id)!;
+        return isHorizontal ? p.y : p.x;
+      })
+      .sort((a, b) => a - b);
+
+    // ids are already in input order (iterated from graphNodes which
+    // preserves the nodes array order). Assign sorted values back in input order.
+    ids.forEach((id, idx) => {
+      const p = posMap.get(id)!;
+      if (isHorizontal) {
+        p.y = secondaryValues[idx];
+      } else {
+        p.x = secondaryValues[idx];
+      }
+    });
+  }
+
+  // Map laid-out nodes, converting dagre center-coords to React Flow top-left
+  for (const node of graphNodes) {
+    const pos = posMap.get(node.id)!;
     result.push({
       ...node,
       targetPosition,
       sourcePosition,
-      position: { x: pos.x - size.width / 2, y: pos.y - size.height / 2 },
+      position: { x: pos.x - pos.width / 2, y: pos.y - pos.height / 2 },
     } as N);
   }
 

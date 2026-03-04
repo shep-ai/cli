@@ -117,7 +117,20 @@ function appendFeatureNodes(
   nodes: CanvasNodeType[],
   edges: Edge[]
 ): void {
-  repoFeatures.forEach(({ feature, run }) => {
+  // Sort by createdAt so newest features appear last (bottom) in the layout
+  const sorted = [...repoFeatures].sort((a, b) => {
+    const aTime =
+      a.feature.createdAt instanceof Date
+        ? a.feature.createdAt.getTime()
+        : Number(a.feature.createdAt);
+    const bTime =
+      b.feature.createdAt instanceof Date
+        ? b.feature.createdAt.getTime()
+        : Number(b.feature.createdAt);
+    return aTime - bTime;
+  });
+
+  sorted.forEach(({ feature, run }) => {
     const agentNode = run?.result?.startsWith('node:') ? run.result.slice(5) : undefined;
     const lifecycle: FeatureLifecyclePhase =
       run?.status === 'completed'
