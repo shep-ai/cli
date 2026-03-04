@@ -1,0 +1,359 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feature-error-recovery
+summary: >
+  11 tasks across 4 phases: bug fix + server action foundation, canvas node retry UI,
+  drawer retry + top-level wiring, and Storybook stories.
+
+# Relationships
+relatedFeatures: []
+technologies: []
+relatedLinks: []
+
+tasks:
+  # ── Phase 1: Bug Fix & Server Action Foundation ──────────────────────────
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Fix sidebar stateMapping: error → action-needed'
+    description: >
+      Change the stateMapping in sidebar-features-context.tsx from error: 'in-progress'
+      to error: 'action-needed'. Update the existing test expectation in
+      sidebar-features-context.test.tsx to match. This is a 1-line fix + 1-line test update.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'stateMapping maps error to action-needed instead of in-progress'
+      - 'mapNodeStateToSidebarStatus("error") returns "action-needed"'
+      - 'Existing test for error mapping updated and passes'
+      - 'All other stateMapping entries remain unchanged'
+    tdd:
+      red:
+        - 'Update the test expectation: change ["error", "in-progress"] to ["error", "action-needed"] in the it.each table — test should fail against current code'
+      green:
+        - 'Change error: "in-progress" to error: "action-needed" in the stateMapping object — test passes'
+      refactor:
+        - 'No refactoring needed — single-line change'
+    estimatedEffort: '15min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Create resume-feature server action'
+    description: >
+      Create a new server action at app/actions/resume-feature.ts following the
+      delete-feature.ts pattern. It accepts featureId, validates input, resolves
+      ResumeFeatureUseCase from the DI container, calls execute(featureId), and returns
+      { resumed: boolean; error?: string }. Includes try/catch for structured error handling.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'Server action exports resumeFeature(featureId: string) with "use server" directive'
+      - 'Returns { resumed: false, error: "id is required" } for empty/whitespace input'
+      - 'Resolves ResumeFeatureUseCase from DI container and calls execute(featureId)'
+      - 'Returns { resumed: true } on success'
+      - 'Catches Error and returns { resumed: false, error: message }'
+      - 'Catches non-Error and returns { resumed: false, error: "Failed to resume feature" }'
+    tdd:
+      red:
+        - 'Create tests/unit/presentation/web/actions/features/resume-feature.test.ts following delete-feature.test.ts pattern'
+        - 'Write test: returns error when id is empty string'
+        - 'Write test: returns error when id is whitespace-only'
+        - 'Write test: returns { resumed: true } on success and calls execute with featureId'
+        - 'Write test: returns error when use case throws Error'
+        - 'Write test: returns generic error when use case throws non-Error'
+      green:
+        - 'Create src/presentation/web/app/actions/resume-feature.ts with "use server" directive'
+        - 'Add input validation: if (!featureId?.trim()) return { resumed: false, error: "id is required" }'
+        - 'Resolve ResumeFeatureUseCase from DI container'
+        - 'Call execute(featureId) in try/catch'
+        - 'Return { resumed: true } on success, structured error on failure'
+      refactor:
+        - 'Verify return type consistency with other server actions'
+    estimatedEffort: '30min'
+
+  # ── Phase 2: Canvas Node Retry UI ────────────────────────────────────────
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Add onRetry callback to FeatureNodeData'
+    description: >
+      Add an optional onRetry callback property to the FeatureNodeData interface in
+      feature-node-state-config.ts, following the pattern of onAction, onSettings, onDelete.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'FeatureNodeData has onRetry?: () => void property'
+      - 'TypeScript compiles without errors'
+      - 'No existing code is broken by the new optional property'
+    tdd:
+      red:
+        - 'No test needed — this is a type-only change; TypeScript compiler is the test'
+      green:
+        - 'Add onRetry?: () => void to the FeatureNodeData interface after onDelete'
+      refactor:
+        - 'Verify the property is placed consistently near other callback props'
+    estimatedEffort: '5min'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Render retry badge on error-state canvas node'
+    description: >
+      Modify feature-node.tsx to render a clickable retry badge when the node state is
+      "error" and onRetry is provided. The badge follows the existing error state styling
+      (red-700, bg-red-50) from featureNodeStateConfig and uses the RotateCcw icon with
+      "Retry" label. Clicking the badge calls data.onRetry(). The badge replaces the
+      static error badge only when onRetry is available.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'Error-state node renders a clickable retry badge when onRetry is provided'
+      - 'Badge shows RotateCcw icon and "Retry" label text'
+      - 'Badge uses error state styling (text-red-700, bg-red-50)'
+      - 'Clicking the badge calls data.onRetry()'
+      - 'Badge has aria-label "Retry failed feature" for accessibility'
+      - 'Static error badge still shows when onRetry is not provided'
+      - 'Click event stopPropagation to prevent node selection change'
+    tdd:
+      red:
+        - 'Write test: error-state node with onRetry renders a button with "Retry" text'
+        - 'Write test: clicking retry badge calls onRetry callback'
+        - 'Write test: error-state node without onRetry renders static error badge (no button)'
+      green:
+        - 'Import RotateCcw from lucide-react'
+        - 'In the badge rendering section, add conditional: if state is error and onRetry exists, render a clickable badge button'
+        - 'Render RotateCcw icon + "Retry" text inside the badge'
+        - 'Attach onClick handler that calls e.stopPropagation() then data.onRetry()'
+      refactor:
+        - 'Extract badge click handler if it becomes complex'
+        - 'Ensure consistent styling with the action-required badge pattern'
+    estimatedEffort: '45min'
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Wire onRetry through FeaturesCanvas enrichedNodes'
+    description: >
+      Add onFeatureRetry prop to FeaturesCanvasProps and wire it through the enrichedNodes
+      useMemo, following the existing onFeatureDelete/onNodeAction pattern. The onRetry
+      callback is injected into each feature node's data when the node state is not "creating".
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'FeaturesCanvasProps has onFeatureRetry?: (featureId: string) => void'
+      - 'enrichedNodes injects onRetry callback for feature nodes (when state !== "creating")'
+      - 'onRetry wraps onFeatureRetry with the node featureId'
+      - 'onFeatureRetry is included in the useMemo dependency array'
+    tdd:
+      red:
+        - 'Write test: enrichedNodes includes onRetry when onFeatureRetry is provided and state !== creating'
+        - 'Write test: enrichedNodes does not include onRetry when state is creating'
+      green:
+        - 'Add onFeatureRetry to FeaturesCanvasProps interface'
+        - 'Destructure onFeatureRetry in component params'
+        - 'In the featureNode enrichment block, add onRetry that wraps onFeatureRetry with the node featureId'
+        - 'Add onFeatureRetry to useMemo dependency array'
+      refactor:
+        - 'Verify callback wrapping is consistent with onDelete pattern'
+    estimatedEffort: '30min'
+
+  # ── Phase 3: Feature Drawer Retry & Top-Level Wiring ─────────────────────
+
+  - id: task-6
+    phaseId: phase-3
+    title: 'Add retry handler to use-control-center-state'
+    description: >
+      Add a handleResumeFeature callback to use-control-center-state.ts that calls the
+      resumeFeature server action. On success, toast.success; on failure, toast.error.
+      Return the handler from the hook and add it to the ControlCenterState interface.
+      This follows the handleDeleteFeature pattern but is simpler — no optimistic UI
+      needed since SSE handles the state transition.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'ControlCenterState interface includes handleResumeFeature: (featureId: string) => void'
+      - 'Handler calls resumeFeature server action with featureId'
+      - 'On success (resumed: true), shows toast.success'
+      - 'On failure (resumed: false), shows toast.error with the error message'
+      - 'Handler is returned from the hook'
+    tdd:
+      red:
+        - 'Write test: handleResumeFeature calls resumeFeature with featureId'
+        - 'Write test: shows toast.error when server action returns error'
+      green:
+        - 'Import resumeFeature from app/actions/resume-feature'
+        - 'Add handleResumeFeature as useCallback wrapping the server action call'
+        - 'Add to ControlCenterState interface and return from hook'
+      refactor:
+        - 'Verify toast messages are consistent with existing patterns'
+    estimatedEffort: '30min'
+
+  - id: task-7
+    phaseId: phase-3
+    title: 'Wire retry through control-center-inner to FeaturesCanvas'
+    description: >
+      Destructure handleResumeFeature from useControlCenterState and pass it as
+      onFeatureRetry prop to FeaturesCanvas in control-center-inner.tsx.
+    state: Todo
+    dependencies:
+      - task-5
+      - task-6
+    acceptanceCriteria:
+      - 'handleResumeFeature is destructured from useControlCenterState()'
+      - 'FeaturesCanvas receives onFeatureRetry={handleResumeFeature}'
+      - 'Canvas retry badge triggers the full flow to the server action'
+    tdd:
+      red:
+        - 'No isolated test — this is prop wiring; covered by integration and Storybook'
+      green:
+        - 'Destructure handleResumeFeature from useControlCenterState'
+        - 'Pass onFeatureRetry={handleResumeFeature} to FeaturesCanvas'
+      refactor:
+        - 'Verify no unnecessary re-renders from new prop'
+    estimatedEffort: '15min'
+
+  - id: task-8
+    phaseId: phase-3
+    title: 'Add retry button to feature-drawer-client.tsx'
+    description: >
+      Add a retry button to the feature-drawer-client body section when view.type is
+      "feature" and the feature state is "error". The button calls resumeFeature server
+      action directly (same pattern as handleDelete). Uses useState for isRetrying state
+      to show loading spinner and disable the button during the request. On success, the
+      SSE stream will update the view. On failure, shows toast.error.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'Retry button renders in the feature view body when state is "error"'
+      - 'Button shows RotateCcw icon and "Retry" label'
+      - 'Clicking button calls resumeFeature(featureNode.featureId)'
+      - 'Button is disabled and shows Loader2 spinner while in-flight'
+      - 'On success, toast.success("Feature resuming") is shown'
+      - 'On failure, toast.error with the error message is shown'
+      - 'Button has aria-label "Retry failed feature"'
+    tdd:
+      red:
+        - 'Write test: retry button renders when view type is feature and state is error'
+        - 'Write test: retry button does not render when state is not error'
+        - 'Write test: clicking retry calls resumeFeature with correct featureId'
+      green:
+        - 'Import resumeFeature from app/actions/resume-feature'
+        - 'Import RotateCcw from lucide-react'
+        - 'Add isRetrying state with useState(false)'
+        - 'Add handleRetry callback that sets isRetrying, calls server action, handles success/error, resets isRetrying'
+        - 'In the feature view body, after FeatureDetails, conditionally render retry button when state is error'
+      refactor:
+        - 'Ensure consistent placement with other action elements in the drawer'
+    estimatedEffort: '45min'
+
+  - id: task-9
+    phaseId: phase-3
+    title: 'Add retry button to feature-drawer.tsx (simpler drawer)'
+    description: >
+      Add an onRetry callback prop to FeatureDrawerProps and render a retry button in the
+      drawer body when the node state is "error" and onRetry is provided. This keeps the
+      simpler drawer component in parity with the client drawer for Storybook and reuse.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'FeatureDrawerProps has onRetry?: () => void and isRetrying?: boolean'
+      - 'Retry button renders below DetailsSection when state is error and onRetry is provided'
+      - 'Button shows RotateCcw icon, "Retry" label, loading state when isRetrying'
+      - 'Clicking button calls onRetry()'
+    tdd:
+      red:
+        - 'Write test: retry button renders when state is error and onRetry is provided'
+        - 'Write test: retry button does not render when state is not error'
+        - 'Write test: clicking retry calls onRetry callback'
+      green:
+        - 'Add onRetry and isRetrying props to FeatureDrawerProps'
+        - 'Import RotateCcw from lucide-react'
+        - 'After DetailsSection, conditionally render retry button'
+      refactor:
+        - 'Ensure styling is consistent with feature-drawer-client retry button'
+    estimatedEffort: '30min'
+
+  # ── Phase 4: Storybook Stories ───────────────────────────────────────────
+
+  - id: task-10
+    phaseId: phase-4
+    title: 'Add feature node Storybook stories for error retry'
+    description: >
+      Add/update stories in feature-node.stories.tsx for: error state with retry badge
+      (onRetry provided), error state without retry (static badge), and interactive retry
+      click. Follow the existing story patterns (FeatureNodeCanvas wrapper, per-state args).
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'Story: ErrorWithRetry — error state node with clickable retry badge'
+      - 'Story: ErrorWithRetryCallback — retry badge with fn() spy for interaction testing'
+      - 'Existing Error story unchanged (no onRetry, shows static badge)'
+      - 'Stories render correctly in Storybook'
+    tdd:
+      red:
+        - 'No TDD for stories — stories are visual tests; verify in Storybook'
+      green:
+        - 'Add ErrorWithRetry story with onRetry: fn() in args'
+        - 'Add story showing error state with retry badge visible'
+      refactor:
+        - 'Ensure story naming is consistent with existing conventions'
+    estimatedEffort: '20min'
+
+  - id: task-11
+    phaseId: phase-4
+    title: 'Add feature drawer Storybook stories for error retry'
+    description: >
+      Add/update stories in feature-drawer.stories.tsx for: error state with retry button
+      visible, retry button in loading state (isRetrying=true). Follow the existing
+      DrawerTrigger wrapper pattern.
+    state: Todo
+    dependencies:
+      - task-9
+    acceptanceCriteria:
+      - 'Story: ErrorWithRetry — error state drawer with retry button'
+      - 'Story: ErrorRetrying — error state drawer with retry button in loading state'
+      - 'Existing Error story unchanged'
+      - 'Stories render correctly in Storybook'
+    tdd:
+      red:
+        - 'No TDD for stories — stories are visual tests; verify in Storybook'
+      green:
+        - 'Add ErrorWithRetry story with onRetry callback and error state data'
+        - 'Add ErrorRetrying story with isRetrying=true'
+      refactor:
+        - 'Ensure story naming is consistent with existing drawer stories'
+    estimatedEffort: '20min'
+
+totalEstimate: '4.5h'
+
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation is broken into 11 tasks across 4 phases, totaling approximately 4.5 hours.
+
+  Phase 1 handles the foundation: a 1-line sidebar bug fix and the new resume-feature server
+  action. These two tasks have no dependencies on each other and establish the prerequisites
+  for all UI work.
+
+  Phase 2 builds the canvas retry experience: adding the onRetry callback type, rendering
+  the clickable retry badge on error-state nodes, and wiring the callback through
+  FeaturesCanvas's enrichedNodes pattern.
+
+  Phase 3 completes the full integration: the control-center-state handler that calls the
+  server action, the wiring through control-center-inner, the retry button in the dashboard's
+  feature-drawer-client, and the retry prop on the simpler feature-drawer for parity.
+
+  Phase 4 adds Storybook stories for both the feature node and feature drawer retry states,
+  satisfying the mandatory Storybook coverage rule.
+
+  Tasks within each phase are ordered by dependency — type changes come before component
+  changes, server action comes before handler wiring, and all component changes come before
+  stories. Tasks 1 and 2 in Phase 1 are independent and could be implemented in parallel.
+  Tasks 3 and 5 in Phase 2 are also parallelizable (type change + canvas wiring).
