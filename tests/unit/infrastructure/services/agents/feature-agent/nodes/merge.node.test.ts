@@ -249,11 +249,11 @@ describe('createMergeNode (agent-driven)', () => {
       });
       await node(state);
 
-      // PR merge via service — no second agent call
+      // PR merge via service — no merge agent call
       expect(deps.gitPrService.mergePr).toHaveBeenCalledWith('/tmp/worktree', 42, 'squash');
       expect(mockBuildMergeSquashPrompt).not.toHaveBeenCalled();
-      // Only one executor call for commit/push/PR
-      expect(deps.executor.execute).toHaveBeenCalledTimes(1);
+      // Two executor calls: commit/push/PR + evidence collection
+      expect(deps.executor.execute).toHaveBeenCalledTimes(2);
     });
 
     it('should use agent for local merge when no PR and allowMerge=true', async () => {

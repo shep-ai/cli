@@ -1,0 +1,9 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: EvidenceStatus.yaml
+type: string
+enum:
+  - Skipped
+  - Success
+  - Partial
+  - Failed
+description: PR evidence collection status

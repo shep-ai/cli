@@ -121,6 +121,7 @@ import {
 import type { FeatureAgentState } from '@/infrastructure/services/agents/feature-agent/state.js';
 import type { IAgentExecutor } from '@/application/ports/output/agents/agent-executor.interface.js';
 import type { IGitPrService } from '@/application/ports/output/services/git-pr-service.interface.js';
+import { EvidenceStatus } from '@/domain/generated/output.js';
 import {
   GitPrError,
   GitPrErrorCode,
@@ -211,6 +212,8 @@ function baseState(overrides: Partial<FeatureAgentState> = {}): FeatureAgentStat
     ciFixAttempts: 0,
     ciFixHistory: [],
     ciFixStatus: 'idle',
+    evidenceStatus: EvidenceStatus.Skipped,
+    evidenceArtifacts: [],
     ...overrides,
   } as FeatureAgentState;
 }

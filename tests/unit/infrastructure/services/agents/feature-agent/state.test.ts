@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { describe, it, expect } from 'vitest';
 import { FeatureAgentAnnotation } from '@/infrastructure/services/agents/feature-agent/state.js';
-import type { CiFixRecord } from '@/domain/generated/output.js';
+import { EvidenceStatus, type CiFixRecord } from '@/domain/generated/output.js';
 
 describe('FeatureAgentAnnotation', () => {
   describe('merge state channels exist on type', () => {
@@ -26,13 +26,14 @@ describe('FeatureAgentAnnotation', () => {
       expect(FeatureAgentAnnotation.spec).toBeDefined();
     });
 
-    it('should have all 23 channels (including 3 new CI fix loop channels)', () => {
+    it('should have all 25 channels (including evidence channels)', () => {
       const channelNames = Object.keys(FeatureAgentAnnotation.spec);
       // Original: featureId, repositoryPath, specDir, worktreePath, currentNode, error,
       //           approvalGates, messages, validationRetries, lastValidationTarget, lastValidationErrors
       // Merge:    prUrl, prNumber, commitHash, ciStatus, push, openPr
       // Approval: _approvalAction, _rejectionFeedback, _needsReexecution
       // CI fix:   ciFixAttempts, ciFixHistory, ciFixStatus
+      // Evidence: evidenceStatus, evidenceArtifacts
       expect(channelNames).toContain('prUrl');
       expect(channelNames).toContain('prNumber');
       expect(channelNames).toContain('commitHash');
@@ -47,7 +48,9 @@ describe('FeatureAgentAnnotation', () => {
       expect(channelNames).toContain('ciFixAttempts');
       expect(channelNames).toContain('ciFixHistory');
       expect(channelNames).toContain('ciFixStatus');
-      expect(channelNames.length).toBe(23);
+      expect(channelNames).toContain('evidenceStatus');
+      expect(channelNames).toContain('evidenceArtifacts');
+      expect(channelNames.length).toBe(25);
     });
   });
 
@@ -172,6 +175,86 @@ describe('FeatureAgentAnnotation', () => {
         for (const status of statuses) {
           expect(op('idle', status)).toBe(status);
         }
+      });
+    });
+  });
+
+  describe('EvidenceStatus enum', () => {
+    it('has all four expected values', () => {
+      expect(EvidenceStatus.Skipped).toBe('Skipped');
+      expect(EvidenceStatus.Success).toBe('Success');
+      expect(EvidenceStatus.Partial).toBe('Partial');
+      expect(EvidenceStatus.Failed).toBe('Failed');
+    });
+
+    it('has exactly four values', () => {
+      const values = Object.values(EvidenceStatus);
+      expect(values).toHaveLength(4);
+    });
+  });
+
+  describe('Evidence state channels', () => {
+    describe('initial defaults', () => {
+      it('evidenceStatus defaults to Skipped', () => {
+        const channel = FeatureAgentAnnotation.spec.evidenceStatus as unknown as {
+          initialValueFactory: () => string;
+        };
+        expect(channel.initialValueFactory()).toBe(EvidenceStatus.Skipped);
+      });
+
+      it('evidenceArtifacts defaults to []', () => {
+        const channel = FeatureAgentAnnotation.spec.evidenceArtifacts as unknown as {
+          initialValueFactory: () => string[];
+        };
+        expect(channel.initialValueFactory()).toEqual([]);
+      });
+    });
+
+    describe('evidenceStatus reducer — replace', () => {
+      const getOperator = () =>
+        (
+          FeatureAgentAnnotation.spec.evidenceStatus as unknown as {
+            operator: (prev: string, next: string) => string;
+          }
+        ).operator;
+
+      it('replaces previous value on each update', () => {
+        const op = getOperator();
+        expect(op(EvidenceStatus.Skipped, EvidenceStatus.Success)).toBe(EvidenceStatus.Success);
+        expect(op(EvidenceStatus.Success, EvidenceStatus.Partial)).toBe(EvidenceStatus.Partial);
+        expect(op(EvidenceStatus.Partial, EvidenceStatus.Failed)).toBe(EvidenceStatus.Failed);
+      });
+
+      it('accepts all valid EvidenceStatus values', () => {
+        const op = getOperator();
+        for (const status of Object.values(EvidenceStatus)) {
+          expect(op(EvidenceStatus.Skipped, status)).toBe(status);
+        }
+      });
+    });
+
+    describe('evidenceArtifacts reducer — replace', () => {
+      const getOperator = () =>
+        (
+          FeatureAgentAnnotation.spec.evidenceArtifacts as unknown as {
+            operator: (prev: string[], next: string[]) => string[];
+          }
+        ).operator;
+
+      it('replaces previous array with new array (last-wins)', () => {
+        const op = getOperator();
+        const first = ['https://github.com/evidence/screenshot1.png'];
+        const second = [
+          'https://github.com/evidence/screenshot2.png',
+          'https://github.com/evidence/report.csv',
+        ];
+        expect(op(first, second)).toEqual(second);
+      });
+
+      it('can replace a populated array with empty', () => {
+        const op = getOperator();
+        const prev = ['https://github.com/evidence/screenshot1.png'];
+        expect(op(prev, [])).toEqual([]);
       });
     });
   });

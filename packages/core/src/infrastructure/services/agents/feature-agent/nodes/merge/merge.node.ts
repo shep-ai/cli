@@ -21,7 +21,12 @@ import type {
   DiffSummary,
   IGitPrService,
 } from '@/application/ports/output/services/git-pr-service.interface.js';
-import { SdlcLifecycle, PrStatus, type CiStatus } from '@/domain/generated/output.js';
+import {
+  SdlcLifecycle,
+  PrStatus,
+  EvidenceStatus,
+  type CiStatus,
+} from '@/domain/generated/output.js';
 import {
   createNodeLogger,
   shouldInterrupt,
@@ -39,6 +44,7 @@ import {
 } from '../../phase-timing-context.js';
 import { updateNodeLifecycle } from '../../lifecycle-context.js';
 import { buildCommitPushPrPrompt, buildMergeSquashPrompt } from '../prompts/merge-prompts.js';
+import { buildEvidencePrompt } from '../prompts/evidence-prompts.js';
 import { parseCommitHash, parsePrUrl } from './merge-output-parser.js';
 import { runCiWatchFixLoop } from './ci-watch-fix-loop.js';
 
@@ -109,6 +115,8 @@ export function createMergeNode(deps: MergeNodeDeps) {
       let ciFixAttempts = state.ciFixAttempts ?? 0;
       let ciFixHistory = state.ciFixHistory ?? [];
       let ciFixStatus = state.ciFixStatus ?? 'idle';
+      let evidenceStatus: EvidenceStatus = state.evidenceStatus ?? EvidenceStatus.Skipped;
+      const evidenceArtifacts: string[] = state.evidenceArtifacts ?? [];
 
       // --- Check for git remote (needed by both agent calls) ---
       const remoteAvailable = await deps.hasRemote(cwd);
@@ -136,6 +144,37 @@ export function createMergeNode(deps: MergeNodeDeps) {
             prUrl = prResult.url;
             prNumber = prResult.number;
             messages.push(`[merge] PR created: ${prUrl}`);
+          }
+        }
+
+        // --- Evidence collection phase (after PR creation, before CI watch) ---
+        if (effectiveState.openPr && prNumber && prUrl) {
+          try {
+            log.info('Evidence collection: starting');
+            const evidencePrompt = buildEvidencePrompt(
+              state,
+              prNumber,
+              prUrl,
+              ciStatus,
+              ciFixHistory,
+              branch
+            );
+            await retryExecute(
+              executor,
+              evidencePrompt,
+              { ...options, maxTurns: 5 },
+              {
+                logger: log,
+              }
+            );
+            evidenceStatus = EvidenceStatus.Success;
+            messages.push(`[merge] Evidence collected and posted to PR #${prNumber}`);
+            log.info('Evidence collection: complete');
+          } catch (evidenceErr: unknown) {
+            const msg = evidenceErr instanceof Error ? evidenceErr.message : String(evidenceErr);
+            log.info(`Evidence collection failed (non-blocking): ${msg}`);
+            evidenceStatus = EvidenceStatus.Failed;
+            messages.push(`[merge] Evidence collection failed: ${msg}`);
           }
         }
 
@@ -178,8 +217,9 @@ export function createMergeNode(deps: MergeNodeDeps) {
               ...(ciFixAttempts > 0 ? { ciFixAttempts } : {}),
               ...(ciFixHistory.length > 0 ? { ciFixHistory } : {}),
             },
+            evidenceStatus,
             updatedAt: new Date(),
-          });
+          } as Parameters<typeof deps.featureRepository.update>[0]);
           log.info(`Persisted PR data (${prUrl}) to feature record`);
         }
 
@@ -197,6 +237,8 @@ export function createMergeNode(deps: MergeNodeDeps) {
             prUrl,
             prNumber,
             ciStatus,
+            evidenceStatus,
+            evidenceArtifacts,
           });
         }
       } else {
@@ -210,6 +252,11 @@ export function createMergeNode(deps: MergeNodeDeps) {
           prNumber = feature.pr.number ?? prNumber;
           commitHash = feature.pr.commitHash ?? commitHash;
           ciStatus = (feature.pr.ciStatus as string) ?? ciStatus;
+        }
+        // Restore evidenceStatus from feature record (persisted alongside PR data)
+        const featureRecord = feature as Record<string, unknown> | undefined;
+        if (featureRecord?.evidenceStatus) {
+          evidenceStatus = featureRecord.evidenceStatus as EvidenceStatus;
         }
       }
 
@@ -292,6 +339,8 @@ export function createMergeNode(deps: MergeNodeDeps) {
         ciFixAttempts,
         ciFixHistory,
         ciFixStatus,
+        evidenceStatus,
+        evidenceArtifacts,
         _approvalAction: null,
         _rejectionFeedback: null,
         _needsReexecution: false,
