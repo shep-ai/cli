@@ -1,0 +1,208 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: issue-cluster-triage
+number: 049
+branch: feat/049-issue-cluster-triage
+oneLiner: Fetch issues from a GitHub project board, cluster them by topic, and create a shep feature for each cluster
+
+userQuery: >
+  Feature: Split the issues into cluster and use shep feat new for each cluster
+  https://github.com/orgs/shep-ai/projects/1/views/6
+summary: >
+  Add a new CLI command (e.g. `shep triage`) that fetches open issues from a
+  GitHub repository (or project board), groups them into semantically related
+  clusters using an AI agent, and then programmatically calls `CreateFeatureUseCase`
+  for each cluster — enabling batch feature creation from an issue backlog.
+phase: Analysis
+sizeEstimate: L
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - TypeScript
+  - Commander.js (CLI framework)
+  - tsyringe (dependency injection)
+  - GitHub CLI (gh) for issue fetching
+  - LangGraph (agent orchestration)
+  - LLM / AI agent for semantic clustering
+  - TypeSpec (domain model definitions)
+  - Vitest (testing)
+
+relatedLinks:
+  - https://github.com/orgs/shep-ai/projects/1/views/6
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - question: >
+      Should the clustering be done by an AI agent (semantic analysis of issue
+      titles/bodies) or by simple label/milestone-based grouping?
+    resolved: true
+    options:
+      - option: AI-based semantic clustering
+        description: >
+          Use an LLM agent to analyze issue titles and bodies, then group by
+          semantic similarity. More intelligent but requires agent execution.
+        selected: true
+      - option: Label/milestone-based grouping
+        description: >
+          Group issues by existing GitHub labels or milestones. Simpler but
+          requires issues to be pre-labeled correctly.
+        selected: false
+      - option: Hybrid approach
+        description: >
+          First group by labels, then use AI to sub-cluster within each group.
+        selected: false
+    selectionRationale: >
+      AI-based clustering aligns with the platform's AI-native philosophy and
+      handles the common case where issues lack consistent labeling.
+    answer: AI-based semantic clustering
+  - question: >
+      How should issues be sourced — from a GitHub Projects board URL, or from
+      the repository's open issues list?
+    resolved: true
+    options:
+      - option: Repository open issues (gh issue list)
+        description: >
+          Use `gh issue list` to fetch all open issues from the current repo.
+          Simple, works with existing GitHubIssueFetcher infrastructure.
+        selected: true
+      - option: GitHub Projects board
+        description: >
+          Fetch items from a GitHub Projects board URL. Requires the
+          `read:project` OAuth scope and a new API integration.
+        selected: false
+    selectionRationale: >
+      Repository issues are simpler to fetch with existing gh CLI infrastructure.
+      GitHub Projects requires additional OAuth scopes and a new API client.
+      Can be extended to support Projects later.
+    answer: Repository open issues via gh issue list
+  - question: >
+      Should feature creation for each cluster be automatic (fire-and-forget)
+      or should the user review/approve clusters before features are created?
+    resolved: true
+    options:
+      - option: Interactive review before creation
+        description: >
+          Show proposed clusters to the user and let them approve, edit, or
+          reject each cluster before creating features.
+        selected: true
+      - option: Fully automatic
+        description: >
+          Cluster issues and immediately create features for all clusters
+          without user confirmation.
+        selected: false
+    selectionRationale: >
+      Interactive review prevents creating unwanted features and lets users
+      adjust cluster boundaries. Aligns with the approval-gate pattern already
+      used in the SDLC workflow.
+    answer: Interactive review before creation
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  When a repository has many open issues, users must manually read through them,
+  identify related groups, and create features one at a time via `shep feat new`.
+  This is tedious and error-prone for large backlogs. There is no way to batch-
+  triage a set of issues into coherent feature clusters and kick off parallel
+  feature development.
+
+  **Current limitations:**
+  - `shep feat new` accepts a single description string — no batch mode
+  - `IExternalIssueFetcher` can fetch one issue at a time but has no list/batch capability
+  - No clustering or grouping logic exists in the codebase
+  - No CLI command exists for issue triage or batch feature creation
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The repository follows Clean Architecture with four layers:
+
+  | Layer | Path | Purpose |
+  | ----- | ---- | ------- |
+  | Domain | `packages/core/src/domain/` | Entities, value objects, generated TypeSpec output |
+  | Application | `packages/core/src/application/` | Use cases, port interfaces |
+  | Infrastructure | `packages/core/src/infrastructure/` | DB, agents, external services |
+  | Presentation | `src/presentation/cli/` | CLI commands (Commander.js) |
+
+  Key directories for this feature:
+  - `src/presentation/cli/commands/` — CLI command registration
+  - `packages/core/src/application/use-cases/features/create/` — CreateFeatureUseCase
+  - `packages/core/src/application/ports/output/services/` — Service port interfaces
+  - `packages/core/src/infrastructure/services/external/` — GitHub/Jira issue fetchers
+  - `packages/core/src/infrastructure/di/container.ts` — DI registration
+  - `tsp/domain/entities/` — TypeSpec domain model definitions
+
+  ### Architecture Patterns
+
+  - **Clean Architecture**: Dependencies point inward (domain ← app ← infra ← presentation)
+  - **Repository Pattern**: All data access through interfaces (e.g. `IFeatureRepository`)
+  - **Dependency Injection**: tsyringe container with `@inject()` decorators
+  - **Port/Adapter**: Application defines interfaces; infrastructure implements them
+  - **Agent Resolution**: All agent execution via `IAgentExecutorProvider` — no hardcoded types
+  - **Use Case Pattern**: Each business operation is an injectable class with `execute()` method
+  - **TypeSpec-first**: Domain models defined in `.tsp` files, compiled to TypeScript
+
+  ### Relevant Technologies
+
+  - **Commander.js**: CLI framework for defining commands and options
+  - **tsyringe**: DI container for constructor injection
+  - **GitHub CLI (gh)**: Used by `GitHubIssueFetcher` to fetch issues via subprocess
+  - **LangGraph**: State machine for multi-step agent workflows (feature agent)
+  - **SQLite (better-sqlite3)**: Persistence for features, agent runs, settings
+  - **TypeSpec**: Domain model definitions compiled to TypeScript interfaces
+  - **Vitest**: Test framework (TDD mandatory)
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `src/presentation/cli/commands/` | High | New `triage` command (or `feat triage` subcommand) must be added |
+  | `packages/core/src/application/use-cases/` | High | New `TriageIssuesUseCase` (or `ClusterIssuesUseCase`) orchestrating fetch → cluster → create |
+  | `packages/core/src/application/ports/output/services/` | High | Extend `IExternalIssueFetcher` with `listGitHubIssues()` method for batch fetching |
+  | `packages/core/src/infrastructure/services/external/github-issue.service.ts` | High | Implement `listGitHubIssues()` using `gh issue list --json` |
+  | `packages/core/src/infrastructure/services/agents/` | Medium | New clustering agent (or reuse existing agent infra) for semantic grouping |
+  | `packages/core/src/infrastructure/di/container.ts` | Low | Register new use case and service implementations |
+  | `tsp/domain/entities/` | Medium | May need new types: IssueCluster, TriageResult (or could use inline types) |
+  | `packages/core/src/domain/generated/output.ts` | Low | Auto-generated from TypeSpec changes |
+
+  ## Dependencies
+
+  **Existing code this feature depends on:**
+  - `CreateFeatureUseCase` — called for each cluster to create features
+  - `IExternalIssueFetcher` / `GitHubIssueFetcher` — extended for batch issue listing
+  - `IAgentExecutorProvider` — for running the clustering agent
+  - `IFeatureRepository` — for checking existing features to avoid duplicates
+  - DI container (`container.ts`) — for registering new services
+  - CLI framework (`Commander.js`) — for adding the new command
+
+  **External dependencies:**
+  - GitHub CLI (`gh`) — must be installed and authenticated
+  - LLM API access — for AI-powered semantic clustering
+
+  ## Size Estimate
+
+  **L** — This feature spans all four architecture layers (domain types, application
+  use case, infrastructure services, CLI presentation), requires a new agent workflow
+  for clustering, introduces batch issue fetching, and includes interactive user
+  review of proposed clusters. Estimated at 1-2 weeks including TDD cycles, TypeSpec
+  model updates, and Storybook stories if any web UI is involved.
+
+  ## Success Criteria
+
+  - [ ] New CLI command (`shep triage` or `shep feat triage`) fetches open issues from a GitHub repo
+  - [ ] Issues are semantically clustered into related groups using an AI agent
+  - [ ] User can review, approve, edit, or reject proposed clusters interactively
+  - [ ] Approved clusters are automatically converted to features via `CreateFeatureUseCase`
+  - [ ] Each created feature references the source issue numbers in its description
+  - [ ] Batch issue fetching is added to `IExternalIssueFetcher` interface
+  - [ ] All new code follows Clean Architecture layering and passes lint/typecheck
+  - [ ] TDD: All use cases and services have comprehensive test coverage
+  - [ ] TypeSpec models updated if new domain types are introduced
+
+  ---
+
+  _Generated by feature agent — proceed with research_
