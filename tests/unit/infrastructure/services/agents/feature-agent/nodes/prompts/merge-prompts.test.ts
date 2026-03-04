@@ -126,11 +126,11 @@ describe('buildCommitPushPrPrompt', () => {
       'feat/test',
       'main'
     );
-    expect(prompt).toContain('pnpm build');
-    expect(prompt).toContain('pnpm test');
-    expect(prompt).toContain('pnpm lint');
+    expect(prompt).toContain('Build the project');
+    expect(prompt).toContain('Run the test suite');
+    expect(prompt).toContain('Run the linter');
     // Verification must come BEFORE push in the prompt
-    const verifyIndex = prompt.indexOf('pnpm build');
+    const verifyIndex = prompt.indexOf('Build the project');
     const pushIndex = prompt.indexOf('git push');
     expect(verifyIndex).toBeLessThan(pushIndex);
   });
@@ -141,9 +141,9 @@ describe('buildCommitPushPrPrompt', () => {
       'feat/test',
       'main'
     );
-    expect(prompt).not.toContain('pnpm build');
-    expect(prompt).not.toContain('pnpm test');
-    expect(prompt).not.toContain('pnpm lint');
+    expect(prompt).not.toContain('Build the project');
+    expect(prompt).not.toContain('Run the test suite');
+    expect(prompt).not.toContain('Run the linter');
   });
 
   it('should forbid git pull and rebase before pushing', () => {

@@ -80,12 +80,14 @@ export function buildImplementPhasePrompt(
 
   const verificationBlock = context.isLastPhase
     ? `4. Run full project validation:
-   - \`pnpm test\` (all tests must pass)
-   - \`pnpm lint\` (no lint errors)
-   - \`pnpm typecheck\` (no type errors)
+   - Run the test suite (all tests must pass)
+   - Run the linter (no lint errors)
+   - Run the type checker (no type errors)
+   - Discover the correct commands by inspecting package.json or the project's build tooling
    - Fix any issues before finishing`
     : `4. Run tests relevant to what you changed:
-   - Run targeted tests for modified files (e.g. \`pnpm test:single <test-file>\`)
+   - Run targeted tests for the modified files
+   - Discover the correct test command by inspecting package.json or the project's build tooling
    - Fix any test failures before moving on`;
 
   return `You are a senior software engineer performing autonomous implementation.

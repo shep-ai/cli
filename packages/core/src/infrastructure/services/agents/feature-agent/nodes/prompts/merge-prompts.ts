@@ -77,9 +77,10 @@ export function buildCommitPushPrPrompt(
   // Step 2: Local verification before push (conditional)
   if (shouldPush) {
     steps.push(`4. Run local verification checks before pushing:
-   - \`pnpm build\` — must compile without errors
-   - \`pnpm test\` — all tests must pass
-   - \`pnpm lint\` — no lint errors
+   - Build the project — must compile without errors
+   - Run the test suite — all tests must pass
+   - Run the linter — no lint errors
+   - Discover the correct commands by inspecting package.json or the project's build tooling
    - Fix any issues found before proceeding to push`);
     steps.push(`5. Push the branch to remote: \`git push -u origin ${branch}\``);
   }
