@@ -1,0 +1,323 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: execution-step-monitoring
+summary: >
+  Hierarchical execution step monitoring — 10 tasks across 4 phases.
+
+relatedFeatures:
+  - 'phase-timing (current system being replaced)'
+
+technologies:
+  - TypeSpec
+  - LangGraph
+  - SQLite
+  - Vitest
+
+relatedLinks: []
+
+tasks:
+  # === Phase 1: Domain Model & Repository ===
+
+  - id: task-1
+    title: Define ExecutionStep TypeSpec model and enums
+    description: >
+      Create the ExecutionStep model in tsp/agents/execution-step.tsp with parentId
+      for hierarchy, metadata bag, step type and status enums. Import in tsp/main.tsp
+      and run pnpm tsp:compile to generate TypeScript types.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - ExecutionStep model defined with all fields (agentRunId, parentId, name, type, status, startedAt, completedAt, durationMs, outcome, metadata, sequenceNumber)
+      - ExecutionStepType enum with values phase, subStep, lifecycleEvent, approvalWait
+      - ExecutionStepStatus enum with values pending, running, completed, failed, skipped
+      - pnpm tsp:compile succeeds and generates types in output.ts
+    tdd:
+      red:
+        - Verify tsp:compile fails without the new model (baseline)
+      green:
+        - Create tsp files, run tsp:compile, verify generated types exist
+      refactor:
+        - Ensure doc annotations are clear and consistent
+    estimatedEffort: S
+
+  - id: task-2
+    title: Create IExecutionStepRepository interface
+    description: >
+      Define the output port interface in application/ports/output/agents/ with methods:
+      save, update, findByRunId, findByFeatureId. This is the contract for persistence.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - Interface defines save(step), update(id, updates), findByRunId(runId), findByFeatureId(featureId)
+      - Update accepts partial fields including metadata merge
+      - Returns Promise-based async methods
+    tdd: null
+    estimatedEffort: S
+
+  - id: task-3
+    title: Implement SqliteExecutionStepRepository
+    description: >
+      Create SQLite repository with execution_steps table. Include DB migration that
+      creates the new table and migrates existing PhaseTiming data (mapping flat rows
+      to ExecutionStep with null parentId, type=phase). Keep phase_timings as backup.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - execution_steps table created with all columns including parentId, metadata (JSON), sequenceNumber
+      - Migration copies existing PhaseTiming rows into execution_steps
+      - save() persists new step with auto-generated sequenceNumber
+      - update() supports partial field updates including metadata merge
+      - findByRunId() returns steps ordered by sequenceNumber
+      - findByFeatureId() joins through agent_runs table
+    tdd:
+      red:
+        - Test save + findByRunId returns correct step
+        - Test update modifies fields
+        - Test findByFeatureId joins correctly
+        - Test metadata JSON round-trip
+        - Test sequenceNumber auto-increment per parent
+      green:
+        - Implement SQLite table creation and repository methods
+      refactor:
+        - Extract query builders if needed
+    estimatedEffort: M
+
+  # === Phase 2: Application Layer ===
+
+  - id: task-4
+    title: Define ExecutionHistoryDTO and ExecutionStepDTO interfaces
+    description: >
+      Create DTO interfaces in application/dtos/ that represent the hierarchical
+      execution history tree. ExecutionStepDTO has children array. ExecutionHistoryDTO
+      has root steps array with computed totals.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - ExecutionStepDTO interface with id, name, type, status, startedAt, completedAt, durationMs, outcome, metadata, children[]
+      - ExecutionHistoryDTO interface with agentRunId, agentRunStatus, featureId, totalDurationMs, totalWaitMs, steps[]
+      - Types are pure interfaces (no class, no runtime dependency)
+    tdd: null
+    estimatedEffort: S
+
+  - id: task-5
+    title: Implement GetExecutionHistory use case
+    description: >
+      Create use case that fetches flat ExecutionStep rows from repository, assembles
+      them into a tree (matching parentId), computes total durations, and returns
+      ExecutionHistoryDTO. Handles running steps (computes elapsed time from now).
+    state: Todo
+    dependencies:
+      - task-3
+      - task-4
+    acceptanceCriteria:
+      - Accepts featureId or agentRunId as input
+      - Fetches flat steps from repository
+      - Assembles parent-child tree by parentId
+      - Orders children by sequenceNumber
+      - Computes totalDurationMs (sum of root completed steps)
+      - Computes totalWaitMs (sum of approvalWait type steps)
+      - Running steps show elapsed time from startedAt to now
+      - Returns ExecutionHistoryDTO
+    tdd:
+      red:
+        - Test tree assembly from flat rows (2 levels deep)
+        - Test total computation with mix of completed/running steps
+        - Test approval wait time computation
+        - Test empty history returns empty DTO
+        - Test steps ordered by sequenceNumber within siblings
+      green:
+        - Implement use case with tree builder and total calculator
+      refactor:
+        - Extract tree assembly into a pure function for reuse
+    estimatedEffort: M
+
+  # === Phase 3: Graph Middleware & Node Instrumentation ===
+
+  - id: task-6
+    title: Create ExecutionMonitor context class
+    description: >
+      Build the ExecutionMonitor class that wraps IExecutionStepRepository and provides
+      a clean API for recording steps. Supports startStep, completeStep, failStep,
+      startSubStep (nested under current step). Replaces phase-timing-context.ts.
+      Records node inputs (rejection message, approval comment) as metadata.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - startStep(name, type) creates ExecutionStep with status=running, returns step ID
+      - completeStep(id, outcome?, metadata?) updates status=completed, sets durationMs
+      - failStep(id, error?, metadata?) updates status=failed, sets durationMs
+      - startSubStep(parentId, name, type) creates child step with correct parentId
+      - recordMetadata(id, metadata) merges metadata into existing step
+      - All operations swallow errors (non-fatal, like current phase-timing-context)
+      - Thread-safe for concurrent sub-step recording
+    tdd:
+      red:
+        - Test startStep creates step with correct fields
+        - Test completeStep updates status and computes duration
+        - Test failStep records error in metadata
+        - Test startSubStep creates child with correct parentId
+        - Test recordMetadata merges without overwriting
+        - Test errors are swallowed gracefully
+      green:
+        - Implement ExecutionMonitor class
+      refactor:
+        - Extract duration computation helper
+    estimatedEffort: M
+
+  - id: task-7
+    title: Create graph middleware for automatic node instrumentation
+    description: >
+      Build middleware that wraps every LangGraph node function. On entry, starts a
+      phase-level ExecutionStep. On exit, completes it with outcome. Passes an
+      ExecutionMonitor instance scoped to the current step via LangGraph config.
+      Handles validation/repair nodes as sub-steps of their parent producer node.
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - Middleware wraps node functions without changing their signatures
+      - Producer nodes (analyze, requirements, etc.) create type=phase steps
+      - Validation/repair nodes create type=subStep steps under their parent phase
+      - ExecutionMonitor passed via config for inner sub-step recording
+      - Error in node records failed step but re-throws error
+      - Monitoring errors never block graph execution
+      - Iteration tracking (requirements:2, etc.) handled via sequenceNumber
+    tdd:
+      red:
+        - Test middleware wraps a simple node and records start/end
+        - Test middleware handles node errors (records failure, re-throws)
+        - Test validation node creates sub-step under parent phase
+        - Test ExecutionMonitor is accessible via config inside node
+        - Test monitoring failure doesn't break node execution
+      green:
+        - Implement instrumentNode function and graph builder integration
+      refactor:
+        - Simplify config injection pattern
+    estimatedEffort: M
+
+  - id: task-8
+    title: Instrument merge node sub-steps and CI watch/fix loop
+    description: >
+      Update merge.node.ts to use ExecutionMonitor from config for recording sub-steps:
+      commit, push, create-pr, watch-ci, fix-attempt-N. Update ci-watch-fix-loop.ts
+      to record each watch and fix iteration as sub-steps with metadata (failure logs,
+      outcome). Record approval inputs (rejection message, approval comment).
+    state: Todo
+    dependencies:
+      - task-7
+    acceptanceCriteria:
+      - Merge node records sub-steps for commit, push, create-pr
+      - CI watch records sub-step with outcome (passed/failed/timeout)
+      - Each CI fix attempt records sub-step with metadata (failureSummary, attempt number, outcome)
+      - Approval wait recorded as approvalWait type step
+      - Rejection message stored in step metadata.input
+      - Approval comment stored in step metadata.input
+      - All iteration cycles visible in step hierarchy
+    tdd:
+      red:
+        - Test merge node creates commit/push/pr sub-steps
+        - Test CI watch creates sub-step with pass/fail outcome
+        - Test CI fix attempts create numbered sub-steps with metadata
+        - Test approval wait step captures user input
+      green:
+        - Instrument merge.node.ts and ci-watch-fix-loop.ts
+      refactor:
+        - Extract common sub-step patterns into helpers
+    estimatedEffort: M
+
+  # === Phase 4: Presentation & Migration ===
+
+  - id: task-9
+    title: Refactor feat show command to use ExecutionHistoryDTO
+    description: >
+      Replace direct PhaseTiming rendering with GetExecutionHistory use case. The DTO
+      provides the nested tree — CLI only formats. Render hierarchical view with
+      indented sub-steps, approval inputs, CI fix outcomes. Remove old renderPhaseTimings.
+    state: Todo
+    dependencies:
+      - task-5
+      - task-8
+    acceptanceCriteria:
+      - feat show calls GetExecutionHistory use case instead of raw timing repo
+      - Hierarchical rendering with indented sub-steps using arrow prefix
+      - Approval wait steps show user input (rejection/approval message)
+      - CI fix sub-steps show outcome (passed/failed/timeout)
+      - Running steps show elapsed time with (running) suffix
+      - Totals computed from DTO (totalDurationMs, totalWaitMs)
+      - No business logic in presentation — only formatting
+      - Old renderPhaseTimings function removed
+    tdd:
+      red:
+        - Test renderExecutionHistory with mock DTO tree
+        - Test sub-step indentation rendering
+        - Test approval input display
+        - Test running step elapsed time display
+        - Test total summary computation from DTO
+      green:
+        - Implement new rendering using ExecutionHistoryDTO
+      refactor:
+        - Extract bar chart rendering helper
+    estimatedEffort: M
+
+  - id: task-10
+    title: Wire up DI container, apply middleware to graph, cleanup legacy code
+    description: >
+      Register IExecutionStepRepository and GetExecutionHistory in the DI container.
+      Apply graph middleware to feature-agent-graph.ts. Update approve/reject use cases
+      to record inputs as step metadata. Remove phase-timing-context.ts module-level
+      singleton. Update worker to use new system.
+    state: Todo
+    dependencies:
+      - task-7
+      - task-9
+    acceptanceCriteria:
+      - IExecutionStepRepository registered in DI container
+      - GetExecutionHistory registered in DI container
+      - Graph middleware applied to all nodes in feature-agent-graph.ts
+      - approve-agent-run.use-case records approval comment as step metadata
+      - reject-agent-run.use-case records rejection message as step metadata
+      - phase-timing-context.ts removed or deprecated
+      - Worker initializes ExecutionMonitor instead of setPhaseTimingContext
+      - All existing tests pass with updated imports
+    tdd:
+      red:
+        - Test DI container resolves new dependencies
+        - Test approve use case records metadata
+        - Test reject use case records metadata
+      green:
+        - Wire up container, update use cases, apply middleware
+      refactor:
+        - Remove dead PhaseTiming imports across codebase
+    estimatedEffort: M
+
+totalEstimate: L (10 tasks across 4 phases)
+
+openQuestions: []
+
+content: |
+  ## Summary
+
+  Replace PhaseTiming with hierarchical ExecutionStep monitoring — 10 tasks across 4 phases.
+
+  ## Acceptance Checklist
+
+  Before marking feature complete:
+
+  - [ ] All tasks completed
+  - [ ] Tests passing (`pnpm test`)
+  - [ ] Linting clean (`pnpm lint`)
+  - [ ] Types valid (`pnpm typecheck`)
+  - [ ] TypeSpec compiles (`pnpm tsp:compile`)
+  - [ ] `shep feat show` displays hierarchical step tree
+  - [ ] CI fix iterations visible as sub-steps
+  - [ ] Approval/rejection inputs displayed in step metadata
+  - [ ] PR created and reviewed
+
+  ---
+
+  _Task details are in the tasks[] array of tasks.yaml_

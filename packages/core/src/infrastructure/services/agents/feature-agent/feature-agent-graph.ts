@@ -13,6 +13,8 @@ import { validateSpecAnalyze, validateSpecRequirements } from './nodes/schemas/s
 import { validateResearch } from './nodes/schemas/research.schema.js';
 import { validatePlan, validateTasks } from './nodes/schemas/plan.schema.js';
 import { readSpecFile, safeYamlLoad, createNodeLogger } from './nodes/node-helpers.js';
+import { instrumentNode } from './graph-middleware.js';
+import type { ExecutionMonitor } from './execution-monitor.js';
 
 // Re-export state types for consumers
 export { FeatureAgentAnnotation, type FeatureAgentState } from './state.js';
@@ -24,6 +26,8 @@ export { FeatureAgentAnnotation, type FeatureAgentState } from './state.js';
 export interface FeatureAgentGraphDeps {
   executor: IAgentExecutor;
   mergeNodeDeps?: Omit<MergeNodeDeps, 'executor'>;
+  /** Optional execution monitor for hierarchical step recording. */
+  monitor?: ExecutionMonitor;
 }
 
 /**
@@ -165,30 +169,56 @@ export function createFeatureAgentGraph(
   // Support legacy signature: createFeatureAgentGraph(executor, checkpointer)
   const deps: FeatureAgentGraphDeps =
     'execute' in depsOrExecutor ? { executor: depsOrExecutor } : depsOrExecutor;
-  const { executor } = deps;
+  const { executor, monitor } = deps;
+
+  // Helper to optionally wrap a node with execution monitoring.
+  // Uses `any` cast because instrumentNode's return type is stricter than
+  // what LangGraph's addNode() accepts (Runtime vs Record<string, unknown>).
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  const wrap = (name: string, fn: (...args: any[]) => Promise<any>) =>
+    monitor ? (instrumentNode(name, fn as any, monitor) as typeof fn) : fn;
+  /* eslint-enable @typescript-eslint/no-explicit-any */
 
   const graph = new StateGraph(FeatureAgentAnnotation)
     // --- Producer nodes ---
-    .addNode('analyze', createAnalyzeNode(executor))
-    .addNode('requirements', createRequirementsNode(executor))
-    .addNode('research', createResearchNode(executor))
-    .addNode('plan', createPlanNode(executor))
-    .addNode('implement', createImplementNode(executor))
+    .addNode('analyze', wrap('analyze', createAnalyzeNode(executor)))
+    .addNode('requirements', wrap('requirements', createRequirementsNode(executor)))
+    .addNode('research', wrap('research', createResearchNode(executor)))
+    .addNode('plan', wrap('plan', createPlanNode(executor)))
+    .addNode('implement', wrap('implement', createImplementNode(executor)))
 
     // --- Validate nodes ---
-    .addNode('validate_spec_analyze', createValidateNode('spec.yaml', validateSpecAnalyze))
+    .addNode(
+      'validate_spec_analyze',
+      wrap('validate_spec_analyze', createValidateNode('spec.yaml', validateSpecAnalyze))
+    )
     .addNode(
       'validate_spec_requirements',
-      createValidateNode('spec.yaml', validateSpecRequirements)
+      wrap('validate_spec_requirements', createValidateNode('spec.yaml', validateSpecRequirements))
     )
-    .addNode('validate_research', createValidateNode('research.yaml', validateResearch))
-    .addNode('validate_plan_tasks', createPlanTasksValidator())
+    .addNode(
+      'validate_research',
+      wrap('validate_research', createValidateNode('research.yaml', validateResearch))
+    )
+    .addNode('validate_plan_tasks', wrap('validate_plan_tasks', createPlanTasksValidator()))
 
     // --- Repair nodes ---
-    .addNode('repair_spec_analyze', createRepairNode('spec.yaml', executor))
-    .addNode('repair_spec_requirements', createRepairNode('spec.yaml', executor))
-    .addNode('repair_research', createRepairNode('research.yaml', executor))
-    .addNode('repair_plan_tasks', createRepairNode(['plan.yaml', 'tasks.yaml'], executor))
+    .addNode(
+      'repair_spec_analyze',
+      wrap('repair_spec_analyze', createRepairNode('spec.yaml', executor))
+    )
+    .addNode(
+      'repair_spec_requirements',
+      wrap('repair_spec_requirements', createRepairNode('spec.yaml', executor))
+    )
+    .addNode(
+      'repair_research',
+      wrap('repair_research', createRepairNode('research.yaml', executor))
+    )
+    .addNode(
+      'repair_plan_tasks',
+      wrap('repair_plan_tasks', createRepairNode(['plan.yaml', 'tasks.yaml'], executor))
+    )
 
     // --- Edges: linear flow with validation gates ---
     .addEdge(START, 'analyze')
@@ -224,7 +254,7 @@ export function createFeatureAgentGraph(
       ...deps.mergeNodeDeps,
     };
     graph
-      .addNode('merge', createMergeNode(mergeNodeDeps))
+      .addNode('merge', wrap('merge', createMergeNode(mergeNodeDeps)))
       .addEdge('implement', 'merge')
       .addConditionalEdges('merge', routeReexecution('merge', END));
   } else {

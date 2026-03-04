@@ -1,0 +1,147 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: execution-step-monitoring
+summary: >
+  Replace PhaseTiming with hierarchical ExecutionStep entity using graph middleware
+  for automatic instrumentation and ExecutionMonitor context for inner sub-steps.
+
+relatedFeatures:
+  - 'phase-timing (current system being replaced)'
+
+technologies:
+  - TypeSpec
+  - LangGraph StateGraph
+  - SQLite
+  - Vitest
+
+relatedLinks: []
+
+decisions:
+  - title: Domain model approach
+    chosen: New ExecutionStep entity replacing PhaseTiming
+    rejected:
+      - Evolve PhaseTiming with parentId — carries legacy naming that doesn't fit the new vision
+      - Event-sourced approach — overkill complexity for current scale
+    rationale: >
+      Clean break gives us a proper hierarchical model with parentId, step type enum,
+      metadata bag, and outcome. Cleaner for web UI DTOs and avoids legacy naming baggage.
+
+  - title: Automatic instrumentation mechanism
+    chosen: LangGraph graph middleware/interceptor wrapping every node
+    rejected:
+      - Domain service injection into each node — requires manual instrumentation everywhere
+      - Event emitter pattern — adds event system complexity without clear benefit
+    rationale: >
+      Middleware wraps each node execution automatically, recording start/end/outcome with
+      zero manual code in the nodes themselves. New nodes get monitoring for free.
+
+  - title: Inner sub-step recording
+    chosen: ExecutionMonitor context passed via LangGraph config
+    rejected:
+      - Callback-based reporting — similar but less structured
+      - Automatic only for graph nodes — loses CI fix iteration visibility
+    rationale: >
+      The middleware creates an ExecutionMonitor scoped to the current step and injects it
+      via config. Inner code calls monitor.startSubStep() to create nested children.
+      Automatic for graph boundaries, opt-in for inner logic.
+
+  - title: Query pattern for execution history
+    chosen: GetExecutionHistory use case returning structured DTO tree
+    rejected:
+      - Raw repository query with presentation-layer assembly — duplicates logic across CLI/web
+    rationale: >
+      A single use case assembles the step tree, computes totals, and resolves metadata.
+      Both CLI and web get identical DTOs. Presentation layers only handle formatting.
+
+  - title: Step granularity model
+    chosen: Hierarchical parent-child steps
+    rejected:
+      - Flat with tags — harder to visualize hierarchy
+      - Every LangGraph node as flat record — noisiest, no tree structure
+    rationale: >
+      Parent phases contain nested sub-steps. Top-level view stays clean while drill-down
+      reveals detail (validation, repair, CI watch, fix attempts).
+
+openQuestions: []
+
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-02-26
+
+  ## Technology Decisions
+
+  ### 1. New ExecutionStep Entity vs Evolving PhaseTiming
+
+  **Chosen:** New `ExecutionStep` entity that completely replaces `PhaseTiming`.
+
+  The current PhaseTiming model is flat — it only knows about 6 high-level phases with no
+  concept of nesting, sub-steps, or metadata. Rather than bolting on parentId and metadata
+  to a model named "PhaseTiming" (which implies only timing, not history), we create a
+  purpose-built entity that represents what this system really is: an execution history.
+
+  ### 2. Graph Middleware for Automatic Instrumentation
+
+  **Chosen:** A middleware layer that wraps every LangGraph node automatically.
+
+  LangGraph's StateGraph supports node wrapping. The middleware intercepts each node
+  invocation, creates an ExecutionStep record at start, and completes it on finish. This
+  means any new node added to the graph automatically gets monitoring — zero manual work.
+
+  ```typescript
+  function instrumentNode(nodeName, originalFn, monitor) {
+    return async (state, config) => {
+      const step = monitor.startStep(nodeName);
+      try {
+        const result = await originalFn(state, config);
+        monitor.completeStep(step.id, { outcome: 'success' });
+        return result;
+      } catch (e) {
+        monitor.failStep(step.id, { error: e.message });
+        throw e;
+      }
+    };
+  }
+  ```
+
+  ### 3. ExecutionMonitor Context for Inner Sub-Steps
+
+  **Chosen:** Scoped monitor passed via LangGraph config, opt-in for inner logic.
+
+  The middleware creates an ExecutionMonitor instance per node execution and passes it
+  in the LangGraph config object. Inner code (like the CI watch/fix loop) can call
+  `monitor.startSubStep('watch-ci')` to create nested children under the current phase.
+
+  ### 4. GetExecutionHistory Use Case
+
+  **Chosen:** Dedicated application-layer use case returning `ExecutionHistoryDTO`.
+
+  The DTO includes a nested tree of `ExecutionStepDTO` objects with computed totals.
+  Both CLI and web UI call the same use case. Presentation layers receive identical data
+  and only handle formatting (bars, colors, layouts).
+
+  ### 5. Hierarchical Parent-Child Steps
+
+  **Chosen:** Tree structure with parentId self-reference.
+
+  Each `ExecutionStep` has an optional `parentId` pointing to its parent step. Root steps
+  (graph nodes) have null parentId. Sub-steps (validation, CI watch, fix attempts) point
+  to their parent graph node step.
+
+  ## Security Considerations
+
+  No security implications identified. ExecutionStep data is local-only (SQLite),
+  contains no secrets, and metadata is sanitized (failure logs capped at 500 chars).
+
+  ## Performance Implications
+
+  - Each graph node does 2 extra DB writes (start + end) — negligible vs agent execution time
+  - Sub-steps in CI loop add ~5-10 writes per merge — also negligible
+  - GetExecutionHistory assembles tree in-memory from flat DB rows — O(n) where n = step count
+  - No new indexes needed beyond agentRunId (already indexed)
+
+  ---
+
+  _Generated by `/shep-kit:new-feature-fast`_

@@ -1,0 +1,9 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: ExecutionStepType.yaml
+type: string
+enum:
+  - phase
+  - sub_step
+  - lifecycle_event
+  - approval_wait
+description: Type classification for an execution step

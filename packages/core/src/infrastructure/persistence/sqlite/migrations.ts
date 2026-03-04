@@ -397,6 +397,67 @@ FROM (
 WHERE repository_path NOT IN (SELECT path FROM repositories WHERE path IS NOT NULL);
 `,
   },
+  {
+    version: 24,
+    sql: `
+-- Migration 024: Create execution_steps table for hierarchical step monitoring
+CREATE TABLE IF NOT EXISTS execution_steps (
+  id TEXT PRIMARY KEY,
+  agent_run_id TEXT NOT NULL,
+  parent_id TEXT,
+  name TEXT NOT NULL,
+  type TEXT NOT NULL,
+  status TEXT NOT NULL,
+  started_at INTEGER NOT NULL,
+  completed_at INTEGER,
+  duration_ms INTEGER,
+  outcome TEXT,
+  metadata TEXT,
+  sequence_number INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_execution_steps_run ON execution_steps(agent_run_id);
+CREATE INDEX IF NOT EXISTS idx_execution_steps_parent ON execution_steps(parent_id) WHERE parent_id IS NOT NULL;
+
+-- Migrate existing phase_timings data into execution_steps
+INSERT OR IGNORE INTO execution_steps (
+  id, agent_run_id, parent_id, name, type, status,
+  started_at, completed_at, duration_ms, outcome, metadata,
+  sequence_number, created_at, updated_at
+)
+SELECT
+  id,
+  agent_run_id,
+  NULL,
+  phase,
+  'phase',
+  CASE
+    WHEN completed_at IS NOT NULL THEN 'completed'
+    ELSE 'running'
+  END,
+  started_at,
+  completed_at,
+  duration_ms,
+  CASE
+    WHEN completed_at IS NOT NULL THEN 'success'
+    ELSE NULL
+  END,
+  CASE
+    WHEN waiting_approval_at IS NOT NULL OR approval_wait_ms IS NOT NULL
+    THEN json_object(
+      'waitingApprovalAt', waiting_approval_at,
+      'approvalWaitMs', approval_wait_ms
+    )
+    ELSE NULL
+  END,
+  ROW_NUMBER() OVER (PARTITION BY agent_run_id ORDER BY created_at) - 1,
+  created_at,
+  updated_at
+FROM phase_timings;
+`,
+  },
 ];
 
 /**

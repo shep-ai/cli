@@ -672,7 +672,7 @@ describe('SQLite Migrations', () => {
     it('sets schema version to 23 after migration', async () => {
       await runSQLiteMigrations(db);
       expect(getSchemaVersion(db)).toBe(LATEST_SCHEMA_VERSION);
-      expect(LATEST_SCHEMA_VERSION).toBe(23);
+      expect(LATEST_SCHEMA_VERSION).toBe(24);
     });
   });
 

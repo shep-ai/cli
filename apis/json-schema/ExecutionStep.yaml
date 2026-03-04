@@ -1,0 +1,51 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: ExecutionStep.yaml
+type: object
+properties:
+  agentRunId:
+    type: string
+    description: Agent run this step belongs to
+  parentId:
+    type: string
+    description: Parent step ID for hierarchy (null for root/phase-level steps)
+  name:
+    type: string
+    description: Human-readable step name (e.g., 'analyze', 'watch-ci', 'fix-attempt-1')
+  type:
+    $ref: ExecutionStepType.yaml
+    description: Step classification determining hierarchy behavior
+  status:
+    $ref: ExecutionStepStatus.yaml
+    description: Current execution state
+  startedAt:
+    type: string
+    format: date-time
+    description: When the step started executing
+  completedAt:
+    type: string
+    format: date-time
+    description: When the step finished executing (null if still running)
+  durationMs:
+    type: string
+    description: Duration in milliseconds (computed on completion)
+  outcome:
+    type: string
+    description: "Step result summary (e.g., 'success', 'failed: timeout', 'rejected: add more detail')"
+  metadata:
+    type: string
+    description: Arbitrary key-value metadata (JSON). Captures inputs, outputs, error details.
+  sequenceNumber:
+    type: integer
+    minimum: -2147483648
+    maximum: 2147483647
+    description: Ordering within siblings under the same parent. Auto-incremented per parent.
+required:
+  - agentRunId
+  - name
+  - type
+  - status
+  - startedAt
+  - sequenceNumber
+allOf:
+  - $ref: BaseEntity.yaml
+description: Hierarchical execution step within an agent run
