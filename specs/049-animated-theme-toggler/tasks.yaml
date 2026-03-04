@@ -1,0 +1,255 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: animated-theme-toggler
+summary: >
+  7 tasks across 4 phases. Phase 1 adds CSS keyframes to globals.css. Phase 2
+  updates the component's click handler with View Transitions API logic. Phase 3
+  extends unit tests with startViewTransition mocks and fallback/reduced-motion
+  coverage. Phase 4 adds Storybook LightMode/DarkMode story variants.
+
+# Relationships
+relatedFeatures: []
+technologies: []
+relatedLinks: []
+
+# Structured task list
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Add view-transition @keyframes and pseudo-element rules to globals.css'
+    description: >
+      Insert ::view-transition-old(*), ::view-transition-new(*), and
+      @keyframes theme-reveal rules into globals.css after the existing @keyframes
+      block. Add a @media (prefers-reduced-motion: reduce) override that sets
+      animation: none on both pseudo-elements. This is the CSS foundation for
+      the circular-reveal animation; no JS changes are made in this task.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - '::view-transition-old(*) has animation: none (hides old snapshot immediately)'
+      - '::view-transition-new(*) has animation: theme-reveal 400ms ease-in-out'
+      - '@keyframes theme-reveal animates clip-path from circle(0 at var(--x) var(--y)) to circle(max(100vw, 100vh) at var(--x) var(--y))'
+      - '@media (prefers-reduced-motion: reduce) sets animation: none on both ::view-transition-old(*) and ::view-transition-new(*)'
+      - 'pnpm build and pnpm validate pass with no errors after this change'
+      - 'No existing @keyframes or @theme tokens are modified'
+    tdd:
+      red:
+        - 'Visual regression check: confirm animation does not play before the keyframes are added (baseline)'
+      green:
+        - 'Append ::view-transition-old, ::view-transition-new, @keyframes theme-reveal, and @media prefers-reduced-motion block to globals.css after the existing @keyframes section'
+      refactor:
+        - 'Verify no whitespace or formatting conflicts with Tailwind v4 CSS-first syntax'
+        - 'Confirm rules are outside the @theme block'
+    estimatedEffort: '20min'
+
+  - id: task-2
+    phaseId: phase-2
+    title: 'Update toggleTheme to accept MouseEvent and inject CSS coordinate vars'
+    description: >
+      Change the toggleTheme function signature from () => void to
+      (e: React.MouseEvent<HTMLButtonElement>) => void. Before calling
+      setTheme (or startViewTransition), read e.clientX and e.clientY and
+      write them to document.documentElement.style as --x and --y CSS custom
+      properties. Update the Button onClick prop to pass the event through.
+      No animation wrapping yet — this task just wires the coordinate injection.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'toggleTheme accepts e: React.MouseEvent<HTMLButtonElement>'
+      - 'document.documentElement.style.setProperty is called with --x and e.clientX + px'
+      - 'document.documentElement.style.setProperty is called with --y and e.clientY + px'
+      - 'Button onClick prop passes the event: onClick={toggleTheme}'
+      - 'TypeScript compiles without errors (pnpm validate passes)'
+      - 'Existing sound tests still pass (theme switching logic unchanged at this point)'
+    tdd:
+      red:
+        - 'Write a test that spies on document.documentElement.style.setProperty and asserts it is called with --x and --y after a button click'
+      green:
+        - 'Change toggleTheme signature to (e: React.MouseEvent<HTMLButtonElement>) => void'
+        - 'Add document.documentElement.style.setProperty calls for --x and --y before the setTheme call'
+        - 'Update Button onClick to onClick={toggleTheme}'
+      refactor:
+        - 'Confirm the coordinate injection is placed before any branch (before the startViewTransition guard that arrives in task-3)'
+    estimatedEffort: '20min'
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Wrap setTheme in document.startViewTransition with reduced-motion and fallback guards'
+    description: >
+      Add the two-layer guard: (1) check window.matchMedia for prefers-reduced-motion,
+      (2) check document.startViewTransition availability. If either guard fails,
+      call setTheme directly (same as existing behaviour). Otherwise, call
+      document.startViewTransition(() => { setTheme(newTheme); }). Sound playback
+      remains before the guard block for immediate feedback. The component stays
+      'use client', zero-prop API unchanged.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'document.startViewTransition is called when API is available and prefers-reduced-motion is false'
+      - 'setTheme is called inside the startViewTransition callback'
+      - 'When document.startViewTransition is undefined, setTheme is called directly with no error thrown'
+      - 'When window.matchMedia returns prefers-reduced-motion: reduce, setTheme is called directly without startViewTransition'
+      - 'Sound plays before the transition guard (immediate feedback preserved)'
+      - 'typeof window !== undefined guard wraps the matchMedia access'
+      - 'pnpm validate passes'
+    tdd:
+      red:
+        - 'Write a test that stubs document.startViewTransition as a vi.fn() invoking its callback synchronously and asserts it is called after a button click'
+        - 'Write a test that sets document.startViewTransition to undefined and asserts mockSetTheme is called directly'
+        - 'Write a test that mocks window.matchMedia to return prefers-reduced-motion: reduce and asserts startViewTransition is NOT called but mockSetTheme IS called'
+      green:
+        - 'Add prefersReducedMotion const using typeof window !== undefined && window.matchMedia(...).matches'
+        - 'Add if (!document.startViewTransition || prefersReducedMotion) { setTheme(newTheme); return; } guard'
+        - 'Add document.startViewTransition(() => { setTheme(newTheme); }) for the happy path'
+      refactor:
+        - 'Extract newTheme computation to a const before the sound and guard block to avoid duplication'
+        - 'Verify the fallback path (direct setTheme) and transition path share the same newTheme logic'
+    estimatedEffort: '30min'
+
+  - id: task-4
+    phaseId: phase-3
+    title: 'Add startViewTransition mock and happy-path test'
+    description: >
+      In the existing test file, add vi.stubGlobal (or Object.defineProperty on
+      document) for document.startViewTransition that synchronously invokes its
+      callback. Add vi.unstubAllGlobals() in afterEach. Add a test that asserts
+      document.startViewTransition is called once after a button click.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'document.startViewTransition is stubbed as a vi.fn() that calls its callback synchronously'
+      - 'vi.unstubAllGlobals() is called in afterEach (or the stub is cleaned up per test)'
+      - 'Test "calls document.startViewTransition on toggle click" passes'
+      - 'All existing sound tests continue to pass'
+      - 'pnpm test:unit passes with zero failures'
+    tdd:
+      red:
+        - 'Add test: "calls document.startViewTransition when API is available" — will fail because startViewTransition is not yet stubbed'
+      green:
+        - 'Add vi.stubGlobal or Object.defineProperty stub for document.startViewTransition as a vi.fn() executing its callback'
+        - 'Add afterEach(() => vi.unstubAllGlobals()) or equivalent cleanup'
+        - 'Assert mockStartViewTransition.toHaveBeenCalledOnce()'
+      refactor:
+        - 'Move stub setup to a describe block or beforeEach if it is shared by multiple tests in this suite'
+    estimatedEffort: '20min'
+
+  - id: task-5
+    phaseId: phase-3
+    title: 'Add fallback path test (startViewTransition undefined)'
+    description: >
+      Add a test that sets document.startViewTransition to undefined before the
+      click, asserts that mockSetTheme is called directly, and asserts no error
+      is thrown. This validates FR-11 (fallback behaviour in unsupported browsers).
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'Test "falls back to direct setTheme when startViewTransition is undefined" passes'
+      - 'Test asserts mockSetTheme is called with the expected theme value'
+      - 'Test asserts that no error is thrown during the click interaction'
+      - 'pnpm test:unit passes with zero failures'
+    tdd:
+      red:
+        - 'Add test that sets document.startViewTransition = undefined before click and asserts mockSetTheme called'
+      green:
+        - 'Stub document.startViewTransition as undefined for this specific test (override the beforeEach stub)'
+        - 'Confirm the guard in task-3 handles undefined correctly so the test passes'
+      refactor:
+        - 'Ensure cleanup restores document.startViewTransition after this test'
+    estimatedEffort: '15min'
+
+  - id: task-6
+    phaseId: phase-3
+    title: 'Add reduced-motion test (window.matchMedia returns reduce)'
+    description: >
+      Add a test that mocks window.matchMedia to return { matches: true } for
+      (prefers-reduced-motion: reduce), asserts that document.startViewTransition
+      is NOT called, and asserts that mockSetTheme IS called directly. This
+      validates NFR-8 at the JS level.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'Test "skips startViewTransition when prefers-reduced-motion is set" passes'
+      - 'window.matchMedia is mocked to return matches: true for prefers-reduced-motion query'
+      - 'Test asserts document.startViewTransition was NOT called'
+      - 'Test asserts mockSetTheme was called with the correct theme value'
+      - 'pnpm test:unit passes with zero failures'
+    tdd:
+      red:
+        - 'Add test with vi.stubGlobal("matchMedia", ...) returning matches: true and assert startViewTransition not called'
+      green:
+        - 'Stub window.matchMedia via Object.defineProperty or vi.stubGlobal to return { matches: true } for prefers-reduced-motion'
+        - 'Confirm the matchMedia guard in task-3 causes the direct setTheme fallback'
+      refactor:
+        - 'Clean up matchMedia stub in afterEach alongside startViewTransition stub'
+        - 'Consider grouping fallback tests into a nested describe block for clarity'
+    estimatedEffort: '20min'
+
+  - id: task-7
+    phaseId: phase-4
+    title: 'Add LightMode and DarkMode Storybook story variants'
+    description: >
+      In the existing stories file, add a beforeAll (or loaders/decorators) stub
+      for document.startViewTransition as a no-op that immediately calls its
+      callback. Export two new story variants: LightMode (wrapper without dark
+      class) and DarkMode (wrapper div with class="dark"). All four stories
+      (Default, InContext, LightMode, DarkMode) must render without errors in
+      the Storybook iframe. This satisfies FR-12 and the mandatory Storybook
+      rule from CLAUDE.md.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'stories file exports Default, InContext, LightMode, DarkMode story variants'
+      - 'document.startViewTransition is mocked as a no-op (calls callback synchronously) in a Storybook decorator or beforeAll'
+      - 'LightMode story renders ThemeToggle without the dark class on its wrapper'
+      - 'DarkMode story renders ThemeToggle inside a div with className="dark"'
+      - 'All four stories compile without TypeScript errors'
+      - 'pnpm validate passes'
+    tdd:
+      red: null
+      green:
+        - 'Add a Storybook decorator or setup function that stubs document.startViewTransition'
+        - 'Add LightMode story: wrapper div without dark class'
+        - 'Add DarkMode story: wrapper div with class="dark"'
+      refactor:
+        - 'Verify story titles and autodocs tags are consistent with existing story conventions in the codebase'
+    estimatedEffort: '25min'
+
+# Total effort estimate
+totalEstimate: '2.5h'
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Summary
+
+  Seven tasks across four phases implement the animated theme toggler. The work
+  flows from CSS infrastructure to component logic to test coverage to visual
+  documentation.
+
+  **Phase 1** lays the CSS foundation: the `theme-reveal` @keyframes and
+  `::view-transition-*` pseudo-element rules are added to `globals.css` before
+  any JS touches the View Transitions API, ensuring no partial state where
+  `startViewTransition` fires without animation rules.
+
+  **Phase 2** updates the component in two steps: first wiring the MouseEvent
+  coordinate injection (task-2), then adding the `startViewTransition` wrapper
+  with its two-layer guard (task-3). Splitting these keeps each diff small and
+  reviewable.
+
+  **Phase 3** extends the existing unit test file with three new tests: the
+  happy path (task-4), the unsupported-browser fallback (task-5), and the
+  reduced-motion skip (task-6). All three are built on the same `vi.stubGlobal`
+  mock pattern; existing sound tests remain unmodified.
+
+  **Phase 4** adds the two required Storybook variants (LightMode, DarkMode)
+  with a stable `startViewTransition` mock, completing the mandatory story
+  coverage required by CLAUDE.md.
