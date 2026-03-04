@@ -165,5 +165,45 @@ describe('FeaturesCanvas', () => {
       fireEvent.click(actionButtons[0]);
       expect(onNodeAction).toHaveBeenCalledWith('node-1');
     });
+
+    it('does not inject onRetry for feature nodes with state "creating"', () => {
+      const onFeatureRetry = vi.fn();
+      render(<FeaturesCanvas nodes={[creatingNode]} edges={[]} onFeatureRetry={onFeatureRetry} />);
+      // No retry badge should appear for creating state
+      expect(screen.queryByText('Retry')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('onFeatureRetry wiring', () => {
+    const errorNode: FeatureNodeType = {
+      id: 'error-1',
+      type: 'featureNode',
+      position: { x: 0, y: 0 },
+      data: {
+        name: 'Failed Feature',
+        featureId: '#f-err',
+        lifecycle: 'implementation',
+        state: 'error',
+        progress: 30,
+        errorMessage: 'Build failed',
+        repositoryPath: '/home/user/repo',
+        branch: 'feat/failed',
+      },
+    };
+
+    it('injects onRetry for error-state nodes when onFeatureRetry is provided', () => {
+      const onFeatureRetry = vi.fn();
+      render(<FeaturesCanvas nodes={[errorNode]} edges={[]} onFeatureRetry={onFeatureRetry} />);
+      const retryBadge = screen.getByTestId('feature-node-badge');
+      expect(retryBadge.tagName).toBe('BUTTON');
+      fireEvent.click(retryBadge);
+      expect(onFeatureRetry).toHaveBeenCalledWith('#f-err');
+    });
+
+    it('does not inject onRetry when onFeatureRetry is not provided', () => {
+      render(<FeaturesCanvas nodes={[errorNode]} edges={[]} />);
+      const badge = screen.getByTestId('feature-node-badge');
+      expect(badge.tagName).toBe('DIV');
+    });
   });
 });

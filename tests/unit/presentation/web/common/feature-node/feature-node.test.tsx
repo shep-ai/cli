@@ -276,6 +276,30 @@ describe('FeatureNode', () => {
       renderFeatureNode({ state: 'error', progress: 30, errorMessage: 'Build failed' });
       expect(screen.getByText('Build failed')).toBeInTheDocument();
     });
+
+    it('renders clickable retry badge when onRetry is provided', () => {
+      const onRetry = vi.fn();
+      renderFeatureNode({ state: 'error', progress: 30, onRetry });
+      const retryBadge = screen.getByTestId('feature-node-badge');
+      expect(retryBadge.tagName).toBe('BUTTON');
+      expect(retryBadge).toHaveAttribute('aria-label', 'Retry failed feature');
+      expect(screen.getByText('Retry')).toBeInTheDocument();
+    });
+
+    it('calls onRetry when retry badge is clicked', () => {
+      const onRetry = vi.fn();
+      renderFeatureNode({ state: 'error', progress: 30, onRetry });
+      const retryBadge = screen.getByTestId('feature-node-badge');
+      fireEvent.click(retryBadge);
+      expect(onRetry).toHaveBeenCalledOnce();
+    });
+
+    it('renders static error badge when onRetry is not provided', () => {
+      renderFeatureNode({ state: 'error', progress: 30 });
+      const badge = screen.getByTestId('feature-node-badge');
+      expect(badge.tagName).toBe('DIV');
+      expect(badge).not.toHaveAttribute('aria-label');
+    });
   });
 
   describe('lifecycleDisplayLabels', () => {

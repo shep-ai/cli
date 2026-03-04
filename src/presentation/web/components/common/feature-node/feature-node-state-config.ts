@@ -74,6 +74,7 @@ export interface FeatureNodeData {
   onAction?: () => void;
   onSettings?: () => void;
   onDelete?: (featureId: string) => void;
+  onRetry?: () => void;
   showHandles?: boolean;
 }
 

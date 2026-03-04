@@ -2,7 +2,16 @@
 
 import { useState } from 'react';
 import { Handle, Position } from '@xyflow/react';
-import { Settings, Plus, FileText, Wrench, GitMerge, Trash2, type LucideIcon } from 'lucide-react';
+import {
+  Settings,
+  Plus,
+  FileText,
+  Wrench,
+  GitMerge,
+  Trash2,
+  RotateCcw,
+  type LucideIcon,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   Dialog,
@@ -257,23 +266,44 @@ export function FeatureNode({
               </div>
 
               {/* State badge */}
-              <div
-                data-testid="feature-node-badge"
-                className={(() => {
-                  const override = getActionRequiredBadgeClasses(data);
-                  return cn(
-                    'mt-1.5 flex items-center justify-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium',
-                    override?.badgeBgClass ?? config.badgeBgClass,
-                    override?.badgeClass ?? config.badgeClass
-                  );
-                })()}
-              >
-                {(() => {
-                  const BadgeIcon = getBadgeIcon(data);
-                  return <BadgeIcon className="h-3.5 w-3.5 shrink-0" />;
-                })()}
-                <span className="truncate">{getBadgeText(data)}</span>
-              </div>
+              {data.state === 'error' && data.onRetry ? (
+                <button
+                  type="button"
+                  aria-label="Retry failed feature"
+                  data-testid="feature-node-badge"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    data.onRetry?.();
+                  }}
+                  className={cn(
+                    'mt-1.5 flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors',
+                    'hover:bg-red-100',
+                    config.badgeBgClass,
+                    config.badgeClass
+                  )}
+                >
+                  <RotateCcw className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">Retry</span>
+                </button>
+              ) : (
+                <div
+                  data-testid="feature-node-badge"
+                  className={(() => {
+                    const override = getActionRequiredBadgeClasses(data);
+                    return cn(
+                      'mt-1.5 flex items-center justify-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium',
+                      override?.badgeBgClass ?? config.badgeBgClass,
+                      override?.badgeClass ?? config.badgeClass
+                    );
+                  })()}
+                >
+                  {(() => {
+                    const BadgeIcon = getBadgeIcon(data);
+                    return <BadgeIcon className="h-3.5 w-3.5 shrink-0" />;
+                  })()}
+                  <span className="truncate">{getBadgeText(data)}</span>
+                </div>
+              )}
             </>
           )}
         </div>
