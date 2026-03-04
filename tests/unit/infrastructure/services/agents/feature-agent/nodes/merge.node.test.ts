@@ -134,13 +134,16 @@ function createMockExecutor(): IAgentExecutor {
 }
 
 function createMockFeatureRepo(): MergeNodeDeps['featureRepository'] {
+  let current: Record<string, unknown> = {
+    id: 'feat-001',
+    lifecycle: 'Implementation',
+    branch: 'feat/test',
+  };
   return {
-    findById: vi.fn().mockResolvedValue({
-      id: 'feat-001',
-      lifecycle: 'Implementation',
-      branch: 'feat/test',
+    findById: vi.fn(async () => ({ ...current })),
+    update: vi.fn(async (data: Record<string, unknown>) => {
+      current = { ...current, ...data };
     }),
-    update: vi.fn().mockResolvedValue(undefined),
   } as any;
 }
 
@@ -396,15 +399,13 @@ describe('createMergeNode (agent-driven)', () => {
     });
 
     it('should restore PR data from feature record on resume and merge PR via service', async () => {
-      // Simulate resume after interrupt: completedPhases includes 'merge' AND shouldInterrupt=true
-      mockGetCompletedPhases.mockReturnValueOnce(['merge']);
+      // Simulate resume after interrupt: lifecycle=Review in DB AND shouldInterrupt=true
       mockShouldInterrupt.mockReturnValueOnce(true); // for isResumeAfterInterrupt check
 
       const featureRepo = createMockFeatureRepo();
-      (featureRepo.findById as ReturnType<typeof vi.fn>).mockResolvedValue({
-        id: 'feat-001',
-        lifecycle: 'Implementation',
-        branch: 'feat/test',
+      // Set lifecycle to Review and PR data as if first run already completed
+      (featureRepo.update as any)({
+        lifecycle: 'Review',
         pr: {
           url: 'https://github.com/test/repo/pull/55',
           number: 55,

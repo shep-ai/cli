@@ -140,13 +140,16 @@ function createMockExecutor(): IAgentExecutor {
 }
 
 function createMockFeatureRepo(): MergeNodeDeps['featureRepository'] {
+  let current: Record<string, unknown> = {
+    id: 'feat-001',
+    lifecycle: 'Implementation',
+    branch: 'feat/test',
+  };
   return {
-    findById: vi.fn().mockResolvedValue({
-      id: 'feat-001',
-      lifecycle: 'Implementation',
-      branch: 'feat/test',
+    findById: vi.fn(async () => ({ ...current })),
+    update: vi.fn(async (data: Record<string, unknown>) => {
+      current = { ...current, ...data };
     }),
-    update: vi.fn().mockResolvedValue(undefined),
   } as any;
 }
 
@@ -245,12 +248,10 @@ describe('createMergeNode — CI watch/fix loop', () => {
     });
 
     it('should NOT call getCiStatus when isResumeAfterInterrupt=true', async () => {
-      // Resume detection now uses DB PR data instead of feature.yaml completedPhases
+      // Resume detection uses DB lifecycle=Review instead of feature.yaml completedPhases
       mockShouldInterrupt.mockReturnValue(true);
-      deps.featureRepository.findById = vi.fn().mockResolvedValue({
-        id: 'feat-001',
-        lifecycle: 'Implementation',
-        branch: 'feat/test',
+      (deps.featureRepository.update as any)({
+        lifecycle: 'Review',
         pr: { url: 'https://github.com/test/repo/pull/1', number: 1, status: 'Open' },
       });
 

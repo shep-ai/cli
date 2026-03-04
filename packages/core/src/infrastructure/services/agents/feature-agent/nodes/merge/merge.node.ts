@@ -68,19 +68,21 @@ export function createMergeNode(deps: MergeNodeDeps) {
     await updateNodeLifecycle('merge');
 
     // --- Rejection detection on resume ---
-    // Use DB-persisted PR data instead of feature.yaml to detect resume,
-    // because feature.yaml is in the worktree which was already pushed.
+    // Use DB lifecycle (Review) instead of feature.yaml completedPhases to detect
+    // resume, because feature.yaml is in the worktree which was already pushed.
     const featureForResume = await deps.featureRepository.findById(state.featureId);
     const isResumeAfterInterrupt =
-      !!featureForResume?.pr?.url && shouldInterrupt('merge', state.approvalGates);
+      featureForResume?.lifecycle === SdlcLifecycle.Review &&
+      shouldInterrupt('merge', state.approvalGates);
 
     if (isResumeAfterInterrupt && state._approvalAction === 'rejected') {
       const feedback = state._rejectionFeedback ?? '(no feedback)';
       log.info(`Merge rejected with feedback: "${feedback}" — scheduling re-execution`);
-      // Clear PR data from DB so re-execution doesn't detect as resume
+      // Reset lifecycle so re-execution doesn't detect as resume
       if (featureForResume) {
         await deps.featureRepository.update({
           ...featureForResume,
+          lifecycle: SdlcLifecycle.Implementation,
           pr: undefined,
           updatedAt: new Date(),
         });
@@ -171,22 +173,29 @@ export function createMergeNode(deps: MergeNodeDeps) {
           ciFixStatus = ciResult.ciFixStatus;
         }
 
-        // --- Persist PR data before approval gate so feat show displays it ---
-        if (feature && prUrl && prNumber) {
+        // --- Persist lifecycle + PR data before approval gate ---
+        // Setting lifecycle to Review serves as the resume detection marker
+        // (replaces feature.yaml completedPhases which dirtied the worktree).
+        if (feature) {
           await deps.featureRepository.update({
             ...feature,
-            pr: {
-              url: prUrl,
-              number: prNumber,
-              status: PrStatus.Open,
-              ...(commitHash ? { commitHash } : {}),
-              ...(ciStatus ? { ciStatus: ciStatus as CiStatus } : {}),
-              ...(ciFixAttempts > 0 ? { ciFixAttempts } : {}),
-              ...(ciFixHistory.length > 0 ? { ciFixHistory } : {}),
-            },
+            lifecycle: SdlcLifecycle.Review,
+            ...(prUrl && prNumber
+              ? {
+                  pr: {
+                    url: prUrl,
+                    number: prNumber,
+                    status: PrStatus.Open,
+                    ...(commitHash ? { commitHash } : {}),
+                    ...(ciStatus ? { ciStatus: ciStatus as CiStatus } : {}),
+                    ...(ciFixAttempts > 0 ? { ciFixAttempts } : {}),
+                    ...(ciFixHistory.length > 0 ? { ciFixHistory } : {}),
+                  },
+                }
+              : {}),
             updatedAt: new Date(),
           });
-          log.info(`Persisted PR data (${prUrl}) to feature record`);
+          log.info('Persisted lifecycle=Review and PR data to feature record');
         }
 
         // --- Merge approval gate ---
