@@ -59,8 +59,10 @@ describe('DeleteFeatureUseCase', () => {
   let mockWorktreeService: IWorktreeService;
   let mockProcessService: IFeatureAgentProcessService;
   let mockRunRepo: IAgentRunRepository;
+  let mockCleanupUseCase: { execute: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
+    mockCleanupUseCase = { execute: vi.fn().mockResolvedValue(undefined) };
     mockFeatureRepo = {
       create: vi.fn(),
       findById: vi.fn().mockResolvedValue(createMockFeature()),
@@ -103,7 +105,8 @@ describe('DeleteFeatureUseCase', () => {
       mockFeatureRepo,
       mockWorktreeService,
       mockProcessService,
-      mockRunRepo
+      mockRunRepo,
+      mockCleanupUseCase as any
     );
   });
 
@@ -114,8 +117,20 @@ describe('DeleteFeatureUseCase', () => {
     const result = await useCase.execute('feat-123-full-uuid');
 
     expect(result.id).toBe('feat-123-full-uuid');
+    expect(mockCleanupUseCase.execute).toHaveBeenCalledWith('feat-123-full-uuid');
+    expect(mockFeatureRepo.delete).toHaveBeenCalledWith('feat-123-full-uuid');
+  });
+
+  it('should remove worktree directly when cleanup=false', async () => {
+    const feature = createMockFeature();
+    mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
+
+    const result = await useCase.execute('feat-123-full-uuid', { cleanup: false });
+
+    expect(result.id).toBe('feat-123-full-uuid');
     expect(mockWorktreeService.getWorktreePath).toHaveBeenCalledWith('/repo', 'feat/test-feature');
     expect(mockWorktreeService.remove).toHaveBeenCalledWith('/repo/.worktrees/feat-test-feature');
+    expect(mockCleanupUseCase.execute).not.toHaveBeenCalled();
     expect(mockFeatureRepo.delete).toHaveBeenCalledWith('feat-123-full-uuid');
   });
 
@@ -184,12 +199,12 @@ describe('DeleteFeatureUseCase', () => {
     await expect(useCase.execute('abc-123')).rejects.toThrow('abc-123');
   });
 
-  it('should still delete feature if worktree removal fails', async () => {
+  it('should still delete feature if worktree removal fails (cleanup=false)', async () => {
     const feature = createMockFeature();
     mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
     mockWorktreeService.remove = vi.fn().mockRejectedValue(new Error('worktree not found'));
 
-    const result = await useCase.execute('feat-123-full-uuid');
+    const result = await useCase.execute('feat-123-full-uuid', { cleanup: false });
 
     expect(result.id).toBe('feat-123-full-uuid');
     expect(mockFeatureRepo.delete).toHaveBeenCalledWith('feat-123-full-uuid');
@@ -332,5 +347,53 @@ describe('DeleteFeatureUseCase', () => {
 
     expect(result.id).toBe('feat-123-full-uuid');
     expect(mockFeatureRepo.delete).toHaveBeenCalledWith('feat-123-full-uuid');
+  });
+
+  // -------------------------------------------------------------------------
+  // Cleanup option (FR-12 through FR-16)
+  // -------------------------------------------------------------------------
+
+  describe('cleanup option', () => {
+    it('should call CleanupFeatureWorktreeUseCase when cleanup=true', async () => {
+      const feature = createMockFeature();
+      mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
+
+      await useCase.execute('feat-123-full-uuid', { cleanup: true });
+
+      expect(mockCleanupUseCase.execute).toHaveBeenCalledWith('feat-123-full-uuid');
+      expect(mockWorktreeService.remove).not.toHaveBeenCalled();
+      expect(mockFeatureRepo.delete).toHaveBeenCalledWith('feat-123-full-uuid');
+    });
+
+    it('should NOT call CleanupFeatureWorktreeUseCase when cleanup=false', async () => {
+      const feature = createMockFeature();
+      mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
+
+      await useCase.execute('feat-123-full-uuid', { cleanup: false });
+
+      expect(mockCleanupUseCase.execute).not.toHaveBeenCalled();
+      expect(mockWorktreeService.remove).toHaveBeenCalled();
+      expect(mockFeatureRepo.delete).toHaveBeenCalledWith('feat-123-full-uuid');
+    });
+
+    it('should default to cleanup=true when no options provided', async () => {
+      const feature = createMockFeature();
+      mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
+
+      await useCase.execute('feat-123-full-uuid');
+
+      expect(mockCleanupUseCase.execute).toHaveBeenCalledWith('feat-123-full-uuid');
+      expect(mockWorktreeService.remove).not.toHaveBeenCalled();
+    });
+
+    it('should still delete feature record even if cleanup use case fails', async () => {
+      const feature = createMockFeature();
+      mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
+      mockCleanupUseCase.execute = vi.fn().mockRejectedValue(new Error('cleanup failed'));
+
+      await useCase.execute('feat-123-full-uuid', { cleanup: true });
+
+      expect(mockFeatureRepo.delete).toHaveBeenCalledWith('feat-123-full-uuid');
+    });
   });
 });

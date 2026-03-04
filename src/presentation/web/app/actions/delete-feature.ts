@@ -5,7 +5,8 @@ import type { DeleteFeatureUseCase } from '@shepai/core/application/use-cases/fe
 import type { Feature } from '@shepai/core/domain/generated/output';
 
 export async function deleteFeature(
-  featureId: string
+  featureId: string,
+  cleanup?: boolean
 ): Promise<{ feature?: Feature; error?: string }> {
   if (!featureId?.trim()) {
     return { error: 'id is required' };
@@ -13,7 +14,10 @@ export async function deleteFeature(
 
   try {
     const deleteFeatureUseCase = resolve<DeleteFeatureUseCase>('DeleteFeatureUseCase');
-    const feature = await deleteFeatureUseCase.execute(featureId);
+    const feature =
+      cleanup !== undefined
+        ? await deleteFeatureUseCase.execute(featureId, { cleanup })
+        : await deleteFeatureUseCase.execute(featureId);
     return { feature };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to delete feature';

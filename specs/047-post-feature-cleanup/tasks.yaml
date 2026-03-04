@@ -3,9 +3,10 @@
 
 name: post-feature-cleanup
 summary: >
-  7 tasks across 4 phases: update the WorktreeService force flag (phase 1), create and test
-  CleanupFeatureWorktreeUseCase (phase 2), register it in the DI container (phase 3), and
-  wire it into merge.node.ts with test coverage (phase 4).
+  12 tasks across 8 phases: phases 1-4 (already done) handle post-merge cleanup. Phases 5-8
+  (new) wire cleanup into feature deletion: update DeleteFeatureUseCase with cleanup option (5),
+  add CLI --no-cleanup flag and interactive prompt (6), add web confirmation dialog with
+  checkbox (7), and run final validation (8).
 
 # Relationships
 relatedFeatures: []
@@ -28,7 +29,7 @@ tasks:
       parameter to the remove() method signature. Update the WorktreeService implementation
       to pass --force to the git worktree remove command when force is true. Existing callers
       are unaffected — the parameter is optional with no default.
-    state: Todo
+    state: Done
     dependencies: []
     acceptanceCriteria:
       - 'IWorktreeService.remove() signature includes optional force?: boolean parameter'
@@ -60,7 +61,7 @@ tasks:
       IFeatureRepository, then sequentially removes the worktree (force=true), deletes the
       local branch, checks remote branch existence, and conditionally deletes the remote branch.
       Start with the happy path test: all services succeed and all three cleanup steps complete.
-    state: Todo
+    state: Done
     dependencies:
       - task-1
     acceptanceCriteria:
@@ -96,7 +97,7 @@ tasks:
       deleted (deleteBranch throws), remote branch already deleted (remoteBranchExists returns
       false), unexpected error on remoteBranchExists (throws). Verify that errors in one step
       do not prevent subsequent steps from running.
-    state: Todo
+    state: Done
     dependencies:
       - task-2
     acceptanceCriteria:
@@ -130,7 +131,7 @@ tasks:
       registration pattern. Register as a singleton using registerSingleton(). Add a
       string-token alias if the project convention requires one for factory injection.
       Verify the container compiles with no circular dependency errors.
-    state: Todo
+    state: Done
     dependencies:
       - task-2
     acceptanceCriteria:
@@ -157,7 +158,7 @@ tasks:
       inject it via DI, and call execute(feature.id) after the featureRepository.update()
       call inside the merged===true branch. The call is a single await and must not be
       wrapped in a try/catch — the use case itself is responsible for non-fatal error handling.
-    state: Todo
+    state: Done
     dependencies:
       - task-4
     acceptanceCriteria:
@@ -189,7 +190,7 @@ tasks:
       feature-agent-worker.ts, feature-agent.ts, or a dedicated node factory — wherever
       MergeNodeDeps is assembled. Ensure the use case is resolved from the DI container
       and passed to the merge node.
-    state: Todo
+    state: Done
     dependencies:
       - task-5
     acceptanceCriteria:
@@ -212,7 +213,7 @@ tasks:
       Run pnpm test:unit, pnpm lint:fix, and pnpm validate to confirm all new and existing
       tests pass, no lint errors, and TypeScript compiles cleanly. Fix any remaining issues
       before marking the feature ready for PR.
-    state: Todo
+    state: Done
     dependencies:
       - task-6
     acceptanceCriteria:
@@ -223,8 +224,150 @@ tasks:
     tdd: null
     estimatedEffort: '15min'
 
+  - id: task-8
+    phaseId: phase-5
+    title: 'Add cleanup option to DeleteFeatureUseCase and compose CleanupFeatureWorktreeUseCase'
+    description: >
+      Add optional { cleanup?: boolean } parameter (default: true) to DeleteFeatureUseCase.execute().
+      Inject CleanupFeatureWorktreeUseCase as a new dependency. When cleanup=true, call
+      CleanupFeatureWorktreeUseCase.execute(featureId) before record deletion and skip the
+      existing worktreeService.remove() call. When cleanup=false, preserve existing behavior.
+    state: Done
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'execute() accepts optional { cleanup?: boolean } with cleanup defaulting to true'
+      - 'CleanupFeatureWorktreeUseCase injected via @inject in constructor'
+      - 'When cleanup=true: CleanupFeatureWorktreeUseCase.execute() called, existing worktree remove skipped'
+      - 'When cleanup=false: existing worktree remove runs, CleanupFeatureWorktreeUseCase NOT called'
+      - 'Feature record always deleted regardless of cleanup option'
+      - 'Unit test: cleanup=true calls CleanupFeatureWorktreeUseCase.execute()'
+      - 'Unit test: cleanup=false does NOT call CleanupFeatureWorktreeUseCase.execute()'
+      - 'Unit test: default (no options) behaves as cleanup=true'
+    tdd:
+      red:
+        - 'Write test: execute(id, { cleanup: true }) calls cleanupUseCase.execute(id) and skips worktreeService.remove()'
+        - 'Write test: execute(id, { cleanup: false }) calls worktreeService.remove() and does NOT call cleanupUseCase.execute()'
+        - 'Write test: execute(id) with no options calls cleanupUseCase.execute() (default true)'
+        - 'Confirm tests fail (execute does not accept options yet)'
+      green:
+        - 'Add CleanupFeatureWorktreeUseCase to constructor with @inject'
+        - 'Add options parameter to execute() signature'
+        - 'Conditionally call cleanup use case or existing worktree removal based on cleanup flag'
+      refactor:
+        - 'Ensure existing tests still pass with the new default behavior'
+        - 'Verify TypeScript compiles cleanly'
+    estimatedEffort: '45min'
+
+  - id: task-9
+    phaseId: phase-6
+    title: 'Add --no-cleanup flag and interactive cleanup prompt to CLI del command'
+    description: >
+      Update shep feat del to add --no-cleanup flag (boolean, default false). After the
+      delete confirmation prompt, show a second prompt: "Also clean up worktree and branches?"
+      (default: Y) unless --no-cleanup is passed. When --force is passed, skip all prompts
+      but set cleanup=true unless --no-cleanup is also passed. Pass cleanup option to
+      DeleteFeatureUseCase.execute().
+    state: Done
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - '--no-cleanup flag added to commander options'
+      - 'Interactive cleanup prompt shown after delete confirmation (default: Y)'
+      - '--no-cleanup skips prompt and sets cleanup=false'
+      - '--force skips all prompts, cleanup=true by default'
+      - '--force --no-cleanup skips all prompts, cleanup=false'
+      - 'cleanup option passed to deleteUseCase.execute()'
+      - 'Cleanup result shown in success output if cleanup was performed'
+    tdd:
+      red:
+        - 'Write test: del command without flags prompts for delete and cleanup'
+        - 'Write test: --no-cleanup flag sets cleanup=false, no cleanup prompt shown'
+        - 'Write test: --force skips prompts, cleanup=true passed to execute'
+        - 'Write test: --force --no-cleanup skips prompts, cleanup=false passed to execute'
+      green:
+        - 'Add --no-cleanup option to commander'
+        - 'Add confirm prompt for cleanup after delete confirmation'
+        - 'Wire cleanup option into execute() call'
+      refactor:
+        - 'Ensure output messages reflect whether cleanup was performed'
+    estimatedEffort: '30min'
+
+  - id: task-10
+    phaseId: phase-7
+    title: 'Update web server action to accept cleanup parameter'
+    description: >
+      Update deleteFeature server action to accept optional cleanup boolean parameter.
+      Pass it through to DeleteFeatureUseCase.execute().
+    state: Done
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - 'deleteFeature(featureId, cleanup?) accepts optional cleanup parameter'
+      - 'cleanup passed to deleteFeatureUseCase.execute(featureId, { cleanup })'
+      - 'Default behavior (no cleanup param) runs cleanup'
+    tdd:
+      red:
+        - 'Verify server action type signature includes optional cleanup parameter'
+      green:
+        - 'Add cleanup parameter to function signature'
+        - 'Pass { cleanup } to execute()'
+      refactor:
+        - 'Ensure backward compatibility with callers that pass only featureId'
+    estimatedEffort: '15min'
+
+  - id: task-11
+    phaseId: phase-7
+    title: 'Create web confirmation dialog with cleanup checkbox'
+    description: >
+      Create a DeleteFeatureDialog component using shadcn AlertDialog. Shows feature name
+      and branch, a "Clean up worktree and branches" checkbox (default: checked), and
+      Confirm/Cancel buttons. Wire it into the control center delete flow replacing the
+      direct delete call. Create a colocated Storybook story.
+    state: Done
+    dependencies:
+      - task-10
+    acceptanceCriteria:
+      - 'DeleteFeatureDialog component created with AlertDialog'
+      - 'Shows feature name and branch in dialog content'
+      - 'Cleanup checkbox defaults to checked'
+      - 'Confirm button triggers deletion with cleanup option'
+      - 'Cancel button closes dialog without action'
+      - 'Integrated into control center delete flow'
+      - 'Colocated .stories.tsx file with default and unchecked variants'
+    tdd:
+      red:
+        - 'Write component test: dialog renders with feature info and checked checkbox'
+        - 'Write component test: clicking confirm calls onDelete with cleanup=true'
+        - 'Write component test: unchecking checkbox and confirming calls onDelete with cleanup=false'
+      green:
+        - 'Create DeleteFeatureDialog component'
+        - 'Wire into control center handleDeleteFeature'
+        - 'Create Storybook story'
+      refactor:
+        - 'Ensure dialog styling matches existing dialogs in the app'
+    estimatedEffort: '1h'
+
+  - id: task-12
+    phaseId: phase-8
+    title: 'Final validation — run full test suite and lint'
+    description: >
+      Run pnpm test:unit, pnpm lint:fix, and pnpm validate to confirm all new and existing
+      tests pass, no lint errors, and TypeScript compiles cleanly. Fix any remaining issues.
+    state: Done
+    dependencies:
+      - task-9
+      - task-11
+    acceptanceCriteria:
+      - 'pnpm test:unit passes with no failures'
+      - 'pnpm validate passes (lint + format + typecheck + tsp)'
+      - 'All new test files follow existing vitest conventions'
+      - 'No new TypeScript errors introduced'
+    tdd: null
+    estimatedEffort: '15min'
+
 # Total effort estimate
-totalEstimate: '3h 20min'
+totalEstimate: '5h 25min'
 
 # Open questions
 openQuestions: []
@@ -252,5 +395,17 @@ content: |
   the factory that constructs the deps, and run a final full validation pass to confirm no
   regressions.
 
-  Total: 7 tasks, approximately 3h 20min. No TypeSpec changes, no DB migrations, no new
+  **Phase 5** adds the cleanup option to `DeleteFeatureUseCase`, composing
+  `CleanupFeatureWorktreeUseCase` as a dependency. When `cleanup=true` (default), the cleanup
+  use case handles worktree + branch deletion, and the existing worktree removal step is skipped.
+
+  **Phase 6** updates the CLI `shep feat del` command with a `--no-cleanup` flag and an
+  interactive cleanup prompt after the delete confirmation.
+
+  **Phase 7** updates the web server action to accept a cleanup parameter and creates a
+  confirmation dialog component with a cleanup checkbox.
+
+  **Phase 8** runs final validation across the full test suite.
+
+  Total: 12 tasks, approximately 5h 25min. No TypeSpec changes, no DB migrations, no new
   external dependencies.

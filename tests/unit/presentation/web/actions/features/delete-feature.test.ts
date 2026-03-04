@@ -24,6 +24,36 @@ describe('deleteFeature server action', () => {
     expect(mockExecute).toHaveBeenCalledWith('abc-123');
   });
 
+  it('passes cleanup option to use case execute', async () => {
+    const feature = { id: 'abc-123', name: 'My Feature', slug: 'my-feature' };
+    mockExecute.mockResolvedValue(feature);
+
+    const result = await deleteFeature('abc-123', false);
+
+    expect(result).toEqual({ feature });
+    expect(mockExecute).toHaveBeenCalledWith('abc-123', { cleanup: false });
+  });
+
+  it('passes cleanup=true when cleanup param is true', async () => {
+    const feature = { id: 'abc-123', name: 'My Feature', slug: 'my-feature' };
+    mockExecute.mockResolvedValue(feature);
+
+    const result = await deleteFeature('abc-123', true);
+
+    expect(result).toEqual({ feature });
+    expect(mockExecute).toHaveBeenCalledWith('abc-123', { cleanup: true });
+  });
+
+  it('calls execute without cleanup option when cleanup param is undefined', async () => {
+    const feature = { id: 'abc-123', name: 'My Feature', slug: 'my-feature' };
+    mockExecute.mockResolvedValue(feature);
+
+    const result = await deleteFeature('abc-123');
+
+    expect(result).toEqual({ feature });
+    expect(mockExecute).toHaveBeenCalledWith('abc-123');
+  });
+
   it('returns error when id is empty string', async () => {
     const result = await deleteFeature('');
 

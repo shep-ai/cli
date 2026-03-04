@@ -2,12 +2,14 @@
  * Feature Delete Command
  *
  * Deletes a feature, its worktree, and cancels any running agent.
+ * Optionally cleans up worktree and branches (local + remote).
  *
- * Usage: shep feat del <id> [--force]
+ * Usage: shep feat del <id> [--force] [--no-cleanup]
  *
  * @example
  * $ shep feat del feat-123
  * $ shep feat del feat-123 --force
+ * $ shep feat del feat-123 --force --no-cleanup
  */
 
 import { Command } from 'commander';
@@ -19,6 +21,7 @@ import { confirm } from '@inquirer/prompts';
 
 interface DelOptions {
   force?: boolean;
+  cleanup?: boolean;
 }
 
 /**
@@ -29,6 +32,7 @@ export function createDelCommand(): Command {
     .description('Delete a feature')
     .argument('<id>', 'Feature ID or prefix')
     .option('-f, --force', 'Skip confirmation prompt')
+    .option('--no-cleanup', 'Skip worktree and branch cleanup')
     .action(async (featureId: string, options: DelOptions) => {
       try {
         // First show what we're about to delete
@@ -46,13 +50,27 @@ export function createDelCommand(): Command {
           }
         }
 
+        // Determine cleanup preference
+        let cleanup = true;
+        if (options.cleanup === false) {
+          cleanup = false;
+        } else if (!options.force) {
+          cleanup = await confirm({
+            message: 'Also clean up worktree and branches?',
+            default: true,
+          });
+        }
+
         const deleteUseCase = container.resolve(DeleteFeatureUseCase);
-        await deleteUseCase.execute(feature.id);
+        await deleteUseCase.execute(feature.id, { cleanup });
 
         messages.newline();
         messages.success('Feature deleted');
         console.log(`  ${colors.muted('Name:')}   ${feature.name}`);
         console.log(`  ${colors.muted('Branch:')} ${feature.branch}`);
+        if (cleanup) {
+          console.log(`  ${colors.muted('Cleanup:')} worktree, local branch, remote branch`);
+        }
         messages.newline();
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));

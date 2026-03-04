@@ -1,0 +1,31 @@
+import type { Meta, StoryObj } from '@storybook/react';
+import { fn } from '@storybook/test';
+import { DeleteFeatureDialog } from './delete-feature-dialog';
+
+const meta: Meta<typeof DeleteFeatureDialog> = {
+  title: 'Composed/DeleteFeatureDialog',
+  component: DeleteFeatureDialog,
+  tags: ['autodocs'],
+  parameters: {
+    layout: 'centered',
+  },
+  args: {
+    open: true,
+    onOpenChange: fn().mockName('onOpenChange'),
+    onConfirm: fn().mockName('onConfirm'),
+    isDeleting: false,
+    featureName: 'User Authentication',
+    featureId: 'feat-abc-123',
+  },
+};
+
+export default meta;
+type Story = StoryObj<typeof DeleteFeatureDialog>;
+
+export const Default: Story = {};
+
+export const Deleting: Story = {
+  args: {
+    isDeleting: true,
+  },
+};

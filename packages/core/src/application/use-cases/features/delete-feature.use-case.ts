@@ -21,6 +21,11 @@ import type { IFeatureRepository } from '../../ports/output/repositories/feature
 import type { IWorktreeService } from '../../ports/output/services/worktree-service.interface.js';
 import type { IFeatureAgentProcessService } from '../../ports/output/agents/feature-agent-process.interface.js';
 import type { IAgentRunRepository } from '../../ports/output/agents/agent-run-repository.interface.js';
+import type { CleanupFeatureWorktreeUseCase } from './cleanup-feature-worktree.use-case.js';
+
+export interface DeleteFeatureOptions {
+  cleanup?: boolean;
+}
 
 @injectable()
 export class DeleteFeatureUseCase {
@@ -29,10 +34,12 @@ export class DeleteFeatureUseCase {
     @inject('IWorktreeService') private readonly worktreeService: IWorktreeService,
     @inject('IFeatureAgentProcessService')
     private readonly processService: IFeatureAgentProcessService,
-    @inject('IAgentRunRepository') private readonly runRepo: IAgentRunRepository
+    @inject('IAgentRunRepository') private readonly runRepo: IAgentRunRepository,
+    @inject('CleanupFeatureWorktreeUseCase')
+    private readonly cleanupUseCase: Pick<CleanupFeatureWorktreeUseCase, 'execute'>
   ) {}
 
-  async execute(featureId: string): Promise<Feature> {
+  async execute(featureId: string, options?: DeleteFeatureOptions): Promise<Feature> {
     // 1. Find feature (exact or prefix match)
     const feature =
       (await this.featureRepo.findById(featureId)) ??
@@ -75,15 +82,24 @@ export class DeleteFeatureUseCase {
       }
     }
 
-    // Remove worktree (ignore errors if already removed)
-    const worktreePath = this.worktreeService.getWorktreePath(
-      feature.repositoryPath,
-      feature.branch
-    );
-    try {
-      await this.worktreeService.remove(worktreePath);
-    } catch {
-      // Worktree might already be removed - that's fine
+    // 4. Cleanup: either full cleanup (worktree + branches) or just worktree removal
+    const cleanup = options?.cleanup !== false;
+    if (cleanup) {
+      try {
+        await this.cleanupUseCase.execute(feature.id);
+      } catch {
+        // Cleanup is best-effort — don't block deletion
+      }
+    } else {
+      const worktreePath = this.worktreeService.getWorktreePath(
+        feature.repositoryPath,
+        feature.branch
+      );
+      try {
+        await this.worktreeService.remove(worktreePath);
+      } catch {
+        // Worktree might already be removed - that's fine
+      }
     }
 
     // Delete feature record

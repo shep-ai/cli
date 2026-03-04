@@ -3,11 +3,11 @@
 
 name: post-feature-cleanup
 summary: >
-  Post-feature cleanup is a well-scoped addition: create CleanupFeatureWorktreeUseCase in the
-  application layer, update WorktreeService.remove() to accept a force flag, wire the use case
-  into merge.node.ts after the Maintain lifecycle transition, and register it in the DI container.
-  All required primitives (WorktreeService, GitPrService, feature entity fields) already exist —
-  no TypeSpec changes or DB migrations are needed.
+  Two-part feature: (1) Post-merge cleanup via CleanupFeatureWorktreeUseCase wired into
+  merge.node.ts (done). (2) Cleanup on feature deletion — DeleteFeatureUseCase composes
+  CleanupFeatureWorktreeUseCase with an optional cleanup parameter (default: true). CLI gets
+  interactive checkbox prompt + --no-cleanup flag. Web UI gets confirmation dialog with checkbox.
+  All required primitives exist — no TypeSpec changes or DB migrations needed.
 
 # Relationships
 relatedFeatures: []
@@ -83,6 +83,45 @@ decisions:
       holds no instance state — it depends only on injected stateless services — so singleton is
       safe. A string-token alias should also be registered following the factory-alias pattern
       used consistently for other use cases in the container.
+
+  - title: 'Cleanup on Deletion — Compose CleanupFeatureWorktreeUseCase vs Duplicate Logic'
+    chosen: 'Compose CleanupFeatureWorktreeUseCase into DeleteFeatureUseCase via DI injection'
+    rejected:
+      - 'Inline branch deletion logic directly into DeleteFeatureUseCase — duplicates cleanup logic across two use cases; violates DRY; two places to maintain'
+      - 'Extract shared FeatureCleanupService — over-engineered abstraction for three sequential git commands; more files, more DI wiring, no reuse beyond these two use cases'
+    rationale: >
+      CleanupFeatureWorktreeUseCase already handles the full cleanup (worktree unlink, local branch
+      delete, remote branch delete) with non-fatal error handling. Composing it into DeleteFeatureUseCase
+      via DI injection gives a single source of truth for cleanup logic. The only consideration is
+      avoiding double worktree removal — when cleanup=true, DeleteFeatureUseCase skips its own
+      worktreeService.remove() call since CleanupFeatureWorktreeUseCase handles it.
+
+  - title: 'Cleanup Default — Opt-in vs Opt-out'
+    chosen: 'Opt-out (cleanup=true by default)'
+    rejected:
+      - 'Opt-in (cleanup=false by default) — leaves stale branches and worktrees by default; users must remember to opt in'
+    rationale: >
+      Keeping things tidy by default is better UX. Users who want to preserve branches can
+      explicitly pass --no-cleanup (CLI) or uncheck the checkbox (web). This matches the mental
+      model: "deleting a feature should clean up everything related to it."
+
+  - title: 'CLI UX — Interactive Checkbox vs Flag-only'
+    chosen: 'Interactive checkbox in confirmation prompt (with --no-cleanup flag for scripting)'
+    rejected:
+      - 'Flag-only (--cleanup / --no-cleanup) — loses discoverability; users may not know cleanup option exists'
+    rationale: >
+      An interactive prompt after the delete confirmation makes the cleanup option visible and
+      discoverable. The --no-cleanup flag supports scripting and CI use cases. --force skips
+      all prompts but still cleans up (safe default) unless --no-cleanup is also passed.
+
+  - title: 'Web UX — Confirmation Dialog vs Inline Checkbox'
+    chosen: 'Confirmation dialog (AlertDialog) with cleanup checkbox'
+    rejected:
+      - 'Inline checkbox next to delete button — clutters the always-visible control panel; delete is a destructive action that warrants a confirmation step'
+    rationale: >
+      A confirmation dialog is the standard UX pattern for destructive actions. Including the
+      cleanup checkbox in the dialog keeps all deletion options in one place. The checkbox
+      defaults to checked (consistent with opt-out default).
 
   - title: 'Use Case Input — Accept featureId vs Full Feature Object'
     chosen: 'Accept featureId (string) and resolve Feature internally via IFeatureRepository'

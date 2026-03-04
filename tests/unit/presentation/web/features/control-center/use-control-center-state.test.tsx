@@ -698,7 +698,7 @@ describe('useControlCenterState', () => {
         fireEvent.click(screen.getByTestId('delete-feature'));
       });
 
-      expect(mockDeleteFeature).toHaveBeenCalledWith('1');
+      expect(mockDeleteFeature).toHaveBeenCalledWith('1', undefined);
     });
 
     it('removes deleted node from nodes on success', async () => {
