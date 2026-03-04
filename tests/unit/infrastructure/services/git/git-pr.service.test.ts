@@ -746,8 +746,10 @@ describe('GitPrService', () => {
   });
 
   describe('verifyMerge', () => {
-    it('should return true when feature branch is ancestor of base branch', async () => {
-      vi.mocked(mockExec).mockResolvedValue({ stdout: '', stderr: '' });
+    it('should return true when feature branch is ancestor of base branch (true merge)', async () => {
+      vi.mocked(mockExec)
+        .mockResolvedValueOnce({ stdout: 'abc123\n', stderr: '' }) // rev-parse --verify (resolveRef)
+        .mockResolvedValueOnce({ stdout: '', stderr: '' }); // merge-base --is-ancestor
 
       const result = await service.verifyMerge('/repo', 'feat/test', 'main');
 
@@ -759,8 +761,52 @@ describe('GitPrService', () => {
       );
     });
 
-    it('should return false when feature branch is NOT ancestor of base branch', async () => {
-      vi.mocked(mockExec).mockRejectedValue(new Error('exit code 1'));
+    it('should return true for squash merge (not ancestor but no diff)', async () => {
+      vi.mocked(mockExec)
+        .mockResolvedValueOnce({ stdout: 'abc123\n', stderr: '' }) // rev-parse --verify (resolveRef)
+        .mockRejectedValueOnce(new Error('exit code 1')) // merge-base --is-ancestor fails
+        .mockResolvedValueOnce({ stdout: '', stderr: '' }); // git diff --quiet succeeds (no diff)
+
+      const result = await service.verifyMerge('/repo', 'feat/test', 'main');
+
+      expect(result).toBe(true);
+      expect(mockExec).toHaveBeenCalledWith('git', ['diff', '--quiet', 'feat/test', 'main'], {
+        cwd: '/repo',
+      });
+    });
+
+    it('should return false when neither true merge nor squash merge', async () => {
+      vi.mocked(mockExec)
+        .mockResolvedValueOnce({ stdout: 'abc123\n', stderr: '' }) // rev-parse --verify (resolveRef)
+        .mockRejectedValueOnce(new Error('exit code 1')) // merge-base --is-ancestor fails
+        .mockRejectedValueOnce(new Error('exit code 1')); // git diff --quiet fails (has diff)
+
+      const result = await service.verifyMerge('/repo', 'feat/test', 'main');
+
+      expect(result).toBe(false);
+    });
+
+    it('should fall back to remote tracking branch when local ref is deleted', async () => {
+      vi.mocked(mockExec)
+        .mockRejectedValueOnce(new Error('unknown revision')) // rev-parse local fails
+        .mockResolvedValueOnce({ stdout: 'abc123\n', stderr: '' }) // rev-parse origin/feat/test
+        .mockRejectedValueOnce(new Error('exit code 1')) // merge-base --is-ancestor fails
+        .mockResolvedValueOnce({ stdout: '', stderr: '' }); // git diff --quiet succeeds
+
+      const result = await service.verifyMerge('/repo', 'feat/test', 'main');
+
+      expect(result).toBe(true);
+      expect(mockExec).toHaveBeenCalledWith(
+        'git',
+        ['diff', '--quiet', 'origin/feat/test', 'main'],
+        { cwd: '/repo' }
+      );
+    });
+
+    it('should return false when both local and remote refs are gone', async () => {
+      vi.mocked(mockExec)
+        .mockRejectedValueOnce(new Error('unknown revision')) // rev-parse local fails
+        .mockRejectedValueOnce(new Error('unknown revision')); // rev-parse origin/ fails
 
       const result = await service.verifyMerge('/repo', 'feat/test', 'main');
 

@@ -333,13 +333,54 @@ export class GitPrService implements IGitPrService {
   }
 
   async verifyMerge(cwd: string, featureBranch: string, baseBranch: string): Promise<boolean> {
+    // Resolve the feature branch ref — the local branch may have been deleted
+    // after a squash merge (git branch -d succeeds when pushed to remote).
+    // Fall back to the remote tracking branch if the local ref is gone.
+    const resolvedRef = await this.resolveRef(cwd, featureBranch);
+    if (!resolvedRef) return false;
+
+    // First try: true merge (feature branch is ancestor of base)
     try {
-      await this.execFile('git', ['merge-base', '--is-ancestor', featureBranch, baseBranch], {
+      await this.execFile('git', ['merge-base', '--is-ancestor', resolvedRef, baseBranch], {
         cwd,
       });
       return true;
     } catch {
+      // Not a true merge — check for squash merge by comparing tree content.
+      // After a squash merge, all changes from the feature branch are on the base
+      // branch, so `git diff featureBranch baseBranch` should produce no output.
+    }
+
+    try {
+      await this.execFile('git', ['diff', '--quiet', resolvedRef, baseBranch], { cwd });
+      // --quiet exits 0 when there's no diff → squash merge verified
+      return true;
+    } catch {
+      // Exit code 1 = diff exists (not merged), other errors also mean unverified
       return false;
+    }
+  }
+
+  /**
+   * Resolve a branch name to a valid git ref, falling back to the remote
+   * tracking branch if the local ref has been deleted.
+   */
+  private async resolveRef(cwd: string, branch: string): Promise<string | null> {
+    // Try local ref first
+    try {
+      await this.execFile('git', ['rev-parse', '--verify', branch], { cwd });
+      return branch;
+    } catch {
+      // Local ref doesn't exist
+    }
+
+    // Try remote tracking branch
+    const remoteRef = `origin/${branch}`;
+    try {
+      await this.execFile('git', ['rev-parse', '--verify', remoteRef], { cwd });
+      return remoteRef;
+    } catch {
+      return null;
     }
   }
 
