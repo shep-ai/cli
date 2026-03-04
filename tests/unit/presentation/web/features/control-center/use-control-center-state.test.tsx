@@ -639,7 +639,7 @@ describe('useControlCenterState', () => {
       expect(mockToastSuccess).toHaveBeenCalled();
     });
 
-    it('calls router.refresh() on successful deletion', async () => {
+    it('navigates to root on successful deletion', async () => {
       mockDeleteFeature.mockResolvedValue({ feature: { id: 'f1' } });
 
       renderHook([featureNode] as CanvasNodeType[]);
@@ -648,7 +648,7 @@ describe('useControlCenterState', () => {
         fireEvent.click(screen.getByTestId('delete-feature'));
       });
 
-      expect(mockRefresh).toHaveBeenCalled();
+      expect(mockPush).toHaveBeenCalledWith('/');
     });
 
     it('shows error toast with server action error message', async () => {

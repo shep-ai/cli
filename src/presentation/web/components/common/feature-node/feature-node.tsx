@@ -136,7 +136,10 @@ export function FeatureNode({
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction
                   variant="destructive"
-                  onClick={() => data.onDelete?.(data.featureId)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    data.onDelete?.(data.featureId);
+                  }}
                 >
                   Delete
                 </AlertDialogAction>

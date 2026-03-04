@@ -349,7 +349,10 @@ export function useControlCenterState(
         });
         deleteSound.play();
         toast.success('Feature deleted successfully');
-        router.refresh();
+        // Navigate to root to close any open feature drawer, then refresh
+        // to reconcile server state. router.push already triggers a server
+        // re-fetch, so a separate refresh is not needed.
+        router.push('/');
       } catch {
         toast.error('Failed to delete feature');
       }
