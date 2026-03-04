@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { Code2, Terminal, FolderOpen } from 'lucide-react';
 import { BaseDrawer } from '@/components/common/base-drawer';
 import { ActionButton } from '@/components/common/action-button';
@@ -17,6 +17,8 @@ export interface RepositoryDrawerClientProps {
 
 export function RepositoryDrawerClient({ data }: RepositoryDrawerClientProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const isOpen = pathname.startsWith('/repository/');
   const repoActions = useRepositoryActions(
     data.repositoryPath ? { repositoryPath: data.repositoryPath } : null
   );
@@ -46,7 +48,7 @@ export function RepositoryDrawerClient({ data }: RepositoryDrawerClientProps) {
 
   return (
     <BaseDrawer
-      open
+      open={isOpen}
       onClose={onClose}
       size="md"
       modal={false}

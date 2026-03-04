@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { toast } from 'sonner';
 import { createFeature } from '@/app/actions/create-feature';
 import { FeatureCreateDrawer } from '@/components/common/feature-create-drawer';
@@ -26,6 +26,13 @@ export function CreateDrawerClient({
   const router = useRouter();
   const createSound = useSoundAction('create');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Derive open state from the URL. Next.js parallel routes preserve slot
+  // content during soft navigation, so this component is NOT unmounted when
+  // navigating to `/`. We watch the pathname and let Vaul handle the close
+  // animation when the path no longer matches the create route.
+  const pathname = usePathname();
+  const isOpen = pathname.startsWith('/create');
 
   const onClose = useCallback(() => {
     router.push('/');
@@ -74,7 +81,7 @@ export function CreateDrawerClient({
 
   return (
     <FeatureCreateDrawer
-      open
+      open={isOpen}
       onClose={onClose}
       onSubmit={onSubmit}
       repositoryPath={repositoryPath}
