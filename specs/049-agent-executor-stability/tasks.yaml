@@ -1,0 +1,292 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: agent-executor-stability
+summary: >
+  7 tasks across 4 phases. Interface update first, then process service wiring, then
+  worker arg parsing and executor resolution, then use case call-site updates.
+  Every source change has a corresponding TDD cycle.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - TypeScript
+  - Vitest
+  - tsyringe
+relatedLinks:
+  - https://github.com/shep-ai/cli/issues/211
+
+# Structured task list
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Extend IFeatureAgentProcessService spawn options with optional agentType field'
+    description: >
+      Add `agentType?: AgentType` to the options object in the spawn() signature of
+      IFeatureAgentProcessService. Import AgentType from the generated domain output.
+      This is a pure interface change — no implementation code changes yet.
+      TypeScript compilation is the verification mechanism; all existing callers continue
+      to compile because the field is optional.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'IFeatureAgentProcessService.spawn() options type includes agentType?: AgentType'
+      - 'AgentType is imported from domain/generated/output.js'
+      - '`pnpm build` compiles without errors after this change alone'
+      - 'All existing callers (use cases, tests) continue to compile without modification'
+    tdd: null
+    estimatedEffort: '15min'
+
+  - id: task-2
+    phaseId: phase-2
+    title: 'Test and implement --agent-type CLI arg in FeatureAgentProcessService.spawn()'
+    description: >
+      Write a failing unit test that asserts when spawn() is called with
+      options.agentType set, the forked process argv contains '--agent-type' followed
+      by the agentType value. Then update FeatureAgentProcessService.spawn() to append
+      ['--agent-type', options.agentType] to the args array when options.agentType is
+      truthy. The existing test for spawn without agentType must continue to pass.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'New test: spawn() with agentType option includes --agent-type <value> in fork argv'
+      - 'New test: spawn() without agentType option does NOT include --agent-type in fork argv'
+      - 'All existing spawn() tests continue to pass'
+      - 'Implementation appends --agent-type only when options.agentType is defined'
+    tdd:
+      red:
+        - >
+          In feature-agent-process.service.test.ts, add a test inside describe('spawn') that
+          calls service.spawn('feat-1', 'run-1', '/repo', '/specs', undefined,
+          { agentType: AgentType.ClaudeCode }) and asserts mockFork.mock.calls[0][1] contains
+          '--agent-type' and 'claude-code' (the enum value).
+        - >
+          Add a second test that calls spawn() without agentType and asserts the fork args
+          do NOT contain '--agent-type'.
+        - 'Run pnpm test:unit — both new tests FAIL (RED)'
+      green:
+        - >
+          In feature-agent-process.service.ts spawn(), after the resumePayload block, add:
+          if (options?.agentType) { args.push('--agent-type', options.agentType); }
+        - 'Run pnpm test:unit — new tests now PASS (GREEN)'
+      refactor:
+        - 'Confirm the new if-block ordering is consistent with the other option pushes'
+        - 'Run pnpm test:unit — all tests still PASS'
+    estimatedEffort: '30min'
+
+  - id: task-3
+    phaseId: phase-3
+    title: 'Test and implement --agent-type parsing in parseWorkerArgs()'
+    description: >
+      Extend the WorkerArgs interface and parseWorkerArgs() function to surface
+      agentType as an optional string (using AgentType enum type). Write a failing test
+      for the new parsing, then implement it following the same pattern as the
+      --thread-id and --worktree-path optional args.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'WorkerArgs interface includes agentType?: AgentType'
+      - 'parseWorkerArgs() extracts --agent-type value and assigns to agentType field'
+      - 'parseWorkerArgs() returns agentType: undefined when --agent-type arg is absent'
+      - 'New test in parse-worker-args.test.ts: parses --agent-type when present'
+      - 'New test: agentType is undefined when --agent-type is absent'
+      - 'All existing parseWorkerArgs tests continue to pass (full equality assertions)'
+    tdd:
+      red:
+        - >
+          In parse-worker-args.test.ts (or feature-agent-worker.test.ts parseWorkerArgs block),
+          add a test with args including '--agent-type' 'claude-code' and assert
+          parsed.agentType === 'claude-code' (AgentType.ClaudeCode value).
+        - >
+          Add a test that omits --agent-type and asserts parsed.agentType is undefined.
+        - >
+          Update the existing full-equality test to include agentType: undefined in the
+          expected object so it stays accurate after the WorkerArgs change.
+        - 'Run pnpm test:unit — new tests FAIL (RED)'
+      green:
+        - 'In feature-agent-worker.ts, add agentType?: AgentType to the WorkerArgs interface'
+        - >
+          In parseWorkerArgs(), add:
+          const agentTypeIdx = args.indexOf('--agent-type');
+          const agentType = agentTypeIdx !== -1 && agentTypeIdx + 1 < args.length
+            ? args[agentTypeIdx + 1] as AgentType : undefined;
+        - 'Include agentType in the returned object'
+        - 'Run pnpm test:unit — new tests now PASS (GREEN)'
+      refactor:
+        - 'Confirm AgentType import is at the top of feature-agent-worker.ts'
+        - 'Run pnpm test:unit — all tests still PASS'
+    estimatedEffort: '30min'
+
+  - id: task-4
+    phaseId: phase-3
+    title: 'Test and implement factory-based executor resolution in runWorker()'
+    description: >
+      Update runWorker() to resolve IAgentExecutorFactory from the DI container and
+      call factory.createExecutor(args.agentType, settings.agent) when args.agentType
+      is present, otherwise fall back to executorProvider.getExecutor(). Write tests
+      for both branches. The mock for IAgentExecutorFactory must be added to the
+      existing mockResolve setup.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - >
+        New test: when runWorker() receives args.agentType, it resolves IAgentExecutorFactory
+        from DI and calls createExecutor with the agentType value
+      - >
+        New test: when runWorker() receives no agentType, it calls executorProvider.getExecutor()
+        and does NOT call factory.createExecutor
+      - 'Existing runWorker tests continue to pass (backward compatibility via fallback)'
+      - 'runWorker() imports IAgentExecutorFactory type and resolves it from container'
+    tdd:
+      red:
+        - >
+          In feature-agent-worker.test.ts, add a makeMockExecutorFactory() helper that
+          returns { createExecutor: vi.fn().mockReturnValue(mockExecutor) }.
+        - >
+          Update the mockResolve implementation to also handle 'IAgentExecutorFactory'
+          token and return the mock factory.
+        - >
+          Add test: call runWorker() with agentType: AgentType.ClaudeCode in the args.
+          Assert mockFactory.createExecutor was called with ('claude-code', expect.objectContaining({type: 'claude-code'})).
+          Assert mockExecutorProvider.getExecutor was NOT called.
+        - >
+          Add test: call runWorker() without agentType. Assert mockExecutorProvider.getExecutor
+          was called and mockFactory.createExecutor was NOT called.
+        - 'Run pnpm test:unit — new tests FAIL (RED)'
+      green:
+        - >
+          In feature-agent-worker.ts runWorker(), after loading settings, add:
+          let executor: IAgentExecutor;
+          if (args.agentType) {
+            const factory = container.resolve<IAgentExecutorFactory>('IAgentExecutorFactory');
+            executor = factory.createExecutor(args.agentType, settings.agent);
+          } else {
+            executor = executorProvider.getExecutor();
+          }
+        - 'Add necessary type imports (IAgentExecutorFactory, IAgentExecutor)'
+        - 'Run pnpm test:unit — new tests now PASS (GREEN)'
+      refactor:
+        - 'Remove the now-unused single-line executor assignment, ensure imports are clean'
+        - 'Run pnpm test:unit — all tests still PASS'
+    estimatedEffort: '45min'
+
+  - id: task-5
+    phaseId: phase-4
+    title: 'Test and implement agentType pass-through in ApproveAgentRunUseCase'
+    description: >
+      Update ApproveAgentRunUseCase.execute() to include agentType: run.agentType in
+      the spawn options object. The run record is already fetched on the first line of
+      execute() — this is a pure wiring change. Write a failing test first.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - >
+        New test: ApproveAgentRunUseCase passes run.agentType to processService.spawn()
+        options when the run is in waitingApproval status
+      - 'Existing ApproveAgentRunUseCase tests continue to pass'
+      - 'processService.spawn mock in tests is updated to capture and assert the agentType option'
+    tdd:
+      red:
+        - >
+          In approve-agent-run.use-case.test.ts, find or create the test that verifies the
+          spawn call arguments. Assert that processService.spawn is called with a 5th options
+          argument that includes agentType: AgentType.ClaudeCode (matching the agentType on
+          the mock run record).
+        - 'Run pnpm test:unit — the new assertion FAILS (RED)'
+      green:
+        - >
+          In approve-agent-run.use-case.ts, add agentType: run.agentType to the options
+          object passed to this.processService.spawn() (the existing object on line 119-128).
+        - 'Run pnpm test:unit — new assertion PASSES (GREEN)'
+      refactor:
+        - 'Verify no duplicate or redundant run lookups were introduced'
+        - 'Run pnpm test:unit — all tests still PASS'
+    estimatedEffort: '20min'
+
+  - id: task-6
+    phaseId: phase-4
+    title: 'Test and implement agentType pass-through in ResumeFeatureUseCase'
+    description: >
+      Update ResumeFeatureUseCase.execute() to include agentType: lastRun.agentType in
+      the spawn options object. lastRun is already in memory at the spawn call. Write a
+      failing test first.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - >
+        New test: ResumeFeatureUseCase passes lastRun.agentType to processService.spawn()
+        options when resuming a paused run
+      - 'Existing ResumeFeatureUseCase tests continue to pass'
+    tdd:
+      red:
+        - >
+          In resume-feature.use-case.test.ts, find or create the test that verifies the
+          spawn call arguments on resume. Assert that processService.spawn is called with
+          an options argument that includes agentType: AgentType.ClaudeCode (matching the
+          agentType on the mock lastRun record).
+        - 'Run pnpm test:unit — the new assertion FAILS (RED)'
+      green:
+        - >
+          In resume-feature.use-case.ts, add agentType: lastRun.agentType to the options
+          object passed to this.processService.spawn() (the existing object on lines 125-132).
+        - 'Run pnpm test:unit — new assertion PASSES (GREEN)'
+      refactor:
+        - 'Confirm no other spawn call sites in the codebase were missed'
+        - 'Run pnpm test:unit — all tests still PASS'
+    estimatedEffort: '20min'
+
+  - id: task-7
+    phaseId: phase-4
+    title: 'Full verification — build, all tests, lint'
+    description: >
+      Run the full verification suite to confirm zero regressions across the entire
+      codebase. This task is the completion gate for the feature.
+    state: Todo
+    dependencies:
+      - task-2
+      - task-4
+      - task-5
+      - task-6
+    acceptanceCriteria:
+      - '`pnpm build` compiles without errors'
+      - '`pnpm test` passes with zero failures across unit and integration suites'
+      - '`pnpm lint` reports no errors or warnings'
+      - 'All 7 success criteria from the feature spec are verifiably met'
+    tdd: null
+    estimatedEffort: '10min'
+
+totalEstimate: '2.5h'
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Summary
+
+  The implementation starts at the contract boundary (phase 1: interface update) and
+  flows inward-to-outward through Clean Architecture layers. The interface change is
+  a prerequisite for TypeScript to accept the updated callers, even though runtime
+  behaviour changes land in the infrastructure layer.
+
+  Phase 2 wires the value from the application layer options into the forked process
+  argv — a one-liner addition in FeatureAgentProcessService that mirrors the existing
+  --resume-payload pattern.
+
+  Phase 3 is the core fix: the worker learns to read the pinned agentType from its
+  argv and resolve the executor directly via IAgentExecutorFactory, bypassing the
+  settings-driven executorProvider when an explicit type is provided. The graceful
+  fallback keeps all existing spawn paths unaffected.
+
+  Phase 4 closes the loop at the two call sites that trigger the bug:
+  ApproveAgentRunUseCase and ResumeFeatureUseCase both already hold the full AgentRun
+  object at the point where spawn() is called, so passing agentType is a one-field
+  addition to the existing options object in each.
+
+  Every production code change is covered by a corresponding TDD cycle. Tasks 5 and 6
+  (the use case updates) depend only on task 1 (the interface) and can be developed in
+  parallel with tasks 2-4 if desired, though the dependency graph orders them after
+  the infrastructure work for sequential clarity.
