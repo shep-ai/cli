@@ -11,7 +11,7 @@ import type { IAgentExecutor } from '@/application/ports/output/agents/agent-exe
 import type { ExecFunction } from '@/infrastructure/services/git/worktree.service.js';
 import type { FeatureAgentState } from '@/infrastructure/services/agents/feature-agent/state.js';
 import type { DiffSummary } from '@/application/ports/output/services/git-pr-service.interface.js';
-import { FAKE_PR_URL, makeMockExecutor } from './fixtures.js';
+import { FAKE_PR_URL, makeMockExecutor, makeGitExecutor } from './fixtures.js';
 
 const execFileRaw = promisify(execFileCb);
 
@@ -204,6 +204,8 @@ export interface BuildDepsOptions {
   execFn?: ExecFunction;
   executorOutput?: string;
   featureBranch?: string;
+  /** When true, uses makeGitExecutor that runs real git commands instead of the mock. */
+  useRealGit?: boolean;
 }
 
 export interface BuiltDeps {
@@ -214,7 +216,7 @@ export interface BuiltDeps {
 
 /**
  * Builds MergeNodeDeps with a real GitPrService (using the provided ExecFunction)
- * and a mock IAgentExecutor. The featureRepository is fully mocked.
+ * and a mock or real-git IAgentExecutor. The featureRepository is fully mocked.
  */
 export function buildDeps(opts: BuildDepsOptions = {}): BuiltDeps {
   const execFn = opts.execFn ?? makeRealExec();
@@ -229,9 +231,9 @@ export function buildDeps(opts: BuildDepsOptions = {}): BuiltDeps {
     update: vi.fn().mockResolvedValue(undefined),
   } as unknown as MergeNodeDeps['featureRepository'];
 
-  const executorOutput =
-    opts.executorOutput ?? '[feat/test abc1234] feat: implement feature\nDone.';
-  const executor = makeMockExecutor(executorOutput);
+  const executor = opts.useRealGit
+    ? makeGitExecutor(opts.featureBranch ?? 'feat/test-branch')
+    : makeMockExecutor(opts.executorOutput ?? '[feat/test abc1234] feat: implement feature\nDone.');
 
   const deps: MergeNodeDeps = {
     executor,

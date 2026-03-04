@@ -1,9 +1,8 @@
 /**
- * Local merge tests (KNOWN BUGS — all it.fails).
+ * Local merge tests — real git operations via makeGitExecutor.
  *
- * These tests verify that the merge node performs a real local git merge.
- * They currently fail because the mock executor doesn't run real git merge
- * and verifyMerge() throws "Merge verification failed".
+ * These tests verify that the merge node performs a real local git merge
+ * using an executor that runs actual git commands (squash merge).
  *
  * - local-merge-no-push:       push=false, openPr=false, allowMerge=true, remote=yes
  * - no-remote-override-merge:  push=true,  openPr=true,  allowMerge=true, remote=no
@@ -28,7 +27,7 @@ import {
 } from './setup.js';
 import { assertMergeLanded } from './helpers.js';
 
-describe('Merge Step — Local Merge (Known Bugs)', () => {
+describe('Merge Step — Local Merge', () => {
   let stdoutSpy: ReturnType<typeof vi.spyOn>;
   let stderrSpy: ReturnType<typeof vi.spyOn>;
   let harnessToCleanup: string[] = [];
@@ -50,79 +49,40 @@ describe('Merge Step — Local Merge (Known Bugs)', () => {
     harnessToCleanup = [];
   });
 
-  it.fails(
-    'local-merge-no-push: feature branch should be merged into main after node completes',
-    async () => {
-      const harness = await createGitHarness();
-      harnessToCleanup.push(harness.bareDir, harness.cloneDir);
+  it('local-merge-no-push: feature branch should be merged into main after node completes', async () => {
+    const harness = await createGitHarness();
+    harnessToCleanup.push(harness.bareDir, harness.cloneDir);
 
-      const tempDir = mkdtempSync(join(tmpdir(), 'shep-test-spec-'));
-      harnessToCleanup.push(tempDir);
-      const specDir = makeSpecDir(tempDir);
+    const tempDir = mkdtempSync(join(tmpdir(), 'shep-test-spec-'));
+    harnessToCleanup.push(tempDir);
+    const specDir = makeSpecDir(tempDir);
 
-      const { deps, featureRepository } = buildDeps({
-        featureBranch: harness.featureBranch,
-      });
+    const { deps, featureRepository } = buildDeps({
+      featureBranch: harness.featureBranch,
+      useRealGit: true,
+    });
 
-      const state = makeState({
-        repositoryPath: harness.cloneDir,
-        worktreePath: harness.cloneDir,
-        specDir,
-        push: false,
-        openPr: false,
-        approvalGates: { allowPrd: true, allowPlan: true, allowMerge: true },
-      });
+    const state = makeState({
+      repositoryPath: harness.cloneDir,
+      worktreePath: harness.cloneDir,
+      specDir,
+      push: false,
+      openPr: false,
+      approvalGates: { allowPrd: true, allowPlan: true, allowMerge: true },
+    });
 
-      const mergeNode = createMergeNode(deps);
+    const mergeNode = createMergeNode(deps);
 
-      // RED: Mock executor does not run real git merge. verifyMerge() throws.
-      await mergeNode(state);
+    await mergeNode(state);
 
-      await assertMergeLanded(harness.runGit, harness.featureBranch, 'main');
+    await assertMergeLanded(harness.runGit, harness.featureBranch, 'main');
 
-      expect(featureRepository.update).toHaveBeenCalledWith(
-        expect.objectContaining({ lifecycle: 'Maintain' })
-      );
-    }
-  );
+    expect(featureRepository.update).toHaveBeenCalledWith(
+      expect.objectContaining({ lifecycle: 'Maintain' })
+    );
+  });
 
-  it.fails(
-    'no-remote-override-merge: should merge locally when remote unavailable (push+openPr overridden)',
-    async () => {
-      const { repoDir, featureBranch, runGit } = await createLocalOnlyHarness();
-      harnessToCleanup.push(repoDir);
-
-      const tempDir = mkdtempSync(join(tmpdir(), 'shep-test-spec-'));
-      harnessToCleanup.push(tempDir);
-      const specDir = makeSpecDir(tempDir);
-
-      const { deps, featureRepository } = buildDeps({
-        featureBranch,
-      });
-
-      const state = makeState({
-        repositoryPath: repoDir,
-        worktreePath: repoDir,
-        specDir,
-        // push+openPr=true, but remote is unavailable → effectiveState overrides both to false
-        push: true,
-        openPr: true,
-        approvalGates: { allowPrd: true, allowPlan: true, allowMerge: true },
-      });
-
-      const mergeNode = createMergeNode(deps);
-
-      // RED: Mock executor does not run real git merge. verifyMerge() throws.
-      await mergeNode(state);
-
-      await assertMergeLanded(runGit, featureBranch, 'main');
-      expect(featureRepository.update).toHaveBeenCalledWith(
-        expect.objectContaining({ lifecycle: 'Maintain' })
-      );
-    }
-  );
-
-  it.fails('no-remote-local-merge: should merge locally without any remote', async () => {
+  it('no-remote-override-merge: should merge locally when remote unavailable (push+openPr overridden)', async () => {
     const { repoDir, featureBranch, runGit } = await createLocalOnlyHarness();
     harnessToCleanup.push(repoDir);
 
@@ -132,6 +92,40 @@ describe('Merge Step — Local Merge (Known Bugs)', () => {
 
     const { deps, featureRepository } = buildDeps({
       featureBranch,
+      useRealGit: true,
+    });
+
+    const state = makeState({
+      repositoryPath: repoDir,
+      worktreePath: repoDir,
+      specDir,
+      // push+openPr=true, but remote is unavailable → effectiveState overrides both to false
+      push: true,
+      openPr: true,
+      approvalGates: { allowPrd: true, allowPlan: true, allowMerge: true },
+    });
+
+    const mergeNode = createMergeNode(deps);
+
+    await mergeNode(state);
+
+    await assertMergeLanded(runGit, featureBranch, 'main');
+    expect(featureRepository.update).toHaveBeenCalledWith(
+      expect.objectContaining({ lifecycle: 'Maintain' })
+    );
+  });
+
+  it('no-remote-local-merge: should merge locally without any remote', async () => {
+    const { repoDir, featureBranch, runGit } = await createLocalOnlyHarness();
+    harnessToCleanup.push(repoDir);
+
+    const tempDir = mkdtempSync(join(tmpdir(), 'shep-test-spec-'));
+    harnessToCleanup.push(tempDir);
+    const specDir = makeSpecDir(tempDir);
+
+    const { deps, featureRepository } = buildDeps({
+      featureBranch,
+      useRealGit: true,
     });
 
     const state = makeState({
@@ -145,7 +139,6 @@ describe('Merge Step — Local Merge (Known Bugs)', () => {
 
     const mergeNode = createMergeNode(deps);
 
-    // RED: Mock executor does not run real git merge. verifyMerge() throws.
     await mergeNode(state);
 
     await assertMergeLanded(runGit, featureBranch, 'main');

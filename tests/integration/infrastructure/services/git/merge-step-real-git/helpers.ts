@@ -2,6 +2,7 @@ import { expect } from 'vitest';
 
 /**
  * Asserts that featureBranch has been merged into baseBranch using real git.
+ * Supports both true merges (--is-ancestor) and squash merges (no diff).
  * Fails the test with a descriptive message if the merge did not land.
  */
 export async function assertMergeLanded(
@@ -9,16 +10,26 @@ export async function assertMergeLanded(
   featureBranch: string,
   baseBranch: string
 ): Promise<void> {
-  let landed = false;
+  // Check true merge first
   try {
     await runGit(['merge-base', '--is-ancestor', featureBranch, baseBranch]);
-    landed = true;
+    return; // true merge confirmed
   } catch {
-    landed = false;
+    // Not a true merge — check squash merge
   }
+
+  // Check squash merge: no diff means all changes are incorporated
+  let squashMerged = false;
+  try {
+    await runGit(['diff', '--quiet', featureBranch, baseBranch]);
+    squashMerged = true;
+  } catch {
+    squashMerged = false;
+  }
+
   expect(
-    landed,
-    `Expected ${featureBranch} to be an ancestor of ${baseBranch} after merge, but it was not`
+    squashMerged,
+    `Expected ${featureBranch} to be merged into ${baseBranch} (true merge or squash), but changes are still missing`
   ).toBe(true);
 }
 
