@@ -23,7 +23,7 @@ const stateMapping: Record<FeatureNodeState, FeatureStatus | null> = {
   running: 'in-progress',
   done: 'done',
   blocked: 'in-progress',
-  error: 'in-progress',
+  error: 'action-needed',
   creating: null,
 };
 
