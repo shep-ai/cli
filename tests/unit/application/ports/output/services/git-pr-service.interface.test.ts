@@ -159,6 +159,21 @@ describe('IGitPrService', () => {
       listPrStatuses: async () => [],
       verifyMerge: async () => true,
       getFailureLogs: async () => '',
+      fetchOrigin: async () => {
+        /* noop */
+      },
+      mergeLocalBranch: async () => {
+        /* noop */
+      },
+      rebaseBranch: async () => {
+        /* noop */
+      },
+      mergeAbort: async () => {
+        /* noop */
+      },
+      rebaseAbort: async () => {
+        /* noop */
+      },
     };
 
     // Verify all methods exist
@@ -178,9 +193,14 @@ describe('IGitPrService', () => {
       'listPrStatuses',
       'verifyMerge',
       'getFailureLogs',
+      'fetchOrigin',
+      'mergeLocalBranch',
+      'rebaseBranch',
+      'mergeAbort',
+      'rebaseAbort',
     ];
 
-    expect(methodNames).toHaveLength(15);
+    expect(methodNames).toHaveLength(20);
     for (const name of methodNames) {
       expect(typeof mock[name]).toBe('function');
     }

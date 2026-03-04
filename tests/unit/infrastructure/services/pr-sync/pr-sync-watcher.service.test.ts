@@ -86,6 +86,11 @@ function createMockGitPrService(): IGitPrService {
     listPrStatuses: vi.fn().mockResolvedValue([]),
     getFailureLogs: vi.fn().mockResolvedValue(''),
     verifyMerge: vi.fn().mockResolvedValue(false),
+    fetchOrigin: vi.fn().mockResolvedValue(undefined),
+    mergeLocalBranch: vi.fn().mockResolvedValue(undefined),
+    rebaseBranch: vi.fn().mockResolvedValue(undefined),
+    mergeAbort: vi.fn().mockResolvedValue(undefined),
+    rebaseAbort: vi.fn().mockResolvedValue(undefined),
   };
 }
 

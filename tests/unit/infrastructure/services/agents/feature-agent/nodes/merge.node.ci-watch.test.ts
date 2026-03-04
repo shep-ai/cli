@@ -173,6 +173,12 @@ function createMockGitPrService(overrides: Partial<IGitPrService> = {}): IGitPrS
       .fn()
       .mockResolvedValue({ filesChanged: 1, additions: 5, deletions: 2, commitCount: 1 }),
     verifyMerge: vi.fn().mockResolvedValue(true),
+    listPrStatuses: vi.fn().mockResolvedValue([]),
+    fetchOrigin: vi.fn().mockResolvedValue(undefined),
+    mergeLocalBranch: vi.fn().mockResolvedValue(undefined),
+    rebaseBranch: vi.fn().mockResolvedValue(undefined),
+    mergeAbort: vi.fn().mockResolvedValue(undefined),
+    rebaseAbort: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   } as IGitPrService;
 }

@@ -133,6 +133,11 @@ export function createStubMergeNodeDeps(featureId?: string): Omit<MergeNodeDeps,
       getFailureLogs: vi.fn().mockResolvedValue(''),
       listPrStatuses: vi.fn().mockResolvedValue([]),
       verifyMerge: vi.fn().mockResolvedValue(true),
+      fetchOrigin: vi.fn().mockResolvedValue(undefined),
+      mergeLocalBranch: vi.fn().mockResolvedValue(undefined),
+      rebaseBranch: vi.fn().mockResolvedValue(undefined),
+      mergeAbort: vi.fn().mockResolvedValue(undefined),
+      rebaseAbort: vi.fn().mockResolvedValue(undefined),
     },
   };
 }

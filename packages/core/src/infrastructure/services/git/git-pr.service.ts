@@ -395,6 +395,46 @@ export class GitPrService implements IGitPrService {
     }
   }
 
+  async fetchOrigin(cwd: string): Promise<void> {
+    try {
+      await this.execFile('git', ['fetch', 'origin'], { cwd });
+    } catch (error) {
+      throw this.parseGitError(error);
+    }
+  }
+
+  async mergeLocalBranch(cwd: string, source: string): Promise<void> {
+    try {
+      await this.execFile('git', ['merge', source], { cwd });
+    } catch (error) {
+      throw this.parseGitError(error);
+    }
+  }
+
+  async rebaseBranch(cwd: string, onto: string): Promise<void> {
+    try {
+      await this.execFile('git', ['rebase', onto], { cwd });
+    } catch (error) {
+      throw this.parseGitError(error);
+    }
+  }
+
+  async mergeAbort(cwd: string): Promise<void> {
+    try {
+      await this.execFile('git', ['merge', '--abort'], { cwd });
+    } catch (error) {
+      throw this.parseGitError(error);
+    }
+  }
+
+  async rebaseAbort(cwd: string): Promise<void> {
+    try {
+      await this.execFile('git', ['rebase', '--abort'], { cwd });
+    } catch (error) {
+      throw this.parseGitError(error);
+    }
+  }
+
   private truncateLog(output: string, maxChars: number, runId: string): string {
     if (output.length <= maxChars) return output;
     return `${output.slice(

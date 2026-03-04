@@ -252,4 +252,50 @@ export interface IGitPrService {
    * @throws GitPrError with GH_NOT_FOUND or GIT_ERROR code on failure
    */
   getFailureLogs(runId: string, branch: string, logMaxChars?: number): Promise<string>;
+
+  /**
+   * Fetch all refs from the origin remote.
+   *
+   * @param cwd - Working directory path
+   * @throws GitPrError with GIT_ERROR or AUTH_FAILURE code on failure
+   */
+  fetchOrigin(cwd: string): Promise<void>;
+
+  /**
+   * Merge a source branch into the current branch without checkout or push.
+   * Unlike `mergeBranch`, this performs only `git merge <source>` in the
+   * given working directory — no checkout and no push.
+   *
+   * @param cwd - Working directory path (must already be on the target branch)
+   * @param source - Branch name to merge from (e.g. "origin/main")
+   * @throws GitPrError with MERGE_CONFLICT code on merge conflicts
+   * @throws GitPrError with GIT_ERROR code on other failures
+   */
+  mergeLocalBranch(cwd: string, source: string): Promise<void>;
+
+  /**
+   * Rebase the current branch onto a specified branch.
+   *
+   * @param cwd - Working directory path (must already be on the branch to rebase)
+   * @param onto - Branch name to rebase onto (e.g. "origin/main")
+   * @throws GitPrError with MERGE_CONFLICT code on rebase conflicts
+   * @throws GitPrError with GIT_ERROR code on other failures
+   */
+  rebaseBranch(cwd: string, onto: string): Promise<void>;
+
+  /**
+   * Abort an in-progress merge operation.
+   *
+   * @param cwd - Working directory path
+   * @throws GitPrError with GIT_ERROR code on failure
+   */
+  mergeAbort(cwd: string): Promise<void>;
+
+  /**
+   * Abort an in-progress rebase operation.
+   *
+   * @param cwd - Working directory path
+   * @throws GitPrError with GIT_ERROR code on failure
+   */
+  rebaseAbort(cwd: string): Promise<void>;
 }
