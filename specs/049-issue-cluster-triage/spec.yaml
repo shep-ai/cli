@@ -4,17 +4,19 @@
 name: issue-cluster-triage
 number: 049
 branch: feat/049-issue-cluster-triage
-oneLiner: Fetch issues from a GitHub project board, cluster them by topic, and create a shep feature for each cluster
+oneLiner: Fetch issues from a GitHub repo, cluster them by topic using AI, and create a shep feature for each cluster
 
 userQuery: >
   Feature: Split the issues into cluster and use shep feat new for each cluster
   https://github.com/orgs/shep-ai/projects/1/views/6
 summary: >
-  Add a new CLI command (e.g. `shep triage`) that fetches open issues from a
-  GitHub repository (or project board), groups them into semantically related
-  clusters using an AI agent, and then programmatically calls `CreateFeatureUseCase`
-  for each cluster — enabling batch feature creation from an issue backlog.
-phase: Analysis
+  Add a `shep feat triage` CLI subcommand that fetches open issues from the
+  current GitHub repository via `gh issue list`, uses an AI agent
+  (`IStructuredAgentCaller`) to semantically cluster them into related groups,
+  presents the proposed clusters for interactive user review (approve / edit /
+  reject), and then programmatically calls `CreateFeatureUseCase` for each
+  approved cluster — enabling batch feature creation from an issue backlog.
+phase: Requirements
 sizeEstimate: L
 
 # Relationships
@@ -25,8 +27,7 @@ technologies:
   - Commander.js (CLI framework)
   - tsyringe (dependency injection)
   - GitHub CLI (gh) for issue fetching
-  - LangGraph (agent orchestration)
-  - LLM / AI agent for semantic clustering
+  - IStructuredAgentCaller for AI clustering
   - TypeSpec (domain model definitions)
   - Vitest (testing)
 
@@ -42,22 +43,29 @@ openQuestions:
     options:
       - option: AI-based semantic clustering
         description: >
-          Use an LLM agent to analyze issue titles and bodies, then group by
-          semantic similarity. More intelligent but requires agent execution.
+          Use an LLM agent via IStructuredAgentCaller to analyze issue titles
+          and bodies, then group by semantic similarity. More intelligent and
+          handles the common case where issues lack consistent labeling. Aligns
+          with the platform's AI-native philosophy.
         selected: true
       - option: Label/milestone-based grouping
         description: >
           Group issues by existing GitHub labels or milestones. Simpler but
-          requires issues to be pre-labeled correctly.
+          requires issues to be pre-labeled correctly. Falls apart when labels
+          are inconsistent or missing.
         selected: false
       - option: Hybrid approach
         description: >
           First group by labels, then use AI to sub-cluster within each group.
+          More complex to implement with limited benefit over pure AI clustering.
         selected: false
     selectionRationale: >
       AI-based clustering aligns with the platform's AI-native philosophy and
-      handles the common case where issues lack consistent labeling.
+      handles the common case where issues lack consistent labeling. The
+      IStructuredAgentCaller pattern (used by MetadataGenerator) provides a
+      clean, tested approach for structured AI calls.
     answer: AI-based semantic clustering
+
   - question: >
       How should issues be sourced — from a GitHub Projects board URL, or from
       the repository's open issues list?
@@ -66,18 +74,22 @@ openQuestions:
       - option: Repository open issues (gh issue list)
         description: >
           Use `gh issue list` to fetch all open issues from the current repo.
-          Simple, works with existing GitHubIssueFetcher infrastructure.
+          Simple, works with the existing GitHubIssueFetcher infrastructure and
+          requires no additional OAuth scopes. Can be filtered by label or state.
         selected: true
       - option: GitHub Projects board
         description: >
           Fetch items from a GitHub Projects board URL. Requires the
-          `read:project` OAuth scope and a new API integration.
+          `read:project` OAuth scope and GraphQL API integration not currently
+          in the codebase. Can be added as a future enhancement.
         selected: false
     selectionRationale: >
       Repository issues are simpler to fetch with existing gh CLI infrastructure.
-      GitHub Projects requires additional OAuth scopes and a new API client.
-      Can be extended to support Projects later.
+      GitHub Projects requires additional OAuth scopes and a new GraphQL API
+      client. Starting with repo issues keeps scope manageable; Projects
+      support can be added later.
     answer: Repository open issues via gh issue list
+
   - question: >
       Should feature creation for each cluster be automatic (fire-and-forget)
       or should the user review/approve clusters before features are created?
@@ -85,19 +97,119 @@ openQuestions:
     options:
       - option: Interactive review before creation
         description: >
-          Show proposed clusters to the user and let them approve, edit, or
-          reject each cluster before creating features.
+          Show proposed clusters to the user in the CLI and let them approve,
+          edit, or reject each cluster before creating features. Prevents
+          creating unwanted features and lets users adjust cluster boundaries.
         selected: true
       - option: Fully automatic
         description: >
           Cluster issues and immediately create features for all clusters
-          without user confirmation.
+          without user confirmation. Faster but risky — bad clusters create
+          noise that must be manually cleaned up.
         selected: false
     selectionRationale: >
       Interactive review prevents creating unwanted features and lets users
       adjust cluster boundaries. Aligns with the approval-gate pattern already
-      used in the SDLC workflow.
+      used in the SDLC workflow (e.g., feat review / feat approve).
     answer: Interactive review before creation
+
+  - question: >
+      Where should the triage command live — as a top-level `shep triage`
+      command or as a `shep feat triage` subcommand?
+    resolved: true
+    options:
+      - option: Subcommand under feat (shep feat triage)
+        description: >
+          Adds `triage` as a subcommand of the existing `feat` command group.
+          Keeps feature-related commands co-located. Follows the existing
+          pattern where feat has new, ls, show, del, resume, review, approve,
+          reject, and logs subcommands.
+        selected: true
+      - option: Top-level command (shep triage)
+        description: >
+          Creates a new top-level command. More discoverable for users who
+          don't know triage is feature-related, but adds to the top-level
+          command list which is already long.
+        selected: false
+    selectionRationale: >
+      Triage produces features, so it belongs in the `feat` command group.
+      This follows the existing pattern and avoids cluttering the top-level
+      command namespace. Users can discover it via `shep feat --help`.
+    answer: Subcommand under feat (shep feat triage)
+
+  - question: >
+      Should new TypeSpec domain models be introduced for issue clusters, or
+      should plain TypeScript interfaces suffice?
+    resolved: true
+    options:
+      - option: Plain TypeScript interfaces
+        description: >
+          Define IssueCluster and related types as plain TS interfaces in the
+          use case types file. Simpler, avoids TypeSpec compilation overhead,
+          appropriate since these are transient types not persisted to the
+          database.
+        selected: true
+      - option: TypeSpec domain models
+        description: >
+          Define IssueCluster as a TypeSpec entity in tsp/domain/entities/.
+          Ensures consistency with the rest of the domain model but adds
+          overhead for types that are transient (not stored in the database).
+        selected: false
+    selectionRationale: >
+      Issue clusters are transient, intermediate data — they are computed
+      during triage and immediately converted into features. They are never
+      persisted to the database. Plain TypeScript interfaces in the use case
+      types file are sufficient and avoid unnecessary TypeSpec compilation
+      overhead.
+    answer: Plain TypeScript interfaces
+
+  - question: >
+      How should the interactive cluster review be presented to the user in the
+      CLI?
+    resolved: true
+    options:
+      - option: Sequential per-cluster prompts
+        description: >
+          Present each cluster one at a time with its name, description, and
+          issue list. User can approve, skip, or edit each cluster. Simple to
+          implement using the existing CLI UI helpers (messages, colors, fmt).
+        selected: true
+      - option: Full-screen TUI wizard
+        description: >
+          Build an interactive TUI screen showing all clusters side-by-side
+          with drag-and-drop issue reassignment. Rich UX but significantly
+          more complex to build and test.
+        selected: false
+    selectionRationale: >
+      Sequential per-cluster prompts are simpler to implement, test, and use
+      in CI/scripted contexts. A TUI wizard could be added later as a UX
+      enhancement. The sequential approach mirrors the existing feat review
+      flow.
+    answer: Sequential per-cluster prompts
+
+  - question: >
+      Should the batch issue fetch method be added to IExternalIssueFetcher or
+      to a new dedicated interface?
+    resolved: true
+    options:
+      - option: Extend IExternalIssueFetcher
+        description: >
+          Add a listIssues() method to the existing IExternalIssueFetcher
+          interface. Keeps issue-fetching responsibilities in one place.
+          Requires updating the interface and all implementations (GitHub and
+          Jira stubs).
+        selected: true
+      - option: New IIssueListerService interface
+        description: >
+          Create a separate interface for batch listing. Avoids modifying the
+          existing interface but fragments the issue-fetching concern across
+          two interfaces.
+        selected: false
+    selectionRationale: >
+      Batch listing is a natural extension of the issue-fetching responsibility.
+      Adding it to IExternalIssueFetcher keeps the concern cohesive. The
+      interface is small and the change is backward-compatible (new method only).
+    answer: Extend IExternalIssueFetcher
 
 # Markdown content (the actual spec)
 content: |
@@ -115,94 +227,163 @@ content: |
   - No clustering or grouping logic exists in the codebase
   - No CLI command exists for issue triage or batch feature creation
 
-  ## Codebase Analysis
+  ## Success Criteria
 
-  ### Project Structure
+  - [ ] `shep feat triage` CLI subcommand exists and is registered under the `feat` command group
+  - [ ] Running `shep feat triage` fetches all open issues from the current GitHub repo via `gh issue list --json`
+  - [ ] Issues are semantically clustered into named groups using `IStructuredAgentCaller` with a JSON schema
+  - [ ] Each cluster has a name, a summary description, and a list of associated issue numbers
+  - [ ] User is presented with each proposed cluster sequentially and can approve, skip, or edit it
+  - [ ] For each approved cluster, `CreateFeatureUseCase.execute()` is called with the cluster summary as `userInput`
+  - [ ] Each created feature's `userInput` includes the source issue numbers (e.g., "Issues: #12, #15, #23")
+  - [ ] A `listIssues()` method is added to `IExternalIssueFetcher` and implemented in `GitHubIssueFetcher`
+  - [ ] `GitHubIssueFetcher` and `IExternalIssueFetcher` are registered in the DI container
+  - [ ] A new `TriageIssuesUseCase` orchestrates the fetch → cluster → review → create pipeline
+  - [ ] All new code follows Clean Architecture layering (domain ← app ← infra ← presentation)
+  - [ ] All new use cases and services have unit tests written TDD-style (RED → GREEN → REFACTOR)
+  - [ ] `pnpm build`, `pnpm test`, and `pnpm validate` pass with zero errors
+  - [ ] The command gracefully handles: no issues found, gh CLI not authenticated, empty clusters, user cancellation
 
-  The repository follows Clean Architecture with four layers:
+  ## Functional Requirements
 
-  | Layer | Path | Purpose |
-  | ----- | ---- | ------- |
-  | Domain | `packages/core/src/domain/` | Entities, value objects, generated TypeSpec output |
-  | Application | `packages/core/src/application/` | Use cases, port interfaces |
-  | Infrastructure | `packages/core/src/infrastructure/` | DB, agents, external services |
-  | Presentation | `src/presentation/cli/` | CLI commands (Commander.js) |
+  - **FR-1 — Batch issue fetching**: The system must fetch all open issues from the
+    current GitHub repository by executing `gh issue list --json number,title,body,labels,url`
+    and returning them as an array of `ExternalIssue` objects. The new `listIssues(options?)`
+    method is added to `IExternalIssueFetcher` and implemented in `GitHubIssueFetcher`.
 
-  Key directories for this feature:
-  - `src/presentation/cli/commands/` — CLI command registration
-  - `packages/core/src/application/use-cases/features/create/` — CreateFeatureUseCase
-  - `packages/core/src/application/ports/output/services/` — Service port interfaces
-  - `packages/core/src/infrastructure/services/external/` — GitHub/Jira issue fetchers
-  - `packages/core/src/infrastructure/di/container.ts` — DI registration
-  - `tsp/domain/entities/` — TypeSpec domain model definitions
+  - **FR-2 — AI-powered semantic clustering**: The system must send the fetched issue
+    titles and bodies to an LLM via `IStructuredAgentCaller.call<T>()` with a JSON
+    schema that returns an array of clusters. Each cluster contains a `name` (string),
+    `description` (string summarizing the cluster theme), and `issueNumbers` (number[]).
+    Every fetched issue must appear in exactly one cluster.
 
-  ### Architecture Patterns
+  - **FR-3 — Cluster review flow**: After clustering, the CLI must present each
+    proposed cluster to the user one at a time, showing the cluster name, description,
+    and the titles of included issues. For each cluster, the user can:
+    (a) approve it — the cluster proceeds to feature creation,
+    (b) skip it — the cluster is discarded and no feature is created,
+    (c) edit the name/description — the user provides a revised name or description
+    before approving.
 
-  - **Clean Architecture**: Dependencies point inward (domain ← app ← infra ← presentation)
-  - **Repository Pattern**: All data access through interfaces (e.g. `IFeatureRepository`)
-  - **Dependency Injection**: tsyringe container with `@inject()` decorators
-  - **Port/Adapter**: Application defines interfaces; infrastructure implements them
-  - **Agent Resolution**: All agent execution via `IAgentExecutorProvider` — no hardcoded types
-  - **Use Case Pattern**: Each business operation is an injectable class with `execute()` method
-  - **TypeSpec-first**: Domain models defined in `.tsp` files, compiled to TypeScript
+  - **FR-4 — Feature creation per cluster**: For each approved cluster, the system
+    must call `CreateFeatureUseCase.execute()` with `userInput` set to the cluster
+    description followed by a line listing the source issue numbers (e.g.,
+    "Improve error handling across API endpoints\n\nIssues: #12, #15, #23").
+    The `repositoryPath` is the current working directory.
 
-  ### Relevant Technologies
+  - **FR-5 — CLI subcommand registration**: A `shep feat triage` subcommand must be
+    added under the existing `feat` command group. It accepts the following options:
+    - `--repo <owner/repo>` (optional) — target a specific repository instead of
+      the current directory's repo
+    - `--label <label>` (optional, repeatable) — filter issues by one or more labels
+    - `--limit <n>` (optional, default: 100) — maximum number of issues to fetch
+    - `--yes` / `-y` (optional) — auto-approve all clusters without interactive review
 
-  - **Commander.js**: CLI framework for defining commands and options
-  - **tsyringe**: DI container for constructor injection
-  - **GitHub CLI (gh)**: Used by `GitHubIssueFetcher` to fetch issues via subprocess
-  - **LangGraph**: State machine for multi-step agent workflows (feature agent)
-  - **SQLite (better-sqlite3)**: Persistence for features, agent runs, settings
-  - **TypeSpec**: Domain model definitions compiled to TypeScript interfaces
-  - **Vitest**: Test framework (TDD mandatory)
+  - **FR-6 — Triage use case orchestration**: A new `TriageIssuesUseCase` in the
+    application layer must orchestrate the end-to-end pipeline:
+    1. Call `IExternalIssueFetcher.listIssues()` to fetch issues
+    2. Call `IStructuredAgentCaller.call()` to cluster them
+    3. Return the clusters to the presentation layer for user review
+    4. Receive approved clusters back and call `CreateFeatureUseCase` for each
+    The use case must be injectable via tsyringe with `@injectable()`.
+
+  - **FR-7 — DI registration**: Register `IExternalIssueFetcher` (with
+    `GitHubIssueFetcher` implementation), `TriageIssuesUseCase`, and any supporting
+    services in the DI container (`container.ts`). Use string tokens for interfaces
+    and class tokens for concrete use cases, following existing patterns.
+
+  - **FR-8 — Summary output**: After all approved clusters have been processed, the
+    CLI must print a summary showing:
+    - Number of issues fetched
+    - Number of clusters proposed vs. approved
+    - Names and IDs of created features
+    - Any clusters that were skipped
+
+  ## Non-Functional Requirements
+
+  - **NFR-1 — Performance**: Issue fetching and clustering must complete within 60
+    seconds for up to 100 issues. The `gh issue list` call should use `--limit` to
+    cap results and avoid unbounded fetches.
+
+  - **NFR-2 — Error handling**: The command must handle and report errors gracefully:
+    - `gh` CLI not installed or not authenticated → clear error message with
+      instructions
+    - No open issues found → informational message, exit cleanly (exit code 0)
+    - LLM/agent call failure → error message with retry suggestion
+    - `CreateFeatureUseCase` failure for one cluster → continue with remaining
+      clusters, report failures at the end
+
+  - **NFR-3 — Testability**: All business logic must be in the application layer
+    (`TriageIssuesUseCase`) with dependencies injected via interfaces. The CLI
+    command layer must be a thin wrapper. This enables unit testing the use case
+    with mocked dependencies.
+
+  - **NFR-4 — Clean Architecture compliance**: No infrastructure or presentation
+    imports in the application or domain layers. The use case must depend only on
+    port interfaces (`IExternalIssueFetcher`, `IStructuredAgentCaller`,
+    `CreateFeatureUseCase`).
+
+  - **NFR-5 — Idempotency awareness**: The command should not create duplicate
+    features if run multiple times on the same issue set. The triage use case
+    should include issue numbers in feature descriptions so users can identify
+    overlaps, but hard deduplication is out of scope for v1.
+
+  - **NFR-6 — Agent resolution compliance**: The clustering AI call must go through
+    `IStructuredAgentCaller` (resolved via DI), never directly instantiating an
+    LLM client. This ensures the user's configured agent type is respected.
+
+  - **NFR-7 — Graceful cancellation**: If the user presses Ctrl+C during the
+    interactive review, the command must exit cleanly without creating partial
+    features. Only clusters explicitly approved before cancellation are processed.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | AI clustering vs. label-based grouping? | AI-based semantic clustering | Aligns with AI-native philosophy; handles unlabeled issues |
+  | 2 | Issue source: repo issues vs. Projects board? | Repository open issues via gh issue list | Simpler, uses existing infra, no extra OAuth scopes |
+  | 3 | Auto-create features or interactive review? | Interactive review before creation | Prevents unwanted features; matches existing approval-gate pattern |
+  | 4 | Top-level command or feat subcommand? | shep feat triage | Triage produces features; keeps feat commands co-located |
+  | 5 | TypeSpec models or plain TS interfaces for clusters? | Plain TypeScript interfaces | Clusters are transient, not persisted; avoids overhead |
+  | 6 | Interactive UX: sequential prompts or TUI wizard? | Sequential per-cluster prompts | Simpler to build and test; mirrors feat review flow |
+  | 7 | New interface or extend IExternalIssueFetcher? | Extend IExternalIssueFetcher | Keeps issue-fetching concern cohesive; backward-compatible |
 
   ## Affected Areas
 
   | Area | Impact | Reasoning |
   | ---- | ------ | --------- |
-  | `src/presentation/cli/commands/` | High | New `triage` command (or `feat triage` subcommand) must be added |
-  | `packages/core/src/application/use-cases/` | High | New `TriageIssuesUseCase` (or `ClusterIssuesUseCase`) orchestrating fetch → cluster → create |
-  | `packages/core/src/application/ports/output/services/` | High | Extend `IExternalIssueFetcher` with `listGitHubIssues()` method for batch fetching |
-  | `packages/core/src/infrastructure/services/external/github-issue.service.ts` | High | Implement `listGitHubIssues()` using `gh issue list --json` |
-  | `packages/core/src/infrastructure/services/agents/` | Medium | New clustering agent (or reuse existing agent infra) for semantic grouping |
-  | `packages/core/src/infrastructure/di/container.ts` | Low | Register new use case and service implementations |
-  | `tsp/domain/entities/` | Medium | May need new types: IssueCluster, TriageResult (or could use inline types) |
-  | `packages/core/src/domain/generated/output.ts` | Low | Auto-generated from TypeSpec changes |
+  | `src/presentation/cli/commands/feat/` | High | New `triage.command.ts` file, update `feat/index.ts` to register it |
+  | `packages/core/src/application/use-cases/` | High | New `triage/` directory with `TriageIssuesUseCase` and types |
+  | `packages/core/src/application/ports/output/services/external-issue-fetcher.interface.ts` | High | Add `listIssues()` method to interface |
+  | `packages/core/src/infrastructure/services/external/github-issue.service.ts` | High | Implement `listIssues()` using `gh issue list --json` |
+  | `packages/core/src/infrastructure/di/container.ts` | Medium | Register `IExternalIssueFetcher`, `TriageIssuesUseCase` |
+  | `packages/core/src/application/use-cases/features/create/` | Low | Consumed by triage use case (no changes needed) |
 
   ## Dependencies
 
   **Existing code this feature depends on:**
-  - `CreateFeatureUseCase` — called for each cluster to create features
-  - `IExternalIssueFetcher` / `GitHubIssueFetcher` — extended for batch issue listing
-  - `IAgentExecutorProvider` — for running the clustering agent
-  - `IFeatureRepository` — for checking existing features to avoid duplicates
-  - DI container (`container.ts`) — for registering new services
-  - CLI framework (`Commander.js`) — for adding the new command
+  - `CreateFeatureUseCase` — called for each approved cluster to create features
+  - `IExternalIssueFetcher` / `GitHubIssueFetcher` — extended with `listIssues()` for batch fetching
+  - `IStructuredAgentCaller` — for making the structured AI clustering call
+  - `IFeatureRepository` — used indirectly via `CreateFeatureUseCase`
+  - DI container (`container.ts`) — for registering new services and use cases
+  - CLI framework (`Commander.js`) — for adding the new subcommand
+  - CLI UI helpers (`messages`, `colors`, `spinner`, `fmt`) — for output formatting
 
   **External dependencies:**
-  - GitHub CLI (`gh`) — must be installed and authenticated
-  - LLM API access — for AI-powered semantic clustering
+  - GitHub CLI (`gh`) — must be installed and authenticated for issue fetching
+  - LLM API access — required for AI-powered semantic clustering (via configured agent)
 
   ## Size Estimate
 
-  **L** — This feature spans all four architecture layers (domain types, application
-  use case, infrastructure services, CLI presentation), requires a new agent workflow
-  for clustering, introduces batch issue fetching, and includes interactive user
-  review of proposed clusters. Estimated at 1-2 weeks including TDD cycles, TypeSpec
-  model updates, and Storybook stories if any web UI is involved.
-
-  ## Success Criteria
-
-  - [ ] New CLI command (`shep triage` or `shep feat triage`) fetches open issues from a GitHub repo
-  - [ ] Issues are semantically clustered into related groups using an AI agent
-  - [ ] User can review, approve, edit, or reject proposed clusters interactively
-  - [ ] Approved clusters are automatically converted to features via `CreateFeatureUseCase`
-  - [ ] Each created feature references the source issue numbers in its description
-  - [ ] Batch issue fetching is added to `IExternalIssueFetcher` interface
-  - [ ] All new code follows Clean Architecture layering and passes lint/typecheck
-  - [ ] TDD: All use cases and services have comprehensive test coverage
-  - [ ] TypeSpec models updated if new domain types are introduced
+  **L** — This feature spans three architecture layers (application use case,
+  infrastructure service extension, CLI presentation), introduces a new AI
+  clustering workflow via IStructuredAgentCaller, extends the issue-fetching
+  interface with batch capability, and includes an interactive CLI review flow.
+  The scope is contained by using plain TS types (no TypeSpec), reusing the
+  existing CreateFeatureUseCase, and leveraging IStructuredAgentCaller rather
+  than building a full LangGraph agent.
 
   ---
 
-  _Generated by feature agent — proceed with research_
+  _Generated by requirements phase — proceed with research_
