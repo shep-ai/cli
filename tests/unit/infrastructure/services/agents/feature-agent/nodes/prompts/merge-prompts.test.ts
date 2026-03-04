@@ -115,10 +115,35 @@ describe('buildCommitPushPrPrompt', () => {
     expect(prompt.toLowerCase()).toMatch(/diff|changes/);
   });
 
-  it('should instruct agent to update feature.yaml prUrl when openPr=true', () => {
+  it('should not instruct agent to update feature.yaml (PR data persisted via DB)', () => {
     const prompt = buildCommitPushPrPrompt(baseState({ openPr: true }), 'feat/test', 'main');
-    expect(prompt).toContain('feature.yaml');
-    expect(prompt.toLowerCase()).toContain('prurl');
+    expect(prompt).not.toContain('feature.yaml');
+  });
+
+  it('should include local verification step before pushing when push=true', () => {
+    const prompt = buildCommitPushPrPrompt(
+      baseState({ push: true, openPr: false }),
+      'feat/test',
+      'main'
+    );
+    expect(prompt).toContain('Build the project');
+    expect(prompt).toContain('Run the test suite');
+    expect(prompt).toContain('Run the linter');
+    // Verification must come BEFORE push in the prompt
+    const verifyIndex = prompt.indexOf('Build the project');
+    const pushIndex = prompt.indexOf('git push');
+    expect(verifyIndex).toBeLessThan(pushIndex);
+  });
+
+  it('should NOT include local verification step when not pushing', () => {
+    const prompt = buildCommitPushPrPrompt(
+      baseState({ push: false, openPr: false }),
+      'feat/test',
+      'main'
+    );
+    expect(prompt).not.toContain('Build the project');
+    expect(prompt).not.toContain('Run the test suite');
+    expect(prompt).not.toContain('Run the linter');
   });
 
   it('should forbid git pull and rebase before pushing', () => {

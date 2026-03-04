@@ -74,18 +74,23 @@ export function buildCommitPushPrPrompt(
    - The commit message should summarize what actually changed, not be generic
    - Run \`git commit -m "<your message>"\``);
 
-  // Step 2: Push (conditional)
+  // Step 2: Local verification before push (conditional)
   if (shouldPush) {
-    steps.push(`4. Push the branch to remote: \`git push -u origin ${branch}\``);
+    steps.push(`4. Run local verification checks before pushing:
+   - Build the project — must compile without errors
+   - Run the test suite — all tests must pass
+   - Run the linter — no lint errors
+   - Discover the correct commands by inspecting package.json or the project's build tooling
+   - Fix any issues found before proceeding to push`);
+    steps.push(`5. Push the branch to remote: \`git push -u origin ${branch}\``);
   }
 
   // Step 3: PR creation (conditional)
   if (state.openPr) {
-    steps.push(`${shouldPush ? '5' : '4'}. Create a pull request:
+    steps.push(`${shouldPush ? '6' : '4'}. Create a pull request:
    - Run \`gh pr create --base ${baseBranch} --head ${branch} --title "<title>" --body "<body>"\`
    - Write a descriptive PR title using conventional commit format
-   - Write a rich PR body that summarizes the changes using the spec context below
-   - After creating the PR, update \`${state.specDir}/feature.yaml\` to set the prUrl field with the PR URL`);
+   - Write a rich PR body that summarizes the changes using the spec context below`);
   }
 
   return `You are performing git operations in a feature worktree.

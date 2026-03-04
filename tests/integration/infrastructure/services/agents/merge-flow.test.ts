@@ -51,13 +51,16 @@ function createMockGetDiffSummary(): MergeNodeDeps['getDiffSummary'] {
 }
 
 function createMockFeatureRepo(): MergeNodeDeps['featureRepository'] {
+  let current: Record<string, unknown> = {
+    id: 'feat-merge-test',
+    lifecycle: 'Implementation',
+    branch: 'feat/merge-test',
+  };
   return {
-    findById: vi.fn().mockResolvedValue({
-      id: 'feat-merge-test',
-      lifecycle: 'Implementation',
-      branch: 'feat/merge-test',
+    findById: vi.fn(async () => ({ ...current })),
+    update: vi.fn(async (data: Record<string, unknown>) => {
+      current = { ...current, ...data };
     }),
-    update: vi.fn().mockResolvedValue(undefined),
   } as any;
 }
 

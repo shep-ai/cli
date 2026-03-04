@@ -81,6 +81,26 @@ export function createStubExecutor(): StubExecutor {
  * All external calls are no-ops that return canned data.
  * Returns Omit<MergeNodeDeps, 'executor'> — the graph factory adds the executor.
  */
+/**
+ * Create a stateful mock feature repository.
+ * Tracks updates so that findById returns the latest state.
+ */
+export function createStatefulFeatureRepo(featureId?: string): MergeNodeDeps['featureRepository'] {
+  let current: Record<string, unknown> = {
+    id: featureId ?? 'feat-test',
+    name: 'Test Feature',
+    slug: 'test-feature',
+    branch: 'feat/test',
+    repositoryPath: '/tmp',
+  };
+  return {
+    findById: vi.fn(async () => ({ ...current })),
+    update: vi.fn(async (data: Record<string, unknown>) => {
+      current = { ...current, ...data };
+    }),
+  } as unknown as MergeNodeDeps['featureRepository'];
+}
+
 export function createStubMergeNodeDeps(featureId?: string): Omit<MergeNodeDeps, 'executor'> {
   return {
     getDiffSummary: vi.fn().mockResolvedValue({
@@ -92,16 +112,7 @@ export function createStubMergeNodeDeps(featureId?: string): Omit<MergeNodeDeps,
     hasRemote: vi.fn().mockResolvedValue(true),
     getDefaultBranch: vi.fn().mockResolvedValue('main'),
     verifyMerge: vi.fn().mockResolvedValue(true),
-    featureRepository: {
-      findById: vi.fn().mockResolvedValue({
-        id: featureId ?? 'feat-test',
-        name: 'Test Feature',
-        slug: 'test-feature',
-        branch: 'feat/test',
-        repositoryPath: '/tmp',
-      }),
-      update: vi.fn().mockResolvedValue(undefined),
-    },
+    featureRepository: createStatefulFeatureRepo(featureId),
     gitPrService: {
       hasRemote: vi.fn().mockResolvedValue(true),
       getDefaultBranch: vi.fn().mockResolvedValue('main'),

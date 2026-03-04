@@ -94,39 +94,6 @@ PR body should include:
 - Summary section with bullet points
 - Test plan with checkboxes
 
-### 3.5. Update feature.yaml
-
-**After PR is created, update status:**
-
-```yaml
-# specs/NNN-feature-name/feature.yaml
-feature:
-  lifecycle: 'review' # Update from "implementation"
-
-status:
-  phase: 'in-review' # Update from "ready-for-review"
-  lastUpdated: '<timestamp>'
-  lastUpdatedBy: 'shep-kit:commit-pr'
-
-prUrl: '<PR URL from gh pr create>' # Add PR URL
-
-checkpoints:
-  # Add new checkpoint:
-  - phase: 'pr-created'
-    completedAt: '<timestamp>'
-    completedBy: 'shep-kit:commit-pr'
-```
-
-**Then commit the feature.yaml update:**
-
-```bash
-git add specs/NNN-feature-name/feature.yaml
-git commit -m "chore(specs): update feature status to in-review"
-git push
-```
-
-**Reference:** [docs/development/feature-yaml-protocol.md](../../docs/development/feature-yaml-protocol.md)
-
 ### 4. Watch CI (Critical)
 
 ```bash
@@ -276,41 +243,6 @@ After CI passes, return to Step 6 to check for new review comments on the update
 4. **Convergence failure** — Same comment IDs reappear after fix → Stop, notify user
 5. **No reviews received** — Timeout with no new reviews → Done (assumed clean)
 6. **Merge conflict** — `git push` fails due to conflicts → Stop, notify user
-
-### 7.5. Update feature.yaml for Review Loop
-
-**When the review loop starts, update status:**
-
-```yaml
-# specs/NNN-feature-name/feature.yaml
-status:
-  phase: 'review-watching' # or 'review-fixing' during fix iterations
-  lastUpdated: '<timestamp>'
-  lastUpdatedBy: 'shep-kit:commit-pr'
-
-reviewLoop:
-  iteration: 0 # Increment each review-fix cycle
-  maxIterations: 5
-  commentsAddressed: [] # Comment IDs fixed so far
-  commentsRemaining: [] # Comment IDs still open
-  status: 'watching' # watching | fixing | approved | exhausted | failed
-
-checkpoints:
-  # Add when loop starts:
-  - phase: 'review-loop-started'
-    completedAt: '<timestamp>'
-    completedBy: 'shep-kit:commit-pr'
-  # Add after each fix iteration:
-  - phase: 'review-fixes-applied-1'
-    completedAt: '<timestamp>'
-    completedBy: 'shep-kit:commit-pr'
-  # Add when approved:
-  - phase: 'review-approved'
-    completedAt: '<timestamp>'
-    completedBy: 'shep-kit:commit-pr'
-```
-
-**Commit the feature.yaml update after each review loop state change.**
 
 ## Red Flags - STOP
 

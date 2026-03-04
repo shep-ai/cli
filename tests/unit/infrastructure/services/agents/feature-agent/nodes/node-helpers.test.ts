@@ -8,6 +8,7 @@ import {
   shouldInterrupt,
   clearCompletedPhase,
   isRejectionPayload,
+  buildCommitPushBlock,
 } from '@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js';
 
 /**
@@ -157,6 +158,44 @@ describe('clearCompletedPhase', () => {
     >;
     const status = result.status as Record<string, unknown>;
     expect(status.completedPhases).toEqual([]);
+  });
+});
+
+describe('buildCommitPushBlock', () => {
+  it('should include local verification before push when push=true', () => {
+    const result = buildCommitPushBlock({
+      push: true,
+      files: ['spec.yaml'],
+      commitHint: 'docs(specs): update spec',
+    });
+    expect(result).toContain('pnpm build');
+    expect(result).toContain('pnpm test');
+    expect(result).toContain('pnpm lint');
+    // Verification must come BEFORE push
+    const verifyIndex = result.indexOf('pnpm build');
+    const pushIndex = result.indexOf('git push');
+    expect(verifyIndex).toBeLessThan(pushIndex);
+  });
+
+  it('should NOT include local verification when push=false', () => {
+    const result = buildCommitPushBlock({
+      push: false,
+      files: ['spec.yaml'],
+      commitHint: 'docs(specs): update spec',
+    });
+    expect(result).not.toContain('pnpm build');
+    expect(result).not.toContain('pnpm test');
+    expect(result).not.toContain('pnpm lint');
+  });
+
+  it('should include commit instructions', () => {
+    const result = buildCommitPushBlock({
+      push: false,
+      files: ['spec.yaml'],
+      commitHint: 'docs(specs): update spec',
+    });
+    expect(result).toContain('git add');
+    expect(result).toContain('docs(specs): update spec');
   });
 });
 
