@@ -78,10 +78,6 @@ export function ToolDetailDrawer({ tool, open, onClose, onRefresh }: ToolDetailD
     });
   }
 
-  function handleInstall() {
-    startInstall();
-  }
-
   async function handleLaunch() {
     setIsLaunching(true);
     try {
@@ -187,7 +183,7 @@ export function ToolDetailDrawer({ tool, open, onClose, onRefresh }: ToolDetailD
           {canInstall ? (
             <Button
               size="sm"
-              onClick={handleInstall}
+              onClick={startInstall}
               disabled={status === 'streaming'}
               aria-label={`Install ${tool.name}`}
               className="cursor-pointer"
@@ -229,14 +225,8 @@ export function ToolDetailDrawer({ tool, open, onClose, onRefresh }: ToolDetailD
               className="max-h-60 overflow-auto rounded-md bg-zinc-900 p-3 font-mono text-xs leading-relaxed text-zinc-100"
               data-testid="tool-install-log"
             >
-              {logs.map((line, i) => (
-                <div
-                  key={`${i}-${line.slice(0, 20)}`}
-                  className={cn(
-                    'break-all whitespace-pre-wrap',
-                    status === 'streaming' && i === logs.length - 1 && 'animate-fade-in'
-                  )}
-                >
+              {logs.map((line) => (
+                <div key={line} className="break-all whitespace-pre-wrap">
                   {line}
                 </div>
               ))}
