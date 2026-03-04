@@ -10,25 +10,42 @@ export function ThemeToggle() {
   const toggleOnSound = useSoundAction('toggle-on');
   const toggleOffSound = useSoundAction('toggle-off');
 
-  const toggleTheme = () => {
-    // Determine target theme before switching
+  const toggleTheme = (e: React.MouseEvent<HTMLButtonElement>) => {
     const currentResolved = theme === 'system' ? resolvedTheme : theme;
     const goingToDark = currentResolved !== 'dark';
+    const newTheme =
+      theme === 'system'
+        ? resolvedTheme === 'dark'
+          ? 'light'
+          : 'dark'
+        : theme === 'dark'
+          ? 'light'
+          : 'dark';
 
-    // Play sound before setTheme for immediate feedback
+    // Play sound before transition for immediate feedback
     if (goingToDark) {
       toggleOnSound.play();
     } else {
       toggleOffSound.play();
     }
 
-    // If system theme, switch to explicit light/dark
-    // If explicit, toggle between light and dark
-    if (theme === 'system') {
-      setTheme(resolvedTheme === 'dark' ? 'light' : 'dark');
-    } else {
-      setTheme(theme === 'dark' ? 'light' : 'dark');
+    const prefersReducedMotion =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (!(document as any).startViewTransition || prefersReducedMotion) {
+      setTheme(newTheme);
+      return;
     }
+
+    document.documentElement.style.setProperty('--x', `${e.clientX}px`);
+    document.documentElement.style.setProperty('--y', `${e.clientY}px`);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (document as any).startViewTransition(() => {
+      setTheme(newTheme);
+    });
   };
 
   return (
