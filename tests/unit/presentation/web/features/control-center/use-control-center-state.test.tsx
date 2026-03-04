@@ -89,12 +89,14 @@ function HookTestHarness({
   initialNodes = [],
   initialEdges = [],
   onStateChange,
+  isRefreshBlocked,
 }: {
   initialNodes?: CanvasNodeType[];
   initialEdges?: Edge[];
   onStateChange?: (state: ControlCenterState) => void;
+  isRefreshBlocked?: () => boolean;
 }) {
-  const state = useControlCenterState(initialNodes, initialEdges);
+  const state = useControlCenterState(initialNodes, initialEdges, isRefreshBlocked);
 
   if (onStateChange) {
     onStateChange(state);
@@ -890,6 +892,67 @@ describe('useControlCenterState', () => {
         // Both edges were connected to feat-1, so 0 edges remain
         expect(capturedState!.edges).toHaveLength(0);
       });
+    });
+  });
+
+  describe('isRefreshBlocked suppresses background refresh', () => {
+    it('polling does not call router.refresh() when isRefreshBlocked returns true', () => {
+      vi.useFakeTimers();
+
+      const isRefreshBlocked = vi.fn(() => true);
+      render(
+        <HookTestHarness
+          initialNodes={[mockFeatureNode] as CanvasNodeType[]}
+          initialEdges={[]}
+          isRefreshBlocked={isRefreshBlocked}
+        />
+      );
+
+      // mockFeatureNode has state 'running', so polling starts
+      act(() => {
+        vi.advanceTimersByTime(10_000);
+      });
+
+      expect(mockRefresh).not.toHaveBeenCalled();
+
+      vi.useRealTimers();
+    });
+
+    it('polling calls router.refresh() when isRefreshBlocked returns false', () => {
+      vi.useFakeTimers();
+
+      const isRefreshBlocked = vi.fn(() => false);
+      render(
+        <HookTestHarness
+          initialNodes={[mockFeatureNode] as CanvasNodeType[]}
+          initialEdges={[]}
+          isRefreshBlocked={isRefreshBlocked}
+        />
+      );
+
+      act(() => {
+        vi.advanceTimersByTime(5_000);
+      });
+
+      expect(mockRefresh).toHaveBeenCalled();
+
+      vi.useRealTimers();
+    });
+
+    it('polling calls router.refresh() when isRefreshBlocked is not provided', () => {
+      vi.useFakeTimers();
+
+      render(
+        <HookTestHarness initialNodes={[mockFeatureNode] as CanvasNodeType[]} initialEdges={[]} />
+      );
+
+      act(() => {
+        vi.advanceTimersByTime(5_000);
+      });
+
+      expect(mockRefresh).toHaveBeenCalled();
+
+      vi.useRealTimers();
     });
   });
 });

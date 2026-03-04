@@ -37,7 +37,9 @@ let nextFeatureId = 0;
 
 export function useControlCenterState(
   initialNodes: CanvasNodeType[],
-  initialEdges: Edge[]
+  initialEdges: Edge[],
+  /** When true, background router.refresh() calls (polling / SSE debounce) are suppressed. */
+  isRefreshBlocked?: () => boolean
 ): ControlCenterState {
   const router = useRouter();
   const [nodes, setNodes] = useState<CanvasNodeType[]>(initialNodes);
@@ -202,8 +204,10 @@ export function useControlCenterState(
 
     // Debounced background reconciliation (3s after last SSE event)
     clearTimeout(reconcileTimerRef.current);
-    reconcileTimerRef.current = setTimeout(() => router.refresh(), 3000);
-  }, [events, router]);
+    reconcileTimerRef.current = setTimeout(() => {
+      if (!isRefreshBlocked?.()) router.refresh();
+    }, 3000);
+  }, [events, router, isRefreshBlocked]);
 
   // Periodic polling fallback: refresh server data every 5s when any feature
   // is in an active state (running/action-required). This ensures the UI stays
@@ -219,9 +223,11 @@ export function useControlCenterState(
 
     if (!hasActiveFeature) return;
 
-    const interval = setInterval(() => router.refresh(), 5_000);
+    const interval = setInterval(() => {
+      if (!isRefreshBlocked?.()) router.refresh();
+    }, 5_000);
     return () => clearInterval(interval);
-  }, [nodes, router]);
+  }, [nodes, router, isRefreshBlocked]);
 
   const onNodesChange = useCallback((changes: NodeChange<CanvasNodeType>[]) => {
     setNodes((ns) => applyNodeChanges(changes, ns));
