@@ -31,8 +31,10 @@ export function CreateDrawerClient({
   // content during soft navigation, so this component is NOT unmounted when
   // navigating to `/`. We watch the pathname and let Vaul handle the close
   // animation when the path no longer matches the create route.
+  // When submitting, force the drawer closed immediately — router.push('/')
+  // is async and the pathname may not update before the next render.
   const pathname = usePathname();
-  const isOpen = pathname.startsWith('/create');
+  const isOpen = !isSubmitting && pathname.startsWith('/create');
 
   const onClose = useCallback(() => {
     router.push('/');
