@@ -1,3 +1,9 @@
+## [1.72.6](https://github.com/shep-ai/cli/compare/v1.72.5...v1.72.6) (2026-03-04)
+
+### Bug Fixes
+
+- **agents:** remove feature.yaml updates from merge prompt to prevent dirty workdir ([#203](https://github.com/shep-ai/cli/issues/203)) ([72b4e4c](https://github.com/shep-ai/cli/commit/72b4e4cf409c6a53eecefe26f9e00ae4507f9689)), closes [#178](https://github.com/shep-ai/cli/issues/178) [#171](https://github.com/shep-ai/cli/issues/171)
+
 ## [1.72.5](https://github.com/shep-ai/cli/compare/v1.72.4...v1.72.5) (2026-03-04)
 
 ### Bug Fixes
