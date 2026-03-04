@@ -1,0 +1,281 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: agent-executor-stability
+summary: >
+  The bug is a missing wiring link: AgentRun.agentType is already persisted and copied on
+  resume, but it is never forwarded to the spawn call, so the worker reads current settings
+  instead. The fix threads agentType as a --agent-type CLI arg through five targeted files
+  with no schema changes, no new dependencies, and full backward compatibility via graceful
+  fallback.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - TypeScript
+  - Node.js child_process.fork()
+  - tsyringe (dependency injection)
+  - LangGraph (checkpoint/interrupt)
+  - SQLite (AgentRun persistence via IAgentRunRepository)
+  - Vitest (unit testing)
+
+relatedLinks:
+  - https://github.com/shep-ai/cli/issues/211
+
+# Structured technology decisions
+decisions:
+  - title: 'Worker arg transport: CLI argument vs environment variable'
+    chosen: 'CLI argument --agent-type <value>'
+    rejected:
+      - >
+        Environment variable (SHEP_AGENT_TYPE): Adds implicit coupling through the
+        process environment, harder to trace in code review, pollutes the env namespace,
+        and is inconsistent with every other worker option (feature-id, run-id, repo,
+        spec-dir, thread-id, resume-payload, etc.) which are all CLI args.
+    rationale: >
+      Every existing worker option is passed as a named CLI argument in
+      FeatureAgentProcessService.spawn() (lines 51-83 of feature-agent-process.service.ts).
+      Using --agent-type keeps the interface consistent, makes the value self-documenting
+      in process listings, and requires no changes to env var conventions or docs.
+      parseWorkerArgs() already uses a straightforward pattern (args.indexOf('--name'))
+      that can be extended trivially.
+
+  - title: 'Worker fallback strategy when --agent-type is absent'
+    chosen: 'Graceful fallback to executorProvider.getExecutor() when arg is absent'
+    rejected:
+      - >
+        Require --agent-type unconditionally and throw if absent: Stricter contract that
+        would guarantee the bug cannot silently recur, but would break any spawn call not
+        yet updated (tests, direct worker invocations, older DB runs) and forces a
+        simultaneous multi-site update rather than a targeted fix.
+    rationale: >
+      The initial spawn path (first run creation) is not affected by the bug, so it is
+      acceptable for it to continue reading current settings. The graceful fallback
+      preserves backward compatibility with existing test helpers and any direct worker
+      invocations. The worker currently does: const executor = executorProvider.getExecutor().
+      Keeping this as the else-branch means zero changes to callers that omit the arg,
+      and the fix is confined to the resume/approve code paths where the bug manifests.
+
+  - title: 'ISpawnOptions interface change: optional vs required agentType field'
+    chosen: 'Optional field (agentType?: AgentType)'
+    rejected:
+      - >
+        Required field (agentType: AgentType): Enforces that all callers explicitly pass
+        the value, but is a breaking interface change that requires simultaneous updates
+        to every caller and every test that constructs spawn options, contradicting the
+        targeted minimal-blast-radius goal.
+    rationale: >
+      The existing options object in IFeatureAgentProcessService uses optional fields for
+      all optional behaviours (approvalGates?, resume?, threadId?, resumeFromInterrupt?,
+      push?, openPr?, resumePayload?). Making agentType optional is consistent with this
+      pattern and aligns with the graceful-fallback decision. The two callers being fixed
+      (ApproveAgentRunUseCase, ResumeFeatureUseCase) will pass the value explicitly; any
+      other caller that omits it will safely fall back.
+
+  - title: 'Executor resolution in worker: factory direct call vs provider'
+    chosen: >
+      When --agent-type is present, resolve IAgentExecutorFactory from DI container and
+      call factory.createExecutor(agentType, settings.agent); otherwise fall back to
+      executorProvider.getExecutor()
+    rejected:
+      - >
+        Override executorProvider internal state before calling getExecutor(): Would require
+        mutating the provider or injecting a fake settings object, coupling the fix to
+        provider internals and making data flow harder to follow.
+      - >
+        Replicate executor creation logic inline in the worker: Reinvents what
+        AgentExecutorFactory already does cleanly; violates DRY and diverges from the
+        factory pattern established in the DI container.
+    rationale: >
+      IAgentExecutorFactory is the correct abstraction for executor creation by type.
+      The factory already exposes createExecutor(agentType, authConfig) and is used by
+      AgentExecutorProvider internally. The settings object is already available at the
+      point of executor creation (loaded via InitializeSettingsUseCase), so settings.agent
+      can be passed as authConfig. This reuses existing infrastructure with no new packages
+      or DI tokens.
+
+  - title: 'agentType data source at resume/approve call sites'
+    chosen: >
+      Use run.agentType (in ApproveAgentRunUseCase) and lastRun.agentType
+      (in ResumeFeatureUseCase) - both records already fetched in each use case
+    rejected:
+      - >
+        Re-query the repository with a dedicated call: Redundant since both use cases
+        already hold the full AgentRun object at the point where spawn() is called;
+        adds latency and complexity with no benefit.
+      - >
+        Thread agentType as a new parameter through the use case execute() signatures:
+        Pushes DB schema knowledge into the presentation layer (CLI, TUI, web) and adds
+        surface area for bugs at every call site.
+    rationale: >
+      In ApproveAgentRunUseCase.execute(), run is fetched on the first line and
+      run.agentType is immediately available. In ResumeFeatureUseCase.execute(), the
+      lastRun record is fetched to determine resume eligibility and lastRun.agentType
+      is the correct pinned value. No additional queries or parameter changes are needed.
+
+# Open questions (should be resolved by end of research)
+openQuestions:
+  - question: >
+      Is IAgentExecutorFactory already registered under its own DI token in the worker's
+      container, or does a binding need to be added?
+    resolved: true
+    options:
+      - option: Already registered - container.resolve<IAgentExecutorFactory>('IAgentExecutorFactory') works
+        description: >
+          If the factory is already bound in container.ts under its own token, the worker
+          can resolve it directly with no changes to the DI module. This is the ideal path.
+        selected: true
+      - option: Not registered - must add a binding in container.ts before the worker can resolve it
+        description: >
+          If IAgentExecutorFactory is only instantiated internally by AgentExecutorProvider
+          and not bound to its own token, a new binding line must be added to container.ts.
+          Still a trivial, targeted change confined to the infrastructure layer.
+        selected: false
+      - option: Skip factory - resolve AgentExecutorProvider and extract the factory reference
+        description: >
+          Cast or unwrap AgentExecutorProvider to access its factory field directly. Fragile
+          coupling to a concrete implementation detail; not recommended.
+        selected: false
+    selectionRationale: >
+      The DI container registration must be verified during implementation. If the token is
+      already present, option 1 applies with no changes to container.ts. If not, a single
+      binding line is added - still minimal blast radius. Either way the worker calls
+      factory.createExecutor(agentType, settings.agent) using the already-loaded settings
+      object. The factory's internal cache (Map keyed by AgentType string) ensures no
+      performance regression from a second resolve call.
+
+# Markdown content (the full research document)
+content: |
+  ## Technology Decisions
+
+  ### 1. Worker Arg Transport: CLI Argument
+
+  **Chosen:** `--agent-type <value>` CLI argument appended in `FeatureAgentProcessService.spawn()`
+
+  **Rejected:**
+  - Environment variable (`SHEP_AGENT_TYPE`) — inconsistent with all existing worker options,
+    implicit env coupling, harder to trace in code review
+
+  **Rationale:** Every existing worker option (feature-id, run-id, repo, spec-dir, thread-id,
+  resume-payload, etc.) is a named CLI arg passed via `fork(workerPath, args, ...)`. The
+  `parseWorkerArgs()` function in `feature-agent-worker.ts` already uses a clean
+  `args.indexOf('--name')` pattern that extends trivially. Keeping this pattern makes the
+  new arg self-documenting and consistent.
+
+  ### 2. Fallback Strategy: Graceful
+
+  **Chosen:** When `--agent-type` is absent, fall back to `executorProvider.getExecutor()` (existing behaviour)
+
+  **Rejected:**
+  - Require arg unconditionally — breaks test helpers, direct worker invocations, and any
+    spawn call not yet updated; requires simultaneous multi-site changes
+
+  **Rationale:** The initial spawn path (first run creation) reads current settings and that
+  is correct behaviour. Only resumed/approved runs are affected by the bug. Graceful fallback
+  preserves backward compatibility and confines the fix to the two use cases that call
+  `spawn()` on resume.
+
+  ### 3. Interface Change: Optional Field
+
+  **Chosen:** `agentType?: AgentType` added to the spawn options object in `IFeatureAgentProcessService`
+
+  **Rejected:**
+  - Required field — breaks all existing callers and tests; contradicts minimal blast radius
+
+  **Rationale:** The existing options object is already built from all-optional fields.
+  Making `agentType` optional is consistent with the established pattern and with the
+  graceful-fallback decision.
+
+  ### 4. Executor Resolution: DI Factory
+
+  **Chosen:** Resolve `IAgentExecutorFactory` from the DI container and call
+  `factory.createExecutor(agentType, settings.agent)` when `--agent-type` is present
+
+  **Rejected:**
+  - Override provider internal state — mutates provider internals, fragile coupling
+  - Inline executor creation — duplicates factory logic, diverges from established pattern
+
+  **Rationale:** `IAgentExecutorFactory` is the correct abstraction for executor creation
+  by type. The `settings` object is already available in the worker at the point of executor
+  creation (loaded via `InitializeSettingsUseCase`), so `settings.agent` can be passed as
+  the `authConfig` parameter. This reuses existing infrastructure with zero new packages.
+
+  ### 5. agentType Data Source: Existing AgentRun Record
+
+  **Chosen:** Use `run.agentType` (in `ApproveAgentRunUseCase`) and `lastRun.agentType`
+  (in `ResumeFeatureUseCase`) — both already fetched in each use case
+
+  **Rejected:**
+  - Re-query repository — redundant, adds latency
+  - Thread via use case parameter — leaks DB schema knowledge into presentation layer
+
+  **Rationale:** Both use cases already hold the full `AgentRun` object at the point where
+  `spawn()` is called. The `agentType` field is available with no additional queries.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | node:child_process | fork() for worker processes | Use (existing) | Already the mechanism; no change |
+  | tsyringe | DI container | Use (existing) | Factory already injectable; no new tokens needed if already registered |
+  | IAgentExecutorFactory | Create executor by AgentType | Use (existing) | Already exposes createExecutor(agentType, authConfig) |
+  | IAgentExecutorProvider | Read executor from settings | Use (existing, fallback only) | Kept for backward-compatible fallback path |
+  | Vitest | Unit testing | Use (existing) | All new code paths require corresponding tests per NFR-5 |
+
+  No new npm packages are introduced. NFR-3 is satisfied.
+
+  ## Security Considerations
+
+  - The `--agent-type` value is a controlled enum (`AgentType`) sourced from the application's
+    own persisted database record, not from user input over a network boundary. No injection
+    risk.
+  - The worker's factory already throws on unknown agent types, so any corrupted DB value
+    causes the worker to fail fast with a clear error rather than silently using the wrong
+    executor.
+  - No new authentication or authorization surface is introduced.
+
+  ## Performance Implications
+
+  - Adding one extra CLI arg to the fork call is negligible overhead.
+  - `factory.createExecutor()` uses an in-process Map cache keyed by agent type, so
+    repeated calls are O(1) lookups. No performance regression.
+  - No extra DB queries are added to any hot path.
+
+  ## Architecture Notes
+
+  The fix is a pure wiring correction within the existing Clean Architecture layers:
+
+  - **Application layer** (`IFeatureAgentProcessService` interface, `ApproveAgentRunUseCase`,
+    `ResumeFeatureUseCase`): adds an optional field to the port and passes the value through.
+  - **Infrastructure layer** (`FeatureAgentProcessService`, `feature-agent-worker.ts`):
+    appends the CLI arg when present; worker reads and uses it via the factory.
+
+  No domain entities, TypeSpec models, or database schema are modified (NFR-2).
+  No new DI tokens or npm packages are introduced (NFR-3, assuming factory already registered).
+  Changes are confined to five source files plus their test files (NFR-4).
+
+  ### Call Chain After Fix
+
+  ```
+  User resumes / approves
+    -> ResumeFeatureUseCase.execute()          reads lastRun.agentType  (already in memory)
+        -> processService.spawn(..., { agentType: lastRun.agentType, ... })
+            -> fork(['--agent-type', agentType, ...other args...])
+                -> worker: parseWorkerArgs() extracts agentType
+                    -> factory.createExecutor(agentType, settings.agent)  <- FIXED
+  ```
+
+  The same correction applies to `ApproveAgentRunUseCase` using `run.agentType`.
+
+  ### Affected Files (5 source + 2 test)
+
+  | File | Change |
+  | ---- | ------ |
+  | `application/ports/output/agents/feature-agent-process.interface.ts` | Add `agentType?: AgentType` to options |
+  | `application/use-cases/agents/approve-agent-run.use-case.ts` | Pass `run.agentType` to spawn options |
+  | `application/use-cases/features/resume-feature.use-case.ts` | Pass `lastRun.agentType` to spawn options |
+  | `infrastructure/services/agents/feature-agent/feature-agent-process.service.ts` | Append `--agent-type` arg when present |
+  | `infrastructure/services/agents/feature-agent/feature-agent-worker.ts` | Parse `--agent-type`; use factory when present, fallback otherwise |
+  | `tests/unit/.../feature-agent-process.service.test.ts` | Test: spawn with agentType passes correct CLI arg |
+  | `tests/unit/.../feature-agent-worker.test.ts` | Test: worker uses factory when arg present; falls back when absent |
