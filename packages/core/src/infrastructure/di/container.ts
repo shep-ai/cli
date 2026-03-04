@@ -109,6 +109,7 @@ import { AddRepositoryUseCase } from '../../application/use-cases/repositories/a
 import { ListRepositoriesUseCase } from '../../application/use-cases/repositories/list-repositories.use-case.js';
 import { DeleteRepositoryUseCase } from '../../application/use-cases/repositories/delete-repository.use-case.js';
 import { CheckAndUnblockFeaturesUseCase } from '../../application/use-cases/features/check-and-unblock-features.use-case.js';
+import { BatchRebaseFeaturesUseCase } from '../../application/use-cases/features/batch-rebase-features.use-case.js';
 import { UpdateFeatureLifecycleUseCase } from '../../application/use-cases/features/update/update-feature-lifecycle.use-case.js';
 
 // Session listing
@@ -320,6 +321,7 @@ export async function initializeContainer(): Promise<typeof container> {
   // because the latter injects the former via class token.
   container.registerSingleton(CheckAndUnblockFeaturesUseCase);
   container.registerSingleton(UpdateFeatureLifecycleUseCase);
+  container.registerSingleton(BatchRebaseFeaturesUseCase);
 
   // Session repositories (per-AgentType string tokens)
   container.register(`IAgentSessionRepository:${AgentType.ClaudeCode}`, {
