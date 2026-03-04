@@ -99,6 +99,7 @@ export function BaseDrawer({
         showCloseButton={false}
         className={cn(drawerVariants({ size }), className)}
         data-testid={testId}
+        onInteractOutside={(e) => e.preventDefault()}
       >
         {/* Close button */}
         <button

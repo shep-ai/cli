@@ -24,6 +24,7 @@ import { CheckboxGroup } from '@/components/ui/checkbox-group';
 import { CheckboxGroupItem } from '@/components/ui/checkbox-group-item';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { useGuardedDrawerClose } from '@/hooks/drawer-close-guard';
 import type { FileAttachment } from '@shepai/core/infrastructure/services/file-dialog.service';
 import type { WorkflowDefaults } from '@/app/actions/get-workflow-defaults';
 import { pickFiles } from './pick-files';
@@ -125,10 +126,11 @@ export function FeatureCreateDrawer({
     setParentId(undefined);
   }, [defaultGates, defaultPush, defaultOpenPr]);
 
-  const handleClose = useCallback(() => {
-    resetForm();
-    onClose();
-  }, [onClose, resetForm]);
+  // Track whether the form has unsaved data
+  const isDirty = name.trim() !== '' || description.trim() !== '' || attachments.length > 0;
+
+  // Shared close guard — shows confirmation when dirty, prevents navigation
+  const { attemptClose } = useGuardedDrawerClose({ open, isDirty, onClose, onReset: resetForm });
 
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
@@ -187,7 +189,7 @@ export function FeatureCreateDrawer({
   return (
     <BaseDrawer
       open={open}
-      onClose={handleClose}
+      onClose={attemptClose}
       size="md"
       modal={false}
       data-testid="feature-create-drawer"
@@ -206,7 +208,7 @@ export function FeatureCreateDrawer({
       }
       footer={
         <div className="flex flex-row justify-end gap-2">
-          <Button variant="outline" onClick={handleClose} disabled={isSubmitting}>
+          <Button variant="outline" onClick={attemptClose} disabled={isSubmitting}>
             Cancel
           </Button>
           <Button type="submit" form="create-feature-form" disabled={!name.trim() || isSubmitting}>

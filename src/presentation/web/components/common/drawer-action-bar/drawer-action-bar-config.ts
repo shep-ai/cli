@@ -17,4 +17,8 @@ export interface DrawerActionBarProps {
   isRejecting?: boolean;
   /** Content rendered between revision input and action buttons (e.g. progress bar) */
   children?: ReactNode;
+  /** Controlled chat input value. When provided, component uses this instead of internal state. */
+  chatInput?: string;
+  /** Controlled chat input change handler. Required when chatInput is provided. */
+  onChatInputChange?: (value: string) => void;
 }

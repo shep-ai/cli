@@ -18,6 +18,8 @@ export function PrdQuestionnaire({
   isProcessing = false,
   isRejecting = false,
   showHeader = false,
+  chatInput,
+  onChatInputChange,
 }: PrdQuestionnaireProps) {
   const { question, context, questions, finalAction } = data;
   const [currentStep, setCurrentStep] = useState(0);
@@ -171,6 +173,8 @@ export function PrdQuestionnaire({
         revisionPlaceholder="Ask AI to refine requirements..."
         isProcessing={isProcessing}
         isRejecting={isRejecting}
+        chatInput={chatInput}
+        onChatInputChange={onChatInputChange}
       >
         <div
           className={cn(

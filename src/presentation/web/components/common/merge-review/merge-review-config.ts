@@ -58,6 +58,10 @@ export interface MergeReviewProps {
   isProcessing?: boolean;
   /** Whether a reject operation is in flight */
   isRejecting?: boolean;
+  /** Controlled chat input for the revision input. */
+  chatInput?: string;
+  /** Handler for chat input changes. */
+  onChatInputChange?: (value: string) => void;
 }
 
 /** Props for the merge review drawer (shell wrapper) */

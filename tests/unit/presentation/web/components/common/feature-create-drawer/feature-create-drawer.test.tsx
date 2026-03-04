@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { FeatureCreateDrawer } from '@/components/common/feature-create-drawer';
+import { DrawerCloseGuardProvider } from '@/hooks/drawer-close-guard';
 import type { FileAttachment } from '@shepai/core/infrastructure/services/file-dialog.service';
 
 // Mock pickFiles client helper
@@ -49,7 +50,11 @@ const defaultProps = {
 
 function renderDrawer(overrides: Partial<typeof defaultProps> = {}) {
   const props = { ...defaultProps, ...overrides };
-  return render(<FeatureCreateDrawer {...props} />);
+  return render(
+    <DrawerCloseGuardProvider>
+      <FeatureCreateDrawer {...props} />
+    </DrawerCloseGuardProvider>
+  );
 }
 
 const mockPdf: FileAttachment = {
@@ -254,12 +259,14 @@ describe('FeatureCreateDrawer', () => {
       const onSubmit = vi.fn();
       const user = userEvent.setup();
       const { rerender } = render(
-        <FeatureCreateDrawer
-          open={true}
-          onClose={onClose}
-          onSubmit={onSubmit}
-          repositoryPath="/repo"
-        />
+        <DrawerCloseGuardProvider>
+          <FeatureCreateDrawer
+            open={true}
+            onClose={onClose}
+            onSubmit={onSubmit}
+            repositoryPath="/repo"
+          />
+        </DrawerCloseGuardProvider>
       );
 
       // Check some boxes
@@ -271,12 +278,14 @@ describe('FeatureCreateDrawer', () => {
       // Close and reopen (unmount/remount simulates close + reopen)
       rerender(<div />);
       rerender(
-        <FeatureCreateDrawer
-          open={true}
-          onClose={onClose}
-          onSubmit={onSubmit}
-          repositoryPath="/repo"
-        />
+        <DrawerCloseGuardProvider>
+          <FeatureCreateDrawer
+            open={true}
+            onClose={onClose}
+            onSubmit={onSubmit}
+            repositoryPath="/repo"
+          />
+        </DrawerCloseGuardProvider>
       );
 
       // Default should be restored - all unchecked including parent
@@ -503,13 +512,15 @@ describe('FeatureCreateDrawer', () => {
       ];
 
       render(
-        <FeatureCreateDrawer
-          open={true}
-          onClose={onClose}
-          onSubmit={onSubmit}
-          repositoryPath="/repo"
-          features={features}
-        />
+        <DrawerCloseGuardProvider>
+          <FeatureCreateDrawer
+            open={true}
+            onClose={onClose}
+            onSubmit={onSubmit}
+            repositoryPath="/repo"
+            features={features}
+          />
+        </DrawerCloseGuardProvider>
       );
 
       // Fill name and description
@@ -558,12 +569,14 @@ describe('FeatureCreateDrawer', () => {
       const onClose = vi.fn();
       const user = userEvent.setup();
       const { rerender } = render(
-        <FeatureCreateDrawer
-          open={true}
-          onClose={onClose}
-          onSubmit={onSubmit}
-          repositoryPath="/repo"
-        />
+        <DrawerCloseGuardProvider>
+          <FeatureCreateDrawer
+            open={true}
+            onClose={onClose}
+            onSubmit={onSubmit}
+            repositoryPath="/repo"
+          />
+        </DrawerCloseGuardProvider>
       );
 
       // Fill form and submit
@@ -574,12 +587,14 @@ describe('FeatureCreateDrawer', () => {
       // Unmount and remount to simulate close + reopen
       rerender(<div />);
       rerender(
-        <FeatureCreateDrawer
-          open={true}
-          onClose={onClose}
-          onSubmit={onSubmit}
-          repositoryPath="/repo"
-        />
+        <DrawerCloseGuardProvider>
+          <FeatureCreateDrawer
+            open={true}
+            onClose={onClose}
+            onSubmit={onSubmit}
+            repositoryPath="/repo"
+          />
+        </DrawerCloseGuardProvider>
       );
 
       expect(screen.getByPlaceholderText('e.g. GitHub OAuth Login')).toHaveValue('');

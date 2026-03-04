@@ -8,6 +8,7 @@ import { AddRepositoryButton } from '@/components/common/add-repository-node';
 import { ThemeToggle } from '@/components/common/theme-toggle';
 import { SoundToggle } from '@/components/common/sound-toggle';
 import { AgentEventsProvider } from '@/hooks/agent-events-provider';
+import { DrawerCloseGuardProvider, useDrawerCloseGuard } from '@/hooks/drawer-close-guard';
 import {
   SidebarFeaturesProvider,
   useSidebarFeaturesContext,
@@ -21,6 +22,7 @@ interface AppShellProps {
 /** Inner shell that consumes the agent-events context for notifications. */
 function AppShellInner({ children }: AppShellProps) {
   const router = useRouter();
+  const { guardedNavigate } = useDrawerCloseGuard();
 
   // Subscribe to agent lifecycle events and dispatch toast/browser notifications
   useNotifications();
@@ -28,14 +30,14 @@ function AppShellInner({ children }: AppShellProps) {
   const { features } = useSidebarFeaturesContext();
 
   const handleNewFeature = useCallback(() => {
-    router.push('/create');
-  }, [router]);
+    guardedNavigate(() => router.push('/create'));
+  }, [router, guardedNavigate]);
 
   const handleFeatureClick = useCallback(
     (featureId: string) => {
-      router.push(`/feature/${featureId}`);
+      guardedNavigate(() => router.push(`/feature/${featureId}`));
     },
-    [router]
+    [router, guardedNavigate]
   );
 
   const handleRepositorySelect = useCallback((path: string) => {
@@ -66,9 +68,11 @@ function AppShellInner({ children }: AppShellProps) {
 export function AppShell({ children }: AppShellProps) {
   return (
     <AgentEventsProvider>
-      <SidebarFeaturesProvider>
-        <AppShellInner>{children}</AppShellInner>
-      </SidebarFeaturesProvider>
+      <DrawerCloseGuardProvider>
+        <SidebarFeaturesProvider>
+          <AppShellInner>{children}</AppShellInner>
+        </SidebarFeaturesProvider>
+      </DrawerCloseGuardProvider>
     </AgentEventsProvider>
   );
 }

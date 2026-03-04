@@ -14,6 +14,8 @@ export function TechReviewTabs({
   onReject,
   isProcessing = false,
   isRejecting = false,
+  chatInput,
+  onChatInputChange,
 }: TechReviewTabsProps) {
   if (techData.decisions.length === 0) return null;
 
@@ -54,6 +56,8 @@ export function TechReviewTabs({
         revisionPlaceholder="Ask AI to revise the plan..."
         isProcessing={isProcessing}
         isRejecting={isRejecting}
+        chatInput={chatInput}
+        onChatInputChange={onChatInputChange}
       />
     </div>
   );

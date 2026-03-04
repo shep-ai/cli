@@ -14,6 +14,7 @@ import {
 } from '@/hooks/sidebar-features-context';
 import { useSelectedFeatureId } from '@/hooks/use-selected-feature-id';
 import { useSoundAction } from '@/hooks/use-sound-action';
+import { useDrawerCloseGuard } from '@/hooks/drawer-close-guard';
 import { ControlCenterEmptyState } from './control-center-empty-state';
 import { useControlCenterState } from './use-control-center-state';
 
@@ -27,6 +28,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
   const pathname = usePathname();
   const selectedFeatureId = useSelectedFeatureId();
   const clickSound = useSoundAction('click');
+  const { guardedNavigate } = useDrawerCloseGuard();
 
   const {
     nodes,
@@ -86,11 +88,13 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
       if (node.type === 'featureNode') {
         const data = node.data as FeatureNodeData;
         if (data.state === 'creating') return;
-        clickSound.play();
-        router.push(`/feature/${data.featureId}`);
+        guardedNavigate(() => {
+          clickSound.play();
+          router.push(`/feature/${data.featureId}`);
+        });
       }
     },
-    [router, clickSound]
+    [router, clickSound, guardedNavigate]
   );
 
   const handleAddFeature = useCallback(() => {
@@ -135,19 +139,19 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
       if (node?.type === 'repositoryNode') {
         const data = node.data as RepositoryNodeData;
         if (data.id) {
-          router.push(`/repository/${data.id}`);
+          guardedNavigate(() => router.push(`/repository/${data.id}`));
         }
       }
     },
-    [nodes, router]
+    [nodes, router, guardedNavigate]
   );
 
   // Close all drawers — navigate back to root
   const handleClearDrawers = useCallback(() => {
     if (pathname !== '/') {
-      router.push('/');
+      guardedNavigate(() => router.push('/'));
     }
-  }, [router, pathname]);
+  }, [router, pathname, guardedNavigate]);
 
   // Listen for global "add repository" events from the top bar button
   useEffect(() => {

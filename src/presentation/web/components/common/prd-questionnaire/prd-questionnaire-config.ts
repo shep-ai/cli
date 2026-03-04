@@ -24,6 +24,10 @@ export interface PrdQuestionnaireProps {
   isRejecting?: boolean;
   /** Show the goal/context header (default: false) */
   showHeader?: boolean;
+  /** Controlled chat input for the revision input. */
+  chatInput?: string;
+  /** Handler for chat input changes. */
+  onChatInputChange?: (value: string) => void;
 }
 
 export interface PrdQuestionnaireDrawerProps extends Omit<PrdQuestionnaireProps, 'data'> {

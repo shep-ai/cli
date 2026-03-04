@@ -5,6 +5,7 @@ import { FeatureCreateDrawer } from './feature-create-drawer';
 import type { FeatureCreatePayload } from './feature-create-drawer';
 import type { WorkflowDefaults } from '@/app/actions/get-workflow-defaults';
 import { Button } from '@/components/ui/button';
+import { DrawerCloseGuardProvider } from '@/hooks/drawer-close-guard';
 
 /* ---------------------------------------------------------------------------
  * Meta — component-level docs + interactive controls
@@ -44,6 +45,13 @@ const meta: Meta<typeof FeatureCreateDrawer> = {
   title: 'Drawers/Feature/FeatureCreateDrawer',
   component: FeatureCreateDrawer,
   tags: ['autodocs'],
+  decorators: [
+    (Story) => (
+      <DrawerCloseGuardProvider>
+        <Story />
+      </DrawerCloseGuardProvider>
+    ),
+  ],
   parameters: {
     layout: 'fullscreen',
   },
@@ -344,6 +352,30 @@ function CreateDrawerShellTemplate() {
 /** Feature create drawer rendered inside a full-page context — starts open. */
 export const InDrawer: Story = {
   render: () => <CreateDrawerShellTemplate />,
+};
+
+/* ---------------------------------------------------------------------------
+ * Discard confirmation stories
+ * ------------------------------------------------------------------------- */
+
+/**
+ * Discard confirmation — type text, then click Cancel to trigger the
+ * "Discard unsaved changes?" dialog. Demonstrates the dirty-form guard.
+ */
+export const DiscardConfirmation: Story = {
+  render: () => <CreateDrawerTrigger label="Open (Discard Confirmation)" />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Open (Discard Confirmation)' }));
+
+    const body = within(canvasElement.ownerDocument.body);
+    const nameInput = await body.findByPlaceholderText('e.g. GitHub OAuth Login');
+    await userEvent.type(nameInput, 'My Feature');
+
+    // Click Cancel — should show the discard confirmation dialog
+    const cancelButton = body.getByRole('button', { name: 'Cancel' });
+    await userEvent.click(cancelButton);
+  },
 };
 
 /* ---------------------------------------------------------------------------

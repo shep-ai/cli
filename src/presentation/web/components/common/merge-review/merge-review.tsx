@@ -52,6 +52,8 @@ export function MergeReview({
   onReject,
   isProcessing = false,
   isRejecting = false,
+  chatInput,
+  onChatInputChange,
 }: MergeReviewProps) {
   const { pr, diffSummary, phases, branch, warning } = data;
 
@@ -188,6 +190,8 @@ export function MergeReview({
         revisionPlaceholder="Ask AI to revise before merging..."
         isProcessing={isProcessing}
         isRejecting={isRejecting}
+        chatInput={chatInput}
+        onChatInputChange={onChatInputChange}
       />
     </div>
   );

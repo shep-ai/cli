@@ -84,8 +84,8 @@ export const WithDescription: Story = {
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Keep Editing</AlertDialogCancel>
           <AlertDialogAction variant="destructive">Discard</AlertDialogAction>
+          <AlertDialogCancel>Keep Editing</AlertDialogCancel>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
