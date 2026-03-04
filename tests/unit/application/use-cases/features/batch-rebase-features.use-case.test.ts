@@ -14,10 +14,6 @@ import type { IWorktreeService } from '@/application/ports/output/services/workt
 import type { IGitPrService } from '@/application/ports/output/services/git-pr-service.interface.js';
 import { SdlcLifecycle } from '@/domain/generated/output.js';
 import type { Feature } from '@/domain/generated/output.js';
-import type {
-  BatchRebaseOptions,
-  BatchRebaseResult,
-} from '@/application/use-cases/features/batch-rebase-features.use-case.js';
 
 function createMockFeature(overrides?: Partial<Feature>): Feature {
   return {

@@ -20,6 +20,7 @@ import { createReviewCommand } from './review.command.js';
 import { createApproveCommand } from './approve.command.js';
 import { createRejectCommand } from './reject.command.js';
 import { createLogsCommand } from './logs.command.js';
+import { createRebaseCommand } from './rebase.command.js';
 
 /**
  * Create the feat command group
@@ -35,5 +36,6 @@ export function createFeatCommand(): Command {
     .addCommand(createReviewCommand())
     .addCommand(createApproveCommand())
     .addCommand(createRejectCommand())
-    .addCommand(createLogsCommand());
+    .addCommand(createLogsCommand())
+    .addCommand(createRebaseCommand());
 }
