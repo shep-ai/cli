@@ -84,8 +84,7 @@ export function buildCommitPushPrPrompt(
     steps.push(`${shouldPush ? '5' : '4'}. Create a pull request:
    - Run \`gh pr create --base ${baseBranch} --head ${branch} --title "<title>" --body "<body>"\`
    - Write a descriptive PR title using conventional commit format
-   - Write a rich PR body that summarizes the changes using the spec context below
-   - After creating the PR, update \`${state.specDir}/feature.yaml\` to set the prUrl field with the PR URL`);
+   - Write a rich PR body that summarizes the changes using the spec context below`);
   }
 
   return `You are performing git operations in a feature worktree.
