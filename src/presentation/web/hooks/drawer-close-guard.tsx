@@ -78,7 +78,7 @@ export function DrawerCloseGuardProvider({ children }: { children: ReactNode }) 
           <AlertDialogHeader>
             <AlertDialogTitle>Discard unsaved changes?</AlertDialogTitle>
             <AlertDialogDescription>
-              You have unsaved changes in the feature form. Are you sure you want to discard them?
+              You have unsaved changes. Are you sure you want to discard them?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

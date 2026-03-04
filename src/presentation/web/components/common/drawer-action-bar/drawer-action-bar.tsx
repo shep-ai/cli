@@ -16,8 +16,12 @@ export function DrawerActionBar({
   isProcessing = false,
   isRejecting = false,
   children,
+  chatInput: controlledChatInput,
+  onChatInputChange,
 }: DrawerActionBarProps) {
-  const [chatInput, setChatInput] = useState('');
+  const [internalChatInput, setInternalChatInput] = useState('');
+  const chatInput = controlledChatInput ?? internalChatInput;
+  const setChatInput = onChatInputChange ?? setInternalChatInput;
   const approveSound = useSoundAction('approve');
   const disabled = isProcessing || isRejecting;
 

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import { PrStatus, CiStatus } from '@shepai/core/domain/generated/output';
 import { Button } from '@/components/ui/button';
+import { DrawerCloseGuardProvider } from '@/hooks/drawer-close-guard';
 import { ControlCenterDrawer } from './control-center-drawer';
 import type { DrawerView } from './drawer-view';
 
@@ -9,6 +10,13 @@ const meta: Meta<typeof ControlCenterDrawer> = {
   title: 'Drawers/ControlCenterDrawer',
   component: ControlCenterDrawer,
   tags: ['autodocs'],
+  decorators: [
+    (Story) => (
+      <DrawerCloseGuardProvider>
+        <Story />
+      </DrawerCloseGuardProvider>
+    ),
+  ],
   parameters: {
     layout: 'fullscreen',
   },

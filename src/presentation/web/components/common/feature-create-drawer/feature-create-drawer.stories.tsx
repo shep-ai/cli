@@ -5,6 +5,7 @@ import { FeatureCreateDrawer } from './feature-create-drawer';
 import type { FeatureCreatePayload } from './feature-create-drawer';
 import type { WorkflowDefaults } from '@/app/actions/get-workflow-defaults';
 import { Button } from '@/components/ui/button';
+import { DrawerCloseGuardProvider } from '@/hooks/drawer-close-guard';
 
 /* ---------------------------------------------------------------------------
  * Meta — component-level docs + interactive controls
@@ -44,6 +45,13 @@ const meta: Meta<typeof FeatureCreateDrawer> = {
   title: 'Drawers/Feature/FeatureCreateDrawer',
   component: FeatureCreateDrawer,
   tags: ['autodocs'],
+  decorators: [
+    (Story) => (
+      <DrawerCloseGuardProvider>
+        <Story />
+      </DrawerCloseGuardProvider>
+    ),
+  ],
   parameters: {
     layout: 'fullscreen',
   },

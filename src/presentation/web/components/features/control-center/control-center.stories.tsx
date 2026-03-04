@@ -7,6 +7,7 @@ import type { RepositoryNodeType } from '@/components/common/repository-node';
 import type { AddRepositoryNodeType } from '@/components/common/add-repository-node';
 import { layoutWithDagre } from '@/lib/layout-with-dagre';
 import { AgentEventsProvider } from '@/hooks/agent-events-provider';
+import { DrawerCloseGuardProvider } from '@/hooks/drawer-close-guard';
 
 const meta: Meta<typeof ControlCenter> = {
   title: 'Features/ControlCenter',
@@ -18,9 +19,11 @@ const meta: Meta<typeof ControlCenter> = {
   decorators: [
     (Story) => (
       <AgentEventsProvider>
-        <div style={{ height: '100vh' }}>
-          <Story />
-        </div>
+        <DrawerCloseGuardProvider>
+          <div style={{ height: '100vh' }}>
+            <Story />
+          </div>
+        </DrawerCloseGuardProvider>
       </AgentEventsProvider>
     ),
   ],

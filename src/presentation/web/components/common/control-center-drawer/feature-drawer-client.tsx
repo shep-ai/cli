@@ -18,6 +18,7 @@ import { deleteFeature } from '@/app/actions/delete-feature';
 import { cn } from '@/lib/utils';
 import { featureFlags } from '@/lib/feature-flags';
 import { useSoundAction } from '@/hooks/use-sound-action';
+import { useGuardedDrawerClose } from '@/hooks/drawer-close-guard';
 import { useDeployAction } from '@/hooks/use-deploy-action';
 import { useAgentEventsContext } from '@/hooks/agent-events-provider';
 import { BaseDrawer } from '@/components/common/base-drawer';
@@ -133,9 +134,13 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
     router.push('/');
   }, [router]);
 
+  // ── Chat input state (shared across all review views) ────────────────
+  const [chatInput, setChatInput] = useState('');
+
   // ── PRD state ──────────────────────────────────────────────────────────
   const [prdData, setPrdData] = useState<PrdQuestionnaireData | null>(null);
   const [prdSelections, setPrdSelections] = useState<Record<string, string>>({});
+  const [prdDefaultSelections, setPrdDefaultSelections] = useState<Record<string, string>>({});
   const [isLoadingPrd, setIsLoadingPrd] = useState(false);
 
   // ── Tech state ─────────────────────────────────────────────────────────
@@ -158,11 +163,18 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
   // ── Shared reject state ────────────────────────────────────────────────
   const [isRejecting, setIsRejecting] = useState(false);
 
+  // Reset chat input whenever the view type changes
+  const viewType = view.type;
+  useEffect(() => {
+    setChatInput('');
+  }, [viewType]);
+
   // ── Data fetching ─────────────────────────────────────────────────────
 
   const prdFeatureId = view.type === 'prd-review' ? view.node.featureId : null;
   useEffect(() => {
     setPrdSelections({});
+    setPrdDefaultSelections({});
     setPrdData(null);
     if (!prdFeatureId) return;
 
@@ -183,6 +195,7 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
             if (recommended) defaults[q.id] = recommended.id;
           }
           setPrdSelections(defaults);
+          setPrdDefaultSelections(defaults);
         }
       })
       .catch(() => {
@@ -274,6 +287,20 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
     };
   }, [mergeFeatureId]);
 
+  // ── Close guard ──────────────────────────────────────────────────────
+  const isChatDirty = chatInput.trim().length > 0;
+  const isPrdDirty =
+    view.type === 'prd-review' &&
+    Object.keys(prdDefaultSelections).some((k) => prdDefaultSelections[k] !== prdSelections[k]);
+  const isDirty = isChatDirty || isPrdDirty;
+
+  const onReset = useCallback(() => {
+    setChatInput('');
+    setPrdSelections({ ...prdDefaultSelections });
+  }, [prdDefaultSelections]);
+
+  const { attemptClose } = useGuardedDrawerClose({ open: isOpen, isDirty, onClose, onReset });
+
   // ── Approve / reject handlers ─────────────────────────────────────────
 
   const reviewNode =
@@ -292,6 +319,7 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
           return;
         }
         rejectSound.play();
+        setChatInput('');
         toast.success(`${label} rejected — agent re-iterating (iteration ${result.iteration})`);
         if (result.iterationWarning) {
           toast.warning(
@@ -328,6 +356,7 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
         toast.error(result.error ?? `Failed to approve ${label.toLowerCase()}`);
         return;
       }
+      setChatInput('');
       toast.success(`${label} approved — agent resuming`);
       onClose();
     },
@@ -354,6 +383,7 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
         toast.error(result.error ?? 'Failed to approve requirements');
         return;
       }
+      setChatInput('');
       toast.success('Requirements approved — agent resuming');
       setPrdSelections({});
       onClose();
@@ -571,6 +601,8 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
         onReject={handlePrdReject}
         isProcessing={isLoadingPrd}
         isRejecting={isRejecting}
+        chatInput={chatInput}
+        onChatInputChange={setChatInput}
       />
     ) : (
       <div className="flex items-center justify-center p-8">
@@ -586,6 +618,8 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
         onReject={handleTechReject}
         isProcessing={isLoadingTech}
         isRejecting={isRejecting}
+        chatInput={chatInput}
+        onChatInputChange={setChatInput}
       />
     ) : (
       <div className="flex items-center justify-center p-8">
@@ -600,6 +634,8 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
         onReject={handleMergeReject}
         isProcessing={isLoadingMerge}
         isRejecting={isRejecting}
+        chatInput={chatInput}
+        onChatInputChange={setChatInput}
       />
     ) : (
       <div className="flex items-center justify-center p-8">
@@ -611,7 +647,7 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
   return (
     <BaseDrawer
       open={isOpen}
-      onClose={onClose}
+      onClose={attemptClose}
       size="md"
       modal={false}
       header={header}

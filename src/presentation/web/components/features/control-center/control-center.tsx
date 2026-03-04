@@ -4,7 +4,6 @@ import type { ReactNode } from 'react';
 import { ReactFlowProvider } from '@xyflow/react';
 import type { Edge } from '@xyflow/react';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
-import { DrawerCloseGuardProvider } from '@/hooks/drawer-close-guard';
 import { ControlCenterInner } from './control-center-inner';
 
 export interface ControlCenterProps {
@@ -16,13 +15,11 @@ export interface ControlCenterProps {
 
 export function ControlCenter({ initialNodes, initialEdges, drawer }: ControlCenterProps) {
   return (
-    <DrawerCloseGuardProvider>
-      <div data-testid="control-center" className="h-full w-full">
-        <ReactFlowProvider>
-          <ControlCenterInner initialNodes={initialNodes} initialEdges={initialEdges} />
-        </ReactFlowProvider>
-        <div key="drawer">{drawer}</div>
-      </div>
-    </DrawerCloseGuardProvider>
+    <div data-testid="control-center" className="h-full w-full">
+      <ReactFlowProvider>
+        <ControlCenterInner initialNodes={initialNodes} initialEdges={initialEdges} />
+      </ReactFlowProvider>
+      <div key="drawer">{drawer}</div>
+    </div>
   );
 }
