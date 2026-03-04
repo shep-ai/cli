@@ -1,3 +1,9 @@
+## [1.72.4](https://github.com/shep-ai/cli/compare/v1.72.3...v1.72.4) (2026-03-04)
+
+### Bug Fixes
+
+- **web:** drawer close guard with discard confirmation ([#202](https://github.com/shep-ai/cli/issues/202)) ([d162914](https://github.com/shep-ai/cli/commit/d1629140bb8b0939c2df6dfbd31b11b8f4997f8d)), closes [#190](https://github.com/shep-ai/cli/issues/190) [#191](https://github.com/shep-ai/cli/issues/191) [#194](https://github.com/shep-ai/cli/issues/194) [#190](https://github.com/shep-ai/cli/issues/190) [#191](https://github.com/shep-ai/cli/issues/191) [#191](https://github.com/shep-ai/cli/issues/191) [#194](https://github.com/shep-ai/cli/issues/194)
+
 ## [1.72.3](https://github.com/shep-ai/cli/compare/v1.72.2...v1.72.3) (2026-03-04)
 
 ### Bug Fixes
