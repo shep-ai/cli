@@ -105,7 +105,7 @@ export class SQLiteFeatureRepository implements IFeatureRepository {
     }
 
     const where = conditions.length > 0 ? ` WHERE ${conditions.join(' AND ')}` : '';
-    const stmt = this.db.prepare(`SELECT * FROM features${where}`);
+    const stmt = this.db.prepare(`SELECT * FROM features${where} ORDER BY created_at ASC`);
     const rows = stmt.all(...params) as FeatureRow[];
 
     return rows.map(fromDatabase);
