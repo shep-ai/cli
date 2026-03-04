@@ -23,6 +23,7 @@ vi.mock('@/components/common/notification-permission-banner', () => ({
 
 import { ControlCenterInner } from '@/components/features/control-center/control-center-inner';
 import { SidebarFeaturesProvider } from '@/hooks/sidebar-features-context';
+import { DrawerCloseGuardProvider } from '@/hooks/drawer-close-guard';
 import type { FeaturesCanvasProps } from '@/components/features/features-canvas';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 import type { FeatureNodeData } from '@/components/common/feature-node';
@@ -87,9 +88,11 @@ const initialNodes: CanvasNodeType[] = [repoNodeDefault, featureNodeA, featureNo
 
 function renderControlCenter(nodes = initialNodes) {
   return render(
-    <SidebarFeaturesProvider>
-      <ControlCenterInner initialNodes={nodes} initialEdges={[]} />
-    </SidebarFeaturesProvider>
+    <DrawerCloseGuardProvider>
+      <SidebarFeaturesProvider>
+        <ControlCenterInner initialNodes={nodes} initialEdges={[]} />
+      </SidebarFeaturesProvider>
+    </DrawerCloseGuardProvider>
   );
 }
 
