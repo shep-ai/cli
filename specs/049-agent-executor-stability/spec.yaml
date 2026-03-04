@@ -16,7 +16,7 @@ summary: >
   agentType, but it is never passed to the spawned worker process. This fix threads the
   persisted agentType through the spawn call chain so resumed runs always use the executor
   that was active when the run was originally created.
-phase: Analysis
+phase: Requirements
 sizeEstimate: S
 
 # Relationships
@@ -33,7 +33,72 @@ relatedLinks:
   - https://github.com/shep-ai/cli/issues/211
 
 # Open questions (must be resolved before implementation)
-openQuestions: []
+openQuestions:
+  - question: 'How should the worker receive the pinned agentType — CLI arg or environment variable?'
+    resolved: true
+    options:
+      - option: 'CLI argument (--agent-type)'
+        description: >
+          Pass agentType as a named CLI argument when forking the worker process. Consistent
+          with how other worker options (e.g. feature ID, run ID) are already passed via argv.
+          Easy to inspect in process listings, simple to parse, no env namespace pollution.
+        selected: true
+      - option: 'Environment variable (SHEP_AGENT_TYPE)'
+        description: >
+          Inject via a dedicated env var on the child process. Slightly more flexible if
+          the worker is invoked through shell wrappers, but adds implicit coupling through
+          the environment and is harder to discover/trace in code review.
+        selected: false
+    selectionRationale: >
+      CLI arguments are the existing pattern for all worker process options in this codebase.
+      Using --agent-type keeps the interface consistent, is self-documenting in process
+      listings, and requires no changes to env var conventions or documentation.
+    answer: 'CLI argument (--agent-type)'
+
+  - question: 'Should the worker fall back to current settings when --agent-type is absent, or require the arg unconditionally?'
+    resolved: true
+    options:
+      - option: 'Graceful fallback to settings'
+        description: >
+          If --agent-type is not present (e.g. initial spawn on older code paths), the worker
+          falls back to executorProvider.getExecutor() which reads current settings. Maintains
+          backward compatibility with any code path that does not yet pass the arg, and avoids
+          a hard failure if the arg is accidentally omitted.
+        selected: true
+      - option: 'Require arg unconditionally'
+        description: >
+          Always require --agent-type; throw if absent. Stricter contract guarantees the bug
+          cannot silently recur, but risks runtime failures on any spawn call that has not been
+          updated, and breaks backward compatibility with direct worker invocations used in tests.
+        selected: false
+    selectionRationale: >
+      Graceful fallback is the safer choice for a targeted bug fix. The initial spawn (first
+      run creation) is not affected by the bug, so it is acceptable for it to continue reading
+      current settings. Requiring the arg unconditionally would require updating every spawn
+      site simultaneously and risks introducing new failures. Backward compatibility also
+      simplifies testing of the worker in isolation.
+    answer: 'Graceful fallback to settings'
+
+  - question: 'Should agentType be added to ISpawnOptions as optional or required?'
+    resolved: true
+    options:
+      - option: 'Optional field (agentType?: AgentType)'
+        description: >
+          Adding agentType as an optional field in ISpawnOptions preserves backward
+          compatibility with existing callers and reflects the graceful-fallback decision.
+          All existing tests continue to compile without modification.
+        selected: true
+      - option: 'Required field (agentType: AgentType)'
+        description: >
+          Making it required enforces that all callers explicitly pass the value, eliminating
+          the possibility of forgetting it. However it is a breaking change for the interface
+          and forces simultaneous updates to all callers and their tests.
+        selected: false
+    selectionRationale: >
+      Optional aligns with the graceful-fallback resolution and minimises blast radius.
+      Both use cases (approve and resume) will be updated to pass the value; the optional
+      nature is insurance against unknown internal callers and future test helpers.
+    answer: 'Optional field (agentType?: AgentType)'
 
 # Markdown content (the actual spec)
 content: |
@@ -53,6 +118,79 @@ content: |
   database, and `ResumeFeatureUseCase` copies it faithfully to the new run record. However,
   this value is never threaded through the `processService.spawn()` call, so the worker
   has no way to honour it.
+
+  ## Success Criteria
+
+  - [ ] Resuming a paused run after changing the agent type in settings always uses the
+        agentType that was active when the run was originally created, not the current setting.
+  - [ ] Approving a paused run after changing the agent type in settings always uses the
+        original agentType, not the current setting.
+  - [ ] Unit test: `FeatureAgentProcessService.spawn()` with `agentType` option appends
+        `--agent-type <value>` to the forked process argv.
+  - [ ] Unit test: `feature-agent-worker` resolves executor via factory when `--agent-type`
+        arg is present, bypassing `executorProvider.getExecutor()`.
+  - [ ] Unit test: `feature-agent-worker` falls back to `executorProvider.getExecutor()`
+        when `--agent-type` arg is absent (backward compatibility).
+  - [ ] Unit test: `ApproveAgentRunUseCase` passes `run.agentType` to `processService.spawn()`.
+  - [ ] Unit test: `ResumeFeatureUseCase` passes `lastRun.agentType` to `processService.spawn()`.
+  - [ ] All existing unit and integration tests continue to pass without modification.
+  - [ ] `pnpm build`, `pnpm test`, and `pnpm lint` pass with zero errors.
+
+  ## Functional Requirements
+
+  - **FR-1**: When `processService.spawn()` is called with a non-null `agentType` option,
+    the spawned worker process MUST receive that value as a `--agent-type <value>` CLI argument.
+
+  - **FR-2**: When the worker process starts and a `--agent-type` CLI argument is present,
+    it MUST resolve its executor via `IAgentExecutorFactory.createExecutor(agentType, authConfig)`
+    using the supplied value, ignoring the current settings agent type.
+
+  - **FR-3**: When the worker process starts and no `--agent-type` CLI argument is present,
+    it MUST fall back to resolving the executor via `executorProvider.getExecutor()` (existing behaviour).
+
+  - **FR-4**: `ApproveAgentRunUseCase.execute()` MUST pass the persisted `run.agentType`
+    value to `processService.spawn()` as part of the spawn options.
+
+  - **FR-5**: `ResumeFeatureUseCase.execute()` MUST pass the persisted `lastRun.agentType`
+    value to `processService.spawn()` as part of the spawn options.
+
+  - **FR-6**: `IFeatureAgentProcessService` spawn options interface MUST expose an optional
+    `agentType?: AgentType` field.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1 — Backward Compatibility**: The change MUST NOT break any existing spawn call
+    that does not supply `agentType`. The worker must continue to work correctly when the
+    arg is absent (graceful fallback to current settings).
+
+  - **NFR-2 — No Schema Changes**: The fix MUST NOT require any TypeSpec model changes,
+    database migrations, or changes to the `AgentRun` domain entity. All required data
+    already exists in the persisted record.
+
+  - **NFR-3 — No New Dependencies**: The fix MUST NOT introduce new npm packages or
+    DI tokens. `IAgentExecutorFactory` is already registered in the container and is
+    resolvable from the worker's DI context.
+
+  - **NFR-4 — Minimal Blast Radius**: Changes MUST be confined to the five identified
+    source files plus their corresponding test files. No other infrastructure, use cases,
+    or domain entities should be modified.
+
+  - **NFR-5 — Test Coverage**: Every modified code path MUST have a corresponding unit
+    test. No production code change is permitted without a test that would fail before
+    the fix and pass after.
+
+  - **NFR-6 — Observability**: The fix should not suppress or alter any existing logging.
+    If the worker resolves the executor from the explicit arg rather than settings, this
+    should be discernible from the existing debug-level logs (no new logging required,
+    but existing logs must not be removed).
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | How should the worker receive the pinned agentType? | CLI argument `--agent-type` | Consistent with all existing worker option passing patterns; self-documenting |
+  | 2 | Should the worker fall back to settings when arg is absent? | Yes — graceful fallback | Safer for a targeted bug fix; avoids breaking initial-spawn paths and test helpers |
+  | 3 | Should `agentType` be optional or required in ISpawnOptions? | Optional (`agentType?: AgentType`) | Backward compatible; aligns with graceful-fallback decision; minimal blast radius |
 
   ## Codebase Analysis
 
