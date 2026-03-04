@@ -8,11 +8,12 @@ oneLiner: CLI command to batch rebase/merge remote main into all feature branche
 userQuery: >
   Feature: Add a way to itterate over all existing features and merge/rebase remote main into them
 summary: >
-  Add a new CLI command (e.g., `shep feat rebase`) that iterates over all tracked features
+  Add a new CLI command `shep feat rebase` that iterates over all tracked features
   in the current repository, fetches the latest remote default branch (main/master), and
   rebases or merges it into each feature branch. Provides per-feature status reporting
-  with skip/fail/success outcomes and handles worktree-based branch isolation.
-phase: Analysis
+  with skip/fail/success outcomes, handles worktree-based branch isolation, and supports
+  configurable strategy (merge default, rebase opt-in) with optional scope filtering.
+phase: Requirements
 sizeEstimate: M
 
 # Relationships
@@ -28,12 +29,162 @@ technologies:
 
 relatedLinks: []
 
-# Open questions (must be resolved before implementation)
+# Open questions (resolved with AI recommendations)
 openQuestions:
-  - "Rebase vs merge: should the default strategy be rebase (cleaner history) or merge (safer for shared branches)? Should the user be able to choose via a --strategy flag?"
-  - "Conflict handling: when a rebase/merge hits conflicts on one feature, should the command abort that feature and continue to the next, or stop entirely?"
-  - "Scope filtering: should the command operate on all features in the repo, or allow filtering (e.g., --lifecycle, specific feature IDs)?"
-  - "Push after rebase: should the command automatically force-push rebased branches to the remote, or leave that to the user?"
+  - question: >
+      Should the default update strategy be rebase (cleaner history) or merge
+      (safer for shared branches)? Should the user be able to choose via a
+      --strategy flag?
+    resolved: true
+    options:
+      - option: 'Merge default with --strategy flag'
+        description: >
+          Default to merge, which is non-destructive and does not rewrite history.
+          Provide a --strategy rebase flag for users who prefer linear history.
+          Merge is safer for branches that may have been pushed or shared, and
+          does not require force-push afterward.
+        selected: true
+      - option: 'Rebase default with --strategy flag'
+        description: >
+          Default to rebase for cleaner linear history. Provide --strategy merge
+          for users who prefer merge commits. Rebase rewrites history, which
+          requires force-push and can be dangerous for shared branches.
+        selected: false
+      - option: 'Rebase only, no flag'
+        description: >
+          Always rebase, no merge option. Simpler implementation but less flexible.
+          Forces all users into one workflow regardless of whether branches are shared.
+        selected: false
+    selectionRationale: >
+      Merge is the safer default because it does not rewrite history and does not
+      require force-push. Feature branches in shep may be shared (e.g., agent-driven
+      branches with open PRs). Rebase as opt-in via --strategy rebase gives power users
+      the option while protecting less experienced users from accidental history rewrites.
+    answer: 'Merge default with --strategy flag'
+
+  - question: >
+      When a rebase/merge hits conflicts on one feature branch, should the command
+      abort that single feature and continue to the next, or stop the entire batch?
+    resolved: true
+    options:
+      - option: 'Abort feature, continue batch'
+        description: >
+          On conflict, abort the merge/rebase for that feature (git merge --abort or
+          git rebase --abort), report it as failed with the conflict details, and
+          proceed to the next feature. This maximizes the number of branches updated
+          in a single run and is consistent with batch operation semantics.
+        selected: true
+      - option: 'Stop entire batch'
+        description: >
+          On first conflict, halt the entire command. The user must resolve the
+          conflict before re-running. This is simpler but means one problematic
+          branch blocks all others from being updated.
+        selected: false
+      - option: 'Prompt user per conflict'
+        description: >
+          When a conflict occurs, prompt the user to choose: skip this feature,
+          stop the batch, or open a shell to resolve. More interactive but adds
+          complexity and breaks non-interactive/CI usage.
+        selected: false
+    selectionRationale: >
+      Abort-and-continue is the standard batch operation pattern. The whole point of a
+      batch command is to handle multiple items efficiently. Stopping on the first conflict
+      defeats the purpose. The user gets a clear summary at the end showing which features
+      succeeded and which need manual attention.
+    answer: 'Abort feature, continue batch'
+
+  - question: >
+      Should the command operate on all features in the repository, or allow filtering
+      by lifecycle phase or specific feature IDs?
+    resolved: true
+    options:
+      - option: 'All features with optional filters'
+        description: >
+          Default to all features in the current repository. Support optional
+          --lifecycle <phase> flag to filter by SDLC phase and positional feature
+          ID arguments to target specific features. This gives maximum flexibility
+          while keeping the simple case simple.
+        selected: true
+      - option: 'All features only'
+        description: >
+          Always operate on all features, no filtering. Simplest implementation
+          but may update branches the user does not want touched (e.g., features
+          in Review or Done phases).
+        selected: false
+      - option: 'Require explicit selection'
+        description: >
+          Require the user to specify which features to update (by ID or lifecycle).
+          Safest but adds friction to the most common use case of updating everything.
+        selected: false
+    selectionRationale: >
+      All-by-default with optional filters is the most ergonomic approach. The common case
+      is updating everything, but users working with many features will want to scope
+      operations. The --lifecycle filter reuses the existing IFeatureRepository.list() filter
+      capability. Positional feature IDs allow targeting specific features.
+    answer: 'All features with optional filters'
+
+  - question: >
+      Should the command automatically push updated branches to the remote after
+      a successful rebase/merge, or leave pushing to the user?
+    resolved: true
+    options:
+      - option: 'No auto-push (manual by default)'
+        description: >
+          Do not push by default. The user reviews results locally and pushes
+          manually or with a separate command. This is the safest option and avoids
+          surprising remote side effects. Especially important for rebase strategy
+          which would require --force-with-lease.
+        selected: true
+      - option: 'Auto-push with --push flag'
+        description: >
+          Do not push by default but provide a --push flag to opt in. When used
+          with rebase strategy, automatically uses --force-with-lease for safety.
+          Convenient but adds complexity and risk.
+        selected: false
+      - option: 'Always auto-push'
+        description: >
+          Always push after successful merge/rebase. Most convenient but most
+          dangerous, especially with rebase strategy. Force-pushing without user
+          awareness can destroy remote history.
+        selected: false
+    selectionRationale: >
+      No auto-push is the safest default for a batch operation. Pushing multiple branches
+      at once (potentially with force) is a high-risk action that should require explicit
+      user intent. Users can push individually after reviewing results. A --push flag could
+      be added in a future iteration once the core batch operation is proven reliable.
+    answer: 'No auto-push (manual by default)'
+
+  - question: >
+      What should happen when a feature has no worktree (branch-only feature) or
+      the worktree path does not exist on disk?
+    resolved: true
+    options:
+      - option: 'Operate in main repo working directory'
+        description: >
+          For features without worktrees, perform the merge/rebase in the main
+          repository directory by checking out the feature branch, merging, and
+          checking back. This handles all features uniformly but temporarily
+          changes the main repo state.
+        selected: false
+      - option: 'Skip with warning'
+        description: >
+          Skip features whose worktree path does not exist or is not set. Report
+          them as skipped in the summary. This is safe and avoids disrupting the
+          main repo state, but means some features are not updated.
+        selected: false
+      - option: 'Use worktree if available, fall back to temp checkout'
+        description: >
+          If a feature has a worktree, operate there. If not, create a temporary
+          worktree, perform the operation, and remove it. This handles all features
+          without disrupting the main repo.
+        selected: true
+    selectionRationale: >
+      Using the worktree when available and falling back to a temporary checkout
+      ensures all features are updated regardless of their worktree state. Skipping
+      would leave some features behind, and operating in the main repo directory
+      risks disrupting the user's current working state. A temporary worktree is
+      a clean, isolated approach that leverages git's built-in worktree support.
+    answer: 'Use worktree if available, fall back to temp checkout'
 
 # Markdown content (the actual spec)
 content: |
@@ -49,45 +200,140 @@ content: |
   The existing `IGitPrService` has `mergeBranch()` for merging one branch into another, but
   there is no use case, CLI command, or batch orchestration that iterates across features.
 
-  ## Codebase Analysis
+  ## Success Criteria
 
-  ### Project Structure
+  - [ ] New CLI command `shep feat rebase` is registered and available via `shep feat rebase --help`
+  - [ ] Command runs `git fetch origin` once before starting the batch to ensure latest remote state
+  - [ ] Command auto-detects the default branch via `IGitPrService.getDefaultBranch()`
+  - [ ] Command retrieves all features for the current repository via `IFeatureRepository.list()`
+  - [ ] Optional `--lifecycle <phase>` flag filters features by SDLC lifecycle phase
+  - [ ] Optional positional `[featureIds...]` argument targets specific features by ID or ID prefix
+  - [ ] Default strategy is merge; `--strategy rebase` switches to rebase
+  - [ ] Each feature branch is merged/rebased with `origin/<defaultBranch>`
+  - [ ] Features with dirty worktrees (uncommitted changes) are skipped with a warning
+  - [ ] Features whose branch does not exist locally or remotely are skipped with a warning
+  - [ ] On merge/rebase conflict, the operation is aborted for that feature and the next feature is processed
+  - [ ] A per-feature summary table is displayed at completion showing status (success/skipped/failed) and reason
+  - [ ] An aggregate summary line shows total counts: N succeeded, N skipped, N failed
+  - [ ] Command exits with code 0 if all features succeeded or were skipped, code 1 if any failed
+  - [ ] Features without worktrees are handled via temporary worktree creation
+  - [ ] No branches are pushed to remote (no auto-push)
+  - [ ] `IGitPrService` interface is extended with a `rebaseBranch()` method
+  - [ ] `GitPrService` implements `rebaseBranch()` using `git rebase`
+  - [ ] New `BatchRebaseFeaturesUseCase` follows Clean Architecture patterns with DI
+  - [ ] Unit tests cover the use case with mocked git operations (all status paths)
+  - [ ] Integration tests verify end-to-end behavior with real git repos
+  - [ ] CLI command has a colocated test file
 
-  The repository follows Clean Architecture with four layers in `packages/core/src/`:
+  ## Functional Requirements
 
-  - **`domain/`** — Core business logic and TypeSpec-generated models (`domain/generated/output.ts`).
-    The `Feature` entity contains `branch`, `repositoryPath`, `worktreePath`, and `lifecycle` fields
-    that are central to this feature.
-  - **`application/`** — Use cases and output port interfaces. `ListFeaturesUseCase` already lists
-    features with optional `repositoryPath`/`lifecycle` filters. Port interfaces `IGitPrService` and
-    `IWorktreeService` define the git operation contracts.
-  - **`infrastructure/`** — Concrete implementations. `GitPrService` handles git merge/push/branch
-    operations. `WorktreeService` manages worktree creation/listing/removal. Both are registered as
-    singletons in the DI container.
-  - **`presentation/cli/`** — Commander.js-based CLI commands under `src/presentation/cli/commands/`.
-    The `feat` command group (`feat/index.ts`) registers subcommands: new, ls, show, del, resume,
-    review, approve, reject, logs.
+  - **FR-1: CLI Command Registration** — A new subcommand `rebase` is added to the `feat` command
+    group. It is registered in `src/presentation/cli/commands/feat/index.ts` and implemented in
+    `rebase.command.ts` following the existing factory function pattern (`createRebaseCommand()`).
 
-  ### Architecture Patterns
+  - **FR-2: Remote Fetch** — Before processing any features, the command executes `git fetch origin`
+    to ensure the local tracking refs for the default branch are up to date. If the repository has
+    no remote (checked via `IGitPrService.hasRemote()`), the command exits with an error message.
 
-  - **Clean Architecture**: Dependencies point inward. Use cases depend on port interfaces, not
-    concrete implementations.
-  - **Dependency Injection**: tsyringe container with `@injectable()` decorators. Services are
-    resolved via `container.resolve()` in CLI commands.
-  - **Output Ports**: `IGitPrService` and `IWorktreeService` are the interfaces for git operations.
-    The new use case must depend on these interfaces, not concrete services.
-  - **Command Pattern**: Each CLI command is a factory function `create<Name>Command()` returning a
-    `Command` instance. Commands are registered in the group's `index.ts`.
+  - **FR-3: Default Branch Detection** — The command determines the default branch name
+    (main/master/etc.) using `IGitPrService.getDefaultBranch()`. This branch is used as the
+    merge/rebase source for all features.
 
-  ### Relevant Technologies
+  - **FR-4: Feature Discovery** — The command lists all features for the current repository using
+    `IFeatureRepository.list({ repositoryPath })`. The result set is the batch to process.
 
-  - **commander.js** — CLI framework used for all commands. Supports options, arguments, and
-    subcommands.
-  - **tsyringe** — DI container. Use cases are `@injectable()` and resolved from the container.
-  - **Git operations** — Performed via `execFile` calls to the `git` binary. The `ExecFunction`
-    type is injected for testability.
-  - **SQLite** — Feature persistence through `IFeatureRepository`. Features are queried with
-    `list(filters?)`.
+  - **FR-5: Lifecycle Filtering** — An optional `--lifecycle <phase>` flag filters the feature list
+    to only include features in the specified SDLC lifecycle phase (e.g., Implementation, Review).
+    The filter is passed to `IFeatureRepository.list()`.
+
+  - **FR-6: Feature ID Selection** — Optional positional arguments `[featureIds...]` allow the user
+    to specify one or more feature IDs (or ID prefixes) to target. When provided, only matching
+    features are processed. This uses `IFeatureRepository.findByIdPrefix()` for prefix matching.
+
+  - **FR-7: Strategy Selection** — The `--strategy <merge|rebase>` flag determines the update
+    method. Default is `merge`. When `rebase` is selected, the command uses `git rebase` instead
+    of `git merge`. The strategy applies uniformly to all features in the batch.
+
+  - **FR-8: Dirty Worktree Detection** — Before processing each feature, the command checks for
+    uncommitted changes using `IGitPrService.hasUncommittedChanges()` in the feature's working
+    directory. Features with dirty worktrees are skipped with status `skipped` and reason
+    "uncommitted changes".
+
+  - **FR-9: Branch Existence Validation** — Before processing each feature, the command verifies
+    that the feature's branch exists. Features with non-existent branches are skipped with
+    status `skipped` and reason "branch not found".
+
+  - **FR-10: Merge Execution** — When strategy is `merge` (default), the command runs
+    `git merge origin/<defaultBranch>` in the feature's working directory using `IGitPrService.mergeBranch()`.
+
+  - **FR-11: Rebase Execution** — When strategy is `rebase`, the command runs
+    `git rebase origin/<defaultBranch>` in the feature's working directory using a new
+    `IGitPrService.rebaseBranch()` method.
+
+  - **FR-12: Conflict Handling** — When a merge or rebase encounters conflicts, the command
+    aborts the operation (`git merge --abort` or `git rebase --abort`), records the feature
+    as `failed` with reason "merge conflicts" or "rebase conflicts", and continues to the
+    next feature.
+
+  - **FR-13: Worktree Resolution** — For each feature, the command determines the working
+    directory: use `worktreePath` if the feature has one and it exists on disk, otherwise
+    create a temporary worktree via `IWorktreeService.create()`, perform the operation, and
+    clean up the temporary worktree afterward.
+
+  - **FR-14: Per-Feature Status Reporting** — After processing all features, the command displays
+    a table with columns: Feature Name, Branch, Status (success/skipped/failed), and Reason
+    (if skipped or failed). Uses the existing `renderListView()` UI helper.
+
+  - **FR-15: Aggregate Summary** — After the per-feature table, the command displays a summary
+    line: "N succeeded, N skipped, N failed" using appropriate color coding (green/yellow/red).
+
+  - **FR-16: Exit Code** — The command exits with code 0 if all features succeeded or were
+    skipped. It exits with code 1 if any feature failed (conflicts or errors).
+
+  - **FR-17: IGitPrService Extension** — The `IGitPrService` interface is extended with a
+    `rebaseBranch(cwd: string, source: string, target: string): Promise<void>` method. The
+    concrete `GitPrService` implements this using `git rebase`.
+
+  - **FR-18: BatchRebaseFeaturesUseCase** — A new use case class in
+    `packages/core/src/application/use-cases/features/` encapsulates the batch orchestration
+    logic. It depends on `IFeatureRepository`, `IGitPrService`, and `IWorktreeService` via
+    constructor injection. The CLI command delegates to this use case.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1: Performance** — The command must complete a batch of 20 features in under 60 seconds
+    (excluding network latency for `git fetch`). Features are processed sequentially to avoid
+    git lock contention.
+
+  - **NFR-2: Idempotency** — Running the command multiple times when branches are already up to
+    date must be safe and result in no-op merges with status `success` (already up to date).
+
+  - **NFR-3: Clean Architecture Compliance** — The use case must depend only on port interfaces
+    (`IFeatureRepository`, `IGitPrService`, `IWorktreeService`), never on concrete service
+    implementations. The CLI command resolves the use case from the DI container.
+
+  - **NFR-4: Testability** — All git operations are performed through injected interfaces, making
+    the use case fully unit-testable with mocks. No direct `execFile` or shell calls in the
+    use case layer.
+
+  - **NFR-5: Error Isolation** — A failure in one feature must not affect processing of other
+    features. Unexpected errors (not just conflicts) are caught, recorded, and the batch continues.
+
+  - **NFR-6: User Feedback** — The command provides real-time progress indication during processing
+    (e.g., "Processing feature 3/10: my-feature...") so the user knows the command is working.
+
+  - **NFR-7: No Side Effects Beyond Local Branches** — The command must not push, create PRs,
+    modify feature records in the database, or perform any remote operations beyond `git fetch`.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Default strategy: rebase or merge? | Merge (with --strategy flag for rebase) | Merge is non-destructive, doesn't rewrite history, and doesn't require force-push. Safer default for potentially shared branches. |
+  | 2 | Conflict handling: abort one or stop all? | Abort conflicting feature, continue batch | Batch semantics should maximize throughput. One bad branch shouldn't block all others. Summary shows what needs manual attention. |
+  | 3 | Scope: all features or allow filtering? | All by default with optional --lifecycle and feature ID filters | Common case is "update everything". Filters reuse existing repository query capabilities for power users. |
+  | 4 | Auto-push after update? | No auto-push | Pushing multiple branches (especially with force for rebase) is high-risk. Users should review results and push deliberately. |
+  | 5 | Features without worktrees? | Use worktree if available, temp worktree as fallback | Ensures all features are updated without disrupting the main repo working directory. |
 
   ## Affected Areas
 
@@ -95,49 +341,32 @@ content: |
   | ---- | ------ | --------- |
   | `packages/core/src/application/use-cases/features/` | High | New `BatchRebaseFeaturesUseCase` orchestrating the batch operation |
   | `src/presentation/cli/commands/feat/` | High | New `rebase.command.ts` CLI command + registration in `index.ts` |
-  | `packages/core/src/application/ports/output/services/git-pr-service.interface.ts` | Medium | May need new method for rebase operation (current `mergeBranch` only does merge) |
-  | `packages/core/src/infrastructure/services/git/git-pr.service.ts` | Medium | Implement rebase method if added to interface, plus `git fetch origin` support |
+  | `packages/core/src/application/ports/output/services/git-pr-service.interface.ts` | Medium | New `rebaseBranch()` method added to interface |
+  | `packages/core/src/infrastructure/services/git/git-pr.service.ts` | Medium | Implement `rebaseBranch()` using `git rebase` |
   | `packages/core/src/infrastructure/services/git/worktree.service.ts` | Low | May need to resolve worktree paths for feature branches during iteration |
   | `packages/core/src/infrastructure/di/container.ts` | Low | Register new use case if not auto-resolved by tsyringe |
-  | `tsp/domain/entities/feature.tsp` | None | No domain model changes expected — existing `branch`, `worktreePath`, `lifecycle` fields suffice |
+  | `tsp/domain/entities/feature.tsp` | None | No domain model changes — existing `branch`, `worktreePath`, `lifecycle` fields suffice |
 
   ## Dependencies
 
   - **`IFeatureRepository.list()`** — Retrieves all features for the current repository. Already exists
     with `repositoryPath` and `lifecycle` filters.
-  - **`IGitPrService`** — Provides `mergeBranch()`, `getDefaultBranch()`, `hasRemote()`, `push()`.
-    Missing: a `rebaseBranch()` method for rebase strategy.
-  - **`IWorktreeService`** — Provides `list()`, `exists()`, `getWorktreePath()` to locate feature
-    worktrees for running git operations in the correct working directory.
-  - **`ExecFunction`** — Injected command executor for running `git fetch`, `git rebase`, etc.
+  - **`IFeatureRepository.findByIdPrefix()`** — Finds features by ID prefix for positional argument matching.
+  - **`IGitPrService`** — Provides `mergeBranch()`, `getDefaultBranch()`, `hasRemote()`,
+    `hasUncommittedChanges()`, `push()`. Will be extended with `rebaseBranch()`.
+  - **`IWorktreeService`** — Provides `list()`, `exists()`, `getWorktreePath()`, `create()`, `remove()`
+    to locate feature worktrees and create temporary ones for branch-only features.
+  - **`ExecFunction`** — Injected command executor for `git fetch`, `git rebase`, `git merge --abort`,
+    `git rebase --abort`.
   - **`commander.js`** — CLI framework for the new command.
   - **`tsyringe`** — DI container for resolving use case and service dependencies.
-
-  ## Success Criteria
-
-  - [ ] New CLI command `shep feat rebase` (or similar) is available
-  - [ ] Command fetches latest remote default branch before starting
-  - [ ] Command iterates over all features in the current repository
-  - [ ] Each feature branch is rebased/merged with the latest default branch
-  - [ ] Per-feature status is reported (success, skipped, failed with reason)
-  - [ ] Features with dirty worktrees are skipped with a warning
-  - [ ] Merge conflicts are handled gracefully (abort and report, continue to next feature)
-  - [ ] Command supports --strategy flag (rebase vs merge)
-  - [ ] Unit tests cover the use case with mocked git operations
-  - [ ] Integration tests verify end-to-end behavior
 
   ## Size Estimate
 
   **M** — This is a medium-sized feature. The core logic is straightforward (iterate features,
   run git rebase/merge on each), but requires:
   1. A new use case with batch orchestration and error handling per feature
-  2. A new CLI command with options (strategy, filtering, push)
-  3. Possibly extending `IGitPrService` interface with a rebase method
-  4. Handling edge cases: dirty worktrees, missing branches, conflict resolution
+  2. A new CLI command with options (strategy, lifecycle filter, feature IDs)
+  3. Extending `IGitPrService` interface with a `rebaseBranch()` method
+  4. Handling edge cases: dirty worktrees, missing branches, conflict resolution, worktree fallback
   5. Comprehensive tests (unit + integration)
-
-  Estimated at 2-3 days of focused work.
-
-  ---
-
-  _Analysis complete — proceed with research_
