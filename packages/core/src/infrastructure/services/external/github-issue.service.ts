@@ -8,8 +8,10 @@
 import type {
   IExternalIssueFetcher,
   ExternalIssue,
+  ListIssuesOptions,
 } from '@/application/ports/output/services/external-issue-fetcher.interface.js';
 import {
+  IssueFetcherError,
   IssueNotFoundError,
   IssueServiceUnavailableError,
 } from '@/application/ports/output/services/external-issue-fetcher.interface.js';
@@ -20,7 +22,9 @@ type ExecFileFn = (
   options?: object
 ) => Promise<{ stdout: string; stderr?: string }>;
 
-export class GitHubIssueFetcher implements Pick<IExternalIssueFetcher, 'fetchGitHubIssue'> {
+export class GitHubIssueFetcher
+  implements Pick<IExternalIssueFetcher, 'fetchGitHubIssue' | 'listIssues'>
+{
   constructor(private readonly execFile: ExecFileFn) {}
 
   async fetchGitHubIssue(ref: string): Promise<ExternalIssue> {
@@ -61,6 +65,59 @@ export class GitHubIssueFetcher implements Pick<IExternalIssueFetcher, 'fetchGit
       }
 
       throw new IssueNotFoundError(`Failed to fetch GitHub issue ${ref}: ${error.message}`);
+    }
+  }
+
+  async listIssues(options?: ListIssuesOptions): Promise<ExternalIssue[]> {
+    const args = [
+      'issue',
+      'list',
+      '--json',
+      'number,title,body,labels,url',
+      '--state',
+      'open',
+      '--limit',
+      String(options?.limit ?? 100),
+    ];
+
+    if (options?.labels) {
+      for (const label of options.labels) {
+        args.push('--label', label);
+      }
+    }
+
+    if (options?.repo) {
+      args.push('--repo', options.repo);
+    }
+
+    try {
+      const { stdout } = await this.execFile('gh', args, { timeout: 30_000 });
+      const data = JSON.parse(stdout) as {
+        number: number;
+        title: string;
+        body: string | null;
+        labels: { name: string }[];
+        url: string;
+      }[];
+
+      return data.map((item) => ({
+        title: item.title,
+        description: item.body ?? '',
+        labels: item.labels.map((l) => l.name),
+        url: item.url,
+        source: 'github' as const,
+        number: item.number,
+      }));
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error(String(err));
+
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        throw new IssueServiceUnavailableError(
+          'GitHub CLI (gh) is not installed. Install it from https://cli.github.com/'
+        );
+      }
+
+      throw new IssueFetcherError(`Failed to list GitHub issues: ${error.message}`);
     }
   }
 
