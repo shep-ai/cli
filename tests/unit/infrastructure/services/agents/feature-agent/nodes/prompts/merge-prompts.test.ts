@@ -115,10 +115,9 @@ describe('buildCommitPushPrPrompt', () => {
     expect(prompt.toLowerCase()).toMatch(/diff|changes/);
   });
 
-  it('should instruct agent to update feature.yaml prUrl when openPr=true', () => {
+  it('should not instruct agent to update feature.yaml (PR data persisted via DB)', () => {
     const prompt = buildCommitPushPrPrompt(baseState({ openPr: true }), 'feat/test', 'main');
-    expect(prompt).toContain('feature.yaml');
-    expect(prompt.toLowerCase()).toContain('prurl');
+    expect(prompt).not.toContain('feature.yaml');
   });
 
   it('should forbid git pull and rebase before pushing', () => {
