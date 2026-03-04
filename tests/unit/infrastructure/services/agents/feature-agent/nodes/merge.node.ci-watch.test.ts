@@ -245,8 +245,14 @@ describe('createMergeNode — CI watch/fix loop', () => {
     });
 
     it('should NOT call getCiStatus when isResumeAfterInterrupt=true', async () => {
-      mockGetCompletedPhases.mockReturnValue(['merge']);
+      // Resume detection now uses DB PR data instead of feature.yaml completedPhases
       mockShouldInterrupt.mockReturnValue(true);
+      deps.featureRepository.findById = vi.fn().mockResolvedValue({
+        id: 'feat-001',
+        lifecycle: 'Implementation',
+        branch: 'feat/test',
+        pr: { url: 'https://github.com/test/repo/pull/1', number: 1, status: 'Open' },
+      });
 
       const node = createMergeNode(deps);
       const state = baseState({ push: true });

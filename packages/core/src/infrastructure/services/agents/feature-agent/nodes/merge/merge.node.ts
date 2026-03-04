@@ -14,7 +14,6 @@
  */
 
 import { interrupt, isGraphBubbleUp } from '@langchain/langgraph';
-import { execFileSync } from 'node:child_process';
 import type { IAgentExecutor } from '@/application/ports/output/agents/agent-executor.interface.js';
 import type { FeatureAgentState } from '../../state.js';
 import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
@@ -28,9 +27,6 @@ import {
   shouldInterrupt,
   retryExecute,
   buildExecutorOptions,
-  getCompletedPhases,
-  clearCompletedPhase,
-  markPhaseComplete,
 } from '../node-helpers.js';
 import { reportNodeStart } from '../../heartbeat.js';
 import {
@@ -71,15 +67,24 @@ export function createMergeNode(deps: MergeNodeDeps) {
     reportNodeStart('merge');
     await updateNodeLifecycle('merge');
 
-    // --- Rejection detection on resume (same pattern as executeNode) ---
-    const completedPhases = getCompletedPhases(state.specDir);
+    // --- Rejection detection on resume ---
+    // Use DB-persisted PR data instead of feature.yaml to detect resume,
+    // because feature.yaml is in the worktree which was already pushed.
+    const featureForResume = await deps.featureRepository.findById(state.featureId);
     const isResumeAfterInterrupt =
-      completedPhases.includes('merge') && shouldInterrupt('merge', state.approvalGates);
+      !!featureForResume?.pr?.url && shouldInterrupt('merge', state.approvalGates);
 
     if (isResumeAfterInterrupt && state._approvalAction === 'rejected') {
       const feedback = state._rejectionFeedback ?? '(no feedback)';
       log.info(`Merge rejected with feedback: "${feedback}" — scheduling re-execution`);
-      clearCompletedPhase(state.specDir, 'merge', log);
+      // Clear PR data from DB so re-execution doesn't detect as resume
+      if (featureForResume) {
+        await deps.featureRepository.update({
+          ...featureForResume,
+          pr: undefined,
+          updatedAt: new Date(),
+        });
+      }
       return {
         currentNode: 'merge',
         messages: [`[merge] Rejected — will re-execute`],
@@ -187,22 +192,6 @@ export function createMergeNode(deps: MergeNodeDeps) {
         // --- Merge approval gate ---
         if (shouldInterrupt('merge', state.approvalGates)) {
           log.info('Interrupting for merge approval');
-          markPhaseComplete(state.specDir, 'merge', log);
-
-          // Auto-commit feature.yaml so the working directory stays clean
-          try {
-            const featureYamlPath = `${state.specDir}/feature.yaml`;
-            const gitOpts = { cwd: state.repositoryPath, stdio: 'ignore' as const };
-            execFileSync('git', ['add', featureYamlPath], gitOpts);
-            execFileSync(
-              'git',
-              ['commit', '-m', 'chore(specs): mark merge phase complete'],
-              gitOpts
-            );
-          } catch {
-            log.info('Could not auto-commit feature.yaml update (non-fatal)');
-          }
-
           await recordPhaseEnd(mergeTimingId, Date.now() - startTime);
           await recordApprovalWaitStart(mergeTimingId);
           const diffSummary = await deps.getDiffSummary(cwd, baseBranch);
