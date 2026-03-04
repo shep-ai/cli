@@ -1,3 +1,9 @@
+## [1.72.5](https://github.com/shep-ai/cli/compare/v1.72.4...v1.72.5) (2026-03-04)
+
+### Bug Fixes
+
+- **web:** suppress background refresh while drawer has unsaved changes ([#204](https://github.com/shep-ai/cli/issues/204)) ([0b0b30b](https://github.com/shep-ai/cli/commit/0b0b30b284cf4ff0959463d3ea56b9501a11a363)), closes [#189](https://github.com/shep-ai/cli/issues/189)
+
 ## [1.72.4](https://github.com/shep-ai/cli/compare/v1.72.3...v1.72.4) (2026-03-04)
 
 ### Bug Fixes
