@@ -309,7 +309,9 @@ export function useControlCenterState(
           : null;
 
         const allNodes = [...currentNodes, newNode];
-        const allEdges = newEdge ? [...edgesRef.current, newEdge] : edgesRef.current;
+        const allEdges = newEdge
+          ? [...edgesRef.current.filter((e) => e.id !== newEdge.id), newEdge]
+          : edgesRef.current;
 
         // Run dagre layout on the full graph so the new node is positioned consistently
         const layoutResult = layoutWithDagre(allNodes, allEdges, CANVAS_LAYOUT_DEFAULTS);
