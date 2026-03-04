@@ -3,7 +3,15 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { toast } from 'sonner';
-import { Loader2, Trash2, ExternalLink, GitCommitHorizontal, Play, Square } from 'lucide-react';
+import {
+  Loader2,
+  Trash2,
+  ExternalLink,
+  GitCommitHorizontal,
+  Play,
+  Square,
+  RotateCcw,
+} from 'lucide-react';
 import type {
   PrdApprovalPayload,
   QuestionSelectionChange,
@@ -15,6 +23,7 @@ import { getFeatureArtifact } from '@/app/actions/get-feature-artifact';
 import { getResearchArtifact } from '@/app/actions/get-research-artifact';
 import { getMergeReviewData } from '@/app/actions/get-merge-review-data';
 import { deleteFeature } from '@/app/actions/delete-feature';
+import { resumeFeature } from '@/app/actions/resume-feature';
 import { cn } from '@/lib/utils';
 import { featureFlags } from '@/lib/feature-flags';
 import { useSoundAction } from '@/hooks/use-sound-action';
@@ -161,6 +170,9 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
 
   // ── Delete state ───────────────────────────────────────────────────────
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // ── Retry state ─────────────────────────────────────────────────────
+  const [isRetrying, setIsRetrying] = useState(false);
 
   // ── Shared reject state ────────────────────────────────────────────────
   const [isRejecting, setIsRejecting] = useState(false);
@@ -426,6 +438,22 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
     [router, deleteSound]
   );
 
+  const handleRetry = useCallback(async (featureId: string) => {
+    setIsRetrying(true);
+    try {
+      const result = await resumeFeature(featureId);
+      if (result.resumed) {
+        toast.success('Feature resuming');
+      } else {
+        toast.error(result.error ?? 'Failed to resume feature');
+      }
+    } catch {
+      toast.error('Failed to resume feature');
+    } finally {
+      setIsRetrying(false);
+    }
+  }, []);
+
   // ── Hooks (always called unconditionally per Rules of Hooks) ──────────
 
   const featureActionsInput =
@@ -599,6 +627,24 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
           </>
         ) : null}
         <FeatureDetails data={featureNode} />
+        {featureNode.state === 'error' ? (
+          <div className="px-4 pb-4">
+            <Button
+              onClick={() => handleRetry(featureNode.featureId)}
+              disabled={isRetrying}
+              aria-label="Retry failed feature"
+              data-testid="feature-drawer-retry"
+              className="w-full"
+            >
+              {isRetrying ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <RotateCcw className="mr-2 h-4 w-4" />
+              )}
+              Retry
+            </Button>
+          </div>
+        ) : null}
       </div>
     );
   } else if (view.type === 'prd-review') {

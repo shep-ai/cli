@@ -13,6 +13,7 @@ import {
   type LayoutDirection,
 } from '@/lib/layout-with-dagre';
 import { deleteFeature } from '@/app/actions/delete-feature';
+import { resumeFeature } from '@/app/actions/resume-feature';
 import { addRepository } from '@/app/actions/add-repository';
 import { deleteRepository } from '@/app/actions/delete-repository';
 import { useAgentEventsContext } from '@/hooks/agent-events-provider';
@@ -30,6 +31,7 @@ export interface ControlCenterState {
   handleAddRepository: (path: string) => void;
   handleLayout: (direction: LayoutDirection) => void;
   handleDeleteFeature: (featureId: string) => void;
+  handleResumeFeature: (featureId: string) => void;
   handleDeleteRepository: (repositoryId: string) => Promise<void>;
   createFeatureNode: (
     sourceNodeId: string | null,
@@ -373,6 +375,20 @@ export function useControlCenterState(
     [nodes, router, deleteSound, setEdges]
   );
 
+  const handleResumeFeature = useCallback((featureId: string) => {
+    resumeFeature(featureId)
+      .then((result) => {
+        if (result.resumed) {
+          toast.success('Feature resuming');
+        } else {
+          toast.error(result.error ?? 'Failed to resume feature');
+        }
+      })
+      .catch(() => {
+        toast.error('Failed to resume feature');
+      });
+  }, []);
+
   const handleDeleteRepository = useCallback(
     async (repositoryId: string) => {
       const repoNodeId = `repo-${repositoryId}`;
@@ -535,6 +551,7 @@ export function useControlCenterState(
     handleAddRepository,
     handleLayout,
     handleDeleteFeature,
+    handleResumeFeature,
     handleDeleteRepository,
     createFeatureNode,
   };

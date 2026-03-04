@@ -37,6 +37,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     handleConnect,
     handleAddRepository,
     handleDeleteFeature,
+    handleResumeFeature,
     handleDeleteRepository,
     createFeatureNode,
   } = useControlCenterState(initialNodes, initialEdges);
@@ -238,6 +239,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
         onRepositoryClick={handleRepositoryClick}
         onRepositoryDelete={handleDeleteRepository}
         onFeatureDelete={handleDeleteFeature}
+        onFeatureRetry={handleResumeFeature}
         onRepositorySelect={handleAddRepository}
         emptyState={<ControlCenterEmptyState onRepositorySelect={handleAddRepository} />}
       />

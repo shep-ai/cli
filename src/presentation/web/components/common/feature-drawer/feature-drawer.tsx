@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback } from 'react';
-import { Loader2, Trash2, ExternalLink, GitCommitHorizontal } from 'lucide-react';
+import { Loader2, Trash2, ExternalLink, GitCommitHorizontal, RotateCcw } from 'lucide-react';
 import { PrStatus } from '@shepai/core/domain/generated/output';
 import { cn } from '@/lib/utils';
 import { OpenActionMenu } from '@/components/common/open-action-menu';
@@ -32,6 +32,8 @@ export interface FeatureDrawerProps {
   onClose: () => void;
   onDelete?: (featureId: string) => void;
   isDeleting?: boolean;
+  onRetry?: () => void;
+  isRetrying?: boolean;
 }
 
 export function FeatureDrawer({
@@ -39,6 +41,8 @@ export function FeatureDrawer({
   onClose,
   onDelete,
   isDeleting = false,
+  onRetry,
+  isRetrying = false,
 }: FeatureDrawerProps) {
   const handleClose = useCallback(() => {
     onClose();
@@ -187,6 +191,26 @@ export function FeatureDrawer({
 
           {/* Details */}
           <DetailsSection data={selectedNode} />
+
+          {/* Retry button for error state */}
+          {selectedNode.state === 'error' && onRetry ? (
+            <div className="px-4 pb-4">
+              <Button
+                onClick={onRetry}
+                disabled={isRetrying}
+                aria-label="Retry failed feature"
+                data-testid="feature-drawer-retry"
+                className="w-full"
+              >
+                {isRetrying ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <RotateCcw className="mr-2 h-4 w-4" />
+                )}
+                Retry
+              </Button>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </BaseDrawer>

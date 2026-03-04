@@ -46,6 +46,12 @@ vi.mock('@/app/actions/add-repository', () => ({
   addRepository: (...args: unknown[]) => mockAddRepository(...args),
 }));
 
+const mockResumeFeature = vi.fn();
+
+vi.mock('@/app/actions/resume-feature', () => ({
+  resumeFeature: (...args: unknown[]) => mockResumeFeature(...args),
+}));
+
 vi.mock('@/app/actions/delete-repository', () => ({
   deleteRepository: (...args: unknown[]) => mockDeleteRepository(...args),
 }));
@@ -109,6 +115,9 @@ function HookTestHarness({
       </button>
       <button data-testid="delete-feature" onClick={() => state.handleDeleteFeature('1')}>
         Delete Feature
+      </button>
+      <button data-testid="resume-feature" onClick={() => state.handleResumeFeature('f1')}>
+        Resume Feature
       </button>
       <button
         data-testid="add-to-feature-creating"
@@ -896,6 +905,56 @@ describe('useControlCenterState', () => {
         // Both edges were connected to feat-1, so 0 edges remain
         expect(capturedState!.edges).toHaveLength(0);
       });
+    });
+  });
+
+  describe('handleResumeFeature', () => {
+    it('calls resumeFeature server action with featureId', async () => {
+      mockResumeFeature.mockResolvedValue({ resumed: true });
+
+      renderHook([mockFeatureNode] as CanvasNodeType[]);
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('resume-feature'));
+      });
+
+      expect(mockResumeFeature).toHaveBeenCalledWith('f1');
+    });
+
+    it('shows success toast when resume succeeds', async () => {
+      mockResumeFeature.mockResolvedValue({ resumed: true });
+
+      renderHook([mockFeatureNode] as CanvasNodeType[]);
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('resume-feature'));
+      });
+
+      expect(mockToastSuccess).toHaveBeenCalledWith('Feature resuming');
+    });
+
+    it('shows error toast when server action returns error', async () => {
+      mockResumeFeature.mockResolvedValue({ resumed: false, error: 'Feature is not resumable' });
+
+      renderHook([mockFeatureNode] as CanvasNodeType[]);
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('resume-feature'));
+      });
+
+      expect(mockToastError).toHaveBeenCalledWith('Feature is not resumable');
+    });
+
+    it('shows generic error toast on network failure', async () => {
+      mockResumeFeature.mockRejectedValue(new Error('Network error'));
+
+      renderHook([mockFeatureNode] as CanvasNodeType[]);
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('resume-feature'));
+      });
+
+      expect(mockToastError).toHaveBeenCalledWith('Failed to resume feature');
     });
   });
 });

@@ -65,7 +65,7 @@ const defaultData: FeatureNodeData = {
 function renderDrawer(
   selectedNode: FeatureNodeData | null = defaultData,
   onClose = vi.fn(),
-  props?: Partial<Pick<FeatureDrawerProps, 'onDelete' | 'isDeleting'>>
+  props?: Partial<Pick<FeatureDrawerProps, 'onDelete' | 'isDeleting' | 'onRetry' | 'isRetrying'>>
 ) {
   return render(<FeatureDrawer selectedNode={selectedNode} onClose={onClose} {...props} />);
 }
@@ -361,6 +361,45 @@ describe('FeatureDrawer', () => {
 
       const triggerButton = screen.getByRole('button', { name: /delete feature/i });
       expect(triggerButton).toBeDisabled();
+    });
+  });
+
+  describe('retry button', () => {
+    it('renders retry button when state is error and onRetry is provided', () => {
+      const onRetry = vi.fn();
+      renderDrawer({ ...defaultData, state: 'error' }, vi.fn(), { onRetry });
+      expect(screen.getByTestId('feature-drawer-retry')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /retry failed feature/i })).toBeInTheDocument();
+    });
+
+    it('does not render retry button when state is not error', () => {
+      const onRetry = vi.fn();
+      renderDrawer({ ...defaultData, state: 'running' }, vi.fn(), { onRetry });
+      expect(screen.queryByTestId('feature-drawer-retry')).not.toBeInTheDocument();
+    });
+
+    it('does not render retry button when onRetry is not provided', () => {
+      renderDrawer({ ...defaultData, state: 'error' });
+      expect(screen.queryByTestId('feature-drawer-retry')).not.toBeInTheDocument();
+    });
+
+    it('clicking retry button calls onRetry', () => {
+      const onRetry = vi.fn();
+      renderDrawer({ ...defaultData, state: 'error' }, vi.fn(), { onRetry });
+      fireEvent.click(screen.getByTestId('feature-drawer-retry'));
+      expect(onRetry).toHaveBeenCalledOnce();
+    });
+
+    it('retry button is disabled when isRetrying is true', () => {
+      const onRetry = vi.fn();
+      renderDrawer({ ...defaultData, state: 'error' }, vi.fn(), { onRetry, isRetrying: true });
+      expect(screen.getByTestId('feature-drawer-retry')).toBeDisabled();
+    });
+
+    it('retry button shows Retry label', () => {
+      const onRetry = vi.fn();
+      renderDrawer({ ...defaultData, state: 'error' }, vi.fn(), { onRetry });
+      expect(screen.getByTestId('feature-drawer-retry')).toHaveTextContent('Retry');
     });
   });
 
