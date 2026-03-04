@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { toast } from 'sonner';
 import { createFeature } from '@/app/actions/create-feature';
@@ -35,6 +35,14 @@ export function CreateDrawerClient({
   // is async and the pathname may not update before the next render.
   const pathname = usePathname();
   const isOpen = !isSubmitting && pathname.startsWith('/create');
+
+  // Safety net: if the drawer is closed (e.g. via form submit + isSubmitting)
+  // but router.push('/') hasn't taken effect yet, force-clear the route.
+  useEffect(() => {
+    if (!isOpen && pathname.startsWith('/create')) {
+      router.replace('/');
+    }
+  }, [isOpen, pathname, router]);
 
   const onClose = useCallback(() => {
     router.push('/');
