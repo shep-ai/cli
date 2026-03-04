@@ -120,6 +120,32 @@ describe('buildCommitPushPrPrompt', () => {
     expect(prompt).not.toContain('feature.yaml');
   });
 
+  it('should include local verification step before pushing when push=true', () => {
+    const prompt = buildCommitPushPrPrompt(
+      baseState({ push: true, openPr: false }),
+      'feat/test',
+      'main'
+    );
+    expect(prompt).toContain('pnpm build');
+    expect(prompt).toContain('pnpm test');
+    expect(prompt).toContain('pnpm lint');
+    // Verification must come BEFORE push in the prompt
+    const verifyIndex = prompt.indexOf('pnpm build');
+    const pushIndex = prompt.indexOf('git push');
+    expect(verifyIndex).toBeLessThan(pushIndex);
+  });
+
+  it('should NOT include local verification step when not pushing', () => {
+    const prompt = buildCommitPushPrPrompt(
+      baseState({ push: false, openPr: false }),
+      'feat/test',
+      'main'
+    );
+    expect(prompt).not.toContain('pnpm build');
+    expect(prompt).not.toContain('pnpm test');
+    expect(prompt).not.toContain('pnpm lint');
+  });
+
   it('should forbid git pull and rebase before pushing', () => {
     const prompt = buildCommitPushPrPrompt(
       baseState({ push: true, openPr: false }),

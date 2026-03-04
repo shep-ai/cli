@@ -317,7 +317,12 @@ export function buildCommitPushBlock(opts: {
     `   - The message should accurately describe what changed`,
   ];
   if (opts.push) {
-    lines.push(`3. Push to remote: \`git push -u origin HEAD\``);
+    lines.push(`3. Run local verification before pushing:`);
+    lines.push(`   - \`pnpm build\` — must compile without errors`);
+    lines.push(`   - \`pnpm test\` — all tests must pass`);
+    lines.push(`   - \`pnpm lint\` — no lint errors`);
+    lines.push(`   - Fix any issues found before proceeding to push`);
+    lines.push(`4. Push to remote: \`git push -u origin HEAD\``);
     lines.push(`   - Do NOT wait for or watch CI — just push and finish`);
   }
   return lines.join('\n');
