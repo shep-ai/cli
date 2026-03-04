@@ -12,10 +12,12 @@ userQuery: >
   also in the sidenav under feature it shown in progress instead of error.
 summary: >
   Two issues need resolution: (1) The sidebar maps error-state features to "in-progress" instead
-  of showing them as errors, caused by a wrong mapping in sidebar-features-context.tsx. (2) The
-  Web UI provides no way to retry/resume a failed feature — the CLI has `shep feat resume` but
-  there is no equivalent server action or UI affordance in the web dashboard.
-phase: Analysis
+  of showing them as errors — a one-line bug in sidebar-features-context.tsx stateMapping. (2) The
+  Web UI provides no way to retry/resume a failed feature — the CLI has `shep feat resume` backed
+  by ResumeFeatureUseCase, but there is no server action, drawer retry button, or canvas node
+  affordance in the web dashboard. This spec defines requirements for fixing the mapping bug,
+  adding a resume server action, and surfacing retry UX in both the feature drawer and canvas node.
+phase: Requirements
 sizeEstimate: M
 
 # Relationships
@@ -34,117 +36,257 @@ technologies:
 
 relatedLinks: []
 
-# Open questions (must be resolved before implementation)
+# Open questions (resolved with AI recommendations)
 openQuestions:
-  - >
-    Should the sidebar introduce a 4th status (e.g. "error") with distinct red styling,
-    or should errors map to the existing "action-needed" bucket since they require user action?
-  - >
-    Should the retry button on the feature drawer simply call ResumeFeatureUseCase (checkpoint-based
-    resume from last good state) or offer an option to restart the feature from scratch?
-  - >
-    Should the canvas error node show a retry button inline (like the action-required badge)
-    or only expose retry via the feature detail drawer?
+  - question: >
+      Should the sidebar introduce a 4th status (e.g. "error") with distinct red styling,
+      or should errors map to the existing "action-needed" bucket since they require user action?
+    resolved: true
+    options:
+      - option: 'Map error to action-needed'
+        description: >
+          Reuse the existing 3-status system by mapping error → action-needed. Errors require
+          user intervention (retry/investigate), which aligns with the action-needed semantics.
+          No new sidebar status type, icon, or color needed. Keeps the sidebar simple and
+          consistent with its current design philosophy of 3 buckets.
+        selected: true
+      - option: 'Add a 4th error status'
+        description: >
+          Introduce a new "error" sidebar status with red styling (e.g. CircleX icon, red-500).
+          Provides distinct visual differentiation between "needs approval" and "failed" states.
+          However, adds complexity to the sidebar grouping, requires new config, new tests, and
+          changes the established 3-bucket pattern. Harder to justify when the action-needed
+          bucket already semantically means "user must act".
+        selected: false
+    selectionRationale: >
+      Mapping error → action-needed is the pragmatic choice. Both error and action-required
+      states share the same core semantic: the user must take action. The sidebar is a summary
+      view — the canvas node already provides red error-specific styling for detailed
+      differentiation. Adding a 4th status increases complexity without proportional user benefit,
+      and the amber CircleAlert icon correctly communicates "attention needed". This approach
+      requires only a 1-line fix instead of new config, types, and UI changes.
+    answer: 'Map error to action-needed'
 
-# Markdown content (the actual spec)
+  - question: >
+      Should the retry button on the feature drawer simply call ResumeFeatureUseCase (checkpoint-based
+      resume from last good state) or offer an option to restart the feature from scratch?
+    resolved: true
+    options:
+      - option: 'Resume only (checkpoint-based)'
+        description: >
+          The retry button calls ResumeFeatureUseCase which creates a new AgentRun and resumes
+          from the last checkpoint using the same threadId. This is the fastest recovery path,
+          avoids re-doing completed work, and matches the CLI behavior exactly. Simple UX with
+          a single "Retry" button. Restart-from-scratch can be achieved by deleting and
+          re-creating the feature if truly needed.
+        selected: true
+      - option: 'Resume with restart option'
+        description: >
+          Offer both "Resume" (checkpoint-based) and "Restart" (from scratch) as separate
+          buttons or a dropdown. Gives users maximum flexibility but adds UI complexity,
+          requires a new use case or flag for restart-from-scratch, and the restart path
+          is already achievable via delete + re-create. Adds scope to an M-sized feature.
+        selected: false
+    selectionRationale: >
+      Resume-only (checkpoint-based) is recommended because it matches the existing CLI
+      behavior, reuses the fully-implemented ResumeFeatureUseCase without modifications,
+      and provides the fastest recovery path. Users who need a full restart can delete
+      and re-create the feature. Adding a restart option would increase scope, require
+      new backend logic, and complicate the UI for an edge case. The checkpoint-based
+      resume is the primary recovery mechanism the infrastructure was designed around.
+    answer: 'Resume only (checkpoint-based)'
+
+  - question: >
+      Should the canvas error node show a retry button inline (like the action-required badge)
+      or only expose retry via the feature detail drawer?
+    resolved: true
+    options:
+      - option: 'Inline retry on canvas node'
+        description: >
+          Add a clickable retry badge/button directly on the error-state canvas node, similar
+          to how action-required nodes show an interactive badge. Provides the fastest recovery
+          path — users can retry without opening the drawer. Follows the principle that the
+          most common action for an error state should be immediately accessible.
+        selected: true
+      - option: 'Drawer-only retry'
+        description: >
+          Keep the canvas node as a read-only error indicator and only expose retry in the
+          feature drawer. Simpler to implement, avoids adding click handlers to canvas nodes,
+          but requires an extra click (open drawer → click retry) for the most common recovery
+          action. Less discoverable for users who may not know to open the drawer.
+        selected: false
+    selectionRationale: >
+      Inline retry on the canvas node is recommended because error recovery is the primary
+      action a user wants when they see a failed node. The action-required state already
+      establishes a pattern of interactive badges on canvas nodes. An inline retry badge
+      minimizes clicks for the most common recovery flow. The drawer should also have a
+      retry button for completeness, but the canvas provides the fastest path.
+    answer: 'Inline retry on canvas node'
+
+  - question: >
+      Should the retry action include optimistic UI feedback (immediately show "running" state)
+      or wait for server confirmation before updating?
+    resolved: true
+    options:
+      - option: 'Optimistic UI update'
+        description: >
+          Immediately transition the node from error → running state when the user clicks retry,
+          then revert if the server action fails. Provides instant feedback and feels responsive.
+          The creating state already uses optimistic UI as a precedent. Risk of brief incorrect
+          state if the server action fails, but this is mitigated by error handling that reverts.
+        selected: true
+      - option: 'Wait for server confirmation'
+        description: >
+          Show a loading spinner on the retry button but keep the node in error state until
+          the server action succeeds. More accurate but feels slower. The user sees a delay
+          between clicking retry and seeing the node update to running state.
+        selected: false
+    selectionRationale: >
+      Optimistic UI is recommended because the codebase already uses this pattern for feature
+      creation (the "creating" state is an optimistic placeholder). ResumeFeatureUseCase has a
+      high success rate since it only validates resumable status before proceeding. The SSE
+      event stream will quickly confirm the transition to running state. A brief loading state
+      on the button (disabled + spinner) followed by optimistic transition provides the best UX.
+    answer: 'Optimistic UI update'
+
 content: |
   ## Problem Statement
 
   When a feature agent run fails (`AgentRunStatus.failed`), two problems prevent the user from
-  recovering:
+  recovering in the Web UI:
 
   1. **Sidebar shows "In Progress" instead of "Error"**: The `stateMapping` in
-     `sidebar-features-context.tsx` (line 26) maps `error → 'in-progress'`, so failed features
-     appear with a blue spinning loader instead of an error indicator. Users cannot distinguish
-     a failed feature from a running one in the sidebar.
+     `sidebar-features-context.tsx` maps `error → 'in-progress'`, so failed features
+     appear with a blue spinning Loader2 icon instead of an amber CircleAlert. Users cannot
+     distinguish a failed feature from a running one in the sidebar.
 
   2. **No recovery path in Web UI**: The CLI offers `shep feat resume <id>` which calls
      `ResumeFeatureUseCase` to create a new `AgentRun` and resume from the last checkpoint.
      However, the Web UI has no equivalent server action, no retry button in the feature drawer,
      and no visual affordance on the canvas node to trigger recovery.
 
-  ## Codebase Analysis
-
-  ### Project Structure
-
-  The codebase follows Clean Architecture with four layers:
-
-  - **Domain** (`packages/core/src/domain/`): TypeSpec-generated models including `Feature`,
-    `AgentRun`, `AgentRunStatus`, `FeatureStatus`. Error tracking via `FeatureErrors` model
-    with `current` and `history` fields.
-  - **Application** (`packages/core/src/application/`): Use cases including
-    `ResumeFeatureUseCase` (already handles failed/interrupted/waiting_approval states),
-    `UpdateFeatureLifecycleUseCase`, `CheckAndUnblockFeaturesUseCase`.
-  - **Infrastructure** (`packages/core/src/infrastructure/`): LangGraph-based feature agent
-    graph with checkpoint-based resume, validation/repair loops, crash detection, and
-    exponential backoff retry for transient errors.
-  - **Presentation** (`src/presentation/`): CLI (has resume command), TUI, Web (missing
-    resume capability).
-
-  ### Architecture Patterns
-
-  - **State derivation chain**: `AgentRun.status` → `deriveNodeState()` → `FeatureNodeState`
-    (6 states) → `mapNodeStateToSidebarStatus()` → `FeatureStatus` (3 states).
-  - **Server Actions pattern**: Web UI uses Next.js server actions in `app/actions/` that
-    resolve use cases via DI container (`server-container.ts`). Examples: `approve-feature.ts`,
-    `reject-feature.ts`, `delete-feature.ts`.
-  - **Feature drawer pattern**: `feature-drawer.tsx` shows feature details; `drawer-action-bar`
-    provides approve/reject buttons for action-required states. Error state currently only
-    shows a static error message with no actionable button.
-  - **Agent events**: SSE-based real-time updates via `agent-events-provider.tsx` that map
-    `NotificationEventType.AgentFailed` → `'error'` state correctly.
-
-  ### Relevant Technologies
-
-  - **React Flow**: Canvas visualization with custom `FeatureNode` component.
-  - **Next.js Server Actions**: Backend calls from web UI (pattern for resume action).
-  - **LangGraph + SQLite Checkpointer**: Enables checkpoint-based resume with same `threadId`.
-  - **tsyringe DI**: Use case resolution in both CLI and web contexts.
-  - **Storybook**: Every component requires colocated `.stories.tsx`.
-
-  ## Bug Analysis: Sidebar Status Mapping
-
-  **Root cause** in `src/presentation/web/hooks/sidebar-features-context.tsx` lines 21-28:
-
-  ```typescript
-  const stateMapping: Record<FeatureNodeState, FeatureStatus | null> = {
-    'action-required': 'action-needed',
-    running: 'in-progress',
-    done: 'done',
-    blocked: 'in-progress',
-    error: 'in-progress',    // BUG: should be 'action-needed'
-    creating: null,
-  };
-  ```
-
-  The `error` state maps to `'in-progress'`, causing failed features to show with a blue
-  spinning Loader2 icon. It should map to `'action-needed'` (amber CircleAlert icon) since
-  errors require user intervention (retry/investigate).
-
-  The sidebar has 3 statuses (`feature-status-config.ts`):
-  - `'action-needed'`: CircleAlert icon, amber — for states needing user action
-  - `'in-progress'`: Loader2 icon (spinning), blue — for running/blocked states
-  - `'done'`: CircleCheck icon, emerald — for completed states
-
-  ## Feature Gap: Web UI Resume/Retry
-
-  The resume capability exists in the backend but is not exposed in the web UI:
-
-  - **Exists**: `ResumeFeatureUseCase` handles `failed`, `interrupted`, `waitingApproval`
-  - **Exists**: CLI command `shep feat resume <id>`
-  - **Missing**: Server action `resume-feature.ts` in `app/actions/`
-  - **Missing**: Retry button in feature drawer for error state
-  - **Missing**: Retry affordance on canvas feature node in error state
-
   ## Success Criteria
 
-  - [ ] Failed features show as "Action Needed" (amber) in sidebar, not "In Progress" (blue)
-  - [ ] Feature drawer shows a "Retry" button when feature is in error state
-  - [ ] Clicking retry triggers ResumeFeatureUseCase and transitions feature back to running
-  - [ ] Canvas feature node in error state provides visual retry affordance
-  - [ ] All new/modified components have Storybook stories
-  - [ ] Unit tests cover the sidebar mapping fix and new server action
-  - [ ] Integration test covers the resume flow from web UI
+  - [ ] SC-1: Failed features show as "Action Needed" (amber CircleAlert) in sidebar, not "In Progress" (blue spinning Loader2)
+  - [ ] SC-2: Feature drawer displays a "Retry" button when the feature node state is `error`
+  - [ ] SC-3: Clicking the drawer retry button calls ResumeFeatureUseCase and transitions the feature back to running
+  - [ ] SC-4: Canvas feature node in error state displays a clickable retry badge
+  - [ ] SC-5: Clicking the canvas retry badge triggers the same resume flow as the drawer button
+  - [ ] SC-6: Retry button shows a loading state while the server action is in flight
+  - [ ] SC-7: After successful retry, the node optimistically transitions to running state
+  - [ ] SC-8: If the resume server action fails, an error message is displayed to the user
+  - [ ] SC-9: All new and modified components have colocated Storybook stories
+  - [ ] SC-10: Unit tests cover the sidebar mapping fix (error → action-needed)
+  - [ ] SC-11: Unit tests cover the resume-feature server action
+  - [ ] SC-12: The resume server action rejects non-resumable states with a clear error message
+
+  ## Functional Requirements
+
+  ### Bug Fix: Sidebar Status Mapping
+
+  - **FR-1**: The `stateMapping` in `sidebar-features-context.tsx` MUST map the `error`
+    FeatureNodeState to the `action-needed` FeatureStatus instead of `in-progress`.
+
+  - **FR-2**: After the mapping fix, features with `error` node state MUST appear in the
+    "Action Needed" section of the sidebar with the amber CircleAlert icon.
+
+  ### Server Action: Resume Feature
+
+  - **FR-3**: A new server action `resume-feature.ts` MUST be created in `app/actions/`
+    following the established pattern (approve-feature, reject-feature, delete-feature).
+
+  - **FR-4**: The resume server action MUST accept a `featureId: string` parameter and
+    resolve `ResumeFeatureUseCase` from the DI container via `server-container.ts`.
+
+  - **FR-5**: The resume server action MUST return a result object with shape
+    `{ resumed: boolean; error?: string }` consistent with existing action return types.
+
+  - **FR-6**: The resume server action MUST validate that the feature exists and is in a
+    resumable state (failed, interrupted, or waiting_approval) before calling the use case.
+    If not resumable, it MUST return `{ resumed: false, error: '<descriptive message>' }`.
+
+  ### Feature Drawer: Retry Button
+
+  - **FR-7**: The feature drawer MUST display a "Retry" button when the feature's derived
+    node state is `error`. The button MUST be placed in the drawer's action area, following
+    the pattern established by DrawerActionBar.
+
+  - **FR-8**: Clicking the drawer retry button MUST call the resume-feature server action
+    with the feature's ID.
+
+  - **FR-9**: While the server action is in flight, the retry button MUST be disabled and
+    show a loading spinner to prevent double-clicks.
+
+  - **FR-10**: On successful resume, the drawer MUST reflect the updated running state
+    (either via optimistic update or SSE event propagation).
+
+  - **FR-11**: On failed resume, the drawer MUST display the error message returned by the
+    server action (e.g. via toast notification or inline error text).
+
+  ### Canvas Node: Retry Affordance
+
+  - **FR-12**: The feature node component MUST render a clickable retry badge when the
+    node state is `error`. The badge SHOULD follow the visual pattern of the action-required
+    badge (e.g. a "Retry" label with a RefreshCw or RotateCcw icon).
+
+  - **FR-13**: Clicking the canvas retry badge MUST trigger the same resume-feature server
+    action as the drawer retry button.
+
+  - **FR-14**: The feature node MUST accept an `onRetry` callback prop (similar to existing
+    `onAction`, `onSettings`, `onDelete` callbacks) that the parent canvas component provides.
+
+  - **FR-15**: After retry is initiated from the canvas node, the node MUST optimistically
+    transition to a running state appearance while the resume is processing.
+
+  ### Error Handling
+
+  - **FR-16**: If the resume server action encounters an unexpected error (e.g. DI container
+    not available, database error), it MUST catch the exception and return a structured error
+    response rather than throwing an unhandled server error.
+
+  - **FR-17**: The UI MUST handle the case where a user clicks retry but the feature's agent
+    run has already been resumed (e.g. by another tab or the CLI), displaying an appropriate
+    message rather than failing silently.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1 — Consistency**: The resume server action MUST follow the same structural pattern
+    as existing server actions (approve-feature.ts, reject-feature.ts, delete-feature.ts)
+    including 'use server' directive, DI resolution, try/catch error handling, and return type.
+
+  - **NFR-2 — Performance**: The retry UI interaction MUST feel responsive — the button
+    loading state MUST appear within 100ms of click, and optimistic node state transition
+    MUST occur before the server action completes.
+
+  - **NFR-3 — Accessibility**: The retry button in both the drawer and canvas node MUST be
+    keyboard-accessible (focusable, activatable via Enter/Space) and include appropriate
+    aria-label text (e.g. "Retry failed feature").
+
+  - **NFR-4 — Storybook Coverage**: Every new or modified component MUST have a colocated
+    `.stories.tsx` file with stories covering: (a) error state with retry button visible,
+    (b) retry button in loading state, (c) error state after failed retry attempt.
+
+  - **NFR-5 — Test Coverage**: Unit tests MUST cover: (a) sidebar stateMapping for all 6
+    FeatureNodeState values, (b) resume-feature server action success and failure paths,
+    (c) retry button rendering and click behavior in feature drawer, (d) retry badge
+    rendering and click behavior on canvas node.
+
+  - **NFR-6 — Idempotency**: Rapid double-clicks on the retry button MUST NOT create
+    multiple concurrent resume attempts. The button MUST be disabled during the in-flight
+    request.
+
+  - **NFR-7 — Architecture Compliance**: No component may import directly from the
+    application or domain layer. All backend calls MUST go through server actions, and
+    use case resolution MUST use the DI container pattern.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Should errors map to existing action-needed or a new 4th sidebar status? | Map error → action-needed | Both states require user action; 3-bucket sidebar is simpler; canvas already differentiates with red styling |
+  | 2 | Should retry use checkpoint resume or also offer restart from scratch? | Resume only (checkpoint-based) | Matches CLI behavior; reuses existing use case; restart achievable via delete + re-create |
+  | 3 | Should canvas node show inline retry or drawer-only? | Inline retry on canvas node | Error recovery is the primary action; follows action-required badge pattern; minimizes clicks |
+  | 4 | Should retry use optimistic UI or wait for server confirmation? | Optimistic UI update | Matches existing creating-state pattern; ResumeFeatureUseCase has high success rate; SSE confirms quickly |
 
   ## Affected Areas
 
@@ -153,9 +295,9 @@ content: |
   | `src/presentation/web/hooks/sidebar-features-context.tsx` | High | Bug fix: change error mapping from 'in-progress' to 'action-needed' |
   | `src/presentation/web/app/actions/` | High | New server action: `resume-feature.ts` wrapping ResumeFeatureUseCase |
   | `src/presentation/web/components/common/feature-drawer/` | High | Add retry button for error state in feature drawer |
-  | `src/presentation/web/components/common/feature-node/` | Medium | Add retry affordance to error state on canvas node |
-  | `src/presentation/web/components/common/feature-status-config.ts` | Low | Potentially add error-specific status or keep mapping to action-needed |
-  | `src/presentation/web/hooks/sidebar-features-context.tsx` (stories) | Low | Update stories to cover error state in sidebar |
+  | `src/presentation/web/components/common/feature-node/` | Medium | Add retry badge to error state on canvas node, add onRetry callback |
+  | `src/presentation/web/components/common/feature-node/feature-node.stories.tsx` | Medium | Add/update stories for error state with retry |
+  | `src/presentation/web/components/common/feature-drawer/feature-drawer.stories.tsx` | Medium | Add stories for error state with retry button |
   | `tests/unit/presentation/web/` | Medium | New unit tests for sidebar mapping fix and server action |
 
   ## Dependencies
@@ -165,14 +307,16 @@ content: |
   - `server-container.ts` resolve pattern (already used by other server actions)
   - `DrawerActionBar` component (existing pattern for action buttons in drawers)
   - `featureNodeStateConfig` (existing state → styling configuration)
+  - `FeatureNodeData.onRetry` callback (new prop, follows existing onAction/onDelete pattern)
 
   ## Size Estimate
 
-  **M** — This feature involves a straightforward bug fix (1-line mapping change), a new
-  server action following an established pattern, and UI additions to the feature drawer and
-  canvas node. The backend resume logic already exists. Estimated 2-3 days including tests,
-  stories, and integration verification.
+  **M** — This feature involves a 1-line bug fix (sidebar mapping), a new server action
+  following an established pattern, UI additions to the feature drawer and canvas node
+  (both following existing patterns), plus Storybook stories and unit tests. The backend
+  resume logic already exists and requires no changes. All UI work follows well-established
+  patterns in the codebase (server actions, drawer action bar, node badges).
 
   ---
 
-  _Analysis complete — proceed with research phase_
+  _Requirements complete — proceed with research phase_
