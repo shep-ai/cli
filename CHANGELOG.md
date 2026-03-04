@@ -1,3 +1,10 @@
+## [1.72.7](https://github.com/shep-ai/cli/compare/v1.72.6...v1.72.7) (2026-03-04)
+
+### Bug Fixes
+
+- **domain:** cascade delete sub-features when parent is deleted ([#215](https://github.com/shep-ai/cli/issues/215)) ([bcabd85](https://github.com/shep-ai/cli/commit/bcabd8568792f6fba6692b36def45312e03ed8f5))
+- **web:** use dagre re-layout for all canvas mutations ([#207](https://github.com/shep-ai/cli/issues/207)) ([3d3dbb0](https://github.com/shep-ai/cli/commit/3d3dbb01b1bfc419f4db1bb5f2b4f818d29cc8c4)), closes [#200](https://github.com/shep-ai/cli/issues/200)
+
 ## [1.72.6](https://github.com/shep-ai/cli/compare/v1.72.5...v1.72.6) (2026-03-04)
 
 ### Bug Fixes
