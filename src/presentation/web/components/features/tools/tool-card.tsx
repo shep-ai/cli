@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import {
-  ExternalLink,
+  Info,
   Loader2,
   Rocket,
   Download,
@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { InstallInstructions } from './install-instructions';
+import { ToolDetailDrawer } from './tool-detail-drawer';
 import type { ToolItem } from '@shepai/core/application/use-cases/tools/list-tools.use-case';
 
 export interface ToolCardProps {
@@ -32,7 +32,7 @@ const TAG_CONFIG: Record<string, { label: string; icon: typeof Monitor }> = {
 };
 
 export function ToolCard({ tool, onRefresh, className }: ToolCardProps) {
-  const [installDrawerOpen, setInstallDrawerOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const isInstalled = tool.status.status === 'available';
@@ -42,15 +42,6 @@ export function ToolCard({ tool, onRefresh, className }: ToolCardProps) {
   function handleLaunch() {
     startTransition(async () => {
       await fetch(`/api/tools/${tool.id}/launch`, { method: 'POST' });
-    });
-  }
-
-  function handleAutoInstall() {
-    startTransition(async () => {
-      const res = await fetch(`/api/tools/${tool.id}/install`, { method: 'POST' });
-      if (res.ok && onRefresh) {
-        await onRefresh();
-      }
     });
   }
 
@@ -129,60 +120,57 @@ export function ToolCard({ tool, onRefresh, className }: ToolCardProps) {
             ) : null}
           </div>
 
-          {/* Action button */}
-          {isInstalled && canLaunch ? (
+          {/* Action buttons */}
+          <div className="flex items-center gap-1">
             <Button
               size="sm"
               variant="ghost"
-              onClick={handleLaunch}
-              disabled={isPending}
-              aria-label={`Launch ${tool.name}`}
-              data-testid="tool-card-launch-button"
-              className="hover:bg-primary hover:text-primary-foreground h-7 cursor-pointer rounded-md px-3 text-xs"
+              onClick={() => setDrawerOpen(true)}
+              aria-label={`View details for ${tool.name}`}
+              data-testid="tool-card-info-button"
+              className="h-7 w-7 cursor-pointer rounded-md p-0"
             >
-              {isPending ? (
-                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-              ) : (
-                <Rocket className="mr-1 h-3 w-3" />
-              )}
-              Launch
+              <Info className="h-3.5 w-3.5" />
             </Button>
-          ) : !isInstalled && !isError && tool.autoInstall ? (
-            <Button
-              size="sm"
-              onClick={handleAutoInstall}
-              disabled={isPending}
-              aria-label={`Install ${tool.name}`}
-              data-testid="tool-card-install-button"
-              className="h-7 cursor-pointer rounded-md px-3 text-xs"
-            >
-              {isPending ? (
-                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-              ) : (
+            {isInstalled && canLaunch ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={handleLaunch}
+                disabled={isPending}
+                aria-label={`Launch ${tool.name}`}
+                data-testid="tool-card-launch-button"
+                className="hover:bg-primary hover:text-primary-foreground h-7 cursor-pointer rounded-md px-3 text-xs"
+              >
+                {isPending ? (
+                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                ) : (
+                  <Rocket className="mr-1 h-3 w-3" />
+                )}
+                Launch
+              </Button>
+            ) : !isInstalled && !isError ? (
+              <Button
+                size="sm"
+                variant={tool.autoInstall ? 'default' : 'outline'}
+                onClick={() => setDrawerOpen(true)}
+                aria-label={`Install ${tool.name}`}
+                data-testid="tool-card-install-button"
+                className="h-7 cursor-pointer rounded-md px-3 text-xs"
+              >
                 <Download className="mr-1 h-3 w-3" />
-              )}
-              {isPending ? 'Installing…' : 'Install'}
-            </Button>
-          ) : !isInstalled && !isError ? (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setInstallDrawerOpen(true)}
-              aria-label={`View install instructions for ${tool.name}`}
-              data-testid="tool-card-manual-install-button"
-              className="h-7 cursor-pointer rounded-md px-3 text-xs"
-            >
-              <ExternalLink className="mr-1 h-3 w-3" />
-              Install
-            </Button>
-          ) : null}
+                Install
+              </Button>
+            ) : null}
+          </div>
         </div>
       </div>
 
-      <InstallInstructions
+      <ToolDetailDrawer
         tool={tool}
-        open={installDrawerOpen}
-        onOpenChange={setInstallDrawerOpen}
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        onRefresh={onRefresh}
       />
     </>
   );
