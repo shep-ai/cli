@@ -106,66 +106,69 @@ export function layoutWithDagre<N extends Node>(
   dagre.layout(g);
 
   const { targetPosition, sourcePosition } = getHandlePositions(direction);
-  const result: N[] = [];
-
-  // Dagre may reorder nodes within a rank (crossing-minimization).
-  // Preserve the input order by collecting positions per rank, then
-  // reassigning Y values in input order.
   const isHorizontal = direction === 'LR' || direction === 'RL';
 
-  // Build a lookup of dagre-assigned positions keyed by node id
-  const posMap = new Map<string, { x: number; y: number; width: number; height: number }>();
+  // Collect dagre center positions keyed by node id
+  const centerMap = new Map<string, { cx: number; cy: number; w: number; h: number }>();
   for (const node of graphNodes) {
-    const pos = g.node(node.id);
+    const dagreNode = g.node(node.id);
     const size = getNodeSize(node, nodeSize);
-    posMap.set(node.id, { x: pos.x, y: pos.y, width: size.width, height: size.height });
+    centerMap.set(node.id, { cx: dagreNode.x, cy: dagreNode.y, w: size.width, h: size.height });
   }
 
-  // Group nodes by their rank coordinate (X for LR/RL, Y for TB/BT)
-  const rankKey = (pos: { x: number; y: number }) =>
-    isHorizontal ? Math.round(pos.x) : Math.round(pos.y);
-
-  const rankGroups = new Map<number, string[]>();
-  for (const node of graphNodes) {
-    const pos = posMap.get(node.id)!;
-    const key = rankKey(pos);
-    if (!rankGroups.has(key)) rankGroups.set(key, []);
-    rankGroups.get(key)!.push(node.id);
+  // Post-process: center each group of children around their parent's
+  // secondary-axis center so the edge fans out symmetrically.
+  // Build parent→children map from the edges.
+  const childrenOf = new Map<string, string[]>();
+  for (const edge of edges) {
+    if (!centerMap.has(edge.source) || !centerMap.has(edge.target)) continue;
+    if (!childrenOf.has(edge.source)) childrenOf.set(edge.source, []);
+    childrenOf.get(edge.source)!.push(edge.target);
   }
 
-  // For each rank with multiple nodes, sort the dagre-assigned secondary-axis
-  // values and redistribute them in input order
-  for (const [, ids] of rankGroups) {
-    if (ids.length <= 1) continue;
+  for (const [parentId, childIds] of childrenOf) {
+    if (childIds.length <= 1) continue;
 
-    // Collect the secondary-axis center values dagre chose, sorted ascending
-    const secondaryValues = ids
-      .map((id) => {
-        const p = posMap.get(id)!;
-        return isHorizontal ? p.y : p.x;
-      })
-      .sort((a, b) => a - b);
+    const parent = centerMap.get(parentId)!;
+    const parentCenter = isHorizontal ? parent.cy : parent.cx;
 
-    // ids are already in input order (iterated from graphNodes which
-    // preserves the nodes array order). Assign sorted values back in input order.
-    ids.forEach((id, idx) => {
-      const p = posMap.get(id)!;
-      if (isHorizontal) {
-        p.y = secondaryValues[idx];
-      } else {
-        p.x = secondaryValues[idx];
+    // Sort children by their current secondary-axis position
+    const sorted = childIds
+      .filter((id) => centerMap.has(id))
+      .sort((a, b) => {
+        const pa = centerMap.get(a)!;
+        const pb = centerMap.get(b)!;
+        return isHorizontal ? pa.cy - pb.cy : pa.cx - pb.cx;
+      });
+
+    // Compute the current center of the children group
+    const first = centerMap.get(sorted[0])!;
+    const last = centerMap.get(sorted[sorted.length - 1])!;
+    const groupCenter = isHorizontal ? (first.cy + last.cy) / 2 : (first.cx + last.cx) / 2;
+
+    // Shift all children so the group center aligns with the parent center
+    const shift = parentCenter - groupCenter;
+    if (Math.abs(shift) > 1) {
+      for (const childId of sorted) {
+        const c = centerMap.get(childId)!;
+        if (isHorizontal) {
+          c.cy += shift;
+        } else {
+          c.cx += shift;
+        }
       }
-    });
+    }
   }
 
-  // Map laid-out nodes, converting dagre center-coords to React Flow top-left
+  // Build result array converting center-coords to React Flow top-left
+  const result: N[] = [];
   for (const node of graphNodes) {
-    const pos = posMap.get(node.id)!;
+    const c = centerMap.get(node.id)!;
     result.push({
       ...node,
       targetPosition,
       sourcePosition,
-      position: { x: pos.x - pos.width / 2, y: pos.y - pos.height / 2 },
+      position: { x: c.cx - c.w / 2, y: c.cy - c.h / 2 },
     } as N);
   }
 

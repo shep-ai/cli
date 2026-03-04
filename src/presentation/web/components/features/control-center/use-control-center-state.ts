@@ -33,7 +33,8 @@ export interface ControlCenterState {
   handleDeleteRepository: (repositoryId: string) => Promise<void>;
   createFeatureNode: (
     sourceNodeId: string | null,
-    dataOverride?: Partial<FeatureNodeData>
+    dataOverride?: Partial<FeatureNodeData>,
+    edgeType?: string
   ) => string;
 }
 
@@ -41,9 +42,7 @@ let nextFeatureId = 0;
 
 export function useControlCenterState(
   initialNodes: CanvasNodeType[],
-  initialEdges: Edge[],
-  /** When true, background router.refresh() calls (polling / SSE debounce) are suppressed. */
-  isRefreshBlocked?: () => boolean
+  initialEdges: Edge[]
 ): ControlCenterState {
   const router = useRouter();
   const [nodes, setNodes] = useState<CanvasNodeType[]>(initialNodes);
@@ -63,7 +62,7 @@ export function useControlCenterState(
   const deleteSound = useSoundAction('delete');
   const createSound = useSoundAction('create');
 
-  // Sync server props into local state when router.refresh() delivers new data
+  // Sync server props into local state when parent re-renders with new data
   const initialNodeKey = initialNodes
     .map((n) => n.id)
     .sort()
@@ -145,9 +144,8 @@ export function useControlCenterState(
     setEdges(initialEdges);
   }, [initialEdgeKey, initialEdges, setEdges]);
 
-  // Fallback notifications from server-refresh state transitions.
-  // Fires only when SSE didn't already deliver the matching event for a feature,
-  // e.g. when the SSE connection was down or the event was seeded into the cache.
+  // Fallback notifications from server-prop state transitions.
+  // Fires only when SSE didn't already deliver the matching event for a feature.
   const { events } = useAgentEventsContext();
 
   useEffect(() => {
@@ -187,15 +185,10 @@ export function useControlCenterState(
     }
   }, [initialDataKey, initialNodes, events, router]);
 
-  // Targeted optimistic updates from SSE agent events + debounced reconciliation.
+  // Targeted optimistic updates from SSE agent events.
   // Uses `events` array (not `lastEvent`) so that React batching cannot silently
   // drop events when multiple SSE messages arrive in the same tick.
   const processedEventCountRef = useRef(0);
-  const reconcileTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
-
-  useEffect(() => {
-    return () => clearTimeout(reconcileTimerRef.current);
-  }, []);
 
   useEffect(() => {
     if (events.length <= processedEventCountRef.current) return;
@@ -224,33 +217,7 @@ export function useControlCenterState(
         })
       );
     }
-
-    // Debounced background reconciliation (3s after last SSE event)
-    clearTimeout(reconcileTimerRef.current);
-    reconcileTimerRef.current = setTimeout(() => {
-      if (!isRefreshBlocked?.()) router.refresh();
-    }, 3000);
-  }, [events, router, isRefreshBlocked]);
-
-  // Periodic polling fallback: refresh server data every 5s when any feature
-  // is in an active state (running/action-required). This ensures the UI stays
-  // current even if the SSE connection drops — belt-and-suspenders alongside SSE.
-  useEffect(() => {
-    const hasActiveFeature = nodes.some((n) => {
-      if (n.type !== 'featureNode') return false;
-      const data = n.data as FeatureNodeData;
-      return (
-        data.state === 'running' || data.state === 'action-required' || data.state === 'creating'
-      );
-    });
-
-    if (!hasActiveFeature) return;
-
-    const interval = setInterval(() => {
-      if (!isRefreshBlocked?.()) router.refresh();
-    }, 5_000);
-    return () => clearInterval(interval);
-  }, [nodes, router, isRefreshBlocked]);
+  }, [events]);
 
   const onNodesChange = useCallback((changes: NodeChange<CanvasNodeType>[]) => {
     setNodes((ns) => applyNodeChanges(changes, ns));
@@ -395,9 +362,7 @@ export function useControlCenterState(
             setNodes(prevNodes);
             setEdges(prevEdges);
             toast.error(result.error);
-            return;
           }
-          router.refresh();
         })
         .catch(() => {
           setNodes(prevNodes);
@@ -411,6 +376,10 @@ export function useControlCenterState(
   const handleDeleteRepository = useCallback(
     async (repositoryId: string) => {
       const repoNodeId = `repo-${repositoryId}`;
+
+      // Snapshot for rollback
+      const prevNodes = nodes;
+      const prevEdges = edgesRef.current;
 
       // Optimistic: remove repo node, its child feature nodes, and all related edges
       setNodes((currentNodes) => {
@@ -442,19 +411,20 @@ export function useControlCenterState(
 
         if (!result.success) {
           toast.error(result.error ?? 'Failed to remove repository');
-          router.refresh();
+          setNodes(prevNodes);
+          setEdges(prevEdges);
           return;
         }
 
         deleteSound.play();
         toast.success('Repository removed');
-        router.refresh();
       } catch {
         toast.error('Failed to remove repository');
-        router.refresh();
+        setNodes(prevNodes);
+        setEdges(prevEdges);
       }
     },
-    [router, deleteSound, setEdges]
+    [nodes, deleteSound, setEdges]
   );
 
   const handleLayout = useCallback(
@@ -538,7 +508,6 @@ export function useControlCenterState(
           );
 
           createSound.play();
-          router.refresh();
         })
         .catch(() => {
           // Rollback optimistic node and re-layout
@@ -555,7 +524,7 @@ export function useControlCenterState(
           toast.error('Failed to add repository');
         });
     },
-    [router, createSound, setEdges]
+    [createSound, setEdges]
   );
 
   return {

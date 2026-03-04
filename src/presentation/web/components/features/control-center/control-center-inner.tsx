@@ -28,7 +28,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
   const pathname = usePathname();
   const selectedFeatureId = useSelectedFeatureId();
   const clickSound = useSoundAction('click');
-  const { guardedNavigate, getIsDirty } = useDrawerCloseGuard();
+  const { guardedNavigate } = useDrawerCloseGuard();
 
   const {
     nodes,
@@ -39,7 +39,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     handleDeleteFeature,
     handleDeleteRepository,
     createFeatureNode,
-  } = useControlCenterState(initialNodes, initialEdges, getIsDirty);
+  } = useControlCenterState(initialNodes, initialEdges);
 
   // Publish sidebar features to context whenever feature node data changes
   const { setFeatures: setSidebarFeatures } = useSidebarFeaturesContext();
@@ -167,8 +167,30 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
   useEffect(() => {
     const handler = (e: Event) => {
       const detail = (
-        e as CustomEvent<{ name: string; description?: string; repositoryPath: string }>
+        e as CustomEvent<{
+          name: string;
+          description?: string;
+          repositoryPath: string;
+          parentId?: string;
+        }>
       ).detail;
+
+      // When a parentId is provided, connect to the parent feature node
+      // via a dependency edge instead of the repo node.
+      if (detail.parentId) {
+        const parentNodeId = `feat-${detail.parentId}`;
+        createFeatureNode(
+          parentNodeId,
+          {
+            state: 'creating',
+            name: detail.name,
+            description: detail.description,
+            repositoryPath: detail.repositoryPath,
+          },
+          'dependencyEdge'
+        );
+        return;
+      }
 
       // Find the repo node to connect to
       const repoNode = nodes.find(

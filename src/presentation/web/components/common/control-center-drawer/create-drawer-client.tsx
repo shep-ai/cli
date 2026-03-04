@@ -59,6 +59,7 @@ export function CreateDrawerClient({
             name: data.name,
             description: data.description,
             repositoryPath: data.repositoryPath,
+            parentId: data.parentId,
           },
         })
       );
@@ -76,7 +77,6 @@ export function CreateDrawerClient({
             return;
           }
           createSound.play();
-          router.refresh();
         })
         .catch(() => {
           toast.error('Failed to create feature');
