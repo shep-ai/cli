@@ -1,0 +1,146 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: agent-executor-stability
+number: 049
+branch: feat/049-agent-executor-stability
+oneLiner: fix agent executor switching between interrupts when settings change during a paused run
+userQuery: >
+  Feature: LEts fix that issue
+
+  https://github.com/shep-ai/cli/issues/211
+summary: >
+  When a feature agent run is paused (waitingApproval or interrupted) and the user changes
+  the agent type in settings, resuming the run spawns a new worker that reads the updated
+  settings and uses the wrong executor. The AgentRun record already stores the correct
+  agentType, but it is never passed to the spawned worker process. This fix threads the
+  persisted agentType through the spawn call chain so resumed runs always use the executor
+  that was active when the run was originally created.
+phase: Analysis
+sizeEstimate: S
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - TypeScript
+  - Node.js child_process (fork)
+  - tsyringe (dependency injection)
+  - LangGraph (checkpoint/interrupt)
+  - SQLite (AgentRun persistence)
+
+relatedLinks:
+  - https://github.com/shep-ai/cli/issues/211
+
+# Open questions (must be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  **GitHub Issue #211 — "Agent executor switched between interrupts"**
+
+  When a feature agent is spawned, the worker process resolves its executor by calling
+  `executorProvider.getExecutor()` which reads `getSettings().agent.type` at startup time.
+
+  If the user changes the agent type in settings while the run is paused
+  (`waitingApproval` or `interrupted`), the next worker spawn (triggered by approval or
+  retry) will read the updated settings and use the newly configured executor — not the
+  one that was used when the run was originally created.
+
+  The `AgentRun` domain entity already has an `agentType` field that is persisted to the
+  database, and `ResumeFeatureUseCase` copies it faithfully to the new run record. However,
+  this value is never threaded through the `processService.spawn()` call, so the worker
+  has no way to honour it.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  ```
+  packages/core/src/
+    application/
+      ports/output/agents/
+        feature-agent-process.interface.ts   <- spawn() options interface
+        agent-run-repository.interface.ts     <- AgentRun CRUD
+      use-cases/agents/
+        approve-agent-run.use-case.ts        <- calls spawn() on approval
+        resume-feature.use-case.ts           <- calls spawn() on resume/retry
+    infrastructure/
+      services/agents/
+        feature-agent/
+          feature-agent-process.service.ts   <- builds CLI args, forks worker
+          feature-agent-worker.ts            <- worker: resolves executor from settings
+        common/
+          agent-executor-provider.service.ts <- reads getSettings().agent.type
+          agent-executor-factory.service.ts  <- creates executor by AgentType
+  tsp/agents/agent-run.tsp                  <- AgentRun model (has agentType field)
+  ```
+
+  ### Architecture Patterns
+
+  Clean Architecture with inward-pointing dependencies:
+
+  - **Domain** — `AgentRun` entity (TypeSpec-generated) already stores `agentType`.
+  - **Application** — `ResumeFeatureUseCase` and `ApproveAgentRunUseCase` read the
+    persisted `agentType` from the DB but do not forward it to the spawn call.
+  - **Infrastructure** — `FeatureAgentProcessService.spawn()` builds CLI args for the
+    worker; `feature-agent-worker.ts` resolves the executor on startup from current
+    settings (the bug).
+
+  ### Root Cause (call chain)
+
+  ```
+  User resumes / approves
+    -> ResumeFeatureUseCase.execute()          reads lastRun.agentType (correct value)
+        creates newRun with agentType copied
+        -> processService.spawn(..., options)  <- agentType NOT in options
+            -> worker spawns
+                -> executorProvider.getExecutor()  reads CURRENT settings  <- BUG
+  ```
+
+  The same bug path exists in `ApproveAgentRunUseCase` which also calls
+  `processService.spawn()` without passing the `run.agentType` that it already holds.
+
+  ### Relevant Technologies
+
+  - `IFeatureAgentProcessService.spawn()` — needs a new optional `agentType` field in
+    the options object.
+  - `FeatureAgentProcessService` — needs to pass `--agent-type <value>` CLI arg when
+    the option is present.
+  - `feature-agent-worker.ts` — needs to parse `--agent-type` and call
+    `factory.createExecutor(agentType, settings.agent)` instead of
+    `executorProvider.getExecutor()` when the arg is provided.
+  - `AgentExecutorFactory` — already exposes `createExecutor(agentType, authConfig)`;
+    no changes needed.
+  - No TypeSpec or database schema changes — `AgentRun.agentType` already exists and
+    is already persisted.
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `application/ports/output/agents/feature-agent-process.interface.ts` | Low | Add `agentType?: AgentType` to spawn options |
+  | `application/use-cases/agents/approve-agent-run.use-case.ts` | Low | Pass `run.agentType` through spawn options |
+  | `application/use-cases/agents/resume-feature.use-case.ts` | Low | Pass `lastRun.agentType` through spawn options |
+  | `infrastructure/services/agents/feature-agent/feature-agent-process.service.ts` | Low | Append `--agent-type` CLI arg when option provided |
+  | `infrastructure/services/agents/feature-agent/feature-agent-worker.ts` | Low | Parse `--agent-type`; use factory directly if provided |
+  | `tests/unit/.../feature-agent-process.service.test.ts` | Medium | Add test: spawn with agentType passes correct arg |
+  | `tests/unit/.../feature-agent-worker.test.ts` | Medium | Add test: worker uses explicit agentType over settings |
+
+  ## Dependencies
+
+  - `IAgentExecutorFactory` — already exposes `createExecutor(agentType, authConfig)`.
+    The worker will need to resolve the factory from the DI container in addition to
+    the provider when an explicit agent type is given.
+  - `AgentType` enum — already imported in all relevant files; no new types needed.
+  - No TypeSpec changes required — `AgentRun.agentType` already exists.
+  - No database schema changes required — the field is already persisted.
+
+  ## Size Estimate
+
+  **S** — The data path (agentType stored then copied on resume) already exists. This is
+  purely a wiring fix: ~5 source files with minimal, targeted changes each. The primary
+  effort is adding unit tests to cover the corrected spawn call and worker startup
+  behaviour to prevent future regression.
