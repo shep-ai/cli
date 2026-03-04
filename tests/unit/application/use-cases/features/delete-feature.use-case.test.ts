@@ -217,64 +217,109 @@ describe('DeleteFeatureUseCase', () => {
   });
 
   // -------------------------------------------------------------------------
-  // Deletion guard — blocked children
+  // Cascade delete — sub-features
   // -------------------------------------------------------------------------
 
-  it('should throw when the feature has blocked children', async () => {
+  it('should cascade delete blocked children instead of throwing', async () => {
     const feature = createMockFeature();
     const blockedChild1 = createMockFeature({
       id: 'child-001',
       name: 'Child One',
       lifecycle: SdlcLifecycle.Blocked,
+      repositoryPath: '/repo',
+      branch: 'feat/child-one',
     });
     const blockedChild2 = createMockFeature({
       id: 'child-002',
       name: 'Child Two',
       lifecycle: SdlcLifecycle.Blocked,
+      repositoryPath: '/repo',
+      branch: 'feat/child-two',
     });
     mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
-    mockFeatureRepo.findByParentId = vi.fn().mockResolvedValue([blockedChild1, blockedChild2]);
-
-    await expect(useCase.execute('feat-123-full-uuid')).rejects.toThrow('child-001');
-    await expect(useCase.execute('feat-123-full-uuid')).rejects.toThrow('child-002');
-  });
-
-  it('should include the blocked child names in the error message', async () => {
-    const feature = createMockFeature();
-    const blockedChild = createMockFeature({
-      id: 'child-abc',
-      name: 'My Blocked Child',
-      lifecycle: SdlcLifecycle.Blocked,
-    });
-    mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
-    mockFeatureRepo.findByParentId = vi.fn().mockResolvedValue([blockedChild]);
-
-    await expect(useCase.execute('feat-123-full-uuid')).rejects.toThrow('My Blocked Child');
-  });
-
-  it('should not call delete when blocked children exist', async () => {
-    const feature = createMockFeature();
-    const blockedChild = createMockFeature({ id: 'child-001', lifecycle: SdlcLifecycle.Blocked });
-    mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
-    mockFeatureRepo.findByParentId = vi.fn().mockResolvedValue([blockedChild]);
-
-    await expect(useCase.execute('feat-123-full-uuid')).rejects.toThrow();
-    expect(mockFeatureRepo.delete).not.toHaveBeenCalled();
-  });
-
-  it('should succeed when children exist but none are Blocked (all Started)', async () => {
-    const feature = createMockFeature();
-    const startedChild = createMockFeature({
-      id: 'child-001',
-      lifecycle: SdlcLifecycle.Started,
-    });
-    mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
-    mockFeatureRepo.findByParentId = vi.fn().mockResolvedValue([startedChild]);
+    mockFeatureRepo.findByParentId = vi
+      .fn()
+      .mockResolvedValueOnce([blockedChild1, blockedChild2])
+      .mockResolvedValue([]);
 
     const result = await useCase.execute('feat-123-full-uuid');
 
     expect(result.id).toBe('feat-123-full-uuid');
+    expect(mockFeatureRepo.delete).toHaveBeenCalledWith('child-001');
+    expect(mockFeatureRepo.delete).toHaveBeenCalledWith('child-002');
     expect(mockFeatureRepo.delete).toHaveBeenCalledWith('feat-123-full-uuid');
+  });
+
+  it('should cascade delete children in any lifecycle state', async () => {
+    const feature = createMockFeature();
+    const startedChild = createMockFeature({
+      id: 'child-001',
+      lifecycle: SdlcLifecycle.Started,
+      repositoryPath: '/repo',
+      branch: 'feat/child-started',
+    });
+    mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
+    mockFeatureRepo.findByParentId = vi
+      .fn()
+      .mockResolvedValueOnce([startedChild])
+      .mockResolvedValue([]);
+
+    const result = await useCase.execute('feat-123-full-uuid');
+
+    expect(result.id).toBe('feat-123-full-uuid');
+    expect(mockFeatureRepo.delete).toHaveBeenCalledWith('child-001');
+    expect(mockFeatureRepo.delete).toHaveBeenCalledWith('feat-123-full-uuid');
+  });
+
+  it('should recursively delete grandchildren', async () => {
+    const feature = createMockFeature();
+    const child = createMockFeature({
+      id: 'child-001',
+      name: 'Child',
+      lifecycle: SdlcLifecycle.Blocked,
+      repositoryPath: '/repo',
+      branch: 'feat/child',
+    });
+    const grandchild = createMockFeature({
+      id: 'grandchild-001',
+      name: 'Grandchild',
+      lifecycle: SdlcLifecycle.Blocked,
+      repositoryPath: '/repo',
+      branch: 'feat/grandchild',
+    });
+    mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
+    mockFeatureRepo.findByParentId = vi
+      .fn()
+      .mockResolvedValueOnce([child]) // children of parent
+      .mockResolvedValueOnce([grandchild]) // children of child
+      .mockResolvedValue([]); // children of grandchild
+
+    const result = await useCase.execute('feat-123-full-uuid');
+
+    expect(result.id).toBe('feat-123-full-uuid');
+    expect(mockFeatureRepo.delete).toHaveBeenCalledWith('grandchild-001');
+    expect(mockFeatureRepo.delete).toHaveBeenCalledWith('child-001');
+    expect(mockFeatureRepo.delete).toHaveBeenCalledWith('feat-123-full-uuid');
+  });
+
+  it('should cancel agent runs on children during cascade delete', async () => {
+    const feature = createMockFeature();
+    const child = createMockFeature({
+      id: 'child-001',
+      agentRunId: 'child-run-1',
+      lifecycle: SdlcLifecycle.Started,
+      repositoryPath: '/repo',
+      branch: 'feat/child',
+    });
+    const childRun = createMockAgentRun({ id: 'child-run-1', status: AgentRunStatus.running });
+    mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
+    mockFeatureRepo.findByParentId = vi.fn().mockResolvedValueOnce([child]).mockResolvedValue([]);
+    mockRunRepo.findById = vi.fn().mockResolvedValue(childRun);
+
+    await useCase.execute('feat-123-full-uuid');
+
+    expect(mockRunRepo.updateStatus).toHaveBeenCalledWith('child-run-1', AgentRunStatus.cancelled);
+    expect(mockFeatureRepo.delete).toHaveBeenCalledWith('child-001');
   });
 
   it('should succeed when there are no children at all', async () => {
