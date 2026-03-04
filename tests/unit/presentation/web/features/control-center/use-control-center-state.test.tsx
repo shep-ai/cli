@@ -109,7 +109,7 @@ function HookTestHarness({
       <button data-testid="add-repository" onClick={() => state.handleAddRepository('my-org/repo')}>
         Add Repository
       </button>
-      <button data-testid="delete-feature" onClick={() => state.handleDeleteFeature('feat-1')}>
+      <button data-testid="delete-feature" onClick={() => state.handleDeleteFeature('1')}>
         Delete Feature
       </button>
       <button
@@ -588,7 +588,7 @@ describe('useControlCenterState', () => {
         fireEvent.click(screen.getByTestId('delete-feature'));
       });
 
-      expect(mockDeleteFeature).toHaveBeenCalledWith('feat-1');
+      expect(mockDeleteFeature).toHaveBeenCalledWith('1');
     });
 
     it('removes deleted node from nodes on success', async () => {
@@ -855,7 +855,7 @@ describe('useControlCenterState', () => {
         );
 
         await act(async () => {
-          capturedState!.handleDeleteFeature('feat-1');
+          capturedState!.handleDeleteFeature('1');
         });
 
         // After deleting feat-1, feat-2 has no edges and becomes disconnected.
@@ -888,7 +888,7 @@ describe('useControlCenterState', () => {
         expect(capturedState!.edges).toHaveLength(2);
 
         await act(async () => {
-          capturedState!.handleDeleteFeature('feat-1');
+          capturedState!.handleDeleteFeature('1');
         });
 
         // After deletion: 2 nodes remain (repo-1 and feat-2)

@@ -29,7 +29,7 @@ export interface ControlCenterState {
   handleConnect: (connection: Connection) => void;
   handleAddRepository: (path: string) => void;
   handleLayout: (direction: LayoutDirection) => void;
-  handleDeleteFeature: (featureId: string) => Promise<void>;
+  handleDeleteFeature: (featureId: string) => void;
   handleDeleteRepository: (repositoryId: string) => Promise<void>;
   createFeatureNode: (
     sourceNodeId: string | null,
@@ -325,39 +325,49 @@ export function useControlCenterState(
   );
 
   const handleDeleteFeature = useCallback(
-    async (featureId: string) => {
-      try {
-        const result = await deleteFeature(featureId);
+    (featureId: string) => {
+      const nodeId = `feat-${featureId}`;
 
-        if (result.error) {
-          toast.error(result.error);
-          return;
-        }
+      // Snapshot current state for rollback
+      const prevNodes = nodes;
+      const prevEdges = edgesRef.current;
 
-        setNodes((currentNodes) => {
-          const remainingNodes = currentNodes.filter((n) => n.id !== featureId);
-          const remainingEdges = edgesRef.current.filter(
-            (e) => e.source !== featureId && e.target !== featureId
-          );
-          const layoutResult = layoutWithDagre(
-            remainingNodes,
-            remainingEdges,
-            CANVAS_LAYOUT_DEFAULTS
-          );
-          setEdges(layoutResult.edges);
-          return layoutResult.nodes;
+      // Optimistic removal — update UI immediately
+      setNodes((currentNodes) => {
+        const remainingNodes = currentNodes.filter((n) => n.id !== nodeId);
+        const remainingEdges = edgesRef.current.filter(
+          (e) => e.source !== nodeId && e.target !== nodeId
+        );
+        const layoutResult = layoutWithDagre(
+          remainingNodes,
+          remainingEdges,
+          CANVAS_LAYOUT_DEFAULTS
+        );
+        setEdges(layoutResult.edges);
+        return layoutResult.nodes;
+      });
+      deleteSound.play();
+      toast.success('Feature deleted successfully');
+      router.push('/');
+
+      // Persist in background — rollback on failure
+      deleteFeature(featureId)
+        .then((result) => {
+          if (result.error) {
+            setNodes(prevNodes);
+            setEdges(prevEdges);
+            toast.error(result.error);
+            return;
+          }
+          router.refresh();
+        })
+        .catch(() => {
+          setNodes(prevNodes);
+          setEdges(prevEdges);
+          toast.error('Failed to delete feature');
         });
-        deleteSound.play();
-        toast.success('Feature deleted successfully');
-        // Navigate to root to close any open feature drawer, then refresh
-        // to reconcile server state. router.push already triggers a server
-        // re-fetch, so a separate refresh is not needed.
-        router.push('/');
-      } catch {
-        toast.error('Failed to delete feature');
-      }
     },
-    [router, deleteSound, setEdges]
+    [nodes, router, deleteSound, setEdges]
   );
 
   const handleDeleteRepository = useCallback(
