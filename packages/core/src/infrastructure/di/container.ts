@@ -110,6 +110,8 @@ import { ListRepositoriesUseCase } from '../../application/use-cases/repositorie
 import { DeleteRepositoryUseCase } from '../../application/use-cases/repositories/delete-repository.use-case.js';
 import { CheckAndUnblockFeaturesUseCase } from '../../application/use-cases/features/check-and-unblock-features.use-case.js';
 import { UpdateFeatureLifecycleUseCase } from '../../application/use-cases/features/update/update-feature-lifecycle.use-case.js';
+import { TriageIssuesUseCase } from '../../application/use-cases/triage/triage-issues.use-case.js';
+import { GitHubIssueFetcher } from '../services/external/github-issue.service.js';
 
 // Session listing
 import { ClaudeCodeSessionRepository } from '../services/agents/sessions/claude-code-session.repository.js';
@@ -266,6 +268,13 @@ export async function initializeContainer(): Promise<typeof container> {
     useFactory: () => new SpecInitializerService(),
   });
 
+  container.register('IExternalIssueFetcher', {
+    useFactory: (c) => {
+      const exec = c.resolve('ExecFunction') as typeof execFileAsync;
+      return new GitHubIssueFetcher(exec);
+    },
+  });
+
   // Register notification services
   const notificationBus = getNotificationBus();
 
@@ -316,6 +325,7 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton(AddRepositoryUseCase);
   container.registerSingleton(ListRepositoriesUseCase);
   container.registerSingleton(DeleteRepositoryUseCase);
+  container.registerSingleton(TriageIssuesUseCase);
   // CheckAndUnblockFeaturesUseCase must be registered before UpdateFeatureLifecycleUseCase
   // because the latter injects the former via class token.
   container.registerSingleton(CheckAndUnblockFeaturesUseCase);
@@ -391,6 +401,9 @@ export async function initializeContainer(): Promise<typeof container> {
   });
   container.register('UpdateFeatureLifecycleUseCase', {
     useFactory: (c) => c.resolve(UpdateFeatureLifecycleUseCase),
+  });
+  container.register('TriageIssuesUseCase', {
+    useFactory: (c) => c.resolve(TriageIssuesUseCase),
   });
 
   _initialized = true;
