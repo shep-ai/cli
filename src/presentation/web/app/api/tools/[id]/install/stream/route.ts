@@ -1,6 +1,9 @@
 import { resolve } from '@/lib/server-container';
 import type { InstallToolUseCase } from '@shepai/core/application/use-cases/tools/install-tool.use-case';
 
+// Force dynamic — SSE streams must never be statically optimized or cached
+export const dynamic = 'force-dynamic';
+
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
