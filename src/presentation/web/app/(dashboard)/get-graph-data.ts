@@ -2,7 +2,7 @@ import { resolve } from '@/lib/server-container';
 import type { ListFeaturesUseCase } from '@shepai/core/application/use-cases/features/list-features.use-case';
 import type { ListRepositoriesUseCase } from '@shepai/core/application/use-cases/repositories/list-repositories.use-case';
 import type { IAgentRunRepository } from '@shepai/core/application/ports/output/agents/agent-run-repository.interface';
-import { layoutWithDagre } from '@/lib/layout-with-dagre';
+import { layoutWithDagre, CANVAS_LAYOUT_DEFAULTS } from '@/lib/layout-with-dagre';
 import { buildGraphNodes } from '@/app/build-graph-nodes';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 import type { Edge } from '@xyflow/react';
@@ -23,9 +23,5 @@ export async function getGraphData(): Promise<{ nodes: CanvasNodeType[]; edges: 
 
   const { nodes, edges } = buildGraphNodes(repositories, featuresWithRuns);
 
-  return layoutWithDagre(nodes, edges, {
-    direction: 'LR',
-    ranksep: 200,
-    nodesep: 15,
-  });
+  return layoutWithDagre(nodes, edges, CANVAS_LAYOUT_DEFAULTS);
 }

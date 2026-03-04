@@ -14,6 +14,13 @@ export interface LayoutOptions {
   nodesep?: number;
 }
 
+/** Canonical layout defaults for the control-center canvas. */
+export const CANVAS_LAYOUT_DEFAULTS: LayoutOptions = {
+  direction: 'LR',
+  ranksep: 200,
+  nodesep: 15,
+};
+
 /** Known node-type dimensions for the canvas node types */
 const NODE_DIMENSIONS: Record<string, { width: number; height: number }> = {
   featureNode: { width: 288, height: 140 },

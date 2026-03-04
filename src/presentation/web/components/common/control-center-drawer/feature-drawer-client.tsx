@@ -333,12 +333,13 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
           );
         }
         onClose();
+        router.refresh();
         onDone?.();
       } finally {
         setIsRejecting(false);
       }
     },
-    [reviewNode, onClose, rejectSound]
+    [reviewNode, onClose, rejectSound, router]
   );
 
   const handlePrdReject = useCallback(
