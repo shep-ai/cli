@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ThemeToggle } from '@/components/common/theme-toggle';
@@ -34,6 +34,99 @@ vi.mock('@/hooks/use-sound-action', () => ({
     return { play: vi.fn(), stop: vi.fn(), isPlaying: false };
   }),
 }));
+
+/* ------------------------------------------------------------------ */
+/*  Coordinate injection tests                                         */
+/* ------------------------------------------------------------------ */
+
+describe('ThemeToggle — coordinate injection', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockTheme = 'light';
+    mockResolvedTheme = 'light';
+  });
+
+  it('sets --x and --y CSS custom properties from click coordinates when API is available', async () => {
+    const user = userEvent.setup();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (document as any).startViewTransition = vi.fn((cb: () => void) => cb());
+    const setPropertySpy = vi.spyOn(document.documentElement.style, 'setProperty');
+
+    render(<ThemeToggle />);
+
+    await user.click(screen.getByRole('button', { name: /switch to dark mode/i }));
+
+    expect(setPropertySpy).toHaveBeenCalledWith('--x', expect.stringContaining('px'));
+    expect(setPropertySpy).toHaveBeenCalledWith('--y', expect.stringContaining('px'));
+
+    setPropertySpy.mockRestore();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    delete (document as any).startViewTransition;
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  View transition tests                                              */
+/* ------------------------------------------------------------------ */
+
+describe('ThemeToggle — view transitions', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockTheme = 'light';
+    mockResolvedTheme = 'light';
+  });
+
+  afterEach(() => {
+    // Clean up startViewTransition if it was set
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    delete (document as any).startViewTransition;
+    vi.restoreAllMocks();
+  });
+
+  it('calls document.startViewTransition on click when API is available', async () => {
+    const user = userEvent.setup();
+    const mockStartViewTransition = vi.fn((cb: () => void) => cb());
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (document as any).startViewTransition = mockStartViewTransition;
+
+    render(<ThemeToggle />);
+
+    await user.click(screen.getByRole('button', { name: /switch to dark mode/i }));
+
+    expect(mockStartViewTransition).toHaveBeenCalledOnce();
+    expect(mockSetTheme).toHaveBeenCalledWith('dark');
+  });
+
+  it('calls setTheme directly when startViewTransition is undefined', async () => {
+    const user = userEvent.setup();
+    // startViewTransition not set on document in jsdom — falls back to direct setTheme
+
+    render(<ThemeToggle />);
+
+    await user.click(screen.getByRole('button', { name: /switch to dark mode/i }));
+
+    expect(mockSetTheme).toHaveBeenCalledWith('dark');
+  });
+
+  it('calls setTheme directly when prefers-reduced-motion is active', async () => {
+    const user = userEvent.setup();
+    const mockStartViewTransition = vi.fn((cb: () => void) => cb());
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (document as any).startViewTransition = mockStartViewTransition;
+    vi.spyOn(window, 'matchMedia').mockReturnValue({ matches: true } as MediaQueryList);
+
+    render(<ThemeToggle />);
+
+    await user.click(screen.getByRole('button', { name: /switch to dark mode/i }));
+
+    expect(mockStartViewTransition).not.toHaveBeenCalled();
+    expect(mockSetTheme).toHaveBeenCalledWith('dark');
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  Sound effects                                                      */
+/* ------------------------------------------------------------------ */
 
 describe('ThemeToggle — sound effects', () => {
   beforeEach(() => {
