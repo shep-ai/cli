@@ -14,6 +14,7 @@
  */
 
 import { interrupt, isGraphBubbleUp } from '@langchain/langgraph';
+import { execFileSync } from 'node:child_process';
 import type { IAgentExecutor } from '@/application/ports/output/agents/agent-executor.interface.js';
 import type { FeatureAgentState } from '../../state.js';
 import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
@@ -187,6 +188,21 @@ export function createMergeNode(deps: MergeNodeDeps) {
         if (shouldInterrupt('merge', state.approvalGates)) {
           log.info('Interrupting for merge approval');
           markPhaseComplete(state.specDir, 'merge', log);
+
+          // Auto-commit feature.yaml so the working directory stays clean
+          try {
+            const featureYamlPath = `${state.specDir}/feature.yaml`;
+            const gitOpts = { cwd: state.repositoryPath, stdio: 'ignore' as const };
+            execFileSync('git', ['add', featureYamlPath], gitOpts);
+            execFileSync(
+              'git',
+              ['commit', '-m', 'chore(specs): mark merge phase complete'],
+              gitOpts
+            );
+          } catch {
+            log.info('Could not auto-commit feature.yaml update (non-fatal)');
+          }
+
           await recordPhaseEnd(mergeTimingId, Date.now() - startTime);
           await recordApprovalWaitStart(mergeTimingId);
           const diffSummary = await deps.getDiffSummary(cwd, baseBranch);
