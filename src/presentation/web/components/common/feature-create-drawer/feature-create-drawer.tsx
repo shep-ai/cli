@@ -192,6 +192,7 @@ export function FeatureCreateDrawer({
       onClose={attemptClose}
       size="md"
       modal={false}
+      dismissOnOutsideClick
       data-testid="feature-create-drawer"
       header={
         <>
