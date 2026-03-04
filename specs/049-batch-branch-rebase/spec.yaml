@@ -1,0 +1,143 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: batch-branch-rebase
+number: 049
+branch: feat/049-batch-branch-rebase
+oneLiner: CLI command to batch rebase/merge remote main into all feature branches
+userQuery: >
+  Feature: Add a way to itterate over all existing features and merge/rebase remote main into them
+summary: >
+  Add a new CLI command (e.g., `shep feat rebase`) that iterates over all tracked features
+  in the current repository, fetches the latest remote default branch (main/master), and
+  rebases or merges it into each feature branch. Provides per-feature status reporting
+  with skip/fail/success outcomes and handles worktree-based branch isolation.
+phase: Analysis
+sizeEstimate: M
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - TypeScript
+  - commander.js (CLI framework)
+  - tsyringe (dependency injection)
+  - git (rebase/merge/fetch operations)
+  - SQLite (feature persistence via IFeatureRepository)
+  - TypeSpec (domain model definitions)
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - "Rebase vs merge: should the default strategy be rebase (cleaner history) or merge (safer for shared branches)? Should the user be able to choose via a --strategy flag?"
+  - "Conflict handling: when a rebase/merge hits conflicts on one feature, should the command abort that feature and continue to the next, or stop entirely?"
+  - "Scope filtering: should the command operate on all features in the repo, or allow filtering (e.g., --lifecycle, specific feature IDs)?"
+  - "Push after rebase: should the command automatically force-push rebased branches to the remote, or leave that to the user?"
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  When working with multiple features in parallel (each on its own branch/worktree), the default
+  branch (main/master) advances over time. Developers need to periodically bring each feature
+  branch up to date with the latest main to avoid divergence, merge conflicts, and stale
+  dependencies. Currently, there is no way to do this in batch — each feature branch must be
+  updated manually one at a time. This is tedious and error-prone, especially for repositories
+  with many active features.
+
+  The existing `IGitPrService` has `mergeBranch()` for merging one branch into another, but
+  there is no use case, CLI command, or batch orchestration that iterates across features.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The repository follows Clean Architecture with four layers in `packages/core/src/`:
+
+  - **`domain/`** — Core business logic and TypeSpec-generated models (`domain/generated/output.ts`).
+    The `Feature` entity contains `branch`, `repositoryPath`, `worktreePath`, and `lifecycle` fields
+    that are central to this feature.
+  - **`application/`** — Use cases and output port interfaces. `ListFeaturesUseCase` already lists
+    features with optional `repositoryPath`/`lifecycle` filters. Port interfaces `IGitPrService` and
+    `IWorktreeService` define the git operation contracts.
+  - **`infrastructure/`** — Concrete implementations. `GitPrService` handles git merge/push/branch
+    operations. `WorktreeService` manages worktree creation/listing/removal. Both are registered as
+    singletons in the DI container.
+  - **`presentation/cli/`** — Commander.js-based CLI commands under `src/presentation/cli/commands/`.
+    The `feat` command group (`feat/index.ts`) registers subcommands: new, ls, show, del, resume,
+    review, approve, reject, logs.
+
+  ### Architecture Patterns
+
+  - **Clean Architecture**: Dependencies point inward. Use cases depend on port interfaces, not
+    concrete implementations.
+  - **Dependency Injection**: tsyringe container with `@injectable()` decorators. Services are
+    resolved via `container.resolve()` in CLI commands.
+  - **Output Ports**: `IGitPrService` and `IWorktreeService` are the interfaces for git operations.
+    The new use case must depend on these interfaces, not concrete services.
+  - **Command Pattern**: Each CLI command is a factory function `create<Name>Command()` returning a
+    `Command` instance. Commands are registered in the group's `index.ts`.
+
+  ### Relevant Technologies
+
+  - **commander.js** — CLI framework used for all commands. Supports options, arguments, and
+    subcommands.
+  - **tsyringe** — DI container. Use cases are `@injectable()` and resolved from the container.
+  - **Git operations** — Performed via `execFile` calls to the `git` binary. The `ExecFunction`
+    type is injected for testability.
+  - **SQLite** — Feature persistence through `IFeatureRepository`. Features are queried with
+    `list(filters?)`.
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `packages/core/src/application/use-cases/features/` | High | New `BatchRebaseFeaturesUseCase` orchestrating the batch operation |
+  | `src/presentation/cli/commands/feat/` | High | New `rebase.command.ts` CLI command + registration in `index.ts` |
+  | `packages/core/src/application/ports/output/services/git-pr-service.interface.ts` | Medium | May need new method for rebase operation (current `mergeBranch` only does merge) |
+  | `packages/core/src/infrastructure/services/git/git-pr.service.ts` | Medium | Implement rebase method if added to interface, plus `git fetch origin` support |
+  | `packages/core/src/infrastructure/services/git/worktree.service.ts` | Low | May need to resolve worktree paths for feature branches during iteration |
+  | `packages/core/src/infrastructure/di/container.ts` | Low | Register new use case if not auto-resolved by tsyringe |
+  | `tsp/domain/entities/feature.tsp` | None | No domain model changes expected — existing `branch`, `worktreePath`, `lifecycle` fields suffice |
+
+  ## Dependencies
+
+  - **`IFeatureRepository.list()`** — Retrieves all features for the current repository. Already exists
+    with `repositoryPath` and `lifecycle` filters.
+  - **`IGitPrService`** — Provides `mergeBranch()`, `getDefaultBranch()`, `hasRemote()`, `push()`.
+    Missing: a `rebaseBranch()` method for rebase strategy.
+  - **`IWorktreeService`** — Provides `list()`, `exists()`, `getWorktreePath()` to locate feature
+    worktrees for running git operations in the correct working directory.
+  - **`ExecFunction`** — Injected command executor for running `git fetch`, `git rebase`, etc.
+  - **`commander.js`** — CLI framework for the new command.
+  - **`tsyringe`** — DI container for resolving use case and service dependencies.
+
+  ## Success Criteria
+
+  - [ ] New CLI command `shep feat rebase` (or similar) is available
+  - [ ] Command fetches latest remote default branch before starting
+  - [ ] Command iterates over all features in the current repository
+  - [ ] Each feature branch is rebased/merged with the latest default branch
+  - [ ] Per-feature status is reported (success, skipped, failed with reason)
+  - [ ] Features with dirty worktrees are skipped with a warning
+  - [ ] Merge conflicts are handled gracefully (abort and report, continue to next feature)
+  - [ ] Command supports --strategy flag (rebase vs merge)
+  - [ ] Unit tests cover the use case with mocked git operations
+  - [ ] Integration tests verify end-to-end behavior
+
+  ## Size Estimate
+
+  **M** — This is a medium-sized feature. The core logic is straightforward (iterate features,
+  run git rebase/merge on each), but requires:
+  1. A new use case with batch orchestration and error handling per feature
+  2. A new CLI command with options (strategy, filtering, push)
+  3. Possibly extending `IGitPrService` interface with a rebase method
+  4. Handling edge cases: dirty worktrees, missing branches, conflict resolution
+  5. Comprehensive tests (unit + integration)
+
+  Estimated at 2-3 days of focused work.
+
+  ---
+
+  _Analysis complete — proceed with research_
