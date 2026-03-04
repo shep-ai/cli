@@ -39,7 +39,7 @@ export interface ControlCenterState {
   handleLayout: (direction: LayoutDirection) => void;
   handleCreateFeatureSubmit: (data: FeatureCreatePayload) => void;
   closeCreateDrawer: () => void;
-  handleDeleteFeature: (featureId: string) => Promise<void>;
+  handleDeleteFeature: (featureId: string, cleanup?: boolean) => Promise<void>;
   handleDeleteRepository: (repositoryId: string) => Promise<void>;
   isDeleting: boolean;
   createFeatureNode: (
@@ -510,10 +510,10 @@ export function useControlCenterState(
   }, []);
 
   const handleDeleteFeature = useCallback(
-    async (featureId: string) => {
+    async (featureId: string, cleanup?: boolean) => {
       setIsDeleting(true);
       try {
-        const result = await deleteFeature(featureId);
+        const result = await deleteFeature(featureId, cleanup);
 
         if (result.error) {
           toast.error(result.error);

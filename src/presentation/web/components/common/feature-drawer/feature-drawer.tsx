@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useEffect } from 'react';
-import { Loader2, Trash2, ExternalLink, GitCommitHorizontal } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { Trash2, ExternalLink, GitCommitHorizontal } from 'lucide-react';
 import { PrStatus } from '@shepai/core/domain/generated/output';
 import { cn } from '@/lib/utils';
 import { useSoundAction } from '@/hooks/use-sound-action';
@@ -12,18 +12,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { CometSpinner } from '@/components/ui/comet-spinner';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
 import { CiStatusBadge } from '@/components/common/ci-status-badge';
+import { DeleteFeatureDialog } from '@/components/common/delete-feature-dialog';
 import { featureNodeStateConfig, lifecycleDisplayLabels } from '@/components/common/feature-node';
 import type { FeatureNodeData } from '@/components/common/feature-node';
 import { useFeatureActions } from './use-feature-actions';
@@ -31,7 +21,7 @@ import { useFeatureActions } from './use-feature-actions';
 export interface FeatureDrawerProps {
   selectedNode: FeatureNodeData | null;
   onClose: () => void;
-  onDelete?: (featureId: string) => void;
+  onDelete?: (featureId: string, cleanup: boolean) => void;
   isDeleting?: boolean;
 }
 
@@ -136,48 +126,11 @@ export function FeatureDrawer({
 
           {/* Delete action */}
           {onDelete ? (
-            <>
-              <Separator />
-              <div data-testid="feature-drawer-delete" className="p-4">
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="destructive" className="w-full" disabled={isDeleting}>
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Delete feature
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Delete feature?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This will permanently delete <strong>{selectedNode.name}</strong> (
-                        {selectedNode.featureId}). This action cannot be undone.
-                        {selectedNode.state === 'running' ? (
-                          <> This feature has a running agent that will be stopped.</>
-                        ) : null}
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-                      <AlertDialogAction
-                        variant="destructive"
-                        disabled={isDeleting}
-                        onClick={() => onDelete(selectedNode.featureId)}
-                      >
-                        {isDeleting ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Deleting…
-                          </>
-                        ) : (
-                          'Delete'
-                        )}
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
-            </>
+            <DeleteSection
+              selectedNode={selectedNode}
+              onDelete={onDelete}
+              isDeleting={isDeleting}
+            />
           ) : null}
         </>
       ) : null}
@@ -279,6 +232,43 @@ function PrInfoSection({ pr }: { pr: NonNullable<FeatureNodeData['pr']> }) {
         ) : null}
       </div>
     </div>
+  );
+}
+
+function DeleteSection({
+  selectedNode,
+  onDelete,
+  isDeleting,
+}: {
+  selectedNode: FeatureNodeData;
+  onDelete: (featureId: string, cleanup: boolean) => void;
+  isDeleting: boolean;
+}) {
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  return (
+    <>
+      <Separator />
+      <div data-testid="feature-drawer-delete" className="p-4">
+        <Button
+          variant="destructive"
+          className="w-full"
+          disabled={isDeleting}
+          onClick={() => setDialogOpen(true)}
+        >
+          <Trash2 className="mr-2 h-4 w-4" />
+          Delete feature
+        </Button>
+      </div>
+      <DeleteFeatureDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        onConfirm={(cleanup) => onDelete(selectedNode.featureId, cleanup)}
+        isDeleting={isDeleting}
+        featureName={selectedNode.name}
+        featureId={selectedNode.featureId}
+      />
+    </>
   );
 }
 

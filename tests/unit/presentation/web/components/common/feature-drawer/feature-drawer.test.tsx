@@ -322,28 +322,6 @@ describe('FeatureDrawer', () => {
       expect(description).toHaveTextContent('#f1');
     });
 
-    it('AlertDialog shows running-agent warning when state is "running"', () => {
-      renderDrawer({ ...defaultData, state: 'running' }, vi.fn(), { onDelete: vi.fn() });
-
-      fireEvent.click(screen.getByRole('button', { name: /delete feature/i }));
-
-      expect(
-        screen.getByText(/This feature has a running agent that will be stopped/)
-      ).toBeInTheDocument();
-    });
-
-    it('AlertDialog does not show running-agent warning when state is not "running"', () => {
-      renderDrawer({ ...defaultData, state: 'done', progress: 100 }, vi.fn(), {
-        onDelete: vi.fn(),
-      });
-
-      fireEvent.click(screen.getByRole('button', { name: /delete feature/i }));
-
-      expect(
-        screen.queryByText(/This feature has a running agent that will be stopped/)
-      ).not.toBeInTheDocument();
-    });
-
     it('clicking Cancel closes dialog without calling onDelete', () => {
       const onDelete = vi.fn();
       renderDrawer(defaultData, vi.fn(), { onDelete });
@@ -354,14 +332,14 @@ describe('FeatureDrawer', () => {
       expect(onDelete).not.toHaveBeenCalled();
     });
 
-    it('clicking Confirm calls onDelete with featureId', () => {
+    it('clicking Confirm calls onDelete with featureId and cleanup flag', () => {
       const onDelete = vi.fn();
       renderDrawer({ ...defaultData, featureId: '#abc' }, vi.fn(), { onDelete });
 
       fireEvent.click(screen.getByRole('button', { name: /delete feature/i }));
       fireEvent.click(screen.getByRole('button', { name: /^delete$/i }));
 
-      expect(onDelete).toHaveBeenCalledWith('#abc');
+      expect(onDelete).toHaveBeenCalledWith('#abc', true);
     });
 
     it('delete trigger button is disabled when isDeleting is true', () => {

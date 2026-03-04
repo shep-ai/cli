@@ -1242,7 +1242,7 @@ describe('useControlCenterState', () => {
         fireEvent.click(screen.getByTestId('delete-feature'));
       });
 
-      expect(mockDeleteFeature).toHaveBeenCalledWith('feat-1');
+      expect(mockDeleteFeature).toHaveBeenCalledWith('feat-1', undefined);
     });
 
     it('removes deleted node from nodes on success', async () => {
