@@ -351,6 +351,42 @@ export const ErrorWithMessage: Story = {
   render: (args) => <FeatureNodeCanvas data={args} />,
 };
 
+/** Error state with a clickable retry badge (onRetry callback provided). */
+export const ErrorWithRetry: Story = {
+  args: {
+    name: 'Email Service',
+    description: 'Transactional email with SendGrid',
+    featureId: '#f5',
+    lifecycle: 'review',
+    state: 'error',
+    progress: 30,
+    errorMessage: 'Build failed: type mismatch',
+    onRetry: fn(),
+  },
+  render: (args) => <FeatureNodeCanvas data={args} />,
+};
+
+/** Error state with fn() spy — click the retry badge to see the interaction logged. */
+export const ErrorWithRetryCallback: Story = {
+  args: {
+    name: 'Email Service',
+    description: 'Transactional email with SendGrid',
+    featureId: '#f5',
+    lifecycle: 'review',
+    state: 'error',
+    progress: 30,
+    errorMessage: 'Build failed: type mismatch',
+    onRetry: fn(),
+  },
+  render: (args) => <FeatureNodeCanvas data={args} />,
+  play: async ({ canvasElement, args }) => {
+    const badge = canvasElement.querySelector('[data-testid="feature-node-badge"]') as HTMLElement;
+    await waitFor(() => expect(badge).toBeTruthy());
+    badge.click();
+    await waitFor(() => expect(args.onRetry).toHaveBeenCalled());
+  },
+};
+
 export const WithDeleteButton: Story = {
   args: {
     name: 'Auth Module',

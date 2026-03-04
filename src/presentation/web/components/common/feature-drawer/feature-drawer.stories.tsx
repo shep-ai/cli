@@ -160,6 +160,46 @@ export const Error: Story = {
 };
 
 /* ---------------------------------------------------------------------------
+ * Error retry stories
+ * ------------------------------------------------------------------------- */
+
+function DrawerTriggerWithRetry({
+  data,
+  label,
+  isRetrying = false,
+}: {
+  data: FeatureNodeData;
+  label: string;
+  isRetrying?: boolean;
+}) {
+  const [selected, setSelected] = useState<FeatureNodeData | null>(null);
+
+  return (
+    <div className="flex h-screen items-start p-4">
+      <Button variant="outline" onClick={() => setSelected(data)}>
+        {label}
+      </Button>
+      <FeatureDrawer
+        selectedNode={selected}
+        onClose={() => setSelected(null)}
+        onRetry={noop}
+        isRetrying={isRetrying}
+      />
+    </div>
+  );
+}
+
+/** Error state with retry button visible. */
+export const ErrorWithRetry: Story = {
+  render: () => <DrawerTriggerWithRetry data={errorData} label="Open Error With Retry" />,
+};
+
+/** Error state with retry button in loading/disabled state. */
+export const ErrorRetrying: Story = {
+  render: () => <DrawerTriggerWithRetry data={errorData} label="Open Error Retrying" isRetrying />,
+};
+
+/* ---------------------------------------------------------------------------
  * Edge-case stories
  * ------------------------------------------------------------------------- */
 
