@@ -46,6 +46,7 @@ export function DrawerActionBar({
             value={chatInput}
             onChange={(e) => setChatInput(e.target.value)}
             className="flex-1"
+            data-testid="drawer-chat-input"
           />
           <Button
             type="submit"
@@ -53,6 +54,7 @@ export function DrawerActionBar({
             size="icon"
             aria-label="Send"
             disabled={disabled}
+            data-testid="drawer-chat-send"
           >
             <Send />
           </Button>

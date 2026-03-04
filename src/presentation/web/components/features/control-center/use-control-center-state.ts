@@ -102,8 +102,9 @@ export function useControlCenterState(
           !serverIds.has(n.id)
       );
 
-      // Merge server nodes with client positions
-      return initialNodes.map((serverNode) => {
+      // Merge server nodes with client positions, tracking if relayout is needed
+      let needsRelayout = false;
+      const merged = initialNodes.map((serverNode) => {
         // Node already exists on canvas — keep its position, update data
         const existing = currentById.get(serverNode.id);
         if (existing) {
@@ -116,11 +117,29 @@ export function useControlCenterState(
           return { ...serverNode, position: donor.position };
         }
 
-        // Truly new node with no optimistic counterpart — use server position
+        // Truly new node with no optimistic counterpart — needs relayout
+        needsRelayout = true;
         return serverNode;
       });
+
+      // Also check if non-creating nodes were removed (graph got smaller)
+      if (!needsRelayout) {
+        needsRelayout = currentNodes.some(
+          (cn) =>
+            !serverIds.has(cn.id) &&
+            !(cn.type === 'featureNode' && (cn.data as FeatureNodeData).state === 'creating')
+        );
+      }
+
+      if (needsRelayout) {
+        const layoutResult = layoutWithDagre(merged, initialEdges, CANVAS_LAYOUT_DEFAULTS);
+        setEdges(layoutResult.edges);
+        return layoutResult.nodes;
+      }
+
+      return merged;
     });
-  }, [initialNodeKey, initialNodes]);
+  }, [initialNodeKey, initialNodes, initialEdges, setEdges]);
 
   useEffect(() => {
     setEdges(initialEdges);
@@ -308,10 +327,29 @@ export function useControlCenterState(
             }
           : null;
 
-        const allNodes = [...currentNodes, newNode];
         const allEdges = newEdge
           ? [...edgesRef.current.filter((e) => e.id !== newEdge.id), newEdge]
           : edgesRef.current;
+
+        // Insert the new node after the last sibling connected to the same source,
+        // so dagre's input-order preservation keeps repo groups together.
+        let insertIndex = currentNodes.length;
+        if (sourceNodeId) {
+          const siblingIds = new Set(
+            allEdges.filter((e) => e.source === sourceNodeId).map((e) => e.target)
+          );
+          for (let i = currentNodes.length - 1; i >= 0; i--) {
+            if (siblingIds.has(currentNodes[i].id)) {
+              insertIndex = i + 1;
+              break;
+            }
+          }
+        }
+        const allNodes = [
+          ...currentNodes.slice(0, insertIndex),
+          newNode,
+          ...currentNodes.slice(insertIndex),
+        ];
 
         // Run dagre layout on the full graph so the new node is positioned consistently
         const layoutResult = layoutWithDagre(allNodes, allEdges, CANVAS_LAYOUT_DEFAULTS);
