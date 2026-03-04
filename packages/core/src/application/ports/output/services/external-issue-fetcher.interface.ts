@@ -18,6 +18,20 @@ export interface ExternalIssue {
   labels: string[];
   url: string;
   source: 'github' | 'jira';
+  /** Issue number (e.g., GitHub issue #42). Optional for sources like Jira that use string keys. */
+  number?: number;
+}
+
+/**
+ * Options for listing issues from an external source.
+ */
+export interface ListIssuesOptions {
+  /** Target repository (e.g., "owner/repo"). Uses the current repo if omitted. */
+  repo?: string;
+  /** Filter issues by labels. */
+  labels?: string[];
+  /** Maximum number of issues to fetch. Defaults to 100. */
+  limit?: number;
 }
 
 /**
@@ -44,6 +58,16 @@ export interface IExternalIssueFetcher {
    * @throws IssueAuthenticationError if credentials are invalid
    */
   fetchJiraTicket(key: string): Promise<ExternalIssue>;
+
+  /**
+   * List open issues from the external source.
+   *
+   * @param options - Optional filters for repo, labels, and limit
+   * @returns Array of normalized external issues
+   * @throws IssueServiceUnavailableError if the external service CLI is not installed
+   * @throws IssueAuthenticationError if credentials are invalid
+   */
+  listIssues(options?: ListIssuesOptions): Promise<ExternalIssue[]>;
 }
 
 /**

@@ -12,6 +12,7 @@ import { describe, it, expect } from 'vitest';
 import type {
   IExternalIssueFetcher,
   ExternalIssue,
+  ListIssuesOptions,
 } from '@/application/ports/output/services/external-issue-fetcher.interface.js';
 import {
   IssueFetcherError,
@@ -37,9 +38,11 @@ describe('IExternalIssueFetcher type contracts', () => {
         url: 'https://jira.example.com/browse/PROJ-123',
         source: 'jira' as const,
       }),
+      listIssues: async (_options?: ListIssuesOptions) => [],
     };
     expect(mockFetcher.fetchGitHubIssue).toBeDefined();
     expect(mockFetcher.fetchJiraTicket).toBeDefined();
+    expect(mockFetcher.listIssues).toBeDefined();
   });
 
   it('should define ExternalIssue with required fields', () => {
@@ -55,6 +58,39 @@ describe('IExternalIssueFetcher type contracts', () => {
     expect(issue.labels).toEqual(['feature', 'auth']);
     expect(issue.url).toBe('https://github.com/org/repo/issues/42');
     expect(issue.source).toBe('github');
+  });
+
+  it('should allow optional number field on ExternalIssue', () => {
+    const issueWithNumber: ExternalIssue = {
+      title: 'Issue with number',
+      description: 'Has a number',
+      labels: [],
+      url: 'https://github.com/org/repo/issues/42',
+      source: 'github',
+      number: 42,
+    };
+    const issueWithoutNumber: ExternalIssue = {
+      title: 'Issue without number',
+      description: 'No number',
+      labels: [],
+      url: 'https://jira.example.com/browse/PROJ-1',
+      source: 'jira',
+    };
+    expect(issueWithNumber.number).toBe(42);
+    expect(issueWithoutNumber.number).toBeUndefined();
+  });
+
+  it('should define ListIssuesOptions with optional fields', () => {
+    const emptyOptions: ListIssuesOptions = {};
+    const fullOptions: ListIssuesOptions = {
+      repo: 'owner/repo',
+      labels: ['bug', 'enhancement'],
+      limit: 50,
+    };
+    expect(emptyOptions.repo).toBeUndefined();
+    expect(fullOptions.repo).toBe('owner/repo');
+    expect(fullOptions.labels).toEqual(['bug', 'enhancement']);
+    expect(fullOptions.limit).toBe(50);
   });
 
   it('should define ExternalIssue source as github or jira', () => {
