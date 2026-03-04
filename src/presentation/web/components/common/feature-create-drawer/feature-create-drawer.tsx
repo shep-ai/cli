@@ -199,11 +199,13 @@ export function FeatureCreateDrawer({
             <div className="h-2.5 w-2.5 shrink-0 rounded-full bg-blue-500" />
             <DrawerTitle>NEW FEATURE</DrawerTitle>
           </div>
-          <DrawerDescription asChild>
-            <div>
-              <Badge variant="secondary">Creating...</Badge>
-            </div>
-          </DrawerDescription>
+          {isSubmitting ? (
+            <DrawerDescription asChild>
+              <div>
+                <Badge variant="secondary">Creating...</Badge>
+              </div>
+            </DrawerDescription>
+          ) : null}
         </>
       }
       footer={
