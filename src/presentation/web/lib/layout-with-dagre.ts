@@ -160,6 +160,36 @@ export function layoutWithDagre<N extends Node>(
     }
   }
 
+  // Enforce input-order within each sibling group so that the caller's
+  // sort (e.g. by createdAt) is respected on the secondary axis.
+  const inputIndex = new Map<string, number>();
+  for (let i = 0; i < graphNodes.length; i++) {
+    inputIndex.set(graphNodes[i].id, i);
+  }
+
+  for (const [, childIds] of childrenOf) {
+    const valid = childIds.filter((id) => centerMap.has(id));
+    if (valid.length <= 1) continue;
+
+    // Collect current secondary-axis positions, sorted ascending
+    const positions = valid
+      .map((id) => (isHorizontal ? centerMap.get(id)!.cy : centerMap.get(id)!.cx))
+      .sort((a, b) => a - b);
+
+    // Sort children by input index (preserves caller's ordering, e.g. createdAt)
+    const byInput = [...valid].sort((a, b) => (inputIndex.get(a) ?? 0) - (inputIndex.get(b) ?? 0));
+
+    // Assign sorted positions in input order
+    for (let i = 0; i < byInput.length; i++) {
+      const c = centerMap.get(byInput[i])!;
+      if (isHorizontal) {
+        c.cy = positions[i];
+      } else {
+        c.cx = positions[i];
+      }
+    }
+  }
+
   // Build result array converting center-coords to React Flow top-left
   const result: N[] = [];
   for (const node of graphNodes) {
