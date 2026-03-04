@@ -347,6 +347,30 @@ export const InDrawer: Story = {
 };
 
 /* ---------------------------------------------------------------------------
+ * Discard confirmation stories
+ * ------------------------------------------------------------------------- */
+
+/**
+ * Discard confirmation — type text, then click Cancel to trigger the
+ * "Discard unsaved changes?" dialog. Demonstrates the dirty-form guard.
+ */
+export const DiscardConfirmation: Story = {
+  render: () => <CreateDrawerTrigger label="Open (Discard Confirmation)" />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Open (Discard Confirmation)' }));
+
+    const body = within(canvasElement.ownerDocument.body);
+    const nameInput = await body.findByPlaceholderText('e.g. GitHub OAuth Login');
+    await userEvent.type(nameInput, 'My Feature');
+
+    // Click Cancel — should show the discard confirmation dialog
+    const cancelButton = body.getByRole('button', { name: 'Cancel' });
+    await userEvent.click(cancelButton);
+  },
+};
+
+/* ---------------------------------------------------------------------------
  * Interactive story — full paths shown in submitted data panel
  * ------------------------------------------------------------------------- */
 

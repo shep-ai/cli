@@ -60,7 +60,7 @@ export function AppSidebar({
   });
 
   return (
-    <Sidebar data-testid="app-sidebar" collapsible="icon">
+    <Sidebar data-testid="app-sidebar" data-no-drawer-close collapsible="icon">
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
