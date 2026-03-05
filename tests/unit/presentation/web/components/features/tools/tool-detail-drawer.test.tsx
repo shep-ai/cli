@@ -36,7 +36,7 @@ function makeTool(overrides: Partial<ToolItem> = {}): ToolItem {
 describe('ToolDetailDrawer', () => {
   it('renders tool name and description when open', () => {
     render(<ToolDetailDrawer tool={makeTool()} open={true} onClose={vi.fn()} />);
-    expect(screen.getByText('tmux')).toBeDefined();
+    expect(screen.getByRole('heading', { name: 'tmux' })).toBeDefined();
     expect(
       screen.getByText('tmux is a terminal multiplexer for session management.')
     ).toBeDefined();

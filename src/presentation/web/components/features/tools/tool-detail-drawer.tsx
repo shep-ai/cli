@@ -160,7 +160,8 @@ export function ToolDetailDrawer({
       open={open}
       onClose={onClose}
       size="md"
-      modal={false}
+      modal
+      title={tool.name}
       header={header}
       data-testid="tool-detail-drawer"
     >

@@ -12,6 +12,8 @@ import {
   DrawerHeader,
   DrawerFooter,
   DrawerOverlay,
+  DrawerTitle,
+  DrawerDescription,
 } from '@/components/ui/drawer';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -36,6 +38,7 @@ export interface BaseDrawerProps extends VariantProps<typeof drawerVariants> {
   modal?: boolean;
   /** When true, clicking anywhere outside the drawer closes it, ignoring `data-no-drawer-close` guards. */
   dismissOnOutsideClick?: boolean;
+  title?: string;
   header?: React.ReactNode;
   children: React.ReactNode;
   footer?: React.ReactNode;
@@ -49,6 +52,7 @@ export function BaseDrawer({
   onClose,
   modal = false,
   dismissOnOutsideClick = false,
+  title = 'Drawer',
   size,
   header,
   children,
@@ -103,6 +107,14 @@ export function BaseDrawer({
         data-testid={testId}
         onInteractOutside={(e) => e.preventDefault()}
       >
+        {/* Visually hidden title & description required by Radix Dialog for accessibility */}
+        <DrawerTitle asChild>
+          <span className="sr-only">{title}</span>
+        </DrawerTitle>
+        <DrawerDescription asChild>
+          <span className="sr-only">{title}</span>
+        </DrawerDescription>
+
         {/* Close button */}
         <button
           type="button"
