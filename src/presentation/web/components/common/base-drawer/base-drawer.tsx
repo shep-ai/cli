@@ -105,7 +105,7 @@ export function BaseDrawer({
         showCloseButton={false}
         className={cn(drawerVariants({ size }), className)}
         data-testid={testId}
-        onInteractOutside={(e) => e.preventDefault()}
+        onInteractOutside={modal ? undefined : (e) => e.preventDefault()}
       >
         {/* Visually hidden title & description required by Radix Dialog for accessibility */}
         <DrawerTitle asChild>
