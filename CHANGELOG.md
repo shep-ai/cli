@@ -1,3 +1,9 @@
+## [1.72.8](https://github.com/shep-ai/cli/compare/v1.72.7...v1.72.8) (2026-03-05)
+
+### Bug Fixes
+
+- **api:** resolve tool install endpoint 404 error ([#187](https://github.com/shep-ai/cli/issues/187)) ([abaf1c8](https://github.com/shep-ai/cli/commit/abaf1c80af85901db1c72b11063159f1e2be6cf3)), closes [#210](https://github.com/shep-ai/cli/issues/210)
+
 ## [1.72.7](https://github.com/shep-ai/cli/compare/v1.72.6...v1.72.7) (2026-03-04)
 
 ### Bug Fixes
