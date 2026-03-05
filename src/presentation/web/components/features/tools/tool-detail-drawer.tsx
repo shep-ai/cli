@@ -289,6 +289,7 @@ export function ToolDetailDrawer({
               data-testid="tool-install-log"
             >
               {logs.map((line, idx) => (
+                // eslint-disable-next-line react/no-array-index-key -- logs are append-only, never reorder
                 <div key={idx} className="break-all whitespace-pre-wrap">
                   {line}
                 </div>
