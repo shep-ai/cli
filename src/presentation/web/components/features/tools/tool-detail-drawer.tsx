@@ -23,6 +23,7 @@ export interface ToolDetailDrawerProps {
   open: boolean;
   onClose: () => void;
   onRefresh?: () => Promise<void>;
+  autoStart?: boolean;
 }
 
 const TAG_CONFIG: Record<string, { label: string; icon: typeof Monitor }> = {
@@ -57,17 +58,35 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-export function ToolDetailDrawer({ tool, open, onClose, onRefresh }: ToolDetailDrawerProps) {
+export function ToolDetailDrawer({
+  tool,
+  open,
+  onClose,
+  onRefresh,
+  autoStart,
+}: ToolDetailDrawerProps) {
   const [copied, setCopied] = useState(false);
   const [isLaunching, setIsLaunching] = useState(false);
   const { logs, status, startInstall } = useToolInstallStream(tool.id);
   const logRef = useRef<HTMLDivElement>(null);
   const isAtBottomRef = useRef(true);
+  const autoStartedRef = useRef(false);
 
   const isInstalled = tool.status.status === 'available';
   const isError = tool.status.status === 'error';
   const canLaunch = isInstalled && Boolean(tool.openDirectory);
   const canInstall = !isInstalled && !isError && tool.autoInstall;
+
+  // Auto-start install when drawer opens with autoStart flag
+  useEffect(() => {
+    if (open && autoStart && canInstall && status === 'idle' && !autoStartedRef.current) {
+      autoStartedRef.current = true;
+      startInstall();
+    }
+    if (!open) {
+      autoStartedRef.current = false;
+    }
+  }, [open, autoStart, canInstall, status, startInstall]);
 
   function handleCopy() {
     if (!tool.installCommand) return;
@@ -140,7 +159,7 @@ export function ToolDetailDrawer({ tool, open, onClose, onRefresh }: ToolDetailD
     <BaseDrawer
       open={open}
       onClose={onClose}
-      size="sm"
+      size="md"
       modal={false}
       header={header}
       data-testid="tool-detail-drawer"

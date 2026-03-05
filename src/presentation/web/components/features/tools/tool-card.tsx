@@ -33,6 +33,7 @@ const TAG_CONFIG: Record<string, { label: string; icon: typeof Monitor }> = {
 
 export function ToolCard({ tool, onRefresh, className }: ToolCardProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [autoStartInstall, setAutoStartInstall] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const isInstalled = tool.status.status === 'available';
@@ -125,7 +126,10 @@ export function ToolCard({ tool, onRefresh, className }: ToolCardProps) {
             <Button
               size="sm"
               variant="ghost"
-              onClick={() => setDrawerOpen(true)}
+              onClick={() => {
+                setAutoStartInstall(false);
+                setDrawerOpen(true);
+              }}
               aria-label={`View details for ${tool.name}`}
               data-testid="tool-card-info-button"
               className="h-7 w-7 cursor-pointer rounded-md p-0"
@@ -153,7 +157,10 @@ export function ToolCard({ tool, onRefresh, className }: ToolCardProps) {
               <Button
                 size="sm"
                 variant={tool.autoInstall ? 'default' : 'outline'}
-                onClick={() => setDrawerOpen(true)}
+                onClick={() => {
+                  setAutoStartInstall(tool.autoInstall);
+                  setDrawerOpen(true);
+                }}
                 aria-label={`Install ${tool.name}`}
                 data-testid="tool-card-install-button"
                 className="h-7 cursor-pointer rounded-md px-3 text-xs"
@@ -171,6 +178,7 @@ export function ToolCard({ tool, onRefresh, className }: ToolCardProps) {
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         onRefresh={onRefresh}
+        autoStart={autoStartInstall}
       />
     </>
   );
