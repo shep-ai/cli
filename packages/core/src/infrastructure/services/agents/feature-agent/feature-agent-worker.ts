@@ -19,9 +19,10 @@ import type { FeatureAgentGraphDeps } from './feature-agent-graph.js';
 import { createCheckpointer } from '../common/checkpointer.js';
 import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
 import type { IAgentExecutorProvider } from '@/application/ports/output/agents/agent-executor-provider.interface.js';
+import type { IAgentExecutorFactory } from '@/application/ports/output/agents/agent-executor-factory.interface.js';
 import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
 import type { IGitPrService } from '@/application/ports/output/services/git-pr-service.interface.js';
-import { AgentRunStatus } from '@/domain/generated/output.js';
+import { AgentRunStatus, type AgentType } from '@/domain/generated/output.js';
 import { initializeSettings } from '@/infrastructure/services/settings.service.js';
 import { InitializeSettingsUseCase } from '@/application/use-cases/settings/initialize-settings.use-case.js';
 import { setHeartbeatContext } from './heartbeat.js';
@@ -45,6 +46,7 @@ export interface WorkerArgs {
   push?: boolean;
   openPr?: boolean;
   resumePayload?: string;
+  agentType?: AgentType;
 }
 
 /**
@@ -83,6 +85,12 @@ export function parseWorkerArgs(args: string[]): WorkerArgs {
   const threadId =
     threadIdx !== -1 && threadIdx + 1 < args.length ? args[threadIdx + 1] : undefined;
 
+  const agentTypeIdx = args.indexOf('--agent-type');
+  const agentType =
+    agentTypeIdx !== -1 && agentTypeIdx + 1 < args.length
+      ? (args[agentTypeIdx + 1] as AgentType)
+      : undefined;
+
   const resumePayloadIdx = args.indexOf('--resume-payload');
   const resumePayload =
     resumePayloadIdx !== -1 && resumePayloadIdx + 1 < args.length
@@ -102,6 +110,7 @@ export function parseWorkerArgs(args: string[]): WorkerArgs {
     push,
     openPr,
     resumePayload,
+    agentType,
   };
 }
 
@@ -159,9 +168,16 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
   const runRepository = container.resolve<IAgentRunRepository>('IAgentRunRepository');
   const executorProvider = container.resolve<IAgentExecutorProvider>('IAgentExecutorProvider');
 
-  // Create executor from configured agent settings
-  log('Creating executor from configured agent settings...');
-  const executor = executorProvider.getExecutor();
+  // Create executor — use pinned agentType when resuming, otherwise fall back to settings
+  let executor;
+  if (args.agentType) {
+    log(`Creating executor from pinned agent type: ${args.agentType}`);
+    const factory = container.resolve<IAgentExecutorFactory>('IAgentExecutorFactory');
+    executor = factory.createExecutor(args.agentType, settings.agent);
+  } else {
+    log('Creating executor from configured agent settings...');
+    executor = executorProvider.getExecutor();
+  }
 
   // Resolve merge node dependencies
   const gitPrService = container.resolve<IGitPrService>('IGitPrService');

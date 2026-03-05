@@ -58,6 +58,7 @@ describe('FeatureAgentProcessService', () => {
 
   beforeEach(() => {
     vi.restoreAllMocks();
+    mockFork.mockReset();
 
     mockChildProcess = {
       pid: 9999,
@@ -116,6 +117,25 @@ describe('FeatureAgentProcessService', () => {
 
       expect(mockChildProcess.disconnect).toHaveBeenCalledTimes(1);
       expect(mockChildProcess.unref).toHaveBeenCalledTimes(1);
+    });
+
+    it('should include --agent-type in fork args when agentType option is set', () => {
+      service.spawn('feat-1', 'run-1', '/repo', '/repo/specs/001', undefined, {
+        agentType: AgentType.ClaudeCode,
+      });
+
+      const args = mockFork.mock.calls[0][1];
+      expect(args).toContain('--agent-type');
+      expect(args).toContain('claude-code');
+    });
+
+    it('should NOT include --agent-type in fork args when agentType option is not set', () => {
+      service.spawn('feat-1', 'run-1', '/repo', '/repo/specs/001', undefined, {
+        resume: true,
+      });
+
+      const args = mockFork.mock.calls[0][1];
+      expect(args).not.toContain('--agent-type');
     });
 
     it('should throw if fork returns no pid', () => {

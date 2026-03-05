@@ -142,6 +142,26 @@ describe('ResumeFeatureUseCase', () => {
     );
   });
 
+  it('should pass lastRun.agentType to processService.spawn options', async () => {
+    featureRepo.findById.mockResolvedValue(createTestFeature());
+    runRepo.findById.mockResolvedValue(
+      createTestRun({ status: AgentRunStatus.interrupted, agentType: 'dev' as any })
+    );
+
+    await useCase.execute('feat-001');
+
+    expect(processService.spawn).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      expect.objectContaining({
+        agentType: 'dev',
+      })
+    );
+  });
+
   it('should resume a failed run without resumeFromInterrupt', async () => {
     featureRepo.findById.mockResolvedValue(createTestFeature());
     runRepo.findById.mockResolvedValue(createTestRun({ status: AgentRunStatus.failed }));

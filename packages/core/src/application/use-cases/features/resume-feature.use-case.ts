@@ -129,6 +129,7 @@ export class ResumeFeatureUseCase {
         resumeFromInterrupt: lastRun.status === AgentRunStatus.waitingApproval,
         push: feature.push,
         openPr: feature.openPr,
+        agentType: lastRun.agentType,
       }
     );
 
