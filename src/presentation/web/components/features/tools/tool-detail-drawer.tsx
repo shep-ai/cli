@@ -18,6 +18,12 @@ import { BaseDrawer } from '@/components/common/base-drawer/base-drawer';
 import { useToolInstallStream } from '@/hooks/use-tool-install-stream';
 import type { ToolItem } from '@shepai/core/application/use-cases/tools/list-tools.use-case';
 
+const PLATFORM_LABELS: Record<string, string> = {
+  linux: 'Linux',
+  darwin: 'macOS',
+  win32: 'Windows',
+};
+
 export interface ToolDetailDrawerProps {
   tool: ToolItem;
   open: boolean;
@@ -116,7 +122,7 @@ export function ToolDetailDrawer({
     if (isAtBottomRef.current && logRef.current) {
       logRef.current.scrollTop = logRef.current.scrollHeight;
     }
-  }, [logs]);
+  }, [logs, status]);
 
   // Refresh tool status after install completes
   useEffect(() => {
@@ -126,7 +132,7 @@ export function ToolDetailDrawer({
   }, [status, onRefresh]);
 
   const header = (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-1.5 pr-6">
       <div className="flex items-center gap-2">
         {tool.iconUrl ? (
           /* eslint-disable-next-line @next/next/no-img-element */
@@ -137,16 +143,16 @@ export function ToolDetailDrawer({
         <h2 className="text-base font-bold">{tool.name}</h2>
         <StatusBadge status={tool.status.status} />
       </div>
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-2">
         {tool.tags.map((tag) => {
           const config = TAG_CONFIG[tag] ?? { label: tag, icon: Monitor };
           const TagIcon = config.icon;
           return (
             <span
               key={tag}
-              className="bg-muted text-muted-foreground inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium"
+              className="text-muted-foreground/70 inline-flex items-center gap-0.5 text-[10px]"
             >
-              <TagIcon className="h-2.5 w-2.5" />
+              <TagIcon className="h-3 w-3" />
               {config.label}
             </span>
           );
@@ -167,14 +173,42 @@ export function ToolDetailDrawer({
     >
       <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-4">
         {/* Description */}
-        <div>
-          <p className="text-muted-foreground text-sm">{tool.description}</p>
-        </div>
+        <p className="text-muted-foreground text-sm">{tool.description}</p>
+
+        {/* Meta info row: author + platforms */}
+        {tool.author || tool.platforms ? (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+            {tool.author ? (
+              <span className="text-muted-foreground">
+                by{' '}
+                {tool.website ? (
+                  <a
+                    href={tool.website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-foreground hover:underline"
+                  >
+                    {tool.author}
+                  </a>
+                ) : (
+                  <span className="text-foreground">{tool.author}</span>
+                )}
+              </span>
+            ) : null}
+            {tool.platforms && tool.platforms.length > 0 ? (
+              <span className="text-muted-foreground">
+                {tool.platforms.map((p) => PLATFORM_LABELS[p] ?? p).join(' · ')}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
 
         {/* Install Command */}
         {tool.installCommand ? (
           <div className="flex flex-col gap-1.5">
-            <span className="text-muted-foreground text-xs font-medium">Install command</span>
+            <span className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
+              Install command
+            </span>
             <div className="relative rounded-md bg-zinc-900 text-zinc-100">
               <pre className="overflow-x-auto px-3 py-2.5 pr-16 font-mono text-xs leading-relaxed break-all whitespace-pre-wrap">
                 <code>{tool.installCommand}</code>
@@ -232,20 +266,30 @@ export function ToolDetailDrawer({
               Launch
             </Button>
           ) : null}
+          {tool.documentationUrl ? (
+            <Button variant="outline" size="sm" className="cursor-pointer" asChild>
+              <a href={tool.documentationUrl} target="_blank" rel="noopener noreferrer">
+                Docs
+                <ExternalLink className="ml-1 h-3 w-3" />
+              </a>
+            </Button>
+          ) : null}
         </div>
 
         {/* Install Log */}
         {(status === 'streaming' || status === 'done' || status === 'error') && logs.length > 0 ? (
           <div className="flex flex-col gap-1.5">
-            <span className="text-muted-foreground text-xs font-medium">Install log</span>
+            <span className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
+              Install log
+            </span>
             <div
               ref={logRef}
               onScroll={handleScroll}
               className="max-h-60 overflow-auto rounded-md bg-zinc-900 p-3 font-mono text-xs leading-relaxed text-zinc-100"
               data-testid="tool-install-log"
             >
-              {logs.map((line) => (
-                <div key={line} className="break-all whitespace-pre-wrap">
+              {logs.map((line, idx) => (
+                <div key={idx} className="break-all whitespace-pre-wrap">
                   {line}
                 </div>
               ))}
@@ -261,16 +305,6 @@ export function ToolDetailDrawer({
               ) : null}
             </div>
           </div>
-        ) : null}
-
-        {/* Documentation */}
-        {tool.documentationUrl ? (
-          <Button variant="outline" size="sm" className="w-fit cursor-pointer" asChild>
-            <a href={tool.documentationUrl} target="_blank" rel="noopener noreferrer">
-              Documentation
-              <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
-            </a>
-          </Button>
         ) : null}
       </div>
     </BaseDrawer>

@@ -29,6 +29,9 @@ function makeTool(overrides: Partial<ToolItem> = {}): ToolItem {
     documentationUrl: 'https://github.com/tmux/tmux/wiki',
     installCommand: 'sudo apt-get install -y tmux',
     status: { status: 'missing', toolName: 'tmux' },
+    author: 'tmux team',
+    website: 'https://tmux.github.io',
+    platforms: ['linux', 'darwin'],
     ...overrides,
   };
 }
@@ -93,7 +96,7 @@ describe('ToolDetailDrawer', () => {
 
   it('shows documentation link', () => {
     render(<ToolDetailDrawer tool={makeTool()} open={true} onClose={vi.fn()} />);
-    const link = screen.getByRole('link', { name: /documentation/i });
+    const link = screen.getByRole('link', { name: /docs/i });
     expect(link).toBeDefined();
     expect(link.getAttribute('href')).toBe('https://github.com/tmux/tmux/wiki');
   });

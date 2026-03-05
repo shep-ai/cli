@@ -2,7 +2,6 @@
 
 import { useState, useTransition } from 'react';
 import {
-  Info,
   Loader2,
   Rocket,
   Download,
@@ -10,10 +9,12 @@ import {
   Terminal,
   GitBranch,
   CircleX,
-  Check,
+  Circle,
+  CheckCircle2,
   Package,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { ToolDetailDrawer } from './tool-detail-drawer';
 import type { ToolItem } from '@shepai/core/application/use-cases/tools/list-tools.use-case';
@@ -40,18 +41,31 @@ export function ToolCard({ tool, onRefresh, className }: ToolCardProps) {
   const isError = tool.status.status === 'error';
   const canLaunch = isInstalled && Boolean(tool.openDirectory);
 
-  function handleLaunch() {
+  function handleLaunch(e: React.MouseEvent) {
+    e.stopPropagation();
     startTransition(async () => {
       await fetch(`/api/tools/${tool.id}/launch`, { method: 'POST' });
     });
+  }
+
+  function handleCardClick() {
+    setAutoStartInstall(false);
+    setDrawerOpen(true);
+  }
+
+  function handleInstallClick(e: React.MouseEvent) {
+    e.stopPropagation();
+    setAutoStartInstall(tool.autoInstall);
+    setDrawerOpen(true);
   }
 
   return (
     <>
       <div
         data-testid="tool-card"
+        onClick={handleCardClick}
         className={cn(
-          'bg-card group flex h-30 w-full flex-col rounded-lg border p-3 shadow-sm transition-shadow hover:shadow-md',
+          'bg-card group flex h-30 w-full cursor-pointer flex-col rounded-lg border p-3 transition-shadow hover:shadow-md',
           className
         )}
       >
@@ -81,7 +95,7 @@ export function ToolCard({ tool, onRefresh, className }: ToolCardProps) {
               return (
                 <span
                   key={tag}
-                  className="bg-muted text-muted-foreground inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium"
+                  className="text-muted-foreground/70 inline-flex items-center gap-0.5 text-[9px]"
                 >
                   <TagIcon className="h-2.5 w-2.5" />
                   {config.label}
@@ -109,42 +123,43 @@ export function ToolCard({ tool, onRefresh, className }: ToolCardProps) {
                 {tool.status.errorMessage ?? 'Error'}
               </span>
             ) : isInstalled ? (
-              <span className="flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400">
-                <Check className="h-3 w-3" />
+              <span className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400">
+                <CheckCircle2 className="h-3 w-3" />
                 Installed
               </span>
             ) : (
-              <span className="text-muted-foreground text-[10px]">Not installed</span>
+              <span className="text-muted-foreground flex items-center gap-1 text-[10px]">
+                <Circle className="h-3 w-3" />
+                Not installed
+              </span>
             )}
             {tool.required ? (
-              <span className="text-muted-foreground text-[10px] italic">Required</span>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-medium text-amber-700 dark:bg-amber-900/50 dark:text-amber-400">
+                      Required
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    This tool is required for Shep to function properly
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             ) : null}
           </div>
 
           {/* Action buttons */}
           <div className="flex items-center gap-1">
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => {
-                setAutoStartInstall(false);
-                setDrawerOpen(true);
-              }}
-              aria-label={`View details for ${tool.name}`}
-              data-testid="tool-card-info-button"
-              className="h-7 w-7 cursor-pointer rounded-md p-0"
-            >
-              <Info className="h-3.5 w-3.5" />
-            </Button>
             {isInstalled && canLaunch ? (
               <Button
                 size="sm"
-                variant="ghost"
+                variant="outline"
                 onClick={handleLaunch}
                 disabled={isPending}
                 aria-label={`Launch ${tool.name}`}
                 data-testid="tool-card-launch-button"
-                className="hover:bg-primary hover:text-primary-foreground h-7 cursor-pointer rounded-md px-3 text-xs"
+                className="h-7 cursor-pointer rounded-md px-3 text-xs"
               >
                 {isPending ? (
                   <Loader2 className="mr-1 h-3 w-3 animate-spin" />
@@ -156,11 +171,8 @@ export function ToolCard({ tool, onRefresh, className }: ToolCardProps) {
             ) : !isInstalled && !isError ? (
               <Button
                 size="sm"
-                variant={tool.autoInstall ? 'default' : 'outline'}
-                onClick={() => {
-                  setAutoStartInstall(tool.autoInstall);
-                  setDrawerOpen(true);
-                }}
+                variant="default"
+                onClick={handleInstallClick}
                 aria-label={`Install ${tool.name}`}
                 data-testid="tool-card-install-button"
                 className="h-7 cursor-pointer rounded-md px-3 text-xs"

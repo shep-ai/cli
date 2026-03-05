@@ -25,6 +25,15 @@ export interface ToolMetadata {
   /** Tool tags for grouping in listings. A tool can belong to multiple categories. */
   tags: ('ide' | 'cli-agent' | 'vcs' | 'terminal')[];
 
+  /** Company or developer name */
+  author?: string;
+
+  /** Main website/homepage URL (separate from documentation) */
+  website?: string;
+
+  /** Supported platforms (os.platform() values) */
+  platforms?: ('linux' | 'darwin' | 'win32')[];
+
   /** URL to the tool's icon/logo image */
   iconUrl?: string;
 

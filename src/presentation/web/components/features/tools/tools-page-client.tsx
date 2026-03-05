@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Wrench } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
@@ -26,7 +26,7 @@ export function ToolsPageClient({ tools: initialTools, className }: ToolsPageCli
   const [tools, setTools] = useState<ToolItem[]>(initialTools);
   const [activeTab, setActiveTab] = useState<TabValue>('all');
 
-  async function refreshTools() {
+  const refreshTools = useCallback(async () => {
     try {
       const res = await fetch('/api/tools');
       if (res.ok) {
@@ -36,7 +36,7 @@ export function ToolsPageClient({ tools: initialTools, className }: ToolsPageCli
     } catch {
       // Silently ignore refresh errors; user can re-navigate to refresh
     }
-  }
+  }, []);
 
   const filtered = tools.filter(TAB_FILTER[activeTab]);
 

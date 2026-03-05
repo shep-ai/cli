@@ -16,6 +16,9 @@ const installedIdeTool: ToolItem = {
   documentationUrl: 'https://cursor.sh',
   installCommand: 'brew install --cask cursor',
   status: { status: 'available', toolName: 'cursor' },
+  author: 'Anysphere',
+  website: 'https://cursor.com',
+  platforms: ['linux', 'darwin', 'win32'],
 };
 
 const installedNoLaunchTool: ToolItem = {
@@ -32,6 +35,9 @@ const installedNoLaunchTool: ToolItem = {
   documentationUrl: 'https://claude.ai',
   installCommand: 'npm install -g @anthropic-ai/claude-code',
   status: { status: 'available', toolName: 'claude-code' },
+  author: 'Anthropic',
+  website: 'https://claude.ai/code',
+  platforms: ['linux', 'darwin'],
 };
 
 const missingAutoInstallTool: ToolItem = {
@@ -48,6 +54,9 @@ const missingAutoInstallTool: ToolItem = {
   documentationUrl: 'https://aider.chat',
   installCommand: 'pip install aider-chat',
   status: { status: 'missing', toolName: 'aider' },
+  author: 'Paul Gauthier',
+  website: 'https://aider.chat',
+  platforms: ['linux', 'darwin', 'win32'],
 };
 
 const missingManualTool: ToolItem = {
@@ -64,6 +73,9 @@ const missingManualTool: ToolItem = {
   documentationUrl: 'https://code.visualstudio.com',
   installCommand: 'brew install --cask visual-studio-code',
   status: { status: 'missing', toolName: 'vscode' },
+  author: 'Microsoft',
+  website: 'https://code.visualstudio.com',
+  platforms: ['linux', 'darwin', 'win32'],
 };
 
 const cliAgentTool: ToolItem = {
@@ -80,6 +92,9 @@ const cliAgentTool: ToolItem = {
   documentationUrl: 'https://cursor.sh',
   installCommand: 'curl https://cursor.com/install -fsS | bash',
   status: { status: 'available', toolName: 'cursor-cli' },
+  author: 'Anysphere',
+  website: 'https://cursor.com',
+  platforms: ['linux', 'darwin', 'win32'],
 };
 
 const vcsTool: ToolItem = {
@@ -96,6 +111,9 @@ const vcsTool: ToolItem = {
   documentationUrl: 'https://cli.github.com/manual/',
   installCommand: 'brew install gh',
   status: { status: 'available', toolName: 'gh' },
+  author: 'GitHub',
+  website: 'https://cli.github.com',
+  platforms: ['linux', 'darwin', 'win32'],
 };
 
 const meta: Meta<typeof ToolCard> = {

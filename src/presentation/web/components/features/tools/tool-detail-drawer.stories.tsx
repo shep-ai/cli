@@ -16,6 +16,9 @@ const baseTool: ToolItem = {
   documentationUrl: 'https://github.com/tmux/tmux/wiki',
   installCommand: 'sudo apt-get install -y tmux',
   status: { status: 'missing', toolName: 'tmux' },
+  author: 'tmux team',
+  website: 'https://tmux.github.io',
+  platforms: ['linux', 'darwin'],
 };
 
 const meta: Meta<typeof ToolDetailDrawer> = {
