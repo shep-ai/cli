@@ -25,6 +25,15 @@ export interface ToolMetadata {
   /** Tool tags for grouping in listings. A tool can belong to multiple categories. */
   tags: ('ide' | 'cli-agent' | 'vcs' | 'terminal')[];
 
+  /** Company or developer name */
+  author?: string;
+
+  /** Main website/homepage URL (separate from documentation) */
+  website?: string;
+
+  /** Supported platforms (os.platform() values) */
+  platforms?: ('linux' | 'darwin' | 'win32')[];
+
   /** URL to the tool's icon/logo image */
   iconUrl?: string;
 
@@ -88,6 +97,11 @@ const REQUIRED_FIELDS: (keyof ToolMetadata)[] = [
 ];
 
 function loadToolMetadata(): Record<string, ToolMetadata> {
+  // NOTE: This module uses import.meta.url to resolve the tools/ directory.
+  // It works correctly when loaded in the Node.js CLI bootstrap context but
+  // breaks when bundled by Turbopack (import.meta.url points to the chunk
+  // location where tools/ doesn't exist). API routes should access tool
+  // metadata via the DI container, not by importing this module directly.
   const toolsDir = join(fileURLToPath(import.meta.url), '..', 'tools');
   const metadata: Record<string, ToolMetadata> = {};
 

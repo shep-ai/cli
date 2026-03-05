@@ -26,6 +26,9 @@ export interface ToolItem {
   documentationUrl: string;
   installCommand: string | undefined;
   status: ToolInstallationStatus;
+  author: string | undefined;
+  website: string | undefined;
+  platforms: ('linux' | 'darwin' | 'win32')[] | undefined;
 }
 
 export type ListToolsResult = ToolItem[];
@@ -72,6 +75,9 @@ export class ListToolsUseCase {
           documentationUrl: metadata.documentationUrl,
           installCommand: metadata.commands[currentPlatform],
           status,
+          author: metadata.author,
+          website: metadata.website,
+          platforms: metadata.platforms,
         };
       })
     );

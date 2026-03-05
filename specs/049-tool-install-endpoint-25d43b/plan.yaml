@@ -1,0 +1,187 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: tool-install-endpoint-25d43b
+summary: >
+  Diagnose and fix the 404 error on POST /api/tools/[id]/install by adding diagnostic logging
+  to identify whether the issue is route discovery (Turbopack not compiling the route) or
+  handler execution (TOOL_METADATA validation failing). The fix will target the specific
+  root cause identified through diagnostics, following the principle of minimal targeted changes.
+
+relatedFeatures:
+  - '043-tools-management-ui'
+
+technologies:
+  - Next.js 14 App Router (dynamic API routes)
+  - tsyringe (DI container with string tokens)
+  - Turbopack (development mode bundler)
+  - Vitest (unit testing)
+
+relatedLinks:
+  - https://nextjs.org/docs/app/building-your-application/routing/route-handlers
+  - https://nextjs.org/docs/app/building-your-application/routing/dynamic-routes
+
+phases:
+  - id: phase-1
+    name: 'Diagnostic & Root Cause Analysis'
+    description: >
+      Add targeted logging to the route handler and TOOL_METADATA loader to identify
+      whether the 404 originates from Next.js/Turbopack not discovering the route
+      (no logs appear) or from the handler's TOOL_METADATA validation (logs appear).
+      This phase must complete before any fix can be implemented.
+    parallel: false
+
+  - id: phase-2
+    name: 'Fix Implementation'
+    description: >
+      Based on diagnostic findings, implement the minimal fix required. If TOOL_METADATA
+      is empty due to path resolution, fix the loader. If route discovery fails, investigate
+      Turbopack configuration or import paths. The fix must not break the sibling launch route.
+    parallel: false
+
+  - id: phase-3
+    name: 'Testing & Verification'
+    description: >
+      Add unit tests for the API route handler to prevent regression. Verify the fix works
+      in both development (Turbopack) and production (webpack) modes. Remove or gate
+      diagnostic logging. Document the root cause for future reference.
+    parallel: false
+
+filesToCreate:
+  - src/presentation/web/app/api/tools/[id]/install/route.test.ts
+
+filesToModify:
+  - src/presentation/web/app/api/tools/[id]/install/route.ts
+  - packages/core/src/infrastructure/services/tool-installer/tool-metadata.ts
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  The install endpoint follows the standard Clean Architecture pattern used throughout
+  the codebase:
+
+  ```
+  Presentation (API Route)
+       |
+       +-- Validates tool ID against TOOL_METADATA
+       |
+       +-- Resolves InstallToolUseCase from DI container via string token
+       |
+       +-- Delegates to use case for business logic
+  ```
+
+  The route is structurally identical to the working `/api/tools/[id]/launch` route,
+  with one key difference: the install route imports and validates against TOOL_METADATA
+  before DI resolution, while the launch route delegates tool validation to the use case.
+
+  ## Key Design Decisions
+
+  ### 1. Diagnostic-First Approach
+
+  **Chosen:** Add console.log at the start of POST handler before implementing any fix
+
+  **Rationale:** The research identified three possible failure modes:
+  - Route not discovered by Turbopack (404 from Next.js router)
+  - TOOL_METADATA empty due to path resolution issues
+  - DI container not initialized
+
+  Without diagnostic data, any fix is speculative. The logging takes seconds to add
+  and provides clear signal for the actual root cause. This follows the research
+  recommendation and avoids unnecessary code changes.
+
+  ### 2. Preserve Existing Route Pattern
+
+  **Chosen:** Keep the current handler structure matching the launch route
+
+  **Rejected alternatives:**
+  - Move TOOL_METADATA validation into use case - would require changing application layer
+  - Remove early validation - would allow invalid tool IDs through to use case
+
+  **Rationale:** The install route's pattern is correct. The TOOL_METADATA import is
+  the likely culprit, not the validation logic itself. Changing the pattern would
+  introduce inconsistency and risk breaking the working launch route.
+
+  ### 3. String Token Resolution
+
+  **Chosen:** Continue using `resolve<T>('StringToken')` pattern via server-container.ts
+
+  **Rationale:** This is the established pattern for Turbopack compatibility.
+  The codebase explicitly documents that Turbopack cannot bundle tsyringe/reflect-metadata,
+  requiring string tokens instead of class references. InstallToolUseCase is already
+  registered with both class and string token at container.ts:312 and :368-370.
+
+  ### 4. Minimal Fix Scope
+
+  **Chosen:** Fix only what's broken, add only necessary tests
+
+  **Rejected alternatives:**
+  - Refactor both install and launch routes - unnecessary, launch works
+  - Add comprehensive test suite - over-engineering for a bug fix
+
+  **Rationale:** Per NFR-5, the fix must be minimal and targeted. The spec is sized
+  as "S" - a configuration or initialization issue. The fix should match this scope.
+
+  ## Implementation Strategy
+
+  ### Phase 1: Diagnostic (Required First)
+
+  1. Add logging to route handler entry point
+  2. Add logging to TOOL_METADATA loader
+  3. Run dev server and trigger the endpoint
+  4. Analyze logs to identify exact failure point
+
+  **Expected outcomes:**
+  - If no handler logs: Focus on route discovery / Turbopack compilation
+  - If handler logs with empty TOOL_METADATA: Focus on path resolution in loader
+  - If handler logs with populated TOOL_METADATA: Focus on ID mismatch or DI resolution
+
+  ### Phase 2: Fix Based on Findings
+
+  The fix depends on Phase 1 results. Most likely scenarios:
+
+  **Scenario A: TOOL_METADATA path resolution**
+  - The loader uses `fileURLToPath(import.meta.url)` which may resolve differently in Turbopack
+  - Fix: Adjust path resolution to work in both bundlers
+
+  **Scenario B: Route not discovered**
+  - Clear .next cache and verify route compiles
+  - Check for import errors in the route module
+
+  **Scenario C: DI container not initialized**
+  - Verify globalThis.__shepContainer is set before routes execute
+  - Check dev-server.ts initialization order
+
+  ### Phase 3: Testing & Documentation
+
+  1. Add unit test for the route handler
+  2. Verify fix works in `pnpm dev:web` (Turbopack)
+  3. Verify fix works in production build
+  4. Remove or gate diagnostic logging behind DEBUG flag
+  5. Document root cause in code comment for future reference
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Breaking launch route during fix | Don't modify shared code; test both routes after changes |
+  | Turbopack-specific fix breaking production | Test in both dev (Turbopack) and production (webpack) modes |
+  | Incorrect diagnosis leading to wrong fix | Complete Phase 1 diagnostics before implementing any fix |
+  | Regression after future Next.js updates | Add unit test to catch future breakage |
+
+  ## Testing Strategy
+
+  The route handler test will mock the DI container and TOOL_METADATA to test:
+  - Valid tool ID returns 200 with installation status
+  - Invalid tool ID returns 404 with error message
+  - Use case execution failure returns 500 with error message
+  - DI container unavailable throws appropriate error
+
+  This follows the TDD approach but acknowledges this is a bug fix, not a new feature,
+  so test coverage focuses on the specific endpoint behavior rather than comprehensive
+  coverage of all edge cases.
+
+  ---
+
+  _Generated by planning agent - proceed to implementation_

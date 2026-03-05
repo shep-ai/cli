@@ -3,12 +3,15 @@
   "summary": "Terminal multiplexer for session management",
   "description": "tmux is a terminal multiplexer that lets you create, manage, and switch between multiple terminal sessions. Ideal for remote development, persistent sessions, and multi-pane workflows. Cross-platform (macOS and Linux).",
   "tags": ["terminal"],
+  "author": "tmux Contributors",
+  "website": "https://tmux.github.io",
+  "platforms": ["linux", "darwin"],
   "iconUrl": "https://cdn.simpleicons.org/tmux",
   "binary": "tmux",
   "packageManager": "brew",
   "commands": {
     "darwin": "brew install tmux",
-    "linux": "apt install -y tmux"
+    "linux": "sudo apt-get update && sudo apt-get install -y tmux"
   },
   "timeout": 300000,
   "documentationUrl": "https://github.com/tmux/tmux/wiki",

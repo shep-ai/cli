@@ -159,8 +159,17 @@ export class ToolInstallerServiceImpl implements IToolInstallerService {
 
       const child = spawn('sh', ['-c', installCommand.command], {
         shell: false,
-        stdio: ['ignore', 'pipe', 'pipe'],
+        stdio: ['pipe', 'pipe', 'pipe'],
+        env: {
+          ...process.env,
+          DEBIAN_FRONTEND: 'noninteractive',
+          GIT_TERMINAL_PROMPT: '0',
+          GPG_TTY: '',
+        },
       });
+
+      // Close stdin immediately to prevent interactive prompts
+      child.stdin?.end();
 
       // Stream output from stdout and stderr
       const pipeOutput = (stream: NodeJS.ReadableStream | null) => {

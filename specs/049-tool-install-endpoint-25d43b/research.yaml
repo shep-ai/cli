@@ -1,0 +1,340 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: tool-install-endpoint-25d43b
+summary: >
+  Investigation reveals the route file, DI registrations, and frontend call are all correctly
+  structured. The 404 is likely caused by either Turbopack's inability to resolve @shepai/core
+  imports at route discovery time, or by TOOL_METADATA being empty when the route validates
+  the tool ID. The fix involves adding diagnostic logging to distinguish between route
+  discovery failure vs. handler execution failure, then addressing the specific root cause.
+
+relatedFeatures:
+  - '043-tools-management-ui'
+
+technologies:
+  - Next.js 14 App Router (dynamic API routes)
+  - tsyringe (DI container)
+  - Turbopack (dev mode bundler)
+  - TypeScript
+
+relatedLinks:
+  - https://nextjs.org/docs/app/building-your-application/routing/route-handlers
+  - https://nextjs.org/docs/app/building-your-application/routing/dynamic-routes
+  - https://github.com/vercel/turbo/issues/2626
+
+decisions:
+  - title: 'Diagnostic Approach'
+    chosen: 'Add console.log at the start of POST handler'
+    rejected:
+      - "Examine .next build output — slower feedback loop and doesn't distinguish between route discovery vs. handler execution failure"
+      - "Use curl directly — still won't reveal if handler is invoked vs. 404 from Next.js router"
+    rationale: >
+      Adding a console.log statement at the very start of the POST handler is the fastest
+      way to determine whether the 404 originates from Next.js not discovering the route
+      (no log appears) or from the handler itself (log appears but handler returns 404).
+      This diagnostic takes seconds to implement and provides immediate clarity. If logs
+      appear, the route is discovered and we focus on why the handler returns 404 (likely
+      TOOL_METADATA check). If no logs appear, we focus on why Next.js/Turbopack fails to
+      discover this specific route while discovering the sibling launch route.
+
+  - title: 'TOOL_METADATA Validation Fix'
+    chosen: 'Verify TOOL_METADATA is populated and tool ID exists before returning 404'
+    rejected:
+      - 'Remove TOOL_METADATA validation — would allow invalid tool IDs through, breaking error handling'
+      - 'Hardcode tool IDs in the route — violates DRY and creates maintenance burden'
+    rationale: >
+      The route currently checks `if (!TOOL_METADATA[id])` and returns 404. If TOOL_METADATA
+      is an empty object (due to file loading issues in Turbopack), ALL valid tool IDs would
+      fail this check. The fix should log the TOOL_METADATA keys and the requested id to
+      verify the lookup. The TOOL_METADATA loader uses synchronous fs.readdirSync and
+      fs.readFileSync which should work in both Turbopack and webpack, but the path resolution
+      via import.meta.url may differ. Adding logging to TOOL_METADATA loading will reveal if
+      tools are being loaded correctly.
+
+  - title: 'Route Handler Pattern'
+    chosen: 'Keep existing pattern matching sibling launch route'
+    rejected:
+      - 'Use route groups or different file structure — unnecessary complexity, launch route uses same pattern and works'
+      - 'Switch to Pages Router API routes — inconsistent with rest of app, App Router is the standard'
+    rationale: >
+      The install route uses the exact same patterns as the launch route which reportedly works.
+      Both routes export named POST handlers, use the same import paths for server-container
+      and @shepai/core, and follow the same params destructuring pattern for Next.js 14+.
+      Changing the pattern would introduce inconsistency. The fix should focus on why this
+      specific route fails while the sibling succeeds, not on restructuring working patterns.
+
+  - title: 'DI Container Access'
+    chosen: 'Continue using string token resolution via server-container.ts'
+    rejected:
+      - 'Import use case class directly — Turbopack cannot bundle tsyringe/reflect-metadata, class refs fail'
+      - 'Create separate container initialization per route — duplicates code, harder to maintain'
+    rationale: >
+      The codebase has established that Turbopack cannot bundle tsyringe and reflect-metadata
+      (documented in instrumentation.ts and next.config.ts serverExternalPackages). All web
+      routes must use string tokens via server-container.ts resolve() function. The
+      InstallToolUseCase is properly registered with string token 'InstallToolUseCase' at
+      container.ts:368-370. This pattern is correct and matches all other working routes.
+
+openQuestions:
+  - question: 'Is the route being discovered by Next.js at all?'
+    resolved: false
+    options:
+      - option: 'Route is not discovered (404 from Next.js router)'
+        description: >
+          Next.js/Turbopack fails to compile or register the route file. The 404 comes from
+          the framework's router before the handler code ever executes. This would be indicated
+          by no console.log output appearing when the endpoint is called.
+        selected: false
+      - option: 'Route is discovered but handler returns 404'
+        description: >
+          The route is properly discovered and the POST handler executes, but the
+          TOOL_METADATA[id] check fails because the tool ID doesn't exist or TOOL_METADATA
+          is empty. This would be indicated by console.log output appearing.
+        selected: false
+      - option: 'Route is discovered but DI container throws'
+        description: >
+          The route is discovered and the POST handler executes, but resolve() throws
+          because globalThis.__shepContainer is not set, and the catch block returns 500
+          (not 404). This scenario would produce a 500 error, not 404, so is less likely.
+        selected: false
+    selectionRationale: >
+      Cannot be resolved without adding diagnostic logging and testing. The first step of
+      implementation must add console.log statements to distinguish between these cases.
+
+  - question: 'Why does the launch route work but install route fails?'
+    resolved: false
+    options:
+      - option: 'Difference in TOOL_METADATA usage'
+        description: >
+          The install route validates tool ID against TOOL_METADATA before DI resolution,
+          while the launch route does not have this check (it relies on the use case to
+          return tool_not_found error). If TOOL_METADATA is empty in install route context
+          but the launch use case handles missing tools differently, this explains the
+          discrepancy.
+        selected: false
+      - option: 'Import resolution difference'
+        description: >
+          The install route imports TOOL_METADATA from @shepai/core while launch does not.
+          Turbopack may fail to resolve this specific import path, causing the route module
+          to fail loading entirely (resulting in 404 from router, not handler).
+        selected: false
+      - option: 'File system or caching issue'
+        description: >
+          A stale .next cache or filesystem synchronization issue caused Turbopack to miss
+          the install route during compilation. Clearing .next and restarting would fix this.
+        selected: false
+    selectionRationale: >
+      The routes are nearly identical in structure, making this a key diagnostic question.
+      The main difference is the TOOL_METADATA import in install route. Investigation should
+      focus on whether this import causes the route to fail loading.
+
+  - question: 'What is the correct fix approach?'
+    resolved: false
+    options:
+      - option: 'Add diagnostic logging then fix based on findings'
+        description: >
+          Add console.log statements to the route handler and TOOL_METADATA loader, run the
+          dev server, trigger the endpoint, and analyze logs to determine exact failure point.
+          Then implement targeted fix based on findings.
+        selected: true
+      - option: 'Refactor route to match launch route exactly'
+        description: >
+          Remove TOOL_METADATA validation from route handler, move validation into the use
+          case, making install route structurally identical to launch route.
+        selected: false
+      - option: 'Clear caches and verify route appears in .next'
+        description: >
+          Delete .next directory, restart dev server, verify route.ts is compiled in
+          .next/server/app/api/tools/[id]/install/route.js. If missing, investigate
+          Turbopack compilation issues.
+        selected: false
+    selectionRationale: >
+      The diagnostic approach is selected because we need to understand the exact failure
+      mode before implementing a fix. Blindly refactoring or clearing caches may fix the
+      symptom but not reveal the root cause, leading to potential recurrence. The spec
+      requirement FR-5 states the endpoint must be discoverable, so we must verify discovery
+      happens before investigating handler logic.
+
+content: |
+  ## Executive Summary
+
+  The POST /api/tools/[id]/install endpoint returns 404 errors despite the route file,
+  DI registrations, and frontend code all appearing correct. Investigation reveals the
+  route structure matches the working sibling /api/tools/[id]/launch route exactly.
+  The root cause requires diagnostic logging to distinguish between route discovery
+  failure (Turbopack not compiling the route) vs. handler execution failure (TOOL_METADATA
+  check returning 404 for valid tool IDs).
+
+  ## Technology Decisions
+
+  ### 1. Diagnostic Approach
+
+  **Chosen:** Add console.log at the start of POST handler
+
+  **Rejected:**
+  - Examine .next build output — slower feedback loop, doesn't distinguish route discovery vs. execution
+  - Use curl directly — still won't reveal if handler is invoked
+
+  **Rationale:** Console logging at handler start instantly reveals whether Next.js invokes
+  the route or returns 404 from the router itself. This takes seconds to implement and
+  provides clear signal for the next debugging step.
+
+  ### 2. TOOL_METADATA Validation
+
+  **Chosen:** Verify TOOL_METADATA is populated before returning 404
+
+  **Rejected:**
+  - Remove validation — breaks error handling for invalid tool IDs
+  - Hardcode tool IDs — violates DRY, creates maintenance burden
+
+  **Rationale:** The handler's `if (!TOOL_METADATA[id])` check is the most likely source of
+  the 404. If TOOL_METADATA loads as an empty object (path resolution issue with Turbopack),
+  all tool IDs would fail validation. Logging the TOOL_METADATA contents reveals the cause.
+
+  ### 3. Route Handler Pattern
+
+  **Chosen:** Keep existing pattern matching sibling launch route
+
+  **Rejected:**
+  - Use route groups — unnecessary complexity for identical pattern
+  - Switch to Pages Router — inconsistent with App Router architecture
+
+  **Rationale:** Both routes use identical patterns. The launch route works, so the pattern
+  is valid. Focus investigation on what differs between the routes, not the shared pattern.
+
+  ### 4. DI Container Access
+
+  **Chosen:** Continue using string token resolution via server-container.ts
+
+  **Rejected:**
+  - Import class directly — Turbopack cannot bundle tsyringe, would fail
+  - Separate container per route — duplicates initialization, harder to maintain
+
+  **Rationale:** String tokens are the established pattern for Turbopack compatibility.
+  InstallToolUseCase is registered at container.ts:368-370. This matches all other routes.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | Next.js App Router | Dynamic API routes | Use | Standard routing for the web app, no change needed |
+  | tsyringe | DI container | Use (string tokens only) | Already configured, works when using string tokens |
+  | TOOL_METADATA | Tool validation | Investigate | Main suspect for 404 — may not be loading in Turbopack context |
+
+  ## Security Considerations
+
+  - **Tool ID validation**: Route validates tool ID against TOOL_METADATA whitelist before
+    executing installation. This prevents arbitrary command execution via tool ID injection.
+  - **DI container access**: Container is initialized by trusted CLI/dev-server bootstrap,
+    not by untrusted request data. String tokens are safe against injection.
+  - **No new attack surface**: Fix involves diagnostic logging and potential path resolution
+    correction, not new functionality.
+
+  ## Performance Implications
+
+  - **Diagnostic logging**: Minimal overhead, should be removed or gated behind DEBUG flag
+    after root cause is identified and fixed.
+  - **TOOL_METADATA loading**: Currently synchronous at module load time. If this causes
+    slow route startup, consider lazy loading, but this is not the primary issue.
+  - **NFR-1 compliance**: Response time requirement (<200ms for health check) should be
+    met easily since the handler is lightweight; actual installation is a separate concern.
+
+  ## Architecture Notes
+
+  ### Route Structure
+  ```
+  src/presentation/web/app/api/tools/
+  ├── route.ts                    # GET /api/tools (list all tools)
+  └── [id]/
+      ├── install/
+      │   └── route.ts            # POST /api/tools/[id]/install (this route)
+      └── launch/
+          └── route.ts            # POST /api/tools/[id]/launch (working sibling)
+  ```
+
+  ### Data Flow
+  ```
+  Frontend (tool-card.tsx)
+       │ fetch('/api/tools/zed/install', { method: 'POST' })
+       ▼
+  Next.js App Router
+       │ routes to [id]/install/route.ts
+       ▼
+  POST handler
+       │ 1. Extract id from params
+       │ 2. Check TOOL_METADATA[id]  ← LIKELY FAILURE POINT
+       │ 3. resolve('InstallToolUseCase')
+       │ 4. useCase.execute(id)
+       ▼
+  InstallToolUseCase
+       │ delegates to IToolInstallerService
+       ▼
+  ToolInstallerServiceImpl
+       │ executes platform-specific installation command
+       ▼
+  Response JSON
+  ```
+
+  ### Key Difference from Launch Route
+
+  The install route imports and uses `TOOL_METADATA`:
+  ```typescript
+  // install/route.ts
+  import { TOOL_METADATA } from '@shepai/core/infrastructure/services/tool-installer/tool-metadata';
+  // ...
+  if (!TOOL_METADATA[id]) {
+    return NextResponse.json({ error: 'Tool not found' }, { status: 404 });
+  }
+  ```
+
+  The launch route does NOT import TOOL_METADATA — it delegates tool validation to the use case:
+  ```typescript
+  // launch/route.ts
+  // No TOOL_METADATA import
+  const result = await useCase.execute({ toolId: id, ... });
+  if (result.code === 'tool_not_found') {
+    return NextResponse.json({ error: 'Tool not found' }, { status: 404 });
+  }
+  ```
+
+  This import difference is the primary suspect. If Turbopack fails to resolve the
+  TOOL_METADATA import path, the entire route module may fail to load, resulting in
+  a 404 from the Next.js router (not from the handler).
+
+  ## Implementation Recommendation
+
+  1. **Diagnostic Phase** (required first)
+     - Add `console.log('[install route] POST handler invoked, id:', id);` at line 11
+     - Add `console.log('[install route] TOOL_METADATA keys:', Object.keys(TOOL_METADATA));` at line 12
+     - Start dev server and call the endpoint
+     - Check server logs for output
+
+  2. **Based on Diagnostic Results**
+     - **If no logs appear**: Route not discovered. Check Turbopack compilation. May need
+       to clear .next cache or adjust import path for TOOL_METADATA.
+     - **If logs appear with empty TOOL_METADATA**: Path resolution issue. Fix the
+       import path or use a different loading mechanism.
+     - **If logs appear with populated TOOL_METADATA but tool ID missing**: Verify the
+       tool JSON file exists and is valid (e.g., zed.json).
+     - **If logs appear and tool ID exists**: Something else in handler logic fails.
+       Add more logging around DI resolution and use case execution.
+
+  3. **Fix Implementation**
+     - Address the specific issue identified by diagnostics
+     - Remove or gate diagnostic logging behind DEBUG flag
+     - Add unit test for the API route
+     - Verify fix works in both dev (Turbopack) and production (webpack) modes
+
+  ## Risk Assessment
+
+  | Risk | Likelihood | Impact | Mitigation |
+  | ---- | ---------- | ------ | ---------- |
+  | Turbopack-specific issue | Medium | Medium | Test in production build too |
+  | TOOL_METADATA path resolution | High | High | Log and verify import works |
+  | Breaking launch route during fix | Low | High | Don't modify shared code without testing both routes |
+  | Regression in future | Low | Medium | Add integration test for install endpoint |
+
+  ---
+
+  _Research completed 2026-03-02. Proceed to planning phase._

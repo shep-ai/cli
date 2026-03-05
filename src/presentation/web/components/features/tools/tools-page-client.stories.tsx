@@ -17,6 +17,9 @@ const mockTools: ToolItem[] = [
     documentationUrl: 'https://cursor.sh',
     installCommand: 'brew install --cask cursor',
     status: { status: 'available', toolName: 'cursor' },
+    author: 'Anysphere',
+    website: 'https://cursor.com',
+    platforms: ['linux', 'darwin', 'win32'],
   },
   {
     id: 'vscode',
@@ -32,6 +35,9 @@ const mockTools: ToolItem[] = [
     documentationUrl: 'https://code.visualstudio.com',
     installCommand: 'brew install --cask visual-studio-code',
     status: { status: 'missing', toolName: 'vscode' },
+    author: 'Microsoft',
+    website: 'https://code.visualstudio.com',
+    platforms: ['linux', 'darwin', 'win32'],
   },
   {
     id: 'claude-code',
@@ -47,6 +53,9 @@ const mockTools: ToolItem[] = [
     documentationUrl: 'https://claude.ai/code',
     installCommand: 'npm install -g @anthropic-ai/claude-code',
     status: { status: 'available', toolName: 'claude-code' },
+    author: 'Anthropic',
+    website: 'https://claude.ai/code',
+    platforms: ['linux', 'darwin'],
   },
   {
     id: 'aider',
@@ -62,6 +71,9 @@ const mockTools: ToolItem[] = [
     documentationUrl: 'https://aider.chat',
     installCommand: 'pip install aider-chat',
     status: { status: 'missing', toolName: 'aider' },
+    author: 'Paul Gauthier',
+    website: 'https://aider.chat',
+    platforms: ['linux', 'darwin', 'win32'],
   },
   {
     id: 'goose',
@@ -77,6 +89,9 @@ const mockTools: ToolItem[] = [
     documentationUrl: 'https://block.github.io/goose',
     installCommand: 'pip install goose-ai',
     status: { status: 'missing', toolName: 'goose' },
+    author: 'Block',
+    website: 'https://block.github.io/goose',
+    platforms: ['linux', 'darwin', 'win32'],
   },
 ];
 
