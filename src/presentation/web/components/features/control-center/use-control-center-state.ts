@@ -76,6 +76,14 @@ export function useControlCenterState(
     setCallbacks,
   } = useGraphState(initialNodes, initialEdges);
 
+  // Refs for stable access to latest nodes/edges without callback recreation
+  const nodesRef = useRef(nodes);
+  const edgesRef = useRef(edges);
+  useEffect(() => {
+    nodesRef.current = nodes;
+    edgesRef.current = edges;
+  }, [nodes, edges]);
+
   // Sync server props into domain Maps when initialNodes/initialEdges change.
   // Keyed by a stable string so we don't re-reconcile on every render.
   const initialNodeKey = useMemo(
@@ -148,6 +156,10 @@ export function useControlCenterState(
   const processedEventCountRef = useRef(0);
 
   useEffect(() => {
+    // Clamp cursor if events were pruned
+    if (processedEventCountRef.current > events.length) {
+      processedEventCountRef.current = 0;
+    }
     if (events.length <= processedEventCountRef.current) return;
     const newEvents = events.slice(processedEventCountRef.current);
     processedEventCountRef.current = events.length;
@@ -177,6 +189,10 @@ export function useControlCenterState(
   const processedMetadataCountRef = useRef(0);
 
   useEffect(() => {
+    // Clamp cursor if events were pruned
+    if (processedMetadataCountRef.current > events.length) {
+      processedMetadataCountRef.current = 0;
+    }
     if (events.length <= processedMetadataCountRef.current) return;
     const newEvents = events.slice(processedMetadataCountRef.current);
     processedMetadataCountRef.current = events.length;
@@ -245,7 +261,7 @@ export function useControlCenterState(
       const nodeId = `feat-${featureId}`;
 
       // Find the current entry for rollback
-      const prevEntry = nodes
+      const prevEntry = nodesRef.current
         .filter((n) => n.id === nodeId)
         .map((n) => ({
           nodeId: n.id,
@@ -270,7 +286,7 @@ export function useControlCenterState(
           toast.error('Failed to delete feature');
         });
     },
-    [nodes, router, deleteSound, removeFeature, restoreFeature]
+    [router, deleteSound, removeFeature, restoreFeature]
   );
 
   const handleDeleteRepository = useCallback(
@@ -279,14 +295,14 @@ export function useControlCenterState(
 
       // Find children of this repo via edges
       const childFeatureIds = new Set(
-        edges.filter((e) => e.source === repoNodeId).map((e) => e.target)
+        edgesRef.current.filter((e) => e.source === repoNodeId).map((e) => e.target)
       );
 
       // Snapshot for rollback
       const prevRepoData = getRepositoryData(repoNodeId);
       const childSnapshots = new Map<string, FeatureEntry>();
       for (const childId of childFeatureIds) {
-        const childNode = nodes.find((n) => n.id === childId);
+        const childNode = nodesRef.current.find((n) => n.id === childId);
         if (childNode) {
           childSnapshots.set(childId, { nodeId: childId, data: childNode.data as FeatureNodeData });
         }
@@ -320,8 +336,6 @@ export function useControlCenterState(
       }
     },
     [
-      edges,
-      nodes,
       deleteSound,
       removeRepository,
       removeFeature,
@@ -335,10 +349,13 @@ export function useControlCenterState(
     (direction: LayoutDirection) => {
       // Layout is applied via reconcile on next server prop update.
       // For immediate re-layout, we apply dagre and trigger a reconcile-like update.
-      const result = layoutWithDagre(nodes, edges, { ...CANVAS_LAYOUT_DEFAULTS, direction });
+      const result = layoutWithDagre(nodesRef.current, edgesRef.current, {
+        ...CANVAS_LAYOUT_DEFAULTS,
+        direction,
+      });
       reconcile(result.nodes, result.edges);
     },
-    [nodes, edges, reconcile]
+    [reconcile]
   );
 
   const handleAddRepository = useCallback(
