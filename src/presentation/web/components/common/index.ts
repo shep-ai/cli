@@ -4,11 +4,7 @@ export {
   computeDrawerView,
   type DrawerView,
 } from './control-center-drawer';
-export {
-  AddRepositoryNode,
-  type AddRepositoryNodeData,
-  type AddRepositoryNodeType,
-} from './add-repository-node';
+export { AddRepositoryButton } from './add-repository-button';
 export { ElapsedTime, formatElapsed } from './elapsed-time';
 export { EmptyState, type EmptyStateProps } from './empty-state';
 export {

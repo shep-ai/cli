@@ -72,15 +72,40 @@ export async function createFeature(
 
   try {
     const createFeatureUseCase = resolve<CreateFeatureUseCase>('CreateFeatureUseCase');
-    const result = await createFeatureUseCase.execute({
+
+    // Phase 1 (fast): create DB record with real UUID — returns immediately
+    const { feature, shouldSpawn } = await createFeatureUseCase.createRecord({
       userInput,
       repositoryPath,
       approvalGates: gates,
       push: push ?? false,
       openPr: openPr ?? false,
       ...(parentId ? { parentId } : {}),
+      name,
+      description,
     });
-    return { feature: result.feature };
+
+    // Phase 2 (background): metadata generation, worktree, spec, agent spawn
+    // Fire-and-forget — the UI gets the real feature ID immediately
+    createFeatureUseCase
+      .initializeAndSpawn(
+        feature,
+        {
+          userInput,
+          repositoryPath,
+          approvalGates: gates,
+          push: push ?? false,
+          openPr: openPr ?? false,
+          ...(parentId ? { parentId } : {}),
+        },
+        shouldSpawn
+      )
+      .catch((err: unknown) => {
+        // eslint-disable-next-line no-console
+        console.error('[createFeature] initializeAndSpawn failed:', err);
+      });
+
+    return { feature };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to create feature';
     return { error: message };

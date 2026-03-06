@@ -39,6 +39,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     handleDeleteFeature,
     handleDeleteRepository,
     createFeatureNode,
+    setCallbacks,
   } = useControlCenterState(initialNodes, initialEdges);
 
   // Publish sidebar features to context whenever feature node data changes
@@ -163,11 +164,12 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     return () => window.removeEventListener('shep:add-repository', handler);
   }, [handleAddRepository]);
 
-  // Listen for optimistic create events from the create drawer
+  // Listen for create events from the create drawer (with real feature ID from server)
   useEffect(() => {
     const handler = (e: Event) => {
       const detail = (
         e as CustomEvent<{
+          featureId: string;
           name: string;
           description?: string;
           repositoryPath: string;
@@ -183,6 +185,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
           parentNodeId,
           {
             state: 'creating',
+            featureId: detail.featureId,
             name: detail.name,
             description: detail.description,
             repositoryPath: detail.repositoryPath,
@@ -200,7 +203,8 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
       );
 
       createFeatureNode(repoNode?.id ?? null, {
-        state: 'creating',
+        state: 'running',
+        featureId: detail.featureId,
         name: detail.name,
         description: detail.description,
         repositoryPath: detail.repositoryPath,
@@ -209,6 +213,24 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     window.addEventListener('shep:feature-created', handler);
     return () => window.removeEventListener('shep:feature-created', handler);
   }, [nodes, createFeatureNode]);
+
+  // Wire callbacks into derived node data (via ref — no re-render).
+  useEffect(() => {
+    setCallbacks({
+      onNodeAction: handleAddFeatureToFeature,
+      onFeatureDelete: handleDeleteFeature,
+      onRepositoryAdd: handleAddFeatureToRepo,
+      onRepositoryClick: handleRepositoryClick,
+      onRepositoryDelete: handleDeleteRepository,
+    });
+  }, [
+    setCallbacks,
+    handleAddFeatureToFeature,
+    handleDeleteFeature,
+    handleAddFeatureToRepo,
+    handleRepositoryClick,
+    handleDeleteRepository,
+  ]);
 
   const hasRepositories = nodes.some((n) => n.type === 'repositoryNode');
 
@@ -231,14 +253,8 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
         onNodesChange={onNodesChange}
         onConnect={handleConnect}
         onAddFeature={handleAddFeature}
-        onNodeAction={handleAddFeatureToFeature}
         onNodeClick={handleNodeClick}
         onPaneClick={handleClearDrawers}
-        onRepositoryAdd={handleAddFeatureToRepo}
-        onRepositoryClick={handleRepositoryClick}
-        onRepositoryDelete={handleDeleteRepository}
-        onFeatureDelete={handleDeleteFeature}
-        onRepositorySelect={handleAddRepository}
         emptyState={<ControlCenterEmptyState onRepositorySelect={handleAddRepository} />}
       />
     </>

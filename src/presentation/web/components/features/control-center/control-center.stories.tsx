@@ -4,7 +4,6 @@ import { ControlCenter } from './control-center';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 import type { FeatureNodeType } from '@/components/common/feature-node';
 import type { RepositoryNodeType } from '@/components/common/repository-node';
-import type { AddRepositoryNodeType } from '@/components/common/add-repository-node';
 import { layoutWithDagre } from '@/lib/layout-with-dagre';
 import { AgentEventsProvider } from '@/hooks/agent-events-provider';
 import { DrawerCloseGuardProvider } from '@/hooks/drawer-close-guard';
@@ -102,13 +101,6 @@ const repoNode: RepositoryNodeType = {
   data: { name: 'shep-ai/cli' },
 };
 
-const addRepoNode: AddRepositoryNodeType = {
-  id: 'add-repo',
-  type: 'addRepositoryNode',
-  position: { x: 50, y: 302 },
-  data: {},
-};
-
 const dashedEdge = { style: { strokeDasharray: '5 5' } };
 
 export const Empty: Story = {
@@ -137,36 +129,12 @@ export const WithToolbar: Story = {
 
 export const WithNodeActions: Story = {
   args: {
-    initialNodes: [repoNode, addRepoNode, ...featureNodes] as CanvasNodeType[],
+    initialNodes: [repoNode, ...featureNodes] as CanvasNodeType[],
     initialEdges: [
       { id: 'e-repo-f1', source: 'repo-1', target: 'feat-1', ...dashedEdge },
       { id: 'e-repo-f2', source: 'repo-1', target: 'feat-2', ...dashedEdge },
       { id: 'e1-3', source: 'feat-1', target: 'feat-3' },
     ] as Edge[],
-  },
-};
-
-/**
- * Interactive story — starts with just an "Add Repository" button.
- *
- * User flow:
- * 1. Click "Add Repository" → native folder picker → select a folder → repo node appears
- * 2. Hover the repo node → click (+) → a new feature node appears connected to the repo
- * 3. Hover the feature node → click (+) → another feature appears connected to the first
- *
- * You can also use the toolbar "Add Feature" button to create unconnected features.
- */
-export const Interactive: Story = {
-  args: {
-    initialNodes: [
-      {
-        id: 'add-repo',
-        type: 'addRepositoryNode',
-        position: { x: 50, y: 50 },
-        data: {},
-      } as AddRepositoryNodeType,
-    ] as CanvasNodeType[],
-    initialEdges: [],
   },
 };
 
@@ -266,14 +234,7 @@ const dagreFeatureNodes: FeatureNodeType[] = [
   },
 ];
 
-const dagreAddRepo: AddRepositoryNodeType = {
-  id: 'add-repo',
-  type: 'addRepositoryNode',
-  position: { x: 0, y: 0 },
-  data: {},
-};
-
-const dagreNodesRaw: CanvasNodeType[] = [...dagreRepoNodes, ...dagreFeatureNodes, dagreAddRepo];
+const dagreNodesRaw: CanvasNodeType[] = [...dagreRepoNodes, ...dagreFeatureNodes];
 
 const dagreEdges: Edge[] = [
   // cli repo → Auth, SSO

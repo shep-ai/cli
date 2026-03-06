@@ -4,6 +4,10 @@ import { FeaturesCanvas } from '@/components/features/features-canvas';
 import type { FeatureNodeType } from '@/components/common/feature-node';
 import type { RepositoryNodeType } from '@/components/common/repository-node';
 
+const mockOnAction = vi.fn();
+const mockOnSettings = vi.fn();
+const mockOnDelete = vi.fn();
+
 const mockNode: FeatureNodeType = {
   id: 'node-1',
   type: 'featureNode',
@@ -17,6 +21,9 @@ const mockNode: FeatureNodeType = {
     progress: 50,
     repositoryPath: '/home/user/my-repo',
     branch: 'feat/test-feature',
+    onAction: () => mockOnAction('node-1'),
+    onSettings: () => mockOnSettings('node-1'),
+    onDelete: mockOnDelete,
   },
 };
 
@@ -42,45 +49,39 @@ describe('FeaturesCanvas', () => {
     expect(screen.queryByTestId('features-canvas-empty')).not.toBeInTheDocument();
   });
 
-  it('forwards onNodeAction to nodes', () => {
-    const onNodeAction = vi.fn();
-    render(<FeaturesCanvas nodes={[mockNode]} edges={[]} onNodeAction={onNodeAction} />);
-    // The node should be rendered with data containing onAction
+  it('renders node with onAction callback from node data', () => {
+    render(<FeaturesCanvas nodes={[mockNode]} edges={[]} />);
     expect(screen.getByText('Test Feature')).toBeInTheDocument();
-    // Click the action button on the node
     const actionButton = screen.getByTestId('feature-node-action-button');
     fireEvent.click(actionButton);
-    expect(onNodeAction).toHaveBeenCalledWith('node-1');
+    expect(mockOnAction).toHaveBeenCalledWith('node-1');
   });
 
-  it('forwards onNodeSettings to nodes', () => {
-    const onNodeSettings = vi.fn();
-    render(<FeaturesCanvas nodes={[mockNode]} edges={[]} onNodeSettings={onNodeSettings} />);
+  it('renders node with onSettings callback from node data', () => {
+    render(<FeaturesCanvas nodes={[mockNode]} edges={[]} />);
     expect(screen.getByText('Test Feature')).toBeInTheDocument();
-    // Click the settings button on the node
     const settingsButton = screen.getByTestId('feature-node-settings-button');
     fireEvent.click(settingsButton);
-    expect(onNodeSettings).toHaveBeenCalledWith('node-1');
+    expect(mockOnSettings).toHaveBeenCalledWith('node-1');
   });
 
-  it('wires onRepositoryAdd to RepositoryNode onAdd', () => {
-    const onRepositoryAdd = vi.fn();
+  it('wires onAdd from repository node data', () => {
+    const mockOnAdd = vi.fn();
     const mockRepoNode: RepositoryNodeType = {
       id: 'repo-1',
       type: 'repositoryNode',
       position: { x: 0, y: 0 },
-      data: { name: 'shep-ai/cli' },
+      data: { name: 'shep-ai/cli', onAdd: mockOnAdd, showHandles: true },
     };
     render(
       <FeaturesCanvas
         nodes={[mockRepoNode]}
         edges={[{ id: 'e1', source: 'repo-1', target: 'feat-1' }]}
-        onRepositoryAdd={onRepositoryAdd}
       />
     );
     const addButton = screen.getByTestId('repository-node-add-button');
     fireEvent.click(addButton);
-    expect(onRepositoryAdd).toHaveBeenCalledWith('repo-1');
+    expect(mockOnAdd).toHaveBeenCalled();
   });
 
   it('renders toolbar when provided', () => {
@@ -107,63 +108,46 @@ describe('FeaturesCanvas', () => {
         progress: 0,
         repositoryPath: '/home/user/repo',
         branch: '',
+        // No onAction/onSettings/onDelete — creating nodes don't get callbacks
       },
     };
 
-    it('does not inject onAction for feature nodes with state "creating"', () => {
-      const onNodeAction = vi.fn();
-      render(<FeaturesCanvas nodes={[creatingNode]} edges={[]} onNodeAction={onNodeAction} />);
-      // The action button should not be rendered because onAction is not injected
+    it('does not show action button for feature nodes with state "creating"', () => {
+      render(<FeaturesCanvas nodes={[creatingNode]} edges={[]} />);
       expect(screen.queryByTestId('feature-node-action-button')).not.toBeInTheDocument();
     });
 
-    it('does not inject onSettings for feature nodes with state "creating"', () => {
-      const onNodeSettings = vi.fn();
-      render(<FeaturesCanvas nodes={[creatingNode]} edges={[]} onNodeSettings={onNodeSettings} />);
-      // The settings button should not be rendered because onSettings is not injected
+    it('does not show settings button for feature nodes with state "creating"', () => {
+      render(<FeaturesCanvas nodes={[creatingNode]} edges={[]} />);
       expect(screen.queryByTestId('feature-node-settings-button')).not.toBeInTheDocument();
     });
 
-    it('does not inject onDelete for feature nodes with state "creating"', () => {
-      const onFeatureDelete = vi.fn();
-      render(
-        <FeaturesCanvas nodes={[creatingNode]} edges={[]} onFeatureDelete={onFeatureDelete} />
-      );
-      // The delete button should not be rendered because onDelete is not injected
+    it('does not show delete button for feature nodes with state "creating"', () => {
+      render(<FeaturesCanvas nodes={[creatingNode]} edges={[]} />);
       expect(screen.queryByTestId('feature-node-delete-button')).not.toBeInTheDocument();
     });
 
-    it('still injects onAction for feature nodes with state "running"', () => {
-      const onNodeAction = vi.fn();
-      render(<FeaturesCanvas nodes={[mockNode]} edges={[]} onNodeAction={onNodeAction} />);
+    it('shows action button for feature nodes with state "running" (callbacks in data)', () => {
+      render(<FeaturesCanvas nodes={[mockNode]} edges={[]} />);
       expect(screen.getByTestId('feature-node-action-button')).toBeInTheDocument();
     });
 
-    it('still injects onSettings for feature nodes with state "running"', () => {
-      const onNodeSettings = vi.fn();
-      render(<FeaturesCanvas nodes={[mockNode]} edges={[]} onNodeSettings={onNodeSettings} />);
+    it('shows settings button for feature nodes with state "running" (callbacks in data)', () => {
+      render(<FeaturesCanvas nodes={[mockNode]} edges={[]} />);
       expect(screen.getByTestId('feature-node-settings-button')).toBeInTheDocument();
     });
 
-    it('injects onDelete for non-creating feature nodes when onFeatureDelete provided', () => {
-      const onFeatureDelete = vi.fn();
-      render(<FeaturesCanvas nodes={[mockNode]} edges={[]} onFeatureDelete={onFeatureDelete} />);
+    it('shows delete button for non-creating feature nodes (onDelete in data)', () => {
+      render(<FeaturesCanvas nodes={[mockNode]} edges={[]} />);
       expect(screen.getByTestId('feature-node-delete-button')).toBeInTheDocument();
     });
 
-    it('injects onAction for running nodes but not creating nodes in mixed array', () => {
-      const onNodeAction = vi.fn();
-      render(
-        <FeaturesCanvas nodes={[creatingNode, mockNode]} edges={[]} onNodeAction={onNodeAction} />
-      );
-
-      // Only the running node (mockNode) should have an action button
+    it('only running nodes have action buttons in mixed array', () => {
+      render(<FeaturesCanvas nodes={[creatingNode, mockNode]} edges={[]} />);
       const actionButtons = screen.getAllByTestId('feature-node-action-button');
       expect(actionButtons).toHaveLength(1);
-
-      // Click the action button — it should call onNodeAction with the running node ID
       fireEvent.click(actionButtons[0]);
-      expect(onNodeAction).toHaveBeenCalledWith('node-1');
+      expect(mockOnAction).toHaveBeenCalledWith('node-1');
     });
   });
 });

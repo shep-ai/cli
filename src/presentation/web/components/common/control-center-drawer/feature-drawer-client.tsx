@@ -8,7 +8,7 @@ import type {
   PrdApprovalPayload,
   QuestionSelectionChange,
 } from '@shepai/core/domain/generated/output';
-import { PrStatus } from '@shepai/core/domain/generated/output';
+import { PrStatus, NotificationEventType } from '@shepai/core/domain/generated/output';
 import { approveFeature } from '@/app/actions/approve-feature';
 import { rejectFeature } from '@/app/actions/reject-feature';
 import { getFeatureArtifact } from '@/app/actions/get-feature-artifact';
@@ -96,7 +96,14 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
 
     for (const event of newEvents) {
       if (event.featureId !== featureNode.featureId) continue;
-      const newState = mapEventTypeToState(event.eventType);
+
+      // PhaseCompleted only carries a lifecycle update — must NOT set state to
+      // 'running' because it often arrives alongside a WaitingApproval event
+      // and would revert the drawer from a review view back to a running state.
+      const newState =
+        event.eventType === NotificationEventType.PhaseCompleted
+          ? undefined
+          : mapEventTypeToState(event.eventType);
       const newLifecycle = mapPhaseNameToLifecycle(event.phaseName);
 
       // Trigger a server refresh to get the latest drawer view,
@@ -104,24 +111,26 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
       // to avoid the refresh interfering with the reject handler's navigation.
       if (!isDirtyRef.current && !isRejectingRef.current) router.refresh();
 
-      // Optimistically update the node data for immediate UI feedback
-      setView((prev) => {
-        if (
-          prev.type !== 'feature' &&
-          prev.type !== 'prd-review' &&
-          prev.type !== 'tech-review' &&
-          prev.type !== 'merge-review'
-        )
-          return prev;
-        return {
-          ...prev,
-          node: {
+      if (newState !== undefined || newLifecycle !== undefined) {
+        // Optimistically update the node data AND re-derive the view type so the
+        // drawer switches immediately (e.g. prd-review → feature when agent resumes)
+        // without waiting for the router.refresh() round-trip.
+        setView((prev) => {
+          if (
+            prev.type !== 'feature' &&
+            prev.type !== 'prd-review' &&
+            prev.type !== 'tech-review' &&
+            prev.type !== 'merge-review'
+          )
+            return prev;
+          const updatedNode = {
             ...prev.node,
-            state: newState,
+            ...(newState !== undefined && { state: newState }),
             ...(newLifecycle !== undefined && { lifecycle: newLifecycle }),
-          },
-        };
-      });
+          };
+          return { ...prev, type: deriveViewType(updatedNode), node: updatedNode };
+        });
+      }
     }
   }, [events, featureNode, router]);
 
@@ -764,4 +773,15 @@ function DetailRow({ label, value }: { label: string; value: string }) {
       <span className="text-sm">{value}</span>
     </div>
   );
+}
+
+/** Mirrors computeDrawerView logic — derives view type from live node data. */
+function deriveViewType(
+  node: FeatureNodeData
+): 'feature' | 'prd-review' | 'tech-review' | 'merge-review' {
+  if (node.lifecycle === 'requirements' && node.state === 'action-required') return 'prd-review';
+  if (node.lifecycle === 'implementation' && node.state === 'action-required') return 'tech-review';
+  if (node.lifecycle === 'review' && (node.state === 'action-required' || node.state === 'error'))
+    return 'merge-review';
+  return 'feature';
 }

@@ -25,7 +25,6 @@ export const CANVAS_LAYOUT_DEFAULTS: LayoutOptions = {
 const NODE_DIMENSIONS: Record<string, { width: number; height: number }> = {
   featureNode: { width: 288, height: 140 },
   repositoryNode: { width: 328, height: 50 },
-  addRepositoryNode: { width: 224, height: 50 },
 };
 
 function getNodeSize(

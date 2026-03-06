@@ -3,7 +3,7 @@
 import { useState, useCallback } from 'react';
 import { Github, Plus, TerminalSquare, Copy, Check, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { pickFolder } from '@/components/common/add-repository-node/pick-folder';
+import { pickFolder } from '@/components/common/add-repository-button/pick-folder';
 
 export interface ControlCenterEmptyStateProps {
   onRepositorySelect?: (path: string) => void;

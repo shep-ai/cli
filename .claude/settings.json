@@ -1,4 +1,7 @@
 {
+  "permissions": {
+    "allow": ["mcp__plugin_playwright_playwright__browser_take_screenshot"]
+  },
   "hooks": {
     "PostToolUse": [
       {
@@ -17,9 +20,7 @@
     "typescript-lsp@claude-plugins-official": true,
     "context7@claude-plugins-official": true,
     "code-simplifier@claude-plugins-official": true,
-    "playwright@claude-plugins-official": true
-  },
-  "permissions": {
-    "allow": ["mcp__plugin_playwright_playwright__browser_take_screenshot"]
+    "playwright@claude-plugins-official": true,
+    "superpowers@claude-plugins-official": true
   }
 }

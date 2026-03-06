@@ -37,6 +37,66 @@ pnpm dev:cli ui
 | WebSocket upgrades | Forwarded (HMR works)                                   | NOT forwarded in `WebServerService`                     |
 | Next.js mode       | Always dev                                              | dev when run from source, prod when installed           |
 
+## Graph State Architecture (Domain-Model-Driven)
+
+All canvas node/edge state is managed through **domain Maps as the single source of truth**.
+
+```
+Server (layout.tsx)                    Client (useGraphState)
+┌──────────────────┐                  ┌─────────────────────────────┐
+│ initialNodes[]   │──parseMaps──→    │ Domain Maps (source of truth)│
+│ initialEdges[]   │                  │  featureMap: Map<id, Entry>  │
+└──────────────────┘                  │  repoMap: Map<id, Entry>     │
+                                      │  pendingMap: Map<id, Entry>  │
+SSE Events                            │                              │
+┌──────────────────┐                  └──────────┬──────────────────┘
+│ NotificationEvent│──updateFeature──→           │
+└──────────────────┘                             │ deriveGraph() + layoutWithDagre()
+                                                 ▼
+Optimistic UI                         ┌─────────────────────────────┐
+┌──────────────────┐                  │ Derived (read-only)          │
+│ shep:feature-    │──addPending───→  │  nodes: CanvasNodeType[]     │
+│ created event    │                  │  edges: Edge[]               │
+└──────────────────┘                  │  (callbacks + layout applied)│
+                                      └─────────────────────────────┘
+```
+
+### Key Files
+
+| File                                                             | Purpose                                                              |
+| ---------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `lib/derive-graph.ts`                                            | Pure function: domain Maps → nodes + edges (with callbacks injected) |
+| `hooks/use-graph-state.ts`                                       | Hook: domain Maps state + reconciliation + derivation + layout       |
+| `components/features/control-center/use-control-center-state.ts` | Wraps useGraphState, handles server actions + SSE events             |
+| `components/features/control-center/control-center-inner.tsx`    | Wires callbacks via `setCallbacks()`, passes nodes/edges to canvas   |
+| `components/features/features-canvas/features-canvas.tsx`        | Renders React Flow; only adds `selectedFeatureId` highlighting       |
+
+### Design Principles
+
+1. **Domain Maps are the source of truth** — all mutations go through Maps (featureMap, repoMap, pendingMap)
+2. **Edges are derived, never stored** — repo→feature edges from `repositoryPath` matching, dep edges from `parentNodeId`
+3. **Callbacks via ref** — `callbacksRef` + stable `useMemo([])` wrapper prevents circular re-renders
+4. **Layout in derivation** — `layoutWithDagre` runs inside `useMemo` after `deriveGraph()`
+5. **`onNodesChange` is a no-op** — since `nodesDraggable=false`, we ignore all React Flow changes
+
+### Mutation Paths
+
+| Operation         | Flow                                                                                                    |
+| ----------------- | ------------------------------------------------------------------------------------------------------- |
+| SSE event         | `useAgentEventsContext` → `updateFeature(nodeId, {state, lifecycle})`                                   |
+| Server prop sync  | `useEffect` watches `initialNodeKey` → `reconcile(newNodes, newEdges)`                                  |
+| Optimistic create | `shep:feature-created` event → `createFeatureNode()` → `addPendingFeature()`                            |
+| Delete feature    | `handleDeleteFeature()` → `removeFeature()` → server action → `restoreFeature()` on error               |
+| Add repository    | `handleAddRepository()` → `addRepository(tempId)` → server action → `replaceRepository(tempId, realId)` |
+
+### Reconciliation
+
+`reconcile(newNodes, newEdges)` merges server data into domain Maps:
+
+- Replaces featureMap and repoMap with fresh server data
+- Preserves pending (creating) features in featureMap unless matched by `name + repositoryPath`
+- Cleans pendingMap entries that now have a real counterpart in server data
+
 ## SSE / Real-Time Update Architecture
 
 ```
@@ -45,8 +105,8 @@ DB polling (500ms) -> /api/agent-events (SSE route)
         -> postMessage to all browser tabs
             -> useAgentEvents hook (hooks/use-agent-events.ts)
                 -> AgentEventsProvider context (hooks/agent-events-provider.tsx)
-                    -> useControlCenterState (optimistic node updates via setNodes)
-                        -> React state updates -> sidebar + React Flow canvas
+                    -> useControlCenterState (SSE effect calls updateFeature)
+                        -> domain Maps update -> derivation -> React Flow canvas
 ```
 
 ### SSE Key Files
@@ -58,17 +118,8 @@ DB polling (500ms) -> /api/agent-events (SSE route)
 | `public/agent-events-sw.js`                                      | Service Worker: multiplexes single SSE to all tabs     |
 | `hooks/use-agent-events.ts`                                      | Client hook: registers with SW, receives events        |
 | `hooks/agent-events-provider.tsx`                                | React context wrapping `useAgentEvents`                |
-| `components/features/control-center/use-control-center-state.ts` | Processes SSE events into React Flow node updates      |
+| `components/features/control-center/use-control-center-state.ts` | SSE effect calls `updateFeature()` on domain Maps      |
 | `components/common/feature-node/derive-feature-state.ts`         | Maps event types/phases to UI state/lifecycle          |
-
-### SSE Event Flow Details
-
-1. **SSE route** seeds a per-connection cache on first poll (no events emitted for initial state)
-2. Subsequent polls compare DB state against cache, emit only deltas
-3. **Service Worker** connects to `/api/agent-events` via EventSource on first subscriber
-4. SW broadcasts `{ type: 'notification', data }` to all tabs via `clients.matchAll()`
-5. **useControlCenterState** effect processes new events, calls `setNodes()` to update node state/lifecycle
-6. **Polling fallback** (5s interval) fetches via `fetchGraphData()` server action for active features
 
 ### SSE Lifecycle Mappings
 
@@ -94,21 +145,17 @@ React Flow v12 (`@xyflow/react` ^12.10.0) has specific behaviors that affect rea
 - **Internal Zustand store**: React Flow syncs props to an internal `nodeLookup` Map via `StoreUpdater`
 - **Memoized NodeWrapper**: Each node is wrapped in `memo(NodeWrapper)` which subscribes to store via `useStore(selector, shallow)`
 - **NodeWrapper gets node from store**, NOT from props directly. It does `s.nodeLookup.get(id)` with `shallow` comparison
-- **Single ReactFlowProvider**: There must be exactly ONE `ReactFlowProvider` ancestor. Multiple nested providers create separate stores, causing the outer one's `StoreUpdater` to sync nodes to a store that the inner components don't read from
+- **Single ReactFlowProvider**: There must be exactly ONE `ReactFlowProvider` ancestor. Multiple nested providers create separate stores
 
-### Circular Update Loop (FIXED — do not reintroduce)
+### Circular Update Loop Prevention
 
-In controlled mode, `enrichedNodes` (useMemo in FeaturesCanvas) creates new node objects every render
-(adding callbacks to `data`). StoreUpdater sees different references and emits `replace` changes via
-`onNodesChange`. If `onNodesChange` applies these 'replace' changes back to state via `applyNodeChanges`,
-it overwrites SSE-driven state updates with stale data from the previous render, AND triggers another
-`enrichedNodes` recalculation → infinite loop (110+ renders on page load).
+With the domain-model-driven architecture, the circular update loop is prevented by design:
 
-**Fix**: `onNodesChange` in `use-control-center-state.ts` filters out `replace` changes. Only `dimensions`,
-`position`, `select`, etc. are applied. StoreUpdater still syncs props to its internal store regardless —
-our state remains the source of truth.
+1. **Callbacks are stable** — injected via `callbacksRef` + stable `useMemo([])` wrapper, so node objects don't change when callbacks change
+2. **`onNodesChange` is a no-op** — domain Maps are the source of truth, React Flow's internal changes are ignored
+3. **`enrichedNodes` only adds `selectedFeatureId`** — no callback injection in FeaturesCanvas
 
-**NEVER** remove the `c.type !== 'replace'` filter from `onNodesChange`.
+**NEVER** make `onNodesChange` apply `replace` changes back to state.
 
 ## Testing Real-Time Updates
 
@@ -124,24 +171,21 @@ our state remains the source of truth.
 
 When a user creates a feature, the UI uses optimistic updates:
 
-1. **Create drawer** dispatches `shep:feature-created` → canvas adds a temp node (`feature-<ts>` ID, state `creating`)
+1. **Create drawer** dispatches `shep:feature-created` → `createFeatureNode()` → `addPendingFeature()` adds temp node to pendingMap
 2. Drawer closes immediately via `router.push('/')`
 3. Server action `createFeature` runs in background → agent starts
-4. SSE events arrive with real feature ID (`feat-<uuid>`) — **these won't match the temp node**
-5. **Polling fallback** (5s) detects new server node → replaces temp `creating` node in-place
+4. SSE events arrive with real feature ID (`feat-<uuid>`) — these update featureMap via `updateFeature()`
+5. **Server prop sync** (rerender with new initialNodes) → `reconcile()` detects matching real feature → removes pending from both featureMap and pendingMap
 
 ### Key constraints
 
-- **Temp node IDs don't match SSE events**: Optimistic nodes use `feature-<ts>` IDs, server uses `feat-<uuid>`.
-  SSE-driven `setNodes()` can't find the temp node. The polling fallback handles the swap.
-- **Create drawer `isSubmitting`**: Must NOT reset until pathname leaves `/create`. Resetting in `.finally()`
-  causes the drawer to flash open because `router.push('/')` is async and pathname hasn't changed yet.
-- **Parallel routes preserve state**: The `CreateDrawerClient` component is NOT unmounted on navigation.
-  `isOpen` is derived from pathname, not mount/unmount lifecycle.
+- **Temp node IDs don't match SSE events**: Optimistic nodes use `feature-<ts>` IDs, server uses `feat-<uuid>`. SSE events call `updateFeature('feat-<uuid>', ...)` which doesn't match the temp ID. The reconcile on next server prop update handles the swap.
+- **Create drawer `isSubmitting`**: Must NOT reset until pathname leaves `/create`. Resetting in `.finally()` causes the drawer to flash open because `router.push('/')` is async and pathname hasn't changed yet.
+- **Parallel routes preserve state**: The `CreateDrawerClient` component is NOT unmounted on navigation. `isOpen` is derived from pathname, not mount/unmount lifecycle.
 
 ## Common Pitfalls
 
 - **No events when nothing changes**: SSE only emits deltas. If no feature state changes, no events are sent. This is correct behavior.
-- **Polling fallback dependency**: The 5s polling `useEffect` depends on a derived `hasActiveFeature` boolean (not `nodes` directly). Using `[nodes]` as a dependency would reset the interval on every node change, potentially preventing it from ever firing.
 - **Storybook mocks**: New server actions need mocks in `.storybook/mocks/app/actions/` or Storybook build breaks.
 - **`output: 'standalone'`** in next.config.ts: Production builds use standalone mode. Route handlers are bundled differently.
+- **Map insertion order affects dagre layout**: After remove+restore of a feature, the Map insertion order may change, causing slightly different dagre positions. This is expected behavior — don't write tests asserting exact position preservation across remove/restore cycles.

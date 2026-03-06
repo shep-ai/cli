@@ -8,9 +8,20 @@ export interface CreateFeatureInput {
   openPr?: boolean;
   /** Optional ID of the parent feature. When set, child may be created in Blocked state. */
   parentId?: string;
+  /** Pre-supplied name (skips AI metadata extraction for name). */
+  name?: string;
+  /** Pre-supplied description (skips AI metadata extraction for description). */
+  description?: string;
 }
 
 export interface CreateFeatureResult {
   feature: Feature;
   warning?: string;
+}
+
+/** Result of the fast createRecord phase (before metadata/worktree/agent). */
+export interface CreateRecordResult {
+  feature: Feature;
+  /** Whether the agent should be spawned (false when child is blocked). */
+  shouldSpawn: boolean;
 }

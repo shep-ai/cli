@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
 import { ReactFlow, Background, Controls } from '@xyflow/react';
 import type { Connection, Edge, NodeChange } from '@xyflow/react';
 import { Plus } from 'lucide-react';
@@ -10,11 +10,9 @@ import { FeatureNode } from '@/components/common/feature-node';
 import type { FeatureNodeType, FeatureNodeData } from '@/components/common/feature-node';
 import { RepositoryNode } from '@/components/common/repository-node';
 import type { RepositoryNodeType } from '@/components/common/repository-node';
-import { AddRepositoryNode } from '@/components/common/add-repository-node';
-import type { AddRepositoryNodeType } from '@/components/common/add-repository-node';
 import { DependencyEdge } from './dependency-edge';
 
-export type CanvasNodeType = FeatureNodeType | RepositoryNodeType | AddRepositoryNodeType;
+export type CanvasNodeType = FeatureNodeType | RepositoryNodeType;
 
 export interface FeaturesCanvasProps {
   nodes: CanvasNodeType[];
@@ -22,16 +20,9 @@ export interface FeaturesCanvasProps {
   selectedFeatureId?: string | null;
   onNodesChange?: (changes: NodeChange<CanvasNodeType>[]) => void;
   onAddFeature?: () => void;
-  onNodeAction?: (nodeId: string) => void;
-  onNodeSettings?: (nodeId: string) => void;
   onNodeClick?: (event: React.MouseEvent, node: CanvasNodeType) => void;
   onPaneClick?: (event: React.MouseEvent) => void;
-  onRepositoryAdd?: (repoNodeId: string) => void;
-  onRepositoryClick?: (nodeId: string) => void;
-  onRepositoryDelete?: (repositoryId: string) => void;
-  onFeatureDelete?: (featureId: string) => void;
   onConnect?: (connection: Connection) => void;
-  onRepositorySelect?: (path: string) => void;
   onCanvasDrag?: () => void;
   toolbar?: React.ReactNode;
   emptyState?: React.ReactNode;
@@ -43,16 +34,9 @@ export function FeaturesCanvas({
   selectedFeatureId,
   onNodesChange,
   onAddFeature,
-  onNodeAction,
-  onNodeSettings,
   onConnect,
   onNodeClick,
   onPaneClick,
-  onRepositoryAdd,
-  onRepositoryClick,
-  onRepositoryDelete,
-  onFeatureDelete,
-  onRepositorySelect,
   onCanvasDrag,
   toolbar,
   emptyState,
@@ -61,7 +45,6 @@ export function FeaturesCanvas({
     () => ({
       featureNode: FeatureNode,
       repositoryNode: RepositoryNode,
-      addRepositoryNode: AddRepositoryNode,
     }),
     []
   );
@@ -89,48 +72,19 @@ export function FeaturesCanvas({
     [nodes, edges]
   );
 
+  // Callbacks and showHandles are already injected into node.data by deriveGraph.
+  // Only selectedFeatureId highlighting needs to be applied here.
   const enrichedNodes = useMemo(
     () =>
-      nodes.map((node) => ({
-        ...node,
-        // React Flow passes `selected` as a prop to the node component
-        ...(node.type === 'featureNode' && {
-          selected:
-            selectedFeatureId != null &&
-            (node.data as FeatureNodeData).featureId === selectedFeatureId,
-        }),
-        data: {
-          ...node.data,
-          showHandles: edges.length > 0,
-          ...(node.type === 'featureNode' && (node.data as FeatureNodeData).state !== 'creating'
-            ? {
-                onAction: onNodeAction ? () => onNodeAction(node.id) : undefined,
-                onSettings: onNodeSettings ? () => onNodeSettings(node.id) : undefined,
-                onDelete: onFeatureDelete,
-              }
-            : {}),
-          ...(node.type === 'repositoryNode' && {
-            onAdd: onRepositoryAdd ? () => onRepositoryAdd(node.id) : undefined,
-            onClick: onRepositoryClick ? () => onRepositoryClick(node.id) : undefined,
-            onDelete: onRepositoryDelete,
-          }),
-          ...(node.type === 'addRepositoryNode' && {
-            onSelect: onRepositorySelect ? (path: string) => onRepositorySelect(path) : undefined,
-          }),
-        },
-      })) as CanvasNodeType[],
-    [
-      nodes,
-      edges.length,
-      selectedFeatureId,
-      onNodeAction,
-      onNodeSettings,
-      onFeatureDelete,
-      onRepositoryAdd,
-      onRepositoryClick,
-      onRepositoryDelete,
-      onRepositorySelect,
-    ]
+      selectedFeatureId == null
+        ? nodes
+        : (nodes.map((node) =>
+            node.type === 'featureNode' &&
+            (node.data as FeatureNodeData).featureId === selectedFeatureId
+              ? { ...node, selected: true }
+              : node
+          ) as CanvasNodeType[]),
+    [nodes, selectedFeatureId]
   );
 
   if (nodes.length === 0) {

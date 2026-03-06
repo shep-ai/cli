@@ -8,7 +8,6 @@ import { FeatureCreateDrawer } from '@/components/common/feature-create-drawer';
 import type { FeatureCreatePayload } from '@/components/common/feature-create-drawer';
 import type { ParentFeatureOption } from '@/components/common/feature-create-drawer/feature-create-drawer';
 import type { WorkflowDefaults } from '@/app/actions/get-workflow-defaults';
-import { useSoundAction } from '@/hooks/use-sound-action';
 
 export interface CreateDrawerClientProps {
   repositoryPath: string;
@@ -24,7 +23,6 @@ export function CreateDrawerClient({
   workflowDefaults,
 }: CreateDrawerClientProps) {
   const router = useRouter();
-  const createSound = useSoundAction('create');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Derive open state from the URL. Next.js parallel routes preserve slot
@@ -54,40 +52,38 @@ export function CreateDrawerClient({
     (data: FeatureCreatePayload) => {
       setIsSubmitting(true);
 
-      // Dispatch event for optimistic canvas update before navigating
-      window.dispatchEvent(
-        new CustomEvent('shep:feature-created', {
-          detail: {
-            name: data.name,
-            description: data.description,
-            repositoryPath: data.repositoryPath,
-            parentId: data.parentId,
-          },
-        })
-      );
-
       // Close the drawer immediately for responsive UI
       router.push('/');
 
-      // Fire server action in the background
+      // Server action Phase 1 returns fast with real feature ID (DB record created)
+      // Phase 2 (metadata, worktree, agent) runs in background on server
       createFeature(data)
         .then((result) => {
           if (result.error) {
             toast.error(result.error);
-            // Dispatch rollback event
             window.dispatchEvent(new CustomEvent('shep:feature-create-failed'));
             return;
           }
-          createSound.play();
+          // Dispatch event with real feature ID so control center adds it to featureMap
+          window.dispatchEvent(
+            new CustomEvent('shep:feature-created', {
+              detail: {
+                featureId: result.feature!.id,
+                name: result.feature!.name,
+                description: result.feature!.description,
+                repositoryPath: result.feature!.repositoryPath,
+                parentId: data.parentId,
+              },
+            })
+          );
         })
         .catch(() => {
           toast.error('Failed to create feature');
           window.dispatchEvent(new CustomEvent('shep:feature-create-failed'));
-          // Reset on error so the user can retry without navigating away
           setIsSubmitting(false);
         });
     },
-    [router, createSound]
+    [router]
   );
 
   return (

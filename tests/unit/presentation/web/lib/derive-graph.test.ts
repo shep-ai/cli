@@ -1,0 +1,295 @@
+import { describe, it, expect, vi } from 'vitest';
+import { deriveGraph } from '@/lib/derive-graph';
+import type { FeatureEntry, RepoEntry, GraphCallbacks } from '@/lib/derive-graph';
+import type { FeatureNodeData } from '@/components/common/feature-node';
+import type { RepositoryNodeData } from '@/components/common/repository-node';
+
+// --- Helpers ---
+
+function makeFeatureEntry(
+  nodeId: string,
+  overrides: Partial<FeatureNodeData> = {},
+  parentNodeId?: string
+): [string, FeatureEntry] {
+  return [
+    nodeId,
+    {
+      nodeId,
+      data: {
+        name: 'Test Feature',
+        featureId: nodeId,
+        lifecycle: 'requirements',
+        state: 'running',
+        progress: 0,
+        repositoryPath: '/home/user/my-repo',
+        branch: 'feat/test',
+        ...overrides,
+      },
+      parentNodeId,
+    },
+  ];
+}
+
+function makeRepoEntry(
+  nodeId: string,
+  repositoryPath: string,
+  name = 'my-repo'
+): [string, RepoEntry] {
+  return [
+    nodeId,
+    {
+      nodeId,
+      data: {
+        name,
+        repositoryPath,
+        id: nodeId.replace('repo-', ''),
+      } as RepositoryNodeData,
+    },
+  ];
+}
+
+// --- Tests: Task 1 (derive-graph pure derivation) ---
+
+describe('deriveGraph', () => {
+  describe('basic node and edge derivation', () => {
+    it('single feature + repo → produces feature node + repo node + repo→feature edge', () => {
+      const featureMap = new Map([makeFeatureEntry('feat-abc', { repositoryPath: '/repo' })]);
+      const repoMap = new Map([makeRepoEntry('repo-1', '/repo')]);
+      const pendingMap = new Map<string, FeatureEntry>();
+
+      const { nodes, edges } = deriveGraph(featureMap, repoMap, pendingMap);
+
+      expect(nodes).toHaveLength(2);
+      expect(nodes.find((n) => n.id === 'feat-abc')).toBeDefined();
+      expect(nodes.find((n) => n.id === 'repo-1')).toBeDefined();
+
+      expect(edges).toHaveLength(1);
+      expect(edges[0]).toMatchObject({
+        source: 'repo-1',
+        target: 'feat-abc',
+      });
+    });
+
+    it('feature with parentNodeId → produces dependency edge, no repo→feature edge', () => {
+      const featureMap = new Map([
+        makeFeatureEntry('feat-parent', { repositoryPath: '/repo' }),
+        makeFeatureEntry('feat-child', { repositoryPath: '/repo' }, 'feat-parent'),
+      ]);
+      const repoMap = new Map([makeRepoEntry('repo-1', '/repo')]);
+      const pendingMap = new Map<string, FeatureEntry>();
+
+      const { edges } = deriveGraph(featureMap, repoMap, pendingMap);
+
+      // parent → repo edge exists, child → dep edge exists, NO repo→child edge
+      const depEdge = edges.find((e) => e.type === 'dependencyEdge');
+      expect(depEdge).toBeDefined();
+      expect(depEdge).toMatchObject({
+        source: 'feat-parent',
+        target: 'feat-child',
+        type: 'dependencyEdge',
+      });
+
+      const repoToChild = edges.find((e) => e.source === 'repo-1' && e.target === 'feat-child');
+      expect(repoToChild).toBeUndefined();
+
+      const repoToParent = edges.find((e) => e.source === 'repo-1' && e.target === 'feat-parent');
+      expect(repoToParent).toBeDefined();
+    });
+
+    it('orphan feature (no repo match) → produces virtual repo node', () => {
+      const featureMap = new Map([
+        makeFeatureEntry('feat-orphan', { repositoryPath: '/orphan/repo' }),
+      ]);
+      const repoMap = new Map<string, RepoEntry>();
+      const pendingMap = new Map<string, FeatureEntry>();
+
+      const { nodes, edges } = deriveGraph(featureMap, repoMap, pendingMap);
+
+      const virtualRepo = nodes.find((n) => n.id.startsWith('virtual-repo-'));
+      expect(virtualRepo).toBeDefined();
+      expect(virtualRepo?.type).toBe('repositoryNode');
+
+      const edge = edges.find((e) => e.target === 'feat-orphan');
+      expect(edge).toBeDefined();
+      expect(edge?.source).toMatch(/^virtual-repo-/);
+    });
+
+    it('pending feature with tempId → produces creating node with edge to repo', () => {
+      const repoMap = new Map([makeRepoEntry('repo-1', '/repo')]);
+      const featureMap = new Map<string, FeatureEntry>();
+      const pendingMap = new Map([
+        makeFeatureEntry('feature-temp-123', { state: 'creating', repositoryPath: '/repo' }),
+      ]);
+
+      const { nodes, edges } = deriveGraph(featureMap, repoMap, pendingMap);
+
+      const pendingNode = nodes.find((n) => n.id === 'feature-temp-123');
+      expect(pendingNode).toBeDefined();
+      expect(pendingNode?.type).toBe('featureNode');
+      expect((pendingNode?.data as FeatureNodeData).state).toBe('creating');
+
+      const edge = edges.find((e) => e.target === 'feature-temp-123');
+      expect(edge).toBeDefined();
+      expect(edge?.source).toBe('repo-1');
+    });
+
+    it('lifecycle and state are preserved from FeatureNodeData', () => {
+      const featureMap = new Map([
+        makeFeatureEntry('feat-abc', {
+          state: 'action-required',
+          lifecycle: 'review',
+          progress: 75,
+          repositoryPath: '/home/user/my-repo',
+        }),
+      ]);
+      const repoMap = new Map([makeRepoEntry('repo-1', '/home/user/my-repo')]);
+      const pendingMap = new Map<string, FeatureEntry>();
+
+      const { nodes } = deriveGraph(featureMap, repoMap, pendingMap);
+
+      const featureNode = nodes.find((n) => n.id === 'feat-abc');
+      const data = featureNode?.data as FeatureNodeData;
+      expect(data.state).toBe('action-required');
+      expect(data.lifecycle).toBe('review');
+      expect(data.progress).toBe(75);
+    });
+
+    it('showHandles is true when edges exist', () => {
+      const featureMap = new Map([makeFeatureEntry('feat-abc', { repositoryPath: '/repo' })]);
+      const repoMap = new Map([makeRepoEntry('repo-1', '/repo')]);
+      const pendingMap = new Map<string, FeatureEntry>();
+
+      const { nodes } = deriveGraph(featureMap, repoMap, pendingMap);
+
+      const featureNode = nodes.find((n) => n.id === 'feat-abc');
+      expect((featureNode?.data as FeatureNodeData).showHandles).toBe(true);
+    });
+
+    it('showHandles is false when no edges', () => {
+      const featureMap = new Map<string, FeatureEntry>();
+      const repoMap = new Map([makeRepoEntry('repo-1', '/repo')]);
+      const pendingMap = new Map<string, FeatureEntry>();
+
+      const { nodes } = deriveGraph(featureMap, repoMap, pendingMap);
+
+      const repoNode = nodes.find((n) => n.id === 'repo-1');
+      expect((repoNode?.data as RepositoryNodeData).showHandles).toBe(false);
+    });
+  });
+
+  describe('duplicate ID dedup (featureMap vs pendingMap)', () => {
+    it('when same ID exists in both featureMap and pendingMap, featureMap wins', () => {
+      const repoMap = new Map([makeRepoEntry('repo-1', '/repo')]);
+
+      // featureMap has the real, updated version (e.g. after reconcile)
+      const featureMap = new Map([
+        makeFeatureEntry('feat-abc', {
+          state: 'action-required',
+          lifecycle: 'requirements',
+          name: 'AI Generated Name',
+          repositoryPath: '/repo',
+        }),
+      ]);
+
+      // pendingMap still has the stale optimistic version
+      const pendingMap = new Map([
+        makeFeatureEntry('feat-abc', {
+          state: 'creating',
+          lifecycle: 'requirements',
+          name: 'User Typed Name',
+          repositoryPath: '/repo',
+        }),
+      ]);
+
+      const { nodes } = deriveGraph(featureMap, repoMap, pendingMap);
+
+      // Should be exactly ONE node for feat-abc, not two
+      const featureNodes = nodes.filter((n) => n.id === 'feat-abc');
+      expect(featureNodes).toHaveLength(1);
+
+      // And it should use featureMap's data (action-required), not pendingMap's (creating)
+      const data = featureNodes[0].data as FeatureNodeData;
+      expect(data.state).toBe('action-required');
+      expect(data.name).toBe('AI Generated Name');
+    });
+  });
+
+  // --- Tests: Task 2 (callback injection) ---
+
+  describe('callback injection', () => {
+    it('callbacks injected into feature node data when provided', () => {
+      const featureMap = new Map([makeFeatureEntry('feat-abc', { repositoryPath: '/repo' })]);
+      const repoMap = new Map([makeRepoEntry('repo-1', '/repo')]);
+      const pendingMap = new Map<string, FeatureEntry>();
+
+      const onNodeAction = vi.fn();
+      const onNodeSettings = vi.fn();
+      const onFeatureDelete = vi.fn();
+
+      const callbacks: GraphCallbacks = { onNodeAction, onNodeSettings, onFeatureDelete };
+      const { nodes } = deriveGraph(featureMap, repoMap, pendingMap, callbacks);
+
+      const featureNode = nodes.find((n) => n.id === 'feat-abc');
+      const data = featureNode?.data as FeatureNodeData;
+
+      expect(data.onAction).toBeDefined();
+      expect(data.onSettings).toBeDefined();
+      expect(data.onDelete).toBeDefined();
+
+      // Call the injected callbacks
+      data.onAction!();
+      expect(onNodeAction).toHaveBeenCalledWith('feat-abc');
+
+      data.onSettings!();
+      expect(onNodeSettings).toHaveBeenCalledWith('feat-abc');
+
+      data.onDelete!('abc');
+      expect(onFeatureDelete).toHaveBeenCalledWith('abc');
+    });
+
+    it('creating feature nodes skip onAction/onSettings', () => {
+      const featureMap = new Map<string, FeatureEntry>();
+      const repoMap = new Map([makeRepoEntry('repo-1', '/repo')]);
+      const pendingMap = new Map([
+        makeFeatureEntry('feature-temp-123', { state: 'creating', repositoryPath: '/repo' }),
+      ]);
+
+      const callbacks: GraphCallbacks = {
+        onNodeAction: vi.fn(),
+        onNodeSettings: vi.fn(),
+      };
+      const { nodes } = deriveGraph(featureMap, repoMap, pendingMap, callbacks);
+
+      const creatingNode = nodes.find((n) => n.id === 'feature-temp-123');
+      const data = creatingNode?.data as FeatureNodeData;
+      expect(data.onAction).toBeUndefined();
+      expect(data.onSettings).toBeUndefined();
+    });
+
+    it('repo nodes get onAdd/onClick/onDelete callbacks', () => {
+      const featureMap = new Map<string, FeatureEntry>();
+      const repoMap = new Map([makeRepoEntry('repo-1', '/repo')]);
+      const pendingMap = new Map<string, FeatureEntry>();
+
+      const onRepositoryAdd = vi.fn();
+      const onRepositoryClick = vi.fn();
+      const onRepositoryDelete = vi.fn();
+
+      const callbacks: GraphCallbacks = { onRepositoryAdd, onRepositoryClick, onRepositoryDelete };
+      const { nodes } = deriveGraph(featureMap, repoMap, pendingMap, callbacks);
+
+      const repoNode = nodes.find((n) => n.id === 'repo-1');
+      const data = repoNode?.data as RepositoryNodeData;
+
+      expect(data.onAdd).toBeDefined();
+      expect(data.onClick).toBeDefined();
+      expect(data.onDelete).toBeDefined();
+
+      data.onAdd!();
+      expect(onRepositoryAdd).toHaveBeenCalledWith('repo-1');
+
+      data.onClick!();
+      expect(onRepositoryClick).toHaveBeenCalledWith('repo-1');
+    });
+  });
+});

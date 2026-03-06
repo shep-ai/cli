@@ -1,8 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const mockExecute = vi.fn();
+const mockCreateRecord = vi.fn();
+const mockInitializeAndSpawn = vi
+  .fn()
+  .mockResolvedValue({ warning: undefined, updatedFeature: {} });
 vi.mock('../../../../../../src/presentation/web/lib/server-container.js', () => ({
-  resolve: () => ({ execute: mockExecute }),
+  resolve: () => ({
+    createRecord: mockCreateRecord,
+    initializeAndSpawn: mockInitializeAndSpawn,
+  }),
 }));
 
 vi.mock('@shepai/core/application/use-cases/features/create/create-feature.use-case', () => ({
@@ -22,7 +28,7 @@ describe('createFeature server action', () => {
 
   it('returns feature on success', async () => {
     const feature = { id: '1', name: 'My Feature', slug: 'my-feature' };
-    mockExecute.mockResolvedValue({ feature, warning: 'slug was adjusted' });
+    mockCreateRecord.mockResolvedValue({ feature, shouldSpawn: true });
 
     const result = await createFeature({
       name: 'My Feature',
@@ -37,7 +43,7 @@ describe('createFeature server action', () => {
 
   it('composes userInput from name and description', async () => {
     const feature = { id: '3', name: 'Test', slug: 'test' };
-    mockExecute.mockResolvedValue({ feature });
+    mockCreateRecord.mockResolvedValue({ feature, shouldSpawn: true });
 
     await createFeature({
       name: 'Auth System',
@@ -45,48 +51,49 @@ describe('createFeature server action', () => {
       repositoryPath: '/repo',
     });
 
-    expect(mockExecute).toHaveBeenCalledWith({
-      userInput: 'Feature: Auth System\n\nAdd login and signup',
-      repositoryPath: '/repo',
-      approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
-      push: false,
-      openPr: false,
-    });
+    expect(mockCreateRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userInput: 'Feature: Auth System\n\nAdd login and signup',
+        repositoryPath: '/repo',
+        name: 'Auth System',
+        description: 'Add login and signup',
+      })
+    );
   });
 
   it('composes userInput with only name when description is empty', async () => {
     const feature = { id: '4', name: 'Test', slug: 'test' };
-    mockExecute.mockResolvedValue({ feature });
+    mockCreateRecord.mockResolvedValue({ feature, shouldSpawn: true });
 
     await createFeature({ name: 'Quick Fix', description: '', repositoryPath: '/repo' });
 
-    expect(mockExecute).toHaveBeenCalledWith({
-      userInput: 'Feature: Quick Fix',
-      repositoryPath: '/repo',
-      approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
-      push: false,
-      openPr: false,
-    });
+    expect(mockCreateRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userInput: 'Feature: Quick Fix',
+        repositoryPath: '/repo',
+        name: 'Quick Fix',
+      })
+    );
   });
 
   it('composes userInput with only name when description is omitted', async () => {
     const feature = { id: '5', name: 'Test', slug: 'test' };
-    mockExecute.mockResolvedValue({ feature });
+    mockCreateRecord.mockResolvedValue({ feature, shouldSpawn: true });
 
     await createFeature({ name: 'No Desc', repositoryPath: '/repo' });
 
-    expect(mockExecute).toHaveBeenCalledWith({
-      userInput: 'Feature: No Desc',
-      repositoryPath: '/repo',
-      approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
-      push: false,
-      openPr: false,
-    });
+    expect(mockCreateRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userInput: 'Feature: No Desc',
+        repositoryPath: '/repo',
+        name: 'No Desc',
+      })
+    );
   });
 
   it('appends attachment file paths to userInput', async () => {
     const feature = { id: '6', name: 'Test', slug: 'test' };
-    mockExecute.mockResolvedValue({ feature });
+    mockCreateRecord.mockResolvedValue({ feature, shouldSpawn: true });
 
     await createFeature({
       name: 'With Files',
@@ -98,19 +105,20 @@ describe('createFeature server action', () => {
       ],
     });
 
-    expect(mockExecute).toHaveBeenCalledWith({
-      userInput:
-        'Feature: With Files\n\nSee attached\n\nAttached files:\n- /src/index.ts\n- /src/utils.ts',
-      repositoryPath: '/repo',
-      approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
-      push: false,
-      openPr: false,
-    });
+    expect(mockCreateRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userInput:
+          'Feature: With Files\n\nSee attached\n\nAttached files:\n- /src/index.ts\n- /src/utils.ts',
+        repositoryPath: '/repo',
+        name: 'With Files',
+        description: 'See attached',
+      })
+    );
   });
 
   it('appends attachments even when description is empty', async () => {
     const feature = { id: '7', name: 'Test', slug: 'test' };
-    mockExecute.mockResolvedValue({ feature });
+    mockCreateRecord.mockResolvedValue({ feature, shouldSpawn: true });
 
     await createFeature({
       name: 'Files Only',
@@ -118,13 +126,13 @@ describe('createFeature server action', () => {
       attachments: [{ path: '/readme.md', name: 'readme.md' }],
     });
 
-    expect(mockExecute).toHaveBeenCalledWith({
-      userInput: 'Feature: Files Only\n\nAttached files:\n- /readme.md',
-      repositoryPath: '/repo',
-      approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
-      push: false,
-      openPr: false,
-    });
+    expect(mockCreateRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userInput: 'Feature: Files Only\n\nAttached files:\n- /readme.md',
+        repositoryPath: '/repo',
+        name: 'Files Only',
+      })
+    );
   });
 
   // --- Validation errors ---
@@ -136,7 +144,7 @@ describe('createFeature server action', () => {
     });
 
     expect(result).toEqual({ error: 'name is required' });
-    expect(mockExecute).not.toHaveBeenCalled();
+    expect(mockCreateRecord).not.toHaveBeenCalled();
   });
 
   it('returns error when name is whitespace-only', async () => {
@@ -146,7 +154,7 @@ describe('createFeature server action', () => {
     });
 
     expect(result).toEqual({ error: 'name is required' });
-    expect(mockExecute).not.toHaveBeenCalled();
+    expect(mockCreateRecord).not.toHaveBeenCalled();
   });
 
   it('returns error when repositoryPath is missing', async () => {
@@ -156,13 +164,13 @@ describe('createFeature server action', () => {
     });
 
     expect(result).toEqual({ error: 'repositoryPath is required' });
-    expect(mockExecute).not.toHaveBeenCalled();
+    expect(mockCreateRecord).not.toHaveBeenCalled();
   });
 
   // --- Internal errors ---
 
   it('returns error when createFeature throws Error', async () => {
-    mockExecute.mockRejectedValue(new Error('Worktree creation failed'));
+    mockCreateRecord.mockRejectedValue(new Error('Worktree creation failed'));
 
     const result = await createFeature({ name: 'Broken', repositoryPath: '/repo' });
 
@@ -170,7 +178,7 @@ describe('createFeature server action', () => {
   });
 
   it('returns generic error when createFeature throws non-Error', async () => {
-    mockExecute.mockRejectedValue('something unexpected');
+    mockCreateRecord.mockRejectedValue('something unexpected');
 
     const result = await createFeature({ name: 'Broken', repositoryPath: '/repo' });
 
@@ -181,7 +189,7 @@ describe('createFeature server action', () => {
 
   describe('approvalGates', () => {
     it('forwards { allowPrd: true, allowPlan: false } with allowMerge defaulted', async () => {
-      mockExecute.mockResolvedValue({ feature: { id: '1' } });
+      mockCreateRecord.mockResolvedValue({ feature: { id: '1' }, shouldSpawn: true });
 
       await createFeature({
         name: 'Test',
@@ -189,7 +197,7 @@ describe('createFeature server action', () => {
         approvalGates: { allowPrd: true, allowPlan: false },
       });
 
-      expect(mockExecute).toHaveBeenCalledWith(
+      expect(mockCreateRecord).toHaveBeenCalledWith(
         expect.objectContaining({
           approvalGates: { allowPrd: true, allowPlan: false, allowMerge: false },
         })
@@ -197,7 +205,7 @@ describe('createFeature server action', () => {
     });
 
     it('forwards full approvalGates including allowMerge', async () => {
-      mockExecute.mockResolvedValue({ feature: { id: '1' } });
+      mockCreateRecord.mockResolvedValue({ feature: { id: '1' }, shouldSpawn: true });
 
       await createFeature({
         name: 'Test',
@@ -205,7 +213,7 @@ describe('createFeature server action', () => {
         approvalGates: { allowPrd: true, allowPlan: true, allowMerge: true },
       });
 
-      expect(mockExecute).toHaveBeenCalledWith(
+      expect(mockCreateRecord).toHaveBeenCalledWith(
         expect.objectContaining({
           approvalGates: { allowPrd: true, allowPlan: true, allowMerge: true },
         })
@@ -213,11 +221,11 @@ describe('createFeature server action', () => {
     });
 
     it('defaults to all false when approvalGates is omitted', async () => {
-      mockExecute.mockResolvedValue({ feature: { id: '1' } });
+      mockCreateRecord.mockResolvedValue({ feature: { id: '1' }, shouldSpawn: true });
 
       await createFeature({ name: 'Test', repositoryPath: '/repo' });
 
-      expect(mockExecute).toHaveBeenCalledWith(
+      expect(mockCreateRecord).toHaveBeenCalledWith(
         expect.objectContaining({
           approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
         })
@@ -229,7 +237,7 @@ describe('createFeature server action', () => {
 
   describe('push/openPr forwarding', () => {
     it('forwards push=true and openPr=true', async () => {
-      mockExecute.mockResolvedValue({ feature: { id: '1' } });
+      mockCreateRecord.mockResolvedValue({ feature: { id: '1' }, shouldSpawn: true });
 
       await createFeature({
         name: 'Test',
@@ -238,7 +246,7 @@ describe('createFeature server action', () => {
         openPr: true,
       });
 
-      expect(mockExecute).toHaveBeenCalledWith(
+      expect(mockCreateRecord).toHaveBeenCalledWith(
         expect.objectContaining({
           push: true,
           openPr: true,
@@ -247,11 +255,11 @@ describe('createFeature server action', () => {
     });
 
     it('defaults both to false when omitted', async () => {
-      mockExecute.mockResolvedValue({ feature: { id: '1' } });
+      mockCreateRecord.mockResolvedValue({ feature: { id: '1' }, shouldSpawn: true });
 
       await createFeature({ name: 'Test', repositoryPath: '/repo' });
 
-      expect(mockExecute).toHaveBeenCalledWith(
+      expect(mockCreateRecord).toHaveBeenCalledWith(
         expect.objectContaining({
           push: false,
           openPr: false,
@@ -260,7 +268,7 @@ describe('createFeature server action', () => {
     });
 
     it('forwards push=true with openPr defaulting to false', async () => {
-      mockExecute.mockResolvedValue({ feature: { id: '1' } });
+      mockCreateRecord.mockResolvedValue({ feature: { id: '1' }, shouldSpawn: true });
 
       await createFeature({
         name: 'Test',
@@ -268,7 +276,7 @@ describe('createFeature server action', () => {
         push: true,
       });
 
-      expect(mockExecute).toHaveBeenCalledWith(
+      expect(mockCreateRecord).toHaveBeenCalledWith(
         expect.objectContaining({
           push: true,
           openPr: false,
@@ -277,7 +285,7 @@ describe('createFeature server action', () => {
     });
 
     it('forwards openPr=true with push defaulting to false', async () => {
-      mockExecute.mockResolvedValue({ feature: { id: '1' } });
+      mockCreateRecord.mockResolvedValue({ feature: { id: '1' }, shouldSpawn: true });
 
       await createFeature({
         name: 'Test',
@@ -285,7 +293,7 @@ describe('createFeature server action', () => {
         openPr: true,
       });
 
-      expect(mockExecute).toHaveBeenCalledWith(
+      expect(mockCreateRecord).toHaveBeenCalledWith(
         expect.objectContaining({
           push: false,
           openPr: true,
