@@ -60,6 +60,9 @@ RUN pnpm run build
 # =============================================================================
 FROM node:22-alpine AS runtime
 
+# Upgrade base packages to pick up security patches (e.g. zlib CVE-2026-22184)
+RUN apk upgrade --no-cache
+
 # Create non-root user for security
 RUN addgroup --system --gid 1001 nodejs \
     && adduser --system --uid 1001 shep
