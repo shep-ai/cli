@@ -120,6 +120,25 @@ our state remains the source of truth.
 6. Check browser console for errors
 7. Check server logs for `[SSE] emit:` messages confirming events are sent
 
+## Optimistic Feature Creation Flow
+
+When a user creates a feature, the UI uses optimistic updates:
+
+1. **Create drawer** dispatches `shep:feature-created` → canvas adds a temp node (`feature-<ts>` ID, state `creating`)
+2. Drawer closes immediately via `router.push('/')`
+3. Server action `createFeature` runs in background → agent starts
+4. SSE events arrive with real feature ID (`feat-<uuid>`) — **these won't match the temp node**
+5. **Polling fallback** (5s) detects new server node → replaces temp `creating` node in-place
+
+### Key constraints
+
+- **Temp node IDs don't match SSE events**: Optimistic nodes use `feature-<ts>` IDs, server uses `feat-<uuid>`.
+  SSE-driven `setNodes()` can't find the temp node. The polling fallback handles the swap.
+- **Create drawer `isSubmitting`**: Must NOT reset until pathname leaves `/create`. Resetting in `.finally()`
+  causes the drawer to flash open because `router.push('/')` is async and pathname hasn't changed yet.
+- **Parallel routes preserve state**: The `CreateDrawerClient` component is NOT unmounted on navigation.
+  `isOpen` is derived from pathname, not mount/unmount lifecycle.
+
 ## Common Pitfalls
 
 - **No events when nothing changes**: SSE only emits deltas. If no feature state changes, no events are sent. This is correct behavior.
