@@ -39,7 +39,7 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
   const isDeploymentActive = deployAction.status === 'Booting' || deployAction.status === 'Ready';
 
   return (
-    <div className="group relative">
+    <div className={cn('group relative', data.onDelete && data.id && 'pl-10')}>
       {data.showHandles ? (
         <Handle
           type="target"
@@ -52,7 +52,7 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
       {/* Delete button — visible on hover, positioned to the left */}
       {data.onDelete && data.id ? (
         <>
-          <div className="absolute top-1/2 -left-10 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100">
+          <div className="absolute top-1/2 left-0 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100">
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
