@@ -275,14 +275,39 @@ export function useControlCenterState(
             };
           });
 
-          // Add any new server nodes that don't exist on client
+          // Find new server nodes not yet on the client
           const clientIds = new Set(currentNodes.map((n) => n.id));
-          const newNodes = serverNodes.filter((n) => !clientIds.has(n.id));
-          if (newNodes.length > 0) {
-            changed = true;
+          const newServerNodes = serverNodes.filter((n) => !clientIds.has(n.id));
+
+          // Replace optimistic "creating" temp nodes with their real server
+          // counterparts. Temp nodes have IDs like "feature-<ts>" while real
+          // nodes use "feat-<uuid>". Match by repositoryPath + name.
+          if (newServerNodes.length > 0) {
+            const creatingIndices: number[] = [];
+            merged.forEach((n, i) => {
+              if (n.type === 'featureNode' && (n.data as FeatureNodeData).state === 'creating') {
+                creatingIndices.push(i);
+              }
+            });
+
+            for (const serverNode of newServerNodes) {
+              if (serverNode.type !== 'featureNode' || creatingIndices.length === 0) continue;
+              const idx = creatingIndices.shift()!;
+              // Replace the temp node in-place, keeping its position
+              merged[idx] = { ...serverNode, position: merged[idx].position };
+              changed = true;
+            }
+
+            // Any remaining new server nodes that didn't replace a temp node
+            const replacedIds = new Set(merged.map((n) => n.id));
+            const trueNewNodes = newServerNodes.filter((n) => !replacedIds.has(n.id));
+            if (trueNewNodes.length > 0) {
+              changed = true;
+              return [...merged, ...trueNewNodes];
+            }
           }
 
-          return changed || newNodes.length > 0 ? [...merged, ...newNodes] : currentNodes;
+          return changed ? merged : currentNodes;
         });
       } catch {
         // Silently ignore polling errors — SSE is the primary mechanism
