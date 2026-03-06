@@ -40,10 +40,11 @@ export function useFeatureActions(input: FeatureActionsInput | null): FeatureAct
   // Clear timers on unmount — read .current inside cleanup so we get the
   // actual timer value at teardown time, not the always-null value at mount.
   useEffect(() => {
+    const refs = [ideTimerRef, shellTimerRef, specsTimerRef];
     return () => {
-      if (ideTimerRef.current) clearTimeout(ideTimerRef.current);
-      if (shellTimerRef.current) clearTimeout(shellTimerRef.current);
-      if (specsTimerRef.current) clearTimeout(specsTimerRef.current);
+      for (const ref of refs) {
+        if (ref.current) clearTimeout(ref.current);
+      }
     };
   }, []);
 
