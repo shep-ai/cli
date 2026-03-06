@@ -70,10 +70,14 @@ export function createMergeNode(deps: MergeNodeDeps) {
     // --- Rejection detection on resume ---
     // Use DB lifecycle (Review) instead of feature.yaml completedPhases to detect
     // resume, because feature.yaml is in the worktree which was already pushed.
+    // Also require _approvalAction to be set — this distinguishes a genuine resume
+    // (where the worker sets _approvalAction via Command({update})) from a first run
+    // where updateNodeLifecycle('merge') already set lifecycle=Review in the DB.
     const featureForResume = await deps.featureRepository.findById(state.featureId);
     const isResumeAfterInterrupt =
       featureForResume?.lifecycle === SdlcLifecycle.Review &&
-      shouldInterrupt('merge', state.approvalGates);
+      shouldInterrupt('merge', state.approvalGates) &&
+      state._approvalAction !== null;
 
     if (isResumeAfterInterrupt && state._approvalAction === 'rejected') {
       const feedback = state._rejectionFeedback ?? '(no feedback)';

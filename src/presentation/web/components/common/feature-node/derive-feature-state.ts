@@ -120,6 +120,8 @@ const phaseNameToLifecycle: Record<string, FeatureLifecyclePhase> = {
   plan: 'implementation',
   implement: 'implementation',
   merge: 'review',
+  maintain: 'maintain',
+  blocked: 'requirements',
 };
 
 export function mapPhaseNameToLifecycle(

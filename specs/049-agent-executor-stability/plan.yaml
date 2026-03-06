@@ -1,0 +1,163 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: agent-executor-stability
+summary: >
+  Thread the persisted AgentRun.agentType through the worker spawn call chain so resumed
+  and approved runs always use the executor that was active at original run creation.
+  Five targeted source files, zero schema changes, full backward compatibility via graceful
+  fallback when --agent-type arg is absent.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - TypeScript
+  - Node.js child_process (fork)
+  - tsyringe (dependency injection)
+  - LangGraph (checkpoint/interrupt)
+  - SQLite (AgentRun persistence)
+  - Vitest (unit testing)
+relatedLinks:
+  - https://github.com/shep-ai/cli/issues/211
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'Interface Contract Update'
+    description: >
+      Extend the IFeatureAgentProcessService output port with an optional agentType field
+      in the spawn options. This is the foundation that lets application-layer callers
+      express intent without changing any calling convention today. No tests are needed
+      for a pure interface change — TypeScript compilation is the verification mechanism.
+    parallel: false
+
+  - id: phase-2
+    name: 'Infrastructure — Process Service Wiring'
+    description: >
+      Update FeatureAgentProcessService.spawn() to append --agent-type <value> to the
+      forked process argv when the options.agentType field is present. This is the
+      transport layer that makes the pinned value visible to the worker process.
+      Follows the identical pattern already used for --resume-payload, --thread-id, etc.
+    parallel: false
+
+  - id: phase-3
+    name: 'Infrastructure — Worker Arg Parsing and Executor Resolution'
+    description: >
+      Extend parseWorkerArgs() and WorkerArgs to surface agentType as an optional field,
+      then update runWorker() to branch on its presence: resolve IAgentExecutorFactory
+      from the DI container and call factory.createExecutor(agentType, settings.agent)
+      when the arg is present, otherwise fall back to executorProvider.getExecutor()
+      for backward compatibility. IAgentExecutorFactory is already registered in
+      container.ts under its own token so no DI binding changes are needed.
+    parallel: false
+
+  - id: phase-4
+    name: 'Application — Use Case Call-Site Updates'
+    description: >
+      Pass the persisted run.agentType (ApproveAgentRunUseCase) and lastRun.agentType
+      (ResumeFeatureUseCase) into the spawn options. Both AgentRun records are already
+      in memory at the spawn call site — this is a pure wiring change with no additional
+      queries. These are the only two callers affected by the bug.
+    parallel: false
+
+# File change tracking
+filesToCreate: []
+
+filesToModify:
+  - packages/core/src/application/ports/output/agents/feature-agent-process.interface.ts
+  - packages/core/src/infrastructure/services/agents/feature-agent/feature-agent-process.service.ts
+  - packages/core/src/infrastructure/services/agents/feature-agent/feature-agent-worker.ts
+  - packages/core/src/application/use-cases/agents/approve-agent-run.use-case.ts
+  - packages/core/src/application/use-cases/features/resume-feature.use-case.ts
+  - tests/unit/infrastructure/services/agents/feature-agent-process.service.test.ts
+  - tests/unit/infrastructure/services/agents/feature-agent-worker.test.ts
+  - tests/unit/infrastructure/services/agents/feature-agent/parse-worker-args.test.ts
+  - tests/unit/application/use-cases/agents/approve-agent-run.use-case.test.ts
+  - tests/unit/application/use-cases/features/resume-feature.use-case.test.ts
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Architecture Overview
+
+  The codebase follows Clean Architecture with dependencies pointing inward:
+
+  ```
+  Domain ← Application ← Infrastructure ← Presentation
+  ```
+
+  The bug lives entirely in the Infrastructure layer: the worker process resolves its
+  executor by calling `executorProvider.getExecutor()` which reads current settings at
+  startup. The Application layer already has the correct value (`AgentRun.agentType`)
+  but never forwards it to the Infrastructure spawn call.
+
+  The fix is a pure wiring correction — threading an already-persisted value through the
+  existing call chain:
+
+  ```
+  Application (use case)  →  IFeatureAgentProcessService.spawn(options.agentType)
+      ↓
+  Infrastructure (service) →  fork(['--agent-type', agentType, ...])
+      ↓
+  Infrastructure (worker)  →  parseWorkerArgs() → factory.createExecutor(agentType)
+  ```
+
+  No domain entities, TypeSpec models, or database migrations are required. The
+  `AgentRun.agentType` field is already persisted and already copied on resume.
+
+  ## Key Design Decisions
+
+  ### 1. CLI Argument Transport (`--agent-type`)
+
+  Chosen over environment variable injection. Every existing worker option (`--feature-id`,
+  `--run-id`, `--repo`, `--spec-dir`, `--thread-id`, `--resume-payload`, etc.) is passed
+  as a named CLI argument via `fork(workerPath, args, ...)`. The `parseWorkerArgs()` helper
+  already handles this pattern with `args.indexOf('--name')`. Adding `--agent-type` is
+  one more entry in the same pattern — self-documenting, consistent, and easy to trace
+  in both code review and process listings.
+
+  ### 2. Graceful Fallback
+
+  When `--agent-type` is absent (initial spawn, test helpers, legacy invocations), the
+  worker falls back to `executorProvider.getExecutor()`. This preserves backward
+  compatibility for the initial spawn path which is unaffected by the bug. The fallback
+  is the existing single line of code kept as the `else` branch.
+
+  ### 3. Optional Interface Field (`agentType?: AgentType`)
+
+  The existing `IFeatureAgentProcessService` spawn options object uses optional fields
+  for all optional behaviours (`approvalGates?`, `resume?`, `threadId?`, etc.). Adding
+  `agentType?` is consistent with this pattern. The two call sites being fixed will
+  always populate it; any other caller may omit it and safely trigger the fallback.
+
+  ### 4. Factory Direct Call in Worker
+
+  `IAgentExecutorFactory` is already registered under its own DI token in `container.ts`
+  (confirmed at line 211-221). The worker can resolve it with
+  `container.resolve<IAgentExecutorFactory>('IAgentExecutorFactory')` and call
+  `factory.createExecutor(agentType, settings.agent)`. The `settings` object is already
+  available in the worker at the point of executor creation (loaded via
+  `InitializeSettingsUseCase`). No new DI tokens or npm packages are introduced.
+
+  ## Implementation Strategy
+
+  Phases are ordered by the dependency direction in Clean Architecture. The interface
+  update (phase 1) must precede the service update (phase 2) so the TypeScript compiler
+  accepts the new option field. The worker changes (phase 3) are independent of the
+  use case changes (phase 4) since they operate on different layers, but both depend on
+  phase 2 being complete conceptually.
+
+  Each phase follows strict TDD: failing test first, minimal implementation to pass,
+  then refactor. Existing tests must continue to pass after every task.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | IAgentExecutorFactory not registered in container | Verified at lines 211-221 of container.ts — already registered |
+  | Existing tests break when WorkerArgs shape changes | agentType is optional with undefined default; existing tests omitting it continue to pass |
+  | Missing resumePayload in existing parseWorkerArgs test assertion | Test already omits resumePayload from full equality check — pattern is used; add agentType in same way |
+  | Worker resolves wrong settings.agent when using factory | settings is loaded before executor resolution; settings.agent is identical to what executorProvider reads internally |
+  | TypeScript compilation errors from interface mismatch | Interface change lands first (phase 1) before any caller is updated |

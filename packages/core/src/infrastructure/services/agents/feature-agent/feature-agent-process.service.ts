@@ -15,7 +15,7 @@ import { homedir } from 'node:os';
 import { mkdirSync } from 'node:fs';
 import type { IFeatureAgentProcessService } from '@/application/ports/output/agents/feature-agent-process.interface.js';
 import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
-import { AgentRunStatus, type ApprovalGates } from '@/domain/generated/output.js';
+import { AgentRunStatus, type ApprovalGates, type AgentType } from '@/domain/generated/output.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -44,6 +44,7 @@ export class FeatureAgentProcessService implements IFeatureAgentProcessService {
       push?: boolean;
       openPr?: boolean;
       resumePayload?: string;
+      agentType?: AgentType;
     }
   ): number {
     const workerPath = join(__dirname, 'feature-agent-worker.js');
@@ -81,6 +82,9 @@ export class FeatureAgentProcessService implements IFeatureAgentProcessService {
     }
     if (options?.resumePayload) {
       args.push('--resume-payload', options.resumePayload);
+    }
+    if (options?.agentType) {
+      args.push('--agent-type', options.agentType);
     }
     // Create log file for worker output (for debugging)
     const logsDir = join(homedir(), '.shep', 'logs');

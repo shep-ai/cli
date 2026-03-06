@@ -135,6 +135,23 @@ describe('ApproveAgentRunUseCase', () => {
     );
   });
 
+  it('should pass run.agentType to processService.spawn options', async () => {
+    mockRunRepo.findById.mockResolvedValue(createWaitingRun({ agentType: 'dev' as any }));
+
+    await useCase.execute('run-001');
+
+    expect(mockProcessService.spawn).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      expect.objectContaining({
+        agentType: 'dev',
+      })
+    );
+  });
+
   it('should return error when run not found', async () => {
     mockRunRepo.findById.mockResolvedValue(null);
 

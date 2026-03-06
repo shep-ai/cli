@@ -34,15 +34,17 @@ export function CreateDrawerClient({
   // When submitting, force the drawer closed immediately — router.push('/')
   // is async and the pathname may not update before the next render.
   const pathname = usePathname();
-  const isOpen = !isSubmitting && pathname.startsWith('/create');
+  const isOnCreateRoute = pathname.startsWith('/create');
+  const isOpen = !isSubmitting && isOnCreateRoute;
 
-  // Safety net: if the drawer is closed (e.g. via form submit + isSubmitting)
-  // but router.push('/') hasn't taken effect yet, force-clear the route.
+  // Reset isSubmitting once the route has actually changed away from /create,
+  // so the drawer can reopen on future visits. Without this, isSubmitting
+  // would stay true forever since parallel routes preserve component state.
   useEffect(() => {
-    if (!isOpen && pathname.startsWith('/create')) {
-      router.replace('/');
+    if (!isOnCreateRoute && isSubmitting) {
+      setIsSubmitting(false);
     }
-  }, [isOpen, pathname, router]);
+  }, [isOnCreateRoute, isSubmitting]);
 
   const onClose = useCallback(() => {
     router.push('/');
@@ -81,8 +83,7 @@ export function CreateDrawerClient({
         .catch(() => {
           toast.error('Failed to create feature');
           window.dispatchEvent(new CustomEvent('shep:feature-create-failed'));
-        })
-        .finally(() => {
+          // Reset on error so the user can retry without navigating away
           setIsSubmitting(false);
         });
     },

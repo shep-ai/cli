@@ -250,7 +250,7 @@ describe('createDefaultSettings', () => {
       // Assert
       expect(settings.notifications.inApp.enabled).toBe(true);
       expect(settings.notifications.browser.enabled).toBe(true);
-      expect(settings.notifications.desktop.enabled).toBe(true);
+      expect(settings.notifications.desktop.enabled).toBe(false);
     });
 
     it('should have all notification event types enabled', () => {
@@ -277,7 +277,7 @@ describe('createDefaultSettings', () => {
       expect(settings.notifications).toEqual({
         inApp: { enabled: true },
         browser: { enabled: true },
-        desktop: { enabled: true },
+        desktop: { enabled: false },
         events: {
           agentStarted: true,
           phaseCompleted: true,
@@ -321,7 +321,7 @@ describe('createDefaultSettings', () => {
       expect(settings.notifications).toEqual({
         inApp: { enabled: true },
         browser: { enabled: true },
-        desktop: { enabled: true },
+        desktop: { enabled: false },
         events: {
           agentStarted: true,
           phaseCompleted: true,

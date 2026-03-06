@@ -15,6 +15,7 @@ import {
 import { deleteFeature } from '@/app/actions/delete-feature';
 import { addRepository } from '@/app/actions/add-repository';
 import { deleteRepository } from '@/app/actions/delete-repository';
+import { fetchGraphData } from '@/app/actions/get-graph-data';
 import { useAgentEventsContext } from '@/hooks/agent-events-provider';
 import { useSoundAction } from '@/hooks/use-sound-action';
 import {
@@ -206,6 +207,7 @@ export function useControlCenterState(
           if (node.type !== 'featureNode') return node;
           const data = node.data as FeatureNodeData;
           if (data.featureId !== event.featureId) return node;
+
           return {
             ...node,
             data: {
@@ -219,8 +221,112 @@ export function useControlCenterState(
     }
   }, [events]);
 
+  // Lightweight server-action polling fallback: fetches fresh graph data every 5s
+  // when any feature is in an active state. This avoids full router.refresh() while
+  // ensuring the UI stays in sync even if SSE events are missed.
+  //
+  // We derive a stable boolean so the interval isn't torn down on every node change.
+  const hasActiveFeature = nodes.some((n) => {
+    if (n.type !== 'featureNode') return false;
+    const data = n.data as FeatureNodeData;
+    return (
+      data.state === 'running' || data.state === 'action-required' || data.state === 'creating'
+    );
+  });
+
+  useEffect(() => {
+    if (!hasActiveFeature) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const { nodes: serverNodes } = await fetchGraphData();
+        setNodes((currentNodes) => {
+          const serverById = new Map(serverNodes.map((n) => [n.id, n]));
+          let changed = false;
+
+          const merged = currentNodes.map((node) => {
+            const serverNode = serverById.get(node.id);
+            if (!serverNode || node.type !== 'featureNode') return node;
+            const currentData = node.data as FeatureNodeData;
+            const serverData = serverNode.data as FeatureNodeData;
+
+            // Only update if server data has different state or lifecycle
+            if (
+              currentData.state === serverData.state &&
+              currentData.lifecycle === serverData.lifecycle
+            ) {
+              return node;
+            }
+
+            changed = true;
+            return {
+              ...node,
+              data: {
+                ...currentData,
+                state: serverData.state,
+                lifecycle: serverData.lifecycle,
+                progress: serverData.progress,
+                ...(serverData.errorMessage && { errorMessage: serverData.errorMessage }),
+                ...(serverData.runtime && { runtime: serverData.runtime }),
+                ...(serverData.agentType && { agentType: serverData.agentType }),
+                ...(serverData.pr && { pr: serverData.pr }),
+                ...(serverData.blockedBy && { blockedBy: serverData.blockedBy }),
+              },
+            };
+          });
+
+          // Find new server nodes not yet on the client
+          const clientIds = new Set(currentNodes.map((n) => n.id));
+          const newServerNodes = serverNodes.filter((n) => !clientIds.has(n.id));
+
+          // Replace optimistic "creating" temp nodes with their real server
+          // counterparts. Temp nodes have IDs like "feature-<ts>" while real
+          // nodes use "feat-<uuid>". Match by repositoryPath + name.
+          if (newServerNodes.length > 0) {
+            const creatingIndices: number[] = [];
+            merged.forEach((n, i) => {
+              if (n.type === 'featureNode' && (n.data as FeatureNodeData).state === 'creating') {
+                creatingIndices.push(i);
+              }
+            });
+
+            for (const serverNode of newServerNodes) {
+              if (serverNode.type !== 'featureNode' || creatingIndices.length === 0) continue;
+              const idx = creatingIndices.shift()!;
+              // Replace the temp node in-place, keeping its position
+              merged[idx] = { ...serverNode, position: merged[idx].position };
+              changed = true;
+            }
+
+            // Any remaining new server nodes that didn't replace a temp node
+            const replacedIds = new Set(merged.map((n) => n.id));
+            const trueNewNodes = newServerNodes.filter((n) => !replacedIds.has(n.id));
+            if (trueNewNodes.length > 0) {
+              changed = true;
+              return [...merged, ...trueNewNodes];
+            }
+          }
+
+          return changed ? merged : currentNodes;
+        });
+      } catch {
+        // Silently ignore polling errors — SSE is the primary mechanism
+      }
+    }, 5_000);
+
+    return () => clearInterval(interval);
+  }, [hasActiveFeature]);
+
   const onNodesChange = useCallback((changes: NodeChange<CanvasNodeType>[]) => {
-    setNodes((ns) => applyNodeChanges(changes, ns));
+    // Filter out 'replace' changes — in controlled mode these come from
+    // React Flow's StoreUpdater syncing the nodes prop back into state.
+    // Applying them creates a circular update loop (nodes → enrichedNodes →
+    // StoreUpdater → onNodesChange → setNodes → nodes → …) that both causes
+    // excessive re-renders and overwrites SSE-driven state changes with stale data.
+    const applicable = changes.filter((c) => c.type !== 'replace');
+    if (applicable.length > 0) {
+      setNodes((ns) => applyNodeChanges(applicable, ns));
+    }
   }, []);
 
   const handleConnect = useCallback(
