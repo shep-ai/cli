@@ -148,6 +148,43 @@ export function deriveLifecycle(feature: Feature, run: AgentRun | null): Feature
   );
 }
 
+export interface SseEventUpdate {
+  featureId: string;
+  state: FeatureNodeState | undefined;
+  lifecycle: FeatureLifecyclePhase | undefined;
+  eventType: NotificationEventType;
+  phaseName?: string;
+}
+
+/**
+ * Resolves state/lifecycle updates from a batch of SSE events, applying
+ * the WaitingApproval batch-suppression rule: when WaitingApproval and
+ * PhaseCompleted arrive in the same batch for a feature, PhaseCompleted
+ * is fully suppressed to prevent lifecycle regression.
+ */
+export function resolveSseEventUpdates(
+  events: readonly { featureId: string; eventType: NotificationEventType; phaseName?: string }[]
+): SseEventUpdate[] {
+  const waitingApprovalFeatures = new Set(
+    events
+      .filter((e) => e.eventType === NotificationEventType.WaitingApproval)
+      .map((e) => e.featureId)
+  );
+
+  return events.map((event) => {
+    const isSuppressed =
+      event.eventType === NotificationEventType.PhaseCompleted &&
+      waitingApprovalFeatures.has(event.featureId);
+    return {
+      featureId: event.featureId,
+      state: isSuppressed ? undefined : mapEventTypeToState(event.eventType),
+      lifecycle: isSuppressed ? undefined : mapPhaseNameToLifecycle(event.phaseName),
+      eventType: event.eventType,
+      phaseName: event.phaseName,
+    };
+  });
+}
+
 export function mapPhaseNameToLifecycle(
   phaseName: string | undefined
 ): FeatureLifecyclePhase | undefined {

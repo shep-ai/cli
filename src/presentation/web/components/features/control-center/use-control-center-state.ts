@@ -20,9 +20,8 @@ import { useAgentEventsContext } from '@/hooks/agent-events-provider';
 import { useSoundAction } from '@/hooks/use-sound-action';
 import {
   mapEventTypeToState,
-  mapPhaseNameToLifecycle,
+  resolveSseEventUpdates,
 } from '@/components/common/feature-node/derive-feature-state';
-import { NotificationEventType } from '@shepai/core/domain/generated/output';
 import { useGraphState, type GraphCallbacks } from '@/hooks/use-graph-state';
 import type { FeatureEntry } from '@/lib/derive-graph';
 
@@ -153,34 +152,11 @@ export function useControlCenterState(
     const newEvents = events.slice(processedEventCountRef.current);
     processedEventCountRef.current = events.length;
 
-    // When WaitingApproval and PhaseCompleted arrive in the same poll batch for a feature,
-    // PhaseCompleted must be fully suppressed (both state AND lifecycle). Without this,
-    // a phase-timing PhaseCompleted (e.g. phaseName='research') can regress the lifecycle
-    // that WaitingApproval already set correctly (e.g. to 'implementation' for plan gate).
-    // When PhaseCompleted arrives WITHOUT WaitingApproval (e.g. after approval), we allow
-    // it to update both state and lifecycle as a fallback for any missed AgentStarted event.
-    const waitingApprovalFeatures = new Set(
-      newEvents
-        .filter((e) => e.eventType === NotificationEventType.WaitingApproval)
-        .map((e) => e.featureId)
-    );
-
-    for (const event of newEvents) {
-      const isSuppressedPhaseCompleted =
-        event.eventType === NotificationEventType.PhaseCompleted &&
-        waitingApprovalFeatures.has(event.featureId);
-      const newState = isSuppressedPhaseCompleted
-        ? undefined
-        : mapEventTypeToState(event.eventType);
-      const newLifecycle = isSuppressedPhaseCompleted
-        ? undefined
-        : mapPhaseNameToLifecycle(event.phaseName);
-
-      const nodeId = `feat-${event.featureId}`;
-      if (newState !== undefined || newLifecycle !== undefined) {
-        updateFeature(nodeId, {
-          ...(newState !== undefined && { state: newState }),
-          ...(newLifecycle !== undefined && { lifecycle: newLifecycle }),
+    for (const { featureId, state, lifecycle } of resolveSseEventUpdates(newEvents)) {
+      if (state !== undefined || lifecycle !== undefined) {
+        updateFeature(`feat-${featureId}`, {
+          ...(state !== undefined && { state }),
+          ...(lifecycle !== undefined && { lifecycle }),
         });
       }
     }

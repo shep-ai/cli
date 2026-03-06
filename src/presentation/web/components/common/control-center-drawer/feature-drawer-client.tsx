@@ -8,7 +8,7 @@ import type {
   PrdApprovalPayload,
   QuestionSelectionChange,
 } from '@shepai/core/domain/generated/output';
-import { PrStatus, NotificationEventType } from '@shepai/core/domain/generated/output';
+import { PrStatus } from '@shepai/core/domain/generated/output';
 import { approveFeature } from '@/app/actions/approve-feature';
 import { rejectFeature } from '@/app/actions/reject-feature';
 import { getFeatureArtifact } from '@/app/actions/get-feature-artifact';
@@ -53,10 +53,7 @@ import { useFeatureActions } from '@/components/common/feature-drawer/use-featur
 import type { PrdQuestionnaireData } from '@/components/common/prd-questionnaire';
 import type { TechDecisionsReviewData } from '@/components/common/tech-decisions-review';
 import type { MergeReviewData } from '@/components/common/merge-review';
-import {
-  mapEventTypeToState,
-  mapPhaseNameToLifecycle,
-} from '@/components/common/feature-node/derive-feature-state';
+import { resolveSseEventUpdates } from '@/components/common/feature-node/derive-feature-state';
 import { deriveFeatureViewType } from './drawer-view';
 import type { DrawerView } from './drawer-view';
 
@@ -95,34 +92,15 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
     const newEvents = events.slice(processedCountRef.current);
     processedCountRef.current = events.length;
 
-    // When WaitingApproval and PhaseCompleted arrive in the same poll batch,
-    // PhaseCompleted must be fully suppressed (both state AND lifecycle). Without this,
-    // a phase-timing PhaseCompleted (e.g. phaseName='research') can regress the lifecycle
-    // that WaitingApproval already set correctly (e.g. to 'implementation' for plan gate).
-    const waitingApprovalInBatch = newEvents.some(
-      (e) =>
-        e.featureId === featureNode.featureId &&
-        e.eventType === NotificationEventType.WaitingApproval
-    );
-
-    for (const event of newEvents) {
-      if (event.featureId !== featureNode.featureId) continue;
-
-      const isSuppressedPhaseCompleted =
-        event.eventType === NotificationEventType.PhaseCompleted && waitingApprovalInBatch;
-      const newState = isSuppressedPhaseCompleted
-        ? undefined
-        : mapEventTypeToState(event.eventType);
-      const newLifecycle = isSuppressedPhaseCompleted
-        ? undefined
-        : mapPhaseNameToLifecycle(event.phaseName);
+    for (const update of resolveSseEventUpdates(newEvents)) {
+      if (update.featureId !== featureNode.featureId) continue;
 
       // Trigger a server refresh to get the latest drawer view,
       // but skip when the user has unsaved changes or a rejection is in-flight
       // to avoid the refresh interfering with the reject handler's navigation.
       if (!isDirtyRef.current && !isRejectingRef.current) router.refresh();
 
-      if (newState !== undefined || newLifecycle !== undefined) {
+      if (update.state !== undefined || update.lifecycle !== undefined) {
         // Optimistically update the node data AND re-derive the view type so the
         // drawer switches immediately (e.g. prd-review → feature when agent resumes)
         // without waiting for the router.refresh() round-trip.
@@ -136,8 +114,8 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
             return prev;
           const updatedNode = {
             ...prev.node,
-            ...(newState !== undefined && { state: newState }),
-            ...(newLifecycle !== undefined && { lifecycle: newLifecycle }),
+            ...(update.state !== undefined && { state: update.state }),
+            ...(update.lifecycle !== undefined && { lifecycle: update.lifecycle }),
           };
           return { ...prev, type: deriveFeatureViewType(updatedNode), node: updatedNode };
         });
