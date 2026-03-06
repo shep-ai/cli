@@ -87,6 +87,10 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
   const processedCountRef = useRef(0);
 
   useEffect(() => {
+    // Clamp cursor if events were pruned
+    if (processedCountRef.current > events.length) {
+      processedCountRef.current = 0;
+    }
     if (!featureNode || events.length <= processedCountRef.current) return;
 
     const newEvents = events.slice(processedCountRef.current);
