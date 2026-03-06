@@ -150,12 +150,20 @@ export function useControlCenterState(
     const newEvents = events.slice(processedEventCountRef.current);
     processedEventCountRef.current = events.length;
 
+    // PhaseCompleted must NOT set state when WaitingApproval is in the same poll batch —
+    // they arrive together and PhaseCompleted → 'running' would revert 'action-required'.
+    // But when PhaseCompleted arrives WITHOUT WaitingApproval (e.g. after approval), we
+    // must allow it to update state as a fallback for any missed AgentStarted event.
+    const waitingApprovalFeatures = new Set(
+      newEvents
+        .filter((e) => e.eventType === NotificationEventType.WaitingApproval)
+        .map((e) => e.featureId)
+    );
+
     for (const event of newEvents) {
-      // PhaseCompleted only carries a lifecycle update — it must NOT set state to 'running'
-      // because it often arrives in the same SSE poll as a WaitingApproval event and would
-      // revert the canvas from 'action-required' back to 'running'.
       const newState =
-        event.eventType === NotificationEventType.PhaseCompleted
+        event.eventType === NotificationEventType.PhaseCompleted &&
+        waitingApprovalFeatures.has(event.featureId)
           ? undefined
           : mapEventTypeToState(event.eventType);
       const newLifecycle = mapPhaseNameToLifecycle(event.phaseName);

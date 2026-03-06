@@ -94,14 +94,20 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
     const newEvents = events.slice(processedCountRef.current);
     processedCountRef.current = events.length;
 
+    // PhaseCompleted must NOT set state when WaitingApproval is in the same poll batch.
+    // But when it arrives without WaitingApproval (e.g. post-approval), allow it as
+    // a fallback for missed AgentStarted events.
+    const waitingApprovalInBatch = newEvents.some(
+      (e) =>
+        e.featureId === featureNode.featureId &&
+        e.eventType === NotificationEventType.WaitingApproval
+    );
+
     for (const event of newEvents) {
       if (event.featureId !== featureNode.featureId) continue;
 
-      // PhaseCompleted only carries a lifecycle update — must NOT set state to
-      // 'running' because it often arrives alongside a WaitingApproval event
-      // and would revert the drawer from a review view back to a running state.
       const newState =
-        event.eventType === NotificationEventType.PhaseCompleted
+        event.eventType === NotificationEventType.PhaseCompleted && waitingApprovalInBatch
           ? undefined
           : mapEventTypeToState(event.eventType);
       const newLifecycle = mapPhaseNameToLifecycle(event.phaseName);
