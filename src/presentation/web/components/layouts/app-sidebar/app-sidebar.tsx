@@ -37,17 +37,9 @@ export interface AppSidebarProps {
   features: FeatureItem[];
   onNewFeature?: () => void;
   onFeatureClick?: (featureId: string) => void;
-  onFeaturesFolderClick?: () => void;
-  onFeaturesMenuClick?: () => void;
 }
 
-export function AppSidebar({
-  features,
-  onNewFeature,
-  onFeatureClick,
-  onFeaturesFolderClick,
-  onFeaturesMenuClick,
-}: AppSidebarProps) {
+export function AppSidebar({ features, onNewFeature, onFeatureClick }: AppSidebarProps) {
   const pathname = usePathname();
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
@@ -109,11 +101,7 @@ export function AppSidebar({
               expandedVisible ? 'opacity-100' : 'opacity-0',
             ].join(' ')}
           >
-            <SidebarSectionHeader
-              label="Features"
-              onFolderClick={onFeaturesFolderClick}
-              onMenuClick={onFeaturesMenuClick}
-            />
+            <SidebarSectionHeader label="Features" />
             <ScrollArea>
               {grouped.map(({ key, label, items }) =>
                 items.length > 0 ? (
