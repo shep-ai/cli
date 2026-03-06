@@ -54,9 +54,7 @@ export class NotificationService implements INotificationService {
       this.bus.emit('notification', event);
     }
 
-    // Dispatch to desktop notifier if desktop channel is enabled
-    if (notifications.desktop.enabled) {
-      this.desktopNotifier.send(event.featureName, event.message);
-    }
+    // Desktop notifications disabled — removed in favour of in-app toasts.
+    // The DesktopNotifier dependency is kept for API compatibility but never called.
   }
 }
