@@ -50,7 +50,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     return featureNodes
       .map((n) => {
         const d = n.data as FeatureNodeData;
-        return `${d.featureId}:${d.state}:${d.runtime ?? ''}:${d.startedAt ?? ''}`;
+        return `${d.featureId}:${d.state}:${d.name}`;
       })
       .sort()
       .join(',');
