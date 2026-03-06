@@ -57,6 +57,7 @@ import {
   mapEventTypeToState,
   mapPhaseNameToLifecycle,
 } from '@/components/common/feature-node/derive-feature-state';
+import { deriveFeatureViewType } from './drawer-view';
 import type { DrawerView } from './drawer-view';
 
 export interface FeatureDrawerClientProps {
@@ -138,7 +139,7 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
             ...(newState !== undefined && { state: newState }),
             ...(newLifecycle !== undefined && { lifecycle: newLifecycle }),
           };
-          return { ...prev, type: deriveViewType(updatedNode), node: updatedNode };
+          return { ...prev, type: deriveFeatureViewType(updatedNode), node: updatedNode };
         });
       }
     }
@@ -795,15 +796,4 @@ function DetailRow({ label, value }: { label: string; value: string }) {
       <span className="text-sm">{value}</span>
     </div>
   );
-}
-
-/** Mirrors computeDrawerView logic — derives view type from live node data. */
-function deriveViewType(
-  node: FeatureNodeData
-): 'feature' | 'prd-review' | 'tech-review' | 'merge-review' {
-  if (node.lifecycle === 'requirements' && node.state === 'action-required') return 'prd-review';
-  if (node.lifecycle === 'implementation' && node.state === 'action-required') return 'tech-review';
-  if (node.lifecycle === 'review' && (node.state === 'action-required' || node.state === 'error'))
-    return 'merge-review';
-  return 'feature';
 }
