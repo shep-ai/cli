@@ -44,20 +44,20 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
   // Publish sidebar features to context whenever feature node data changes
   const { setFeatures: setSidebarFeatures } = useSidebarFeaturesContext();
 
+  const featureNodes = useMemo(() => nodes.filter((n) => n.type === 'featureNode'), [nodes]);
+
   const sidebarKey = useMemo(() => {
-    return nodes
-      .filter((n) => n.type === 'featureNode')
+    return featureNodes
       .map((n) => {
         const d = n.data as FeatureNodeData;
         return `${d.featureId}:${d.state}:${d.runtime ?? ''}:${d.startedAt ?? ''}`;
       })
       .sort()
       .join(',');
-  }, [nodes]);
+  }, [featureNodes]);
 
   useEffect(() => {
-    const sidebarItems = nodes
-      .filter((n) => n.type === 'featureNode')
+    const sidebarItems = featureNodes
       .map((n) => {
         const d = n.data as FeatureNodeData;
         const status = mapNodeStateToSidebarStatus(d.state);
@@ -79,7 +79,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     }[];
 
     setSidebarFeatures(sidebarItems);
-  }, [sidebarKey, nodes, setSidebarFeatures]);
+  }, [sidebarKey, featureNodes, setSidebarFeatures]);
 
   // ── URL-based navigation handlers ────────────────────────────────────
 

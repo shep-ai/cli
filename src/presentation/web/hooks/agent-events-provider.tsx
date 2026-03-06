@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, type ReactNode } from 'react';
+import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import {
   useAgentEvents,
   type UseAgentEventsOptions,
@@ -18,7 +18,12 @@ interface AgentEventsProviderProps extends UseAgentEventsOptions {
  * Wrap the app once; use `useAgentEventsContext()` to read.
  */
 export function AgentEventsProvider({ children, runId }: AgentEventsProviderProps) {
-  const value = useAgentEvents({ runId });
+  const { events, lastEvent, connectionStatus } = useAgentEvents({ runId });
+
+  const value = useMemo<UseAgentEventsResult>(
+    () => ({ events, lastEvent, connectionStatus }),
+    [events, lastEvent, connectionStatus]
+  );
 
   return <AgentEventsContext.Provider value={value}>{children}</AgentEventsContext.Provider>;
 }

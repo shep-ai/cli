@@ -37,15 +37,13 @@ export function useFeatureActions(input: FeatureActionsInput | null): FeatureAct
   const shellTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const specsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Clear timers on unmount
+  // Clear timers on unmount — read .current inside cleanup so we get the
+  // actual timer value at teardown time, not the always-null value at mount.
   useEffect(() => {
-    const ideTimer = ideTimerRef.current;
-    const shellTimer = shellTimerRef.current;
-    const specsTimer = specsTimerRef.current;
     return () => {
-      if (ideTimer) clearTimeout(ideTimer);
-      if (shellTimer) clearTimeout(shellTimer);
-      if (specsTimer) clearTimeout(specsTimer);
+      if (ideTimerRef.current) clearTimeout(ideTimerRef.current);
+      if (shellTimerRef.current) clearTimeout(shellTimerRef.current);
+      if (specsTimerRef.current) clearTimeout(specsTimerRef.current);
     };
   }, []);
 
