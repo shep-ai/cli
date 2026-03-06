@@ -387,6 +387,12 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
       }
       setChatInput('');
       toast.success(`${label} approved — agent resuming`);
+      // Optimistically update canvas node before SSE arrives (~500ms delay)
+      window.dispatchEvent(
+        new CustomEvent('shep:feature-approved', {
+          detail: { featureId: reviewNode.featureId },
+        })
+      );
       onClose();
     },
     [reviewNode, onClose]
@@ -414,6 +420,12 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
       }
       setChatInput('');
       toast.success('Requirements approved — agent resuming');
+      // Optimistically update canvas node before SSE arrives (~500ms delay)
+      window.dispatchEvent(
+        new CustomEvent('shep:feature-approved', {
+          detail: { featureId: view.node.featureId },
+        })
+      );
       setPrdSelections({});
       onClose();
     },

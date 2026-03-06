@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useCallback } from 'react';
+import { useMemo } from 'react';
 import { ReactFlow, Background, Controls } from '@xyflow/react';
 import type { Connection, Edge, NodeChange } from '@xyflow/react';
 import { Plus } from 'lucide-react';
@@ -56,22 +56,6 @@ export function FeaturesCanvas({
     []
   );
 
-  // Prevent a feature from having more than one source repository
-  const isValidConnection = useCallback(
-    (connection: Edge | Connection) => {
-      const sourceNode = nodes.find((n) => n.id === connection.source);
-      if (sourceNode?.type !== 'repositoryNode') return true;
-
-      const targetAlreadyHasRepo = edges.some((e) => {
-        const edgeSourceNode = nodes.find((n) => n.id === e.source);
-        return edgeSourceNode?.type === 'repositoryNode' && e.target === connection.target;
-      });
-
-      return !targetAlreadyHasRepo;
-    },
-    [nodes, edges]
-  );
-
   // Callbacks and showHandles are already injected into node.data by deriveGraph.
   // Only selectedFeatureId highlighting needs to be applied here.
   const enrichedNodes = useMemo(
@@ -122,7 +106,6 @@ export function FeaturesCanvas({
         edges={edges}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
-        isValidConnection={isValidConnection}
         onConnect={onConnect}
         onNodesChange={onNodesChange}
         onNodeClick={onNodeClick}

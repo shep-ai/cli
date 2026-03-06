@@ -41,7 +41,7 @@ export function deriveNodeState(feature: Feature, agentRun?: AgentRun | null): F
       case AgentRunStatus.cancelled:
         return 'blocked';
       case AgentRunStatus.completed:
-        return feature.lifecycle === SdlcLifecycle.Maintain ? 'done' : 'done';
+        return 'done';
       case AgentRunStatus.running:
       case AgentRunStatus.pending:
         return 'running';

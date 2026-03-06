@@ -61,7 +61,6 @@ export function CreateDrawerClient({
         .then((result) => {
           if (result.error) {
             toast.error(result.error);
-            window.dispatchEvent(new CustomEvent('shep:feature-create-failed'));
             return;
           }
           // Dispatch event with real feature ID so control center adds it to featureMap
@@ -79,7 +78,6 @@ export function CreateDrawerClient({
         })
         .catch(() => {
           toast.error('Failed to create feature');
-          window.dispatchEvent(new CustomEvent('shep:feature-create-failed'));
           setIsSubmitting(false);
         });
     },

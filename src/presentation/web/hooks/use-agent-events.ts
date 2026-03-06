@@ -103,9 +103,13 @@ export function useAgentEvents(options?: UseAgentEventsOptions): UseAgentEventsR
         if (sw.state === 'activated') {
           subscribeToWorker(sw);
         } else {
-          sw.addEventListener('statechange', () => {
-            if (sw.state === 'activated') subscribeToWorker(sw);
-          });
+          const onStateChange = () => {
+            if (sw.state === 'activated') {
+              sw.removeEventListener('statechange', onStateChange);
+              subscribeToWorker(sw);
+            }
+          };
+          sw.addEventListener('statechange', onStateChange);
         }
       })
       .catch(() => {

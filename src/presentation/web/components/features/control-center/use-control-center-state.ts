@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import type { Connection, Edge, NodeChange } from '@xyflow/react';
@@ -79,18 +79,26 @@ export function useControlCenterState(
 
   // Sync server props into domain Maps when initialNodes/initialEdges change.
   // Keyed by a stable string so we don't re-reconcile on every render.
-  const initialNodeKey = initialNodes
-    .map((n) => n.id)
-    .sort()
-    .join(',');
-  const initialDataKey = initialNodes
-    .filter((n) => n.type === 'featureNode')
-    .map((n) => {
-      const d = n.data as FeatureNodeData;
-      return `${n.id}:${d.state}:${d.lifecycle}`;
-    })
-    .sort()
-    .join(',');
+  const initialNodeKey = useMemo(
+    () =>
+      initialNodes
+        .map((n) => n.id)
+        .sort()
+        .join(','),
+    [initialNodes]
+  );
+  const initialDataKey = useMemo(
+    () =>
+      initialNodes
+        .filter((n) => n.type === 'featureNode')
+        .map((n) => {
+          const d = n.data as FeatureNodeData;
+          return `${n.id}:${d.state}:${d.lifecycle}`;
+        })
+        .sort()
+        .join(','),
+    [initialNodes]
+  );
 
   const prevReconcileKey = useRef('');
 
@@ -177,6 +185,16 @@ export function useControlCenterState(
       }
     }
   }, [events, updateFeature]);
+
+  // Listen for optimistic approval events from the drawer (fires before SSE arrives)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { featureId } = (e as CustomEvent<{ featureId: string }>).detail;
+      updateFeature(`feat-${featureId}`, { state: 'running' });
+    };
+    window.addEventListener('shep:feature-approved', handler);
+    return () => window.removeEventListener('shep:feature-approved', handler);
+  }, [updateFeature]);
 
   // Separate effect: fetch metadata (name + description) when SSE reports it changed
   const metadataFetchedRef = useRef<Set<string>>(new Set());
