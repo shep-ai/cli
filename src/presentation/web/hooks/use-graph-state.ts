@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useCallback, useRef } from 'react';
-import type { Edge } from '@xyflow/react';
+import type { Edge, Position } from '@xyflow/react';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 import type { FeatureNodeData } from '@/components/common/feature-node';
 import type { RepositoryNodeData } from '@/components/common/repository-node';
@@ -26,10 +26,7 @@ export interface UseGraphStateReturn {
    */
   reconcile: (newNodes: CanvasNodeType[], newEdges: Edge[]) => void;
   /** Update a feature's state/lifecycle/name (e.g., from SSE events). */
-  updateFeature: (
-    featureNodeId: string,
-    updates: Partial<Pick<FeatureNodeData, 'state' | 'lifecycle' | 'name' | 'description'>>
-  ) => void;
+  updateFeature: (featureNodeId: string, updates: FeatureDataUpdates) => void;
   /** Add a pending (optimistic) feature node (state='creating'). */
   addPendingFeature: (nodeId: string, data: FeatureNodeData, parentNodeId?: string) => void;
   /** Remove a pending feature node (e.g., on rollback). */
@@ -63,7 +60,7 @@ function parseMaps(
   // Build parentNodeId map from dependency edges
   const parentByChild = new Map<string, string>();
   for (const edge of initialEdges) {
-    if (edge.type === 'dependencyEdge' || edge.id.startsWith('dep-')) {
+    if (edge.type === 'dependencyEdge') {
       parentByChild.set(edge.target, edge.source);
     }
   }
@@ -87,6 +84,19 @@ function parseMaps(
   }
 
   return { featureMap, repoMap };
+}
+
+type FeatureDataUpdates = Partial<
+  Pick<FeatureNodeData, 'state' | 'lifecycle' | 'name' | 'description'>
+>;
+
+function isFeatureDataUnchanged(data: FeatureNodeData, updates: FeatureDataUpdates): boolean {
+  return (
+    (updates.state === undefined || updates.state === data.state) &&
+    (updates.lifecycle === undefined || updates.lifecycle === data.lifecycle) &&
+    (updates.name === undefined || updates.name === data.name) &&
+    (updates.description === undefined || updates.description === data.description)
+  );
 }
 
 export function useGraphState(
@@ -129,16 +139,68 @@ export function useGraphState(
   const repoMapRef = useRef(repoMap);
   repoMapRef.current = repoMap;
 
-  // Derived nodes/edges — only re-runs when domain Maps change (not callbacks)
+  // Derive graph from domain Maps (runs on every Map change, but dagre only on topology change)
+  const derived = useMemo(
+    () => deriveGraph(featureMap, repoMap, pendingMap, stableCallbacks),
+    [featureMap, repoMap, pendingMap, stableCallbacks]
+  );
+
+  // Cache dagre layout positions — only re-run when node set or edge connections change
+  const layoutCacheRef = useRef<{
+    key: string;
+    positions: Map<
+      string,
+      { position: { x: number; y: number }; targetPosition: Position; sourcePosition: Position }
+    >;
+  }>({ key: '', positions: new Map() });
+
   const { nodes, edges } = useMemo(() => {
-    const derived = deriveGraph(featureMap, repoMap, pendingMap, stableCallbacks);
-    return layoutWithDagre(derived.nodes, derived.edges, CANVAS_LAYOUT_DEFAULTS);
-  }, [featureMap, repoMap, pendingMap, stableCallbacks]);
+    const nodeIds = derived.nodes
+      .map((n) => n.id)
+      .sort()
+      .join(',');
+    const edgeKeys = derived.edges
+      .map((e) => `${e.source}-${e.target}`)
+      .sort()
+      .join(',');
+    const topologyKey = `${nodeIds}|${edgeKeys}`;
+
+    if (topologyKey !== layoutCacheRef.current.key) {
+      // Topology changed — re-run dagre
+      const result = layoutWithDagre(derived.nodes, derived.edges, CANVAS_LAYOUT_DEFAULTS);
+      const positions = new Map<
+        string,
+        { position: { x: number; y: number }; targetPosition: Position; sourcePosition: Position }
+      >();
+      for (const node of result.nodes) {
+        positions.set(node.id, {
+          position: node.position,
+          targetPosition: (node as Record<string, unknown>).targetPosition as Position,
+          sourcePosition: (node as Record<string, unknown>).sourcePosition as Position,
+        });
+      }
+      layoutCacheRef.current = { key: topologyKey, positions };
+      return result;
+    }
+
+    // Data-only change — apply cached positions without re-running dagre
+    const { positions } = layoutCacheRef.current;
+    const nodes = derived.nodes.map((node) => {
+      const cached = positions.get(node.id);
+      return cached ? { ...node, ...cached } : node;
+    });
+    return { nodes, edges: derived.edges };
+  }, [derived]);
 
   // --- Mutations ---
 
   const reconcile = useCallback((newNodes: CanvasNodeType[], newEdges: Edge[]) => {
     const { featureMap: newFeatureMap, repoMap: newRepoMap } = parseMaps(newNodes, newEdges);
+
+    // Precompute match keys so we don't scan newFeatureMap.values() per pending entry
+    const realFeatureKeys = new Set(
+      [...newFeatureMap.values()].map((e) => `${e.data.name}\0${e.data.repositoryPath}`)
+    );
 
     setFeatureMap((currentFeatureMap) => {
       // Preserve pending (creating) nodes unless matched by name+repositoryPath from newFeatureMap
@@ -150,12 +212,8 @@ export function useGraphState(
 
       // Keep pending nodes that don't have a real counterpart in new data
       for (const [tempId, pendingEntry] of pendingEntries) {
-        const matched = [...newFeatureMap.values()].some(
-          (e) =>
-            e.data.name === pendingEntry.data.name &&
-            e.data.repositoryPath === pendingEntry.data.repositoryPath
-        );
-        if (!matched) {
+        const key = `${pendingEntry.data.name}\0${pendingEntry.data.repositoryPath}`;
+        if (!realFeatureKeys.has(key)) {
           merged.set(tempId, pendingEntry);
         }
       }
@@ -178,12 +236,8 @@ export function useGraphState(
       let changed = false;
       const next = new Map(currentPendingMap);
       for (const [tempId, pendingEntry] of currentPendingMap) {
-        const matched = [...newFeatureMap.values()].some(
-          (e) =>
-            e.data.name === pendingEntry.data.name &&
-            e.data.repositoryPath === pendingEntry.data.repositoryPath
-        );
-        if (matched) {
+        const key = `${pendingEntry.data.name}\0${pendingEntry.data.repositoryPath}`;
+        if (realFeatureKeys.has(key)) {
           next.delete(tempId);
           changed = true;
         }
@@ -194,56 +248,35 @@ export function useGraphState(
     setRepoMap(newRepoMap);
   }, []);
 
-  const updateFeature = useCallback(
-    (
-      featureNodeId: string,
-      updates: Partial<Pick<FeatureNodeData, 'state' | 'lifecycle' | 'name' | 'description'>>
-    ) => {
-      setFeatureMap((prev) => {
-        const entry = prev.get(featureNodeId);
-        if (!entry) {
-          // Feature not yet in map — buffer update for when reconcile adds it
-          pendingUpdatesRef.current.set(featureNodeId, {
-            ...pendingUpdatesRef.current.get(featureNodeId),
-            ...updates,
-          });
-          return prev;
-        }
-        // Clear any buffered update for this feature since it's now in the map
-        pendingUpdatesRef.current.delete(featureNodeId);
-        // Skip if no actual change (prevents unnecessary re-renders on event replay)
-        const stateUnchanged = updates.state === undefined || updates.state === entry.data.state;
-        const lifecycleUnchanged =
-          updates.lifecycle === undefined || updates.lifecycle === entry.data.lifecycle;
-        const nameUnchanged = updates.name === undefined || updates.name === entry.data.name;
-        const descUnchanged =
-          updates.description === undefined || updates.description === entry.data.description;
-        if (stateUnchanged && lifecycleUnchanged && nameUnchanged && descUnchanged) {
-          return prev;
-        }
-        const next = new Map(prev);
-        next.set(featureNodeId, { ...entry, data: { ...entry.data, ...updates } });
-        return next;
-      });
+  const updateFeature = useCallback((featureNodeId: string, updates: FeatureDataUpdates) => {
+    setFeatureMap((prev) => {
+      const entry = prev.get(featureNodeId);
+      if (!entry) {
+        // Feature not yet in map — buffer update for when reconcile adds it
+        pendingUpdatesRef.current.set(featureNodeId, {
+          ...pendingUpdatesRef.current.get(featureNodeId),
+          ...updates,
+        });
+        return prev;
+      }
+      // Clear any buffered update for this feature since it's now in the map
+      pendingUpdatesRef.current.delete(featureNodeId);
+      if (isFeatureDataUnchanged(entry.data, updates)) return prev;
+      const next = new Map(prev);
+      next.set(featureNodeId, { ...entry, data: { ...entry.data, ...updates } });
+      return next;
+    });
 
-      // Also check pendingMap
-      setPendingMap((prev) => {
-        const entry = prev.get(featureNodeId);
-        if (!entry) return prev;
-        const stateUnchanged = updates.state === undefined || updates.state === entry.data.state;
-        const lifecycleUnchanged =
-          updates.lifecycle === undefined || updates.lifecycle === entry.data.lifecycle;
-        const nameUnchanged = updates.name === undefined || updates.name === entry.data.name;
-        const descUnchanged =
-          updates.description === undefined || updates.description === entry.data.description;
-        if (stateUnchanged && lifecycleUnchanged && nameUnchanged && descUnchanged) return prev;
-        const next = new Map(prev);
-        next.set(featureNodeId, { ...entry, data: { ...entry.data, ...updates } });
-        return next;
-      });
-    },
-    []
-  );
+    // Also check pendingMap
+    setPendingMap((prev) => {
+      const entry = prev.get(featureNodeId);
+      if (!entry) return prev;
+      if (isFeatureDataUnchanged(entry.data, updates)) return prev;
+      const next = new Map(prev);
+      next.set(featureNodeId, { ...entry, data: { ...entry.data, ...updates } });
+      return next;
+    });
+  }, []);
 
   const addPendingFeature = useCallback(
     (nodeId: string, data: FeatureNodeData, parentNodeId?: string) => {

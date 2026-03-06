@@ -24,6 +24,7 @@ import {
 } from '@/components/common/feature-node/derive-feature-state';
 import { NotificationEventType } from '@shepai/core/domain/generated/output';
 import { useGraphState, type GraphCallbacks } from '@/hooks/use-graph-state';
+import type { FeatureEntry } from '@/lib/derive-graph';
 
 export interface ControlCenterState {
   nodes: CanvasNodeType[];
@@ -46,6 +47,9 @@ export interface ControlCenterState {
   /** Sync callbacks into derived node data (does not trigger re-render). */
   setCallbacks: (callbacks: GraphCallbacks) => void;
 }
+
+/** Must match the message string emitted by the SSE route in agent-events/route.ts */
+const METADATA_UPDATED_MESSAGE = 'Feature metadata updated';
 
 let nextFeatureId = 0;
 
@@ -101,15 +105,6 @@ export function useControlCenterState(
   // Track previous feature states for fallback notifications
   const prevFeatureStatesRef = useRef<Map<string, FeatureNodeData['state']>>(new Map());
 
-  const initialFeatureDataKey = initialNodes
-    .filter((n) => n.type === 'featureNode')
-    .map((n) => {
-      const d = n.data as FeatureNodeData;
-      return `${n.id}:${d.state}`;
-    })
-    .sort()
-    .join(',');
-
   const { events } = useAgentEventsContext();
 
   useEffect(() => {
@@ -140,7 +135,7 @@ export function useControlCenterState(
       }
       prevStates.set(node.id, data.state);
     }
-  }, [initialFeatureDataKey, initialNodes, events, router]);
+  }, [initialDataKey, initialNodes, events, router]);
 
   // SSE effect: only state + lifecycle updates
   const processedEventCountRef = useRef(0);
@@ -180,10 +175,15 @@ export function useControlCenterState(
 
   // Separate effect: fetch metadata (name + description) when SSE reports it changed
   const metadataFetchedRef = useRef<Set<string>>(new Set());
+  const processedMetadataCountRef = useRef(0);
 
   useEffect(() => {
-    for (const event of events) {
-      if (event.message !== 'Feature metadata updated') continue;
+    if (events.length <= processedMetadataCountRef.current) return;
+    const newEvents = events.slice(processedMetadataCountRef.current);
+    processedMetadataCountRef.current = events.length;
+
+    for (const event of newEvents) {
+      if (event.message !== METADATA_UPDATED_MESSAGE) continue;
       if (metadataFetchedRef.current.has(event.featureId)) continue;
       metadataFetchedRef.current.add(event.featureId);
 
@@ -285,6 +285,20 @@ export function useControlCenterState(
 
       // Snapshot for rollback
       const prevRepoData = getRepositoryData(repoNodeId);
+      const childSnapshots = new Map<string, FeatureEntry>();
+      for (const childId of childFeatureIds) {
+        const childNode = nodes.find((n) => n.id === childId);
+        if (childNode) {
+          childSnapshots.set(childId, { nodeId: childId, data: childNode.data as FeatureNodeData });
+        }
+      }
+
+      const rollback = () => {
+        if (prevRepoData) addRepositoryToMap(repoNodeId, prevRepoData);
+        for (const [childId, entry] of childSnapshots) {
+          restoreFeature(childId, entry);
+        }
+      };
 
       // Optimistic: remove repo + children
       removeRepository(repoNodeId);
@@ -296,32 +310,14 @@ export function useControlCenterState(
         const result = await deleteRepository(repositoryId);
         if (!result.success) {
           toast.error(result.error ?? 'Failed to remove repository');
-          if (prevRepoData) addRepositoryToMap(repoNodeId, prevRepoData);
-          for (const childId of childFeatureIds) {
-            const childNode = nodes.find((n) => n.id === childId);
-            if (childNode) {
-              restoreFeature(childId, {
-                nodeId: childId,
-                data: childNode.data as FeatureNodeData,
-              });
-            }
-          }
+          rollback();
           return;
         }
         deleteSound.play();
         toast.success('Repository removed');
       } catch {
         toast.error('Failed to remove repository');
-        if (prevRepoData) addRepositoryToMap(repoNodeId, prevRepoData);
-        for (const childId of childFeatureIds) {
-          const childNode = nodes.find((n) => n.id === childId);
-          if (childNode) {
-            restoreFeature(childId, {
-              nodeId: childId,
-              data: childNode.data as FeatureNodeData,
-            });
-          }
-        }
+        rollback();
       }
     },
     [
