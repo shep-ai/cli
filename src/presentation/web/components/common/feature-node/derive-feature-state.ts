@@ -112,7 +112,17 @@ export function mapEventTypeToState(eventType: NotificationEventType): FeatureNo
   }
 }
 
-/** Maps an SSE event phaseName to a FeatureLifecyclePhase. Mirrors page.tsx nodeToLifecyclePhase. */
+/** Map domain SdlcLifecycle enum values to UI FeatureLifecyclePhase. */
+export const sdlcLifecycleMap: Record<string, FeatureLifecyclePhase> = {
+  Requirements: 'requirements',
+  Research: 'research',
+  Implementation: 'implementation',
+  Review: 'review',
+  'Deploy & QA': 'deploy',
+  Maintain: 'maintain',
+};
+
+/** Map agent graph node names (from agent_run.result or SSE phaseName) to UI lifecycle phases. */
 const phaseNameToLifecycle: Record<string, FeatureLifecyclePhase> = {
   analyze: 'requirements',
   requirements: 'requirements',
@@ -123,6 +133,20 @@ const phaseNameToLifecycle: Record<string, FeatureLifecyclePhase> = {
   maintain: 'maintain',
   blocked: 'requirements',
 };
+
+/**
+ * Derives the UI lifecycle phase from a Feature + AgentRun.
+ * Shared by build-feature-node-data.ts and build-graph-nodes.ts.
+ */
+export function deriveLifecycle(feature: Feature, run: AgentRun | null): FeatureLifecyclePhase {
+  if (run?.status === 'completed') return 'maintain';
+  const agentNode = run?.result?.startsWith('node:') ? run.result.slice(5) : undefined;
+  return (
+    (agentNode ? phaseNameToLifecycle[agentNode] : undefined) ??
+    sdlcLifecycleMap[feature.lifecycle] ??
+    'requirements'
+  );
+}
 
 export function mapPhaseNameToLifecycle(
   phaseName: string | undefined
