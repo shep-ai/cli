@@ -17,10 +17,6 @@ vi.mock('@/hooks/agent-events-provider', () => ({
   }),
 }));
 
-vi.mock('@/components/common/notification-permission-banner', () => ({
-  NotificationPermissionBanner: () => null,
-}));
-
 import { ControlCenterInner } from '@/components/features/control-center/control-center-inner';
 import { SidebarFeaturesProvider } from '@/hooks/sidebar-features-context';
 import { DrawerCloseGuardProvider } from '@/hooks/drawer-close-guard';

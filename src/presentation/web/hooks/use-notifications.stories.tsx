@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import { toast } from 'sonner';
 import { Toaster } from '@/components/ui/sonner';
@@ -44,45 +44,17 @@ function NotificationDemo() {
       const method = event.severity ?? 'info';
       toast[method](event.featureName, { description: event.message });
 
-      if (globalThis.Notification?.permission === 'granted') {
-        new Notification(event.featureName, { body: event.message });
-      }
-
       const soundName = SEVERITY_SOUNDS[event.severity];
       soundsByName[soundName]?.play();
     },
     [soundsByName]
   );
 
-  const [browserPermission, setBrowserPermission] = useState<NotificationPermission>(
-    typeof globalThis.Notification !== 'undefined' ? globalThis.Notification.permission : 'default'
-  );
-
-  const requestPermission = async () => {
-    if (typeof globalThis.Notification === 'undefined') return;
-    const result = await globalThis.Notification.requestPermission();
-    setBrowserPermission(result);
-  };
-
   return (
     <div className="flex w-[420px] flex-col gap-6">
       <div className="flex flex-col gap-2">
-        <h3 className="text-sm font-semibold">Browser Notification Permission</h3>
-        <div className="flex items-center gap-3">
-          <span className="text-muted-foreground text-sm">
-            Status: <code className="bg-muted rounded px-1.5 py-0.5">{browserPermission}</code>
-          </span>
-          <Button size="sm" variant="outline" onClick={requestPermission}>
-            Request Permission
-          </Button>
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-2">
         <h3 className="text-sm font-semibold">Simulate Notification Events</h3>
-        <p className="text-muted-foreground text-xs">
-          Click a button to fire a toast, browser notification, and sound.
-        </p>
+        <p className="text-muted-foreground text-xs">Click a button to fire a toast and sound.</p>
         <div className="flex flex-wrap gap-2">
           <Button
             size="sm"

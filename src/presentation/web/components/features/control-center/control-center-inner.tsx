@@ -7,7 +7,6 @@ import { FeaturesCanvas } from '@/components/features/features-canvas';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 import type { FeatureNodeData } from '@/components/common/feature-node';
 import type { RepositoryNodeData } from '@/components/common/repository-node';
-import { NotificationPermissionBanner } from '@/components/common/notification-permission-banner';
 import {
   useSidebarFeaturesContext,
   mapNodeStateToSidebarStatus,
@@ -235,28 +234,20 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
   const hasRepositories = nodes.some((n) => n.type === 'repositoryNode');
 
   if (!hasRepositories) {
-    return (
-      <>
-        <NotificationPermissionBanner />
-        <ControlCenterEmptyState onRepositorySelect={handleAddRepository} />
-      </>
-    );
+    return <ControlCenterEmptyState onRepositorySelect={handleAddRepository} />;
   }
 
   return (
-    <>
-      <NotificationPermissionBanner />
-      <FeaturesCanvas
-        nodes={nodes}
-        edges={edges}
-        selectedFeatureId={selectedFeatureId}
-        onNodesChange={onNodesChange}
-        onConnect={handleConnect}
-        onAddFeature={handleAddFeature}
-        onNodeClick={handleNodeClick}
-        onPaneClick={handleClearDrawers}
-        emptyState={<ControlCenterEmptyState onRepositorySelect={handleAddRepository} />}
-      />
-    </>
+    <FeaturesCanvas
+      nodes={nodes}
+      edges={edges}
+      selectedFeatureId={selectedFeatureId}
+      onNodesChange={onNodesChange}
+      onConnect={handleConnect}
+      onAddFeature={handleAddFeature}
+      onNodeClick={handleNodeClick}
+      onPaneClick={handleClearDrawers}
+      emptyState={<ControlCenterEmptyState onRepositorySelect={handleAddRepository} />}
+    />
   );
 }

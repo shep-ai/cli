@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook } from '@testing-library/react';
 import { NotificationSeverity, NotificationEventType } from '@/domain/generated/output.js';
 import type { NotificationEvent } from '@/domain/generated/output.js';
 
@@ -31,22 +31,6 @@ vi.mock('../../../../../src/presentation/web/hooks/agent-events-provider.js', ()
   }),
 }));
 
-// --- Mock Notification API ---
-class MockNotification {
-  static permission: NotificationPermission = 'default';
-  static requestPermission = vi.fn();
-  static instances: MockNotification[] = [];
-
-  title: string;
-  options?: NotificationOptions;
-
-  constructor(title: string, options?: NotificationOptions) {
-    this.title = title;
-    this.options = options;
-    MockNotification.instances.push(this);
-  }
-}
-
 function createEvent(overrides?: Partial<NotificationEvent>): NotificationEvent {
   return {
     eventType: NotificationEventType.AgentCompleted,
@@ -68,11 +52,6 @@ describe('useNotifications', () => {
     vi.clearAllMocks();
     mockEvents = [];
     mockLastEvent = null;
-    MockNotification.instances = [];
-    MockNotification.permission = 'default';
-    MockNotification.requestPermission.mockResolvedValue('granted');
-    (globalThis as any).Notification = MockNotification;
-
     const mod = await import('../../../../../src/presentation/web/hooks/use-notifications.js');
     useNotifications = mod.useNotifications;
   });
@@ -167,58 +146,6 @@ describe('useNotifications', () => {
     expect(mockToast.info).not.toHaveBeenCalled();
   });
 
-  it('browser Notification created when permission granted', () => {
-    MockNotification.permission = 'granted';
-
-    const event = createEvent({
-      featureName: 'Notify Feature',
-      message: 'Agent done',
-    });
-    mockLastEvent = event;
-    mockEvents = [event];
-
-    renderHook(() => useNotifications());
-
-    expect(MockNotification.instances).toHaveLength(1);
-    expect(MockNotification.instances[0].title).toBe('Shep: Notify Feature');
-    expect(MockNotification.instances[0].options?.body).toBe('Agent done');
-  });
-
-  it('no browser Notification when permission not granted', () => {
-    MockNotification.permission = 'denied';
-
-    const event = createEvent();
-    mockLastEvent = event;
-    mockEvents = [event];
-
-    renderHook(() => useNotifications());
-
-    expect(MockNotification.instances).toHaveLength(0);
-  });
-
-  it('requestBrowserPermission calls Notification.requestPermission', async () => {
-    const { result } = renderHook(() => useNotifications());
-
-    await act(async () => {
-      await result.current.requestBrowserPermission();
-    });
-
-    expect(MockNotification.requestPermission).toHaveBeenCalled();
-  });
-
-  it('requestBrowserPermission updates browserPermissionState', async () => {
-    MockNotification.requestPermission.mockResolvedValue('granted');
-
-    const { result } = renderHook(() => useNotifications());
-    expect(result.current.browserPermissionState).toBe('default');
-
-    await act(async () => {
-      await result.current.requestBrowserPermission();
-    });
-
-    expect(result.current.browserPermissionState).toBe('granted');
-  });
-
   it('does not dispatch toast when lastEvent is null', () => {
     mockLastEvent = null;
     mockEvents = [];
@@ -239,8 +166,8 @@ describe('useNotifications', () => {
     mockEvents = [event];
 
     // Should not throw
-    const { result } = renderHook(() => useNotifications());
+    renderHook(() => useNotifications());
 
-    expect(result.current.browserPermissionState).toBe('default');
+    expect(mockToast.success).toHaveBeenCalled();
   });
 });
