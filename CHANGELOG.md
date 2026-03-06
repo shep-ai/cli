@@ -1,3 +1,9 @@
+## [1.72.9](https://github.com/shep-ai/cli/compare/v1.72.8...v1.72.9) (2026-03-06)
+
+### Bug Fixes
+
+- **agents:** agent executor stability and real-time ui updates ([#216](https://github.com/shep-ai/cli/issues/216)) ([3a7a5f2](https://github.com/shep-ai/cli/commit/3a7a5f2e717110617abe42d1074d674a71763241)), closes [#211](https://github.com/shep-ai/cli/issues/211) [#212](https://github.com/shep-ai/cli/issues/212) [#217](https://github.com/shep-ai/cli/issues/217) [#211](https://github.com/shep-ai/cli/issues/211) [#212](https://github.com/shep-ai/cli/issues/212) [#217](https://github.com/shep-ai/cli/issues/217)
+
 ## [1.72.8](https://github.com/shep-ai/cli/compare/v1.72.7...v1.72.8) (2026-03-05)
 
 ### Bug Fixes
