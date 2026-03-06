@@ -1,9 +1,4 @@
-export {
-  ControlCenterDrawer,
-  type ControlCenterDrawerProps,
-  computeDrawerView,
-  type DrawerView,
-} from './control-center-drawer';
+export { computeDrawerView, type DrawerView } from './control-center-drawer';
 export { AddRepositoryButton } from './add-repository-button';
 export { ElapsedTime, formatElapsed } from './elapsed-time';
 export { EmptyState, type EmptyStateProps } from './empty-state';
