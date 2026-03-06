@@ -207,6 +207,7 @@ export function useControlCenterState(
           if (node.type !== 'featureNode') return node;
           const data = node.data as FeatureNodeData;
           if (data.featureId !== event.featureId) return node;
+
           return {
             ...node,
             data: {
@@ -223,15 +224,17 @@ export function useControlCenterState(
   // Lightweight server-action polling fallback: fetches fresh graph data every 5s
   // when any feature is in an active state. This avoids full router.refresh() while
   // ensuring the UI stays in sync even if SSE events are missed.
-  useEffect(() => {
-    const hasActiveFeature = nodes.some((n) => {
-      if (n.type !== 'featureNode') return false;
-      const data = n.data as FeatureNodeData;
-      return (
-        data.state === 'running' || data.state === 'action-required' || data.state === 'creating'
-      );
-    });
+  //
+  // We derive a stable boolean so the interval isn't torn down on every node change.
+  const hasActiveFeature = nodes.some((n) => {
+    if (n.type !== 'featureNode') return false;
+    const data = n.data as FeatureNodeData;
+    return (
+      data.state === 'running' || data.state === 'action-required' || data.state === 'creating'
+    );
+  });
 
+  useEffect(() => {
     if (!hasActiveFeature) return;
 
     const interval = setInterval(async () => {
@@ -287,10 +290,18 @@ export function useControlCenterState(
     }, 5_000);
 
     return () => clearInterval(interval);
-  }, [nodes]);
+  }, [hasActiveFeature]);
 
   const onNodesChange = useCallback((changes: NodeChange<CanvasNodeType>[]) => {
-    setNodes((ns) => applyNodeChanges(changes, ns));
+    // Filter out 'replace' changes — in controlled mode these come from
+    // React Flow's StoreUpdater syncing the nodes prop back into state.
+    // Applying them creates a circular update loop (nodes → enrichedNodes →
+    // StoreUpdater → onNodesChange → setNodes → nodes → …) that both causes
+    // excessive re-renders and overwrites SSE-driven state changes with stale data.
+    const applicable = changes.filter((c) => c.type !== 'replace');
+    if (applicable.length > 0) {
+      setNodes((ns) => applyNodeChanges(applicable, ns));
+    }
   }, []);
 
   const handleConnect = useCallback(
