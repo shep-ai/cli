@@ -218,12 +218,9 @@ errors:
   history: []
 ```
 
-### Phase 4: Generate Markdown & Commit
+### Phase 4: Commit
 
 ```bash
-# Generate all Markdown from YAML sources
-pnpm spec:generate-md <NNN>-<FEATURE_NAME>
-
 # Stage and commit everything
 git add specs/<NNN>-<FEATURE_NAME>/
 git commit -m "feat(specs): add <NNN>-<FEATURE_NAME> fast-track specification"
@@ -292,6 +289,4 @@ This skill reuses assets from `shep-kit:new-feature`:
 
 - **Init script**: `.claude/skills/shep-kit:new-feature/scripts/init-feature.sh`
 - **Templates**: `.claude/skills/shep-kit:new-feature/templates/`
-- **Markdown generation**: `pnpm spec:generate-md`
-
-No additional templates or scripts needed.
+  No additional templates or scripts needed.

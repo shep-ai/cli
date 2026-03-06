@@ -175,8 +175,7 @@ This is a **soft check** - requires human judgment, but tool can identify potent
 
 ### Can Be Fixed Automatically
 
-1. **Regenerate stale Markdown** - `pnpm spec:generate-md <feature-id>`
-2. **Duplicate checkpoint names** - deduplicate in feature.yaml
+1. **Duplicate checkpoint names** - deduplicate in feature.yaml
 
 ### Not Auto-Fixable
 
@@ -215,5 +214,4 @@ This is a **soft check** - requires human judgment, but tool can identify potent
 
 **Auto-fixes:**
 
-- Stale Markdown regeneration
 - Duplicate checkpoint deduplication

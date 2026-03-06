@@ -194,9 +194,6 @@ openQuestions:
 
    - Create tasks.yaml from template
 
-3. **Regenerate stale Markdown:**
-   - Run `pnpm spec:generate-md <feature-id>`
-
 ### Auto-Fix Approval
 
 After applying auto-fixes, display summary and require user approval:
@@ -206,7 +203,6 @@ Auto-fixes applied:
 
 1. Added missing "openQuestions" key to spec.yaml
 2. Created tasks.yaml from template
-3. Regenerated Markdown files
 
 Review changes? (y/n)
 ```
@@ -265,4 +261,3 @@ Fix these issues and re-run /shep-kit:implement
 
 - Missing optional keys with defaults
 - Missing template files
-- Stale Markdown regeneration

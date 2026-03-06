@@ -77,7 +77,6 @@ process_template() {
 }
 
 # Process all templates
-# NOTE: YAML files are the source of truth. Markdown files are auto-generated via pnpm spec:generate-md.
 process_template "${SKILL_DIR}/templates/spec.yaml" "${SPEC_DIR}/spec.yaml"
 process_template "${SKILL_DIR}/templates/research.yaml" "${SPEC_DIR}/research.yaml"
 process_template "${SKILL_DIR}/templates/plan.yaml" "${SPEC_DIR}/plan.yaml"
@@ -85,26 +84,20 @@ process_template "${SKILL_DIR}/templates/tasks.yaml" "${SPEC_DIR}/tasks.yaml"
 process_template "${SKILL_DIR}/templates/data-model.md" "${SPEC_DIR}/data-model.md"
 process_template "${SKILL_DIR}/templates/feature.yaml" "${SPEC_DIR}/feature.yaml"
 
-# Generate Markdown from YAML source files
-echo -e "  ${YELLOW}Generating Markdown from YAML...${NC}"
-pnpm spec:generate-md "${NNN}-${FEATURE_NAME}"
-
 # Create contracts .gitkeep
 touch "${SPEC_DIR}/contracts/.gitkeep"
 echo -e "  ${GREEN}Created${NC}: ${SPEC_DIR}/contracts/.gitkeep"
 
 echo -e "${GREEN}Done!${NC} Spec directory scaffolded at ${SPEC_DIR}"
 echo ""
-echo "Files created (YAML = source of truth, Markdown = auto-generated):"
-echo "  - spec.yaml + spec.md (feature specification)"
-echo "  - research.yaml + research.md (technical decisions)"
-echo "  - plan.yaml + plan.md (implementation strategy)"
-echo "  - tasks.yaml + tasks.md (task breakdown)"
+echo "Files created:"
+echo "  - spec.yaml (feature specification)"
+echo "  - research.yaml (technical decisions)"
+echo "  - plan.yaml (implementation strategy)"
+echo "  - tasks.yaml (task breakdown)"
 echo "  - data-model.md (domain models)"
 echo "  - feature.yaml (status tracking)"
 echo "  - contracts/.gitkeep (API contracts)"
-echo ""
-echo "IMPORTANT: Edit YAML files, not Markdown. Markdown is auto-generated."
 echo ""
 echo "Next steps:"
 echo "  1. Fill in spec.yaml with feature requirements"
