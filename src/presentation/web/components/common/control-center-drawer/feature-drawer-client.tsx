@@ -94,9 +94,10 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
     const newEvents = events.slice(processedCountRef.current);
     processedCountRef.current = events.length;
 
-    // PhaseCompleted must NOT set state when WaitingApproval is in the same poll batch.
-    // But when it arrives without WaitingApproval (e.g. post-approval), allow it as
-    // a fallback for missed AgentStarted events.
+    // When WaitingApproval and PhaseCompleted arrive in the same poll batch,
+    // PhaseCompleted must be fully suppressed (both state AND lifecycle). Without this,
+    // a phase-timing PhaseCompleted (e.g. phaseName='research') can regress the lifecycle
+    // that WaitingApproval already set correctly (e.g. to 'implementation' for plan gate).
     const waitingApprovalInBatch = newEvents.some(
       (e) =>
         e.featureId === featureNode.featureId &&
@@ -106,11 +107,14 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
     for (const event of newEvents) {
       if (event.featureId !== featureNode.featureId) continue;
 
-      const newState =
-        event.eventType === NotificationEventType.PhaseCompleted && waitingApprovalInBatch
-          ? undefined
-          : mapEventTypeToState(event.eventType);
-      const newLifecycle = mapPhaseNameToLifecycle(event.phaseName);
+      const isSuppressedPhaseCompleted =
+        event.eventType === NotificationEventType.PhaseCompleted && waitingApprovalInBatch;
+      const newState = isSuppressedPhaseCompleted
+        ? undefined
+        : mapEventTypeToState(event.eventType);
+      const newLifecycle = isSuppressedPhaseCompleted
+        ? undefined
+        : mapPhaseNameToLifecycle(event.phaseName);
 
       // Trigger a server refresh to get the latest drawer view,
       // but skip when the user has unsaved changes or a rejection is in-flight
