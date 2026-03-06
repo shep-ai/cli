@@ -130,13 +130,15 @@ export class CreateFeatureUseCase {
     }
 
     const featureName = input.name ?? input.userInput.slice(0, 100);
-    const preliminarySlug = this.toSlug(featureName);
     const runId = randomUUID();
+    const featureId = randomUUID();
 
+    // Use the feature ID as a temporary slug so it never collides with the
+    // AI-generated slug in initializeAndSpawn() → resolveUniqueSlug().
     const feature: Feature = {
-      id: randomUUID(),
+      id: featureId,
       name: featureName,
-      slug: preliminarySlug,
+      slug: featureId,
       description: input.description ?? '',
       userQuery: input.userInput,
       repositoryPath: effectiveRepoPath,
@@ -253,19 +255,5 @@ export class CreateFeatureUseCase {
     }
 
     return { warning, updatedFeature };
-  }
-
-  /** Convert text to kebab-case slug. */
-  private toSlug(text: string): string {
-    const slug = text
-      .toLowerCase()
-      .replace(/[^a-z0-9\s-]/g, '')
-      .replace(/\s+/g, '-')
-      .replace(/-+/g, '-')
-      .replace(/^-|-$/g, '');
-    if (slug.length <= 50) return slug;
-    const truncated = slug.slice(0, 50);
-    const lastDash = truncated.lastIndexOf('-');
-    return lastDash > 10 ? truncated.slice(0, lastDash) : truncated;
   }
 }
