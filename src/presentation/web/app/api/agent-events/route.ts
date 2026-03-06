@@ -152,7 +152,8 @@ export function GET(request: Request): Response {
               const prev = cache.get(feature.id);
 
               if (!prev) {
-                // First time seeing this feature — seed cache, don't emit
+                // First time seeing this feature — seed cache and emit so
+                // clients discover features created outside the UI (e.g. CLI).
                 const completedPhases = new Set<string>();
                 try {
                   const timings = await phaseTimingRepo.findByRunId(run.id);
@@ -169,6 +170,23 @@ export function GET(request: Request): Response {
                   completedPhases,
                   featureName: feature.name,
                 });
+
+                // Emit initial state so the client learns about new features
+                const mapping = STATUS_TO_EVENT[run.status];
+                if (mapping) {
+                  const phase = resultToPhase(run.result);
+                  emitEvent({
+                    eventType: mapping.eventType,
+                    agentRunId: run.id,
+                    featureId: feature.id,
+                    featureName: feature.name,
+                    ...(phase && { phaseName: phase }),
+                    message: `Agent status: ${run.status}`,
+                    severity: mapping.severity,
+                    timestamp: new Date().toISOString(),
+                  });
+                }
+
                 continue;
               }
 

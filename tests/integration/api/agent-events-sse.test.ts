@@ -193,7 +193,7 @@ describe('SSE API Route: GET /api/agent-events (DB polling)', () => {
     expect(allData).toContain('Test Feature');
   });
 
-  it('should not emit events on the initial seed poll', async () => {
+  it('should emit initial event on seed poll so clients discover new features', async () => {
     const feature = makeFeature({ agentRunId: 'run-1' });
     const run = makeRun({ status: AgentRunStatus.running });
 
@@ -216,8 +216,10 @@ describe('SSE API Route: GET /api/agent-events (DB polling)', () => {
     const chunks = await chunksPromise;
     const allData = chunks.join('');
 
-    // Should have no notification events — only possibly heartbeats or nothing
-    expect(allData).not.toContain('event: notification');
+    // Seed poll now emits so the client discovers features created outside the UI
+    expect(allData).toContain('event: notification');
+    expect(allData).toContain(NotificationEventType.AgentStarted);
+    expect(allData).toContain('Test Feature');
   });
 
   it('should filter events by runId when query parameter is provided', async () => {

@@ -191,13 +191,42 @@ export function useControlCenterState(
   // drop events when multiple SSE messages arrive in the same tick.
   const processedEventCountRef = useRef(0);
 
+  // Track known feature IDs so we can detect when SSE reports features not yet on the canvas.
+  // Initialised from initialNodes to avoid a race between first render and SSE arrival.
+  const knownFeatureIdsRef = useRef<Set<string>>(
+    new Set(
+      initialNodes
+        .filter((n) => n.type === 'featureNode')
+        .map((n) => (n.data as FeatureNodeData).featureId)
+    )
+  );
+  // Keep ref in sync as nodes change (new nodes added, temp nodes replaced, etc.)
+  useEffect(() => {
+    knownFeatureIdsRef.current = new Set(
+      nodes
+        .filter((n) => n.type === 'featureNode')
+        .map((n) => (n.data as FeatureNodeData).featureId)
+    );
+  }, [nodes]);
+
+  // Guard against concurrent fetchGraphData calls triggered by unknown-feature detection
+  const fetchingGraphRef = useRef(false);
+
   useEffect(() => {
     if (events.length <= processedEventCountRef.current) return;
 
     const newEvents = events.slice(processedEventCountRef.current);
     processedEventCountRef.current = events.length;
 
+    let hasUnknownFeature = false;
+
     for (const event of newEvents) {
+      // If the feature isn't on the canvas yet, flag for a full graph refresh
+      if (!knownFeatureIdsRef.current.has(event.featureId)) {
+        hasUnknownFeature = true;
+        continue;
+      }
+
       const newState = mapEventTypeToState(event.eventType);
       const newLifecycle = mapPhaseNameToLifecycle(event.phaseName);
 
@@ -219,7 +248,34 @@ export function useControlCenterState(
         })
       );
     }
-  }, [events]);
+
+    // SSE reported features not on the canvas — fetch full graph data so new
+    // repository nodes, feature nodes, and edges all appear together.
+    if (hasUnknownFeature && !fetchingGraphRef.current) {
+      fetchingGraphRef.current = true;
+      fetchGraphData()
+        .then(({ nodes: serverNodes, edges: serverEdges }) => {
+          setNodes((currentNodes) => {
+            // Preserve positions of nodes already on the canvas
+            const currentById = new Map(currentNodes.map((n) => [n.id, n]));
+            const merged = serverNodes.map((serverNode) => {
+              const existing = currentById.get(serverNode.id);
+              return existing ? { ...serverNode, position: existing.position } : serverNode;
+            });
+
+            const layoutResult = layoutWithDagre(merged, serverEdges, CANVAS_LAYOUT_DEFAULTS);
+            setEdges(layoutResult.edges);
+            return layoutResult.nodes;
+          });
+        })
+        .catch(() => {
+          // Silently ignore — next SSE event or poll will retry
+        })
+        .finally(() => {
+          fetchingGraphRef.current = false;
+        });
+    }
+  }, [events, setEdges]);
 
   // Lightweight server-action polling fallback: fetches fresh graph data every 5s
   // when any feature is in an active state. This avoids full router.refresh() while
