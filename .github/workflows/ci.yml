@@ -601,7 +601,7 @@ jobs:
 
             | Artifact | Version | Install |
             |----------|---------|---------|
-            | **npm** | `${{ steps.devver.outputs.version }}` | `npm install @shepai/cli@${{ steps.devver.outputs.version }}` |
+            | **npm** | `${{ steps.devver.outputs.version }}` | `npm install -g @shepai/cli@${{ steps.devver.outputs.version }}` |
             | **Docker** | `${{ steps.devver.outputs.docker_tag }}` | `docker pull ghcr.io/${{ github.repository }}:${{ steps.devver.outputs.docker_tag }}` |
 
             ---
