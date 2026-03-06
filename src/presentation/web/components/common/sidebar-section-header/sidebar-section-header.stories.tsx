@@ -28,16 +28,3 @@ export const Default: Story = {
     label: 'Features',
   },
 };
-
-function noop() {
-  // Intentional no-op for Storybook interaction demos
-  return;
-}
-
-export const WithActions: Story = {
-  args: {
-    label: 'Features',
-    onFolderClick: noop,
-    onMenuClick: noop,
-  },
-};
