@@ -18,19 +18,97 @@ import { TASKS_FIXTURE } from './fixtures/tasks.fixture.js';
 
 const DEFAULT_DELAY_MS = 2000;
 
-const METADATA_RESULT = JSON.stringify({
-  slug: 'dark-mode-toggle',
-  name: 'Dark Mode Toggle',
-  description: 'Add a dark-mode toggle to the Shep web UI settings panel',
-});
+const ADJECTIVES = [
+  'quantum',
+  'blazing',
+  'cosmic',
+  'fuzzy',
+  'turbo',
+  'hyperbolic',
+  'spectral',
+  'chromatic',
+  'orbital',
+  'fractal',
+  'velvet',
+  'neon',
+  'arctic',
+  'molten',
+  'prismatic',
+  'phantom',
+  'galactic',
+  'atomic',
+  'sonic',
+  'ethereal',
+];
+const NOUNS = [
+  'widget',
+  'pipeline',
+  'dashboard',
+  'renderer',
+  'compiler',
+  'beacon',
+  'transformer',
+  'navigator',
+  'interceptor',
+  'gateway',
+  'synthesizer',
+  'orchestrator',
+  'resolver',
+  'dispatcher',
+  'emitter',
+  'detector',
+  'aggregator',
+  'scheduler',
+  'validator',
+  'serializer',
+];
+const VERBS = [
+  'add',
+  'implement',
+  'integrate',
+  'build',
+  'create',
+  'wire up',
+  'introduce',
+  'scaffold',
+  'bootstrap',
+  'enable',
+];
 
-// Satisfies merge-output-parser.ts COMMIT_SHA_RE and PR_URL_RE patterns
-const MERGE_COMMIT_RESULT =
-  '[feat/042-dark-mode-toggle abc1234f] feat(ui): add dark-mode toggle\n' +
-  'https://github.com/shep-ai/shep/pull/42\nPull request #42 created successfully.';
+function randomMetadata(): string {
+  const adj = ADJECTIVES[Math.floor(Math.random() * ADJECTIVES.length)];
+  const noun = NOUNS[Math.floor(Math.random() * NOUNS.length)];
+  const verb = VERBS[Math.floor(Math.random() * VERBS.length)];
+  const slug = `${adj}-${noun}`;
+  const name = `${adj.charAt(0).toUpperCase() + adj.slice(1)} ${noun.charAt(0).toUpperCase() + noun.slice(1)}`;
+  return JSON.stringify({
+    slug,
+    name,
+    description: `${verb.charAt(0).toUpperCase() + verb.slice(1)} a ${adj} ${noun} to the application`,
+  });
+}
 
-const MERGE_SQUASH_RESULT =
-  'Merged PR #42 with squash merge. Branch feat/042-dark-mode-toggle deleted.';
+function randomPrNumber(): number {
+  return Math.floor(Math.random() * 900) + 100;
+}
+
+function randomCommitHash(): string {
+  return Math.random().toString(16).slice(2, 10);
+}
+
+function mergeCommitResult(): string {
+  const pr = randomPrNumber();
+  const hash = randomCommitHash();
+  return (
+    `[feat/dev-branch ${hash}] feat: dev implementation\n` +
+    `https://github.com/shep-ai/shep/pull/${pr}\nPull request #${pr} created successfully.`
+  );
+}
+
+function mergeSquashResult(): string {
+  const pr = randomPrNumber();
+  return `Merged PR #${pr} with squash merge. Branch feat/dev-branch deleted.`;
+}
 
 const IMPLEMENT_RESULT = 'Implementation complete. All tests pass.\npnpm test: 47 passed, 0 failed';
 
@@ -91,7 +169,7 @@ export class DevAgentExecutorService implements IAgentExecutor {
 
   private dispatch(prompt: string): string {
     // Metadata: mock-executor.service.ts extractUserInput pattern
-    if (prompt.includes('User request:\n"')) return METADATA_RESULT;
+    if (prompt.includes('User request:\n"')) return randomMetadata();
 
     // Analyze: analyze.prompt.ts:39
     if (prompt.includes('Write your analysis to:')) {
@@ -143,13 +221,13 @@ export class DevAgentExecutorService implements IAgentExecutor {
 
     // Merge commit/push/PR: merge-prompts.ts:88
     if (prompt.includes('performing git operations in a feature worktree'))
-      return MERGE_COMMIT_RESULT;
+      return mergeCommitResult();
 
     // Merge squash (PR): merge-prompts.ts:131
-    if (prompt.includes('merging a pull request via the GitHub CLI')) return MERGE_SQUASH_RESULT;
+    if (prompt.includes('merging a pull request via the GitHub CLI')) return mergeSquashResult();
 
     // Merge squash (local): merge-prompts.ts:168
-    if (prompt.includes('performing a local merge')) return MERGE_SQUASH_RESULT;
+    if (prompt.includes('performing a local merge')) return mergeSquashResult();
 
     // CI fix: merge.prompt.ts:28
     if (prompt.includes('fixing a CI failure')) return CI_FIX_RESULT;

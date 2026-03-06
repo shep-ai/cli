@@ -398,6 +398,35 @@ describe('createMergeNode (agent-driven)', () => {
       );
     });
 
+    it('should NOT treat first run as resume when lifecycle was set to Review by updateNodeLifecycle', async () => {
+      // BUG REPRO: updateNodeLifecycle('merge') sets lifecycle=Review in DB BEFORE
+      // the resume detection check at line 73-76. This causes isResumeAfterInterrupt=true
+      // on a first run, bypassing the approval gate entirely.
+      //
+      // Simulate: feature repo returns lifecycle=Review (as if updateNodeLifecycle just ran)
+      const featureRepo = createMockFeatureRepo();
+      (featureRepo.update as any)({ lifecycle: 'Review' });
+      const depsWithReview = baseDeps({ featureRepository: featureRepo });
+
+      // shouldInterrupt returns true for both calls (resume check + gate check)
+      mockShouldInterrupt.mockReturnValue(true);
+
+      const node = createMergeNode(depsWithReview);
+      const state = baseState({
+        approvalGates: { allowPrd: true, allowPlan: true, allowMerge: false },
+        // _approvalAction is null (no resume payload) — this is a first run
+        _approvalAction: null as any,
+      });
+
+      await node(state);
+
+      // The interrupt MUST fire — this is a first run, not a resume
+      expect(mockInterrupt).toHaveBeenCalledWith(expect.objectContaining({ node: 'merge' }));
+      // The merge must NOT execute — no approval was given
+      expect(depsWithReview.gitPrService.mergePr).not.toHaveBeenCalled();
+      expect(depsWithReview.verifyMerge).not.toHaveBeenCalled();
+    });
+
     it('should restore PR data from feature record on resume and merge PR via service', async () => {
       // Simulate resume after interrupt: lifecycle=Review in DB AND shouldInterrupt=true
       mockShouldInterrupt.mockReturnValueOnce(true); // for isResumeAfterInterrupt check

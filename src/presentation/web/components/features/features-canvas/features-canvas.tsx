@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useMemo } from 'react';
-import { ReactFlow, Background, Controls, ReactFlowProvider } from '@xyflow/react';
+import { ReactFlow, Background, Controls } from '@xyflow/react';
 import type { Connection, Edge, NodeChange } from '@xyflow/react';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -163,28 +163,26 @@ export function FeaturesCanvas({
       data-no-drawer-close
       className="pointer-events-auto h-full w-full"
     >
-      <ReactFlowProvider>
-        <ReactFlow
-          nodes={enrichedNodes}
-          edges={edges}
-          nodeTypes={nodeTypes}
-          edgeTypes={edgeTypes}
-          isValidConnection={isValidConnection}
-          onConnect={onConnect}
-          onNodesChange={onNodesChange}
-          onNodeClick={onNodeClick}
-          onPaneClick={onPaneClick}
-          onMoveStart={onCanvasDrag}
-          defaultViewport={{ x: 30, y: 30, zoom: 0.85 }}
-          nodesDraggable={false}
-          nodesConnectable={false}
-          elementsSelectable={false}
-        >
-          <Background />
-          <Controls />
-          {toolbar}
-        </ReactFlow>
-      </ReactFlowProvider>
+      <ReactFlow
+        nodes={enrichedNodes}
+        edges={edges}
+        nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
+        isValidConnection={isValidConnection}
+        onConnect={onConnect}
+        onNodesChange={onNodesChange}
+        onNodeClick={onNodeClick}
+        onPaneClick={onPaneClick}
+        onMoveStart={onCanvasDrag}
+        defaultViewport={{ x: 30, y: 30, zoom: 0.85 }}
+        nodesDraggable={false}
+        nodesConnectable={false}
+        elementsSelectable={false}
+      >
+        <Background />
+        <Controls />
+        {toolbar}
+      </ReactFlow>
     </div>
   );
 }

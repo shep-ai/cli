@@ -15,6 +15,7 @@ import {
 import { deleteFeature } from '@/app/actions/delete-feature';
 import { addRepository } from '@/app/actions/add-repository';
 import { deleteRepository } from '@/app/actions/delete-repository';
+import { fetchGraphData } from '@/app/actions/get-graph-data';
 import { useAgentEventsContext } from '@/hooks/agent-events-provider';
 import { useSoundAction } from '@/hooks/use-sound-action';
 import {
@@ -218,6 +219,75 @@ export function useControlCenterState(
       );
     }
   }, [events]);
+
+  // Lightweight server-action polling fallback: fetches fresh graph data every 5s
+  // when any feature is in an active state. This avoids full router.refresh() while
+  // ensuring the UI stays in sync even if SSE events are missed.
+  useEffect(() => {
+    const hasActiveFeature = nodes.some((n) => {
+      if (n.type !== 'featureNode') return false;
+      const data = n.data as FeatureNodeData;
+      return (
+        data.state === 'running' || data.state === 'action-required' || data.state === 'creating'
+      );
+    });
+
+    if (!hasActiveFeature) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const { nodes: serverNodes } = await fetchGraphData();
+        setNodes((currentNodes) => {
+          const serverById = new Map(serverNodes.map((n) => [n.id, n]));
+          let changed = false;
+
+          const merged = currentNodes.map((node) => {
+            const serverNode = serverById.get(node.id);
+            if (!serverNode || node.type !== 'featureNode') return node;
+            const currentData = node.data as FeatureNodeData;
+            const serverData = serverNode.data as FeatureNodeData;
+
+            // Only update if server data has different state or lifecycle
+            if (
+              currentData.state === serverData.state &&
+              currentData.lifecycle === serverData.lifecycle
+            ) {
+              return node;
+            }
+
+            changed = true;
+            return {
+              ...node,
+              data: {
+                ...currentData,
+                state: serverData.state,
+                lifecycle: serverData.lifecycle,
+                progress: serverData.progress,
+                ...(serverData.errorMessage && { errorMessage: serverData.errorMessage }),
+                ...(serverData.runtime && { runtime: serverData.runtime }),
+                ...(serverData.agentType && { agentType: serverData.agentType }),
+                ...(serverData.pr && { pr: serverData.pr }),
+                ...(serverData.blockedBy && { blockedBy: serverData.blockedBy }),
+              },
+            };
+          });
+
+          // Add any new server nodes that don't exist on client
+          const clientIds = new Set(currentNodes.map((n) => n.id));
+          const newNodes = serverNodes.filter((n) => !clientIds.has(n.id));
+          if (newNodes.length > 0) {
+            changed = true;
+          }
+
+          return changed || newNodes.length > 0 ? [...merged, ...newNodes] : currentNodes;
+        });
+      } catch {
+        // Silently ignore polling errors — SSE is the primary mechanism
+      }
+    }, 5_000);
+
+    return () => clearInterval(interval);
+  }, [nodes]);
 
   const onNodesChange = useCallback((changes: NodeChange<CanvasNodeType>[]) => {
     setNodes((ns) => applyNodeChanges(changes, ns));

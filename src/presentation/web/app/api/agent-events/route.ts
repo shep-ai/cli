@@ -44,13 +44,16 @@ interface CachedFeatureState {
  * Maps SdlcLifecycle values to agent graph node names so the client
  * can derive the correct FeatureLifecyclePhase via mapPhaseNameToLifecycle().
  */
-const LIFECYCLE_TO_NODE: Partial<Record<SdlcLifecycle, string>> = {
+const LIFECYCLE_TO_NODE: Record<SdlcLifecycle, string> = {
+  [SdlcLifecycle.Started]: 'requirements',
   [SdlcLifecycle.Analyze]: 'analyze',
   [SdlcLifecycle.Requirements]: 'requirements',
   [SdlcLifecycle.Research]: 'research',
   [SdlcLifecycle.Planning]: 'plan',
   [SdlcLifecycle.Implementation]: 'implement',
   [SdlcLifecycle.Review]: 'merge',
+  [SdlcLifecycle.Maintain]: 'maintain',
+  [SdlcLifecycle.Blocked]: 'blocked',
 };
 
 const STATUS_TO_EVENT: Partial<

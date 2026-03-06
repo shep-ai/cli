@@ -28,6 +28,11 @@ import type { DiffSummary } from '@/application/ports/output/services/git-pr-ser
 import type { MergeNodeDeps } from '@/infrastructure/services/agents/feature-agent/nodes/merge/merge.node.js';
 import { initializeSettings, resetSettings } from '@/infrastructure/services/settings.service.js';
 import { createDefaultSettings } from '@/domain/factories/settings-defaults.factory.js';
+import {
+  setLifecycleContext,
+  clearLifecycleContext,
+} from '@/infrastructure/services/agents/feature-agent/lifecycle-context.js';
+import { type SdlcLifecycle } from '@/domain/generated/output.js';
 
 function createMockExecutor(): IAgentExecutor {
   return {
@@ -318,6 +323,51 @@ describe('Merge Flow (Graph-level)', () => {
           deletions: 30,
         })
       );
+    });
+  });
+
+  // --- BUG #211: Lifecycle poisoning bypasses merge approval gate ---
+  describe('lifecycle poisoning bug (allowMerge=false with lifecycle context)', () => {
+    it('should interrupt at merge node even when lifecycle context is active', async () => {
+      // BUG: updateNodeLifecycle('merge') sets lifecycle=Review in the feature repo
+      // BEFORE the merge node checks isResumeAfterInterrupt. This causes the node
+      // to think it's resuming after an approval, bypassing the gate entirely.
+      //
+      // This test simulates the real worker by setting up lifecycle context,
+      // which the other tests don't do (making updateNodeLifecycle a no-op).
+      const featureRepo = createMockFeatureRepo();
+      const { deps } = buildGraphDeps({ featureRepo });
+
+      // Set up lifecycle context that updates the feature repo (like the real worker)
+      setLifecycleContext('feat-merge-test', {
+        execute: async ({ lifecycle }: { featureId: string; lifecycle: SdlcLifecycle }) => {
+          (featureRepo.update as any)({ lifecycle });
+        },
+      });
+
+      const checkpointer = createCheckpointer(':memory:');
+      const graph = createFeatureAgentGraph(deps, checkpointer);
+      const config = { configurable: { thread_id: 'lifecycle-poison-thread' } };
+
+      const result = await graph.invoke(
+        baseInput({
+          openPr: false,
+          approvalGates: { allowPrd: true, allowPlan: true, allowMerge: false },
+        }),
+        config
+      );
+
+      // Clean up lifecycle context
+      clearLifecycleContext();
+
+      // MUST interrupt at merge — this is a first run, not a resume
+      const interrupts = getInterrupts(result);
+      expect(interrupts.length).toBe(1);
+      expect(interrupts[0].value.node).toBe('merge');
+
+      // Merge must NOT have been performed
+      expect(deps.mergeNodeDeps!.gitPrService.mergePr).not.toHaveBeenCalled();
+      expect(deps.mergeNodeDeps!.verifyMerge).not.toHaveBeenCalled();
     });
   });
 
