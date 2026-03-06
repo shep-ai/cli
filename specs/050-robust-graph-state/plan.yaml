@@ -1,0 +1,156 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: robust-graph-state
+summary: Implementation plan for domain-model-driven graph state management
+
+relatedFeatures:
+  - '049-agent-executor-stability'
+technologies:
+  - '@xyflow/react'
+  - React
+  - TypeScript
+relatedLinks: []
+
+phases:
+  - id: phase-1
+    name: 'Domain-to-Node Derivation Module'
+    parallel: false
+    taskIds:
+      - task-1
+      - task-2
+  - id: phase-2
+    name: 'useGraphState Hook'
+    parallel: false
+    taskIds:
+      - task-3
+      - task-4
+  - id: phase-3
+    name: 'Integration & Cleanup'
+    parallel: false
+    taskIds:
+      - task-5
+      - task-6
+      - task-7
+
+filesToCreate:
+  - src/presentation/web/hooks/use-graph-state.ts
+  - src/presentation/web/lib/derive-graph.ts
+  - tests/unit/presentation/web/hooks/use-graph-state.test.tsx
+  - tests/unit/presentation/web/lib/derive-graph.test.ts
+
+filesToModify:
+  - src/presentation/web/components/features/control-center/use-control-center-state.ts
+  - src/presentation/web/components/features/control-center/control-center-inner.tsx
+  - src/presentation/web/components/features/features-canvas/features-canvas.tsx
+  - src/presentation/web/app/build-graph-nodes.ts
+  - src/presentation/web/CLAUDE.md
+  - tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx
+
+openQuestions: []
+
+content: |
+  ## Status
+
+  - **Phase:** Planning
+  - **Updated:** 2026-03-06
+
+  ## Architecture Overview
+
+  ```
+  Server (layout.tsx)                    Client (useGraphState)
+  ┌──────────────────┐                  ┌─────────────────────────────┐
+  │ Feature[]        │──initialData──→  │ Domain Maps (source of truth)│
+  │ Repository[]     │                  │  features: Map<id, Feature>  │
+  │ AgentRun[]       │                  │  repos: Map<id, Repository>  │
+  └──────────────────┘                  │  runs: Map<id, AgentRun>     │
+                                        │  pending: Map<tempId, info>  │
+  SSE Events                            └──────────┬──────────────────┘
+  ┌──────────────────┐                             │
+  │ NotificationEvent│──updateFeature──→           │ derive()
+  └──────────────────┘                             ▼
+                                        ┌─────────────────────────────┐
+  Optimistic UI                         │ Derived (read-only)          │
+  ┌──────────────────┐                  │  nodes: CanvasNodeType[]     │
+  │ shep:feature-    │──addPending───→  │  edges: Edge[]               │
+  │ created event    │                  │  (callbacks injected here)   │
+  └──────────────────┘                  └─────────────────────────────┘
+  ```
+
+  All mutation paths flow through domain maps. React Flow receives derived data only.
+
+  ## Implementation Strategy
+
+  **MANDATORY TDD**: All phases with executable code follow RED-GREEN-REFACTOR cycles.
+
+  ### Phase 1: Domain-to-Node Derivation Module
+
+  Extract the node/edge building logic from `build-graph-nodes.ts` into a pure `derive-graph.ts`
+  module that takes domain Maps and returns `{ nodes, edges }`. This module is the heart of the
+  new architecture — it's a pure function with no side effects, easy to test.
+
+  The existing `build-graph-nodes.ts` server-side function stays as-is (used by `getGraphData`).
+  The new `derive-graph.ts` is the client-side equivalent that works from Maps instead of arrays.
+
+  ### Phase 2: useGraphState Hook
+
+  Build the `useGraphState` hook that:
+  1. Initializes domain Maps from server props (Feature[], Repository[], AgentRun[])
+  2. Exposes `reconcile()` for server prop updates
+  3. Exposes `applySSEEvent()` for SSE event processing
+  4. Exposes `addPendingFeature()` / `removePendingFeature()` for optimistic UI
+  5. Returns derived `nodes` and `edges` via `useMemo` over domain Maps
+
+  ### Phase 3: Integration & Cleanup
+
+  Wire `useGraphState` into `use-control-center-state.ts` (replacing scattered setNodes/setEdges),
+  simplify `features-canvas.tsx` (remove enrichedNodes if possible), adapt existing tests, and
+  update `web/CLAUDE.md`.
+
+  ## Files to Create/Modify
+
+  ### New Files
+
+  | File | Purpose |
+  | ---- | ------- |
+  | `src/presentation/web/lib/derive-graph.ts` | Pure function: domain Maps → nodes + edges |
+  | `src/presentation/web/hooks/use-graph-state.ts` | Hook: domain Maps state + reconciliation + derivation |
+  | `tests/unit/presentation/web/lib/derive-graph.test.ts` | Tests for derivation logic |
+  | `tests/unit/presentation/web/hooks/use-graph-state.test.tsx` | Tests for hook reconciliation |
+
+  ### Modified Files
+
+  | File | Changes |
+  | ---- | ------- |
+  | `use-control-center-state.ts` | Replace node/edge state with useGraphState; remove SSE handling, polling, server prop sync |
+  | `control-center-inner.tsx` | Pass domain data (features, repos, runs) instead of nodes/edges; adapt event handlers |
+  | `features-canvas.tsx` | Remove or simplify enrichedNodes useMemo (callbacks now in derived nodes) |
+  | `build-graph-nodes.ts` | Extract shared mapping constants (lifecycleMap, etc.) for reuse in derive-graph.ts |
+  | `web/CLAUDE.md` | Document new domain-driven architecture |
+  | `use-control-center-state.test.tsx` | Adapt tests to new hook API surface |
+
+  ## Testing Strategy (TDD: Tests FIRST)
+
+  **CRITICAL:** Tests are written FIRST in each TDD cycle.
+
+  ### Unit Tests (RED -> GREEN -> REFACTOR)
+
+  - `derive-graph.test.ts`: Pure derivation — feature→node mapping, edge generation from
+    repositoryId/parentId, temp node handling, lifecycle/state mapping
+  - `use-graph-state.test.tsx`: Reconciliation — server prop sync merges correctly, SSE event
+    updates feature state, optimistic add/remove, temp→real ID resolution preserves edges
+  - `use-control-center-state.test.tsx`: Adapted existing tests — delete/add handlers still work
+
+  ### Integration Tests
+
+  - Canvas renders correctly with derived nodes after SSE event updates domain state
+  - Optimistic feature creation shows node immediately, resolves to real node without edge loss
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Regression in existing canvas functionality | Adapt all existing tests first; run full test suite at each phase |
+  | Performance regression from derivation on every domain change | useMemo with shallow equality on domain Maps; only re-derive when Maps change |
+  | Server prop shape changes (layout.tsx passes nodes/edges, not domain data) | Phase 3 adapts layout.tsx to pass raw domain data OR keeps existing buildGraphNodes on server with client-side reconciliation |
+  | React Flow StoreUpdater still emits replace changes | Keep onNodesChange as no-op or position-only handler since nodesDraggable=false |

@@ -1,0 +1,234 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: robust-graph-state
+summary: Task breakdown for domain-model-driven graph state management
+
+relatedFeatures:
+  - '049-agent-executor-stability'
+technologies:
+  - '@xyflow/react'
+  - React
+  - TypeScript
+relatedLinks: []
+
+tasks:
+  - id: task-1
+    title: create derive-graph pure derivation module
+    description: >
+      Extract and adapt node/edge building logic into a pure function that takes domain Maps
+      (features, repositories, agentRuns, pendingFeatures) and returns { nodes, edges }.
+      Reuses existing lifecycleMap, deriveNodeState, deriveProgress. Edges are computed from
+      feature.repositoryId and feature.parentId — never stored independently.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'deriveGraph() returns correct CanvasNodeType[] from Feature + Repository + AgentRun maps'
+      - 'edges derived from feature.repositoryId connect feature node to repo node'
+      - 'edges derived from feature.parentId create dependency edges between feature nodes'
+      - "pending features (temp IDs) produce nodes with state 'creating' and correct edges"
+      - 'features without a matching repository produce virtual repo nodes'
+      - 'lifecycle, state, progress correctly derived using existing derive-feature-state functions'
+    tdd:
+      red:
+        - 'test: single feature + repo → produces feature node + repo node + repo→feature edge'
+        - 'test: feature with parentId → produces dependency edge, no repo→feature edge'
+        - 'test: pending feature with tempId → produces creating node with edge to repo'
+        - 'test: orphan feature (no repo match) → produces virtual repo node'
+        - 'test: feature with agentRun → derives correct state and lifecycle'
+      green:
+        - 'implement deriveGraph() function in lib/derive-graph.ts'
+        - 'extract shared constants (lifecycleMap, nodeToLifecyclePhase) from build-graph-nodes.ts'
+      refactor:
+        - 'ensure consistent naming with existing codebase conventions'
+    estimatedEffort: M
+
+  - id: task-2
+    title: add callback injection to derive-graph
+    description: >
+      Extend deriveGraph() to accept optional callback refs (onAction, onSettings, onDelete,
+      onAdd, onClick, onSelect) and inject them into derived node data. This replaces the
+      enrichedNodes useMemo in features-canvas.tsx, eliminating the new-objects-every-render
+      problem that caused StoreUpdater circular loops.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'deriveGraph() accepts callbacks parameter and injects into node data'
+      - "feature nodes in 'creating' state do NOT get onAction/onSettings callbacks"
+      - 'repository nodes get onAdd, onClick, onDelete callbacks'
+      - 'addRepositoryNode gets onSelect callback'
+      - 'showHandles derived from edge count > 0'
+    tdd:
+      red:
+        - 'test: callbacks injected into feature node data when provided'
+        - 'test: creating feature nodes skip onAction/onSettings'
+        - 'test: repo nodes get onAdd/onClick/onDelete'
+      green:
+        - 'extend deriveGraph() signature with callbacks parameter'
+        - 'inject callbacks during node construction'
+      refactor:
+        - 'ensure callback types match existing FeatureNodeData/RepositoryNodeData interfaces'
+    estimatedEffort: S
+
+  - id: task-3
+    title: implement useGraphState hook core
+    description: >
+      Create the useGraphState hook that stores domain Maps as state, provides reconcile()
+      for server prop sync, and returns derived nodes/edges via useMemo. The hook accepts
+      initial data (features, repos, runs) and returns { nodes, edges, reconcile, updateFeature,
+      addPendingFeature, removePendingFeature, removeFeature, addRepository, removeRepository }.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'hook initializes domain Maps from provided arrays'
+      - 'reconcile() merges new server data, detecting added/changed/removed entities'
+      - 'reconcile() replaces pending features when matching real feature appears'
+      - 'updateFeature() patches a single feature in the map'
+      - 'addPendingFeature() inserts a temp feature with temp ID'
+      - 'removePendingFeature() removes a temp feature'
+      - 'derived nodes/edges recompute when Maps change'
+      - "derived nodes/edges have stable references when Maps don't change"
+    tdd:
+      red:
+        - 'test: initializes with features/repos/runs and returns correct nodes/edges'
+        - 'test: reconcile() adds new server feature → new node appears'
+        - 'test: reconcile() replaces pending feature with real feature → edges correct'
+        - 'test: updateFeature() changes state → derived node state changes'
+        - 'test: addPendingFeature() → creating node with edge to repo appears'
+        - 'test: stable references when no domain changes'
+      green:
+        - 'implement useGraphState in hooks/use-graph-state.ts'
+        - 'use useState for Maps, useMemo for derivation'
+      refactor:
+        - 'optimize reconciliation to avoid unnecessary Map reconstructions'
+    estimatedEffort: M
+
+  - id: task-4
+    title: integrate SSE events with useGraphState
+    description: >
+      Move SSE event processing from use-control-center-state.ts into useGraphState. SSE events
+      call updateFeature() to patch feature state/lifecycle in the domain Map. Handle the case
+      where an SSE event arrives for a pending feature (featureId doesn't match any Map key but
+      may match via tempToRealId reverse lookup).
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'SSE NotificationEvent updates feature state in domain Map via updateFeature()'
+      - 'derived nodes reflect SSE state change immediately'
+      - 'SSE event for unknown featureId is silently ignored (no crash)'
+      - 'SSE event for pending feature (matched via temp mapping) updates correctly'
+      - 'processedEventCount tracking prevents duplicate processing'
+    tdd:
+      red:
+        - 'test: SSE event with known featureId → feature state updates in derived nodes'
+        - 'test: SSE event with unknown featureId → no crash, no change'
+        - 'test: multiple SSE events in batch → all processed'
+      green:
+        - 'add SSE processing to useGraphState or as a companion effect'
+        - 'use existing mapEventTypeToState/mapPhaseNameToLifecycle'
+      refactor:
+        - 'ensure SSE handler dependencies are minimal to prevent effect re-creation'
+    estimatedEffort: S
+
+  - id: task-5
+    title: wire useGraphState into use-control-center-state
+    description: >
+      Replace the scattered setNodes/setEdges calls in use-control-center-state.ts with
+      useGraphState. The hook still exposes the same ControlCenterState interface (nodes, edges,
+      handlers) so control-center-inner.tsx changes are minimal. Remove the old server prop sync
+      effects, SSE processing, and polling fallback. Adapt handleDelete/handleAdd to work through
+      domain Map operations.
+    state: Todo
+    dependencies:
+      - task-3
+      - task-4
+    acceptanceCriteria:
+      - 'use-control-center-state.ts uses useGraphState internally'
+      - 'ControlCenterState interface preserved (nodes, edges, handlers)'
+      - 'handleDeleteFeature works through removeFeature() on domain Map'
+      - 'handleAddRepository works through addRepository() on domain Map'
+      - 'createFeatureNode works through addPendingFeature()'
+      - 'server prop sync uses reconcile()'
+      - 'no direct setNodes/setEdges calls remain'
+      - 'no polling fallback code'
+      - 'no replace-change filtering hack in onNodesChange'
+    tdd:
+      red:
+        - 'test: adapt existing use-control-center-state tests to work with new internals'
+        - 'test: delete feature → node removed, edges removed'
+        - 'test: create optimistic feature → node appears with edge'
+        - 'test: server prop update → reconcile merges without losing optimistic nodes'
+      green:
+        - 'rewrite use-control-center-state.ts to use useGraphState'
+        - 'adapt handler functions to work through domain operations'
+      refactor:
+        - 'remove dead code (old sync effects, polling, replace filter)'
+    estimatedEffort: M
+
+  - id: task-6
+    title: simplify features-canvas enrichedNodes
+    description: >
+      Since callbacks are now injected by derive-graph, the enrichedNodes useMemo in
+      features-canvas.tsx can be simplified or removed. It may still need to handle
+      selectedFeatureId highlighting, but callback injection is no longer needed.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'features-canvas.tsx no longer injects onAction/onSettings/onDelete/onAdd/onClick'
+      - 'selectedFeatureId highlighting still works'
+      - 'showHandles still works'
+      - 'all existing canvas rendering tests pass'
+    tdd:
+      red:
+        - 'test: canvas renders nodes with callbacks from derived data (not enrichedNodes)'
+        - 'test: selected feature gets selected=true prop'
+      green:
+        - 'simplify or remove enrichedNodes useMemo'
+        - 'pass derived nodes directly to ReactFlow'
+      refactor:
+        - 'clean up unused callback props from FeaturesCanvasProps if applicable'
+    estimatedEffort: S
+
+  - id: task-7
+    title: update web CLAUDE.md and run full validation
+    description: >
+      Rewrite src/presentation/web/CLAUDE.md to document the new domain-driven graph state
+      architecture. Remove outdated content about the old multi-path mutation approach.
+      Run pnpm validate and pnpm test to confirm everything passes.
+    state: Todo
+    dependencies:
+      - task-5
+      - task-6
+    acceptanceCriteria:
+      - 'CLAUDE.md documents domain Maps as source of truth'
+      - 'CLAUDE.md documents derivation pipeline (Maps → nodes/edges)'
+      - 'CLAUDE.md documents SSE update flow through domain Maps'
+      - 'CLAUDE.md documents optimistic UI with temp→real ID resolution'
+      - 'pnpm validate passes'
+      - 'pnpm test passes (all unit, integration tests)'
+    tdd: null
+    estimatedEffort: S
+
+totalEstimate: M-L (7 tasks across 3 phases)
+
+openQuestions: []
+
+content: |
+  ## Summary
+
+  Replace fragile multi-path graph state with domain-model-driven reconciliation layer —
+  7 tasks across 3 phases.
+
+  ## Acceptance Checklist
+
+  Before marking feature complete:
+
+  - [ ] All tasks completed
+  - [ ] Tests passing (`pnpm test`)
+  - [ ] Linting clean (`pnpm lint`)
+  - [ ] Types valid (`pnpm typecheck`)
+  - [ ] PR created and reviewed
