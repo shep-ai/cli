@@ -40,6 +40,7 @@ export function useAgentEvents(options?: UseAgentEventsOptions): UseAgentEventsR
 
     if (msg.type === 'notification') {
       const parsed = msg.data as NotificationEvent;
+      // eslint-disable-next-line no-console
       console.log('[SSE] event received:', parsed.eventType, parsed);
       setEvents((prev) => {
         const next = [...prev, parsed];
