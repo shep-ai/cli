@@ -135,6 +135,17 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
   const pathname = usePathname();
   const isOpen = pathname.startsWith('/feature/');
   const isOpenRef = useRef(isOpen);
+  const wasOpenRef = useRef(isOpen);
+
+  // When the drawer re-opens, force a server refresh so the view is always fresh.
+  // SSE skips router.refresh() while the drawer is closed, so data can go stale.
+  useEffect(() => {
+    if (isOpen && !wasOpenRef.current) {
+      router.refresh();
+    }
+    wasOpenRef.current = isOpen;
+  }, [isOpen, router]);
+
   isOpenRef.current = isOpen;
 
   const onClose = useCallback(() => {

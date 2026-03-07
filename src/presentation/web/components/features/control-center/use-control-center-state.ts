@@ -16,14 +16,20 @@ import { deleteFeature } from '@/app/actions/delete-feature';
 import { addRepository } from '@/app/actions/add-repository';
 import { deleteRepository } from '@/app/actions/delete-repository';
 import { getFeatureMetadata } from '@/app/actions/get-feature-metadata';
+import { fetchGraphData } from '@/app/actions/get-graph-data';
 import { useAgentEventsContext } from '@/hooks/agent-events-provider';
 import { useSoundAction } from '@/hooks/use-sound-action';
+import { createLogger } from '@/lib/logger';
+
 import {
   mapEventTypeToState,
   resolveSseEventUpdates,
 } from '@/components/common/feature-node/derive-feature-state';
 import { useGraphState, type GraphCallbacks } from '@/hooks/use-graph-state';
 import type { FeatureEntry } from '@/lib/derive-graph';
+
+const log = createLogger('[Polling]');
+const POLL_INTERVAL_MS = 3_000;
 
 export interface ControlCenterState {
   nodes: CanvasNodeType[];
@@ -214,6 +220,25 @@ export function useControlCenterState(
         });
     }
   }, [events, updateFeature]);
+
+  // --- Polling fallback: catch any SSE events that were missed ---
+  useEffect(() => {
+    log.debug(`polling enabled (${POLL_INTERVAL_MS}ms interval)`);
+
+    const timer = setInterval(async () => {
+      try {
+        const { nodes: freshNodes, edges: freshEdges } = await fetchGraphData();
+        reconcile(freshNodes, freshEdges);
+      } catch {
+        log.warn('poll fetch failed — will retry next interval');
+      }
+    }, POLL_INTERVAL_MS);
+
+    return () => {
+      log.debug('polling disabled');
+      clearInterval(timer);
+    };
+  }, [reconcile]);
 
   // onNodesChange is a no-op: nodes are derived from domain Maps.
   // Since nodesDraggable=false and elementsSelectable=false, only React Flow's

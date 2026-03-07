@@ -1,7 +1,7 @@
 'use client';
-/* eslint-disable no-console */
 
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { createLogger } from '@/lib/logger';
 import type { DeploymentState } from '@shepai/core/domain/generated/output';
 import { deployFeature } from '@/app/actions/deploy-feature';
 import { deployRepository } from '@/app/actions/deploy-repository';
@@ -25,15 +25,7 @@ export interface DeployActionState {
   url: string | null;
 }
 
-const PREFIX = '[useDeployAction]';
-const isDebug = !!process.env.NEXT_PUBLIC_DEBUG;
-const noop = () => undefined;
-const log = {
-  info: isDebug ? (...args: unknown[]) => console.info(PREFIX, ...args) : noop,
-  debug: isDebug ? (...args: unknown[]) => console.debug(PREFIX, ...args) : noop,
-  warn: (...args: unknown[]) => console.warn(PREFIX, ...args),
-  error: (...args: unknown[]) => console.error(PREFIX, ...args),
-};
+const log = createLogger('[useDeployAction]');
 
 const ERROR_CLEAR_DELAY = 5000;
 const POLL_INTERVAL = 3000;
