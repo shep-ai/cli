@@ -1,3 +1,9 @@
+# [1.73.0](https://github.com/shep-ai/cli/compare/v1.72.9...v1.73.0) (2026-03-07)
+
+### Features
+
+- **web:** robust domain-model-driven graph state with live sse updates ([#220](https://github.com/shep-ai/cli/issues/220)) ([6fd5aa3](https://github.com/shep-ai/cli/commit/6fd5aa350a1bbe3f74a3825b018dcc8c455b25d9))
+
 ## [1.72.9](https://github.com/shep-ai/cli/compare/v1.72.8...v1.72.9) (2026-03-06)
 
 ### Bug Fixes
