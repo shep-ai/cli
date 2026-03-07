@@ -1,3 +1,9 @@
+## [1.73.1](https://github.com/shep-ai/cli/compare/v1.73.0...v1.73.1) (2026-03-07)
+
+### Bug Fixes
+
+- **web:** add polling fallback, fresh settings from db, and stale drawer fix ([#222](https://github.com/shep-ai/cli/issues/222)) ([a4998a2](https://github.com/shep-ai/cli/commit/a4998a2e8fef455433eb27e49fe414a9221fc7d0))
+
 # [1.73.0](https://github.com/shep-ai/cli/compare/v1.72.9...v1.73.0) (2026-03-07)
 
 ### Features
