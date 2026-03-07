@@ -29,6 +29,7 @@ import type { IAgentExecutorFactory } from '@/application/ports/output/agents/ag
 import type { IAgentExecutorProvider } from '@/application/ports/output/agents/agent-executor-provider.interface.js';
 import type { IAgentRegistry } from '@/application/ports/output/agents/agent-registry.interface.js';
 import type { IAgentRunner } from '@/application/ports/output/agents/agent-runner.interface.js';
+import type { ISettingsRepository } from '@/application/ports/output/repositories/settings.repository.interface.js';
 import type { BaseCheckpointSaver } from '@langchain/langgraph';
 import { AgentExecutorProvider } from '@/infrastructure/services/agents/common/agent-executor-provider.service.js';
 
@@ -63,10 +64,21 @@ describe('Agent Infrastructure Integration', () => {
       useFactory: () => createCheckpointer(':memory:'),
     });
 
+    container.register<ISettingsRepository>('ISettingsRepository', {
+      useValue: {
+        load: async () => ({ agent: { type: 'claude-code', authMethod: 'session' } }),
+        // eslint-disable-next-line @typescript-eslint/no-empty-function
+        initialize: async () => {},
+        // eslint-disable-next-line @typescript-eslint/no-empty-function
+        update: async () => {},
+      } as unknown as ISettingsRepository,
+    });
+
     container.register<IAgentExecutorProvider>('IAgentExecutorProvider', {
       useFactory: (c) => {
         const factory = c.resolve<IAgentExecutorFactory>('IAgentExecutorFactory');
-        return new AgentExecutorProvider(factory);
+        const settingsRepo = c.resolve<ISettingsRepository>('ISettingsRepository');
+        return new AgentExecutorProvider(factory, settingsRepo);
       },
     });
 

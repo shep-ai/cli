@@ -176,7 +176,7 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
     executor = factory.createExecutor(args.agentType, settings.agent);
   } else {
     log('Creating executor from configured agent settings...');
-    executor = executorProvider.getExecutor();
+    executor = await executorProvider.getExecutor();
   }
 
   // Resolve merge node dependencies

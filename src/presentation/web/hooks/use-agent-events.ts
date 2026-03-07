@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { NotificationEvent } from '@shepai/core/domain/generated/output';
+import { createLogger } from '@/lib/logger';
 
 export type ConnectionStatus = 'connected' | 'connecting' | 'disconnected';
 
@@ -15,6 +16,7 @@ export interface UseAgentEventsResult {
   connectionStatus: ConnectionStatus;
 }
 
+const log = createLogger('[SSE]');
 const SW_PATH = '/agent-events-sw.js';
 const MAX_EVENTS = 500;
 const PRUNE_KEEP = 250;
@@ -40,8 +42,7 @@ export function useAgentEvents(options?: UseAgentEventsOptions): UseAgentEventsR
 
     if (msg.type === 'notification') {
       const parsed = msg.data as NotificationEvent;
-      // eslint-disable-next-line no-console
-      console.log('[SSE] event received:', parsed.eventType, parsed);
+      log.debug('event received:', parsed.eventType, parsed);
       setEvents((prev) => {
         const next = [...prev, parsed];
         return next.length > MAX_EVENTS ? next.slice(-PRUNE_KEEP) : next;

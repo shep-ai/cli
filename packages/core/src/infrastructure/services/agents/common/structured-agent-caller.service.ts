@@ -22,7 +22,7 @@ export class StructuredAgentCallerService implements IStructuredAgentCaller {
   ) {}
 
   async call<T>(prompt: string, schema: object, options?: StructuredCallOptions): Promise<T> {
-    const executor = this.executorProvider.getExecutor();
+    const executor = await this.executorProvider.getExecutor();
 
     if (executor.supportsFeature(AgentFeature.structuredOutput)) {
       return this.callWithNativeSchema<T>(executor, prompt, schema, options);

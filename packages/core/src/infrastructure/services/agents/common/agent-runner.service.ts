@@ -107,7 +107,7 @@ export class AgentRunnerService implements IAgentRunner {
 
     const settings = getSettings();
     const agentType = settings.agent.type;
-    const executor = this.executorProvider.getExecutor();
+    const executor = await this.executorProvider.getExecutor();
 
     const runId = crypto.randomUUID();
     const threadId = crypto.randomUUID();

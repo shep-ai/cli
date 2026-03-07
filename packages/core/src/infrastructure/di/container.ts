@@ -226,7 +226,8 @@ export async function initializeContainer(): Promise<typeof container> {
   container.register<IAgentExecutorProvider>('IAgentExecutorProvider', {
     useFactory: (c) => {
       const factory = c.resolve<IAgentExecutorFactory>('IAgentExecutorFactory');
-      return new AgentExecutorProvider(factory);
+      const settingsRepo = c.resolve<ISettingsRepository>('ISettingsRepository');
+      return new AgentExecutorProvider(factory, settingsRepo);
     },
   });
 
