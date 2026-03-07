@@ -101,9 +101,9 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
       if (update.featureId !== featureNode.featureId) continue;
 
       // Trigger a server refresh to get the latest drawer view,
-      // but skip when the user has unsaved changes or a rejection is in-flight
-      // to avoid the refresh interfering with the reject handler's navigation.
-      if (!isDirtyRef.current && !isRejectingRef.current) router.refresh();
+      // but skip when the drawer is closed, the user has unsaved changes,
+      // or a rejection is in-flight to avoid unnecessary refreshes.
+      if (isOpenRef.current && !isDirtyRef.current && !isRejectingRef.current) router.refresh();
 
       if (update.state !== undefined || update.lifecycle !== undefined) {
         // Optimistically update the node data AND re-derive the view type so the
@@ -134,6 +134,8 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
   // the close animation when the path no longer matches a feature route.
   const pathname = usePathname();
   const isOpen = pathname.startsWith('/feature/');
+  const isOpenRef = useRef(isOpen);
+  isOpenRef.current = isOpen;
 
   const onClose = useCallback(() => {
     router.push('/');
