@@ -1,0 +1,420 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: settings-page-9a9ef4
+summary: >
+  12 tasks across 3 phases. Phase 1 sets up dependencies, the Zod validation schema,
+  server page route, and API route. Phase 2 builds the SettingsPageClient with tabbed
+  layout and all 7 section forms, plus save/dirty-state logic. Phase 3 adds sidebar
+  navigation, Storybook stories, unit tests, and a final validation pass.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - react-hook-form
+  - '@hookform/resolvers'
+  - zod
+  - shadcn/ui Form
+  - shadcn/ui Switch
+relatedLinks: []
+
+# Structured task list
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Install dependencies and add shadcn/ui components'
+    description: >
+      Install react-hook-form and @hookform/resolvers via pnpm. Add shadcn/ui Form
+      and Switch components via the CLI (npx shadcn@latest add form switch). Verify
+      the new components exist in components/ui/ and that pnpm build succeeds.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'react-hook-form and @hookform/resolvers are in package.json dependencies'
+      - 'components/ui/form.tsx exists with FormField, FormItem, FormLabel, FormControl, FormMessage exports'
+      - 'components/ui/switch.tsx exists with Switch export'
+      - 'pnpm build completes without errors'
+    tdd: null
+    estimatedEffort: '15min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Create Zod settings validation schema'
+    description: >
+      Define a Zod schema in components/features/settings/settings-schema.ts that
+      matches the TypeSpec-generated Settings type. Cover all 7 sections with
+      appropriate validators: z.nativeEnum for EditorType/AgentType/AgentAuthMethod,
+      z.string().email().optional() for user email, z.coerce.number().int().positive().optional()
+      for numeric workflow fields, z.boolean() for all toggles. Export the schema and
+      its inferred TypeScript type.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'settings-schema.ts exports settingsFormSchema (Zod object) and SettingsFormValues type'
+      - 'Schema covers all 7 sections: models, user, environment, system, agent, notifications, workflow'
+      - 'Enum fields use z.nativeEnum with correct enum imports from domain/generated/output'
+      - 'Optional number fields use z.coerce.number().int().positive().optional()'
+      - 'Email field uses z.string().email().optional().or(z.literal(""))'
+      - 'TypeScript compiles with no errors'
+    tdd:
+      red:
+        - 'Write tests in settings-schema.test.ts that assert: valid default settings pass validation, invalid email fails, invalid enum values fail, negative numbers fail for ciMaxFixAttempts, empty optional fields pass as undefined'
+      green:
+        - 'Implement the Zod schema with z.object() containing all 7 nested section schemas'
+        - 'Use z.nativeEnum(EditorType), z.nativeEnum(AgentType), z.nativeEnum(AgentAuthMethod)'
+        - 'Use z.coerce.number().int().positive().optional() for workflow number fields'
+      refactor:
+        - 'Extract section sub-schemas into named constants for readability (modelsSchema, userSchema, etc.)'
+        - 'Add descriptive Zod error messages for enum fields'
+    estimatedEffort: '45min'
+
+  - id: task-3
+    phaseId: phase-1
+    title: 'Create PUT /api/settings route handler'
+    description: >
+      Create app/api/settings/route.ts with a PUT handler that parses the request
+      body, validates it with the Zod schema, resolves UpdateSettingsUseCase via DI,
+      calls execute(settings), and returns the updated settings as JSON. Return 400
+      for validation errors and 500 for server errors. Do not log token values.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'app/api/settings/route.ts exports a PUT function'
+      - 'Request body is parsed as JSON and validated with settingsFormSchema'
+      - 'Validation errors return 400 with { error: message } JSON'
+      - 'UpdateSettingsUseCase is resolved via resolve() from server-container'
+      - 'Server errors return 500 with generic { error: "Failed to update settings" }'
+      - 'Successful update returns 200 with the updated Settings JSON'
+      - 'Token values are not included in error messages'
+    tdd:
+      red:
+        - 'Write a unit test that mocks resolve() and verifies: valid body calls execute(), invalid body returns 400, thrown errors return 500'
+      green:
+        - 'Implement the PUT handler with try/catch, Zod validation via safeParse, and DI resolution'
+        - 'Merge validated form values with metadata fields (id, createdAt, updatedAt, onboardingComplete) from the request body'
+      refactor:
+        - 'Extract request body merging into a helper if the logic is more than a few lines'
+    estimatedEffort: '30min'
+
+  - id: task-4
+    phaseId: phase-1
+    title: 'Create server component settings page route'
+    description: >
+      Create app/settings/page.tsx as a server component that resolves
+      LoadSettingsUseCase via DI, calls execute(), and renders SettingsPageClient
+      with the settings as props. Use export const dynamic = "force-dynamic".
+      Include a try/catch with a user-friendly error fallback.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'app/settings/page.tsx exports a default async function SettingsPage'
+      - 'Uses export const dynamic = "force-dynamic"'
+      - 'Resolves LoadSettingsUseCase via resolve() from server-container'
+      - 'Passes Settings object to SettingsPageClient as settings prop'
+      - 'Wraps in div with className "flex h-full flex-col p-6" matching other pages'
+    tdd:
+      red:
+        - 'Write a test that verifies the page component renders without crashing when given mock DI resolution (this will initially fail since the component does not exist)'
+      green:
+        - 'Create the server component following the exact pattern from app/tools/page.tsx'
+        - 'Initially use a placeholder SettingsPageClient that just renders a div'
+      refactor:
+        - 'Ensure import paths use @ alias consistently'
+    estimatedEffort: '15min'
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Build SettingsPageClient shell with tabbed layout and form wiring'
+    description: >
+      Create the SettingsPageClient component with react-hook-form + Zod resolver,
+      Tabs component with 7 tab triggers (Models, Profile, Environment, System,
+      Agent, Notifications, Workflow), a global Save button with loading state,
+      and the beforeunload dirty-state warning. Initially, each tab renders
+      placeholder content. The Save button triggers form submission which calls
+      the PUT /api/settings endpoint.
+    state: Todo
+    dependencies:
+      - task-2
+      - task-3
+      - task-4
+    acceptanceCriteria:
+      - 'SettingsPageClient accepts settings: Settings prop and optional className'
+      - 'Uses useForm with zodResolver(settingsFormSchema) and defaultValues from props'
+      - 'Renders Tabs with 7 TabsTrigger elements and corresponding TabsContent'
+      - 'Save button calls handleSubmit which POSTs to /api/settings'
+      - 'Save button shows loading spinner during request (disabled + Loader2 icon)'
+      - 'Success shows a toast via sonner; error shows an error toast'
+      - 'formState.isDirty triggers beforeunload event listener'
+      - 'Save button is visually muted when form is not dirty'
+      - 'data-testid="settings-page-client" on root element'
+    tdd:
+      red:
+        - 'Write test: renders 7 tab triggers with correct labels'
+        - 'Write test: Save button is disabled/muted when form is clean'
+        - 'Write test: submitting form calls fetch with PUT /api/settings'
+      green:
+        - 'Create SettingsPageClient with useForm, zodResolver, and Tabs layout'
+        - 'Implement onSubmit that merges form values with metadata and fetches PUT /api/settings'
+        - 'Add useEffect for beforeunload based on formState.isDirty'
+        - 'Wire toast notifications for success/error'
+      refactor:
+        - 'Extract the save/fetch logic into a useCallback'
+        - 'Ensure tab trigger labels match spec exactly'
+    estimatedEffort: '1h'
+
+  - id: task-6
+    phaseId: phase-2
+    title: 'Implement Models and Profile section forms'
+    description: >
+      Add form fields for the Models section (4 text inputs: analyze, requirements,
+      plan, implement) and Profile section (3 optional text inputs: name, email,
+      githubUsername). Use FormField/FormItem/FormLabel/FormControl/FormMessage from
+      shadcn/ui Form. Each field has descriptive labels and placeholder text.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'Models tab renders 4 Input fields for models.analyze, models.requirements, models.plan, models.implement'
+      - 'Each model field has a label describing which SDLC agent uses it'
+      - 'Profile tab renders 3 optional Input fields for user.name, user.email, user.githubUsername'
+      - 'Email field has type="email" and shows validation error for invalid format'
+      - 'All fields use FormField wrapper with proper FormLabel and FormMessage'
+    tdd:
+      red:
+        - 'Write test: Models tab shows 4 labeled input fields'
+        - 'Write test: Profile tab shows 3 labeled input fields'
+        - 'Write test: invalid email shows validation error on submit'
+      green:
+        - 'Implement ModelsSection with 4 FormField/Input wrappers'
+        - 'Implement ProfileSection with 3 FormField/Input wrappers, email input with type="email"'
+      refactor:
+        - 'Ensure consistent placeholder text and label descriptions'
+    estimatedEffort: '30min'
+
+  - id: task-7
+    phaseId: phase-2
+    title: 'Implement Environment and System section forms'
+    description: >
+      Add form fields for the Environment section (Select for defaultEditor with
+      EditorType enum values, Input for shellPreference) and System section (Switch
+      for autoUpdate, Input or Select for logLevel). Use Select component with
+      SelectTrigger/SelectContent/SelectItem for enum dropdowns.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'Environment tab renders Select dropdown for defaultEditor with 5 EditorType options'
+      - 'Environment tab renders Input for shellPreference with "bash" as default'
+      - 'System tab renders Switch toggle for autoUpdate'
+      - 'System tab renders Select or Input for logLevel with common values (debug, info, warn, error)'
+      - 'Select dropdowns show correct enum display labels'
+    tdd:
+      red:
+        - 'Write test: Environment tab shows editor dropdown with 5 options'
+        - 'Write test: System tab shows autoUpdate switch toggle'
+      green:
+        - 'Implement EnvironmentSection with Select for editor and Input for shell'
+        - 'Implement SystemSection with Switch for autoUpdate and Select for logLevel'
+      refactor:
+        - 'Extract enum-to-label mapping if repeated across sections'
+    estimatedEffort: '30min'
+
+  - id: task-8
+    phaseId: phase-2
+    title: 'Implement Agent section form with masked token field'
+    description: >
+      Add form fields for the Agent section: Select for agent.type (AgentType enum),
+      Select for agent.authMethod (AgentAuthMethod enum), and a password Input for
+      agent.token that is conditionally shown only when authMethod is "token". The
+      token field renders as type="password" by default with a reveal toggle button
+      (eye/eye-off icon) that switches between password and text.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'Agent tab renders Select for agent.type with all AgentType enum values'
+      - 'Agent tab renders Select for agent.authMethod with "session" and "token" options'
+      - 'Token input is hidden when authMethod is "session"'
+      - 'Token input appears when authMethod is "token"'
+      - 'Token input has type="password" by default'
+      - 'Clicking reveal toggle changes type to "text" and shows eye-off icon'
+      - 'Clicking again hides token and shows eye icon'
+    tdd:
+      red:
+        - 'Write test: agent type dropdown shows all 6 agent types'
+        - 'Write test: token field hidden when authMethod is session'
+        - 'Write test: token field visible when authMethod is token'
+        - 'Write test: clicking reveal toggle shows/hides token value'
+      green:
+        - 'Implement AgentSection with useWatch for authMethod to conditionally render token field'
+        - 'Add local showToken state with toggle button using Eye/EyeOff icons from lucide-react'
+        - 'Use type={showToken ? "text" : "password"} on the token Input'
+      refactor:
+        - 'Ensure the token field is properly associated with its label for accessibility'
+    estimatedEffort: '30min'
+
+  - id: task-9
+    phaseId: phase-2
+    title: 'Implement Notifications section form'
+    description: >
+      Add form fields for the Notifications section: 3 channel enable Switches
+      (inApp, browser, desktop) and 9 event toggle Switches (agentStarted,
+      phaseCompleted, waitingApproval, agentCompleted, agentFailed, prMerged,
+      prClosed, prChecksPassed, prChecksFailed). Group channels and events visually
+      with labels/separators.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'Notifications tab renders 3 channel switches: In-App, Browser, Desktop'
+      - 'Notifications tab renders 9 event switches with human-readable labels'
+      - 'Channels and events are visually separated (e.g., with a Separator or section headings)'
+      - 'All switches toggle correctly and update form state'
+    tdd:
+      red:
+        - 'Write test: Notifications tab renders 12 switch toggles total'
+        - 'Write test: toggling a switch updates the form value'
+      green:
+        - 'Implement NotificationsSection with channel group (3 Switches) and events group (9 Switches)'
+        - 'Use FormField with Switch wrapped in FormControl for each toggle'
+        - 'Add descriptive labels: "Agent Started", "Phase Completed", etc.'
+      refactor:
+        - 'Extract switch-field rendering into a reusable pattern if the 12 fields are repetitive'
+    estimatedEffort: '30min'
+
+  - id: task-10
+    phaseId: phase-2
+    title: 'Implement Workflow section form'
+    description: >
+      Add form fields for the Workflow section: Switch for openPrOnImplementationComplete,
+      4 approval gate Switches (allowPrd, allowPlan, allowMerge, pushOnImplementationComplete),
+      and 3 optional number Inputs (ciMaxFixAttempts, ciWatchTimeoutMs, ciLogMaxChars).
+      Number fields use type="number" and accept only positive integers.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'Workflow tab renders Switch for openPrOnImplementationComplete'
+      - 'Workflow tab renders 4 approval gate Switches with descriptive labels'
+      - 'Workflow tab renders 3 number inputs for CI configuration'
+      - 'Number inputs accept only positive integers'
+      - 'Empty number inputs are treated as undefined (optional)'
+      - 'Approval gates are visually grouped under a subsection heading'
+    tdd:
+      red:
+        - 'Write test: Workflow tab renders 5 switch toggles and 3 number inputs'
+        - 'Write test: negative number in ciMaxFixAttempts shows validation error on submit'
+      green:
+        - 'Implement WorkflowSection with switches for boolean fields and number inputs for CI fields'
+        - 'Use FormField with number Input; ensure z.coerce handles string-to-number conversion'
+      refactor:
+        - 'Group approval gates visually with a subsection label'
+    estimatedEffort: '30min'
+
+  - id: task-11
+    phaseId: phase-3
+    title: 'Add Settings nav item to AppSidebar'
+    description: >
+      Add a SidebarNavItem to AppSidebar for Settings, positioned after Skills
+      (or after Tools if Skills is hidden by feature flag) and before the Features
+      section. Import the Settings icon from lucide-react. Set active state based
+      on pathname === "/settings".
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'AppSidebar renders a Settings nav item with Settings icon from lucide-react'
+      - 'Clicking Settings navigates to /settings'
+      - 'Settings item shows active state when pathname is /settings'
+      - 'Settings item is positioned after Tools/Skills, before the Features section'
+      - 'No feature flag gating — Settings is always visible'
+    tdd:
+      red:
+        - 'Write test: AppSidebar renders a Settings link pointing to /settings'
+      green:
+        - 'Add Settings import from lucide-react to app-sidebar.tsx'
+        - 'Add SidebarNavItem with icon={Settings} label="Settings" href="/settings" after the Skills item'
+      refactor:
+        - 'Verify icon import does not conflict with any existing Settings identifier'
+    estimatedEffort: '15min'
+
+  - id: task-12
+    phaseId: phase-3
+    title: 'Create Storybook stories and comprehensive unit tests'
+    description: >
+      Create settings-page-client.stories.tsx with stories for: Default (all settings
+      populated), Empty/Default values, Dirty state (some fields changed), and
+      Loading/saving state. Write comprehensive unit tests covering: all 7 tabs render
+      correct fields, form validation errors display inline, save flow with mocked
+      fetch (success and error), dirty-state Save button visual change, and the
+      agent token reveal toggle. Run pnpm validate and pnpm test:unit.
+    state: Todo
+    dependencies:
+      - task-6
+      - task-7
+      - task-8
+      - task-9
+      - task-10
+      - task-11
+    acceptanceCriteria:
+      - 'settings-page-client.stories.tsx exports Meta and at least 3 Story variants'
+      - 'Stories use mock Settings data matching the domain type'
+      - 'Unit tests cover all 7 tab sections rendering'
+      - 'Unit tests cover form validation error display'
+      - 'Unit tests cover save success and error toast notifications'
+      - 'Unit tests cover Save button disabled/enabled based on dirty state'
+      - 'Unit tests cover agent token reveal toggle'
+      - 'pnpm validate passes with no errors'
+      - 'pnpm test:unit passes with no regressions'
+    tdd:
+      red:
+        - 'Write test: renders all 7 tab triggers'
+        - 'Write test: switching tabs shows corresponding section content'
+        - 'Write test: invalid email shows error message on submit attempt'
+        - 'Write test: successful save shows success toast'
+        - 'Write test: failed save shows error toast'
+        - 'Write test: Save button is muted when form is clean'
+        - 'Write test: agent token toggle reveals and hides value'
+      green:
+        - 'Create Storybook stories with mock settings data from createDefaultSettings pattern'
+        - 'Implement all unit tests using render, screen, userEvent, and fetch mocking'
+      refactor:
+        - 'Extract mock settings factory into a shared test helper'
+        - 'Group tests by section for readability'
+        - 'Run pnpm validate and pnpm test:unit to confirm everything passes'
+    estimatedEffort: '1.5h'
+
+# Total effort estimate
+totalEstimate: '6.5h'
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Summary
+
+  The implementation is broken into 12 tasks across 3 phases totaling ~6.5 hours
+  of estimated effort.
+
+  Phase 1 (Foundation) installs dependencies and establishes infrastructure: the
+  shadcn/ui Form and Switch components, the Zod validation schema shared between
+  client and API route, the PUT /api/settings route handler, and the server component
+  page route. These are prerequisites for all UI work.
+
+  Phase 2 (UI Components) builds the SettingsPageClient shell with tabbed layout,
+  react-hook-form wiring, global Save button, and dirty-state tracking, then fills
+  in all 7 section forms. The sections are implemented in parallel-friendly pairs
+  (Models+Profile, Environment+System, Agent, Notifications, Workflow) since they
+  only depend on the shell component, not on each other.
+
+  Phase 3 (Integration) adds the Settings nav item to the sidebar, creates Storybook
+  stories with multiple variants, writes comprehensive unit tests, and runs the full
+  validation suite to confirm no regressions.
+
+  Each code task follows TDD: write failing tests first (RED), implement minimal code
+  to pass (GREEN), then clean up (REFACTOR). The Zod schema has its own dedicated test
+  file since it is shared infrastructure.

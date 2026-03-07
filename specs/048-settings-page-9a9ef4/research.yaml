@@ -1,0 +1,470 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: settings-page-9a9ef4
+summary: >
+  Technical research for the Settings page web UI feature. All presentation-layer
+  decisions are resolved: use react-hook-form + Zod for form state/validation,
+  shadcn/ui Form component for accessible field wiring, existing Tabs/Card/Input
+  primitives for layout, and the established server-component-to-client-component
+  data-passing pattern. Three npm packages must be installed (react-hook-form,
+  @hookform/resolvers, zod is already present) and two shadcn/ui components must
+  be added (Switch, Form). No domain or infrastructure changes are needed.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - Next.js 16 App Router
+  - React 19
+  - shadcn/ui (Tabs, Card, Input, Select, Label, Button, Separator, Skeleton, Form, Switch)
+  - Tailwind CSS 4
+  - react-hook-form
+  - '@hookform/resolvers'
+  - zod (v4.3.6 — already installed)
+  - lucide-react
+  - sonner (toast notifications — already installed)
+  - tsyringe (DI container)
+  - Vitest + @testing-library/react
+  - Storybook 8
+
+relatedLinks: []
+
+# Structured technology decisions
+decisions:
+  - title: 'Form State Management Library'
+    chosen: 'react-hook-form with Zod resolver'
+    rejected:
+      - 'Plain useState per field — unscalable for 30+ fields across 7 sections; no built-in validation, dirty tracking, or error state; would require manual wiring of beforeunload, submit handling, and field-level errors'
+      - 'Formik — heavier bundle, less active maintenance, slower re-render performance due to context-based approach vs. react-hook-form uncontrolled refs; not listed in project technologies'
+    rationale: >
+      react-hook-form is the de-facto React form library with minimal re-renders
+      (uncontrolled inputs by default), built-in dirty-state tracking via
+      formState.isDirty, and first-class Zod integration through @hookform/resolvers.
+      The Settings form has ~30 fields across 7 sections — manual useState would be
+      unwieldy and error-prone. Zod (v4.3.6) is already a project dependency, so
+      only react-hook-form and @hookform/resolvers need to be installed. The spec
+      explicitly lists react-hook-form + Zod as project technologies.
+
+  - title: 'Form Field Component Wiring'
+    chosen: 'shadcn/ui Form component (to be added via CLI)'
+    rejected:
+      - 'Manual Controller + Label wiring — requires writing boilerplate for every field to connect react-hook-form Controller with Label, error messages, and accessibility attributes; error-prone and inconsistent'
+      - 'Custom FormField wrapper — extra abstraction layer to maintain; duplicates what shadcn/ui Form already provides with FormField, FormItem, FormLabel, FormControl, FormMessage'
+    rationale: >
+      The codebase does not currently have a form.tsx in components/ui/, but shadcn/ui
+      provides a Form component that wraps react-hook-form with accessible form field
+      components (FormField, FormItem, FormLabel, FormControl, FormDescription,
+      FormMessage). Adding it via `npx shadcn@latest add form` auto-installs
+      react-hook-form and @hookform/resolvers as peer dependencies. This gives us
+      consistent, accessible field wiring with built-in error display — matching the
+      pattern of using shadcn/ui primitives for all UI components in the codebase.
+
+  - title: 'Switch Toggle Component'
+    chosen: 'Add shadcn/ui Switch component via CLI'
+    rejected:
+      - 'Use Checkbox component for boolean toggles — semantically different; checkboxes imply multi-select in a group while switches imply on/off toggles; less intuitive for settings like autoUpdate, notification enables'
+      - 'Build custom toggle — unnecessary when shadcn/ui provides a production-ready Switch component based on Radix UI Switch primitive with full accessibility support'
+    rationale: >
+      The Settings page has ~15 boolean toggle fields (autoUpdate, notification enables,
+      workflow flags, approval gates). Switch is the standard UI pattern for boolean
+      settings. The codebase already uses shadcn/ui for all UI primitives but switch.tsx
+      is not yet installed. Adding it via `npx shadcn@latest add switch` is trivial and
+      consistent with how other components (tabs, input, select, checkbox) were added.
+
+  - title: 'Page Data Loading Pattern'
+    chosen: 'Server component resolves LoadSettingsUseCase via DI, passes Settings as props to client component'
+    rejected:
+      - 'Client-side fetch on mount — adds loading flicker, requires separate GET API route, breaks the established server-component-first pattern used by Tools and Skills pages'
+      - 'Server action for initial load — server actions are designed for mutations, not data fetching; would require useEffect + startTransition on the client; inconsistent with existing page patterns'
+    rationale: >
+      The existing page pattern (Tools, Skills, Version) consistently uses server
+      components to resolve use cases from the DI container via resolve<T>('token'),
+      call execute(), and pass data as props to a client component. The settings page
+      follows the same pattern: app/settings/page.tsx resolves LoadSettingsUseCase,
+      calls execute(), wraps result in <SettingsPageClient settings={settings} />.
+      This provides instant data on first render with no client-side loading state
+      needed for initial load. The DI container is available on globalThis via
+      @/lib/server-container resolve() function.
+
+  - title: 'Settings Mutation API Design'
+    chosen: 'PUT /api/settings route handler that accepts full Settings object'
+    rejected:
+      - 'PATCH with partial updates — UpdateSettingsUseCase.execute() accepts a full Settings object, not partial; would require merge logic in the API route or a new use case; over-engineering for a single-user local app'
+      - 'Server action — the existing mutation pattern uses API routes (POST /api/tools/[id]/install, POST /api/tools/[id]/launch); server actions are not used for data mutations in this codebase'
+    rationale: >
+      The codebase uses Next.js API route handlers for all mutations. The client
+      component calls fetch('/api/...') with POST/PUT. UpdateSettingsUseCase.execute()
+      accepts a full Settings object and persists it. The API route parses the request
+      body, resolves the use case via DI, calls execute(settings), and returns the
+      updated settings as JSON. Error handling follows the established try/catch pattern
+      returning { error: message } with appropriate HTTP status codes (400, 500).
+
+  - title: 'Zod Validation Schema Approach'
+    chosen: 'Hand-written Zod schema matching TypeSpec-generated Settings type'
+    rejected:
+      - 'Auto-generate Zod from TypeSpec — no existing TypeSpec-to-Zod codegen pipeline in the project; adding one is out of scope and would require toolchain changes; the Settings type is stable and unlikely to change frequently'
+      - 'No schema, validate on server only — worse UX with no inline field errors; unnecessary round-trip for basic validation (email format, enum values, positive integers)'
+    rationale: >
+      A hand-written Zod schema gives full control over validation rules, error messages,
+      and field-level feedback. The Settings type has clear constraints: EditorType and
+      AgentType are enums (z.nativeEnum), email is optional string with email format,
+      ciMaxFixAttempts/ciWatchTimeoutMs/ciLogMaxChars are optional positive integers,
+      and boolean fields need no validation. The schema is straightforward (~60 lines)
+      and can be defined in a shared file imported by both the client form and the API
+      route for consistent validation. Zod v4.3.6 is already installed.
+
+  - title: 'Component File Organization'
+    chosen: 'Single SettingsPageClient with inline section sub-components in the same file, split to separate files only if individual sections exceed ~150 lines'
+    rejected:
+      - 'One file per section (7 separate component files) — premature splitting; each section is 5-15 form fields with minimal logic; creates excessive file navigation overhead and import boilerplate for what are essentially render fragments'
+      - 'Single monolithic component with no sub-components — a single 500+ line component would be hard to read and maintain; sections should be extractable as needed'
+    rationale: >
+      The existing feature components (ToolsPageClient, SkillsPageClient) are single
+      files that inline smaller sub-sections. The settings page has 7 sections, but each
+      section is essentially a group of form fields (3-9 fields per section) with no
+      complex logic. Starting with a single SettingsPageClient file that defines section
+      components inline keeps things simple and co-located. If any section grows complex
+      (e.g., Agent section with conditional token field), it can be extracted to its own
+      file. The Storybook story and test can focus on the page-level component.
+
+  - title: 'Unsaved Changes Warning Implementation'
+    chosen: 'Browser beforeunload event driven by react-hook-form formState.isDirty'
+    rejected:
+      - 'Custom in-app modal on Next.js route change — requires intercepting Next.js router navigation via useRouter or route middleware; complex to implement correctly; does not cover browser back/forward/close; over-engineering for a settings page'
+      - 'No warning — violates spec requirement FR-14; users with explicit global Save would silently lose edits when clicking sidebar links'
+    rationale: >
+      react-hook-form provides formState.isDirty out of the box by comparing current
+      values against defaultValues. A simple useEffect that adds/removes a beforeunload
+      event listener based on isDirty is 5 lines of code and covers all navigation
+      scenarios (sidebar clicks, browser back, tab close, URL change). This is the
+      standard pattern for forms with explicit save buttons. The browser-native dialog
+      cannot be customized but is universally understood by users.
+
+  - title: 'Testing Strategy'
+    chosen: 'Vitest + @testing-library/react for component unit tests, plus Storybook stories for visual testing'
+    rejected:
+      - 'Storybook-only testing — stories are mandatory but do not cover form submission logic, API integration, or error handling; cannot assert on toast notifications or beforeunload behavior'
+      - 'Playwright e2e tests — too heavy for form interaction testing; requires running the full app with DI container and database; better suited for critical user journeys, not settings CRUD'
+    rationale: >
+      The vitest config already includes a web workspace at tests/unit/presentation/web/
+      with @testing-library/react setup. Unit tests can render SettingsPageClient with
+      mock settings props, simulate form interactions (type, select, toggle), verify
+      form validation errors appear, mock fetch for save API calls, and assert toast
+      notifications. Storybook stories provide visual regression testing and component
+      documentation. Both are required by the project's mandatory rules.
+
+# Open questions (all resolved)
+openQuestions:
+  - question: 'Should the shadcn/ui Form component be added, or should we manually wire react-hook-form Controllers?'
+    resolved: true
+    options:
+      - option: 'Add shadcn/ui Form component via CLI'
+        description: >
+          Run `npx shadcn@latest add form` which installs the Form, FormField, FormItem,
+          FormLabel, FormControl, FormDescription, and FormMessage components. This also
+          auto-installs react-hook-form and @hookform/resolvers as dependencies.
+          Provides consistent accessible form field wiring matching the shadcn/ui pattern
+          used throughout the codebase.
+        selected: true
+      - option: 'Manual Controller wiring without Form component'
+        description: >
+          Use react-hook-form Controller directly with existing Input, Select, Label
+          components. Requires manually adding aria attributes, error message display,
+          and field descriptions for each form field. More boilerplate but no new
+          shadcn/ui component to add.
+        selected: false
+      - option: 'Register-based approach with uncontrolled inputs'
+        description: >
+          Use react-hook-form register() for simple text inputs and Controller only for
+          complex components (Select, Switch). Minimal overhead but inconsistent wiring
+          pattern across field types. Error display still requires custom implementation.
+        selected: false
+    selectionRationale: >
+      Adding the shadcn/ui Form component is the best approach because it provides
+      FormField (connects react-hook-form Controller to Radix UI components), FormLabel
+      (auto-associates with form control via htmlFor), FormMessage (displays Zod
+      validation errors inline), and FormDescription (adds accessible help text). This
+      is the standard shadcn/ui pattern for forms and matches how all other UI
+      primitives are used in the codebase. The CLI command also handles dependency
+      installation.
+
+  - question: 'How should the Settings Zod schema handle the ciMaxFixAttempts, ciWatchTimeoutMs, and ciLogMaxChars optional number fields?'
+    resolved: true
+    options:
+      - option: 'z.coerce.number().int().positive().optional() with HTML number input'
+        description: >
+          Use Zod coerce to parse string input values to numbers. The HTML number
+          input provides native increment/decrement controls and keyboard filtering.
+          Coerce handles the string-to-number conversion that occurs with form inputs.
+          Optional means empty input → undefined.
+        selected: true
+      - option: 'z.string().optional() stored as string, converted to number in API route'
+        description: >
+          Treat all form values as strings and convert to numbers only in the API route
+          before calling UpdateSettingsUseCase. Simpler Zod schema but defers validation
+          to the server side. No client-side feedback for invalid numbers.
+        selected: false
+      - option: 'z.preprocess() with custom string-to-number transform'
+        description: >
+          Use z.preprocess() to transform empty strings to undefined and numeric strings
+          to numbers before validation. More explicit than coerce but more verbose.
+          Required if using Zod v3 but Zod v4 coerce is cleaner.
+        selected: false
+    selectionRationale: >
+      z.coerce.number().int().positive().optional() is the cleanest approach with Zod v4.
+      HTML number inputs submit values as strings, so coerce handles the type conversion.
+      The int() and positive() validators ensure only valid values are accepted. The
+      optional() modifier allows empty inputs (undefined). This gives immediate inline
+      validation feedback without custom preprocessing logic.
+
+  - question: 'Where should the Zod settings schema be defined for shared use between client and API route?'
+    resolved: true
+    options:
+      - option: 'Colocated in components/features/settings/settings-schema.ts'
+        description: >
+          Define the schema in the feature directory alongside the form components.
+          Import it from both SettingsPageClient and the API route. Keeps the schema
+          close to the form that uses it. The API route can import from the components
+          directory since Next.js supports cross-directory imports.
+        selected: true
+      - option: 'In a shared lib/ directory at lib/schemas/settings.ts'
+        description: >
+          Define the schema in the web lib directory for shared utilities. Would be the
+          standard location if multiple consumers needed it. But currently only two
+          consumers (form component and API route) exist, and the schema is tightly
+          coupled to the Settings form.
+        selected: false
+      - option: 'Duplicate the schema in both locations'
+        description: >
+          Define separate schemas in the client component and API route. Avoids import
+          coupling but creates maintenance burden — changes must be made in both places.
+          Violates DRY principle.
+        selected: false
+    selectionRationale: >
+      Colocating the schema in the feature directory (components/features/settings/)
+      follows the codebase's feature-first organization pattern. The schema is
+      fundamentally a presentation-layer concern tied to the Settings form, not a
+      shared utility. The API route can import it directly. If more consumers emerge
+      later, it can be promoted to lib/ — but for now, proximity to the form component
+      is ideal for maintainability.
+
+# Markdown content (the full research document)
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-03-01
+
+  ## Technology Decisions
+
+  ### 1. Form State Management Library
+
+  **Chosen:** react-hook-form with Zod resolver
+
+  **Rejected:**
+  - Plain useState per field — unscalable for 30+ fields; no built-in validation, dirty tracking, or error handling
+  - Formik — heavier bundle, less active maintenance, slower re-renders due to context-based approach
+
+  **Rationale:** react-hook-form provides minimal re-renders, built-in dirty-state tracking (formState.isDirty), and first-class Zod integration. Zod v4.3.6 is already installed. Only react-hook-form and @hookform/resolvers need to be added.
+
+  ### 2. Form Field Component Wiring
+
+  **Chosen:** shadcn/ui Form component (to be added via CLI)
+
+  **Rejected:**
+  - Manual Controller + Label wiring — error-prone boilerplate for every field
+  - Custom FormField wrapper — duplicates what shadcn/ui already provides
+
+  **Rationale:** The shadcn/ui Form component provides FormField, FormItem, FormLabel, FormControl, FormDescription, and FormMessage — giving consistent, accessible field wiring with inline error display. Added via `npx shadcn@latest add form`.
+
+  ### 3. Switch Toggle Component
+
+  **Chosen:** Add shadcn/ui Switch via CLI
+
+  **Rejected:**
+  - Checkbox for boolean toggles — semantically different; switches are the standard pattern for on/off settings
+  - Custom toggle — unnecessary when shadcn/ui provides a production-ready Switch
+
+  **Rationale:** ~15 boolean toggle fields need Switch. Added via `npx shadcn@latest add switch`.
+
+  ### 4. Page Data Loading Pattern
+
+  **Chosen:** Server component resolves LoadSettingsUseCase via DI, passes Settings as props
+
+  **Rejected:**
+  - Client-side fetch on mount — adds loading flicker, breaks established server-component-first pattern
+  - Server action for initial load — server actions are for mutations, not data fetching
+
+  **Rationale:** Follows the exact pattern used by Tools, Skills, and Version pages. Server component at app/settings/page.tsx resolves use case, passes data to SettingsPageClient.
+
+  ### 5. Settings Mutation API Design
+
+  **Chosen:** PUT /api/settings route handler accepting full Settings object
+
+  **Rejected:**
+  - PATCH with partial updates — UpdateSettingsUseCase accepts full Settings; partial merge is over-engineering
+  - Server action — existing mutations use API routes, not server actions
+
+  **Rationale:** Consistent with existing API route patterns (POST /api/tools/[id]/install). UpdateSettingsUseCase.execute() accepts a complete Settings object.
+
+  ### 6. Zod Validation Schema Approach
+
+  **Chosen:** Hand-written Zod schema matching TypeSpec-generated Settings type
+
+  **Rejected:**
+  - Auto-generate Zod from TypeSpec — no existing codegen pipeline; out of scope
+  - No schema / server-only validation — worse UX without inline field errors
+
+  **Rationale:** Straightforward ~60-line schema covering enums (z.nativeEnum), optional email format, optional positive integers. Colocated in components/features/settings/.
+
+  ### 7. Component File Organization
+
+  **Chosen:** Single SettingsPageClient with inline section sub-components, extract to files if >150 lines
+
+  **Rejected:**
+  - One file per section (7 files) — premature splitting for 5-15 fields per section
+  - Single monolithic component — a 500+ line component would be hard to read
+
+  **Rationale:** Follows existing feature component pattern. Sections can be extracted as needed.
+
+  ### 8. Unsaved Changes Warning
+
+  **Chosen:** Browser beforeunload event driven by formState.isDirty
+
+  **Rejected:**
+  - Custom in-app modal on Next.js route change — complex router interception; doesn't cover browser close
+  - No warning — violates spec FR-14
+
+  **Rationale:** 5 lines of code using useEffect + beforeunload. Covers all navigation scenarios.
+
+  ### 9. Testing Strategy
+
+  **Chosen:** Vitest + @testing-library/react unit tests + Storybook stories
+
+  **Rejected:**
+  - Storybook-only — cannot assert on form submission, API calls, or toast notifications
+  - Playwright e2e — too heavy for settings form CRUD testing
+
+  **Rationale:** Web test workspace already configured at tests/unit/presentation/web/. Unit tests cover form logic; stories cover visual regression.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | react-hook-form | Form state management, dirty tracking, validation | **Install** | Required for 30+ field form with isDirty, validation, submit handling |
+  | @hookform/resolvers | Zod resolver for react-hook-form | **Install** | Required to connect Zod schemas to react-hook-form |
+  | zod (v4.3.6) | Schema validation | **Already installed** | Used for client-side form validation and API input validation |
+  | shadcn/ui Form | Form field wiring components | **Add via CLI** | FormField/FormItem/FormLabel/FormControl/FormMessage for accessible fields |
+  | shadcn/ui Switch | Boolean toggle component | **Add via CLI** | Required for ~15 boolean settings fields |
+  | sonner | Toast notifications | **Already installed** | Used for save success/error feedback |
+  | lucide-react | Icons | **Already installed** | Settings, Save, User, Monitor, Bell, GitBranch, Bot icons |
+  | Tabs, Card, Input, Select, Label, Button, Skeleton, Separator | UI primitives | **Already installed** | All needed shadcn/ui components are present |
+
+  ## Security Considerations
+
+  - **Agent token field**: Must render as `type="password"` by default with a reveal toggle button.
+    The token is stored in plaintext in SQLite (existing behavior), so UI masking is a convenience
+    feature against shoulder-surfing, not a security boundary. The reveal toggle changes
+    input type between "password" and "text".
+
+  - **API route token handling**: The PUT /api/settings route must NOT log token values in
+    error messages or console output. Error responses should use generic messages like
+    "Failed to update settings" without echoing back the request body.
+
+  - **No CSRF concerns**: This is a local-only desktop app (localhost). The API routes are
+    only accessible from the same machine. No authentication middleware is needed.
+
+  - **Input sanitization**: Zod validation on both client and server prevents injection of
+    invalid enum values or malformed data. String fields are bounded by the Settings type
+    (no unbounded text areas that could store excessive data).
+
+  ## Performance Implications
+
+  - **Server-side data loading**: Settings are loaded once during server component render.
+    No client-side fetch waterfall. LoadSettingsUseCase reads from SQLite — sub-millisecond.
+
+  - **Form re-renders**: react-hook-form uses uncontrolled inputs by default, minimizing
+    re-renders to only the changed field. Tab switching does not trigger re-renders of
+    hidden tab content (Tabs component uses CSS visibility, not conditional rendering).
+
+  - **Bundle impact**: react-hook-form (~8KB gzip) and @hookform/resolvers (~1KB gzip) are
+    small additions. Zod is already bundled. The shadcn/ui Form and Switch components add
+    minimal code (they're thin wrappers around Radix primitives).
+
+  - **No unnecessary re-fetching**: The settings page loads data once on server render.
+    After saving, the API response returns updated settings which can be used to reset
+    form defaultValues — no need to re-fetch.
+
+  ## Architecture Notes
+
+  ### Fits Existing Patterns
+
+  The settings page follows every established pattern in the codebase:
+
+  1. **Server component page** (app/settings/page.tsx):
+     - `export const dynamic = 'force-dynamic'`
+     - `resolve<LoadSettingsUseCase>('LoadSettingsUseCase')`
+     - Passes Settings to `<SettingsPageClient settings={settings} />`
+
+  2. **API route** (app/api/settings/route.ts):
+     - `import { resolve } from '@/lib/server-container'`
+     - PUT handler with try/catch error handling
+     - Returns `NextResponse.json()`
+
+  3. **Client component** (components/features/settings/settings-page-client.tsx):
+     - `'use client'` directive
+     - Props interface with `className?: string`
+     - `data-testid` attributes
+     - `cn()` utility for class merging
+
+  4. **Sidebar navigation** (components/layouts/app-sidebar/app-sidebar.tsx):
+     - Add `<SidebarNavItem icon={Settings} label="Settings" href="/settings" active={pathname === '/settings'} />`
+     - Position after Skills, before the collapsible Features section
+
+  5. **Storybook stories**: Colocated .stories.tsx with Meta, StoryObj, multiple variants
+
+  6. **Unit tests**: tests/unit/presentation/web/features/settings/
+
+  ### DI Token Availability
+
+  Both `LoadSettingsUseCase` and `UpdateSettingsUseCase` are registered as singletons
+  in the DI container (packages/core/src/infrastructure/di/container.ts). They can be
+  resolved via `resolve<LoadSettingsUseCase>('LoadSettingsUseCase')` and
+  `resolve<UpdateSettingsUseCase>('UpdateSettingsUseCase')` in server components and
+  API routes.
+
+  ### Settings Type Structure
+
+  The Settings type (TypeSpec-generated) has 7 configuration sections:
+
+  - **models**: ModelConfiguration (4 string fields: analyze, requirements, plan, implement)
+  - **user**: UserProfile (3 optional strings: name, email, githubUsername)
+  - **environment**: EnvironmentConfig (EditorType enum + shellPreference string)
+  - **system**: SystemConfig (autoUpdate boolean + logLevel string)
+  - **agent**: AgentConfig (AgentType enum + AgentAuthMethod enum + optional token string)
+  - **notifications**: NotificationPreferences (3 channel enables + 9 event booleans)
+  - **workflow**: WorkflowConfig (1 boolean + 4 approval gate booleans + 3 optional numbers)
+
+  Plus metadata fields (id, createdAt, updatedAt, onboardingComplete) that are read-only in the form.
+
+  ### Enum Values for Select Dropdowns
+
+  - **EditorType**: vscode, cursor, windsurf, zed, antigravity
+  - **AgentType**: claude-code, gemini-cli, aider, continue, cursor, dev
+  - **AgentAuthMethod**: session, token
+
+  ### Default Values for Form Initialization
+
+  From settings-defaults.factory.ts:
+  - Models: all `claude-sonnet-4-5`
+  - Editor: `vscode`, Shell: `bash`
+  - Auto-update: true, Log level: `info`
+  - Agent: `claude-code`, Auth: `session`
+  - All notifications: enabled
+  - All approval gates: disabled
+  - onboardingComplete: false
+
+  ---
+
+  _Research phase complete — ready for planning_

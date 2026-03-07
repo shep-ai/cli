@@ -1,0 +1,180 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: settings-page-9a9ef4
+summary: >
+  Implementation plan for the Settings page web UI. Adds a /settings route with
+  tabbed form sections for all 7 settings categories, a PUT /api/settings API route,
+  sidebar navigation entry, Zod validation, react-hook-form state management, and
+  dirty-state tracking. Follows existing server-component to client-component data
+  flow, API route mutation pattern, and shadcn/ui component conventions. Three phases:
+  foundation (deps, schema, API plumbing), UI components (form sections, page client),
+  and integration (sidebar nav, stories, tests).
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - Next.js 16 App Router
+  - React 19
+  - shadcn/ui (Tabs, Card, Input, Select, Label, Button, Separator, Skeleton, Form, Switch)
+  - Tailwind CSS 4
+  - react-hook-form
+  - '@hookform/resolvers'
+  - zod
+  - lucide-react
+  - sonner
+  - tsyringe
+  - Vitest + @testing-library/react
+  - Storybook 8
+relatedLinks: []
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'Foundation — Dependencies, Schema & API Plumbing'
+    description: >
+      Install npm dependencies (react-hook-form, @hookform/resolvers), add shadcn/ui
+      components (Form, Switch), define the Zod validation schema, create the server
+      page route and PUT API route. This phase establishes all infrastructure needed
+      before building UI components — the schema is shared between client and server,
+      and the API route is testable independently.
+    parallel: false
+
+  - id: phase-2
+    name: 'UI Components — Settings Form Sections & Page Client'
+    description: >
+      Build the SettingsPageClient component with tabbed layout and all 7 section
+      form components (Models, Profile, Environment, System, Agent, Notifications,
+      Workflow). Wire react-hook-form with the Zod schema, implement the global Save
+      action, dirty-state tracking with beforeunload, and the masked token field.
+      Each section is a focused group of form fields using shadcn/ui Form primitives.
+    parallel: false
+
+  - id: phase-3
+    name: 'Integration — Sidebar Nav, Stories & Tests'
+    description: >
+      Add the Settings nav item to AppSidebar, create Storybook stories for the
+      SettingsPageClient with multiple variants, write unit tests covering form
+      rendering, validation, save flow, and error handling. Run pnpm validate and
+      pnpm test:unit to verify no regressions.
+    parallel: false
+
+# File change tracking
+filesToCreate:
+  - src/presentation/web/components/features/settings/settings-schema.ts
+  - src/presentation/web/components/features/settings/settings-page-client.tsx
+  - src/presentation/web/components/features/settings/settings-page-client.stories.tsx
+  - src/presentation/web/app/settings/page.tsx
+  - src/presentation/web/app/api/settings/route.ts
+  - tests/unit/presentation/web/features/settings/settings-page-client.test.tsx
+  - tests/unit/presentation/web/features/settings/settings-schema.test.ts
+
+filesToModify:
+  - src/presentation/web/components/layouts/app-sidebar/app-sidebar.tsx
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Architecture Overview
+
+  The Settings page fits cleanly into the existing Clean Architecture web presentation
+  layer. The domain model (`Settings` type), application use cases (`LoadSettingsUseCase`,
+  `UpdateSettingsUseCase`), and infrastructure (SQLite repository, DI bindings) are all
+  fully implemented. This feature is purely a presentation-layer addition.
+
+  The data flow follows the established pattern:
+
+  ```
+  Server Component (app/settings/page.tsx)
+    -> resolve<LoadSettingsUseCase>('LoadSettingsUseCase')
+    -> execute() -> Settings object
+    -> <SettingsPageClient settings={settings} />
+
+  Client Component (save action)
+    -> react-hook-form collects values
+    -> Zod validates
+    -> fetch PUT /api/settings with full Settings object
+    -> API route resolves UpdateSettingsUseCase -> execute(settings)
+    -> toast success/error
+  ```
+
+  The component sits at Tier 3 (feature components) in the four-tier hierarchy,
+  using Tier 0 shadcn/ui primitives (Form, Input, Select, Switch, Tabs, Card, Button)
+  and Tier 1 common components (PageHeader if needed).
+
+  ## Key Design Decisions
+
+  ### 1. react-hook-form + Zod for Form State
+
+  With ~30 fields across 7 sections, manual useState is untenable. react-hook-form
+  provides uncontrolled inputs (minimal re-renders), built-in dirty tracking
+  (`formState.isDirty`), and first-class Zod integration via `@hookform/resolvers`.
+  Zod v4.3.6 is already installed. Alternative (Formik) was rejected for heavier
+  bundle and slower context-based re-renders.
+
+  ### 2. shadcn/ui Form Component for Field Wiring
+
+  Adding the shadcn/ui Form component (`npx shadcn@latest add form`) provides
+  FormField, FormItem, FormLabel, FormControl, and FormMessage — giving consistent
+  accessible field wiring with inline error display. This avoids manual Controller +
+  aria attribute boilerplate for every field. The CLI command also installs
+  react-hook-form and @hookform/resolvers automatically.
+
+  ### 3. Single SettingsPageClient with Inline Section Components
+
+  Following the ToolsPageClient pattern, the settings page uses a single file with
+  section components defined inline. Each section is 5-15 form fields with minimal
+  logic. If any section exceeds ~150 lines (e.g., Notifications with 12 toggles),
+  it can be extracted to a separate file. This avoids premature splitting into 7+
+  files for what are essentially render fragments.
+
+  ### 4. Full-Object PUT (Not PATCH)
+
+  UpdateSettingsUseCase.execute() accepts a complete Settings object. The form always
+  has the full state (loaded from server on initial render), so we merge form values
+  with the original Settings (preserving id, createdAt, updatedAt, onboardingComplete)
+  and send the full object. No partial-update logic needed.
+
+  ### 5. Browser beforeunload for Unsaved Changes
+
+  A simple useEffect that adds/removes a beforeunload listener based on
+  `formState.isDirty`. Covers all navigation scenarios (sidebar clicks, browser back,
+  tab close) with 5 lines of code. A custom in-app modal was rejected as over-
+  engineering that also would not cover browser close/back.
+
+  ### 6. Zod Schema Colocated in Feature Directory
+
+  The schema lives in `components/features/settings/settings-schema.ts`, imported by
+  both the client component and the API route. This keeps it close to the form and
+  follows the feature-first organization pattern.
+
+  ## Implementation Strategy
+
+  Phase 1 (Foundation) comes first because the Zod schema and API route are
+  prerequisites for the form components — you cannot wire form validation or test
+  the save flow without them. Installing dependencies and adding shadcn/ui components
+  are also blockers for all subsequent work.
+
+  Phase 2 (UI Components) is the core implementation — the SettingsPageClient with
+  all form sections. This is the largest phase but each section follows a repetitive
+  pattern (FormField wrappers around Input/Select/Switch). The Agent section is
+  slightly more complex (conditional token field) and Notifications has the most
+  fields (12 toggles), but both are straightforward.
+
+  Phase 3 (Integration) adds the sidebar nav entry, stories, and tests. These can
+  only be fully completed after the components exist. Stories and tests are done
+  last because they depend on the complete component API. The sidebar nav update is
+  small and independent but grouped here for a clean integration checkpoint.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | shadcn/ui Form CLI install changes file structure | Run CLI first, inspect generated files, adapt imports if needed |
+  | TypeSpec Settings type changes break Zod schema | Schema is hand-written with explicit field mapping; changes caught by TypeScript compiler |
+  | react-hook-form defaultValues not syncing after save | After successful PUT, call form.reset(updatedSettings) to update defaultValues and clear dirty state |
+  | Tab switching causes form state loss | react-hook-form maintains state across hidden tabs via refs, not component state; Tabs component uses CSS visibility |
+  | Number field coercion issues (string to number) | Use z.coerce.number() in Zod schema; HTML number inputs provide native type filtering |
+  | Large test surface area (~30 fields) | Focus tests on representative fields from each section + save/validation flow; do not exhaustively test every field |

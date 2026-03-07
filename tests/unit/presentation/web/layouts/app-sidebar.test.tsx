@@ -44,6 +44,14 @@ describe('AppSidebar', () => {
     expect(screen.getByText('Tools')).toBeInTheDocument();
   });
 
+  it('renders Settings nav item linking to /settings', () => {
+    renderWithSidebar(<AppSidebar features={mockFeatures} />);
+
+    const settingsLink = screen.getByRole('link', { name: /settings/i });
+    expect(settingsLink).toBeInTheDocument();
+    expect(settingsLink).toHaveAttribute('href', '/settings');
+  });
+
   it('renders Features label in content', () => {
     renderWithSidebar(<AppSidebar features={mockFeatures} />);
 
