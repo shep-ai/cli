@@ -53,7 +53,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen antialiased">
         <AppShell>{children}</AppShell>
-        <Toaster />
+        <Toaster position="bottom-center" />
       </body>
     </html>
   );

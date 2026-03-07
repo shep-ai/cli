@@ -4,7 +4,6 @@ import { FeaturesCanvas } from './features-canvas';
 import type { CanvasNodeType } from './features-canvas';
 import type { FeatureNodeType } from '@/components/common/feature-node';
 import type { RepositoryNodeType } from '@/components/common/repository-node';
-import type { AddRepositoryNodeType } from '@/components/common/add-repository-node';
 import { layoutWithDagre } from '@/lib/layout-with-dagre';
 
 const meta: Meta<typeof FeaturesCanvas> = {
@@ -229,8 +228,6 @@ export const Interactive: Story = {
       { id: 'e3-4', source: 'node-3', target: 'node-4' },
     ],
     onAddFeature: () => undefined,
-    onNodeAction: () => undefined,
-    onNodeSettings: () => undefined,
   },
 };
 
@@ -243,16 +240,8 @@ const repoNode: RepositoryNodeType = {
   },
 };
 
-const addRepoNode: AddRepositoryNodeType = {
-  id: 'add-repo',
-  type: 'addRepositoryNode',
-  position: { x: 50, y: 302 },
-  data: {},
-};
-
 const repoFeatureNodes: CanvasNodeType[] = [
   repoNode,
-  addRepoNode,
   {
     id: 'feat-1',
     type: 'featureNode',
@@ -296,8 +285,6 @@ export const ConnectedRepositoryMultipleFeatures: Story = {
   args: {
     nodes: repoFeatureNodes,
     edges: repoFeatureEdges,
-    onNodeAction: () => undefined,
-    onNodeSettings: () => undefined,
   },
 };
 
@@ -309,12 +296,6 @@ const singleRepoSingleFeatureNodes: CanvasNodeType[] = [
     type: 'repositoryNode',
     position: { x: 50, y: 127 },
     data: { name: 'shep-ai/cli' },
-  },
-  {
-    id: 'add-repo',
-    type: 'addRepositoryNode',
-    position: { x: 50, y: 267 },
-    data: {},
   },
   {
     id: 'feat-1',
@@ -339,8 +320,6 @@ export const ConnectedRepositorySingleFeature: Story = {
     edges: [
       { id: 'e-repo-f1', source: 'repo-1', target: 'feat-1', type: 'straight', ...dashedEdge },
     ],
-    onNodeAction: () => undefined,
-    onNodeSettings: () => undefined,
   },
 };
 
@@ -352,12 +331,6 @@ const singleRepoMultiFeatNodes: CanvasNodeType[] = [
     type: 'repositoryNode',
     position: { x: 50, y: 162 },
     data: { name: 'shep-ai/cli' },
-  },
-  {
-    id: 'add-repo',
-    type: 'addRepositoryNode',
-    position: { x: 50, y: 450 },
-    data: {},
   },
   {
     id: 'feat-1',
@@ -414,8 +387,6 @@ export const SingleRepositoryMultipleFeatures: Story = {
       { id: 'e-r1-f2', source: 'repo-1', target: 'feat-2', ...dashedEdge },
       { id: 'e-r1-f3', source: 'repo-1', target: 'feat-3', ...dashedEdge },
     ],
-    onNodeAction: () => undefined,
-    onNodeSettings: () => undefined,
   },
 };
 
@@ -433,12 +404,6 @@ const multiRepoNodes: CanvasNodeType[] = [
     type: 'repositoryNode',
     position: { x: 50, y: 270 },
     data: { name: 'shep-ai/web' },
-  },
-  {
-    id: 'add-repo',
-    type: 'addRepositoryNode',
-    position: { x: 50, y: 470 },
-    data: {},
   },
   {
     id: 'feat-1',
@@ -479,8 +444,6 @@ export const MultipleRepositories: Story = {
       { id: 'e-r1-f1', source: 'repo-1', target: 'feat-1', ...dashedEdge },
       { id: 'e-r2-f2', source: 'repo-2', target: 'feat-2', ...dashedEdge },
     ],
-    onNodeAction: () => undefined,
-    onNodeSettings: () => undefined,
   },
 };
 
@@ -504,12 +467,6 @@ const mixedRepoFeatureNodesRaw: CanvasNodeType[] = [
     type: 'repositoryNode',
     position: { x: 0, y: 0 },
     data: { name: 'shep-ai/api' },
-  },
-  {
-    id: 'add-repo',
-    type: 'addRepositoryNode',
-    position: { x: 0, y: 0 },
-    data: {},
   },
   {
     id: 'feat-1',
@@ -593,8 +550,6 @@ export const MultipleRepositoriesMixedConnections: Story = {
   args: {
     nodes: mixedLayoutedNodes,
     edges: mixedLayoutedEdges,
-    onNodeAction: () => undefined,
-    onNodeSettings: () => undefined,
   },
 };
 
@@ -603,8 +558,5 @@ export const InteractiveWithRepository: Story = {
     nodes: repoFeatureNodes,
     edges: repoFeatureEdges,
     onAddFeature: () => undefined,
-    onNodeAction: () => undefined,
-    onNodeSettings: () => undefined,
-    onRepositoryAdd: () => undefined,
   },
 };

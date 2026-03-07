@@ -37,57 +37,19 @@ export function useRepositoryActions(input: RepositoryActionsInput | null): Repo
 
   // Clear timers on unmount
   useEffect(() => {
-    const ideTimer = ideTimerRef.current;
-    const shellTimer = shellTimerRef.current;
-    const folderTimer = folderTimerRef.current;
+    const ideRef = ideTimerRef;
+    const shellRef = shellTimerRef;
+    const folderRef = folderTimerRef;
     return () => {
-      if (ideTimer) clearTimeout(ideTimer);
-      if (shellTimer) clearTimeout(shellTimer);
-      if (folderTimer) clearTimeout(folderTimer);
+      if (ideRef.current) clearTimeout(ideRef.current);
+      if (shellRef.current) clearTimeout(shellRef.current);
+      if (folderRef.current) clearTimeout(folderRef.current);
     };
   }, []);
 
-  const performToolbarAction = useCallback(
+  const performAction = useCallback(
     async (
-      action: (input: { repositoryPath: string }) => Promise<{
-        success: boolean;
-        error?: string;
-      }>,
-      setLoading: (v: boolean) => void,
-      setError: (v: string | null) => void,
-      timerRef: React.RefObject<ReturnType<typeof setTimeout> | null>,
-      isLoading: boolean
-    ) => {
-      if (!input || isLoading) return;
-
-      // Clear any existing timer
-      if (timerRef.current) clearTimeout(timerRef.current);
-
-      setLoading(true);
-      setError(null);
-
-      try {
-        const result = await action({ repositoryPath: input.repositoryPath });
-
-        if (!result.success) {
-          const errorMessage = result.error ?? 'An unexpected error occurred';
-          setError(errorMessage);
-          timerRef.current = setTimeout(() => setError(null), ERROR_CLEAR_DELAY);
-        }
-      } catch (err: unknown) {
-        const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
-        setError(errorMessage);
-        timerRef.current = setTimeout(() => setError(null), ERROR_CLEAR_DELAY);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [input]
-  );
-
-  const performFolderAction = useCallback(
-    async (
-      action: (repositoryPath: string) => Promise<{ success: boolean; error?: string }>,
+      action: () => Promise<{ success: boolean; error?: string }>,
       setLoading: (v: boolean) => void,
       setError: (v: string | null) => void,
       timerRef: React.RefObject<ReturnType<typeof setTimeout> | null>,
@@ -101,7 +63,7 @@ export function useRepositoryActions(input: RepositoryActionsInput | null): Repo
       setError(null);
 
       try {
-        const result = await action(input.repositoryPath);
+        const result = await action();
 
         if (!result.success) {
           const errorMessage = result.error ?? 'An unexpected error occurred';
@@ -120,26 +82,39 @@ export function useRepositoryActions(input: RepositoryActionsInput | null): Repo
   );
 
   const handleOpenIde = useCallback(
-    () => performToolbarAction(openIde, setIdeLoading, setIdeError, ideTimerRef, ideLoading),
-    [performToolbarAction, ideLoading]
+    () =>
+      performAction(
+        () => openIde({ repositoryPath: input!.repositoryPath }),
+        setIdeLoading,
+        setIdeError,
+        ideTimerRef,
+        ideLoading
+      ),
+    [performAction, ideLoading, input]
   );
 
   const handleOpenShell = useCallback(
     () =>
-      performToolbarAction(openShell, setShellLoading, setShellError, shellTimerRef, shellLoading),
-    [performToolbarAction, shellLoading]
+      performAction(
+        () => openShell({ repositoryPath: input!.repositoryPath }),
+        setShellLoading,
+        setShellError,
+        shellTimerRef,
+        shellLoading
+      ),
+    [performAction, shellLoading, input]
   );
 
   const handleOpenFolder = useCallback(
     () =>
-      performFolderAction(
-        openFolder,
+      performAction(
+        () => openFolder(input!.repositoryPath),
         setFolderLoading,
         setFolderError,
         folderTimerRef,
         folderLoading
       ),
-    [performFolderAction, folderLoading]
+    [performAction, folderLoading, input]
   );
 
   return {

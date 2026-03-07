@@ -1,12 +1,35 @@
 # Code Integrity Rules (STRICT)
 
-## Never Dismiss Test Failures
+## ABSOLUTE OWNERSHIP — NO EXCEPTIONS
+
+**You are the ONLY developer on this project. There is nobody else.**
+
+Every failure is YOUR fault. Every broken test is YOUR problem to fix. There is no "someone else" who broke it. There is no "pre-existing" issue. There is no "unrelated" failure. YOU own the entire codebase. Act like it.
+
+## BANNED PHRASES — Never Use These
+
+The following phrases are PERMANENTLY BANNED. Using any of them is a violation:
+
+- "unrelated to our changes"
+- "pre-existing"
+- "not caused by our changes"
+- "infrastructure issue"
+- "flaky test"
+- "known issue"
+- "not related to this PR"
+- "can be ignored"
+- "won't affect our code"
+- Any variation that shifts blame or dismisses a failure
+
+## Never Dismiss Any Failure
 
 - ALL test failures are your responsibility — no exceptions
-- Never label failures as "unrelated", "pre-existing", or "not our changes"
-- Never proceed past a failing test suite to commit, push, or claim completion
-- If a test fails, investigate and fix it or explicitly escalate to the user with full context
-- "It was already broken" is not an acceptable reason to ignore a failure
+- ALL CI failures are your responsibility — no exceptions
+- ALL security scan failures are your responsibility — no exceptions
+- If a test fails, investigate and fix it — period
+- If CI fails, investigate and fix it — period
+- If a security scan fails, investigate and fix it — period
+- Do NOT proceed past ANY failure. Fix it first.
 
 ## No Silent Skipping
 

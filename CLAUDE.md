@@ -46,6 +46,7 @@ See [clean-architecture](./docs/architecture/clean-architecture.md).
 - **MANDATORY — Agent resolution**: No component may hardcode an agent type. All resolution flows through `IAgentExecutorProvider`. See [AGENTS.md](./AGENTS.md).
 - **MANDATORY — Storybook stories**: Every web UI component MUST have a colocated `.stories.tsx` file. Commits without stories will be rejected.
 - **MANDATORY — Spec-driven**: All features start with `/shep-kit:new-feature`. No implementation without a spec.
+- **MANDATORY — Own every failure**: You are the ONLY developer. Every test failure, CI failure, and security scan failure is YOUR responsibility. NEVER use the words "unrelated", "pre-existing", or "not our changes". See [integrity rules](./.claude/rules/integrity.md).
 
 ## Commit Format
 

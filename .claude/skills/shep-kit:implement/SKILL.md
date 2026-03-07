@@ -87,7 +87,6 @@ This script validates all 3 categories (completeness, architecture, consistency)
 
 - Add missing optional YAML keys with defaults
 - Add missing `tasks.yaml` from template if only `plan.yaml` exists
-- Regenerate Markdown from YAML: `pnpm spec:generate-md <feature-id>`
 
 **Show summary of auto-fixes and require user approval before proceeding.**
 
@@ -196,12 +195,6 @@ status:
     percentage: { calculated }
   currentTask: 'task-{N+1}'
   lastUpdated: '<timestamp>'
-```
-
-Regenerate Markdown to reflect updated status:
-
-```bash
-pnpm spec:generate-md <feature-id>
 ```
 
 Continue to next task.

@@ -12,11 +12,12 @@
 # glob command injection via malicious filenames (in npm's bundled glob)
 CVE-2025-64756
 
-# node-tar arbitrary file overwrite vulnerabilities (in npm's bundled tar)
+# node-tar vulnerabilities (in npm's bundled tar)
 CVE-2026-23745
 CVE-2026-23950
 CVE-2026-24842
 CVE-2026-26960
+CVE-2026-29786
 GHSA-qffp-2rhf-9h96
 
 # npm CLI local privilege escalation vulnerability

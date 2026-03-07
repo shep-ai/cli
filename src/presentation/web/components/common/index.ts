@@ -1,14 +1,5 @@
-export {
-  ControlCenterDrawer,
-  type ControlCenterDrawerProps,
-  computeDrawerView,
-  type DrawerView,
-} from './control-center-drawer';
-export {
-  AddRepositoryNode,
-  type AddRepositoryNodeData,
-  type AddRepositoryNodeType,
-} from './add-repository-node';
+export { computeDrawerView, type DrawerView } from './control-center-drawer';
+export { AddRepositoryButton } from './add-repository-button';
 export { ElapsedTime, formatElapsed } from './elapsed-time';
 export { EmptyState, type EmptyStateProps } from './empty-state';
 export {
@@ -35,7 +26,6 @@ export {
 export { FeatureStatusBadges, type FeatureStatusBadgesProps } from './feature-status-badges';
 export { FeatureStatusGroup, type FeatureStatusGroupProps } from './feature-status-group';
 export { LoadingSkeleton } from './loading-skeleton';
-export { NotificationPermissionBanner } from './notification-permission-banner';
 export {
   RepositoryNode,
   type RepositoryNodeData,

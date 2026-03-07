@@ -6,6 +6,7 @@ import { platform as getPlatform } from 'node:os';
 
 const mockSpawn = vi.hoisted(() => vi.fn());
 const mockExecFile = vi.hoisted(() => vi.fn());
+const mockExec = vi.hoisted(() => vi.fn());
 
 vi.mock('node:child_process', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
@@ -13,6 +14,7 @@ vi.mock('node:child_process', async (importOriginal) => {
     ...actual,
     spawn: mockSpawn,
     execFile: mockExecFile,
+    exec: mockExec,
   };
 });
 
@@ -77,6 +79,9 @@ describe('ToolInstallerServiceImpl - Integration Tests', () => {
             cb(new Error('not found'));
           }
         );
+        mockExec.mockImplementation((_cmd: string, cb: (err: Error | null) => void) => {
+          cb(new Error('not found'));
+        });
 
         const result = await service.checkAvailability(toolName);
 

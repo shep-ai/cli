@@ -48,6 +48,12 @@ export function useDeployAction(input: DeployActionInput | null): DeployActionSt
   const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mountedRef = useRef(true);
+  const statusRef = useRef(status);
+
+  // Keep statusRef in sync with latest status
+  useEffect(() => {
+    statusRef.current = status;
+  }, [status]);
 
   // Track mounted state
   useEffect(() => {
@@ -96,15 +102,17 @@ export function useDeployAction(input: DeployActionInput | null): DeployActionSt
           setUrl(null);
           stopPolling();
         } else {
-          if (result.state !== status) {
-            log.info(`poll state changed: ${status} → ${result.state}, url=${result.url}`);
+          if (result.state !== statusRef.current) {
+            log.info(
+              `poll state changed: ${statusRef.current} → ${result.state}, url=${result.url}`
+            );
           }
           setStatus(result.state as DeploymentState);
           setUrl(result.url);
         }
       }, POLL_INTERVAL);
     },
-    [stopPolling, status]
+    [stopPolling]
   );
 
   const handleDeploy = useCallback(async () => {

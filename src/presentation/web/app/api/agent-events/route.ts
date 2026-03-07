@@ -191,6 +191,23 @@ export function GET(request: Request): Response {
                 }
               }
 
+              // Check for feature name change (AI metadata generation updates name)
+              if (prev.featureName !== feature.name) {
+                prev.featureName = feature.name;
+                const nodeName =
+                  LIFECYCLE_TO_NODE[feature.lifecycle as SdlcLifecycle] ?? 'requirements';
+                emitEvent({
+                  eventType: NotificationEventType.PhaseCompleted,
+                  agentRunId: run.id,
+                  featureId: feature.id,
+                  featureName: feature.name,
+                  phaseName: nodeName,
+                  message: `Feature metadata updated`,
+                  severity: NotificationSeverity.Info,
+                  timestamp: new Date().toISOString(),
+                });
+              }
+
               // Check for lifecycle change (agent stays "running" but moves through phases)
               if (prev.lifecycle !== feature.lifecycle) {
                 prev.lifecycle = feature.lifecycle;

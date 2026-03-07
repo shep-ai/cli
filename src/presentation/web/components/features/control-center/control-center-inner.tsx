@@ -7,7 +7,6 @@ import { FeaturesCanvas } from '@/components/features/features-canvas';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 import type { FeatureNodeData } from '@/components/common/feature-node';
 import type { RepositoryNodeData } from '@/components/common/repository-node';
-import { NotificationPermissionBanner } from '@/components/common/notification-permission-banner';
 import {
   useSidebarFeaturesContext,
   mapNodeStateToSidebarStatus,
@@ -39,25 +38,26 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     handleDeleteFeature,
     handleDeleteRepository,
     createFeatureNode,
+    setCallbacks,
   } = useControlCenterState(initialNodes, initialEdges);
 
   // Publish sidebar features to context whenever feature node data changes
   const { setFeatures: setSidebarFeatures } = useSidebarFeaturesContext();
 
+  const featureNodes = useMemo(() => nodes.filter((n) => n.type === 'featureNode'), [nodes]);
+
   const sidebarKey = useMemo(() => {
-    return nodes
-      .filter((n) => n.type === 'featureNode')
+    return featureNodes
       .map((n) => {
         const d = n.data as FeatureNodeData;
-        return `${d.featureId}:${d.state}:${d.runtime ?? ''}:${d.startedAt ?? ''}`;
+        return `${d.featureId}:${d.state}:${d.name}`;
       })
       .sort()
       .join(',');
-  }, [nodes]);
+  }, [featureNodes]);
 
   useEffect(() => {
-    const sidebarItems = nodes
-      .filter((n) => n.type === 'featureNode')
+    const sidebarItems = featureNodes
       .map((n) => {
         const d = n.data as FeatureNodeData;
         const status = mapNodeStateToSidebarStatus(d.state);
@@ -79,7 +79,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     }[];
 
     setSidebarFeatures(sidebarItems);
-  }, [sidebarKey, nodes, setSidebarFeatures]);
+  }, [sidebarKey, featureNodes, setSidebarFeatures]);
 
   // ── URL-based navigation handlers ────────────────────────────────────
 
@@ -163,11 +163,12 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     return () => window.removeEventListener('shep:add-repository', handler);
   }, [handleAddRepository]);
 
-  // Listen for optimistic create events from the create drawer
+  // Listen for create events from the create drawer (with real feature ID from server)
   useEffect(() => {
     const handler = (e: Event) => {
       const detail = (
         e as CustomEvent<{
+          featureId: string;
           name: string;
           description?: string;
           repositoryPath: string;
@@ -183,6 +184,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
           parentNodeId,
           {
             state: 'creating',
+            featureId: detail.featureId,
             name: detail.name,
             description: detail.description,
             repositoryPath: detail.repositoryPath,
@@ -200,7 +202,8 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
       );
 
       createFeatureNode(repoNode?.id ?? null, {
-        state: 'creating',
+        state: 'running',
+        featureId: detail.featureId,
         name: detail.name,
         description: detail.description,
         repositoryPath: detail.repositoryPath,
@@ -210,37 +213,41 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     return () => window.removeEventListener('shep:feature-created', handler);
   }, [nodes, createFeatureNode]);
 
+  // Wire callbacks into derived node data (via ref — no re-render).
+  useEffect(() => {
+    setCallbacks({
+      onNodeAction: handleAddFeatureToFeature,
+      onFeatureDelete: handleDeleteFeature,
+      onRepositoryAdd: handleAddFeatureToRepo,
+      onRepositoryClick: handleRepositoryClick,
+      onRepositoryDelete: handleDeleteRepository,
+    });
+  }, [
+    setCallbacks,
+    handleAddFeatureToFeature,
+    handleDeleteFeature,
+    handleAddFeatureToRepo,
+    handleRepositoryClick,
+    handleDeleteRepository,
+  ]);
+
   const hasRepositories = nodes.some((n) => n.type === 'repositoryNode');
 
   if (!hasRepositories) {
-    return (
-      <>
-        <NotificationPermissionBanner />
-        <ControlCenterEmptyState onRepositorySelect={handleAddRepository} />
-      </>
-    );
+    return <ControlCenterEmptyState onRepositorySelect={handleAddRepository} />;
   }
 
   return (
-    <>
-      <NotificationPermissionBanner />
-      <FeaturesCanvas
-        nodes={nodes}
-        edges={edges}
-        selectedFeatureId={selectedFeatureId}
-        onNodesChange={onNodesChange}
-        onConnect={handleConnect}
-        onAddFeature={handleAddFeature}
-        onNodeAction={handleAddFeatureToFeature}
-        onNodeClick={handleNodeClick}
-        onPaneClick={handleClearDrawers}
-        onRepositoryAdd={handleAddFeatureToRepo}
-        onRepositoryClick={handleRepositoryClick}
-        onRepositoryDelete={handleDeleteRepository}
-        onFeatureDelete={handleDeleteFeature}
-        onRepositorySelect={handleAddRepository}
-        emptyState={<ControlCenterEmptyState onRepositorySelect={handleAddRepository} />}
-      />
-    </>
+    <FeaturesCanvas
+      nodes={nodes}
+      edges={edges}
+      selectedFeatureId={selectedFeatureId}
+      onNodesChange={onNodesChange}
+      onConnect={handleConnect}
+      onAddFeature={handleAddFeature}
+      onNodeClick={handleNodeClick}
+      onPaneClick={handleClearDrawers}
+      emptyState={<ControlCenterEmptyState onRepositorySelect={handleAddRepository} />}
+    />
   );
 }

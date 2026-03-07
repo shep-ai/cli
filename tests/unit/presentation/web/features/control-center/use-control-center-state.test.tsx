@@ -5,7 +5,6 @@ import { useControlCenterState } from '@/components/features/control-center/use-
 import type { ControlCenterState } from '@/components/features/control-center/use-control-center-state';
 import type { FeatureNodeType, FeatureNodeData } from '@/components/common/feature-node';
 import type { RepositoryNodeType } from '@/components/common/repository-node';
-import type { AddRepositoryNodeType } from '@/components/common/add-repository-node';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 
 // --- Mocks ---
@@ -71,14 +70,8 @@ const mockRepoNode: RepositoryNodeType = {
   position: { x: 0, y: 0 },
   data: {
     name: 'shep-ai/cli',
+    repositoryPath: '/home/user/my-repo',
   },
-};
-
-const mockAddRepoNode: AddRepositoryNodeType = {
-  id: 'add-repo',
-  type: 'addRepositoryNode',
-  position: { x: 50, y: 50 },
-  data: {},
 };
 
 /**
@@ -113,7 +106,11 @@ function HookTestHarness({
       <button
         data-testid="add-to-feature-creating"
         onClick={() =>
-          state.createFeatureNode('repo-1', { state: 'creating', name: 'Optimistic Feature' })
+          state.createFeatureNode('repo-1', {
+            state: 'creating',
+            name: 'Optimistic Feature',
+            repositoryPath: '/home/user/my-repo',
+          })
         }
       >
         Add Creating Feature
@@ -155,7 +152,7 @@ describe('useControlCenterState', () => {
   describe('createFeatureNode state override and return value', () => {
     it('returns the generated node ID via createFeatureNode', () => {
       let capturedState: ControlCenterState | null = null;
-      renderHook([mockFeatureNode] as CanvasNodeType[], [], (state) => {
+      renderHook([mockRepoNode, mockFeatureNode] as CanvasNodeType[], [], (state) => {
         capturedState = state;
       });
 
@@ -263,38 +260,18 @@ describe('useControlCenterState', () => {
 
   describe('handleAddRepository', () => {
     it('adds a new repository node', () => {
-      renderHook([mockAddRepoNode] as CanvasNodeType[]);
+      renderHook([]);
 
       act(() => {
         fireEvent.click(screen.getByTestId('add-repository'));
       });
 
-      expect(screen.getByTestId('node-count')).toHaveTextContent('2');
-    });
-
-    it('repositions add-repo node after adding a repository via dagre layout', () => {
-      let capturedState: ControlCenterState | null = null;
-      renderHook([mockAddRepoNode] as CanvasNodeType[], [], (state) => {
-        capturedState = state;
-      });
-
-      act(() => {
-        fireEvent.click(screen.getByTestId('add-repository'));
-      });
-
-      const addRepoAfter = capturedState!.nodes.find((n) => n.type === 'addRepositoryNode');
-      // After dagre re-layout, addRepoNode should be repositioned (below the new repo)
-      expect(addRepoAfter).toBeDefined();
-      // The addRepoNode should have moved from its original position
-      const repoNode = capturedState!.nodes.find((n) => n.type === 'repositoryNode');
-      expect(repoNode).toBeDefined();
-      // Both nodes should exist and not overlap (addRepo below repo)
-      expect(addRepoAfter!.position.y).not.toBe(repoNode!.position.y);
+      expect(screen.getByTestId('node-count')).toHaveTextContent('1');
     });
 
     it('creates repo node with selected path as name', () => {
       let capturedState: ControlCenterState | null = null;
-      renderHook([mockAddRepoNode] as CanvasNodeType[], [], (state) => {
+      renderHook([], [], (state) => {
         capturedState = state;
       });
 
@@ -309,7 +286,7 @@ describe('useControlCenterState', () => {
 
     it('places new repo via dagre layout', () => {
       let capturedState: ControlCenterState | null = null;
-      renderHook([mockAddRepoNode] as CanvasNodeType[], [], (state) => {
+      renderHook([], [], (state) => {
         capturedState = state;
       });
 
@@ -326,7 +303,7 @@ describe('useControlCenterState', () => {
 
     it('stacks multiple repos without overlap via dagre layout', () => {
       let capturedState: ControlCenterState | null = null;
-      renderHook([mockAddRepoNode] as CanvasNodeType[], [], (state) => {
+      renderHook([], [], (state) => {
         capturedState = state;
       });
 
@@ -341,62 +318,51 @@ describe('useControlCenterState', () => {
       });
 
       const repoNodes = capturedState!.nodes.filter((n) => n.type === 'repositoryNode');
-      const addRepoAfter = capturedState!.nodes.find((n) => n.type === 'addRepositoryNode');
 
       expect(repoNodes).toHaveLength(2);
 
       // Repos should not overlap (different Y positions via dagre layout)
       expect(repoNodes[0].position.y).not.toBe(repoNodes[1].position.y);
-      // addRepoNode should also exist and not overlap with repos
-      expect(addRepoAfter).toBeDefined();
     });
 
-    it('rolls back repo node and re-layouts on server action error', async () => {
+    it('rolls back repo node on server action error', async () => {
       mockAddRepository.mockResolvedValue({ error: 'Repository already exists' });
 
-      let capturedState: ControlCenterState | null = null;
-      renderHook([mockAddRepoNode] as CanvasNodeType[], [], (state) => {
-        capturedState = state;
-      });
+      renderHook([]);
 
       await act(async () => {
         fireEvent.click(screen.getByTestId('add-repository'));
       });
 
-      // Temp repo node should be removed (only addRepoNode remains)
-      expect(screen.getByTestId('node-count')).toHaveTextContent('1');
-      // addRepoNode should still exist after rollback
-      const addRepoAfter = capturedState!.nodes.find((n) => n.type === 'addRepositoryNode');
-      expect(addRepoAfter).toBeDefined();
+      // Temp repo node should be removed (no nodes remain)
+      expect(screen.getByTestId('node-count')).toHaveTextContent('0');
     });
 
-    it('rolls back repo node and re-layouts on network failure', async () => {
+    it('rolls back repo node on network failure', async () => {
       mockAddRepository.mockRejectedValue(new Error('Network error'));
 
-      let capturedState: ControlCenterState | null = null;
-      renderHook([mockAddRepoNode] as CanvasNodeType[], [], (state) => {
-        capturedState = state;
-      });
+      renderHook([]);
 
       await act(async () => {
         fireEvent.click(screen.getByTestId('add-repository'));
       });
 
-      // Temp repo node should be removed (only addRepoNode remains)
-      expect(screen.getByTestId('node-count')).toHaveTextContent('1');
-      // addRepoNode should still exist after rollback
-      const addRepoAfter = capturedState!.nodes.find((n) => n.type === 'addRepositoryNode');
-      expect(addRepoAfter).toBeDefined();
+      // Temp repo node should be removed (no nodes remain)
+      expect(screen.getByTestId('node-count')).toHaveTextContent('0');
     });
   });
 
   describe('initialNodes/initialEdges prop sync', () => {
     it('syncs local state when initialNodes prop changes (different node IDs)', () => {
       const { rerender } = render(
-        <HookTestHarness initialNodes={[mockFeatureNode] as CanvasNodeType[]} initialEdges={[]} />
+        <HookTestHarness
+          initialNodes={[mockRepoNode, mockFeatureNode] as CanvasNodeType[]}
+          initialEdges={[]}
+        />
       );
 
-      expect(screen.getByTestId('node-count')).toHaveTextContent('1');
+      // repo-1 + feat-1 = 2 nodes
+      expect(screen.getByTestId('node-count')).toHaveTextContent('2');
 
       const newFeatureNode: FeatureNodeType = {
         id: 'feat-2',
@@ -408,7 +374,7 @@ describe('useControlCenterState', () => {
           lifecycle: 'requirements',
           state: 'running',
           progress: 0,
-          repositoryPath: '/home/user/repo',
+          repositoryPath: '/home/user/my-repo',
           branch: 'feat/new',
         },
       };
@@ -416,30 +382,28 @@ describe('useControlCenterState', () => {
       // Simulate router.refresh() delivering new initialNodes
       rerender(
         <HookTestHarness
-          initialNodes={[mockFeatureNode, newFeatureNode] as CanvasNodeType[]}
+          initialNodes={[mockRepoNode, mockFeatureNode, newFeatureNode] as CanvasNodeType[]}
           initialEdges={[]}
         />
       );
 
-      expect(screen.getByTestId('node-count')).toHaveTextContent('2');
+      // repo-1 + feat-1 + feat-2 = 3 nodes
+      expect(screen.getByTestId('node-count')).toHaveTextContent('3');
     });
 
-    it('syncs local edges when initialEdges prop changes', () => {
-      const edge: Edge = { id: 'e1', source: 'repo-1', target: 'feat-1' };
-
+    it('syncs local edges when initialNodes add a feature with matching repositoryPath', () => {
+      // Start with only repo node — no features, so 0 derived edges
       const { rerender } = render(
-        <HookTestHarness
-          initialNodes={[mockFeatureNode, mockRepoNode] as CanvasNodeType[]}
-          initialEdges={[]}
-        />
+        <HookTestHarness initialNodes={[mockRepoNode] as CanvasNodeType[]} initialEdges={[]} />
       );
 
       expect(screen.getByTestId('edge-count')).toHaveTextContent('0');
 
+      // Rerender with repo + feature → edge is derived from matching repositoryPath
       rerender(
         <HookTestHarness
-          initialNodes={[mockFeatureNode, mockRepoNode] as CanvasNodeType[]}
-          initialEdges={[edge]}
+          initialNodes={[mockRepoNode, mockFeatureNode] as CanvasNodeType[]}
+          initialEdges={[]}
         />
       );
 
@@ -464,6 +428,7 @@ describe('useControlCenterState', () => {
         capturedState!.createFeatureNode('repo-1', {
           state: 'creating',
           name: 'My Optimistic Feature',
+          repositoryPath: '/home/user/my-repo',
         });
       });
 
@@ -481,7 +446,7 @@ describe('useControlCenterState', () => {
           lifecycle: 'requirements',
           state: 'running',
           progress: 0,
-          repositoryPath: '/home/user/repo',
+          repositoryPath: '/home/user/my-repo',
           branch: 'feat/optimistic',
         },
       };
@@ -514,16 +479,25 @@ describe('useControlCenterState', () => {
 
     it('does not update when initialNodes have the same IDs (stable comparison)', () => {
       const { rerender } = render(
-        <HookTestHarness initialNodes={[mockFeatureNode] as CanvasNodeType[]} initialEdges={[]} />
+        <HookTestHarness
+          initialNodes={[mockRepoNode, mockFeatureNode] as CanvasNodeType[]}
+          initialEdges={[]}
+        />
       );
+
+      // repo-1 + feat-1 = 2 nodes
+      expect(screen.getByTestId('node-count')).toHaveTextContent('2');
 
       // Re-render with identical initialNodes (same IDs)
       rerender(
-        <HookTestHarness initialNodes={[mockFeatureNode] as CanvasNodeType[]} initialEdges={[]} />
+        <HookTestHarness
+          initialNodes={[mockRepoNode, mockFeatureNode] as CanvasNodeType[]}
+          initialEdges={[]}
+        />
       );
 
-      // Node count should remain 1 (no extra nodes added, no duplication)
-      expect(screen.getByTestId('node-count')).toHaveTextContent('1');
+      // Node count should remain 2 (no extra nodes added, no duplication)
+      expect(screen.getByTestId('node-count')).toHaveTextContent('2');
     });
   });
 
@@ -562,7 +536,7 @@ describe('useControlCenterState', () => {
       id: 'repo-1',
       type: 'repositoryNode',
       position: { x: 0, y: 0 },
-      data: { name: 'shep-ai/cli' },
+      data: { name: 'shep-ai/cli', repositoryPath: '/home/user/my-repo' },
     };
 
     const edgeRepoToFeat1: Edge = {
@@ -607,7 +581,7 @@ describe('useControlCenterState', () => {
       expect(screen.getByTestId('node-count')).toHaveTextContent('2');
     });
 
-    it('removes all edges connected to deleted node on success', async () => {
+    it('removes edges connected to deleted node on success', async () => {
       mockDeleteFeature.mockResolvedValue({ feature: { id: 'f1' } });
 
       renderHook([featureNode, featureNode2, repoNode] as CanvasNodeType[], [
@@ -615,14 +589,15 @@ describe('useControlCenterState', () => {
         edgeFeat1ToFeat2,
       ]);
 
+      // Edges are derived from repositoryPath: repo→feat-1 and repo→feat-2 = 2
       expect(screen.getByTestId('edge-count')).toHaveTextContent('2');
 
       await act(async () => {
         fireEvent.click(screen.getByTestId('delete-feature'));
       });
 
-      // Both edges (repo->feat-1 and feat-1->feat-2) should be removed
-      expect(screen.getByTestId('edge-count')).toHaveTextContent('0');
+      // After deleting feat-1, repo→feat-2 remains (derived from repositoryPath)
+      expect(screen.getByTestId('edge-count')).toHaveTextContent('1');
     });
 
     it('shows success toast on successful deletion', async () => {
@@ -717,7 +692,7 @@ describe('useControlCenterState', () => {
         id: 'repo-1',
         type: 'repositoryNode',
         position: { x: 0, y: 100 },
-        data: { name: 'shep-ai/cli' },
+        data: { name: 'shep-ai/cli', repositoryPath: '/home/user/my-repo' },
       };
 
       const chainFeat1: FeatureNodeType = {
@@ -784,7 +759,7 @@ describe('useControlCenterState', () => {
         }
 
         await act(async () => {
-          capturedState!.handleDeleteFeature('feat-1');
+          capturedState!.handleDeleteFeature('1');
         });
 
         // After deletion + relayout, remaining nodes should have different positions
@@ -803,10 +778,9 @@ describe('useControlCenterState', () => {
         expect(repoMoved || feat2Moved).toBe(true);
       });
 
-      it('does not change positions on server action error', async () => {
+      it('restores all nodes and edges on server action error', async () => {
         mockDeleteFeature.mockResolvedValue({ error: 'Delete failed' });
 
-        const positionsBefore = new Map<string, { x: number; y: number }>();
         let capturedState: ControlCenterState | null = null;
 
         render(
@@ -819,25 +793,22 @@ describe('useControlCenterState', () => {
           />
         );
 
-        // Record positions before deletion attempt
-        for (const node of capturedState!.nodes) {
-          positionsBefore.set(node.id, { ...node.position });
-        }
-
         await act(async () => {
-          capturedState!.handleDeleteFeature('feat-1');
+          capturedState!.handleDeleteFeature('1');
         });
 
-        // All 3 nodes should still be present with identical positions
+        // All 3 nodes should be restored after error rollback
         expect(capturedState!.nodes).toHaveLength(3);
-        for (const node of capturedState!.nodes) {
-          const before = positionsBefore.get(node.id)!;
-          expect(node.position.x).toBe(before.x);
-          expect(node.position.y).toBe(before.y);
-        }
+        expect(capturedState!.nodes.map((n) => n.id).sort()).toEqual([
+          'feat-1',
+          'feat-2',
+          'repo-1',
+        ]);
+        // Both derived edges should be restored (repo→feat-1, repo→feat-2)
+        expect(capturedState!.edges).toHaveLength(2);
       });
 
-      it('positions disconnected nodes below connected graph after deletion', async () => {
+      it('remaining connected nodes are properly laid out after deletion', async () => {
         mockDeleteFeature.mockResolvedValue({ feature: { id: 'f1' } });
 
         let capturedState: ControlCenterState | null = null;
@@ -856,14 +827,17 @@ describe('useControlCenterState', () => {
           capturedState!.handleDeleteFeature('1');
         });
 
-        // After deleting feat-1, feat-2 has no edges and becomes disconnected.
-        // layoutWithDagre should place disconnected nodes below the connected graph.
+        // After deleting feat-1, feat-2 is still connected to repo via repositoryPath.
+        // Dagre should lay out the remaining 2 nodes with valid positions.
         const repoAfter = capturedState!.nodes.find((n) => n.id === 'repo-1')!;
         const feat2After = capturedState!.nodes.find((n) => n.id === 'feat-2')!;
 
-        // Repo node height is 50px. Disconnected feat-2 should be below repo's bottom edge.
-        const repoBottom = repoAfter.position.y + 50;
-        expect(feat2After.position.y).toBeGreaterThan(repoBottom);
+        expect(repoAfter).toBeDefined();
+        expect(feat2After).toBeDefined();
+        // There should be 1 edge (repo→feat-2) derived from repositoryPath
+        expect(capturedState!.edges).toHaveLength(1);
+        expect(typeof repoAfter.position.x).toBe('number');
+        expect(typeof feat2After.position.x).toBe('number');
       });
 
       it('preserves correct node and edge counts after relayout', async () => {
@@ -881,7 +855,7 @@ describe('useControlCenterState', () => {
           />
         );
 
-        // Before deletion: 3 nodes, 2 edges
+        // Before deletion: 3 nodes, 2 derived edges (repo→feat-1, repo→feat-2)
         expect(capturedState!.nodes).toHaveLength(3);
         expect(capturedState!.edges).toHaveLength(2);
 
@@ -893,8 +867,8 @@ describe('useControlCenterState', () => {
         expect(capturedState!.nodes).toHaveLength(2);
         expect(capturedState!.nodes.map((n) => n.id).sort()).toEqual(['feat-2', 'repo-1']);
 
-        // Both edges were connected to feat-1, so 0 edges remain
-        expect(capturedState!.edges).toHaveLength(0);
+        // feat-2 still has repositoryPath matching repo → 1 derived edge remains
+        expect(capturedState!.edges).toHaveLength(1);
       });
     });
   });

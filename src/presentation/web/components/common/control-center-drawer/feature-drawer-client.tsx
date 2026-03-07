@@ -53,11 +53,10 @@ import { useFeatureActions } from '@/components/common/feature-drawer/use-featur
 import type { PrdQuestionnaireData } from '@/components/common/prd-questionnaire';
 import type { TechDecisionsReviewData } from '@/components/common/tech-decisions-review';
 import type { MergeReviewData } from '@/components/common/merge-review';
-import {
-  mapEventTypeToState,
-  mapPhaseNameToLifecycle,
-} from '@/components/common/feature-node/derive-feature-state';
+import { resolveSseEventUpdates } from '@/components/common/feature-node/derive-feature-state';
+import { deriveFeatureViewType } from './drawer-view';
 import type { DrawerView } from './drawer-view';
+import { useArtifactFetch } from './use-artifact-fetch';
 
 export interface FeatureDrawerClientProps {
   view: DrawerView;
@@ -89,39 +88,43 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
   const processedCountRef = useRef(0);
 
   useEffect(() => {
+    // Clamp cursor if events were pruned
+    if (processedCountRef.current > events.length) {
+      processedCountRef.current = 0;
+    }
     if (!featureNode || events.length <= processedCountRef.current) return;
 
     const newEvents = events.slice(processedCountRef.current);
     processedCountRef.current = events.length;
 
-    for (const event of newEvents) {
-      if (event.featureId !== featureNode.featureId) continue;
-      const newState = mapEventTypeToState(event.eventType);
-      const newLifecycle = mapPhaseNameToLifecycle(event.phaseName);
+    for (const update of resolveSseEventUpdates(newEvents)) {
+      if (update.featureId !== featureNode.featureId) continue;
 
       // Trigger a server refresh to get the latest drawer view,
-      // but skip when the user has unsaved changes or a rejection is in-flight
-      // to avoid the refresh interfering with the reject handler's navigation.
-      if (!isDirtyRef.current && !isRejectingRef.current) router.refresh();
+      // but skip when the drawer is closed, the user has unsaved changes,
+      // or a rejection is in-flight to avoid unnecessary refreshes.
+      if (isOpenRef.current && !isDirtyRef.current && !isRejectingRef.current) router.refresh();
 
-      // Optimistically update the node data for immediate UI feedback
-      setView((prev) => {
-        if (
-          prev.type !== 'feature' &&
-          prev.type !== 'prd-review' &&
-          prev.type !== 'tech-review' &&
-          prev.type !== 'merge-review'
-        )
-          return prev;
-        return {
-          ...prev,
-          node: {
+      if (update.state !== undefined || update.lifecycle !== undefined) {
+        // Optimistically update the node data AND re-derive the view type so the
+        // drawer switches immediately (e.g. prd-review → feature when agent resumes)
+        // without waiting for the router.refresh() round-trip.
+        setView((prev) => {
+          if (
+            prev.type !== 'feature' &&
+            prev.type !== 'prd-review' &&
+            prev.type !== 'tech-review' &&
+            prev.type !== 'merge-review'
+          )
+            return prev;
+          const updatedNode = {
             ...prev.node,
-            state: newState,
-            ...(newLifecycle !== undefined && { lifecycle: newLifecycle }),
-          },
-        };
-      });
+            ...(update.state !== undefined && { state: update.state }),
+            ...(update.lifecycle !== undefined && { lifecycle: update.lifecycle }),
+          };
+          return { ...prev, type: deriveFeatureViewType(updatedNode), node: updatedNode };
+        });
+      }
     }
   }, [events, featureNode, router]);
 
@@ -131,6 +134,8 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
   // the close animation when the path no longer matches a feature route.
   const pathname = usePathname();
   const isOpen = pathname.startsWith('/feature/');
+  const isOpenRef = useRef(isOpen);
+  isOpenRef.current = isOpen;
 
   const onClose = useCallback(() => {
     router.push('/');
@@ -143,21 +148,17 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
   const [prdData, setPrdData] = useState<PrdQuestionnaireData | null>(null);
   const [prdSelections, setPrdSelections] = useState<Record<string, string>>({});
   const [prdDefaultSelections, setPrdDefaultSelections] = useState<Record<string, string>>({});
-  const [isLoadingPrd, setIsLoadingPrd] = useState(false);
 
   // ── Tech state ─────────────────────────────────────────────────────────
   const [techData, setTechData] = useState<TechDecisionsReviewData | null>(null);
-  const [isLoadingTech, setIsLoadingTech] = useState(false);
 
   // ── Product decisions state (for tech review Product tab) ─────────────
   const [techProductData, setTechProductData] = useState<
     ProductDecisionsSummaryData | null | undefined
   >(undefined);
-  const [isLoadingTechProduct, setIsLoadingTechProduct] = useState(false);
 
   // ── Merge state ────────────────────────────────────────────────────────
   const [mergeData, setMergeData] = useState<MergeReviewData | null>(null);
-  const [isLoadingMerge, setIsLoadingMerge] = useState(false);
 
   // ── Delete state ───────────────────────────────────────────────────────
   const [isDeleting, setIsDeleting] = useState(false);
@@ -175,120 +176,71 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
   // ── Data fetching ─────────────────────────────────────────────────────
 
   const prdFeatureId = view.type === 'prd-review' ? view.node.featureId : null;
-  useEffect(() => {
-    setPrdSelections({});
-    setPrdDefaultSelections({});
-    setPrdData(null);
-    if (!prdFeatureId) return;
-
-    let cancelled = false;
-    setIsLoadingPrd(true);
-    getFeatureArtifact(prdFeatureId)
-      .then((result) => {
-        if (cancelled) return;
-        if (result.error) {
-          toast.error(result.error);
-          return;
+  const isLoadingPrd = useArtifactFetch(
+    prdFeatureId,
+    getFeatureArtifact,
+    (result) => {
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      if (result.questionnaire) {
+        setPrdData(result.questionnaire);
+        const defaults: Record<string, string> = {};
+        for (const q of result.questionnaire.questions) {
+          const recommended = q.options.find((o) => o.recommended);
+          if (recommended) defaults[q.id] = recommended.id;
         }
-        if (result.questionnaire) {
-          setPrdData(result.questionnaire);
-          const defaults: Record<string, string> = {};
-          for (const q of result.questionnaire.questions) {
-            const recommended = q.options.find((o) => o.recommended);
-            if (recommended) defaults[q.id] = recommended.id;
-          }
-          setPrdSelections(defaults);
-          setPrdDefaultSelections(defaults);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) toast.error('Failed to load questionnaire');
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoadingPrd(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [prdFeatureId]);
+        setPrdSelections(defaults);
+        setPrdDefaultSelections(defaults);
+      }
+    },
+    () => {
+      setPrdSelections({});
+      setPrdDefaultSelections({});
+      setPrdData(null);
+    },
+    'Failed to load questionnaire'
+  );
 
   const techFeatureId = view.type === 'tech-review' ? view.node.featureId : null;
-  useEffect(() => {
-    setTechData(null);
-    if (!techFeatureId) return;
+  const isLoadingTech = useArtifactFetch(
+    techFeatureId,
+    getResearchArtifact,
+    (result) => {
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      if (result.techDecisions) setTechData(result.techDecisions);
+    },
+    () => setTechData(null),
+    'Failed to load tech decisions'
+  );
 
-    let cancelled = false;
-    setIsLoadingTech(true);
-    getResearchArtifact(techFeatureId)
-      .then((result) => {
-        if (cancelled) return;
-        if (result.error) {
-          toast.error(result.error);
-          return;
-        }
-        if (result.techDecisions) setTechData(result.techDecisions);
-      })
-      .catch(() => {
-        if (!cancelled) toast.error('Failed to load tech decisions');
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoadingTech(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [techFeatureId]);
-
-  useEffect(() => {
-    setTechProductData(undefined);
-    if (!techFeatureId) return;
-
-    let cancelled = false;
-    setIsLoadingTechProduct(true);
-    getFeatureArtifact(techFeatureId)
-      .then((result) => {
-        if (cancelled) return;
-        if (result.productDecisions) {
-          setTechProductData(result.productDecisions);
-        }
-      })
-      .catch(() => {
-        // Silent failure — the product tab is supplementary
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoadingTechProduct(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [techFeatureId]);
+  const isLoadingTechProduct = useArtifactFetch(
+    techFeatureId,
+    getFeatureArtifact,
+    (result) => {
+      if (result.productDecisions) setTechProductData(result.productDecisions);
+    },
+    () => setTechProductData(undefined)
+  );
 
   const mergeFeatureId = view.type === 'merge-review' ? view.node.featureId : null;
-  useEffect(() => {
-    setMergeData(null);
-    if (!mergeFeatureId) return;
-
-    let cancelled = false;
-    setIsLoadingMerge(true);
-    getMergeReviewData(mergeFeatureId)
-      .then((result) => {
-        if (cancelled) return;
-        if ('error' in result) {
-          toast.error(result.error);
-          return;
-        }
-        setMergeData(result);
-      })
-      .catch(() => {
-        if (!cancelled) toast.error('Failed to load merge review data');
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoadingMerge(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [mergeFeatureId]);
+  const isLoadingMerge = useArtifactFetch(
+    mergeFeatureId,
+    getMergeReviewData,
+    (result) => {
+      if ('error' in result) {
+        toast.error(result.error);
+        return;
+      }
+      setMergeData(result);
+    },
+    () => setMergeData(null),
+    'Failed to load merge review data'
+  );
 
   // ── Close guard ──────────────────────────────────────────────────────
   const isChatDirty = chatInput.trim().length > 0;
@@ -368,6 +320,12 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
       }
       setChatInput('');
       toast.success(`${label} approved — agent resuming`);
+      // Optimistically update canvas node before SSE arrives (~500ms delay)
+      window.dispatchEvent(
+        new CustomEvent('shep:feature-approved', {
+          detail: { featureId: reviewNode.featureId },
+        })
+      );
       onClose();
     },
     [reviewNode, onClose]
@@ -395,6 +353,12 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
       }
       setChatInput('');
       toast.success('Requirements approved — agent resuming');
+      // Optimistically update canvas node before SSE arrives (~500ms delay)
+      window.dispatchEvent(
+        new CustomEvent('shep:feature-approved', {
+          detail: { featureId: view.node.featureId },
+        })
+      );
       setPrdSelections({});
       onClose();
     },

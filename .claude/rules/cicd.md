@@ -14,3 +14,15 @@
 2. Watch ALL in-progress runs (not just the first one)
 3. Only after every run shows `completed` + `success`, report CI as passed
 4. If any run fails, investigate — do not ignore it
+
+## ABSOLUTE OWNERSHIP OF CI FAILURES
+
+**You are the ONLY developer. Every CI failure is YOUR failure.**
+
+- If E2E tests fail — fix them. They are YOUR tests.
+- If security scans fail (Trivy, Semgrep, Gitleaks) — fix them. They are YOUR scans.
+- If lint/typecheck/build fails — fix it. It is YOUR code.
+- NEVER say a failure is "unrelated", "pre-existing", or "not our changes"
+- NEVER dismiss a failure as an "infrastructure issue"
+- NEVER claim CI passed when ANY job has failed
+- If you truly cannot fix a failure, escalate to the user with full details — do NOT wave it away

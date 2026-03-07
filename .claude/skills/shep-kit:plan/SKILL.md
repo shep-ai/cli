@@ -95,7 +95,7 @@ Convert phases into actionable tasks:
 - Mark parallelizable tasks with [P]
 - Include acceptance checklist
 
-### 8. Write plan.yaml and tasks.yaml, then Generate Markdown
+### 8. Write plan.yaml and tasks.yaml
 
 Write structured YAML source files (the source of truth):
 
@@ -110,14 +110,6 @@ Write structured YAML source files (the source of truth):
   Individual task details live exclusively in the `tasks[]` structured array.
 - **tasks.yaml `tasks[]`**: The single source of truth for all task details (title,
   description, TDD cycles, acceptance criteria, dependencies, effort).
-
-Then generate Markdown from YAML:
-
-```bash
-pnpm spec:generate-md NNN-feature-name
-```
-
-This produces `plan.md` and `tasks.md` automatically. Do NOT hand-edit the Markdown files.
 
 ### 9. Update Status Fields & feature.yaml
 
@@ -156,12 +148,6 @@ checkpoints:
 ```bash
 # Count entries in tasks.yaml tasks[] array
 yq '.tasks | length' specs/NNN-feature-name/tasks.yaml
-```
-
-**Regenerate Markdown** after status updates:
-
-```bash
-pnpm spec:generate-md NNN-feature-name
 ```
 
 **Reference:** [docs/development/feature-yaml-protocol.md](../../../docs/development/feature-yaml-protocol.md)

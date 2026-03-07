@@ -4,7 +4,7 @@ import { useCallback, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layouts/app-sidebar';
-import { AddRepositoryButton } from '@/components/common/add-repository-node';
+import { AddRepositoryButton } from '@/components/common/add-repository-button';
 import { ThemeToggle } from '@/components/common/theme-toggle';
 import { SoundToggle } from '@/components/common/sound-toggle';
 import { AgentEventsProvider } from '@/hooks/agent-events-provider';

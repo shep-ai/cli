@@ -27,6 +27,17 @@ export type DrawerView =
   /** Repository node actions */
   | { type: 'repository'; data: RepositoryNodeData };
 
+/** Derives the feature-specific view type from node lifecycle + state. */
+export function deriveFeatureViewType(
+  node: FeatureNodeData
+): 'feature' | 'prd-review' | 'tech-review' | 'merge-review' {
+  if (node.lifecycle === 'requirements' && node.state === 'action-required') return 'prd-review';
+  if (node.lifecycle === 'implementation' && node.state === 'action-required') return 'tech-review';
+  if (node.lifecycle === 'review' && (node.state === 'action-required' || node.state === 'error'))
+    return 'merge-review';
+  return 'feature';
+}
+
 /**
  * Derives the active DrawerView from control-center state.
  * Priority: feature-create > selected-node (prd/tech/merge/feature) > repository
@@ -59,19 +70,7 @@ export function computeDrawerView({
   }
 
   if (selectedNode) {
-    if (selectedNode.lifecycle === 'requirements' && selectedNode.state === 'action-required') {
-      return { type: 'prd-review', node: selectedNode };
-    }
-    if (selectedNode.lifecycle === 'implementation' && selectedNode.state === 'action-required') {
-      return { type: 'tech-review', node: selectedNode };
-    }
-    if (
-      selectedNode.lifecycle === 'review' &&
-      (selectedNode.state === 'action-required' || selectedNode.state === 'error')
-    ) {
-      return { type: 'merge-review', node: selectedNode };
-    }
-    return { type: 'feature', node: selectedNode };
+    return { type: deriveFeatureViewType(selectedNode), node: selectedNode };
   }
 
   if (selectedRepoNode) {

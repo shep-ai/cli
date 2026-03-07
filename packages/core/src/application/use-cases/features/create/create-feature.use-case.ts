@@ -31,7 +31,7 @@ import { getSettings } from '../../../../infrastructure/services/settings.servic
 import { POST_IMPLEMENTATION } from '../../../../domain/lifecycle-gates.js';
 import { MetadataGenerator } from './metadata-generator.js';
 import { SlugResolver } from './slug-resolver.js';
-import type { CreateFeatureInput, CreateFeatureResult } from './types.js';
+import type { CreateFeatureInput, CreateFeatureResult, CreateRecordResult } from './types.js';
 
 @injectable()
 export class CreateFeatureUseCase {
@@ -56,12 +56,24 @@ export class CreateFeatureUseCase {
     private readonly gitPrService: IGitPrService
   ) {}
 
+  /**
+   * Full synchronous execution: creates record, initializes worktree/spec, spawns agent.
+   * Used by the CLI which shows a spinner and needs everything done before returning.
+   */
   async execute(input: CreateFeatureInput): Promise<CreateFeatureResult> {
-    // Resolve parent feature and determine child initial lifecycle (FR-8, FR-9, FR-12, FR-19)
+    const { feature, shouldSpawn } = await this.createRecord(input);
+    const { warning, updatedFeature } = await this.initializeAndSpawn(feature, input, shouldSpawn);
+    return { feature: updatedFeature, warning };
+  }
+
+  /**
+   * Phase 1 (fast): Creates the feature + agent run records in DB and returns immediately.
+   * The feature has a real UUID and a preliminary slug derived from the provided name.
+   * No AI calls, no git operations — just DB writes.
+   */
+  async createRecord(input: CreateFeatureInput): Promise<CreateRecordResult> {
     let initialLifecycle: SdlcLifecycle = SdlcLifecycle.Requirements;
     let shouldSpawn = true;
-    // When creating a child feature, always use the parent's repositoryPath (the
-    // original repo root), not the caller's cwd which may be a worktree (FR-10).
     let effectiveRepoPath = input.repositoryPath;
 
     if (input.parentId) {
@@ -70,11 +82,9 @@ export class CreateFeatureUseCase {
         throw new Error(`Parent feature not found: ${input.parentId}`);
       }
 
-      // Use the parent's repositoryPath so the child worktree branches from the
-      // original repo, not from inside another worktree.
       effectiveRepoPath = parent.repositoryPath;
 
-      // Cycle detection — O(depth) upward walk through ancestor chain (FR-19)
+      // Cycle detection — O(depth) upward walk through ancestor chain
       const visited = new Set<string>([input.parentId]);
       let cursor = parent.parentId;
       while (cursor) {
@@ -86,10 +96,6 @@ export class CreateFeatureUseCase {
         cursor = ancestor?.parentId ?? undefined;
       }
 
-      // Two-gate lifecycle logic (FR-9):
-      //   parent.lifecycle === Blocked → cascade block (FR-12)
-      //   parent.lifecycle not in POST_IMPLEMENTATION → early gate not met → Blocked
-      //   parent.lifecycle in POST_IMPLEMENTATION → gate satisfied → Started
       if (
         parent.lifecycle === SdlcLifecycle.Blocked ||
         !POST_IMPLEMENTATION.has(parent.lifecycle)
@@ -102,44 +108,10 @@ export class CreateFeatureUseCase {
       }
     }
 
-    // Ensure the target directory is a git repository (auto-init if needed)
-    // Must run before slug resolution which needs git commands
-    await this.worktreeService.ensureGitRepository(effectiveRepoPath);
-
-    const metadata = await this.metadataGenerator.generateMetadata(input.userInput);
-    const originalSlug = metadata.slug;
-
-    // Find a unique slug — the branch may exist from a previous (deleted) feature
-    const { slug, branch, warning } = await this.slugResolver.resolveUniqueSlug(
-      originalSlug,
-      effectiveRepoPath
-    );
-
-    // Determine next feature number for this repo
-    const existingFeatures = await this.featureRepo.list({
-      repositoryPath: effectiveRepoPath,
-    });
-    const featureNumber = existingFeatures.length + 1;
-
-    const now = new Date();
-    const runId = randomUUID();
-
-    // Create git worktree branching from the repo's default branch
-    const defaultBranch = await this.gitPrService.getDefaultBranch(effectiveRepoPath);
-    const worktreePath = this.worktreeService.getWorktreePath(effectiveRepoPath, branch);
-    await this.worktreeService.create(effectiveRepoPath, branch, worktreePath, defaultBranch);
-
-    // Initialize spec directory — full user input goes into spec.yaml as-is
-    const { specDir } = await this.specInitializer.initialize(
-      worktreePath,
-      slug,
-      featureNumber,
-      input.userInput
-    );
-
     // Resolve or create repository entity for this path
     const normalizedPath = effectiveRepoPath.replace(/\/+$/, '') || effectiveRepoPath;
     let repository = await this.repositoryRepo.findByPath(normalizedPath);
+    const now = new Date();
     if (!repository) {
       const repoName = normalizedPath.split('/').pop() ?? normalizedPath;
       repository = {
@@ -157,14 +129,20 @@ export class CreateFeatureUseCase {
       }
     }
 
+    const featureName = input.name ?? input.userInput.slice(0, 100);
+    const runId = randomUUID();
+    const featureId = randomUUID();
+
+    // Use the feature ID as a temporary slug so it never collides with the
+    // AI-generated slug in initializeAndSpawn() → resolveUniqueSlug().
     const feature: Feature = {
-      id: randomUUID(),
-      name: metadata.name,
-      slug,
-      description: metadata.description,
+      id: featureId,
+      name: featureName,
+      slug: featureId,
+      description: input.description ?? '',
       userQuery: input.userInput,
       repositoryPath: effectiveRepoPath,
-      branch,
+      branch: '',
       lifecycle: initialLifecycle,
       messages: [],
       relatedArtifacts: [],
@@ -176,7 +154,7 @@ export class CreateFeatureUseCase {
         allowMerge: false,
       },
       agentRunId: runId,
-      specPath: specDir,
+      specPath: '',
       repositoryId: repository.id,
       ...(input.parentId ? { parentId: input.parentId } : {}),
       createdAt: now,
@@ -185,7 +163,7 @@ export class CreateFeatureUseCase {
 
     await this.featureRepo.create(feature);
 
-    // Create agent run record and spawn background worker
+    // Create agent run record (pending state — agent not spawned yet)
     const settings = getSettings();
     const agentRun = {
       id: runId,
@@ -202,16 +180,80 @@ export class CreateFeatureUseCase {
     };
     await this.runRepository.create(agentRun);
 
-    // Only spawn the agent immediately if the child is not blocked (FR-9, FR-16)
+    return { feature, shouldSpawn };
+  }
+
+  /**
+   * Phase 2 (slow): AI metadata generation, git worktree, spec init, agent spawn.
+   * Updates the feature record with refined metadata, branch, and specPath.
+   */
+  async initializeAndSpawn(
+    feature: Feature,
+    input: CreateFeatureInput,
+    shouldSpawn: boolean
+  ): Promise<{ warning?: string; updatedFeature: Feature }> {
+    const effectiveRepoPath = feature.repositoryPath;
+
+    // Ensure the target directory is a git repository (auto-init if needed)
+    await this.worktreeService.ensureGitRepository(effectiveRepoPath);
+
+    const metadata = await this.metadataGenerator.generateMetadata(input.userInput);
+    const originalSlug = metadata.slug;
+
+    const { slug, branch, warning } = await this.slugResolver.resolveUniqueSlug(
+      originalSlug,
+      effectiveRepoPath
+    );
+
+    // Determine next feature number for this repo
+    const existingFeatures = await this.featureRepo.list({
+      repositoryPath: effectiveRepoPath,
+    });
+    const featureNumber = existingFeatures.length;
+
+    // Create git worktree branching from the repo's default branch
+    const defaultBranch = await this.gitPrService.getDefaultBranch(effectiveRepoPath);
+    const worktreePath = this.worktreeService.getWorktreePath(effectiveRepoPath, branch);
+    await this.worktreeService.create(effectiveRepoPath, branch, worktreePath, defaultBranch);
+
+    // Initialize spec directory — full user input goes into spec.yaml as-is
+    const { specDir } = await this.specInitializer.initialize(
+      worktreePath,
+      slug,
+      featureNumber,
+      input.userInput
+    );
+
+    // Update feature record with refined metadata, branch, and specPath
+    const updatedFeature: Feature = {
+      ...feature,
+      name: metadata.name,
+      slug,
+      description: metadata.description,
+      branch,
+      specPath: specDir,
+      updatedAt: new Date(),
+    };
+    await this.featureRepo.update(updatedFeature);
+
+    // Spawn agent if not blocked
     if (shouldSpawn) {
-      this.agentProcess.spawn(feature.id, runId, effectiveRepoPath, specDir, worktreePath, {
-        ...(input.approvalGates ? { approvalGates: input.approvalGates } : {}),
-        threadId: agentRun.threadId,
-        push: input.push ?? false,
-        openPr: input.openPr ?? false,
-      });
+      const agentRun = await this.runRepository.findById(feature.agentRunId!);
+      this.agentProcess.spawn(
+        feature.id,
+        feature.agentRunId!,
+        effectiveRepoPath,
+        specDir,
+        worktreePath,
+        {
+          ...(input.approvalGates ? { approvalGates: input.approvalGates } : {}),
+          threadId: agentRun?.threadId ?? randomUUID(),
+          push: input.push ?? false,
+          openPr: input.openPr ?? false,
+        }
+      );
     }
 
-    return { feature, warning };
+    return { warning, updatedFeature };
   }
 }

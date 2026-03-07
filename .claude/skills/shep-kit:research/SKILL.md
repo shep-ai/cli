@@ -82,14 +82,6 @@ Write research output to `specs/NNN-feature-name/research.yaml` (the source of t
 - Performance implications
 - Resolved questions (ensure all open questions from `spec.yaml` are addressed)
 
-Then generate Markdown from the YAML source:
-
-```bash
-pnpm spec:generate-md NNN-feature-name
-```
-
-This produces `research.md` automatically from `research.yaml`.
-
 ### 6. Update Status Fields & feature.yaml
 
 **CRITICAL:** Update status in YAML source files and feature.yaml:
@@ -124,13 +116,9 @@ checkpoints:
 
 **Reference:** [docs/development/feature-yaml-protocol.md](../../../docs/development/feature-yaml-protocol.md)
 
-### 7. Regenerate Markdown & Commit
+### 7. Commit
 
 ```bash
-# Regenerate all Markdown from updated YAML sources
-pnpm spec:generate-md NNN-feature-name
-
-# Stage and commit (both YAML source and generated Markdown)
 git add specs/NNN-feature-name/
 git commit -m "feat(specs): add NNN-feature-name research"
 ```
@@ -155,8 +143,6 @@ Inform the user:
 ## Template Location
 
 YAML template (source of truth): `.claude/skills/shep-kit:new-feature/templates/research.yaml`
-
-Markdown is auto-generated from YAML via `pnpm spec:generate-md`.
 
 ## Example
 

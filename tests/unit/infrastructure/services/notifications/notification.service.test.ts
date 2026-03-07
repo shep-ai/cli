@@ -87,22 +87,8 @@ describe('NotificationService', () => {
       expect(busEvents[0]).toEqual(event);
     });
 
-    it('should call DesktopNotifier.send() when desktop channel is enabled', () => {
+    it('should never call DesktopNotifier.send() (desktop notifications removed)', () => {
       initSettingsWithNotifications({ desktop: { enabled: true } });
-      service = new NotificationService(getNotificationBus(), desktopNotifier);
-
-      const event = createTestEvent();
-      service.notify(event);
-
-      expect(desktopNotifier.send).toHaveBeenCalledOnce();
-      expect(desktopNotifier.send).toHaveBeenCalledWith(
-        'Test Feature',
-        'Agent completed successfully'
-      );
-    });
-
-    it('should skip desktop when desktop channel is disabled', () => {
-      initSettingsWithNotifications({ desktop: { enabled: false } });
       service = new NotificationService(getNotificationBus(), desktopNotifier);
 
       service.notify(createTestEvent());
@@ -172,10 +158,10 @@ describe('NotificationService', () => {
       );
 
       expect(busEvents).toHaveLength(1);
-      expect(desktopNotifier.send).toHaveBeenCalledOnce();
+      expect(desktopNotifier.send).not.toHaveBeenCalled();
     });
 
-    it('should dispatch to both bus and desktop when all channels are enabled', () => {
+    it('should emit to bus but not desktop when all channels are enabled', () => {
       initSettingsWithNotifications({
         inApp: { enabled: true },
         browser: { enabled: true },
@@ -187,7 +173,7 @@ describe('NotificationService', () => {
       service.notify(event);
 
       expect(busEvents).toHaveLength(1);
-      expect(desktopNotifier.send).toHaveBeenCalledOnce();
+      expect(desktopNotifier.send).not.toHaveBeenCalled();
     });
   });
 });

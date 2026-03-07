@@ -1,0 +1,93 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: robust-graph-state
+number: 050
+branch: feat/050-robust-graph-state
+oneLiner: replace fragile multi-path graph state with domain-model-driven reconciliation layer
+summary: >
+  The web UI canvas manages React Flow nodes/edges via 5 independent mutation paths
+  (server props, SSE events, polling fallback, optimistic UI, React Flow internals) that
+  conflict with each other. Simple fixes cause cascading breakage because nodes and edges
+  are managed independently with no referential integrity, and optimistic temp IDs have no
+  mapping to real server IDs. This feature replaces the scattered setNodes/setEdges calls
+  with a single useGraphState hook that stores domain models (Feature, Repository, AgentRun)
+  as the client-side source of truth and derives React Flow nodes/edges from them.
+phase: Requirements
+sizeEstimate: M
+
+relatedFeatures:
+  - '049-agent-executor-stability'
+
+technologies:
+  - TypeScript
+  - React
+  - '@xyflow/react'
+  - 'Next.js'
+
+relatedLinks:
+  - https://github.com/nicobrinkkemper/shep-ai/issues/217
+
+openQuestions: []
+
+content: |
+  ## Problem Statement
+
+  The control center canvas (`use-control-center-state.ts`) has 5 independent paths that mutate
+  `nodes`/`edges` React state, with no coordination layer:
+
+  1. **Server props sync** — `useEffect` on `initialNodes`/`initialEdges` from layout.tsx
+  2. **SSE events** — `useAgentEventsContext` dispatches `setNodes()` by featureId match
+  3. **Polling fallback** — (added in #217 fix) 5s interval fetches server data and merges
+  4. **Optimistic UI** — `createFeatureNode()` creates temp nodes with `feature-<ts>` IDs
+  5. **React Flow internals** — StoreUpdater emits `replace` changes via `onNodesChange`
+
+  Each path independently calls `setNodes()` and/or `setEdges()`. This causes:
+
+  - **Orphaned edges**: Swapping a temp node ID to a real ID doesn't update edges referencing the old ID
+  - **Circular update loops**: `enrichedNodes` creates new objects, StoreUpdater sees them as new,
+    emits `replace` → `onNodesChange` → `setNodes` → loop
+  - **SSE mismatches**: SSE events use real `feat-<uuid>` IDs that don't match optimistic `feature-<ts>` IDs
+  - **Stale overwrites**: One update path overwrites changes from another
+
+  The root cause is that **React Flow node/edge objects are treated as the source of truth**
+  instead of domain models. This means every update path must understand the full node/edge
+  structure and manually maintain referential integrity between them.
+
+  ## Success Criteria
+
+  - [ ] Single `useGraphState` hook replaces all graph mutation logic in `use-control-center-state.ts`
+  - [ ] Domain models (Feature, Repository, AgentRun) stored as Maps — React Flow nodes/edges derived
+  - [ ] Edges derived from domain relationships (feature.repositoryId, feature.parentId) — never stored independently
+  - [ ] Temp-to-real ID mapping handled atomically — edges auto-update when temp node resolves
+  - [ ] SSE events update domain model fields — no direct React Flow node manipulation
+  - [ ] Server prop sync reconciles domain maps, not raw node arrays
+  - [ ] All existing tests in use-control-center-state.test.tsx pass (adapted to new API)
+  - [ ] New tests cover: temp→real ID resolution with edge integrity, SSE event on optimistic node, concurrent update paths
+  - [ ] No `router.refresh()` calls for real-time updates
+  - [ ] No React Flow `replace` change filtering hack needed
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | --- | --- | --- |
+  | use-control-center-state.ts | High - rewrite | Core state management hook being replaced |
+  | control-center-inner.tsx | Medium - adapt | Consumes hook API, event handlers may change |
+  | features-canvas.tsx | Low - simplify | enrichedNodes may be simplified or removed |
+  | build-graph-nodes.ts | Medium - refactor | Node/edge building logic moves into derivation |
+  | feature-node-state-config.ts | None | FeatureNodeData interface preserved for rendering |
+  | derive-feature-state.ts | None | Derivation functions reused in new hook |
+  | CLAUDE.md (web) | Low - update | Document new architecture |
+
+  ## Dependencies
+
+  - Uses existing generated domain models from `@shepai/core/domain/generated/output`
+  - Uses existing `deriveNodeState`, `deriveProgress` from `derive-feature-state.ts`
+  - Uses existing `layoutWithDagre` for positioning
+  - Depends on fixes from 049-agent-executor-stability branch (SSE `replace` filter fix)
+
+  ## Size Estimate
+
+  **M** - Focused rewrite of one hook (~540 lines) plus a new derivation module. The existing
+  `build-graph-nodes.ts` logic is reused, not rewritten. Test adaptation is straightforward
+  since the external API (nodes, edges, handlers) stays compatible.

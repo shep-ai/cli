@@ -17,10 +17,6 @@ vi.mock('@/hooks/agent-events-provider', () => ({
   }),
 }));
 
-vi.mock('@/components/common/notification-permission-banner', () => ({
-  NotificationPermissionBanner: () => null,
-}));
-
 import { ControlCenterInner } from '@/components/features/control-center/control-center-inner';
 import { SidebarFeaturesProvider } from '@/hooks/sidebar-features-context';
 import { DrawerCloseGuardProvider } from '@/hooks/drawer-close-guard';
@@ -149,13 +145,6 @@ describe('ControlCenterInner URL-based navigation', () => {
   });
 
   describe('empty state conditional rendering', () => {
-    const addRepoNode: CanvasNodeType = {
-      id: 'add-repo',
-      type: 'addRepositoryNode',
-      position: { x: 50, y: 50 },
-      data: {},
-    } as CanvasNodeType;
-
     const repoNode: CanvasNodeType = {
       id: 'repo-1',
       type: 'repositoryNode',
@@ -163,15 +152,15 @@ describe('ControlCenterInner URL-based navigation', () => {
       data: { name: 'my-repo', repositoryPath: '/home/user/my-repo', id: 'repo-1' },
     } as CanvasNodeType;
 
-    it('renders empty state when only addRepositoryNode exists (no repositories)', () => {
-      renderControlCenter([addRepoNode]);
+    it('renders empty state when no nodes exist', () => {
+      renderControlCenter([]);
 
       expect(screen.getByTestId('mock-empty-state')).toBeInTheDocument();
       expect(screen.queryByTestId('mock-features-canvas')).not.toBeInTheDocument();
     });
 
     it('renders FeaturesCanvas when a repositoryNode exists', () => {
-      renderControlCenter([repoNode, addRepoNode]);
+      renderControlCenter([repoNode]);
 
       expect(screen.getByTestId('mock-features-canvas')).toBeInTheDocument();
       expect(screen.queryByTestId('mock-empty-state')).not.toBeInTheDocument();

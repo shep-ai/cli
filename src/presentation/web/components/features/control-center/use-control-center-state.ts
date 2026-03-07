@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { applyNodeChanges } from '@xyflow/react';
 import type { Connection, Edge, NodeChange } from '@xyflow/react';
 import type { FeatureNodeData } from '@/components/common/feature-node';
+import type { RepositoryNodeData } from '@/components/common/repository-node';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 import {
   layoutWithDagre,
@@ -15,13 +15,15 @@ import {
 import { deleteFeature } from '@/app/actions/delete-feature';
 import { addRepository } from '@/app/actions/add-repository';
 import { deleteRepository } from '@/app/actions/delete-repository';
-import { fetchGraphData } from '@/app/actions/get-graph-data';
+import { getFeatureMetadata } from '@/app/actions/get-feature-metadata';
 import { useAgentEventsContext } from '@/hooks/agent-events-provider';
 import { useSoundAction } from '@/hooks/use-sound-action';
 import {
   mapEventTypeToState,
-  mapPhaseNameToLifecycle,
+  resolveSseEventUpdates,
 } from '@/components/common/feature-node/derive-feature-state';
+import { useGraphState, type GraphCallbacks } from '@/hooks/use-graph-state';
+import type { FeatureEntry } from '@/lib/derive-graph';
 
 export interface ControlCenterState {
   nodes: CanvasNodeType[];
@@ -37,7 +39,16 @@ export interface ControlCenterState {
     dataOverride?: Partial<FeatureNodeData>,
     edgeType?: string
   ) => string;
+  /** Stable lookup: repositoryPath for a feature node. */
+  getFeatureRepositoryPath: (featureNodeId: string) => string | undefined;
+  /** Stable lookup: repository data by nodeId. */
+  getRepositoryData: (nodeId: string) => RepositoryNodeData | undefined;
+  /** Sync callbacks into derived node data (does not trigger re-render). */
+  setCallbacks: (callbacks: GraphCallbacks) => void;
 }
+
+/** Must match the message string emitted by the SSE route in agent-events/route.ts */
+const METADATA_UPDATED_MESSAGE = 'Feature metadata updated';
 
 let nextFeatureId = 0;
 
@@ -46,123 +57,81 @@ export function useControlCenterState(
   initialEdges: Edge[]
 ): ControlCenterState {
   const router = useRouter();
-  const [nodes, setNodes] = useState<CanvasNodeType[]>(initialNodes);
-  // eslint-disable-next-line react/hook-use-state -- raw setter renamed; public setEdges wrapper keeps edgesRef in sync
-  const [edges, setEdgesRaw] = useState<Edge[]>(initialEdges);
-  const edgesRef = useRef<Edge[]>(initialEdges);
-
-  // Wrapper that keeps edgesRef in sync with edges state, allowing
-  // createFeatureNode to read current edges without a closure dependency.
-  const setEdges = useCallback((update: Edge[] | ((prev: Edge[]) => Edge[])) => {
-    setEdgesRaw((prev) => {
-      const next = typeof update === 'function' ? update(prev) : update;
-      edgesRef.current = next;
-      return next;
-    });
-  }, []);
   const deleteSound = useSoundAction('delete');
   const createSound = useSoundAction('create');
 
-  // Sync server props into local state when parent re-renders with new data
-  const initialNodeKey = initialNodes
-    .map((n) => n.id)
-    .sort()
-    .join(',');
-  const initialEdgeKey = initialEdges
-    .map((e) => e.id)
-    .sort()
-    .join(',');
+  const {
+    nodes,
+    edges,
+    reconcile,
+    updateFeature,
+    addPendingFeature,
+    removeFeature,
+    restoreFeature,
+    addRepository: addRepositoryToMap,
+    removeRepository,
+    replaceRepository,
+    getFeatureRepositoryPath,
+    getRepositoryData,
+    setCallbacks,
+  } = useGraphState(initialNodes, initialEdges);
 
-  // Track previous feature states so we can detect transitions on server refresh
+  // Refs for stable access to latest nodes/edges without callback recreation
+  const nodesRef = useRef(nodes);
+  const edgesRef = useRef(edges);
+  useEffect(() => {
+    nodesRef.current = nodes;
+    edgesRef.current = edges;
+  }, [nodes, edges]);
+
+  // Sync server props into domain Maps when initialNodes/initialEdges change.
+  // Keyed by a stable string so we don't re-reconcile on every render.
+  const initialNodeKey = useMemo(
+    () =>
+      initialNodes
+        .map((n) => n.id)
+        .sort()
+        .join(','),
+    [initialNodes]
+  );
+  const initialDataKey = useMemo(
+    () =>
+      initialNodes
+        .filter((n) => n.type === 'featureNode')
+        .map((n) => {
+          const d = n.data as FeatureNodeData;
+          return `${n.id}:${d.state}:${d.lifecycle}`;
+        })
+        .sort()
+        .join(','),
+    [initialNodes]
+  );
+
+  const prevReconcileKey = useRef('');
+
+  useEffect(() => {
+    const key = `${initialNodeKey}|${initialDataKey}`;
+    if (key !== prevReconcileKey.current) {
+      prevReconcileKey.current = key;
+      reconcile(initialNodes, initialEdges);
+    }
+  }, [initialNodeKey, initialDataKey, initialNodes, initialEdges, reconcile]);
+
+  // Track previous feature states for fallback notifications
   const prevFeatureStatesRef = useRef<Map<string, FeatureNodeData['state']>>(new Map());
 
-  // Stable key that changes when feature DATA changes (state/lifecycle), not just IDs.
-  const initialDataKey = initialNodes
-    .filter((n) => n.type === 'featureNode')
-    .map((n) => {
-      const d = n.data as FeatureNodeData;
-      return `${n.id}:${d.state}:${d.lifecycle}`;
-    })
-    .sort()
-    .join(',');
-
-  // Sync server props into local state — keyed by derived strings (initialNodeKey/initialEdgeKey)
-  // to avoid infinite re-renders from unstable array references.
-  useEffect(() => {
-    setNodes((currentNodes) => {
-      // Build a lookup of current node positions by ID
-      const currentById = new Map(currentNodes.map((n) => [n.id, n]));
-
-      // Identify optimistic "creating" nodes (they have temp IDs not in server data)
-      const serverIds = new Set(initialNodes.map((n) => n.id));
-      const creatingNodes = currentNodes.filter(
-        (n) =>
-          n.type === 'featureNode' &&
-          (n.data as FeatureNodeData).state === 'creating' &&
-          !serverIds.has(n.id)
-      );
-
-      // Merge server nodes with client positions, tracking if relayout is needed
-      let needsRelayout = false;
-      const merged = initialNodes.map((serverNode) => {
-        // Node already exists on canvas — keep its position, update data
-        const existing = currentById.get(serverNode.id);
-        if (existing) {
-          return { ...serverNode, position: existing.position };
-        }
-
-        // New server node — inherit position from an optimistic creating node if available
-        if (serverNode.type === 'featureNode' && creatingNodes.length > 0) {
-          const donor = creatingNodes.shift()!;
-          return { ...serverNode, position: donor.position };
-        }
-
-        // Truly new node with no optimistic counterpart — needs relayout
-        needsRelayout = true;
-        return serverNode;
-      });
-
-      // Also check if non-creating nodes were removed (graph got smaller)
-      if (!needsRelayout) {
-        needsRelayout = currentNodes.some(
-          (cn) =>
-            !serverIds.has(cn.id) &&
-            !(cn.type === 'featureNode' && (cn.data as FeatureNodeData).state === 'creating')
-        );
-      }
-
-      if (needsRelayout) {
-        const layoutResult = layoutWithDagre(merged, initialEdges, CANVAS_LAYOUT_DEFAULTS);
-        setEdges(layoutResult.edges);
-        return layoutResult.nodes;
-      }
-
-      return merged;
-    });
-  }, [initialNodeKey, initialNodes, initialEdges, setEdges]);
-
-  useEffect(() => {
-    setEdges(initialEdges);
-  }, [initialEdgeKey, initialEdges, setEdges]);
-
-  // Fallback notifications from server-prop state transitions.
-  // Fires only when SSE didn't already deliver the matching event for a feature.
   const { events } = useAgentEventsContext();
 
   useEffect(() => {
     const prevStates = prevFeatureStatesRef.current;
-
     for (const node of initialNodes) {
       if (node.type !== 'featureNode') continue;
       const data = node.data as FeatureNodeData;
       const prev = prevStates.get(node.id);
-
       if (prev !== undefined && prev !== data.state) {
-        // Check if SSE already delivered a matching event for this feature
         const sseAlreadyCovered = events.some(
           (e) => e.featureId === data.featureId && mapEventTypeToState(e.eventType) === data.state
         );
-
         if (!sseAlreadyCovered) {
           if (data.state === 'done') {
             toast.success(data.name, { description: 'Feature completed!' });
@@ -171,9 +140,7 @@ export function useControlCenterState(
               description: 'Waiting for your approval',
               action: {
                 label: 'Review',
-                onClick: () => {
-                  router.push(`/feature/${data.featureId}`);
-                },
+                onClick: () => router.push(`/feature/${data.featureId}`),
               },
             });
           } else if (data.state === 'error') {
@@ -181,186 +148,83 @@ export function useControlCenterState(
           }
         }
       }
-
       prevStates.set(node.id, data.state);
     }
   }, [initialDataKey, initialNodes, events, router]);
 
-  // Targeted optimistic updates from SSE agent events.
-  // Uses `events` array (not `lastEvent`) so that React batching cannot silently
-  // drop events when multiple SSE messages arrive in the same tick.
+  // SSE effect: only state + lifecycle updates
   const processedEventCountRef = useRef(0);
 
   useEffect(() => {
+    // Clamp cursor if events were pruned
+    if (processedEventCountRef.current > events.length) {
+      processedEventCountRef.current = 0;
+    }
     if (events.length <= processedEventCountRef.current) return;
-
     const newEvents = events.slice(processedEventCountRef.current);
     processedEventCountRef.current = events.length;
 
-    for (const event of newEvents) {
-      const newState = mapEventTypeToState(event.eventType);
-      const newLifecycle = mapPhaseNameToLifecycle(event.phaseName);
-
-      // Targeted node update — only clone the matched node
-      setNodes((prev) =>
-        prev.map((node) => {
-          if (node.type !== 'featureNode') return node;
-          const data = node.data as FeatureNodeData;
-          if (data.featureId !== event.featureId) return node;
-
-          return {
-            ...node,
-            data: {
-              ...data,
-              state: newState,
-              ...(newLifecycle !== undefined && { lifecycle: newLifecycle }),
-            },
-          };
-        })
-      );
+    for (const { featureId, state, lifecycle } of resolveSseEventUpdates(newEvents)) {
+      if (state !== undefined || lifecycle !== undefined) {
+        updateFeature(`feat-${featureId}`, {
+          ...(state !== undefined && { state }),
+          ...(lifecycle !== undefined && { lifecycle }),
+        });
+      }
     }
-  }, [events]);
+  }, [events, updateFeature]);
 
-  // Lightweight server-action polling fallback: fetches fresh graph data every 5s
-  // when any feature is in an active state. This avoids full router.refresh() while
-  // ensuring the UI stays in sync even if SSE events are missed.
-  //
-  // We derive a stable boolean so the interval isn't torn down on every node change.
-  const hasActiveFeature = nodes.some((n) => {
-    if (n.type !== 'featureNode') return false;
-    const data = n.data as FeatureNodeData;
-    return (
-      data.state === 'running' || data.state === 'action-required' || data.state === 'creating'
-    );
-  });
+  // Listen for optimistic approval events from the drawer (fires before SSE arrives)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { featureId } = (e as CustomEvent<{ featureId: string }>).detail;
+      updateFeature(`feat-${featureId}`, { state: 'running' });
+    };
+    window.addEventListener('shep:feature-approved', handler);
+    return () => window.removeEventListener('shep:feature-approved', handler);
+  }, [updateFeature]);
+
+  // Separate effect: fetch metadata (name + description) when SSE reports it changed
+  const metadataFetchedRef = useRef<Set<string>>(new Set());
+  const processedMetadataCountRef = useRef(0);
 
   useEffect(() => {
-    if (!hasActiveFeature) return;
-
-    const interval = setInterval(async () => {
-      try {
-        const { nodes: serverNodes } = await fetchGraphData();
-        setNodes((currentNodes) => {
-          const serverById = new Map(serverNodes.map((n) => [n.id, n]));
-          let changed = false;
-
-          const merged = currentNodes.map((node) => {
-            const serverNode = serverById.get(node.id);
-            if (!serverNode || node.type !== 'featureNode') return node;
-            const currentData = node.data as FeatureNodeData;
-            const serverData = serverNode.data as FeatureNodeData;
-
-            // Only update if server data has different state or lifecycle
-            if (
-              currentData.state === serverData.state &&
-              currentData.lifecycle === serverData.lifecycle
-            ) {
-              return node;
-            }
-
-            changed = true;
-            return {
-              ...node,
-              data: {
-                ...currentData,
-                state: serverData.state,
-                lifecycle: serverData.lifecycle,
-                progress: serverData.progress,
-                ...(serverData.errorMessage && { errorMessage: serverData.errorMessage }),
-                ...(serverData.runtime && { runtime: serverData.runtime }),
-                ...(serverData.agentType && { agentType: serverData.agentType }),
-                ...(serverData.pr && { pr: serverData.pr }),
-                ...(serverData.blockedBy && { blockedBy: serverData.blockedBy }),
-              },
-            };
-          });
-
-          // Find new server nodes not yet on the client
-          const clientIds = new Set(currentNodes.map((n) => n.id));
-          const newServerNodes = serverNodes.filter((n) => !clientIds.has(n.id));
-
-          // Replace optimistic "creating" temp nodes with their real server
-          // counterparts. Temp nodes have IDs like "feature-<ts>" while real
-          // nodes use "feat-<uuid>". Match by repositoryPath + name.
-          if (newServerNodes.length > 0) {
-            const creatingIndices: number[] = [];
-            merged.forEach((n, i) => {
-              if (n.type === 'featureNode' && (n.data as FeatureNodeData).state === 'creating') {
-                creatingIndices.push(i);
-              }
-            });
-
-            for (const serverNode of newServerNodes) {
-              if (serverNode.type !== 'featureNode' || creatingIndices.length === 0) continue;
-              const idx = creatingIndices.shift()!;
-              // Replace the temp node in-place, keeping its position
-              merged[idx] = { ...serverNode, position: merged[idx].position };
-              changed = true;
-            }
-
-            // Any remaining new server nodes that didn't replace a temp node
-            const replacedIds = new Set(merged.map((n) => n.id));
-            const trueNewNodes = newServerNodes.filter((n) => !replacedIds.has(n.id));
-            if (trueNewNodes.length > 0) {
-              changed = true;
-              return [...merged, ...trueNewNodes];
-            }
-          }
-
-          return changed ? merged : currentNodes;
-        });
-      } catch {
-        // Silently ignore polling errors — SSE is the primary mechanism
-      }
-    }, 5_000);
-
-    return () => clearInterval(interval);
-  }, [hasActiveFeature]);
-
-  const onNodesChange = useCallback((changes: NodeChange<CanvasNodeType>[]) => {
-    // Filter out 'replace' changes — in controlled mode these come from
-    // React Flow's StoreUpdater syncing the nodes prop back into state.
-    // Applying them creates a circular update loop (nodes → enrichedNodes →
-    // StoreUpdater → onNodesChange → setNodes → nodes → …) that both causes
-    // excessive re-renders and overwrites SSE-driven state changes with stale data.
-    const applicable = changes.filter((c) => c.type !== 'replace');
-    if (applicable.length > 0) {
-      setNodes((ns) => applyNodeChanges(applicable, ns));
+    // Clamp cursor if events were pruned
+    if (processedMetadataCountRef.current > events.length) {
+      processedMetadataCountRef.current = 0;
     }
+    if (events.length <= processedMetadataCountRef.current) return;
+    const newEvents = events.slice(processedMetadataCountRef.current);
+    processedMetadataCountRef.current = events.length;
+
+    for (const event of newEvents) {
+      if (event.message !== METADATA_UPDATED_MESSAGE) continue;
+      if (metadataFetchedRef.current.has(event.featureId)) continue;
+      metadataFetchedRef.current.add(event.featureId);
+
+      const nodeId = `feat-${event.featureId}`;
+      getFeatureMetadata(event.featureId)
+        .then((meta) => {
+          if (meta) {
+            updateFeature(nodeId, { name: meta.name, description: meta.description });
+          }
+        })
+        .catch(() => {
+          // Silent: metadata fetch failure is non-critical
+        });
+    }
+  }, [events, updateFeature]);
+
+  // onNodesChange is a no-op: nodes are derived from domain Maps.
+  // Since nodesDraggable=false and elementsSelectable=false, only React Flow's
+  // internal replace/dimensions changes come through — we ignore them all.
+  const onNodesChange = useCallback((_changes: NodeChange<CanvasNodeType>[]) => {
+    // Intentional no-op: domain Maps are the source of truth.
   }, []);
 
-  const handleConnect = useCallback(
-    (connection: Connection) => {
-      if (!connection.source || !connection.target) return;
-
-      setNodes((currentNodes) => {
-        const sourceNode = currentNodes.find((n) => n.id === connection.source);
-        if (sourceNode?.type !== 'repositoryNode') return currentNodes;
-
-        // Block if target feature already has a repo source
-        setEdges((currentEdges) => {
-          const targetAlreadyHasRepo = currentEdges.some((e) => {
-            const edgeSource = currentNodes.find((n) => n.id === e.source);
-            return edgeSource?.type === 'repositoryNode' && e.target === connection.target;
-          });
-          if (targetAlreadyHasRepo) return currentEdges;
-
-          return [
-            ...currentEdges,
-            {
-              id: `edge-${connection.source}-${connection.target}`,
-              source: connection.source,
-              target: connection.target,
-              style: { strokeDasharray: '5 5' },
-            },
-          ];
-        });
-
-        return currentNodes;
-      });
-    },
-    [setEdges]
-  );
+  const handleConnect = useCallback((_connection: Connection) => {
+    // Connections are managed via domain operations, not direct edge manipulation.
+  }, []);
 
   const createFeatureNode = useCallback(
     (
@@ -368,11 +232,14 @@ export function useControlCenterState(
       dataOverride?: Partial<FeatureNodeData>,
       edgeType?: string
     ): string => {
-      const id = `feature-${Date.now()}-${nextFeatureId++}`;
+      // Use real feature ID when available (from server), otherwise temp ID
+      const id = dataOverride?.featureId
+        ? `feat-${dataOverride.featureId}`
+        : `feature-${Date.now()}-${nextFeatureId++}`;
       const newFeatureData: FeatureNodeData = {
         name: dataOverride?.name ?? 'New Feature',
         description: dataOverride?.description ?? 'Describe what this feature does',
-        featureId: `#${id.slice(-4)}`,
+        featureId: dataOverride?.featureId ?? `#${id.slice(-4)}`,
         lifecycle: 'requirements',
         state: dataOverride?.state ?? 'running',
         progress: 0,
@@ -380,171 +247,115 @@ export function useControlCenterState(
         branch: dataOverride?.branch ?? '',
       };
 
-      setNodes((currentNodes) => {
-        const newNode = {
-          id,
-          type: 'featureNode' as const,
-          position: { x: 0, y: 0 },
-          data: newFeatureData,
-        } as CanvasNodeType;
+      const parentNodeId = edgeType === 'dependencyEdge' && sourceNodeId ? sourceNodeId : undefined;
 
-        const newEdge = sourceNodeId
-          ? {
-              id:
-                edgeType === 'dependencyEdge'
-                  ? `dep-${sourceNodeId}-${id}`
-                  : `edge-${sourceNodeId}-${id}`,
-              source: sourceNodeId,
-              target: id,
-              ...(edgeType ? { type: edgeType } : { style: { strokeDasharray: '5 5' } }),
-            }
-          : null;
-
-        const allEdges = newEdge
-          ? [...edgesRef.current.filter((e) => e.id !== newEdge.id), newEdge]
-          : edgesRef.current;
-
-        // Insert the new node after the last sibling connected to the same source,
-        // so dagre's input-order preservation keeps repo groups together.
-        let insertIndex = currentNodes.length;
-        if (sourceNodeId) {
-          const siblingIds = new Set(
-            allEdges.filter((e) => e.source === sourceNodeId).map((e) => e.target)
-          );
-          for (let i = currentNodes.length - 1; i >= 0; i--) {
-            if (siblingIds.has(currentNodes[i].id)) {
-              insertIndex = i + 1;
-              break;
-            }
-          }
-        }
-        const allNodes = [
-          ...currentNodes.slice(0, insertIndex),
-          newNode,
-          ...currentNodes.slice(insertIndex),
-        ];
-
-        // Run dagre layout on the full graph so the new node is positioned consistently
-        const layoutResult = layoutWithDagre(allNodes, allEdges, CANVAS_LAYOUT_DEFAULTS);
-        setEdges(layoutResult.edges);
-        return layoutResult.nodes;
-      });
+      addPendingFeature(id, newFeatureData, parentNodeId);
 
       return id;
     },
-    [setEdges]
+    [addPendingFeature]
   );
 
   const handleDeleteFeature = useCallback(
     (featureId: string) => {
       const nodeId = `feat-${featureId}`;
 
-      // Snapshot current state for rollback
-      const prevNodes = nodes;
-      const prevEdges = edgesRef.current;
+      // Find the current entry for rollback
+      const prevEntry = nodesRef.current
+        .filter((n) => n.id === nodeId)
+        .map((n) => ({
+          nodeId: n.id,
+          data: n.data as FeatureNodeData,
+        }))[0];
 
-      // Optimistic removal — update UI immediately
-      setNodes((currentNodes) => {
-        const remainingNodes = currentNodes.filter((n) => n.id !== nodeId);
-        const remainingEdges = edgesRef.current.filter(
-          (e) => e.source !== nodeId && e.target !== nodeId
-        );
-        const layoutResult = layoutWithDagre(
-          remainingNodes,
-          remainingEdges,
-          CANVAS_LAYOUT_DEFAULTS
-        );
-        setEdges(layoutResult.edges);
-        return layoutResult.nodes;
-      });
+      // Optimistic removal
+      removeFeature(nodeId);
       deleteSound.play();
       toast.success('Feature deleted successfully');
       router.push('/');
 
-      // Persist in background — rollback on failure
       deleteFeature(featureId)
         .then((result) => {
           if (result.error) {
-            setNodes(prevNodes);
-            setEdges(prevEdges);
+            if (prevEntry) restoreFeature(nodeId, prevEntry);
             toast.error(result.error);
           }
         })
         .catch(() => {
-          setNodes(prevNodes);
-          setEdges(prevEdges);
+          if (prevEntry) restoreFeature(nodeId, prevEntry);
           toast.error('Failed to delete feature');
         });
     },
-    [nodes, router, deleteSound, setEdges]
+    [router, deleteSound, removeFeature, restoreFeature]
   );
 
   const handleDeleteRepository = useCallback(
     async (repositoryId: string) => {
       const repoNodeId = `repo-${repositoryId}`;
 
-      // Snapshot for rollback
-      const prevNodes = nodes;
-      const prevEdges = edgesRef.current;
+      // Find children of this repo via edges
+      const childFeatureIds = new Set(
+        edgesRef.current.filter((e) => e.source === repoNodeId).map((e) => e.target)
+      );
 
-      // Optimistic: remove repo node, its child feature nodes, and all related edges
-      setNodes((currentNodes) => {
-        // Find feature node IDs connected to this repo via edges
-        const childFeatureIds = new Set(
-          edgesRef.current.filter((e) => e.source === repoNodeId).map((e) => e.target)
-        );
-        const remainingNodes = currentNodes.filter(
-          (n) => n.id !== repoNodeId && !childFeatureIds.has(n.id)
-        );
-        const remainingEdges = edgesRef.current.filter(
-          (e) =>
-            e.source !== repoNodeId &&
-            e.target !== repoNodeId &&
-            !childFeatureIds.has(e.source) &&
-            !childFeatureIds.has(e.target)
-        );
-        const layoutResult = layoutWithDagre(
-          remainingNodes,
-          remainingEdges,
-          CANVAS_LAYOUT_DEFAULTS
-        );
-        setEdges(layoutResult.edges);
-        return layoutResult.nodes;
-      });
+      // Snapshot for rollback
+      const prevRepoData = getRepositoryData(repoNodeId);
+      const childSnapshots = new Map<string, FeatureEntry>();
+      for (const childId of childFeatureIds) {
+        const childNode = nodesRef.current.find((n) => n.id === childId);
+        if (childNode) {
+          childSnapshots.set(childId, { nodeId: childId, data: childNode.data as FeatureNodeData });
+        }
+      }
+
+      const rollback = () => {
+        if (prevRepoData) addRepositoryToMap(repoNodeId, prevRepoData);
+        for (const [childId, entry] of childSnapshots) {
+          restoreFeature(childId, entry);
+        }
+      };
+
+      // Optimistic: remove repo + children
+      removeRepository(repoNodeId);
+      for (const childId of childFeatureIds) {
+        removeFeature(childId);
+      }
 
       try {
         const result = await deleteRepository(repositoryId);
-
         if (!result.success) {
           toast.error(result.error ?? 'Failed to remove repository');
-          setNodes(prevNodes);
-          setEdges(prevEdges);
+          rollback();
           return;
         }
-
         deleteSound.play();
         toast.success('Repository removed');
       } catch {
         toast.error('Failed to remove repository');
-        setNodes(prevNodes);
-        setEdges(prevEdges);
+        rollback();
       }
     },
-    [nodes, deleteSound, setEdges]
+    [
+      deleteSound,
+      removeRepository,
+      removeFeature,
+      addRepositoryToMap,
+      restoreFeature,
+      getRepositoryData,
+    ]
   );
 
   const handleLayout = useCallback(
     (direction: LayoutDirection) => {
-      setNodes((currentNodes) => {
-        const result = layoutWithDagre(currentNodes, edgesRef.current, {
-          ...CANVAS_LAYOUT_DEFAULTS,
-          direction,
-        });
-        setEdges(result.edges);
-        return result.nodes;
+      // Layout is applied via reconcile on next server prop update.
+      // For immediate re-layout, we apply dagre and trigger a reconcile-like update.
+      const result = layoutWithDagre(nodesRef.current, edgesRef.current, {
+        ...CANVAS_LAYOUT_DEFAULTS,
+        direction,
       });
+      reconcile(result.nodes, result.edges);
     },
-    [setEdges]
+    [reconcile]
   );
 
   const handleAddRepository = useCallback(
@@ -556,81 +367,30 @@ export function useControlCenterState(
           .split(/[\\/]/)
           .pop() ?? path;
 
-      // Optimistic UI: add node and re-layout immediately
-      setNodes((currentNodes) => {
-        const newNode = {
-          id: tempId,
-          type: 'repositoryNode' as const,
-          position: { x: 0, y: 0 },
-          data: { name: repoName, repositoryPath: path, id: tempId },
-        } as CanvasNodeType;
+      addRepositoryToMap(tempId, { name: repoName, repositoryPath: path, id: tempId });
 
-        const allNodes = [...currentNodes, newNode];
-        const layoutResult = layoutWithDagre(allNodes, edgesRef.current, CANVAS_LAYOUT_DEFAULTS);
-        setEdges(layoutResult.edges);
-        return layoutResult.nodes;
-      });
-
-      // Persist via server action
       addRepository({ path, name: repoName })
         .then((result) => {
           if (result.error) {
-            // Rollback optimistic node and re-layout
-            setNodes((prev) => {
-              const remaining = prev.filter((n) => n.id !== tempId);
-              const layoutResult = layoutWithDagre(
-                remaining,
-                edgesRef.current,
-                CANVAS_LAYOUT_DEFAULTS
-              );
-              setEdges(layoutResult.edges);
-              return layoutResult.nodes;
-            });
+            removeRepository(tempId);
             toast.error(result.error);
             return;
           }
-
-          // Replace temp ID with real repository ID
           const repo = result.repository!;
           const realId = `repo-${repo.id}`;
-          setNodes((prev) =>
-            prev.map((n) =>
-              n.id === tempId
-                ? ({
-                    ...n,
-                    id: realId,
-                    data: { ...n.data, id: repo.id, repositoryPath: repo.path },
-                  } as CanvasNodeType)
-                : n
-            )
-          );
-          setEdges((prev) =>
-            prev.map((e) => ({
-              ...e,
-              source: e.source === tempId ? realId : e.source,
-              target: e.target === tempId ? realId : e.target,
-              id: e.id.replace(tempId, realId),
-            }))
-          );
-
+          replaceRepository(tempId, realId, {
+            name: repo.name,
+            repositoryPath: repo.path,
+            id: repo.id,
+          });
           createSound.play();
         })
         .catch(() => {
-          // Rollback optimistic node and re-layout
-          setNodes((prev) => {
-            const remaining = prev.filter((n) => n.id !== tempId);
-            const layoutResult = layoutWithDagre(
-              remaining,
-              edgesRef.current,
-              CANVAS_LAYOUT_DEFAULTS
-            );
-            setEdges(layoutResult.edges);
-            return layoutResult.nodes;
-          });
+          removeRepository(tempId);
           toast.error('Failed to add repository');
         });
     },
-    [createSound, setEdges]
+    [addRepositoryToMap, removeRepository, replaceRepository, createSound]
   );
 
   return {
@@ -643,5 +403,8 @@ export function useControlCenterState(
     handleDeleteFeature,
     handleDeleteRepository,
     createFeatureNode,
+    getFeatureRepositoryPath,
+    getRepositoryData,
+    setCallbacks,
   };
 }

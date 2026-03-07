@@ -1,0 +1,164 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: robust-graph-state
+summary: Domain-model-driven graph state with derived React Flow nodes/edges
+
+relatedFeatures:
+  - '049-agent-executor-stability'
+technologies:
+  - '@xyflow/react'
+  - React
+  - TypeScript
+relatedLinks: []
+
+decisions:
+  - title: state architecture - domain maps vs react flow nodes as source of truth
+    chosen: domain model maps (Feature, Repository, AgentRun) as source of truth with derived React Flow nodes/edges
+    rejected:
+      - keep React Flow nodes as source of truth with better coordination
+      - use React Flow uncontrolled mode with useReactFlow() imperative API
+      - zustand store mirroring React Flow internal state
+    rationale: >
+      The root cause of cascading breakage is that React Flow node objects serve dual duty as
+      both the rendering data structure AND the state model. Domain models from generated output.ts
+      already contain all the data needed (feature.repositoryId for edges, feature.parentId for
+      dependencies). Storing domain maps and deriving nodes/edges eliminates referential integrity
+      issues entirely — edges are computed from relationships, not stored independently. This also
+      means SSE events just update a Feature field (lifecycle, status) instead of hunting through
+      node arrays. Zustand was rejected because it adds a dependency without solving the derivation
+      problem. Uncontrolled mode was rejected because it makes server-prop sync harder.
+
+  - title: optimistic UI temp-to-real ID resolution strategy
+    chosen: tempToRealId Map with pending feature entries in domain map
+    rejected:
+      - match by repositoryPath + name heuristic
+      - use server-assigned IDs preemptively via API call
+    rationale: >
+      When a feature is created optimistically, we insert a pending entry into the features Map
+      with a temp ID. When the server confirms (via SSE event or server-prop sync), we detect the
+      new real ID and update tempToRealId. Since edges are derived from feature.repositoryId and
+      feature.parentId (not from stored edge objects), the temp→real swap automatically produces
+      correct edges. The heuristic matching approach (used in the broken polling fix) failed because
+      it couldn't reliably match and didn't update edges atomically.
+
+  - title: how to handle React Flow enrichedNodes pattern
+    chosen: move callback injection into useGraphState derivation, eliminate separate enrichedNodes useMemo
+    rejected:
+      - keep enrichedNodes in features-canvas.tsx
+      - use React Flow nodeTypes with built-in callback access via context
+    rationale: >
+      The enrichedNodes useMemo in features-canvas.tsx creates new node objects every render (because
+      it injects callbacks), which triggers React Flow StoreUpdater to emit replace changes. Moving
+      callback injection into the derivation layer means nodes are created once with stable references
+      as long as the underlying domain data and callback refs don't change. This eliminates the need
+      for the replace-change-filtering hack.
+
+  - title: server prop sync vs polling fallback
+    chosen: server prop sync only, with SSE as real-time layer - no client-side polling
+    rejected:
+      - 5s polling fallback alongside SSE
+      - replace server props with polling entirely
+    rationale: >
+      The polling fallback added in the #217 fix was the direct cause of the orphaned edges bug.
+      Server prop sync (triggered by layout.tsx re-render) combined with SSE events is sufficient.
+      If SSE misses an event, the next hard navigation or drawer open triggers layout.tsx to re-render
+      with fresh data. Adding polling creates a third update path that must perfectly coordinate with
+      the other two — the complexity cost outweighs the benefit.
+
+openQuestions: []
+
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-03-06
+
+  ## Technology Decisions
+
+  ### State Architecture
+
+  **Current problem:** `use-control-center-state.ts` stores React Flow `Node[]` and `Edge[]` as
+  the source of truth. Five independent mutation paths update these arrays without coordination,
+  causing orphaned edges, circular loops, and stale overwrites.
+
+  **Decision:** Store domain models as source of truth in Maps:
+
+  ```typescript
+  // Source of truth — domain models from generated output.ts
+  features: Map<string, Feature>       // keyed by feature.id
+  repositories: Map<string, Repository> // keyed by repo.id
+  agentRuns: Map<string, AgentRun>     // keyed by run.id
+  tempToRealId: Map<string, string>    // temp ID → real ID
+
+  // Derived (read-only, recomputed on domain changes)
+  nodes: CanvasNodeType[]  // computed from maps + deriveNodeState/deriveProgress
+  edges: Edge[]            // computed from feature.repositoryId + feature.parentId
+  ```
+
+  **Why this works:**
+  - Edges derived from `feature.repositoryId`/`feature.parentId` — can never orphan
+  - SSE events update `features.get(id).lifecycle` — no node array scanning
+  - Temp→real ID swap updates map key — edges auto-derive with correct IDs
+  - Server prop sync diffs domain maps, not node arrays
+
+  ### Optimistic UI Strategy
+
+  When creating a feature optimistically:
+  1. Generate temp ID `temp-feat-<ts>`
+  2. Insert pending Feature into `features` Map with temp ID and `state: creating`
+  3. Store `repositoryId` on the pending entry so edges derive correctly
+  4. When server confirms (new Feature appears in server props with matching name+repo):
+     - Add `tempToRealId` mapping
+     - Replace map entry: delete temp key, insert real key with server data
+     - Edges auto-derive with real ID
+
+  ### Eliminating enrichedNodes
+
+  Currently `features-canvas.tsx` wraps all nodes in `useMemo` to inject `onAction`, `onSettings`,
+  `onDelete` callbacks. This creates new object references every render.
+
+  **New approach:** The `useGraphState` derivation step injects callbacks directly when building
+  nodes. Callbacks are passed as stable refs to the hook. The derived `nodes` array only changes
+  when domain data or callback refs change — not on every render.
+
+  ### Update Path Simplification
+
+  **Before (5 paths):**
+  1. Server props → setNodes/setEdges
+  2. SSE → setNodes (scan for featureId)
+  3. Polling → fetchGraphData → merge into setNodes
+  4. Optimistic → createFeatureNode → setNodes + setEdges
+  5. React Flow → onNodesChange → applyNodeChanges → setNodes
+
+  **After (3 paths, all going through domain maps):**
+  1. Server props → reconcile(features, repos, runs) → domain maps → derived nodes/edges
+  2. SSE → updateFeature(id, patch) → domain maps → derived nodes/edges
+  3. Optimistic → addPendingFeature(tempId, data) → domain maps → derived nodes/edges
+
+  React Flow `onNodesChange` is only used for position changes (drag), which we don't even
+  support currently (`nodesDraggable={false}`). It can be a no-op or limited to `select` changes.
+
+  ## Library Analysis
+
+  No new libraries. Uses existing:
+  - `@xyflow/react` ^12.10.0 — React Flow (unchanged)
+  - `dagre` — layout engine (unchanged, via `layoutWithDagre`)
+  - `@shepai/core/domain/generated/output` — generated domain models (used directly)
+
+  ## Security Considerations
+
+  No security implications identified. All data flows are internal (server→client state sync).
+
+  ## Performance Implications
+
+  - **Positive:** Fewer re-renders. Domain map diffs prevent unnecessary node/edge recomputation.
+    Currently every SSE event creates new node objects for ALL nodes (via `prev.map()`). New approach
+    only updates the specific feature in the map; derivation uses referential equality checks.
+  - **Positive:** No polling interval (removed). Saves a server action call every 5 seconds.
+  - **Neutral:** Derivation cost is O(features + repos) per domain change — same as current
+    `buildGraphNodes`. Dagre layout is called only when graph topology changes (add/remove nodes).
+
+  ## Open Questions
+
+  All questions resolved.

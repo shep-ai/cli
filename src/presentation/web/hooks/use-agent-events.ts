@@ -16,6 +16,8 @@ export interface UseAgentEventsResult {
 }
 
 const SW_PATH = '/agent-events-sw.js';
+const MAX_EVENTS = 500;
+const PRUNE_KEEP = 250;
 
 /**
  * Hook that receives real-time agent notification events via a Service Worker.
@@ -38,7 +40,12 @@ export function useAgentEvents(options?: UseAgentEventsOptions): UseAgentEventsR
 
     if (msg.type === 'notification') {
       const parsed = msg.data as NotificationEvent;
-      setEvents((prev) => [...prev, parsed]);
+      // eslint-disable-next-line no-console
+      console.log('[SSE] event received:', parsed.eventType, parsed);
+      setEvents((prev) => {
+        const next = [...prev, parsed];
+        return next.length > MAX_EVENTS ? next.slice(-PRUNE_KEEP) : next;
+      });
       setLastEvent(parsed);
     } else if (msg.type === 'status') {
       setConnectionStatus(msg.status as ConnectionStatus);
@@ -103,9 +110,13 @@ export function useAgentEvents(options?: UseAgentEventsOptions): UseAgentEventsR
         if (sw.state === 'activated') {
           subscribeToWorker(sw);
         } else {
-          sw.addEventListener('statechange', () => {
-            if (sw.state === 'activated') subscribeToWorker(sw);
-          });
+          const onStateChange = () => {
+            if (sw.state === 'activated') {
+              sw.removeEventListener('statechange', onStateChange);
+              subscribeToWorker(sw);
+            }
+          };
+          sw.addEventListener('statechange', onStateChange);
         }
       })
       .catch(() => {
@@ -193,7 +204,10 @@ function connectDirectEventSource(
 
     es.addEventListener('notification', ((event: MessageEvent) => {
       const parsed: NotificationEvent = JSON.parse(event.data);
-      setEvents((prev) => [...prev, parsed]);
+      setEvents((prev) => {
+        const next = [...prev, parsed];
+        return next.length > MAX_EVENTS ? next.slice(-PRUNE_KEEP) : next;
+      });
       setLastEvent(parsed);
     }) as EventListener);
   }

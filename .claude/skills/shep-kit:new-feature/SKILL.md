@@ -21,7 +21,7 @@ Requirements → Research → Planning → Implementation → Complete
 
 **CRITICAL:** Each phase MUST update the `Phase` status field before proceeding.
 
-**IMPORTANT:** Edit YAML files, not Markdown. Markdown files are auto-generated from YAML via `pnpm spec:generate-md <feature-id>`.
+**IMPORTANT:** Edit YAML files, not Markdown.
 
 ## Workflow
 
@@ -92,8 +92,6 @@ Allow the user to:
 
 ```bash
 # Write confirmed content to spec.yaml (the source of truth)
-# Then generate Markdown from YAML:
-pnpm spec:generate-md NNN-feature-name
 
 # feature.yaml already created by init script with initial state:
 #   - lifecycle: "research"
@@ -106,7 +104,7 @@ git add specs/NNN-feature-name/
 git commit -m "feat(specs): add NNN-feature-name specification"
 ```
 
-**IMPORTANT:** Always edit `spec.yaml`, then run `pnpm spec:generate-md <feature-id>` to produce `spec.md`. Never hand-edit Markdown spec files.
+**IMPORTANT:** Always edit `spec.yaml`. Never hand-edit Markdown spec files.
 
 **feature.yaml Status**: Already initialized by init script. No manual updates needed at this stage.
 
@@ -148,8 +146,6 @@ Templates are in: `.claude/skills/shep-kit:new-feature/templates/`
 
 - `data-model.md` - Domain models
 - `feature.yaml` - Status tracking
-
-Markdown files (`spec.md`, `research.md`, `plan.md`, `tasks.md`) are auto-generated from YAML via `pnpm spec:generate-md`.
 
 ## feature.yaml Protocol
 
