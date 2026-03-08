@@ -1,0 +1,221 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: remove-feature-name
+number: 051
+branch: feat/051-remove-feature-name
+oneLiner: Remove the separate "feature name" input from feature creation — use only description
+
+summary: >
+  The web UI's feature creation drawer currently has two text fields: a required
+  "Feature Name" and an optional "Description". The CLI already takes a single
+  <description> argument. This feature removes the separate name input from the
+  Web UI, making description the only user-supplied text field. The AI metadata
+  generator already produces a polished name from user input, so the explicit
+  name field is redundant. The domain model retains `name` as an AI-generated-only
+  field — no TypeSpec, DB migration, or domain changes required.
+
+phase: Requirements
+sizeEstimate: M
+
+relatedFeatures: []
+
+technologies:
+  - TypeScript
+  - React (Next.js)
+  - TypeSpec
+  - SQLite (better-sqlite3)
+  - Tailwind CSS
+  - shadcn/ui
+  - tsyringe (DI)
+
+relatedLinks:
+  - https://github.com/shep-ai/cli/issues/192
+
+openQuestions:
+  - question: >
+      Should the domain model's `name` field be removed entirely, or should it be
+      kept as an AI-generated-only field and removed only from the UI input?
+    resolved: true
+    options:
+      - option: 'Keep name as AI-generated-only field'
+        description: >
+          Remove `name` from the web UI form and server action payload only. The
+          domain model, TypeSpec definition, DB schema, and all display surfaces
+          continue to use `feature.name` as an AI-generated value. Minimal blast
+          radius — changes confined to presentation layer and the
+          `FeatureCreatePayload` interface. No migration, no TypeSpec recompile,
+          no 50+ file cascade.
+        selected: true
+      - option: 'Remove name from the domain model entirely'
+        description: >
+          Delete the `name` field from TypeSpec, run a DB migration to drop the
+          column, and update 50+ files that reference `feature.name` across CLI
+          output, web sidebar, canvas nodes, SSE events, delete confirmations,
+          etc. High risk, high effort, and `name` is still useful as
+          AI-generated display text.
+        selected: false
+    selectionRationale: >
+      The `name` field is still valuable as an AI-generated display label used
+      across CLI output, web sidebar, canvas nodes, and other surfaces. Removing
+      it entirely would require a TypeSpec change, DB migration, and updates to
+      50+ files for no user-facing benefit. The issue (#192) says "remove feature
+      name" meaning the input, not the concept of a feature having a name.
+    answer: 'Keep name as AI-generated-only field'
+
+  - question: >
+      After removing the name input, should `description` become required to
+      enable the submit button, or should the drawer allow empty description
+      (relying solely on attachments)?
+    resolved: true
+    options:
+      - option: 'Make description required'
+        description: >
+          The submit button is disabled until the user types a non-empty
+          description. This replaces the current name-based validation. Ensures
+          the AI metadata generator always has meaningful text input to work
+          with, producing better names and slugs. Simple validation rule.
+        selected: true
+      - option: 'Allow empty description (attachments only)'
+        description: >
+          Let users submit with only file attachments and no text. The AI
+          metadata generator would need to derive a name/slug from attachment
+          filenames alone, which produces low-quality results. This also breaks
+          the current `composeUserInput()` pattern which expects text content.
+        selected: false
+    selectionRationale: >
+      Description should be required because: (1) it directly replaces name as
+      the primary text input, (2) the AI metadata generator needs text to
+      produce a quality name and slug, (3) the CLI already requires a
+      <description> argument, so this aligns the web UI with CLI behavior, and
+      (4) it keeps the validation logic simple — one field required instead of
+      two.
+    answer: 'Make description required'
+
+  - question: >
+      Should the CLI `feat new` command remain unchanged, or does it need
+      modifications to align with this feature?
+    resolved: true
+    options:
+      - option: 'No CLI changes needed'
+        description: >
+          The CLI already takes a single `<description>` argument with no
+          separate `--name` flag. It passes `userInput` directly to the use case
+          without a separate `name` field. The CLI is already in the target
+          state this feature aims to bring the web UI to.
+        selected: true
+      - option: 'Update CLI to match web UI changes'
+        description: >
+          Modify the CLI command to explicitly not pass `name` to the use case.
+          However, the CLI already does not pass a separate `name` — it only
+          sends `userInput`. This would be a no-op change.
+        selected: false
+    selectionRationale: >
+      The CLI already works exactly as desired — single description input, no
+      separate name field. The use case's `CreateFeatureInput.name` is already
+      optional (`name?: string`), so not passing it from the CLI is already
+      handled. No changes needed.
+    answer: 'No CLI changes needed'
+
+content: |
+  ## Problem Statement
+
+  The web UI feature creation drawer (`feature-create-drawer.tsx`) requires users to fill in
+  two text fields: **Feature Name** (required) and **Description** (optional). However, the
+  system already has an AI metadata generator (`metadata-generator.ts`) that automatically
+  produces a polished, professional `name`, `slug`, and `description` from the raw user input.
+
+  This makes the explicit "Feature Name" input redundant — the AI-generated name **always
+  overwrites** whatever the user typed. The current UX adds friction by asking users to provide
+  something the system generates itself. The user-typed name is only used temporarily in the
+  DB between `createRecord` and `initializeAndSpawn`, and as part of `composeUserInput()`.
+
+  GitHub Issue: https://github.com/shep-ai/cli/issues/192 — "Remove feature name from new
+  feature" with body "keep only description".
+
+  ## Success Criteria
+
+  - [ ] The feature creation drawer has NO "Feature Name" input field
+  - [ ] The "Description" textarea is the only text input in the drawer
+  - [ ] The submit button ("+ Create Feature") is disabled when description is empty/whitespace
+  - [ ] The submit button is enabled when description has non-whitespace content
+  - [ ] Submitting the form calls onSubmit with a payload that has NO `name` field
+  - [ ] The `FeatureCreatePayload` interface has `description: string` (required, not optional)
+  - [ ] The server action `createFeature()` composes `userInput` from description only (no name)
+  - [ ] The server action validates that `description` is non-empty (instead of `name`)
+  - [ ] The use case still generates an AI name via `MetadataGenerator` — feature.name is populated
+  - [ ] All existing tests pass after updating for the new field structure
+  - [ ] Storybook stories reflect the simplified single-field form
+  - [ ] The CLI `feat new` command continues to work without changes
+  - [ ] The domain model, TypeSpec, and DB schema are NOT modified
+  - [ ] Display surfaces (sidebar, canvas, CLI ls/show) continue to show AI-generated feature.name
+
+  ## Functional Requirements
+
+  - **FR-1**: Remove the "FEATURE NAME" `<Input>` element and its `<Label>` from `feature-create-drawer.tsx`
+  - **FR-2**: Remove the `name` state variable and `setName` setter from the drawer component
+  - **FR-3**: Make the "DESCRIPTION" `<Textarea>` the primary and only text input; update its label to "DESCRIBE YOUR FEATURE" and placeholder to "e.g. Add GitHub OAuth login with callback handling and token refresh..."
+  - **FR-4**: Update submit button disabled condition from `!name.trim()` to `!description.trim()`
+  - **FR-5**: Update `handleSubmit` to omit `name` from the `onSubmit` payload and include `description` as a required trimmed string
+  - **FR-6**: Update the `isDirty` check to no longer reference `name`
+  - **FR-7**: Update `resetForm` to no longer reset `name` state
+  - **FR-8**: Update `FeatureCreatePayload` interface: remove `name: string`, change `description` from optional to required (`description: string`)
+  - **FR-9**: Update the server action's `CreateFeatureInput` interface: remove `name: string`, add `description: string` (required)
+  - **FR-10**: Update `composeUserInput()` in the server action to compose from description only (e.g. just return the description text, with attachments appended if present)
+  - **FR-11**: Update server action validation to check `description` is non-empty instead of `name`
+  - **FR-12**: Update the server action's call to `createFeatureUseCase.createRecord()` to not pass `name` — the use case will fall back to `input.userInput.slice(0, 100)` for the initial DB record
+  - **FR-13**: Update all unit tests in `feature-create-drawer.test.tsx` to reflect the removed name field (remove name-related assertions, update payload assertions, update validation tests)
+  - **FR-14**: Update all Storybook stories in `feature-create-drawer.stories.tsx` to reflect the simplified form (remove name references from docs, interactions, and assertions)
+
+  ## Non-Functional Requirements
+
+  - **NFR-1**: The drawer form must remain accessible — description textarea must have a proper `<Label>` with `htmlFor` association
+  - **NFR-2**: The form reset behavior must be preserved — all fields clear on submit and on close
+  - **NFR-3**: The dirty-form guard must continue to work — closing with unsaved description or attachments triggers the discard confirmation dialog
+  - **NFR-4**: No changes to the domain layer, TypeSpec definitions, or database schema — changes are confined to the presentation layer and the server action
+  - **NFR-5**: The sound effect on form submission must continue to play
+  - **NFR-6**: The "Creating..." badge and disabled state during submission must continue to work
+  - **NFR-7**: All existing Storybook stories must render without errors after updates
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Remove `name` from domain model or just from UI? | Keep as AI-generated-only field | The name is still useful for display across all surfaces. Removing it from the domain would require TypeSpec change, DB migration, and 50+ file updates for no user benefit. |
+  | 2 | Should description be required after removing name? | Yes, make description required | Aligns with CLI behavior (description is required there), ensures AI has text to generate quality metadata from, and provides a clear validation rule. |
+  | 3 | Does the CLI need changes? | No CLI changes needed | CLI already takes only `<description>` with no separate name flag — it's already in the target state. |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `src/presentation/web/components/common/feature-create-drawer/feature-create-drawer.tsx` | High | Remove the "FEATURE NAME" input field, update validation to use description, update payload shape |
+  | `tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx` | High | Update tests that assert on name input, submit validation, and payload shape |
+  | `src/presentation/web/components/common/feature-create-drawer/feature-create-drawer.stories.tsx` | Medium | Update Storybook stories and docs referencing the name field |
+  | `src/presentation/web/app/actions/create-feature.ts` | High | Change `composeUserInput()` to use description only, remove `name` from interface, update validation |
+  | `FeatureCreatePayload` interface (in drawer component) | High | Remove `name: string`, make `description` required |
+  | Display components (sidebar, canvas, CLI ls/show) | None | These display `feature.name` which is AI-generated — no change needed |
+  | TypeSpec / domain model | None | `name` field stays on the domain model (AI still generates it) |
+  | Database schema | None | `name` column stays (AI-generated name is still stored) |
+  | CLI `feat new` command | None | Already takes only `<description>` with no separate name |
+  | `packages/core/src/application/use-cases/features/create/types.ts` | None | `CreateFeatureInput.name` is already optional — no change needed |
+  | `packages/core/src/application/use-cases/features/create/create-feature.use-case.ts` | None | Already handles `input.name` being undefined via fallback — no change needed |
+
+  ## Dependencies
+
+  - **MetadataGenerator**: Must continue to generate a `name` from user input (no change needed)
+  - **CreateFeatureUseCase**: No changes — already handles `input.name` being undefined
+  - **shadcn/ui components**: Input, Textarea, Label (no library changes needed)
+  - **Storybook**: Stories need updating to reflect the simplified form
+  - **DrawerCloseGuardProvider**: Must continue to work with the simplified dirty check
+
+  ## Size Estimate
+
+  **M** — The core change is concentrated in the web UI drawer component, its test file,
+  Storybook stories, and the server action (removing 1 field, adjusting validation and payload
+  composition). The domain model, database, CLI, and use cases are unaffected. Estimated scope:
+  4 files modified, ~100 lines changed across component + tests + stories + server action.
+
+  ---
+
+  _Requirements complete — proceed with research phase_

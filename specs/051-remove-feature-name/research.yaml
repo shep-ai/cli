@@ -1,0 +1,346 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: remove-feature-name
+summary: >
+  Presentation-layer-only change removing the "Feature Name" input from the web UI drawer.
+  The description field becomes required and drives both validation and userInput composition.
+  No domain, TypeSpec, DB, or use-case changes needed — the AI MetadataGenerator already
+  produces the feature name from userInput, and the use case already handles name being absent.
+
+relatedFeatures: []
+
+technologies:
+  - TypeScript
+  - React (Next.js)
+  - shadcn/ui (Input, Textarea, Label)
+  - Tailwind CSS
+  - Vitest + React Testing Library
+  - Storybook
+
+relatedLinks:
+  - https://github.com/shep-ai/cli/issues/192
+
+decisions:
+  - title: 'Scope of changes — presentation layer only vs full-stack'
+    chosen: 'Presentation layer only (drawer component + server action)'
+    rejected:
+      - >
+        Full-stack removal of name field (TypeSpec, DB migration, 50+ file updates) —
+        rejected because the name field is still valuable as an AI-generated display label
+        used across CLI output, web sidebar, canvas nodes, and SSE events. Removing it from
+        the domain would require a TypeSpec recompile, DB migration to drop the column, and
+        updates to every surface that displays feature.name — massive blast radius for no
+        user-facing benefit.
+    rationale: >
+      The issue (#192) says "remove feature name" meaning remove the user-facing INPUT, not
+      the concept of a feature having a name. The CreateFeatureInput.name field is already
+      optional (types.ts:12), and the use case already falls back to
+      `input.userInput.slice(0, 100)` when name is not provided (create-feature.use-case.ts:132).
+      The MetadataGenerator replaces this temporary name with an AI-generated one during
+      initializeAndSpawn(). Changes are confined to 4 files: the drawer component, its test
+      file, its Storybook stories, and the server action.
+
+  - title: 'composeUserInput() refactoring approach'
+    chosen: 'Replace name-prefixed format with description-only format'
+    rejected:
+      - >
+        Keep the "Feature: {name}" prefix using description as the name — rejected because
+        this would add an artificial "Feature: " prefix to the userInput that the AI metadata
+        generator doesn't need. The CLI already passes raw description text without any prefix,
+        and the AI generates better metadata from natural language input.
+      - >
+        Remove composeUserInput() entirely and pass description directly — rejected because
+        the function still has value for appending attachment paths to the userInput string.
+        Removing it would inline the attachment composition logic into the server action body.
+    rationale: >
+      The current composeUserInput() builds "Feature: {name}\n\n{description}\n\nAttached files:..."
+      which embeds the user-typed name. After removing the name input, the function should
+      compose from description only: just the description text with attachments appended if
+      present. This aligns with how the CLI passes userInput — raw description text, no
+      artificial prefix. The function signature changes from (name, description, attachments)
+      to (description, attachments).
+
+  - title: 'FeatureCreatePayload interface changes'
+    chosen: 'Remove name field, make description required'
+    rejected:
+      - >
+        Keep name as an optional field — rejected because the name input is being removed
+        from the UI entirely. Keeping it in the payload interface would be misleading and
+        create dead code paths. The payload should accurately reflect what the form produces.
+      - >
+        Make description optional (allow attachments-only submissions) — rejected because
+        the AI metadata generator needs text input to produce quality names and slugs.
+        Attachment-only submissions would produce poor metadata since the generator would
+        have no meaningful text to work with. The CLI already requires a description argument.
+    rationale: >
+      The FeatureCreatePayload currently has `name: string` (required) and
+      `description?: string` (optional). After removing the name input, the payload should
+      have `description: string` (required) with no name field. This mirrors the CLI behavior
+      where description is the sole required argument. The submit button validation shifts
+      from `!name.trim()` to `!description.trim()`.
+
+  - title: 'Server action validation change'
+    chosen: 'Validate description is non-empty instead of name'
+    rejected:
+      - >
+        Validate both description and name — rejected because name no longer exists in the
+        payload. There is nothing to validate.
+      - >
+        No server-side validation (rely on client-side only) — rejected because server
+        actions should always validate their inputs independently. The current pattern
+        validates name server-side (create-feature.ts:58), and we should maintain the same
+        defensive pattern for description.
+    rationale: >
+      The server action currently checks `if (!name?.trim())` at line 58 of create-feature.ts.
+      This changes to `if (!description?.trim())`. The error message changes from
+      "name is required" to "description is required". This maintains the existing validation
+      pattern while adapting to the new field structure.
+
+  - title: 'How to pass name to createRecord() use case'
+    chosen: 'Stop passing name — let use case fall back to userInput.slice(0, 100)'
+    rejected:
+      - >
+        Pass description as name — rejected because this conflates two different fields.
+        The name should be AI-generated, not a copy of the description. Passing description
+        as name would create a low-quality initial name that differs from how the CLI works.
+      - >
+        Generate a name client-side before calling the use case — rejected because the
+        entire point of MetadataGenerator is to produce the name server-side via AI. Adding
+        client-side name generation would duplicate logic and add complexity.
+    rationale: >
+      The CreateFeatureUseCase.createRecord() already handles the case where input.name is
+      undefined: `const featureName = input.name ?? input.userInput.slice(0, 100)` (line 132).
+      This temporary name is only used until initializeAndSpawn() replaces it with the
+      AI-generated name from MetadataGenerator. The CLI already omits the name field and
+      relies on this fallback — the web UI should do the same for consistency.
+
+  - title: 'Form dirty-check approach after removing name'
+    chosen: 'Check description and attachments only'
+    rejected:
+      - >
+        Check only description — rejected because attachments also represent unsaved work.
+        If a user adds file attachments but hasn't typed a description, closing the drawer
+        should still trigger the discard confirmation dialog to prevent data loss.
+      - >
+        Remove dirty check entirely — rejected because the close guard prevents accidental
+        data loss, which is a critical UX safeguard. The DrawerCloseGuardProvider pattern
+        is used across the codebase and should be maintained.
+    rationale: >
+      The current isDirty check is `name.trim() !== '' || description.trim() !== '' ||
+      attachments.length > 0` (line 130). After removing name, it becomes
+      `description.trim() !== '' || attachments.length > 0`. This preserves the existing
+      close-guard behavior for the remaining form fields. The useGuardedDrawerClose hook
+      continues to work unchanged — it only reads the isDirty boolean.
+
+openQuestions:
+  - question: >
+      Should the description label text change from "DESCRIPTION" to something more
+      prominent now that it is the primary input field?
+    resolved: true
+    options:
+      - option: 'Change to "DESCRIBE YOUR FEATURE"'
+        description: >
+          More descriptive and action-oriented label that signals this is the main input.
+          Aligns with the spec requirement FR-3 which explicitly specifies this label text.
+          Makes it clear what the user should provide.
+        selected: true
+      - option: 'Keep as "DESCRIPTION"'
+        description: >
+          Maintains the existing label. Minimal change, but with the name field gone, the
+          label feels terse and doesn't guide the user about what to enter.
+        selected: false
+      - option: 'Change to "WHAT SHOULD THIS FEATURE DO?"'
+        description: >
+          Question-style label that prompts the user. More engaging but breaks the
+          all-caps-noun labeling convention used by other form sections (APPROVE, GIT,
+          ATTACHMENTS, PARENT FEATURE).
+        selected: false
+    selectionRationale: >
+      "DESCRIBE YOUR FEATURE" is specified in FR-3 of the feature spec. It is action-oriented,
+      clearly communicates the expected input, and follows the existing uppercase tracking-wider
+      label styling convention. It differs slightly from the noun-only pattern (APPROVE, GIT)
+      but the description field is now the primary input and deserves prominence.
+
+  - question: >
+      Should the placeholder text for the description textarea be updated?
+    resolved: true
+    options:
+      - option: 'Change to "e.g. Add GitHub OAuth login with callback handling and token refresh..."'
+        description: >
+          Provides a concrete example that helps users understand the expected level of detail.
+          Aligns with FR-3 of the feature spec. More helpful than the current generic placeholder.
+        selected: true
+      - option: 'Keep as "Describe what this feature does..."'
+        description: >
+          Maintains the existing placeholder. Generic but functional. Doesn't guide users
+          toward the detail level that produces good AI-generated metadata.
+        selected: false
+      - option: 'Change to "What do you want to build?"'
+        description: >
+          Short and conversational, but doesn't show the expected format or detail level.
+          Less helpful for first-time users who need guidance on what to type.
+        selected: false
+    selectionRationale: >
+      The spec (FR-3) explicitly defines the new placeholder text. A concrete example helps
+      users understand the expected level of detail, which directly affects the quality of
+      AI-generated names and slugs. The example-style placeholder ("e.g. ...") follows a
+      pattern already used in the existing name input placeholder ("e.g. GitHub OAuth Login").
+
+  - question: >
+      Should the Input component import be removed after deleting the name field?
+    resolved: true
+    options:
+      - option: 'Keep the Input import'
+        description: >
+          The Input component is still used by the ParentFeatureCombobox search input
+          (line 441) within the same file. Removing it would break the combobox.
+        selected: true
+      - option: 'Remove the Input import'
+        description: >
+          Would clean up the import list but would break the ParentFeatureCombobox
+          component which uses Input for its search field.
+        selected: false
+      - option: 'Move ParentFeatureCombobox to its own file and remove Input from drawer'
+        description: >
+          Would allow removing the Input import from the drawer file, but introduces
+          unnecessary file splitting that is out of scope for this feature.
+        selected: false
+    selectionRationale: >
+      The Input component is used by the ParentFeatureCombobox's search input at line 441 of
+      the drawer file. Removing the import would cause a build error. The combobox is a
+      private sub-component within the same file, so Input must stay imported.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Scope of Changes — Presentation Layer Only
+
+  **Chosen:** Presentation layer only (drawer component + server action)
+
+  **Rejected:**
+  - Full-stack removal of name field — TypeSpec recompile, DB migration, 50+ file updates.
+    The name field is still valuable as an AI-generated display label across all surfaces.
+
+  **Rationale:** The issue says "remove feature name" meaning the input, not the domain concept.
+  `CreateFeatureInput.name` is already optional, the use case already handles it being absent
+  via `input.userInput.slice(0, 100)` fallback, and MetadataGenerator replaces it during
+  `initializeAndSpawn()`. Changes confined to 4 files.
+
+  ### 2. composeUserInput() Refactoring
+
+  **Chosen:** Replace name-prefixed format with description-only format
+
+  **Rejected:**
+  - Keep "Feature: {name}" prefix using description — artificial prefix degrades AI metadata quality
+  - Remove function entirely — still needed for appending attachment paths
+
+  **Rationale:** Current format is `"Feature: {name}\n\n{description}\n\nAttached files:..."`.
+  New format: just description text with attachments appended. Aligns with CLI behavior which
+  passes raw description without prefix. Function signature changes from `(name, description, attachments)`
+  to `(description, attachments)`.
+
+  ### 3. FeatureCreatePayload Interface
+
+  **Chosen:** Remove `name` field, make `description` required (`string`, not `string | undefined`)
+
+  **Rejected:**
+  - Keep name as optional — misleading dead code path
+  - Make description optional — AI needs text for quality metadata
+
+  **Rationale:** Payload should reflect what the form produces. Submit validation shifts from
+  `!name.trim()` to `!description.trim()`.
+
+  ### 4. Server Action Validation
+
+  **Chosen:** Validate `description` is non-empty instead of `name`
+
+  **Rejected:**
+  - No server-side validation — server actions must validate independently
+  - Validate both — name no longer exists in payload
+
+  **Rationale:** Maintain existing defensive validation pattern. `!name?.trim()` → `!description?.trim()`.
+
+  ### 5. Use Case Name Passing
+
+  **Chosen:** Stop passing `name` to `createRecord()` — let use case use `userInput.slice(0, 100)` fallback
+
+  **Rejected:**
+  - Pass description as name — conflates fields, produces low-quality initial name
+  - Generate name client-side — duplicates MetadataGenerator responsibility
+
+  **Rationale:** The CLI already omits name and relies on this fallback path. Web UI should do the same.
+
+  ### 6. Dirty-Check After Name Removal
+
+  **Chosen:** Check `description.trim() !== '' || attachments.length > 0`
+
+  **Rejected:**
+  - Check description only — misses unsaved attachment work
+  - Remove dirty check — critical UX safeguard for accidental data loss
+
+  **Rationale:** Remove `name.trim() !== ''` from isDirty. useGuardedDrawerClose hook unchanged.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | shadcn/ui Input | Name text input | Still used | Used by ParentFeatureCombobox search input — keep import |
+  | shadcn/ui Textarea | Description input | Still used | Becomes the primary text input — no changes to the component itself |
+  | shadcn/ui Label | Form labels | Still used | One Label removed (feature name), description Label text updated |
+  | React Testing Library | Unit tests | Still used | Tests updated to remove name-field assertions, add description-validation assertions |
+  | Storybook | Component stories | Still used | Stories updated to remove name references from docs, interactions, and play functions |
+
+  ## Security Considerations
+
+  **Low risk.** This change reduces the attack surface slightly by removing one input field.
+
+  - **Server-side validation maintained:** The server action continues to validate required fields
+    before calling the use case. The validation target shifts from `name` to `description`.
+  - **No new inputs:** No new fields are added. Description was already accepted (optional → required).
+  - **XSS surface unchanged:** Description text is already handled safely by React's JSX escaping
+    and the server action's text composition. No raw HTML rendering.
+  - **No auth/authz changes:** Feature creation permissions are unchanged.
+
+  ## Performance Implications
+
+  **No performance impact.**
+
+  - One fewer `useState` hook and one fewer controlled input — negligible React render improvement.
+  - `composeUserInput()` does slightly less string concatenation (no "Feature: " prefix).
+  - No additional API calls, no database changes, no new network requests.
+  - AI metadata generation unchanged — same MetadataGenerator call path.
+
+  ## Architecture Notes
+
+  ### Clean Architecture Alignment
+
+  This change is cleanly confined to the presentation layer, consistent with Clean Architecture:
+
+  - **Domain layer:** No changes. Feature entity retains `name` as an AI-generated field.
+  - **Application layer:** No changes. `CreateFeatureInput.name` stays optional. Use case fallback
+    (`input.userInput.slice(0, 100)`) already handles the absent-name case.
+  - **Infrastructure layer:** No changes. DB schema, repositories, agent services unaffected.
+  - **Presentation layer:** All changes here — drawer component, server action, tests, stories.
+
+  ### Files to Modify
+
+  1. **`feature-create-drawer.tsx`** — Remove name state, name input JSX, update validation/isDirty/handleSubmit/resetForm,
+     update FeatureCreatePayload interface, update description label and placeholder text.
+  2. **`create-feature.ts`** (server action) — Remove name from CreateFeatureInput interface,
+     refactor composeUserInput() to use description only, update validation, stop passing name to createRecord().
+  3. **`feature-create-drawer.test.tsx`** — Remove name-input rendering/typing/validation tests,
+     add description-validation tests, update payload assertions, update placeholder references.
+  4. **`feature-create-drawer.stories.tsx`** — Update docs referencing "Feature Name", update
+     play functions that type into the name input, update placeholder references.
+
+  ### CLI Consistency
+
+  The CLI `feat new` command (src/presentation/cli/commands/feat/new.command.ts) already operates
+  in the target state: it takes a single `<description>` argument, passes it as `userInput` to the
+  use case, and does NOT pass a separate `name` field. This change brings the web UI into alignment
+  with the CLI's existing behavior.
+
+  ---
+
+  _Research complete — proceed to planning phase_

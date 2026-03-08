@@ -40,6 +40,9 @@ beforeEach(() => {
   mockPickFiles.mockResolvedValue(null);
 });
 
+const descriptionPlaceholder =
+  'e.g. Add GitHub OAuth login with callback handling and token refresh...';
+
 const defaultProps = {
   open: true,
   onClose: vi.fn(),
@@ -82,14 +85,15 @@ describe('FeatureCreateDrawer', () => {
       expect(screen.getByText('NEW FEATURE')).toBeInTheDocument();
     });
 
-    it('renders feature name input', () => {
+    it('does not render a feature name input', () => {
       renderDrawer();
-      expect(screen.getByPlaceholderText('e.g. GitHub OAuth Login')).toBeInTheDocument();
+      expect(screen.queryByPlaceholderText('e.g. GitHub OAuth Login')).not.toBeInTheDocument();
     });
 
-    it('renders description textarea', () => {
+    it('renders description textarea with updated label', () => {
       renderDrawer();
-      expect(screen.getByPlaceholderText('Describe what this feature does...')).toBeInTheDocument();
+      expect(screen.getByText('DESCRIBE YOUR FEATURE')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText(descriptionPlaceholder)).toBeInTheDocument();
     });
 
     it('renders add files button', () => {
@@ -105,64 +109,51 @@ describe('FeatureCreateDrawer', () => {
   });
 
   describe('form input', () => {
-    it('accepts text in the name field', async () => {
-      const user = userEvent.setup();
-      renderDrawer();
-
-      const nameInput = screen.getByPlaceholderText('e.g. GitHub OAuth Login');
-      await user.type(nameInput, 'Auth Module');
-      expect(nameInput).toHaveValue('Auth Module');
-    });
-
     it('accepts text in the description field', async () => {
       const user = userEvent.setup();
       renderDrawer();
 
-      const descInput = screen.getByPlaceholderText('Describe what this feature does...');
+      const descInput = screen.getByPlaceholderText(descriptionPlaceholder);
       await user.type(descInput, 'Implement OAuth2');
       expect(descInput).toHaveValue('Implement OAuth2');
     });
   });
 
   describe('validation', () => {
-    it('disables submit button when name is empty', () => {
+    it('disables submit button when description is empty', () => {
       renderDrawer();
       expect(screen.getByRole('button', { name: '+ Create Feature' })).toBeDisabled();
     });
 
-    it('enables submit button when name has content', async () => {
+    it('enables submit button when description has content', async () => {
       const user = userEvent.setup();
       renderDrawer();
 
-      await user.type(screen.getByPlaceholderText('e.g. GitHub OAuth Login'), 'My Feature');
+      await user.type(screen.getByPlaceholderText(descriptionPlaceholder), 'Add OAuth login');
       expect(screen.getByRole('button', { name: '+ Create Feature' })).toBeEnabled();
     });
 
-    it('disables submit button when name is only whitespace', async () => {
+    it('disables submit button when description is only whitespace', async () => {
       const user = userEvent.setup();
       renderDrawer();
 
-      await user.type(screen.getByPlaceholderText('e.g. GitHub OAuth Login'), '   ');
+      await user.type(screen.getByPlaceholderText(descriptionPlaceholder), '   ');
       expect(screen.getByRole('button', { name: '+ Create Feature' })).toBeDisabled();
     });
   });
 
   describe('submission', () => {
-    it('calls onSubmit with structured payload containing separate name and description fields', async () => {
+    it('calls onSubmit with payload containing description (no name field)', async () => {
       const onSubmit = vi.fn();
       const user = userEvent.setup();
       renderDrawer({ onSubmit });
 
-      await user.type(screen.getByPlaceholderText('e.g. GitHub OAuth Login'), '  Auth Module  ');
-      await user.type(
-        screen.getByPlaceholderText('Describe what this feature does...'),
-        '  OAuth2 flow  '
-      );
+      await user.type(screen.getByPlaceholderText(descriptionPlaceholder), '  OAuth2 flow  ');
       await user.click(screen.getByRole('button', { name: '+ Create Feature' }));
 
       expect(onSubmit).toHaveBeenCalledOnce();
-      expect(onSubmit).toHaveBeenCalledWith({
-        name: 'Auth Module',
+      const payload = onSubmit.mock.calls[0][0];
+      expect(payload).toEqual({
         description: 'OAuth2 flow',
         attachments: [],
         repositoryPath: '/Users/dev/my-repo',
@@ -170,6 +161,7 @@ describe('FeatureCreateDrawer', () => {
         push: false,
         openPr: false,
       });
+      expect(payload).not.toHaveProperty('name');
     });
 
     it('includes attachments array with file objects', async () => {
@@ -178,29 +170,17 @@ describe('FeatureCreateDrawer', () => {
       const user = userEvent.setup();
       renderDrawer({ onSubmit });
 
-      await user.type(screen.getByPlaceholderText('e.g. GitHub OAuth Login'), 'Feature');
+      await user.type(screen.getByPlaceholderText(descriptionPlaceholder), 'Add a feature');
       await user.click(screen.getByRole('button', { name: /add files/i }));
 
       await user.click(screen.getByRole('button', { name: '+ Create Feature' }));
 
       expect(onSubmit).toHaveBeenCalledOnce();
       const submittedData = onSubmit.mock.calls[0][0];
-      expect(submittedData.name).toBe('Feature');
+      expect(submittedData.description).toBe('Add a feature');
       expect(submittedData.attachments).toEqual([mockPdf]);
       expect(submittedData.repositoryPath).toBe('/Users/dev/my-repo');
-    });
-
-    it('omits description when field is empty', async () => {
-      const onSubmit = vi.fn();
-      const user = userEvent.setup();
-      renderDrawer({ onSubmit });
-
-      await user.type(screen.getByPlaceholderText('e.g. GitHub OAuth Login'), 'Feature');
-      await user.click(screen.getByRole('button', { name: '+ Create Feature' }));
-
-      expect(onSubmit).toHaveBeenCalledOnce();
-      const submittedData = onSubmit.mock.calls[0][0];
-      expect(submittedData.description).toBeUndefined();
+      expect(submittedData).not.toHaveProperty('name');
     });
 
     it('sends approvalGates with only PRD checked', async () => {
@@ -208,7 +188,7 @@ describe('FeatureCreateDrawer', () => {
       const user = userEvent.setup();
       renderDrawer({ onSubmit });
 
-      await user.type(screen.getByPlaceholderText('e.g. GitHub OAuth Login'), 'Feature');
+      await user.type(screen.getByPlaceholderText(descriptionPlaceholder), 'Add a feature');
       await user.click(screen.getByLabelText('PRD'));
       await user.click(screen.getByRole('button', { name: '+ Create Feature' }));
 
@@ -224,7 +204,7 @@ describe('FeatureCreateDrawer', () => {
       const user = userEvent.setup();
       renderDrawer({ onSubmit });
 
-      await user.type(screen.getByPlaceholderText('e.g. GitHub OAuth Login'), 'Feature');
+      await user.type(screen.getByPlaceholderText(descriptionPlaceholder), 'Add a feature');
       await user.click(screen.getByLabelText('PRD'));
       await user.click(screen.getByLabelText('Plan'));
       await user.click(screen.getByLabelText('Merge'));
@@ -242,7 +222,7 @@ describe('FeatureCreateDrawer', () => {
       const user = userEvent.setup();
       renderDrawer({ onSubmit });
 
-      await user.type(screen.getByPlaceholderText('e.g. GitHub OAuth Login'), 'Feature');
+      await user.type(screen.getByPlaceholderText(descriptionPlaceholder), 'Add a feature');
       await user.click(screen.getByRole('button', { name: '+ Create Feature' }));
 
       expect(onSubmit).toHaveBeenCalledWith(
@@ -297,14 +277,9 @@ describe('FeatureCreateDrawer', () => {
   });
 
   describe('submitting state', () => {
-    it('disables name input when isSubmitting', () => {
-      renderDrawer({ isSubmitting: true });
-      expect(screen.getByPlaceholderText('e.g. GitHub OAuth Login')).toBeDisabled();
-    });
-
     it('disables description textarea when isSubmitting', () => {
       renderDrawer({ isSubmitting: true });
-      expect(screen.getByPlaceholderText('Describe what this feature does...')).toBeDisabled();
+      expect(screen.getByPlaceholderText(descriptionPlaceholder)).toBeDisabled();
     });
 
     it('disables add files button when isSubmitting', () => {
@@ -471,7 +446,7 @@ describe('FeatureCreateDrawer', () => {
       const user = userEvent.setup();
       renderDrawer({ onSubmit });
 
-      await user.type(screen.getByPlaceholderText('e.g. GitHub OAuth Login'), 'Feature');
+      await user.type(screen.getByPlaceholderText(descriptionPlaceholder), 'Add a feature');
       await user.click(screen.getByLabelText('Auto approve all'));
       await user.click(screen.getByRole('button', { name: '+ Create Feature' }));
 
@@ -523,12 +498,8 @@ describe('FeatureCreateDrawer', () => {
         </DrawerCloseGuardProvider>
       );
 
-      // Fill name and description
-      await user.type(screen.getByPlaceholderText('e.g. GitHub OAuth Login'), 'My Feature');
-      await user.type(
-        screen.getByPlaceholderText('Describe what this feature does...'),
-        'Some description'
-      );
+      // Fill description
+      await user.type(screen.getByPlaceholderText(descriptionPlaceholder), 'Some description');
 
       // Check approval gates: PRD, Plan, Merge
       await user.click(screen.getByLabelText('PRD'));
@@ -551,8 +522,7 @@ describe('FeatureCreateDrawer', () => {
       expect(onSubmit).toHaveBeenCalledOnce();
 
       // Assert all fields are reset to defaults (component is still mounted)
-      expect(screen.getByPlaceholderText('e.g. GitHub OAuth Login')).toHaveValue('');
-      expect(screen.getByPlaceholderText('Describe what this feature does...')).toHaveValue('');
+      expect(screen.getByPlaceholderText(descriptionPlaceholder)).toHaveValue('');
       expect(screen.getByLabelText('PRD')).not.toBeChecked();
       expect(screen.getByLabelText('Plan')).not.toBeChecked();
       expect(screen.getByLabelText('Merge')).not.toBeChecked();
@@ -580,7 +550,7 @@ describe('FeatureCreateDrawer', () => {
       );
 
       // Fill form and submit
-      await user.type(screen.getByPlaceholderText('e.g. GitHub OAuth Login'), 'My Feature');
+      await user.type(screen.getByPlaceholderText(descriptionPlaceholder), 'My Feature');
       await user.click(screen.getByRole('button', { name: '+ Create Feature' }));
       expect(onSubmit).toHaveBeenCalledOnce();
 
@@ -597,8 +567,7 @@ describe('FeatureCreateDrawer', () => {
         </DrawerCloseGuardProvider>
       );
 
-      expect(screen.getByPlaceholderText('e.g. GitHub OAuth Login')).toHaveValue('');
-      expect(screen.getByPlaceholderText('Describe what this feature does...')).toHaveValue('');
+      expect(screen.getByPlaceholderText(descriptionPlaceholder)).toHaveValue('');
     });
   });
 
@@ -692,7 +661,7 @@ describe('FeatureCreateDrawer', () => {
     it('plays create sound on form submit', async () => {
       const user = userEvent.setup();
       renderDrawer();
-      await user.type(screen.getByPlaceholderText('e.g. GitHub OAuth Login'), 'My Feature');
+      await user.type(screen.getByPlaceholderText(descriptionPlaceholder), 'My Feature');
       await user.click(screen.getByRole('button', { name: '+ Create Feature' }));
       expect(mockCreatePlay).toHaveBeenCalledOnce();
     });

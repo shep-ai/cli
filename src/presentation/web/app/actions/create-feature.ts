@@ -16,8 +16,7 @@ interface ApprovalGates {
 }
 
 interface CreateFeatureInput {
-  name: string;
-  description?: string;
+  description: string;
   repositoryPath: string;
   attachments?: Attachment[];
   approvalGates?: {
@@ -30,16 +29,8 @@ interface CreateFeatureInput {
   parentId?: string;
 }
 
-function composeUserInput(
-  name: string,
-  description: string | undefined,
-  attachments: Attachment[] | undefined
-): string {
-  let userInput = `Feature: ${name}`;
-
-  if (description) {
-    userInput += `\n\n${description}`;
-  }
+function composeUserInput(description: string, attachments: Attachment[] | undefined): string {
+  let userInput = description;
 
   if (attachments && attachments.length > 0) {
     const paths = attachments.map((a) => `- ${a.path}`).join('\n');
@@ -52,18 +43,17 @@ function composeUserInput(
 export async function createFeature(
   input: CreateFeatureInput
 ): Promise<{ feature?: Feature; error?: string }> {
-  const { name, description, repositoryPath, attachments, approvalGates, push, openPr, parentId } =
-    input;
+  const { description, repositoryPath, attachments, approvalGates, push, openPr, parentId } = input;
 
-  if (!name?.trim()) {
-    return { error: 'name is required' };
+  if (!description?.trim()) {
+    return { error: 'description is required' };
   }
 
   if (!repositoryPath?.trim()) {
     return { error: 'repositoryPath is required' };
   }
 
-  const userInput = composeUserInput(name, description, attachments);
+  const userInput = composeUserInput(description, attachments);
   const gates: ApprovalGates = {
     allowPrd: approvalGates?.allowPrd ?? false,
     allowPlan: approvalGates?.allowPlan ?? false,
@@ -81,7 +71,6 @@ export async function createFeature(
       push: push ?? false,
       openPr: openPr ?? false,
       ...(parentId ? { parentId } : {}),
-      name,
       description,
     });
 

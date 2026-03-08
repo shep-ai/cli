@@ -1,0 +1,136 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: remove-feature-name
+summary: >
+  Presentation-layer-only change removing the "Feature Name" input from the web UI
+  feature creation drawer. The implementation is confined to 4 files: the drawer component,
+  the server action, the test file, and the Storybook stories. No domain, TypeSpec, DB,
+  or use-case changes. Description becomes the sole required text input, and validation
+  shifts from name to description. Two phases: (1) server action + interface changes,
+  (2) drawer component + tests + stories.
+
+relatedFeatures: []
+technologies:
+  - TypeScript
+  - React (Next.js)
+  - shadcn/ui (Input, Textarea, Label)
+  - Tailwind CSS
+  - Vitest + React Testing Library
+  - Storybook
+
+relatedLinks:
+  - https://github.com/shep-ai/cli/issues/192
+
+phases:
+  - id: phase-1
+    name: 'Server Action & Interface Cleanup'
+    description: >
+      Update the server action (create-feature.ts) and its internal types first. This
+      establishes the new contract: CreateFeatureInput no longer has a name field,
+      description is required, composeUserInput() drops the "Feature:" prefix and accepts
+      (description, attachments) only, validation checks description instead of name, and
+      createRecord() is called without a name field. This phase comes first because the
+      server action defines the contract the drawer component consumes — changing the
+      contract first ensures the component changes in phase 2 have a stable target.
+    parallel: false
+
+  - id: phase-2
+    name: 'Drawer Component, Tests & Stories'
+    description: >
+      Update the drawer component to remove the name state variable, name input JSX,
+      and all name references from validation, isDirty, resetForm, and handleSubmit.
+      Update the FeatureCreatePayload interface (defined in the drawer file) to remove
+      name and make description required. Update the description label to "DESCRIBE YOUR
+      FEATURE" and placeholder to the example text. Then update all unit tests and
+      Storybook stories to reflect the simplified single-field form. Tests come alongside
+      the component changes following TDD — write failing tests first, then make the
+      component changes to pass them.
+    parallel: false
+
+filesToCreate: []
+
+filesToModify:
+  - src/presentation/web/app/actions/create-feature.ts
+  - src/presentation/web/components/common/feature-create-drawer/feature-create-drawer.tsx
+  - tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx
+  - src/presentation/web/components/common/feature-create-drawer/feature-create-drawer.stories.tsx
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  This change is cleanly confined to the **presentation layer**, consistent with Clean Architecture.
+  No domain, application, infrastructure, TypeSpec, or database changes are needed.
+
+  The feature creation flow has two presentation-layer touch points:
+
+  1. **Server action** (`create-feature.ts`) — defines `CreateFeatureInput` interface,
+     composes `userInput` string via `composeUserInput()`, validates input, and calls
+     the `CreateFeatureUseCase.createRecord()`.
+  2. **Drawer component** (`feature-create-drawer.tsx`) — defines `FeatureCreatePayload`
+     interface, manages form state, renders the form UI, and calls the server action.
+
+  The use case (`CreateFeatureUseCase`) already handles `input.name` being undefined via
+  `input.name ?? input.userInput.slice(0, 100)` fallback (line 132). The `MetadataGenerator`
+  replaces this temporary name with an AI-generated name during `initializeAndSpawn()`.
+  The CLI already omits the name field and relies on this exact fallback path.
+
+  ## Key Design Decisions
+
+  ### 1. Server Action First, Then Component
+
+  The server action defines the contract (`CreateFeatureInput`) that the drawer component
+  conforms to. Changing the contract first (removing `name`, requiring `description`) gives
+  the component changes a stable target. This also allows us to test the server action
+  changes independently before modifying the UI.
+
+  ### 2. composeUserInput() Simplification
+
+  **Current:** `"Feature: ${name}\n\n${description}\n\nAttached files:\n- path1\n- path2"`
+  **New:** `"${description}\n\nAttached files:\n- path1\n- path2"`
+
+  The `"Feature: "` prefix is dropped because: (a) the CLI already passes raw description
+  without any prefix, (b) the AI metadata generator produces better results from natural
+  language input without artificial prefixes, and (c) the function signature simplifies from
+  `(name, description, attachments)` to `(description, attachments)`.
+
+  ### 3. Stop Passing name to createRecord()
+
+  The server action currently passes `name` as a separate field to `createRecord()`. After
+  this change, it stops passing `name` entirely. The use case falls back to
+  `input.userInput.slice(0, 100)` for the initial DB record — this is temporary and gets
+  replaced by the AI-generated name during `initializeAndSpawn()`. This matches CLI behavior.
+
+  ### 4. FeatureCreatePayload Changes
+
+  `name: string` is removed. `description` changes from `string | undefined` to `string`
+  (required). The payload accurately reflects what the form produces.
+
+  ### 5. Validation Shift
+
+  Both client-side (`!name.trim()` to `!description.trim()`) and server-side
+  (`!name?.trim()` to `!description?.trim()`) validation adapt to the new required field.
+
+  ## Implementation Strategy
+
+  **Phase 1 (Server Action)** establishes the new contract. The server action's
+  `CreateFeatureInput` interface drops `name` and requires `description`.
+  `composeUserInput()` is refactored to accept `(description, attachments)` only.
+  Validation switches to description. The `createRecord()` call drops the `name` field.
+
+  **Phase 2 (Drawer + Tests + Stories)** updates the component to match the new contract.
+  Following TDD: first update tests to assert the new behavior (name input gone,
+  description required for submit, payload has no name), then update the component to
+  pass, then update Storybook stories.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Input import accidentally removed (still used by ParentFeatureCombobox) | Research confirmed Input is used at line 441 — keep the import |
+  | Breaking the dirty-form guard | isDirty simply drops the `name.trim() !== ''` clause — remaining checks (description, attachments) preserved |
+  | createRecord() failing without name | Use case already handles undefined name via `input.userInput.slice(0, 100)` fallback — verified in research |
+  | Tests referencing old placeholder text | Update all placeholder references from `'e.g. GitHub OAuth Login'` to the new description placeholder |
+  | Storybook play functions failing | Update all play functions that type into the name input to type into description instead |

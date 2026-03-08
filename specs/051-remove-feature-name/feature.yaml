@@ -1,0 +1,38 @@
+feature:
+  id: 051-remove-feature-name
+  name: remove-feature-name
+  number: 51
+  branch: feat/051-remove-feature-name
+  lifecycle: planning
+  createdAt: '2026-03-08T07:08:49Z'
+status:
+  phase: implementation-complete
+  progress:
+    completed: 6
+    total: 6
+    percentage: 100
+  currentTask: null
+  lastUpdated: '2026-03-08T08:57:01.773Z'
+  lastUpdatedBy: feature-agent:implement
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+    - plan
+    - phase-1
+    - phase-2
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-03-08T07:08:49Z'
+    completedBy: feature-agent
+errors:
+  current: null
+  history: []

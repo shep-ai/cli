@@ -16,8 +16,7 @@ import { DrawerCloseGuardProvider } from '@/hooks/drawer-close-guard';
  * create a new feature in the Control Center.
  *
  * ### Form sections
- * - **Feature Name** (required) — text input, submit is disabled when empty
- * - **Description** (optional) — multi-line textarea
+ * - **Description** (required) — multi-line textarea, submit is disabled when empty
  * - **Auto Approve** — Tri-state parent checkbox with 3 child checkboxes (PRD, Plan, Merge).
  *   Parent shows indeterminate when some children are selected, checks/unchecks all on click.
  * - **Attachments** (optional) — native OS file picker with extension-based icon system:
@@ -29,12 +28,12 @@ import { DrawerCloseGuardProvider } from '@/hooks/drawer-close-guard';
  * |------|------|-------------|
  * | `open` | `boolean` | Controls drawer visibility |
  * | `onClose` | `() => void` | Called on dismiss (close button, cancel, or backdrop) |
- * | `onSubmit` | `(data: FeatureCreatePayload) => void` | Called with `{ name, description, attachments, repositoryPath, approvalGates }` |
+ * | `onSubmit` | `(data: FeatureCreatePayload) => void` | Called with `{ description, attachments, repositoryPath, approvalGates }` |
  * | `repositoryPath` | `string` | Repository path (mandatory) included in the submitted data |
  *
  * ### Behavior
- * - Form resets (name, description, attachments, checkboxes) when the drawer closes
- * - Submit button is disabled when name is empty
+ * - Form resets (description, attachments, checkboxes) when the drawer closes
+ * - Submit button is disabled when description is empty
  * - `approvalGates` always included: `{ allowPrd, allowPlan, allowMerge }` (all false by default)
  * - Non-modal (`modal={false}`) — canvas stays interactive behind the drawer
  * - Fixed width: 448px (`w-xl`) — matches review drawers (PRD, Plan, Merge)
@@ -66,7 +65,7 @@ const meta: Meta<typeof FeatureCreateDrawer> = {
     },
     onSubmit: {
       description:
-        'Callback fired with `FeatureCreatePayload` when the form is submitted. Receives `{ name, description, attachments, repositoryPath, approvalGates }`.',
+        'Callback fired with `FeatureCreatePayload` when the form is submitted. Receives `{ description, attachments, repositoryPath, approvalGates }`.',
     },
     repositoryPath: {
       control: 'text',
@@ -131,7 +130,7 @@ export const Default: Story = {
 };
 
 /**
- * Pre-filled form — click to open, then name and description are typed in.
+ * Pre-filled form — click to open, then description is typed in.
  * Demonstrates the form in a "ready to submit" state.
  */
 export const PreFilled: Story = {
@@ -142,10 +141,10 @@ export const PreFilled: Story = {
 
     // Drawer renders in a portal — query from document body
     const body = within(canvasElement.ownerDocument.body);
-    const nameInput = await body.findByPlaceholderText('e.g. GitHub OAuth Login');
-    const descInput = body.getByPlaceholderText('Describe what this feature does...');
+    const descInput = await body.findByPlaceholderText(
+      'e.g. Add GitHub OAuth login with callback handling and token refresh...'
+    );
 
-    await userEvent.type(nameInput, 'GitHub OAuth Login');
     await userEvent.type(
       descInput,
       'Implement OAuth2 authentication with GitHub as the identity provider. Includes login, callback handling, and token refresh.'
@@ -154,8 +153,8 @@ export const PreFilled: Story = {
 };
 
 /**
- * Validation state — open the drawer with an empty name field.
- * The "+ Create Feature" button is disabled because name validation fails.
+ * Validation state — open the drawer with an empty description field.
+ * The "+ Create Feature" button is disabled because description validation fails.
  */
 export const ValidationDisabled: Story = {
   render: () => <CreateDrawerTrigger label="Open Validation Demo" />,
@@ -312,7 +311,7 @@ export const WithWorkflowDefaults: Story = {
  * and click "Add Files" to attach files via the native OS file picker.
  *
  * **Submitted data** is displayed in a styled panel showing `FeatureCreatePayload`
- * with `{ name, description, attachments, repositoryPath, approvalGates }`.
+ * with `{ description, attachments, repositoryPath, approvalGates }`.
  *
  * In Storybook, the native picker won't work (no backend), but submitted data
  * would show the paths if files were attached programmatically.
@@ -369,8 +368,10 @@ export const DiscardConfirmation: Story = {
     await userEvent.click(canvas.getByRole('button', { name: 'Open (Discard Confirmation)' }));
 
     const body = within(canvasElement.ownerDocument.body);
-    const nameInput = await body.findByPlaceholderText('e.g. GitHub OAuth Login');
-    await userEvent.type(nameInput, 'My Feature');
+    const descInput = await body.findByPlaceholderText(
+      'e.g. Add GitHub OAuth login with callback handling and token refresh...'
+    );
+    await userEvent.type(descInput, 'My Feature');
 
     // Click Cancel — should show the discard confirmation dialog
     const cancelButton = body.getByRole('button', { name: 'Cancel' });

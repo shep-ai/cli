@@ -38,8 +38,7 @@ export interface ParentFeatureOption {
 }
 
 export interface FeatureCreatePayload {
-  name: string;
-  description?: string;
+  description: string;
   attachments: FileAttachment[];
   repositoryPath: string;
   approvalGates: {
@@ -92,7 +91,6 @@ export function FeatureCreateDrawer({
   const defaultPush = workflowDefaults?.push ?? false;
   const defaultOpenPr = workflowDefaults?.openPr ?? false;
 
-  const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [attachments, setAttachments] = useState<FileAttachment[]>([]);
   const [approvalGates, setApprovalGates] = useState<Record<string, boolean>>({ ...defaultGates });
@@ -117,7 +115,6 @@ export function FeatureCreateDrawer({
   }, [open, initialParentId]);
 
   const resetForm = useCallback(() => {
-    setName('');
     setDescription('');
     setAttachments([]);
     setApprovalGates({ ...defaultGates });
@@ -127,7 +124,7 @@ export function FeatureCreateDrawer({
   }, [defaultGates, defaultPush, defaultOpenPr]);
 
   // Track whether the form has unsaved data
-  const isDirty = name.trim() !== '' || description.trim() !== '' || attachments.length > 0;
+  const isDirty = description.trim() !== '' || attachments.length > 0;
 
   // Shared close guard — shows confirmation when dirty, prevents navigation
   const { attemptClose } = useGuardedDrawerClose({ open, isDirty, onClose, onReset: resetForm });
@@ -135,12 +132,10 @@ export function FeatureCreateDrawer({
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault();
-      if (!name.trim()) return;
+      if (!description.trim()) return;
       createSound.play();
-      const trimmedDescription = description.trim() || undefined;
       onSubmit({
-        name: name.trim(),
-        description: trimmedDescription,
+        description: description.trim(),
         attachments,
         repositoryPath,
         approvalGates: {
@@ -155,7 +150,6 @@ export function FeatureCreateDrawer({
       resetForm();
     },
     [
-      name,
       description,
       attachments,
       approvalGates,
@@ -214,7 +208,11 @@ export function FeatureCreateDrawer({
           <Button variant="outline" onClick={attemptClose} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button type="submit" form="create-feature-form" disabled={!name.trim() || isSubmitting}>
+          <Button
+            type="submit"
+            form="create-feature-form"
+            disabled={!description.trim() || isSubmitting}
+          >
             {isSubmitting ? 'Creating...' : '+ Create Feature'}
           </Button>
         </div>
@@ -223,38 +221,21 @@ export function FeatureCreateDrawer({
       {/* Form body */}
       <div className="overflow-y-auto p-4">
         <form id="create-feature-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
-          {/* Feature name */}
-          <div className="flex flex-col gap-1.5">
-            <Label
-              htmlFor="feature-name"
-              className="text-muted-foreground text-xs font-semibold tracking-wider"
-            >
-              FEATURE NAME
-            </Label>
-            <Input
-              id="feature-name"
-              placeholder="e.g. GitHub OAuth Login"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              disabled={isSubmitting}
-            />
-          </div>
-
           {/* Description */}
           <div className="flex flex-col gap-1.5">
             <Label
               htmlFor="feature-description"
               className="text-muted-foreground text-xs font-semibold tracking-wider"
             >
-              DESCRIPTION
+              DESCRIBE YOUR FEATURE
             </Label>
             <Textarea
               id="feature-description"
-              placeholder="Describe what this feature does..."
+              placeholder="e.g. Add GitHub OAuth login with callback handling and token refresh..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={4}
+              required
               disabled={isSubmitting}
             />
           </div>
