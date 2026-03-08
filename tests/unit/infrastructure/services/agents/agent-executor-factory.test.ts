@@ -151,17 +151,21 @@ describe('AgentExecutorFactory', () => {
     it('should return gemini-cli model list', () => {
       const models = factory.getSupportedModels(AgentType.GeminiCli);
 
-      expect(models).toEqual(['gemini-2.5-pro', 'gemini-2.0-flash', 'gemini-1.5-pro']);
+      expect(models).toEqual(['gemini-3.1-pro', 'gemini-3-flash', 'gemini-2.5-pro', 'gemini-2.5-flash']);
     });
 
     it('should return cursor model list', () => {
       const models = factory.getSupportedModels(AgentType.Cursor);
 
       expect(models).toEqual([
-        'claude-3-5-sonnet-20241022',
-        'claude-3-haiku-20240307',
-        'gpt-4o',
-        'cursor-small',
+        'claude-opus-4-6',
+        'claude-sonnet-4-6',
+        'gpt-5.4',
+        'gpt-5',
+        'gpt-5.3-codex',
+        'gemini-3.1-pro',
+        'composer-1.5',
+        'grok-code',
       ]);
     });
 

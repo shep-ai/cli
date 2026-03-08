@@ -66,21 +66,21 @@ describe('getSupportedModels server action', () => {
 
   it('passes gemini-cli agent type to factory correctly', async () => {
     mockGetSettings.mockReturnValue({ agent: { type: 'gemini-cli' } });
-    mockGetSupportedModels.mockReturnValue(['gemini-2.5-pro', 'gemini-2.0-flash']);
+    mockGetSupportedModels.mockReturnValue(['gemini-3.1-pro', 'gemini-3-flash']);
 
     const result = await getSupportedModels();
 
     expect(mockGetSupportedModels).toHaveBeenCalledWith('gemini-cli');
-    expect(result).toEqual(['gemini-2.5-pro', 'gemini-2.0-flash']);
+    expect(result).toEqual(['gemini-3.1-pro', 'gemini-3-flash']);
   });
 
   it('passes cursor agent type to factory correctly', async () => {
     mockGetSettings.mockReturnValue({ agent: { type: 'cursor' } });
-    mockGetSupportedModels.mockReturnValue(['claude-3-5-sonnet-20241022', 'gpt-4o']);
+    mockGetSupportedModels.mockReturnValue(['claude-opus-4-6', 'gpt-5.4']);
 
     const result = await getSupportedModels();
 
     expect(mockGetSupportedModels).toHaveBeenCalledWith('cursor');
-    expect(result).toEqual(['claude-3-5-sonnet-20241022', 'gpt-4o']);
+    expect(result).toEqual(['claude-opus-4-6', 'gpt-5.4']);
   });
 });

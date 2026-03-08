@@ -115,6 +115,8 @@ function CreateDrawerTrigger({
         }}
         repositoryPath="/Users/dev/my-repo"
         workflowDefaults={workflowDefaults}
+        currentAgentType="claude-code"
+        currentModel="claude-sonnet-4-6"
       />
     </div>
   );
@@ -400,6 +402,8 @@ function CreateDrawerShellTemplate() {
           setOpen(false);
         }}
         repositoryPath="/Users/dev/my-repo"
+        currentAgentType="claude-code"
+        currentModel="claude-sonnet-4-6"
       />
     </div>
   );
@@ -474,6 +478,8 @@ export const Interactive: Story = {
             setOpen(false);
           }}
           repositoryPath="/Users/dev/my-repo"
+          currentAgentType="claude-code"
+          currentModel="claude-sonnet-4-6"
         />
       </div>
     );

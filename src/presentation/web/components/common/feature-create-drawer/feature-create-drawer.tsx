@@ -27,6 +27,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useGuardedDrawerClose } from '@/hooks/drawer-close-guard';
 import type { FileAttachment } from '@shepai/core/infrastructure/services/file-dialog.service';
 import type { WorkflowDefaults } from '@/app/actions/get-workflow-defaults';
+import { AgentModelPicker } from '@/components/features/settings/AgentModelPicker';
 import { pickFiles } from './pick-files';
 
 export type { FileAttachment } from '@shepai/core/infrastructure/services/file-dialog.service';
@@ -51,6 +52,10 @@ export interface FeatureCreatePayload {
   parentId?: string;
   /** When true, skip SDLC phases and implement directly from the prompt. */
   fast: boolean;
+  /** Optional agent type override for this feature run */
+  agentType?: string;
+  /** Optional model override for this feature run */
+  model?: string;
 }
 
 const AUTO_APPROVE_OPTIONS = [
@@ -76,6 +81,10 @@ export interface FeatureCreateDrawerProps {
   features?: ParentFeatureOption[];
   /** Pre-select a parent feature when the drawer opens (e.g. from (+) button on a feature node). */
   initialParentId?: string;
+  /** Current global agent type from settings */
+  currentAgentType?: string;
+  /** Current global model from settings */
+  currentModel?: string;
 }
 
 export function FeatureCreateDrawer({
@@ -87,6 +96,8 @@ export function FeatureCreateDrawer({
   workflowDefaults,
   features,
   initialParentId,
+  currentAgentType,
+  currentModel,
 }: FeatureCreateDrawerProps) {
   const createSound = useSoundAction('create');
   const defaultGates = workflowDefaults?.approvalGates ?? EMPTY_GATES;
@@ -100,6 +111,8 @@ export function FeatureCreateDrawer({
   const [openPr, setOpenPr] = useState(defaultOpenPr);
   const [parentId, setParentId] = useState<string | undefined>(undefined);
   const [fast, setFast] = useState(false);
+  const [overrideAgent, setOverrideAgent] = useState<string | undefined>(undefined);
+  const [overrideModel, setOverrideModel] = useState<string | undefined>(undefined);
 
   // Sync state when workflowDefaults load asynchronously
   useEffect(() => {
@@ -125,6 +138,8 @@ export function FeatureCreateDrawer({
     setOpenPr(defaultOpenPr);
     setParentId(undefined);
     setFast(false);
+    setOverrideAgent(undefined);
+    setOverrideModel(undefined);
   }, [defaultGates, defaultPush, defaultOpenPr]);
 
   // Track whether the form has unsaved data
@@ -150,6 +165,8 @@ export function FeatureCreateDrawer({
         push: push || openPr,
         openPr,
         fast,
+        ...(overrideAgent ? { agentType: overrideAgent } : {}),
+        ...(overrideModel ? { model: overrideModel } : {}),
         ...(parentId ? { parentId } : {}),
       });
       resetForm();
@@ -163,6 +180,8 @@ export function FeatureCreateDrawer({
       push,
       openPr,
       fast,
+      overrideAgent,
+      overrideModel,
       parentId,
       createSound,
       resetForm,
@@ -263,6 +282,23 @@ export function FeatureCreateDrawer({
               />
             </div>
           ) : null}
+
+          {/* Agent & Model override */}
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-muted-foreground text-xs font-semibold tracking-wider">
+              AGENT & MODEL
+            </Label>
+            <AgentModelPicker
+              initialAgentType={overrideAgent ?? currentAgentType ?? 'claude-code'}
+              initialModel={overrideModel ?? currentModel ?? 'claude-sonnet-4-6'}
+              mode="override"
+              onAgentModelChange={(agent, model) => {
+                setOverrideAgent(agent);
+                setOverrideModel(model);
+              }}
+              disabled={isSubmitting}
+            />
+          </div>
 
           {/* Fast mode toggle */}
           <div className="flex flex-col gap-1.5">

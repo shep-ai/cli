@@ -16,22 +16,13 @@ import {
 } from '@/components/ui/select';
 import { updateSettingsAction } from '@/app/actions/update-settings';
 import { AgentType, AgentAuthMethod, EditorType } from '@shepai/core/domain/generated/output';
-import { getAgentTypeIcon } from '@/components/common/feature-node/agent-type-icons';
 import { getEditorTypeIcon } from '@/components/common/editor-type-icons';
+import { AgentModelPicker } from '@/components/features/settings/AgentModelPicker';
 import type {
   Settings,
   FeatureFlags,
   NotificationPreferences,
 } from '@shepai/core/domain/generated/output';
-
-const AGENT_TYPE_OPTIONS = [
-  { value: AgentType.ClaudeCode, label: 'Claude Code' },
-  { value: AgentType.Cursor, label: 'Cursor' },
-  { value: AgentType.GeminiCli, label: 'Gemini CLI' },
-  { value: AgentType.Aider, label: 'Aider' },
-  { value: AgentType.Continue, label: 'Continue' },
-  { value: AgentType.Dev, label: 'Dev' },
-];
 
 const AUTH_METHOD_OPTIONS = [
   { value: AgentAuthMethod.Session, label: 'Session' },
@@ -291,31 +282,14 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
         >
           Agent
         </h2>
-        <SettingsRow label="Agent" htmlFor="agent-type">
-          <Select
-            value={agentType}
-            onValueChange={(v) => {
-              setAgentType(v as AgentType);
-              save(buildAgentPayload({ type: v as AgentType }));
-            }}
-          >
-            <SelectTrigger id="agent-type" data-testid="agent-type-select" className="w-45">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {AGENT_TYPE_OPTIONS.map((opt) => {
-                const Icon = getAgentTypeIcon(opt.value);
-                return (
-                  <SelectItem key={opt.value} value={opt.value}>
-                    <span className="flex items-center gap-2">
-                      <Icon className="h-4 w-4 shrink-0" />
-                      {opt.label}
-                    </span>
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
+        <SettingsRow label="Agent & Model" htmlFor="agent-model-picker">
+          <AgentModelPicker
+            initialAgentType={agentType}
+            initialModel={settings.models.default}
+            mode="settings"
+            onAgentModelChange={(newAgent) => setAgentType(newAgent as AgentType)}
+            className="w-55"
+          />
         </SettingsRow>
         <SelectRow
           label="Authentication"
