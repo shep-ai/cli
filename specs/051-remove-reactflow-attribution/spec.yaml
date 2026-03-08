@@ -8,18 +8,18 @@ oneLiner: Remove React Flow attribution watermark from the features canvas
 
 summary: >
   Add proOptions={{ hideAttribution: true }} to the main ReactFlow component in
-  features-canvas.tsx to remove the "React Flow" watermark from the production canvas.
-  The attribution is already hidden in Storybook stories and tests but is still visible
-  in the actual application.
+  features-canvas.tsx and the dependency-edge Storybook story to remove the
+  "React Flow" watermark. The attribution is already hidden in other Storybook
+  stories and tests but is still visible in the production canvas and one story file.
 
-phase: Analysis
+phase: Requirements
 sizeEstimate: S
 
 # Relationships
 relatedFeatures: []
 
 technologies:
-  - "@xyflow/react (React Flow v12)"
+  - '@xyflow/react (React Flow v12)'
   - React
   - Next.js
 
@@ -27,7 +27,51 @@ relatedLinks:
   - https://reactflow.dev/learn/troubleshooting/remove-attribution
 
 # Open questions (must be resolved before implementation)
-openQuestions: []
+openQuestions:
+  - question: 'Should the dependency-edge Storybook story also have its attribution hidden for consistency?'
+    resolved: true
+    options:
+      - option: 'Yes — hide in all ReactFlow instances'
+        description: >
+          Add proOptions={{ hideAttribution: true }} to every ReactFlow instance
+          across the codebase (production, stories, tests) for visual consistency
+          and to prevent the watermark from appearing in any Storybook screenshot
+          or visual regression test.
+        selected: true
+      - option: 'No — only fix the production component'
+        description: >
+          Only add proOptions to features-canvas.tsx. Stories are internal-only
+          and the watermark does not affect end users. This minimizes the diff.
+        selected: false
+    selectionRationale: >
+      Other story and test files in the codebase already hide the attribution.
+      Consistency across all ReactFlow instances avoids confusion and prevents
+      watermark artifacts in Storybook screenshots or visual regression tests.
+    answer: 'Yes — hide in all ReactFlow instances'
+
+  - question: 'Should a unit test explicitly assert that proOptions.hideAttribution is true?'
+    resolved: true
+    options:
+      - option: 'No — rely on existing test coverage'
+        description: >
+          The change is a single static prop. The existing test suite will
+          verify the component still renders correctly. Adding a test that
+          asserts on a specific prop value is brittle and tests React Flow
+          internals rather than application behavior.
+        selected: true
+      - option: 'Yes — add a dedicated assertion'
+        description: >
+          Add a test that queries for the attribution DOM element and asserts
+          it is absent. This provides a regression guard if the prop is
+          accidentally removed. However, it couples the test to React Flow
+          rendering internals.
+        selected: false
+    selectionRationale: >
+      Testing a static prop value provides minimal value and couples tests to
+      React Flow internals. The existing test suite already renders the
+      FeaturesCanvas and will catch any regressions from the prop addition.
+      The prop is a simple boolean — there is no logic to verify.
+    answer: 'No — rely on existing test coverage'
 
 # Markdown content (the actual spec)
 content: |
@@ -39,35 +83,36 @@ content: |
   attribution can be removed by passing `proOptions={{ hideAttribution: true }}` to the
   `<ReactFlow>` component.
 
-  Notably, several Storybook stories and test files in this codebase already use
+  Several Storybook stories and test files in this codebase already use
   `proOptions={{ hideAttribution: true }}` on their own `<ReactFlow>` instances, but the
-  main production component (`features-canvas.tsx`) does not.
+  main production component (`features-canvas.tsx`) and the `dependency-edge.stories.tsx`
+  file do not.
 
-  ## Codebase Analysis
+  ## Success Criteria
 
-  ### Project Structure
+  - [ ] The React Flow attribution watermark is not rendered in the production features canvas
+  - [ ] The `dependency-edge.stories.tsx` story also hides the attribution for consistency
+  - [ ] All existing unit tests pass without modification
+  - [ ] The build completes without errors
+  - [ ] Lint and typecheck pass without errors
 
-  The web UI lives under `src/presentation/web/` following Clean Architecture layering.
-  Key directories relevant to this feature:
+  ## Functional Requirements
 
-  - `src/presentation/web/components/features/features-canvas/` — Main canvas component
-  - `src/presentation/web/components/common/feature-node/` — Feature node component
-  - `src/presentation/web/components/common/repository-node/` — Repository node component
-  - `tests/unit/presentation/web/` — Corresponding test files
+  - **FR-1**: The `<ReactFlow>` component in `features-canvas.tsx` MUST include the prop `proOptions={{ hideAttribution: true }}` to suppress the attribution watermark in the production UI.
+  - **FR-2**: The `<ReactFlow>` component in `dependency-edge.stories.tsx` MUST include the prop `proOptions={{ hideAttribution: true }}` for consistency with other story files.
 
-  ### Architecture Patterns
+  ## Non-Functional Requirements
 
-  - Clean Architecture with presentation layer in `src/presentation/web/`
-  - React Flow (`@xyflow/react` v12) is used for the graph/canvas visualization
-  - Components follow a pattern of co-located stories (`.stories.tsx`) and separate test files
-  - The `FeaturesCanvas` component is the single production `<ReactFlow>` wrapper
+  - **NFR-1**: No new runtime dependencies may be introduced; the `proOptions` API is already available in the installed `@xyflow/react` v12.10.0.
+  - **NFR-2**: The change must not alter any existing component behavior, layout, interaction, or render output beyond removing the attribution watermark.
+  - **NFR-3**: All existing Storybook stories must continue to render correctly after the change.
 
-  ### Relevant Technologies
+  ## Product Questions & AI Recommendations
 
-  - `@xyflow/react` v12.10.0 — React Flow library providing the canvas
-  - React 19 with Next.js 16
-  - Storybook for component development
-  - Vitest for unit testing
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Should the dependency-edge story also hide attribution? | Yes — hide in all ReactFlow instances | Other stories already do this; consistency prevents watermark artifacts in screenshots |
+  | 2 | Should a unit test assert proOptions.hideAttribution is true? | No — rely on existing test coverage | Testing a static prop couples tests to React Flow internals with minimal value |
 
   ## Affected Areas
 
@@ -75,7 +120,6 @@ content: |
   | ---- | ------ | --------- |
   | `src/presentation/web/components/features/features-canvas/features-canvas.tsx` | High | The main `<ReactFlow>` component where `proOptions` must be added (line 104) |
   | `src/presentation/web/components/features/features-canvas/dependency-edge.stories.tsx` | Low | Story file with a `<ReactFlow>` instance that also lacks `proOptions` — should be consistent |
-  | `tests/unit/presentation/web/features/features-canvas/features-canvas.test.tsx` | Low | May want a test asserting the attribution is hidden, though this is a prop-level concern |
 
   Files that ALREADY have `proOptions={{ hideAttribution: true }}` (no changes needed):
   - `src/presentation/web/components/common/feature-node/feature-node.stories.tsx`
@@ -90,7 +134,7 @@ content: |
 
   ## Size Estimate
 
-  **S** — This is a one-line prop addition to the main `<ReactFlow>` component in
-  `features-canvas.tsx`, plus an optional consistency fix in `dependency-edge.stories.tsx`.
-  No architectural changes, no new components, no new tests beyond verifying the existing
-  suite still passes.
+  **S** — This is a one-line prop addition to the `<ReactFlow>` component in
+  `features-canvas.tsx` and `dependency-edge.stories.tsx`. No architectural changes,
+  no new components, no new dependencies. The existing test suite covers the component
+  and requires no modifications.
