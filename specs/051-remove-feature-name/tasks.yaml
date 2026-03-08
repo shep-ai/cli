@@ -1,0 +1,227 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: remove-feature-name
+summary: >
+  6 tasks across 2 phases. Phase 1 updates the server action contract (types, validation,
+  userInput composition). Phase 2 updates the drawer component, unit tests, and Storybook
+  stories to remove the name field and make description the sole required input.
+
+relatedFeatures: []
+technologies:
+  - TypeScript
+  - React (Next.js)
+  - Vitest
+  - React Testing Library
+  - Storybook
+
+relatedLinks:
+  - https://github.com/shep-ai/cli/issues/192
+
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Update server action interface and validation'
+    description: >
+      Remove `name: string` from the `CreateFeatureInput` interface in create-feature.ts.
+      Add `description: string` as required (it was previously passed through but not in
+      the interface explicitly as required). Update the validation check from
+      `if (!name?.trim())` to `if (!description?.trim())` with the error message
+      "description is required".
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'CreateFeatureInput interface has no name field'
+      - 'CreateFeatureInput interface has description: string (required)'
+      - 'Validation rejects empty/whitespace description with "description is required" error'
+      - 'Validation no longer checks for name'
+    tdd:
+      red:
+        - 'No separate test file for server action — validation is tested via integration through the drawer tests. Changes verified by build + existing test suite.'
+      green:
+        - 'Remove name from CreateFeatureInput interface'
+        - 'Change description from optional to required in the interface'
+        - 'Update validation: `if (!description?.trim())` returning `{ error: "description is required" }`'
+      refactor:
+        - 'Ensure interface field ordering is logical (description first, then repositoryPath, etc.)'
+    estimatedEffort: '15min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Refactor composeUserInput() and createRecord() call'
+    description: >
+      Update composeUserInput() to accept (description, attachments) instead of
+      (name, description, attachments). Remove the "Feature: ${name}" prefix — just
+      start with the description text. Update the createRecord() call to stop passing
+      the `name` field. Update the composeUserInput() call site to pass description
+      instead of name.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'composeUserInput() signature is (description: string, attachments: Attachment[] | undefined)'
+      - 'composeUserInput() output starts with description text, no "Feature:" prefix'
+      - 'composeUserInput() still appends attachment paths when present'
+      - 'createRecord() call does not pass a name field'
+      - 'composeUserInput() call site passes description as first argument'
+    tdd:
+      red:
+        - 'No separate test file for server action. Changes verified by build + existing test suite.'
+      green:
+        - 'Update composeUserInput signature: remove name parameter, make description the first parameter'
+        - 'Update function body: `let userInput = description` instead of `let userInput = "Feature: ${name}"`'
+        - 'Update call site: `composeUserInput(description, attachments)` instead of `composeUserInput(name, description, attachments)`'
+        - 'Remove `name` from the createRecord() call object'
+      refactor:
+        - 'Clean up any unused variable references to name in the server action'
+        - 'Verify the destructured `{ name, description, ... }` from input is updated to `{ description, ... }`'
+    estimatedEffort: '15min'
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Update unit tests for new form structure (RED phase)'
+    description: >
+      Update feature-create-drawer.test.tsx FIRST (TDD red phase). Modify tests to
+      reflect the new form: no name input, description is required for submit, payload
+      has no name field. This creates a failing test suite that the component changes
+      in task-4 will fix.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'No test references the name input placeholder "e.g. GitHub OAuth Login"'
+      - 'No test asserts payload.name exists'
+      - 'Validation tests check description-based submit button enable/disable'
+      - 'Submission tests fill description (not name) before clicking submit'
+      - 'Reset tests verify description (not name) is cleared'
+      - 'Disabled state tests check description textarea disabled, not name input'
+      - 'All tests are structurally correct (they will fail until component is updated in task-4)'
+    tdd:
+      red:
+        - 'Remove "renders feature name input" test (name input no longer exists)'
+        - 'Remove "accepts text in the name field" test'
+        - 'Update "disables submit button when name is empty" to "disables submit button when description is empty"'
+        - 'Update "enables submit button when name has content" to "enables submit button when description has content"'
+        - 'Update "disables submit button when name is only whitespace" to "disables submit button when description is only whitespace"'
+        - 'Update all submission tests: type into description textarea instead of name input, assert payload has description (not name)'
+        - 'Update "disables name input when isSubmitting" to "disables description textarea when isSubmitting"'
+        - 'Update reset/clear tests: assert description textarea value is empty (not name input)'
+        - 'Update placeholder references from "e.g. GitHub OAuth Login" to new description placeholder'
+      green:
+        - 'Tests are written — they will pass after task-4 component changes'
+      refactor:
+        - 'Ensure test descriptions accurately reflect what they test'
+        - 'Remove any leftover name-related comments or test helpers'
+    estimatedEffort: '45min'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Update drawer component (GREEN phase)'
+    description: >
+      Update feature-create-drawer.tsx to pass the failing tests from task-3. Remove
+      name state variable, name input JSX, update FeatureCreatePayload interface
+      (remove name, make description required), update validation, isDirty, resetForm,
+      handleSubmit, and update description label/placeholder text.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'No name useState hook in the component'
+      - 'No name input JSX rendered'
+      - 'FeatureCreatePayload has no name field'
+      - 'FeatureCreatePayload.description is string (required, not optional)'
+      - 'Submit button disabled condition is !description.trim() || isSubmitting'
+      - 'handleSubmit validates description.trim() and includes description (not name) in payload'
+      - 'isDirty checks description.trim() !== "" || attachments.length > 0 (no name)'
+      - 'resetForm does not reference name'
+      - 'Description label reads "DESCRIBE YOUR FEATURE"'
+      - 'Description placeholder reads "e.g. Add GitHub OAuth login with callback handling and token refresh..."'
+      - 'Input import is preserved (used by ParentFeatureCombobox)'
+      - 'All unit tests from task-3 pass'
+    tdd:
+      red:
+        - 'Tests already written in task-3 and failing'
+      green:
+        - 'Remove `const [name, setName] = useState("")`'
+        - 'Remove name input JSX block (Label + Input for feature name)'
+        - 'Update FeatureCreatePayload: remove name, change description to required string'
+        - 'Update submit button: disabled={!description.trim() || isSubmitting}'
+        - 'Update handleSubmit: remove if (!name.trim()) check, add if (!description.trim()) check, remove name from payload, include description: description.trim()'
+        - 'Update isDirty: remove name.trim() !== "" clause'
+        - 'Update resetForm: remove setName("")'
+        - 'Update description Label text to "DESCRIBE YOUR FEATURE"'
+        - 'Update description Textarea placeholder to "e.g. Add GitHub OAuth login with callback handling and token refresh..."'
+      refactor:
+        - 'Verify no dead references to name or setName remain'
+        - 'Ensure the form layout is clean after removing the name field section'
+        - 'Run pnpm build to confirm no TypeScript errors'
+    estimatedEffort: '30min'
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Update Storybook stories'
+    description: >
+      Update feature-create-drawer.stories.tsx to reflect the simplified form. Update
+      meta documentation, update play functions that typed into the name input to type
+      into description instead, update placeholder references, and update any assertions
+      or comments referencing the name field.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'Meta documentation no longer mentions "Feature Name" as a form section'
+      - 'PreFilled story types into description textarea instead of name input'
+      - 'ValidationDisabled story documentation references description (not name) validation'
+      - 'DiscardConfirmation story types into description textarea instead of name input'
+      - 'No story references the old name placeholder "e.g. GitHub OAuth Login"'
+      - 'All stories render without errors (verified by build)'
+    tdd:
+      red:
+        - 'Stories reference removed name input — they would fail if run'
+      green:
+        - 'Update meta JSDoc: change "Feature Name (required)" to "Describe Your Feature (required)" in form sections table'
+        - 'Update PreFilled play function: find and type into description textarea using new placeholder'
+        - 'Update ValidationDisabled documentation: "description validation" instead of "name validation"'
+        - 'Update DiscardConfirmation play function: find and type into description textarea'
+        - 'Remove references to old name placeholder "e.g. GitHub OAuth Login"'
+      refactor:
+        - 'Ensure story descriptions and documentation are consistent'
+        - 'Verify stories build without TypeScript errors'
+    estimatedEffort: '30min'
+
+  - id: task-6
+    phaseId: phase-2
+    title: 'Full verification pass'
+    description: >
+      Run the full verification suite to ensure all changes work together: build,
+      tests, lint, typecheck. Fix any issues found.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'pnpm build succeeds with no errors'
+      - 'pnpm test passes all tests (unit + integration)'
+      - 'pnpm lint passes with no errors'
+      - 'pnpm validate passes (lint + format + typecheck + tsp)'
+      - 'No TypeScript errors related to the removed name field'
+    tdd: null
+    estimatedEffort: '15min'
+
+totalEstimate: '2.5h'
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation follows a bottom-up approach across 2 phases. Phase 1 updates the
+  server action contract first — removing the name field from the interface, refactoring
+  composeUserInput() to use description-only composition, and stopping the name field from
+  being passed to createRecord(). Phase 2 follows TDD discipline: first update the unit
+  tests to assert the new behavior (task-3, RED), then update the drawer component to
+  pass those tests (task-4, GREEN), then update Storybook stories (task-5), and finally
+  run a full verification pass (task-6).
+
+  The key ordering rationale is that the server action defines the contract the drawer
+  consumes. Changing the contract first gives the component changes a stable target.
+  Within phase 2, TDD is enforced by writing tests before modifying the component, ensuring
+  every behavioral change is test-driven.
