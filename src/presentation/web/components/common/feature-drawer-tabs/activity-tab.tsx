@@ -35,21 +35,21 @@ function formatDuration(ms: number): string {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
-interface RunGroup {
+interface TimingRunGroup {
   runId: string;
   timings: PhaseTimingData[];
 }
 
-function groupTimingsByRun(timings: PhaseTimingData[]): RunGroup[] {
-  const groups: RunGroup[] = [];
-  let current: RunGroup | null = null;
+function groupTimingsByRun(timings: PhaseTimingData[]): TimingRunGroup[] {
+  const groups: TimingRunGroup[] = [];
 
   for (const t of timings) {
-    if (!current || current.runId !== t.agentRunId) {
-      current = { runId: t.agentRunId, timings: [] };
-      groups.push(current);
+    const last = groups[groups.length - 1];
+    if (last?.runId === t.agentRunId) {
+      last.timings.push(t);
+    } else {
+      groups.push({ runId: t.agentRunId, timings: [t] });
     }
-    current.timings.push(t);
   }
   return groups;
 }
