@@ -1,0 +1,164 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: remove-reactflow-attribution
+summary: >
+  The feature requires adding proOptions={{ hideAttribution: true }} to two ReactFlow
+  instances that currently lack it: the production features-canvas.tsx component (line 104)
+  and the dependency-edge.stories.tsx Storybook story (line 51). The proOptions API is
+  already available in the installed @xyflow/react v12.10.0 and is already used in six
+  other files in the codebase, establishing a clear precedent for this pattern.
+
+relatedFeatures: []
+
+technologies:
+  - '@xyflow/react v12.10.0 (React Flow v12)'
+  - React
+  - Next.js
+  - Storybook
+
+relatedLinks:
+  - https://reactflow.dev/learn/troubleshooting/remove-attribution
+
+decisions:
+  - title: 'Attribution removal approach'
+    chosen: 'Use proOptions={{ hideAttribution: true }} prop on <ReactFlow> component'
+    rejected:
+      - 'CSS override to hide the attribution element — fragile, depends on internal DOM structure and class names that may change between React Flow versions, and would need to be maintained separately from the component'
+      - 'Wrap ReactFlow in a custom component that always injects proOptions — over-engineering for a two-file change; adds indirection without meaningful benefit and deviates from the existing per-instance pattern used throughout the codebase'
+    rationale: >
+      The proOptions prop is the officially documented and supported API for hiding the
+      React Flow attribution. It is already used consistently in six other files across
+      the codebase (feature-node.stories.tsx, repository-node.stories.tsx,
+      feature-node.test.tsx, repository-node.test.tsx). Using the same prop on the two
+      remaining instances follows the established codebase pattern exactly and requires
+      no new abstractions, dependencies, or maintenance burden.
+
+  - title: 'Prop placement in features-canvas.tsx'
+    chosen: 'Add proOptions prop directly to the existing <ReactFlow> JSX element at line 104'
+    rejected:
+      - 'Extract proOptions into a constant or shared config — unnecessary abstraction for a single static boolean; no other component imports shared ReactFlow config, so this would introduce a pattern not used elsewhere'
+      - 'Pass proOptions as a prop to FeaturesCanvas and let the parent control it — violates the existing pattern where each ReactFlow instance manages its own proOptions inline; adds prop surface area for no user-facing benefit'
+    rationale: >
+      Every existing ReactFlow instance in the codebase applies proOptions inline as a
+      JSX attribute. The features-canvas.tsx component already has all its ReactFlow
+      configuration inline (nodesDraggable, nodesConnectable, elementsSelectable, etc.).
+      Adding proOptions inline is consistent with both the codebase convention and the
+      component's own style.
+
+  - title: 'Testing strategy'
+    chosen: 'Rely on existing test suite — no new tests needed'
+    rejected:
+      - 'Add a unit test asserting proOptions.hideAttribution is true — couples the test to React Flow internals (prop forwarding), provides minimal value for a static boolean, and no other test in the codebase asserts this prop'
+      - 'Add a visual regression test checking the attribution DOM element is absent — requires rendering infrastructure to detect a small watermark element, couples to React Flow internal DOM structure, and is brittle across library upgrades'
+    rationale: >
+      The features-canvas.test.tsx file already renders the FeaturesCanvas component
+      with nodes and verifies it mounts correctly. Adding proOptions={{ hideAttribution: true }}
+      does not change any component behavior, output, or interactions — it only suppresses
+      a library-rendered watermark. The existing tests will confirm the component still
+      renders correctly after the prop addition. This aligns with the spec's resolved
+      open question Q2 which explicitly chose not to add a dedicated assertion.
+
+openQuestions:
+  - question: 'Should the features-canvas.test.tsx test helper also add proOptions to its ReactFlow rendering?'
+    resolved: true
+    options:
+      - option: 'No — the test renders FeaturesCanvas, not ReactFlow directly'
+        description: >
+          The features-canvas.test.tsx file renders <FeaturesCanvas>, which internally
+          contains the <ReactFlow> component. The proOptions prop will be applied inside
+          the component itself. The test does not create its own <ReactFlow> instance, so
+          there is nothing to add proOptions to in the test file.
+        selected: true
+      - option: 'Yes — add proOptions to the test for consistency'
+        description: >
+          Add proOptions to the test rendering. However, since the test renders the
+          FeaturesCanvas wrapper component (not ReactFlow directly), there is no
+          <ReactFlow> element in the test to add the prop to, making this option
+          technically impossible without changing the test structure.
+        selected: false
+      - option: 'Refactor the test to render ReactFlow directly with proOptions'
+        description: >
+          Change the test to render <ReactFlow> directly instead of <FeaturesCanvas>.
+          This would be a significant test restructuring that breaks the existing pattern
+          of testing the component as a whole, and is not warranted for a simple prop addition.
+        selected: false
+    selectionRationale: >
+      The features-canvas.test.tsx file renders the FeaturesCanvas component, not a raw
+      <ReactFlow> instance. The proOptions prop is applied inside FeaturesCanvas itself.
+      Unlike the feature-node.test.tsx and repository-node.test.tsx files which create
+      their own <ReactFlow> wrappers (and do include proOptions), the features-canvas
+      test does not need any changes.
+
+content: |
+  ## Status
+
+  - **Phase:** Research (Complete)
+  - **Updated:** 2026-03-08
+
+  ## Technology Decisions
+
+  ### 1. Attribution Removal Approach
+
+  **Chosen:** Use `proOptions={{ hideAttribution: true }}` prop on `<ReactFlow>` component
+
+  **Rejected:**
+  - CSS override to hide the attribution element — fragile, depends on internal DOM structure and class names that may change between React Flow versions
+  - Wrap ReactFlow in a custom component that always injects proOptions — over-engineering for a two-file change; deviates from the existing per-instance pattern
+
+  **Rationale:** The `proOptions` prop is the officially documented API for hiding the React Flow attribution watermark. It is already used consistently across six files in this codebase. Using the same pattern on the two remaining instances is the simplest and most maintainable approach.
+
+  ### 2. Prop Placement in features-canvas.tsx
+
+  **Chosen:** Add `proOptions` prop directly to the existing `<ReactFlow>` JSX element inline
+
+  **Rejected:**
+  - Extract proOptions into a shared constant — unnecessary abstraction; no other ReactFlow instance uses shared config
+  - Pass proOptions as a FeaturesCanvas prop — adds prop surface area for no benefit; breaks existing pattern
+
+  **Rationale:** Every existing `<ReactFlow>` instance in the codebase applies `proOptions` inline. The `features-canvas.tsx` component already has all its ReactFlow configuration inline. Consistency dictates the same approach.
+
+  ### 3. Testing Strategy
+
+  **Chosen:** Rely on existing test suite — no new tests needed
+
+  **Rejected:**
+  - Unit test asserting `proOptions.hideAttribution` is true — couples to React Flow internals, minimal value for a static boolean
+  - Visual regression test checking attribution DOM element is absent — brittle, couples to library internals
+
+  **Rationale:** The `features-canvas.test.tsx` already renders `FeaturesCanvas` with nodes and verifies correct mounting. The prop addition does not change behavior. This aligns with the spec's resolved Q2.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | `@xyflow/react` v12.10.0 | React Flow graph visualization | Already installed — use `proOptions` API | The `proOptions.hideAttribution` flag is a stable, documented API available in the installed version. No upgrade or new dependency needed. |
+
+  ## Security Considerations
+
+  No security implications. The change adds a single static boolean prop to suppress a UI watermark. No user data, authentication, authorization, or external communication is involved.
+
+  ## Performance Implications
+
+  No performance impact. The `proOptions` prop is evaluated once during component initialization to determine whether to render the attribution panel. Setting `hideAttribution: true` actually eliminates a small DOM element, resulting in a negligible (immeasurable) improvement.
+
+  ## Architecture Notes
+
+  ### Affected Files
+
+  **Files requiring changes (2):**
+  1. `src/presentation/web/components/features/features-canvas/features-canvas.tsx` (line 104) — Production component. Add `proOptions={{ hideAttribution: true }}` to the `<ReactFlow>` element.
+  2. `src/presentation/web/components/features/features-canvas/dependency-edge.stories.tsx` (line 51) — Storybook story. Add `proOptions={{ hideAttribution: true }}` to the `<ReactFlow>` element.
+
+  **Files already correct (6, no changes needed):**
+  - `src/presentation/web/components/common/feature-node/feature-node.stories.tsx` (lines 37, 433)
+  - `src/presentation/web/components/common/repository-node/repository-node.stories.tsx` (lines 29, 102, 135, 216)
+  - `tests/unit/presentation/web/common/feature-node/feature-node.test.tsx` (line 83)
+  - `tests/unit/presentation/web/common/repository-node/repository-node.test.tsx` (line 20)
+
+  **Test files requiring no changes:**
+  - `tests/unit/presentation/web/features/features-canvas/features-canvas.test.tsx` — Renders `<FeaturesCanvas>` (not `<ReactFlow>` directly), so the prop is applied inside the component.
+
+  ### Layer Impact
+
+  This change is confined entirely to the **presentation layer** (`src/presentation/web/`). No domain, application, or infrastructure layers are affected. No interfaces, types, or contracts change.
