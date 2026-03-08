@@ -16,6 +16,8 @@ import { Command } from '@langchain/langgraph';
 import { initializeContainer, container } from '@/infrastructure/di/container.js';
 import { createFeatureAgentGraph } from './feature-agent-graph.js';
 import type { FeatureAgentGraphDeps } from './feature-agent-graph.js';
+import { createFastFeatureAgentGraph } from './fast-feature-agent-graph.js';
+import type { FastFeatureAgentGraphDeps } from './fast-feature-agent-graph.js';
 import { createCheckpointer } from '../common/checkpointer.js';
 import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
 import type { IAgentExecutorProvider } from '@/application/ports/output/agents/agent-executor-provider.interface.js';
@@ -158,6 +160,7 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
   log(`  worktreePath=${args.worktreePath ?? '(none)'}`);
   log(`  approvalGates=${args.approvalGates ? JSON.stringify(args.approvalGates) : '(none)'}`);
   log(`  resume=${args.resume}`);
+  log(`  fast=${args.fast ?? false}`);
 
   log('Initializing container...');
   await initializeContainer();
@@ -206,7 +209,15 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
   const checkpointPath = join(homedir(), '.shep', 'checkpoints', `${checkpointId}.db`);
   log(`Creating checkpointer at ${checkpointPath} (thread: ${checkpointId})`);
   const checkpointer = createCheckpointer(checkpointPath);
-  const graph = createFeatureAgentGraph(graphDeps, checkpointer);
+  // Both graph factories return compiled graphs with identical FeatureAgentAnnotation
+  // state shape and invoke() interface. Cast through unknown because the compiled
+  // graphs have different node name types but share the same runtime contract.
+  const graph = args.fast
+    ? (createFastFeatureAgentGraph(
+        graphDeps as FastFeatureAgentGraphDeps,
+        checkpointer
+      ) as unknown as ReturnType<typeof createFeatureAgentGraph>)
+    : createFeatureAgentGraph(graphDeps, checkpointer);
 
   // Mark the run as running with our PID
   const now = new Date();
