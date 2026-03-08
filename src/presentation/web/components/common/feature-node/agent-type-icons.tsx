@@ -91,6 +91,16 @@ const agentTypeIconMap: Record<AgentTypeValue, ComponentType<IconProps>> = {
   dev: DevAgentIcon,
 };
 
+/** Human-readable labels for agent types. */
+export const agentTypeLabels: Record<AgentTypeValue, string> = {
+  'claude-code': 'Claude Code',
+  cursor: 'Cursor',
+  'gemini-cli': 'Gemini CLI',
+  aider: 'Aider',
+  continue: 'Continue',
+  dev: 'Demo',
+};
+
 /** Resolve an agent type string to its corresponding icon component. */
 export function getAgentTypeIcon(agentType?: string): ComponentType<IconProps> {
   if (agentType && agentType in agentTypeIconMap) {

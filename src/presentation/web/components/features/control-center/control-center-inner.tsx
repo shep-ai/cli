@@ -86,6 +86,8 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
           status,
           ...(d.startedAt != null && { startedAt: d.startedAt }),
           ...(d.runtime != null && { duration: d.runtime }),
+          ...(d.agentType && { agentType: d.agentType }),
+          ...(d.modelId && { modelId: d.modelId }),
         };
       })
       .filter(Boolean) as {
@@ -94,6 +96,8 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
       status: 'action-needed' | 'in-progress' | 'done';
       startedAt?: number;
       duration?: string;
+      agentType?: string;
+      modelId?: string;
     }[];
 
     setSidebarFeatures(sidebarItems);

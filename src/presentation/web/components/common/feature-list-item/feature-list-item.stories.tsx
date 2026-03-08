@@ -27,6 +27,8 @@ export const ActionNeeded: Story = {
   args: {
     name: 'Auth Module',
     status: 'action-needed',
+    agentType: 'claude-code',
+    modelId: 'claude-sonnet-4-6',
   },
 };
 
@@ -35,6 +37,8 @@ export const InProgress: Story = {
     name: 'Payment Integration',
     status: 'in-progress',
     startedAt: Date.now() - 330_000,
+    agentType: 'cursor',
+    modelId: 'claude-opus-4-6',
   },
 };
 
@@ -43,6 +47,8 @@ export const Done: Story = {
     name: 'User Dashboard',
     status: 'done',
     duration: '2h',
+    agentType: 'gemini-cli',
+    modelId: 'gemini-2.5-pro',
   },
 };
 
@@ -50,6 +56,16 @@ export const WithClickHandler: Story = {
   args: {
     name: 'API Gateway',
     status: 'action-needed',
+    agentType: 'dev',
+    modelId: 'gpt-8',
     onClick: () => alert('Clicked!'),
+  },
+};
+
+export const WithoutAgent: Story = {
+  args: {
+    name: 'Legacy Feature',
+    status: 'in-progress',
+    startedAt: Date.now() - 60_000,
   },
 };

@@ -22,6 +22,7 @@ export function buildFeatureNodeData(feature: Feature, run: AgentRun | null): Fe
     state: deriveNodeState(feature, run),
     progress: deriveProgress(feature),
     ...(run?.agentType && { agentType: run.agentType as FeatureNodeData['agentType'] }),
+    ...(run?.modelId && { modelId: run.modelId }),
     ...(run?.error && { errorMessage: run.error }),
     ...(feature.pr && {
       pr: {

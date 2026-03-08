@@ -31,6 +31,8 @@ export interface FeatureItem {
   status: FeatureStatus;
   startedAt?: number;
   duration?: string;
+  agentType?: string;
+  modelId?: string;
 }
 
 export interface AppSidebarProps {
@@ -125,6 +127,8 @@ export function AppSidebar({
                         status={feature.status}
                         startedAt={feature.startedAt}
                         duration={feature.duration}
+                        agentType={feature.agentType}
+                        modelId={feature.modelId}
                         onClick={
                           onFeatureClick ? () => onFeatureClick(feature.featureId) : undefined
                         }

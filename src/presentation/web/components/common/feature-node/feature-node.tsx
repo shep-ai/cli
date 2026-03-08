@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Handle, Position } from '@xyflow/react';
-import { Settings, Plus, FileText, Wrench, GitMerge, Trash2, type LucideIcon } from 'lucide-react';
+import { Plus, FileText, Wrench, GitMerge, Trash2, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   Dialog,
@@ -21,7 +21,8 @@ import {
   lifecycleRunningVerbs,
 } from './feature-node-state-config';
 import type { FeatureNodeData } from './feature-node-state-config';
-import { getAgentTypeIcon } from './agent-type-icons';
+import { getAgentTypeIcon, agentTypeLabels, type AgentTypeValue } from './agent-type-icons';
+import { getModelMeta } from '@/lib/model-metadata';
 
 function AgentIcon({ agentType, className }: { agentType?: string; className?: string }) {
   const IconComponent = getAgentTypeIcon(agentType);
@@ -160,7 +161,7 @@ export function FeatureNode({
           selected && 'ring-primary ring-2'
         )}
       >
-        {/* Top row: lifecycle label + settings */}
+        {/* Top row: lifecycle label + agent icon */}
         <div className="flex items-center justify-between">
           <span
             data-testid="feature-node-lifecycle-label"
@@ -168,19 +169,40 @@ export function FeatureNode({
           >
             {data.state === 'blocked' ? 'BLOCKED' : lifecycleDisplayLabels[data.lifecycle]}
           </span>
-          {data.onSettings ? (
-            <button
-              type="button"
-              aria-label="Settings"
-              data-testid="feature-node-settings-button"
-              onClick={(e) => {
-                e.stopPropagation();
-                data.onSettings?.();
-              }}
-              className="nodrag text-muted-foreground hover:text-foreground -mt-1 -mr-1 p-1"
-            >
-              <Settings className="h-3.5 w-3.5" />
-            </button>
+          {data.agentType ? (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label={agentTypeLabels[data.agentType as AgentTypeValue] ?? data.agentType}
+                    data-testid="feature-node-agent-badge"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      data.onSettings?.();
+                    }}
+                    className={cn(
+                      'nodrag -mt-1 -mr-1 p-1',
+                      data.onSettings
+                        ? 'cursor-pointer opacity-80 transition-opacity hover:opacity-100'
+                        : 'cursor-default'
+                    )}
+                  >
+                    <AgentIcon agentType={data.agentType} className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <span className="font-medium">
+                    {agentTypeLabels[data.agentType as AgentTypeValue] ?? data.agentType}
+                  </span>
+                  {data.modelId ? (
+                    <span className="ml-1 opacity-70">
+                      · {getModelMeta(data.modelId).displayName || data.modelId}
+                    </span>
+                  ) : null}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           ) : null}
         </div>
 

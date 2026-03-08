@@ -39,27 +39,52 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 const mockFeatures = [
-  { featureId: 'feat-auth-001', name: 'Auth Module', status: 'action-needed' as const },
-  { featureId: 'feat-payment-002', name: 'Payment Flow', status: 'action-needed' as const },
+  {
+    featureId: 'feat-auth-001',
+    name: 'Auth Module',
+    status: 'action-needed' as const,
+    agentType: 'claude-code',
+    modelId: 'claude-sonnet-4-6',
+  },
+  {
+    featureId: 'feat-payment-002',
+    name: 'Payment Flow',
+    status: 'action-needed' as const,
+    agentType: 'cursor',
+    modelId: 'claude-opus-4-6',
+  },
   {
     featureId: 'feat-dashboard-003',
     name: 'Dashboard',
     status: 'in-progress' as const,
     startedAt: Date.now() - 330_000,
+    agentType: 'gemini-cli',
+    modelId: 'gemini-2.5-pro',
   },
   {
     featureId: 'feat-api-004',
     name: 'API Gateway',
     status: 'in-progress' as const,
     startedAt: Date.now() - 60_000,
+    agentType: 'claude-code',
+    modelId: 'claude-haiku-4-5',
   },
   {
     featureId: 'feat-settings-005',
     name: 'Settings Page',
     status: 'done' as const,
     duration: '2h',
+    agentType: 'claude-code',
+    modelId: 'claude-sonnet-4-6',
   },
-  { featureId: 'feat-profile-006', name: 'User Profile', status: 'done' as const, duration: '1h' },
+  {
+    featureId: 'feat-profile-006',
+    name: 'User Profile',
+    status: 'done' as const,
+    duration: '1h',
+    agentType: 'dev',
+    modelId: 'gpt-8',
+  },
 ];
 
 export const Default: Story = {

@@ -132,6 +132,7 @@ function appendFeatureNodes(
       state: deriveNodeState(feature, run),
       progress: deriveProgress(feature),
       ...(run?.agentType && { agentType: run.agentType as FeatureNodeData['agentType'] }),
+      ...(run?.modelId && { modelId: run.modelId }),
       ...(run?.error && { errorMessage: run.error }),
       ...(blockedBy && { blockedBy }),
       ...(feature.pr && {
