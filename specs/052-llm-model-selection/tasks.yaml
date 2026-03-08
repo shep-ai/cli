@@ -1,0 +1,479 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: llm-model-selection
+summary: >
+  14 tasks across 6 phases. Foundation tasks (1–2) update the TypeSpec domain
+  model and fix all downstream consumers. Infrastructure tasks (3–5) add the
+  SQLite migration, update the mapper, and add getSupportedModels to the factory.
+  Application task (6) wires the model field through the use case. CLI tasks
+  (7–8) add the --model flag and the settings model subcommand. Web tasks (9–10)
+  deliver the API route and ModelPicker component with stories. Test cleanup tasks
+  (11–14) update all fixtures and verify the full suite is green.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - TypeSpec (tsp)
+  - TypeScript
+  - better-sqlite3
+  - Commander.js
+  - Inquirer.js
+  - React / Next.js
+  - shadcn/ui Command + Popover
+  - tsyringe
+relatedLinks:
+  - https://github.com/shep-ai/cli/issues/229
+
+# Structured task list
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: Update TypeSpec ModelConfiguration & regenerate output.ts
+    description: >
+      Replace the four phase-specific string fields (analyze, requirements, plan,
+      implement) on ModelConfiguration in tsp/domain/entities/settings.tsp with a
+      single `default: string` field defaulting to "claude-sonnet-4-6". Run
+      `pnpm tsp:compile` to regenerate packages/core/src/domain/generated/output.ts.
+      Fix settings-defaults.factory.ts to construct ModelConfiguration with the
+      new single-field shape. Confirm `pnpm build` compiles without errors.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'tsp/domain/entities/settings.tsp has ModelConfiguration with only a default string field'
+      - '`pnpm tsp:compile` exits 0 and output.ts reflects the new shape'
+      - 'settings-defaults.factory.ts constructs the new single-field shape defaulting to claude-sonnet-4-6'
+      - '`pnpm build` exits 0 with zero TypeScript errors'
+    tdd:
+      red:
+        - 'Update settings-defaults.factory.test.ts to assert settings.models.default === "claude-sonnet-4-6" (removes assertions on analyze/requirements/plan/implement)'
+        - Confirm test fails (TS compile error or assertion failure) before changing production code
+      green:
+        - 'Edit tsp/domain/entities/settings.tsp — replace four fields with @default("claude-sonnet-4-6") default: string'
+        - Run `pnpm tsp:compile` to regenerate output.ts
+        - 'Edit settings-defaults.factory.ts — replace four-field construction with single default field'
+        - Fix any remaining TS errors surfaced by `pnpm build`
+      refactor:
+        - Ensure TypeSpec field ordering is consistent with other models in settings.tsp
+        - Confirm no hand-edits remain in output.ts (must be fully generated)
+    estimatedEffort: 1h
+
+  - id: task-2
+    phaseId: phase-1
+    title: Fix all TypeScript consumers of old ModelConfiguration fields
+    description: >
+      After TypeSpec regeneration, identify and fix every TypeScript file that
+      references the removed fields (analyze, requirements, plan, implement) on
+      ModelConfiguration. This includes mapper, any existing use-case references,
+      and any other consumers surfaced by `pnpm build`. The mapper update is
+      deferred to task-3 (infrastructure phase) — this task only fixes compile
+      errors needed to unblock the build.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - '`pnpm build` exits 0 with zero TypeScript errors across all packages'
+      - No source file outside generated output.ts references .analyze, .requirements, .plan, or .implement on ModelConfiguration
+    tdd:
+      red:
+        - Run `pnpm build` after task-1; compile errors are the failing "tests"
+      green:
+        - Grep codebase for `.analyze`, `.requirements`, `.plan`, `.implement` on model-related objects
+        - Fix each reference to use `.default` or remove if obsolete
+      refactor:
+        - Run `pnpm lint:fix` to clean up any formatting changes
+    estimatedEffort: 30min
+
+  - id: task-3
+    phaseId: phase-2
+    title: Add SQLite migration 024 for model_default column
+    description: >
+      Add migration version 24 to packages/core/src/infrastructure/persistence/sqlite/migrations.ts
+      using the handler pattern (same as migrations 20–22). The handler checks
+      `IF NOT EXISTS` before adding `model_default TEXT NOT NULL DEFAULT 'claude-sonnet-4-6'`
+      to the settings table. The migration must be idempotent and must not modify
+      or drop any existing columns.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - Migration 024 exists in migrations.ts with a handler function
+      - Handler uses `IF NOT EXISTS` to check column existence before ALTER TABLE
+      - Running migration on a fresh DB creates the model_default column with correct default
+      - Running migration twice on the same DB is safe (idempotent)
+      - All existing columns remain unchanged after migration
+    tdd:
+      red:
+        - Write integration test that creates a DB without model_default, runs migrations, and asserts model_default column exists with value claude-sonnet-4-6
+      green:
+        - Add migration 024 handler that uses ALTER TABLE ADD COLUMN IF NOT EXISTS to add model_default (follow the pattern of existing handlers in migrations 20-22)
+        - Register handler in the migrations array at index 23 (0-based)
+      refactor:
+        - Ensure handler function name follows the existing naming convention (e.g., migration024Handler)
+        - Add a comment noting old model_* columns are kept for backward compatibility
+    estimatedEffort: 45min
+
+  - id: task-4
+    phaseId: phase-2
+    title: Update settings.mapper.ts to use model_default column
+    description: >
+      Update SettingsRow interface to add the model_default column. Update
+      toDatabase() to write settings.models.default to model_default (and stop
+      writing the four legacy columns). Update fromDatabase() to read model_default
+      and populate ModelConfiguration.default (and stop reading the four legacy
+      columns). Ensure mapper correctly handles existing rows where model_default
+      has the column default value.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - SettingsRow interface includes model_default as a string column
+      - toDatabase() maps ModelConfiguration.default to model_default and does NOT write model_analyze/requirements/plan/implement
+      - fromDatabase() reads model_default into ModelConfiguration.default and does NOT read the four legacy fields
+      - A settings round-trip (write then read) preserves the model value correctly
+    tdd:
+      red:
+        - Update settings.mapper.test.ts — replace four-field fixture data with model_default column; assert toDatabase and fromDatabase use the default field
+      green:
+        - Add model_default string to SettingsRow interface
+        - Update toDatabase() to map models.default to model_default and remove legacy column writes
+        - Update fromDatabase() to read model_default into ModelConfiguration.default and remove legacy column reads
+      refactor:
+        - Confirm no dead code remains referencing the legacy column names in the mapper
+        - Run lint fix
+    estimatedEffort: 45min
+
+  - id: task-5
+    phaseId: phase-2
+    title: Add getSupportedModels to IAgentExecutorFactory and implement in factory service
+    description: >
+      Add `getSupportedModels(agentType: AgentType): string[]` to the
+      IAgentExecutorFactory interface in the application port. Implement it in
+      AgentExecutorFactoryService with static arrays per agent type:
+      claude-code → ["claude-opus-4-6", "claude-sonnet-4-6", "claude-haiku-4-5"],
+      gemini-cli → ["gemini-2.5-pro", "gemini-2.0-flash", "gemini-1.5-pro"],
+      cursor → [], dev → []. Also verify (and add if missing) integration test
+      coverage for the GeminiCliExecutorService -m flag path.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - IAgentExecutorFactory interface declares getSupportedModels taking agentType and returning string array
+      - AgentExecutorFactoryService.getSupportedModels returns correct static arrays for all four agent types
+      - Method returns synchronously with no I/O
+      - Unknown agentType returns empty array (not an error)
+      - Unit tests cover all four agent types
+      - Integration test coverage verified for GeminiCliExecutorService -m flag
+    tdd:
+      red:
+        - Write unit tests in agent-executor-factory.service.test.ts asserting getSupportedModels returns correct arrays for claude-code, gemini-cli, cursor, dev
+        - Confirm tests fail (method does not exist)
+      green:
+        - Add getSupportedModels(agentType) returning string array to IAgentExecutorFactory interface
+        - Implement in AgentExecutorFactoryService with a switch/map returning static arrays
+      refactor:
+        - Extract model lists as named constants at the top of the factory service file for easy future updates
+        - Confirm method satisfies NFR-7 (synchronous, no I/O)
+    estimatedEffort: 1h
+
+  - id: task-6
+    phaseId: phase-3
+    title: Add model field to CreateFeatureUseCaseInput and wire to AgentExecutionOptions
+    description: >
+      Add optional `model?: string` to CreateFeatureUseCaseInput (the DTO passed
+      by CLI commands to the use case). Inside the use case, when model is present,
+      pass it to AgentExecutionOptions.model for every agent invocation in the
+      feature creation flow. When absent, the agent uses the settings default.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - CreateFeatureUseCaseInput has optional model string field
+      - When model is provided, AgentExecutionOptions.model is set to that value
+      - When model is absent, AgentExecutionOptions.model is undefined (agent uses its own default)
+      - Unit tests cover both the model-provided and model-absent cases
+    tdd:
+      red:
+        - Write unit test asserting that when input.model is claude-opus-4-6, AgentExecutionOptions.model equals claude-opus-4-6
+        - Write unit test asserting that when model is undefined, AgentExecutionOptions.model is undefined
+      green:
+        - Add optional model string field to CreateFeatureUseCaseInput type
+        - In the use case spawn call, spread model into AgentExecutionOptions when present
+      refactor:
+        - Ensure no hardcoded model strings are introduced in the use case
+    estimatedEffort: 30min
+
+  - id: task-7
+    phaseId: phase-4
+    title: Add --model flag to shep feat new command
+    description: >
+      Add `--model <model>` option to src/presentation/cli/commands/feat/new.command.ts.
+      The option is optional (string). When provided, pass its value to
+      CreateFeatureUseCaseInput.model. No Shep-side validation against
+      getSupportedModels — accept any string and let the underlying agent CLI
+      validate. Document the option in --help output via the description string.
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - '`shep feat new --help` shows --model <model> option with a description'
+      - When --model is provided, CreateFeatureUseCaseInput.model is set to the provided value
+      - When --model is omitted, CreateFeatureUseCaseInput.model is undefined
+      - No validation of model string against getSupportedModels
+    tdd:
+      red:
+        - Write unit/e2e test asserting that shep feat new --model claude-opus-4-6 passes model through to the use case input
+      green:
+        - Add --model option to the Commander command with a description string
+        - Update NewOptions interface to include optional model string
+        - Forward options.model to CreateFeatureUseCaseInput.model
+      refactor:
+        - Confirm --help text is clear and consistent with other option descriptions
+    estimatedEffort: 30min
+
+  - id: task-8
+    phaseId: phase-4
+    title: Create shep settings model subcommand
+    description: >
+      Create src/presentation/cli/commands/settings/model.command.ts following
+      the agent.command.ts pattern. The command action: resolves IAgentExecutorFactory
+      and ISettingsService from the DI container; reads the current agent type
+      from settings; calls getSupportedModels(agentType); if the list is empty,
+      prints an informational message and exits; otherwise presents an Inquirer
+      list prompt with the current model (settings.models.default) pre-selected;
+      on confirmation persists the selection via UpdateSettingsUseCase; prints a
+      confirmation message. Register the subcommand in settings/index.ts.
+    state: Todo
+    dependencies:
+      - task-5
+      - task-4
+    acceptanceCriteria:
+      - '`shep settings model` resolves agent type, calls getSupportedModels, presents Inquirer prompt'
+      - Current model is pre-selected in the prompt (NFR-6)
+      - Selection is persisted to settings.models.default via UpdateSettingsUseCase
+      - Confirmation message printed after persistence
+      - When getSupportedModels returns empty array, prints informational message instead of prompt
+      - Command registered in settings/index.ts and visible in `shep settings --help`
+    tdd:
+      red:
+        - Write unit test mocking DI container, IAgentExecutorFactory, and UpdateSettingsUseCase; assert that selecting a model results in updateSettings being called with the correct models.default value
+      green:
+        - Create model.command.ts with Commander command definition, DI resolution, Inquirer prompt, and use case call
+        - Register in settings/index.ts
+      refactor:
+        - Extract prompt construction into a helper function for readability
+        - Ensure error handling matches the pattern of agent.command.ts
+    estimatedEffort: 1.5h
+
+  - id: task-9
+    phaseId: phase-5
+    title: Create GET /api/settings/supported-models API route
+    description: >
+      Create src/presentation/web/app/api/settings/supported-models/route.ts.
+      The route handler resolves IAgentExecutorFactory from the DI container,
+      reads the current agent type from settings, calls getSupportedModels, and
+      returns the result as JSON. Follow the pattern of existing API routes (e.g.
+      tools/route.ts). The route must handle the case where agent type has no
+      supported models (return empty array, not an error).
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - GET /api/settings/supported-models returns 200 with JSON array of model strings
+      - When no models are advertised, returns 200 with empty array
+      - Route resolves IAgentExecutorFactory from DI (not hardcoded model list)
+      - Response time < 50ms (synchronous static data)
+    tdd:
+      red:
+        - Write API route test (or manual curl verification) asserting the route returns the correct model list for the configured agent
+      green:
+        - Create route.ts with GET handler; resolve factory, read settings agent type, call getSupportedModels, return NextResponse.json(models)
+      refactor:
+        - Ensure error handling (DI resolution failure) returns 500 with appropriate message
+    estimatedEffort: 45min
+
+  - id: task-10
+    phaseId: phase-5
+    title: Create ModelPicker web component with stories
+    description: >
+      Create src/presentation/web/components/features/settings/ModelPicker/index.tsx
+      using the shadcn Command + Popover combobox pattern. On mount, fetches
+      GET /api/settings/supported-models and populates suggestions. Renders a
+      Popover-wrapped Command component: shows advertised models as selectable
+      options while also accepting free-text input. On value change, calls the
+      existing settings update API with the new models.default value. Shows a
+      brief loading state while fetching. Create colocated ModelPicker.stories.tsx
+      with at least two stories: Default (claude-sonnet-4-6 selected) and
+      CustomModel (arbitrary free-text value shown).
+    state: Todo
+    dependencies:
+      - task-9
+    acceptanceCriteria:
+      - ModelPicker renders advertised models as combobox suggestions
+      - Free-text input accepted (not restricted to advertised list)
+      - On selection/input, calls settings update API with new models.default
+      - Loading state shown while fetching supported models
+      - ModelPicker.stories.tsx has Default and CustomModel stories
+      - Both stories render without errors in Storybook
+      - shadcn Command component installed if not already present
+    tdd:
+      red:
+        - Write stories file first (ModelPicker.stories.tsx) — compilation failure is the red state
+        - Write component test asserting fetch and render behavior
+      green:
+        - Verify/install shadcn Command component (`npx shadcn@latest add command` if needed)
+        - Implement ModelPicker/index.tsx with useEffect fetch, Command + Popover render, onChange handler
+        - Implement ModelPicker.stories.tsx with Default and CustomModel stories
+      refactor:
+        - Extract fetch logic into a custom hook (useModelList) for testability
+        - Ensure component handles fetch errors gracefully (show error state or fallback to free-text only)
+    estimatedEffort: 2h
+
+  - id: task-11
+    phaseId: phase-6
+    title: Update settings-defaults.factory unit test
+    description: >
+      Update tests/unit/domain/factories/settings-defaults.factory.test.ts to
+      assert the new single-field ModelConfiguration shape. Remove assertions on
+      analyze, requirements, plan, implement fields.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - Test asserts settings.models.default equals claude-sonnet-4-6
+      - No references to .analyze, .requirements, .plan, .implement remain in this test file
+      - '`pnpm test:unit` passes'
+    tdd:
+      red:
+        - Test was already updated as part of task-1 RED step — verify it now passes
+      green:
+        - Confirm test passes; fix any remaining assertion mismatches
+      refactor:
+        - null
+    estimatedEffort: 15min
+
+  - id: task-12
+    phaseId: phase-6
+    title: Update settings mapper and update-settings use-case unit tests
+    description: >
+      Update tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts
+      to use model_default column instead of the four legacy columns.
+      Update tests/unit/application/use-cases/update-settings.use-case.test.ts
+      to use the new single-field models shape in test fixtures.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - Mapper tests use model_default in fixture rows and assert ModelConfiguration.default
+      - update-settings use case tests use the new single-field models shape in fixtures
+      - '`pnpm test:unit` passes'
+    tdd:
+      red:
+        - Tests were partially updated in task-4 RED step — run pnpm test:unit and capture any remaining failures
+      green:
+        - Fix remaining fixture references to legacy model column names
+        - Align all model-related assertions with the new shape
+      refactor:
+        - Extract a shared settingsFixture helper if test data is duplicated across multiple test files
+    estimatedEffort: 30min
+
+  - id: task-13
+    phaseId: phase-6
+    title: Update and verify integration tests for migration and mapper
+    description: >
+      Verify tests/integration/infrastructure/repositories/sqlite-settings.repository.test.ts
+      covers the migration 024 path (model_default column added) and mapper
+      round-trips with the new shape. Add any missing integration test cases.
+      Verify GeminiCliExecutorService integration test covers the -m flag path
+      (confirmed present in source; add test if no coverage exists).
+    state: Todo
+    dependencies:
+      - task-3
+      - task-4
+      - task-5
+    acceptanceCriteria:
+      - Integration test verifies migration 024 adds model_default column
+      - Integration test verifies settings round-trip with new ModelConfiguration shape
+      - GeminiCliExecutorService integration test verifies -m flag is passed when model is set
+      - '`pnpm test:int` passes'
+    tdd:
+      red:
+        - Run pnpm test:int and identify any failures related to migration or mapper changes
+      green:
+        - Fix failing tests; add missing migration and gemini -m flag coverage
+      refactor:
+        - Ensure test DB setup/teardown is clean (no state leakage between tests)
+    estimatedEffort: 45min
+
+  - id: task-14
+    phaseId: phase-6
+    title: Update e2e tests and verify full green suite
+    description: >
+      Update tests/e2e/cli/settings-init.test.ts fixture data to use the new
+      ModelConfiguration shape. Run `pnpm test` to verify all unit, integration,
+      and e2e tests pass. Fix any remaining failures. Run `pnpm lint` and
+      `pnpm validate` to confirm no lint or typecheck issues.
+    state: Todo
+    dependencies:
+      - task-11
+      - task-12
+      - task-13
+      - task-7
+      - task-8
+      - task-10
+    acceptanceCriteria:
+      - tests/e2e/cli/settings-init.test.ts updated for new model shape
+      - '`pnpm test` exits 0 with zero failures across all test suites'
+      - '`pnpm lint` exits 0 with no errors or warnings'
+      - '`pnpm validate` (lint + format + typecheck + tsp) exits 0'
+    tdd:
+      red:
+        - Run pnpm test — e2e failures are the red state
+      green:
+        - Fix e2e fixture data; resolve any remaining test failures
+      refactor:
+        - Run pnpm lint:fix for final formatting cleanup
+    estimatedEffort: 30min
+
+# Total effort estimate
+totalEstimate: ~10h
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Summary
+
+  The implementation flows through six phases ordered by Clean Architecture
+  dependency: domain foundation → infrastructure → application → CLI presentation
+  → web presentation → test cleanup.
+
+  Phase 1 (tasks 1–2) makes the TypeSpec change and ensures `pnpm build` is
+  green before any other work begins. This is the critical path because every
+  downstream file imports the generated ModelConfiguration type.
+
+  Phase 2 (tasks 3–5) lays the infrastructure foundation in parallel-safe order:
+  the migration adds the model_default column, the mapper reads/writes it, and
+  the factory gains getSupportedModels. These three tasks are logically
+  independent within the phase but must all complete before the application and
+  presentation layers can use them.
+
+  Phase 3 (task 6) threads the model field through the use case input DTO,
+  which is the single application-layer contract consumed by both the CLI flag
+  and potential future callers.
+
+  Phase 4 (tasks 7–8) delivers the two CLI entry points: the --model flag on
+  feat new (thin pass-through, no validation) and the interactive settings model
+  subcommand (Inquirer prompt, DI-resolved factory, persist via use case).
+
+  Phase 5 (tasks 9–10) delivers the web surface: the API route exposes the
+  factory's static model list as JSON, and the ModelPicker component consumes it
+  via a useEffect fetch and renders the shadcn combobox with free-text fallback.
+  The Storybook stories are colocated and required for merge.
+
+  Phase 6 (tasks 11–14) is a focused test cleanup sweep: unit fixtures are
+  aligned with the new shape, integration tests validate the migration and mapper
+  round-trips, and the e2e suite gets its fixture updates. Task 14 is the final
+  gate: `pnpm test` and `pnpm validate` must both exit 0 before the branch is
+  ready for PR.
