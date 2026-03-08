@@ -1,0 +1,547 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: canvas-ux-polish
+summary: >
+  Technical research for viewport persistence and first-repo auto-focus on the features canvas.
+  All implementation uses existing libraries (@xyflow/react v12, localStorage API) with no new
+  dependencies. Key decisions: uncontrolled viewport with onMoveEnd save, fitView for auto-focus,
+  standalone useViewportPersistence hook following useSoundEnabled pattern, and handleAddRepository
+  return value for first-repo detection.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - '@xyflow/react ^12.10.0 — useReactFlow hook (fitView, getViewport), onMoveEnd callback, defaultViewport prop'
+  - 'localStorage API — viewport persistence via getItem/setItem with JSON serialization'
+  - 'Next.js App Router — useRouter for drawer navigation, client components'
+  - 'Vitest + React Testing Library — unit tests for viewport persistence hook'
+  - 'Storybook — component stories for canvas with viewport scenarios'
+
+relatedLinks:
+  - 'https://reactflow.dev/api-reference/react-flow#on-move-end'
+  - 'https://reactflow.dev/api-reference/hooks/use-react-flow'
+  - 'https://reactflow.dev/api-reference/react-flow#default-viewport'
+
+# Structured technology decisions
+decisions:
+  - title: 'Viewport Persistence Hook Design'
+    chosen: 'Standalone useViewportPersistence hook returning {defaultViewport, onMoveEnd}'
+    rejected:
+      - >
+        Inline localStorage logic in ControlCenterInner — violates single responsibility,
+        makes viewport logic untestable in isolation, and couples persistence to the
+        orchestration component. The codebase convention (useSoundEnabled, useSelectedFeatureId)
+        favors dedicated hooks for cross-cutting concerns.
+      - >
+        Context-based viewport state (React context provider) — unnecessary complexity for a
+        single-consumer scenario. The viewport is only consumed by one FeaturesCanvas instance.
+        Context adds provider nesting, re-render overhead, and indirection without benefit.
+    rationale: >
+      A standalone hook mirrors the useSoundEnabled pattern (src/presentation/web/hooks/
+      use-sound-enabled.ts): single STORAGE_KEY constant, useEffect for mount-time hydration,
+      useCallback for the save function with debounce. The hook returns a stable
+      {defaultViewport, onMoveEnd} object that FeaturesCanvas can spread directly into its
+      ReactFlow props. This keeps the hook testable with a mocked localStorage and avoids
+      any dependency on React Flow internals in the hook's core logic.
+
+  - title: 'Viewport Mode — Uncontrolled vs Controlled'
+    chosen: 'Keep uncontrolled viewport (defaultViewport prop) with onMoveEnd for save and useReactFlow().fitView() for programmatic focus'
+    rejected:
+      - >
+        Switch to controlled viewport prop — requires managing viewport state in React,
+        wiring onViewportChange to update state on every frame, and re-rendering the canvas
+        on every pan/zoom tick. The current codebase uses defaultViewport (uncontrolled) and
+        this works well with React Flow's internal viewport management. Switching to controlled
+        mode would cause unnecessary re-renders and complexity for no benefit, since we only
+        need to read viewport on gesture end (not continuously) and write it programmatically
+        only once (auto-focus).
+      - >
+        Use viewport prop only for initial load, then switch to uncontrolled — this hybrid
+        approach is fragile. React Flow's defaultViewport is only read on mount, which is
+        exactly when we want to restore the saved viewport. For post-mount programmatic
+        changes (auto-focus), useReactFlow().fitView() provides the right API without needing
+        controlled mode.
+    rationale: >
+      The FeaturesCanvas currently uses defaultViewport={{ x: 30, y: 30, zoom: 0.85 }} as an
+      uncontrolled prop (features-canvas.tsx:114). This means React Flow manages viewport state
+      internally. For persistence, we: (1) read saved viewport on mount and pass it as
+      defaultViewport, (2) save viewport on onMoveEnd via the debounced hook callback. For
+      auto-focus, we call useReactFlow().fitView() imperatively, which works in uncontrolled
+      mode. This avoids switching to controlled mode, which would require managing viewport
+      state in React and re-rendering on every pan/zoom frame.
+
+  - title: 'Debounce Implementation'
+    chosen: 'Inline setTimeout/clearTimeout debounce in the hook (no library)'
+    rejected:
+      - >
+        lodash.debounce — adds a dependency for a trivial 5-line debounce pattern. The
+        project does not currently use lodash. Adding it for a single debounce call is
+        unnecessary overhead (bundle size, dependency management).
+      - >
+        use-debounce npm package — another external dependency for minimal benefit. The
+        debounce logic here is straightforward (save viewport after 500ms of inactivity)
+        and doesn't need advanced features like leading/trailing edge control, maxWait,
+        or cancellation. A simple useRef + setTimeout pattern suffices.
+    rationale: >
+      The debounce is a simple pattern: store a timer ref, clear previous timer on each
+      call, set a new 500ms timer. This is ~5 lines of code. The codebase does not use
+      lodash or any debounce utility library, so adding one for this single use case would
+      be over-engineering. The useRef approach ensures the timer survives re-renders and
+      is properly cleaned up in the hook's useEffect cleanup.
+
+  - title: 'First-Repo Detection Strategy'
+    chosen: 'handleAddRepository returns metadata { wasEmpty: boolean, repoPath: string } for ControlCenterInner to detect and act on first-repo scenario'
+    rejected:
+      - >
+        Reactive detection via useEffect watching repoMap size — cannot distinguish between
+        user-initiated adds and server data loads / SSE reconciliation. When the page loads
+        with existing repos, repoMap transitions from 0 to N during reconcile, which would
+        falsely trigger the auto-focus + drawer open. The spec explicitly requires triggering
+        only on user-initiated first repo add (FR-11).
+      - >
+        Custom event (window.dispatchEvent) from handleAddRepository — adds indirection.
+        ControlCenterInner already calls handleAddRepository directly and can inspect its
+        return value. A custom event would require a separate useEffect listener, event
+        type definition, and cleanup — more code for the same result. The existing
+        shep:add-repository event is a different pattern (fired from the top bar, consumed
+        by ControlCenterInner, which then calls handleAddRepository).
+    rationale: >
+      The cleanest approach is to have handleAddRepository (use-control-center-state.ts:386)
+      return a metadata object indicating whether the canvas was empty before the add. Since
+      handleAddRepository already has access to repoMap via addRepositoryToMap and the graph
+      state, it can check repoMap size before adding. ControlCenterInner already calls
+      handleAddRepository in its shep:add-repository event handler (control-center-inner.tsx:158)
+      and can inspect the return value to decide whether to trigger auto-focus + drawer. This
+      approach: (1) only fires on user action, (2) avoids reactive false positives, (3) keeps
+      detection logic near the mutation, (4) requires minimal code changes.
+
+  - title: 'Auto-Focus Implementation — fitView vs setViewport'
+    chosen: 'useReactFlow().fitView() with node filter, maxZoom 1.0, padding 0.5, duration 500ms'
+    rejected:
+      - >
+        useReactFlow().setViewport() with manual coordinate calculation — requires computing
+        the center position of the node, accounting for container dimensions, node dimensions,
+        and desired zoom level. This is error-prone math that fitView already handles
+        correctly. setViewport doesn't support the duration option for animation directly
+        (requires wrapping in requestAnimationFrame or similar).
+      - >
+        ReactFlow fitView prop — this is only evaluated on mount and when nodes change, making
+        it unsuitable for a one-time imperative action triggered by a user interaction. We need
+        programmatic control over when the fitView fires, which the useReactFlow().fitView()
+        hook provides.
+    rationale: >
+      fitView({nodes: [{id: repoNodeId}], maxZoom: 1.0, padding: 0.5, duration: 500}) is the
+      idiomatic React Flow v12 API for centering on a specific node. It handles all viewport
+      math internally, adapts to container size, and supports smooth animation via the duration
+      option. The maxZoom cap at 1.0 prevents the node from appearing oversized on large
+      screens. Padding 0.5 provides comfortable whitespace. The 500ms duration matches NFR-4
+      (400-600ms range for smooth-but-not-sluggish animation).
+
+  - title: 'Viewport Save After Auto-Focus'
+    chosen: 'Save viewport to localStorage inside the onMoveEnd callback that fires after fitView animation completes'
+    rejected:
+      - >
+        Explicit save call after fitView with a setTimeout matching animation duration —
+        fragile timing dependency. If fitView's duration changes or animation is interrupted,
+        the saved viewport may not match the actual rendered viewport.
+      - >
+        Read viewport via getViewport() immediately after fitView call — fitView is async
+        (animated), so getViewport() right after returns the pre-animation viewport, not the
+        final position.
+    rationale: >
+      React Flow fires onMoveEnd after any viewport animation completes, including fitView
+      animations. By saving in onMoveEnd (which is already wired for persistence), the
+      auto-focused viewport is automatically persisted without any special-case code. This
+      is the most robust approach because it uses the same save path for both user gestures
+      and programmatic viewport changes.
+
+  - title: 'Drawer Auto-Open Timing'
+    chosen: 'setTimeout with 600ms delay after fitView call to allow animation to complete before navigating'
+    rejected:
+      - >
+        Immediate router.push after fitView — the viewport animation (500ms) would still be
+        running when the drawer opens, causing a jarring visual experience where the canvas
+        is animating behind the drawer.
+      - >
+        onMoveEnd callback to trigger drawer — onMoveEnd fires on every viewport change
+        (user pans/zooms), not just auto-focus. Would need a flag to distinguish auto-focus
+        onMoveEnd from user gesture onMoveEnd, adding complexity. Also, onMoveEnd timing
+        relative to fitView animation completion is an implementation detail of React Flow
+        that may vary.
+    rationale: >
+      A 600ms delay (slightly longer than the 500ms fitView animation duration) ensures the
+      viewport animation completes before the drawer slides in. This creates a clean visual
+      sequence: repo appears → viewport centers on it → drawer opens. The delay is set via
+      a constant for easy adjustment. The router.push is wrapped in guardedNavigate (per the
+      existing pattern in control-center-inner.tsx) to respect any active drawer close guards.
+
+  - title: 'localStorage Error Handling'
+    chosen: 'try/catch around all localStorage operations with silent fallback to default viewport'
+    rejected:
+      - >
+        Error boundary component wrapping the canvas — overkill for localStorage failures.
+        Error boundaries are for render-time crashes, not for graceful degradation of a
+        preference feature.
+      - >
+        Conditional check for localStorage availability before each access — verbose and
+        incomplete. Private browsing modes may have localStorage available but throw on
+        setItem when quota is exceeded. try/catch is the only reliable approach.
+    rationale: >
+      localStorage can throw in several scenarios: private browsing mode (Safari), quota
+      exceeded, disabled by security policy, or corrupted data. The spec requires graceful
+      handling (FR-5, NFR-2). Wrapping all localStorage operations in try/catch with silent
+      fallback ensures the canvas always renders correctly. The useSoundEnabled hook
+      (use-sound-enabled.ts) does NOT currently wrap its localStorage calls in try/catch,
+      but this is a gap in that code, not a pattern to follow. The viewport hook should be
+      more defensive since viewport corruption would affect the visual canvas state.
+
+  - title: 'Viewport Validation'
+    chosen: 'Type-check and range-validate parsed JSON before using as viewport'
+    rejected:
+      - >
+        Trust parsed JSON without validation — if localStorage contains corrupted data
+        (e.g., {x: "foo", y: null, zoom: -1}), passing it as defaultViewport would cause
+        React Flow to render with an invalid viewport. This could result in a blank canvas
+        or infinite zoom.
+      - >
+        Zod schema validation — adds a dependency for 3 simple type checks. The validation
+        is: typeof x === 'number' && typeof y === 'number' && typeof zoom === 'number' &&
+        zoom > 0 && isFinite(x) && isFinite(y) && isFinite(zoom). This is trivial inline
+        code that doesn't warrant a schema library.
+    rationale: >
+      The validation function checks: (1) parsed value is an object with x, y, zoom keys,
+      (2) all three are finite numbers (excludes NaN, Infinity, -Infinity), (3) zoom is
+      positive (zoom <= 0 would be invisible). If any check fails, the function returns the
+      default viewport {x: 30, y: 30, zoom: 0.85}. This satisfies FR-5 (corrupted data
+      handling) and NFR-2 (resilience) without external dependencies.
+
+# Open questions (should be resolved by end of research)
+openQuestions:
+  - question: 'Where should the useReactFlow() call live for auto-focus fitView?'
+    resolved: true
+    options:
+      - option: 'Inside ControlCenterInner (already inside ReactFlowProvider)'
+        description: >
+          ControlCenterInner is wrapped by ReactFlowProvider in control-center.tsx. It can
+          call useReactFlow() directly. This component already orchestrates all canvas
+          interactions (node click, drawer navigation, event listeners). Adding fitView
+          logic here follows the existing pattern of ControlCenterInner as the orchestration
+          layer. The hook returns the reactFlowInstance which provides fitView().
+        selected: true
+      - option: 'Inside FeaturesCanvas component'
+        description: >
+          FeaturesCanvas is also inside ReactFlowProvider and could call useReactFlow().
+          However, FeaturesCanvas is a presentation component — it receives nodes, edges,
+          and callbacks as props. Adding imperative fitView logic here would break its
+          pure-presentation role. The decision of WHEN to fitView is an orchestration concern,
+          not a rendering concern.
+        selected: false
+      - option: 'Inside the useViewportPersistence hook'
+        description: >
+          The hook could accept a reactFlowInstance parameter and expose a focusNode()
+          function. However, this conflates two concerns: viewport persistence (read/write
+          localStorage) and viewport control (programmatic focus). The hook should stay
+          focused on persistence. Auto-focus is a one-time orchestration action, not a
+          persistent behavior.
+        selected: false
+    selectionRationale: >
+      ControlCenterInner is already the orchestration layer for the canvas. It manages
+      navigation, event listeners, and user interactions. Auto-focus after first repo add
+      is an orchestration concern (not a persistence concern or a rendering concern). Placing
+      the useReactFlow() call and fitView logic in ControlCenterInner keeps responsibilities
+      cleanly separated: useViewportPersistence handles save/restore, ControlCenterInner
+      handles when to programmatically focus, and FeaturesCanvas handles rendering.
+
+  - question: 'How should the useViewportPersistence hook handle SSR/hydration in Next.js App Router?'
+    resolved: true
+    options:
+      - option: 'Compute defaultViewport synchronously during initial render using a lazy initializer'
+        description: >
+          Use useState(() => readFromLocalStorage()) to synchronously read localStorage on
+          the first client-side render. Since the component is marked 'use client' and
+          localStorage is only available client-side, this avoids hydration mismatch. The
+          defaultViewport is computed once on mount and never changes (React Flow only reads
+          it on mount). This avoids a flash of the default viewport before the saved viewport
+          is applied.
+        selected: true
+      - option: 'Read localStorage in useEffect and call setViewport after mount'
+        description: >
+          Read localStorage in a useEffect (fires after mount), then call
+          useReactFlow().setViewport() to apply the saved viewport. This causes a visible
+          flash: the canvas first renders with the hardcoded default viewport, then jumps
+          to the saved viewport when the effect fires. Poor UX for a feature specifically
+          about preserving viewport position.
+        selected: false
+      - option: 'Use next/dynamic with ssr: false for the entire canvas'
+        description: >
+          Disable SSR for the canvas component to avoid any hydration issues. This is
+          unnecessary since the component is already 'use client' and React Flow handles
+          client-only rendering internally. Disabling SSR would delay the canvas appearance
+          and break the existing rendering flow.
+        selected: false
+    selectionRationale: >
+      The lazy initializer pattern (useState(() => readFromLocalStorage())) ensures the saved
+      viewport is available on the very first client render, avoiding any visual flash. Since
+      FeaturesCanvas and ControlCenterInner are both 'use client' components, localStorage is
+      available during their first render. React Flow's defaultViewport is only read on mount,
+      so computing it synchronously in the initializer is both correct and optimal. The
+      useSoundEnabled hook uses a similar pattern (useState(true) then useEffect to override),
+      but for viewport the visual impact of a flash is much worse, so synchronous initialization
+      is preferred.
+
+  - question: 'How should the shep:add-repository event handler in ControlCenterInner access the pre-add repoMap size for first-repo detection?'
+    resolved: true
+    options:
+      - option: 'Modify handleAddRepository to check repoMap size before adding and return metadata'
+        description: >
+          handleAddRepository in use-control-center-state.ts currently has access to the
+          repoMap via addRepositoryToMap (which wraps setRepoMap). To check size before
+          adding, it can use a ref (repoMapRef already exists in useGraphState) or capture
+          the current size via the functional form of setRepoMap. The function returns
+          {wasEmpty: boolean, repoPath: string} so the caller knows whether this was the
+          first repo add. Requires changing handleAddRepository's return type from void to
+          an object.
+        selected: true
+      - option: 'Use a separate ref in ControlCenterInner to track previous repo count'
+        description: >
+          ControlCenterInner could maintain a useRef tracking the previous count of
+          repositoryNode nodes. In the shep:add-repository handler, compare current count
+          to 0 before calling handleAddRepository. This works but duplicates state tracking
+          that already exists in the graph state (repoMap). It also requires careful
+          synchronization since the ref would need to update whenever nodes change.
+        selected: false
+      - option: 'Check nodes array length in the event handler before calling handleAddRepository'
+        description: >
+          In the shep:add-repository useEffect handler, check if
+          nodes.filter(n => n.type === 'repositoryNode').length === 0 before calling
+          handleAddRepository. Since nodes is in the closure, this reads the current
+          derived node array. However, nodes is a derived value (from Maps → deriveGraph →
+          layout) and may lag behind the actual repoMap state due to render batching.
+          Also, the hasRepositories check (control-center-inner.tsx:234) already shows the
+          empty state when there are no repos, so if we're in the handler, hasRepositories
+          might already be true due to React batching. Fragile.
+        selected: false
+    selectionRationale: >
+      Checking repoMap size inside handleAddRepository is the most reliable approach because
+      handleAddRepository is the mutation point — it knows the exact state before and after
+      the add. Using the functional form of setRepoMap or a ref (repoMapRef, which already
+      exists in useGraphState) gives access to the pre-mutation size. Returning metadata from
+      handleAddRepository is a clean API change that keeps detection logic colocated with the
+      mutation. ControlCenterInner (the caller) then uses the returned metadata to decide
+      whether to trigger auto-focus + drawer.
+
+# Markdown content (the full research document)
+content: |
+  ## Technology Decisions
+
+  ### 1. Viewport Persistence Hook Design
+
+  **Chosen:** Standalone `useViewportPersistence` hook returning `{defaultViewport, onMoveEnd}`
+
+  **Rejected:**
+  - Inline localStorage logic in ControlCenterInner — violates single responsibility, untestable
+  - Context-based viewport state — unnecessary for single-consumer scenario
+
+  **Rationale:** Mirrors the `useSoundEnabled` pattern. The hook encapsulates localStorage
+  read/write/debounce logic and returns a stable interface that FeaturesCanvas can consume
+  directly. Testable in isolation with mocked localStorage.
+
+  ### 2. Viewport Mode — Uncontrolled vs Controlled
+
+  **Chosen:** Keep uncontrolled viewport (`defaultViewport` prop) with `onMoveEnd` for save
+  and `useReactFlow().fitView()` for programmatic focus
+
+  **Rejected:**
+  - Controlled viewport prop — causes re-renders on every pan/zoom frame
+  - Hybrid controlled/uncontrolled — fragile and unnecessary
+
+  **Rationale:** The canvas currently uses `defaultViewport={{ x: 30, y: 30, zoom: 0.85 }}`
+  (uncontrolled). React Flow manages viewport internally. For persistence: read on mount,
+  save on `onMoveEnd`. For auto-focus: `fitView()` works in uncontrolled mode. No mode switch
+  needed.
+
+  ### 3. Debounce Implementation
+
+  **Chosen:** Inline `setTimeout/clearTimeout` debounce (no library)
+
+  **Rejected:**
+  - lodash.debounce — adds dependency for trivial pattern
+  - use-debounce package — unnecessary external dependency
+
+  **Rationale:** ~5 lines of code using `useRef` for timer. Project doesn't use lodash.
+
+  ### 4. First-Repo Detection Strategy
+
+  **Chosen:** `handleAddRepository` returns metadata `{ wasEmpty, repoPath }` for
+  ControlCenterInner to detect and act on
+
+  **Rejected:**
+  - Reactive useEffect watching repoMap size — can't distinguish user action from data load
+  - Custom event dispatch — adds indirection when return value suffices
+
+  **Rationale:** handleAddRepository is the mutation point; it knows pre-mutation state.
+  Return metadata avoids reactive false positives from SSE/polling reconciliation.
+
+  ### 5. Auto-Focus Implementation
+
+  **Chosen:** `useReactFlow().fitView()` with node filter, maxZoom 1.0, padding 0.5,
+  duration 500ms
+
+  **Rejected:**
+  - `setViewport()` with manual math — error-prone, no animation support
+  - ReactFlow `fitView` prop — mount-time only, not imperative
+
+  **Rationale:** Idiomatic React Flow v12 API. Handles viewport math, adapts to container
+  size, supports smooth animation.
+
+  ### 6. Viewport Save After Auto-Focus
+
+  **Chosen:** Save via the same `onMoveEnd` callback that fires after fitView animation
+
+  **Rejected:**
+  - setTimeout after fitView — fragile timing
+  - getViewport() immediately after fitView — returns pre-animation state
+
+  **Rationale:** onMoveEnd fires after any viewport animation, including fitView. No special
+  case needed.
+
+  ### 7. Drawer Auto-Open Timing
+
+  **Chosen:** `setTimeout` with 600ms delay after fitView to allow animation to complete
+
+  **Rejected:**
+  - Immediate router.push — animation still running, jarring UX
+  - onMoveEnd trigger — fires on every viewport change, needs flag to distinguish
+
+  **Rationale:** 600ms > 500ms animation duration. Creates clean visual sequence: repo
+  appears, viewport centers, drawer opens. Uses guardedNavigate for drawer close guard
+  compatibility.
+
+  ### 8. localStorage Error Handling
+
+  **Chosen:** try/catch around all localStorage operations with silent fallback
+
+  **Rejected:**
+  - Error boundary — overkill for preference storage
+  - Conditional availability checks — incomplete (doesn't catch quota errors)
+
+  **Rationale:** localStorage can throw in private browsing, quota exceeded, or disabled
+  scenarios. try/catch with default viewport fallback satisfies FR-5 and NFR-2.
+
+  ### 9. Viewport Validation
+
+  **Chosen:** Type-check and range-validate parsed JSON inline
+
+  **Rejected:**
+  - Trust parsed JSON — invalid data causes blank canvas or infinite zoom
+  - Zod schema — overkill for 3 simple checks
+
+  **Rationale:** Check x/y/zoom are finite numbers, zoom > 0. Falls back to default on
+  any failure.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | @xyflow/react ^12.10.0 | Canvas rendering, viewport control | Use (existing) | Already installed. useReactFlow().fitView() for auto-focus, onMoveEnd for persistence. No version change needed. |
+  | localStorage API | Viewport persistence | Use (browser native) | Zero dependencies. Matches useSoundEnabled precedent. Synchronous read on mount. |
+  | lodash.debounce | Debounce viewport saves | Reject | Not in project. 5-line inline debounce suffices. |
+  | use-debounce | React debounce hook | Reject | Unnecessary dependency for simple setTimeout pattern. |
+  | zod | Viewport data validation | Reject | 3 inline type checks don't warrant a schema library. |
+  | next/dynamic | SSR bypass | Reject | Components already 'use client'. Unnecessary. |
+
+  ## Security Considerations
+
+  **localStorage data safety:** The viewport data (`{x, y, zoom}`) contains no sensitive
+  information — only numeric coordinates and zoom level. No PII, no auth tokens, no user
+  data. XSS attacks could theoretically inject malicious viewport data, but the validation
+  function (check finite numbers, positive zoom) prevents any exploitation vector. Invalid
+  data simply falls back to the default viewport.
+
+  **JSON.parse safety:** Parsing untrusted localStorage data with JSON.parse is safe because
+  JSON.parse does not execute code — it only parses data structures. Combined with the
+  validation function that checks types and ranges, there is no injection risk.
+
+  **No new API endpoints:** This feature is entirely client-side (localStorage + React Flow
+  hooks). No server-side changes, no new API endpoints, no database schema changes.
+
+  ## Performance Implications
+
+  **localStorage read (mount):** Synchronous read via `localStorage.getItem()` + `JSON.parse()`
+  is sub-millisecond. Happens once on mount. No impact on render performance.
+
+  **localStorage write (debounced):** Writes happen at most once per 500ms, only after
+  pan/zoom gesture ends. `JSON.stringify({x, y, zoom})` + `localStorage.setItem()` is
+  sub-millisecond. No impact on interaction performance.
+
+  **fitView animation:** React Flow's built-in animation (500ms) uses requestAnimationFrame
+  internally. Single invocation on first-repo add. No ongoing performance cost.
+
+  **No additional re-renders:** The viewport persistence hook uses `useState` only for the
+  initial defaultViewport (computed once, never updated). The `onMoveEnd` callback is stable
+  (wrapped in useCallback). No state changes during pan/zoom interaction.
+
+  ## Architecture Notes
+
+  ### Component Responsibilities
+
+  | Component | Current Role | Changes Needed |
+  | --------- | ------------ | -------------- |
+  | `useViewportPersistence` (new) | N/A | New hook: localStorage read/write, debounce, validation |
+  | `FeaturesCanvas` | Renders ReactFlow with hardcoded defaultViewport | Accept dynamic defaultViewport + onMoveEnd prop |
+  | `ControlCenterInner` | Orchestrates canvas interactions | Add useReactFlow() for fitView, detect first-repo, auto-open drawer |
+  | `use-control-center-state` | Manages domain state + server actions | handleAddRepository returns wasEmpty metadata |
+  | `useGraphState` | Domain Maps → derived graph | Expose repoMap size or wasEmpty check (minor) |
+
+  ### Data Flow — Viewport Persistence
+
+  ```
+  Page Load:
+    useViewportPersistence() → reads localStorage → returns defaultViewport
+    ControlCenterInner → passes defaultViewport to FeaturesCanvas
+    FeaturesCanvas → passes defaultViewport to <ReactFlow defaultViewport={...}>
+
+  User Pan/Zoom:
+    <ReactFlow onMoveEnd> → useViewportPersistence.onMoveEnd(viewport)
+    onMoveEnd → debounce 500ms → localStorage.setItem('shep-canvas-viewport', JSON.stringify(viewport))
+  ```
+
+  ### Data Flow — First Repo Auto-Focus
+
+  ```
+  User adds repo (top bar):
+    window.dispatchEvent('shep:add-repository')
+    ControlCenterInner handler → handleAddRepository(path)
+    handleAddRepository → checks repoMap.size === 0 → adds repo → returns { wasEmpty: true, repoPath }
+    ControlCenterInner → if wasEmpty:
+      1. Wait for next render (repo node exists)
+      2. Call reactFlowInstance.fitView({nodes: [{id: repoNodeId}], maxZoom: 1.0, padding: 0.5, duration: 500})
+      3. setTimeout(600ms) → guardedNavigate(() => router.push('/create?repo=<path>'))
+  ```
+
+  ### File Changes Summary
+
+  | File | Change Type | Description |
+  | ---- | ----------- | ----------- |
+  | `src/presentation/web/hooks/use-viewport-persistence.ts` | Create | New hook for viewport save/restore/debounce/validate |
+  | `src/presentation/web/hooks/use-viewport-persistence.test.ts` | Create | Unit tests for hook (TDD) |
+  | `src/presentation/web/components/features/features-canvas/features-canvas.tsx` | Modify | Add defaultViewport + onMoveEnd props, remove hardcoded viewport |
+  | `src/presentation/web/components/features/features-canvas/features-canvas.stories.tsx` | Modify | Add viewport persistence stories |
+  | `src/presentation/web/components/features/control-center/control-center-inner.tsx` | Modify | Wire viewport hook, add useReactFlow for fitView, first-repo detection + drawer auto-open |
+  | `src/presentation/web/components/features/control-center/use-control-center-state.ts` | Modify | handleAddRepository returns wasEmpty metadata |
+  | `src/presentation/web/hooks/use-graph-state.ts` | Modify | Minor: expose repoMap size check for handleAddRepository |
+
+  ### Existing Patterns Followed
+
+  - **Hook naming:** `use-viewport-persistence.ts` follows `use-sound-enabled.ts`, `use-selected-feature-id.ts`
+  - **Storage key:** `shep-canvas-viewport` follows `shep-sound-enabled` naming convention
+  - **Hook location:** `src/presentation/web/hooks/` alongside existing hooks
+  - **Client directive:** `'use client'` at top of hook file
+  - **Callback stability:** `useCallback` for all event handlers, `useRef` for mutable values
+  - **Guarded navigation:** `guardedNavigate(() => router.push(...))` for drawer opens
+
+  ---
+
+  _Research complete — proceed with planning phase_
