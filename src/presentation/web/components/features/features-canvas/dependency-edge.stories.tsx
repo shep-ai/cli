@@ -76,6 +76,7 @@ export const Default: StoryObj = {
       fitView
       nodesDraggable={false}
       nodesConnectable={false}
+      proOptions={{ hideAttribution: true }}
     />
   ),
 };
