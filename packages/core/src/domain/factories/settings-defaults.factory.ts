@@ -12,7 +12,6 @@
  * - Unique IDs and timestamps generated for each instance
  */
 
-import { randomUUID } from 'node:crypto';
 import type {
   Settings,
   ModelConfiguration,
@@ -147,7 +146,7 @@ export function createDefaultSettings(): Settings {
   };
 
   return {
-    id: randomUUID(),
+    id: globalThis.crypto.randomUUID(),
     models,
     user,
     environment,
