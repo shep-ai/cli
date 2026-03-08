@@ -33,7 +33,7 @@ describe('TableFormatter', () => {
     it('should include model values', () => {
       const result = TableFormatter.createSettingsTable(sampleSettings);
 
-      expect(result).toContain('claude-sonnet-4-5');
+      expect(result).toContain('claude-sonnet-4-6');
     });
 
     it('should show (not set) for missing optional fields', () => {

@@ -92,4 +92,34 @@ export class AgentExecutorFactory implements IAgentExecutorFactory {
       { agentType: 'cursor' as AgentType, cmd: 'cursor', versionArgs: ['--version'] },
     ];
   }
+
+  /**
+   * Get the model identifiers supported by the given agent executor.
+   * Returns synchronously with no I/O — lists are static data embedded here.
+   *
+   * @param agentType - The agent type to query
+   * @returns Array of model identifier strings, or empty array for unknown/dev agents
+   */
+  getSupportedModels(agentType: AgentType): string[] {
+    switch (agentType as string) {
+      case 'claude-code':
+        return CLAUDE_CODE_MODELS;
+      case 'gemini-cli':
+        return GEMINI_CLI_MODELS;
+      case 'cursor':
+        return CURSOR_MODELS;
+      default:
+        return [];
+    }
+  }
 }
+
+// Static model lists per executor — update here when new models are released
+const CLAUDE_CODE_MODELS: string[] = ['claude-opus-4-6', 'claude-sonnet-4-6', 'claude-haiku-4-5'];
+const GEMINI_CLI_MODELS: string[] = ['gemini-2.5-pro', 'gemini-2.0-flash', 'gemini-1.5-pro'];
+const CURSOR_MODELS: string[] = [
+  'claude-3-5-sonnet-20241022',
+  'claude-3-haiku-20240307',
+  'gpt-4o',
+  'cursor-small',
+];

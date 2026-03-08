@@ -140,4 +140,48 @@ describe('AgentExecutorFactory', () => {
       expect(supported).not.toContain('continue');
     });
   });
+
+  describe('getSupportedModels', () => {
+    it('should return claude-code model list', () => {
+      const models = factory.getSupportedModels(AgentType.ClaudeCode);
+
+      expect(models).toEqual(['claude-opus-4-6', 'claude-sonnet-4-6', 'claude-haiku-4-5']);
+    });
+
+    it('should return gemini-cli model list', () => {
+      const models = factory.getSupportedModels(AgentType.GeminiCli);
+
+      expect(models).toEqual(['gemini-2.5-pro', 'gemini-2.0-flash', 'gemini-1.5-pro']);
+    });
+
+    it('should return cursor model list', () => {
+      const models = factory.getSupportedModels(AgentType.Cursor);
+
+      expect(models).toEqual([
+        'claude-3-5-sonnet-20241022',
+        'claude-3-haiku-20240307',
+        'gpt-4o',
+        'cursor-small',
+      ]);
+    });
+
+    it('should return empty array for dev agent', () => {
+      const models = factory.getSupportedModels(AgentType.Dev);
+
+      expect(models).toEqual([]);
+    });
+
+    it('should return empty array for unknown agent type', () => {
+      const models = factory.getSupportedModels('aider' as AgentType);
+
+      expect(models).toEqual([]);
+    });
+
+    it('should return synchronously (no promise)', () => {
+      const result = factory.getSupportedModels(AgentType.ClaudeCode);
+
+      expect(result).not.toBeInstanceOf(Promise);
+      expect(Array.isArray(result)).toBe(true);
+    });
+  });
 });

@@ -33,14 +33,7 @@ export class TableFormatter {
     lines.push('');
 
     // Models
-    lines.push(
-      ...TableFormatter.section('Models', [
-        ['Analyze', s.models.analyze],
-        ['Requirements', s.models.requirements],
-        ['Plan', s.models.plan],
-        ['Implement', s.models.implement],
-      ])
-    );
+    lines.push(...TableFormatter.section('Models', [['Default', s.models.default]]));
 
     // User
     lines.push(

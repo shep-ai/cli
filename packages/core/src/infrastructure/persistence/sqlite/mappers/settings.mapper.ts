@@ -29,10 +29,12 @@ export interface SettingsRow {
   updated_at: string;
 
   // ModelConfiguration (models.*)
+  // Legacy columns kept for backward compat; model_default is the source of truth after migration 024.
   model_analyze: string;
   model_requirements: string;
   model_plan: string;
   model_implement: string;
+  model_default: string;
 
   // UserProfile (user.*) - all nullable
   user_name: string | null;
@@ -105,11 +107,12 @@ export function toDatabase(settings: Settings): SettingsRow {
     updated_at:
       settings.updatedAt instanceof Date ? settings.updatedAt.toISOString() : settings.updatedAt,
 
-    // ModelConfiguration
-    model_analyze: settings.models.analyze,
-    model_requirements: settings.models.requirements,
-    model_plan: settings.models.plan,
-    model_implement: settings.models.implement,
+    // ModelConfiguration (legacy columns kept for backward compat; model_default is the source of truth)
+    model_analyze: settings.models.default,
+    model_requirements: settings.models.default,
+    model_plan: settings.models.default,
+    model_implement: settings.models.default,
+    model_default: settings.models.default,
 
     // UserProfile (optional fields → NULL)
     user_name: settings.user.name ?? null,
@@ -184,12 +187,9 @@ export function fromDatabase(row: SettingsRow): Settings {
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
 
-    // ModelConfiguration
+    // ModelConfiguration — model_default is the source of truth (added in migration 024)
     models: {
-      analyze: row.model_analyze,
-      requirements: row.model_requirements,
-      plan: row.model_plan,
-      implement: row.model_implement,
+      default: row.model_default,
     },
 
     // UserProfile (NULL → undefined, exclude from object)
