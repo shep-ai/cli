@@ -1,0 +1,243 @@
+name: attachment-support
+summary: >
+  Implementation extends the existing FileAttachment infrastructure and AttachmentCard UI
+  scaffold into a complete attachment ingestion system. The approach follows the TypeSpec-first
+  mandate: an Attachment value object is defined in tsp/ first, then a JSON column mirrors
+  how messages and relatedArtifacts are already stored in the features table. A pending-session
+  upload strategy allows files to be stored before the feature slug is known. A dedicated
+  AttachmentStorageService handles all file I/O and dedup, keeping the upload route and use
+  case thin. No new third-party libraries are required.
+
+relatedFeatures: []
+
+technologies:
+  - TypeSpec (Attachment value object in tsp/domain/value-objects/attachment.tsp)
+  - Next.js App Router (POST /api/attachments/upload route handler)
+  - React 19 (onDrop, onDragOver, onDragLeave, onPaste event handlers, useState)
+  - Node.js crypto (SHA-256 deduplication), fs/path (file storage and rename)
+  - better-sqlite3 (JSON column attachments TEXT DEFAULT '[]' in features table, migration 022)
+  - Commander.js (repeatable --attach option on shep feat new)
+  - Tailwind CSS + Radix UI (drag-over visual feedback, ARIA attributes)
+  - Storybook (mandatory .stories.tsx for all new/modified components)
+  - Vitest (unit tests for validation, dedup, prompt composition, CLI parsing)
+  - Playwright (E2E test for web drag-drop to create to agent prompt flow)
+
+relatedLinks:
+  - https://github.com/shep-ai/cli/issues/223
+
+phases:
+  - id: phase-0
+    name: 'Static HTML Mock'
+    description: >
+      FR-15 mandates a static HTML mock showing the drag-over state, attachment chips, and
+      error state be committed to specs/ BEFORE any code is written. This phase is a
+      non-negotiable prerequisite. It defines the visual target for all subsequent UI work
+      and de-risks the design before any implementation cost is incurred.
+    parallel: false
+
+  - id: phase-1
+    name: 'Foundation and Domain Setup'
+    description: >
+      Establish the TypeSpec-first domain model (Attachment value object, Feature entity
+      updated with attachments field), run tsp:compile to generate TypeScript types, add
+      SQLite migration 022 for the attachments JSON column, and update the feature mapper
+      to serialize/deserialize attachments alongside existing messages and relatedArtifacts.
+      This phase gates all subsequent work — no code above the infrastructure layer can
+      be written until the generated type is available.
+    parallel: false
+
+  - id: phase-2
+    name: 'Infrastructure Services and Upload Route'
+    description: >
+      Implement AttachmentStorageService (store, commit, delete) with SHA-256 dedup and
+      filename sanitization. Implement the POST /api/attachments/upload route handler with
+      10 MB enforcement at two layers (HTTP config + programmatic check). Wire
+      AttachmentStorageService into the DI container. This phase provides the server-side
+      primitives required by both the web UI and the use case.
+    parallel: false
+
+  - id: phase-3
+    name: 'Application Layer — Use Case and Prompt Composition'
+    description: >
+      Extend CreateFeatureInput with attachments and sessionId fields. Update
+      CreateFeatureUseCase to call AttachmentStorageService.commit() during initializeAndSpawn,
+      persist Attachment records in the feature JSON column, and pass them forward. Update
+      composeUserInput() in create-feature.ts to produce @<relative-path> format. This phase
+      connects the storage layer to the feature creation business logic.
+    parallel: false
+
+  - id: phase-4
+    name: 'Web UI — Drag-Drop, Paste, and AttachmentCard'
+    description: >
+      Extract the inline AttachmentCard function in feature-create-drawer.tsx into a standalone
+      exported component with a colocated .stories.tsx (required by Storybook mandate). Add
+      drag-drop and Ctrl+V paste handlers to FeatureCreateDrawer using the native HTML5
+      Drag and Drop API and ClipboardEvent. Add sessionId generation on drawer open and wire
+      the upload flow via the new upload route. Update feature-create-drawer.stories.tsx.
+    parallel: false
+
+  - id: phase-5
+    name: 'CLI — --attach Flag'
+    description: >
+      Add a repeatable --attach <path> Commander.js option to new.command.ts supporting both
+      --attach path1 --attach path2 and --attach path1,path2 forms. Validate paths exist on
+      disk, copy files to .shep/attachments/<slug>/ via AttachmentStorageService, persist
+      Attachment records, and compose @path references in the prompt. Consistent with web
+      UI behaviour.
+    parallel: false
+
+  - id: phase-6
+    name: 'Tests and Verification'
+    description: >
+      Write unit tests (Vitest) for file validation, SHA-256 dedup, @path composition, and
+      CLI flag parsing. Write the Playwright E2E test covering the full web drag-drop to
+      feature create to agent prompt flow. Run pnpm build, pnpm test, pnpm lint to zero errors.
+    parallel: false
+
+filesToCreate:
+  - specs/052-attachment-support/mock.html
+  - tsp/domain/value-objects/attachment.tsp
+  - packages/core/src/infrastructure/services/attachment-storage.service.ts
+  - packages/core/src/infrastructure/services/__tests__/attachment-storage.service.test.ts
+  - src/presentation/web/app/api/attachments/upload/route.ts
+  - src/presentation/web/components/common/attachment-card/attachment-card.tsx
+  - src/presentation/web/components/common/attachment-card/attachment-card.stories.tsx
+  - src/presentation/web/components/common/attachment-card/index.ts
+  - packages/core/src/application/use-cases/features/create/__tests__/compose-user-input.test.ts
+  - src/tests/e2e/attachment-flow.spec.ts
+
+filesToModify:
+  - tsp/domain/entities/feature.tsp
+  - tsp/domain/value-objects/index.tsp
+  - packages/core/src/domain/generated/output.ts (auto-generated via pnpm tsp:compile — do not edit manually)
+  - packages/core/src/application/use-cases/features/create/types.ts
+  - packages/core/src/application/use-cases/features/create/create-feature.use-case.ts
+  - packages/core/src/infrastructure/persistence/sqlite/migrations.ts
+  - packages/core/src/infrastructure/persistence/sqlite/mappers/feature.mapper.ts
+  - src/presentation/web/app/actions/create-feature.ts
+  - src/presentation/web/components/common/feature-create-drawer/feature-create-drawer.tsx
+  - src/presentation/web/components/common/feature-create-drawer/feature-create-drawer.stories.tsx
+  - src/presentation/web/components/common/feature-create-drawer/index.ts
+  - src/presentation/cli/commands/feat/new.command.ts
+  - next.config.js
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  The feature fits cleanly across all four Clean Architecture layers with dependencies
+  pointing strictly inward:
+
+  ```
+  domain/          <- Attachment value object (TypeSpec -> generated output.ts)
+  application/     <- CreateFeatureUseCase gains Attachment[] + sessionId in input
+  infrastructure/  <- AttachmentStorageService, migration 022, mapper update
+  presentation/    <- Upload route (web), drag-drop component (web), CLI --attach flag
+  ```
+
+  ### Existing Scaffolding (Extend, Do Not Replace)
+
+  The following are ALREADY present and must be EXTENDED:
+
+  - `feature-create-drawer.tsx` has `attachments: FileAttachment[]` state, an inline
+    AttachmentCard component, `handleAddFiles()` and `handleRemoveFile()` handlers, and a
+    UI section for displaying attachment chips. Missing: drag-drop/paste event handlers,
+    sessionId generation, upload integration, switch from FileAttachment to Attachment type.
+  - `composeUserInput()` in `create-feature.ts` already appends attachment paths as
+    "Attached files:\n- path". Change to `@<relative-path>` format.
+  - `FileAttachment` interface in `file-dialog.service.ts` has `{path, name, size}`.
+    The new `Attachment` domain type adds `id`, `mimeType`, `createdAt` (and internally
+    `sha256` for dedup, stored in the JSON record but not in the TypeSpec model).
+  - Feature mapper already serializes `messages` and `relatedArtifacts` as JSON strings.
+    The `attachments` column follows the exact same pattern.
+  - Migration 021 is the current latest. New migration is 022.
+
+  ## Key Design Decisions
+
+  ### 1. Attachment as Value Object (JSON Column), Not Standalone Entity
+
+  Attachments are stored as a JSON array in a new `attachments TEXT NOT NULL DEFAULT '[]'`
+  column in the features table (migration 022). This mirrors how `messages` and
+  `relatedArtifacts` are stored. Attachments are always accessed through their owning
+  feature and are never queried independently, making a separate table unnecessary.
+  A separate table would require cross-table joins where none exist today.
+
+  ### 2. Pending-Session Upload Strategy
+
+  The feature slug is AI-generated post-creation, so files cannot be stored under their
+  final `<slug>/` path at upload time. Files are stored in
+  `.shep/attachments/pending-<sessionId>/` immediately on upload. The `sessionId` (a
+  `crypto.randomUUID()`) is generated when `FeatureCreateDrawer` opens and sent with every
+  upload. On `CreateFeatureUseCase.initializeAndSpawn()`, `AttachmentStorageService.commit()`
+  renames the pending directory atomically to `.shep/attachments/<slug>/` and updates `path`
+  fields on all Attachment records before persisting them in the feature row.
+
+  ### 3. AttachmentStorageService in Infrastructure Layer
+
+  A new `AttachmentStorageService` encapsulates all file I/O: SHA-256 dedup, filename
+  sanitization, directory creation, file write/rename, and cleanup. Three primary methods:
+  `store(buffer, filename, sessionId, repoPath)`, `commit(sessionId, slug, repoPath)`,
+  `delete(slug, repoPath)`. Keeping this in an injectable service makes it fully testable
+  in Vitest and keeps both the route handler and the use case thin.
+
+  ### 4. Native HTML5 Drag-Drop + ClipboardEvent (No Libraries)
+
+  `react-dropzone` is rejected. The native `onDrop`/`onDragOver`/`onDragLeave` API on the
+  existing prompt container div, and the `onPaste` handler on the textarea, require
+  approximately 30 lines of event handler code and zero new dependencies. The `isDragOver`
+  boolean state drives a Tailwind class for visual feedback (<16 ms, satisfying NFR-1).
+  A dragCounter ref avoids the child-element dragLeave flicker problem.
+
+  ### 5. Route Handler at POST /api/attachments/upload
+
+  A dedicated Next.js App Router route handler follows the pattern established by
+  `app/api/dialog/pick-files/route.ts`. It accepts `multipart/form-data`, validates size
+  (<=10 MB via `next.config.js` experimental.serverMaxBodySize + programmatic check),
+  validates extension against an allowlist, sanitizes filename, delegates to
+  `AttachmentStorageService`, and returns a full `Attachment` JSON record.
+
+  ### 6. @path Reference Format in Prompt Composition
+
+  `composeUserInput()` in `create-feature.ts` is updated to produce
+  `"${description}\n\n${attachments.map(a => '@' + a.path).join(' ')}"`.
+  Paths are relative to the repository root in the `Attachment.path` field (NFR-8).
+  The raw `userQuery` column preserves the original user description without @refs.
+
+  ### 7. CLI --attach as Repeatable Commander.js Option
+
+  The flag uses the `collect` pattern: `.option('--attach <path>', '...', collect, [])`.
+  Both `--attach path1 --attach path2` and `--attach path1,path2` are supported. Paths are
+  validated on disk before feature creation; missing paths cause exit code 1. Files are
+  copied to `.shep/attachments/<slug>/` via `AttachmentStorageService.store()` (using file
+  buffer read from disk), and Attachment records are persisted in the DB.
+
+  ## Implementation Strategy
+
+  Phase ordering is strictly dependency-driven:
+
+  - **Phase 0** must precede all code (FR-15 mandate).
+  - **Phase 1** gates all other phases — the generated TypeScript `Attachment` type is
+    imported everywhere; the SQLite column must exist before any feature with attachments
+    can be saved.
+  - **Phase 2** provides `AttachmentStorageService` and the upload route that both web UI
+    (Phase 4) and CLI (Phase 5) depend on.
+  - **Phase 3** connects storage to feature creation business logic and is a prerequisite
+    for the web UI to close the loop.
+  - **Phase 4** (web UI) and **Phase 5** (CLI) are logically independent after Phase 3.
+    Web UI is sequenced first as the primary user-facing surface.
+  - **Phase 6** writes final integration tests, but TDD cycles within each task write
+    unit tests before implementation code.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | TypeSpec breaking change cascades through generated types | Run pnpm tsp:compile immediately after tsp changes; fix compile errors before proceeding |
+  | Migration 022 conflicts on migrated DB | Follow existing migration pattern with version guard; test with both fresh and migrated DB |
+  | Pending directory rename fails on feature creation | .shep/ is co-located with repo; fs.renameSync is atomic on same filesystem; handle ENOENT if pending dir was cleaned up |
+  | Drag-drop overlay flickers from child dragLeave events | Track dragover with a counter ref (increment on dragenter, decrement on dragleave); set isDragOver false only when counter reaches 0 |
+  | SHA-256 dedup scoped incorrectly | Scope dedup to (sessionId, repositoryPath) pair to prevent cross-session collisions |
+  | next.config.js serverMaxBodySize key varies by Next.js version | Verify against installed version; retain programmatic check in route handler as defense-in-depth |
+  | AttachmentCard extraction breaks existing drawer stories | Update stories file immediately after extraction; verify Storybook renders before committing |
+  | CLI --attach copies large files blocking event loop | fs.copyFileSync is acceptable for local files at 10 MB limit; async not needed for CLI UX |

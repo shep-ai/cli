@@ -1,0 +1,445 @@
+name: attachment-support
+summary: >
+  12 tasks across 7 phases (phase-0 through phase-6). Foundation work (TypeSpec model,
+  SQLite migration, mapper) gates all other phases. Infrastructure services and upload route
+  come next, followed by the application use case update, web UI component work, CLI flag,
+  and finally integration-level tests to verify the full flow end-to-end.
+
+relatedFeatures: []
+technologies: []
+relatedLinks: []
+
+tasks:
+  - id: task-1
+    phaseId: phase-0
+    title: 'Commit static HTML mock to specs/'
+    description: >
+      FR-15 requires a static HTML mock showing the drag-over highlighted border, attachment
+      chips with filename/size/remove button, file-too-large inline error state, and the
+      empty (no attachments) state — all committed to specs/052-attachment-support/ before
+      any implementation code is written. This is a documentation/design task, not a code task.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'specs/052-attachment-support/mock.html exists and renders correctly in a browser'
+      - 'Mock shows drag-over state with highlighted border on the prompt area'
+      - 'Mock shows at least two AttachmentCard chips with filename, file size, and a remove button'
+      - 'Mock shows an inline error message for the file-too-large case'
+      - 'Mock shows the empty state (prompt only, no attachments)'
+      - 'File is committed to git before any Phase 1 code is written'
+    tdd: null
+    estimatedEffort: '1h'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Define Attachment TypeSpec value object and update Feature entity'
+    description: >
+      Create tsp/domain/value-objects/attachment.tsp with fields: id (UUID), name (string),
+      size (int64), mimeType (string), path (string), createdAt (utcDateTime). Export it from
+      tsp/domain/value-objects/index.tsp. Add `attachments?: Attachment[]` to the Feature
+      entity in tsp/domain/entities/feature.tsp. Run pnpm tsp:compile to regenerate
+      packages/core/src/domain/generated/output.ts. Fix any compile errors.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'tsp/domain/value-objects/attachment.tsp exists with all 6 required fields'
+      - 'Attachment is exported from tsp/domain/value-objects/index.tsp'
+      - 'Feature entity in tsp/domain/entities/feature.tsp has attachments?: Attachment[]'
+      - 'pnpm tsp:compile runs with zero errors'
+      - 'packages/core/src/domain/generated/output.ts contains the Attachment type with all fields'
+      - 'No manual edits made to output.ts'
+    tdd: null
+    estimatedEffort: '30min'
+
+  - id: task-3
+    phaseId: phase-1
+    title: 'Add SQLite migration 022 and update feature mapper'
+    description: >
+      Add migration version 022 to migrations.ts: ALTER TABLE features ADD COLUMN attachments
+      TEXT NOT NULL DEFAULT '[]'. Update FeatureRow interface in feature.mapper.ts to include
+      attachments: string. Update toDatabase() to JSON.stringify feature.attachments (or '[]').
+      Update fromDatabase() to JSON.parse the attachments column. Mirror the exact pattern
+      used for messages and relatedArtifacts.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'migrations.ts has a new entry at version 022 with the ALTER TABLE SQL'
+      - 'FeatureRow interface includes attachments: string'
+      - 'toDatabase() serializes attachments via JSON.stringify'
+      - 'fromDatabase() deserializes attachments via JSON.parse with fallback to []'
+      - 'pnpm test:unit passes (no mapper regression)'
+      - 'A Feature created without attachments saves with empty array and loads correctly'
+    tdd:
+      red:
+        - 'Write a unit test for feature.mapper.ts: toDatabase() with attachments array serializes to JSON string'
+        - 'Write a unit test: fromDatabase() with attachments JSON string deserializes to Attachment[]'
+        - 'Write a unit test: fromDatabase() with missing attachments column (pre-migration row) defaults to []'
+      green:
+        - 'Add migration 022 entry to migrations.ts'
+        - 'Add attachments field to FeatureRow interface'
+        - 'Update toDatabase() to JSON.stringify(feature.attachments ?? [])'
+        - 'Update fromDatabase() to JSON.parse(row.attachments ?? "[]")'
+      refactor:
+        - 'Extract a helper parseJsonColumn() if the same pattern appears 3+ times in mapper'
+        - 'Ensure null safety matches existing messages/relatedArtifacts handling'
+    estimatedEffort: '45min'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Implement AttachmentStorageService'
+    description: >
+      Create packages/core/src/infrastructure/services/attachment-storage.service.ts as an
+      @injectable() class with three methods: store(buffer, filename, mimeType, sessionId,
+      repoPath) -> Attachment & { sha256: string } — sanitizes filename, computes SHA-256,
+      deduplicates against existing records in the session, writes to
+      .shep/attachments/pending-<sessionId>/; commit(sessionId, featureSlug, repoPath) ->
+      Attachment[] — renames pending dir to <featureSlug> dir, updates path fields;
+      delete(featureSlug, repoPath) -> void — removes the attachment directory. Register in
+      DI container. Write unit tests using tmp directories.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'AttachmentStorageService is injectable and registered in the DI container'
+      - 'store() sanitizes filenames: strips ../ and replaces non-alphanum chars with _'
+      - 'store() computes SHA-256 of file buffer and returns it on the Attachment record'
+      - 'store() returns existing Attachment record without writing if SHA-256 matches (dedup)'
+      - 'store() writes file to .shep/attachments/pending-<sessionId>/<sanitized-name>'
+      - 'store() creates directory if it does not exist'
+      - 'commit() renames pending-<sessionId> dir to <featureSlug> dir atomically'
+      - 'commit() updates the path field on all returned Attachment records to be relative to repoPath'
+      - 'delete() removes the feature attachment directory (fs.rm recursive)'
+      - 'Unit tests pass in Vitest with real tmp filesystem operations'
+    tdd:
+      red:
+        - 'Write test: store() with a new file writes to pending dir and returns Attachment with correct fields'
+        - 'Write test: store() with duplicate SHA-256 returns existing record without writing new file'
+        - 'Write test: store() sanitizes filename containing path traversal (../) and spaces'
+        - 'Write test: commit() renames pending dir to slug dir and returns updated paths'
+        - 'Write test: delete() removes the attachment directory'
+      green:
+        - 'Implement store() with mkdirSync, createHash SHA-256, dedup check, writeFileSync'
+        - 'Implement commit() with renameSync and path field update'
+        - 'Implement delete() with fs.rm recursive'
+      refactor:
+        - 'Extract getAttachmentDir() and getPendingDir() helpers to avoid path string repetition'
+        - 'Ensure all paths returned are relative to repoPath (path.relative(repoPath, absPath))'
+    estimatedEffort: '2h'
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Implement POST /api/attachments/upload route handler'
+    description: >
+      Create src/presentation/web/app/api/attachments/upload/route.ts. Accept
+      multipart/form-data with fields: file (File blob), sessionId (string), repositoryPath
+      (string). Validate: file size <= 10 MB (return HTTP 413 JSON error if exceeded), file
+      extension in allowlist (return HTTP 400 if not). Sanitize filename via
+      AttachmentStorageService.store(). Return HTTP 200 with full Attachment JSON.
+      Update next.config.js to set experimental.serverMaxBodySize = '11mb'.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'Route exists at POST /api/attachments/upload and accepts multipart/form-data'
+      - 'Returns HTTP 200 with Attachment JSON on successful upload'
+      - 'Returns HTTP 413 with JSON error body when file size exceeds 10 MB'
+      - 'Returns HTTP 400 with JSON error body when file extension is not in allowlist'
+      - 'next.config.js has experimental.serverMaxBodySize set to 11mb'
+      - 'File is stored in .shep/attachments/pending-<sessionId>/ on the server'
+      - 'Duplicate uploads return the existing Attachment record (dedup via SHA-256)'
+      - 'Route does not accept ../ path traversal in filenames'
+    tdd:
+      red:
+        - 'Write integration test: POST with valid small image returns 200 with Attachment fields'
+        - 'Write integration test: POST with 11 MB file returns 413'
+        - 'Write integration test: POST with .exe extension returns 400'
+        - 'Write integration test: POST with duplicate file returns existing Attachment id'
+      green:
+        - 'Create route.ts with request.formData() parsing'
+        - 'Add size check and return Response with status 413 JSON if exceeded'
+        - 'Add extension allowlist check and return 400 if not allowed'
+        - 'Call attachmentStorageService.store() and return 200 JSON'
+        - 'Update next.config.js with serverMaxBodySize'
+      refactor:
+        - 'Extract ALLOWED_EXTENSIONS constant array to a shared location if reused'
+        - 'Ensure error responses are consistent JSON shape {error: string}'
+    estimatedEffort: '1.5h'
+
+  - id: task-6
+    phaseId: phase-3
+    title: 'Update CreateFeatureInput and CreateFeatureUseCase for attachment lifecycle'
+    description: >
+      Update types.ts to add `attachments?: Attachment[]` and `sessionId?: string` to
+      CreateFeatureInput. Update create-feature.use-case.ts: in initializeAndSpawn(), after
+      slug resolution, call attachmentStorageService.commit(sessionId, slug, repositoryPath)
+      if sessionId is provided; persist the returned Attachment[] in the feature record via
+      featureRepository.update(). Inject AttachmentStorageService via constructor DI.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'CreateFeatureInput interface has attachments?: Attachment[] and sessionId?: string'
+      - 'CreateFeatureUseCase constructor accepts IAttachmentStorageService (or concrete type)'
+      - 'initializeAndSpawn() calls commit() when sessionId is present'
+      - 'Feature record is updated in DB with the committed Attachment[] after commit()'
+      - 'When no sessionId/attachments, feature creation proceeds unchanged'
+      - 'pnpm test:unit passes with no regressions on existing use case tests'
+    tdd:
+      red:
+        - 'Write unit test: CreateFeatureUseCase with sessionId calls commit() and persists returned attachments'
+        - 'Write unit test: CreateFeatureUseCase without sessionId skips commit() and saves empty attachments'
+        - 'Write unit test: commit() failure (ENOENT) logs warning but does not fail feature creation'
+      green:
+        - 'Update types.ts with new fields'
+        - 'Inject attachmentStorageService in use case constructor'
+        - 'Add commit() call in initializeAndSpawn() with null-safe guard on sessionId'
+        - 'Call featureRepository.update() with the committed attachments'
+      refactor:
+        - 'Extract handleAttachmentCommit() private method in use case to keep initializeAndSpawn readable'
+    estimatedEffort: '1.5h'
+
+  - id: task-7
+    phaseId: phase-3
+    title: 'Update composeUserInput() to @path reference format'
+    description: >
+      Update composeUserInput() in src/presentation/web/app/actions/create-feature.ts to
+      change from the current "Attached files:\n- path" format to
+      "@path1 @path2" appended after a blank line. Update the function signature to accept
+      Attachment[] (from domain generated types) rather than FileAttachment[] (infrastructure).
+      Pass sessionId from the server action to CreateFeatureInput.
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'composeUserInput() returns description unchanged when attachments array is empty'
+      - 'composeUserInput() appends "\n\n@path1 @path2" when attachments are present'
+      - 'Paths in @refs are relative to repository root (using Attachment.path field)'
+      - 'createFeature server action passes sessionId to CreateFeatureInput'
+      - 'pnpm build passes with no TypeScript errors'
+      - 'Unit test for composeUserInput() covers empty, single, and multi-attachment cases'
+    tdd:
+      red:
+        - 'Write unit test: composeUserInput("desc", []) returns "desc"'
+        - 'Write unit test: composeUserInput("desc", [{path: "a.png"}]) returns "desc\n\n@a.png"'
+        - 'Write unit test: composeUserInput("desc", [{path: "a.png"}, {path: "b.pdf"}]) returns "desc\n\n@a.png @b.pdf"'
+      green:
+        - 'Update composeUserInput() signature and format string'
+        - 'Update createFeature action to pass sessionId from client payload to use case'
+      refactor:
+        - 'Remove the old "Attached files:\n" string format entirely'
+    estimatedEffort: '30min'
+
+  - id: task-8
+    phaseId: phase-4
+    title: 'Extract AttachmentCard as standalone component with Storybook stories'
+    description: >
+      Extract the inline AttachmentCard function currently inside feature-create-drawer.tsx
+      into src/presentation/web/components/common/attachment-card/attachment-card.tsx.
+      Props: name (string), size (number), mimeType (string), onRemove (() => void),
+      loading? (boolean). Keep file icon utilities (getFileIcon, getFileIconColor,
+      formatFileSize) in the same file or a colocated utils.ts. Create
+      attachment-card.stories.tsx with stories for: default (image), loading state, remove
+      action, different file types (pdf, code, unknown). Export from index.ts.
+    state: Todo
+    dependencies:
+      - task-7
+    acceptanceCriteria:
+      - 'attachment-card/attachment-card.tsx exists as an exported named component'
+      - 'Component accepts name, size, mimeType, onRemove, and optional loading props'
+      - 'attachment-card.stories.tsx exists with at least 4 story variants'
+      - 'Stories render correctly in Storybook (pnpm storybook or build-storybook)'
+      - 'feature-create-drawer.tsx imports AttachmentCard from the new location'
+      - 'attachment-card/index.ts re-exports AttachmentCard'
+      - 'Remove button has aria-label="Remove attachment" for accessibility (NFR-5)'
+    tdd:
+      red:
+        - 'Write component test: AttachmentCard renders filename and formatted size'
+        - 'Write component test: clicking remove button calls onRemove callback'
+        - 'Write component test: loading prop renders a spinner instead of remove button'
+      green:
+        - 'Create attachment-card.tsx with extracted component code'
+        - 'Add loading prop with spinner state'
+        - 'Add aria-label to remove button'
+        - 'Create index.ts and stories file'
+      refactor:
+        - 'Move formatFileSize and getFileIcon utilities to attachment-card.utils.ts if they grow complex'
+    estimatedEffort: '1.5h'
+
+  - id: task-9
+    phaseId: phase-4
+    title: 'Add drag-drop and paste to FeatureCreateDrawer with upload integration'
+    description: >
+      Update feature-create-drawer.tsx: generate sessionId with crypto.randomUUID() on mount
+      (useRef to keep stable). Add isDragOver boolean state. Add onDragEnter/onDragLeave/
+      onDragOver/onDrop handlers to the prompt container div using a dragCounter ref to
+      prevent child-element flicker. Add onPaste handler to the prompt textarea to detect
+      file items in clipboardData.items. In both drop and paste handlers, call handleFiles()
+      which validates size client-side (<= 10 MB) and uploads to POST /api/attachments/upload.
+      Show optimistic loading chip while upload is in flight. Switch attachments state from
+      FileAttachment[] to Attachment[]. Update feature-create-drawer.stories.tsx with
+      drag-over and attachment-loaded stories.
+    state: Todo
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - 'Dropping a file on the prompt area triggers upload and shows attachment chip within 500 ms'
+      - 'Pasting an image with Ctrl+V triggers upload and shows attachment chip'
+      - 'isDragOver true adds a visual border/background highlight to the prompt container'
+      - 'Child-element dragLeave events do not flicker the overlay (dragCounter pattern)'
+      - 'Files > 10 MB are rejected client-side with an inline error message before upload'
+      - 'Files with disallowed extensions show an inline error message'
+      - 'A loading chip appears immediately on drop/paste while upload is in progress'
+      - 'The loading chip is replaced by the full AttachmentCard on upload success'
+      - 'The remove button on an attachment chip removes it from state'
+      - 'sessionId is generated once per drawer open and sent with every upload request'
+      - 'Prompt container has role="region" and aria-label="File drop zone" (NFR-5)'
+      - 'feature-create-drawer.stories.tsx has updated stories covering drag-over and loaded states'
+      - 'pnpm build passes with no TypeScript errors'
+    tdd:
+      red:
+        - 'Write component test: dropping a file calls the upload API and shows AttachmentCard'
+        - 'Write component test: dropping a 11 MB file shows inline error, no API call made'
+        - 'Write component test: pasting image from clipboard shows AttachmentCard'
+        - 'Write component test: drag-over class applied on dragenter, removed on dragleave from drop zone root'
+      green:
+        - 'Add sessionId useRef initialized with crypto.randomUUID()'
+        - 'Add isDragOver state and dragCounter ref'
+        - 'Add onDragEnter, onDragLeave, onDragOver, onDrop handlers'
+        - 'Add onPaste handler to textarea'
+        - 'Implement handleFiles() with client-side validation and fetch to upload route'
+        - 'Show optimistic loading chip during upload'
+        - 'Switch attachments state type from FileAttachment[] to Attachment[]'
+      refactor:
+        - 'Extract validateFiles() helper for size/type checking'
+        - 'Extract uploadFile() helper for the fetch call'
+        - 'Ensure ARIA attributes are on the outer container div'
+    estimatedEffort: '3h'
+
+  - id: task-10
+    phaseId: phase-5
+    title: 'Add --attach flag to CLI new.command.ts'
+    description: >
+      Update src/presentation/cli/commands/feat/new.command.ts to add a repeatable
+      --attach option using the Commander.js collect pattern. After parsing, resolve all
+      paths (path.resolve()), validate each exists on disk (fs.existsSync()), and exit with
+      code 1 listing missing paths if any are not found. Read each file buffer, call
+      AttachmentStorageService.store() to copy to .shep/attachments/<slug>/ (slug available
+      after createRecord + slug resolution), build the Attachment[] array, update the feature
+      record, and compose the prompt with @path references via composeUserInput().
+    state: Todo
+    dependencies:
+      - task-7
+    acceptanceCriteria:
+      - 'shep feat new "desc" --attach path1 --attach path2 attaches both files'
+      - 'shep feat new "desc" --attach path1,path2 (comma-separated) attaches both files'
+      - 'Missing path causes exit code 1 with a message listing the missing paths'
+      - 'Existing files are copied to .shep/attachments/<slug>/ and Attachment records persisted in DB'
+      - 'The agent prompt contains @path1 @path2 references (relative to repo root)'
+      - 'Feature detail output shows attachment count after creation'
+      - 'pnpm build passes with no TypeScript errors'
+    tdd:
+      red:
+        - 'Write CLI integration test: --attach with valid file creates feature with attachment in DB'
+        - 'Write CLI integration test: --attach with missing path prints error and exits 1'
+        - 'Write CLI integration test: --attach path1,path2 (comma form) attaches both files'
+      green:
+        - 'Add collect helper and .option() for --attach in new.command.ts'
+        - 'Add path validation block: resolve, existsSync, exit 1 on missing'
+        - 'After feature creation and slug resolution, call store() for each file'
+        - 'Call featureRepository.update() with Attachment records'
+        - 'Use composeUserInput() with the Attachment array for agent prompt'
+      refactor:
+        - 'Extract processCliAttachments() helper to keep action() callback readable'
+    estimatedEffort: '2h'
+
+  - id: task-11
+    phaseId: phase-6
+    title: 'Write unit tests for file validation, dedup, prompt composition, and CLI parsing'
+    description: >
+      Consolidate and expand unit test coverage for: (1) AttachmentStorageService — store,
+      commit, delete, dedup (already written in task-4 TDD, expand edge cases here);
+      (2) composeUserInput() — empty, single, multi-attachment (already written in task-7 TDD);
+      (3) CLI --attach collect function and path validation logic; (4) file extension allowlist
+      and size validation helpers used in the upload route. Ensure all tests run in Vitest
+      with no filesystem side effects (use tmp directories or mocks).
+    state: Todo
+    dependencies:
+      - task-10
+    acceptanceCriteria:
+      - 'pnpm test:unit passes with zero failures'
+      - 'AttachmentStorageService tests cover: store new file, store duplicate (dedup), commit rename, delete'
+      - 'composeUserInput tests cover: empty attachments, single, multiple @refs'
+      - 'CLI collect helper test: single path, repeated flags, comma-separated, mixed'
+      - 'Upload route validation tests: size limit rejection, extension allowlist rejection, success case'
+      - 'No test relies on absolute paths (all paths relative or tmp-based)'
+    tdd:
+      red:
+        - 'Identify any gaps in coverage from tasks 4, 5, 7, 10 TDD cycles'
+        - 'Write additional edge-case tests: filename with unicode, zero-byte file, 10 MB exactly'
+      green:
+        - 'Add missing test cases identified in red step'
+        - 'Ensure all tests use beforeEach/afterEach with tmp directory setup/teardown'
+      refactor:
+        - 'Extract shared test fixtures (createTmpDir, sampleBuffer) into a test-utils file'
+    estimatedEffort: '1.5h'
+
+  - id: task-12
+    phaseId: phase-6
+    title: 'Write Playwright E2E test for full web drag-drop attachment flow'
+    description: >
+      Write a Playwright E2E test in src/tests/e2e/attachment-flow.spec.ts covering:
+      open the feature create drawer, simulate file drop onto the prompt area using the
+      Playwright DataTransfer API, assert the AttachmentCard chip appears, submit the form,
+      assert the feature was created with the attachment in the DB (or via feature detail UI),
+      and assert the @path reference appears in the stored userQuery/prompt. The test must
+      pass in CI against a real running dev server (pnpm dev:web) or use page.goto with a
+      test server fixture.
+    state: Todo
+    dependencies:
+      - task-11
+    acceptanceCriteria:
+      - 'E2E test file exists at src/tests/e2e/attachment-flow.spec.ts'
+      - 'Test simulates drag-drop of a fixture file onto the prompt area'
+      - 'Test asserts the attachment chip appears with the correct filename'
+      - 'Test submits the form and asserts the feature appears in the feature graph/list'
+      - 'Test passes in pnpm test:e2e with zero failures'
+      - 'pnpm build, pnpm test, and pnpm lint all pass with zero errors'
+    tdd:
+      red:
+        - 'Write failing E2E test that opens drawer, drops file, verifies chip appears'
+        - 'Extend test to submit and verify feature was created'
+      green:
+        - 'Use page.dispatchEvent with DataTransfer to simulate drop'
+        - 'Wait for attachment chip selector to appear'
+        - 'Submit the form and wait for feature node to appear in the graph'
+      refactor:
+        - 'Extract dropFileOnElement() Playwright helper for reuse in future tests'
+    estimatedEffort: '2h'
+
+totalEstimate: '17h'
+
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation proceeds in strict dependency order across 7 phases. First, a static
+  HTML mock establishes the visual design contract (phase-0). Then the domain foundation is
+  laid: TypeSpec Attachment value object, SQLite migration 022, and feature mapper update
+  (phase-1). With the generated Attachment type available, the infrastructure layer is built:
+  AttachmentStorageService encapsulating all file I/O and SHA-256 dedup, and the upload
+  route handler with two-layer 10 MB enforcement (phase-2).
+
+  The application layer is updated next: CreateFeatureInput gains attachments and sessionId
+  fields, the use case calls commit() to finalize pending uploads after slug resolution, and
+  composeUserInput() switches to @path reference format (phase-3). With the full stack wired,
+  the web UI receives drag-drop and paste event handlers, an optimistic loading chip, and the
+  extracted AttachmentCard component with mandatory Storybook stories (phase-4). The CLI gains
+  its --attach flag with validation and identical file-copy behaviour (phase-5). Finally,
+  integration-level unit and E2E tests verify the full flows (phase-6).
+
+  Each code task follows TDD cycles: tests are written first (RED), then minimal code to pass
+  (GREEN), then cleanup (REFACTOR). The static mock and TypeSpec tasks (which produce no
+  runtime-tested code) are exempt from TDD cycles.
