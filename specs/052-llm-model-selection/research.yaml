@@ -1,0 +1,439 @@
+name: llm-model-selection
+summary: >
+  The feature consolidates ModelConfiguration from four flat SQLite columns
+  (model_analyze, model_requirements, model_plan, model_implement) into a single
+  model_default column via an additive migration, extends IAgentExecutorFactory
+  with getSupportedModels, wires a --model flag through feat new and a new
+  settings model subcommand, and adds a web UI ModelPicker built from the shadcn
+  Command/Combobox pattern. GeminiCliExecutorService already passes -m for model;
+  no parity work is needed there. The spec's description of a "models JSON column"
+  is inaccurate — the actual schema uses flat columns.
+
+relatedFeatures: []
+
+technologies:
+  - TypeSpec (tsp) — ModelConfiguration redefinition
+  - TypeScript — application and infrastructure layer changes
+  - better-sqlite3 — additive column migration (model_default)
+  - Commander.js — --model flag on feat new; new settings model subcommand
+  - Inquirer.js — interactive model picker prompt in CLI settings command
+  - React / Next.js — ModelPicker web component
+  - shadcn/ui Command + Popover — combobox pattern for model picker
+  - tsyringe — DI wiring unchanged; getSupportedModels added to existing token
+
+relatedLinks:
+  - https://github.com/shep-ai/cli/issues/229
+  - https://ui.shadcn.com/docs/components/combobox
+
+decisions:
+  - title: TypeSpec ModelConfiguration Shape
+    chosen: >-
+      Keep ModelConfiguration as a named TypeSpec model with a single
+      `default: string` field defaulting to "claude-sonnet-4-6".
+    rejected:
+      - >-
+        Inline as plain `models: string` on Settings — larger TypeSpec diff,
+        more disruptive cascading type changes across all consumers, and
+        forecloses per-agent override fields without a future breaking migration.
+    rationale: >
+      The existing codebase already has a ModelConfiguration wrapper consumed by
+      the mapper (settings.mapper.ts), defaults factory, all test fixtures, and
+      generated JSON schema. Swapping the wrapper for a scalar would touch every
+      one of those sites structurally. Keeping a named model limits the diff to
+      replacing four string fields with one. The wrapper also preserves the
+      option to add a future `overrides: Record<AgentType, string>` field without
+      another migration.
+
+  - title: SQLite Schema Migration Strategy
+    chosen: >-
+      Add a new `model_default TEXT NOT NULL DEFAULT 'claude-sonnet-4-6'` column
+      via an additive handler-style migration (version 24). Keep old columns
+      (model_analyze, model_requirements, model_plan, model_implement) in the
+      schema but stop reading/writing them after the mapper is updated to use
+      model_default exclusively.
+    rejected:
+      - >-
+        Drop old columns in the same migration — SQLite < 3.35 does not support
+        ALTER TABLE DROP COLUMN; the project targets SQLite 3.31+ via
+        better-sqlite3, so this would break on environments with older SQLite.
+      - >-
+        Convert to a single JSON blob column — inconsistent with the flat-column
+        pattern used throughout the rest of the settings table; also requires a
+        full-table read-modify-write with higher risk of data loss. The feature
+        spec mentions a "JSON column" but the actual schema uses flat columns.
+    rationale: >
+      Additive column migrations with idempotent handlers are the established
+      pattern in this codebase (migrations 20–22 all use the handler approach to
+      conditionally add columns). Zero data-loss risk; the old columns become
+      dead weight but are harmless and can be removed in a future cleanup
+      migration once all deployed instances have migrated.
+
+  - title: getSupportedModels Placement
+    chosen: >-
+      Add `getSupportedModels(agentType: AgentType): string[]` directly to the
+      existing IAgentExecutorFactory interface and implement it in
+      AgentExecutorFactoryService with static arrays per agent type.
+    rejected:
+      - >-
+        Create a separate IModelRegistry port and DI token — adds unnecessary
+        boilerplate (new interface, new token, new injection sites) for a method
+        logically owned by the factory which already knows all agent types.
+      - >-
+        Delegate to each IAgentExecutor implementation via a new interface method
+        — increases executor interface surface area across four executor classes
+        (claude-code, gemini-cli, cursor, dev) for a concern better centralized
+        in the factory.
+    rationale: >
+      IAgentExecutorFactory already exposes getSupportedAgents() and getCliInfo(),
+      making it the natural home for getSupportedModels(). The factory is already
+      injected at every site that needs agent capabilities. The method must return
+      synchronously with no I/O (NFR-7); static arrays in the factory satisfy
+      this with zero complexity.
+
+  - title: Static Model Lists per Executor
+    chosen: >-
+      Embed static model identifier arrays directly in AgentExecutorFactoryService.
+      claude-code returns ["claude-opus-4-6", "claude-sonnet-4-6", "claude-haiku-4-5"].
+      gemini-cli returns ["gemini-2.5-pro", "gemini-2.0-flash", "gemini-1.5-pro"].
+      dev and cursor return [].
+    rejected:
+      - >-
+        Fetch model lists from an external API or runtime config file — violates
+        NFR-7 (must be synchronous, no I/O) and adds a runtime dependency that
+        can fail.
+      - >-
+        Load from a shared constants file imported by both factory and web UI —
+        creates a cross-layer import that violates Clean Architecture (presentation
+        importing from infrastructure constants).
+    rationale: >
+      Static lists are the simplest correct implementation. Model identifiers
+      change infrequently; when they do, the factory is the right place to update
+      them. The factory already owns the AgentType-to-executor mapping, so adding
+      an AgentType-to-models mapping is a natural extension.
+
+  - title: GeminiCliExecutorService Model Flag
+    chosen: >-
+      No parity work needed. GeminiCliExecutorService already passes
+      `options?.model` as the `-m` flag to the gemini subprocess.
+    rejected:
+      - >-
+        Implement model flag passthrough as new work — would duplicate existing
+        correct code at gemini-cli-executor.service.ts:357 and risk introducing
+        a regression.
+    rationale: >
+      Direct code inspection of gemini-cli-executor.service.ts confirms
+      `if (options?.model) args.push('-m', options.model)` is already present.
+      FR-11 is already satisfied. The only action needed is to verify integration
+      test coverage for this path.
+
+  - title: CLI --model Flag Validation Strategy
+    chosen: >-
+      Accept any string value for --model; forward to AgentExecutionOptions.model
+      with no Shep-side validation against getSupportedModels.
+    rejected:
+      - >-
+        Validate against getSupportedModels at Commander.js parse time — blocks
+        users from using valid models released after the static list was compiled;
+        Commander.js parses options synchronously before the async DI bootstrap,
+        making factory resolution architecturally awkward at parse time; also
+        duplicates validation the underlying agent CLI already performs with
+        clearer error messages.
+    rationale: >
+      This resolves the contradiction in the spec: FR-9 says "forward the value"
+      while the open-question answer says "validate against getSupportedModels".
+      The open-question rationale ("agent is source of truth; prevents blocking
+      valid new models") is the correct product decision. Accepting any string
+      keeps Shep thin and lets the agent be the authoritative validator.
+
+  - title: settings model Subcommand Design
+    chosen: >-
+      Create src/presentation/cli/commands/settings/model.command.ts following
+      the same pattern as agent.command.ts. The command resolves IAgentExecutorFactory
+      to call getSupportedModels for the configured agent, presents an Inquirer
+      list prompt with the current model pre-selected, and persists via the
+      existing update-settings use case.
+    rejected:
+      - >-
+        Extend the existing settings agent flow — couples two orthogonal concerns,
+        lengthens the agent wizard, and forces users to re-select agent type just
+        to change the model.
+    rationale: >
+      The settings commands directory follows a consistent pattern: one file per
+      concern (agent.command.ts, ide.command.ts, workflow.command.ts). A dedicated
+      model.command.ts is consistent with this taxonomy and gives users a focused,
+      discoverable command. The DI container is fully bootstrapped by the time the
+      action callback runs, so factory resolution is straightforward.
+
+  - title: Web UI ModelPicker Component Pattern
+    chosen: >-
+      Build ModelPicker using shadcn Command + Popover (combobox pattern) which
+      shows advertised models as suggestions while also accepting free-text input.
+      Install shadcn Command component if not already present.
+    rejected:
+      - >-
+        Plain shadcn Select restricted to advertised list — prevents users from
+        entering model identifiers released after the static list; directly
+        contradicts the combobox recommendation in the spec content section.
+      - >-
+        Plain <input> with no suggestion list — loses discoverability of valid
+        model identifiers for new users.
+    rationale: >
+      The spec open-question answer says "dropdown restricted to advertised list"
+      but the selectionRationale and spec content both argue for combobox
+      ("LLM model identifiers evolve faster than release cycles"). The combobox
+      is the correct product decision and is explicitly described in the spec
+      content. The shadcn Command + Popover pattern is the standard shadcn
+      combobox approach and Popover is already present in the project.
+
+  - title: Web API Route for Supported Models
+    chosen: >-
+      Create a new GET /api/settings/supported-models route at
+      src/presentation/web/app/api/settings/supported-models/route.ts that reads
+      the configured agent type from settings and returns getSupportedModels result
+      as JSON.
+    rejected:
+      - >-
+        Embed the model list as a constant in the React component — two sources
+        of truth (component constant vs factory list) that can drift as models
+        are added.
+      - >-
+        Extend an existing settings route — no settings routes exist yet; this
+        is the first. A dedicated route for each concern follows the pattern of
+        other API routes (agent-events, tools).
+    rationale: >
+      A dedicated route follows the single-responsibility pattern of the existing
+      API routes and ensures the factory's static list is the single source of
+      truth visible to both CLI and web UI. The route resolves IAgentExecutorFactory
+      from the DI container, consistent with how tools/route.ts resolves its
+      dependencies.
+
+openQuestions:
+  - question: >-
+      Should the old flat model columns (model_analyze, model_requirements,
+      model_plan, model_implement) be dropped in the same migration or deferred
+      to a future cleanup?
+    resolved: true
+    options:
+      - option: Drop old columns in migration 24
+        description: >-
+          Remove the four stale columns in the same migration that adds
+          model_default. Keeps the schema lean immediately. Risk: SQLite < 3.35
+          does not support DROP COLUMN; some environments may have older SQLite.
+        selected: false
+      - option: Defer column removal to a future cleanup migration
+        description: >-
+          Leave the four old columns in place after adding model_default. The
+          mapper is updated to ignore them. Schedule a future migration to drop
+          them once all deployed instances have migrated. Zero risk of SQLite
+          version incompatibility.
+        selected: true
+      - option: Set old columns to empty string in migration 24
+        description: >-
+          Keep the columns but clear their values to signal deprecation. The
+          mapper still ignores them. Adds a full-table UPDATE for negligible
+          benefit since the settings table has at most one row.
+        selected: false
+    selectionRationale: >
+      Deferring column removal is the safest option matching established codebase
+      patterns. The better-sqlite3 version targets SQLite 3.31+ which predates
+      DROP COLUMN support in 3.35. The old columns consume negligible storage
+      (four short TEXT values in a singleton table) and are harmless once the
+      mapper ignores them. This matches migrations 20–22 which add columns
+      conditionally without removing obsolete ones.
+
+  - question: >-
+      How should the web UI ModelPicker fetch the supported models list?
+    resolved: true
+    options:
+      - option: Fetch on component mount via useEffect
+        description: >-
+          ModelPicker calls GET /api/settings/supported-models in a useEffect
+          on mount. Shows a brief loading state. Simple, always fresh, consistent
+          with existing web component data-fetching patterns.
+        selected: true
+      - option: Fetch at settings page level and pass as prop
+        description: >-
+          The settings page (server component or parent) fetches the list and
+          passes it as a prop. Eliminates waterfall but requires threading data
+          through the component tree for a small, infrequently changing list.
+        selected: false
+      - option: Hardcode model list as a constant in the component
+        description: >-
+          Export model arrays from a shared module and import in the React
+          component, bypassing the API. Creates drift risk when factory lists
+          are updated. Violates single-source-of-truth principle.
+        selected: false
+    selectionRationale: >
+      Client-side fetch on mount is the simplest correct approach and consistent
+      with how other web components in this codebase load dynamic data. The
+      settings page is not a hot path; a brief loading state is acceptable. The
+      API route ensures the factory's getSupportedModels is the single source
+      of truth for both CLI and web UI.
+
+  - question: >-
+      Should the settings model command resolve IAgentExecutorFactory directly
+      or wrap the call in a new application-layer use case?
+    resolved: true
+    options:
+      - option: Resolve IAgentExecutorFactory directly in the command action
+        description: >-
+          Resolve IAgentExecutorFactory from the tsyringe container inside the
+          command action callback, consistent with how other commands resolve use
+          cases. Simple, no new use case needed, getSupportedModels is a pure
+          synchronous query with no business logic.
+        selected: true
+      - option: Create a GetSupportedModelsUseCase in the application layer
+        description: >-
+          Wrap the factory call in an injectable use case class following the
+          existing pattern. Maintains strict Clean Architecture discipline but
+          adds boilerplate for a trivial pass-through query with no business
+          logic, side effects, or validation.
+        selected: false
+      - option: Add getSupportedModels method to SettingsService
+        description: >-
+          Delegate to the factory from SettingsService. Slightly higher
+          abstraction but SettingsService should own settings data, not agent
+          capability queries — mixing concerns violates Single Responsibility.
+        selected: false
+    selectionRationale: >
+      IAgentExecutorFactory is already resolved by CLI commands that need agent
+      capabilities. getSupportedModels is a pure synchronous query with no
+      business logic, making a dedicated use case unnecessary indirection. The
+      existing settings commands resolve their dependencies directly from the
+      container; the model command follows the same pattern — resolving
+      IAgentExecutorFactory for the model list and the existing UpdateSettingsUseCase
+      for persistence.
+
+content: |
+  ## Status
+
+  - **Phase:** Research Complete
+  - **Updated:** 2026-03-08
+
+  ## Key Discoveries
+
+  ### Schema vs Spec Discrepancy
+
+  The feature spec (FR-5) describes migrating a "models JSON column" but the
+  actual SQLite schema (confirmed in `migrations.ts` migration 001 and
+  `settings.mapper.ts`) uses **four flat columns**: `model_analyze`,
+  `model_requirements`, `model_plan`, `model_implement`. The migration strategy
+  corrects for this: we add a new `model_default` column rather than rewriting
+  a JSON blob.
+
+  ### GeminiCliExecutorService Already Handles Model Flag
+
+  `gemini-cli-executor.service.ts:357` already contains:
+  ```typescript
+  if (options?.model) args.push('-m', options.model);
+  ```
+  FR-11 (model flag parity) is **already satisfied**. Integration test coverage
+  for this path should be verified, not implemented from scratch.
+
+  ### Spec Contradiction on --model Validation
+
+  FR-9 says "forward the value" while the open-question answer says "validate
+  against getSupportedModels". The open-question rationale resolves this:
+  accept any string, let the agent be the authoritative validator.
+
+  ## Technology Decisions
+
+  ### 1. TypeSpec ModelConfiguration Shape
+
+  **Chosen:** Keep ModelConfiguration wrapper with single `default: string` field.
+
+  **Rejected:**
+  - Inline as `models: string` on Settings — larger diff, forecloses future
+    per-agent overrides.
+
+  **Rationale:** Minimal blast radius; existing wrapper consumers only need to
+  update field names.
+
+  ### 2. SQLite Schema Migration
+
+  **Chosen:** Additive handler-style migration (version 24) adding `model_default
+  TEXT NOT NULL DEFAULT 'claude-sonnet-4-6'`. Old columns remain but mapper
+  stops reading/writing them.
+
+  **Rejected:**
+  - Drop old columns immediately — SQLite < 3.35 incompatibility risk.
+  - Convert to JSON blob — inconsistent with flat-column pattern; higher risk.
+
+  ### 3. getSupportedModels on IAgentExecutorFactory
+
+  **Chosen:** Add `getSupportedModels(agentType: AgentType): string[]` to the
+  existing interface; implement with static arrays in the factory.
+
+  **Rejected:**
+  - Separate IModelRegistry port — unnecessary DI churn.
+  - Delegate to executor classes — interface surface area bloat.
+
+  ### 4. CLI --model Flag: Accept Any String
+
+  **Chosen:** Forward value directly to AgentExecutionOptions.model with no
+  Shep-side validation.
+
+  **Rejected:**
+  - Validate at parse time — blocks new models, awkward before DI bootstrap.
+
+  ### 5. Web UI ModelPicker: Combobox Pattern
+
+  **Chosen:** shadcn Command + Popover (combobox) — advertised options as
+  suggestions with free-text fallback.
+
+  **Rejected:**
+  - Plain `<select>` — blocks newly released models.
+  - Plain `<input>` — loses discoverability.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | @shadcn/ui Command | Combobox for ModelPicker | Use | Standard shadcn combobox pattern; Popover already in project |
+  | Inquirer.js | Interactive model list prompt in CLI | Use (existing) | Already used by other settings commands |
+  | better-sqlite3 | Additive column migration | Use (existing) | Established DB driver; handler pattern confirmed in migrations 20–22 |
+
+  ## Security Considerations
+
+  - `--model` values are passed to subprocess args via exec-style spawn (not
+    shell interpolation), so injection risk is negligible.
+  - The `/api/settings/supported-models` route returns static factory data;
+    no user input is reflected, so XSS/injection risk is nil.
+  - Settings persistence uses existing parameterised SQLite statements; no new
+    raw SQL surfaces are introduced.
+
+  ## Performance Implications
+
+  - `getSupportedModels` is synchronous with no I/O (static arrays); no caching
+    needed.
+  - The new API route responds in < 1 ms; no caching layer required.
+  - The additive migration touches a singleton table (at most one settings row);
+    no performance impact.
+
+  ## Architecture Notes
+
+  The feature touches all four Clean Architecture layers with dependencies
+  pointing inward:
+
+  1. **Domain** (`tsp/` + generated): ModelConfiguration redefinition.
+  2. **Application** (`ports/output/agents/`): IAgentExecutorFactory interface
+     extension; CreateFeatureInput DTO update.
+  3. **Infrastructure** (`services/agents/`, `persistence/sqlite/`):
+     getSupportedModels implementation; migration 24; mapper update.
+  4. **Presentation** (`cli/commands/settings/`, `web/components/`, `web/app/api/`):
+     new CLI subcommand; new React component + stories; new API route.
+
+  ## Recommended Implementation Sequence
+
+  1. TypeSpec change → `pnpm tsp:compile` → fix all generated-type consumers.
+  2. Migration 024 + mapper update (model_default column).
+  3. IAgentExecutorFactory.getSupportedModels + factory implementation.
+  4. CreateFeatureInput.model? + use-case options wiring.
+  5. CLI feat new --model flag.
+  6. CLI settings model subcommand.
+  7. Web API route (GET /api/settings/supported-models).
+  8. Web UI ModelPicker component + stories.
+  9. Update all tests (unit → integration → e2e).
+
+  Follow TDD discipline: each step starts with a failing test (RED → GREEN →
+  REFACTOR).
