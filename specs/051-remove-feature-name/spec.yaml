@@ -1,0 +1,164 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: remove-feature-name
+number: 051
+branch: feat/051-remove-feature-name
+oneLiner: Remove the separate "feature name" input from feature creation — use only description
+
+summary: >
+  The web UI's feature creation drawer currently has two text fields: a required
+  "Feature Name" and an optional "Description". The CLI already takes a single
+  <description> argument. This feature removes the separate name input from the
+  Web UI, making description the only user-supplied field. The AI metadata
+  generator already produces a polished name from user input, so the explicit
+  name field is redundant.
+
+phase: Analysis
+sizeEstimate: M
+
+relatedFeatures: []
+
+technologies:
+  - TypeScript
+  - React (Next.js)
+  - TypeSpec
+  - SQLite (better-sqlite3)
+  - Tailwind CSS
+  - shadcn/ui
+  - tsyringe (DI)
+
+relatedLinks:
+  - https://github.com/shep-ai/cli/issues/192
+
+openQuestions:
+  - >
+    Should the domain model's `name` field be removed entirely or just no longer
+    be user-supplied? Currently the AI metadata generator produces a refined
+    name from user input. Removing `name` from the domain model is high-impact
+    (50+ files, DB migration, TypeSpec change). Alternatively, `name` can be
+    kept as an AI-generated-only field and removed only from the UI input.
+  - >
+    The web UI drawer currently requires `name` to enable the submit button.
+    After removing name, should `description` become required, or should the
+    drawer allow empty description (relying solely on attachments)?
+  - >
+    Should the CLI remain unchanged? It already takes a single `<description>`
+    argument with no separate name flag, so it may need no changes.
+
+content: |
+  ## Problem Statement
+
+  The web UI feature creation drawer (`feature-create-drawer.tsx`) requires users to fill in
+  two text fields: **Feature Name** (required) and **Description** (optional). However, the
+  system already has an AI metadata generator (`metadata-generator.ts`) that automatically
+  produces a polished, professional `name`, `slug`, and `description` from the raw user input.
+
+  This makes the explicit "Feature Name" input redundant — the AI-generated name is always
+  used as the final name anyway (overwriting whatever the user typed). The current UX adds
+  friction by asking users to provide something the system generates itself.
+
+  GitHub Issue: https://github.com/shep-ai/cli/issues/192 — "Remove feature name from new
+  feature" with body "keep only description".
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  ```
+  packages/core/src/
+    domain/generated/output.ts          — Generated Feature type (has `name` field)
+    application/use-cases/features/
+      create/
+        create-feature.use-case.ts      — Two-phase creation: createRecord + initializeAndSpawn
+        metadata-generator.ts           — AI generates slug, name, description
+        slug-resolver.ts                — Ensures slug uniqueness
+        types.ts                        — CreateFeatureInput (optional name, description)
+    ports/output/repositories/
+      feature-repository.interface.ts   — IFeatureRepository (findBySlug, not findByName)
+  infrastructure/persistence/sqlite/
+    mappers/feature.mapper.ts           — Maps Feature ↔ DB row (name column)
+    migrations.ts                       — DB schema (name TEXT NOT NULL)
+
+  src/presentation/
+    web/
+      components/common/
+        feature-create-drawer/          — UI form with name + description inputs
+      app/actions/create-feature.ts     — Server action composing userInput from name+description
+      app/build-feature-node-data.ts    — Canvas node display (uses feature.name)
+      app/build-graph-nodes.ts          — Graph node builder (uses feature.name)
+      components/layouts/app-sidebar/   — Sidebar list (shows feature.name)
+    cli/commands/feat/
+      new.command.ts                    — CLI takes <description> only (no --name flag)
+      ls.command.ts                     — Lists features (shows feature.name)
+      show.command.ts                   — Shows detail (shows feature.name)
+
+  tsp/domain/entities/feature.tsp       — TypeSpec source-of-truth for Feature model
+  ```
+
+  ### Architecture Patterns
+
+  - **Clean Architecture**: domain → application → infrastructure → presentation
+  - **TypeSpec-first**: Domain models defined in `tsp/`, compiled to `packages/core/src/domain/generated/output.ts`
+  - **Two-phase creation**: `createRecord()` creates a DB row immediately (with placeholder name), then `initializeAndSpawn()` runs AI metadata generation to produce the final name/slug/description
+  - **DI via tsyringe**: All services injected via tokens
+  - **Server Actions**: Next.js server actions bridge Web UI → use cases
+
+  ### Relevant Technologies
+
+  - **React + Next.js** (web UI drawer component, server actions)
+  - **TypeSpec** (domain model definition, generates TypeScript types)
+  - **SQLite** (feature persistence, `name TEXT NOT NULL` column)
+  - **shadcn/ui** (Input, Textarea, Label components in the drawer)
+  - **tsyringe** (dependency injection for use cases and services)
+
+  ### How Feature Name Flows Today
+
+  1. **Web UI**: User types name + description → server action composes `userInput = "Feature: ${name}\n\n${description}"` → passes both `name` and `description` to use case
+  2. **CLI**: User provides `<description>` → passed directly as `userInput` (no separate name)
+  3. **Use case**: `createRecord()` uses `input.name ?? input.userInput.slice(0, 100)` as initial name
+  4. **AI metadata**: `initializeAndSpawn()` calls `MetadataGenerator.generateMetadata(userInput)` → AI returns refined `{ slug, name, description }` → overwrites the initial name
+  5. **Display**: `feature.name` shown in CLI output, web sidebar, canvas nodes, SSE events, delete confirmations, etc.
+
+  ### Key Insight
+
+  The AI **always overwrites** the user-supplied name with its own refined version. The user-typed name is only used:
+  - Temporarily in the DB between `createRecord` and `initializeAndSpawn`
+  - As part of `composeUserInput()` where it becomes `"Feature: ${name}"`
+
+  This means removing the name input from the UI has minimal semantic impact — the description (or combined text) will still be passed to the AI for metadata extraction.
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `src/presentation/web/components/common/feature-create-drawer/feature-create-drawer.tsx` | High | Remove the "FEATURE NAME" input field, make description the primary (and only) text input |
+  | `src/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx` | High | Update tests that assert on name input, submit validation, and payload shape |
+  | `src/presentation/web/components/common/feature-create-drawer/feature-create-drawer.stories.tsx` | Medium | Update Storybook stories if they reference name field |
+  | `src/presentation/web/app/actions/create-feature.ts` | High | Change `composeUserInput()` to use description only, remove `name` from payload interface, update validation |
+  | `FeatureCreatePayload` interface | High | Remove `name: string`, make `description` required instead of optional |
+  | `packages/core/src/application/use-cases/features/create/types.ts` | Medium | `CreateFeatureInput.name` field becomes unused from web path |
+  | `packages/core/src/application/use-cases/features/create/create-feature.use-case.ts` | Medium | The `input.name` fallback in `createRecord()` can be simplified |
+  | Display components (sidebar, canvas, CLI ls/show) | None | These display `feature.name` which is AI-generated — no change needed |
+  | TypeSpec / domain model | None | `name` field stays on the domain model (AI still generates it) |
+  | Database schema | None | `name` column stays (AI-generated name is still stored) |
+  | CLI `feat new` command | None | Already takes only `<description>` with no separate name |
+
+  ## Dependencies
+
+  - **MetadataGenerator**: Must continue to generate a `name` from user input (no change needed)
+  - **CreateFeatureUseCase**: Minor update to handle the case where `input.name` is never supplied from web
+  - **shadcn/ui components**: Input, Textarea, Label (no library changes needed)
+  - **React Hook Form / Zod**: Not currently used in the drawer (uses raw state), so no schema changes
+  - **Storybook**: Stories need updating to reflect the simplified form
+
+  ## Size Estimate
+
+  **M** — The core change is concentrated in the web UI drawer component and server action
+  (removing 1 field, adjusting validation and payload composition). The domain model, database,
+  and CLI are unaffected. However, thorough test updates across the drawer tests, server action
+  tests, and Storybook stories add to the scope. Estimated 1-2 days of work including TDD cycles.
+
+  ---
+
+  _Analysis complete — proceed with research phase_
