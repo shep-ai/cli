@@ -1,0 +1,236 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: settings-page-7e93cb
+number: 052
+branch: feat/052-settings-page-7e93cb
+oneLiner: Add a web UI settings page accessible from the sidebar for managing agent, environment, workflow, notification, feature flag, and database preferences
+summary: >
+  Create a new /settings page in the web UI with sidebar navigation. The page
+  exposes six settings sections: preferred agent (without model), IDE and terminal
+  preferences, workflow configuration, notification preferences, feature flags
+  (migrated from NEXT_PUBLIC_ env vars into the Settings database entity), and
+  database location display. The backend Settings domain model, use cases, and
+  repository already exist — this feature is primarily a presentation-layer effort
+  with a small domain extension for feature flags.
+phase: Analysis
+sizeEstimate: L
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - Next.js 16 (App Router, Server Components, Server Actions)
+  - React (client components with hooks-based state)
+  - shadcn/ui (Radix UI primitives, CVA variants)
+  - Tailwind CSS v4
+  - TypeSpec (domain model extension for feature flags)
+  - SQLite (via better-sqlite3, settings persistence)
+  - Storybook (mandatory colocated stories)
+  - lucide-react (icons)
+  - sonner (toast notifications)
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - question: >
+      The user mentions a "debug" feature flag — should this be a new flag, or
+      does it map to the existing system.logLevel setting?
+    context: >
+      Current feature flags are skills and envDeploy. The user says "we currently
+      have feature flags for skills and deployments and debug" which implies a
+      debug flag exists or should exist.
+  - question: >
+      Should the database location setting be read-only (display only) or allow
+      users to change the SHEP_HOME path from the web UI?
+    context: >
+      Changing the database location at runtime is risky — it requires restarting
+      the process and migrating data. Displaying the current path is safe.
+  - question: >
+      For feature flags migration to database, should the env var overrides still
+      work as a fallback, or should they be fully replaced by database values?
+    context: >
+      A gradual migration with env vars as fallback (db value wins if set,
+      otherwise fall back to env var) is safer than a hard cutover.
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  The Shep web UI currently has no dedicated settings page. Users must configure
+  preferences (agent, IDE, terminal, workflow, notifications) entirely through the
+  CLI via `shep settings`. This creates friction for users who primarily interact
+  with Shep through the web UI.
+
+  Additionally, feature flags are controlled via `NEXT_PUBLIC_` environment
+  variables, which requires restarting the dev server or rebuilding to change.
+  Moving feature flags into the Settings database entity enables runtime toggling
+  from the web UI.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The project follows a monorepo structure with Clean Architecture:
+
+  ```
+  packages/core/src/
+    domain/          — TypeSpec-generated types, value objects, factories
+    application/     — Use cases (settings: Load, Update, Initialize, Onboarding)
+    infrastructure/  — SQLite repository, settings mapper, DI container
+  src/presentation/
+    web/             — Next.js 16 App Router
+      app/           — Pages (dashboard, tools, skills, version)
+      components/    — shadcn/ui base + feature components
+      hooks/         — Custom hooks (notifications, sound, theme, etc.)
+      lib/           — Utilities (cn, feature-flags, server-container)
+      app/actions/   — Server Actions for mutations
+    cli/             — Commander.js CLI commands
+  tsp/               — TypeSpec domain model definitions
+  ```
+
+  ### Architecture Patterns
+
+  - **Clean Architecture**: Domain → Application → Infrastructure → Presentation
+  - **Server/Client Split**: Server Components for DI + data fetching, Client
+    Components for interactivity
+  - **Server Actions**: Preferred for mutations (see app/actions/)
+  - **Singleton Settings**: Global in-memory cache via `getSettings()` /
+    `initializeSettings()`, stored on both `globalThis` and `process` for HMR
+  - **DI Container**: tsyringe-based, resolved via `resolve<T>('Token')`
+  - **TypeSpec-first**: Domain models defined in .tsp files, compiled to TS
+
+  ### Relevant Technologies
+
+  | Technology | Usage |
+  | ---------- | ----- |
+  | Next.js 16 | App Router with Server Components and Server Actions |
+  | shadcn/ui | 49+ UI components (Input, Select, Checkbox, Tabs, Card, Switch, etc.) |
+  | Tailwind CSS v4 | Styling with @theme custom properties and dark mode |
+  | TypeSpec | Domain model definitions in tsp/domain/entities/settings.tsp |
+  | better-sqlite3 | Settings persistence with prepared statements |
+  | Storybook | Mandatory colocated .stories.tsx for every component |
+  | React Hook Form | Not used — forms use useState per-input pattern |
+  | lucide-react | Icon library for sidebar nav items |
+
+  ### Existing Settings Infrastructure
+
+  **Already built and ready to use:**
+
+  - **Domain model** (`tsp/domain/entities/settings.tsp`): Settings entity with
+    models, user, environment, system, agent, notifications, workflow sections
+  - **Use cases**: LoadSettingsUseCase, UpdateSettingsUseCase,
+    InitializeSettingsUseCase
+  - **Repository**: SQLiteSettingsRepository with 30+ flattened columns
+  - **Mapper**: SettingsMapper for domain ↔ database conversion
+  - **Service**: settings.service.ts singleton cache
+  - **Server action**: get-workflow-defaults.ts (pattern to follow)
+  - **CLI commands**: show, init, agent, ide, workflow (reference implementations)
+
+  **Not yet built:**
+
+  - Settings page route (`/settings`)
+  - Settings client component
+  - Settings server actions (load, update)
+  - Feature flags in database (TypeSpec extension needed)
+  - Sidebar nav item for Settings
+
+  ### Current Feature Flags System
+
+  Feature flags live in `src/presentation/web/lib/feature-flags.ts`:
+  - `NEXT_PUBLIC_FLAG_SKILLS` → `featureFlags.skills`
+  - `NEXT_PUBLIC_FLAG_ENV_DEPLOY` → `featureFlags.envDeploy`
+  - Read at build/startup time, no runtime toggle capability
+  - Used in sidebar (conditional nav items) and page guards (`notFound()`)
+
+  ### Current Sidebar Navigation
+
+  File: `components/layouts/app-sidebar/app-sidebar.tsx`
+  - Fixed nav items: Home (/), Tools (/tools), Skills (/skills, if flag enabled)
+  - Dynamic feature list grouped by status
+  - Footer: "New feature" button
+  - Uses SidebarNavItem component with icon, label, href, active props
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `tsp/domain/entities/settings.tsp` | High | Add featureFlags model to Settings entity |
+  | `packages/core/src/domain/generated/output.ts` | High | Regenerated from TypeSpec after model change |
+  | `packages/core/src/infrastructure/persistence/sqlite/mappers/settings.mapper.ts` | High | Map new featureFlags columns |
+  | `packages/core/src/infrastructure/repositories/sqlite-settings.repository.ts` | High | Add featureFlags columns to schema and queries |
+  | `packages/core/src/domain/factories/settings-defaults.factory.ts` | Medium | Add featureFlags defaults |
+  | `src/presentation/web/app/settings/page.tsx` | High | New server component page |
+  | `src/presentation/web/components/features/settings/` | High | New client components for each settings section |
+  | `src/presentation/web/app/actions/` | High | New server actions: load-settings, update-settings |
+  | `src/presentation/web/components/layouts/app-sidebar/app-sidebar.tsx` | Medium | Add Settings nav item with icon |
+  | `src/presentation/web/lib/feature-flags.ts` | Medium | Migrate to read from DB settings instead of env vars |
+  | `src/presentation/web/components/common/sidebar-nav-item/` | Low | Reused, no changes needed |
+  | `tests/` | High | Unit tests for new components, integration tests for mapper/repository changes |
+
+  ## Settings Page Sections
+
+  ### 1. Preferred Agent (without model)
+
+  - Select agent type: Claude Code, Cursor, Gemini CLI, Aider, Continue, Dev
+  - Select auth method: Session or Token
+  - Token input (shown only when auth method is token)
+  - Maps to `settings.agent.type`, `settings.agent.authMethod`, `settings.agent.token`
+
+  ### 2. Preferred IDE + Terminal
+
+  - Select editor: VS Code, Cursor, Windsurf, Zed, Antigravity
+  - Select shell: bash, zsh, fish
+  - Maps to `settings.environment.defaultEditor`, `settings.environment.shellPreference`
+
+  ### 3. Agent Workflow Settings
+
+  - Toggle: Open PR on implementation complete
+  - Toggle: Push on implementation complete
+  - Approval gates: Allow PRD, Allow Plan, Allow Merge
+  - CI settings: Max fix attempts, Watch timeout, Log max chars
+  - Maps to `settings.workflow.*`
+
+  ### 4. Notifications
+
+  - Channel toggles: In-App, Browser, Desktop
+  - Event type toggles: 9 individual event types
+  - Maps to `settings.notifications.*`
+
+  ### 5. Feature Flags
+
+  - Toggle: Skills
+  - Toggle: Deployments (envDeploy)
+  - Toggle: Debug (new flag, TBD based on open question)
+  - Requires TypeSpec extension, DB migration, mapper changes
+  - Maps to new `settings.featureFlags.*`
+
+  ### 6. Database Location
+
+  - Display current SHEP_HOME path (read-only recommended)
+  - Show database file size
+  - Maps to runtime value from shep-directory.service.ts
+
+  ## Dependencies
+
+  - **Existing**: LoadSettingsUseCase, UpdateSettingsUseCase, Settings TypeSpec model,
+    SQLiteSettingsRepository, SettingsMapper, settings.service.ts singleton
+  - **New TypeSpec model**: FeatureFlags model added to Settings entity
+  - **DB migration**: New columns for feature flags in settings table
+  - **shadcn/ui components**: Switch, Select, Input, Card, Tabs, Label (all already
+    installed)
+
+  ## Size Estimate
+
+  **L** — This feature spans multiple architecture layers (TypeSpec domain model
+  extension, database mapper/repository changes, new Next.js page with 6 form
+  sections, server actions, sidebar integration, Storybook stories for every
+  component, and comprehensive tests). While the backend infrastructure exists,
+  the frontend work is substantial with 6 distinct settings sections, each
+  requiring its own sub-component, stories, and tests. The feature flags migration
+  from env vars to database adds cross-cutting complexity.
+
+  ---
+
+  _Generated by feature agent — proceed with research_
