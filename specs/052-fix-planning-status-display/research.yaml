@@ -1,0 +1,233 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: fix-planning-status-display
+summary: >
+  Pure presentation-layer bug fix requiring additions to three tightly-coupled mapping objects
+  and one type alias in the web UI feature-node module. No new libraries, domain model changes,
+  or architectural decisions needed. The fix adds the missing 'planning' variant to the
+  FeatureLifecyclePhase union and corrects the plan→planning mapping in phaseNameToLifecycle.
+
+relatedFeatures: []
+
+technologies:
+  - TypeScript
+  - React
+  - Vitest
+
+relatedLinks: []
+
+decisions:
+  - title: 'Fix approach — extend existing mappings vs refactor to derive from domain enum'
+    chosen: 'Extend existing mappings with the missing planning entry'
+    rejected:
+      - 'Refactor to auto-derive UI phases from SdlcLifecycle enum — would eliminate mapping drift but is a larger scope change that touches all consumers of FeatureLifecyclePhase across at least 5 files (build-graph-nodes, build-feature-node-data, use-control-center-state, feature-drawer-client, and the config file itself). Introduces risk of regressions and is disproportionate for a one-line mapping bug fix.'
+      - 'Add a runtime assertion that all SdlcLifecycle values are covered — adds safety net but introduces runtime cost and error surface for a type that should be enforced at compile time. The existing Record<FeatureLifecyclePhase, string> pattern already provides compile-time exhaustiveness for label/verb maps.'
+    rationale: >
+      The codebase uses explicit mapping objects (sdlcLifecycleMap, phaseNameToLifecycle) and a
+      union type (FeatureLifecyclePhase) with Record-typed label/verb lookups. Adding 'planning'
+      to all four locations follows the established pattern exactly. The Record<FeatureLifecyclePhase, string>
+      type constraint already provides compile-time exhaustiveness checking — once 'planning' is added
+      to the union type, TypeScript will error if any Record is missing the new key. This is a minimal,
+      safe change that leverages existing type safety.
+
+  - title: 'Display label naming — PLANNING vs PLAN'
+    chosen: 'PLANNING'
+    rejected:
+      - 'PLAN — shorter but inconsistent with all other labels which use full-word gerund/noun forms (REQUIREMENTS, RESEARCH, IMPLEMENTATION, REVIEW). Would create a visual inconsistency in the UI.'
+    rationale: >
+      All existing lifecycleDisplayLabels use full words: REQUIREMENTS, RESEARCH, IMPLEMENTATION,
+      REVIEW, DEPLOY & QA, COMPLETED. Using PLANNING maintains this convention. This was already
+      resolved in the feature spec open questions.
+
+  - title: 'Running verb — Planning vs Analyzing Plan'
+    chosen: 'Planning'
+    rejected:
+      - 'Analyzing Plan — more descriptive of the agent activity but breaks the single-word gerund pattern used by all other running verbs (Analyzing, Researching, Implementing, Reviewing, Deploying, Maintaining).'
+    rationale: >
+      All existing lifecycleRunningVerbs are single gerund words. Using "Planning" maintains this
+      pattern. This was already resolved in the feature spec open questions.
+
+  - title: 'Test update strategy — fix existing test vs add new test alongside'
+    chosen: 'Fix the existing incorrect test assertion and add a new dedicated planning test'
+    rejected:
+      - 'Only fix the existing test (change plan→implementation to plan→planning) — misses the opportunity to add an explicit test for the sdlcLifecycleMap Planning entry and deriveLifecycle with a Planning-phase feature.'
+      - 'Leave the existing test as-is and only add new tests — would leave a test that asserts incorrect behavior (plan maps to implementation), which is the bug we are fixing.'
+    rationale: >
+      The existing test at derive-feature-state.test.ts line "maps plan to implementation" explicitly
+      asserts the buggy behavior. This test MUST be corrected to assert plan→planning. Additionally,
+      new test coverage should verify that deriveLifecycle correctly resolves SdlcLifecycle.Planning
+      features to the 'planning' UI phase via sdlcLifecycleMap, since that mapping path has no
+      existing test coverage.
+
+openQuestions:
+  - question: 'Should the Started and Analyze SdlcLifecycle values also be added to sdlcLifecycleMap?'
+    resolved: true
+    options:
+      - option: 'Add Started and Analyze mappings in this fix'
+        description: 'Would fix all missing lifecycle mappings at once but expands scope beyond the reported bug. Started and Analyze are early transient phases that may not appear in the UI under normal use.'
+        selected: false
+      - option: 'Only add Planning mapping in this fix, address Started/Analyze separately'
+        description: 'Keeps the fix tightly scoped to the reported bug. Started and Analyze missing from sdlcLifecycleMap will fall through to the default (requirements), which is acceptable behavior for those early phases.'
+        selected: true
+      - option: 'Add all missing mappings and also refactor to ensure exhaustive coverage'
+        description: 'Most thorough but largest scope. Would require adding Started and Analyze to FeatureLifecyclePhase union type, all Record instances, and comprehensive test coverage.'
+        selected: false
+    selectionRationale: >
+      The feature spec is specifically about the Planning phase displaying as Implementation.
+      Started and Analyze are early phases where the default fallback to 'requirements' is
+      reasonable behavior. Expanding scope risks regressions and delays this targeted fix.
+      A follow-up feature can address the Started/Analyze gaps if needed.
+
+  - question: 'Is the phaseNameToLifecycle blocked→requirements mapping correct or should it also be reviewed?'
+    resolved: true
+    options:
+      - option: 'Leave blocked→requirements as-is'
+        description: 'The blocked mapping is a separate concern from the planning bug. When an agent hits the blocked node, falling back to requirements is a reasonable default since blocked features typically restart from requirements.'
+        selected: true
+      - option: 'Change blocked to map to a new blocked lifecycle phase'
+        description: 'Would be more accurate but requires adding a blocked phase to FeatureLifecyclePhase and all Records, which is a larger change. The domain already has SdlcLifecycle.Blocked handled separately in deriveNodeState.'
+        selected: false
+      - option: 'Remove the blocked entry entirely'
+        description: 'Would cause blocked agent node names to return undefined from mapPhaseNameToLifecycle, which the callers already handle via fallback chains.'
+        selected: false
+    selectionRationale: >
+      The blocked→requirements mapping is unrelated to the planning bug and has a reasonable
+      rationale (blocked features restart from early phases). The domain-level SdlcLifecycle.Blocked
+      is already handled in deriveNodeState as a priority check before agent run state. No change needed.
+
+  - question: 'Should Deploy & QA lifecycle be mapped from a phase name in phaseNameToLifecycle?'
+    resolved: true
+    options:
+      - option: 'Add deploy phase name mapping'
+        description: 'Would add a deploy→deploy entry to phaseNameToLifecycle for completeness, but there is no deploy agent node in the current agent graph.'
+        selected: false
+      - option: 'Leave as-is — no deploy agent node exists'
+        description: 'The agent graph does not have a deploy node. Deploy & QA phase is reached via sdlcLifecycleMap from SdlcLifecycle, not from agent node names. No mapping needed.'
+        selected: true
+      - option: 'Add a placeholder mapping for future deploy agent'
+        description: 'Premature — would add dead code mapping for a non-existent agent node.'
+        selected: false
+    selectionRationale: >
+      The phaseNameToLifecycle map is specifically for agent graph node names (analyze, requirements,
+      research, plan, implement, merge, maintain, blocked). There is no deploy agent node in the
+      current system. The deploy lifecycle phase is reached through sdlcLifecycleMap when the domain
+      model has the appropriate SdlcLifecycle value, not through agent node names.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Fix Approach — Extend Existing Mappings
+
+  **Chosen:** Extend existing mappings with the missing planning entry
+
+  **Rejected:**
+  - Auto-derive UI phases from SdlcLifecycle enum — larger scope, touches 5+ files, disproportionate risk
+  - Runtime assertion for exhaustive coverage — unnecessary given Record<FeatureLifecyclePhase, string> already provides compile-time exhaustiveness
+
+  **Rationale:** The codebase uses a clear pattern: FeatureLifecyclePhase union type defines valid phases,
+  Record-typed objects (lifecycleDisplayLabels, lifecycleRunningVerbs) enforce that every phase has entries,
+  and two mapping objects (sdlcLifecycleMap, phaseNameToLifecycle) bridge domain→UI. Adding 'planning' to all
+  four locations follows this pattern exactly. TypeScript's Record type constraint ensures compile-time
+  exhaustiveness — once 'planning' is in the union, missing keys in any Record will cause build errors.
+
+  ### 2. Display Label — PLANNING
+
+  **Chosen:** PLANNING
+
+  **Rejected:**
+  - PLAN — inconsistent with existing full-word labels (REQUIREMENTS, RESEARCH, IMPLEMENTATION)
+
+  **Rationale:** All labels use full words. Consistency matters for visual uniformity in the UI.
+
+  ### 3. Running Verb — Planning
+
+  **Chosen:** Planning
+
+  **Rejected:**
+  - Analyzing Plan — breaks single-word gerund pattern (Analyzing, Researching, Implementing, etc.)
+
+  **Rationale:** All verbs are single gerund words. Pattern consistency aids readability.
+
+  ### 4. Test Strategy — Fix Existing + Add New
+
+  **Chosen:** Fix the incorrect test assertion AND add new planning-specific tests
+
+  **Rejected:**
+  - Only fix existing test — misses new sdlcLifecycleMap coverage
+  - Only add new tests — leaves incorrect assertion in place
+
+  **Rationale:** The test `maps "plan" to implementation` at derive-feature-state.test.ts explicitly
+  asserts buggy behavior and must be corrected. New tests should cover the sdlcLifecycleMap path for
+  Planning and the deriveLifecycle function with a Planning-phase feature.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | N/A | No new libraries needed | N/A | This is a pure mapping/type fix in existing code |
+
+  ## Security Considerations
+
+  No security implications. This fix only changes static mapping objects and a union type in the
+  presentation layer. No user input handling, API calls, or data persistence is affected.
+
+  ## Performance Implications
+
+  No performance implications. The mapping objects are static JavaScript objects with O(1) property
+  lookup. Adding one key to each object has zero measurable impact.
+
+  ## Architecture Notes
+
+  ### Affected Files (3 source + 1 test)
+
+  1. **feature-node-state-config.ts** — Add `'planning'` to the `FeatureLifecyclePhase` union type.
+     This is the type definition that gates all phase-related Record types. Once added here, TypeScript
+     will enforce that `lifecycleDisplayLabels` and `lifecycleRunningVerbs` include the new key.
+
+  2. **feature-node-state-config.ts** — Add `planning: 'PLANNING'` to `lifecycleDisplayLabels` and
+     `planning: 'Planning'` to `lifecycleRunningVerbs`. Required by the Record type constraint.
+
+  3. **derive-feature-state.ts** — Add `Planning: 'planning'` to `sdlcLifecycleMap` so that
+     `SdlcLifecycle.Planning` (domain enum value `'Planning'`) correctly resolves to the UI phase.
+
+  4. **derive-feature-state.ts** — Change `plan: 'implementation'` to `plan: 'planning'` in
+     `phaseNameToLifecycle` so the `plan` agent graph node name maps to the correct UI phase.
+
+  5. **derive-feature-state.test.ts** — Update the assertion from `plan→implementation` to
+     `plan→planning` and add new test cases for Planning lifecycle coverage.
+
+  ### Data Flow
+
+  The lifecycle resolution follows two paths, both converging on `FeatureLifecyclePhase`:
+
+  ```
+  Path A (domain lifecycle): Feature.lifecycle → sdlcLifecycleMap → FeatureLifecyclePhase
+  Path B (agent node name):  AgentRun.result / SSE phaseName → phaseNameToLifecycle → FeatureLifecyclePhase
+  ```
+
+  Both paths feed into `deriveLifecycle()` which returns the phase used by `lifecycleDisplayLabels`
+  and `lifecycleRunningVerbs` for rendering.
+
+  The bug exists in both paths:
+  - Path A: sdlcLifecycleMap has no `Planning` key → falls through to default `'requirements'`
+  - Path B: phaseNameToLifecycle maps `plan` → `'implementation'` instead of `'planning'`
+
+  ### Downstream Consumers (unchanged)
+
+  These files import from the affected modules but require NO changes:
+
+  - `build-graph-nodes.ts` — calls `deriveLifecycle()`, will automatically get correct results
+  - `build-feature-node-data.ts` — calls `deriveLifecycle()`, same benefit
+  - `use-control-center-state.ts` — calls `resolveSseEventUpdates()` which uses `mapPhaseNameToLifecycle()`, same benefit
+  - `feature-drawer-client.tsx` — reads `lifecycleDisplayLabels[lifecycle]`, will automatically show correct label
+
+  ### Scope Boundary
+
+  This fix is strictly in the presentation layer. No changes to:
+  - Domain model (SdlcLifecycle enum already has Planning)
+  - TypeSpec definitions (already correct)
+  - Generated output.ts (already correct)
+  - Infrastructure layer
+  - Application layer
+  - CLI or TUI presentation
