@@ -122,6 +122,9 @@ describe('parseWorkerArgs', () => {
       resumeFromInterrupt: false,
       push: false,
       openPr: false,
+      resumePayload: undefined,
+      agentType: undefined,
+      fast: false,
     });
   });
 
@@ -255,6 +258,39 @@ describe('parseWorkerArgs', () => {
     const parsed = parseWorkerArgs(args);
     expect(parsed.resume).toBe(true);
     expect(parsed.resumeFromInterrupt).toBe(true);
+  });
+
+  it('should parse optional --fast flag', () => {
+    const args = [
+      '--feature-id',
+      'feat-123',
+      '--run-id',
+      'run-456',
+      '--repo',
+      '/path/to/repo',
+      '--spec-dir',
+      '/path/to/specs',
+      '--fast',
+    ];
+
+    const parsed = parseWorkerArgs(args);
+    expect(parsed.fast).toBe(true);
+  });
+
+  it('should default fast to false when not provided', () => {
+    const args = [
+      '--feature-id',
+      'feat-123',
+      '--run-id',
+      'run-456',
+      '--repo',
+      '/path/to/repo',
+      '--spec-dir',
+      '/path/to/specs',
+    ];
+
+    const parsed = parseWorkerArgs(args);
+    expect(parsed.fast).toBe(false);
   });
 });
 

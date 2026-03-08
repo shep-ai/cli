@@ -49,6 +49,44 @@ describe('parseWorkerArgs - agentType', () => {
   });
 });
 
+describe('parseWorkerArgs - fast', () => {
+  const baseArgs = [
+    '--feature-id',
+    'feat-001',
+    '--run-id',
+    'run-001',
+    '--repo',
+    '/tmp/repo',
+    '--spec-dir',
+    '/tmp/spec',
+  ];
+
+  it('should parse --fast when present', () => {
+    const args = parseWorkerArgs([...baseArgs, '--fast']);
+    expect(args.fast).toBe(true);
+  });
+
+  it('should set fast to false when --fast is not present', () => {
+    const args = parseWorkerArgs(baseArgs);
+    expect(args.fast).toBe(false);
+  });
+
+  it('should coexist with other flags', () => {
+    const args = parseWorkerArgs([
+      ...baseArgs,
+      '--fast',
+      '--push',
+      '--open-pr',
+      '--thread-id',
+      'thread-001',
+    ]);
+    expect(args.fast).toBe(true);
+    expect(args.push).toBe(true);
+    expect(args.openPr).toBe(true);
+    expect(args.threadId).toBe('thread-001');
+  });
+});
+
 describe('parseWorkerArgs - resumePayload', () => {
   const baseArgs = [
     '--feature-id',

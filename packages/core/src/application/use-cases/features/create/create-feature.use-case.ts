@@ -72,7 +72,9 @@ export class CreateFeatureUseCase {
    * No AI calls, no git operations — just DB writes.
    */
   async createRecord(input: CreateFeatureInput): Promise<CreateRecordResult> {
-    let initialLifecycle: SdlcLifecycle = SdlcLifecycle.Requirements;
+    let initialLifecycle: SdlcLifecycle = input.fast
+      ? SdlcLifecycle.Implementation
+      : SdlcLifecycle.Requirements;
     let shouldSpawn = true;
     let effectiveRepoPath = input.repositoryPath;
 
@@ -221,7 +223,8 @@ export class CreateFeatureUseCase {
       worktreePath,
       slug,
       featureNumber,
-      input.userInput
+      input.userInput,
+      input.fast ? 'fast' : undefined
     );
 
     // Update feature record with refined metadata, branch, and specPath
@@ -250,6 +253,7 @@ export class CreateFeatureUseCase {
           threadId: agentRun?.threadId ?? randomUUID(),
           push: input.push ?? false,
           openPr: input.openPr ?? false,
+          ...(input.fast ? { fast: true } : {}),
         }
       );
     }

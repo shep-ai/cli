@@ -47,6 +47,7 @@ export interface WorkerArgs {
   openPr?: boolean;
   resumePayload?: string;
   agentType?: AgentType;
+  fast?: boolean;
 }
 
 /**
@@ -81,6 +82,7 @@ export function parseWorkerArgs(args: string[]): WorkerArgs {
   const resumeFromInterrupt = args.includes('--resume-from-interrupt');
   const push = args.includes('--push');
   const openPr = args.includes('--open-pr');
+  const fast = args.includes('--fast');
   const threadIdx = args.indexOf('--thread-id');
   const threadId =
     threadIdx !== -1 && threadIdx + 1 < args.length ? args[threadIdx + 1] : undefined;
@@ -111,6 +113,7 @@ export function parseWorkerArgs(args: string[]): WorkerArgs {
     openPr,
     resumePayload,
     agentType,
+    fast,
   };
 }
 

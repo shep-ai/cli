@@ -244,4 +244,74 @@ describe('SpecInitializerService', () => {
       expect(content).toContain("completedBy: 'feature-agent'");
     });
   });
+
+  describe('fast mode', () => {
+    it('should create only feature.yaml and spec.yaml when mode is fast', async () => {
+      const result = await service.initialize(tempDir, 'quick-fix', 1, 'Quick fix', 'fast');
+
+      const files = readdirSync(result.specDir);
+      expect(files).toContain('feature.yaml');
+      expect(files).toContain('spec.yaml');
+      expect(files.length).toBe(2);
+    });
+
+    it('should include user query in spec.yaml when mode is fast', async () => {
+      const result = await service.initialize(
+        tempDir,
+        'quick-fix',
+        1,
+        'Fix the typo in README',
+        'fast'
+      );
+
+      const content = readFileSync(join(result.specDir, 'spec.yaml'), 'utf-8');
+      expect(content).toContain('Fix the typo in README');
+    });
+
+    it('should NOT create research.yaml when mode is fast', async () => {
+      const result = await service.initialize(tempDir, 'quick-fix', 1, 'Quick fix', 'fast');
+
+      expect(existsSync(join(result.specDir, 'research.yaml'))).toBe(false);
+    });
+
+    it('should NOT create plan.yaml when mode is fast', async () => {
+      const result = await service.initialize(tempDir, 'quick-fix', 1, 'Quick fix', 'fast');
+
+      expect(existsSync(join(result.specDir, 'plan.yaml'))).toBe(false);
+    });
+
+    it('should NOT create tasks.yaml when mode is fast', async () => {
+      const result = await service.initialize(tempDir, 'quick-fix', 1, 'Quick fix', 'fast');
+
+      expect(existsSync(join(result.specDir, 'tasks.yaml'))).toBe(false);
+    });
+
+    it('should still create the spec directory', async () => {
+      const result = await service.initialize(tempDir, 'quick-fix', 1, 'Quick fix', 'fast');
+
+      expect(existsSync(result.specDir)).toBe(true);
+      expect(result.specDir).toBe(join(tempDir, 'specs', '001-quick-fix'));
+    });
+
+    it('should still substitute template variables in feature.yaml', async () => {
+      const result = await service.initialize(tempDir, 'quick-fix', 5, 'Quick fix', 'fast');
+
+      const content = readFileSync(join(result.specDir, 'feature.yaml'), 'utf-8');
+      expect(content).toContain("id: '005-quick-fix'");
+      expect(content).toContain("name: 'quick-fix'");
+      expect(content).not.toMatch(/\{\{[A-Z_]+\}\}/);
+    });
+
+    it('should create all 5 files when mode is undefined (backward compatibility)', async () => {
+      const result = await service.initialize(tempDir, 'full-feat', 1, 'Full feature');
+
+      const files = readdirSync(result.specDir);
+      expect(files.length).toBe(5);
+      expect(files).toContain('spec.yaml');
+      expect(files).toContain('research.yaml');
+      expect(files).toContain('plan.yaml');
+      expect(files).toContain('tasks.yaml');
+      expect(files).toContain('feature.yaml');
+    });
+  });
 });

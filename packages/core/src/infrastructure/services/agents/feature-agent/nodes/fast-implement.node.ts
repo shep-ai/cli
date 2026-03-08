@@ -1,0 +1,71 @@
+/**
+ * Fast-Implement Node
+ *
+ * Single-pass implementation node for fast mode. Builds a prompt from
+ * the user's query plus lightweight codebase context, calls the executor
+ * once, and returns. Does NOT handle commit/push/PR — that's the merge
+ * node's job.
+ *
+ * Follows the same factory pattern as other nodes: takes executor
+ * dependency, returns async (state) => Partial<FeatureAgentState>.
+ */
+
+import { isGraphBubbleUp } from '@langchain/langgraph';
+import type { IAgentExecutor } from '@/application/ports/output/agents/agent-executor.interface.js';
+import type { FeatureAgentState } from '../state.js';
+import { createNodeLogger, buildExecutorOptions, retryExecute } from './node-helpers.js';
+import { reportNodeStart } from '../heartbeat.js';
+import { recordPhaseStart, recordPhaseEnd } from '../phase-timing-context.js';
+import { updateNodeLifecycle } from '../lifecycle-context.js';
+import { buildFastImplementPrompt } from './prompts/fast-implement.prompt.js';
+
+/**
+ * Factory that creates the fast-implement node function.
+ *
+ * @param executor - The agent executor to use for implementation
+ * @returns A LangGraph node function
+ */
+export function createFastImplementNode(executor: IAgentExecutor) {
+  const log = createNodeLogger('fast-implement');
+
+  return async (state: FeatureAgentState): Promise<Partial<FeatureAgentState>> => {
+    log.info('Starting fast implementation');
+    reportNodeStart('fast-implement');
+    await updateNodeLifecycle('fast-implement');
+
+    const startTime = Date.now();
+    const timingId = await recordPhaseStart('fast-implement');
+
+    try {
+      const prompt = buildFastImplementPrompt(state);
+      const options = buildExecutorOptions(state);
+
+      log.info(`Executing agent at cwd=${options.cwd}`);
+      log.info(`Prompt length: ${prompt.length} chars`);
+      const result = await retryExecute(executor, prompt, options, { logger: log });
+      const durationMs = Date.now() - startTime;
+      const elapsed = (durationMs / 1000).toFixed(1);
+      log.info(`Complete (${result.result.length} chars, ${elapsed}s)`);
+
+      await recordPhaseEnd(timingId, durationMs);
+
+      return {
+        currentNode: 'fast-implement',
+        messages: [`[fast-implement] Complete (${result.result.length} chars, ${elapsed}s)`],
+        _needsReexecution: false,
+      };
+    } catch (err: unknown) {
+      if (isGraphBubbleUp(err)) throw err;
+
+      const message = err instanceof Error ? err.message : String(err);
+      const durationMs = Date.now() - startTime;
+      const elapsed = (durationMs / 1000).toFixed(1);
+      log.error(`${message} (after ${elapsed}s)`);
+
+      await recordPhaseEnd(timingId, durationMs);
+
+      // Throw so LangGraph does NOT checkpoint this node as "completed".
+      throw new Error(`[fast-implement] ${message}`);
+    }
+  };
+}

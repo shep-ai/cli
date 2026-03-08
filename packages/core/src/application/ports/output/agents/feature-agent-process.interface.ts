@@ -40,6 +40,7 @@ export interface IFeatureAgentProcessService {
       openPr?: boolean;
       resumePayload?: string;
       agentType?: AgentType;
+      fast?: boolean;
     }
   ): number;
 

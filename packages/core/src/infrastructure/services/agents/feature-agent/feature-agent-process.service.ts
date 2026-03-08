@@ -45,6 +45,7 @@ export class FeatureAgentProcessService implements IFeatureAgentProcessService {
       openPr?: boolean;
       resumePayload?: string;
       agentType?: AgentType;
+      fast?: boolean;
     }
   ): number {
     const workerPath = join(__dirname, 'feature-agent-worker.js');
@@ -85,6 +86,9 @@ export class FeatureAgentProcessService implements IFeatureAgentProcessService {
     }
     if (options?.agentType) {
       args.push('--agent-type', options.agentType);
+    }
+    if (options?.fast) {
+      args.push('--fast');
     }
     // Create log file for worker output (for debugging)
     const logsDir = join(homedir(), '.shep', 'logs');
