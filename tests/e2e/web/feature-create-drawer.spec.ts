@@ -33,10 +33,12 @@ test.describe('Feature Create Drawer — native file attachments', () => {
       timeout: 10000,
     });
 
-    // Fill in the feature name
-    const nameInput = page.getByPlaceholder('e.g. GitHub OAuth Login');
-    await expect(nameInput).toBeVisible();
-    await nameInput.fill('Test Feature With Attachment');
+    // Fill in the description (name input was removed — description is now the primary field)
+    const descriptionInput = page.getByPlaceholder(
+      'e.g. Add GitHub OAuth login with callback handling and token refresh...'
+    );
+    await expect(descriptionInput).toBeVisible();
+    await descriptionInput.fill('Test Feature With Attachment');
 
     // Click "Add Files" to trigger the mocked native file picker
     const addFilesButton = page.getByRole('button', { name: /add files/i });
@@ -54,7 +56,7 @@ test.describe('Feature Create Drawer — native file attachments', () => {
     // Verify the attachment count badge shows (1)
     await expect(page.getByText('(1)')).toBeVisible();
 
-    // Verify the submit button is enabled (name is filled)
+    // Verify the submit button is enabled (description is filled)
     const submitButton = page.getByRole('button', { name: '+ Create Feature' });
     await expect(submitButton).toBeEnabled();
 
