@@ -1,3 +1,9 @@
+# [1.78.0](https://github.com/shep-ai/cli/compare/v1.77.2...v1.78.0) (2026-03-08)
+
+### Features
+
+- pick your AI model per feature ([#243](https://github.com/shep-ai/cli/issues/243)) ([78c64f5](https://github.com/shep-ai/cli/commit/78c64f50c336759970dc15b4a03e37b8096dfeb6))
+
 ## [1.77.2](https://github.com/shep-ai/cli/compare/v1.77.1...v1.77.2) (2026-03-08)
 
 ## [1.77.1](https://github.com/shep-ai/cli/compare/v1.77.0...v1.77.1) (2026-03-08)
