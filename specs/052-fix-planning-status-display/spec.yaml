@@ -1,125 +1,204 @@
-# Feature Specification (YAML)
-# This is the source of truth. Markdown is auto-generated from this file.
-
 name: fix-planning-status-display
-number: 052
+number: 52
 branch: feat/052-fix-planning-status-display
 oneLiner: Fix planning phase displaying as implementing in feature node UI
 summary: >
-  The web UI incorrectly displays features in the "Planning" SDLC lifecycle phase as
-  "Implementing". The root cause is that the FeatureLifecyclePhase union type is missing a
-  'planning' variant, the sdlcLifecycleMap omits a Planning entry, and the phaseNameToLifecycle
-  mapping incorrectly maps the 'plan' agent node name to 'implementation' instead of 'planning'.
+  The web UI incorrectly displays features in the "Planning" SDLC lifecycle
+  phase as "Implementing". The root cause is that the FeatureLifecyclePhase
+  union type is missing a 'planning' variant, the sdlcLifecycleMap omits a
+  Planning entry, and the phaseNameToLifecycle mapping incorrectly maps the
+  'plan' agent node name to 'implementation' instead of 'planning'.
 phase: Requirements
 sizeEstimate: S
-
 relatedFeatures: []
-
 technologies:
   - TypeScript
   - React
   - Next.js
-
 relatedLinks: []
-
 openQuestions:
-  - question: 'Should the planning display label be "PLANNING" (matching the domain enum) or "PLAN" (shorter)?'
+  - question: >-
+      Should the planning display label be "PLANNING" (matching the domain enum)
+      or "PLAN" (shorter)?
     resolved: true
     options:
-      - option: 'PLANNING'
-        description: 'Matches the domain SdlcLifecycle.Planning enum value and is consistent with other labels like REQUIREMENTS, IMPLEMENTATION, RESEARCH which use the full word'
+      - option: PLANNING
+        description: >-
+          Matches the domain SdlcLifecycle.Planning enum value and is consistent
+          with other labels like REQUIREMENTS, IMPLEMENTATION, RESEARCH which
+          use the full word
         selected: true
-      - option: 'PLAN'
-        description: 'Shorter label, but inconsistent with existing labels which all use gerund/full forms'
+      - option: PLAN
+        description: >-
+          Shorter label, but inconsistent with existing labels which all use
+          gerund/full forms
         selected: false
-    selectionRationale: '"PLANNING" is recommended because all existing display labels use full words (REQUIREMENTS, RESEARCH, IMPLEMENTATION, REVIEW) and this maintains consistency with the domain enum value SdlcLifecycle.Planning'
-    answer: 'PLANNING'
-  - question: 'Should the running verb for the planning phase be "Planning" or "Analyzing Plan"?'
+    selectionRationale: >-
+      "PLANNING" is recommended because all existing display labels use full
+      words (REQUIREMENTS, RESEARCH, IMPLEMENTATION, REVIEW) and this maintains
+      consistency with the domain enum value SdlcLifecycle.Planning
+    answer: PLANNING
+  - question: >-
+      Should the running verb for the planning phase be "Planning" or "Analyzing
+      Plan"?
     resolved: true
     options:
-      - option: 'Planning'
-        description: 'Simple, consistent with the pattern used by other phases (Researching, Implementing, Reviewing). Direct gerund form of the phase name.'
+      - option: Planning
+        description: >-
+          Simple, consistent with the pattern used by other phases (Researching,
+          Implementing, Reviewing). Direct gerund form of the phase name.
         selected: true
-      - option: 'Analyzing Plan'
-        description: 'More descriptive of what the agent does during this phase, but breaks the single-word gerund pattern used by all other phases'
+      - option: Analyzing Plan
+        description: >-
+          More descriptive of what the agent does during this phase, but breaks
+          the single-word gerund pattern used by all other phases
         selected: false
-    selectionRationale: '"Planning" is recommended because all existing running verbs are single gerund words (Analyzing, Researching, Implementing, Reviewing, Deploying, Maintaining) and this maintains that pattern'
-    answer: 'Planning'
-
-content: |
+    selectionRationale: >-
+      "Planning" is recommended because all existing running verbs are single
+      gerund words (Analyzing, Researching, Implementing, Reviewing, Deploying,
+      Maintaining) and this maintains that pattern
+    answer: Planning
+content: >
   ## Problem Statement
 
-  Features with `SdlcLifecycle.Planning` status display as "IMPLEMENTATION" in the web UI
+
+  Features with `SdlcLifecycle.Planning` status display as "IMPLEMENTATION" in
+  the web UI
+
   instead of "PLANNING". This occurs because:
 
-  1. The `FeatureLifecyclePhase` union type in `feature-node-state-config.ts` does not include
+
+  1. The `FeatureLifecyclePhase` union type in `feature-node-state-config.ts`
+  does not include
      `'planning'` as a valid variant
-  2. The `sdlcLifecycleMap` in `derive-feature-state.ts` has no entry for `Planning`, so
+  2. The `sdlcLifecycleMap` in `derive-feature-state.ts` has no entry for
+  `Planning`, so
      `SdlcLifecycle.Planning` falls through to the default
-  3. The `phaseNameToLifecycle` mapping in `derive-feature-state.ts` maps `plan` to
+  3. The `phaseNameToLifecycle` mapping in `derive-feature-state.ts` maps `plan`
+  to
      `'implementation'` instead of `'planning'`
 
-  The domain model correctly defines `SdlcLifecycle.Planning = 'Planning'`, but the web
+  The domain model correctly defines `SdlcLifecycle.Planning = 'Planning'`, but
+  the web
+
   presentation layer was never updated to handle this lifecycle phase.
+
 
   ## Success Criteria
 
+
   - [ ] `FeatureLifecyclePhase` type includes `'planning'` variant
+
   - [ ] `lifecycleDisplayLabels` includes `planning: 'PLANNING'` entry
+
   - [ ] `lifecycleRunningVerbs` includes `planning: 'Planning'` entry
+
   - [ ] `phaseNameToLifecycle` maps `plan: 'planning'` (not `'implementation'`)
+
   - [ ] `sdlcLifecycleMap` maps `Planning: 'planning'`
-  - [ ] Unit test for `mapPhaseNameToLifecycle('plan')` expects `'planning'` (not `'implementation'`)
-  - [ ] Features in the Planning SDLC phase display "PLANNING" label in the web UI
+
+  - [ ] Unit test for `mapPhaseNameToLifecycle('plan')` expects `'planning'`
+  (not `'implementation'`)
+
+  - [ ] Features in the Planning SDLC phase display "PLANNING" label in the web
+  UI
+
   - [ ] Features in the Planning SDLC phase show "Planning" as the running verb
+
   - [ ] All existing tests pass without regression
+
   - [ ] TypeScript compilation succeeds with no errors
+
 
   ## Functional Requirements
 
-  - **FR-1**: Add `'planning'` to the `FeatureLifecyclePhase` union type so the type system
+
+  - **FR-1**: Add `'planning'` to the `FeatureLifecyclePhase` union type so the
+  type system
     recognizes planning as a valid lifecycle phase
-  - **FR-2**: Add a `planning: 'PLANNING'` entry to `lifecycleDisplayLabels` so the UI
+  - **FR-2**: Add a `planning: 'PLANNING'` entry to `lifecycleDisplayLabels` so
+  the UI
     renders the correct uppercase label for features in the planning phase
-  - **FR-3**: Add a `planning: 'Planning'` entry to `lifecycleRunningVerbs` so the running
+  - **FR-3**: Add a `planning: 'Planning'` entry to `lifecycleRunningVerbs` so
+  the running
     badge shows "Planning" when a feature is actively in the planning phase
-  - **FR-4**: Change the `phaseNameToLifecycle` mapping entry from `plan: 'implementation'`
+  - **FR-4**: Change the `phaseNameToLifecycle` mapping entry from `plan:
+  'implementation'`
     to `plan: 'planning'` so the `plan` agent node name correctly maps to the planning
     lifecycle phase
-  - **FR-5**: Add a `Planning: 'planning'` entry to `sdlcLifecycleMap` so the domain
+  - **FR-5**: Add a `Planning: 'planning'` entry to `sdlcLifecycleMap` so the
+  domain
     `SdlcLifecycle.Planning` enum value correctly maps to the UI lifecycle phase
-  - **FR-6**: Update the unit test that asserts `mapPhaseNameToLifecycle('plan')` returns
+  - **FR-6**: Update the unit test that asserts
+  `mapPhaseNameToLifecycle('plan')` returns
     `'implementation'` to instead assert it returns `'planning'`
 
   ## Non-Functional Requirements
 
-  - **NFR-1**: No changes to the domain model or generated types — this is purely a
+
+  - **NFR-1**: No changes to the domain model or generated types — this is
+  purely a
     presentation-layer fix
   - **NFR-2**: All existing unit tests must continue to pass (zero regressions)
-  - **NFR-3**: TypeScript strict mode compilation must succeed with no type errors
-  - **NFR-4**: The fix must maintain the existing Record<FeatureLifecyclePhase, string>
+
+  - **NFR-3**: TypeScript strict mode compilation must succeed with no type
+  errors
+
+  - **NFR-4**: The fix must maintain the existing Record<FeatureLifecyclePhase,
+  string>
     constraint — adding 'planning' to the type requires adding it to all Record instances
 
   ## Product Questions & AI Recommendations
 
+
   | # | Question | AI Recommendation | Rationale |
+
   | - | -------- | ----------------- | --------- |
-  | 1 | Display label format | PLANNING | Consistent with existing labels (REQUIREMENTS, RESEARCH, IMPLEMENTATION) |
-  | 2 | Running verb format | Planning | Consistent with existing verbs (Analyzing, Researching, Implementing) |
+
+  | 1 | Display label format | PLANNING | Consistent with existing labels
+  (REQUIREMENTS, RESEARCH, IMPLEMENTATION) |
+
+  | 2 | Running verb format | Planning | Consistent with existing verbs
+  (Analyzing, Researching, Implementing) |
+
 
   ## Affected Areas
 
+
   | Area | Impact | Reasoning |
+
   | ---- | ------ | --------- |
-  | `src/presentation/web/components/common/feature-node/feature-node-state-config.ts` | High | Add 'planning' to FeatureLifecyclePhase type, lifecycleDisplayLabels, and lifecycleRunningVerbs |
-  | `src/presentation/web/components/common/feature-node/derive-feature-state.ts` | High | Fix plan→planning mapping in phaseNameToLifecycle and add Planning entry to sdlcLifecycleMap |
-  | `tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts` | Medium | Update test expecting plan→implementation to expect plan→planning |
+
+  |
+  `src/presentation/web/components/common/feature-node/feature-node-state-config.ts`
+  | High | Add 'planning' to FeatureLifecyclePhase type, lifecycleDisplayLabels,
+  and lifecycleRunningVerbs |
+
+  |
+  `src/presentation/web/components/common/feature-node/derive-feature-state.ts`
+  | High | Fix plan→planning mapping in phaseNameToLifecycle and add Planning
+  entry to sdlcLifecycleMap |
+
+  |
+  `tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts`
+  | Medium | Update test expecting plan→implementation to expect plan→planning |
+
 
   ## Dependencies
 
+
   None — this is a self-contained UI mapping fix with no external dependencies.
+
 
   ## Size Estimate
 
-  **S** — Simple mapping fix across 3 files, all in the web presentation layer. Each change
+
+  **S** — Simple mapping fix across 3 files, all in the web presentation layer.
+  Each change
+
   is a one-line addition or modification. No architectural changes needed.
+rejectionFeedback:
+  - iteration: 1
+    message: rebase on main
+    phase: merge
+    timestamp: '2026-03-08T15:46:18.447Z'
