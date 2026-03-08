@@ -23,11 +23,10 @@ describe('TableFormatter', () => {
     it('should include all settings sections', () => {
       const result = TableFormatter.createSettingsTable(sampleSettings);
 
-      expect(result).toContain('Models');
-      expect(result).toContain('User');
-      expect(result).toContain('Environment');
-      expect(result).toContain('System');
       expect(result).toContain('Agent');
+      expect(result).toContain('Environment');
+      expect(result).not.toContain('\n  User\n');
+      expect(result).not.toContain('\n  System\n');
     });
 
     it('should include model values', () => {
@@ -36,10 +35,11 @@ describe('TableFormatter', () => {
       expect(result).toContain('claude-sonnet-4-6');
     });
 
-    it('should show (not set) for missing optional fields', () => {
+    it('should show model under Agent section', () => {
       const result = TableFormatter.createSettingsTable(sampleSettings);
 
-      expect(result).toContain('(not set)');
+      expect(result).toContain('Model');
+      expect(result).toContain('claude-sonnet-4-6');
     });
 
     it('should include agent configuration', () => {
