@@ -13,6 +13,10 @@ import {
   mapEventTypeToState,
   mapPhaseNameToLifecycle,
 } from '@/components/common/feature-node/derive-feature-state';
+import {
+  lifecycleDisplayLabels,
+  lifecycleRunningVerbs,
+} from '@/components/common/feature-node/feature-node-state-config';
 
 function createMinimalFeature(overrides: Partial<Feature> = {}): Feature {
   return {
@@ -323,5 +327,15 @@ describe('mapPhaseNameToLifecycle', () => {
 
   it('returns undefined for unrecognized phaseName', () => {
     expect(mapPhaseNameToLifecycle('unknown_phase')).toBeUndefined();
+  });
+});
+
+describe('lifecycle config entries for planning phase', () => {
+  it('has PLANNING display label for planning phase', () => {
+    expect(lifecycleDisplayLabels.planning).toBe('PLANNING');
+  });
+
+  it('has Planning running verb for planning phase', () => {
+    expect(lifecycleRunningVerbs.planning).toBe('Planning');
   });
 });

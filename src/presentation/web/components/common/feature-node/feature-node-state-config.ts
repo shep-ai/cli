@@ -14,6 +14,7 @@ export type FeatureNodeState =
 export type FeatureLifecyclePhase =
   | 'requirements'
   | 'research'
+  | 'planning'
   | 'implementation'
   | 'review'
   | 'deploy'
@@ -23,6 +24,7 @@ export type FeatureLifecyclePhase =
 export const lifecycleDisplayLabels: Record<FeatureLifecyclePhase, string> = {
   requirements: 'REQUIREMENTS',
   research: 'RESEARCH',
+  planning: 'PLANNING',
   implementation: 'IMPLEMENTATION',
   review: 'REVIEW',
   deploy: 'DEPLOY & QA',
@@ -33,6 +35,7 @@ export const lifecycleDisplayLabels: Record<FeatureLifecyclePhase, string> = {
 export const lifecycleRunningVerbs: Record<FeatureLifecyclePhase, string> = {
   requirements: 'Analyzing',
   research: 'Researching',
+  planning: 'Planning',
   implementation: 'Implementing',
   review: 'Reviewing',
   deploy: 'Deploying',
