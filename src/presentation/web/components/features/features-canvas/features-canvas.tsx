@@ -43,7 +43,7 @@ function ResetButton({ onResetViewport }: { onResetViewport: () => Viewport }) {
 
   return (
     <ControlButton onClick={handleReset} title="Reset view" aria-label="Reset view">
-      <RotateCcw />
+      <RotateCcw style={{ fill: 'none' }} />
     </ControlButton>
   );
 }
