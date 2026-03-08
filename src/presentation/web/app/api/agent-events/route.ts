@@ -45,7 +45,7 @@ interface CachedFeatureState {
  * can derive the correct FeatureLifecyclePhase via mapPhaseNameToLifecycle().
  */
 const LIFECYCLE_TO_NODE: Record<SdlcLifecycle, string> = {
-  [SdlcLifecycle.Started]: 'requirements',
+  [SdlcLifecycle.Started]: 'analyze',
   [SdlcLifecycle.Analyze]: 'analyze',
   [SdlcLifecycle.Requirements]: 'requirements',
   [SdlcLifecycle.Research]: 'research',

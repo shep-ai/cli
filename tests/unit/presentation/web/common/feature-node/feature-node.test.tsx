@@ -243,12 +243,20 @@ describe('FeatureNode', () => {
       expect(screen.getByText('Review Product Requirements')).toBeInTheDocument();
     });
 
-    it('shows "Review Technical Planning" badge in implementation lifecycle', () => {
+    it('shows "Review Technical Planning" badge in planning lifecycle', () => {
+      renderFeatureNode({
+        state: 'action-required',
+        lifecycle: 'planning',
+      });
+      expect(screen.getByText('Review Technical Planning')).toBeInTheDocument();
+    });
+
+    it('shows "Review Implementation" badge in implementation lifecycle', () => {
       renderFeatureNode({
         state: 'action-required',
         lifecycle: 'implementation',
       });
-      expect(screen.getByText('Review Technical Planning')).toBeInTheDocument();
+      expect(screen.getByText('Review Implementation')).toBeInTheDocument();
     });
 
     it('shows default "User action required" badge in other lifecycles', () => {

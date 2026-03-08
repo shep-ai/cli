@@ -34,8 +34,15 @@ export type DrawerView =
 
 /** Derives the initial tab from node lifecycle + state. */
 export function deriveInitialTab(node: FeatureNodeData): FeatureTabKey {
-  if (node.lifecycle === 'requirements' && node.state === 'action-required') return 'prd-review';
-  if (node.lifecycle === 'implementation' && node.state === 'action-required')
+  if (
+    (node.lifecycle === 'requirements' || node.lifecycle === 'gathering') &&
+    node.state === 'action-required'
+  )
+    return 'prd-review';
+  if (
+    (node.lifecycle === 'planning' || node.lifecycle === 'implementation') &&
+    node.state === 'action-required'
+  )
     return 'tech-decisions';
   if (node.lifecycle === 'review' && (node.state === 'action-required' || node.state === 'error'))
     return 'merge-review';

@@ -13,6 +13,7 @@ export type FeatureNodeState =
 
 export type FeatureLifecyclePhase =
   | 'requirements'
+  | 'gathering'
   | 'research'
   | 'planning'
   | 'implementation'
@@ -23,6 +24,7 @@ export type FeatureLifecyclePhase =
 /** Human-readable display labels for lifecycle phases. */
 export const lifecycleDisplayLabels: Record<FeatureLifecyclePhase, string> = {
   requirements: 'REQUIREMENTS',
+  gathering: 'REQUIREMENTS',
   research: 'RESEARCH',
   planning: 'PLANNING',
   implementation: 'IMPLEMENTATION',
@@ -34,6 +36,7 @@ export const lifecycleDisplayLabels: Record<FeatureLifecyclePhase, string> = {
 /** Present-participle verbs for the running badge, keyed by lifecycle phase. */
 export const lifecycleRunningVerbs: Record<FeatureLifecyclePhase, string> = {
   requirements: 'Analyzing',
+  gathering: 'Gathering Requirements',
   research: 'Researching',
   planning: 'Planning',
   implementation: 'Implementing',

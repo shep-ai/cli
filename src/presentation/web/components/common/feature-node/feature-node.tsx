@@ -32,7 +32,8 @@ function AgentIcon({ agentType, className }: { agentType?: string; className?: s
 function getBadgeIcon(data: FeatureNodeData): LucideIcon {
   const config = featureNodeStateConfig[data.state];
   if (data.state === 'action-required') {
-    if (data.lifecycle === 'requirements') return FileText;
+    if (data.lifecycle === 'requirements' || data.lifecycle === 'gathering') return FileText;
+    if (data.lifecycle === 'planning') return Wrench;
     if (data.lifecycle === 'implementation') return Wrench;
     if (data.lifecycle === 'review') return GitMerge;
   }
@@ -45,13 +46,13 @@ function getActionRequiredBadgeClasses(data: FeatureNodeData): {
   badgeBgClass: string;
 } | null {
   if (data.state !== 'action-required') return null;
-  if (data.lifecycle === 'implementation') {
+  if (data.lifecycle === 'planning' || data.lifecycle === 'implementation') {
     return { badgeClass: 'text-indigo-700', badgeBgClass: 'bg-indigo-50' };
   }
   if (data.lifecycle === 'review') {
     return { badgeClass: 'text-emerald-700', badgeBgClass: 'bg-emerald-50' };
   }
-  return null; // requirements stays amber (default)
+  return null; // requirements/gathering stays amber (default)
 }
 
 function getBadgeText(data: FeatureNodeData): string {
@@ -66,8 +67,10 @@ function getBadgeText(data: FeatureNodeData): string {
     case 'blocked':
       return data.blockedBy ? `Waiting on ${data.blockedBy}` : 'Blocked';
     case 'action-required':
-      if (data.lifecycle === 'requirements') return 'Review Product Requirements';
-      if (data.lifecycle === 'implementation') return 'Review Technical Planning';
+      if (data.lifecycle === 'requirements' || data.lifecycle === 'gathering')
+        return 'Review Product Requirements';
+      if (data.lifecycle === 'planning') return 'Review Technical Planning';
+      if (data.lifecycle === 'implementation') return 'Review Implementation';
       if (data.lifecycle === 'review') return 'Review Merge Request';
       return config.label;
     case 'error':

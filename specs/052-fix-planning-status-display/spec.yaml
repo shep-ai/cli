@@ -202,3 +202,14 @@ rejectionFeedback:
     message: rebase on main
     phase: merge
     timestamp: '2026-03-08T15:46:18.447Z'
+  - iteration: 2
+    message: >-
+      When we are creating new feature we are seeing it as analyzing until it
+      gets into "review product requirments"   but it should have 2 phases first
+      analyzing and second is gathering requirments before it gets to
+      "review"     also now instead of showing "review techinal plan" we are
+      showing "User action required" and status planning   we should show
+      "Review tehcnial planning" but the title should change to  planning
+      instead of implemention
+    phase: merge
+    timestamp: '2026-03-08T16:01:39.252Z'

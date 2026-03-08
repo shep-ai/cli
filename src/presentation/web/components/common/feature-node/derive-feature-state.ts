@@ -126,7 +126,7 @@ export const sdlcLifecycleMap: Record<string, FeatureLifecyclePhase> = {
 /** Map agent graph node names (from agent_run.result or SSE phaseName) to UI lifecycle phases. */
 const phaseNameToLifecycle: Record<string, FeatureLifecyclePhase> = {
   analyze: 'requirements',
-  requirements: 'requirements',
+  requirements: 'gathering',
   research: 'research',
   plan: 'planning',
   implement: 'implementation',

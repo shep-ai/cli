@@ -307,8 +307,8 @@ describe('mapPhaseNameToLifecycle', () => {
     expect(mapPhaseNameToLifecycle('analyze')).toBe('requirements');
   });
 
-  it('maps "requirements" to requirements', () => {
-    expect(mapPhaseNameToLifecycle('requirements')).toBe('requirements');
+  it('maps "requirements" to gathering', () => {
+    expect(mapPhaseNameToLifecycle('requirements')).toBe('gathering');
   });
 
   it('maps "research" to research', () => {
@@ -352,5 +352,15 @@ describe('lifecycle config entries for planning phase', () => {
 
   it('has Planning running verb for planning phase', () => {
     expect(lifecycleRunningVerbs.planning).toBe('Planning');
+  });
+});
+
+describe('lifecycle config entries for gathering phase', () => {
+  it('has REQUIREMENTS display label for gathering phase', () => {
+    expect(lifecycleDisplayLabels.gathering).toBe('REQUIREMENTS');
+  });
+
+  it('has Gathering Requirements running verb for gathering phase', () => {
+    expect(lifecycleRunningVerbs.gathering).toBe('Gathering Requirements');
   });
 });

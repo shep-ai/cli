@@ -113,6 +113,16 @@ const allStatesData: FeatureNodeData[] = [
     branch: 'feat/data-pipeline',
   },
   {
+    name: 'Tech Plan Review',
+    description: 'Technical plan awaiting review',
+    featureId: '#bi4',
+    lifecycle: 'planning' as FeatureLifecyclePhase,
+    state: 'action-required',
+    progress: 25,
+    repositoryPath: '/home/user/my-repo',
+    branch: 'feat/tech-plan',
+  },
+  {
     name: 'Merge Review',
     description: 'PR ready for merge approval',
     featureId: '#bi3',
@@ -177,7 +187,9 @@ export const AllStates: Story = {
 
 const allLifecycles: FeatureLifecyclePhase[] = [
   'requirements',
+  'gathering',
   'research',
+  'planning',
   'implementation',
   'review',
   'deploy',
@@ -341,6 +353,18 @@ export const Creating: Story = {
     lifecycle: 'requirements',
     state: 'creating',
     progress: 0,
+  },
+  render: (args) => <FeatureNodeCanvas data={args} />,
+};
+
+export const PlanningActionRequired: Story = {
+  args: {
+    name: 'Tech Plan Review',
+    description: 'Technical planning awaiting review',
+    featureId: '#bi4',
+    lifecycle: 'planning',
+    state: 'action-required',
+    progress: 30,
   },
   render: (args) => <FeatureNodeCanvas data={args} />,
 };
