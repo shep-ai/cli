@@ -1,3 +1,9 @@
+# [1.77.0](https://github.com/shep-ai/cli/compare/v1.76.0...v1.77.0) (2026-03-08)
+
+### Features
+
+- **web:** add fast mode to create drawer and wire web ui layer ([#237](https://github.com/shep-ai/cli/issues/237)) ([51079ef](https://github.com/shep-ai/cli/commit/51079efa6fec6d8b41bc8863431101a8f92d526e)), closes [#197](https://github.com/shep-ai/cli/issues/197) [#197](https://github.com/shep-ai/cli/issues/197)
+
 # [1.76.0](https://github.com/shep-ai/cli/compare/v1.75.0...v1.76.0) (2026-03-08)
 
 ### Features
