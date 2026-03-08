@@ -1,0 +1,1226 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Feature 052 — Feature Drawer Tabs Mockup</title>
+    <style>
+      :root {
+        --bg: #0a0a0b;
+        --surface: #141417;
+        --surface-raised: #1c1c21;
+        --border: #27272a;
+        --text: #fafafa;
+        --text-muted: #a1a1aa;
+        --text-dim: #71717a;
+        --accent: #3b82f6;
+        --accent-hover: #2563eb;
+        --emerald: #10b981;
+        --emerald-bg: rgba(16, 185, 129, 0.12);
+        --amber: #f59e0b;
+        --amber-bg: rgba(245, 158, 11, 0.12);
+        --blue: #3b82f6;
+        --blue-bg: rgba(59, 130, 246, 0.12);
+        --purple: #a855f7;
+        --purple-bg: rgba(168, 85, 247, 0.12);
+        --red: #ef4444;
+        --red-bg: rgba(239, 68, 68, 0.12);
+        --muted-bg: #27272a;
+        --tab-active-bg: #27272a;
+        --tab-inactive: #71717a;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        display: flex;
+        justify-content: center;
+        padding: 40px 20px;
+        min-height: 100vh;
+      }
+
+      .page-layout {
+        display: flex;
+        gap: 60px;
+        flex-wrap: wrap;
+        justify-content: center;
+        max-width: 1800px;
+      }
+
+      .tab-view {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .tab-label {
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--text-muted);
+      }
+
+      /* ── Drawer Shell ─────────────────────────────────────── */
+      .drawer {
+        width: 420px;
+        height: 680px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      }
+
+      /* ── Header ───────────────────────────────────────────── */
+      .drawer-header {
+        padding: 20px 20px 16px;
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+      }
+
+      .drawer-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--text);
+      }
+
+      .drawer-description {
+        font-size: 13px;
+        color: var(--text-muted);
+        margin-top: 2px;
+      }
+
+      .header-actions {
+        display: flex;
+        gap: 6px;
+        margin-top: 10px;
+      }
+
+      .action-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 4px 10px;
+        font-size: 12px;
+        color: var(--text-muted);
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        cursor: pointer;
+      }
+
+      .action-btn:hover {
+        background: var(--surface-raised);
+      }
+
+      /* ── Tab Bar ───────────────────────────────────────────── */
+      .tab-bar {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 4px;
+        padding: 16px 20px 0;
+        flex-shrink: 0;
+        background: var(--surface);
+      }
+
+      .tab-bar-inner {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 4px;
+        background: var(--muted-bg);
+        border-radius: 8px;
+        padding: 3px;
+      }
+
+      .tab-trigger {
+        padding: 6px 0;
+        text-align: center;
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--tab-inactive);
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.15s;
+        border: none;
+        background: transparent;
+      }
+
+      .tab-trigger:hover {
+        color: var(--text-muted);
+      }
+
+      .tab-trigger.active {
+        background: var(--surface);
+        color: var(--text);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+      }
+
+      /* ── Tab Content Area ─────────────────────────────────── */
+      .tab-content {
+        flex: 1;
+        overflow-y: auto;
+        min-height: 0;
+      }
+
+      .tab-content::-webkit-scrollbar {
+        width: 6px;
+      }
+      .tab-content::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .tab-content::-webkit-scrollbar-thumb {
+        background: var(--border);
+        border-radius: 3px;
+      }
+
+      /* ── Footer ───────────────────────────────────────────── */
+      .drawer-footer {
+        padding: 12px 20px;
+        border-top: 1px solid var(--border);
+        flex-shrink: 0;
+        display: flex;
+        gap: 8px;
+        justify-content: flex-end;
+      }
+
+      .footer-btn {
+        padding: 6px 14px;
+        font-size: 12px;
+        font-weight: 500;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        cursor: pointer;
+        color: var(--text-muted);
+        background: transparent;
+      }
+
+      .footer-btn.primary {
+        background: var(--accent);
+        color: white;
+        border-color: var(--accent);
+      }
+
+      /* ── Shared Components ────────────────────────────────── */
+      .section {
+        padding: 16px 20px;
+      }
+      .section + .section {
+        border-top: 1px solid var(--border);
+      }
+
+      .section-label {
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--text-dim);
+        margin-bottom: 10px;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 12px;
+        font-size: 12px;
+        font-weight: 500;
+        border-radius: 99px;
+      }
+
+      .badge-emerald {
+        background: var(--emerald-bg);
+        color: var(--emerald);
+      }
+      .badge-amber {
+        background: var(--amber-bg);
+        color: var(--amber);
+      }
+      .badge-blue {
+        background: var(--blue-bg);
+        color: var(--blue);
+      }
+      .badge-purple {
+        background: var(--purple-bg);
+        color: var(--purple);
+      }
+      .badge-red {
+        background: var(--red-bg);
+        color: var(--red);
+      }
+      .badge-muted {
+        background: var(--muted-bg);
+        color: var(--text-muted);
+      }
+
+      .dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        display: inline-block;
+      }
+      .dot-emerald {
+        background: var(--emerald);
+      }
+      .dot-amber {
+        background: var(--amber);
+      }
+      .dot-blue {
+        background: var(--blue);
+      }
+      .dot-purple {
+        background: var(--purple);
+      }
+
+      .separator {
+        height: 1px;
+        background: var(--border);
+      }
+
+      .progress-bar-bg {
+        height: 6px;
+        background: var(--muted-bg);
+        border-radius: 99px;
+        overflow: hidden;
+        margin-top: 4px;
+      }
+
+      .progress-bar-fill {
+        height: 100%;
+        border-radius: 99px;
+        transition: width 0.3s;
+      }
+
+      .detail-row {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .detail-label {
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--text-dim);
+      }
+
+      .detail-value {
+        font-size: 13px;
+        color: var(--text);
+      }
+
+      /* ── Overview Tab Specific ────────────────────────────── */
+      .pr-card {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 12px 16px;
+        margin: 0 20px;
+      }
+
+      .pr-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .pr-row + .pr-row {
+        margin-top: 10px;
+      }
+
+      .pr-link {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--accent);
+        text-decoration: underline;
+      }
+
+      .ci-badge {
+        font-size: 11px;
+        padding: 2px 8px;
+        border-radius: 4px;
+      }
+
+      .commit-hash {
+        font-family: 'SF Mono', 'Fira Code', monospace;
+        font-size: 11px;
+        background: var(--muted-bg);
+        padding: 2px 6px;
+        border-radius: 4px;
+        color: var(--text);
+      }
+
+      /* ── Activity Tab Specific ────────────────────────────── */
+      .run-group {
+        margin-bottom: 16px;
+      }
+
+      .run-header {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--text-muted);
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .run-header-line {
+        flex: 1;
+        height: 1px;
+        background: var(--border);
+      }
+
+      .phase-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 8px;
+      }
+
+      .phase-name {
+        font-size: 12px;
+        color: var(--text-muted);
+        width: 90px;
+        flex-shrink: 0;
+        text-align: right;
+      }
+
+      .phase-bar-container {
+        flex: 1;
+        height: 20px;
+        display: flex;
+        border-radius: 4px;
+        overflow: hidden;
+        position: relative;
+      }
+
+      .phase-bar-exec {
+        height: 100%;
+        border-radius: 4px 0 0 4px;
+      }
+
+      .phase-bar-wait {
+        height: 100%;
+        border-radius: 0 4px 4px 0;
+        opacity: 0.4;
+      }
+
+      .phase-duration {
+        font-size: 11px;
+        color: var(--text-dim);
+        width: 50px;
+        flex-shrink: 0;
+        text-align: right;
+      }
+
+      .timing-summary {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 8px;
+        padding: 12px;
+        background: var(--surface-raised);
+        border-radius: 8px;
+        margin-top: 12px;
+      }
+
+      .timing-stat {
+        text-align: center;
+      }
+
+      .timing-stat-value {
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--text);
+      }
+
+      .timing-stat-label {
+        font-size: 10px;
+        color: var(--text-dim);
+        margin-top: 2px;
+      }
+
+      .legend {
+        display: flex;
+        gap: 16px;
+        margin-bottom: 12px;
+      }
+
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 11px;
+        color: var(--text-dim);
+      }
+
+      .legend-swatch {
+        width: 12px;
+        height: 8px;
+        border-radius: 2px;
+      }
+
+      /* ── Messages Tab Specific ────────────────────────────── */
+      .message {
+        padding: 10px 14px;
+        border-radius: 8px;
+        margin-bottom: 8px;
+        font-size: 13px;
+        line-height: 1.5;
+      }
+
+      .message-assistant {
+        background: var(--surface-raised);
+        border: 1px solid var(--border);
+      }
+
+      .message-user {
+        background: transparent;
+        border: 1px solid var(--accent);
+        border-left: 3px solid var(--accent);
+      }
+
+      .message-role {
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-bottom: 4px;
+      }
+
+      .message-role-assistant {
+        color: var(--text-dim);
+      }
+      .message-role-user {
+        color: var(--accent);
+      }
+
+      .message-content {
+        color: var(--text-muted);
+      }
+
+      .message-options {
+        margin-top: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .message-option {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--text-dim);
+        padding: 4px 8px;
+        border-radius: 4px;
+        background: var(--muted-bg);
+      }
+
+      .message-option.selected {
+        background: var(--blue-bg);
+        color: var(--blue);
+      }
+
+      .option-radio {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        border: 2px solid var(--text-dim);
+      }
+
+      .option-radio.filled {
+        border-color: var(--blue);
+        background: var(--blue);
+      }
+
+      /* ── Plan Tab Specific ────────────────────────────────── */
+      .plan-overview {
+        font-size: 13px;
+        line-height: 1.6;
+        color: var(--text-muted);
+      }
+
+      .task-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .task-item {
+        display: flex;
+        gap: 10px;
+        padding: 10px 12px;
+        border-radius: 8px;
+        background: var(--surface-raised);
+        border: 1px solid var(--border);
+      }
+
+      .task-icon {
+        flex-shrink: 0;
+        width: 20px;
+        height: 20px;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        font-weight: 700;
+        margin-top: 1px;
+      }
+
+      .task-icon-done {
+        background: var(--emerald-bg);
+        color: var(--emerald);
+      }
+      .task-icon-wip {
+        background: var(--amber-bg);
+        color: var(--amber);
+      }
+      .task-icon-todo {
+        background: var(--muted-bg);
+        color: var(--text-dim);
+      }
+      .task-icon-review {
+        background: var(--purple-bg);
+        color: var(--purple);
+      }
+
+      .task-body {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .task-title {
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--text);
+      }
+
+      .task-desc {
+        font-size: 12px;
+        color: var(--text-dim);
+        margin-top: 2px;
+        line-height: 1.4;
+      }
+
+      /* ── Empty State ──────────────────────────────────────── */
+      .empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 60px 20px;
+        text-align: center;
+        color: var(--text-dim);
+      }
+
+      .empty-icon {
+        font-size: 32px;
+        margin-bottom: 12px;
+        opacity: 0.4;
+      }
+
+      .empty-title {
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--text-muted);
+      }
+
+      .empty-desc {
+        font-size: 12px;
+        margin-top: 4px;
+      }
+
+      /* ── Title Row ────────────────────────────────────────── */
+      h2 {
+        text-align: center;
+        font-size: 20px;
+        font-weight: 600;
+        color: var(--text);
+        margin-bottom: 32px;
+        width: 100%;
+      }
+
+      .subtitle {
+        text-align: center;
+        font-size: 13px;
+        color: var(--text-dim);
+        margin-top: -24px;
+        margin-bottom: 40px;
+        width: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div style="display: flex; flex-direction: column; align-items: center">
+      <h2>Feature 052 — Feature Drawer Tabs</h2>
+      <p class="subtitle">
+        Four tabs: Overview · Activity · Messages · Plan — with lazy data fetching
+      </p>
+
+      <div class="page-layout">
+        <!-- ═══════════════════════════════════════════════════════════
+         TAB 1: OVERVIEW (current drawer content, unchanged)
+         ═══════════════════════════════════════════════════════════ -->
+        <div class="tab-view">
+          <span class="tab-label">Overview Tab</span>
+          <div class="drawer">
+            <!-- Header -->
+            <div class="drawer-header">
+              <div class="drawer-title">user-authentication</div>
+              <div class="drawer-description">Add JWT-based auth with role management</div>
+              <div class="header-actions">
+                <button class="action-btn">📂 Open</button>
+                <button class="action-btn">📋 Specs</button>
+                <button class="action-btn" style="color: var(--red)">🗑</button>
+              </div>
+            </div>
+
+            <!-- Tab Bar -->
+            <div class="tab-bar">
+              <div class="tab-bar-inner">
+                <button class="tab-trigger active">Overview</button>
+                <button class="tab-trigger">Activity</button>
+                <button class="tab-trigger">Messages</button>
+                <button class="tab-trigger">Plan</button>
+              </div>
+            </div>
+
+            <!-- Tab Content: Overview -->
+            <div class="tab-content">
+              <!-- Status -->
+              <div class="section">
+                <div class="section-label">Implementation</div>
+                <div class="badge badge-emerald">
+                  <span class="dot dot-emerald"></span>
+                  Running
+                </div>
+                <!-- Progress -->
+                <div style="margin-top: 12px">
+                  <div
+                    style="
+                      display: flex;
+                      justify-content: space-between;
+                      font-size: 11px;
+                      color: var(--text-dim);
+                    "
+                  >
+                    <span>Progress</span>
+                    <span>65%</span>
+                  </div>
+                  <div class="progress-bar-bg">
+                    <div
+                      class="progress-bar-fill"
+                      style="width: 65%; background: var(--emerald)"
+                    ></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- PR Info -->
+              <div class="separator"></div>
+              <div style="padding: 16px 0">
+                <div class="pr-card">
+                  <div class="pr-row">
+                    <a class="pr-link">PR #187 ↗</a>
+                    <span class="badge badge-blue" style="padding: 2px 8px; font-size: 11px"
+                      >Open</span
+                    >
+                  </div>
+                  <div class="pr-row">
+                    <span style="font-size: 11px; color: var(--text-dim)">CI Status</span>
+                    <span class="ci-badge badge-emerald">✓ Passing</span>
+                  </div>
+                  <div class="pr-row">
+                    <span style="font-size: 11px; color: var(--text-dim)">Commit</span>
+                    <span class="commit-hash">a3f8c2d</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Details -->
+              <div class="separator"></div>
+              <div class="section" style="display: flex; flex-direction: column; gap: 10px">
+                <div class="detail-row">
+                  <span class="detail-label">Agent</span>
+                  <span class="detail-value">claude-sonnet-4-20250514</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Runtime</span>
+                  <span class="detail-value">12m 34s</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="drawer-footer">
+              <button class="footer-btn">Stop</button>
+              <button class="footer-btn primary">Approve</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════════
+         TAB 2: ACTIVITY (phase timing visualization)
+         ═══════════════════════════════════════════════════════════ -->
+        <div class="tab-view">
+          <span class="tab-label">Activity Tab</span>
+          <div class="drawer">
+            <!-- Header -->
+            <div class="drawer-header">
+              <div class="drawer-title">user-authentication</div>
+              <div class="drawer-description">Add JWT-based auth with role management</div>
+              <div class="header-actions">
+                <button class="action-btn">📂 Open</button>
+                <button class="action-btn">📋 Specs</button>
+              </div>
+            </div>
+
+            <!-- Tab Bar -->
+            <div class="tab-bar">
+              <div class="tab-bar-inner">
+                <button class="tab-trigger">Overview</button>
+                <button class="tab-trigger active">Activity</button>
+                <button class="tab-trigger">Messages</button>
+                <button class="tab-trigger">Plan</button>
+              </div>
+            </div>
+
+            <!-- Tab Content: Activity -->
+            <div class="tab-content">
+              <div class="section">
+                <!-- Legend -->
+                <div class="legend">
+                  <div class="legend-item">
+                    <div class="legend-swatch" style="background: var(--emerald)"></div>
+                    Execution
+                  </div>
+                  <div class="legend-item">
+                    <div class="legend-swatch" style="background: var(--amber); opacity: 0.4"></div>
+                    Approval wait
+                  </div>
+                </div>
+
+                <!-- Run Group 1 -->
+                <div class="run-group">
+                  <div class="run-header">
+                    Run #1
+                    <div class="run-header-line"></div>
+                  </div>
+
+                  <div class="phase-row">
+                    <span class="phase-name">Analyze</span>
+                    <div class="phase-bar-container">
+                      <div
+                        class="phase-bar-exec"
+                        style="width: 15%; background: var(--emerald)"
+                      ></div>
+                    </div>
+                    <span class="phase-duration">0m 18s</span>
+                  </div>
+
+                  <div class="phase-row">
+                    <span class="phase-name">Requirements</span>
+                    <div class="phase-bar-container">
+                      <div
+                        class="phase-bar-exec"
+                        style="width: 35%; background: var(--emerald)"
+                      ></div>
+                      <div
+                        class="phase-bar-wait"
+                        style="width: 25%; background: var(--amber)"
+                      ></div>
+                    </div>
+                    <span class="phase-duration">1m 42s</span>
+                  </div>
+
+                  <div class="phase-row">
+                    <span class="phase-name">Research</span>
+                    <div class="phase-bar-container">
+                      <div
+                        class="phase-bar-exec"
+                        style="width: 50%; background: var(--emerald)"
+                      ></div>
+                    </div>
+                    <span class="phase-duration">2m 05s</span>
+                  </div>
+
+                  <div class="phase-row">
+                    <span class="phase-name">Planning</span>
+                    <div class="phase-bar-container">
+                      <div
+                        class="phase-bar-exec"
+                        style="width: 40%; background: var(--emerald)"
+                      ></div>
+                      <div
+                        class="phase-bar-wait"
+                        style="width: 30%; background: var(--amber)"
+                      ></div>
+                    </div>
+                    <span class="phase-duration">2m 30s</span>
+                  </div>
+
+                  <div class="phase-row">
+                    <span class="phase-name">Implement</span>
+                    <div class="phase-bar-container">
+                      <div
+                        class="phase-bar-exec"
+                        style="width: 100%; background: var(--emerald)"
+                      ></div>
+                    </div>
+                    <span class="phase-duration">5m 12s</span>
+                  </div>
+
+                  <div class="phase-row">
+                    <span class="phase-name">Review</span>
+                    <div class="phase-bar-container">
+                      <div
+                        class="phase-bar-exec"
+                        style="width: 25%; background: var(--emerald)"
+                      ></div>
+                    </div>
+                    <span class="phase-duration">0m 47s</span>
+                  </div>
+                </div>
+
+                <!-- Summary -->
+                <div class="timing-summary">
+                  <div class="timing-stat">
+                    <div class="timing-stat-value">10m 24s</div>
+                    <div class="timing-stat-label">Execution</div>
+                  </div>
+                  <div class="timing-stat">
+                    <div class="timing-stat-value">2m 10s</div>
+                    <div class="timing-stat-label">Wait Time</div>
+                  </div>
+                  <div class="timing-stat">
+                    <div class="timing-stat-value">12m 34s</div>
+                    <div class="timing-stat-label">Wall Clock</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="drawer-footer">
+              <button class="footer-btn">Stop</button>
+              <button class="footer-btn primary">Approve</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════════
+         TAB 3: MESSAGES (conversation history)
+         ═══════════════════════════════════════════════════════════ -->
+        <div class="tab-view">
+          <span class="tab-label">Messages Tab</span>
+          <div class="drawer">
+            <!-- Header -->
+            <div class="drawer-header">
+              <div class="drawer-title">user-authentication</div>
+              <div class="drawer-description">Add JWT-based auth with role management</div>
+              <div class="header-actions">
+                <button class="action-btn">📂 Open</button>
+                <button class="action-btn">📋 Specs</button>
+              </div>
+            </div>
+
+            <!-- Tab Bar -->
+            <div class="tab-bar">
+              <div class="tab-bar-inner">
+                <button class="tab-trigger">Overview</button>
+                <button class="tab-trigger">Activity</button>
+                <button class="tab-trigger active">Messages</button>
+                <button class="tab-trigger">Plan</button>
+              </div>
+            </div>
+
+            <!-- Tab Content: Messages -->
+            <div class="tab-content">
+              <div class="section" style="display: flex; flex-direction: column; gap: 8px">
+                <div class="message message-assistant">
+                  <div class="message-role message-role-assistant">Assistant</div>
+                  <div class="message-content">
+                    I'll help you build the user authentication feature. Let me gather some
+                    requirements first. What authentication method would you prefer?
+                  </div>
+                  <div class="message-options">
+                    <div class="message-option selected">
+                      <div class="option-radio filled"></div>
+                      JWT with refresh tokens
+                    </div>
+                    <div class="message-option">
+                      <div class="option-radio"></div>
+                      Session-based auth
+                    </div>
+                    <div class="message-option">
+                      <div class="option-radio"></div>
+                      OAuth 2.0 only
+                    </div>
+                  </div>
+                </div>
+
+                <div class="message message-user">
+                  <div class="message-role message-role-user">User</div>
+                  <div class="message-content">
+                    JWT with refresh tokens. Also need role-based access control with admin, editor,
+                    and viewer roles.
+                  </div>
+                </div>
+
+                <div class="message message-assistant">
+                  <div class="message-role message-role-assistant">Assistant</div>
+                  <div class="message-content">
+                    Got it. I'll implement JWT auth with refresh token rotation and RBAC with three
+                    roles. I've created the spec and started the requirements phase.
+                  </div>
+                </div>
+
+                <div class="message message-assistant">
+                  <div class="message-role message-role-assistant">Assistant</div>
+                  <div class="message-content">
+                    Requirements are ready for your review. I've identified 8 functional
+                    requirements and 4 non-functional requirements. The spec includes password
+                    hashing with bcrypt, token expiry configuration, and middleware-based route
+                    protection.
+                  </div>
+                </div>
+
+                <div class="message message-user">
+                  <div class="message-role message-role-user">User</div>
+                  <div class="message-content">Looks good. Approved.</div>
+                </div>
+
+                <div class="message message-assistant">
+                  <div class="message-role message-role-assistant">Assistant</div>
+                  <div class="message-content">
+                    Starting implementation. I'll begin with the domain models and work through the
+                    layers following TDD.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="drawer-footer">
+              <button class="footer-btn">Stop</button>
+              <button class="footer-btn primary">Approve</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════════
+         TAB 4: PLAN (task breakdown)
+         ═══════════════════════════════════════════════════════════ -->
+        <div class="tab-view">
+          <span class="tab-label">Plan Tab</span>
+          <div class="drawer">
+            <!-- Header -->
+            <div class="drawer-header">
+              <div class="drawer-title">user-authentication</div>
+              <div class="drawer-description">Add JWT-based auth with role management</div>
+              <div class="header-actions">
+                <button class="action-btn">📂 Open</button>
+                <button class="action-btn">📋 Specs</button>
+              </div>
+            </div>
+
+            <!-- Tab Bar -->
+            <div class="tab-bar">
+              <div class="tab-bar-inner">
+                <button class="tab-trigger">Overview</button>
+                <button class="tab-trigger">Activity</button>
+                <button class="tab-trigger">Messages</button>
+                <button class="tab-trigger active">Plan</button>
+              </div>
+            </div>
+
+            <!-- Tab Content: Plan -->
+            <div class="tab-content">
+              <div class="section">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px">
+                  <span class="section-label" style="margin-bottom: 0">Plan State</span>
+                  <span class="badge badge-amber" style="padding: 2px 10px; font-size: 11px"
+                    >Implementing</span
+                  >
+                </div>
+                <p class="plan-overview">
+                  Implement JWT-based authentication with refresh token rotation, bcrypt password
+                  hashing, and role-based access control (admin, editor, viewer). Uses middleware
+                  pattern for route protection.
+                </p>
+              </div>
+
+              <div class="separator"></div>
+
+              <div class="section">
+                <div class="section-label">Tasks (5 of 8 completed)</div>
+                <div class="task-list">
+                  <div class="task-item">
+                    <div class="task-icon task-icon-done">✓</div>
+                    <div class="task-body">
+                      <div class="task-title">Define domain models</div>
+                      <div class="task-desc">User, Role, Token entities in TypeSpec</div>
+                    </div>
+                  </div>
+                  <div class="task-item">
+                    <div class="task-icon task-icon-done">✓</div>
+                    <div class="task-body">
+                      <div class="task-title">Create repository interfaces</div>
+                      <div class="task-desc">IUserRepository, ITokenRepository ports</div>
+                    </div>
+                  </div>
+                  <div class="task-item">
+                    <div class="task-icon task-icon-done">✓</div>
+                    <div class="task-body">
+                      <div class="task-title">Implement SQLite repositories</div>
+                      <div class="task-desc">User and token persistence layer</div>
+                    </div>
+                  </div>
+                  <div class="task-item">
+                    <div class="task-icon task-icon-done">✓</div>
+                    <div class="task-body">
+                      <div class="task-title">Build auth use cases</div>
+                      <div class="task-desc">Login, register, refresh, logout flows</div>
+                    </div>
+                  </div>
+                  <div class="task-item">
+                    <div class="task-icon task-icon-done">✓</div>
+                    <div class="task-body">
+                      <div class="task-title">Add password hashing service</div>
+                      <div class="task-desc">Bcrypt with configurable rounds</div>
+                    </div>
+                  </div>
+                  <div class="task-item">
+                    <div class="task-icon task-icon-wip">◉</div>
+                    <div class="task-body">
+                      <div class="task-title">Create auth middleware</div>
+                      <div class="task-desc">JWT verification and role-based guards</div>
+                    </div>
+                  </div>
+                  <div class="task-item">
+                    <div class="task-icon task-icon-todo">○</div>
+                    <div class="task-body">
+                      <div class="task-title">Build CLI auth commands</div>
+                      <div class="task-desc">Login, logout, whoami commands</div>
+                    </div>
+                  </div>
+                  <div class="task-item">
+                    <div class="task-icon task-icon-todo">○</div>
+                    <div class="task-body">
+                      <div class="task-title">Write integration tests</div>
+                      <div class="task-desc">Full auth flow e2e coverage</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="drawer-footer">
+              <button class="footer-btn">Stop</button>
+              <button class="footer-btn primary">Approve</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+       EMPTY STATES
+       ═══════════════════════════════════════════════════════════ -->
+      <h2 style="margin-top: 80px">Empty States</h2>
+      <p class="subtitle">When tabs have no data yet (early lifecycle features)</p>
+
+      <div class="page-layout">
+        <!-- Empty Activity -->
+        <div class="tab-view">
+          <span class="tab-label">Activity — Empty</span>
+          <div class="drawer" style="height: 400px">
+            <div class="drawer-header">
+              <div class="drawer-title">new-feature</div>
+              <div class="drawer-description">Just created, no activity yet</div>
+            </div>
+            <div class="tab-bar">
+              <div class="tab-bar-inner">
+                <button class="tab-trigger">Overview</button>
+                <button class="tab-trigger active">Activity</button>
+                <button class="tab-trigger">Messages</button>
+                <button class="tab-trigger">Plan</button>
+              </div>
+            </div>
+            <div class="tab-content">
+              <div class="empty-state">
+                <div class="empty-icon">⏱</div>
+                <div class="empty-title">No activity recorded yet</div>
+                <div class="empty-desc">Phase timings will appear as the feature progresses</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Empty Messages -->
+        <div class="tab-view">
+          <span class="tab-label">Messages — Empty</span>
+          <div class="drawer" style="height: 400px">
+            <div class="drawer-header">
+              <div class="drawer-title">new-feature</div>
+              <div class="drawer-description">Just created, no messages yet</div>
+            </div>
+            <div class="tab-bar">
+              <div class="tab-bar-inner">
+                <button class="tab-trigger">Overview</button>
+                <button class="tab-trigger">Activity</button>
+                <button class="tab-trigger active">Messages</button>
+                <button class="tab-trigger">Plan</button>
+              </div>
+            </div>
+            <div class="tab-content">
+              <div class="empty-state">
+                <div class="empty-icon">💬</div>
+                <div class="empty-title">No messages yet</div>
+                <div class="empty-desc">Conversation history will appear here</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Empty Plan -->
+        <div class="tab-view">
+          <span class="tab-label">Plan — Empty</span>
+          <div class="drawer" style="height: 400px">
+            <div class="drawer-header">
+              <div class="drawer-title">new-feature</div>
+              <div class="drawer-description">Just created, no plan yet</div>
+            </div>
+            <div class="tab-bar">
+              <div class="tab-bar-inner">
+                <button class="tab-trigger">Overview</button>
+                <button class="tab-trigger">Activity</button>
+                <button class="tab-trigger">Messages</button>
+                <button class="tab-trigger active">Plan</button>
+              </div>
+            </div>
+            <div class="tab-content">
+              <div class="empty-state">
+                <div class="empty-icon">📋</div>
+                <div class="empty-title">No plan created yet</div>
+                <div class="empty-desc">
+                  The implementation plan will appear after the planning phase
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
