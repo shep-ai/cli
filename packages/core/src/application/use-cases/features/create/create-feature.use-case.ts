@@ -254,6 +254,7 @@ export class CreateFeatureUseCase {
           push: input.push ?? false,
           openPr: input.openPr ?? false,
           ...(input.fast ? { fast: true } : {}),
+          ...(input.model ? { model: input.model } : {}),
         }
       );
     }
