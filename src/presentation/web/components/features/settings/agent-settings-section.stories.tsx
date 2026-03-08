@@ -33,7 +33,7 @@ export const TokenAuth: Story = {
   },
 };
 
-export const DirtyState: Story = {
+export const AiderSession: Story = {
   args: {
     agent: {
       type: AgentType.Aider,

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useTransition } from 'react';
-import { Eye, EyeOff } from 'lucide-react';
+import { useState, useTransition, useRef, useEffect } from 'react';
+import { Bot, Eye, EyeOff, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -42,40 +42,74 @@ export function AgentSettingsSection({ agent }: AgentSettingsSectionProps) {
   const [token, setToken] = useState(agent.token ?? '');
   const [showToken, setShowToken] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [showSaved, setShowSaved] = useState(false);
+  const prevPendingRef = useRef(false);
 
-  const isDirty =
-    agentType !== agent.type ||
-    authMethod !== agent.authMethod ||
-    (authMethod === AgentAuthMethod.Token && token !== (agent.token ?? ''));
+  useEffect(() => {
+    if (prevPendingRef.current && !isPending) {
+      setShowSaved(true);
+      const timer = setTimeout(() => setShowSaved(false), 2000);
+      return () => clearTimeout(timer);
+    }
+    prevPendingRef.current = isPending;
+  }, [isPending]);
 
-  function handleSave() {
+  function save(payload: { agent: AgentConfig }) {
     startTransition(async () => {
-      const payload: Record<string, unknown> = {
-        type: agentType,
-        authMethod,
-      };
-      if (authMethod === AgentAuthMethod.Token) {
-        payload.token = token;
-      }
-      const result = await updateSettingsAction({ agent: payload as AgentConfig });
-      if (result.success) {
-        toast.success('Agent settings saved');
-      } else {
+      const result = await updateSettingsAction(payload);
+      if (!result.success) {
         toast.error(result.error ?? 'Failed to save agent settings');
       }
     });
   }
 
+  function buildPayload(overrides: Partial<AgentConfig> = {}): { agent: AgentConfig } {
+    const merged = { type: agentType, authMethod, ...overrides };
+    const result: Record<string, unknown> = { type: merged.type, authMethod: merged.authMethod };
+    if (merged.authMethod === AgentAuthMethod.Token) {
+      result.token = overrides.token ?? token;
+    }
+    return { agent: result as AgentConfig };
+  }
+
+  function handleAgentTypeChange(value: string) {
+    setAgentType(value as AgentType);
+    save(buildPayload({ type: value as AgentType }));
+  }
+
+  function handleAuthMethodChange(value: string) {
+    setAuthMethod(value as AgentAuthMethod);
+    save(buildPayload({ authMethod: value as AgentAuthMethod }));
+  }
+
+  function handleTokenBlur() {
+    if (token !== (agent.token ?? '')) {
+      save(buildPayload({ token }));
+    }
+  }
+
   return (
-    <Card data-testid="agent-settings-section">
+    <Card id="agent" className="scroll-mt-6" data-testid="agent-settings-section">
       <CardHeader>
-        <CardTitle>Preferred Agent</CardTitle>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Bot className="text-muted-foreground h-4 w-4" />
+            <CardTitle>Preferred Agent</CardTitle>
+          </div>
+          {isPending ? <span className="text-muted-foreground text-xs">Saving...</span> : null}
+          {showSaved && !isPending ? (
+            <span className="flex items-center gap-1 text-xs text-green-600">
+              <Check className="h-3 w-3" />
+              Saved
+            </span>
+          ) : null}
+        </div>
         <CardDescription>Choose your AI coding agent and authentication method</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="agent-type">Agent Type</Label>
-          <Select value={agentType} onValueChange={(v) => setAgentType(v as AgentType)}>
+          <Select value={agentType} onValueChange={handleAgentTypeChange}>
             <SelectTrigger id="agent-type" data-testid="agent-type-select">
               <SelectValue />
             </SelectTrigger>
@@ -91,7 +125,7 @@ export function AgentSettingsSection({ agent }: AgentSettingsSectionProps) {
 
         <div className="space-y-2">
           <Label htmlFor="auth-method">Authentication Method</Label>
-          <Select value={authMethod} onValueChange={(v) => setAuthMethod(v as AgentAuthMethod)}>
+          <Select value={authMethod} onValueChange={handleAuthMethodChange}>
             <SelectTrigger id="auth-method" data-testid="auth-method-select">
               <SelectValue />
             </SelectTrigger>
@@ -115,6 +149,7 @@ export function AgentSettingsSection({ agent }: AgentSettingsSectionProps) {
                 type={showToken ? 'text' : 'password'}
                 value={token}
                 onChange={(e) => setToken(e.target.value)}
+                onBlur={handleTokenBlur}
                 placeholder="Enter your API token"
                 className="pr-10"
               />
@@ -130,16 +165,11 @@ export function AgentSettingsSection({ agent }: AgentSettingsSectionProps) {
                 {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </Button>
             </div>
+            <p className="text-muted-foreground text-xs">
+              Saves automatically when you leave the field
+            </p>
           </div>
         )}
-
-        <Button
-          onClick={handleSave}
-          disabled={!isDirty || isPending}
-          data-testid="agent-save-button"
-        >
-          {isPending ? 'Saving...' : 'Save'}
-        </Button>
       </CardContent>
     </Card>
   );

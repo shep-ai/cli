@@ -23,7 +23,7 @@ export const Default: Story = {
   },
 };
 
-export const DirtyState: Story = {
+export const CursorWithZsh: Story = {
   args: {
     environment: {
       defaultEditor: EditorType.Cursor,

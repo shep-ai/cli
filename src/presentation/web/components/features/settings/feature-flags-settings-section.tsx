@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useRef, useEffect } from 'react';
+import { Flag, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { updateSettingsAction } from '@/app/actions/update-settings';
 import type { FeatureFlags } from '@shepai/core/domain/generated/output';
@@ -30,28 +30,45 @@ export interface FeatureFlagsSettingsSectionProps {
 export function FeatureFlagsSettingsSection({ featureFlags }: FeatureFlagsSettingsSectionProps) {
   const [flags, setFlags] = useState<FeatureFlags>({ ...featureFlags });
   const [isPending, startTransition] = useTransition();
+  const [showSaved, setShowSaved] = useState(false);
+  const prevPendingRef = useRef(false);
 
-  const isDirty = FLAG_KEYS.some((key) => flags[key] !== featureFlags[key]);
+  useEffect(() => {
+    if (prevPendingRef.current && !isPending) {
+      setShowSaved(true);
+      const timer = setTimeout(() => setShowSaved(false), 2000);
+      return () => clearTimeout(timer);
+    }
+    prevPendingRef.current = isPending;
+  }, [isPending]);
 
-  function setFlag(key: keyof FeatureFlags, value: boolean) {
-    setFlags((prev) => ({ ...prev, [key]: value }));
-  }
-
-  function handleSave() {
+  function handleFlagChange(key: keyof FeatureFlags, value: boolean) {
+    const newFlags = { ...flags, [key]: value };
+    setFlags(newFlags);
     startTransition(async () => {
-      const result = await updateSettingsAction({ featureFlags: flags });
-      if (result.success) {
-        toast.success('Feature flags saved');
-      } else {
+      const result = await updateSettingsAction({ featureFlags: newFlags });
+      if (!result.success) {
         toast.error(result.error ?? 'Failed to save feature flags');
       }
     });
   }
 
   return (
-    <Card data-testid="feature-flags-settings-section">
+    <Card id="feature-flags" className="scroll-mt-6" data-testid="feature-flags-settings-section">
       <CardHeader>
-        <CardTitle>Feature Flags</CardTitle>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Flag className="text-muted-foreground h-4 w-4" />
+            <CardTitle>Feature Flags</CardTitle>
+          </div>
+          {isPending ? <span className="text-muted-foreground text-xs">Saving...</span> : null}
+          {showSaved && !isPending ? (
+            <span className="flex items-center gap-1 text-xs text-green-600">
+              <Check className="h-3 w-3" />
+              Saved
+            </span>
+          ) : null}
+        </div>
         <CardDescription>
           Toggle experimental and optional features. Changes take effect after page navigation.
         </CardDescription>
@@ -67,18 +84,10 @@ export function FeatureFlagsSettingsSection({ featureFlags }: FeatureFlagsSettin
               id={`flag-${key}`}
               data-testid={`switch-flag-${key}`}
               checked={flags[key]}
-              onCheckedChange={(v) => setFlag(key, v)}
+              onCheckedChange={(v) => handleFlagChange(key, v)}
             />
           </div>
         ))}
-
-        <Button
-          onClick={handleSave}
-          disabled={!isDirty || isPending}
-          data-testid="feature-flags-save-button"
-        >
-          {isPending ? 'Saving...' : 'Save'}
-        </Button>
       </CardContent>
     </Card>
   );
