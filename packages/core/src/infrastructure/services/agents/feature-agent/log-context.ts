@@ -7,6 +7,7 @@
  */
 
 let _prefix = '';
+let _phase = '';
 
 /**
  * Set the global log prefix. Call once at worker startup.
@@ -21,4 +22,18 @@ export function setLogPrefix(agentType: string, model?: string): void {
  */
 export function getLogPrefix(): string {
   return _prefix;
+}
+
+/**
+ * Set the current phase/node name. Called by each node at startup.
+ */
+export function setCurrentPhase(phase: string): void {
+  _phase = phase;
+}
+
+/**
+ * Get the current phase prefix. Returns empty string if not set.
+ */
+export function getCurrentPhase(): string {
+  return _phase ? `[${_phase}] ` : '';
 }

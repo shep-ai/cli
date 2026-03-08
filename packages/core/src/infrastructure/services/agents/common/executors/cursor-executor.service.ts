@@ -17,7 +17,7 @@ import type {
   AgentExecutionStreamEvent,
 } from '../../../../../application/ports/output/agents/agent-executor.interface.js';
 import type { SpawnFunction } from '../types.js';
-import { getLogPrefix } from '../../feature-agent/log-context.js';
+import { getCurrentPhase, getLogPrefix } from '../../feature-agent/log-context.js';
 
 /** Features supported by Cursor CLI */
 const SUPPORTED_FEATURES = new Set<string>(['session-resume', 'streaming']);
@@ -38,7 +38,7 @@ export class CursorExecutorService implements IAgentExecutor {
   private log(message: string): void {
     if (this.silent) return;
     const ts = new Date().toISOString();
-    process.stdout.write(`[${ts}] ${getLogPrefix()}[cursor-executor] ${message}\n`);
+    process.stdout.write(`[${ts}] ${getCurrentPhase()}${getLogPrefix()}${message}\n`);
   }
 
   supportsFeature(feature: AgentFeature): boolean {
