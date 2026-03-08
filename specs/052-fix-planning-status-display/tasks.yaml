@@ -1,0 +1,147 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: fix-planning-status-display
+summary: >
+  5 tasks across 3 phases. Phase 1 adds the planning variant to the type and config objects.
+  Phase 2 fixes the mapping objects and updates tests following TDD. Phase 3 runs full verification.
+
+relatedFeatures: []
+technologies:
+  - TypeScript
+  - React
+  - Vitest
+relatedLinks: []
+
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Add planning to FeatureLifecyclePhase union type'
+    description: >
+      Add 'planning' as a variant to the FeatureLifecyclePhase union type in
+      feature-node-state-config.ts. This is the foundation change — once added,
+      TypeScript will require all Record<FeatureLifecyclePhase, string> instances
+      to include a 'planning' key, providing compile-time enforcement for tasks 2-4.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - "FeatureLifecyclePhase includes 'planning' as a valid variant"
+      - "TypeScript reports errors in lifecycleDisplayLabels and lifecycleRunningVerbs for missing 'planning' key (expected — resolved in task-2)"
+    tdd:
+      red:
+        - "Write a type-level test or assertion that FeatureLifecyclePhase accepts 'planning' — currently fails because the type does not include it"
+      green:
+        - "Add | 'planning' to the FeatureLifecyclePhase union type definition (line 14-20 of feature-node-state-config.ts)"
+      refactor:
+        - 'Verify the variant is placed in logical order (after research, before implementation) to match the SDLC flow'
+    estimatedEffort: '5min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Add planning entries to display labels and running verbs'
+    description: >
+      Add planning: 'PLANNING' to lifecycleDisplayLabels and planning: 'Planning' to
+      lifecycleRunningVerbs in feature-node-state-config.ts. Required by the Record type
+      constraint after task-1 adds 'planning' to the union.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - "lifecycleDisplayLabels includes planning: 'PLANNING'"
+      - "lifecycleRunningVerbs includes planning: 'Planning'"
+      - 'TypeScript compilation succeeds with no errors in feature-node-state-config.ts'
+    tdd:
+      red:
+        - "Write unit tests asserting lifecycleDisplayLabels.planning === 'PLANNING' and lifecycleRunningVerbs.planning === 'Planning' — both fail because keys don't exist"
+      green:
+        - "Add planning: 'PLANNING' to lifecycleDisplayLabels (after research entry, before implementation)"
+        - "Add planning: 'Planning' to lifecycleRunningVerbs (after research entry, before implementation)"
+      refactor:
+        - 'Confirm entries are in SDLC lifecycle order matching the union type variant order'
+    estimatedEffort: '5min'
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Fix phaseNameToLifecycle plan mapping and update test'
+    description: >
+      Change the phaseNameToLifecycle entry from plan: 'implementation' to plan: 'planning'
+      in derive-feature-state.ts. This is the root cause of the bug — the plan agent node
+      name was incorrectly mapped to the implementation UI phase. Update the existing test
+      assertion from plan to implementation to plan to planning.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - "phaseNameToLifecycle maps 'plan' to 'planning'"
+      - "mapPhaseNameToLifecycle('plan') returns 'planning'"
+      - "Existing test updated: 'maps plan to planning' (not 'implementation')"
+    tdd:
+      red:
+        - "Update the test at derive-feature-state.test.ts that asserts mapPhaseNameToLifecycle('plan') === 'implementation' to instead assert === 'planning' — test fails against current code"
+      green:
+        - "Change plan: 'implementation' to plan: 'planning' in phaseNameToLifecycle (line 128 of derive-feature-state.ts)"
+      refactor:
+        - "Verify test description is updated from 'maps plan to implementation' to 'maps plan to planning'"
+    estimatedEffort: '5min'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Add Planning entry to sdlcLifecycleMap and add new tests'
+    description: >
+      Add Planning: 'planning' to sdlcLifecycleMap in derive-feature-state.ts so that
+      SdlcLifecycle.Planning correctly resolves to the 'planning' UI phase. Add new test
+      cases for: (1) sdlcLifecycleMap resolving Planning, and (2) deriveLifecycle returning
+      'planning' for a feature with SdlcLifecycle.Planning and no agent node override.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - "sdlcLifecycleMap includes Planning: 'planning'"
+      - "deriveLifecycle returns 'planning' for a feature with SdlcLifecycle.Planning lifecycle and no agent run"
+      - 'New test covers sdlcLifecycleMap Planning path'
+      - 'New test covers deriveLifecycle with Planning lifecycle'
+    tdd:
+      red:
+        - "Write test: deriveLifecycle with feature.lifecycle = SdlcLifecycle.Planning and null agent run returns 'planning' — fails because sdlcLifecycleMap has no Planning entry (falls to default 'requirements')"
+        - "Write test: mapPhaseNameToLifecycle for 'plan' with a Planning-lifecycle feature exercises the full derivation path"
+      green:
+        - "Add Planning: 'planning' to sdlcLifecycleMap (after Research entry, before Implementation)"
+      refactor:
+        - 'Verify sdlcLifecycleMap entries are in domain enum order for readability'
+    estimatedEffort: '10min'
+
+  - id: task-5
+    phaseId: phase-3
+    title: 'Full verification — tests, typecheck, lint, build'
+    description: >
+      Run the complete verification suite to confirm zero regressions. This includes
+      unit tests, TypeScript strict compilation, ESLint, and the full build. Verifies
+      that downstream consumers of FeatureLifecyclePhase continue to work unchanged.
+    state: Todo
+    dependencies:
+      - task-3
+      - task-4
+    acceptanceCriteria:
+      - 'pnpm test passes with zero failures'
+      - 'pnpm validate passes (lint + format + typecheck + tsp)'
+      - 'pnpm build succeeds'
+    tdd: null
+    estimatedEffort: '5min'
+
+totalEstimate: '30min'
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation follows a foundation-first approach across three phases. Phase 1 establishes
+  the type-level foundation by adding 'planning' to the FeatureLifecyclePhase union and its
+  Record-typed config objects (display labels and running verbs). This leverages TypeScript's
+  exhaustiveness checking to surface any missed locations at compile time.
+
+  Phase 2 fixes the two mapping objects that bridge domain values to UI phases: correcting the
+  phaseNameToLifecycle plan-to-planning mapping (the root cause bug) and adding the missing
+  sdlcLifecycleMap Planning entry. Tests are written/updated before each code change following TDD.
+
+  Phase 3 runs the full verification suite to confirm zero regressions across the entire codebase,
+  ensuring downstream consumers continue to work without modification.

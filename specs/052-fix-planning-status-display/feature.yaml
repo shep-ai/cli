@@ -1,0 +1,35 @@
+feature:
+  id: 052-fix-planning-status-display
+  name: fix-planning-status-display
+  number: 52
+  branch: feat/052-fix-planning-status-display
+  lifecycle: research
+  createdAt: '2026-03-08T12:43:12Z'
+status:
+  phase: research
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-03-08T12:43:12Z'
+  lastUpdatedBy: feature-agent
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-03-08T12:43:12Z'
+    completedBy: feature-agent
+errors:
+  current: null
+  history: []

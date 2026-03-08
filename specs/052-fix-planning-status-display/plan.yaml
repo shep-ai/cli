@@ -1,0 +1,132 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: fix-planning-status-display
+summary: >
+  Extend the web UI feature-node mapping layer to include the missing 'planning' lifecycle phase.
+  The fix adds 'planning' to the FeatureLifecyclePhase union type, corrects the plan-to-planning
+  mapping in phaseNameToLifecycle, adds the Planning entry to sdlcLifecycleMap, and adds display
+  label and running verb entries. All changes are in the presentation layer (2 source files + 1 test
+  file). TypeScript's Record<FeatureLifecyclePhase, string> constraint provides compile-time
+  exhaustiveness checking, so adding 'planning' to the union type forces all Record instances to
+  include it.
+
+relatedFeatures: []
+technologies:
+  - TypeScript
+  - React
+  - Vitest
+relatedLinks: []
+
+phases:
+  - id: phase-1
+    name: 'Type & Config Foundation'
+    description: >
+      Add the 'planning' variant to FeatureLifecyclePhase union type and its corresponding
+      entries in lifecycleDisplayLabels and lifecycleRunningVerbs. This phase comes first because
+      the type change is the foundation — TypeScript will require all Record<FeatureLifecyclePhase,
+      string> instances to include the new key, providing compile-time safety for the mapping
+      changes in phase 2.
+    parallel: false
+
+  - id: phase-2
+    name: 'Mapping Corrections & Test Updates'
+    description: >
+      Fix the two mapping objects in derive-feature-state.ts (sdlcLifecycleMap and
+      phaseNameToLifecycle) and update the test suite. The phaseNameToLifecycle fix corrects
+      the root cause bug (plan to implementation becomes plan to planning). The sdlcLifecycleMap
+      fix adds the missing Planning entry so domain SdlcLifecycle.Planning resolves correctly.
+      Tests are updated in the same phase since they directly validate these mappings.
+    parallel: false
+
+  - id: phase-3
+    name: 'Verification & Regression Check'
+    description: >
+      Run the full test suite, TypeScript compilation, and lint checks to confirm zero regressions.
+      Verify that downstream consumers (build-graph-nodes, build-feature-node-data,
+      use-control-center-state, feature-drawer-client) continue to work without changes.
+    parallel: false
+
+filesToCreate: []
+
+filesToModify:
+  - src/presentation/web/components/common/feature-node/feature-node-state-config.ts
+  - src/presentation/web/components/common/feature-node/derive-feature-state.ts
+  - tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  The web UI uses a layered mapping system to translate domain model lifecycle values into
+  visual display properties for feature nodes:
+
+  ```
+  Domain Layer                    Presentation Layer
+  ─────────────                   ──────────────────
+  SdlcLifecycle enum    ──────►   sdlcLifecycleMap     ──────►   FeatureLifecyclePhase
+  Agent node names      ──────►   phaseNameToLifecycle  ──────►   FeatureLifecyclePhase
+                                                                        │
+                                                                        ▼
+                                                        lifecycleDisplayLabels (label text)
+                                                        lifecycleRunningVerbs  (badge text)
+  ```
+
+  The `FeatureLifecyclePhase` union type is the central pivot. It defines valid phases and is
+  used as the key type for `Record<FeatureLifecyclePhase, string>` objects that map phases to
+  display strings. TypeScript enforces that every Record instance includes all union members.
+
+  The bug: `FeatureLifecyclePhase` is missing `'planning'`, so the two mapping objects cannot
+  reference it, and `phaseNameToLifecycle` incorrectly maps `plan` to `'implementation'`.
+
+  ## Key Design Decisions
+
+  ### 1. Extend existing mappings (not refactor)
+
+  **Chosen:** Add `'planning'` to all four mapping locations following the established pattern.
+
+  **Rejected:** Auto-deriving UI phases from the `SdlcLifecycle` domain enum would prevent
+  future mapping drift but touches 5+ consumer files and is disproportionate for a one-line fix.
+
+  **Rationale:** The `Record<FeatureLifecyclePhase, string>` pattern already provides
+  compile-time exhaustiveness. Once `'planning'` is in the union, any missing Record key
+  causes a TypeScript build error. This is sufficient safety with zero architectural change.
+
+  ### 2. Display label: PLANNING
+
+  All existing labels use full words (REQUIREMENTS, RESEARCH, IMPLEMENTATION, REVIEW).
+  PLANNING maintains this convention.
+
+  ### 3. Running verb: Planning
+
+  All existing verbs are single gerund words (Analyzing, Researching, Implementing).
+  Planning maintains this pattern.
+
+  ### 4. Test strategy: fix incorrect assertion + add new coverage
+
+  The existing test `maps "plan" to implementation` (line 312) asserts the buggy behavior and
+  must be corrected. New tests are added for the sdlcLifecycleMap Planning path and the
+  deriveLifecycle function with a Planning-phase feature.
+
+  ## Implementation Strategy
+
+  Phase 1 (Type & Config) must come first because adding `'planning'` to the union type will
+  cause TypeScript errors in all Record instances that don't include it. The display labels
+  and running verbs are updated in the same file, completing all config changes atomically.
+
+  Phase 2 (Mappings & Tests) follows the TDD cycle: first update the test to assert the
+  correct behavior (RED — the test now fails against old code), then fix the mappings (GREEN),
+  then verify no cleanup is needed (REFACTOR).
+
+  Phase 3 (Verification) runs the full validation suite to confirm zero regressions across
+  the entire codebase, not just the modified files.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Missing a Record instance that needs 'planning' key | TypeScript's Record<FeatureLifecyclePhase, string> enforces exhaustiveness at compile time — build will fail if any Record is incomplete |
+  | Downstream consumers break from type change | All consumers use FeatureLifecyclePhase as input (not as exhaustive switch) — adding a variant is backwards-compatible |
+  | Test regression from changing assertion | The test change mirrors the code change exactly — plan to planning in both |
+  | Other missing lifecycle phases (Started, Analyze) cause confusion | Out of scope per research decision — those phases fall through to 'requirements' default which is acceptable behavior |
