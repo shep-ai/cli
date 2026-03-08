@@ -61,6 +61,7 @@ export function buildExecutorOptions(state: FeatureAgentState): AgentExecutionOp
   return {
     cwd: state.worktreePath || state.repositoryPath,
     maxTurns: 5000,
+    ...(state.model ? { model: state.model } : {}),
   };
 }
 

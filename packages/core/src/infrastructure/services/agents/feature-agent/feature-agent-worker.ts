@@ -50,6 +50,7 @@ export interface WorkerArgs {
   resumePayload?: string;
   agentType?: AgentType;
   fast?: boolean;
+  model?: string;
 }
 
 /**
@@ -101,6 +102,9 @@ export function parseWorkerArgs(args: string[]): WorkerArgs {
       ? args[resumePayloadIdx + 1]
       : undefined;
 
+  const modelIdx = args.indexOf('--model');
+  const model = modelIdx !== -1 && modelIdx + 1 < args.length ? args[modelIdx + 1] : undefined;
+
   return {
     featureId: getArg('feature-id'),
     runId: getArg('run-id'),
@@ -116,6 +120,7 @@ export function parseWorkerArgs(args: string[]): WorkerArgs {
     resumePayload,
     agentType,
     fast,
+    model,
   };
 }
 
@@ -302,6 +307,7 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
           specDir: args.specDir,
           error: undefined, // Clear previous error state
           ...(args.approvalGates ? { approvalGates: args.approvalGates } : {}),
+          ...(args.model ? { model: args.model } : {}),
           push: args.push ?? false,
           openPr: args.openPr ?? false,
         },
@@ -316,6 +322,7 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
           worktreePath: args.worktreePath ?? args.repo,
           specDir: args.specDir,
           ...(args.approvalGates ? { approvalGates: args.approvalGates } : {}),
+          ...(args.model ? { model: args.model } : {}),
           push: args.push ?? false,
           openPr: args.openPr ?? false,
         },

@@ -138,6 +138,23 @@ describe('FeatureAgentProcessService', () => {
       expect(args).not.toContain('--agent-type');
     });
 
+    it('should include --model in fork args when model option is set', () => {
+      service.spawn('feat-1', 'run-1', '/repo', '/repo/specs/001', undefined, {
+        model: 'claude-haiku-4-5',
+      });
+
+      const args = mockFork.mock.calls[0][1];
+      expect(args).toContain('--model');
+      expect(args).toContain('claude-haiku-4-5');
+    });
+
+    it('should NOT include --model in fork args when model option is not set', () => {
+      service.spawn('feat-1', 'run-1', '/repo', '/repo/specs/001');
+
+      const args = mockFork.mock.calls[0][1];
+      expect(args).not.toContain('--model');
+    });
+
     it('should throw if fork returns no pid', () => {
       mockFork.mockReturnValue({ ...mockChildProcess, pid: undefined });
 

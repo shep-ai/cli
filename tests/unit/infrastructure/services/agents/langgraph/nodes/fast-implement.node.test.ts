@@ -103,6 +103,7 @@ function createMockState(overrides?: Partial<FeatureAgentState>): FeatureAgentSt
     ciFixAttempts: 0,
     ciFixHistory: [],
     ciFixStatus: 'idle',
+    model: undefined,
     ...overrides,
   };
 }

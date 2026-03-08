@@ -669,10 +669,10 @@ describe('SQLite Migrations', () => {
       expect(rows).toHaveLength(1);
     });
 
-    it('sets schema version to 25 after migration', async () => {
+    it('sets schema version to latest after migration', async () => {
       await runSQLiteMigrations(db);
       expect(getSchemaVersion(db)).toBe(LATEST_SCHEMA_VERSION);
-      expect(LATEST_SCHEMA_VERSION).toBe(25);
+      expect(LATEST_SCHEMA_VERSION).toBe(26);
     });
   });
 
@@ -780,7 +780,7 @@ describe('SQLite Migrations', () => {
     it('should be idempotent (running twice does not error)', async () => {
       db.pragma('user_version = 23');
       await expect(runSQLiteMigrations(db)).resolves.not.toThrow();
-      expect(getSchemaVersion(db)).toBe(25);
+      expect(getSchemaVersion(db)).toBe(LATEST_SCHEMA_VERSION);
     });
   });
 
