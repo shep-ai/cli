@@ -32,6 +32,7 @@ interface NewOptions {
   allowAll?: boolean;
   parent?: string;
   fast?: boolean;
+  model?: string;
 }
 
 /**
@@ -77,6 +78,7 @@ export function createNewCommand(): Command {
     .option('--allow-all', 'Run fully autonomous (no approval pauses)')
     .option('--parent <fid>', 'Parent feature ID (full or partial prefix)')
     .option('--fast', 'Skip SDLC phases and implement directly from your prompt')
+    .option('--model <model>', 'LLM model identifier for this run (e.g. claude-opus-4-6)')
     .action(async (description: string, options: NewOptions) => {
       try {
         const useCase = container.resolve(CreateFeatureUseCase);
@@ -119,6 +121,7 @@ export function createNewCommand(): Command {
             openPr,
             ...(parentId !== undefined && { parentId }),
             ...(options.fast && { fast: true }),
+            ...(options.model !== undefined && { model: options.model }),
           })
         );
 
