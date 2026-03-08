@@ -36,6 +36,7 @@ const NODE_TO_LIFECYCLE: Record<string, SdlcLifecycle> = {
   research: SdlcLifecycle.Research,
   plan: SdlcLifecycle.Planning,
   implement: SdlcLifecycle.Implementation,
+  'fast-implement': SdlcLifecycle.Implementation,
   merge: SdlcLifecycle.Review,
 };
 

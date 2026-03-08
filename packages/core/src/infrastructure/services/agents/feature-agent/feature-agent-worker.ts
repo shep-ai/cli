@@ -16,6 +16,8 @@ import { Command } from '@langchain/langgraph';
 import { initializeContainer, container } from '@/infrastructure/di/container.js';
 import { createFeatureAgentGraph } from './feature-agent-graph.js';
 import type { FeatureAgentGraphDeps } from './feature-agent-graph.js';
+import { createFastFeatureAgentGraph } from './fast-feature-agent-graph.js';
+import type { FastFeatureAgentGraphDeps } from './fast-feature-agent-graph.js';
 import { createCheckpointer } from '../common/checkpointer.js';
 import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
 import type { IAgentExecutorProvider } from '@/application/ports/output/agents/agent-executor-provider.interface.js';
@@ -47,6 +49,7 @@ export interface WorkerArgs {
   openPr?: boolean;
   resumePayload?: string;
   agentType?: AgentType;
+  fast?: boolean;
 }
 
 /**
@@ -81,6 +84,7 @@ export function parseWorkerArgs(args: string[]): WorkerArgs {
   const resumeFromInterrupt = args.includes('--resume-from-interrupt');
   const push = args.includes('--push');
   const openPr = args.includes('--open-pr');
+  const fast = args.includes('--fast');
   const threadIdx = args.indexOf('--thread-id');
   const threadId =
     threadIdx !== -1 && threadIdx + 1 < args.length ? args[threadIdx + 1] : undefined;
@@ -111,6 +115,7 @@ export function parseWorkerArgs(args: string[]): WorkerArgs {
     openPr,
     resumePayload,
     agentType,
+    fast,
   };
 }
 
@@ -155,6 +160,7 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
   log(`  worktreePath=${args.worktreePath ?? '(none)'}`);
   log(`  approvalGates=${args.approvalGates ? JSON.stringify(args.approvalGates) : '(none)'}`);
   log(`  resume=${args.resume}`);
+  log(`  fast=${args.fast ?? false}`);
 
   log('Initializing container...');
   await initializeContainer();
@@ -203,7 +209,15 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
   const checkpointPath = join(homedir(), '.shep', 'checkpoints', `${checkpointId}.db`);
   log(`Creating checkpointer at ${checkpointPath} (thread: ${checkpointId})`);
   const checkpointer = createCheckpointer(checkpointPath);
-  const graph = createFeatureAgentGraph(graphDeps, checkpointer);
+  // Both graph factories return compiled graphs with identical FeatureAgentAnnotation
+  // state shape and invoke() interface. Cast through unknown because the compiled
+  // graphs have different node name types but share the same runtime contract.
+  const graph = args.fast
+    ? (createFastFeatureAgentGraph(
+        graphDeps as FastFeatureAgentGraphDeps,
+        checkpointer
+      ) as unknown as ReturnType<typeof createFeatureAgentGraph>)
+    : createFeatureAgentGraph(graphDeps, checkpointer);
 
   // Mark the run as running with our PID
   const now = new Date();

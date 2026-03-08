@@ -24,16 +24,20 @@ export interface ISpecInitializerService {
    * - tasks.yaml
    * - feature.yaml
    *
+   * When mode is 'fast', only feature.yaml is created (no spec/research/plan/tasks).
+   *
    * @param basePath - Directory to create specs/ in (typically the worktree path)
    * @param slug - Feature slug (kebab-case, e.g., "user-authentication")
    * @param featureNumber - Sequential feature number (will be zero-padded to 3 digits)
    * @param description - Feature description for template substitution
+   * @param mode - Optional mode; when 'fast', only feature.yaml is created
    * @returns The spec directory path and feature number used
    */
   initialize(
     basePath: string,
     slug: string,
     featureNumber: number,
-    description: string
+    description: string,
+    mode?: 'fast'
   ): Promise<SpecInitializerResult>;
 }

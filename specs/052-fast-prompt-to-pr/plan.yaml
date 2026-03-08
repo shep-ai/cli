@@ -1,0 +1,212 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: fast-prompt-to-pr
+summary: >
+  Add a fast execution mode that bypasses multi-step SDLC phases and sends the
+  user's prompt directly to the implementation executor. Uses a separate
+  createFastFeatureAgentGraph() factory with only fast-implement → merge nodes,
+  reusing the existing merge infrastructure, FeatureAgentAnnotation state, and
+  worker process. The domain model gains a fast boolean on CreateFeatureInput
+  (no TypeSpec change), the CLI gains a --fast flag, the Web UI gets a
+  CheckboxGroupItem toggle in the create drawer, and the spec initializer gains
+  a minimal mode. Implementation follows bottom-up: domain/application layer
+  first, then infrastructure (graph + nodes), then presentation (CLI + Web UI).
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - TypeScript
+  - LangGraph (@langchain/langgraph)
+  - Commander.js
+  - React / Next.js
+  - shadcn/ui (CheckboxGroupItem)
+  - Storybook
+relatedLinks:
+  - https://github.com/shep-ai/cli/issues/197
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'Domain & Application Layer'
+    description: >
+      Add the fast boolean to CreateFeatureInput and propagate it through the
+      CreateFeatureUseCase, IFeatureAgentProcessService interface, and
+      ISpecInitializerService interface. This phase establishes the data flow
+      from CLI/Web → use case → worker without touching the graph or nodes.
+      It comes first because all downstream phases depend on these interfaces.
+    parallel: false
+
+  - id: phase-2
+    name: 'Fast-Implement Node & Graph Factory'
+    description: >
+      Create the fast-implement node (prompt builder + executor call) and the
+      createFastFeatureAgentGraph() factory that wires fast-implement → merge.
+      This is the core of the feature — the new LangGraph with only 2 nodes.
+      Depends on phase-1 for the state shape and worker integration point.
+    parallel: false
+
+  - id: phase-3
+    name: 'Worker & Process Service Integration'
+    description: >
+      Wire the fast graph into the feature-agent-worker (graph factory
+      selection) and feature-agent-process.service (pass --fast arg). This
+      connects the new graph to the existing spawn/resume infrastructure.
+      Depends on phase-2 for the graph factory.
+    parallel: false
+
+  - id: phase-4
+    name: 'CLI Presentation'
+    description: >
+      Add the --fast flag to the shep feat new CLI command and pass it through
+      to CreateFeatureInput. Follows the existing pattern of mode-modifier
+      flags (--push, --pr, --allow-all).
+    parallel: false
+
+  - id: phase-5
+    name: 'Web UI Presentation'
+    description: >
+      Add the Fast Mode CheckboxGroupItem toggle to the FeatureCreateDrawer,
+      wire it through the createFeature server action, and update the
+      control-center and features-canvas to handle fast-mode features
+      (which start at Implementation lifecycle). Includes Storybook stories.
+    parallel: false
+
+# File change tracking
+filesToCreate:
+  - packages/core/src/infrastructure/services/agents/feature-agent/fast-feature-agent-graph.ts
+  - packages/core/src/infrastructure/services/agents/feature-agent/nodes/fast-implement.node.ts
+  - packages/core/src/infrastructure/services/agents/feature-agent/nodes/prompts/fast-implement.prompt.ts
+  - tests/unit/infrastructure/services/agents/langgraph/fast-feature-agent-graph.test.ts
+  - tests/unit/infrastructure/services/agents/langgraph/nodes/fast-implement.node.test.ts
+
+filesToModify:
+  - packages/core/src/application/use-cases/features/create/types.ts
+  - packages/core/src/application/use-cases/features/create/create-feature.use-case.ts
+  - packages/core/src/application/ports/output/agents/feature-agent-process.interface.ts
+  - packages/core/src/application/ports/output/services/spec-initializer.interface.ts
+  - packages/core/src/infrastructure/services/spec/spec-initializer.service.ts
+  - packages/core/src/infrastructure/services/agents/feature-agent/feature-agent-process.service.ts
+  - packages/core/src/infrastructure/services/agents/feature-agent/feature-agent-worker.ts
+  - src/presentation/cli/commands/feat/new.command.ts
+  - src/presentation/web/components/common/feature-create-drawer/feature-create-drawer.tsx
+  - src/presentation/web/app/actions/create-feature.ts
+  - src/presentation/web/components/features/control-center/control-center-inner.tsx
+  - src/presentation/web/components/features/control-center/use-control-center-state.ts
+  - src/presentation/web/components/features/features-canvas/features-canvas.tsx
+  - src/presentation/web/components/features/features-canvas/features-canvas.stories.tsx
+  - tests/unit/application/use-cases/features/create-feature.use-case.test.ts
+  - tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts
+  - tests/unit/presentation/web/components/features/control-center/control-center-integration.test.tsx
+  - tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx
+  - tests/unit/presentation/web/features/features-canvas/features-canvas.test.tsx
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Architecture Overview
+
+  The fast prompt-to-pr feature adds an alternate execution path through the
+  existing Clean Architecture layers without modifying the full SDLC pipeline.
+  The data flows bottom-up through the same interfaces:
+
+  ```
+  Presentation (CLI --fast / Web UI toggle)
+    → Application (CreateFeatureInput.fast → CreateFeatureUseCase)
+      → Infrastructure (worker --fast → createFastFeatureAgentGraph)
+        → Executor (single-pass implementation)
+        → Merge Node (commit/push/PR/CI-fix — reused as-is)
+  ```
+
+  The key architectural principle is **composition over modification**: the fast
+  graph is a separate factory that composes existing building blocks (merge node,
+  FeatureAgentAnnotation state, routeReexecution routing, node helpers) rather
+  than adding conditional logic to the existing 15+ node graph.
+
+  ## Key Design Decisions
+
+  ### 1. Separate Graph Factory (not conditional edges)
+
+  The fast-mode graph (`createFastFeatureAgentGraph`) is a standalone factory
+  returning a compiled StateGraph with only 2 nodes: `fast-implement → merge`.
+  This is fundamentally different topology from the full graph (15+ nodes with
+  validate/repair loops), so sharing a graph via conditional edges would add
+  complexity without benefit. The merge node and its CI watch/fix loop are reused
+  via composition — `createMergeNode(deps)` is called identically in both
+  factories.
+
+  **Alternative rejected:** Conditional edges in existing graph — would make the
+  already-complex routing logic harder to reason about and risk regressions.
+
+  ### 2. Application-Layer Flag (no TypeSpec change)
+
+  The `fast` boolean lives on `CreateFeatureInput` only. It's a creation-time
+  workflow decision that controls which graph factory the worker instantiates.
+  Once the graph is running, the graph type itself handles the distinction.
+  No persistence needed — the lifecycle (starting at Implementation) and absence
+  of spec/plan YAML files serve as implicit indicators.
+
+  **Alternative rejected:** Persisting `fast` on the Feature entity via TypeSpec
+  — adds model complexity for a field with no runtime significance.
+
+  ### 3. Minimal Spec Initialization
+
+  Fast-mode features get only `feature.yaml` (for lifecycle tracking and
+  checkpointing). The `spec.yaml`, `research.yaml`, `plan.yaml`, and
+  `tasks.yaml` files are skipped since the fast graph never reads them. This
+  is implemented via an optional `mode?: 'fast'` parameter on
+  `ISpecInitializerService.initialize()`, keeping the interface backward-compatible.
+
+  ### 4. Single-Pass Prompt with Codebase Context
+
+  The fast-implement node builds a prompt from: (1) user's raw query,
+  (2) CLAUDE.md if it exists, (3) package.json for project context, and
+  (4) a shallow directory listing (depth 1-2). This gives the executor enough
+  context regardless of agent type, without the overhead of AI-driven analysis.
+  Missing files are gracefully skipped.
+
+  ### 5. Lifecycle Starts at Implementation
+
+  Fast-mode features set their initial lifecycle to `SdlcLifecycle.Implementation`,
+  skipping `Started/Analyze/Requirements/Research/Planning`. The UI already
+  handles `Implementation` display. The lifecycle transitions normally from
+  there: `Implementation → Review → Maintain`.
+
+  ## Implementation Strategy
+
+  The implementation follows a bottom-up approach across 5 phases:
+
+  **Phase 1 (Domain & Application)** comes first because it defines the
+  interfaces that all other phases depend on — the `fast` field on
+  `CreateFeatureInput`, the updated spawn options, and the spec initializer
+  mode parameter.
+
+  **Phase 2 (Graph & Nodes)** builds the core feature — the fast-implement
+  node and graph factory. It depends on phase 1 for the state shape but is
+  otherwise self-contained with its own test suite.
+
+  **Phase 3 (Worker Integration)** wires the new graph into the existing
+  worker process, connecting phase 2's graph factory to phase 1's spawn
+  infrastructure.
+
+  **Phases 4-5 (Presentation)** add the CLI flag and Web UI toggle. These
+  are the thinnest layers, simply passing the `fast` flag through to the
+  use case. They come last because they depend on all upstream layers being
+  complete.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Regression in full pipeline | Fast graph is a separate factory — zero changes to createFeatureAgentGraph(). Full pipeline tests run unchanged. |
+  | Fast-implement prompt too large | Enforce NFR-4 (10,000 char limit) with shallow directory listing (depth 1-2). Prompt builder truncates if needed. |
+  | Worker spawn fails with new arg | WorkerArgs parsing is additive (new optional --fast flag). Existing spawn calls don't pass it, so default is false. |
+  | Spec initializer breaks existing features | Mode parameter is optional with default behavior unchanged. Existing callers don't pass mode. |
+  | Merge node incompatibility | Merge node already works with any graph that provides FeatureAgentAnnotation state. Fast graph uses identical state shape. |
+  | Web UI toggle confusion | CheckboxGroupItem includes a description explaining fast mode behavior. Approval gates remain visible and functional. |
+
+  ---
+
+  _Plan complete — proceed with task breakdown_

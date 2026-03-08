@@ -45,6 +45,8 @@ export interface UseGraphStateReturn {
   getFeatureRepositoryPath: (featureNodeId: string) => string | undefined;
   /** Stable lookup: get repository node data by nodeId. */
   getRepositoryData: (nodeId: string) => RepositoryNodeData | undefined;
+  /** Stable lookup: get the current number of repositories in the domain Map. */
+  getRepoMapSize: () => number;
   /** Update callbacks injected into node data (does NOT trigger re-render). */
   setCallbacks: (callbacks: GraphCallbacks) => void;
 }
@@ -353,6 +355,10 @@ export function useGraphState(
     return repoMapRef.current.get(nodeId)?.data;
   }, []);
 
+  const getRepoMapSize = useCallback((): number => {
+    return repoMapRef.current.size;
+  }, []);
+
   const setCallbacks = useCallback((callbacks: GraphCallbacks) => {
     callbacksRef.current = callbacks;
   }, []);
@@ -371,6 +377,7 @@ export function useGraphState(
     replaceRepository,
     getFeatureRepositoryPath,
     getRepositoryData,
+    getRepoMapSize,
     setCallbacks,
   };
 }

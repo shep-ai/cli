@@ -12,6 +12,8 @@ export interface CreateFeatureInput {
   name?: string;
   /** Pre-supplied description (skips AI metadata extraction for description). */
   description?: string;
+  /** When true, skip SDLC phases and implement directly from the user prompt. */
+  fast?: boolean;
 }
 
 export interface CreateFeatureResult {

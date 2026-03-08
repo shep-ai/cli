@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type { Viewport } from '@xyflow/react';
 
+export type { Viewport } from '@xyflow/react';
+
 export const STORAGE_KEY = 'shep-canvas-viewport';
 export const DEBOUNCE_MS = 500;
 

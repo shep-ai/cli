@@ -275,6 +275,63 @@ export const PrChecked: Story = {
 };
 
 /* ---------------------------------------------------------------------------
+ * Fast mode stories
+ * ------------------------------------------------------------------------- */
+
+/**
+ * Fast Mode off (default) — the "Fast Mode" checkbox in the MODE section
+ * is unchecked. The full SDLC pipeline (analyze, requirements, research,
+ * plan, implement) will run.
+ */
+export const FastModeOff: Story = {
+  render: () => <CreateDrawerTrigger label="Open (Fast Mode Off)" />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Open (Fast Mode Off)' }));
+  },
+};
+
+/**
+ * Fast Mode on — the "Fast Mode" checkbox is checked. When submitted,
+ * `fast: true` is included in the payload, skipping SDLC phases and
+ * implementing directly from the user's prompt.
+ */
+export const FastModeOn: Story = {
+  render: () => <CreateDrawerTrigger label="Open (Fast Mode On)" />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Open (Fast Mode On)' }));
+
+    const body = within(canvasElement.ownerDocument.body);
+    const fastCheckbox = await body.findByLabelText('Fast Mode');
+    await userEvent.click(fastCheckbox);
+  },
+};
+
+/**
+ * Fast Mode combined with approval gates and git options — demonstrates
+ * that fast mode works alongside other form controls. Here fast mode,
+ * auto-approve all, push, and create PR are all enabled.
+ */
+export const FastModeWithOptions: Story = {
+  render: () => <CreateDrawerTrigger label="Open (Fast + Options)" />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Open (Fast + Options)' }));
+
+    const body = within(canvasElement.ownerDocument.body);
+    const fastCheckbox = await body.findByLabelText('Fast Mode');
+    await userEvent.click(fastCheckbox);
+
+    const autoApprove = body.getByLabelText('Auto approve all');
+    await userEvent.click(autoApprove);
+
+    const prCheckbox = body.getByLabelText('Create PR');
+    await userEvent.click(prCheckbox);
+  },
+};
+
+/* ---------------------------------------------------------------------------
  * Workflow defaults stories
  * ------------------------------------------------------------------------- */
 

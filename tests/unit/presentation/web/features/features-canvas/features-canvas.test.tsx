@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { FeaturesCanvas } from '@/components/features/features-canvas';
 import type { FeatureNodeType } from '@/components/common/feature-node';
 import type { RepositoryNodeType } from '@/components/common/repository-node';
+import type { Viewport } from '@/hooks/use-viewport-persistence';
 
 const mockOnAction = vi.fn();
 const mockOnSettings = vi.fn();
@@ -148,6 +149,88 @@ describe('FeaturesCanvas', () => {
       expect(actionButtons).toHaveLength(1);
       fireEvent.click(actionButtons[0]);
       expect(mockOnAction).toHaveBeenCalledWith('node-1');
+    });
+  });
+
+  describe('fast-mode features (implementation lifecycle)', () => {
+    const fastModeNode: FeatureNodeType = {
+      id: 'fast-1',
+      type: 'featureNode',
+      position: { x: 0, y: 0 },
+      data: {
+        name: 'Quick Fix',
+        description: 'Fast-mode feature starting at implementation',
+        featureId: '#ff1',
+        lifecycle: 'implementation',
+        state: 'running',
+        progress: 30,
+        repositoryPath: '/home/user/my-repo',
+        branch: 'feat/quick-fix',
+        onAction: () => mockOnAction('fast-1'),
+        onSettings: () => mockOnSettings('fast-1'),
+        onDelete: mockOnDelete,
+      },
+    };
+
+    it('renders feature node with lifecycle=implementation and state=running', () => {
+      render(<FeaturesCanvas nodes={[fastModeNode]} edges={[]} />);
+      expect(screen.getByText('Quick Fix')).toBeInTheDocument();
+      expect(screen.getByTestId('features-canvas')).toBeInTheDocument();
+    });
+
+    it('renders action and settings buttons for fast-mode running nodes', () => {
+      render(<FeaturesCanvas nodes={[fastModeNode]} edges={[]} />);
+      expect(screen.getByTestId('feature-node-action-button')).toBeInTheDocument();
+      expect(screen.getByTestId('feature-node-settings-button')).toBeInTheDocument();
+    });
+
+    it('renders graph with mix of fast-mode and full-pipeline features', () => {
+      const fullPipelineNode: FeatureNodeType = {
+        id: 'full-1',
+        type: 'featureNode',
+        position: { x: 0, y: 200 },
+        data: {
+          name: 'Auth Module',
+          description: 'Full-pipeline feature',
+          featureId: '#ff2',
+          lifecycle: 'requirements',
+          state: 'running',
+          progress: 15,
+          repositoryPath: '/home/user/my-repo',
+          branch: 'feat/auth-module',
+          onAction: () => mockOnAction('full-1'),
+          onSettings: () => mockOnSettings('full-1'),
+          onDelete: mockOnDelete,
+        },
+      };
+
+      render(<FeaturesCanvas nodes={[fastModeNode, fullPipelineNode]} edges={[]} />);
+      expect(screen.getByText('Quick Fix')).toBeInTheDocument();
+      expect(screen.getByText('Auth Module')).toBeInTheDocument();
+      // Both nodes should have action buttons
+      expect(screen.getAllByTestId('feature-node-action-button')).toHaveLength(2);
+    });
+  });
+
+  describe('viewport persistence props', () => {
+    it('renders with custom defaultViewport prop', () => {
+      const customViewport: Viewport = { x: 100, y: 200, zoom: 1.5 };
+      // Should render without errors when a custom viewport is provided
+      render(<FeaturesCanvas nodes={[mockNode]} edges={[]} defaultViewport={customViewport} />);
+      expect(screen.getByTestId('features-canvas')).toBeInTheDocument();
+    });
+
+    it('renders with default viewport when prop is not provided', () => {
+      // Should render without errors using the fallback default viewport
+      render(<FeaturesCanvas nodes={[mockNode]} edges={[]} />);
+      expect(screen.getByTestId('features-canvas')).toBeInTheDocument();
+    });
+
+    it('accepts onMoveEnd callback prop', () => {
+      const onMoveEnd = vi.fn();
+      // Should render without errors when onMoveEnd is provided
+      render(<FeaturesCanvas nodes={[mockNode]} edges={[]} onMoveEnd={onMoveEnd} />);
+      expect(screen.getByTestId('features-canvas')).toBeInTheDocument();
     });
   });
 });

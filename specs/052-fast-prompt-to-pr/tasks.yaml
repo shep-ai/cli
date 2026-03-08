@@ -1,0 +1,490 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: fast-prompt-to-pr
+summary: >
+  14 tasks across 5 phases implementing the fast prompt-to-pr mode. Starts with
+  domain/application layer interfaces (CreateFeatureInput.fast, spec initializer
+  mode, process service options), builds the fast-implement node and graph
+  factory, wires into the worker process, then adds CLI --fast flag and Web UI
+  toggle with Storybook stories.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - TypeScript
+  - LangGraph (@langchain/langgraph)
+  - Commander.js
+  - React / Next.js
+  - shadcn/ui (CheckboxGroupItem)
+  - Storybook
+relatedLinks:
+  - https://github.com/shep-ai/cli/issues/197
+
+# Structured task list
+tasks:
+  # ── Phase 1: Domain & Application Layer ──────────────────────────────────
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Add fast boolean to CreateFeatureInput and use case'
+    description: >
+      Add fast?: boolean to CreateFeatureInput interface. Update
+      CreateFeatureUseCase.createRecord() to set initial lifecycle to
+      SdlcLifecycle.Implementation when fast is true. Update
+      initializeAndSpawn() to pass fast flag through to spec initializer
+      and agent process spawn.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'CreateFeatureInput has fast?: boolean field'
+      - 'createRecord() sets lifecycle to Implementation when input.fast is true'
+      - 'initializeAndSpawn() passes fast to specInitializer.initialize() and processService.spawn()'
+      - 'Existing non-fast behavior is unchanged (lifecycle defaults to Requirements or Started)'
+      - 'All existing CreateFeatureUseCase tests still pass'
+    tdd:
+      red:
+        - 'Write test: createRecord() with fast=true returns feature with lifecycle=Implementation'
+        - 'Write test: createRecord() with fast=false (or undefined) still returns lifecycle=Requirements'
+        - 'Write test: initializeAndSpawn() calls specInitializer.initialize() with mode=fast when fast=true'
+        - 'Write test: initializeAndSpawn() calls processService.spawn() with fast=true in options'
+      green:
+        - 'Add fast?: boolean to CreateFeatureInput interface in types.ts'
+        - 'Add conditional lifecycle assignment in createRecord() based on input.fast'
+        - 'Pass fast flag through initializeAndSpawn() to spec initializer and process service'
+      refactor:
+        - 'Extract lifecycle determination logic if the conditional becomes complex'
+    estimatedEffort: '1.5h'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Add fast mode to spec initializer'
+    description: >
+      Add optional mode parameter to ISpecInitializerService.initialize()
+      interface. Update SpecInitializerService implementation to create only
+      feature.yaml when mode is fast, skipping spec.yaml, research.yaml,
+      plan.yaml, and tasks.yaml.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'ISpecInitializerService.initialize() accepts optional mode?: "fast" parameter'
+      - 'When mode=fast, only feature.yaml is created in the spec directory'
+      - 'When mode is undefined, all 5 template files are created (existing behavior)'
+      - 'Interface change is backward-compatible (existing callers compile without changes)'
+    tdd:
+      red:
+        - 'Write test: initialize() with mode=fast creates only feature.yaml in spec dir'
+        - 'Write test: initialize() with mode=fast does NOT create spec.yaml, research.yaml, plan.yaml, tasks.yaml'
+        - 'Write test: initialize() without mode creates all 5 files (existing behavior preserved)'
+      green:
+        - 'Add mode?: "fast" parameter to ISpecInitializerService.initialize() interface'
+        - 'Add conditional template filtering in SpecInitializerService.initialize()'
+      refactor:
+        - 'Consider extracting template selection logic into a helper function'
+    estimatedEffort: '45min'
+
+  - id: task-3
+    phaseId: phase-1
+    title: 'Add fast flag to IFeatureAgentProcessService spawn options'
+    description: >
+      Add fast?: boolean to the spawn options interface on
+      IFeatureAgentProcessService. Update FeatureAgentProcessService
+      implementation to pass --fast as a CLI arg to the worker process
+      when the flag is set.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'IFeatureAgentProcessService.spawn() options include fast?: boolean'
+      - 'When fast=true, the worker process receives --fast in its CLI args'
+      - 'When fast is false/undefined, no --fast arg is passed (existing behavior)'
+      - 'Interface change is backward-compatible'
+    tdd:
+      red:
+        - 'Write test: spawn() with fast=true includes --fast in worker args'
+        - 'Write test: spawn() without fast does not include --fast in worker args'
+      green:
+        - 'Add fast?: boolean to spawn options type'
+        - 'Add conditional --fast arg construction in FeatureAgentProcessService'
+      refactor:
+        - 'Ensure arg construction follows existing pattern for other boolean flags'
+    estimatedEffort: '30min'
+
+  # ── Phase 2: Fast-Implement Node & Graph Factory ─────────────────────────
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Create fast-implement prompt builder'
+    description: >
+      Create the prompt template for the fast-implement node that combines
+      the user query with lightweight codebase context (CLAUDE.md, package.json,
+      shallow directory listing). The prompt instructs the executor to implement
+      changes and run tests but NOT commit/push/PR. Gracefully handle missing
+      context files.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'Prompt includes user query from state'
+      - 'Prompt includes CLAUDE.md content when the file exists'
+      - 'Prompt gracefully omits CLAUDE.md section when file is missing'
+      - 'Prompt includes package.json content when available'
+      - 'Prompt includes shallow directory listing (depth 1-2)'
+      - 'Prompt instructs executor to implement, test, and validate — but NOT commit/push/PR'
+      - 'Total prompt is under 10,000 characters for a typical project (NFR-4)'
+    tdd:
+      red:
+        - 'Write test: buildFastImplementPrompt() includes user query in output'
+        - 'Write test: buildFastImplementPrompt() includes CLAUDE.md content when file exists'
+        - 'Write test: buildFastImplementPrompt() omits CLAUDE.md section when file is missing'
+        - 'Write test: buildFastImplementPrompt() includes instruction to NOT commit/push/PR'
+        - 'Write test: buildFastImplementPrompt() output is under 10,000 chars with typical inputs'
+      green:
+        - 'Create fast-implement.prompt.ts with buildFastImplementPrompt() function'
+        - 'Read CLAUDE.md, package.json, directory listing from worktreePath'
+        - 'Assemble prompt sections with graceful fallbacks for missing files'
+      refactor:
+        - 'Extract file reading helpers if they duplicate node-helpers.ts patterns'
+        - 'Ensure prompt template is readable and maintainable'
+    estimatedEffort: '1h'
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Create fast-implement node factory'
+    description: >
+      Create createFastImplementNode() factory that takes an executor dependency
+      and returns an async function matching the LangGraph node signature
+      (state) => Partial<FeatureAgentState>. The node builds the prompt using
+      the prompt builder, calls the executor via retryExecute(), and updates
+      lifecycle tracking via reportNodeStart/updateNodeLifecycle.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'createFastImplementNode(executor) returns a valid LangGraph node function'
+      - 'Node calls buildFastImplementPrompt() with state fields'
+      - 'Node calls retryExecute() with the built prompt and executor'
+      - 'Node reports lifecycle as Implementation via updateNodeLifecycle'
+      - 'Node sets currentNode to "fast-implement" in returned state'
+      - 'Node handles executor errors by setting error in state'
+    tdd:
+      red:
+        - 'Write test: node calls executor.execute() with prompt containing user query'
+        - 'Write test: node returns state with currentNode="fast-implement"'
+        - 'Write test: node calls updateNodeLifecycle with Implementation'
+        - 'Write test: node propagates executor errors to state.error'
+        - 'Write test: node uses buildExecutorOptions for cwd configuration'
+      green:
+        - 'Create fast-implement.node.ts with createFastImplementNode() factory'
+        - 'Import and use buildFastImplementPrompt, retryExecute, buildExecutorOptions'
+        - 'Wire lifecycle tracking (reportNodeStart, updateNodeLifecycle)'
+      refactor:
+        - 'Align error handling pattern with existing nodes (implement.node.ts)'
+        - 'Ensure logging follows createNodeLogger pattern'
+    estimatedEffort: '1.5h'
+
+  - id: task-6
+    phaseId: phase-2
+    title: 'Create fast feature agent graph factory'
+    description: >
+      Create createFastFeatureAgentGraph() factory that builds a StateGraph
+      with FeatureAgentAnnotation containing only fast-implement → merge nodes.
+      Wire routeReexecution() for merge rejection routing (back to
+      fast-implement). Accept optional checkpointer for state persistence.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'createFastFeatureAgentGraph(deps, checkpointer?) returns compiled StateGraph'
+      - 'Graph has exactly 2 nodes: fast-implement and merge'
+      - 'Graph edges: START → fast-implement → merge → conditional(reexecute or END)'
+      - 'Graph uses FeatureAgentAnnotation state (same as full graph)'
+      - 'Graph accepts optional checkpointer for persistence'
+      - 'Merge rejection routes back to fast-implement via routeReexecution()'
+      - 'Graph can be invoked with same initial state shape as full graph'
+    tdd:
+      red:
+        - 'Write test: graph has nodes named fast-implement and merge'
+        - 'Write test: graph compiles without errors'
+        - 'Write test: graph invocation calls fast-implement node then merge node in order'
+        - 'Write test: merge rejection (needsReexecution) routes back to fast-implement'
+        - 'Write test: graph accepts checkpointer parameter'
+      green:
+        - 'Create fast-feature-agent-graph.ts with createFastFeatureAgentGraph()'
+        - 'Build StateGraph with fast-implement and merge nodes'
+        - 'Wire edges: START → fast-implement → merge → conditional routing'
+        - 'Use routeReexecution() for merge rejection → fast-implement loop'
+      refactor:
+        - 'Ensure factory signature matches createFeatureAgentGraph pattern'
+        - 'Extract shared graph wiring patterns if applicable'
+    estimatedEffort: '1.5h'
+
+  # ── Phase 3: Worker & Process Service Integration ────────────────────────
+
+  - id: task-7
+    phaseId: phase-3
+    title: 'Add fast flag to worker args and graph selection'
+    description: >
+      Add fast boolean to WorkerArgs in feature-agent-worker.ts. Parse --fast
+      from process.argv. In runWorker(), select createFastFeatureAgentGraph
+      when args.fast is true, otherwise use createFeatureAgentGraph as before.
+      Both graph factories return compiled graphs with the same invoke()
+      interface and FeatureAgentAnnotation state type.
+    state: Todo
+    dependencies:
+      - task-3
+      - task-6
+    acceptanceCriteria:
+      - 'WorkerArgs includes fast: boolean field'
+      - '--fast CLI arg is parsed from process.argv'
+      - 'When fast=true, runWorker() calls createFastFeatureAgentGraph()'
+      - 'When fast=false, runWorker() calls createFeatureAgentGraph() (existing behavior)'
+      - 'Both graph paths share the same resume, error handling, and completion logic'
+    tdd:
+      red:
+        - 'Write test: parseArgs() with --fast returns fast=true in WorkerArgs'
+        - 'Write test: parseArgs() without --fast returns fast=false'
+        - 'Write test: runWorker() with fast=true calls createFastFeatureAgentGraph'
+        - 'Write test: runWorker() with fast=false calls createFeatureAgentGraph'
+      green:
+        - 'Add fast to WorkerArgs interface'
+        - 'Add --fast parsing to parseArgs() function'
+        - 'Add conditional graph factory selection in runWorker()'
+      refactor:
+        - 'Ensure the graph selection is clean and readable (simple if/else)'
+    estimatedEffort: '1h'
+
+  # ── Phase 4: CLI Presentation ────────────────────────────────────────────
+
+  - id: task-8
+    phaseId: phase-4
+    title: 'Add --fast flag to CLI feat new command'
+    description: >
+      Add --fast option to the shep feat new Commander.js command definition.
+      Pass the flag through to CreateFeatureInput.fast when constructing the
+      use case input. Follow the existing pattern of mode-modifier flags
+      (--push, --pr, --allow-all).
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'shep feat new accepts --fast flag'
+      - '--fast flag maps to CreateFeatureInput.fast = true'
+      - 'Without --fast, CreateFeatureInput.fast is undefined (existing behavior)'
+      - '--fast can be combined with other flags (--push, --pr, --allow-all, --parent)'
+      - 'Help text describes fast mode behavior'
+    tdd:
+      red:
+        - 'Write test: command parses --fast flag and includes fast=true in use case input'
+        - 'Write test: command without --fast does not set fast on input'
+        - 'Write test: --fast combines correctly with --allow-all'
+      green:
+        - 'Add .option("--fast", "...") to feat new command definition'
+        - 'Map parsed fast option to CreateFeatureInput.fast'
+      refactor:
+        - 'Ensure option placement is consistent with other flags in the command'
+    estimatedEffort: '30min'
+
+  # ── Phase 5: Web UI Presentation ─────────────────────────────────────────
+
+  - id: task-9
+    phaseId: phase-5
+    title: 'Add fast mode toggle to FeatureCreateDrawer'
+    description: >
+      Add a "Fast Mode" CheckboxGroupItem to the FeatureCreateDrawer component
+      in a new "Mode" section above the approval gates. Add fast boolean to
+      FeatureCreatePayload. Wire the toggle state to the payload. When fast
+      mode is enabled, update the description field label/placeholder to
+      indicate this is a direct implementation prompt.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'FeatureCreatePayload includes fast: boolean field'
+      - 'Create drawer has a "Fast Mode" CheckboxGroupItem with label and description'
+      - 'Toggle appears in its own section above approval gates'
+      - 'Toggle state flows through to FeatureCreatePayload.fast on submit'
+      - 'Default value is false (fast mode off)'
+      - 'Toggle is keyboard navigable with proper ARIA labels (NFR-5)'
+    tdd:
+      red:
+        - 'Write test: drawer renders fast mode checkbox'
+        - 'Write test: toggling fast mode checkbox updates form state'
+        - 'Write test: submitting with fast mode on includes fast=true in payload'
+        - 'Write test: submitting with fast mode off includes fast=false in payload'
+        - 'Write test: fast mode checkbox has accessible label'
+      green:
+        - 'Add fast boolean to FeatureCreatePayload interface'
+        - 'Add fast mode useState to drawer component'
+        - 'Add CheckboxGroupItem with label, description, and onChange handler'
+        - 'Include fast in handleSubmit payload construction'
+      refactor:
+        - 'Group the mode section styling consistently with other sections'
+    estimatedEffort: '1h'
+
+  - id: task-10
+    phaseId: phase-5
+    title: 'Create FeatureCreateDrawer Storybook stories for fast mode'
+    description: >
+      Add Storybook stories for the FeatureCreateDrawer showing the fast mode
+      toggle in various states (off, on, combined with approval gates).
+      Stories must be colocated with the component.
+    state: Todo
+    dependencies:
+      - task-9
+    acceptanceCriteria:
+      - 'Story shows drawer with fast mode toggle off (default)'
+      - 'Story shows drawer with fast mode toggle on'
+      - 'Story shows fast mode combined with other options (push, PR, approval gates)'
+      - 'Stories are colocated with the component'
+    tdd: null
+    estimatedEffort: '30min'
+
+  - id: task-11
+    phaseId: phase-5
+    title: 'Wire fast flag through createFeature server action'
+    description: >
+      Update the createFeature server action to accept and pass the fast flag
+      from FeatureCreatePayload through to CreateFeatureInput.fast. The flag
+      flows from the drawer submission through the server action to the use case.
+    state: Todo
+    dependencies:
+      - task-1
+      - task-9
+    acceptanceCriteria:
+      - 'createFeature server action accepts fast boolean in its input'
+      - 'fast flag is passed through to CreateFeatureInput when calling the use case'
+      - 'Existing non-fast createFeature calls still work (backward-compatible)'
+    tdd:
+      red:
+        - 'Write test: server action passes fast=true to CreateFeatureInput when payload has fast=true'
+        - 'Write test: server action omits fast when payload has fast=false or undefined'
+      green:
+        - 'Add fast parameter to createFeature action signature'
+        - 'Map fast to CreateFeatureInput.fast in the use case call'
+      refactor:
+        - 'Ensure parameter ordering is consistent with existing action parameters'
+    estimatedEffort: '30min'
+
+  - id: task-12
+    phaseId: phase-5
+    title: 'Update control center to handle fast-mode feature creation'
+    description: >
+      Update the control center's handleCreateFeature flow to pass the fast
+      flag from the drawer payload through to the createFeature server action.
+      Ensure fast-mode features (which start at Implementation lifecycle) are
+      correctly displayed in the canvas and sidebar.
+    state: Todo
+    dependencies:
+      - task-9
+      - task-11
+    acceptanceCriteria:
+      - 'Control center passes fast flag from drawer payload to createFeature action'
+      - 'Fast-mode features starting at Implementation lifecycle render correctly in canvas'
+      - 'Sidebar shows correct status for fast-mode features'
+      - 'All existing control center tests still pass'
+    tdd:
+      red:
+        - 'Write test: handleCreateFeature passes fast=true to createFeature when drawer payload has fast=true'
+        - 'Write test: feature starting at Implementation lifecycle renders correctly'
+      green:
+        - 'Update handleCreateFeature to extract and pass fast from payload'
+        - 'Verify lifecycle-to-status mapping handles Implementation for new features'
+      refactor:
+        - 'Ensure the fast flag flows cleanly without disrupting existing data flow'
+    estimatedEffort: '45min'
+
+  - id: task-13
+    phaseId: phase-5
+    title: 'Update features canvas and graph state for fast-mode features'
+    description: >
+      Ensure the features-canvas and useGraphState hook correctly handle
+      fast-mode features that start at Implementation lifecycle. Verify that
+      the node state mapping, edge derivation, and layout work for features
+      that skip early lifecycle phases. Update stories to include fast-mode
+      feature scenarios.
+    state: Todo
+    dependencies:
+      - task-12
+    acceptanceCriteria:
+      - 'Features with Implementation initial lifecycle render correctly on canvas'
+      - 'Node state mapping handles Implementation lifecycle for running features'
+      - 'Graph layout handles fast-mode features alongside full-pipeline features'
+      - 'Canvas stories updated with fast-mode feature scenario'
+    tdd:
+      red:
+        - 'Write test: feature node with lifecycle=Implementation and state=running renders correctly'
+        - 'Write test: graph with mix of fast-mode and full-pipeline features lays out correctly'
+      green:
+        - 'Verify or update mapNodeStateToSidebarStatus for Implementation lifecycle'
+        - 'Verify or update deriveGraph for features starting at Implementation'
+        - 'Add fast-mode feature scenario to canvas stories'
+      refactor:
+        - 'Consolidate any duplicated lifecycle-to-status mapping logic'
+    estimatedEffort: '45min'
+
+  - id: task-14
+    phaseId: phase-5
+    title: 'Integration validation and cross-cutting tests'
+    description: >
+      Run full test suite and build to validate the complete fast-mode feature
+      across all layers. Write integration-level tests that verify the end-to-end
+      data flow from CLI/Web UI through use case to graph factory selection.
+      Fix any issues discovered.
+    state: Todo
+    dependencies:
+      - task-7
+      - task-8
+      - task-13
+    acceptanceCriteria:
+      - 'pnpm build compiles without errors'
+      - 'pnpm test passes all tests (unit + integration)'
+      - 'pnpm lint passes with no errors'
+      - 'Full pipeline (non-fast) tests still pass with zero regressions'
+      - 'Fast mode data flow verified end-to-end in tests'
+    tdd:
+      red:
+        - 'Write integration test: CreateFeatureInput with fast=true → use case sets Implementation lifecycle'
+        - 'Write integration test: worker with --fast arg selects fast graph factory'
+      green:
+        - 'Fix any compilation, test, or lint issues found during validation'
+      refactor:
+        - 'Clean up any test utilities or mocks that can be shared across test files'
+    estimatedEffort: '1h'
+
+# Total effort estimate
+totalEstimate: '11h'
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Summary
+
+  The implementation is broken into 14 tasks across 5 phases, following a
+  bottom-up approach through the Clean Architecture layers.
+
+  First, the domain and application layer interfaces are established: the fast
+  boolean on CreateFeatureInput, the spec initializer mode parameter, and the
+  process service spawn options (tasks 1-3, parallelizable). These define the
+  contracts that all downstream work depends on.
+
+  Next, the core infrastructure is built: the fast-implement prompt builder,
+  the fast-implement node factory, and the fast feature agent graph factory
+  (tasks 4-6, sequential). This is the heart of the feature — a new 2-node
+  LangGraph that composes the existing merge node.
+
+  The worker integration (task 7) connects the new graph to the existing
+  spawn/resume infrastructure by adding --fast arg parsing and graph factory
+  selection.
+
+  Finally, the presentation layer is wired up: the CLI --fast flag (task 8),
+  the Web UI toggle and server action (tasks 9-13), and cross-cutting
+  validation (task 14).
+
+  Each task follows TDD: write failing tests first (RED), implement the
+  minimum to pass (GREEN), then clean up (REFACTOR). Non-code tasks like
+  Storybook stories use null TDD cycles.
+
+  ---
+
+  _Task breakdown complete — ready for implementation_

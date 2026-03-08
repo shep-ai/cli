@@ -18,13 +18,17 @@ const {
   mockInitializeContainer,
   mockResolve,
   mockGraphInvoke,
+  mockFastGraphInvoke,
   mockCreateFeatureAgentGraph,
+  mockCreateFastFeatureAgentGraph,
   mockCreateCheckpointer,
 } = vi.hoisted(() => ({
   mockInitializeContainer: vi.fn(),
   mockResolve: vi.fn(),
   mockGraphInvoke: vi.fn(),
+  mockFastGraphInvoke: vi.fn(),
   mockCreateFeatureAgentGraph: vi.fn(),
+  mockCreateFastFeatureAgentGraph: vi.fn(),
   mockCreateCheckpointer: vi.fn().mockReturnValue({}),
 }));
 
@@ -35,6 +39,10 @@ vi.mock('@/infrastructure/di/container.js', () => ({
 
 vi.mock('@/infrastructure/services/agents/feature-agent/feature-agent-graph.js', () => ({
   createFeatureAgentGraph: (...args: unknown[]) => mockCreateFeatureAgentGraph(...args),
+}));
+
+vi.mock('@/infrastructure/services/agents/feature-agent/fast-feature-agent-graph.js', () => ({
+  createFastFeatureAgentGraph: (...args: unknown[]) => mockCreateFastFeatureAgentGraph(...args),
 }));
 
 vi.mock('@/infrastructure/services/agents/common/checkpointer.js', () => ({
@@ -122,6 +130,9 @@ describe('parseWorkerArgs', () => {
       resumeFromInterrupt: false,
       push: false,
       openPr: false,
+      resumePayload: undefined,
+      agentType: undefined,
+      fast: false,
     });
   });
 
@@ -256,6 +267,39 @@ describe('parseWorkerArgs', () => {
     expect(parsed.resume).toBe(true);
     expect(parsed.resumeFromInterrupt).toBe(true);
   });
+
+  it('should parse optional --fast flag', () => {
+    const args = [
+      '--feature-id',
+      'feat-123',
+      '--run-id',
+      'run-456',
+      '--repo',
+      '/path/to/repo',
+      '--spec-dir',
+      '/path/to/specs',
+      '--fast',
+    ];
+
+    const parsed = parseWorkerArgs(args);
+    expect(parsed.fast).toBe(true);
+  });
+
+  it('should default fast to false when not provided', () => {
+    const args = [
+      '--feature-id',
+      'feat-123',
+      '--run-id',
+      'run-456',
+      '--repo',
+      '/path/to/repo',
+      '--spec-dir',
+      '/path/to/specs',
+    ];
+
+    const parsed = parseWorkerArgs(args);
+    expect(parsed.fast).toBe(false);
+  });
 });
 
 describe('runWorker', () => {
@@ -288,6 +332,14 @@ describe('runWorker', () => {
     });
     mockCreateFeatureAgentGraph.mockReturnValue({
       invoke: mockGraphInvoke,
+    });
+    mockFastGraphInvoke.mockResolvedValue({
+      currentNode: 'fast-implement',
+      messages: ['[fast-implement] done'],
+      error: null,
+    });
+    mockCreateFastFeatureAgentGraph.mockReturnValue({
+      invoke: mockFastGraphInvoke,
     });
   });
 
@@ -546,6 +598,86 @@ describe('runWorker', () => {
       AgentRunStatus.failed,
       expect.objectContaining({
         error: 'ENOENT: no such file or directory',
+      })
+    );
+  });
+
+  it('should use createFastFeatureAgentGraph when fast=true', async () => {
+    await runWorker({
+      featureId: 'feat-1',
+      runId: 'run-1',
+      repo: '/repo',
+      specDir: '/specs',
+      fast: true,
+    });
+
+    expect(mockCreateFastFeatureAgentGraph).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything()
+    );
+    expect(mockCreateFeatureAgentGraph).not.toHaveBeenCalled();
+  });
+
+  it('should use createFeatureAgentGraph when fast=false', async () => {
+    await runWorker({
+      featureId: 'feat-1',
+      runId: 'run-1',
+      repo: '/repo',
+      specDir: '/specs',
+      fast: false,
+    });
+
+    expect(mockCreateFeatureAgentGraph).toHaveBeenCalledWith(expect.anything(), expect.anything());
+    expect(mockCreateFastFeatureAgentGraph).not.toHaveBeenCalled();
+  });
+
+  it('should use createFeatureAgentGraph when fast is undefined', async () => {
+    await runWorker({
+      featureId: 'feat-1',
+      runId: 'run-1',
+      repo: '/repo',
+      specDir: '/specs',
+    });
+
+    expect(mockCreateFeatureAgentGraph).toHaveBeenCalledWith(expect.anything(), expect.anything());
+    expect(mockCreateFastFeatureAgentGraph).not.toHaveBeenCalled();
+  });
+
+  it('should invoke the fast graph with correct state when fast=true', async () => {
+    await runWorker({
+      featureId: 'feat-1',
+      runId: 'run-1',
+      repo: '/repo',
+      specDir: '/specs',
+      fast: true,
+      worktreePath: '/wt/path',
+    });
+
+    expect(mockFastGraphInvoke).toHaveBeenCalledWith(
+      expect.objectContaining({
+        featureId: 'feat-1',
+        repositoryPath: '/repo',
+        worktreePath: '/wt/path',
+        specDir: '/specs',
+      }),
+      expect.anything()
+    );
+  });
+
+  it('should complete successfully with fast graph', async () => {
+    await runWorker({
+      featureId: 'feat-1',
+      runId: 'run-1',
+      repo: '/repo',
+      specDir: '/specs',
+      fast: true,
+    });
+
+    expect(mockRunRepo.updateStatus).toHaveBeenCalledWith(
+      'run-1',
+      AgentRunStatus.completed,
+      expect.objectContaining({
+        completedAt: expect.any(Date),
       })
     );
   });

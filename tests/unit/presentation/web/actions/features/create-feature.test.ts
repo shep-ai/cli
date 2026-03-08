@@ -210,6 +210,64 @@ describe('createFeature server action', () => {
     });
   });
 
+  // --- fast flag forwarding ---
+
+  describe('fast flag forwarding', () => {
+    it('passes fast=true to createRecord when input has fast=true', async () => {
+      mockCreateRecord.mockResolvedValue({ feature: { id: '1' }, shouldSpawn: true });
+
+      await createFeature({
+        description: 'Fix the typo',
+        repositoryPath: '/repo',
+        fast: true,
+      });
+
+      expect(mockCreateRecord).toHaveBeenCalledWith(expect.objectContaining({ fast: true }));
+    });
+
+    it('omits fast when input has fast=false', async () => {
+      mockCreateRecord.mockResolvedValue({ feature: { id: '1' }, shouldSpawn: true });
+
+      await createFeature({
+        description: 'Fix the typo',
+        repositoryPath: '/repo',
+        fast: false,
+      });
+
+      const callArg = mockCreateRecord.mock.calls[0][0];
+      expect(callArg).not.toHaveProperty('fast');
+    });
+
+    it('omits fast when input does not include fast', async () => {
+      mockCreateRecord.mockResolvedValue({ feature: { id: '1' }, shouldSpawn: true });
+
+      await createFeature({
+        description: 'Fix the typo',
+        repositoryPath: '/repo',
+      });
+
+      const callArg = mockCreateRecord.mock.calls[0][0];
+      expect(callArg).not.toHaveProperty('fast');
+    });
+
+    it('passes fast=true to initializeAndSpawn when input has fast=true', async () => {
+      const feature = { id: '1', name: 'Test', slug: 'test' };
+      mockCreateRecord.mockResolvedValue({ feature, shouldSpawn: true });
+
+      await createFeature({
+        description: 'Fix the typo',
+        repositoryPath: '/repo',
+        fast: true,
+      });
+
+      expect(mockInitializeAndSpawn).toHaveBeenCalledWith(
+        feature,
+        expect.objectContaining({ fast: true }),
+        true
+      );
+    });
+  });
+
   // --- push/openPr forwarding ---
 
   describe('push/openPr forwarding', () => {

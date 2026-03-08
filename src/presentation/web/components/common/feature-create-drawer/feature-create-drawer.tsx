@@ -49,6 +49,8 @@ export interface FeatureCreatePayload {
   push: boolean;
   openPr: boolean;
   parentId?: string;
+  /** When true, skip SDLC phases and implement directly from the prompt. */
+  fast: boolean;
 }
 
 const AUTO_APPROVE_OPTIONS = [
@@ -97,6 +99,7 @@ export function FeatureCreateDrawer({
   const [push, setPush] = useState(defaultPush);
   const [openPr, setOpenPr] = useState(defaultOpenPr);
   const [parentId, setParentId] = useState<string | undefined>(undefined);
+  const [fast, setFast] = useState(false);
 
   // Sync state when workflowDefaults load asynchronously
   useEffect(() => {
@@ -121,6 +124,7 @@ export function FeatureCreateDrawer({
     setPush(defaultPush);
     setOpenPr(defaultOpenPr);
     setParentId(undefined);
+    setFast(false);
   }, [defaultGates, defaultPush, defaultOpenPr]);
 
   // Track whether the form has unsaved data
@@ -145,6 +149,7 @@ export function FeatureCreateDrawer({
         },
         push: push || openPr,
         openPr,
+        fast,
         ...(parentId ? { parentId } : {}),
       });
       resetForm();
@@ -157,6 +162,7 @@ export function FeatureCreateDrawer({
       onSubmit,
       push,
       openPr,
+      fast,
       parentId,
       createSound,
       resetForm,
@@ -257,6 +263,21 @@ export function FeatureCreateDrawer({
               />
             </div>
           ) : null}
+
+          {/* Fast mode toggle */}
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-muted-foreground text-xs font-semibold tracking-wider">
+              MODE
+            </Label>
+            <CheckboxGroupItem
+              id="fast-mode"
+              label="Fast Mode"
+              description="Skip SDLC phases and implement directly from your prompt."
+              checked={fast}
+              onCheckedChange={setFast}
+              disabled={isSubmitting}
+            />
+          </div>
 
           {/* Auto-approve checkboxes */}
           <div className="flex flex-col gap-1.5">

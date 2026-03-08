@@ -494,4 +494,87 @@ describe('CreateFeatureUseCase', () => {
       );
     });
   });
+
+  // -------------------------------------------------------------------------
+  // Fast mode
+  // -------------------------------------------------------------------------
+
+  describe('fast mode', () => {
+    it('should set lifecycle to Implementation when fast=true', async () => {
+      const result = await useCase.execute({ ...baseInput, fast: true });
+
+      expect(result.feature.lifecycle).toBe(SdlcLifecycle.Implementation);
+    });
+
+    it('should set lifecycle to Requirements when fast=false', async () => {
+      const result = await useCase.execute({ ...baseInput, fast: false });
+
+      expect(result.feature.lifecycle).toBe(SdlcLifecycle.Requirements);
+    });
+
+    it('should set lifecycle to Requirements when fast is undefined', async () => {
+      const result = await useCase.execute(baseInput);
+
+      expect(result.feature.lifecycle).toBe(SdlcLifecycle.Requirements);
+    });
+
+    it('should pass fast flag to specInitializer.initialize() as mode', async () => {
+      await useCase.execute({ ...baseInput, fast: true });
+
+      expect(mockSpecInitializer.initialize).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(String),
+        expect.any(Number),
+        expect.any(String),
+        'fast'
+      );
+    });
+
+    it('should not pass mode to specInitializer.initialize() when fast is false', async () => {
+      await useCase.execute({ ...baseInput, fast: false });
+
+      expect(mockSpecInitializer.initialize).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(String),
+        expect.any(Number),
+        expect.any(String),
+        undefined
+      );
+    });
+
+    it('should pass fast=true to agentProcess.spawn() options', async () => {
+      await useCase.execute({ ...baseInput, fast: true });
+
+      expect(mockAgentProcess.spawn).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(String),
+        expect.any(String),
+        expect.any(String),
+        expect.any(String),
+        expect.objectContaining({ fast: true })
+      );
+    });
+
+    it('should not include fast in spawn options when fast is false', async () => {
+      await useCase.execute({ ...baseInput, fast: false });
+
+      const spawnCall = (mockAgentProcess.spawn as ReturnType<typeof vi.fn>).mock.calls[0];
+      const options = spawnCall[5];
+      expect(options.fast).toBeUndefined();
+    });
+
+    it('should still set lifecycle to Blocked for child feature with fast=true when parent is Blocked', async () => {
+      const parent = makeParentFeature({ lifecycle: SdlcLifecycle.Blocked });
+      mockFeatureRepo.findById = vi.fn().mockResolvedValue(parent);
+
+      const result = await useCase.execute({
+        ...baseInput,
+        parentId: 'parent-id',
+        fast: true,
+      });
+
+      expect(result.feature.lifecycle).toBe(SdlcLifecycle.Blocked);
+      expect(mockAgentProcess.spawn).not.toHaveBeenCalled();
+    });
+  });
 });
