@@ -151,6 +151,15 @@
   }
 }
 
+@keyframes section-flash {
+  0% {
+    box-shadow: 0 0 0 2px oklch(0.7 0.15 270 / 0.5);
+  }
+  100% {
+    box-shadow: 0 0 0 2px oklch(0.7 0.15 270 / 0);
+  }
+}
+
 /* View Transition — Circular Reveal Animation */
 ::view-transition-old(*) {
   animation: none;

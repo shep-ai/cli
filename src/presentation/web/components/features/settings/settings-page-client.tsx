@@ -17,6 +17,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -51,6 +52,16 @@ const EDITOR_OPTIONS = [
   { value: EditorType.Zed, label: 'Zed' },
   { value: EditorType.Antigravity, label: 'Antigravity' },
 ];
+
+const SECTIONS = [
+  { id: 'agent', label: 'Agent', icon: Bot },
+  { id: 'environment', label: 'Environment', icon: Terminal },
+  { id: 'workflow', label: 'Workflow', icon: GitBranch },
+  { id: 'ci', label: 'CI', icon: Activity },
+  { id: 'notifications', label: 'Notifications', icon: Bell },
+  { id: 'feature-flags', label: 'Flags', icon: Flag },
+  { id: 'database', label: 'Database', icon: Database },
+] as const;
 
 export interface SettingsPageClientProps {
   settings: Settings;
@@ -422,47 +433,81 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
     };
   }
 
-  const SECTIONS = [
-    { id: 'agent', label: 'Agent' },
-    { id: 'environment', label: 'Environment' },
-    { id: 'workflow', label: 'Workflow' },
-    { id: 'ci', label: 'CI' },
-    { id: 'notifications', label: 'Notifications' },
-    { id: 'feature-flags', label: 'Flags' },
-    { id: 'database', label: 'Database' },
-  ] as const;
+  const [activeSection, setActiveSection] = useState<string>('agent');
+
+  // Track which section is in view via IntersectionObserver
+  useEffect(() => {
+    const els = SECTIONS.map((s) => document.getElementById(`section-${s.id}`)).filter(
+      Boolean
+    ) as HTMLElement[];
+    if (els.length === 0) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            setActiveSection(entry.target.id.replace('section-', ''));
+          }
+        }
+      },
+      { rootMargin: '-20% 0px -60% 0px', threshold: 0 }
+    );
+
+    for (const el of els) observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const scrollToSection = useCallback((id: string) => {
+    const el = document.getElementById(`section-${id}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // Flash highlight
+    el.style.animation = 'none';
+    // Force reflow
+    void el.offsetHeight;
+    el.style.animation = 'section-flash 1s ease-out';
+  }, []);
 
   return (
     <div data-testid="settings-page-client" className="max-w-5xl">
-      <div className="mb-4 flex items-center gap-4">
+      <div className="mb-4 flex items-center gap-3">
         <h1 className="text-sm font-bold tracking-tight">Settings</h1>
-        <nav className="flex items-center gap-2">
-          {SECTIONS.map((s) => (
-            <a
-              key={s.id}
-              href={`#section-${s.id}`}
-              className="text-muted-foreground/60 hover:text-foreground text-[11px] transition-colors"
-            >
-              {s.label}
-            </a>
-          ))}
+        {isPending ? <span className="text-muted-foreground text-xs">Saving...</span> : null}
+        {showSaved && !isPending ? (
+          <span className="flex items-center gap-1 text-xs text-green-600">
+            <Check className="h-3 w-3" />
+            Saved
+          </span>
+        ) : null}
+        <nav className="ml-auto flex items-center gap-0.5">
+          {SECTIONS.map((s) => {
+            const SectionIcon = s.icon;
+            const isActive = activeSection === s.id;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => scrollToSection(s.id)}
+                className={cn(
+                  'flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-1 text-[11px] transition-all',
+                  isActive
+                    ? 'bg-accent text-foreground font-medium'
+                    : 'text-muted-foreground/60 hover:text-foreground hover:bg-accent/50'
+                )}
+              >
+                <SectionIcon className="h-3 w-3" />
+                <span className="hidden sm:inline">{s.label}</span>
+              </button>
+            );
+          })}
         </nav>
-        <div className="ml-auto flex items-center">
-          {isPending ? <span className="text-muted-foreground text-xs">Saving...</span> : null}
-          {showSaved && !isPending ? (
-            <span className="flex items-center gap-1 text-xs text-green-600">
-              <Check className="h-3 w-3" />
-              Saved
-            </span>
-          ) : null}
-        </div>
       </div>
 
       <div className="flex flex-col gap-3">
         {/* ── Agent ── */}
         <div
           id="section-agent"
-          className="grid scroll-mt-6 grid-cols-1 gap-x-5 lg:grid-cols-[1fr_280px]"
+          className="grid scroll-mt-6 grid-cols-1 gap-x-5 rounded-lg lg:grid-cols-[1fr_280px]"
         >
           <SettingsSection
             icon={Bot}
@@ -568,7 +613,7 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
         {/* ── Environment ── */}
         <div
           id="section-environment"
-          className="grid scroll-mt-6 grid-cols-1 gap-x-5 lg:grid-cols-[1fr_280px]"
+          className="grid scroll-mt-6 grid-cols-1 gap-x-5 rounded-lg lg:grid-cols-[1fr_280px]"
         >
           <SettingsSection
             icon={Terminal}
@@ -629,7 +674,7 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
         {/* ── Workflow ── */}
         <div
           id="section-workflow"
-          className="grid scroll-mt-6 grid-cols-1 gap-x-5 lg:grid-cols-[1fr_280px]"
+          className="grid scroll-mt-6 grid-cols-1 gap-x-5 rounded-lg lg:grid-cols-[1fr_280px]"
         >
           <SettingsSection
             icon={GitBranch}
@@ -713,7 +758,7 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
         {/* ── CI ── */}
         <div
           id="section-ci"
-          className="grid scroll-mt-6 grid-cols-1 gap-x-5 lg:grid-cols-[1fr_280px]"
+          className="grid scroll-mt-6 grid-cols-1 gap-x-5 rounded-lg lg:grid-cols-[1fr_280px]"
         >
           <SettingsSection
             icon={Activity}
@@ -799,7 +844,7 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
         {/* ── Notifications ── */}
         <div
           id="section-notifications"
-          className="grid scroll-mt-6 grid-cols-1 gap-x-5 lg:grid-cols-[1fr_280px]"
+          className="grid scroll-mt-6 grid-cols-1 gap-x-5 rounded-lg lg:grid-cols-[1fr_280px]"
         >
           <SettingsSection
             icon={Bell}
@@ -962,7 +1007,7 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
         {/* ── Feature Flags ── */}
         <div
           id="section-feature-flags"
-          className="grid scroll-mt-6 grid-cols-1 gap-x-5 lg:grid-cols-[1fr_280px]"
+          className="grid scroll-mt-6 grid-cols-1 gap-x-5 rounded-lg lg:grid-cols-[1fr_280px]"
         >
           <SettingsSection
             icon={Flag}
@@ -1018,7 +1063,7 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
         {/* ── Database ── */}
         <div
           id="section-database"
-          className="grid scroll-mt-6 grid-cols-1 gap-x-5 lg:grid-cols-[1fr_280px]"
+          className="grid scroll-mt-6 grid-cols-1 gap-x-5 rounded-lg lg:grid-cols-[1fr_280px]"
         >
           <SettingsSection
             icon={Database}
