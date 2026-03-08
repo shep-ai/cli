@@ -12,7 +12,8 @@
 
 import { Command } from 'commander';
 import { createHash } from 'node:crypto';
-import { join } from 'node:path';
+import { existsSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { container } from '@/infrastructure/di/container.js';
 import { CreateFeatureUseCase } from '@/application/use-cases/features/create/create-feature.use-case.js';
 import type { ApprovalGates } from '@/domain/generated/output.js';
@@ -33,6 +34,12 @@ interface NewOptions {
   parent?: string;
   fast?: boolean;
   model?: string;
+  attach?: string[];
+}
+
+/** Commander collect pattern for repeatable options. */
+function collect(value: string, previous: string[]): string[] {
+  return [...previous, value];
 }
 
 /**
@@ -79,6 +86,7 @@ export function createNewCommand(): Command {
     .option('--parent <fid>', 'Parent feature ID (full or partial prefix)')
     .option('--fast', 'Skip SDLC phases and implement directly from your prompt')
     .option('--model <model>', 'LLM model identifier for this run (e.g. claude-opus-4-6)')
+    .option('--attach <path>', 'Attach a file (repeatable)', collect, [])
     .action(async (description: string, options: NewOptions) => {
       try {
         const useCase = container.resolve(CreateFeatureUseCase);
@@ -112,6 +120,20 @@ export function createNewCommand(): Command {
           parentId = parentFeature.id;
         }
 
+        // Validate --attach paths
+        const attachmentPaths: string[] = [];
+        if (options.attach && options.attach.length > 0) {
+          for (const raw of options.attach) {
+            const resolved = resolve(raw);
+            if (!existsSync(resolved)) {
+              messages.error(`Attachment not found: ${resolved}`);
+              process.exitCode = 1;
+              return;
+            }
+            attachmentPaths.push(resolved);
+          }
+        }
+
         const result = await spinner('Thinking', () =>
           useCase.execute({
             userInput: description,
@@ -122,6 +144,7 @@ export function createNewCommand(): Command {
             ...(parentId !== undefined && { parentId }),
             ...(options.fast && { fast: true }),
             ...(options.model !== undefined && { model: options.model }),
+            ...(attachmentPaths.length > 0 && { attachmentPaths }),
           })
         );
 

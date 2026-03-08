@@ -429,4 +429,72 @@ describe('createNewCommand', () => {
       );
     });
   });
+
+  describe('--attach flag', () => {
+    it('should expose --attach option in command help', () => {
+      const cmd = createNewCommand();
+      const attachOption = cmd.options.find((o) => o.long === '--attach');
+      expect(attachOption).toBeDefined();
+      expect(attachOption?.description).toBeTruthy();
+    });
+
+    it('should pass attachmentPaths to use case when --attach is provided with valid paths', async () => {
+      const { mkdtempSync, writeFileSync } = await import('fs');
+      const { join } = await import('path');
+      const { tmpdir } = await import('os');
+      const tmp = mkdtempSync(join(tmpdir(), 'shep-cli-attach-'));
+      const filePath = join(tmp, 'test.png');
+      writeFileSync(filePath, 'fake image data');
+
+      const cmd = createNewCommand();
+      await cmd.parseAsync(['Add feature', '--attach', filePath], { from: 'user' });
+
+      expect(mockCreateExecute).toHaveBeenCalledWith(
+        expect.objectContaining({
+          attachmentPaths: [filePath],
+        })
+      );
+
+      const { rmSync } = await import('fs');
+      rmSync(tmp, { recursive: true, force: true });
+    });
+
+    it('should exit with code 1 when --attach path does not exist', async () => {
+      const { messages: mockMessages } = await import(
+        '../../../../../../src/presentation/cli/ui/index.js'
+      );
+
+      const cmd = createNewCommand();
+      await cmd.parseAsync(['Add feature', '--attach', '/nonexistent/file.png'], { from: 'user' });
+
+      expect(process.exitCode).toBe(1);
+      expect(mockMessages.error).toHaveBeenCalledWith(
+        expect.stringContaining('/nonexistent/file.png')
+      );
+      expect(mockCreateExecute).not.toHaveBeenCalled();
+    });
+
+    it('should support multiple --attach flags', async () => {
+      const { mkdtempSync, writeFileSync } = await import('fs');
+      const { join } = await import('path');
+      const { tmpdir } = await import('os');
+      const tmp = mkdtempSync(join(tmpdir(), 'shep-cli-attach-'));
+      const file1 = join(tmp, 'a.png');
+      const file2 = join(tmp, 'b.pdf');
+      writeFileSync(file1, 'data1');
+      writeFileSync(file2, 'data2');
+
+      const cmd = createNewCommand();
+      await cmd.parseAsync(['Add feature', '--attach', file1, '--attach', file2], { from: 'user' });
+
+      expect(mockCreateExecute).toHaveBeenCalledWith(
+        expect.objectContaining({
+          attachmentPaths: [file1, file2],
+        })
+      );
+
+      const { rmSync } = await import('fs');
+      rmSync(tmp, { recursive: true, force: true });
+    });
+  });
 });

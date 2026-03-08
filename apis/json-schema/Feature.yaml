@@ -65,6 +65,11 @@ properties:
   parentId:
     $ref: UUID.yaml
     description: Parent feature ID for dependency tracking (optional)
+  attachments:
+    type: array
+    items:
+      $ref: Attachment.yaml
+    description: Files attached by the user when creating or messaging this feature
 required:
   - name
   - userQuery

@@ -3,6 +3,7 @@
 import { resolve } from '@/lib/server-container';
 import type { CreateFeatureUseCase } from '@shepai/core/application/use-cases/features/create/create-feature.use-case';
 import type { Feature } from '@shepai/core/domain/generated/output';
+import { composeUserInput } from './compose-user-input';
 
 interface Attachment {
   path: string;
@@ -19,6 +20,7 @@ interface CreateFeatureInput {
   description: string;
   repositoryPath: string;
   attachments?: Attachment[];
+  sessionId?: string;
   approvalGates?: {
     allowPrd: boolean;
     allowPlan: boolean;
@@ -35,17 +37,6 @@ interface CreateFeatureInput {
   model?: string;
 }
 
-function composeUserInput(description: string, attachments: Attachment[] | undefined): string {
-  let userInput = description;
-
-  if (attachments && attachments.length > 0) {
-    const paths = attachments.map((a) => `- ${a.path}`).join('\n');
-    userInput += `\n\nAttached files:\n${paths}`;
-  }
-
-  return userInput;
-}
-
 export async function createFeature(
   input: CreateFeatureInput
 ): Promise<{ feature?: Feature; error?: string }> {
@@ -53,6 +44,7 @@ export async function createFeature(
     description,
     repositoryPath,
     attachments,
+    sessionId,
     approvalGates,
     push,
     openPr,
@@ -109,6 +101,7 @@ export async function createFeature(
           ...(fast ? { fast } : {}),
           ...(agentType ? { agentType } : {}),
           ...(model ? { model } : {}),
+          ...(sessionId ? { sessionId } : {}),
         },
         shouldSpawn
       )

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { FeatureCreateDrawer } from '@/components/common/feature-create-drawer';
 import { DrawerCloseGuardProvider } from '@/hooks/drawer-close-guard';
@@ -153,7 +153,7 @@ describe('FeatureCreateDrawer', () => {
 
       expect(onSubmit).toHaveBeenCalledOnce();
       const payload = onSubmit.mock.calls[0][0];
-      expect(payload).toEqual({
+      expect(payload).toMatchObject({
         description: 'OAuth2 flow',
         attachments: [],
         repositoryPath: '/Users/dev/my-repo',
@@ -162,6 +162,7 @@ describe('FeatureCreateDrawer', () => {
         openPr: false,
         fast: false,
       });
+      expect(payload).toHaveProperty('sessionId');
       expect(payload).not.toHaveProperty('name');
     });
 
@@ -179,7 +180,12 @@ describe('FeatureCreateDrawer', () => {
       expect(onSubmit).toHaveBeenCalledOnce();
       const submittedData = onSubmit.mock.calls[0][0];
       expect(submittedData.description).toBe('Add a feature');
-      expect(submittedData.attachments).toEqual([mockPdf]);
+      expect(submittedData.attachments).toHaveLength(1);
+      expect(submittedData.attachments[0]).toMatchObject({
+        name: 'requirements.pdf',
+        size: 42000,
+        path: '/Users/dev/docs/requirements.pdf',
+      });
       expect(submittedData.repositoryPath).toBe('/Users/dev/my-repo');
       expect(submittedData).not.toHaveProperty('name');
     });
@@ -582,6 +588,25 @@ describe('FeatureCreateDrawer', () => {
       expect(screen.queryByText('requirements.pdf')).not.toBeInTheDocument();
     });
 
+    it('does not add duplicate files when the same file is picked again', async () => {
+      const user = userEvent.setup();
+      renderDrawer();
+
+      // Pick mockPdf the first time
+      mockPickFiles.mockResolvedValueOnce([mockPdf]);
+      await user.click(screen.getByRole('button', { name: /add files/i }));
+      expect(screen.getByText('requirements.pdf')).toBeInTheDocument();
+
+      // Pick mockPdf again (same path) along with a new file
+      mockPickFiles.mockResolvedValueOnce([mockPdf, mockPng]);
+      await user.click(screen.getByRole('button', { name: /add files/i }));
+
+      // Should have 2 files, not 3 — mockPdf is deduped
+      expect(screen.getAllByText('requirements.pdf')).toHaveLength(1);
+      expect(screen.getByText('screenshot.png')).toBeInTheDocument();
+      expect(screen.getByText('(2)')).toBeInTheDocument();
+    });
+
     it('handles pickFiles error gracefully', async () => {
       mockPickFiles.mockRejectedValue(new Error('Dialog failed'));
       const user = userEvent.setup();
@@ -744,6 +769,146 @@ describe('FeatureCreateDrawer', () => {
       await user.keyboard('{Enter}');
 
       expect(onSubmit).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('drag-drop and paste uploads', () => {
+    const uploadResponse = {
+      id: 'att-001',
+      name: 'screenshot.png',
+      size: 5000,
+      mimeType: 'image/png',
+      path: '.shep/attachments/pending-abc/screenshot.png',
+      createdAt: '2026-03-08T10:00:00.000Z',
+    };
+
+    beforeEach(() => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: () => Promise.resolve(uploadResponse),
+        })
+      );
+    });
+
+    function createDropEvent(files: File[]) {
+      const dataTransfer = {
+        files,
+        items: files.map((f) => ({ kind: 'file', getAsFile: () => f })),
+        types: ['Files'],
+      };
+      return { dataTransfer };
+    }
+
+    function getDropZone() {
+      return screen.getByRole('region', { name: 'File drop zone' });
+    }
+
+    it('shows attachment card after dropping a valid file', async () => {
+      renderDrawer();
+      const file = new File(['image data'], 'screenshot.png', { type: 'image/png' });
+      const dropZone = getDropZone();
+
+      fireEvent.drop(dropZone, createDropEvent([file]));
+
+      await waitFor(() => {
+        expect(screen.getByText('screenshot.png')).toBeInTheDocument();
+      });
+      expect(fetch).toHaveBeenCalledOnce();
+    });
+
+    it('shows inline error for files exceeding 10 MB without calling upload API', async () => {
+      renderDrawer();
+      const bigFile = new File(['x'.repeat(100)], 'huge.png', { type: 'image/png' });
+      Object.defineProperty(bigFile, 'size', { value: 11 * 1024 * 1024 });
+      const dropZone = getDropZone();
+
+      fireEvent.drop(dropZone, createDropEvent([bigFile]));
+
+      await waitFor(() => {
+        expect(screen.getByText(/exceeds 10 MB/i)).toBeInTheDocument();
+      });
+      expect(fetch).not.toHaveBeenCalled();
+    });
+
+    it('shows inline error for disallowed file extensions', async () => {
+      renderDrawer();
+      const exeFile = new File(['binary'], 'malware.exe', { type: 'application/x-msdownload' });
+      const dropZone = getDropZone();
+
+      fireEvent.drop(dropZone, createDropEvent([exeFile]));
+
+      await waitFor(() => {
+        expect(screen.getByText(/not allowed/i)).toBeInTheDocument();
+      });
+      expect(fetch).not.toHaveBeenCalled();
+    });
+
+    it('applies drag-over class on dragenter and removes it on dragleave', () => {
+      renderDrawer();
+      const dropZone = getDropZone();
+
+      fireEvent.dragEnter(dropZone, createDropEvent([]));
+      expect(dropZone).toHaveAttribute('data-drag-over', 'true');
+
+      fireEvent.dragLeave(dropZone, createDropEvent([]));
+      expect(dropZone).toHaveAttribute('data-drag-over', 'false');
+    });
+
+    it('shows attachment card after pasting an image from clipboard', async () => {
+      renderDrawer();
+      const file = new File(['image data'], 'image.png', { type: 'image/png' });
+      const textarea = screen.getByPlaceholderText(descriptionPlaceholder);
+
+      const clipboardData = {
+        items: [{ kind: 'file', getAsFile: () => file }],
+        files: [file],
+      };
+      fireEvent.paste(textarea, { clipboardData });
+
+      await waitFor(() => {
+        expect(screen.getByText('image.png')).toBeInTheDocument();
+      });
+      expect(fetch).toHaveBeenCalledOnce();
+    });
+
+    it('includes sessionId in the upload request', async () => {
+      renderDrawer();
+      const file = new File(['data'], 'doc.pdf', { type: 'application/pdf' });
+      const dropZone = getDropZone();
+
+      fireEvent.drop(dropZone, createDropEvent([file]));
+
+      await waitFor(() => {
+        expect(fetch).toHaveBeenCalledOnce();
+      });
+
+      const [url, options] = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(url).toBe('/api/attachments/upload');
+      const body = options.body as FormData;
+      expect(body.get('sessionId')).toBeTruthy();
+      expect(body.get('repositoryPath')).toBe('/Users/dev/my-repo');
+    });
+
+    it('includes sessionId in submitted payload', async () => {
+      renderDrawer();
+      const file = new File(['data'], 'doc.pdf', { type: 'application/pdf' });
+      const dropZone = getDropZone();
+      const user = userEvent.setup();
+
+      fireEvent.drop(dropZone, createDropEvent([file]));
+      await waitFor(() => {
+        expect(screen.getByText('doc.pdf')).toBeInTheDocument();
+      });
+
+      // Fill description and submit
+      await user.type(screen.getByPlaceholderText(descriptionPlaceholder), 'My feature');
+      await user.click(screen.getByRole('button', { name: '+ Create Feature' }));
+
+      const payload = defaultProps.onSubmit.mock.calls[0]?.[0];
+      expect(payload).toHaveProperty('sessionId');
+      expect(typeof payload.sessionId).toBe('string');
     });
   });
 });

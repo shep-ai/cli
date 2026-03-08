@@ -405,12 +405,12 @@ WHERE repository_path NOT IN (SELECT path FROM repositories WHERE path IS NOT NU
       const columns = db.pragma('table_info(settings)') as { name: string }[];
       const addNotNull = (col: string, dflt: string) => {
         if (!columns.some((c) => c.name === col)) {
-          db.exec(`ALTER TABLE settings ADD COLUMN ${col} INTEGER NOT NULL DEFAULT ${dflt}`);
+          db.exec('ALTER TABLE settings ADD COLUMN ' + col + ' INTEGER NOT NULL DEFAULT ' + dflt);
         }
       };
       const addNullable = (col: string) => {
         if (!columns.some((c) => c.name === col)) {
-          db.exec(`ALTER TABLE settings ADD COLUMN ${col} INTEGER`);
+          db.exec('ALTER TABLE settings ADD COLUMN ' + col + ' INTEGER');
         }
       };
       addNotNull('feature_flag_skills', '0');
@@ -453,6 +453,17 @@ WHERE repository_path NOT IN (SELECT path FROM repositories WHERE path IS NOT NU
       const columns = db.pragma('table_info(features)') as { name: string }[];
       if (!columns.some((c) => c.name === 'fast')) {
         db.exec('ALTER TABLE features ADD COLUMN fast INTEGER NOT NULL DEFAULT 0');
+      }
+    },
+  },
+  {
+    version: 28,
+    // Migration 028: Add attachments JSON column to features.
+    sql: '',
+    handler: (db: Database.Database) => {
+      const columns = db.pragma('table_info(features)') as { name: string }[];
+      if (!columns.some((c) => c.name === 'attachments')) {
+        db.exec("ALTER TABLE features ADD COLUMN attachments TEXT NOT NULL DEFAULT '[]'");
       }
     },
   },
