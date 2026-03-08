@@ -45,7 +45,7 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
     const stmt = this.db.prepare(`
       INSERT INTO settings (
         id, created_at, updated_at,
-        model_analyze, model_requirements, model_plan, model_implement,
+        model_analyze, model_requirements, model_plan, model_implement, model_default,
         user_name, user_email, user_github_username,
         env_default_editor, env_shell_preference,
         sys_auto_update, sys_log_level,
@@ -61,7 +61,7 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
         feature_flag_skills, feature_flag_env_deploy, feature_flag_debug
       ) VALUES (
         @id, @created_at, @updated_at,
-        @model_analyze, @model_requirements, @model_plan, @model_implement,
+        @model_analyze, @model_requirements, @model_plan, @model_implement, @model_default,
         @user_name, @user_email, @user_github_username,
         @env_default_editor, @env_shell_preference,
         @sys_auto_update, @sys_log_level,
@@ -128,6 +128,7 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
         model_requirements = @model_requirements,
         model_plan = @model_plan,
         model_implement = @model_implement,
+        model_default = @model_default,
         user_name = @user_name,
         user_email = @user_email,
         user_github_username = @user_github_username,
