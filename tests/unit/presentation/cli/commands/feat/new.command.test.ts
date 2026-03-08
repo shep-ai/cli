@@ -357,4 +357,40 @@ describe('createNewCommand', () => {
       expect(parentOption?.description).toBeTruthy();
     });
   });
+
+  describe('--fast flag', () => {
+    it('should pass fast=true to use case when --fast is provided', async () => {
+      const cmd = createNewCommand();
+      await cmd.parseAsync(['Fix typo', '--fast'], { from: 'user' });
+
+      expect(mockCreateExecute).toHaveBeenCalledWith(expect.objectContaining({ fast: true }));
+    });
+
+    it('should not set fast on input when --fast is not provided', async () => {
+      const cmd = createNewCommand();
+      await cmd.parseAsync(['Add feature'], { from: 'user' });
+
+      const callArg = mockCreateExecute.mock.calls[0][0];
+      expect(callArg.fast).toBeUndefined();
+    });
+
+    it('should combine --fast with --allow-all', async () => {
+      const cmd = createNewCommand();
+      await cmd.parseAsync(['Fix typo', '--fast', '--allow-all'], { from: 'user' });
+
+      expect(mockCreateExecute).toHaveBeenCalledWith(
+        expect.objectContaining({
+          fast: true,
+          approvalGates: { allowPrd: true, allowPlan: true, allowMerge: true },
+        })
+      );
+    });
+
+    it('should expose --fast option in command help', () => {
+      const cmd = createNewCommand();
+      const fastOption = cmd.options.find((o) => o.long === '--fast');
+      expect(fastOption).toBeDefined();
+      expect(fastOption?.description).toBeTruthy();
+    });
+  });
 });

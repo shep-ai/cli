@@ -31,6 +31,7 @@ interface NewOptions {
   allowMerge?: boolean;
   allowAll?: boolean;
   parent?: string;
+  fast?: boolean;
 }
 
 /**
@@ -75,6 +76,7 @@ export function createNewCommand(): Command {
     .option('--allow-merge', 'Auto-approve merge phase')
     .option('--allow-all', 'Run fully autonomous (no approval pauses)')
     .option('--parent <fid>', 'Parent feature ID (full or partial prefix)')
+    .option('--fast', 'Skip SDLC phases and implement directly from your prompt')
     .action(async (description: string, options: NewOptions) => {
       try {
         const useCase = container.resolve(CreateFeatureUseCase);
@@ -116,6 +118,7 @@ export function createNewCommand(): Command {
             push,
             openPr,
             ...(parentId !== undefined && { parentId }),
+            ...(options.fast && { fast: true }),
           })
         );
 
