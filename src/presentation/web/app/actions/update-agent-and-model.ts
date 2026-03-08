@@ -20,8 +20,11 @@ export async function updateAgentAndModel(
     const currentSettings = getSettings();
     const updatedSettings = {
       ...currentSettings,
-      agent: { ...currentSettings.agent, type: agentType.trim() as typeof currentSettings.agent.type },
-      models: { default: model?.trim() || currentSettings.models.default },
+      agent: {
+        ...currentSettings.agent,
+        type: agentType.trim() as typeof currentSettings.agent.type,
+      },
+      models: { default: model?.trim() ?? currentSettings.models.default },
     };
 
     const updateUseCase = resolve<UpdateSettingsUseCase>('UpdateSettingsUseCase');

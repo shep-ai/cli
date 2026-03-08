@@ -52,6 +52,9 @@ properties:
   approvalGates:
     $ref: ApprovalGates.yaml
     description: Approval gate configuration for human-in-the-loop review (optional)
+  modelId:
+    type: string
+    description: LLM model identifier used for this run (optional, set at creation)
 required:
   - agentType
   - agentName

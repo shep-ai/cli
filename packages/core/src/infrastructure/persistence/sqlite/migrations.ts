@@ -434,6 +434,17 @@ WHERE repository_path NOT IN (SELECT path FROM repositories WHERE path IS NOT NU
       }
     },
   },
+  {
+    version: 26,
+    // Migration 026: Add model_id column to agent_runs for per-run model tracking.
+    sql: '',
+    handler: (db: Database.Database) => {
+      const columns = db.pragma('table_info(agent_runs)') as { name: string }[];
+      if (!columns.some((c) => c.name === 'model_id')) {
+        db.exec('ALTER TABLE agent_runs ADD COLUMN model_id TEXT');
+      }
+    },
+  },
 ];
 
 /**

@@ -245,42 +245,41 @@ export function FeatureCreateDrawer({
     >
       {/* Form body */}
       <div className="overflow-y-auto p-4">
-        <form id="create-feature-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
-          {/* Description + inline controls */}
-          <div className="flex flex-col gap-1.5">
-            <Label
-              htmlFor="feature-description"
-              className="text-muted-foreground text-xs font-semibold tracking-wider"
-            >
-              DESCRIBE YOUR FEATURE
-            </Label>
-            <div className="border-input focus-within:ring-ring/50 focus-within:border-ring overflow-hidden rounded-md border shadow-xs transition-[color,box-shadow] focus-within:ring-[3px]">
-              <Textarea
-                id="feature-description"
-                placeholder="e.g. Add GitHub OAuth login with callback handling and token refresh..."
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={5}
-                required
-                disabled={isSubmitting}
-                className="resize-none rounded-none border-0 shadow-none focus-visible:ring-0"
-              />
-              <div className="border-input flex items-center gap-3 border-t px-3 py-1.5">
-                <AgentModelPicker
-                  className="w-2/5 shrink-0"
-                  initialAgentType={overrideAgent ?? currentAgentType ?? 'claude-code'}
-                  initialModel={overrideModel ?? currentModel ?? 'claude-sonnet-4-6'}
-                  mode="override"
-                  onAgentModelChange={(agent, model) => {
-                    setOverrideAgent(agent);
-                    setOverrideModel(model);
-                  }}
+        <TooltipProvider delayDuration={400}>
+          <form id="create-feature-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
+            {/* Description + inline controls */}
+            <div className="flex flex-col gap-1.5">
+              <Label
+                htmlFor="feature-description"
+                className="text-muted-foreground text-xs font-semibold tracking-wider"
+              >
+                DESCRIBE YOUR FEATURE
+              </Label>
+              <div className="border-input focus-within:ring-ring/50 focus-within:border-ring overflow-hidden rounded-md border shadow-xs transition-[color,box-shadow] focus-within:ring-[3px]">
+                <Textarea
+                  id="feature-description"
+                  placeholder="e.g. Add GitHub OAuth login with callback handling and token refresh..."
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={10}
+                  required
                   disabled={isSubmitting}
+                  className="field-sizing-fixed min-h-60! resize-none rounded-none border-0 shadow-none focus-visible:ring-0"
                 />
-                <TooltipProvider>
+                <div className="border-input flex items-center gap-3 border-t px-3 py-1.5">
+                  <AgentModelPicker
+                    initialAgentType={overrideAgent ?? currentAgentType ?? 'claude-code'}
+                    initialModel={overrideModel ?? currentModel ?? 'claude-sonnet-4-6'}
+                    mode="override"
+                    onAgentModelChange={(agent, model) => {
+                      setOverrideAgent(agent);
+                      setOverrideModel(model);
+                    }}
+                    disabled={isSubmitting}
+                  />
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <div className="flex cursor-pointer items-center gap-2">
+                      <div className="ml-auto flex cursor-pointer items-center gap-2">
                         <Switch
                           id="fast-mode"
                           checked={fast}
@@ -296,37 +295,35 @@ export function FeatureCreateDrawer({
                       Skip SDLC phases and implement directly from your prompt.
                     </TooltipContent>
                   </Tooltip>
-                </TooltipProvider>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Parent feature selector (only when opened from a feature node) */}
-          {hasFeatures && initialParentId !== undefined ? (
-            <div className="flex flex-col gap-1.5">
-              <Label
-                htmlFor="parent-feature"
-                className="text-muted-foreground text-xs font-semibold tracking-wider"
-              >
-                PARENT FEATURE
-              </Label>
-              <ParentFeatureCombobox
-                features={features}
-                value={parentId}
-                onChange={setParentId}
-                disabled={isSubmitting}
-              />
-            </div>
-          ) : null}
+            {/* Parent feature selector (only when opened from a feature node) */}
+            {hasFeatures && initialParentId !== undefined ? (
+              <div className="flex flex-col gap-1.5">
+                <Label
+                  htmlFor="parent-feature"
+                  className="text-muted-foreground text-xs font-semibold tracking-wider"
+                >
+                  PARENT FEATURE
+                </Label>
+                <ParentFeatureCombobox
+                  features={features}
+                  value={parentId}
+                  onChange={setParentId}
+                  disabled={isSubmitting}
+                />
+              </div>
+            ) : null}
 
-          {/* Approve + Git — compact switch groups */}
-          <div className="border-input divide-input flex flex-col divide-y rounded-md border">
-            {/* Approve row */}
-            <div className="flex items-center gap-4 px-3 py-2.5">
-              <TooltipProvider>
+            {/* Approve + Git — compact switch groups */}
+            <div className="flex flex-col gap-2">
+              {/* Approve row */}
+              <div className="border-input flex items-center gap-4 rounded-md border px-3 py-2.5">
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span className="text-muted-foreground shrink-0 cursor-default text-xs font-semibold tracking-wider">
+                    <span className="text-muted-foreground w-16 shrink-0 cursor-default text-xs font-semibold tracking-wider">
                       APPROVE
                     </span>
                   </TooltipTrigger>
@@ -334,11 +331,9 @@ export function FeatureCreateDrawer({
                     Auto-approve phase transitions without manual review.
                   </TooltipContent>
                 </Tooltip>
-              </TooltipProvider>
-              <div className="flex flex-1 items-center gap-4">
-                {AUTO_APPROVE_OPTIONS.map((opt) => (
-                  <TooltipProvider key={opt.id}>
-                    <Tooltip>
+                <div className="flex flex-1 items-center gap-4">
+                  {AUTO_APPROVE_OPTIONS.map((opt) => (
+                    <Tooltip key={opt.id}>
                       <TooltipTrigger asChild>
                         <div className="flex cursor-pointer items-center gap-1.5">
                           <Switch
@@ -348,7 +343,10 @@ export function FeatureCreateDrawer({
                             onCheckedChange={(v) =>
                               setApprovalGates((prev) => ({ ...prev, [opt.id]: v }))
                             }
-                            disabled={isSubmitting}
+                            disabled={
+                              isSubmitting ||
+                              (fast && (opt.id === 'allowPrd' || opt.id === 'allowPlan'))
+                            }
                           />
                           <Label
                             htmlFor={`approve-${opt.id}`}
@@ -358,13 +356,15 @@ export function FeatureCreateDrawer({
                           </Label>
                         </div>
                       </TooltipTrigger>
-                      <TooltipContent side="bottom">{opt.description}</TooltipContent>
+                      <TooltipContent side="bottom">
+                        {fast && (opt.id === 'allowPrd' || opt.id === 'allowPlan')
+                          ? 'Skipped in Fast Mode'
+                          : opt.description}
+                      </TooltipContent>
                     </Tooltip>
-                  </TooltipProvider>
-                ))}
-              </div>
-              {/* Select all shortcut */}
-              <TooltipProvider>
+                  ))}
+                </div>
+                {/* Select all shortcut */}
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
@@ -386,16 +386,14 @@ export function FeatureCreateDrawer({
                   </TooltipTrigger>
                   <TooltipContent side="bottom">Toggle all approval gates</TooltipContent>
                 </Tooltip>
-              </TooltipProvider>
-            </div>
+              </div>
 
-            {/* Git row */}
-            <div className="flex items-center gap-4 px-3 py-2.5">
-              <span className="text-muted-foreground shrink-0 text-xs font-semibold tracking-wider">
-                GIT
-              </span>
-              <div className="flex flex-1 items-center gap-4">
-                <TooltipProvider>
+              {/* Git row */}
+              <div className="border-input flex items-center gap-4 rounded-md border px-3 py-2.5">
+                <span className="text-muted-foreground w-16 shrink-0 text-xs font-semibold tracking-wider">
+                  GIT
+                </span>
+                <div className="flex flex-1 items-center gap-4">
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div className="flex cursor-pointer items-center gap-1.5">
@@ -403,8 +401,11 @@ export function FeatureCreateDrawer({
                           id="push"
                           size="sm"
                           checked={push || openPr}
-                          onCheckedChange={setPush}
-                          disabled={openPr || isSubmitting}
+                          onCheckedChange={(v) => {
+                            setPush(v);
+                            if (!v && openPr) setOpenPr(false);
+                          }}
+                          disabled={isSubmitting}
                         />
                         <Label htmlFor="push" className="cursor-pointer text-xs font-medium">
                           Push
@@ -415,8 +416,6 @@ export function FeatureCreateDrawer({
                       Push branch to remote after implementation.
                     </TooltipContent>
                   </Tooltip>
-                </TooltipProvider>
-                <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div className="flex cursor-pointer items-center gap-1.5">
@@ -428,7 +427,7 @@ export function FeatureCreateDrawer({
                           disabled={isSubmitting}
                         />
                         <Label htmlFor="open-pr" className="cursor-pointer text-xs font-medium">
-                          Create PR
+                          PR
                         </Label>
                       </div>
                     </TooltipTrigger>
@@ -436,46 +435,46 @@ export function FeatureCreateDrawer({
                       Open a pull request after pushing.
                     </TooltipContent>
                   </Tooltip>
-                </TooltipProvider>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Attachments */}
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <Label className="text-muted-foreground text-xs font-semibold tracking-wider">
-                ATTACHMENTS
-                {attachments.length > 0 && (
-                  <span className="text-muted-foreground/60 ml-1.5">({attachments.length})</span>
-                )}
-              </Label>
-              <Button
-                type="button"
-                variant="outline"
-                size="xs"
-                onClick={handleAddFiles}
-                disabled={isSubmitting}
-              >
-                <PlusIcon className="size-3" />
-                Add Files
-              </Button>
-            </div>
-
-            {attachments.length > 0 && (
-              <div className="flex flex-col gap-2">
-                {attachments.map((file) => (
-                  <AttachmentCard
-                    key={file.path}
-                    file={file}
-                    onRemove={() => handleRemoveFile(file.path)}
-                    disabled={isSubmitting}
-                  />
-                ))}
+            {/* Attachments */}
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-muted-foreground text-xs font-semibold tracking-wider">
+                  ATTACHMENTS
+                  {attachments.length > 0 && (
+                    <span className="text-muted-foreground/60 ml-1.5">({attachments.length})</span>
+                  )}
+                </Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="xs"
+                  onClick={handleAddFiles}
+                  disabled={isSubmitting}
+                >
+                  <PlusIcon className="size-3" />
+                  Add Files
+                </Button>
               </div>
-            )}
-          </div>
-        </form>
+
+              {attachments.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  {attachments.map((file) => (
+                    <AttachmentCard
+                      key={file.path}
+                      file={file}
+                      onRemove={() => handleRemoveFile(file.path)}
+                      disabled={isSubmitting}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </form>
+        </TooltipProvider>
       </div>
     </BaseDrawer>
   );

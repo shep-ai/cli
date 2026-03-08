@@ -29,6 +29,8 @@ interface CreateFeatureInput {
   parentId?: string;
   /** When true, skip SDLC phases and implement directly from the prompt. */
   fast?: boolean;
+  /** Optional agent type override for this feature run */
+  agentType?: string;
   /** Optional model identifier for this feature run */
   model?: string;
 }
@@ -47,8 +49,18 @@ function composeUserInput(description: string, attachments: Attachment[] | undef
 export async function createFeature(
   input: CreateFeatureInput
 ): Promise<{ feature?: Feature; error?: string }> {
-  const { description, repositoryPath, attachments, approvalGates, push, openPr, parentId, fast, model } =
-    input;
+  const {
+    description,
+    repositoryPath,
+    attachments,
+    approvalGates,
+    push,
+    openPr,
+    parentId,
+    fast,
+    agentType,
+    model,
+  } = input;
 
   if (!description?.trim()) {
     return { error: 'description is required' };
@@ -78,6 +90,7 @@ export async function createFeature(
       ...(parentId ? { parentId } : {}),
       description,
       ...(fast ? { fast } : {}),
+      ...(agentType ? { agentType } : {}),
       ...(model ? { model } : {}),
     });
 
@@ -94,6 +107,7 @@ export async function createFeature(
           openPr: openPr ?? false,
           ...(parentId ? { parentId } : {}),
           ...(fast ? { fast } : {}),
+          ...(agentType ? { agentType } : {}),
           ...(model ? { model } : {}),
         },
         shouldSpawn

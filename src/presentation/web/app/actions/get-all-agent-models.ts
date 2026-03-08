@@ -1,12 +1,19 @@
 'use server';
 
 import { resolve } from '@/lib/server-container';
+import { getModelMeta } from '@/lib/model-metadata';
 import type { IAgentExecutorFactory } from '@shepai/core/application/ports/output/agents/agent-executor-factory.interface';
+
+export interface ModelInfo {
+  id: string;
+  displayName: string;
+  description: string;
+}
 
 export interface AgentModelGroup {
   agentType: string;
   label: string;
-  models: string[];
+  models: ModelInfo[];
 }
 
 const AGENT_LABELS: Record<string, string> = {
@@ -14,6 +21,14 @@ const AGENT_LABELS: Record<string, string> = {
   cursor: 'Cursor CLI',
   'gemini-cli': 'Gemini CLI',
   dev: 'Demo',
+};
+
+/** Sort weight — higher = further down. Demo always last. */
+const AGENT_ORDER: Record<string, number> = {
+  'claude-code': 0,
+  cursor: 1,
+  'gemini-cli': 2,
+  dev: 99,
 };
 
 export async function getAllAgentModels(): Promise<AgentModelGroup[]> {
@@ -24,9 +39,26 @@ export async function getAllAgentModels(): Promise<AgentModelGroup[]> {
       .map((agentType) => ({
         agentType: agentType as string,
         label: AGENT_LABELS[agentType as string] ?? (agentType as string),
-        models: factory.getSupportedModels(agentType),
+        models: factory.getSupportedModels(agentType).map((id) => ({
+          id,
+          ...getModelMeta(id),
+        })),
       }))
-      .filter((g) => g.models.length > 0 || g.agentType === 'dev');
+      .map((g) => {
+        // Dev agent gets fun demo models
+        if (g.agentType === 'dev' && g.models.length === 0) {
+          return {
+            ...g,
+            models: [
+              { id: 'gpt-8', ...getModelMeta('gpt-8') },
+              { id: 'opus-7', ...getModelMeta('opus-7') },
+            ],
+          };
+        }
+        return g;
+      })
+      .filter((g) => g.models.length > 0)
+      .sort((a, b) => (AGENT_ORDER[a.agentType] ?? 50) - (AGENT_ORDER[b.agentType] ?? 50));
   } catch {
     return [];
   }

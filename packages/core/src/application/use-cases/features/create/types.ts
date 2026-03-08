@@ -14,6 +14,8 @@ export interface CreateFeatureInput {
   description?: string;
   /** When true, skip SDLC phases and implement directly from the user prompt. */
   fast?: boolean;
+  /** Optional agent type override (overrides settings.agent.type). */
+  agentType?: string;
   /** Optional model identifier forwarded to the agent executor for this invocation. */
   model?: string;
 }

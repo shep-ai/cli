@@ -125,6 +125,7 @@ export class ApproveAgentRunUseCase {
         openPr: feature?.openPr ?? false,
         ...(payload ? { resumePayload: JSON.stringify(payload) } : {}),
         agentType: run.agentType,
+        ...(run.modelId ? { model: run.modelId } : {}),
       }
     );
 
