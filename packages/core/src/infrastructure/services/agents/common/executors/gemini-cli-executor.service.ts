@@ -59,7 +59,7 @@ export class GeminiCliExecutorService implements IAgentExecutor {
     this.log(
       `Spawning: gemini ${args.map((a) => (a.length > 80 ? `${a.slice(0, 77)}...` : a)).join(' ')}`
     );
-    this.log(`Spawn options: ${JSON.stringify(spawnOpts)}`);
+    this.log(`Spawn cwd: ${(spawnOpts.cwd as string) ?? '(inherited)'}`);
 
     const proc = this.spawn('gemini', args, spawnOpts);
     this.log(`Subprocess PID: ${proc.pid ?? 'undefined (spawn may have failed)'}`);

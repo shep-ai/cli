@@ -53,7 +53,7 @@ export class CursorExecutorService implements IAgentExecutor {
     this.log(
       `Spawning: agent ${args.map((a) => (a.length > 80 ? `${a.slice(0, 77)}...` : a)).join(' ')}`
     );
-    this.log(`Spawn options: ${JSON.stringify(spawnOpts)}`);
+    this.log(`Spawn cwd: ${(spawnOpts.cwd as string) ?? '(inherited)'}`);
 
     const proc = this.spawn('agent', args, spawnOpts);
     this.log(`Subprocess PID: ${proc.pid ?? 'undefined (spawn may have failed)'}`);
