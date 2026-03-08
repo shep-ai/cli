@@ -14,6 +14,7 @@ import {
   useSidebarFeaturesContext,
 } from '@/hooks/sidebar-features-context';
 import { useNotifications } from '@/hooks/use-notifications';
+import { useFeatureFlags } from '@/hooks/feature-flags-context';
 
 interface AppShellProps {
   children: ReactNode;
@@ -23,6 +24,7 @@ interface AppShellProps {
 function AppShellInner({ children }: AppShellProps) {
   const router = useRouter();
   const { guardedNavigate } = useDrawerCloseGuard();
+  const featureFlags = useFeatureFlags();
 
   // Subscribe to agent lifecycle events and dispatch toast/browser notifications
   useNotifications();
@@ -48,6 +50,7 @@ function AppShellInner({ children }: AppShellProps) {
     <SidebarProvider>
       <AppSidebar
         features={features}
+        featureFlags={featureFlags}
         onNewFeature={handleNewFeature}
         onFeatureClick={handleFeatureClick}
       />

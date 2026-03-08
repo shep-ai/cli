@@ -16,7 +16,7 @@ import { getResearchArtifact } from '@/app/actions/get-research-artifact';
 import { getMergeReviewData } from '@/app/actions/get-merge-review-data';
 import { deleteFeature } from '@/app/actions/delete-feature';
 import { cn } from '@/lib/utils';
-import { featureFlags } from '@/lib/feature-flags';
+import { useFeatureFlags } from '@/hooks/feature-flags-context';
 import { useSoundAction } from '@/hooks/use-sound-action';
 import { useGuardedDrawerClose } from '@/hooks/drawer-close-guard';
 import { useDeployAction } from '@/hooks/use-deploy-action';
@@ -63,6 +63,7 @@ export interface FeatureDrawerClientProps {
 }
 
 export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientProps) {
+  const featureFlags = useFeatureFlags();
   const router = useRouter();
   const deleteSound = useSoundAction('delete');
   const rejectSound = useSoundAction('reject');

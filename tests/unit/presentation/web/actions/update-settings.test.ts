@@ -75,10 +75,10 @@ describe('updateSettingsAction server action', () => {
     expect(singletonSettings.system.logLevel).toBe('debug');
   });
 
-  it('calls revalidatePath on /settings after success', async () => {
+  it('calls revalidatePath on root layout after success', async () => {
     await updateSettingsAction({ system: { autoUpdate: false } });
 
-    expect(mockRevalidatePath).toHaveBeenCalledWith('/settings');
+    expect(mockRevalidatePath).toHaveBeenCalledWith('/', 'layout');
   });
 
   it('returns error on failure', async () => {

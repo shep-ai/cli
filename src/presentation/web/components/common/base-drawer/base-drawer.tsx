@@ -18,7 +18,7 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useDeployAction, type DeployActionInput } from '@/hooks/use-deploy-action';
-import { featureFlags } from '@/lib/feature-flags';
+import { useFeatureFlags } from '@/hooks/feature-flags-context';
 
 const drawerVariants = cva('', {
   variants: {
@@ -61,6 +61,7 @@ export function BaseDrawer({
   'data-testid': testId,
   deployTarget,
 }: BaseDrawerProps) {
+  const featureFlags = useFeatureFlags();
   const contentRef = useRef<HTMLDivElement>(null);
 
   // Close when clicking outside the drawer panel (no overlay needed — canvas stays draggable).

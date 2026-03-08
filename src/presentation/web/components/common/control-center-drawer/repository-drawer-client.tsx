@@ -8,7 +8,7 @@ import { ActionButton } from '@/components/common/action-button';
 import { DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
 import { Separator } from '@/components/ui/separator';
 import { useRepositoryActions } from '@/components/common/repository-node/use-repository-actions';
-import { featureFlags } from '@/lib/feature-flags';
+import { useFeatureFlags } from '@/hooks/feature-flags-context';
 import type { RepositoryNodeData } from '@/components/common/repository-node';
 
 export interface RepositoryDrawerClientProps {
@@ -16,6 +16,7 @@ export interface RepositoryDrawerClientProps {
 }
 
 export function RepositoryDrawerClient({ data }: RepositoryDrawerClientProps) {
+  const featureFlags = useFeatureFlags();
   const router = useRouter();
   const pathname = usePathname();
   const isOpen = pathname.startsWith('/repository/');

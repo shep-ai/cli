@@ -63,7 +63,7 @@ export async function updateSettingsAction(
 
     updateSettingsSingleton(merged);
 
-    revalidatePath('/settings');
+    revalidatePath('/', 'layout');
 
     return { success: true };
   } catch (error: unknown) {

@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/select';
 import { updateSettingsAction } from '@/app/actions/update-settings';
 import { AgentType, AgentAuthMethod } from '@shepai/core/domain/generated/output';
+import { getAgentTypeIcon } from '@/components/common/feature-node/agent-type-icons';
 import type { AgentConfig } from '@shepai/core/domain/generated/output';
 
 const AGENT_TYPE_OPTIONS = [
@@ -114,11 +115,17 @@ export function AgentSettingsSection({ agent }: AgentSettingsSectionProps) {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {AGENT_TYPE_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
+              {AGENT_TYPE_OPTIONS.map((opt) => {
+                const Icon = getAgentTypeIcon(opt.value);
+                return (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    <span className="flex items-center gap-2">
+                      <Icon className="h-4 w-4 shrink-0" />
+                      {opt.label}
+                    </span>
+                  </SelectItem>
+                );
+              })}
             </SelectContent>
           </Select>
         </div>

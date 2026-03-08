@@ -16,6 +16,8 @@ import {
 } from '@/components/ui/select';
 import { updateSettingsAction } from '@/app/actions/update-settings';
 import { AgentType, AgentAuthMethod, EditorType } from '@shepai/core/domain/generated/output';
+import { getAgentTypeIcon } from '@/components/common/feature-node/agent-type-icons';
+import { getEditorTypeIcon } from '@/components/common/editor-type-icons';
 import type {
   Settings,
   FeatureFlags,
@@ -283,20 +285,38 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
       </div>
 
       <div>
-        <h2 className="text-muted-foreground mt-6 mb-1 text-xs font-medium tracking-wide uppercase">
+        <h2
+          className="text-muted-foreground mt-6 mb-1 text-xs font-medium tracking-wide uppercase"
+          data-testid="agent-settings-section"
+        >
           Agent
         </h2>
-        <SelectRow
-          label="Agent"
-          id="agent-type"
-          testId="agent-type-select"
-          value={agentType}
-          options={AGENT_TYPE_OPTIONS}
-          onChange={(v) => {
-            setAgentType(v as AgentType);
-            save(buildAgentPayload({ type: v as AgentType }));
-          }}
-        />
+        <SettingsRow label="Agent" htmlFor="agent-type">
+          <Select
+            value={agentType}
+            onValueChange={(v) => {
+              setAgentType(v as AgentType);
+              save(buildAgentPayload({ type: v as AgentType }));
+            }}
+          >
+            <SelectTrigger id="agent-type" data-testid="agent-type-select" className="w-45">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {AGENT_TYPE_OPTIONS.map((opt) => {
+                const Icon = getAgentTypeIcon(opt.value);
+                return (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    <span className="flex items-center gap-2">
+                      <Icon className="h-4 w-4 shrink-0" />
+                      {opt.label}
+                    </span>
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
+        </SettingsRow>
         <SelectRow
           label="Authentication"
           id="auth-method"
@@ -340,22 +360,43 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
           </SettingsRow>
         )}
 
-        <h2 className="text-muted-foreground mt-6 mb-1 text-xs font-medium tracking-wide uppercase">
+        <h2
+          className="text-muted-foreground mt-6 mb-1 text-xs font-medium tracking-wide uppercase"
+          data-testid="environment-settings-section"
+        >
           Environment
         </h2>
-        <SelectRow
-          label="Editor"
-          id="default-editor"
-          testId="editor-select"
-          value={editor}
-          options={EDITOR_OPTIONS}
-          onChange={(v) => {
-            setEditor(v as EditorType);
-            save({ environment: { defaultEditor: v as EditorType, shellPreference: shell } });
-          }}
-        />
+        <SettingsRow label="Editor" htmlFor="default-editor">
+          <Select
+            value={editor}
+            onValueChange={(v) => {
+              setEditor(v as EditorType);
+              save({ environment: { defaultEditor: v as EditorType, shellPreference: shell } });
+            }}
+          >
+            <SelectTrigger id="default-editor" data-testid="editor-select" className="w-45">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {EDITOR_OPTIONS.map((opt) => {
+                const Icon = getEditorTypeIcon(opt.value);
+                return (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    <span className="flex items-center gap-2">
+                      <Icon className="h-4 w-4 shrink-0" />
+                      {opt.label}
+                    </span>
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
+        </SettingsRow>
 
-        <h2 className="text-muted-foreground mt-6 mb-1 text-xs font-medium tracking-wide uppercase">
+        <h2
+          className="text-muted-foreground mt-6 mb-1 text-xs font-medium tracking-wide uppercase"
+          data-testid="workflow-settings-section"
+        >
           Workflow
         </h2>
         <SwitchRow
@@ -409,7 +450,10 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
           }}
         />
 
-        <h2 className="text-muted-foreground mt-6 mb-1 text-xs font-medium tracking-wide uppercase">
+        <h2
+          className="text-muted-foreground mt-6 mb-1 text-xs font-medium tracking-wide uppercase"
+          data-testid="ci-settings-section"
+        >
           CI
         </h2>
         <SettingsRow label="Max fix attempts" htmlFor="ci-max-fix">
@@ -461,7 +505,10 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
           />
         </SettingsRow>
 
-        <h2 className="text-muted-foreground mt-6 mb-1 text-xs font-medium tracking-wide uppercase">
+        <h2
+          className="text-muted-foreground mt-6 mb-1 text-xs font-medium tracking-wide uppercase"
+          data-testid="notification-settings-section"
+        >
           Notifications
         </h2>
         <SwitchRow
@@ -594,7 +641,10 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
           }}
         />
 
-        <h2 className="text-muted-foreground mt-6 mb-1 text-xs font-medium tracking-wide uppercase">
+        <h2
+          className="text-muted-foreground mt-6 mb-1 text-xs font-medium tracking-wide uppercase"
+          data-testid="feature-flags-settings-section"
+        >
           Feature Flags
         </h2>
         <SwitchRow
@@ -631,7 +681,10 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
           }}
         />
 
-        <h2 className="text-muted-foreground mt-6 mb-1 text-xs font-medium tracking-wide uppercase">
+        <h2
+          className="text-muted-foreground mt-6 mb-1 text-xs font-medium tracking-wide uppercase"
+          data-testid="database-settings-section"
+        >
           Database
         </h2>
         <SettingsRow label="Location">
