@@ -1,0 +1,224 @@
+name: settings-page-7e93cb
+summary: >
+  Implementation plan for the settings page feature spanning four architecture
+  layers: TypeSpec domain model extension (FeatureFlags), SQLite persistence
+  (migration v24, mapper, repository), infrastructure service update
+  (updateSettings), and presentation (Next.js page with 6 section components,
+  server actions, sidebar integration, feature flags migration, Storybook
+  stories). The plan follows a bottom-up approach — domain first, then
+  infrastructure, then presentation — ensuring each layer is tested before
+  building on it.
+
+relatedFeatures: []
+technologies:
+  - Next.js 16 (App Router, Server Components, Server Actions)
+  - React 19 (client components, hooks-based state)
+  - shadcn/ui (Card, Select, Input, Label, Button, Switch, Separator)
+  - Tailwind CSS v4
+  - TypeSpec (domain model extension for FeatureFlags)
+  - SQLite (better-sqlite3, migration v24)
+  - tsyringe (DI container, string-token resolution)
+  - Storybook (mandatory colocated .stories.tsx files)
+  - lucide-react (Settings, Eye, EyeOff icons)
+  - sonner (toast notifications)
+  - Vitest (unit + integration tests)
+relatedLinks: []
+
+phases:
+  - id: phase-1
+    name: 'Domain & Infrastructure Foundation'
+    description: >
+      Extend the TypeSpec Settings model with FeatureFlags, regenerate types,
+      add database migration v24 (feature flag columns + CI workflow columns),
+      update the settings mapper and repository to handle the new columns,
+      update the defaults factory, and add updateSettings() to the settings
+      service. This phase establishes the data layer that all UI work depends on.
+    parallel: false
+
+  - id: phase-2
+    name: 'Server Actions & Feature Flags Migration'
+    description: >
+      Create the load-settings and update-settings server actions following
+      the existing DI-based pattern. Migrate feature-flags.ts from env-var-only
+      resolution to DB-primary with env var fallback. Install the shadcn/ui
+      Switch component. This phase bridges infrastructure and presentation.
+    parallel: false
+
+  - id: phase-3
+    name: 'Settings Page & Section Components'
+    description: >
+      Build the settings page Server Component, the SettingsPageClient
+      orchestrator, and all six section components (Agent, Environment,
+      Workflow, Notifications, Feature Flags, Database Location). Each section
+      gets its own file, Storybook stories, and unit tests. This is the
+      largest phase by volume.
+    parallel: false
+
+  - id: phase-4
+    name: 'Sidebar Integration & Final Validation'
+    description: >
+      Add the Settings nav item to the sidebar, verify feature flag sidebar
+      integration works end-to-end, run the full validation suite (build,
+      test, lint, typecheck), and fix any issues. This phase ensures
+      everything works together.
+    parallel: false
+
+filesToCreate:
+  - src/presentation/web/app/settings/page.tsx
+  - src/presentation/web/app/actions/load-settings.ts
+  - src/presentation/web/app/actions/update-settings.ts
+  - src/presentation/web/components/features/settings/settings-page-client.tsx
+  - src/presentation/web/components/features/settings/settings-page-client.stories.tsx
+  - src/presentation/web/components/features/settings/agent-settings-section.tsx
+  - src/presentation/web/components/features/settings/agent-settings-section.stories.tsx
+  - src/presentation/web/components/features/settings/environment-settings-section.tsx
+  - src/presentation/web/components/features/settings/environment-settings-section.stories.tsx
+  - src/presentation/web/components/features/settings/workflow-settings-section.tsx
+  - src/presentation/web/components/features/settings/workflow-settings-section.stories.tsx
+  - src/presentation/web/components/features/settings/notification-settings-section.tsx
+  - src/presentation/web/components/features/settings/notification-settings-section.stories.tsx
+  - src/presentation/web/components/features/settings/feature-flags-settings-section.tsx
+  - src/presentation/web/components/features/settings/feature-flags-settings-section.stories.tsx
+  - src/presentation/web/components/features/settings/database-settings-section.tsx
+  - src/presentation/web/components/features/settings/database-settings-section.stories.tsx
+  - tests/unit/presentation/web/components/features/settings/agent-settings-section.test.tsx
+  - tests/unit/presentation/web/components/features/settings/environment-settings-section.test.tsx
+  - tests/unit/presentation/web/components/features/settings/workflow-settings-section.test.tsx
+  - tests/unit/presentation/web/components/features/settings/notification-settings-section.test.tsx
+  - tests/unit/presentation/web/components/features/settings/feature-flags-settings-section.test.tsx
+  - tests/unit/presentation/web/components/features/settings/database-settings-section.test.tsx
+  - tests/unit/presentation/web/components/features/settings/settings-page-client.test.tsx
+  - tests/unit/infrastructure/services/settings-service-update.test.ts
+
+filesToModify:
+  - tsp/domain/entities/settings.tsp
+  - packages/core/src/domain/generated/output.ts
+  - packages/core/src/infrastructure/persistence/sqlite/migrations.ts
+  - packages/core/src/infrastructure/persistence/sqlite/mappers/settings.mapper.ts
+  - packages/core/src/infrastructure/repositories/sqlite-settings.repository.ts
+  - packages/core/src/domain/factories/settings-defaults.factory.ts
+  - packages/core/src/infrastructure/services/settings.service.ts
+  - src/presentation/web/lib/feature-flags.ts
+  - src/presentation/web/components/layouts/app-sidebar/app-sidebar.tsx
+  - tests/integration/infrastructure/repositories/sqlite-settings.repository.test.ts
+  - tests/integration/infrastructure/persistence/sqlite/migrations.test.ts
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  The settings page feature follows the project's Clean Architecture with
+  changes spanning all four layers. Dependencies flow inward:
+
+  **Domain** — TypeSpec FeatureFlags model added to Settings entity. After
+  `pnpm tsp:compile`, the generated `output.ts` includes the new type.
+
+  **Infrastructure** — Migration v24 adds 6 columns (3 feature flag + 3 CI
+  workflow). The settings mapper gains toDatabase/fromDatabase mappings for
+  these columns. The repository's INSERT/UPDATE/SELECT queries include the
+  new columns. The settings service gains `updateSettings()` for in-memory
+  singleton refresh after DB writes.
+
+  **Application** — No changes needed. The existing `LoadSettingsUseCase` and
+  `UpdateSettingsUseCase` are generic — they work with the full Settings object
+  regardless of which fields it contains.
+
+  **Presentation** — Server Component page at `/settings`, two server actions
+  (load + update), six section client components, sidebar nav item, and
+  feature flags migration from env vars to DB-primary resolution.
+
+  ## Key Design Decisions
+
+  ### 1. FeatureFlags as Optional Property on Settings
+
+  The `featureFlags` property on Settings is optional (`featureFlags?:
+  FeatureFlags`). This ensures backward compatibility — databases without
+  the new columns (pre-migration) can still load settings, and the feature
+  flags resolution code gracefully falls back to env vars when the property
+  is undefined. This mirrors how other optional fields like `agent.token`
+  are handled.
+
+  ### 2. DB-Primary Feature Flag Resolution (Not Full Replacement)
+
+  The spec has a contradiction: open question Q3 selected "Full replacement
+  (DB only)" but FR-21 and NFR-9 explicitly require env var fallback. The
+  FRs are authoritative. Implementation reads from `getSettings().featureFlags`
+  when available, falling back to `process.env.NEXT_PUBLIC_*` for `skills`
+  and `envDeploy`. The `debug` flag is DB-only (no env var, per FR-21).
+
+  ### 3. Explicit Save Per Section (Not Auto-Save)
+
+  The spec has another contradiction: open question Q4 selected "Auto-save"
+  but FR-3 explicitly specifies "Save button" per section with disabled state
+  when clean. FR-3 is authoritative. Each section tracks dirty state via
+  simple deep comparison of current values vs initial values.
+
+  ### 4. Migration v24 Includes CI Workflow Columns
+
+  The TypeSpec WorkflowConfig already defines `ciMaxFixAttempts`,
+  `ciWatchTimeoutMs`, and `ciLogMaxChars` as optional fields, but these
+  columns are missing from the database schema, mapper, and repository.
+  Since the settings page needs to display/edit these values (FR-14), we
+  add them in the same migration as the feature flags columns.
+
+  ### 5. updateSettings() in Settings Service
+
+  FR-27 requires the in-memory singleton to reflect DB writes without a full
+  page reload. The current service only has `initializeSettings()` (throws
+  if already set) and `resetSettings()` (test-only). A new `updateSettings()`
+  function calls `writeSettings()` directly, providing a safe atomic update
+  path without the initialization guard.
+
+  ### 6. Server Actions Pattern
+
+  Two server actions follow the established codebase pattern: `'use server'`
+  directive, `resolve()` from `@/lib/server-container`, typed response
+  objects. `load-settings` resolves `LoadSettingsUseCase`. `update-settings`
+  loads current settings, deep-merges the partial payload, persists via
+  `UpdateSettingsUseCase`, and calls `updateSettings()` on the service to
+  refresh the in-memory singleton.
+
+  ### 7. Component Architecture
+
+  Server Component `page.tsx` fetches settings + DB info, passes to
+  `SettingsPageClient` which renders six section sub-components. Each
+  section manages its own local state via `useState`, tracks dirty state,
+  and calls the update-settings server action on Save. This avoids
+  over-engineering with form libraries or global state for simple 2-7
+  field forms.
+
+  ## Implementation Strategy
+
+  **Bottom-up approach**: Domain -> Infrastructure -> Presentation.
+
+  Phase 1 starts with the TypeSpec model and generated types because
+  everything else depends on the type definitions. The migration, mapper,
+  repository, defaults factory, and settings service changes all build on
+  the generated types. Integration tests verify the data layer works
+  before any UI code is written.
+
+  Phase 2 creates the bridge between infrastructure and presentation:
+  server actions that wire up the use cases, and the feature flags
+  migration that changes how flags are resolved. The shadcn Switch
+  component is installed here since it blocks Phase 3 UI work.
+
+  Phase 3 is the largest phase — building all 6 section components with
+  their stories and tests. Each section is independent and can be built
+  in sequence. The settings page client component orchestrates them.
+
+  Phase 4 integrates the sidebar nav item and runs full validation. This
+  comes last because the sidebar change depends on the feature flags
+  migration being complete.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | TypeSpec compilation breaks existing types | Run `pnpm tsp:compile` immediately after model change and verify output.ts diff is additive-only |
+  | Migration v24 fails on existing databases | Use ALTER TABLE ADD COLUMN (proven pattern in v9-v22) with NOT NULL DEFAULT 0 for feature flags, nullable for CI columns |
+  | Settings mapper breaks existing load/save | Integration tests verify round-trip before and after mapper changes — test with both old (no feature flags) and new (with feature flags) data |
+  | Feature flags migration breaks existing deployments | DB-primary with env var fallback ensures NEXT_PUBLIC_ vars continue working when DB values are not set |
+  | In-memory singleton update race condition | updateSettings() is a single synchronous writeSettings() call — no window for interleaving |
+  | Section components grow too large | Each section is its own file (NFR-7) with 2-7 fields — kept small by design |
+  | Save button UX confusion | Clear disabled state when clean, enabled when dirty, toast feedback on success/error |
