@@ -560,3 +560,21 @@ export const InteractiveWithRepository: Story = {
     onAddFeature: () => undefined,
   },
 };
+
+export const WithSavedViewport: Story = {
+  args: {
+    nodes: repoFeatureNodes,
+    edges: repoFeatureEdges,
+    defaultViewport: { x: 200, y: 150, zoom: 1.0 },
+    onResetViewport: () => ({ x: 30, y: 30, zoom: 0.85 }),
+  },
+};
+
+export const ZoomedOutViewport: Story = {
+  args: {
+    nodes: mixedLayoutedNodes,
+    edges: mixedLayoutedEdges,
+    defaultViewport: { x: 0, y: 0, zoom: 0.5 },
+    onResetViewport: () => ({ x: 30, y: 30, zoom: 0.85 }),
+  },
+};

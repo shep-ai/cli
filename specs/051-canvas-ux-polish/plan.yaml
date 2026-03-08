@@ -1,0 +1,194 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: canvas-ux-polish
+summary: >
+  Implementation plan for two canvas UX enhancements: (1) viewport persistence via a standalone
+  useViewportPersistence hook using localStorage with 500ms debounced onMoveEnd saves and
+  synchronous mount-time restore via defaultViewport, and (2) first-repo auto-focus via
+  handleAddRepository return metadata, fitView with node filter, and delayed drawer auto-open.
+  Both features integrate through ControlCenterInner as the orchestration layer, with
+  FeaturesCanvas remaining a pure presentation component. Three phases: hook + tests first,
+  then canvas integration, then first-repo orchestration.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - '@xyflow/react ^12.10.0 — useReactFlow (fitView, getViewport), onMoveEnd, defaultViewport'
+  - 'localStorage API — viewport read/write with JSON serialization'
+  - 'Next.js App Router — useRouter for drawer navigation'
+  - 'Vitest + React Testing Library — unit tests'
+  - 'Storybook — component stories'
+relatedLinks:
+  - 'https://github.com/shep-ai/cli/issues/213'
+  - 'https://github.com/shep-ai/cli/issues/208'
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'Viewport Persistence Hook'
+    description: >
+      Build and test the useViewportPersistence hook in isolation. This phase comes first because
+      the hook is the foundation for both features — viewport persistence needs it directly, and
+      first-repo auto-focus relies on its onMoveEnd callback to persist the auto-focused viewport.
+      TDD the hook with mocked localStorage covering save, restore, default fallback, corrupted
+      data, and debounce behavior. No React Flow dependency in the hook itself.
+    parallel: false
+
+  - id: phase-2
+    name: 'Canvas Integration'
+    description: >
+      Wire the viewport persistence hook into the canvas rendering pipeline. Extend
+      FeaturesCanvasProps with defaultViewport and onMoveEnd, update ControlCenterInner to
+      consume the hook and pass props to FeaturesCanvas, and update Storybook stories. This
+      phase makes viewport persistence functional end-to-end.
+    parallel: false
+
+  - id: phase-3
+    name: 'First-Repo Auto-Focus & Drawer'
+    description: >
+      Implement first-repo detection in handleAddRepository, add useReactFlow-based fitView
+      in ControlCenterInner, and wire the delayed drawer auto-open. This phase depends on
+      phase 2 because the auto-focused viewport must be saved via the already-wired onMoveEnd
+      callback. Includes TDD for the detection logic and integration coordination.
+    parallel: false
+
+# File change tracking
+filesToCreate:
+  - src/presentation/web/hooks/use-viewport-persistence.ts
+  - src/presentation/web/hooks/use-viewport-persistence.test.ts
+
+filesToModify:
+  - src/presentation/web/components/features/features-canvas/features-canvas.tsx
+  - src/presentation/web/components/features/features-canvas/features-canvas.stories.tsx
+  - src/presentation/web/components/features/control-center/control-center-inner.tsx
+  - src/presentation/web/components/features/control-center/use-control-center-state.ts
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Architecture Overview
+
+  The implementation adds two UX enhancements to the features canvas while preserving the
+  existing domain-model-driven architecture. The canvas currently uses an uncontrolled viewport
+  (`defaultViewport={{ x: 30, y: 30, zoom: 0.85 }}` in features-canvas.tsx:114) with domain
+  Maps as the single source of truth for nodes/edges. This architecture stays unchanged.
+
+  **Component Responsibilities (unchanged by this feature):**
+  - `useGraphState` — domain Maps (featureMap, repoMap, pendingMap) to derived nodes/edges
+  - `FeaturesCanvas` — pure presentation: renders ReactFlow with props
+  - `ControlCenterInner` — orchestration: event listeners, navigation, user interactions
+  - `use-control-center-state` — state mutations: add/remove repos, features, reconciliation
+
+  **New component:**
+  - `useViewportPersistence` — standalone hook in `src/presentation/web/hooks/` following the
+    `useSoundEnabled` pattern. Encapsulates localStorage read (mount), write (debounced
+    onMoveEnd), validation, and error handling. Returns `{ defaultViewport, onMoveEnd }`.
+
+  ## Key Design Decisions
+
+  ### 1. Uncontrolled Viewport (Keep Current Mode)
+
+  The canvas stays in uncontrolled mode using `defaultViewport` prop. React Flow reads
+  `defaultViewport` only on mount, which is exactly when we want to restore the saved viewport.
+  For post-mount programmatic changes (auto-focus), `useReactFlow().fitView()` works in
+  uncontrolled mode. Switching to controlled mode would cause re-renders on every pan/zoom
+  frame — unnecessary overhead for no benefit.
+
+  ### 2. Synchronous Viewport Restoration (No Flash)
+
+  The hook computes `defaultViewport` synchronously using `useState(() => readFromLocalStorage())`
+  as a lazy initializer. This avoids the visual flash that would occur with a `useEffect`-based
+  approach (render default, then effect fires, then jump to saved). Since the component is
+  `'use client'` and localStorage is available on first client render, synchronous initialization
+  is safe and correct. This differs from `useSoundEnabled` which uses `useEffect` to hydrate —
+  acceptable for a boolean toggle but unacceptable for viewport where a flash is visually jarring.
+
+  ### 3. Standalone Hook for Viewport Persistence
+
+  The hook lives in `src/presentation/web/hooks/use-viewport-persistence.ts` alongside
+  `use-sound-enabled.ts`. It returns `{ defaultViewport, onMoveEnd }` — a stable interface
+  that FeaturesCanvas consumes directly. The hook has no dependency on React Flow internals;
+  it only receives and stores `{x, y, zoom}` objects. This makes it unit-testable with a
+  mocked localStorage.
+
+  ### 4. handleAddRepository Returns Metadata for First-Repo Detection
+
+  Rather than reactive detection (useEffect watching repoMap size — which cannot distinguish
+  user action from SSE/polling data load), `handleAddRepository` returns `{ wasEmpty, repoPath }`
+  metadata. This leverages repoMapRef (already exists in useGraphState, exposed via the
+  functional form of setRepoMap) to check pre-mutation size. ControlCenterInner inspects the
+  return value to decide whether to trigger auto-focus + drawer.
+
+  ### 5. fitView for Auto-Focus
+
+  `useReactFlow().fitView({ nodes: [{ id }], maxZoom: 1.0, padding: 0.5, duration: 500 })`
+  is the idiomatic React Flow v12 API. It handles viewport math, adapts to container size,
+  and supports smooth animation. The 500ms duration falls within the NFR-4 range (400-600ms).
+  After the animation, React Flow fires `onMoveEnd` which automatically saves the auto-focused
+  viewport via the persistence hook — no special-case code needed.
+
+  ### 6. Delayed Drawer Open After fitView
+
+  A `setTimeout(600ms)` after the `fitView` call ensures the viewport animation (500ms)
+  completes before the drawer slides in. This creates a clean visual sequence: repo appears,
+  viewport centers, drawer opens. The navigation uses `guardedNavigate` (already in
+  ControlCenterInner) to respect active drawer close guards.
+
+  ## Implementation Strategy
+
+  **Phase 1 (Hook)** builds the foundation in isolation — fully TDD with no external
+  dependencies. The hook is testable with just a mocked localStorage and fake timers.
+
+  **Phase 2 (Canvas Integration)** wires the hook into the rendering pipeline. This is a
+  prop-threading change: ControlCenterInner consumes the hook, passes `defaultViewport` and
+  `onMoveEnd` to FeaturesCanvas, which threads them to `<ReactFlow>`. Stories are updated
+  to demonstrate persistence scenarios.
+
+  **Phase 3 (First-Repo)** adds the auto-focus + drawer orchestration. This depends on
+  phase 2 because the auto-focused viewport is persisted via the onMoveEnd callback wired
+  in phase 2. The detection logic lives in `handleAddRepository` (return metadata) and
+  the orchestration lives in ControlCenterInner (fitView + delayed drawer).
+
+  ## Data Flow Diagrams
+
+  ### Viewport Persistence
+
+  ```
+  Page Load:
+    useViewportPersistence() -> reads localStorage -> returns defaultViewport
+    ControlCenterInner -> passes defaultViewport to FeaturesCanvas
+    FeaturesCanvas -> passes defaultViewport to <ReactFlow defaultViewport={...}>
+
+  User Pan/Zoom:
+    <ReactFlow onMoveEnd> -> useViewportPersistence.onMoveEnd(viewport)
+    onMoveEnd -> debounce 500ms -> localStorage.setItem('shep-canvas-viewport', JSON.stringify)
+  ```
+
+  ### First Repo Auto-Focus
+
+  ```
+  User adds repo (top bar):
+    window.dispatchEvent('shep:add-repository')
+    ControlCenterInner handler -> handleAddRepository(path)
+    handleAddRepository -> checks repoMap.size === 0 -> adds repo -> returns { wasEmpty: true, repoPath }
+    ControlCenterInner -> if wasEmpty:
+      1. Wait for next render (repo node exists in DOM)
+      2. Call reactFlowInstance.fitView({nodes: [{id: repoNodeId}], maxZoom: 1.0, padding: 0.5, duration: 500})
+      3. setTimeout(600ms) -> guardedNavigate(() => router.push('/create?repo=<path>'))
+  ```
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | localStorage throws in private browsing or quota exceeded | All localStorage operations wrapped in try/catch; hook never throws; falls back to default viewport |
+  | Corrupted localStorage data causes blank canvas or infinite zoom | Validation checks x/y/zoom are finite numbers and zoom > 0; any failure falls back to default |
+  | fitView fires onMoveEnd before animation completes | React Flow fires onMoveEnd after animation; debounce coalesces intermediate events |
+  | Auto-focus triggers on page refresh when repos load from server | Detection tied to handleAddRepository return value (user action only) |
+  | SSE/polling reconcile triggers false first-repo detection | handleAddRepository only called from shep:add-repository event handler |
+  | Drawer auto-open races with fitView animation | 600ms setTimeout > 500ms fitView duration |
+  | defaultViewport change after mount has no effect | Correct: we only need saved viewport on mount; post-mount uses fitView |
+  | FeaturesCanvasProps change breaks existing consumers | Props are additive (new optional props with defaults) |
