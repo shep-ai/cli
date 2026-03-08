@@ -22,7 +22,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Select,
   SelectContent,
@@ -535,29 +535,31 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
               description="How the agent authenticates"
               htmlFor="auth-method"
             >
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    <Select value={authMethod} disabled>
-                      <SelectTrigger
-                        id="auth-method"
-                        data-testid="auth-method-select"
-                        className="w-55 cursor-not-allowed text-xs opacity-60"
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {AUTH_METHOD_OPTIONS.map((opt) => (
-                          <SelectItem key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>Coming soon</TooltipContent>
-              </Tooltip>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div>
+                      <Select value={authMethod} disabled>
+                        <SelectTrigger
+                          id="auth-method"
+                          data-testid="auth-method-select"
+                          className="w-55 cursor-not-allowed text-xs opacity-60"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {AUTH_METHOD_OPTIONS.map((opt) => (
+                            <SelectItem key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>Coming soon</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </SettingsRow>
             {authMethod === AgentAuthMethod.Token && (
               <SettingsRow label="API Token" htmlFor="agent-token">

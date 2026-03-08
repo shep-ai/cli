@@ -11,6 +11,16 @@ vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }));
 
+// Mock IntersectionObserver for jsdom
+vi.stubGlobal(
+  'IntersectionObserver',
+  class {
+    observe = vi.fn();
+    unobserve = vi.fn();
+    disconnect = vi.fn();
+  }
+);
+
 describe('SettingsPageClient', () => {
   const settings = createDefaultSettings();
 
