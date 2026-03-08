@@ -1,0 +1,187 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feature-drawer-tabs
+number: 052
+branch: feat/052-feature-drawer-tabs
+oneLiner: add tabbed layout to the feature drawer with overview, activity, messages, and plan tabs
+userQuery: >
+  https://github.com/shep-ai/cli/issues/230
+summary: >
+  The feature drawer currently shows all information in a single scrollable view.
+  This feature adds a tabbed layout to organize content into four logical sections
+  (Overview, Activity, Messages, Plan), matching the rich data available via
+  `shep feat show <id>` in the CLI. The shadcn/ui Tabs component and an existing
+  tabbed pattern (TechReviewTabs) are already in the codebase.
+phase: Analysis
+sizeEstimate: M
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - React (Next.js 16 App Router)
+  - shadcn/ui Tabs (Radix UI primitives)
+  - Tailwind CSS
+  - Storybook 8
+  - TypeSpec domain models
+  - Server Actions (Next.js)
+  - SSE (Server-Sent Events for real-time updates)
+
+relatedLinks:
+  - https://github.com/shep-ai/cli/issues/230
+
+# Open questions (must be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  The feature drawer (`FeatureDrawerClient`) currently renders the "feature" view
+  as a single scrollable body containing status, PR info, and details. Meanwhile,
+  the CLI command `shep feat show <id>` surfaces much richer data: phase timings
+  with duration bars, lifecycle events, multi-run grouping, approval wait times,
+  rejection feedback, feature messages, and plan state with task breakdowns.
+
+  There is no way for the web UI to display this additional information without
+  overloading a single scroll view. A tabbed layout solves this by organizing
+  content into logical sections.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The project follows Clean Architecture with four layers:
+
+  - `packages/core/src/domain/` — Domain models (Feature, Plan, Message, PhaseTiming, AgentRun)
+  - `packages/core/src/application/` — Use cases and output port interfaces
+  - `packages/core/src/infrastructure/` — SQLite repositories, agent services
+  - `src/presentation/web/` — Next.js 16 web UI (App Router)
+
+  Web component hierarchy relevant to this feature:
+
+  ```
+  src/presentation/web/components/
+  ├── ui/tabs.tsx                          # shadcn/ui Tabs primitives (READY)
+  ├── common/
+  │   ├── control-center-drawer/
+  │   │   ├── feature-drawer-client.tsx    # Main drawer orchestrator (743 lines)
+  │   │   ├── drawer-view.ts              # View type derivation logic
+  │   │   └── use-artifact-fetch.ts        # Data fetching hook
+  │   ├── feature-drawer/
+  │   │   ├── feature-drawer.tsx           # Current simple feature view
+  │   │   ├── feature-drawer.stories.tsx   # Existing stories
+  │   │   ├── use-feature-actions.ts       # Action callbacks hook
+  │   │   └── index.ts
+  │   └── tech-review-tabs/
+  │       ├── tech-review-tabs.tsx         # REFERENCE tabbed pattern
+  │       ├── tech-review-tabs-config.ts   # Props type definition
+  │       └── tech-review-tabs.stories.tsx # Stories pattern reference
+  ```
+
+  ### Architecture Patterns
+
+  **Drawer View System**: `FeatureDrawerClient` uses a discriminated union (`DrawerView`)
+  to switch between four view types:
+  - `'feature'` — default view (this is what gets tabs)
+  - `'prd-review'` — requirements review (PrdQuestionnaire)
+  - `'tech-review'` — technical review (TechReviewTabs, already tabbed)
+  - `'merge-review'` — merge review (MergeReview)
+
+  `deriveFeatureViewType(node)` maps lifecycle + state to the view type. The tabs
+  only apply to the `'feature'` view; review views remain unchanged.
+
+  **Data Flow**: Canvas node click → `useControlCenterState` → server refetch →
+  `FeatureDrawerClient` receives `DrawerView` with `FeatureNodeData` → derives
+  view type → renders appropriate body. SSE events trigger `router.refresh()` and
+  optimistic view updates.
+
+  **Existing Tab Pattern**: `TechReviewTabs` uses shadcn/ui `Tabs` with flex column
+  layout: `TabsList` in a shrink-0 header, `TabsContent` with `flex-1 overflow-y-auto`
+  for scrollable content, and `DrawerActionBar` at the bottom.
+
+  **Server Actions**: Data fetching uses Next.js server actions in
+  `src/presentation/web/app/actions/`. Currently `getFeatureMetadata` and
+  `getFeatureArtifact` exist. New server actions will be needed for phase timings,
+  messages, and plan data.
+
+  ### Relevant Technologies
+
+  - **shadcn/ui Tabs** (`src/presentation/web/components/ui/tabs.tsx`): Radix UI-based
+    Tabs, TabsList, TabsTrigger, TabsContent — already installed and used.
+  - **Next.js 16 Server Actions**: Used for data fetching in the drawer system.
+  - **SSE via useAgentEventsContext**: Real-time updates that trigger drawer refresh.
+  - **Storybook 8**: Mandatory colocated `.stories.tsx` files for all UI components.
+
+  ### Domain Models
+
+  Key types from `packages/core/src/domain/generated/output.ts`:
+
+  - **Feature**: Contains `messages: Message[]`, `plan?: Plan`, `lifecycle: SdlcLifecycle`
+  - **Message**: `role: MessageRole`, `content: string`, `options?: string[]`, `answer?: string`
+  - **Plan**: `overview: string`, `tasks: Task[]`, `state: PlanState`, `requirements: Requirement[]`
+  - **PhaseTiming**: `agentRunId`, `phase`, `startedAt`, `completedAt?`, `durationMs?`,
+    `waitingApprovalAt?`, `approvalWaitMs?`
+  - **AgentRun**: `status: AgentRunStatus`, `startedAt?`, `completedAt?`, `featureId?`
+
+  ### Data Availability
+
+  - **Overview tab**: Uses existing `FeatureNodeData` — no new fetching needed.
+  - **Activity tab**: Requires `PhaseTiming[]` via `IPhaseTimingRepository.findByFeatureId()`.
+    New server action needed.
+  - **Messages tab**: Requires `Feature.messages[]` via `IFeatureRepository.findById()`.
+    New server action needed (or extend existing `getFeatureMetadata`).
+  - **Plan tab**: Requires `Feature.plan` via `IFeatureRepository.findById()`.
+    New server action needed (or extend existing `getFeatureMetadata`).
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `src/presentation/web/components/common/feature-drawer/` | High | New tabbed component replaces current single-view body |
+  | `src/presentation/web/components/common/control-center-drawer/feature-drawer-client.tsx` | High | Must wire tabbed component into the 'feature' view body rendering |
+  | `src/presentation/web/app/actions/` | Medium | New server actions for phase timings, messages, and plan data |
+  | `src/presentation/web/components/ui/tabs.tsx` | None | Already exists and is ready to use |
+  | `packages/core/src/application/ports/output/agents/phase-timing-repository.interface.ts` | None | `findByFeatureId` already exists |
+  | `packages/core/src/application/use-cases/features/show-feature.use-case.ts` | Low | May need to expose messages/plan separately or reuse existing |
+  | `src/presentation/cli/commands/feat/show.command.ts` | None | Read-only reference for Activity tab rendering logic |
+  | `.storybook/mocks/` | Medium | Mock data for new server actions in stories |
+
+  ## Dependencies
+
+  **Existing infrastructure (no changes needed):**
+  - `shadcn/ui Tabs` component (`ui/tabs.tsx`)
+  - `IPhaseTimingRepository.findByFeatureId()` — already implemented in SQLite repo
+  - `IFeatureRepository.findById()` — returns full Feature with messages and plan
+  - `ShowFeatureUseCase` — retrieves Feature by ID
+  - `FeatureNodeData` type — already contains all Overview tab data
+  - `BaseDrawer` component — drawer shell with sizing/modal support
+  - `TechReviewTabs` — pattern reference for tabbed drawer implementation
+
+  **New code required:**
+  - Server action(s) to fetch phase timings, messages, and plan for a feature
+  - `FeatureDrawerTabs` component (new tabbed layout container)
+  - Activity tab content component (phase timing visualization)
+  - Messages tab content component (message log display)
+  - Plan tab content component (plan state + task list)
+  - Storybook stories for all new components
+
+  ## Size Estimate
+
+  **M** — This is a multi-day effort with well-defined scope. The UI primitives
+  (Tabs component) and data layer (repositories, domain models) already exist.
+  The main work is:
+  1. Creating 3-4 new presentation components (tab container + tab content components)
+  2. Adding 1-2 new server actions for data fetching
+  3. Integrating into the existing FeatureDrawerClient view system
+  4. Adapting CLI rendering logic (phase timing visualization) for web
+  5. Writing comprehensive Storybook stories
+
+  The Activity tab (phase timing visualization with duration bars, multi-run
+  grouping, approval waits) is the most complex piece. Overview and Messages
+  tabs are straightforward. Plan tab is medium complexity.
+
+  ---
+
+  _Analysis complete — proceed with research_
