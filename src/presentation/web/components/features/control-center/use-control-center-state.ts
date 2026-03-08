@@ -57,6 +57,7 @@ export interface ControlCenterState {
 const METADATA_UPDATED_MESSAGE = 'Feature metadata updated';
 
 let nextFeatureId = 0;
+let nextRepoTempId = 0;
 
 export function useControlCenterState(
   initialNodes: CanvasNodeType[],
@@ -387,7 +388,7 @@ export function useControlCenterState(
   const handleAddRepository = useCallback(
     (path: string): { wasEmpty: boolean; repoPath: string } => {
       const wasEmpty = getRepoMapSize() === 0;
-      const tempId = `repo-temp-${Date.now()}`;
+      const tempId = `repo-temp-${++nextRepoTempId}`;
       const repoName =
         path
           .replace(/[\\/]+$/, '')
