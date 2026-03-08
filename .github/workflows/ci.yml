@@ -4,13 +4,13 @@
 # All jobs run in parallel. Release only runs on push to main.
 #
 # Pipeline Structure:
-#   ┌──────┬───────────┬───────┬─────────┬─────────┬─────────┬───────────┬────────┐
-#   │ Lint │ Typecheck │ Unit  │ E2E CLI │ E2E TUI │ E2E Web │ Storybook │ Docker │
-#   └──────┴───────────┴───────┴─────────┴─────────┴─────────┴───────────┴────────┘
-#   ┌───────────────┬──────────────────────┬──────────┬─────────┬──────────┐
-#   │ Trivy (deps)  │ Trivy (container)    │ Gitleaks │ Semgrep │ Hadolint │
-#   └───────────────┴──────────────────────┴──────────┴─────────┴──────────┘
-#                              (all parallel)
+#   ┌──────┬───────────┬───────┬─────────┬─────────┬─────────┬───────────┐
+#   │ Lint │ Typecheck │ Unit  │ E2E CLI │ E2E TUI │ E2E Web │ Storybook │
+#   └──────┴───────────┴───────┴─────────┴─────────┴─────────┴───────────┘
+#   ┌───────────────┬──────────┬─────────┐
+#   │ Trivy (deps)  │ Gitleaks │ Semgrep │
+#   └───────────────┴──────────┴─────────┘
+#                  (all parallel)
 #
 #   On push to main only:
 #   ┌───────────┐
@@ -19,13 +19,8 @@
 #
 #   On pull requests (after ALL jobs pass):
 #   ┌───────────────┐
-#   │  Dev Release   │  npm dev tag + Docker pr-<number>-<sha> tag
+#   │  Dev Release   │  npm dev tag
 #   └───────────────┘
-#
-# Docker Tags:
-#   - All branches: sha-<full-commit-sha>
-#   - PRs: pr-<number>-<short-sha>
-#   - Main (via semantic-release): latest, <version>
 #
 # @see https://docs.github.com/en/actions
 
@@ -158,50 +153,6 @@ jobs:
       - run: pnpm run build:storybook
 
   # ===========================================================================
-  # Docker Build (pushes SHA tag for non-main branches only)
-  # Builds Docker image on all branches for verification
-  # On main, release job also handles versioned Docker push
-  # ===========================================================================
-  docker:
-    name: Docker Build
-    runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
-      packages: write
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Docker metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository }}
-          tags: |
-            type=sha,format=long
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  # ===========================================================================
   # Security: Trivy Filesystem Scan (dependencies + IaC)
   # ===========================================================================
   security-trivy:
@@ -259,58 +210,6 @@ jobs:
         continue-on-error: true
 
   # ===========================================================================
-  # Security: Trivy Container Scan
-  # ===========================================================================
-  security-trivy-container:
-    name: Trivy (container)
-    runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
-      security-events: write
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build Docker image for scanning
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          load: true
-          tags: security-scan:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Trivy container scan
-        uses: aquasecurity/trivy-action@master
-        env:
-          TRIVY_NO_TELEMETRY: 'true'
-        with:
-          image-ref: security-scan:${{ github.sha }}
-          severity: 'HIGH,CRITICAL'
-          exit-code: '1'
-          format: 'table'
-          output: 'trivy-container-results.txt'
-          trivyignores: '.trivyignore'
-
-      - name: Display Trivy results
-        if: always()
-        run: |
-          echo "::group::Trivy Container Scan Results"
-          cat trivy-container-results.txt || echo "No results file found"
-          echo "::endgroup::"
-          echo "## Trivy Container Scan Results" >> $GITHUB_STEP_SUMMARY
-          if [ -f trivy-container-results.txt ]; then
-            # Extract only the vulnerability table (skip header lines, keep from Total: onwards)
-            sed -n '/^Total:/,$p' trivy-container-results.txt >> $GITHUB_STEP_SUMMARY || cat trivy-container-results.txt >> $GITHUB_STEP_SUMMARY
-          else
-            echo "No results file found" >> $GITHUB_STEP_SUMMARY
-          fi
-
-  # ===========================================================================
   # Security: Gitleaks Secret Detection
   # Uses gitleaks CLI directly (free, open source) instead of gitleaks-action
   # which requires a paid license for organizations
@@ -359,22 +258,6 @@ jobs:
             p/security-audit
 
   # ===========================================================================
-  # Security: Hadolint Dockerfile Lint
-  # ===========================================================================
-  security-hadolint:
-    name: Hadolint
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Hadolint Dockerfile lint
-        uses: hadolint/hadolint-action@v3.1.0
-        with:
-          dockerfile: Dockerfile
-          failure-threshold: warning
-
-  # ===========================================================================
   # Security Summary Comment (PRs only)
   # Posts aggregated security scan results as a PR comment
   # ===========================================================================
@@ -383,18 +266,14 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - security-trivy
-      - security-trivy-container
       - security-gitleaks
       - security-semgrep
-      - security-hadolint
     # Only post comment when security issues are found
     if: >-
       github.event_name == 'pull_request' && always() &&
       (needs.security-trivy.result == 'failure' ||
-       needs.security-trivy-container.result == 'failure' ||
        needs.security-gitleaks.result == 'failure' ||
-       needs.security-semgrep.result == 'failure' ||
-       needs.security-hadolint.result == 'failure')
+       needs.security-semgrep.result == 'failure')
 
     permissions:
       pull-requests: write
@@ -411,10 +290,8 @@ jobs:
             | Scanner | Status | Details |
             |---------|--------|---------|
             | **Trivy (deps)** | ${{ needs.security-trivy.result == 'success' && '✅ Pass' || needs.security-trivy.result == 'failure' && '❌ Failed' || needs.security-trivy.result == 'skipped' && '⏭️ Skipped' || '⚠️ Cancelled' }} | Dependency vulnerabilities (HIGH/CRITICAL) |
-            | **Trivy (container)** | ${{ needs.security-trivy-container.result == 'success' && '✅ Pass' || needs.security-trivy-container.result == 'failure' && '❌ Failed' || needs.security-trivy-container.result == 'skipped' && '⏭️ Skipped' || '⚠️ Cancelled' }} | Docker image vulnerabilities |
             | **Gitleaks** | ${{ needs.security-gitleaks.result == 'success' && '✅ Pass' || needs.security-gitleaks.result == 'failure' && '❌ Failed' || needs.security-gitleaks.result == 'skipped' && '⏭️ Skipped' || '⚠️ Cancelled' }} | Secret detection in git history |
             | **Semgrep** | ${{ needs.security-semgrep.result == 'success' && '✅ Pass' || needs.security-semgrep.result == 'failure' && '❌ Failed' || needs.security-semgrep.result == 'skipped' && '⏭️ Skipped' || '⚠️ Cancelled' }} | SAST for TypeScript/JavaScript |
-            | **Hadolint** | ${{ needs.security-hadolint.result == 'success' && '✅ Pass' || needs.security-hadolint.result == 'failure' && '❌ Failed' || needs.security-hadolint.result == 'skipped' && '⏭️ Skipped' || '⚠️ Cancelled' }} | Dockerfile best practices |
 
             > ⚠️ **Please review the failed checks above before merging.**
 
@@ -435,12 +312,9 @@ jobs:
       - test-e2e-tui
       - test-e2e-web
       - storybook-build
-      - docker
       - security-trivy
-      - security-trivy-container
       - security-gitleaks
       - security-semgrep
-      - security-hadolint
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '[skip ci]')
 
     permissions:
@@ -448,7 +322,6 @@ jobs:
       issues: write
       pull-requests: write
       id-token: write
-      packages: write
 
     steps:
       - uses: actions/checkout@v4
@@ -458,16 +331,6 @@ jobs:
           # persist-credentials must be true for semantic-release to push commits
           persist-credentials: true
           token: ${{ secrets.RELEASE_TOKEN }}
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
@@ -486,29 +349,9 @@ jobs:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
         run: npx semantic-release
 
-      - name: Get release version
-        id: version
-        if: steps.semantic.outcome == 'success'
-        run: |
-          VERSION=$(node -p "require('./package.json').version")
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Released version: $VERSION"
-
-      - name: Build and push Docker image (versioned)
-        if: steps.version.outputs.version != ''
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: |
-            ghcr.io/${{ github.repository }}:latest
-            ghcr.io/${{ github.repository }}:v${{ steps.version.outputs.version }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
   # ===========================================================================
   # Dev Release (PRs only, after ALL jobs pass)
-  # Publishes npm prerelease with dev tag and Docker image with PR tag
+  # Publishes npm prerelease with dev tag
   # ===========================================================================
   dev-release:
     name: Dev Release
@@ -521,17 +364,13 @@ jobs:
       - test-e2e-tui
       - test-e2e-web
       - storybook-build
-      - docker
       - security-trivy
-      - security-trivy-container
       - security-gitleaks
       - security-semgrep
-      - security-hadolint
     if: github.event_name == 'pull_request'
 
     permissions:
       contents: read
-      packages: write
       pull-requests: write
 
     steps:
@@ -545,11 +384,8 @@ jobs:
           SHORT_SHA=$(git rev-parse --short=7 HEAD)
           BASE_VERSION=$(node -p "require('./package.json').version")
           DEV_VERSION="${BASE_VERSION}-pr${PR_NUMBER}.${SHORT_SHA}"
-          DOCKER_TAG="pr-${PR_NUMBER}-${SHORT_SHA}"
           echo "version=$DEV_VERSION" >> $GITHUB_OUTPUT
-          echo "docker_tag=$DOCKER_TAG" >> $GITHUB_OUTPUT
           echo "Dev version: $DEV_VERSION"
-          echo "Docker tag: $DOCKER_TAG"
 
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
@@ -569,30 +405,10 @@ jobs:
           npm version "$DEV_VERSION" --no-git-tag-version
           npm publish --tag dev --access public
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push Docker image (dev)
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: ghcr.io/${{ github.repository }}:${{ steps.devver.outputs.docker_tag }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
       - name: Post PR comment with dev versions
         uses: peter-evans/create-or-update-comment@v5
         env:
           DEV_VERSION: ${{ steps.devver.outputs.version }}
-          DOCKER_TAG: ${{ steps.devver.outputs.docker_tag }}
         with:
           issue-number: ${{ github.event.pull_request.number }}
           comment-tag: dev-release
@@ -602,7 +418,6 @@ jobs:
             | Artifact | Version | Install |
             |----------|---------|---------|
             | **npm** | `${{ steps.devver.outputs.version }}` | `npm install -g @shepai/cli@${{ steps.devver.outputs.version }}` |
-            | **Docker** | `${{ steps.devver.outputs.docker_tag }}` | `docker pull ghcr.io/${{ github.repository }}:${{ steps.devver.outputs.docker_tag }}` |
 
             ---
             <sub>Published from commit ${{ github.event.pull_request.head.sha }} | [View CI](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})</sub>
