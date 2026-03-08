@@ -393,6 +393,12 @@ export async function initializeContainer(): Promise<typeof container> {
   container.register('UpdateFeatureLifecycleUseCase', {
     useFactory: (c) => c.resolve(UpdateFeatureLifecycleUseCase),
   });
+  container.register('LoadSettingsUseCase', {
+    useFactory: (c) => c.resolve(LoadSettingsUseCase),
+  });
+  container.register('UpdateSettingsUseCase', {
+    useFactory: (c) => c.resolve(UpdateSettingsUseCase),
+  });
 
   _initialized = true;
   return container;

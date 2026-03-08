@@ -23,6 +23,9 @@ properties:
   workflow:
     $ref: WorkflowConfig.yaml
     description: Global workflow configuration defaults
+  featureFlags:
+    $ref: FeatureFlags.yaml
+    description: Feature flag toggles for runtime feature control
   onboardingComplete:
     type: boolean
     default: false

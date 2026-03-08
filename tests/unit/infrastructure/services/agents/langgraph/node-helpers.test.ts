@@ -406,22 +406,13 @@ describe('buildExecutorOptions', () => {
     expect(result.cwd).toBe('/repo');
   });
 
-  it('should include maxTurns of 50', () => {
+  it('should include maxTurns of 5000', () => {
     const state = {
       worktreePath: '/work',
       repositoryPath: '/repo',
     } as FeatureAgentState;
     const result = buildExecutorOptions(state);
-    expect(result.maxTurns).toBe(50);
-  });
-
-  it('should include disableMcp as true', () => {
-    const state = {
-      worktreePath: '/work',
-      repositoryPath: '/repo',
-    } as FeatureAgentState;
-    const result = buildExecutorOptions(state);
-    expect(result.disableMcp).toBe(true);
+    expect(result.maxTurns).toBe(5000);
   });
 });
 

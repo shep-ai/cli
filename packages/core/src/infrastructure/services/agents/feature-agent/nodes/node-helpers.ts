@@ -60,8 +60,7 @@ export function readSpecFile(specDir: string, filename: string): string {
 export function buildExecutorOptions(state: FeatureAgentState): AgentExecutionOptions {
   return {
     cwd: state.worktreePath || state.repositoryPath,
-    maxTurns: 50,
-    disableMcp: true,
+    maxTurns: 5000,
   };
 }
 

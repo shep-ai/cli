@@ -11,7 +11,18 @@ vi.mock('next/navigation', () => ({
 }));
 
 import { AppShell } from '@/components/layouts/app-shell';
+import { FeatureFlagsProvider } from '@/hooks/feature-flags-context';
 import { useSidebarFeaturesContext } from '@/hooks/sidebar-features-context';
+
+const defaultFlags = { skills: false, envDeploy: false, debug: false };
+
+function renderShell(children: React.ReactNode) {
+  return render(
+    <FeatureFlagsProvider flags={defaultFlags}>
+      <AppShell>{children}</AppShell>
+    </FeatureFlagsProvider>
+  );
+}
 
 /**
  * A child component that publishes features into the SidebarFeaturesContext.
@@ -36,48 +47,28 @@ describe('AppShell', () => {
   });
 
   it('renders children within the dashboard layout', () => {
-    render(
-      <AppShell>
-        <div>Test content</div>
-      </AppShell>
-    );
+    renderShell(<div>Test content</div>);
     expect(screen.getByText('Test content')).toBeInTheDocument();
   });
 
   it('renders sidebar with Control Center and Tools nav items', () => {
-    render(
-      <AppShell>
-        <div>Content</div>
-      </AppShell>
-    );
+    renderShell(<div>Content</div>);
     expect(screen.getByText('Control Center')).toBeInTheDocument();
     expect(screen.getByText('Tools')).toBeInTheDocument();
   });
 
   it('renders Shep logo in sidebar', () => {
-    render(
-      <AppShell>
-        <div>Content</div>
-      </AppShell>
-    );
+    renderShell(<div>Content</div>);
     expect(screen.getByText('Shep')).toBeInTheDocument();
   });
 
   it('renders ThemeToggle in header actions', () => {
-    render(
-      <AppShell>
-        <div>Content</div>
-      </AppShell>
-    );
+    renderShell(<div>Content</div>);
     expect(screen.getByLabelText(/switch to .* mode/i)).toBeInTheDocument();
   });
 
   it('marks Control Center as active for / pathname', () => {
-    render(
-      <AppShell>
-        <div>Content</div>
-      </AppShell>
-    );
+    renderShell(<div>Content</div>);
     const controlCenterLink = screen.getByRole('link', { name: /control center/i });
     expect(controlCenterLink).toHaveAttribute('data-active', 'true');
   });
@@ -88,11 +79,7 @@ describe('AppShell', () => {
       { featureId: 'f-2', name: 'Dashboard', status: 'in-progress' as const },
     ];
 
-    render(
-      <AppShell>
-        <ContextPublisher features={features} />
-      </AppShell>
-    );
+    renderShell(<ContextPublisher features={features} />);
 
     expect(screen.getByText('Auth Module')).toBeInTheDocument();
     expect(screen.getByText('Dashboard')).toBeInTheDocument();
@@ -104,11 +91,7 @@ describe('AppShell', () => {
       { featureId: 'f-42', name: 'Click Target', status: 'action-needed' as const },
     ];
 
-    render(
-      <AppShell>
-        <ContextPublisher features={features} />
-      </AppShell>
-    );
+    renderShell(<ContextPublisher features={features} />);
 
     await user.click(screen.getByText('Click Target'));
 

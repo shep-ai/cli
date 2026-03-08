@@ -504,6 +504,99 @@ describe('SQLiteSettingsRepository', () => {
     });
   });
 
+  describe('feature flags', () => {
+    it('should initialize settings with featureFlags and load them back', async () => {
+      const settings = createTestSettings();
+      settings.featureFlags = { skills: true, envDeploy: false, debug: true };
+
+      await repository.initialize(settings);
+      const loaded = await repository.load();
+
+      expect(loaded?.featureFlags).toEqual({ skills: true, envDeploy: false, debug: true });
+    });
+
+    it('should initialize settings without featureFlags and load defaults', async () => {
+      const settings = createTestSettings();
+      // featureFlags is undefined — mapper should default to all false
+
+      await repository.initialize(settings);
+      const loaded = await repository.load();
+
+      expect(loaded?.featureFlags).toEqual({ skills: false, envDeploy: false, debug: false });
+    });
+
+    it('should update featureFlags and persist changes', async () => {
+      const settings = createTestSettings();
+      await repository.initialize(settings);
+
+      settings.featureFlags = { skills: true, envDeploy: true, debug: false };
+      settings.updatedAt = new Date('2025-01-02T00:00:00Z');
+      await repository.update(settings);
+
+      const loaded = await repository.load();
+      expect(loaded?.featureFlags).toEqual({ skills: true, envDeploy: true, debug: false });
+    });
+
+    it('should store feature flag booleans as INTEGER 0/1', async () => {
+      const settings = createTestSettings();
+      settings.featureFlags = { skills: true, envDeploy: false, debug: true };
+
+      await repository.initialize(settings);
+
+      const row = db
+        .prepare(
+          'SELECT feature_flag_skills, feature_flag_env_deploy, feature_flag_debug FROM settings WHERE id = ?'
+        )
+        .get('singleton') as Record<string, number>;
+      expect(row.feature_flag_skills).toBe(1);
+      expect(row.feature_flag_env_deploy).toBe(0);
+      expect(row.feature_flag_debug).toBe(1);
+    });
+  });
+
+  describe('CI workflow fields', () => {
+    it('should initialize settings with CI fields and load them back', async () => {
+      const settings = createTestSettings();
+      settings.workflow.ciMaxFixAttempts = 5;
+      settings.workflow.ciWatchTimeoutMs = 300000;
+      settings.workflow.ciLogMaxChars = 25000;
+
+      await repository.initialize(settings);
+      const loaded = await repository.load();
+
+      expect(loaded?.workflow.ciMaxFixAttempts).toBe(5);
+      expect(loaded?.workflow.ciWatchTimeoutMs).toBe(300000);
+      expect(loaded?.workflow.ciLogMaxChars).toBe(25000);
+    });
+
+    it('should handle undefined CI fields as null in database', async () => {
+      const settings = createTestSettings();
+      // CI fields are not set (undefined)
+
+      await repository.initialize(settings);
+
+      const row = db
+        .prepare(
+          'SELECT ci_max_fix_attempts, ci_watch_timeout_ms, ci_log_max_chars FROM settings WHERE id = ?'
+        )
+        .get('singleton') as Record<string, number | null>;
+      expect(row.ci_max_fix_attempts).toBeNull();
+      expect(row.ci_watch_timeout_ms).toBeNull();
+      expect(row.ci_log_max_chars).toBeNull();
+    });
+
+    it('should not include undefined CI fields in loaded settings', async () => {
+      const settings = createTestSettings();
+
+      await repository.initialize(settings);
+      const loaded = await repository.load();
+
+      expect(loaded?.workflow.ciMaxFixAttempts).toBeUndefined();
+      expect(loaded?.workflow.ciWatchTimeoutMs).toBeUndefined();
+      expect(loaded?.workflow.ciLogMaxChars).toBeUndefined();
+    });
+  });
+
   describe('SQL injection prevention', () => {
     it('should safely handle user input with SQL special characters in name', async () => {
       // Arrange

@@ -293,6 +293,22 @@ describe('createDefaultSettings', () => {
     });
   });
 
+  describe('FeatureFlags defaults', () => {
+    it('should have featureFlags field defined', () => {
+      const settings = createDefaultSettings();
+      expect(settings.featureFlags).toBeDefined();
+    });
+
+    it('should default all feature flags to false', () => {
+      const settings = createDefaultSettings();
+      expect(settings.featureFlags).toEqual({
+        skills: false,
+        envDeploy: false,
+        debug: false,
+      });
+    });
+  });
+
   describe('complete default object', () => {
     it('should return complete Settings object matching all TypeSpec defaults', () => {
       // Act

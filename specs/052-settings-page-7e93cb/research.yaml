@@ -1,0 +1,503 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: settings-page-7e93cb
+summary: >
+  Comprehensive technical research for the settings page feature. The feature
+  spans four architecture layers: TypeSpec domain model extension (FeatureFlags),
+  SQLite persistence (migration v24, mapper, repository updates), server actions
+  (load-settings, update-settings), and presentation (Next.js page + 6 section
+  components with Storybook stories). Key decisions include extending the
+  settings service with an updateSettings() function for in-memory singleton
+  refresh, adding a shadcn/ui Switch component via CLI, using the existing
+  server-container DI pattern for use case resolution, and adding CI workflow
+  columns that exist in the domain model but are missing from the database schema.
+
+relatedFeatures: []
+
+technologies:
+  - Next.js 16 (App Router, Server Components, Server Actions)
+  - React 19 (client components, hooks-based state)
+  - shadcn/ui (Radix UI primitives — Card, Select, Input, Label, Button, Switch, Separator)
+  - Tailwind CSS v4
+  - TypeSpec (domain model extension for FeatureFlags)
+  - SQLite (better-sqlite3, migration v24 for feature flags + CI columns)
+  - tsyringe (DI container, string-token resolution)
+  - Storybook (mandatory colocated .stories.tsx files)
+  - lucide-react (Settings, Eye, EyeOff icons)
+  - sonner (toast notifications for save feedback)
+  - Vitest (unit tests for components, integration tests for mapper/repository)
+
+relatedLinks: []
+
+decisions:
+  - title: 'TypeSpec Model Extension Strategy'
+    chosen: 'Add FeatureFlags model to settings.tsp with three boolean fields (skills, envDeploy, debug) and add it as an optional property on Settings entity'
+    rejected:
+      - 'Store feature flags as a JSON blob column — breaks the existing flat-column pattern used by all other Settings fields and complicates querying'
+      - 'Create a separate FeatureFlags table — violates the singleton pattern, adds unnecessary JOIN complexity, and breaks the existing Settings domain model contract'
+    rationale: >
+      The existing Settings entity in settings.tsp follows a pattern of nested
+      model composition (ModelConfiguration, UserProfile, EnvironmentConfig,
+      SystemConfig, AgentConfig, NotificationPreferences, WorkflowConfig). Adding
+      FeatureFlags as another nested model is consistent with this pattern. Each
+      boolean field maps to a dedicated INTEGER column in SQLite, following the
+      same toDatabase/fromDatabase mapping pattern used by all other Settings
+      fields. The featureFlags property should be optional on Settings so that
+      existing database rows (without the new columns) can still be loaded —
+      fromDatabase will omit it when columns are NULL, and createDefaultSettings
+      will provide defaults.
+
+  - title: 'Database Migration Strategy for Feature Flags'
+    chosen: 'Add migration v24 with three ALTER TABLE ADD COLUMN statements for feature_flag_skills, feature_flag_env_deploy, feature_flag_debug (INTEGER NOT NULL DEFAULT 0)'
+    rejected:
+      - 'Recreate the entire settings table with new columns — unnecessarily destructive, loses data, and the ALTER TABLE pattern is already proven by migrations v9, v10, v11, v13, v22'
+      - 'Use a handler-based migration with conditional column checks — unnecessary since these are new columns that definitely do not exist yet (unlike migration v22 which handled a rebase edge case)'
+    rationale: >
+      The codebase consistently uses ALTER TABLE ADD COLUMN for extending the
+      settings table (see migrations v9-v15, v20-v22). SQLite supports adding
+      columns with NOT NULL + DEFAULT, which is exactly what we need. Using
+      DEFAULT 0 (false) means existing settings rows get sensible defaults
+      without any data migration. The column naming follows the established
+      pattern: prefix_field (e.g., notif_in_app_enabled, approval_gate_allow_prd).
+
+  - title: 'Database Migration for CI Workflow Columns'
+    chosen: 'Include CI workflow columns (ci_max_fix_attempts, ci_watch_timeout_ms, ci_log_max_chars) in the same migration v24 as feature flags'
+    rejected:
+      - 'Skip CI columns and only add feature flags — the CI fields exist in the TypeSpec domain model (WorkflowConfig.ciMaxFixAttempts, ciWatchTimeoutMs, ciLogMaxChars) but are missing from the SettingsRow interface, mapper, and database schema. The settings page UI needs these columns to display and edit CI settings (FR-14). Leaving them out would mean the UI cannot persist CI settings.'
+      - 'Add CI columns in a separate migration v25 — unnecessary split since both sets of columns are new and can be added atomically in one migration'
+    rationale: >
+      The WorkflowConfig type in the generated output.ts already defines
+      ciMaxFixAttempts?, ciWatchTimeoutMs?, and ciLogMaxChars? as optional
+      number fields. However, the SettingsRow interface, toDatabase/fromDatabase
+      mapper functions, and SQLite schema do not include these columns. Since
+      the settings page needs to display and edit these values (FR-14), we must
+      add them. Combining them with the feature flags migration avoids an extra
+      migration version. These columns use INTEGER type (nullable, since the
+      domain fields are optional) with no DEFAULT so they start as NULL (unset).
+
+  - title: 'Settings Service In-Memory Update Strategy'
+    chosen: 'Add an updateSettings(settings: Settings) function to settings.service.ts that overwrites the globalThis/process singleton without the re-initialization guard'
+    rejected:
+      - 'Use resetSettings() + initializeSettings() — fragile because another thread/request could read between the reset and re-init, seeing a null singleton and throwing. Also semantically misleading since we are updating, not resetting and re-initializing.'
+      - 'Skip in-memory update and rely on page refresh — violates FR-27 which requires the rest of the application to see updated values without a full page reload. Feature flags that affect sidebar visibility (FR-22) would not take effect until restart.'
+    rationale: >
+      FR-27 requires that after a successful database write, the in-memory
+      settings singleton is updated so the rest of the application sees the new
+      values without a full page reload. The current settings.service.ts only
+      has initializeSettings() (which throws if already set) and resetSettings()
+      (test-only). A new updateSettings() function that calls writeSettings()
+      directly provides an atomic, safe update path. This is the minimal change
+      needed — one new exported function that bypasses the initialization guard.
+
+  - title: 'Feature Flags Resolution Strategy'
+    chosen: 'DB-primary resolution with env var fallback — refactor feature-flags.ts to read from the settings service first, falling back to NEXT_PUBLIC_ env vars when DB values are not set'
+    rejected:
+      - 'Full replacement (DB only, no env var fallback) — the spec open question selected "Full replacement" but FR-21 and NFR-9 both explicitly require env var fallback for backward compatibility. The FRs take precedence over the open questions section. Removing env var support would break existing deployments.'
+      - 'Env var overrides DB — prevents users from changing feature flags via the UI when env vars are set, which defeats the purpose of the settings page'
+    rationale: >
+      There is a contradiction in the spec: the open question Q3 selected
+      "Full replacement (DB only)" but FR-21 says "if the settings object has
+      a featureFlags value set, use it; otherwise fall back to the existing
+      NEXT_PUBLIC_ environment variable" and NFR-9 says "env vars SHALL
+      continue to work as fallback when database values are not set." The
+      functional requirements are the authoritative source, so we implement
+      DB-primary with env var fallback. The debug flag has no env var fallback
+      per FR-21 (new flag, DB-only). The implementation reads from
+      getSettings().featureFlags when available, falling back to process.env
+      for skills and envDeploy only.
+
+  - title: 'Server Action Architecture'
+    chosen: 'Two server actions (load-settings.ts, update-settings.ts) in src/presentation/web/app/actions/ using the resolve() DI pattern'
+    rejected:
+      - 'API routes (GET /api/settings, PATCH /api/settings) — adds unnecessary HTTP overhead and CORS complexity when server actions provide direct RPC from client components. The codebase already uses server actions for mutations (approve-feature.ts, start-feature.ts) and this is consistent.'
+      - 'Single combined server action file — violates single-responsibility principle and makes the file harder to test independently'
+    rationale: >
+      The codebase establishes a clear pattern in src/presentation/web/app/actions/
+      with one file per action (approve-feature.ts, start-feature.ts, etc.).
+      Each action uses resolve() from @/lib/server-container to get use cases
+      from the DI container. The load-settings action resolves LoadSettingsUseCase,
+      and update-settings resolves both LoadSettingsUseCase (to merge partial
+      updates) and UpdateSettingsUseCase (to persist). Both return typed
+      { success, data?, error? } response objects following the existing pattern.
+
+  - title: 'Page Component Architecture'
+    chosen: 'Server Component page.tsx fetches settings via LoadSettingsUseCase, passes data to a SettingsPageClient client component which renders six section sub-components'
+    rejected:
+      - 'Client-only page with useEffect data fetch — loses server-side rendering benefits, adds loading spinner UX, and breaks the established pattern where pages are Server Components that resolve use cases (tools/page.tsx, etc.)'
+      - 'Single monolithic client component — all 6 sections in one file would be 500+ lines, violating NFR-7 which requires each section in its own file'
+    rationale: >
+      The tools page establishes the pattern: async Server Component with
+      export const dynamic = "force-dynamic", resolve use case, fetch data,
+      pass to client component. The settings page follows this exactly. The
+      client component orchestrates six section sub-components, each in their
+      own file under src/presentation/web/components/features/settings/.
+      This matches NFR-7 (maintainability) and the existing component
+      organization pattern (features/tools/, features/version/).
+
+  - title: 'Section Component State Management'
+    chosen: 'Each section manages its own local form state via useState, tracks dirty state via a simple deep comparison, and calls the server action on Save'
+    rejected:
+      - 'React Hook Form for each section — over-engineered for sections with 2-5 fields. The settings page has simple flat forms (no arrays, no dynamic fields, no complex validation rules). useState is sufficient and avoids the react-hook-form dependency overhead.'
+      - 'Global state management (Context/Zustand) — unnecessary cross-component state sharing. Each section is independent with its own Save button. No section needs to know about another sections unsaved state.'
+    rationale: >
+      Each section has a small number of fields (2-7 fields). The state
+      management needs are simple: track current values, compare against
+      initial values to determine dirty state, disable Save button when
+      clean, enable when dirty. useState handles this cleanly. The section
+      receives initialSettings as props and maintains a local copy. On save,
+      it calls the update-settings server action with the sections fields
+      and resets its dirty tracking on success.
+
+  - title: 'shadcn/ui Switch Component'
+    chosen: 'Install Switch via npx shadcn@latest add switch — the component does not exist yet in the project'
+    rejected:
+      - 'Custom toggle component — reinvents what Radix UI provides with accessibility, keyboard navigation, and focus management built in. The project already uses shadcn/ui for all other form controls.'
+      - 'Use Checkbox instead of Switch — visually inappropriate for on/off toggles in a settings page. Switch is the standard UX pattern for boolean settings.'
+    rationale: >
+      The project uses shadcn/ui for all UI primitives (Card, Select, Input,
+      Label, Button, Separator are all installed). Switch is not yet installed
+      but is needed for the 14+ boolean toggles across Workflow, Notifications,
+      and Feature Flags sections. Installing via the shadcn CLI ensures
+      consistent styling with the existing Radix-based components.
+
+  - title: 'Sidebar Navigation Placement'
+    chosen: 'Add Settings SidebarNavItem after the conditional Skills item, before SidebarContent (features list), as the last item in the SidebarHeader menu'
+    rejected:
+      - 'Place Settings in SidebarFooter — the footer currently has the "New feature" button. Adding Settings there breaks the footer-as-action-zone pattern and moves Settings away from the other navigation items.'
+      - 'Place Settings before Skills — the spec says "after the existing static nav items (Home, Tools, Skills) and before the dynamic features list." Settings should come after all static nav items including Skills.'
+    rationale: >
+      FR-4 specifies Settings goes "after the existing static nav items (Home,
+      Tools, Skills) and before the dynamic features list." In the current
+      sidebar, static nav items are in SidebarHeader > SidebarMenu. The features
+      list is in SidebarContent. Adding Settings as the last SidebarNavItem in
+      the header menu, after the conditional Skills item, satisfies FR-4.
+      The Settings icon from lucide-react (gear icon) is used per the spec.
+
+  - title: 'Database Info Display Strategy'
+    chosen: 'Fetch SHEP_HOME path and database file size server-side in the page Server Component using getShepHomeDir() and fs.statSync(), pass as props to the client'
+    rejected:
+      - 'Fetch via a separate server action — unnecessary network round-trip when the page Server Component already runs on the server and can access the filesystem directly'
+      - 'Compute in client component — client components cannot access the filesystem (browser environment). This must be server-side.'
+    rationale: >
+      FR-24 requires server-side fetching using ShepDirectoryService and
+      filesystem APIs. The page Server Component already runs on the server
+      (force-dynamic), so it can call getShepHomeDir() for the path and
+      fs.statSync() on the database file for the file size. These values are
+      passed as simple string props to the client component. The database
+      path is constructed by joining getShepHomeDir() with the known database
+      filename.
+
+  - title: 'Save UX Pattern'
+    chosen: 'Explicit Save button per section with disabled state when clean, following FR-3'
+    rejected:
+      - 'Auto-save on each change — the spec open question Q4 selected auto-save, but the functional requirements (FR-3) explicitly specify "Save button" per section with disabled state. FRs are authoritative over open questions. Auto-save also risks accidental persistence and requires debouncing.'
+      - 'Single global Save button — FR-3 says "each settings section Card SHALL include... a Save button." A single button would not satisfy this requirement.'
+    rationale: >
+      FR-3 is explicit: "Each settings section Card SHALL include a section
+      title, descriptive subtitle, form fields, and a Save button (except
+      Database Location, which is read-only). The Save button SHALL be disabled
+      when no changes have been made to that section." This is the authoritative
+      requirement. The open question Q4 selected auto-save, but functional
+      requirements override open questions when they conflict. Explicit save
+      per section is also the safer UX pattern — it prevents accidental changes
+      and provides clear feedback about unsaved state.
+
+openQuestions:
+  - question: 'Should the FeatureFlags property on Settings be optional or required in the TypeSpec model?'
+    resolved: true
+    options:
+      - option: 'Optional property (featureFlags?: FeatureFlags)'
+        description: >
+          Makes the field optional so existing Settings objects loaded from
+          databases without the new columns (pre-migration) can omit it.
+          The fromDatabase mapper would conditionally construct the featureFlags
+          object only when the columns exist. createDefaultSettings would
+          include default values.
+        selected: true
+      - option: 'Required property (featureFlags: FeatureFlags)'
+        description: >
+          Makes the field required on all Settings objects. This means
+          fromDatabase must always produce a featureFlags object, even for
+          databases that have not been migrated. Would require the mapper
+          to provide defaults when columns are missing — possible but
+          adds complexity to the mapper.
+        selected: false
+      - option: Separate entity with foreign key
+        description: >
+          Create FeatureFlags as its own entity with a settings_id FK.
+          Breaks the singleton pattern and adds a JOIN. Over-engineered
+          for three boolean fields.
+        selected: false
+    selectionRationale: >
+      Making featureFlags optional on Settings is safest for backward
+      compatibility. The migration adds columns with DEFAULT 0, so
+      fromDatabase will always have values after migration. But for
+      code defensiveness, the domain type should allow undefined so
+      that consumers (like feature-flags.ts) gracefully fall back to
+      env vars when featureFlags is not present. This matches how
+      optional fields like user.name and agent.token are handled.
+
+  - question: 'How should the update-settings server action handle partial updates across sections?'
+    resolved: true
+    options:
+      - option: 'Deep merge partial payload into current settings'
+        description: >
+          The server action receives a partial settings object (e.g., just
+          the agent section), loads current settings from the database,
+          deep-merges the partial payload, and persists the full merged
+          object. This is safe because each section only sends its own
+          fields, and deep merge preserves all other settings.
+        selected: true
+      - option: Accept full settings object from client
+        description: >
+          The client sends the entire settings object on every save.
+          Simpler server action but risks stale data — if another tab
+          or process updated settings between page load and save, those
+          changes would be overwritten.
+        selected: false
+      - option: 'Section-specific server actions (update-agent, update-workflow, etc.)'
+        description: >
+          One server action per section. Type-safe per section but
+          creates 5+ server action files for essentially the same
+          operation (load, merge, save). Violates DRY.
+        selected: false
+    selectionRationale: >
+      Deep merge is the standard pattern for settings pages. The
+      update-settings action loads current settings via LoadSettingsUseCase,
+      deep-merges the incoming partial payload (using spread operator for
+      nested objects), updates the timestamp, and persists via
+      UpdateSettingsUseCase. This ensures sections do not overwrite each
+      other and handles concurrent updates safely. FR-26 explicitly says
+      "merge it with the current settings (loaded via LoadSettingsUseCase)."
+
+  - question: 'How should the Switch component be installed given the project uses Tailwind CSS v4?'
+    resolved: true
+    options:
+      - option: 'Install via shadcn CLI (npx shadcn@latest add switch)'
+        description: >
+          The standard installation method. The CLI generates the component
+          file in src/presentation/web/components/ui/switch.tsx with proper
+          Radix UI dependency (@radix-ui/react-switch). This is how all
+          other shadcn components were installed (card, select, input, etc.).
+        selected: true
+      - option: Manually create switch.tsx from shadcn docs
+        description: >
+          Copy the component code from shadcn/ui documentation. Risk of
+          missing the correct Radix UI peer dependency or getting an
+          outdated version. More error-prone than the CLI.
+        selected: false
+      - option: Use a checkbox styled as a toggle
+        description: >
+          Avoid adding Switch entirely by styling a Checkbox. Semantically
+          incorrect (checkboxes are for multi-select, switches are for
+          on/off toggles) and loses Radix UI accessibility features
+          built into the Switch primitive.
+        selected: false
+    selectionRationale: >
+      The shadcn CLI handles dependency installation, file generation,
+      and proper integration with the project's Tailwind configuration.
+      All existing UI components in src/presentation/web/components/ui/
+      were installed this way. The Switch component is a standard shadcn
+      primitive backed by @radix-ui/react-switch.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. TypeSpec Model Extension Strategy
+
+  **Chosen:** Add FeatureFlags model to settings.tsp with three boolean fields (skills, envDeploy, debug) and add it as an optional property on Settings entity
+
+  **Rejected:**
+  - Store feature flags as a JSON blob column — breaks the existing flat-column pattern used by all other Settings fields and complicates querying
+  - Create a separate FeatureFlags table — violates the singleton pattern, adds unnecessary JOIN complexity, and breaks the existing Settings domain model contract
+
+  **Rationale:** The existing Settings entity follows a pattern of nested model composition (ModelConfiguration, UserProfile, EnvironmentConfig, etc.). Adding FeatureFlags as another nested model is consistent. Each boolean field maps to a dedicated INTEGER column in SQLite, following the same toDatabase/fromDatabase mapping pattern.
+
+  ### 2. Database Migration Strategy
+
+  **Chosen:** Migration v24 with ALTER TABLE ADD COLUMN for feature_flag_skills, feature_flag_env_deploy, feature_flag_debug (INTEGER NOT NULL DEFAULT 0) plus CI workflow columns ci_max_fix_attempts, ci_watch_timeout_ms, ci_log_max_chars (INTEGER, nullable)
+
+  **Rejected:**
+  - Recreate entire settings table — unnecessarily destructive, loses data
+  - Separate migrations for feature flags and CI columns — unnecessary split
+
+  **Rationale:** ALTER TABLE ADD COLUMN is the established pattern (migrations v9-v15, v20-v22). Feature flag columns use NOT NULL DEFAULT 0 (false). CI columns are nullable (INTEGER without NOT NULL) since the domain fields are optional. The CI columns exist in the TypeSpec WorkflowConfig model but were never added to the database schema — this migration closes that gap.
+
+  ### 3. Settings Service In-Memory Update
+
+  **Chosen:** Add updateSettings(settings: Settings) function to settings.service.ts
+
+  **Rejected:**
+  - resetSettings() + initializeSettings() — race condition between reset and re-init
+  - Skip in-memory update, rely on page refresh — violates FR-27
+
+  **Rationale:** FR-27 requires the in-memory singleton to be updated after DB write. The current service only has initializeSettings() (throws if already set). A new updateSettings() that calls writeSettings() directly is the minimal, safe change.
+
+  ### 4. Feature Flags Resolution
+
+  **Chosen:** DB-primary with env var fallback (getSettings().featureFlags ?? NEXT_PUBLIC_ env vars)
+
+  **Rejected:**
+  - Full DB replacement (no env var fallback) — spec Q3 selected this, but FR-21 and NFR-9 explicitly require env var fallback. FRs are authoritative.
+  - Env var overrides DB — defeats the purpose of the settings page
+
+  **Rationale:** FR-21 says use DB value when set, fall back to env var. NFR-9 requires backward compatibility with existing NEXT_PUBLIC_ deployments. Debug flag is DB-only (no env var, per FR-21).
+
+  ### 5. Server Action Architecture
+
+  **Chosen:** Two server actions (load-settings.ts, update-settings.ts) using resolve() DI pattern
+
+  **Rejected:**
+  - API routes — unnecessary HTTP overhead when server actions provide direct RPC
+  - Single combined file — violates single-responsibility principle
+
+  **Rationale:** Follows the established pattern in src/presentation/web/app/actions/ (one file per action, resolve() from @/lib/server-container, typed response objects).
+
+  ### 6. Page Component Architecture
+
+  **Chosen:** Server Component page.tsx → SettingsPageClient → 6 section sub-components
+
+  **Rejected:**
+  - Client-only page — loses SSR, adds loading states, breaks established pattern
+  - Single monolithic component — 500+ lines, violates NFR-7
+
+  **Rationale:** Follows tools/page.tsx pattern: async Server Component, force-dynamic, resolve use case, pass data to client. Each section is a separate file under features/settings/.
+
+  ### 7. Section State Management
+
+  **Chosen:** Local useState per section with dirty tracking
+
+  **Rejected:**
+  - React Hook Form — over-engineered for 2-5 field sections
+  - Global state (Context/Zustand) — sections are independent, no cross-section state needed
+
+  **Rationale:** Simple forms with few fields. useState tracks current values, comparison to initial values determines dirty state. Save button disabled when clean.
+
+  ### 8. Switch Component
+
+  **Chosen:** Install via shadcn CLI (npx shadcn@latest add switch)
+
+  **Rejected:**
+  - Manual creation — risk of missing Radix peer dependency
+  - Styled checkbox — semantically incorrect for on/off toggles
+
+  **Rationale:** All existing UI primitives installed via shadcn CLI. Switch backed by @radix-ui/react-switch with built-in accessibility.
+
+  ### 9. Sidebar Navigation
+
+  **Chosen:** Settings SidebarNavItem as last item in SidebarHeader menu, after Skills
+
+  **Rejected:**
+  - SidebarFooter placement — breaks footer-as-action-zone pattern
+  - Before Skills — spec says after all static nav items including Skills
+
+  **Rationale:** FR-4: "after existing static nav items (Home, Tools, Skills) and before the dynamic features list."
+
+  ### 10. Save UX Pattern
+
+  **Chosen:** Explicit Save button per section (per FR-3)
+
+  **Rejected:**
+  - Auto-save (spec Q4 selected this, but FR-3 overrides with explicit Save button requirement)
+  - Single global Save — FR-3 says each section has its own Save button
+
+  **Rationale:** FR-3 is authoritative: "Each settings section Card SHALL include... a Save button. The Save button SHALL be disabled when no changes have been made."
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | @radix-ui/react-switch | Switch toggle primitive | Install (via shadcn) | Required for boolean toggles in Workflow, Notifications, Feature Flags sections. Not yet installed. |
+  | shadcn/ui Switch | Styled Switch component | Install (npx shadcn add switch) | Consistent with existing shadcn/ui usage. Generates switch.tsx in components/ui/. |
+  | react-hook-form | Form state management | Reject | Over-engineered for simple 2-5 field forms. useState is sufficient. |
+  | zod | Schema validation | Reject | No complex validation needed. Type-level TypeScript validation is sufficient. Server-side type checking via TypeSpec-generated types. |
+  | zustand / jotai | Global state management | Reject | No cross-component state needed. Each section manages its own state independently. |
+  | sonner | Toast notifications | Already installed | Used for save success/error feedback. Already used elsewhere in the app. |
+  | lucide-react | Icons (Settings, Eye, EyeOff) | Already installed | Settings icon for sidebar, Eye/EyeOff for token visibility toggle. Already used in sidebar. |
+
+  ## Security Considerations
+
+  ### Agent Token Handling
+  - FR-7/NFR-4: Token input rendered as type="password" by default with show/hide toggle
+  - Token values must never appear in console.log, error messages, or network payloads beyond the settings load response
+  - Server action should accept token as-is (no client-side hashing — it is already stored encrypted in SQLite)
+  - The token field uses conditional spread in fromDatabase (only included when non-null), preventing accidental exposure of null tokens
+
+  ### Server Action Input Validation
+  - NFR-4 requires server actions validate input types before persisting
+  - The update-settings action should verify that enum values (AgentType, EditorType, AgentAuthMethod) are valid before passing to the use case
+  - Numeric CI fields should be validated as positive integers (or null for unset)
+  - String fields should be trimmed and length-checked
+
+  ### Feature Flags Security
+  - Feature flags control UI visibility (e.g., Skills nav item). They are not security boundaries
+  - Server-side flag resolution happens in settings.service.ts, not in client-side code
+  - Env var fallback uses process.env which is server-only for non-NEXT_PUBLIC_ vars
+
+  ## Performance Implications
+
+  ### Settings Page Load (NFR-1)
+  - Server Component resolves LoadSettingsUseCase → single SQLite SELECT (< 1ms)
+  - Database file size via fs.statSync (< 1ms)
+  - Total server-side data fetch: < 10ms, well within 100ms NFR-1 target
+  - Client hydration with pre-rendered HTML: < 500ms total page load
+
+  ### Save Operations
+  - Each section Save triggers: server action → LoadSettingsUseCase (read current) → deep merge → UpdateSettingsUseCase (write) → updateSettings (in-memory)
+  - Single SQLite UPDATE with prepared statement: < 5ms
+  - No debouncing needed since saves are explicit (button click)
+
+  ### Feature Flags Resolution
+  - After migration to DB-primary: getSettings() reads from in-memory singleton (0ms) vs current process.env lookup (0ms)
+  - No performance regression from migration
+
+  ### Sidebar Re-render
+  - Feature flag changes require page navigation or refresh to update sidebar (FR-22)
+  - No real-time subscription needed — standard Next.js navigation will re-render with updated flags
+
+  ## Architecture Notes
+
+  ### Clean Architecture Compliance
+  - **Domain layer**: FeatureFlags TypeSpec model in tsp/domain/entities/settings.tsp → generated types in domain/generated/output.ts
+  - **Application layer**: Existing LoadSettingsUseCase and UpdateSettingsUseCase — no new use cases needed
+  - **Infrastructure layer**: SettingsMapper extension (toDatabase/fromDatabase), SQLiteSettingsRepository extension (new columns in queries), migration v24, settings.service.ts updateSettings()
+  - **Presentation layer**: Server Component page, client components, server actions, sidebar integration, feature-flags.ts migration
+
+  ### Component File Structure
+  ```
+  src/presentation/web/
+  ├── app/settings/page.tsx                          # Server Component
+  ├── app/actions/load-settings.ts                   # Server Action
+  ├── app/actions/update-settings.ts                 # Server Action
+  ├── components/features/settings/
+  │   ├── settings-page-client.tsx                   # Client orchestrator
+  │   ├── settings-page-client.stories.tsx           # Storybook
+  │   ├── agent-settings-section.tsx                 # Agent section
+  │   ├── agent-settings-section.stories.tsx         # Storybook
+  │   ├── environment-settings-section.tsx           # IDE/Terminal section
+  │   ├── environment-settings-section.stories.tsx   # Storybook
+  │   ├── workflow-settings-section.tsx              # Workflow section
+  │   ├── workflow-settings-section.stories.tsx      # Storybook
+  │   ├── notification-settings-section.tsx          # Notifications section
+  │   ├── notification-settings-section.stories.tsx  # Storybook
+  │   ├── feature-flags-settings-section.tsx         # Feature Flags section
+  │   ├── feature-flags-settings-section.stories.tsx # Storybook
+  │   ├── database-settings-section.tsx              # Database Location section
+  │   └── database-settings-section.stories.tsx      # Storybook
+  └── lib/feature-flags.ts                           # Migrated to DB-primary
+  ```
+
+  ### Key Integration Points
+  1. **TypeSpec → Generated types**: tsp/domain/entities/settings.tsp → pnpm tsp:compile → domain/generated/output.ts
+  2. **DI Container**: LoadSettingsUseCase and UpdateSettingsUseCase already registered with string tokens in container.ts
+  3. **Settings Service**: getSettings() for reads, new updateSettings() for writes, initializeSettings() untouched
+  4. **Sidebar**: featureFlags.skills controls Skills nav item visibility — after migration, this reads from DB via getSettings()
+  5. **Storybook**: Every component in features/settings/ gets a colocated .stories.tsx with mock Settings data
+
+  ### Spec Contradiction Resolution
+  The spec has a contradiction between open question Q4 (selected "Auto-save on each change") and FR-3 (specifies "Save button" per section with disabled state). FR-3 is the authoritative functional requirement and takes precedence. Similarly, Q3 selected "Full replacement (DB only)" but FR-21 and NFR-9 require env var fallback — the FRs take precedence.
+
+  ---
+
+  _Research completed 2026-03-08_

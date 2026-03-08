@@ -69,6 +69,11 @@ export interface SettingsRow {
   // WorkflowConfig (workflow.*)
   workflow_open_pr_on_impl_complete: number;
 
+  // WorkflowConfig CI settings (workflow.ci*)
+  ci_max_fix_attempts: number | null;
+  ci_watch_timeout_ms: number | null;
+  ci_log_max_chars: number | null;
+
   // Onboarding
   onboarding_complete: number;
 
@@ -77,6 +82,11 @@ export interface SettingsRow {
   approval_gate_allow_plan: number;
   approval_gate_allow_merge: number;
   approval_gate_push_on_impl_complete: number;
+
+  // FeatureFlags (featureFlags.*)
+  feature_flag_skills: number;
+  feature_flag_env_deploy: number;
+  feature_flag_debug: number;
 }
 
 /**
@@ -136,6 +146,11 @@ export function toDatabase(settings: Settings): SettingsRow {
     // WorkflowConfig (boolean → INTEGER)
     workflow_open_pr_on_impl_complete: settings.workflow.openPrOnImplementationComplete ? 1 : 0,
 
+    // WorkflowConfig CI settings (optional number → INTEGER | null)
+    ci_max_fix_attempts: settings.workflow.ciMaxFixAttempts ?? null,
+    ci_watch_timeout_ms: settings.workflow.ciWatchTimeoutMs ?? null,
+    ci_log_max_chars: settings.workflow.ciLogMaxChars ?? null,
+
     // Onboarding (boolean → INTEGER)
     onboarding_complete: settings.onboardingComplete ? 1 : 0,
 
@@ -147,6 +162,11 @@ export function toDatabase(settings: Settings): SettingsRow {
       .pushOnImplementationComplete
       ? 1
       : 0,
+
+    // FeatureFlags (boolean → 0/1, defaults to 0 when featureFlags undefined)
+    feature_flag_skills: settings.featureFlags?.skills ? 1 : 0,
+    feature_flag_env_deploy: settings.featureFlags?.envDeploy ? 1 : 0,
+    feature_flag_debug: settings.featureFlags?.debug ? 1 : 0,
   };
 }
 
@@ -225,6 +245,16 @@ export function fromDatabase(row: SettingsRow): Settings {
         allowMerge: row.approval_gate_allow_merge === 1,
         pushOnImplementationComplete: row.approval_gate_push_on_impl_complete === 1,
       },
+      ...(row.ci_max_fix_attempts !== null && { ciMaxFixAttempts: row.ci_max_fix_attempts }),
+      ...(row.ci_watch_timeout_ms !== null && { ciWatchTimeoutMs: row.ci_watch_timeout_ms }),
+      ...(row.ci_log_max_chars !== null && { ciLogMaxChars: row.ci_log_max_chars }),
+    },
+
+    // FeatureFlags (INTEGER 0/1 → boolean)
+    featureFlags: {
+      skills: row.feature_flag_skills === 1,
+      envDeploy: row.feature_flag_env_deploy === 1,
+      debug: row.feature_flag_debug === 1,
     },
 
     // Onboarding (INTEGER → boolean)

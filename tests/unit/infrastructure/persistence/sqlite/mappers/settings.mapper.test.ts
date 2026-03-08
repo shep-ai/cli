@@ -116,11 +116,17 @@ function createTestRow(overrides: Partial<SettingsRow> = {}): SettingsRow {
     notif_evt_pr_checks_passed: 1,
     notif_evt_pr_checks_failed: 1,
     workflow_open_pr_on_impl_complete: 0,
+    ci_max_fix_attempts: null,
+    ci_watch_timeout_ms: null,
+    ci_log_max_chars: null,
     onboarding_complete: 0,
     approval_gate_allow_prd: 0,
     approval_gate_allow_plan: 0,
     approval_gate_allow_merge: 0,
     approval_gate_push_on_impl_complete: 0,
+    feature_flag_skills: 0,
+    feature_flag_env_deploy: 0,
+    feature_flag_debug: 0,
     ...overrides,
   };
 }

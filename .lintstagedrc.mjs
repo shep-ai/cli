@@ -16,13 +16,13 @@ export default {
   // TypeScript files - lint, format, and typecheck
   // Note: Includes src/domain/generated/**/*.ts (TypeSpec-generated files)
   '*.{ts,tsx,mts,cts}': [
-    'eslint --fix --max-warnings 0',
+    'eslint --fix --max-warnings 0 --no-warn-ignored',
     'prettier --write',
     () => 'pnpm run typecheck',
   ],
 
   // JavaScript files - lint and format
-  '*.{js,jsx,mjs,cjs}': ['eslint --fix --max-warnings 0', 'prettier --write'],
+  '*.{js,jsx,mjs,cjs}': ['eslint --fix --max-warnings 0 --no-warn-ignored', 'prettier --write'],
 
   // JSON, YAML, Markdown - format only
   '*.{json,yaml,yml}': ['prettier --write'],

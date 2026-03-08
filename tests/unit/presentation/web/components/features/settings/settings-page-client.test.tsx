@@ -1,0 +1,53 @@
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import { SettingsPageClient } from '@/components/features/settings/settings-page-client';
+import { createDefaultSettings } from '@shepai/core/domain/factories/settings-defaults.factory';
+
+vi.mock('@/app/actions/update-settings', () => ({
+  updateSettingsAction: vi.fn().mockResolvedValue({ success: true }),
+}));
+
+vi.mock('sonner', () => ({
+  toast: { success: vi.fn(), error: vi.fn() },
+}));
+
+describe('SettingsPageClient', () => {
+  const settings = createDefaultSettings();
+
+  it('renders heading text "Settings"', () => {
+    render(
+      <SettingsPageClient settings={settings} shepHome="/home/user/.shep" dbFileSize="2.4 MB" />
+    );
+    expect(screen.getByText('Settings')).toBeDefined();
+  });
+
+  it('renders all six section components', () => {
+    render(
+      <SettingsPageClient settings={settings} shepHome="/home/user/.shep" dbFileSize="2.4 MB" />
+    );
+    expect(screen.getByTestId('agent-settings-section')).toBeDefined();
+    expect(screen.getByTestId('environment-settings-section')).toBeDefined();
+    expect(screen.getByTestId('workflow-settings-section')).toBeDefined();
+    expect(screen.getByTestId('notification-settings-section')).toBeDefined();
+    expect(screen.getByTestId('feature-flags-settings-section')).toBeDefined();
+    expect(screen.getByTestId('database-settings-section')).toBeDefined();
+  });
+
+  it('passes shepHome and dbFileSize to database section', () => {
+    render(<SettingsPageClient settings={settings} shepHome="/opt/shep" dbFileSize="10.5 MB" />);
+    expect(screen.getByTestId('shep-home-path').textContent).toBe('/opt/shep');
+    expect(screen.getByTestId('db-file-size').textContent).toBe('10.5 MB');
+  });
+
+  it('handles missing featureFlags gracefully', () => {
+    const settingsWithoutFlags = { ...settings, featureFlags: undefined };
+    render(
+      <SettingsPageClient
+        settings={settingsWithoutFlags}
+        shepHome="/home/user/.shep"
+        dbFileSize="2.4 MB"
+      />
+    );
+    expect(screen.getByTestId('feature-flags-settings-section')).toBeDefined();
+  });
+});

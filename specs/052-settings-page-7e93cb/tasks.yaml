@@ -1,0 +1,707 @@
+name: settings-page-7e93cb
+summary: >
+  21 tasks across 4 phases. Phase 1 (Domain & Infrastructure Foundation) has 7
+  tasks covering TypeSpec model, migration, mapper, repository, defaults factory,
+  settings service, and integration tests. Phase 2 (Server Actions & Feature
+  Flags Migration) has 3 tasks for server actions, feature flags migration, and
+  Switch installation. Phase 3 (Settings Page & Section Components) has 9 tasks
+  for the page, client orchestrator, and 6 section components with stories/tests.
+  Phase 4 (Sidebar Integration & Final Validation) has 2 tasks for sidebar nav
+  and full validation.
+
+relatedFeatures: []
+technologies: []
+relatedLinks: []
+
+tasks:
+  # ═══════════════════════════════════════════════════════════════════════
+  # Phase 1: Domain & Infrastructure Foundation
+  # ═══════════════════════════════════════════════════════════════════════
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Add FeatureFlags model to TypeSpec Settings entity'
+    description: >
+      Define a new FeatureFlags model in settings.tsp with three boolean fields
+      (skills, envDeploy, debug — all default false) and add it as an optional
+      property on the Settings entity. Run pnpm tsp:compile to regenerate
+      output.ts. Verify the generated types are additive-only (no breaking
+      changes to existing types).
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'FeatureFlags model exists in settings.tsp with skills, envDeploy, debug boolean fields'
+      - 'Settings entity has optional featureFlags property of type FeatureFlags'
+      - 'pnpm tsp:compile succeeds and output.ts contains FeatureFlags type'
+      - 'Existing Settings type fields are unchanged in output.ts'
+    tdd:
+      red:
+        - 'No test — this is a TypeSpec model change verified by compilation'
+      green:
+        - 'Add FeatureFlags model to settings.tsp with @doc decorators'
+        - 'Add featureFlags?: FeatureFlags to Settings model'
+        - 'Run pnpm tsp:compile and verify output.ts diff'
+      refactor:
+        - 'Ensure @doc descriptions are clear and consistent with existing models'
+    estimatedEffort: '30min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Add database migration v24 for feature flags and CI columns'
+    description: >
+      Add migration version 24 to migrations.ts with ALTER TABLE ADD COLUMN
+      statements for feature_flag_skills, feature_flag_env_deploy,
+      feature_flag_debug (INTEGER NOT NULL DEFAULT 0) and ci_max_fix_attempts,
+      ci_watch_timeout_ms, ci_log_max_chars (INTEGER, nullable). Update
+      LATEST_SCHEMA_VERSION. Add migration integration tests.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Migration v24 exists in MIGRATIONS array with correct SQL'
+      - 'Feature flag columns use INTEGER NOT NULL DEFAULT 0'
+      - 'CI columns use INTEGER (nullable, no DEFAULT)'
+      - 'LATEST_SCHEMA_VERSION equals 24'
+      - 'Migration test verifies all 6 new columns exist with correct types and defaults'
+      - 'Migration is idempotent (running twice does not error)'
+    tdd:
+      red:
+        - 'Write migration test: after runSQLiteMigrations, verify feature_flag_skills column exists with type INTEGER, notnull=1, dflt_value=0'
+        - 'Write migration test: verify feature_flag_env_deploy and feature_flag_debug columns similarly'
+        - 'Write migration test: verify ci_max_fix_attempts column exists with type INTEGER, notnull=0, dflt_value=null'
+        - 'Write migration test: verify ci_watch_timeout_ms and ci_log_max_chars columns similarly'
+        - 'Write test: LATEST_SCHEMA_VERSION === 24'
+      green:
+        - 'Add migration v24 to MIGRATIONS array with ALTER TABLE ADD COLUMN statements'
+      refactor:
+        - 'Verify SQL formatting matches existing migration style'
+    estimatedEffort: '45min'
+
+  - id: task-3
+    phaseId: phase-1
+    title: 'Extend settings mapper with feature flags and CI columns'
+    description: >
+      Add feature flag and CI workflow columns to the SettingsRow interface.
+      Extend toDatabase() to map settings.featureFlags fields to
+      feature_flag_* columns (with defaults when featureFlags is undefined).
+      Extend fromDatabase() to reconstruct featureFlags object from
+      feature_flag_* columns. Handle CI workflow fields similarly.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'SettingsRow interface includes feature_flag_skills, feature_flag_env_deploy, feature_flag_debug as number'
+      - 'SettingsRow interface includes ci_max_fix_attempts, ci_watch_timeout_ms, ci_log_max_chars as number | null'
+      - 'toDatabase() maps featureFlags booleans to 0/1 integers (defaults to 0 when featureFlags undefined)'
+      - 'toDatabase() maps CI fields to integers or null'
+      - 'fromDatabase() reconstructs featureFlags object from columns'
+      - 'fromDatabase() reconstructs CI fields as optional numbers'
+      - 'Round-trip test: toDatabase(fromDatabase(row)) preserves all values'
+    tdd:
+      red:
+        - 'Write unit test: toDatabase() with featureFlags set maps skills=true to feature_flag_skills=1'
+        - 'Write unit test: toDatabase() without featureFlags maps feature_flag_skills=0'
+        - 'Write unit test: fromDatabase() with feature_flag_skills=1 produces featureFlags.skills=true'
+        - 'Write unit test: toDatabase() maps ciMaxFixAttempts=5 to ci_max_fix_attempts=5'
+        - 'Write unit test: fromDatabase() round-trip preserves all new fields'
+      green:
+        - 'Add new columns to SettingsRow interface'
+        - 'Add featureFlags mapping in toDatabase()'
+        - 'Add CI fields mapping in toDatabase()'
+        - 'Add featureFlags reconstruction in fromDatabase()'
+        - 'Add CI fields reconstruction in fromDatabase()'
+      refactor:
+        - 'Ensure consistent naming with existing column patterns (prefix_field)'
+        - 'Verify conditional spread pattern matches agent.token handling'
+    estimatedEffort: '1h'
+
+  - id: task-4
+    phaseId: phase-1
+    title: 'Extend settings repository with new columns'
+    description: >
+      Update the SQLiteSettingsRepository INSERT and UPDATE statements to
+      include the 6 new columns (feature_flag_skills, feature_flag_env_deploy,
+      feature_flag_debug, ci_max_fix_attempts, ci_watch_timeout_ms,
+      ci_log_max_chars). The SELECT * already picks up new columns. Update
+      integration tests to include feature flags and CI fields in test data.
+    state: Todo
+    dependencies:
+      - task-2
+      - task-3
+    acceptanceCriteria:
+      - 'INSERT statement includes all 6 new columns with @-parameters'
+      - 'UPDATE statement includes all 6 new columns'
+      - 'Integration test: initialize with featureFlags, load returns correct values'
+      - 'Integration test: update featureFlags, load returns updated values'
+      - 'Integration test: initialize with CI fields, load returns correct values'
+    tdd:
+      red:
+        - 'Write integration test: initialize settings with featureFlags.skills=true, load returns skills=true'
+        - 'Write integration test: update settings to change featureFlags.envDeploy to true, verify persisted'
+        - 'Write integration test: initialize with ciMaxFixAttempts=5, load returns 5'
+      green:
+        - 'Add 6 new columns to INSERT statement column list and VALUES list'
+        - 'Add 6 new columns to UPDATE SET clause'
+      refactor:
+        - 'Verify SQL formatting is consistent with existing columns'
+    estimatedEffort: '45min'
+
+  - id: task-5
+    phaseId: phase-1
+    title: 'Update settings defaults factory with feature flags'
+    description: >
+      Add featureFlags defaults to createDefaultSettings(). Include the
+      FeatureFlags type import and set skills=false, envDeploy=false,
+      debug=false as defaults.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'createDefaultSettings() output includes featureFlags property'
+      - 'featureFlags defaults: skills=false, envDeploy=false, debug=false'
+      - 'FeatureFlags type imported from generated output'
+    tdd:
+      red:
+        - 'Write unit test: createDefaultSettings().featureFlags exists and has skills=false, envDeploy=false, debug=false'
+      green:
+        - 'Import FeatureFlags type from generated output'
+        - 'Add featureFlags object to createDefaultSettings() return value'
+      refactor:
+        - 'Match existing code style (separate const for defaults section)'
+    estimatedEffort: '15min'
+
+  - id: task-6
+    phaseId: phase-1
+    title: 'Add updateSettings() to settings service'
+    description: >
+      Add an updateSettings(settings: Settings) function to settings.service.ts
+      that calls writeSettings() directly, bypassing the initialization guard.
+      This allows the update-settings server action to refresh the in-memory
+      singleton after a DB write (FR-27).
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'updateSettings() exported from settings.service.ts'
+      - 'updateSettings() calls writeSettings() with the provided settings'
+      - 'updateSettings() throws if settings not initialized (guard against updating before init)'
+      - 'After updateSettings(), getSettings() returns the new value'
+      - 'Unit test covers the happy path and the not-initialized guard'
+    tdd:
+      red:
+        - 'Write unit test: after initializeSettings(old), updateSettings(new) makes getSettings() return new'
+        - 'Write unit test: updateSettings() before initializeSettings() throws error'
+      green:
+        - 'Add updateSettings() function that checks readSettings() is not null, then calls writeSettings()'
+      refactor:
+        - 'Add JSDoc matching the style of existing functions'
+    estimatedEffort: '30min'
+
+  - id: task-7
+    phaseId: phase-1
+    title: 'Verify data layer integration end-to-end'
+    description: >
+      Run the full integration test suite for the settings mapper and repository
+      to verify the round-trip works: create settings with feature flags and CI
+      fields, persist to SQLite, load back, and verify all values match.
+      Ensures Phase 1 is solid before building UI.
+    state: Todo
+    dependencies:
+      - task-4
+      - task-5
+      - task-6
+    acceptanceCriteria:
+      - 'All existing settings integration tests still pass'
+      - 'New feature flags integration tests pass'
+      - 'New CI fields integration tests pass'
+      - 'Settings service updateSettings() tests pass'
+      - 'pnpm test:unit and pnpm test:int pass with zero failures'
+    tdd:
+      red:
+        - 'Run existing test suite — all should pass with the new changes'
+      green:
+        - 'Fix any test failures caused by the new fields'
+      refactor:
+        - 'Clean up test helpers if needed to support new fields'
+    estimatedEffort: '30min'
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # Phase 2: Server Actions & Feature Flags Migration
+  # ═══════════════════════════════════════════════════════════════════════
+
+  - id: task-8
+    phaseId: phase-2
+    title: 'Install shadcn/ui Switch component'
+    description: >
+      Install the Switch component via the shadcn CLI. This generates
+      switch.tsx in components/ui/ backed by @radix-ui/react-switch. Required
+      for the 14+ boolean toggles in Workflow, Notifications, and Feature
+      Flags sections.
+    state: Todo
+    dependencies:
+      - task-7
+    acceptanceCriteria:
+      - 'src/presentation/web/components/ui/switch.tsx exists'
+      - '@radix-ui/react-switch is in package.json dependencies'
+      - 'pnpm build succeeds after installation'
+    tdd: null
+    estimatedEffort: '10min'
+
+  - id: task-9
+    phaseId: phase-2
+    title: 'Create load-settings and update-settings server actions'
+    description: >
+      Create load-settings.ts server action that resolves LoadSettingsUseCase
+      and returns the current Settings object (plus DB info for the Database
+      section). Create update-settings.ts that accepts a partial settings
+      payload, loads current settings, deep-merges, persists via
+      UpdateSettingsUseCase, and calls updateSettings() on the service to
+      refresh the in-memory singleton. Both follow the existing server
+      action pattern with typed response objects.
+    state: Todo
+    dependencies:
+      - task-7
+    acceptanceCriteria:
+      - 'load-settings.ts exports loadSettings() with use server directive'
+      - 'load-settings.ts uses resolve() to get LoadSettingsUseCase'
+      - 'load-settings.ts returns settings object plus shepHome path and dbFileSize'
+      - 'update-settings.ts exports updateSettings() with use server directive'
+      - 'update-settings.ts loads current settings, deep-merges partial payload, persists, and updates singleton'
+      - 'update-settings.ts returns { success: boolean, error?: string }'
+      - 'update-settings.ts calls revalidatePath on /settings after success'
+    tdd:
+      red:
+        - 'Write unit test: loadSettings() returns settings with shepHome and dbFileSize fields'
+        - 'Write unit test: updateSettings() merges partial payload into current settings'
+        - 'Write unit test: updateSettings() returns error on failure'
+      green:
+        - 'Implement load-settings.ts following approve-feature.ts pattern'
+        - 'Implement update-settings.ts with deep merge logic'
+      refactor:
+        - 'Extract deep merge helper if complexity warrants it'
+        - 'Ensure error messages are descriptive'
+    estimatedEffort: '1h'
+
+  - id: task-10
+    phaseId: phase-2
+    title: 'Migrate feature-flags.ts to DB-primary resolution'
+    description: >
+      Refactor feature-flags.ts to read from getSettings().featureFlags when
+      available, falling back to NEXT_PUBLIC_ env vars for skills and envDeploy.
+      The debug flag is DB-only (no env var fallback per FR-21). Handle the
+      case where settings service is not initialized (during build/SSG) by
+      falling back to env vars entirely. Export a function instead of a const
+      to ensure flags are resolved at read time, not module evaluation time.
+    state: Todo
+    dependencies:
+      - task-7
+    acceptanceCriteria:
+      - 'feature-flags.ts reads from getSettings().featureFlags when available'
+      - 'Falls back to NEXT_PUBLIC_ env vars when featureFlags is undefined'
+      - 'debug flag is DB-only (defaults to false when not in DB)'
+      - 'Handles settings not initialized gracefully (falls back to env vars)'
+      - 'Sidebar still shows/hides Skills based on skills flag'
+      - 'Existing NEXT_PUBLIC_ env var behavior preserved as fallback'
+    tdd:
+      red:
+        - 'Write unit test: when settings has featureFlags.skills=true, getFeatureFlags().skills is true'
+        - 'Write unit test: when settings has no featureFlags, falls back to env var'
+        - 'Write unit test: when settings not initialized, falls back to env var'
+        - 'Write unit test: debug flag returns false when not in DB (no env var fallback)'
+      green:
+        - 'Refactor feature-flags.ts to export getFeatureFlags() function'
+        - 'Add try/catch around getSettings() to handle not-initialized case'
+        - 'Implement DB-primary with env var fallback logic'
+      refactor:
+        - 'Update all consumers of featureFlags to use getFeatureFlags()'
+    estimatedEffort: '45min'
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # Phase 3: Settings Page & Section Components
+  # ═══════════════════════════════════════════════════════════════════════
+
+  - id: task-11
+    phaseId: phase-3
+    title: 'Create settings page Server Component'
+    description: >
+      Create src/presentation/web/app/settings/page.tsx as a Server Component
+      following the tools/page.tsx pattern. It resolves LoadSettingsUseCase,
+      fetches current settings, gets SHEP_HOME path and DB file size, and
+      passes all data to SettingsPageClient.
+    state: Todo
+    dependencies:
+      - task-9
+    acceptanceCriteria:
+      - 'page.tsx is an async Server Component with export const dynamic = force-dynamic'
+      - 'Resolves LoadSettingsUseCase via resolve() from server-container'
+      - 'Fetches SHEP_HOME path and database file size server-side'
+      - 'Renders SettingsPageClient with settings, shepHome, and dbFileSize props'
+      - 'Page is accessible at /settings route'
+    tdd:
+      red:
+        - 'No unit test for Server Component (tested via integration/e2e)'
+      green:
+        - 'Create page.tsx following tools/page.tsx pattern'
+        - 'Add server-side data fetching for DB info'
+      refactor:
+        - 'Ensure imports follow existing conventions'
+    estimatedEffort: '30min'
+
+  - id: task-12
+    phaseId: phase-3
+    title: 'Create SettingsPageClient component with stories'
+    description: >
+      Create the client orchestrator component that receives settings data as
+      props and renders all six section components in a single scrollable
+      layout using Card components. Each section is rendered as a Card with
+      consistent spacing. Include Storybook stories with mock settings data.
+    state: Todo
+    dependencies:
+      - task-11
+    acceptanceCriteria:
+      - 'SettingsPageClient is a use client component'
+      - 'Renders page title and description'
+      - 'Renders all six section Cards in order: Agent, Environment, Workflow, Notifications, Feature Flags, Database'
+      - 'Passes relevant settings slice to each section'
+      - 'Colocated .stories.tsx with Default and AllSections stories'
+      - 'Unit test verifies all six sections render'
+    tdd:
+      red:
+        - 'Write unit test: renders heading text "Settings"'
+        - 'Write unit test: renders all six section components with correct props'
+      green:
+        - 'Create SettingsPageClient with six section component renders'
+        - 'Create stories with mock settings data'
+      refactor:
+        - 'Ensure consistent Card spacing and layout'
+    estimatedEffort: '45min'
+
+  - id: task-13
+    phaseId: phase-3
+    title: 'Create AgentSettingsSection component with stories and tests'
+    description: >
+      Build the Agent section with Select for agent type (6 options), Select
+      for auth method (session/token), and conditional password Input for
+      API token with eye icon show/hide toggle. Save button disabled when
+      clean, enabled when dirty. Calls update-settings server action on save.
+    state: Todo
+    dependencies:
+      - task-12
+    acceptanceCriteria:
+      - 'Card with title "Preferred Agent" and descriptive subtitle'
+      - 'Select dropdown for agent type with all AgentType enum values'
+      - 'Select dropdown for auth method (Session, Token)'
+      - 'Token input (type=password) visible only when authMethod is token'
+      - 'Eye/EyeOff toggle button for token visibility'
+      - 'Save button disabled when no changes, enabled when dirty'
+      - 'Calls update-settings with agent section data on save'
+      - 'Toast on save success/error'
+      - 'Colocated .stories.tsx with Default, TokenAuth, and DirtyState stories'
+      - 'Unit tests for rendering, conditional token field, dirty state'
+    tdd:
+      red:
+        - 'Write test: renders agent type select with current value'
+        - 'Write test: token input hidden when authMethod is session'
+        - 'Write test: token input visible when authMethod is token'
+        - 'Write test: save button disabled initially, enabled after change'
+      green:
+        - 'Implement AgentSettingsSection with useState for local state'
+        - 'Add conditional token field rendering'
+        - 'Add dirty state tracking and save handler'
+      refactor:
+        - 'Extract token toggle into inline logic (no separate component needed for one use)'
+    estimatedEffort: '1h 30min'
+
+  - id: task-14
+    phaseId: phase-3
+    title: 'Create EnvironmentSettingsSection component with stories and tests'
+    description: >
+      Build the IDE & Terminal section with Select for default editor (5
+      EditorType options) and Select for shell preference (bash/zsh/fish).
+      Save button with dirty state tracking.
+    state: Todo
+    dependencies:
+      - task-12
+    acceptanceCriteria:
+      - 'Card with title "IDE & Terminal" and descriptive subtitle'
+      - 'Select dropdown for default editor with all EditorType values'
+      - 'Select dropdown for shell preference (bash, zsh, fish)'
+      - 'Save button with dirty state tracking'
+      - 'Calls update-settings with environment section data on save'
+      - 'Colocated .stories.tsx with Default and DirtyState stories'
+      - 'Unit tests for rendering and dirty state'
+    tdd:
+      red:
+        - 'Write test: renders editor select with current value'
+        - 'Write test: renders shell select with current value'
+        - 'Write test: save button disabled initially, enabled after change'
+      green:
+        - 'Implement EnvironmentSettingsSection with useState'
+        - 'Add dirty state tracking and save handler'
+      refactor:
+        - 'Ensure Select options match enum values exactly'
+    estimatedEffort: '45min'
+
+  - id: task-15
+    phaseId: phase-3
+    title: 'Create WorkflowSettingsSection component with stories and tests'
+    description: >
+      Build the Workflow section with Switch toggles for openPrOnImplementation,
+      pushOnImplementationComplete, and three approval gates (allowPrd, allowPlan,
+      allowMerge). Include numeric Input fields for CI settings (ciMaxFixAttempts,
+      ciWatchTimeoutMs, ciLogMaxChars) that accept only positive integers.
+    state: Todo
+    dependencies:
+      - task-8
+      - task-12
+    acceptanceCriteria:
+      - 'Card with title "Workflow" and descriptive subtitle'
+      - 'Switch toggles for openPrOnImplementationComplete and pushOnImplementationComplete'
+      - 'Switch toggles for allowPrd, allowPlan, allowMerge with labels'
+      - 'Numeric Input fields for ciMaxFixAttempts, ciWatchTimeoutMs, ciLogMaxChars'
+      - 'Numeric fields accept only positive integers (empty = null/unset)'
+      - 'Save button with dirty state tracking'
+      - 'Colocated .stories.tsx with Default, AllEnabled, and WithCiSettings stories'
+      - 'Unit tests for rendering, toggle interaction, numeric validation'
+    tdd:
+      red:
+        - 'Write test: renders all 5 Switch toggles with correct initial state'
+        - 'Write test: renders 3 numeric inputs for CI settings'
+        - 'Write test: save button disabled initially, enabled after toggle change'
+      green:
+        - 'Implement WorkflowSettingsSection with useState for all fields'
+        - 'Add Switch components for boolean fields'
+        - 'Add Input components for numeric CI fields'
+        - 'Add dirty state tracking and save handler'
+      refactor:
+        - 'Group toggles into logical subsections (PR behavior, approval gates, CI)'
+    estimatedEffort: '1h'
+
+  - id: task-16
+    phaseId: phase-3
+    title: 'Create NotificationSettingsSection component with stories and tests'
+    description: >
+      Build the Notifications section with Switch toggles for three channels
+      (inApp, browser, desktop) and nine event types (agentStarted,
+      phaseCompleted, waitingApproval, agentCompleted, agentFailed, prMerged,
+      prClosed, prChecksPassed, prChecksFailed). Each toggle has a label.
+    state: Todo
+    dependencies:
+      - task-8
+      - task-12
+    acceptanceCriteria:
+      - 'Card with title "Notifications" and descriptive subtitle'
+      - 'Switch toggles for inApp, browser, desktop channels'
+      - 'Switch toggles for all 9 notification event types'
+      - 'Visual separator between channels and events sections'
+      - 'Save button with dirty state tracking'
+      - 'Colocated .stories.tsx with Default, AllEnabled, AllDisabled stories'
+      - 'Unit tests for rendering all toggles'
+    tdd:
+      red:
+        - 'Write test: renders 3 channel toggles with correct labels'
+        - 'Write test: renders 9 event type toggles with correct labels'
+        - 'Write test: save button disabled initially, enabled after change'
+      green:
+        - 'Implement NotificationSettingsSection with useState for all fields'
+        - 'Add Separator between channels and events groups'
+        - 'Add dirty state tracking and save handler'
+      refactor:
+        - 'Extract event type list as a constant array for cleaner rendering'
+    estimatedEffort: '1h'
+
+  - id: task-17
+    phaseId: phase-3
+    title: 'Create FeatureFlagsSettingsSection component with stories and tests'
+    description: >
+      Build the Feature Flags section with Switch toggles for skills, envDeploy,
+      and debug. Each toggle has a brief description of what the flag controls.
+      Note per FR-22: changes to skills flag affect sidebar visibility after
+      page navigation.
+    state: Todo
+    dependencies:
+      - task-8
+      - task-12
+    acceptanceCriteria:
+      - 'Card with title "Feature Flags" and descriptive subtitle'
+      - 'Switch toggle for Skills with description text'
+      - 'Switch toggle for Deployments with description text'
+      - 'Switch toggle for Debug with description text'
+      - 'Save button with dirty state tracking'
+      - 'Colocated .stories.tsx with Default, AllEnabled, AllDisabled stories'
+      - 'Unit tests for rendering and toggle interaction'
+    tdd:
+      red:
+        - 'Write test: renders 3 feature flag toggles with descriptions'
+        - 'Write test: save button disabled initially, enabled after toggle'
+      green:
+        - 'Implement FeatureFlagsSettingsSection with useState'
+        - 'Add Switch components with description labels'
+        - 'Add dirty state tracking and save handler'
+      refactor:
+        - 'Ensure description text clearly explains each flag'
+    estimatedEffort: '45min'
+
+  - id: task-18
+    phaseId: phase-3
+    title: 'Create DatabaseSettingsSection component with stories and tests'
+    description: >
+      Build the Database Location section as a read-only Card. Displays the
+      SHEP_HOME directory path and the SQLite database file size in
+      human-readable format. No Save button (FR-23).
+    state: Todo
+    dependencies:
+      - task-12
+    acceptanceCriteria:
+      - 'Card with title "Database Location" and descriptive subtitle'
+      - 'Displays SHEP_HOME path as read-only text'
+      - 'Displays database file size in human-readable format (e.g. 2.4 MB)'
+      - 'No Save button on this section'
+      - 'Colocated .stories.tsx with Default and LargeDatabase stories'
+      - 'Unit tests for rendering path and file size'
+    tdd:
+      red:
+        - 'Write test: renders SHEP_HOME path text'
+        - 'Write test: renders database file size text'
+        - 'Write test: does not render a Save button'
+      green:
+        - 'Implement DatabaseSettingsSection as read-only Card'
+        - 'Format file size with human-readable helper'
+      refactor:
+        - 'Inline file size formatter (simple KB/MB/GB logic, no external dep)'
+    estimatedEffort: '30min'
+
+  - id: task-19
+    phaseId: phase-3
+    title: 'Wire up section save handlers to update-settings server action'
+    description: >
+      Connect all five saveable sections (Agent, Environment, Workflow,
+      Notifications, Feature Flags) to the update-settings server action.
+      Each section calls the action with its partial payload on Save click,
+      shows a toast on success/error, and resets dirty state on success.
+      Verify the SettingsPageClient passes the onSave callback to sections.
+    state: Todo
+    dependencies:
+      - task-13
+      - task-14
+      - task-15
+      - task-16
+      - task-17
+      - task-18
+    acceptanceCriteria:
+      - 'Each section calls update-settings with correct partial payload structure'
+      - 'Toast notification appears on successful save'
+      - 'Toast error appears on failed save'
+      - 'Dirty state resets to clean after successful save'
+      - 'Form values preserved on failed save (NFR-8)'
+      - 'Save button shows loading state during server action'
+    tdd:
+      red:
+        - 'Write test: clicking Save on agent section calls update-settings with agent payload'
+        - 'Write test: successful save resets dirty state'
+        - 'Write test: failed save preserves form values'
+      green:
+        - 'Wire up onSave callbacks in SettingsPageClient'
+        - 'Add useTransition for loading state on save buttons'
+        - 'Add toast calls for success/error feedback'
+      refactor:
+        - 'Extract common save handler pattern if sections share identical logic'
+    estimatedEffort: '1h'
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # Phase 4: Sidebar Integration & Final Validation
+  # ═══════════════════════════════════════════════════════════════════════
+
+  - id: task-20
+    phaseId: phase-4
+    title: 'Add Settings nav item to sidebar'
+    description: >
+      Add a SidebarNavItem for Settings with the lucide-react Settings (gear)
+      icon to the app sidebar. Place it after the conditional Skills item and
+      before SidebarContent (features list), as the last item in the
+      SidebarHeader menu (FR-4). Update sidebar stories if they exist.
+    state: Todo
+    dependencies:
+      - task-10
+    acceptanceCriteria:
+      - 'Settings SidebarNavItem renders with gear icon and "Settings" label'
+      - 'Nav item links to /settings'
+      - 'Nav item highlights when pathname === /settings'
+      - 'Positioned after Skills (or after Tools if Skills hidden) and before features list'
+      - 'Sidebar Storybook stories updated if they exist'
+    tdd:
+      red:
+        - 'Write test: sidebar renders Settings nav item with gear icon'
+        - 'Write test: Settings nav item active when pathname is /settings'
+      green:
+        - 'Add Settings import from lucide-react'
+        - 'Add SidebarNavItem after Skills conditional in app-sidebar.tsx'
+      refactor:
+        - 'Verify icon import name does not conflict (Settings icon vs Settings type)'
+    estimatedEffort: '30min'
+
+  - id: task-21
+    phaseId: phase-4
+    title: 'Final validation and fix-up'
+    description: >
+      Run the full validation suite: pnpm build, pnpm test, pnpm validate
+      (lint + format + typecheck + tsp). Fix any failures. Verify the settings
+      page renders correctly by checking the build output includes the
+      /settings route.
+    state: Todo
+    dependencies:
+      - task-19
+      - task-20
+    acceptanceCriteria:
+      - 'pnpm build succeeds with zero errors'
+      - 'pnpm test succeeds with zero failures'
+      - 'pnpm validate succeeds with zero errors'
+      - 'Build output includes /settings route'
+      - 'All new components have colocated .stories.tsx files'
+      - 'No TypeScript any types in new code'
+    tdd:
+      red:
+        - 'Run pnpm build — identify any compilation errors'
+        - 'Run pnpm test — identify any test failures'
+        - 'Run pnpm validate — identify any lint/format/type errors'
+      green:
+        - 'Fix all identified issues'
+      refactor:
+        - 'Final cleanup of imports, unused variables, formatting'
+    estimatedEffort: '1h'
+
+totalEstimate: '14h 30min'
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation is broken into 21 tasks across 4 phases, following a
+  bottom-up approach through the Clean Architecture layers.
+
+  Phase 1 (7 tasks, ~4h) establishes the data foundation: TypeSpec model
+  extension, database migration, mapper/repository updates, defaults factory,
+  settings service, and integration tests. Everything in this phase is
+  backend/infrastructure work that the UI depends on.
+
+  Phase 2 (3 tasks, ~2h) bridges infrastructure and presentation: server
+  actions for loading and updating settings, the feature flags migration
+  from env vars to DB-primary resolution, and the shadcn Switch component
+  installation. These are prerequisites for the UI components.
+
+  Phase 3 (9 tasks, ~7h 15min) is the bulk of the work: the settings page
+  Server Component, the client orchestrator, all six section components
+  with their Storybook stories and unit tests, and wiring up the save
+  handlers. Each section is independent, allowing focused development
+  and testing.
+
+  Phase 4 (2 tasks, ~1h 30min) integrates the sidebar nav item and runs
+  the full validation suite to ensure everything works together. This
+  comes last because it depends on the feature flags migration and all
+  UI components being in place.
+
+  The TDD approach is applied throughout: each task defines what tests
+  to write first (RED), what minimal implementation satisfies them (GREEN),
+  and what cleanup to perform afterward (REFACTOR). Infrastructure tasks
+  have integration tests against SQLite; UI components have unit tests
+  with mock data and Storybook stories for visual verification.

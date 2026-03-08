@@ -4,6 +4,8 @@ import userEvent from '@testing-library/user-event';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layouts/app-sidebar';
 
+const defaultFlags = { skills: true, envDeploy: false, debug: false };
+
 function renderWithSidebar(ui: React.ReactElement) {
   return render(<SidebarProvider>{ui}</SidebarProvider>);
 }
@@ -33,25 +35,25 @@ const mockFeatures = [
 
 describe('AppSidebar', () => {
   it('renders Control Center nav item in header', () => {
-    renderWithSidebar(<AppSidebar features={mockFeatures} />);
+    renderWithSidebar(<AppSidebar features={mockFeatures} featureFlags={defaultFlags} />);
 
     expect(screen.getByText('Control Center')).toBeInTheDocument();
   });
 
   it('renders Tools nav item in header', () => {
-    renderWithSidebar(<AppSidebar features={mockFeatures} />);
+    renderWithSidebar(<AppSidebar features={mockFeatures} featureFlags={defaultFlags} />);
 
     expect(screen.getByText('Tools')).toBeInTheDocument();
   });
 
   it('renders Features label in content', () => {
-    renderWithSidebar(<AppSidebar features={mockFeatures} />);
+    renderWithSidebar(<AppSidebar features={mockFeatures} featureFlags={defaultFlags} />);
 
     expect(screen.getByText('Features')).toBeInTheDocument();
   });
 
   it('groups features by status into Action Needed, In Progress, and Done sections', () => {
-    renderWithSidebar(<AppSidebar features={mockFeatures} />);
+    renderWithSidebar(<AppSidebar features={mockFeatures} featureFlags={defaultFlags} />);
 
     // Status group labels should be present
     expect(screen.getByText('Action Needed')).toBeInTheDocument();
@@ -65,7 +67,7 @@ describe('AppSidebar', () => {
   });
 
   it('renders New feature button in footer', () => {
-    renderWithSidebar(<AppSidebar features={mockFeatures} />);
+    renderWithSidebar(<AppSidebar features={mockFeatures} featureFlags={defaultFlags} />);
 
     expect(screen.getByRole('button', { name: /new feature/i })).toBeInTheDocument();
   });
@@ -74,7 +76,13 @@ describe('AppSidebar', () => {
     const handleFeatureClick = vi.fn();
     const user = userEvent.setup();
 
-    renderWithSidebar(<AppSidebar features={mockFeatures} onFeatureClick={handleFeatureClick} />);
+    renderWithSidebar(
+      <AppSidebar
+        features={mockFeatures}
+        featureFlags={defaultFlags}
+        onFeatureClick={handleFeatureClick}
+      />
+    );
 
     await user.click(screen.getByText('Auth Module'));
 
@@ -86,10 +94,29 @@ describe('AppSidebar', () => {
     const handleNewFeature = vi.fn();
     const user = userEvent.setup();
 
-    renderWithSidebar(<AppSidebar features={mockFeatures} onNewFeature={handleNewFeature} />);
+    renderWithSidebar(
+      <AppSidebar
+        features={mockFeatures}
+        featureFlags={defaultFlags}
+        onNewFeature={handleNewFeature}
+      />
+    );
 
     await user.click(screen.getByRole('button', { name: /new feature/i }));
 
     expect(handleNewFeature).toHaveBeenCalledOnce();
+  });
+
+  it('renders Settings nav item with gear icon', () => {
+    renderWithSidebar(<AppSidebar features={mockFeatures} featureFlags={defaultFlags} />);
+
+    expect(screen.getByText('Settings')).toBeInTheDocument();
+  });
+
+  it('renders Settings nav item linking to /settings', () => {
+    renderWithSidebar(<AppSidebar features={mockFeatures} featureFlags={defaultFlags} />);
+
+    const settingsLink = screen.getByText('Settings').closest('a');
+    expect(settingsLink).toHaveAttribute('href', '/settings');
   });
 });

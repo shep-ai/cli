@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { Home, Wrench, Puzzle, Plus } from 'lucide-react';
+import { Home, Wrench, Puzzle, Plus, Settings } from 'lucide-react';
 import {
   Sidebar,
   SidebarHeader,
@@ -23,7 +23,7 @@ import { SidebarSectionHeader } from '@/components/common/sidebar-section-header
 import { featureStatusConfig, featureStatusOrder } from '@/components/common/feature-status-config';
 import type { FeatureStatus } from '@/components/common/feature-status-config';
 import { useDeferredMount } from '@/hooks/use-deferred-mount';
-import { featureFlags } from '@/lib/feature-flags';
+import type { FeatureFlagsState } from '@/lib/feature-flags';
 
 export interface FeatureItem {
   featureId: string;
@@ -35,11 +35,17 @@ export interface FeatureItem {
 
 export interface AppSidebarProps {
   features: FeatureItem[];
+  featureFlags: FeatureFlagsState;
   onNewFeature?: () => void;
   onFeatureClick?: (featureId: string) => void;
 }
 
-export function AppSidebar({ features, onNewFeature, onFeatureClick }: AppSidebarProps) {
+export function AppSidebar({
+  features,
+  featureFlags,
+  onNewFeature,
+  onFeatureClick,
+}: AppSidebarProps) {
   const pathname = usePathname();
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
@@ -89,6 +95,12 @@ export function AppSidebar({ features, onNewFeature, onFeatureClick }: AppSideba
               active={pathname === '/skills'}
             />
           ) : null}
+          <SidebarNavItem
+            icon={Settings}
+            label="Settings"
+            href="/settings"
+            active={pathname === '/settings'}
+          />
         </SidebarMenu>
       </SidebarHeader>
 

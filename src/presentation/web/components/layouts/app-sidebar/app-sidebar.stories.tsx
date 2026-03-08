@@ -6,9 +6,14 @@ interface DecoratorContext {
   parameters?: { sidebar?: { defaultOpen?: boolean } };
 }
 
+const defaultFeatureFlags = { skills: true, envDeploy: true, debug: false };
+
 const meta: Meta<typeof AppSidebar> = {
   title: 'Layout/AppSidebar',
   component: AppSidebar,
+  args: {
+    featureFlags: defaultFeatureFlags,
+  },
   parameters: {
     layout: 'fullscreen',
   },

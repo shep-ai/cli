@@ -22,7 +22,7 @@ import { ActionButton } from '@/components/common/action-button';
 import { useFeatureActions } from '@/components/common/feature-drawer/use-feature-actions';
 import { DeploymentStatusBadge } from '@/components/common/deployment-status-badge';
 import { useDeployAction } from '@/hooks/use-deploy-action';
-import { featureFlags } from '@/lib/feature-flags';
+import { useFeatureFlags } from '@/hooks/feature-flags-context';
 import type { ReviewDrawerShellProps } from './review-drawer-shell-config';
 
 export function ReviewDrawerShell({
@@ -38,6 +38,7 @@ export function ReviewDrawerShell({
   isDeleting,
   children,
 }: ReviewDrawerShellProps) {
+  const featureFlags = useFeatureFlags();
   const handleClose = useCallback(() => {
     onClose();
   }, [onClose]);

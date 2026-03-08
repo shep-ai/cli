@@ -82,6 +82,23 @@ export function hasSettings(): boolean {
 }
 
 /**
+ * Update the settings singleton with new values.
+ * Used after a successful database write to refresh the in-memory
+ * singleton so the rest of the application sees the updated values
+ * without a full page reload.
+ *
+ * @param settings - The updated settings to store
+ * @throws Error if settings haven't been initialized yet
+ */
+export function updateSettings(settings: Settings): void {
+  if (readSettings() === null) {
+    throw new Error('Settings not initialized. Cannot update before initialization.');
+  }
+
+  writeSettings(settings);
+}
+
+/**
  * Reset settings instance (for testing purposes only).
  * DO NOT use in production code.
  *

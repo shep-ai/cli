@@ -397,6 +397,33 @@ FROM (
 WHERE repository_path NOT IN (SELECT path FROM repositories WHERE path IS NOT NULL);
 `,
   },
+  {
+    version: 24,
+    // Migration 024: Add feature flag columns and CI workflow columns to settings.
+    // Uses handler to safely handle re-runs where columns may already exist.
+    sql: '',
+    handler: (db: Database.Database) => {
+      const columns = db.pragma('table_info(settings)') as { name: string }[];
+      const addNotNull = (col: string, dflt: string) => {
+        if (!columns.some((c) => c.name === col)) {
+          db.exec(`ALTER TABLE settings ADD COLUMN ${col} INTEGER NOT NULL DEFAULT ${dflt}`);
+        }
+      };
+      const addNullable = (col: string) => {
+        if (!columns.some((c) => c.name === col)) {
+          db.exec(`ALTER TABLE settings ADD COLUMN ${col} INTEGER`);
+        }
+      };
+      // Feature flag columns (NOT NULL DEFAULT 0)
+      addNotNull('feature_flag_skills', '0');
+      addNotNull('feature_flag_env_deploy', '0');
+      addNotNull('feature_flag_debug', '0');
+      // CI workflow columns (nullable)
+      addNullable('ci_max_fix_attempts');
+      addNullable('ci_watch_timeout_ms');
+      addNullable('ci_log_max_chars');
+    },
+  },
 ];
 
 /**

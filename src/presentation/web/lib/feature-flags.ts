@@ -1,15 +1,58 @@
 /**
  * Feature flags for the web UI.
  *
- * Toggle via environment variables (NEXT_PUBLIC_ prefix for client access).
- * All flags default to **off** unless explicitly set to "true" or "1".
+ * DB-primary resolution: reads from Settings.featureFlags when available,
+ * falls back to NEXT_PUBLIC_ environment variables.
+ * The debug flag is DB-only (no env var fallback).
  */
+
+import { hasSettings, getSettings } from '@shepai/core/infrastructure/services/settings.service';
 
 function isEnabled(envVar: string | undefined): boolean {
   return envVar === 'true' || envVar === '1';
 }
 
+export interface FeatureFlagsState {
+  skills: boolean;
+  envDeploy: boolean;
+  debug: boolean;
+}
+
+export function getFeatureFlags(): FeatureFlagsState {
+  try {
+    if (hasSettings()) {
+      const flags = getSettings().featureFlags;
+      if (flags) {
+        return {
+          skills: flags.skills,
+          envDeploy: flags.envDeploy,
+          debug: flags.debug,
+        };
+      }
+    }
+  } catch {
+    // Settings not initialized (e.g., during build/SSG or client-side hydration)
+  }
+
+  return {
+    skills: isEnabled(process.env.NEXT_PUBLIC_FLAG_SKILLS),
+    envDeploy: isEnabled(process.env.NEXT_PUBLIC_FLAG_ENV_DEPLOY),
+    debug: false,
+  };
+}
+
+/**
+ * @deprecated Use getFeatureFlags() instead for DB-primary resolution.
+ * Kept for backward compatibility during migration.
+ */
 export const featureFlags = {
-  skills: isEnabled(process.env.NEXT_PUBLIC_FLAG_SKILLS),
-  envDeploy: isEnabled(process.env.NEXT_PUBLIC_FLAG_ENV_DEPLOY),
+  get skills() {
+    return getFeatureFlags().skills;
+  },
+  get envDeploy() {
+    return getFeatureFlags().envDeploy;
+  },
+  get debug() {
+    return getFeatureFlags().debug;
+  },
 } as const;

@@ -18,11 +18,12 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { DeploymentStatusBadge } from '@/components/common/deployment-status-badge';
 import { useDeployAction } from '@/hooks/use-deploy-action';
-import { featureFlags } from '@/lib/feature-flags';
+import { useFeatureFlags } from '@/hooks/feature-flags-context';
 import type { RepositoryNodeData } from './repository-node-config';
 import { useRepositoryActions } from './use-repository-actions';
 
 export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: string]: unknown }) {
+  const featureFlags = useFeatureFlags();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const actions = useRepositoryActions(
     data.repositoryPath ? { repositoryPath: data.repositoryPath } : null
