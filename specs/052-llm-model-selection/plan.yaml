@@ -1,0 +1,241 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: llm-model-selection
+summary: >
+  Consolidate ModelConfiguration from four flat SQLite columns into a single
+  model_default column, extend IAgentExecutorFactory with getSupportedModels
+  covering all three production executors (claude-code, gemini-cli, cursor),
+  wire a --model flag through feat new, add a settings model subcommand, and
+  deliver a web UI ModelPicker backed by a Next.js server action (not an API
+  route). The implementation follows Clean Architecture layer order: domain →
+  infrastructure → application → presentation.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - TypeSpec (tsp) — ModelConfiguration redefinition (single default field)
+  - TypeScript — cascading consumer updates after TypeSpec regeneration
+  - better-sqlite3 — additive migration 024 adding model_default column
+  - Commander.js — --model flag on feat new; new settings model subcommand
+  - Inquirer.js — interactive model picker prompt in CLI settings command
+  - React / Next.js — ModelPicker web component with server action data fetch
+  - shadcn/ui Command + Popover — combobox pattern for model picker
+  - Next.js Server Actions — getSupportedModels exposed to web UI via "use server"
+  - tsyringe — DI wiring unchanged; getSupportedModels added to existing token
+relatedLinks:
+  - https://github.com/shep-ai/cli/issues/229
+  - https://ui.shadcn.com/docs/components/combobox
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: Domain Foundation — TypeSpec & Compile
+    description: >
+      Update ModelConfiguration in TypeSpec to replace its four phase-specific
+      string fields with a single `default: string` field defaulting to
+      "claude-sonnet-4-6". Run `pnpm tsp:compile` to regenerate output.ts, then
+      fix every TypeScript consumer that references the old field names. This
+      phase must complete first because all downstream layers depend on the
+      generated type. settings-defaults.factory.ts is updated here because it
+      constructs the domain value object and is the simplest consumer to verify
+      compilation against.
+    parallel: false
+
+  - id: phase-2
+    name: Infrastructure — Migration, Mapper & Factory
+    description: >
+      Add migration 024 that conditionally adds a model_default TEXT column
+      (idempotent handler pattern matching migrations 20–22). Update
+      settings.mapper.ts to read/write model_default and map it to
+      ModelConfiguration.default, ignoring the four legacy columns. Implement
+      getSupportedModels on IAgentExecutorFactory (interface) and
+      AgentExecutorFactoryService (implementation) with static per-agent arrays
+      covering ALL production executors: claude-code, gemini-cli, cursor, and
+      dev. GeminiCliExecutorService and CursorExecutorService model flag
+      passthrough are verified/confirmed here — research confirms both already
+      implement `-m` flag passing.
+    parallel: false
+
+  - id: phase-3
+    name: Application Layer — Use Case Model Wiring
+    description: >
+      Add optional `model?: string` to CreateFeatureUseCaseInput and thread the
+      value through to AgentExecutionOptions.model inside the use case. This is
+      the application-layer contract that the CLI --model flag and future callers
+      will depend on.
+    parallel: false
+
+  - id: phase-4
+    name: CLI Presentation — --model Flag & settings model Command
+    description: >
+      Add `--model <model>` option to `shep feat new`, forwarding the value to
+      CreateFeatureUseCaseInput.model with no Shep-side validation (agent is the
+      authoritative validator). Create `src/presentation/cli/commands/settings/
+      model.command.ts` following the agent.command.ts pattern: resolve
+      IAgentExecutorFactory from DI, call getSupportedModels for the configured
+      agent, present an Inquirer list prompt with the current model pre-selected,
+      persist via UpdateSettingsUseCase, and print a confirmation.
+    parallel: false
+
+  - id: phase-5
+    name: Web Presentation — Server Action & ModelPicker Component
+    description: >
+      Create a Next.js server action at `src/presentation/web/app/actions/
+      get-supported-models.ts` (with "use server" directive) that resolves
+      IAgentExecutorFactory via the server-side DI container and returns
+      getSupportedModels for the configured agent. Do NOT use an API route —
+      use server actions following the existing pattern in
+      `src/presentation/web/app/actions/`. Build ModelPicker using the shadcn
+      Command + Popover combobox pattern: calls the server action to fetch
+      advertised models, shows them as suggestions with free-text fallback,
+      persists changes via the existing settings update mechanism. Colocated
+      .stories.tsx required (NFR-5).
+    parallel: false
+
+  - id: phase-6
+    name: Test Cleanup & Green Suite
+    description: >
+      Update all test fixtures (unit, integration, e2e) that reference the old
+      ModelConfiguration field names (analyze, requirements, plan, implement) to
+      use the new `default` field. Verify integration tests cover the migration
+      path and mapper round-trips. Verify unit tests cover all three production
+      executors in getSupportedModels (claude-code, gemini-cli, cursor). Confirm
+      `pnpm test` reports zero failures.
+    parallel: false
+
+# File change tracking
+filesToCreate:
+  - src/presentation/cli/commands/settings/model.command.ts
+  - src/presentation/web/app/actions/get-supported-models.ts
+  - src/presentation/web/components/features/settings/ModelPicker/index.tsx
+  - src/presentation/web/components/features/settings/ModelPicker/ModelPicker.stories.tsx
+
+filesToModify:
+  - tsp/domain/entities/settings.tsp
+  - packages/core/src/domain/generated/output.ts
+  - packages/core/src/domain/factories/settings-defaults.factory.ts
+  - packages/core/src/application/ports/output/agents/agent-executor-factory.interface.ts
+  - packages/core/src/infrastructure/services/agents/common/agent-executor-factory.service.ts
+  - packages/core/src/infrastructure/persistence/sqlite/migrations.ts
+  - packages/core/src/infrastructure/persistence/sqlite/mappers/settings.mapper.ts
+  - packages/core/src/application/use-cases/features/create/create-feature.use-case.ts
+  - src/presentation/cli/commands/feat/new.command.ts
+  - src/presentation/cli/commands/settings/index.ts
+  - tests/unit/domain/factories/settings-defaults.factory.test.ts
+  - tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts
+  - tests/unit/application/use-cases/update-settings.use-case.test.ts
+  - tests/unit/infrastructure/services/agents/agent-executor-factory.service.test.ts
+  - tests/integration/infrastructure/repositories/sqlite-settings.repository.test.ts
+  - tests/e2e/cli/settings-init.test.ts
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Architecture Overview
+
+  This feature modifies all four Clean Architecture layers, with dependencies
+  strictly flowing inward:
+
+  ```
+  presentation (CLI + Web)
+       ↓
+  application (use cases + port interfaces)
+       ↓
+  infrastructure (factory impl, mapper, migration)
+       ↓
+  domain (TypeSpec → generated types)
+  ```
+
+  The TypeSpec change is the root of the dependency graph — it must land first
+  because every other layer imports the generated `ModelConfiguration` type.
+  The additive SQLite migration ensures backward compatibility: the four legacy
+  columns (`model_analyze`, `model_requirements`, `model_plan`, `model_implement`)
+  remain in the schema but are ignored by the mapper after migration 024 adds
+  `model_default`.
+
+  ## Key Design Decisions
+
+  ### 1. ModelConfiguration Wrapper (not inline scalar)
+  Keep the `ModelConfiguration` named TypeSpec model, replacing its four
+  phase-specific fields with a single `default: string` field. This limits the
+  blast radius of the TypeSpec diff (field rename inside a model vs restructuring
+  the entire Settings model) and preserves extensibility for future per-agent
+  override fields without another breaking migration.
+
+  ### 2. Additive SQLite Migration (column add, not column drop)
+  Migration 024 adds `model_default TEXT NOT NULL DEFAULT 'claude-sonnet-4-6'`
+  via the handler pattern established in migrations 20–22. Old columns are
+  retained but the mapper stops reading/writing them. SQLite < 3.35 does not
+  support `ALTER TABLE DROP COLUMN`, so deferred column removal is the safe
+  choice. The migration is idempotent via `IF NOT EXISTS` column check.
+
+  ### 3. getSupportedModels on IAgentExecutorFactory (not a new port)
+  `IAgentExecutorFactory` already exposes `getSupportedAgents()` and
+  `getCliInfo()`. Adding `getSupportedModels(agentType: AgentType): string[]`
+  keeps all agent-capability queries in one place. No new DI token, no new
+  injection sites. The method returns synchronously with static arrays (NFR-7).
+
+  All production executor types are covered:
+  - `claude-code`: `["claude-opus-4-6", "claude-sonnet-4-6", "claude-haiku-4-5"]`
+  - `gemini-cli`: `["gemini-2.5-pro", "gemini-2.0-flash", "gemini-1.5-pro"]`
+  - `cursor`: `["claude-3-5-sonnet-20241022", "claude-3-haiku-20240307", "gpt-4o", "cursor-small"]`
+  - `dev`: `[]` (no-op executor)
+
+  ### 4. Accept Any String for --model (no Shep-side validation)
+  The spec has a contradiction between FR-9 ("forward the value") and the
+  open-question answer ("validate against getSupportedModels"). Research resolves
+  this clearly: accept any string and let the agent CLI be the authoritative
+  validator. This prevents blocking users from using newly released model
+  identifiers not yet in the static list.
+
+  ### 5. Combobox (not restricted dropdown) for ModelPicker
+  Despite the open-question answer selecting "dropdown restricted to advertised
+  list", the selectionRationale and spec content explicitly argue for combobox
+  ("LLM model identifiers evolve faster than release cycles"). The combobox
+  (shadcn Command + Popover) shows advertised suggestions while accepting
+  free-text fallback — the correct product decision per the spec content.
+
+  ### 6. Server Action (not API Route) for Web UI Model List
+  The ModelPicker fetches the supported models list via a Next.js server action
+  (`src/presentation/web/app/actions/get-supported-models.ts`) rather than an
+  API route. This follows the existing pattern established by other web actions
+  in the project (`create-feature.ts`, `get-workflow-defaults.ts`) and avoids
+  the overhead of an HTTP round-trip for data that is trivially available on the
+  server. The server action uses `'use server'` and resolves IAgentExecutorFactory
+  via the same server-side DI container used by other actions.
+
+  ### 7. GeminiCliExecutorService & CursorExecutorService — No Parity Work Needed
+  Direct code inspection confirms both executors already handle the model flag:
+  - `gemini-cli-executor.service.ts:353`: `if (options?.model) args.push('-m', options.model)`
+  - `cursor-executor.service.ts:266`: `if (options?.model) args.push('-m', options.model)`
+  FR-11 is already satisfied for both. Integration test coverage for these
+  paths is verified in phase-2 rather than implemented from scratch.
+
+  ## Implementation Strategy
+
+  Phase order is determined by inward dependency:
+  1. **Domain first**: TypeSpec compile must succeed before TypeScript can build.
+  2. **Infrastructure second**: Migration and mapper must align with the new type
+     before use cases or CLI commands can read/write the new field.
+  3. **Application third**: Use case input DTO must accept `model?` before the
+     CLI layer can pass it.
+  4. **CLI fourth**: `--model` flag and `settings model` command depend on the
+     application and infrastructure layers being complete.
+  5. **Web fifth**: Server action and ModelPicker depend on `getSupportedModels`
+     being available; component is last because it has no downstream dependents.
+  6. **Test cleanup last**: All test fixture updates are concentrated here to
+     keep red/green cycles clean.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | TypeSpec compile regenerates output.ts with cascading type errors | Fix all TS errors immediately after tsp:compile; do not proceed until `pnpm build` is green |
+  | Migration runs on existing production DBs with only the old flat columns | Handler checks `IF NOT EXISTS` before adding model_default; additive-only, zero data loss |
+  | shadcn Command component may not be installed in web package | Verify before task-11; install via shadcn CLI if absent |
+  | Spec contradiction on --model validation | Research resolves: accept any string, no Shep-side validation |
+  | Cursor model list accuracy | Cursor executor passes `-m` to agent CLI; static list reflects models available via Cursor IDE API as of feature date |
+  | Server action DI container bootstrap in web context | Follow pattern from get-workflow-defaults.ts which already resolves settings service in web server actions |

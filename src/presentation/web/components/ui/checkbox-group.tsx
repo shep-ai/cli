@@ -55,7 +55,7 @@ function CheckboxGroup({
   return (
     <div className="flex flex-col gap-3">
       {/* Parent checkbox */}
-      <div className="flex items-start gap-2">
+      <div className="flex cursor-pointer items-start gap-2">
         <Checkbox
           id={parentId}
           className="mt-0.75"

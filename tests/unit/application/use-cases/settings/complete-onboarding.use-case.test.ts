@@ -11,10 +11,7 @@ function createTestSettings(overrides: Partial<Settings> = {}): Settings {
     createdAt: new Date('2025-01-01T00:00:00Z'),
     updatedAt: new Date('2025-01-01T00:00:00Z'),
     models: {
-      analyze: 'claude-sonnet-4-5',
-      requirements: 'claude-sonnet-4-5',
-      plan: 'claude-sonnet-4-5',
-      implement: 'claude-sonnet-4-5',
+      default: 'claude-sonnet-4-6',
     },
     user: {},
     environment: {

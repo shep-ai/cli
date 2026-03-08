@@ -11,6 +11,7 @@
  *   shep settings agent     # Configure AI coding agent
  *   shep settings ide       # Configure preferred IDE
  *   shep settings workflow  # Configure workflow defaults
+ *   shep settings model     # Configure default LLM model
  */
 
 import { Command } from 'commander';
@@ -19,6 +20,7 @@ import { createInitCommand } from './init.command.js';
 import { createAgentCommand } from './agent.command.js';
 import { createIdeCommand } from './ide.command.js';
 import { createWorkflowCommand } from './workflow.command.js';
+import { createModelCommand } from './model.command.js';
 import { onboardingWizard } from '../../../tui/wizards/onboarding/onboarding.wizard.js';
 import { messages } from '../../ui/index.js';
 
@@ -32,7 +34,8 @@ export function createSettingsCommand(): Command {
     .addCommand(createInitCommand())
     .addCommand(createAgentCommand())
     .addCommand(createIdeCommand())
-    .addCommand(createWorkflowCommand());
+    .addCommand(createWorkflowCommand())
+    .addCommand(createModelCommand());
 
   // Default action: launch the full setup wizard when no subcommand is given
   cmd.action(async () => {

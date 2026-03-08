@@ -115,6 +115,8 @@ function CreateDrawerTrigger({
         }}
         repositoryPath="/Users/dev/my-repo"
         workflowDefaults={workflowDefaults}
+        currentAgentType="claude-code"
+        currentModel="claude-sonnet-4-6"
       />
     </div>
   );
@@ -400,6 +402,8 @@ function CreateDrawerShellTemplate() {
           setOpen(false);
         }}
         repositoryPath="/Users/dev/my-repo"
+        currentAgentType="claude-code"
+        currentModel="claude-sonnet-4-6"
       />
     </div>
   );
@@ -408,6 +412,56 @@ function CreateDrawerShellTemplate() {
 /** Feature create drawer rendered inside a full-page context — starts open. */
 export const InDrawer: Story = {
   render: () => <CreateDrawerShellTemplate />,
+};
+
+/* ---------------------------------------------------------------------------
+ * Parent feature selector story
+ * ------------------------------------------------------------------------- */
+
+const SAMPLE_FEATURES = [
+  { id: 'feat-001-abc', name: 'OAuth integration' },
+  { id: 'feat-002-def', name: 'Dashboard redesign' },
+  { id: 'feat-003-ghi', name: 'API rate limiting' },
+];
+
+function CreateDrawerWithParent() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="flex h-screen items-start p-4">
+      <Button variant="outline" onClick={() => setOpen(true)}>
+        Open (With Parent)
+      </Button>
+      <FeatureCreateDrawer
+        open={open}
+        onClose={() => {
+          setOpen(false);
+          logClose();
+        }}
+        onSubmit={(data) => {
+          logSubmit(data);
+          setOpen(false);
+        }}
+        repositoryPath="/Users/dev/my-repo"
+        features={SAMPLE_FEATURES}
+        initialParentId="feat-001-abc"
+        currentAgentType="claude-code"
+        currentModel="claude-sonnet-4-6"
+      />
+    </div>
+  );
+}
+
+/**
+ * With parent feature pre-selected — opened from a feature node's (+) button.
+ * Shows the parent feature selector with a pre-selected parent.
+ */
+export const WithParentFeature: Story = {
+  render: () => <CreateDrawerWithParent />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Open (With Parent)' }));
+  },
 };
 
 /* ---------------------------------------------------------------------------
@@ -474,6 +528,8 @@ export const Interactive: Story = {
             setOpen(false);
           }}
           repositoryPath="/Users/dev/my-repo"
+          currentAgentType="claude-code"
+          currentModel="claude-sonnet-4-6"
         />
       </div>
     );

@@ -393,4 +393,40 @@ describe('createNewCommand', () => {
       expect(fastOption?.description).toBeTruthy();
     });
   });
+
+  describe('--model flag', () => {
+    it('should expose --model option in command help', () => {
+      const cmd = createNewCommand();
+      const modelOption = cmd.options.find((o) => o.long === '--model');
+      expect(modelOption).toBeDefined();
+      expect(modelOption?.description).toBeTruthy();
+    });
+
+    it('should forward --model value to use case input', async () => {
+      const cmd = createNewCommand();
+      await cmd.parseAsync(['Add feature', '--model', 'claude-opus-4-6'], { from: 'user' });
+
+      expect(mockCreateExecute).toHaveBeenCalledWith(
+        expect.objectContaining({ model: 'claude-opus-4-6' })
+      );
+    });
+
+    it('should not include model in use case input when --model is not provided', async () => {
+      const cmd = createNewCommand();
+      await cmd.parseAsync(['Add feature'], { from: 'user' });
+
+      expect(mockCreateExecute).toHaveBeenCalledWith(
+        expect.not.objectContaining({ model: expect.anything() })
+      );
+    });
+
+    it('should accept arbitrary model strings without validation', async () => {
+      const cmd = createNewCommand();
+      await cmd.parseAsync(['Add feature', '--model', 'any-future-model-id'], { from: 'user' });
+
+      expect(mockCreateExecute).toHaveBeenCalledWith(
+        expect.objectContaining({ model: 'any-future-model-id' })
+      );
+    });
+  });
 });

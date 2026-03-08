@@ -25,7 +25,7 @@
  * ## Initialization
  *
  * On first run, Settings is created with sensible defaults:
- * - All agents use claude-sonnet-4-5
+ * - Default model: claude-sonnet-4-6
  * - Editor defaults to vscode
  * - Shell defaults to bash
  * - Auto-update enabled
@@ -40,56 +40,32 @@ import "../../common/enums/notification.tsp";
 /**
  * Model Configuration
  *
- * Specifies which AI models to use for each agent in the Shep SDLC workflow.
- * All models default to claude-sonnet-4-5 for consistent performance.
+ * Specifies the default AI model to use for all agents in the Shep SDLC
+ * workflow. The single `default` field replaces the previous per-phase fields
+ * (analyze, requirements, plan, implement), simplifying configuration.
  *
  * ## Model Selection
  *
- * Users can override these defaults to:
- * - Use faster models for simpler tasks (claude-haiku)
- * - Use more powerful models for complex tasks (claude-opus-4-5)
- * - Balance cost and performance based on project needs
+ * Users can configure the model via:
+ * - `shep settings model` — interactive CLI prompt
+ * - `shep feat new --model <model>` — per-invocation override
+ * - Web UI settings panel — model picker component
  *
  * ## Supported Models
  *
- * Valid model IDs follow Anthropic's naming convention:
- * - claude-opus-4-5 (most capable)
- * - claude-sonnet-4-5 (balanced, default)
- * - claude-haiku (fastest, most economical)
+ * Valid model IDs depend on the configured agent executor:
+ * - claude-code: claude-opus-4-6, claude-sonnet-4-6, claude-haiku-4-5
+ * - gemini-cli: gemini-3.1-pro, gemini-3-flash, gemini-2.5-pro, gemini-2.5-flash
+ * - cursor: claude-opus-4-6, claude-sonnet-4-6, gpt-5.4, gpt-5, gpt-5.3-codex, gemini-3.1-pro, composer-1.5, grok-code
  */
-@doc("AI model configuration for different SDLC agents")
+@doc("AI model configuration for the SDLC agent")
 model ModelConfiguration {
   /**
-   * Model identifier for the codebase analysis agent.
-   * This agent performs static analysis, dependency mapping,
-   * and architecture discovery.
+   * Default model identifier used for all SDLC agents.
+   * Can be overridden per-invocation via the --model CLI flag.
    */
-  @doc("Model for codebase analysis agent")
-  analyze: string = "claude-sonnet-4-5";
-
-  /**
-   * Model identifier for the requirements gathering agent.
-   * This agent conducts conversational requirements elicitation
-   * and clarification with the user.
-   */
-  @doc("Model for requirements gathering agent")
-  requirements: string = "claude-sonnet-4-5";
-
-  /**
-   * Model identifier for the planning agent.
-   * This agent breaks down features into tasks, creates work plans,
-   * and generates implementation strategies.
-   */
-  @doc("Model for planning agent")
-  plan: string = "claude-sonnet-4-5";
-
-  /**
-   * Model identifier for the implementation agent.
-   * This agent executes code changes, writes tests,
-   * and performs refactoring.
-   */
-  @doc("Model for implementation agent")
-  implement: string = "claude-sonnet-4-5";
+  @doc("Default model identifier for all agents")
+  default: string = "claude-sonnet-4-6";
 }
 
 /**
@@ -429,10 +405,7 @@ model FeatureFlags {
  * {
  *   "id": "550e8400-e29b-41d4-a716-446655440000",
  *   "models": {
- *     "analyze": "claude-sonnet-4-5",
- *     "requirements": "claude-sonnet-4-5",
- *     "plan": "claude-sonnet-4-5",
- *     "implement": "claude-opus-4-5"
+ *     "default": "claude-sonnet-4-6"
  *   },
  *   "user": {
  *     "name": "Jane Doe",

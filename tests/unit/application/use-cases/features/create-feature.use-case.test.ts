@@ -577,4 +577,40 @@ describe('CreateFeatureUseCase', () => {
       expect(mockAgentProcess.spawn).not.toHaveBeenCalled();
     });
   });
+
+  // -------------------------------------------------------------------------
+  // task-8: optional model field wired to spawn options
+  // -------------------------------------------------------------------------
+
+  describe('model field wiring', () => {
+    it('should pass model to spawn when input.model is provided', async () => {
+      const inputWithModel: CreateFeatureInput = {
+        ...baseInput,
+        model: 'claude-opus-4-6',
+      };
+
+      await useCase.execute(inputWithModel);
+
+      expect(mockAgentProcess.spawn).toHaveBeenCalledOnce();
+      const spawnOptions = (mockAgentProcess.spawn as ReturnType<typeof vi.fn>).mock.calls[0][5];
+      expect(spawnOptions.model).toBe('claude-opus-4-6');
+    });
+
+    it('should not set model on spawn options when input.model is absent', async () => {
+      await useCase.execute(baseInput);
+
+      expect(mockAgentProcess.spawn).toHaveBeenCalledOnce();
+      const spawnOptions = (mockAgentProcess.spawn as ReturnType<typeof vi.fn>).mock.calls[0][5];
+      expect(spawnOptions.model).toBeUndefined();
+    });
+
+    it('should accept model field in CreateFeatureInput without TypeScript errors', () => {
+      const input: CreateFeatureInput = {
+        userInput: 'test',
+        repositoryPath: '/repo',
+        model: 'claude-sonnet-4-6',
+      };
+      expect(input.model).toBe('claude-sonnet-4-6');
+    });
+  });
 });

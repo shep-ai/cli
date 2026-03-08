@@ -414,6 +414,25 @@ describe('buildExecutorOptions', () => {
     const result = buildExecutorOptions(state);
     expect(result.maxTurns).toBe(5000);
   });
+
+  it('should include model when state has model set', () => {
+    const state = {
+      worktreePath: '/work',
+      repositoryPath: '/repo',
+      model: 'claude-haiku-4-5',
+    } as FeatureAgentState;
+    const result = buildExecutorOptions(state);
+    expect(result.model).toBe('claude-haiku-4-5');
+  });
+
+  it('should not include model when state has no model', () => {
+    const state = {
+      worktreePath: '/work',
+      repositoryPath: '/repo',
+    } as FeatureAgentState;
+    const result = buildExecutorOptions(state);
+    expect(result.model).toBeUndefined();
+  });
 });
 
 describe('getCompletedPhases', () => {

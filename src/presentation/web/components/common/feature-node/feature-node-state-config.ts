@@ -63,6 +63,8 @@ export interface FeatureNodeData {
   errorMessage?: string;
   /** Agent executor type (e.g. "claude-code", "cursor"). */
   agentType?: AgentTypeValue;
+  /** LLM model identifier used for this feature's agent run. */
+  modelId?: string;
   /** PR metadata for features with an associated pull request */
   pr?: {
     url: string;

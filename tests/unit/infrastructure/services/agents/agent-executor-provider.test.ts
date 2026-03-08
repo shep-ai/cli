@@ -27,6 +27,7 @@ describe('AgentExecutorProvider', () => {
       createExecutor: vi.fn().mockReturnValue(mockExecutor),
       getSupportedAgents: vi.fn(),
       getCliInfo: vi.fn().mockReturnValue([]),
+      getSupportedModels: vi.fn().mockReturnValue([]),
     };
     mockSettingsRepo = {
       load: vi.fn().mockResolvedValue(defaultSettings),

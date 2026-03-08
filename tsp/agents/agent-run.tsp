@@ -58,4 +58,7 @@ model AgentRun extends BaseEntity {
 
   @doc("Approval gate configuration for human-in-the-loop review (optional)")
   approvalGates?: ApprovalGates;
+
+  @doc("LLM model identifier used for this run (optional, set at creation)")
+  modelId?: string;
 }

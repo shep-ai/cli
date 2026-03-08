@@ -19,7 +19,11 @@
 import { injectable, inject } from 'tsyringe';
 import { randomUUID } from 'node:crypto';
 import type { Feature } from '../../../../domain/generated/output.js';
-import { SdlcLifecycle, AgentRunStatus } from '../../../../domain/generated/output.js';
+import {
+  SdlcLifecycle,
+  AgentRunStatus,
+  type AgentType,
+} from '../../../../domain/generated/output.js';
 import type { IFeatureRepository } from '../../../ports/output/repositories/feature-repository.interface.js';
 import type { IWorktreeService } from '../../../ports/output/services/worktree-service.interface.js';
 import type { IFeatureAgentProcessService } from '../../../ports/output/agents/feature-agent-process.interface.js';
@@ -169,7 +173,7 @@ export class CreateFeatureUseCase {
     const settings = getSettings();
     const agentRun = {
       id: runId,
-      agentType: settings.agent.type,
+      agentType: (input.agentType as typeof settings.agent.type) ?? settings.agent.type,
       agentName: 'feature-agent',
       status: AgentRunStatus.pending,
       prompt: input.userInput,
@@ -177,6 +181,11 @@ export class CreateFeatureUseCase {
       featureId: feature.id,
       repositoryPath: effectiveRepoPath,
       ...(input.approvalGates ? { approvalGates: input.approvalGates } : {}),
+      ...(input.model
+        ? { modelId: input.model }
+        : settings.models?.default
+          ? { modelId: settings.models.default }
+          : {}),
       createdAt: now.toISOString(),
       updatedAt: now.toISOString(),
     };
@@ -254,6 +263,8 @@ export class CreateFeatureUseCase {
           push: input.push ?? false,
           openPr: input.openPr ?? false,
           ...(input.fast ? { fast: true } : {}),
+          ...(input.agentType ? { agentType: input.agentType as AgentType } : {}),
+          ...(input.model ? { model: input.model } : {}),
         }
       );
     }

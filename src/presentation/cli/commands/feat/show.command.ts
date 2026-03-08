@@ -24,6 +24,13 @@ import type {
 import { colors, symbols, messages, renderDetailView } from '../../ui/index.js';
 import { computeWorktreePath } from '@/infrastructure/services/ide-launchers/compute-worktree-path.js';
 
+const AGENT_LABELS: Record<string, string> = {
+  'claude-code': 'Claude Code',
+  cursor: 'Cursor CLI',
+  'gemini-cli': 'Gemini CLI',
+  dev: 'Demo',
+};
+
 /** Map graph node names to human-readable phase labels (active). */
 const NODE_TO_PHASE: Record<string, string> = {
   analyze: 'Analyzing',
@@ -497,6 +504,13 @@ export function createShowCommand(): Command {
                 { label: 'Branch', value: colors.accent(feature.branch) },
                 { label: 'Status', value: formatStatus(feature, run) },
                 { label: 'Lifecycle', value: formatLifecycle(feature.lifecycle) },
+                {
+                  label: 'Agent',
+                  value: run
+                    ? (AGENT_LABELS[run.agentType as string] ?? (run.agentType as string))
+                    : null,
+                },
+                { label: 'Model', value: run?.modelId ?? null },
                 { label: 'Worktree', value: worktreePath },
                 { label: 'Spec Dir', value: feature.specPath ?? null },
                 { label: 'Agent Run', value: feature.agentRunId ?? null },

@@ -28,10 +28,7 @@ function createTestSettings(overrides: Partial<Settings> = {}): Settings {
     createdAt: new Date('2025-01-01T00:00:00Z'),
     updatedAt: new Date('2025-01-01T12:00:00Z'),
     models: {
-      analyze: 'claude-opus-4',
-      requirements: 'claude-sonnet-4',
-      plan: 'claude-sonnet-4',
-      implement: 'claude-sonnet-4',
+      default: 'claude-opus-4',
     },
     user: {
       name: 'Test User',
@@ -93,6 +90,7 @@ function createTestRow(overrides: Partial<SettingsRow> = {}): SettingsRow {
     model_requirements: 'claude-sonnet-4',
     model_plan: 'claude-sonnet-4',
     model_implement: 'claude-sonnet-4',
+    model_default: 'claude-opus-4',
     user_name: 'Test User',
     user_email: 'test@example.com',
     user_github_username: 'testuser',
@@ -349,7 +347,7 @@ describe('Settings Mapper', () => {
       const row = toDatabase(settings);
 
       expect(row.id).toBe('test-id');
-      expect(row.model_analyze).toBe('claude-opus-4');
+      expect(row.model_default).toBe('claude-opus-4');
       expect(row.user_name).toBe('Test User');
       expect(row.env_default_editor).toBe('vscode');
       expect(row.sys_auto_update).toBe(1);
@@ -364,7 +362,7 @@ describe('Settings Mapper', () => {
       const settings = fromDatabase(row);
 
       expect(settings.id).toBe('test-id');
-      expect(settings.models.analyze).toBe('claude-opus-4');
+      expect(settings.models.default).toBe('claude-opus-4');
       expect(settings.user.name).toBe('Test User');
       expect(settings.environment.defaultEditor).toBe('vscode');
       expect(settings.system.autoUpdate).toBe(true);

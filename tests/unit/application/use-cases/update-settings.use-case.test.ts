@@ -83,10 +83,7 @@ describe('UpdateSettingsUseCase', () => {
       const updatedSettings: Settings = {
         ...settings,
         models: {
-          analyze: 'claude-opus-4-5',
-          requirements: 'claude-sonnet-4-5',
-          plan: 'claude-sonnet-4-5',
-          implement: 'claude-sonnet-4-5',
+          default: 'claude-opus-4-6',
         },
       };
 
@@ -94,20 +91,16 @@ describe('UpdateSettingsUseCase', () => {
       const result = await useCase.execute(updatedSettings);
 
       // Assert
-      expect(result.models.analyze).toBe('claude-opus-4-5');
-      expect(result.models.requirements).toBe('claude-sonnet-4-5');
+      expect(result.models.default).toBe('claude-opus-4-6');
     });
 
-    it('should update all model fields independently', async () => {
+    it('should update the default model field', async () => {
       // Arrange
       const settings = createDefaultSettings();
       const updatedSettings: Settings = {
         ...settings,
         models: {
-          analyze: 'claude-opus-4-5',
-          requirements: 'claude-haiku-4-5',
-          plan: 'claude-sonnet-4-5',
-          implement: 'claude-opus-4-5',
+          default: 'claude-haiku-4-5',
         },
       };
 
@@ -115,10 +108,7 @@ describe('UpdateSettingsUseCase', () => {
       const result = await useCase.execute(updatedSettings);
 
       // Assert
-      expect(result.models.analyze).toBe('claude-opus-4-5');
-      expect(result.models.requirements).toBe('claude-haiku-4-5');
-      expect(result.models.plan).toBe('claude-sonnet-4-5');
-      expect(result.models.implement).toBe('claude-opus-4-5');
+      expect(result.models.default).toBe('claude-haiku-4-5');
     });
   });
 

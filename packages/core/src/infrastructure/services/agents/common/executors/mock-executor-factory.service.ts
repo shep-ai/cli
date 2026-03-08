@@ -27,4 +27,8 @@ export class MockAgentExecutorFactory implements IAgentExecutorFactory {
   getCliInfo(): AgentCliInfo[] {
     return [];
   }
+
+  getSupportedModels(_agentType: AgentType): string[] {
+    return [];
+  }
 }

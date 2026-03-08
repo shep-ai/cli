@@ -669,19 +669,16 @@ describe('SQLite Migrations', () => {
       expect(rows).toHaveLength(1);
     });
 
-    it('sets schema version to 23 after migration', async () => {
+    it('sets schema version to latest after migration', async () => {
       await runSQLiteMigrations(db);
       expect(getSchemaVersion(db)).toBe(LATEST_SCHEMA_VERSION);
+      expect(LATEST_SCHEMA_VERSION).toBe(26);
     });
   });
 
   describe('migration v24: feature flags and CI workflow columns', () => {
     beforeEach(async () => {
       await runSQLiteMigrations(db);
-    });
-
-    it('should set LATEST_SCHEMA_VERSION to 24', () => {
-      expect(LATEST_SCHEMA_VERSION).toBe(24);
     });
 
     it('should add feature_flag_skills column as INTEGER NOT NULL DEFAULT 0', () => {
@@ -781,10 +778,9 @@ describe('SQLite Migrations', () => {
     });
 
     it('should be idempotent (running twice does not error)', async () => {
-      // Reset to v23 and re-run
       db.pragma('user_version = 23');
       await expect(runSQLiteMigrations(db)).resolves.not.toThrow();
-      expect(getSchemaVersion(db)).toBe(24);
+      expect(getSchemaVersion(db)).toBe(LATEST_SCHEMA_VERSION);
     });
   });
 

@@ -20,6 +20,7 @@ import type {
   AgentExecutionStreamEvent,
 } from '../../../../../application/ports/output/agents/agent-executor.interface.js';
 import type { SpawnFunction } from '../types.js';
+import { getCurrentPhase, getLogPrefix } from '../../feature-agent/log-context.js';
 
 /** Features supported by Gemini CLI */
 const SUPPORTED_FEATURES = new Set<string>(['session-resume', 'streaming', 'tool-scoping']);
@@ -43,7 +44,7 @@ export class GeminiCliExecutorService implements IAgentExecutor {
   private log(message: string): void {
     if (this.silent) return;
     const ts = new Date().toISOString();
-    process.stdout.write(`[${ts}] [gemini-cli-executor] ${message}\n`);
+    process.stdout.write(`[${ts}] ${getCurrentPhase()}${getLogPrefix()}${message}\n`);
   }
 
   supportsFeature(feature: AgentFeature): boolean {
@@ -58,7 +59,7 @@ export class GeminiCliExecutorService implements IAgentExecutor {
     this.log(
       `Spawning: gemini ${args.map((a) => (a.length > 80 ? `${a.slice(0, 77)}...` : a)).join(' ')}`
     );
-    this.log(`Spawn options: ${JSON.stringify(spawnOpts)}`);
+    this.log(`Spawn cwd: ${(spawnOpts.cwd as string) ?? '(inherited)'}`);
 
     const proc = this.spawn('gemini', args, spawnOpts);
     this.log(`Subprocess PID: ${proc.pid ?? 'undefined (spawn may have failed)'}`);

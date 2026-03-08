@@ -23,7 +23,7 @@ describe('OutputFormatter', () => {
       // Assert - Should return a formatted table string
       expect(result).toBeTypeOf('string');
       expect(result.length).toBeGreaterThan(0);
-      expect(result).toContain('Models'); // Table should have section headers
+      expect(result).toContain('Agent'); // Table should have section headers
     });
 
     it('should format as JSON when format is "json"', () => {
@@ -64,9 +64,8 @@ describe('OutputFormatter', () => {
       const result = OutputFormatter.formatAsTable(sampleSettings);
 
       // Assert
-      expect(result).toContain('Models');
+      expect(result).toContain('Agent');
       expect(result).toContain('Environment');
-      expect(result).toContain('System');
     });
   });
 

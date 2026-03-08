@@ -12,6 +12,8 @@ export interface SidebarFeatureItem {
   featureId: string;
   startedAt?: number;
   duration?: string;
+  agentType?: string;
+  modelId?: string;
 }
 
 // ---------------------------------------------------------------------------

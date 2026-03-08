@@ -37,6 +37,7 @@ const config: StorybookConfig = {
       // Mock Next.js in Storybook (no Next runtime; avoids process is not defined)
       'next/navigation': resolve(__dirname, 'next-navigation-mock.ts'),
       'next/link': resolve(__dirname, 'next-link-mock.tsx'),
+      'next/image': resolve(__dirname, 'next-image-mock.tsx'),
     };
 
     config.define = {

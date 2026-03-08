@@ -2,25 +2,10 @@ $schema: https://json-schema.org/draft/2020-12/schema
 $id: ModelConfiguration.yaml
 type: object
 properties:
-  analyze:
+  default:
     type: string
-    default: claude-sonnet-4-5
-    description: Model for codebase analysis agent
-  requirements:
-    type: string
-    default: claude-sonnet-4-5
-    description: Model for requirements gathering agent
-  plan:
-    type: string
-    default: claude-sonnet-4-5
-    description: Model for planning agent
-  implement:
-    type: string
-    default: claude-sonnet-4-5
-    description: Model for implementation agent
+    default: claude-sonnet-4-6
+    description: Default model identifier for all agents
 required:
-  - analyze
-  - requirements
-  - plan
-  - implement
-description: AI model configuration for different SDLC agents
+  - default
+description: AI model configuration for the SDLC agent

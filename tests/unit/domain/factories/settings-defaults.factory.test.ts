@@ -78,17 +78,18 @@ describe('createDefaultSettings', () => {
   });
 
   describe('ModelConfiguration defaults', () => {
-    it('should set all model fields to "claude-sonnet-4-5"', () => {
+    it('should set default model field to "claude-sonnet-4-6"', () => {
       // Act
       const settings = createDefaultSettings();
       const models: ModelConfiguration = settings.models;
 
       // Assert
       expect(models).toBeDefined();
-      expect(models.analyze).toBe('claude-sonnet-4-5');
-      expect(models.requirements).toBe('claude-sonnet-4-5');
-      expect(models.plan).toBe('claude-sonnet-4-5');
-      expect(models.implement).toBe('claude-sonnet-4-5');
+      expect(models.default).toBe('claude-sonnet-4-6');
+      expect((models as Record<string, unknown>).analyze).toBeUndefined();
+      expect((models as Record<string, unknown>).requirements).toBeUndefined();
+      expect((models as Record<string, unknown>).plan).toBeUndefined();
+      expect((models as Record<string, unknown>).implement).toBeUndefined();
     });
 
     it('should match TypeSpec model defaults', () => {
@@ -97,10 +98,7 @@ describe('createDefaultSettings', () => {
 
       // Assert - Verify all fields match TypeSpec defaults
       expect(settings.models).toEqual({
-        analyze: 'claude-sonnet-4-5',
-        requirements: 'claude-sonnet-4-5',
-        plan: 'claude-sonnet-4-5',
-        implement: 'claude-sonnet-4-5',
+        default: 'claude-sonnet-4-6',
       });
     });
   });
@@ -316,10 +314,7 @@ describe('createDefaultSettings', () => {
 
       // Assert - Verify entire structure (except id and timestamps)
       expect(settings.models).toEqual({
-        analyze: 'claude-sonnet-4-5',
-        requirements: 'claude-sonnet-4-5',
-        plan: 'claude-sonnet-4-5',
-        implement: 'claude-sonnet-4-5',
+        default: 'claude-sonnet-4-6',
       });
       expect(settings.user).toEqual({});
       expect(settings.environment).toEqual({

@@ -23,20 +23,23 @@ import {
   recordApprovalWaitStart,
 } from '../phase-timing-context.js';
 import { updateNodeLifecycle } from '../lifecycle-context.js';
+import { getLogPrefix, setCurrentPhase } from '../log-context.js';
 
 /**
  * Create a scoped logger that prefixes messages with the node name.
  * Output goes to stdout which the worker redirects to the log file.
+ * Also sets the current phase so executor logs inherit the node context.
  */
 export function createNodeLogger(nodeName: string) {
+  setCurrentPhase(nodeName);
   return {
     info(message: string): void {
       const ts = new Date().toISOString();
-      process.stdout.write(`[${ts}] [${nodeName}] ${message}\n`);
+      process.stdout.write(`[${ts}] [${nodeName}] ${getLogPrefix()}${message}\n`);
     },
     error(message: string): void {
       const ts = new Date().toISOString();
-      process.stderr.write(`[${ts}] [${nodeName}] ERROR: ${message}\n`);
+      process.stderr.write(`[${ts}] [${nodeName}] ${getLogPrefix()}ERROR: ${message}\n`);
     },
   };
 }
@@ -61,6 +64,7 @@ export function buildExecutorOptions(state: FeatureAgentState): AgentExecutionOp
   return {
     cwd: state.worktreePath || state.repositoryPath,
     maxTurns: 5000,
+    ...(state.model ? { model: state.model } : {}),
   };
 }
 

@@ -10,7 +10,7 @@
  * import { getSettings } from './infrastructure/services/settings.service.js';
  *
  * const settings = getSettings();
- * console.log(settings.models.analyze); // 'claude-opus-4'
+ * console.log(settings.models.default); // 'claude-sonnet-4-6'
  * ```
  */
 

@@ -1,5 +1,6 @@
 import { resolve } from '@/lib/server-container';
 import type { ListFeaturesUseCase } from '@shepai/core/application/use-cases/features/list-features.use-case';
+import { getSettings } from '@shepai/core/infrastructure/services/settings.service';
 import { getWorkflowDefaults } from '@/app/actions/get-workflow-defaults';
 import { CreateDrawerClient } from '@/components/common/control-center-drawer/create-drawer-client';
 
@@ -14,6 +15,7 @@ export default async function CreateDrawerPage({ searchParams }: CreateDrawerPag
   const { repo, parent } = await searchParams;
 
   const listFeatures = resolve<ListFeaturesUseCase>('ListFeaturesUseCase');
+  const settings = getSettings();
 
   const [features, workflowDefaults] = await Promise.all([
     listFeatures.execute(),
@@ -30,6 +32,8 @@ export default async function CreateDrawerPage({ searchParams }: CreateDrawerPag
       initialParentId={parent}
       features={featureOptions}
       workflowDefaults={workflowDefaults}
+      currentAgentType={settings.agent.type}
+      currentModel={settings.models.default}
     />
   );
 }

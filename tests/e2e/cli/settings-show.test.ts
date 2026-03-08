@@ -13,9 +13,8 @@ describe('CLI: settings show', () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.success).toBe(true);
-    expect(result.stdout).toContain('Models');
+    expect(result.stdout).toContain('Agent');
     expect(result.stdout).toContain('Environment');
-    expect(result.stdout).toContain('System');
     expect(result.stdout).toContain('Database');
     expect(result.stdout).toContain('/data');
   });
@@ -69,7 +68,7 @@ describe('CLI: settings show', () => {
       const result = runCli('settings show -o table');
 
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain('Models');
+      expect(result.stdout).toContain('Agent');
     });
   });
 

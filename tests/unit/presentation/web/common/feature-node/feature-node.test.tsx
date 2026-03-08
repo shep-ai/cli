@@ -132,11 +132,11 @@ describe('FeatureNode', () => {
     expect(onAction).toHaveBeenCalledOnce();
   });
 
-  it('settings icon fires onSettings callback', () => {
+  it('agent badge fires onSettings callback', () => {
     const onSettings = vi.fn();
-    renderFeatureNode({ onSettings });
-    const settingsButton = screen.getByTestId('feature-node-settings-button');
-    fireEvent.click(settingsButton);
+    renderFeatureNode({ onSettings, agentType: 'claude-code' });
+    const agentBadge = screen.getByTestId('feature-node-agent-badge');
+    fireEvent.click(agentBadge);
     expect(onSettings).toHaveBeenCalledOnce();
   });
 

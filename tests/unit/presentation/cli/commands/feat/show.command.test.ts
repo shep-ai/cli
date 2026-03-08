@@ -34,6 +34,10 @@ vi.mock('@/infrastructure/services/filesystem/shep-directory.service.js', () => 
   getShepHomeDir: () => '/home/test/.shep',
 }));
 
+vi.mock('@/infrastructure/services/ide-launchers/compute-worktree-path.js', () => ({
+  computeWorktreePath: (_repoPath: string, branch: string) => `/tmp/worktrees/${branch}`,
+}));
+
 import { createShowCommand } from '../../../../../../src/presentation/cli/commands/feat/show.command.js';
 
 function makeFeature(overrides?: Partial<Feature>): Feature {

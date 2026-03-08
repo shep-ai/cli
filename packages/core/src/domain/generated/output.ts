@@ -241,25 +241,13 @@ export type Requirement = BaseEntity & {
 };
 
 /**
- * AI model configuration for different SDLC agents
+ * AI model configuration for the SDLC agent
  */
 export type ModelConfiguration = {
   /**
-   * Model for codebase analysis agent
+   * Default model identifier for all agents
    */
-  analyze: string;
-  /**
-   * Model for requirements gathering agent
-   */
-  requirements: string;
-  /**
-   * Model for planning agent
-   */
-  plan: string;
-  /**
-   * Model for implementation agent
-   */
-  implement: string;
+  default: string;
 };
 
 /**
@@ -1760,6 +1748,10 @@ export type AgentRun = BaseEntity & {
    * Approval gate configuration for human-in-the-loop review (optional)
    */
   approvalGates?: ApprovalGates;
+  /**
+   * LLM model identifier used for this run (optional, set at creation)
+   */
+  modelId?: string;
 };
 
 /**

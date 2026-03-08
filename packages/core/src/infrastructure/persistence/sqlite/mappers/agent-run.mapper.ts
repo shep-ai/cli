@@ -36,6 +36,7 @@ export interface AgentRunRow {
   created_at: number;
   updated_at: number;
   approval_gates: string | null;
+  model_id: string | null;
 }
 
 /**
@@ -68,6 +69,7 @@ export function toDatabase(agentRun: AgentRun): AgentRunRow {
     updated_at:
       agentRun.updatedAt instanceof Date ? agentRun.updatedAt.getTime() : agentRun.updatedAt,
     approval_gates: agentRun.approvalGates ? JSON.stringify(agentRun.approvalGates) : null,
+    model_id: agentRun.modelId ?? null,
   };
 }
 
@@ -101,5 +103,6 @@ export function fromDatabase(row: AgentRunRow): AgentRun {
     ...(row.approval_gates !== null && {
       approvalGates: JSON.parse(row.approval_gates) as ApprovalGates,
     }),
+    ...(row.model_id !== null && { modelId: row.model_id }),
   };
 }

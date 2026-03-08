@@ -17,6 +17,7 @@ import type {
   AgentExecutionStreamEvent,
 } from '../../../../../application/ports/output/agents/agent-executor.interface.js';
 import type { SpawnFunction } from '../types.js';
+import { getCurrentPhase, getLogPrefix } from '../../feature-agent/log-context.js';
 
 /** Features supported by Claude Code CLI */
 const SUPPORTED_FEATURES = new Set<string>([
@@ -43,7 +44,7 @@ export class ClaudeCodeExecutorService implements IAgentExecutor {
   private log(message: string): void {
     if (this.silent) return;
     const ts = new Date().toISOString();
-    process.stdout.write(`[${ts}] [claude-executor] ${message}\n`);
+    process.stdout.write(`[${ts}] ${getCurrentPhase()}${getLogPrefix()}${message}\n`);
   }
 
   async execute(prompt: string, options?: AgentExecutionOptions): Promise<AgentExecutionResult> {
@@ -56,7 +57,7 @@ export class ClaudeCodeExecutorService implements IAgentExecutor {
     this.log(
       `Spawning: claude ${args.map((a) => (a.length > 80 ? `${a.slice(0, 77)}...` : a)).join(' ')}`
     );
-    this.log(`Spawn options: ${JSON.stringify(spawnOpts)}`);
+    this.log(`Spawn cwd: ${(spawnOpts.cwd as string) ?? '(inherited)'}`);
 
     const proc = this.spawn('claude', args, spawnOpts);
 

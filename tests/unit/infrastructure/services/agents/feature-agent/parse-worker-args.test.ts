@@ -87,6 +87,45 @@ describe('parseWorkerArgs - fast', () => {
   });
 });
 
+describe('parseWorkerArgs - model', () => {
+  const baseArgs = [
+    '--feature-id',
+    'feat-001',
+    '--run-id',
+    'run-001',
+    '--repo',
+    '/tmp/repo',
+    '--spec-dir',
+    '/tmp/spec',
+  ];
+
+  it('should parse --model when present', () => {
+    const args = parseWorkerArgs([...baseArgs, '--model', 'claude-haiku-4-5']);
+    expect(args.model).toBe('claude-haiku-4-5');
+  });
+
+  it('should set model to undefined when --model is not present', () => {
+    const args = parseWorkerArgs(baseArgs);
+    expect(args.model).toBeUndefined();
+  });
+
+  it('should coexist with --agent-type and other flags', () => {
+    const args = parseWorkerArgs([
+      ...baseArgs,
+      '--model',
+      'claude-opus-4-6',
+      '--agent-type',
+      'claude-code',
+      '--fast',
+      '--push',
+    ]);
+    expect(args.model).toBe('claude-opus-4-6');
+    expect(args.agentType).toBe(AgentType.ClaudeCode);
+    expect(args.fast).toBe(true);
+    expect(args.push).toBe(true);
+  });
+});
+
 describe('parseWorkerArgs - resumePayload', () => {
   const baseArgs = [
     '--feature-id',

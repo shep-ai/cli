@@ -14,6 +14,8 @@ export interface CreateDrawerClientProps {
   initialParentId?: string;
   features: ParentFeatureOption[];
   workflowDefaults?: WorkflowDefaults;
+  currentAgentType?: string;
+  currentModel?: string;
 }
 
 export function CreateDrawerClient({
@@ -21,6 +23,8 @@ export function CreateDrawerClient({
   initialParentId,
   features,
   workflowDefaults,
+  currentAgentType,
+  currentModel,
 }: CreateDrawerClientProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -94,6 +98,8 @@ export function CreateDrawerClient({
       workflowDefaults={workflowDefaults}
       initialParentId={initialParentId}
       isSubmitting={isSubmitting}
+      currentAgentType={currentAgentType}
+      currentModel={currentModel}
     />
   );
 }

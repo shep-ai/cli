@@ -64,4 +64,13 @@ export interface IAgentExecutorFactory {
    * @returns Array of CLI info for version-checkable agents
    */
   getCliInfo(): AgentCliInfo[];
+
+  /**
+   * Get the list of model identifiers supported by the given agent executor.
+   * Returns synchronously with no I/O — supported lists are static data.
+   *
+   * @param agentType - The agent type to query
+   * @returns Array of model identifier strings, or empty array for unknown/dev agents
+   */
+  getSupportedModels(agentType: AgentType): string[];
 }

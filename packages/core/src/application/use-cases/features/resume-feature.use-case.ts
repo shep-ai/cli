@@ -95,6 +95,7 @@ export class ResumeFeatureUseCase {
       featureId: feature.id,
       repositoryPath: feature.repositoryPath,
       approvalGates: lastRun.approvalGates,
+      ...(lastRun.modelId ? { modelId: lastRun.modelId } : {}),
       createdAt: now,
       updatedAt: now,
     };
@@ -130,6 +131,7 @@ export class ResumeFeatureUseCase {
         push: feature.push,
         openPr: feature.openPr,
         agentType: lastRun.agentType,
+        ...(lastRun.modelId ? { model: lastRun.modelId } : {}),
       }
     );
 

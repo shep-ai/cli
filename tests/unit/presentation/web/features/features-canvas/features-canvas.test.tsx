@@ -22,6 +22,7 @@ const mockNode: FeatureNodeType = {
     progress: 50,
     repositoryPath: '/home/user/my-repo',
     branch: 'feat/test-feature',
+    agentType: 'claude-code',
     onAction: () => mockOnAction('node-1'),
     onSettings: () => mockOnSettings('node-1'),
     onDelete: mockOnDelete,
@@ -61,7 +62,7 @@ describe('FeaturesCanvas', () => {
   it('renders node with onSettings callback from node data', () => {
     render(<FeaturesCanvas nodes={[mockNode]} edges={[]} />);
     expect(screen.getByText('Test Feature')).toBeInTheDocument();
-    const settingsButton = screen.getByTestId('feature-node-settings-button');
+    const settingsButton = screen.getByTestId('feature-node-agent-badge');
     fireEvent.click(settingsButton);
     expect(mockOnSettings).toHaveBeenCalledWith('node-1');
   });
@@ -120,7 +121,7 @@ describe('FeaturesCanvas', () => {
 
     it('does not show settings button for feature nodes with state "creating"', () => {
       render(<FeaturesCanvas nodes={[creatingNode]} edges={[]} />);
-      expect(screen.queryByTestId('feature-node-settings-button')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('feature-node-agent-badge')).not.toBeInTheDocument();
     });
 
     it('does not show delete button for feature nodes with state "creating"', () => {
@@ -135,7 +136,7 @@ describe('FeaturesCanvas', () => {
 
     it('shows settings button for feature nodes with state "running" (callbacks in data)', () => {
       render(<FeaturesCanvas nodes={[mockNode]} edges={[]} />);
-      expect(screen.getByTestId('feature-node-settings-button')).toBeInTheDocument();
+      expect(screen.getByTestId('feature-node-agent-badge')).toBeInTheDocument();
     });
 
     it('shows delete button for non-creating feature nodes (onDelete in data)', () => {
@@ -166,6 +167,7 @@ describe('FeaturesCanvas', () => {
         progress: 30,
         repositoryPath: '/home/user/my-repo',
         branch: 'feat/quick-fix',
+        agentType: 'claude-code',
         onAction: () => mockOnAction('fast-1'),
         onSettings: () => mockOnSettings('fast-1'),
         onDelete: mockOnDelete,
@@ -181,7 +183,7 @@ describe('FeaturesCanvas', () => {
     it('renders action and settings buttons for fast-mode running nodes', () => {
       render(<FeaturesCanvas nodes={[fastModeNode]} edges={[]} />);
       expect(screen.getByTestId('feature-node-action-button')).toBeInTheDocument();
-      expect(screen.getByTestId('feature-node-settings-button')).toBeInTheDocument();
+      expect(screen.getByTestId('feature-node-agent-badge')).toBeInTheDocument();
     });
 
     it('renders graph with mix of fast-mode and full-pipeline features', () => {

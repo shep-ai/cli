@@ -20,13 +20,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { CheckboxGroup } from '@/components/ui/checkbox-group';
-import { CheckboxGroupItem } from '@/components/ui/checkbox-group-item';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Switch } from '@/components/ui/switch';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useGuardedDrawerClose } from '@/hooks/drawer-close-guard';
 import type { FileAttachment } from '@shepai/core/infrastructure/services/file-dialog.service';
 import type { WorkflowDefaults } from '@/app/actions/get-workflow-defaults';
+import { AgentModelPicker } from '@/components/features/settings/AgentModelPicker';
 import { pickFiles } from './pick-files';
 
 export type { FileAttachment } from '@shepai/core/infrastructure/services/file-dialog.service';
@@ -51,6 +52,10 @@ export interface FeatureCreatePayload {
   parentId?: string;
   /** When true, skip SDLC phases and implement directly from the prompt. */
   fast: boolean;
+  /** Optional agent type override for this feature run */
+  agentType?: string;
+  /** Optional model override for this feature run */
+  model?: string;
 }
 
 const AUTO_APPROVE_OPTIONS = [
@@ -76,6 +81,10 @@ export interface FeatureCreateDrawerProps {
   features?: ParentFeatureOption[];
   /** Pre-select a parent feature when the drawer opens (e.g. from (+) button on a feature node). */
   initialParentId?: string;
+  /** Current global agent type from settings */
+  currentAgentType?: string;
+  /** Current global model from settings */
+  currentModel?: string;
 }
 
 export function FeatureCreateDrawer({
@@ -87,6 +96,8 @@ export function FeatureCreateDrawer({
   workflowDefaults,
   features,
   initialParentId,
+  currentAgentType,
+  currentModel,
 }: FeatureCreateDrawerProps) {
   const createSound = useSoundAction('create');
   const defaultGates = workflowDefaults?.approvalGates ?? EMPTY_GATES;
@@ -100,6 +111,8 @@ export function FeatureCreateDrawer({
   const [openPr, setOpenPr] = useState(defaultOpenPr);
   const [parentId, setParentId] = useState<string | undefined>(undefined);
   const [fast, setFast] = useState(false);
+  const [overrideAgent, setOverrideAgent] = useState<string | undefined>(undefined);
+  const [overrideModel, setOverrideModel] = useState<string | undefined>(undefined);
 
   // Sync state when workflowDefaults load asynchronously
   useEffect(() => {
@@ -125,6 +138,8 @@ export function FeatureCreateDrawer({
     setOpenPr(defaultOpenPr);
     setParentId(undefined);
     setFast(false);
+    setOverrideAgent(undefined);
+    setOverrideModel(undefined);
   }, [defaultGates, defaultPush, defaultOpenPr]);
 
   // Track whether the form has unsaved data
@@ -150,6 +165,8 @@ export function FeatureCreateDrawer({
         push: push || openPr,
         openPr,
         fast,
+        ...(overrideAgent ? { agentType: overrideAgent } : {}),
+        ...(overrideModel ? { model: overrideModel } : {}),
         ...(parentId ? { parentId } : {}),
       });
       resetForm();
@@ -163,6 +180,8 @@ export function FeatureCreateDrawer({
       push,
       openPr,
       fast,
+      overrideAgent,
+      overrideModel,
       parentId,
       createSound,
       resetForm,
@@ -226,135 +245,236 @@ export function FeatureCreateDrawer({
     >
       {/* Form body */}
       <div className="overflow-y-auto p-4">
-        <form id="create-feature-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
-          {/* Description */}
-          <div className="flex flex-col gap-1.5">
-            <Label
-              htmlFor="feature-description"
-              className="text-muted-foreground text-xs font-semibold tracking-wider"
-            >
-              DESCRIBE YOUR FEATURE
-            </Label>
-            <Textarea
-              id="feature-description"
-              placeholder="e.g. Add GitHub OAuth login with callback handling and token refresh..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={4}
-              required
-              disabled={isSubmitting}
-            />
-          </div>
-
-          {/* Parent feature selector (only when features are available) */}
-          {hasFeatures ? (
+        <TooltipProvider delayDuration={400}>
+          <form id="create-feature-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
+            {/* Description + inline controls */}
             <div className="flex flex-col gap-1.5">
               <Label
-                htmlFor="parent-feature"
+                htmlFor="feature-description"
                 className="text-muted-foreground text-xs font-semibold tracking-wider"
               >
-                PARENT FEATURE
+                DESCRIBE YOUR FEATURE
               </Label>
-              <ParentFeatureCombobox
-                features={features}
-                value={parentId}
-                onChange={setParentId}
-                disabled={isSubmitting}
-              />
-            </div>
-          ) : null}
-
-          {/* Fast mode toggle */}
-          <div className="flex flex-col gap-1.5">
-            <Label className="text-muted-foreground text-xs font-semibold tracking-wider">
-              MODE
-            </Label>
-            <CheckboxGroupItem
-              id="fast-mode"
-              label="Fast Mode"
-              description="Skip SDLC phases and implement directly from your prompt."
-              checked={fast}
-              onCheckedChange={setFast}
-              disabled={isSubmitting}
-            />
-          </div>
-
-          {/* Auto-approve checkboxes */}
-          <div className="flex flex-col gap-1.5">
-            <Label className="text-muted-foreground text-xs font-semibold tracking-wider">
-              APPROVE
-            </Label>
-            <CheckboxGroup
-              label="Autonomous Mode"
-              description="YOLO!"
-              parentAriaLabel="Auto approve all"
-              options={AUTO_APPROVE_OPTIONS}
-              value={approvalGates}
-              onValueChange={setApprovalGates}
-              disabled={isSubmitting}
-            />
-          </div>
-
-          {/* Git options */}
-          <div className="flex flex-col gap-1.5">
-            <Label className="text-muted-foreground text-xs font-semibold tracking-wider">
-              GIT
-            </Label>
-            <div className="flex flex-col gap-2">
-              <CheckboxGroupItem
-                id="push"
-                label="Push"
-                description="Push branch to remote after implementation."
-                checked={push || openPr}
-                onCheckedChange={setPush}
-                disabled={openPr || isSubmitting}
-              />
-              <CheckboxGroupItem
-                id="open-pr"
-                label="Create PR"
-                description="Open a pull request after pushing."
-                checked={openPr}
-                onCheckedChange={setOpenPr}
-                disabled={isSubmitting}
-              />
-            </div>
-          </div>
-
-          {/* Attachments */}
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <Label className="text-muted-foreground text-xs font-semibold tracking-wider">
-                ATTACHMENTS
-                {attachments.length > 0 && (
-                  <span className="text-muted-foreground/60 ml-1.5">({attachments.length})</span>
-                )}
-              </Label>
-              <Button
-                type="button"
-                variant="outline"
-                size="xs"
-                onClick={handleAddFiles}
-                disabled={isSubmitting}
-              >
-                <PlusIcon className="size-3" />
-                Add Files
-              </Button>
-            </div>
-
-            {attachments.length > 0 && (
-              <div className="flex flex-col gap-2">
-                {attachments.map((file) => (
-                  <AttachmentCard
-                    key={file.path}
-                    file={file}
-                    onRemove={() => handleRemoveFile(file.path)}
+              <div className="border-input focus-within:ring-ring/50 focus-within:border-ring overflow-hidden rounded-md border shadow-xs transition-[color,box-shadow] focus-within:ring-[3px]">
+                <Textarea
+                  id="feature-description"
+                  placeholder="e.g. Add GitHub OAuth login with callback handling and token refresh..."
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={7}
+                  required
+                  disabled={isSubmitting}
+                  className="field-sizing-fixed min-h-42! resize-none rounded-none border-0 shadow-none focus-visible:ring-0"
+                />
+                <div className="border-input flex items-center gap-3 border-t px-3 py-1.5">
+                  <AgentModelPicker
+                    initialAgentType={overrideAgent ?? currentAgentType ?? 'claude-code'}
+                    initialModel={overrideModel ?? currentModel ?? 'claude-sonnet-4-6'}
+                    mode="override"
+                    onAgentModelChange={(agent, model) => {
+                      setOverrideAgent(agent);
+                      setOverrideModel(model);
+                    }}
                     disabled={isSubmitting}
                   />
-                ))}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="ml-auto flex cursor-pointer items-center gap-2">
+                        <Switch
+                          id="fast-mode"
+                          checked={fast}
+                          onCheckedChange={setFast}
+                          disabled={isSubmitting}
+                        />
+                        <Label htmlFor="fast-mode" className="cursor-pointer text-sm font-medium">
+                          Fast Mode
+                        </Label>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      Skip SDLC phases and implement directly from your prompt.
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
               </div>
-            )}
-          </div>
-        </form>
+            </div>
+
+            {/* Parent feature selector (only when opened from a feature node) */}
+            {hasFeatures && initialParentId !== undefined ? (
+              <div className="flex flex-col gap-1.5">
+                <Label
+                  htmlFor="parent-feature"
+                  className="text-muted-foreground text-xs font-semibold tracking-wider"
+                >
+                  PARENT FEATURE
+                </Label>
+                <ParentFeatureCombobox
+                  features={features}
+                  value={parentId}
+                  onChange={setParentId}
+                  disabled={isSubmitting}
+                />
+              </div>
+            ) : null}
+
+            {/* Approve + Git — compact switch groups */}
+            <div className="flex flex-col gap-2">
+              {/* Approve row */}
+              <div className="border-input flex items-center gap-4 rounded-md border px-3 py-2.5">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="text-muted-foreground w-16 shrink-0 cursor-default text-xs font-semibold tracking-wider">
+                      APPROVE
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    Auto-approve phase transitions without manual review.
+                  </TooltipContent>
+                </Tooltip>
+                <div className="flex flex-1 items-center gap-4">
+                  {AUTO_APPROVE_OPTIONS.map((opt) => (
+                    <Tooltip key={opt.id}>
+                      <TooltipTrigger asChild>
+                        <div className="flex cursor-pointer items-center gap-1.5">
+                          <Switch
+                            id={`approve-${opt.id}`}
+                            size="sm"
+                            checked={approvalGates[opt.id] ?? false}
+                            onCheckedChange={(v) =>
+                              setApprovalGates((prev) => ({ ...prev, [opt.id]: v }))
+                            }
+                            disabled={
+                              isSubmitting ||
+                              (fast && (opt.id === 'allowPrd' || opt.id === 'allowPlan'))
+                            }
+                          />
+                          <Label
+                            htmlFor={`approve-${opt.id}`}
+                            className="cursor-pointer text-xs font-medium"
+                          >
+                            {opt.label}
+                          </Label>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">
+                        {fast && (opt.id === 'allowPrd' || opt.id === 'allowPlan')
+                          ? 'Skipped in Fast Mode'
+                          : opt.description}
+                      </TooltipContent>
+                    </Tooltip>
+                  ))}
+                </div>
+                {/* Select all shortcut */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const allOn = AUTO_APPROVE_OPTIONS.every((o) => approvalGates[o.id]);
+                        const next: Record<string, boolean> = {};
+                        for (const o of AUTO_APPROVE_OPTIONS) next[o.id] = !allOn;
+                        setApprovalGates(next);
+                      }}
+                      disabled={isSubmitting}
+                      className={cn(
+                        'text-muted-foreground hover:text-foreground cursor-pointer rounded px-1.5 py-0.5 text-[10px] font-semibold tracking-wider uppercase transition-colors',
+                        AUTO_APPROVE_OPTIONS.every((o) => approvalGates[o.id]) && 'text-primary'
+                      )}
+                    >
+                      All
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">Toggle all approval gates</TooltipContent>
+                </Tooltip>
+              </div>
+
+              {/* Git row */}
+              <div className="border-input flex items-center gap-4 rounded-md border px-3 py-2.5">
+                <span className="text-muted-foreground w-16 shrink-0 text-xs font-semibold tracking-wider">
+                  GIT
+                </span>
+                <div className="flex flex-1 items-center gap-4">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex cursor-pointer items-center gap-1.5">
+                        <Switch
+                          id="push"
+                          size="sm"
+                          checked={push || openPr}
+                          onCheckedChange={(v) => {
+                            setPush(v);
+                            if (!v && openPr) setOpenPr(false);
+                          }}
+                          disabled={isSubmitting}
+                        />
+                        <Label htmlFor="push" className="cursor-pointer text-xs font-medium">
+                          Push
+                        </Label>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      Push branch to remote after implementation.
+                    </TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex cursor-pointer items-center gap-1.5">
+                        <Switch
+                          id="open-pr"
+                          size="sm"
+                          checked={openPr}
+                          onCheckedChange={setOpenPr}
+                          disabled={isSubmitting}
+                        />
+                        <Label htmlFor="open-pr" className="cursor-pointer text-xs font-medium">
+                          PR
+                        </Label>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      Open a pull request after pushing.
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              </div>
+            </div>
+
+            {/* Attachments */}
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-muted-foreground text-xs font-semibold tracking-wider">
+                  ATTACHMENTS
+                  {attachments.length > 0 && (
+                    <span className="text-muted-foreground/60 ml-1.5">({attachments.length})</span>
+                  )}
+                </Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="xs"
+                  onClick={handleAddFiles}
+                  disabled={isSubmitting}
+                >
+                  <PlusIcon className="size-3" />
+                  Add Files
+                </Button>
+              </div>
+
+              {attachments.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  {attachments.map((file) => (
+                    <AttachmentCard
+                      key={file.path}
+                      file={file}
+                      onRemove={() => handleRemoveFile(file.path)}
+                      disabled={isSubmitting}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </form>
+        </TooltipProvider>
       </div>
     </BaseDrawer>
   );

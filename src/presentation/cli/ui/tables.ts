@@ -32,22 +32,13 @@ export class TableFormatter {
     lines.push(`  ${pc.bold(colors.brand('Settings'))}`);
     lines.push('');
 
-    // Models
+    // Agent
     lines.push(
-      ...TableFormatter.section('Models', [
-        ['Analyze', s.models.analyze],
-        ['Requirements', s.models.requirements],
-        ['Plan', s.models.plan],
-        ['Implement', s.models.implement],
-      ])
-    );
-
-    // User
-    lines.push(
-      ...TableFormatter.section('User', [
-        ['Name', s.user.name],
-        ['Email', s.user.email],
-        ['GitHub', s.user.githubUsername],
+      ...TableFormatter.section('Agent', [
+        ['Type', s.agent.type],
+        ['Model', s.models.default],
+        ['Auth', s.agent.authMethod],
+        ...(s.agent.token ? [['Token', '••••••••'] as [string, string | undefined]] : []),
       ])
     );
 
@@ -56,23 +47,6 @@ export class TableFormatter {
       ...TableFormatter.section('Environment', [
         ['Editor', s.environment.defaultEditor],
         ['Shell', s.environment.shellPreference],
-      ])
-    );
-
-    // System
-    lines.push(
-      ...TableFormatter.section('System', [
-        ['Auto-Update', String(s.system.autoUpdate)],
-        ['Log Level', s.system.logLevel],
-      ])
-    );
-
-    // Agent
-    lines.push(
-      ...TableFormatter.section('Agent', [
-        ['Type', s.agent.type],
-        ['Auth', s.agent.authMethod],
-        ...(s.agent.token ? [['Token', '••••••••'] as [string, string | undefined]] : []),
       ])
     );
 

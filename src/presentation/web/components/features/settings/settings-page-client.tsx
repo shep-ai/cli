@@ -15,23 +15,14 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { updateSettingsAction } from '@/app/actions/update-settings';
-import { AgentType, AgentAuthMethod, EditorType } from '@shepai/core/domain/generated/output';
-import { getAgentTypeIcon } from '@/components/common/feature-node/agent-type-icons';
+import { type AgentType, AgentAuthMethod, EditorType } from '@shepai/core/domain/generated/output';
 import { getEditorTypeIcon } from '@/components/common/editor-type-icons';
+import { AgentModelPicker } from '@/components/features/settings/AgentModelPicker';
 import type {
   Settings,
   FeatureFlags,
   NotificationPreferences,
 } from '@shepai/core/domain/generated/output';
-
-const AGENT_TYPE_OPTIONS = [
-  { value: AgentType.ClaudeCode, label: 'Claude Code' },
-  { value: AgentType.Cursor, label: 'Cursor' },
-  { value: AgentType.GeminiCli, label: 'Gemini CLI' },
-  { value: AgentType.Aider, label: 'Aider' },
-  { value: AgentType.Continue, label: 'Continue' },
-  { value: AgentType.Dev, label: 'Dev' },
-];
 
 const AUTH_METHOD_OPTIONS = [
   { value: AgentAuthMethod.Session, label: 'Session' },
@@ -92,7 +83,7 @@ function SettingsRow({
 }) {
   return (
     <div className="flex items-center justify-between gap-4 border-b py-3 last:border-b-0">
-      <Label htmlFor={htmlFor} className="text-sm font-normal whitespace-nowrap">
+      <Label htmlFor={htmlFor} className="cursor-pointer text-sm font-normal whitespace-nowrap">
         {label}
       </Label>
       <div className="flex items-center gap-2">{children}</div>
@@ -118,7 +109,7 @@ function SelectRow({
   return (
     <SettingsRow label={label} htmlFor={id}>
       <Select value={value} onValueChange={onChange}>
-        <SelectTrigger id={id} data-testid={testId} className="w-45">
+        <SelectTrigger id={id} data-testid={testId} className="w-45 cursor-pointer">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -148,7 +139,13 @@ function SwitchRow({
 }) {
   return (
     <SettingsRow label={label} htmlFor={id}>
-      <Switch id={id} data-testid={testId} checked={checked} onCheckedChange={onChange} />
+      <Switch
+        id={id}
+        data-testid={testId}
+        checked={checked}
+        onCheckedChange={onChange}
+        className="cursor-pointer"
+      />
     </SettingsRow>
   );
 }
@@ -274,7 +271,7 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
   return (
     <div data-testid="settings-page-client" className="max-w-lg">
       <div className="flex items-center justify-between border-b pb-3">
-        <h1 className="text-lg font-semibold tracking-tight">Settings</h1>
+        <h1 className="text-sm font-bold tracking-tight">Settings</h1>
         {isPending ? <span className="text-muted-foreground text-xs">Saving...</span> : null}
         {showSaved && !isPending ? (
           <span className="flex items-center gap-1 text-xs text-green-600">
@@ -291,31 +288,14 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
         >
           Agent
         </h2>
-        <SettingsRow label="Agent" htmlFor="agent-type">
-          <Select
-            value={agentType}
-            onValueChange={(v) => {
-              setAgentType(v as AgentType);
-              save(buildAgentPayload({ type: v as AgentType }));
-            }}
-          >
-            <SelectTrigger id="agent-type" data-testid="agent-type-select" className="w-45">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {AGENT_TYPE_OPTIONS.map((opt) => {
-                const Icon = getAgentTypeIcon(opt.value);
-                return (
-                  <SelectItem key={opt.value} value={opt.value}>
-                    <span className="flex items-center gap-2">
-                      <Icon className="h-4 w-4 shrink-0" />
-                      {opt.label}
-                    </span>
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
+        <SettingsRow label="Agent & Model" htmlFor="agent-model-picker">
+          <AgentModelPicker
+            initialAgentType={agentType}
+            initialModel={settings.models.default}
+            mode="settings"
+            onAgentModelChange={(newAgent) => setAgentType(newAgent as AgentType)}
+            className="w-45"
+          />
         </SettingsRow>
         <SelectRow
           label="Authentication"
@@ -374,7 +354,11 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
               save({ environment: { defaultEditor: v as EditorType, shellPreference: shell } });
             }}
           >
-            <SelectTrigger id="default-editor" data-testid="editor-select" className="w-45">
+            <SelectTrigger
+              id="default-editor"
+              data-testid="editor-select"
+              className="w-45 cursor-pointer"
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

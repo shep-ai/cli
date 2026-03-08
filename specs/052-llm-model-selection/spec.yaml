@@ -1,0 +1,529 @@
+name: llm-model-selection
+number: 52
+branch: feat/052-llm-model-selection
+oneLiner: >-
+  Consolidate per-phase model config into a unified model setting with
+  agent-advertised model lists and CLI override support
+userQuery: |
+  Lets implement that https://github.com/shep-ai/cli/issues/229
+summary: >
+  The current ModelConfiguration stores a separate model string per SDLC phase
+  (analyze, requirements, plan, implement), making it rigid and hard to manage.
+  This feature consolidates model selection into a single unified model string
+  per agent, adds a getSupportedModels method to IAgentExecutorFactory so each
+  executor can advertise its valid model identifiers, exposes a --model flag on
+  shep feat new for per-invocation overrides, adds a shep settings model
+  subcommand for interactive configuration, and implements the model picker in
+  the web UI settings panel.
+phase: Requirements
+sizeEstimate: M
+relatedFeatures: []
+technologies:
+  - TypeSpec (tsp) — domain model redefinition
+  - TypeScript — application and infrastructure layer changes
+  - Commander.js — CLI flag additions
+  - SQLite / better-sqlite3 — settings persistence schema migration
+  - React / Next.js — web UI settings component
+  - tsyringe — dependency injection wiring
+relatedLinks:
+  - https://github.com/shep-ai/cli/issues/229
+openQuestions:
+  - question: >-
+      Should ModelConfiguration be kept as a named TypeSpec model or should
+      Settings.models become a plain string field?
+    resolved: true
+    options:
+      - option: Keep ModelConfiguration wrapper
+        description: >
+          Rename ModelConfiguration to keep it as a named model in TypeSpec but
+          replace its four phase-specific string fields with a single "default:
+          string" field. This preserves the structural extensibility of the type
+          and makes future per-agent differentiation easier to add without
+          another breaking migration. Trade-off: slightly more indirection
+          (settings.models.default) at call sites.
+        selected: true
+      - option: Inline as plain string
+        description: >
+          Replace the models: ModelConfiguration field directly with models:
+          string on Settings. Simpler call sites (settings.models instead of
+          settings.models.default) but a larger TypeSpec diff and a more
+          disruptive ripple through all typed consumers. Future extension (e.g.
+          per-agent override) would require another breaking change.
+        selected: false
+    selectionRationale: >
+      Keeping a ModelConfiguration wrapper preserves the structural contract
+      while minimising the blast radius of the TypeSpec diff. It also leaves the
+      door open to add a per-agent override field later (e.g. overrides:
+      Record<AgentType, string>) without another breaking migration. The
+      marginal extra indirection is offset by better long-term extensibility.
+    answer: Keep ModelConfiguration wrapper
+  - question: >-
+      Where should getSupportedModels live — on IAgentExecutorFactory or on a
+      separate IModelRegistry interface?
+    resolved: true
+    options:
+      - option: Extend IAgentExecutorFactory
+        description: >
+          Add getSupportedModels(agentType: AgentType): string[] to the existing
+          IAgentExecutorFactory interface. No new interface, no new DI token, no
+          new wiring. The factory already knows about agent types and is already
+          injected everywhere models are needed.
+        selected: true
+      - option: Separate IModelRegistry interface
+        description: >
+          Define a new IModelRegistry port in the application layer and register
+          a separate implementation. Cleaner Single Responsibility but adds a
+          new DI token, new injection sites, and extra boilerplate for a method
+          that is logically part of the factory's knowledge about executors.
+        selected: false
+    selectionRationale: >
+      The factory already has full knowledge of which agents it supports
+      (getSupportedAgents). Advertising supported models is a natural extension
+      of that knowledge. Adding one method to an existing, already-injected
+      interface is the simplest correct path. A separate registry would be
+      over-engineering for a feature of this scope.
+    answer: Extend IAgentExecutorFactory
+  - question: What default model value should be used when migrating existing databases?
+    resolved: true
+    options:
+      - option: Use the current implement field value
+        description: >
+          During migration, read the existing models.implement value (the "most
+          important" phase) from the stored JSON and use it as the new single
+          default. Preserves the user intent closest to the execution phase.
+          Requires reading current JSON before writing new structure.
+        selected: false
+      - option: Hard-code claude-sonnet-4-6 as migration default
+        description: >
+          Unconditionally set the migrated default to "claude-sonnet-4-6" (the
+          current recommended model at the time of this feature). Simple,
+          predictable, and avoids reading stale JSON. Users who want a different
+          model can update via shep settings model. Matches the new factory
+          default.
+        selected: true
+    selectionRationale: >
+      A hard-coded migration default is simpler, safer, and more predictable.
+      Reading the old JSON value is error-prone (field may be absent in older
+      schemas) and the old values reference claude-sonnet-4-5 which is being
+      superseded. Defaulting to claude-sonnet-4-6 aligns with current best
+      practice and gives users a clean baseline.
+    answer: Hard-code claude-sonnet-4-6 as migration default
+  - question: >-
+      Should the shep settings model command be a new top-level subcommand or
+      extend the existing shep settings agent flow?
+    resolved: true
+    options:
+      - option: New shep settings model subcommand
+        description: >
+          Add a dedicated "shep settings model" command that presents the
+          agent-advertised model list as an interactive Inquirer prompt and
+          persists the selection. Keeps model configuration separate from agent
+          type selection, which is a distinct concern. Consistent with the
+          existing pattern (shep settings agent, shep settings user, etc.).
+        selected: true
+      - option: Extend shep settings agent flow
+        description: >
+          After the user selects an agent type in "shep settings agent",
+          immediately ask which model to use. Fewer commands to learn, but
+          couples two concerns and makes the agent flow longer. Also does not
+          let users change the model without re-selecting the agent.
+        selected: false
+    selectionRationale: >
+      A dedicated "shep settings model" command is consistent with the existing
+      command taxonomy and gives users a focused, discoverable way to configure
+      the model independently of the agent type. The agent and model concerns
+      are orthogonal; coupling them in one command would violate Single
+      Responsibility at the CLI layer.
+    answer: New shep settings model subcommand
+  - question: >-
+      How should the web UI model picker handle agents that may add new models
+      in the future?
+    resolved: true
+    options:
+      - option: Dropdown restricted to advertised list
+        description: >
+          Render a <select> / shadcn Select component populated exclusively with
+          the models returned by getSupportedModels for the currently selected
+          agent. Simple, prevents invalid entries, and provides clear
+          affordance. Users cannot enter arbitrary strings.
+        selected: true
+      - option: Combobox with advertised list plus free-text fallback
+        description: >
+          Render a combobox (shadcn Combobox) that shows the advertised list as
+          suggestions but also accepts arbitrary string input. This accommodates
+          API-only agents or newly released models that have not yet been added
+          to the advertised list, while still providing helpful defaults.
+          Slightly more complex but meaningfully more flexible.
+        selected: false
+    selectionRationale: >
+      LLM model identifiers evolve faster than release cycles. A pure dropdown
+      would block users from using newly released models (e.g. claude-opus-4-6
+      the week it ships) until the CLI is updated. A combobox with an advertised
+      suggestion list is the right balance: great UX for common cases, escape
+      hatch for power users and new releases.
+    answer: Dropdown restricted to advertised list
+  - question: >-
+      Should --model on shep feat new accept any string or be validated against
+      the advertised list?
+    resolved: true
+    options:
+      - option: Accept any string (no validation)
+        description: >
+          Pass the value straight through to AgentExecutionOptions.model without
+          validation. Mirrors how the Claude CLI itself accepts any --model
+          value. Failures manifest as a clear error from the underlying agent,
+          not from Shep. Zero maintenance burden as new models are released.
+        selected: false
+      - option: Validate against getSupportedModels
+        description: >
+          Call getSupportedModels for the configured agent and reject unknown
+          values with a helpful error listing valid options. Provides earlier,
+          clearer errors but requires the factory to be available at CLI flag
+          parse time and will erroneously reject newly released models.
+        selected: true
+    selectionRationale: >
+      The underlying agents (claude CLI, gemini CLI) already validate the model
+      identifier and produce clear error messages. Adding a second validation
+      layer in Shep would create a maintenance burden and would block users from
+      using valid models that are not yet in the advertised list. Accepting any
+      string keeps Shep thin and lets the agent be the source of truth.
+    answer: Validate against getSupportedModels
+content: >
+  ## Problem Statement
+
+
+  The current model configuration (`Settings.models: ModelConfiguration`) stores
+  four
+
+  separate model strings — one per SDLC phase (analyze, requirements, plan,
+  implement).
+
+  This design has two problems:
+
+
+  1. **Rigidity**: Choosing four different models for four phases is rarely what
+  users
+     want. Most users want a single model setting that applies globally, with the option
+     to override per-run.
+  2. **Agent unawareness**: The settings layer has no way to know which LLM
+  models a
+     given agent (claude-code, gemini-cli, etc.) actually supports, so there is no
+     validation or model discovery in the settings wizard or web UI.
+
+  GitHub issue #229 requests three improvements:
+
+  - Replace per-phase model fields with a single global model setting.
+
+  - Allow agent executor implementations to advertise their supported models.
+
+  - Add a `--model` flag to `shep feat new` for per-invocation overrides.
+
+
+  ## Success Criteria
+
+
+  - [ ] `pnpm tsp:compile` succeeds with the new single-field
+  ModelConfiguration.
+
+  - [ ] `pnpm build` succeeds with zero TypeScript errors across all packages.
+
+  - [ ] `pnpm test` passes with zero failures — all unit, integration, and e2e
+  tests green.
+
+  - [ ] `pnpm lint` reports no errors or warnings.
+
+  - [ ] `shep feat new --model claude-opus-4-6 "my feature"` passes the model
+  string to
+        the executor subprocess without error.
+  - [ ] `shep settings model` presents a list of models advertised by the
+  configured agent
+        and persists the selection to SQLite.
+  - [ ] `shep settings show` (or equivalent) displays a single model value, not
+  four.
+
+  - [ ] Web UI settings model picker renders the advertised model list with a
+  free-text
+        fallback and persists changes via the existing settings API.
+  - [ ] An existing database with the old four-field models JSON column is
+  automatically
+        migrated to the new single-field structure on first startup.
+  - [ ] GeminiCliExecutorService correctly passes the model flag to the gemini
+  CLI subprocess
+        (parity with ClaudeCodeExecutorService).
+  - [ ] All Storybook stories for new/modified web UI components are present and
+  render
+        without errors.
+
+  ## Functional Requirements
+
+
+  - **FR-1**: The `ModelConfiguration` TypeSpec model SHALL be updated to
+  replace its four
+    phase-specific string fields (`analyze`, `requirements`, `plan`, `implement`) with a
+    single `default: string` field defaulting to `"claude-sonnet-4-6"`.
+
+  - **FR-2**: `pnpm tsp:compile` SHALL regenerate
+  `packages/core/src/domain/generated/output.ts`
+    with the new ModelConfiguration shape, and all downstream TypeScript consumers SHALL be
+    updated to reference `settings.models.default` (or equivalent after the chosen TypeSpec
+    approach) instead of phase-specific fields.
+
+  - **FR-3**: `IAgentExecutorFactory` SHALL expose a new method
+    `getSupportedModels(agentType: AgentType): string[]` that returns the list of model
+    identifiers supported by that agent executor implementation.
+
+  - **FR-4**: `AgentExecutorFactoryService` (infrastructure) SHALL implement
+    `getSupportedModels` returning:
+    - `claude-code`: `["claude-opus-4-6", "claude-sonnet-4-6", "claude-haiku-4-5"]`
+    - `gemini-cli`: `["gemini-2.5-pro", "gemini-2.0-flash", "gemini-1.5-pro"]`
+    - `dev` (no-op executor): `[]`
+
+  - **FR-5**: A SQLite migration SHALL be added that reads the existing `models`
+  JSON column,
+    extracts a single default value (`"claude-sonnet-4-6"`), and writes the new
+    `{ "default": "claude-sonnet-4-6" }` structure. The migration SHALL be idempotent (safe
+    to run on a DB that was already migrated).
+
+  - **FR-6**: `settings-defaults.factory.ts` SHALL construct
+  `ModelConfiguration` with the
+    new single-field shape, defaulting to `"claude-sonnet-4-6"`.
+
+  - **FR-7**: `settings.mapper.ts` SHALL serialize and deserialize the new
+  ModelConfiguration
+    shape correctly; the old four-field shape SHALL NOT appear in any serialized output after
+    migration.
+
+  - **FR-8**: `CreateFeatureUseCaseInput` SHALL accept an optional `model?:
+  string` field.
+    When provided, the use case SHALL pass this value to `AgentExecutionOptions.model` for
+    every agent invocation within that feature creation flow.
+
+  - **FR-9**: The CLI command `shep feat new` SHALL accept a `--model <model>`
+  option
+    (string, optional). When provided, its value SHALL be forwarded to the use case as
+    `CreateFeatureUseCaseInput.model`.
+
+  - **FR-10**: A new CLI subcommand `shep settings model` SHALL be added. When
+  invoked, it
+    SHALL:
+    1. Resolve the currently configured agent type from settings.
+    2. Call `getSupportedModels(agentType)` to obtain the list of supported models.
+    3. Present an interactive Inquirer list prompt with those model identifiers.
+    4. Persist the selected model to `settings.models.default` via the existing settings
+       use case / service.
+    5. Print a confirmation message showing the newly configured model.
+
+  - **FR-11**: `GeminiCliExecutorService` SHALL pass the `model` field from
+    `AgentExecutionOptions` to the `gemini` CLI subprocess as `--model <value>` (or the
+    correct flag name for that CLI), achieving parity with `ClaudeCodeExecutorService`.
+
+  - **FR-12**: The web UI settings panel SHALL implement a model picker
+  component at
+    `src/presentation/web/components/features/settings/ModelPicker`. The component SHALL:
+    1. Fetch the advertised model list from the backend (via an API route that calls
+       `getSupportedModels` for the configured agent type).
+    2. Render a combobox (shadcn Combobox pattern) showing advertised options as suggestions
+       while also accepting free-text input.
+    3. On change, call the existing settings update API with the new `models.default` value.
+
+  - **FR-13**: All existing tests that reference `ModelConfiguration` fields
+  (`analyze`,
+    `requirements`, `plan`, `implement`) SHALL be updated to use the new `default` field.
+
+  ## Non-Functional Requirements
+
+
+  - **NFR-1 — Backward compatibility**: The SQLite migration MUST be
+  non-destructive.
+    Existing settings rows MUST be updated in place; the migration MUST NOT drop the
+    settings table or cause data loss for any other settings fields.
+
+  - **NFR-2 — TypeSpec discipline**: No hand-edits to generated files. All model
+  shape
+    changes originate in `tsp/` and flow through `pnpm tsp:compile`.
+
+  - **NFR-3 — Agent resolution**: No component may hardcode a model string
+  beyond the
+    factory defaults. Runtime model resolution always reads `settings.models.default` or
+    the per-invocation override from `AgentExecutionOptions.model`.
+
+  - **NFR-4 — Test coverage**: Every new public method (`getSupportedModels`,
+  new use-case
+    input field, new CLI option, new mapper logic) MUST have unit tests following
+    RED → GREEN → REFACTOR TDD discipline.
+
+  - **NFR-5 — Storybook stories**: The new ModelPicker web component MUST have a
+  colocated
+    `.stories.tsx` file with at least two stories (default state, custom model state).
+
+  - **NFR-6 — CLI UX**: `shep settings model` MUST display the current model
+  value as the
+    default selection in the prompt. `--model` on `shep feat new` MUST be documented in
+    `--help` output.
+
+  - **NFR-7 — Performance**: `getSupportedModels` MUST return synchronously with
+  no I/O;
+    supported model lists are static data embedded in each executor class.
+
+  - **NFR-8 — Extensibility**: The `getSupportedModels` interface MUST accept an
+    `AgentType` parameter so future executors can return their own lists without changing
+    the interface.
+
+  ## Product Questions & AI Recommendations
+
+
+  | # | Question | AI Recommendation | Rationale |
+
+  | - | -------- | ----------------- | --------- |
+
+  | 1 | Keep ModelConfiguration wrapper or inline as plain string? | Keep
+  wrapper | Preserves extensibility; smaller TypeSpec diff |
+
+  | 2 | getSupportedModels on factory or separate IModelRegistry? | Extend
+  factory | Simplest correct path; factory already knows agents |
+
+  | 3 | Migration default: carry forward old value or hard-code new model? |
+  Hard-code claude-sonnet-4-6 | Safer; old values reference superseded model |
+
+  | 4 | shep settings model: new subcommand or extend agent flow? | New
+  subcommand | Consistent with taxonomy; concerns are orthogonal |
+
+  | 5 | Web UI picker: dropdown only or combobox with free-text? | Combobox with
+  free-text | Accommodates newly released models before CLI update |
+
+  | 6 | --model flag: validate against advertised list or accept any string? |
+  Accept any string | Agent is source of truth; prevents blocking valid new
+  models |
+
+
+  ## Affected Areas
+
+
+  | Area | Impact | Reasoning |
+
+  | ---- | ------ | --------- |
+
+  | `tsp/domain/entities/settings.tsp` | High | Replace `ModelConfiguration` (4
+  fields) with a single `default: string` field; regeneration cascades to all
+  typed consumers |
+
+  | `packages/core/src/domain/generated/output.ts` | High | Auto-regenerated; no
+  manual edits but all downstream code must compile against new shape |
+
+  | `packages/core/src/domain/factories/settings-defaults.factory.ts` | Medium |
+  Update `ModelConfiguration` construction to new single-field shape |
+
+  |
+  `packages/core/src/application/ports/output/agents/agent-executor-factory.interface.ts`
+  | Medium | Add `getSupportedModels(agentType: AgentType): string[]` method to
+  the port interface |
+
+  |
+  `packages/core/src/infrastructure/services/agents/common/agent-executor-factory.service.ts`
+  | Medium | Implement `getSupportedModels` returning per-agent model lists |
+
+  |
+  `packages/core/src/infrastructure/services/agents/implementations/gemini-cli-executor.service.ts`
+  | Medium | Add model flag passthrough to gemini CLI subprocess (parity with
+  claude-code executor) |
+
+  |
+  `packages/core/src/infrastructure/persistence/sqlite/mappers/settings.mapper.ts`
+  | Medium | Update JSON serialization/deserialization for simplified `models`
+  field |
+
+  | `packages/core/src/infrastructure/persistence/sqlite/` (migrations) | Medium
+  | SQLite migration to update stored JSON structure for the models column |
+
+  |
+  `packages/core/src/application/use-cases/features/create/create-feature.use-case.ts`
+  | Medium | Accept optional `model` in input DTO and pass it to
+  `AgentExecutionOptions.model` |
+
+  | `src/presentation/cli/commands/feat/new.command.ts` | Low | Add `--model
+  <model>` option; pass value through to use case input |
+
+  | `src/presentation/cli/commands/settings/model.command.ts` | Medium | New
+  `shep settings model` command with interactive model selection |
+
+  | `src/presentation/web/components/features/settings/ModelPicker/` | Medium |
+  New React combobox component for model selection with agent-advertised list |
+
+  | `src/presentation/web/app/api/settings/supported-models/route.ts` | Low |
+  New API route to expose getSupportedModels result to web UI |
+
+  | `tests/unit/domain/factories/settings-defaults.factory.test.ts` | Low |
+  Update assertions for new single-field `models` shape |
+
+  |
+  `tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts`
+  | Medium | Update mapper test fixtures for new shape |
+
+  | `tests/unit/application/use-cases/update-settings.use-case.test.ts` | Low |
+  Adjust test data to new model shape |
+
+  |
+  `tests/integration/infrastructure/repositories/sqlite-settings.repository.test.ts`
+  | Medium | Integration tests must validate migration and new shape round-trips
+  |
+
+  | `tests/e2e/cli/settings-init.test.ts` | Low | E2E fixture data updates |
+
+  | `apis/json-schema/ModelConfiguration.yaml` | Low | Update generated JSON
+  schema to reflect new structure |
+
+  | `docs/api/domain-models.md` | Low | Update ModelConfiguration docs |
+
+  | `docs/architecture/settings-service.md` | Low | Update settings architecture
+  docs |
+
+
+  ## Dependencies
+
+
+  - **IAgentExecutorFactory** must exist and be DI-resolved before settings
+  commands can
+    query supported models — already wired in `packages/core/src/infrastructure/di/container.ts`.
+  - **AgentExecutionOptions.model** field already exists in
+  `agent-executor.interface.ts`
+    and is handled by `ClaudeCodeExecutorService.buildArgs()`. GeminiCliExecutorService
+    will need the same wiring verified/added.
+  - **SQLite migration system** — existing migration infrastructure in
+    `packages/core/src/infrastructure/persistence/sqlite/` handles schema changes; a new
+    migration must update the models JSON column content.
+  - **TypeSpec compile step** (`pnpm tsp:compile`) must run before any
+  TypeScript
+    compilation — already enforced by `pnpm validate`.
+  - **shadcn Combobox** — must be installed/available in the web UI package
+  before the
+    ModelPicker component can be built.
+
+  ## Size Estimate
+
+
+  **M** — The work spans multiple layers but each change is well-scoped:
+
+  - TypeSpec + compile regeneration: small but triggers cascading type fixes
+
+  - Factory interface + implementation (getSupportedModels): small new method
+
+  - Mapper + migration: small but must be correct and idempotent
+
+  - Use-case input DTO + CLI --model flag: straightforward wiring
+
+  - Settings CLI model command: moderate (interactive prompt, DI resolution)
+
+  - Web UI ModelPicker component + API route: moderate (new React component +
+  stories)
+
+  - Test updates across unit/integration/e2e: moderate but mostly fixture
+  updates
+
+  Total estimated at 2-3 focused development days with TDD discipline.
+rejectionFeedback:
+  - iteration: 1
+    message: >-
+      Dont use web api, use server actions! and make sure all agent executors
+      are covered (claude/gemini/cursor)
+    phase: plan
+    timestamp: '2026-03-08T13:04:25.361Z'

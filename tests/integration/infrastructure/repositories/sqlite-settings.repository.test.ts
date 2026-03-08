@@ -28,10 +28,7 @@ describe('SQLiteSettingsRepository', () => {
     createdAt: new Date('2025-01-01T00:00:00Z'),
     updatedAt: new Date('2025-01-01T00:00:00Z'),
     models: {
-      analyze: 'claude-opus-4',
-      requirements: 'claude-sonnet-4',
-      plan: 'claude-sonnet-4',
-      implement: 'claude-sonnet-4',
+      default: 'claude-opus-4',
     },
     user: {
       name: 'Test User',
@@ -113,22 +110,19 @@ describe('SQLiteSettingsRepository', () => {
       expect(row.id).toBe('singleton');
     });
 
-    it('should store all model configuration fields', async () => {
+    it('should store model_default column with the configured model value', async () => {
       // Arrange
       const settings = createTestSettings();
 
       // Act
       await repository.initialize(settings);
 
-      // Assert
+      // Assert — model_default is the source of truth after migration 024
       const row = db.prepare('SELECT * FROM settings WHERE id = ?').get('singleton') as Record<
         string,
         unknown
       >;
-      expect(row.model_analyze).toBe('claude-opus-4');
-      expect(row.model_requirements).toBe('claude-sonnet-4');
-      expect(row.model_plan).toBe('claude-sonnet-4');
-      expect(row.model_implement).toBe('claude-sonnet-4');
+      expect(row.model_default).toBe('claude-opus-4');
     });
 
     it('should store optional user profile fields', async () => {
@@ -261,10 +255,7 @@ describe('SQLiteSettingsRepository', () => {
 
       // Assert
       expect(loaded?.models).toEqual({
-        analyze: 'claude-opus-4',
-        requirements: 'claude-sonnet-4',
-        plan: 'claude-sonnet-4',
-        implement: 'claude-sonnet-4',
+        default: 'claude-opus-4',
       });
     });
 
@@ -363,7 +354,7 @@ describe('SQLiteSettingsRepository', () => {
       await repository.initialize(settings);
 
       // Modify settings
-      settings.models.analyze = 'claude-opus-5';
+      settings.models.default = 'claude-opus-5';
       settings.user.name = 'Updated Name';
       settings.system.logLevel = 'debug';
       settings.updatedAt = new Date('2025-01-02T00:00:00Z');
@@ -376,7 +367,7 @@ describe('SQLiteSettingsRepository', () => {
         string,
         unknown
       >;
-      expect(row.model_analyze).toBe('claude-opus-5');
+      expect(row.model_default).toBe('claude-opus-5');
       expect(row.user_name).toBe('Updated Name');
       expect(row.sys_log_level).toBe('debug');
       expect(row.updated_at).toBe('2025-01-02T00:00:00.000Z');
@@ -395,12 +386,9 @@ describe('SQLiteSettingsRepository', () => {
       const settings = createTestSettings();
       await repository.initialize(settings);
 
-      // Modify all model fields
+      // Modify model default field
       settings.models = {
-        analyze: 'new-analyze-model',
-        requirements: 'new-requirements-model',
-        plan: 'new-plan-model',
-        implement: 'new-implement-model',
+        default: 'new-default-model',
       };
 
       // Act
@@ -517,7 +505,6 @@ describe('SQLiteSettingsRepository', () => {
 
     it('should initialize settings without featureFlags and load defaults', async () => {
       const settings = createTestSettings();
-      // featureFlags is undefined — mapper should default to all false
 
       await repository.initialize(settings);
       const loaded = await repository.load();
@@ -571,7 +558,6 @@ describe('SQLiteSettingsRepository', () => {
 
     it('should handle undefined CI fields as null in database', async () => {
       const settings = createTestSettings();
-      // CI fields are not set (undefined)
 
       await repository.initialize(settings);
 
@@ -594,6 +580,48 @@ describe('SQLiteSettingsRepository', () => {
       expect(loaded?.workflow.ciMaxFixAttempts).toBeUndefined();
       expect(loaded?.workflow.ciWatchTimeoutMs).toBeUndefined();
       expect(loaded?.workflow.ciLogMaxChars).toBeUndefined();
+    });
+  });
+
+  describe('migration 025 — model_default column', () => {
+    it('should create model_default column after migrations run', () => {
+      const columns = db.pragma('table_info(settings)') as { name: string }[];
+      const hasModelDefault = columns.some((c) => c.name === 'model_default');
+      expect(hasModelDefault).toBe(true);
+    });
+
+    it('should populate model_default with default value for manually inserted rows', () => {
+      db.prepare(
+        `INSERT INTO settings (
+          id, created_at, updated_at,
+          model_analyze, model_requirements, model_plan, model_implement,
+          env_default_editor, env_shell_preference,
+          sys_auto_update, sys_log_level
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).run(
+        'singleton',
+        '2025-01-01T00:00:00.000Z',
+        '2025-01-01T00:00:00.000Z',
+        'old-model',
+        'old-model',
+        'old-model',
+        'old-model',
+        'vscode',
+        'zsh',
+        1,
+        'info'
+      );
+
+      const row = db
+        .prepare('SELECT model_default FROM settings WHERE id = ?')
+        .get('singleton') as Record<string, unknown>;
+      expect(row.model_default).toBe('claude-sonnet-4-6');
+    });
+
+    it('should be idempotent — running migration handler twice does not throw', () => {
+      const columns = db.pragma('table_info(settings)') as { name: string }[];
+      const alreadyExists = columns.some((c: { name: string }) => c.name === 'model_default');
+      expect(alreadyExists).toBe(true);
     });
   });
 
@@ -654,7 +682,7 @@ describe('SQLiteSettingsRepository', () => {
       >;
       expect(row).toHaveProperty('created_at');
       expect(row).toHaveProperty('updated_at');
-      expect(row).toHaveProperty('model_analyze');
+      expect(row).toHaveProperty('model_default');
       expect(row).toHaveProperty('user_name');
       expect(row).toHaveProperty('env_default_editor');
       expect(row).toHaveProperty('sys_auto_update');
@@ -673,8 +701,8 @@ describe('SQLiteSettingsRepository', () => {
         unknown
       >;
 
-      // models.* -> model_*
-      expect(row.model_analyze).toBeDefined();
+      // models.* -> model_default (source of truth after migration 024)
+      expect(row.model_default).toBeDefined();
 
       // user.* -> user_*
       expect(row.user_name).toBeDefined();

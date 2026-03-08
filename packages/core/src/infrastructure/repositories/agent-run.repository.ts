@@ -44,14 +44,14 @@ export class SQLiteAgentRunRepository implements IAgentRunRepository {
         started_at, completed_at, error,
         feature_id, repository_path,
         created_at, updated_at,
-        approval_gates
+        approval_gates, model_id
       ) VALUES (
         @id, @agent_type, @agent_name, @status, @prompt, @result,
         @session_id, @thread_id, @pid, @last_heartbeat,
         @started_at, @completed_at, @error,
         @feature_id, @repository_path,
         @created_at, @updated_at,
-        @approval_gates
+        @approval_gates, @model_id
       )
     `);
 
