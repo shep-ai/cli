@@ -261,10 +261,10 @@ export function FeatureCreateDrawer({
                   placeholder="e.g. Add GitHub OAuth login with callback handling and token refresh..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  rows={10}
+                  rows={7}
                   required
                   disabled={isSubmitting}
-                  className="field-sizing-fixed min-h-60! resize-none rounded-none border-0 shadow-none focus-visible:ring-0"
+                  className="field-sizing-fixed min-h-42! resize-none rounded-none border-0 shadow-none focus-visible:ring-0"
                 />
                 <div className="border-input flex items-center gap-3 border-t px-3 py-1.5">
                   <AgentModelPicker

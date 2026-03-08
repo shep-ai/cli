@@ -26,6 +26,5 @@ export default function Image({
   unoptimized: _unoptimized,
   ...rest
 }: ImageProps) {
-  // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
   return <img {...rest} />;
 }
