@@ -468,6 +468,24 @@ export type NotificationPreferences = {
 };
 
 /**
+ * Feature flag toggles for runtime feature control
+ */
+export type FeatureFlags = {
+  /**
+   * Enable Skills navigation and functionality in the web UI
+   */
+  skills: boolean;
+  /**
+   * Enable environment deployment features in the web UI
+   */
+  envDeploy: boolean;
+  /**
+   * Enable debug UI elements and verbose client-side logging
+   */
+  debug: boolean;
+};
+
+/**
  * Global Shep platform settings (singleton)
  */
 export type Settings = BaseEntity & {
@@ -499,6 +517,10 @@ export type Settings = BaseEntity & {
    * Global workflow configuration defaults
    */
   workflow: WorkflowConfig;
+  /**
+   * Feature flag toggles for runtime feature control
+   */
+  featureFlags?: FeatureFlags;
   /**
    * Whether first-run onboarding has been completed (default: false)
    */

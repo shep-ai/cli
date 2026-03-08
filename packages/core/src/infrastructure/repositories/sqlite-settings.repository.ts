@@ -54,9 +54,11 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
         notif_evt_agent_started, notif_evt_phase_completed, notif_evt_waiting_approval,
         notif_evt_agent_completed, notif_evt_agent_failed,
         workflow_open_pr_on_impl_complete,
+        ci_max_fix_attempts, ci_watch_timeout_ms, ci_log_max_chars,
         onboarding_complete,
         approval_gate_allow_prd, approval_gate_allow_plan,
-        approval_gate_allow_merge, approval_gate_push_on_impl_complete
+        approval_gate_allow_merge, approval_gate_push_on_impl_complete,
+        feature_flag_skills, feature_flag_env_deploy, feature_flag_debug
       ) VALUES (
         @id, @created_at, @updated_at,
         @model_analyze, @model_requirements, @model_plan, @model_implement,
@@ -68,9 +70,11 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
         @notif_evt_agent_started, @notif_evt_phase_completed, @notif_evt_waiting_approval,
         @notif_evt_agent_completed, @notif_evt_agent_failed,
         @workflow_open_pr_on_impl_complete,
+        @ci_max_fix_attempts, @ci_watch_timeout_ms, @ci_log_max_chars,
         @onboarding_complete,
         @approval_gate_allow_prd, @approval_gate_allow_plan,
-        @approval_gate_allow_merge, @approval_gate_push_on_impl_complete
+        @approval_gate_allow_merge, @approval_gate_push_on_impl_complete,
+        @feature_flag_skills, @feature_flag_env_deploy, @feature_flag_debug
       )
     `);
 
@@ -143,11 +147,17 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
         notif_evt_agent_completed = @notif_evt_agent_completed,
         notif_evt_agent_failed = @notif_evt_agent_failed,
         workflow_open_pr_on_impl_complete = @workflow_open_pr_on_impl_complete,
+        ci_max_fix_attempts = @ci_max_fix_attempts,
+        ci_watch_timeout_ms = @ci_watch_timeout_ms,
+        ci_log_max_chars = @ci_log_max_chars,
         onboarding_complete = @onboarding_complete,
         approval_gate_allow_prd = @approval_gate_allow_prd,
         approval_gate_allow_plan = @approval_gate_allow_plan,
         approval_gate_allow_merge = @approval_gate_allow_merge,
-        approval_gate_push_on_impl_complete = @approval_gate_push_on_impl_complete
+        approval_gate_push_on_impl_complete = @approval_gate_push_on_impl_complete,
+        feature_flag_skills = @feature_flag_skills,
+        feature_flag_env_deploy = @feature_flag_env_deploy,
+        feature_flag_debug = @feature_flag_debug
       WHERE id = @id
     `);
 

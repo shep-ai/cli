@@ -1,0 +1,21 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: FeatureFlags.yaml
+type: object
+properties:
+  skills:
+    type: boolean
+    default: false
+    description: Enable Skills navigation and functionality in the web UI
+  envDeploy:
+    type: boolean
+    default: false
+    description: Enable environment deployment features in the web UI
+  debug:
+    type: boolean
+    default: false
+    description: Enable debug UI elements and verbose client-side logging
+required:
+  - skills
+  - envDeploy
+  - debug
+description: Feature flag toggles for runtime feature control

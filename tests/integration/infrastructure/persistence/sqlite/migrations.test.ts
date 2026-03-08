@@ -672,7 +672,119 @@ describe('SQLite Migrations', () => {
     it('sets schema version to 23 after migration', async () => {
       await runSQLiteMigrations(db);
       expect(getSchemaVersion(db)).toBe(LATEST_SCHEMA_VERSION);
-      expect(LATEST_SCHEMA_VERSION).toBe(23);
+    });
+  });
+
+  describe('migration v24: feature flags and CI workflow columns', () => {
+    beforeEach(async () => {
+      await runSQLiteMigrations(db);
+    });
+
+    it('should set LATEST_SCHEMA_VERSION to 24', () => {
+      expect(LATEST_SCHEMA_VERSION).toBe(24);
+    });
+
+    it('should add feature_flag_skills column as INTEGER NOT NULL DEFAULT 0', () => {
+      const schema = getTableSchema(db, 'settings');
+      const col = schema.find((c) => c.name === 'feature_flag_skills');
+
+      expect(col).toBeDefined();
+      expect(col?.type).toBe('INTEGER');
+      expect(col?.notnull).toBe(1);
+      expect(col?.dflt_value).toBe('0');
+    });
+
+    it('should add feature_flag_env_deploy column as INTEGER NOT NULL DEFAULT 0', () => {
+      const schema = getTableSchema(db, 'settings');
+      const col = schema.find((c) => c.name === 'feature_flag_env_deploy');
+
+      expect(col).toBeDefined();
+      expect(col?.type).toBe('INTEGER');
+      expect(col?.notnull).toBe(1);
+      expect(col?.dflt_value).toBe('0');
+    });
+
+    it('should add feature_flag_debug column as INTEGER NOT NULL DEFAULT 0', () => {
+      const schema = getTableSchema(db, 'settings');
+      const col = schema.find((c) => c.name === 'feature_flag_debug');
+
+      expect(col).toBeDefined();
+      expect(col?.type).toBe('INTEGER');
+      expect(col?.notnull).toBe(1);
+      expect(col?.dflt_value).toBe('0');
+    });
+
+    it('should add ci_max_fix_attempts column as nullable INTEGER', () => {
+      const schema = getTableSchema(db, 'settings');
+      const col = schema.find((c) => c.name === 'ci_max_fix_attempts');
+
+      expect(col).toBeDefined();
+      expect(col?.type).toBe('INTEGER');
+      expect(col?.notnull).toBe(0);
+      expect(col?.dflt_value).toBeNull();
+    });
+
+    it('should add ci_watch_timeout_ms column as nullable INTEGER', () => {
+      const schema = getTableSchema(db, 'settings');
+      const col = schema.find((c) => c.name === 'ci_watch_timeout_ms');
+
+      expect(col).toBeDefined();
+      expect(col?.type).toBe('INTEGER');
+      expect(col?.notnull).toBe(0);
+      expect(col?.dflt_value).toBeNull();
+    });
+
+    it('should add ci_log_max_chars column as nullable INTEGER', () => {
+      const schema = getTableSchema(db, 'settings');
+      const col = schema.find((c) => c.name === 'ci_log_max_chars');
+
+      expect(col).toBeDefined();
+      expect(col?.type).toBe('INTEGER');
+      expect(col?.notnull).toBe(0);
+      expect(col?.dflt_value).toBeNull();
+    });
+
+    it('should default feature flag columns to 0 for existing rows', () => {
+      db.prepare(
+        `INSERT INTO settings (id, created_at, updated_at, model_analyze, model_requirements, model_plan, model_implement,
+          env_default_editor, env_shell_preference, sys_auto_update, sys_log_level, agent_type, agent_auth_method)
+        VALUES ('test', '2025-01-01', '2025-01-01', 'm', 'm', 'm', 'm', 'vscode', 'bash', 1, 'info', 'claude-code', 'session')`
+      ).run();
+
+      const row = db
+        .prepare(
+          'SELECT feature_flag_skills, feature_flag_env_deploy, feature_flag_debug FROM settings WHERE id = ?'
+        )
+        .get('test') as Record<string, number>;
+
+      expect(row.feature_flag_skills).toBe(0);
+      expect(row.feature_flag_env_deploy).toBe(0);
+      expect(row.feature_flag_debug).toBe(0);
+    });
+
+    it('should default CI columns to NULL for existing rows', () => {
+      db.prepare(
+        `INSERT INTO settings (id, created_at, updated_at, model_analyze, model_requirements, model_plan, model_implement,
+          env_default_editor, env_shell_preference, sys_auto_update, sys_log_level, agent_type, agent_auth_method)
+        VALUES ('test', '2025-01-01', '2025-01-01', 'm', 'm', 'm', 'm', 'vscode', 'bash', 1, 'info', 'claude-code', 'session')`
+      ).run();
+
+      const row = db
+        .prepare(
+          'SELECT ci_max_fix_attempts, ci_watch_timeout_ms, ci_log_max_chars FROM settings WHERE id = ?'
+        )
+        .get('test') as Record<string, number | null>;
+
+      expect(row.ci_max_fix_attempts).toBeNull();
+      expect(row.ci_watch_timeout_ms).toBeNull();
+      expect(row.ci_log_max_chars).toBeNull();
+    });
+
+    it('should be idempotent (running twice does not error)', async () => {
+      // Reset to v23 and re-run
+      db.pragma('user_version = 23');
+      await expect(runSQLiteMigrations(db)).resolves.not.toThrow();
+      expect(getSchemaVersion(db)).toBe(24);
     });
   });
 

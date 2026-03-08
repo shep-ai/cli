@@ -382,6 +382,27 @@ model NotificationPreferences {
 }
 
 /**
+ * Feature Flags
+ *
+ * Controls runtime feature visibility in the web UI.
+ * Stored in the Settings database as INTEGER columns (0/1).
+ * When not set in the database, the feature flags resolution
+ * falls back to NEXT_PUBLIC_ environment variables for skills
+ * and envDeploy (backward compatibility).
+ */
+@doc("Feature flag toggles for runtime feature control")
+model FeatureFlags {
+  @doc("Enable Skills navigation and functionality in the web UI")
+  skills: boolean = false;
+
+  @doc("Enable environment deployment features in the web UI")
+  envDeploy: boolean = false;
+
+  @doc("Enable debug UI elements and verbose client-side logging")
+  debug: boolean = false;
+}
+
+/**
  * Settings Entity
  *
  * Global Shep platform settings stored as a singleton. This entity contains
@@ -389,17 +410,18 @@ model NotificationPreferences {
  *
  * ## Properties
  *
- * | Property    | Type                | Required | Description                          |
- * |-------------|---------------------|----------|--------------------------------------|
- * | id          | UUID                | Yes      | Unique identifier (from BaseEntity)  |
- * | models      | ModelConfiguration  | Yes      | AI model configuration for agents    |
- * | user        | UserProfile         | Yes      | User profile information             |
- * | environment | EnvironmentConfig   | Yes      | Environment and tooling preferences  |
- * | system      | SystemConfig        | Yes      | System-level parameters              |
- * | agent       | AgentConfig              | Yes      | AI coding agent selection and auth   |
+ * | Property    | Type                    | Required | Description                          |
+ * |-------------|-------------------------|----------|--------------------------------------|
+ * | id          | UUID                    | Yes      | Unique identifier (from BaseEntity)  |
+ * | models      | ModelConfiguration      | Yes      | AI model configuration for agents    |
+ * | user        | UserProfile             | Yes      | User profile information             |
+ * | environment | EnvironmentConfig       | Yes      | Environment and tooling preferences  |
+ * | system      | SystemConfig            | Yes      | System-level parameters              |
+ * | agent       | AgentConfig             | Yes      | AI coding agent selection and auth   |
  * | notifications | NotificationPreferences | Yes   | Notification preferences             |
- * | createdAt   | utcDateTime              | Yes      | When created (from BaseEntity)       |
- * | updatedAt   | utcDateTime              | Yes      | When last updated (from BaseEntity)  |
+ * | featureFlags | FeatureFlags           | No       | Feature flag toggles                 |
+ * | createdAt   | utcDateTime             | Yes      | When created (from BaseEntity)       |
+ * | updatedAt   | utcDateTime             | Yes      | When last updated (from BaseEntity)  |
  *
  * ## Example
  *
@@ -497,6 +519,14 @@ model Settings extends BaseEntity {
    */
   @doc("Global workflow configuration defaults")
   workflow: WorkflowConfig;
+
+  /**
+   * Feature flag toggles for runtime feature control.
+   * Controls visibility of features in the web UI.
+   * Optional for backward compatibility with pre-migration databases.
+   */
+  @doc("Feature flag toggles for runtime feature control")
+  featureFlags?: FeatureFlags;
 
   /**
    * Whether the first-run onboarding wizard has been completed.

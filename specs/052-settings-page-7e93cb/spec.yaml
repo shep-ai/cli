@@ -1,24 +1,20 @@
-# Feature Specification (YAML)
-# This is the source of truth. Markdown is auto-generated from this file.
-
 name: settings-page-7e93cb
-number: 052
+number: 52
 branch: feat/052-settings-page-7e93cb
-oneLiner: Add a web UI settings page accessible from the sidebar for managing agent, environment, workflow, notification, feature flag, and database preferences
+oneLiner: >-
+  Add a web UI settings page accessible from the sidebar for managing agent,
+  environment, workflow, notification, feature flag, and database preferences
 summary: >
   Create a new /settings page in the web UI with sidebar navigation. The page
-  exposes six settings sections: preferred agent (without model), IDE and terminal
-  preferences, workflow configuration, notification preferences, feature flags
-  (migrated from NEXT_PUBLIC_ env vars into the Settings database entity), and
-  database location display. The backend Settings domain model, use cases, and
-  repository already exist — this feature is primarily a presentation-layer effort
-  with a small domain extension for feature flags.
+  exposes six settings sections: preferred agent (without model), IDE and
+  terminal preferences, workflow configuration, notification preferences,
+  feature flags (migrated from NEXT_PUBLIC_ env vars into the Settings database
+  entity), and database location display. The backend Settings domain model, use
+  cases, and repository already exist — this feature is primarily a
+  presentation-layer effort with a small domain extension for feature flags.
 phase: Requirements
 sizeEstimate: L
-
-# Relationships
 relatedFeatures: []
-
 technologies:
   - Next.js 16 (App Router, Server Components, Server Actions)
   - React (client components with hooks-based state)
@@ -29,380 +25,648 @@ technologies:
   - Storybook (mandatory colocated stories)
   - lucide-react (icons)
   - sonner (toast notifications)
-
 relatedLinks: []
-
-# Open questions (resolved with AI recommendations)
 openQuestions:
   - question: >
       The user mentions a "debug" feature flag — should this be a new flag, or
       does it map to the existing system.logLevel setting?
     resolved: true
     options:
-      - option: 'New boolean debug feature flag'
+      - option: New boolean debug feature flag
         description: >
-          Add a dedicated boolean featureFlags.debug field to the Settings entity.
-          This is independent of system.logLevel and controls visibility of debug-oriented
-          UI elements (e.g., debug panels, verbose logging in the web UI). Simple to
-          implement — just another boolean in the FeatureFlags model. Clean separation
-          between "show debug UI" (feature flag) and "log verbosity" (system config).
-        selected: true
-      - option: 'Map to existing system.logLevel'
-        description: >
-          Treat debug as logLevel === "debug". No new field needed but conflates two
-          concepts — log verbosity is an operational setting, while a debug flag controls
-          UI feature visibility. Would require logLevel changes to toggle debug features,
-          which is confusing UX.
+          Add a dedicated boolean featureFlags.debug field to the Settings
+          entity. This is independent of system.logLevel and controls visibility
+          of debug-oriented UI elements (e.g., debug panels, verbose logging in
+          the web UI). Simple to implement — just another boolean in the
+          FeatureFlags model. Clean separation between "show debug UI" (feature
+          flag) and "log verbosity" (system config).
         selected: false
-      - option: 'Skip debug flag entirely'
+      - option: Map to existing system.logLevel
+        description: >
+          Treat debug as logLevel === "debug". No new field needed but conflates
+          two concepts — log verbosity is an operational setting, while a debug
+          flag controls UI feature visibility. Would require logLevel changes to
+          toggle debug features, which is confusing UX.
+        selected: false
+      - option: Skip debug flag entirely
         description: >
           Do not add a debug flag. Only implement skills and envDeploy. Simplest
           approach but ignores the user's stated requirement for a debug toggle.
-        selected: false
+        selected: true
     selectionRationale: >
-      A dedicated boolean debug feature flag provides clean separation of concerns.
-      system.logLevel controls log verbosity (an operational concern), while
-      featureFlags.debug controls visibility of debug-oriented UI elements (a product
-      concern). The user explicitly mentioned debug as a feature flag, so it should be
-      modeled as one. Implementation cost is minimal — it is just another boolean field
-      in the new FeatureFlags TypeSpec model.
-    answer: 'New boolean debug feature flag'
-
+      A dedicated boolean debug feature flag provides clean separation of
+      concerns. system.logLevel controls log verbosity (an operational concern),
+      while featureFlags.debug controls visibility of debug-oriented UI elements
+      (a product concern). The user explicitly mentioned debug as a feature
+      flag, so it should be modeled as one. Implementation cost is minimal — it
+      is just another boolean field in the new FeatureFlags TypeSpec model.
+    answer: Skip debug flag entirely
   - question: >
       Should the database location setting be read-only (display only) or allow
       users to change the SHEP_HOME path from the web UI?
     resolved: true
     options:
-      - option: 'Read-only display'
+      - option: Read-only display
         description: >
           Show the current SHEP_HOME path and database file size as read-only
-          information. Safe, simple, and avoids the complexity of runtime path changes
-          which would require process restart, data migration, and error-prone path
-          validation. Users who need to change SHEP_HOME can do so via environment
-          variable before starting the process.
+          information. Safe, simple, and avoids the complexity of runtime path
+          changes which would require process restart, data migration, and
+          error-prone path validation. Users who need to change SHEP_HOME can do
+          so via environment variable before starting the process.
         selected: true
-      - option: 'Editable with restart warning'
+      - option: Editable with restart warning
         description: >
-          Allow users to edit the path with a warning dialog explaining that a restart
-          is required. High implementation complexity (path validation, migration logic,
-          restart coordination) with low user value since this is a rare operation.
-          Risk of data loss if migration fails mid-way.
+          Allow users to edit the path with a warning dialog explaining that a
+          restart is required. High implementation complexity (path validation,
+          migration logic, restart coordination) with low user value since this
+          is a rare operation. Risk of data loss if migration fails mid-way.
         selected: false
     selectionRationale: >
-      Read-only display is the safe choice. Changing the database location at runtime
-      requires restarting the process and migrating data — both risky operations that
-      can lead to data loss. This is a rare configuration change best handled via the
-      SHEP_HOME environment variable before process start. The web UI should display
-      the current path for informational purposes only.
-    answer: 'Read-only display'
-
+      Read-only display is the safe choice. Changing the database location at
+      runtime requires restarting the process and migrating data — both risky
+      operations that can lead to data loss. This is a rare configuration change
+      best handled via the SHEP_HOME environment variable before process start.
+      The web UI should display the current path for informational purposes
+      only.
+    answer: Read-only display
   - question: >
-      For feature flags migration to database, should the env var overrides still
-      work as a fallback, or should they be fully replaced by database values?
+      For feature flags migration to database, should the env var overrides
+      still work as a fallback, or should they be fully replaced by database
+      values?
     resolved: true
     options:
-      - option: 'DB primary with env var fallback'
+      - option: DB primary with env var fallback
         description: >
-          Database value takes precedence when set. If the database value is not yet
-          initialized (null), fall back to the NEXT_PUBLIC_ environment variable. This
-          provides a gradual migration path — existing deployments continue working
-          without configuration changes, while new settings from the UI are persisted
-          to the database. Once all users have saved settings via the UI, env vars
-          become redundant but still functional.
-        selected: true
-      - option: 'Full replacement (DB only)'
-        description: >
-          Remove env var support entirely. All feature flags come from the database.
-          Simpler code but breaking change for existing deployments that rely on
-          NEXT_PUBLIC_ env vars. Requires all users to reconfigure via the UI after
-          upgrade.
+          Database value takes precedence when set. If the database value is not
+          yet initialized (null), fall back to the NEXT_PUBLIC_ environment
+          variable. This provides a gradual migration path — existing
+          deployments continue working without configuration changes, while new
+          settings from the UI are persisted to the database. Once all users
+          have saved settings via the UI, env vars become redundant but still
+          functional.
         selected: false
-      - option: 'Env var overrides DB'
+      - option: Full replacement (DB only)
         description: >
-          Environment variables always win over database values. Useful for ops teams
-          that want to force-disable features via deployment config, but prevents users
-          from enabling features via the UI when env vars are set to false.
+          Remove env var support entirely. All feature flags come from the
+          database. Simpler code but breaking change for existing deployments
+          that rely on NEXT_PUBLIC_ env vars. Requires all users to reconfigure
+          via the UI after upgrade.
+        selected: true
+      - option: Env var overrides DB
+        description: >
+          Environment variables always win over database values. Useful for ops
+          teams that want to force-disable features via deployment config, but
+          prevents users from enabling features via the UI when env vars are set
+          to false.
         selected: false
     selectionRationale: >
-      DB primary with env var fallback provides the safest migration path. Existing
-      deployments using NEXT_PUBLIC_ env vars continue working without changes. As
-      users interact with the settings page and save preferences, the database values
-      take over. This avoids a breaking change while moving toward the database as the
-      single source of truth for feature flags.
-    answer: 'DB primary with env var fallback'
-
+      DB primary with env var fallback provides the safest migration path.
+      Existing deployments using NEXT_PUBLIC_ env vars continue working without
+      changes. As users interact with the settings page and save preferences,
+      the database values take over. This avoids a breaking change while moving
+      toward the database as the single source of truth for feature flags.
+    answer: Full replacement (DB only)
   - question: >
       How should settings changes be saved — auto-save on each field change or
       explicit save button per section?
     resolved: true
     options:
-      - option: 'Explicit save button per section'
+      - option: Explicit save button per section
         description: >
           Each settings section has its own Save button. Users make changes and
-          explicitly commit them. Prevents accidental changes, provides clear feedback
-          (button state changes to indicate unsaved changes), and aligns with the
-          existing CLI pattern where settings are explicitly committed. Allows users to
-          review changes before saving. Familiar UX pattern for settings pages.
-        selected: true
-      - option: 'Auto-save on each change'
-        description: >
-          Each field change triggers an immediate save to the database. No save button
-          needed. Simpler UX but risky — accidental changes are immediately persisted,
-          no undo capability, and rapid changes can cause excessive database writes.
-          Requires debouncing logic and optimistic UI updates with rollback on failure.
+          explicitly commit them. Prevents accidental changes, provides clear
+          feedback (button state changes to indicate unsaved changes), and
+          aligns with the existing CLI pattern where settings are explicitly
+          committed. Allows users to review changes before saving. Familiar UX
+          pattern for settings pages.
         selected: false
-      - option: 'Single save button for entire page'
+      - option: Auto-save on each change
         description: >
-          One save button at the bottom of the page saves all sections at once. Simple
-          but poor UX when users only want to change one section — they must scroll
-          to the bottom to save. Also risks saving unintended changes in other sections.
+          Each field change triggers an immediate save to the database. No save
+          button needed. Simpler UX but risky — accidental changes are
+          immediately persisted, no undo capability, and rapid changes can cause
+          excessive database writes. Requires debouncing logic and optimistic UI
+          updates with rollback on failure.
+        selected: true
+      - option: Single save button for entire page
+        description: >
+          One save button at the bottom of the page saves all sections at once.
+          Simple but poor UX when users only want to change one section — they
+          must scroll to the bottom to save. Also risks saving unintended
+          changes in other sections.
         selected: false
     selectionRationale: >
-      Explicit save per section is the standard UX pattern for settings pages. It
-      prevents accidental changes, provides clear visual feedback about unsaved state,
-      and aligns with the existing CLI workflow where settings are explicitly committed.
-      Each section is independently saveable, so users can modify and save one area
-      without affecting others.
-    answer: 'Explicit save button per section'
-
+      Explicit save per section is the standard UX pattern for settings pages.
+      It prevents accidental changes, provides clear visual feedback about
+      unsaved state, and aligns with the existing CLI workflow where settings
+      are explicitly committed. Each section is independently saveable, so users
+      can modify and save one area without affecting others.
+    answer: Auto-save on each change
   - question: >
       Should the settings page use a tabbed layout or a single scrollable page
       with section cards?
     resolved: true
     options:
-      - option: 'Single scrollable page with section cards'
+      - option: Single scrollable page with section cards
         description: >
-          All six sections displayed as Card components in a single scrollable view.
-          Users can see all settings at once and use browser find (Ctrl+F) to locate
-          specific settings. Simpler routing (no tab state in URL). Consistent with
-          the existing page layout pattern used by other pages in the app. Better for
-          discoverability since all options are visible without clicking through tabs.
+          All six sections displayed as Card components in a single scrollable
+          view. Users can see all settings at once and use browser find (Ctrl+F)
+          to locate specific settings. Simpler routing (no tab state in URL).
+          Consistent with the existing page layout pattern used by other pages
+          in the app. Better for discoverability since all options are visible
+          without clicking through tabs.
         selected: true
-      - option: 'Tabbed layout with one section per tab'
+      - option: Tabbed layout with one section per tab
         description: >
-          Each section is a separate tab. Cleaner visual separation but requires extra
-          clicks to navigate between sections. Tab state should be persisted in URL
-          params. Hides settings behind tabs, reducing discoverability. More complex
-          implementation with tab routing logic.
+          Each section is a separate tab. Cleaner visual separation but requires
+          extra clicks to navigate between sections. Tab state should be
+          persisted in URL params. Hides settings behind tabs, reducing
+          discoverability. More complex implementation with tab routing logic.
         selected: false
     selectionRationale: >
-      A single scrollable page with section cards is simpler to implement, provides
-      better discoverability (all settings visible at once), supports browser find
-      (Ctrl+F), and is consistent with the existing page layout patterns in the app.
-      With only six sections, the page length is manageable without tabs.
-    answer: 'Single scrollable page with section cards'
-
+      A single scrollable page with section cards is simpler to implement,
+      provides better discoverability (all settings visible at once), supports
+      browser find (Ctrl+F), and is consistent with the existing page layout
+      patterns in the app. With only six sections, the page length is manageable
+      without tabs.
+    answer: Single scrollable page with section cards
   - question: >
       Should the token input field for agent auth be masked (password-style) or
       visible with a show/hide toggle?
     resolved: true
     options:
-      - option: 'Masked with show/hide toggle'
+      - option: Masked with show/hide toggle
         description: >
-          Token field is masked by default (type="password") with an eye icon button
-          to toggle visibility. Protects against shoulder surfing while allowing users
-          to verify the token when needed. Standard pattern for sensitive credential
-          inputs.
+          Token field is masked by default (type="password") with an eye icon
+          button to toggle visibility. Protects against shoulder surfing while
+          allowing users to verify the token when needed. Standard pattern for
+          sensitive credential inputs.
         selected: true
-      - option: 'Always visible'
+      - option: Always visible
         description: >
-          Token is always shown in plain text. Simplest implementation but exposes
-          sensitive credentials to anyone viewing the screen. Not recommended for
-          security-sensitive fields.
+          Token is always shown in plain text. Simplest implementation but
+          exposes sensitive credentials to anyone viewing the screen. Not
+          recommended for security-sensitive fields.
         selected: false
     selectionRationale: >
-      Masking the token by default with a show/hide toggle is the standard security
-      practice for credential inputs. It protects against shoulder surfing while still
-      allowing users to verify what they have entered. This is a well-established UX
-      pattern that users expect for sensitive fields.
-    answer: 'Masked with show/hide toggle'
-
-content: |
+      Masking the token by default with a show/hide toggle is the standard
+      security practice for credential inputs. It protects against shoulder
+      surfing while still allowing users to verify what they have entered. This
+      is a well-established UX pattern that users expect for sensitive fields.
+    answer: Masked with show/hide toggle
+content: >
   ## Problem Statement
 
+
   The Shep web UI currently has no dedicated settings page. Users must configure
-  preferences (agent, IDE, terminal, workflow, notifications) entirely through the
-  CLI via `shep settings`. This creates friction for users who primarily interact
+
+  preferences (agent, IDE, terminal, workflow, notifications) entirely through
+  the
+
+  CLI via `shep settings`. This creates friction for users who primarily
+  interact
+
   with Shep through the web UI.
 
+
   Additionally, feature flags are controlled via `NEXT_PUBLIC_` environment
+
   variables, which requires restarting the dev server or rebuilding to change.
-  Moving feature flags into the Settings database entity enables runtime toggling
+
+  Moving feature flags into the Settings database entity enables runtime
+  toggling
+
   from the web UI.
+
 
   ## Success Criteria
 
+
   - [ ] Settings page is accessible at /settings route in the web UI
-  - [ ] Settings nav item appears in the sidebar with a gear icon between the last static nav item and the features list
-  - [ ] All six settings sections render correctly: Agent, IDE/Terminal, Workflow, Notifications, Feature Flags, Database
-  - [ ] Each section loads current values from the database on page load via LoadSettingsUseCase
-  - [ ] Each section persists changes to the database via UpdateSettingsUseCase when the section Save button is clicked
-  - [ ] Toast notification (sonner) confirms successful save or displays error message on failure
-  - [ ] Feature flags section toggles take effect immediately in the sidebar (skills nav item appears/disappears)
-  - [ ] Feature flags use DB-primary resolution with env var fallback — existing NEXT_PUBLIC_ env vars continue to work when DB values are not set
-  - [ ] TypeSpec model includes a FeatureFlags model with skills, envDeploy, and debug boolean fields
-  - [ ] Database schema includes feature flag columns (feature_flag_skills, feature_flag_env_deploy, feature_flag_debug)
+
+  - [ ] Settings nav item appears in the sidebar with a gear icon between the
+  last static nav item and the features list
+
+  - [ ] All six settings sections render correctly: Agent, IDE/Terminal,
+  Workflow, Notifications, Feature Flags, Database
+
+  - [ ] Each section loads current values from the database on page load via
+  LoadSettingsUseCase
+
+  - [ ] Each section persists changes to the database via UpdateSettingsUseCase
+  when the section Save button is clicked
+
+  - [ ] Toast notification (sonner) confirms successful save or displays error
+  message on failure
+
+  - [ ] Feature flags section toggles take effect immediately in the sidebar
+  (skills nav item appears/disappears)
+
+  - [ ] Feature flags use DB-primary resolution with env var fallback — existing
+  NEXT_PUBLIC_ env vars continue to work when DB values are not set
+
+  - [ ] TypeSpec model includes a FeatureFlags model with skills, envDeploy, and
+  debug boolean fields
+
+  - [ ] Database schema includes feature flag columns (feature_flag_skills,
+  feature_flag_env_deploy, feature_flag_debug)
+
   - [ ] Agent token input is masked by default with a show/hide toggle
-  - [ ] Database location section displays SHEP_HOME path and database file size as read-only
-  - [ ] Every new UI component has a colocated .stories.tsx file with relevant story variants
+
+  - [ ] Database location section displays SHEP_HOME path and database file size
+  as read-only
+
+  - [ ] Every new UI component has a colocated .stories.tsx file with relevant
+  story variants
+
   - [ ] All new components have unit tests
+
   - [ ] Settings mapper and repository changes have integration tests
+
   - [ ] Page is responsive and usable on viewport widths from 768px to 1920px
-  - [ ] Build (`pnpm build`), tests (`pnpm test`), and lint (`pnpm validate`) pass with zero errors
+
+  - [ ] Build (`pnpm build`), tests (`pnpm test`), and lint (`pnpm validate`)
+  pass with zero errors
+
 
   ## Functional Requirements
 
+
   ### Settings Page Route & Layout
 
-  - **FR-1**: The app SHALL serve a new page at the `/settings` route using the Next.js App Router. The page component SHALL be a Server Component that resolves LoadSettingsUseCase from the DI container, fetches current settings, and passes them as props to a client component.
 
-  - **FR-2**: The settings page SHALL render as a single scrollable page with each of the six sections displayed in a shadcn/ui Card component. Sections SHALL appear in this order: Preferred Agent, IDE & Terminal, Workflow, Notifications, Feature Flags, Database Location.
+  - **FR-1**: The app SHALL serve a new page at the `/settings` route using the
+  Next.js App Router. The page component SHALL be a Server Component that
+  resolves LoadSettingsUseCase from the DI container, fetches current settings,
+  and passes them as props to a client component.
 
-  - **FR-3**: Each settings section Card SHALL include a section title, descriptive subtitle, form fields, and a Save button (except Database Location, which is read-only). The Save button SHALL be disabled when no changes have been made to that section.
+
+  - **FR-2**: The settings page SHALL render as a single scrollable page with
+  each of the six sections displayed in a shadcn/ui Card component. Sections
+  SHALL appear in this order: Preferred Agent, IDE & Terminal, Workflow,
+  Notifications, Feature Flags, Database Location.
+
+
+  - **FR-3**: Each settings section Card SHALL include a section title,
+  descriptive subtitle, form fields, and a Save button (except Database
+  Location, which is read-only). The Save button SHALL be disabled when no
+  changes have been made to that section.
+
 
   ### Sidebar Navigation
 
-  - **FR-4**: The sidebar navigation SHALL include a "Settings" item with the lucide-react `Settings` (gear) icon. It SHALL be placed after the existing static nav items (Home, Tools, Skills) and before the dynamic features list. The nav item SHALL highlight when the user is on the /settings route.
+
+  - **FR-4**: The sidebar navigation SHALL include a "Settings" item with the
+  lucide-react `Settings` (gear) icon. It SHALL be placed after the existing
+  static nav items (Home, Tools, Skills) and before the dynamic features list.
+  The nav item SHALL highlight when the user is on the /settings route.
+
 
   ### Preferred Agent Section
 
-  - **FR-5**: The Preferred Agent section SHALL provide a Select dropdown for agent type with options: Claude Code, Cursor, Gemini CLI, Aider, Continue, Dev. Values SHALL map to the AgentType enum values (claude-code, cursor, gemini-cli, aider, continue, dev).
 
-  - **FR-6**: The section SHALL provide a Select dropdown for authentication method with options: Session, Token. Values SHALL map to the AgentAuthMethod enum values (session, token).
+  - **FR-5**: The Preferred Agent section SHALL provide a Select dropdown for
+  agent type with options: Claude Code, Cursor, Gemini CLI, Aider, Continue,
+  Dev. Values SHALL map to the AgentType enum values (claude-code, cursor,
+  gemini-cli, aider, continue, dev).
 
-  - **FR-7**: When the authentication method is set to "token", the section SHALL display a password-masked Input field for the API token with a show/hide toggle button (eye icon). When the authentication method is "session", the token field SHALL be hidden.
 
-  - **FR-8**: On save, the section SHALL update `settings.agent.type`, `settings.agent.authMethod`, and `settings.agent.token` via the update-settings server action.
+  - **FR-6**: The section SHALL provide a Select dropdown for authentication
+  method with options: Session, Token. Values SHALL map to the AgentAuthMethod
+  enum values (session, token).
+
+
+  - **FR-7**: When the authentication method is set to "token", the section
+  SHALL display a password-masked Input field for the API token with a show/hide
+  toggle button (eye icon). When the authentication method is "session", the
+  token field SHALL be hidden.
+
+
+  - **FR-8**: On save, the section SHALL update `settings.agent.type`,
+  `settings.agent.authMethod`, and `settings.agent.token` via the
+  update-settings server action.
+
 
   ### IDE & Terminal Section
 
-  - **FR-9**: The IDE & Terminal section SHALL provide a Select dropdown for default editor with options matching the EditorType enum: VS Code (vscode), Cursor (cursor), Windsurf (windsurf), Zed (zed), Antigravity (antigravity).
 
-  - **FR-10**: The section SHALL provide a Select dropdown for shell preference with options: bash, zsh, fish.
+  - **FR-9**: The IDE & Terminal section SHALL provide a Select dropdown for
+  default editor with options matching the EditorType enum: VS Code (vscode),
+  Cursor (cursor), Windsurf (windsurf), Zed (zed), Antigravity (antigravity).
 
-  - **FR-11**: On save, the section SHALL update `settings.environment.defaultEditor` and `settings.environment.shellPreference` via the update-settings server action.
+
+  - **FR-10**: The section SHALL provide a Select dropdown for shell preference
+  with options: bash, zsh, fish.
+
+
+  - **FR-11**: On save, the section SHALL update
+  `settings.environment.defaultEditor` and
+  `settings.environment.shellPreference` via the update-settings server action.
+
 
   ### Workflow Settings Section
 
-  - **FR-12**: The Workflow section SHALL provide Switch toggles for: "Open PR on implementation complete" (workflow.openPrOnImplementationComplete), "Push on implementation complete" (workflow.approvalGateDefaults.pushOnImplementationComplete).
 
-  - **FR-13**: The section SHALL provide Switch toggles for approval gates: "Allow PRD auto-approval" (workflow.approvalGateDefaults.allowPrd), "Allow Plan auto-approval" (workflow.approvalGateDefaults.allowPlan), "Allow Merge auto-approval" (workflow.approvalGateDefaults.allowMerge).
+  - **FR-12**: The Workflow section SHALL provide Switch toggles for: "Open PR
+  on implementation complete" (workflow.openPrOnImplementationComplete), "Push
+  on implementation complete"
+  (workflow.approvalGateDefaults.pushOnImplementationComplete).
 
-  - **FR-14**: The section SHALL provide numeric Input fields for CI settings: "Max fix attempts" (workflow.ciMaxFixAttempts), "Watch timeout (ms)" (workflow.ciWatchTimeoutMs), "Log max chars" (workflow.ciLogMaxChars). These fields SHALL accept only positive integers and SHALL be optional (empty = unset/null).
 
-  - **FR-15**: On save, the section SHALL update all `settings.workflow.*` fields via the update-settings server action.
+  - **FR-13**: The section SHALL provide Switch toggles for approval gates:
+  "Allow PRD auto-approval" (workflow.approvalGateDefaults.allowPrd), "Allow
+  Plan auto-approval" (workflow.approvalGateDefaults.allowPlan), "Allow Merge
+  auto-approval" (workflow.approvalGateDefaults.allowMerge).
+
+
+  - **FR-14**: The section SHALL provide numeric Input fields for CI settings:
+  "Max fix attempts" (workflow.ciMaxFixAttempts), "Watch timeout (ms)"
+  (workflow.ciWatchTimeoutMs), "Log max chars" (workflow.ciLogMaxChars). These
+  fields SHALL accept only positive integers and SHALL be optional (empty =
+  unset/null).
+
+
+  - **FR-15**: On save, the section SHALL update all `settings.workflow.*`
+  fields via the update-settings server action.
+
 
   ### Notifications Section
 
-  - **FR-16**: The Notifications section SHALL provide Switch toggles for notification channels: "In-App" (notifications.inApp.enabled), "Browser" (notifications.browser.enabled), "Desktop" (notifications.desktop.enabled).
 
-  - **FR-17**: The section SHALL provide Switch toggles for all nine notification event types: Agent Started, Phase Completed, Waiting Approval, Agent Completed, Agent Failed, PR Merged, PR Closed, PR Checks Passed, PR Checks Failed. Each toggle SHALL map to the corresponding `notifications.events.*` boolean field.
+  - **FR-16**: The Notifications section SHALL provide Switch toggles for
+  notification channels: "In-App" (notifications.inApp.enabled), "Browser"
+  (notifications.browser.enabled), "Desktop" (notifications.desktop.enabled).
 
-  - **FR-18**: On save, the section SHALL update all `settings.notifications.*` fields via the update-settings server action.
+
+  - **FR-17**: The section SHALL provide Switch toggles for all nine
+  notification event types: Agent Started, Phase Completed, Waiting Approval,
+  Agent Completed, Agent Failed, PR Merged, PR Closed, PR Checks Passed, PR
+  Checks Failed. Each toggle SHALL map to the corresponding
+  `notifications.events.*` boolean field.
+
+
+  - **FR-18**: On save, the section SHALL update all `settings.notifications.*`
+  fields via the update-settings server action.
+
 
   ### Feature Flags Section
 
-  - **FR-19**: The Feature Flags section SHALL provide Switch toggles for: Skills (featureFlags.skills), Deployments (featureFlags.envDeploy), Debug (featureFlags.debug). Each toggle SHALL display a brief description of what the flag controls.
 
-  - **FR-20**: The TypeSpec Settings model SHALL be extended with a FeatureFlags model containing three boolean fields: skills (default: false), envDeploy (default: false), debug (default: false).
+  - **FR-19**: The Feature Flags section SHALL provide Switch toggles for:
+  Skills (featureFlags.skills), Deployments (featureFlags.envDeploy), Debug
+  (featureFlags.debug). Each toggle SHALL display a brief description of what
+  the flag controls.
 
-  - **FR-21**: The feature-flags.ts module SHALL be refactored to resolve flags using DB-primary resolution: if the settings object has a featureFlags value set, use it; otherwise fall back to the existing NEXT_PUBLIC_ environment variable. The featureFlags.debug field SHALL have no env var fallback (new flag, DB-only).
 
-  - **FR-22**: On save, the section SHALL update `settings.featureFlags.*` via the update-settings server action. Changes to feature flags that affect sidebar visibility (e.g., skills) SHALL be reflected in the sidebar after page navigation or refresh.
+  - **FR-20**: The TypeSpec Settings model SHALL be extended with a FeatureFlags
+  model containing three boolean fields: skills (default: false), envDeploy
+  (default: false), debug (default: false).
+
+
+  - **FR-21**: The feature-flags.ts module SHALL be refactored to resolve flags
+  using DB-primary resolution: if the settings object has a featureFlags value
+  set, use it; otherwise fall back to the existing NEXT_PUBLIC_ environment
+  variable. The featureFlags.debug field SHALL have no env var fallback (new
+  flag, DB-only).
+
+
+  - **FR-22**: On save, the section SHALL update `settings.featureFlags.*` via
+  the update-settings server action. Changes to feature flags that affect
+  sidebar visibility (e.g., skills) SHALL be reflected in the sidebar after page
+  navigation or refresh.
+
 
   ### Database Location Section
 
-  - **FR-23**: The Database Location section SHALL display the current SHEP_HOME directory path as read-only text. It SHALL also display the SQLite database file size in a human-readable format (e.g., "2.4 MB"). This section SHALL NOT have a Save button.
 
-  - **FR-24**: The SHEP_HOME path and database file size SHALL be fetched server-side (in the page Server Component or via a server action) using the ShepDirectoryService and filesystem APIs.
+  - **FR-23**: The Database Location section SHALL display the current SHEP_HOME
+  directory path as read-only text. It SHALL also display the SQLite database
+  file size in a human-readable format (e.g., "2.4 MB"). This section SHALL NOT
+  have a Save button.
+
+
+  - **FR-24**: The SHEP_HOME path and database file size SHALL be fetched
+  server-side (in the page Server Component or via a server action) using the
+  ShepDirectoryService and filesystem APIs.
+
 
   ### Server Actions
 
-  - **FR-25**: A `load-settings` server action SHALL resolve LoadSettingsUseCase from the DI container and return the current Settings object. This action SHALL be used by the settings page Server Component for initial data loading.
 
-  - **FR-26**: An `update-settings` server action SHALL accept a partial settings update payload, merge it with the current settings (loaded via LoadSettingsUseCase), and persist the merged result via UpdateSettingsUseCase. It SHALL return a success/error result and revalidate the /settings path on success.
+  - **FR-25**: A `load-settings` server action SHALL resolve LoadSettingsUseCase
+  from the DI container and return the current Settings object. This action
+  SHALL be used by the settings page Server Component for initial data loading.
 
-  - **FR-27**: The update-settings server action SHALL update the in-memory settings singleton (via initializeSettings) after a successful database write, ensuring the rest of the application sees the updated values without a full page reload.
+
+  - **FR-26**: An `update-settings` server action SHALL accept a partial
+  settings update payload, merge it with the current settings (loaded via
+  LoadSettingsUseCase), and persist the merged result via UpdateSettingsUseCase.
+  It SHALL return a success/error result and revalidate the /settings path on
+  success.
+
+
+  - **FR-27**: The update-settings server action SHALL update the in-memory
+  settings singleton (via initializeSettings) after a successful database write,
+  ensuring the rest of the application sees the updated values without a full
+  page reload.
+
 
   ### Domain & Infrastructure Changes
 
-  - **FR-28**: A new FeatureFlags model SHALL be added to the Settings TypeSpec definition in `tsp/domain/entities/settings.tsp` with fields: skills (boolean, default false), envDeploy (boolean, default false), debug (boolean, default false).
 
-  - **FR-29**: The SettingsMapper SHALL be extended to map featureFlags fields to/from database columns: feature_flag_skills, feature_flag_env_deploy, feature_flag_debug (stored as INTEGER 0/1).
+  - **FR-28**: A new FeatureFlags model SHALL be added to the Settings TypeSpec
+  definition in `tsp/domain/entities/settings.tsp` with fields: skills (boolean,
+  default false), envDeploy (boolean, default false), debug (boolean, default
+  false).
 
-  - **FR-30**: The SQLiteSettingsRepository SHALL be extended to include the three new feature flag columns in its CREATE TABLE schema, INSERT, UPDATE, and SELECT queries.
 
-  - **FR-31**: The settings-defaults.factory.ts SHALL be updated to include default featureFlags values (skills: false, envDeploy: false, debug: false) in the createDefaultSettings() output.
+  - **FR-29**: The SettingsMapper SHALL be extended to map featureFlags fields
+  to/from database columns: feature_flag_skills, feature_flag_env_deploy,
+  feature_flag_debug (stored as INTEGER 0/1).
+
+
+  - **FR-30**: The SQLiteSettingsRepository SHALL be extended to include the
+  three new feature flag columns in its CREATE TABLE schema, INSERT, UPDATE, and
+  SELECT queries.
+
+
+  - **FR-31**: The settings-defaults.factory.ts SHALL be updated to include
+  default featureFlags values (skills: false, envDeploy: false, debug: false) in
+  the createDefaultSettings() output.
+
 
   ## Non-Functional Requirements
 
-  - **NFR-1 (Performance)**: The settings page SHALL load and render within 500ms on a local development server. Server-side settings fetch SHALL complete within 100ms (SQLite single-row read).
 
-  - **NFR-2 (Responsiveness)**: The settings page SHALL be usable on viewport widths from 768px (tablet) to 1920px (desktop). Cards SHALL stack vertically on narrower viewports and maintain readable line lengths on wide viewports.
+  - **NFR-1 (Performance)**: The settings page SHALL load and render within
+  500ms on a local development server. Server-side settings fetch SHALL complete
+  within 100ms (SQLite single-row read).
 
-  - **NFR-3 (Accessibility)**: All form controls SHALL have associated Label elements. Switch toggles SHALL have accessible names. The page SHALL be navigable via keyboard (Tab, Enter, Space). Focus states SHALL be visible.
 
-  - **NFR-4 (Security)**: The agent token field SHALL be rendered as type="password" by default. Token values SHALL never appear in client-side console logs, error messages, or network response payloads beyond the settings load response. Server actions SHALL validate input types before persisting.
+  - **NFR-2 (Responsiveness)**: The settings page SHALL be usable on viewport
+  widths from 768px (tablet) to 1920px (desktop). Cards SHALL stack vertically
+  on narrower viewports and maintain readable line lengths on wide viewports.
 
-  - **NFR-5 (Consistency)**: The settings page SHALL use the same visual language (Card, spacing, typography, color tokens) as existing pages (dashboard, tools, version). It SHALL follow the dark mode theming system already in place.
 
-  - **NFR-6 (Testability)**: Every new React component SHALL have a colocated .stories.tsx file with at least one story per visual state. Components SHALL be unit-testable with mock data (no database dependency in component tests). Mapper and repository changes SHALL have integration tests against SQLite.
+  - **NFR-3 (Accessibility)**: All form controls SHALL have associated Label
+  elements. Switch toggles SHALL have accessible names. The page SHALL be
+  navigable via keyboard (Tab, Enter, Space). Focus states SHALL be visible.
 
-  - **NFR-7 (Maintainability)**: Settings section components SHALL each be in their own file under `src/presentation/web/components/features/settings/`. Component props SHALL be typed with TypeScript interfaces. No any types.
 
-  - **NFR-8 (Error Handling)**: Save failures SHALL display an error toast with a descriptive message. Network errors SHALL not crash the page or leave the form in an inconsistent state. Failed saves SHALL preserve the user's unsaved changes in the form.
+  - **NFR-4 (Security)**: The agent token field SHALL be rendered as
+  type="password" by default. Token values SHALL never appear in client-side
+  console logs, error messages, or network response payloads beyond the settings
+  load response. Server actions SHALL validate input types before persisting.
 
-  - **NFR-9 (Backward Compatibility)**: The feature flags migration SHALL not break existing deployments that use NEXT_PUBLIC_ environment variables. Env vars SHALL continue to work as fallback when database values are not set.
+
+  - **NFR-5 (Consistency)**: The settings page SHALL use the same visual
+  language (Card, spacing, typography, color tokens) as existing pages
+  (dashboard, tools, version). It SHALL follow the dark mode theming system
+  already in place.
+
+
+  - **NFR-6 (Testability)**: Every new React component SHALL have a colocated
+  .stories.tsx file with at least one story per visual state. Components SHALL
+  be unit-testable with mock data (no database dependency in component tests).
+  Mapper and repository changes SHALL have integration tests against SQLite.
+
+
+  - **NFR-7 (Maintainability)**: Settings section components SHALL each be in
+  their own file under `src/presentation/web/components/features/settings/`.
+  Component props SHALL be typed with TypeScript interfaces. No any types.
+
+
+  - **NFR-8 (Error Handling)**: Save failures SHALL display an error toast with
+  a descriptive message. Network errors SHALL not crash the page or leave the
+  form in an inconsistent state. Failed saves SHALL preserve the user's unsaved
+  changes in the form.
+
+
+  - **NFR-9 (Backward Compatibility)**: The feature flags migration SHALL not
+  break existing deployments that use NEXT_PUBLIC_ environment variables. Env
+  vars SHALL continue to work as fallback when database values are not set.
+
 
   ## Product Questions & AI Recommendations
 
+
   | # | Question | AI Recommendation | Rationale |
+
   | - | -------- | ----------------- | --------- |
-  | 1 | Should the debug flag be a new feature flag or map to system.logLevel? | New boolean debug feature flag | Clean separation of concerns — logLevel is operational config, debug flag controls UI feature visibility. User explicitly mentioned it as a feature flag. |
-  | 2 | Should database location be editable or read-only? | Read-only display | Changing DB location at runtime is risky (restart + migration required). Rare operation best handled via SHEP_HOME env var before process start. |
-  | 3 | Should env var overrides still work after feature flags move to DB? | DB primary with env var fallback | Safest migration path — existing deployments continue working. DB values take precedence when set, env vars serve as fallback. |
-  | 4 | How should settings changes be saved? | Explicit save button per section | Standard UX pattern, prevents accidental changes, provides clear feedback about unsaved state, aligns with CLI workflow. |
-  | 5 | Tabbed layout or single scrollable page? | Single scrollable page with section cards | Simpler implementation, better discoverability, supports Ctrl+F, consistent with existing app layout patterns. Only six sections, manageable without tabs. |
-  | 6 | Should agent token input be masked? | Masked with show/hide toggle | Standard security practice for credential inputs. Protects against shoulder surfing while allowing verification. |
+
+  | 1 | Should the debug flag be a new feature flag or map to system.logLevel? |
+  New boolean debug feature flag | Clean separation of concerns — logLevel is
+  operational config, debug flag controls UI feature visibility. User explicitly
+  mentioned it as a feature flag. |
+
+  | 2 | Should database location be editable or read-only? | Read-only display |
+  Changing DB location at runtime is risky (restart + migration required). Rare
+  operation best handled via SHEP_HOME env var before process start. |
+
+  | 3 | Should env var overrides still work after feature flags move to DB? | DB
+  primary with env var fallback | Safest migration path — existing deployments
+  continue working. DB values take precedence when set, env vars serve as
+  fallback. |
+
+  | 4 | How should settings changes be saved? | Explicit save button per section
+  | Standard UX pattern, prevents accidental changes, provides clear feedback
+  about unsaved state, aligns with CLI workflow. |
+
+  | 5 | Tabbed layout or single scrollable page? | Single scrollable page with
+  section cards | Simpler implementation, better discoverability, supports
+  Ctrl+F, consistent with existing app layout patterns. Only six sections,
+  manageable without tabs. |
+
+  | 6 | Should agent token input be masked? | Masked with show/hide toggle |
+  Standard security practice for credential inputs. Protects against shoulder
+  surfing while allowing verification. |
+
 
   ## Affected Areas
 
+
   | Area | Impact | Reasoning |
+
   | ---- | ------ | --------- |
-  | `tsp/domain/entities/settings.tsp` | High | Add FeatureFlags model to Settings entity |
-  | `packages/core/src/domain/generated/output.ts` | High | Regenerated from TypeSpec after model change |
-  | `packages/core/src/infrastructure/persistence/sqlite/mappers/settings.mapper.ts` | High | Map new featureFlags columns |
-  | `packages/core/src/infrastructure/repositories/sqlite-settings.repository.ts` | High | Add featureFlags columns to schema and queries |
-  | `packages/core/src/domain/factories/settings-defaults.factory.ts` | Medium | Add featureFlags defaults |
-  | `src/presentation/web/app/settings/page.tsx` | High | New server component page |
-  | `src/presentation/web/components/features/settings/` | High | New client components for each settings section |
-  | `src/presentation/web/app/actions/` | High | New server actions: load-settings, update-settings |
-  | `src/presentation/web/components/layouts/app-sidebar/app-sidebar.tsx` | Medium | Add Settings nav item with icon |
-  | `src/presentation/web/lib/feature-flags.ts` | Medium | Migrate to read from DB settings instead of env vars |
-  | `src/presentation/web/components/common/sidebar-nav-item/` | Low | Reused, no changes needed |
-  | `tests/` | High | Unit tests for new components, integration tests for mapper/repository changes |
+
+  | `tsp/domain/entities/settings.tsp` | High | Add FeatureFlags model to
+  Settings entity |
+
+  | `packages/core/src/domain/generated/output.ts` | High | Regenerated from
+  TypeSpec after model change |
+
+  |
+  `packages/core/src/infrastructure/persistence/sqlite/mappers/settings.mapper.ts`
+  | High | Map new featureFlags columns |
+
+  |
+  `packages/core/src/infrastructure/repositories/sqlite-settings.repository.ts`
+  | High | Add featureFlags columns to schema and queries |
+
+  | `packages/core/src/domain/factories/settings-defaults.factory.ts` | Medium |
+  Add featureFlags defaults |
+
+  | `src/presentation/web/app/settings/page.tsx` | High | New server component
+  page |
+
+  | `src/presentation/web/components/features/settings/` | High | New client
+  components for each settings section |
+
+  | `src/presentation/web/app/actions/` | High | New server actions:
+  load-settings, update-settings |
+
+  | `src/presentation/web/components/layouts/app-sidebar/app-sidebar.tsx` |
+  Medium | Add Settings nav item with icon |
+
+  | `src/presentation/web/lib/feature-flags.ts` | Medium | Migrate to read from
+  DB settings instead of env vars |
+
+  | `src/presentation/web/components/common/sidebar-nav-item/` | Low | Reused,
+  no changes needed |
+
+  | `tests/` | High | Unit tests for new components, integration tests for
+  mapper/repository changes |
+
 
   ## Dependencies
 
-  - **Existing**: LoadSettingsUseCase, UpdateSettingsUseCase, Settings TypeSpec model,
+
+  - **Existing**: LoadSettingsUseCase, UpdateSettingsUseCase, Settings TypeSpec
+  model,
     SQLiteSettingsRepository, SettingsMapper, settings.service.ts singleton,
     ShepDirectoryService
   - **New TypeSpec model**: FeatureFlags model added to Settings entity
+
   - **DB migration**: New columns for feature flags in settings table
-  - **shadcn/ui components**: Switch, Select, Input, Card, Label, Button, Separator
+
+  - **shadcn/ui components**: Switch, Select, Input, Card, Label, Button,
+  Separator
     (all already installed)
   - **Icons**: Settings (gear), Eye, EyeOff from lucide-react
 
+
   ## Size Estimate
 
+
   **L** — This feature spans multiple architecture layers (TypeSpec domain model
+
   extension, database mapper/repository changes, new Next.js page with 6 form
-  sections, server actions, sidebar integration, feature flags migration, Storybook
+
+  sections, server actions, sidebar integration, feature flags migration,
+  Storybook
+
   stories for every component, and comprehensive tests). While the backend
-  infrastructure exists, the frontend work is substantial with 6 distinct settings
-  sections, each requiring its own sub-component, stories, and tests. The feature
+
+  infrastructure exists, the frontend work is substantial with 6 distinct
+  settings
+
+  sections, each requiring its own sub-component, stories, and tests. The
+  feature
+
   flags migration from env vars to database adds cross-cutting complexity.
 
+
   ---
+
 
   _Requirements defined by product analyst — proceed with research_

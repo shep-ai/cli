@@ -4,6 +4,10 @@ import userEvent from '@testing-library/user-event';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layouts/app-sidebar';
 
+vi.mock('@/lib/feature-flags', () => ({
+  featureFlags: { skills: true, envDeploy: false, debug: false },
+}));
+
 function renderWithSidebar(ui: React.ReactElement) {
   return render(<SidebarProvider>{ui}</SidebarProvider>);
 }
@@ -91,5 +95,18 @@ describe('AppSidebar', () => {
     await user.click(screen.getByRole('button', { name: /new feature/i }));
 
     expect(handleNewFeature).toHaveBeenCalledOnce();
+  });
+
+  it('renders Settings nav item with gear icon', () => {
+    renderWithSidebar(<AppSidebar features={mockFeatures} />);
+
+    expect(screen.getByText('Settings')).toBeInTheDocument();
+  });
+
+  it('renders Settings nav item linking to /settings', () => {
+    renderWithSidebar(<AppSidebar features={mockFeatures} />);
+
+    const settingsLink = screen.getByText('Settings').closest('a');
+    expect(settingsLink).toHaveAttribute('href', '/settings');
   });
 });
