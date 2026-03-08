@@ -1,3 +1,9 @@
+# [1.75.0](https://github.com/shep-ai/cli/compare/v1.74.0...v1.75.0) (2026-03-08)
+
+### Features
+
+- **web:** animated theme toggle with circular reveal ([#236](https://github.com/shep-ai/cli/issues/236)) ([20fd21f](https://github.com/shep-ai/cli/commit/20fd21fa20581bcf2b481408b5949a7d3588b55f))
+
 # [1.74.0](https://github.com/shep-ai/cli/compare/v1.73.1...v1.74.0) (2026-03-08)
 
 ### Features
