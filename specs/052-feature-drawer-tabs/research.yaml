@@ -1,0 +1,616 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feature-drawer-tabs
+summary: >
+  Technical research for adding a tabbed layout to the feature drawer. The implementation
+  leverages existing shadcn/ui Tabs primitives and follows the TechReviewTabs pattern for
+  layout and lazy loading. Three new server actions fetch phase timings, messages, and plan
+  data via DI-resolved repositories. A custom useTabDataFetch hook manages per-tab lazy
+  loading with caching and reset-on-feature-change semantics. The Activity tab adapts the
+  CLI phase timing visualization to web using Tailwind CSS proportional-width bars.
+
+relatedFeatures: []
+
+technologies:
+  - React 19 (Next.js 16 App Router)
+  - shadcn/ui Tabs (Radix UI primitives)
+  - Tailwind CSS v4
+  - Storybook 8
+  - TypeSpec domain models
+  - Next.js Server Actions
+  - SSE (Server-Sent Events)
+  - tsyringe (DI container)
+
+relatedLinks:
+  - https://github.com/shep-ai/cli/issues/230
+
+decisions:
+  - title: 'Tab container integration strategy'
+    chosen: 'Replace feature view body in FeatureDrawerClient with FeatureDrawerTabs component'
+    rejected:
+      - 'Modify FeatureDrawer (simple component) instead of FeatureDrawerClient — rejected because
+        FeatureDrawer is a simpler stateless component used in isolated contexts without SSE,
+        chat input, or review views. The tabs need SSE-driven refresh, which only
+        FeatureDrawerClient provides. The feature view body (lines 544-578) is the correct
+        replacement target.'
+      - 'Add tabs as a new DrawerView type — rejected because tabs are a UI layout concern
+        within the existing "feature" view, not a new view type. The DrawerView discriminated
+        union maps lifecycle+state to view types (feature, prd-review, tech-review, merge-review).
+        Adding a tab-specific view type would conflate UI layout with lifecycle semantics.'
+    rationale: >
+      The FeatureDrawerClient already handles the "feature" view type at lines 544-578,
+      rendering status, progress, PR info, and details. This body block should be replaced
+      with a FeatureDrawerTabs component that wraps the same content in an Overview tab
+      while adding Activity, Messages, and Plan tabs. The component receives FeatureNodeData
+      (already available) and the featureId (for lazy data fetching). Review views
+      (prd-review, tech-review, merge-review) remain completely untouched.
+
+  - title: 'Lazy loading and caching mechanism for tab data'
+    chosen: 'Custom useTabDataFetch hook with per-tab state management and feature-change reset'
+    rejected:
+      - 'Reuse useArtifactFetch directly — rejected because useArtifactFetch fetches immediately
+        when featureId is non-null. Tab data should only fetch when the user clicks a tab, not
+        when the drawer opens. useArtifactFetch is designed for view-type-driven fetching
+        (prdFeatureId is null unless view is prd-review), but all tabs share the same featureId.'
+      - 'React Query / SWR — rejected because the codebase does not use any data fetching
+        library. All data fetching uses either server actions called directly, useArtifactFetch,
+        or SSE effects. Adding React Query for one component would introduce an inconsistent
+        pattern and an unnecessary dependency.'
+    rationale: >
+      A custom useTabDataFetch hook provides the exact semantics needed: (1) lazy fetch
+      triggered by tab activation, not by featureId change; (2) per-tab caching so switching
+      back to a loaded tab is instant; (3) full cache clear when featureId changes (reset to
+      Overview); (4) re-fetch of active tab on SSE events. The hook follows the same
+      ref-based callback and cancellation patterns established by useArtifactFetch, but with
+      explicit fetch triggering rather than effect-driven fetching.
+
+  - title: 'Activity tab phase timing visualization approach'
+    chosen: 'Tailwind CSS proportional-width bars with color-coded segments'
+    rejected:
+      - 'SVG/Canvas-based chart library (e.g., recharts, visx) — rejected because the phase
+        timing visualization is a simple horizontal bar proportional to duration, not a complex
+        chart. Adding a charting library for colored rectangles would be over-engineering.
+        The CLI already renders this with character-based bars; Tailwind CSS can achieve
+        the same with percentage widths and background colors.'
+      - 'CSS Grid with fractional units — rejected because the bars need proportional widths
+        based on dynamic maxDuration values. Inline style with percentage widths
+        (style={{ width: `${percent}%` }}) is simpler and matches how the progress bar
+        is already implemented in the drawer (lines 558-565 of feature-drawer-client.tsx).'
+    rationale: >
+      The CLI renders phase timing bars using character repetition (e.g., 15 green blocks
+      out of 20). The web equivalent uses a container div with a child div whose width is
+      set as a percentage of maxDuration. Color coding: green (bg-emerald-500) for completed,
+      blue (bg-blue-500) for running, red (bg-red-500) for crashed, amber (bg-amber-500)
+      for approval wait. This matches the existing progress bar pattern in the drawer and
+      requires zero additional dependencies.
+
+  - title: 'Server action design pattern'
+    chosen: 'Three separate server actions resolving repositories directly from DI container'
+    rejected:
+      - 'Single unified server action returning all tab data — rejected because it conflicts
+        with the lazy-loading strategy. Fetching phase timings, messages, and plan in one
+        call wastes resources when only one tab is viewed. It also makes error handling
+        coarser (one failure blocks all data).'
+      - 'Extend ShowFeatureUseCase to return tab-specific data — rejected because the use
+        case already returns a full Feature object. Phase timings are not on the Feature
+        aggregate; they require IPhaseTimingRepository.findByFeatureId(). Messages and plan
+        are on the Feature, but fetching the full Feature just for messages is wasteful
+        (it includes all fields). Separate lightweight actions are more efficient.'
+    rationale: >
+      Three server actions follow the established codebase pattern (getFeatureArtifact,
+      getResearchArtifact, getMergeReviewData are all separate). Each action resolves
+      its repository from the DI container using resolve<T>('Token') from @/lib/server-container.
+      Specific patterns: (1) getFeaturePhaseTimings resolves IPhaseTimingRepository and
+      calls findByFeatureId(); (2) getFeatureMessages resolves IFeatureRepository, calls
+      findById(), and returns feature.messages; (3) getFeaturePlan resolves IFeatureRepository,
+      calls findById(), and returns feature.plan. Each returns { data?: T; error?: string }.
+
+  - title: 'SSE refresh strategy for active tab'
+    chosen: 'Leverage existing router.refresh() and re-trigger active tab fetch'
+    rejected:
+      - 'Custom SSE event handling per tab — rejected because the drawer already has SSE
+        integration via useAgentEventsContext that triggers router.refresh(). Adding custom
+        per-tab SSE handling would duplicate the event processing logic and risk race
+        conditions with the existing optimistic updates.'
+      - 'Polling fallback per tab — rejected because the control-center-state already has
+        a 3-second polling fallback that reconciles graph state. Adding per-tab polling
+        would create redundant DB queries and complexity.'
+    rationale: >
+      The FeatureDrawerClient already processes SSE events and calls router.refresh() when
+      feature state changes (lines 86-129). The FeatureDrawerTabs component can hook into
+      this by watching for changes to the FeatureNodeData prop (which updates on refresh).
+      When nodeData changes, the active tab's cached data is invalidated and re-fetched.
+      This reuses the existing SSE infrastructure without adding new event listeners.
+
+  - title: 'Component file organization'
+    chosen: 'New feature-drawer-tabs/ directory under components/common/ with per-tab component files'
+    rejected:
+      - 'Add all tab components inside existing feature-drawer/ directory — rejected because
+        the feature-drawer/ directory contains the simple FeatureDrawer component (used in
+        isolation). The tabbed layout is specific to FeatureDrawerClient and conceptually
+        different from the simple drawer. Mixing them would conflate two distinct use cases.'
+      - 'Inline tab content in a single FeatureDrawerTabs file — rejected because the spec
+        requires NFR-5 (each file under 300 lines). The Activity tab alone has significant
+        rendering logic (multi-run grouping, duration bars, approval waits, lifecycle events).
+        Separate files enable focused testing and story writing.'
+    rationale: >
+      Create src/presentation/web/components/common/feature-drawer-tabs/ with:
+      feature-drawer-tabs.tsx (container with Tabs + lazy loading logic),
+      overview-tab.tsx (extracted from current feature view body),
+      activity-tab.tsx (phase timing visualization),
+      messages-tab.tsx (message log),
+      plan-tab.tsx (plan state + task list),
+      use-tab-data-fetch.ts (custom hook for lazy loading),
+      index.ts (barrel exports),
+      and colocated .stories.tsx files for each component.
+
+  - title: 'Messages tab rendering approach'
+    chosen: 'Scrollable list with role-based styling and options/answer display'
+    rejected:
+      - 'Chat bubble UI (like iMessage) — rejected because the messages are not a real-time
+        chat. They are a historical log of agent-user interactions during feature development.
+        Chat bubbles imply conversational back-and-forth, but many messages are system-generated
+        with structured options. A list format better matches the log-like nature of the data.'
+      - 'Collapsible/accordion per message — rejected because features typically have 5-30
+        messages, which is manageable in a scrollable list. Collapsing would hide content
+        by default, requiring extra clicks to read the conversation. The full message content
+        should be immediately visible.'
+    rationale: >
+      Messages are rendered as a vertical list with visual distinction between roles:
+      assistant messages (left-aligned, muted background) and user messages (right-aligned
+      or accent border). Each message shows role label, full content text, and when present,
+      options as a list with the selected option highlighted. The Message type has: role
+      (MessageRole), content (string), options (string[]), selectedOption (number),
+      answer (string). The list scrolls within the TabsContent overflow-y-auto container.
+
+  - title: 'Plan tab task state visualization'
+    chosen: 'Inline status indicators using existing badge/icon patterns'
+    rejected:
+      - 'Progress bar per task — rejected because tasks have discrete states (Todo, WIP, Done,
+        Review), not continuous progress. A progress bar implies percentage completion, which
+        does not match the task model.'
+      - 'Kanban board layout — rejected because the drawer is 384-576px wide (sm/md sizes).
+        A kanban board with columns would not fit in this constrained space. A vertical list
+        with inline status indicators is more appropriate for narrow containers.'
+    rationale: >
+      Tasks are rendered as a vertical list, each with a status icon (circle for Todo,
+      loader spinner for WIP, check for Done, eye for Review) and colored text matching
+      the existing FeatureNodeState color patterns (blue for WIP, emerald for Done, amber
+      for Review, muted for Todo). The Plan type has: overview (string), state (PlanState),
+      tasks (Task[]) where each Task has title, description, and state. The PlanState
+      badge uses the same badge styling pattern as FeatureStateBadge.
+
+  - title: 'Storybook mock strategy for new server actions'
+    chosen: 'Add mock files to .storybook/mocks/app/actions/ returning error stubs'
+    rejected:
+      - 'Use MSW to intercept server action calls — rejected because the codebase does not
+        use MSW. Server actions are mocked via path alias redirection in .storybook/main.ts
+        (@/app/actions → .storybook/mocks/app/actions/). Adding MSW would introduce an
+        inconsistent mocking pattern.'
+      - 'Pass data as props to avoid server action calls in stories — rejected because
+        the tab components need to demonstrate loading, error, and data states, which
+        requires the fetch flow to execute. Mock server actions that return controlled
+        responses enable testing all three states.'
+    rationale: >
+      Follow the established pattern: add get-feature-phase-timings.ts,
+      get-feature-messages.ts, and get-feature-plan.ts to .storybook/mocks/app/actions/.
+      Each returns { error: 'Not available in Storybook' } as the default, matching the
+      existing pattern (get-merge-review-data.ts, get-feature-artifact.ts). Stories provide
+      real data via props or render wrappers, not via mocked server actions. The mock files
+      prevent runtime errors when Storybook resolves the @/app/actions alias.
+
+openQuestions:
+  - question: 'Should the useTabDataFetch hook use useCallback-wrapped fetchers or ref-based callbacks?'
+    resolved: true
+    options:
+      - option: 'Ref-based callbacks (useRef pattern)'
+        description: >
+          Store fetcher and callbacks in refs, update them on every render without
+          triggering effect re-runs. This is the pattern used by useArtifactFetch
+          (onSuccessRef, onResetRef). Avoids stale closures without requiring
+          useCallback from consumers.
+        selected: true
+      - option: 'useCallback-wrapped fetchers passed as props'
+        description: >
+          Require consumers to wrap their fetcher functions in useCallback to
+          prevent effect re-runs. Simpler hook implementation but pushes
+          memoization burden to every consumer, which is error-prone.
+        selected: false
+      - option: 'useMemo for the entire fetch config object'
+        description: >
+          Wrap all fetch configuration (fetcher, onSuccess, onReset) in a single
+          useMemo object. Reduces individual refs but creates a complex memoization
+          dependency that is harder to reason about.
+        selected: false
+    selectionRationale: >
+      The ref-based pattern is already established in useArtifactFetch (lines 27-30)
+      and prevents the common React pitfall of stale closures in effects. It also
+      avoids requiring consumers to memoize their callbacks, which reduces the chance
+      of bugs from forgotten useCallback wrappers.
+    answer: 'Ref-based callbacks (useRef pattern)'
+
+  - question: 'How should bigint fields (durationMs, approvalWaitMs) from PhaseTiming be handled in the web UI?'
+    resolved: true
+    options:
+      - option: 'Convert to number at the server action boundary'
+        description: >
+          The server action converts bigint to number before returning to the client.
+          This avoids JSON serialization issues (BigInt is not serializable) and keeps
+          the UI components working with standard number types. Conversion is safe
+          because duration values in milliseconds will never exceed Number.MAX_SAFE_INTEGER.
+        selected: true
+      - option: 'Convert to string and parse in components'
+        description: >
+          Serialize bigint as string in the server action return type, then parse
+          with parseInt/parseFloat in UI components. Adds unnecessary string
+          parsing in every component that reads timing data.
+        selected: false
+      - option: 'Use a BigInt polyfill/serializer'
+        description: >
+          Add a custom JSON serializer that handles BigInt. Over-engineered for
+          this use case and adds a dependency for a simple type conversion.
+        selected: false
+    selectionRationale: >
+      Server actions cross the RSC serialization boundary, which does not support BigInt.
+      Converting to number at the action level (Number(phaseTiming.durationMs)) is the
+      simplest approach and is safe because millisecond durations will never exceed
+      Number.MAX_SAFE_INTEGER (which is ~285 million years in ms). The CLI already
+      does Number(t.durationMs) in its rendering (show.command.ts line 171).
+    answer: 'Convert to number at the server action boundary'
+
+  - question: 'Should the FeatureDrawerTabs component manage its own tab state or use Tabs defaultValue?'
+    resolved: true
+    options:
+      - option: 'Controlled state with useState + Tabs value prop'
+        description: >
+          Use useState to track the active tab. Pass value and onValueChange to the
+          Tabs component. This allows programmatic tab reset when featureId changes
+          (setActiveTab("overview") in a useEffect) and enables the component to
+          know which tab is active for lazy data fetching decisions.
+        selected: true
+      - option: 'Uncontrolled with Tabs defaultValue'
+        description: >
+          Use Tabs defaultValue="overview" and let Radix manage tab state internally.
+          Simpler but prevents programmatic tab reset on feature change and makes it
+          impossible to know which tab is active for triggering lazy fetches.
+        selected: false
+      - option: 'URL-based tab state (searchParams)'
+        description: >
+          Encode the active tab in the URL search params. Enables deep linking to
+          specific tabs but adds URL management complexity. Drawer state is transient
+          and not worth persisting in the URL.
+        selected: false
+    selectionRationale: >
+      Controlled state is necessary because FR-10 requires resetting to Overview when
+      the featureId changes. This requires programmatic control over the active tab.
+      Additionally, the lazy loading logic needs to know which tab is active to trigger
+      fetches on tab switch. The Radix Tabs component supports controlled mode via
+      value and onValueChange props.
+    answer: 'Controlled state with useState + Tabs value prop'
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Tab Container Integration Strategy
+
+  **Chosen:** Replace the feature view body in FeatureDrawerClient (lines 544-578) with a new
+  FeatureDrawerTabs component.
+
+  **Rejected:**
+  - Modify FeatureDrawer (simple component) — wrong target; lacks SSE, review views, and chat input
+  - Add tabs as a new DrawerView type — conflates UI layout with lifecycle semantics
+
+  **Rationale:** The FeatureDrawerClient's feature view body is the correct insertion point.
+  The tabs replace the `<div className="flex-1 overflow-y-auto">` block that currently renders
+  status, progress, PR info, and details. Review views (prd-review, tech-review, merge-review)
+  are completely unaffected.
+
+  ### 2. Lazy Loading and Caching
+
+  **Chosen:** Custom `useTabDataFetch` hook with per-tab state and feature-change reset.
+
+  **Rejected:**
+  - Reuse useArtifactFetch directly — fetches on featureId change, not on tab click
+  - React Query / SWR — not used in the codebase, would add inconsistent pattern
+
+  **Rationale:** The hook provides: (1) explicit fetch triggering on tab activation, (2) per-tab
+  cached data so revisiting a loaded tab is instant, (3) full cache clear when featureId changes,
+  (4) re-fetch of active tab on SSE-triggered data changes. Follows useArtifactFetch's ref-based
+  callback pattern.
+
+  ### 3. Activity Tab Phase Timing Visualization
+
+  **Chosen:** Tailwind CSS proportional-width bars with color-coded segments.
+
+  **Rejected:**
+  - SVG/Canvas chart library — over-engineering for simple horizontal bars
+  - CSS Grid with fractional units — inline percentage widths are simpler and already used
+
+  **Rationale:** The CLI uses character-based bars (█ and ░). The web equivalent uses percentage-
+  width divs with Tailwind color classes: emerald-500 (completed), blue-500 (running), red-500
+  (crashed), amber-500 (approval wait). This matches the existing progress bar pattern.
+
+  ### 4. Server Action Design
+
+  **Chosen:** Three separate server actions resolving repositories directly from DI container.
+
+  **Rejected:**
+  - Single unified action — conflicts with lazy loading, fetches unnecessary data
+  - Extend ShowFeatureUseCase — phase timings aren't on Feature aggregate, separate queries needed
+
+  **Rationale:** Follow existing patterns. New actions:
+  - `getFeaturePhaseTimings(featureId)` → resolves `IPhaseTimingRepository` (token: `'IPhaseTimingRepository'`),
+    calls `findByFeatureId()`, converts bigint fields to number
+  - `getFeatureMessages(featureId)` → resolves `IFeatureRepository` (token: `'IFeatureRepository'`),
+    calls `findById()`, returns `feature.messages`
+  - `getFeaturePlan(featureId)` → resolves `IFeatureRepository` (token: `'IFeatureRepository'`),
+    calls `findById()`, returns `feature.plan` (overview, state, tasks, requirements)
+
+  ### 5. SSE Refresh Strategy
+
+  **Chosen:** Leverage existing router.refresh() and re-trigger active tab fetch.
+
+  **Rejected:**
+  - Custom SSE event handling per tab — duplicates existing event processing
+  - Polling fallback per tab — redundant with existing 3s graph state polling
+
+  **Rationale:** FeatureDrawerClient already processes SSE events and updates FeatureNodeData.
+  FeatureDrawerTabs watches for nodeData changes (via useEffect on featureNode) and invalidates
+  the active tab's cached data, triggering a re-fetch.
+
+  ### 6. Component File Organization
+
+  **Chosen:** New `feature-drawer-tabs/` directory under `components/common/`.
+
+  **Rejected:**
+  - Add to existing feature-drawer/ — conflates simple drawer with complex tabbed layout
+  - Single file — Activity tab alone exceeds 300-line NFR-5 limit
+
+  **Rationale:** Directory structure:
+  ```
+  src/presentation/web/components/common/feature-drawer-tabs/
+  ├── feature-drawer-tabs.tsx          # Tab container + lazy loading
+  ├── overview-tab.tsx                 # Extracted from current feature view body
+  ├── activity-tab.tsx                 # Phase timing visualization
+  ├── messages-tab.tsx                 # Message log display
+  ├── plan-tab.tsx                     # Plan state + task list
+  ├── use-tab-data-fetch.ts            # Custom hook for lazy tab data
+  ├── feature-drawer-tabs.stories.tsx  # Container stories
+  ├── overview-tab.stories.tsx         # Overview stories
+  ├── activity-tab.stories.tsx         # Activity stories
+  ├── messages-tab.stories.tsx         # Messages stories
+  ├── plan-tab.stories.tsx             # Plan stories
+  └── index.ts                         # Barrel exports
+  ```
+
+  ### 7. Messages Tab Rendering
+
+  **Chosen:** Scrollable list with role-based styling and options/answer display.
+
+  **Rejected:**
+  - Chat bubble UI — messages are historical logs, not real-time chat
+  - Collapsible accordion — 5-30 messages is manageable without collapsing
+
+  **Rationale:** Vertical list with role distinction (assistant: muted bg, user: accent border).
+  Each message shows role label, full content, and options with selected option highlighted.
+
+  ### 8. Plan Tab Task State Visualization
+
+  **Chosen:** Inline status indicators using existing badge/icon patterns.
+
+  **Rejected:**
+  - Progress bar per task — tasks have discrete states, not continuous progress
+  - Kanban board — drawer width (384-576px) is too narrow for column layout
+
+  **Rationale:** Vertical task list with status icons and colored text matching
+  FeatureNodeState patterns (blue=WIP, emerald=Done, amber=Review, muted=Todo).
+
+  ### 9. Storybook Mock Strategy
+
+  **Chosen:** Add mock files to `.storybook/mocks/app/actions/` returning error stubs.
+
+  **Rejected:**
+  - MSW — not used in the codebase, inconsistent pattern
+  - Props-only — need fetch flow for loading/error state testing
+
+  **Rationale:** Three new mock files matching existing pattern. Stories provide real data
+  via component props, mocks prevent runtime errors from DI-dependent server actions.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | shadcn/ui Tabs | Tab navigation primitives | Use (already installed) | Radix UI-based, accessible, used by TechReviewTabs. Provides Tabs, TabsList, TabsTrigger, TabsContent. |
+  | Radix UI Tabs | Underlying headless tab primitives | Use (transitive via shadcn/ui) | Handles keyboard navigation (arrow keys), ARIA roles, focus management. No additional install needed. |
+  | lucide-react | Icons for tab states and empty states | Use (already installed) | Already used throughout the codebase. Provides Loader2 (loading), MessageSquare (messages), Clock (activity), ListTodo (plan), FileText (overview). |
+  | recharts / visx | Chart library for phase timing bars | Reject | Over-engineering; simple percentage-width divs with Tailwind achieve the same visual result with zero bundle impact. |
+  | React Query / SWR | Data fetching and caching | Reject | Not used anywhere in the codebase. Custom hook with useState provides the exact caching semantics needed without adding a dependency. |
+  | date-fns / dayjs | Duration formatting | Reject | Duration formatting is simple division (ms to seconds). The CLI uses `(ms / 1000).toFixed(1)`. A utility function in the component handles this without a library. |
+
+  ## Security Considerations
+
+  **Server Action Input Validation:**
+  All three new server actions accept a featureId string parameter. Following the existing
+  pattern (getMergeReviewData lines 15-17), each action validates that featureId is non-empty
+  before querying the database. The DI-resolved repositories use parameterized queries
+  (better-sqlite3), preventing SQL injection.
+
+  **Data Exposure:**
+  Messages may contain sensitive information (user queries about features, agent responses with
+  code snippets). Since the web UI runs on localhost (accessed only by the local user who owns
+  the CLI), there is no cross-user data exposure risk. The server actions run in the same
+  process as the CLI, with the same database access scope.
+
+  **No New Authentication Required:**
+  The web UI has no authentication layer (it's a local development tool). New server actions
+  follow the same access pattern as existing ones — direct DI container resolution on localhost.
+
+  ## Performance Implications
+
+  **Lazy Loading Benefits:**
+  - Drawer open latency is unchanged (Overview uses existing FeatureNodeData, no fetch)
+  - Activity/Messages/Plan only fetch when tab is clicked
+  - Cached tabs switch instantly (<100ms, NFR-1)
+  - Typical fetch latency: <50ms (SQLite on localhost with small datasets)
+
+  **Data Volume Estimates:**
+  - Phase timings: 5-20 per feature (one per graph node per run, plus lifecycle events)
+  - Messages: 5-30 per feature (manageable without pagination)
+  - Plan tasks: 3-20 per feature (always small enough for full render)
+  - None of these volumes require virtualization or pagination for v1
+
+  **Bundle Size Impact:**
+  - No new npm dependencies
+  - New components add ~5-8KB uncompressed (estimated from similar component sizes)
+  - Tailwind CSS classes are tree-shaken, no unused style bloat
+
+  **SSE Refresh Efficiency:**
+  - Active tab re-fetches only its own data on SSE events (not all tabs)
+  - Inactive tabs remain cached until explicitly viewed or feature changes
+  - No additional SSE subscriptions or polling loops
+
+  ## Architecture Notes
+
+  ### Integration with FeatureDrawerClient
+
+  The FeatureDrawerTabs component slots into the existing view-switching logic:
+
+  ```
+  FeatureDrawerClient (feature-drawer-client.tsx)
+  ├── SSE event processing (lines 86-129) — unchanged
+  ├── Data fetching for review views (useArtifactFetch) — unchanged
+  ├── Body rendering:
+  │   ├── 'feature' → FeatureDrawerTabs (NEW, replaces lines 544-578)
+  │   ├── 'prd-review' → PrdQuestionnaire (unchanged)
+  │   ├── 'tech-review' → TechReviewTabs (unchanged)
+  │   └── 'merge-review' → MergeReview (unchanged)
+  └── Footer (DrawerActionBar) — remains outside tabs
+  ```
+
+  ### Data Flow Per Tab
+
+  ```
+  Overview Tab:
+    FeatureNodeData (prop) → OverviewTab renders status, progress, PR, details
+    No server action needed.
+
+  Activity Tab:
+    User clicks "Activity" →
+      useTabDataFetch triggers getFeaturePhaseTimings(featureId) →
+      Server action resolves IPhaseTimingRepository →
+      findByFeatureId() returns PhaseTiming[] →
+      Action converts bigint to number, groups by agentRunId →
+      ActivityTab renders duration bars + lifecycle events
+
+  Messages Tab:
+    User clicks "Messages" →
+      useTabDataFetch triggers getFeatureMessages(featureId) →
+      Server action resolves IFeatureRepository →
+      findById() returns Feature →
+      Action extracts feature.messages →
+      MessagesTab renders chronological message list
+
+  Plan Tab:
+    User clicks "Plan" →
+      useTabDataFetch triggers getFeaturePlan(featureId) →
+      Server action resolves IFeatureRepository →
+      findById() returns Feature →
+      Action extracts feature.plan (state, overview, tasks, requirements) →
+      PlanTab renders plan state badge + task list
+  ```
+
+  ### Flex Layout Pattern (from TechReviewTabs)
+
+  ```
+  <div className="flex min-h-0 flex-1 flex-col">
+    <Tabs value={activeTab} onValueChange={setActiveTab}
+          className="flex min-h-0 flex-1 flex-col">
+      <div className="shrink-0 px-4 pt-4">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="activity">Activity</TabsTrigger>
+          <TabsTrigger value="messages">Messages</TabsTrigger>
+          <TabsTrigger value="plan">Plan</TabsTrigger>
+        </TabsList>
+      </div>
+      <TabsContent value="overview" className="mt-0 flex-1 overflow-y-auto">
+        <OverviewTab data={featureNode} />
+      </TabsContent>
+      <TabsContent value="activity" className="mt-0 flex-1 overflow-y-auto">
+        {/* Loading / data / empty state */}
+      </TabsContent>
+      <!-- ... -->
+    </Tabs>
+  </div>
+  ```
+
+  Key layout constraints:
+  - `min-h-0` on outer div and Tabs prevents flex children from overflowing
+  - `flex-1` on Tabs and TabsContent fills available drawer height
+  - `shrink-0` on tab list wrapper prevents it from collapsing
+  - `overflow-y-auto` on TabsContent enables independent scrolling per tab
+  - `mt-0` on TabsContent removes default margin from shadcn/ui
+
+  ### DI Container Tokens
+
+  Tokens needed for new server actions (all already registered in container.ts):
+  - `'IPhaseTimingRepository'` → SQLitePhaseTimingRepository (line 203 of container.ts)
+  - `'IFeatureRepository'` → SQLiteFeatureRepository (line 157 of container.ts)
+
+  ### Server Action Return Types
+
+  ```typescript
+  // get-feature-phase-timings.ts
+  interface PhaseTimingData {
+    agentRunId: string;
+    phase: string;
+    startedAt: string;
+    completedAt?: string;
+    durationMs?: number;      // converted from bigint
+    waitingApprovalAt?: string;
+    approvalWaitMs?: number;  // converted from bigint
+  }
+  type GetPhaseTimingsResult = { timings: PhaseTimingData[] } | { error: string };
+
+  // get-feature-messages.ts
+  interface MessageData {
+    role: string;
+    content: string;
+    options?: string[];
+    selectedOption?: number;
+    answer?: string;
+  }
+  type GetMessagesResult = { messages: MessageData[] } | { error: string };
+
+  // get-feature-plan.ts
+  interface PlanData {
+    state: string;
+    overview: string;
+    tasks: { title: string; description: string; state: string }[];
+  }
+  type GetPlanResult = { plan: PlanData } | { plan: undefined } | { error: string };
+  ```
+
+  ### Phase Timing Visualization Logic (Adapted from CLI)
+
+  The CLI show command (lines 130-404) provides the reference implementation:
+
+  1. **Group by agentRunId** — `groupTimingsByRun()` groups timings into runs
+  2. **Filter lifecycle events** — `isLifecycleEvent()` checks for `run:*` prefixed phases
+  3. **Compute max duration** — used for proportional bar width scaling
+  4. **Render per-timing:**
+     - Completed: green bar proportional to duration, shows `Xs`
+     - Running: blue bar with elapsed time, shows `Xs (running)`
+     - Crashed: red bar with frozen time, shows `Xs (crashed)`
+     - Waiting: yellow text "awaiting review"
+  5. **Approval wait sub-row:** amber bar under gated phases showing wait duration
+  6. **Rejection feedback:** displayed after approval wait rows
+  7. **Summary totals:** total execution, total wait, total wall-clock time
+
+  The web version adapts this to Tailwind CSS with percentage widths instead of
+  character counts, and semantic color classes instead of terminal color functions.
+
+  ---
+
+  _Research complete — ready for planning phase_
