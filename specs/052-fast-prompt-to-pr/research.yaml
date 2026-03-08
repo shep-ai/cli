@@ -1,0 +1,417 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: fast-prompt-to-pr
+summary: >
+  Technical research for adding a fast execution mode that bypasses the multi-step
+  SDLC pipeline. The fast-mode graph is a new createFastFeatureAgentGraph() factory
+  with only fast-implement → merge nodes, reusing the existing FeatureAgentAnnotation
+  state, merge node infrastructure, and worker process. The domain model gains a
+  `fast` boolean on CreateFeatureInput (no TypeSpec change needed), the CLI gains a
+  --fast flag, the Web UI gets a CheckboxGroupItem toggle in the create drawer, and
+  the spec initializer gains a minimal mode that writes only feature.yaml.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - TypeScript
+  - LangGraph (@langchain/langgraph)
+  - Commander.js
+  - React / Next.js (server actions)
+  - shadcn/ui (CheckboxGroupItem)
+  - Storybook
+
+relatedLinks:
+  - https://github.com/shep-ai/cli/issues/197
+
+# Structured technology decisions
+decisions:
+  - title: 'Fast-mode graph architecture'
+    chosen: 'Separate createFastFeatureAgentGraph() factory with 2 nodes (fast-implement → merge)'
+    rejected:
+      - 'Conditional edges in existing graph — Adds complexity to createFeatureAgentGraph() which has 10+ nodes, validate/repair loops, and conditional edges. Mixing fast-mode skip logic with validation routing would be hard to reason about and risk regressions in the full pipeline. The fast graph has fundamentally different topology (2 nodes vs 15+), so sharing a graph adds no real value.'
+      - 'Single mega-node that does implement+merge in one — Loses the merge nodes CI watch/fix loop, approval gate interrupt, and PR management. Would duplicate ~300 lines of merge logic. Defeats the purpose of composition.'
+    rationale: >
+      A separate graph factory is the cleanest approach. The fast graph has only
+      2 nodes versus 15+ in the full graph, so they share almost no topology.
+      The key reuse point is the merge node itself (createMergeNode), which is
+      already a standalone factory accepting MergeNodeDeps. The fast graph reuses
+      the same FeatureAgentAnnotation state shape, enabling checkpointing and
+      resume. The existing routeReexecution() helper handles merge rejection
+      routing identically. This follows the existing pattern where
+      createFeatureAgentGraph() is a factory that compiles a StateGraph — the fast
+      version is just a simpler factory.
+
+  - title: 'Fast-implement node design'
+    chosen: 'New createFastImplementNode() factory that takes executor and builds a single-pass implementation prompt from user query + lightweight codebase context'
+    rejected:
+      - 'Reuse existing createImplementNode() with empty spec files — The existing implement node is a phase-level orchestrator that reads plan.yaml and tasks.yaml, iterates phases, and tracks per-phase progress. It would fail or produce empty results without real plan/tasks data. The fast node needs fundamentally different prompt logic (direct user query, not phase breakdown).'
+      - 'Pass raw user prompt to executor with no context — Relies entirely on the executors codebase awareness. Works for Claude Code which can read files, but not for agents that only receive text prompts. Adding lightweight context (CLAUDE.md, package.json, directory listing) takes milliseconds and ensures consistent behavior across agent types.'
+    rationale: >
+      The fast-implement node is a new factory (createFastImplementNode) because
+      the existing implement node is tightly coupled to plan.yaml/tasks.yaml
+      orchestration. The fast node builds a single prompt from: (1) the users
+      raw query (from spec.yaml userQuery field), (2) CLAUDE.md if it exists,
+      (3) package.json for project context, and (4) a shallow directory listing.
+      This matches the analyze nodes pattern of reading codebase files for
+      context but skips AI-driven analysis. The prompt instructs the executor
+      to implement changes, write tests, and run validation — but NOT to
+      commit/push/PR (thats the merge nodes job). The node follows the same
+      factory pattern as other nodes: takes executor dependency, returns
+      async (state) => Partial<FeatureAgentState>.
+
+  - title: 'Domain model changes for fast mode flag'
+    chosen: 'Add fast boolean to CreateFeatureInput interface only (application layer), no TypeSpec/domain model change'
+    rejected:
+      - 'Add fast field to Feature entity in TypeSpec — Persisting fast mode on the Feature entity adds a TypeSpec model change, migration concern, and a field thats only meaningful at creation time. Once the feature is running, whether it was created in fast mode is irrelevant to the domain model. The lifecycle and graph type handle the runtime distinction.'
+      - 'Use a separate FastCreateFeatureInput type — Creates unnecessary type duplication. The existing CreateFeatureInput already has optional fields (parentId, name, description). Adding one more optional boolean is consistent and avoids a parallel type hierarchy.'
+    rationale: >
+      The fast flag is a creation-time workflow decision, not a persistent domain
+      property. It controls which graph factory the worker instantiates. The
+      CreateFeatureInput interface in types.ts already has optional fields
+      (parentId, name, description), so adding fast?: boolean is consistent.
+      The flag flows through: CLI --fast → CreateFeatureInput.fast →
+      CreateFeatureUseCase → IFeatureAgentProcessService.spawn(options.fast) →
+      WorkerArgs.fast → worker selects createFastFeatureAgentGraph. No TypeSpec
+      change or domain model modification needed.
+
+  - title: 'Worker process graph selection'
+    chosen: 'Add fast boolean to WorkerArgs and select graph factory in runWorker()'
+    rejected:
+      - 'Separate fast-feature-agent-worker.ts file — Creates a parallel worker entry point with duplicated initialization logic (DI container, settings, executor resolution, checkpointing, heartbeat setup). The only difference is one line: which graph factory to call. Not worth the duplication.'
+      - 'Use graph name string to dynamically select — Over-engineered for two graph types. A simple boolean conditional is clearer and type-safe. If more graph types are added in the future, this can be refactored to a registry pattern then.'
+    rationale: >
+      The existing feature-agent-worker.ts already handles all the initialization
+      boilerplate (DI container, settings, executor, checkpointer, heartbeat
+      context, lifecycle context). The only change needed is: if args.fast, call
+      createFastFeatureAgentGraph(deps, checkpointer) instead of
+      createFeatureAgentGraph(deps, checkpointer). Both factories return a
+      compiled graph with the same invoke() interface and same state type
+      (FeatureAgentAnnotation), so the rest of the worker logic (resume, error
+      handling, completion) works identically. The fast flag propagates through
+      IFeatureAgentProcessService.spawn() options as a new --fast CLI arg to
+      the worker process.
+
+  - title: 'Spec directory initialization in fast mode'
+    chosen: 'Add optional mode parameter to ISpecInitializerService.initialize() that creates only feature.yaml when mode is fast'
+    rejected:
+      - 'Skip spec initialization entirely — The feature.yaml file is used for lifecycle tracking and checkpoint recording. Without it, the heartbeat and phase timing systems would need special-casing. Creating just feature.yaml is minimal overhead (~1ms).'
+      - 'Create all 5 spec files but leave them empty — Wastes disk and creates confusing empty spec.yaml/plan.yaml/tasks.yaml files in the worktree. Users browsing the specs directory would see placeholders that serve no purpose. The fast-implement node doesnt read these files.'
+    rationale: >
+      The spec initializer interface gains an optional mode parameter:
+      initialize(basePath, slug, featureNumber, description, mode?: fast).
+      When mode is fast, only feature.yaml is written (for lifecycle tracking).
+      The spec.yaml, research.yaml, plan.yaml, and tasks.yaml files are skipped
+      since the fast graph never reads them. This keeps the interface backward-
+      compatible (existing callers dont pass mode, get full initialization).
+      The implementation is a simple conditional in SpecInitializerService that
+      filters TEMPLATES to only feature.yaml when mode is fast.
+
+  - title: 'Initial lifecycle for fast-mode features'
+    chosen: 'Set initial lifecycle to SdlcLifecycle.Implementation (skipping Started/Analyze/Requirements/Research/Planning)'
+    rejected:
+      - 'Set lifecycle to Started like full features — Misleading in the UI. The feature never goes through Started → Analyze → Requirements → Research → Planning. Setting it to Implementation immediately reflects reality and avoids confusing lifecycle state displays in the control center.'
+      - 'Add a new FastImplementation lifecycle value — Requires TypeSpec enum change, generated code update, and UI adjustments to handle a new state. The existing Implementation state semantically matches what fast mode does (executing code changes). No need for a new enum value.'
+    rationale: >
+      Fast-mode features skip directly to implementation. Setting the initial
+      lifecycle to SdlcLifecycle.Implementation accurately represents the
+      features state from the start. The UI control center already knows how to
+      display Implementation lifecycle. The lifecycle then transitions normally:
+      Implementation → Review (merge node interrupt) → Maintain (after merge).
+      This requires a small change in CreateFeatureUseCase.createRecord() to
+      check the fast flag and set initialLifecycle accordingly.
+
+  - title: 'CLI flag design'
+    chosen: 'Single --fast flag on shep feat new command'
+    rejected:
+      - 'Separate shep feat fast subcommand — Fragments the CLI surface. Users would need to learn two different commands for feature creation. The --fast flag is more intuitive: same command, different mode. Follows the pattern of --push, --pr, --allow-all which are all mode modifiers on feat new.'
+      - '--mode fast option with enum values — Over-designed for a binary choice. If more modes are needed later (e.g. --mode interactive), the flag can be refactored. For now, --fast is simpler, shorter to type, and self-documenting.'
+    rationale: >
+      Adding --fast to the existing shep feat new command follows the established
+      pattern of mode-modifier flags (--push, --pr, --allow-all). Its short,
+      clear, and doesnt fragment the CLI surface. The Commander.js implementation
+      is one line: .option(--fast, Run in fast mode — skip SDLC phases and
+      implement directly). The flag maps to CreateFeatureInput.fast = true.
+
+  - title: 'Web UI fast mode toggle'
+    chosen: 'CheckboxGroupItem in existing FeatureCreateDrawer, in a new "Mode" section before the approve gates'
+    rejected:
+      - 'Radix Switch component — The codebase does not have a Radix Switch installed. All toggles in the create drawer use CheckboxGroupItem (checkbox + label + description). Adding a different component type would break visual consistency. Using CheckboxGroupItem follows the established pattern.'
+      - 'Separate "Quick Create" drawer or flow — Fragments the UX into two separate creation flows. The existing drawer already handles all creation options (description, attachments, approval gates, git options, parent features). Adding a checkbox is the minimal UI change. Power users toggle it on; new users see it and can learn about it from the description.'
+    rationale: >
+      The existing FeatureCreateDrawer uses CheckboxGroupItem components for all
+      its toggles (allowPrd, allowPlan, allowMerge, push, openPr). Adding a
+      fast mode CheckboxGroupItem with label "Fast Mode" and description
+      "Skip SDLC phases and implement directly from your prompt" is visually
+      consistent. It should appear in its own section above the approve gates,
+      since it fundamentally changes the workflow. The toggle controls a new
+      fast boolean in FeatureCreatePayload, which flows through the
+      createFeature server action to CreateFeatureInput.fast.
+
+# Open questions (should be resolved by end of research)
+openQuestions:
+  - question: 'Should the fast-implement prompt include a full directory listing or just top-level structure?'
+    resolved: true
+    options:
+      - option: Top-level directory listing only (depth 1-2)
+        description: >
+          List only the first 1-2 levels of the directory tree. Lightweight
+          (~500 chars), gives the executor enough context to understand project
+          layout without overwhelming the prompt. The executor can always read
+          deeper into directories it needs.
+        selected: true
+      - option: Full recursive directory listing
+        description: >
+          List the complete file tree. Comprehensive but could be thousands of
+          lines for large projects, eating into the 10,000 char prompt budget
+          (NFR-4). Most of the deep file listing is noise for the executor.
+        selected: false
+      - option: No directory listing at all
+        description: >
+          Rely entirely on the executor to explore the filesystem. Saves prompt
+          space but leaves the executor with no structural context, potentially
+          leading to wrong file placement or missed conventions.
+        selected: false
+    selectionRationale: >
+      A shallow directory listing (depth 1-2) provides enough project structure
+      context without exceeding the 10,000 char prompt budget. The executor
+      (e.g., Claude Code) can always read deeper into specific directories.
+      This matches how the existing analyze node works — it provides high-level
+      structure context, not exhaustive file listings.
+    answer: Top-level directory listing (depth 1-2)
+
+  - question: 'Should fast mode features persist the fast flag for later inspection?'
+    resolved: true
+    options:
+      - option: No persistence — fast is a creation-time workflow flag only
+        description: >
+          The fast flag controls graph selection at creation time. Once the
+          worker is running, the graph type is already determined. The lifecycle
+          (starting at Implementation) and the absence of spec.yaml/plan.yaml
+          files already indicate fast mode was used. No additional persistence
+          needed.
+        selected: true
+      - option: Persist on Feature entity in DB
+        description: >
+          Add a fast boolean to the Feature domain model (TypeSpec) and persist
+          it. Allows querying fast vs full features, showing a badge in the UI,
+          and filtering. Requires TypeSpec change and DB schema consideration.
+        selected: false
+      - option: Persist only in feature.yaml metadata
+        description: >
+          Write mode: fast to the feature.yaml file in the spec directory.
+          Lightweight persistence without a domain model change, but only
+          accessible by reading the filesystem, not via DB queries.
+        selected: false
+    selectionRationale: >
+      The fast flag is a creation-time workflow decision. Once the graph is
+      running, it doesnt matter how the feature was created. The lifecycle
+      state (starting at Implementation instead of Requirements) and the
+      absence of spec/plan/research YAML files already serve as implicit
+      indicators. Adding persistence would require TypeSpec changes and add
+      complexity for a field that has no runtime significance.
+    answer: No persistence — creation-time flag only
+
+  - question: 'How should the fast-implement node handle the case where CLAUDE.md does not exist?'
+    resolved: true
+    options:
+      - option: Gracefully skip — include only available context files
+        description: >
+          If CLAUDE.md doesnt exist, omit the project guidelines section from
+          the prompt. Still include package.json and directory listing for
+          basic context. The executor operates with whatever context is
+          available. This matches the existing analyze nodes behavior which
+          uses readSpecFile() that returns null for missing files.
+        selected: true
+      - option: Generate a minimal CLAUDE.md from package.json
+        description: >
+          Auto-generate project guidelines from package.json fields (name,
+          description, scripts, dependencies). Adds complexity and the
+          generated content may be misleading or incomplete. Better to let
+          the executor work with real project files.
+        selected: false
+      - option: Fail with an error requiring CLAUDE.md
+        description: >
+          Require CLAUDE.md to exist for fast mode. Overly restrictive —
+          many projects dont have a CLAUDE.md. Would prevent fast mode from
+          working on most repositories.
+        selected: false
+    selectionRationale: >
+      Graceful degradation is the right approach. The fast-implement prompt
+      builder should attempt to read CLAUDE.md, package.json, and directory
+      listing, including only what exists. This follows the existing pattern
+      in node-helpers.ts where readSpecFile() returns null for missing files
+      and prompts conditionally include content. The executor (especially
+      Claude Code) can always read additional files it needs.
+    answer: Gracefully skip — include only available context files
+
+# Markdown content (the full research document)
+content: |
+  ## Technology Decisions
+
+  ### 1. Fast-Mode Graph Architecture
+
+  **Chosen:** Separate `createFastFeatureAgentGraph()` factory with 2 nodes (`fast-implement → merge`)
+
+  **Rejected:**
+  - Conditional edges in existing graph — The current `createFeatureAgentGraph()` has 15+ nodes (5 producers + 4 validators + 4 repairers + merge) with complex conditional routing. Adding skip logic would make it harder to reason about and risk regressions.
+  - Single mega-node — Would duplicate the merge node's ~300 lines of CI watch/fix loop and PR management logic.
+
+  **Rationale:** The fast graph reuses `FeatureAgentAnnotation` state and `createMergeNode()` via composition. The `routeReexecution()` helper handles merge rejection routing identically. This matches the existing factory pattern in `feature-agent-graph.ts`.
+
+  ### 2. Fast-Implement Node Design
+
+  **Chosen:** New `createFastImplementNode()` factory with single-pass prompt from user query + lightweight codebase context
+
+  **Rejected:**
+  - Reuse existing `createImplementNode()` — It's tightly coupled to plan.yaml/tasks.yaml phase orchestration and would fail without those files.
+  - Raw user prompt only — Wouldn't work for agents that only receive text prompts (no file system access).
+
+  **Rationale:** The fast-implement node builds a prompt from: (1) user query from spec.yaml, (2) CLAUDE.md if exists, (3) package.json, (4) shallow directory listing. Instructs executor to implement, test, and validate — but NOT commit/push/PR (that's the merge node's job). Follows the same factory pattern as `createImplementNode()`.
+
+  ### 3. Domain Model — No TypeSpec Change
+
+  **Chosen:** Add `fast?: boolean` to `CreateFeatureInput` interface only (application layer)
+
+  **Rejected:**
+  - Add `fast` to Feature entity in TypeSpec — The flag is only meaningful at creation time. Once the graph is running, the graph type handles the distinction.
+  - Separate `FastCreateFeatureInput` type — Unnecessary duplication.
+
+  **Rationale:** The fast flag flows through the call chain: CLI → `CreateFeatureInput.fast` → use case → `spawn(options.fast)` → `WorkerArgs.fast` → graph factory selection. No domain model or TypeSpec change needed.
+
+  ### 4. Worker Process — Boolean Flag Selection
+
+  **Chosen:** Add `fast` boolean to `WorkerArgs` and branch on it in `runWorker()`
+
+  **Rejected:**
+  - Separate worker file — Would duplicate ~200 lines of DI, settings, executor, and checkpointer initialization.
+  - Graph name registry — Over-engineered for a binary choice.
+
+  **Rationale:** Both graph factories return compiled graphs with the same `invoke()` interface and `FeatureAgentAnnotation` state type. The worker's resume, error handling, and completion logic works identically for both.
+
+  ### 5. Spec Initialization — Minimal Mode
+
+  **Chosen:** Add optional `mode?: 'fast'` parameter to `ISpecInitializerService.initialize()`, creating only `feature.yaml` when fast
+
+  **Rejected:**
+  - Skip spec init entirely — `feature.yaml` is needed for lifecycle tracking.
+  - Create all 5 files empty — Confusing and wasteful.
+
+  **Rationale:** Backward-compatible interface change. Existing callers don't pass mode and get full initialization. Fast mode filters `TEMPLATES` to `feature.yaml` only.
+
+  ### 6. Initial Lifecycle — Implementation
+
+  **Chosen:** Set initial lifecycle to `SdlcLifecycle.Implementation` for fast-mode features
+
+  **Rejected:**
+  - `Started` — Misleading, feature never goes through early phases.
+  - New `FastImplementation` enum value — Requires TypeSpec change and UI updates for a semantically identical state.
+
+  **Rationale:** The UI already handles `Implementation` lifecycle display. Lifecycle transitions normally from there: Implementation → Review → Maintain.
+
+  ### 7. CLI Flag — `--fast`
+
+  **Chosen:** Single `--fast` flag on `shep feat new`
+
+  **Rejected:**
+  - Separate `shep feat fast` subcommand — Fragments CLI surface.
+  - `--mode fast` enum option — Over-designed for binary choice.
+
+  **Rationale:** Follows the established pattern of mode-modifier flags (`--push`, `--pr`, `--allow-all`) on the same command.
+
+  ### 8. Web UI Toggle — CheckboxGroupItem
+
+  **Chosen:** `CheckboxGroupItem` in existing `FeatureCreateDrawer`, in a "Mode" section
+
+  **Rejected:**
+  - Radix Switch — Not installed in the codebase. All drawer toggles use `CheckboxGroupItem`.
+  - Separate "Quick Create" flow — Fragments UX unnecessarily.
+
+  **Rationale:** Follows the existing pattern exactly. The toggle adds `fast` to `FeatureCreatePayload`, flows through `createFeature` server action to `CreateFeatureInput.fast`.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | @langchain/langgraph | Graph framework | Use (existing) | Already used for `createFeatureAgentGraph`. The fast graph uses the same `StateGraph`, `START`, `END`, and `Annotation` APIs. No new dependency. |
+  | Commander.js | CLI flag parsing | Use (existing) | Already used for `shep feat new`. Adding `.option('--fast', '...')` is one line. No new dependency. |
+  | shadcn/ui CheckboxGroupItem | Toggle component | Use (existing) | Already used in `FeatureCreateDrawer` for all toggles. Provides accessible, keyboard-navigable checkboxes with labels and descriptions. |
+  | Radix Switch | Toggle component | Reject | Not installed in the codebase. Would require adding a new dependency and create visual inconsistency with existing checkbox-based toggles. |
+  | react-toggle | Toggle component | Reject | Unnecessary external dependency when the project already has a working toggle pattern (CheckboxGroupItem). |
+
+  ## Security Considerations
+
+  - **No new attack surface**: Fast mode reuses the existing executor, merge node, and approval gate infrastructure. No new external integrations or API endpoints.
+  - **Approval gates preserved**: Fast mode respects `allowMerge` by default. Users must explicitly pass `--allow-all` for fully autonomous operation. This prevents accidental PR creation.
+  - **Prompt injection**: The fast-implement prompt includes the user's raw query. This is no different from the existing analyze node which also includes `userQuery` in its prompt. The executor sandbox (cwd restriction, tool allowlists) provides the same protection.
+  - **Worktree isolation**: Fast-mode features still create a git worktree, ensuring changes are isolated from the main branch until the merge node acts.
+
+  ## Performance Implications
+
+  - **Target: <5s overhead** (NFR-1): Fast mode skips 5 AI-driven phases (analyze, requirements, research, plan, implement-orchestration). The only overhead before the executor call is: DB write (~50ms) + worktree creation (~1-2s) + CLAUDE.md/package.json read (~10ms) + directory listing (~10ms) + prompt assembly (~1ms). Total: ~2-3s, well within the 5s budget.
+  - **Prompt size**: The fast-implement prompt includes user query + CLAUDE.md + package.json + shallow directory listing. Estimated 2,000-5,000 characters for typical projects, well within the 10,000 char limit (NFR-4).
+  - **Checkpointing**: The fast graph still uses LangGraph checkpointing (SQLite). With only 2 nodes, checkpoint overhead is negligible. Resume from fast-implement failure works identically to the full graph.
+  - **No regression impact**: The fast graph is a separate factory. Zero changes to `createFeatureAgentGraph()`, so no performance impact on the full pipeline.
+
+  ## Architecture Notes
+
+  ### Data Flow
+
+  ```
+  CLI/Web UI
+    → CreateFeatureInput { fast: true, userInput, repositoryPath, ... }
+    → CreateFeatureUseCase
+      → createRecord() — Feature entity with lifecycle=Implementation
+      → initializeAndSpawn()
+        → worktree creation
+        → spec init (feature.yaml only)
+        → spawn worker with --fast flag
+    → Worker (feature-agent-worker.ts)
+      → if args.fast: createFastFeatureAgentGraph(deps, checkpointer)
+      → else: createFeatureAgentGraph(deps, checkpointer)
+      → graph.invoke(initialState)
+  ```
+
+  ### Fast Graph Topology
+
+  ```
+  START → fast-implement → merge → (conditional: reexecute or END)
+  ```
+
+  ### Files to Create
+
+  | File | Purpose |
+  | ---- | ------- |
+  | `packages/core/src/infrastructure/services/agents/feature-agent/fast-feature-agent-graph.ts` | New graph factory |
+  | `packages/core/src/infrastructure/services/agents/feature-agent/nodes/fast-implement.node.ts` | New fast-implement node |
+  | `packages/core/src/infrastructure/services/agents/feature-agent/nodes/prompts/fast-implement.prompt.ts` | Prompt builder |
+
+  ### Files to Modify
+
+  | File | Change |
+  | ---- | ------ |
+  | `packages/core/src/application/use-cases/features/create/types.ts` | Add `fast?: boolean` to `CreateFeatureInput` |
+  | `packages/core/src/application/use-cases/features/create/create-feature.use-case.ts` | Set `initialLifecycle = Implementation` when fast, pass fast to spawn |
+  | `packages/core/src/application/ports/output/agents/feature-agent-process.interface.ts` | Add `fast?: boolean` to spawn options |
+  | `packages/core/src/infrastructure/services/agents/feature-agent/feature-agent-process.service.ts` | Pass `--fast` arg to worker |
+  | `packages/core/src/infrastructure/services/agents/feature-agent/feature-agent-worker.ts` | Parse `--fast` arg, select graph factory |
+  | `packages/core/src/application/ports/output/services/spec-initializer.interface.ts` | Add optional `mode` param |
+  | `packages/core/src/infrastructure/services/spec/spec-initializer.service.ts` | Filter templates when mode=fast |
+  | `src/presentation/cli/commands/feat/new.command.ts` | Add `--fast` option |
+  | `src/presentation/web/components/common/feature-create-drawer/feature-create-drawer.tsx` | Add fast mode CheckboxGroupItem + state |
+  | `src/presentation/web/app/actions/create-feature.ts` | Pass fast flag to use case |
+
+  ### Existing Code Reuse
+
+  - **`createMergeNode()`** — Reused as-is. Same `MergeNodeDeps` interface, same CI watch/fix loop, same approval gate interrupt.
+  - **`FeatureAgentAnnotation`** — Reused as-is. The fast graph uses the same state shape for checkpointing and resume.
+  - **`routeReexecution()`** — Reused for merge rejection routing.
+  - **`buildExecutorOptions()`** — Reused for executor call configuration.
+  - **`retryExecute()`** — Reused for automatic retry on executor failures.
+  - **`reportNodeStart()`, `updateNodeLifecycle()`, `recordPhaseStart/End()`** — Reused for heartbeat, lifecycle tracking, and timing.
+  - **Worker initialization** — All DI container, settings, executor, checkpointer, and context setup is shared.
+
+  ---
+
+  _Research complete — proceed with planning_
