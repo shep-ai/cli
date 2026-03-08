@@ -1,3 +1,9 @@
+# [1.76.0](https://github.com/shep-ai/cli/compare/v1.75.0...v1.76.0) (2026-03-08)
+
+### Features
+
+- **web:** canvas ux polish - viewport persistence and first-repo auto-focus ([#226](https://github.com/shep-ai/cli/issues/226)) ([5419b9d](https://github.com/shep-ai/cli/commit/5419b9daae476615d3201011c1e9989602ee2a78)), closes [#213](https://github.com/shep-ai/cli/issues/213) [#208](https://github.com/shep-ai/cli/issues/208) [#213](https://github.com/shep-ai/cli/issues/213) [#208](https://github.com/shep-ai/cli/issues/208)
+
 # [1.75.0](https://github.com/shep-ai/cli/compare/v1.74.0...v1.75.0) (2026-03-08)
 
 ### Features
