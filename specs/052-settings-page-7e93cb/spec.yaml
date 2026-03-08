@@ -670,3 +670,13 @@ content: >
 
 
   _Requirements defined by product analyst — proceed with research_
+rejectionFeedback:
+  - iteration: 1
+    message: >-
+      Something is broken when going to settings page Im getting: "Failed to
+      load settings: Attempted to resolve unregistered dependency token:
+      "LoadSettingsUseCase"" test yourself e2e, do sceenshot to verify
+      everything is working and upload those screenshots as evidences into the
+      pull request
+    phase: merge
+    timestamp: '2026-03-08T13:41:02.602Z'

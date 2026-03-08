@@ -2,8 +2,8 @@
 
 import { revalidatePath } from 'next/cache';
 import { resolve } from '@/lib/server-container';
-import { LoadSettingsUseCase } from '@shepai/core/application/use-cases/settings/load-settings.use-case';
-import { UpdateSettingsUseCase } from '@shepai/core/application/use-cases/settings/update-settings.use-case';
+import type { LoadSettingsUseCase } from '@shepai/core/application/use-cases/settings/load-settings.use-case';
+import type { UpdateSettingsUseCase } from '@shepai/core/application/use-cases/settings/update-settings.use-case';
 import { updateSettings as updateSettingsSingleton } from '@shepai/core/infrastructure/services/settings.service';
 import type { Settings } from '@shepai/core/domain/generated/output';
 
@@ -49,7 +49,7 @@ export async function updateSettingsAction(
   partial: DeepPartial<Settings>
 ): Promise<UpdateSettingsResult> {
   try {
-    const loadUseCase = resolve<LoadSettingsUseCase>(LoadSettingsUseCase);
+    const loadUseCase = resolve<LoadSettingsUseCase>('LoadSettingsUseCase');
     const current = await loadUseCase.execute();
 
     const merged = deepMerge(
@@ -58,7 +58,7 @@ export async function updateSettingsAction(
     ) as Settings;
     merged.updatedAt = new Date();
 
-    const updateUseCase = resolve<UpdateSettingsUseCase>(UpdateSettingsUseCase);
+    const updateUseCase = resolve<UpdateSettingsUseCase>('UpdateSettingsUseCase');
     await updateUseCase.execute(merged);
 
     updateSettingsSingleton(merged);
