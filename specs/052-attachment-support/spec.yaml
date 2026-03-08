@@ -1,0 +1,163 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: attachment-support
+number: 052
+branch: feat/052-attachment-support
+oneLiner: add file attachment support to UI (drag-drop/paste) and CLI (--files flag) with @filepath agent references
+summary: >
+  Users need to attach files (images, documents, code snippets) when creating or messaging features
+  in both the web UI and CLI. The web UI should support drag-and-drop and Ctrl+V image pasting into
+  the prompt area, uploading files to a .shep/attachments/ directory and referencing them with
+  @<within-shep-dir-path> syntax; the CLI should accept a --files flag that appends @filepath references
+  to prompts. All agent executors already accept file references in prompt text, so the primary work
+  is in ingestion, storage, and prompt composition.
+phase: Analysis
+sizeEstimate: L
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - TypeSpec (domain model extension for Attachment entity)
+  - Next.js 16 (drag-drop API, Clipboard API, file upload route handler)
+  - React 19 (onDrop, onPaste event handlers, state management)
+  - Node.js fs/path (file reading, .shep/attachments/ directory management)
+  - better-sqlite3 (persist attachment metadata with Feature)
+  - Commander.js (--files CLI flag)
+  - Tailwind CSS / Radix UI (drag-drop visual feedback, attachment chips)
+  - Storybook (mandatory .stories.tsx for all new components)
+
+relatedLinks:
+  - https://github.com/shep-ai/cli/issues/223
+
+openQuestions:
+  - Should image files be base64-encoded and embedded in agent prompts, or always referenced by path?
+  - What is the maximum file size we should accept for uploads (suggested 10 MB)?
+  - For CLI --files flag, should file content be read and inlined, or only @path references appended?
+  - Should attachments be scoped per-feature (deleted when feature is deleted) or global to the repo?
+  - Do we need to track attachment metadata (name, size, mime-type, path) in the SQLite DB and TypeSpec?
+
+content: |
+  ## Problem Statement
+
+  The platform has no way for users to provide files (screenshots, design docs, existing code, images)
+  alongside their feature requests. Agents only receive text prompts today. Referenced in
+  https://github.com/shep-ai/cli/issues/223, the community requests:
+
+  1. **Web UI**: Drag-and-drop files and Ctrl+V (clipboard paste) of images into the prompt input area.
+     Files are uploaded to `.shep/attachments/<feature-slug>/` and referenced as `@<relative-path>` in
+     agent prompts.
+  2. **CLI**: A `--files <path,...>` flag on `shep feat create` and related commands that appends
+     `@<filepath>` references to the user prompt.
+  3. **Agent consumption**: All executors already handle `@filepath` syntax in Claude Code and similar
+     tools — the integration point is prompt composition, not executor changes.
+
+  Additionally, the spec requires a **static HTML mock** (with screenshots committed to the spec directory)
+  showing the intended UI look-and-feel before any implementation begins.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  ```
+  /
+  ├── packages/core/src/
+  │   ├── domain/generated/output.ts          # Auto-generated TypeScript types (from tsp/)
+  │   ├── application/ports/output/           # Interface contracts (IAgentExecutorProvider, etc.)
+  │   ├── application/use-cases/features/     # CreateFeatureUseCase, etc.
+  │   └── infrastructure/
+  │       ├── services/agents/                # LangGraph agent workflow + prompt builders
+  │       ├── services/file-dialog.service.ts # Native OS file picker (osascript/zenity/PowerShell)
+  │       └── repositories/                  # SQLite persistence (better-sqlite3)
+  ├── tsp/
+  │   ├── domain/entities/                    # TypeSpec source models (feature, message, etc.)
+  │   └── common/                             # Base types, enums, scalars
+  └── src/presentation/
+      ├── web/
+      │   ├── app/api/dialog/pick-files/      # Route handler → FileDialogService
+      │   ├── app/actions/create-feature.ts   # Server action; composeUserInput() appends file paths
+      │   └── components/common/
+      │       └── feature-create-drawer/      # Prompt input UI; already has file attachment list UI
+      └── cli/commands/feat/index.ts          # shep feat create — no file flag yet
+  ```
+
+  ### Architecture Patterns
+
+  - **Clean Architecture**: Domain ← Application ← Infrastructure ← Presentation. Attachments must be
+    introduced at the TypeSpec/domain layer first, then propagate outward.
+  - **TypeSpec-First**: Any new persistent data (attachment entity/value object) MUST be defined in
+    `tsp/` before generating TypeScript types. Never edit `domain/generated/output.ts` directly.
+  - **IAgentExecutorProvider**: Agent executor resolution is fully dynamic; no hardcoding of executor
+    types. Attachment references in prompt text work transparently across all executors (Claude Code,
+    Cursor, Gemini CLI).
+  - **Use Case Boundary**: `CreateFeatureUseCase` is the correct place to persist attachments and
+    compose prompt text with @references. `composeUserInput()` in the server action already appends
+    file paths as text — this needs to evolve to proper @filepath syntax.
+  - **Repository Pattern + DI**: New `IAttachmentRepository` (if needed) should follow existing port/
+    adapter pattern in `application/ports/output/` and `infrastructure/repositories/`.
+  - **SSE + Service Worker**: Real-time updates flow from DB polling → SSE route → Service Worker →
+    client hooks. Attachment state changes follow the same path.
+
+  ### Relevant Technologies
+
+  | Technology | Role in this feature |
+  | ---------- | -------------------- |
+  | TypeSpec 0.60 | Define `Attachment` value object or entity; compile to generated types |
+  | Next.js 16 API routes | New `/api/attachments/upload` route handler for multipart file upload |
+  | React 19 | `onDrop`, `onDragOver`, `onPaste` event handlers in prompt textarea component |
+  | Clipboard API | `navigator.clipboard.read()` for Ctrl+V image paste |
+  | Node.js `fs`, `path`, `crypto` | Read files, create `.shep/attachments/` dir, hash for dedup |
+  | better-sqlite3 | Optionally persist attachment metadata per feature |
+  | Commander.js | Add `--files` option to `shep feat create` |
+  | Tailwind CSS / Radix UI | Drag-drop overlay, attachment preview chips, progress indicator |
+  | Storybook 8 | Mandatory stories for any new/modified UI components |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `tsp/domain/entities/` or `tsp/domain/value-objects/` | High | New `Attachment` model must be defined here first (TypeSpec-first mandate) |
+  | `packages/core/src/domain/generated/output.ts` | High | Auto-generated; regenerated after TypeSpec changes |
+  | `packages/core/src/application/use-cases/features/create/` | High | `CreateFeatureUseCase` must handle attachments: copy/move files to `.shep/attachments/`, compose @refs |
+  | `packages/core/src/infrastructure/services/file-dialog.service.ts` | Medium | May need to extend to support reading file content for inline embedding (images) |
+  | `packages/core/src/infrastructure/services/agents/feature-agent/nodes/` | Medium | Prompt builders (analyze, requirements, etc.) may need to include attachment @refs |
+  | `src/presentation/web/components/common/feature-create-drawer/` | High | Add drag-drop zone, onPaste handler, visual feedback, attachment preview — plus mandatory .stories.tsx update |
+  | `src/presentation/web/app/api/` | High | New `/api/attachments/upload` route for multipart file upload to `.shep/attachments/` |
+  | `src/presentation/web/app/actions/create-feature.ts` | Medium | `composeUserInput()` evolves to proper `@<relative-path>` format |
+  | `src/presentation/cli/commands/feat/index.ts` | Medium | Add `--files <paths>` option; append @filepath refs to prompt text |
+  | `specs/052-attachment-support/` | High | Static HTML mock + screenshot must be committed as first deliverable |
+
+  ## Dependencies
+
+  - **Existing `FileDialogService`** (`packages/core/src/infrastructure/services/file-dialog.service.ts`):
+    native OS picker returning `FileAttachment[]`; this feature extends beyond desktop picker to
+    browser drag-drop and clipboard — different ingestion paths.
+  - **Existing attachment UI** in `feature-create-drawer.tsx`: already renders `AttachmentCard`
+    components and stores `attachments` in state — the ingestion layer (drag-drop, paste) is missing.
+  - **`composeUserInput()`** in `create-feature.ts`: already concatenates file paths as text;
+    needs to change from bare path list to `@path` references.
+  - **`.shep/` directory convention**: project data stored in `~/.shep/repos/<hash>/`; attachments
+    should live under `<repositoryPath>/.shep/attachments/<feature-slug>/` for portability.
+  - **Agent executor @filepath support**: Claude Code and Gemini CLI natively support file references
+    in prompts — no executor changes required.
+  - **Storybook requirement**: every modified web component needs an updated `.stories.tsx`.
+
+  ## Size Estimate
+
+  **L** — Spans multiple layers (TypeSpec domain → use case → infrastructure → web UI → CLI):
+
+  - TypeSpec model + codegen (S)
+  - Upload API route + `.shep/attachments/` file management (S)
+  - Web UI drag-drop + Ctrl+V paste with visual feedback (M, complex browser API surface)
+  - Prompt composition with @filepath references (S)
+  - CLI --files flag + prompt composition (S)
+  - Static HTML mock + screenshot (S, but required before implementation starts)
+  - Tests: unit for use case + file service, component tests for drag-drop UI, E2E for full flow (M)
+  - Storybook stories for all modified components (S)
+
+  Total: approximately 3–5 days of focused development, justifying **L**.
+
+  ---
+
+  _Analysis complete — proceed with /shep-kit:research_
