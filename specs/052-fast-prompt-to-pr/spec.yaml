@@ -1,11 +1,10 @@
-# Feature Specification (YAML)
-# This is the source of truth. Markdown is auto-generated from this file.
-
 name: fast-prompt-to-pr
-number: 052
+number: 52
 branch: feat/052-fast-prompt-to-pr
-oneLiner: Add a "fast mode" that takes a user prompt and produces a PR without running multi-step SDLC agents
-userQuery: >
+oneLiner: >-
+  Add a "fast mode" that takes a user prompt and produces a PR without running
+  multi-step SDLC agents
+userQuery: |
   Support https://github.com/shep-ai/cli/issues/197
 summary: >
   Add a fast execution mode to the feature-agent graph and CLI/Web UI that
@@ -17,170 +16,337 @@ summary: >
   fast-implement → merge nodes, reusing the existing merge infrastructure.
 phase: Requirements
 sizeEstimate: L
-
-# Relationships
 relatedFeatures: []
-
 technologies:
   - TypeScript
   - LangGraph
   - Commander.js
   - React
   - Next.js
-
 relatedLinks:
   - https://github.com/shep-ai/cli/issues/197
-
-# Open questions (must be resolved before implementation)
 openQuestions:
-  - question: 'Should fast mode still create a Feature entity and git worktree, or bypass the Feature model entirely?'
+  - question: >-
+      Should fast mode still create a Feature entity and git worktree, or bypass
+      the Feature model entirely?
     resolved: true
     options:
-      - option: 'Create Feature entity + worktree'
-        description: 'Maintains full tracking, resume capability, and Web UI visibility. The feature shows up in the control center with status tracking, CI fix history, and can be referenced by ID. Cost is a few extra DB writes and a git worktree creation (~1-2s).'
+      - option: Create Feature entity + worktree
+        description: >-
+          Maintains full tracking, resume capability, and Web UI visibility. The
+          feature shows up in the control center with status tracking, CI fix
+          history, and can be referenced by ID. Cost is a few extra DB writes
+          and a git worktree creation (~1-2s).
         selected: true
-      - option: 'Bypass Feature entity'
-        description: 'Fastest possible path — just run the agent, branch inline, commit, push, PR. No tracking, no resume, no visibility in Web UI. If the agent fails, the user must retry from scratch.'
+      - option: Bypass Feature entity
+        description: >-
+          Fastest possible path — just run the agent, branch inline, commit,
+          push, PR. No tracking, no resume, no visibility in Web UI. If the
+          agent fails, the user must retry from scratch.
         selected: false
-    selectionRationale: 'Creating a Feature entity adds minimal overhead (DB write + worktree ~2s) but enables resume on failure, visibility in the Web UI control center, CI fix loop tracking, and consistency with the existing architecture. Users still get a fast experience since the SDLC phases are skipped.'
-    answer: 'Create Feature entity + worktree'
-
-  - question: 'Should the fast-mode graph be a separate LangGraph or a conditional path within the existing feature-agent graph?'
+    selectionRationale: >-
+      Creating a Feature entity adds minimal overhead (DB write + worktree ~2s)
+      but enables resume on failure, visibility in the Web UI control center, CI
+      fix loop tracking, and consistency with the existing architecture. Users
+      still get a fast experience since the SDLC phases are skipped.
+    answer: Create Feature entity + worktree
+  - question: >-
+      Should the fast-mode graph be a separate LangGraph or a conditional path
+      within the existing feature-agent graph?
     resolved: true
     options:
-      - option: 'Separate graph'
-        description: 'Clean separation — a new createFastFeatureAgentGraph() factory with only fast-implement → merge nodes. No risk of breaking the existing graph. Easy to test independently. Slightly more code duplication for merge node wiring.'
+      - option: Separate graph
+        description: >-
+          Clean separation — a new createFastFeatureAgentGraph() factory with
+          only fast-implement → merge nodes. No risk of breaking the existing
+          graph. Easy to test independently. Slightly more code duplication for
+          merge node wiring.
         selected: true
-      - option: 'Conditional path in existing graph'
-        description: 'Single graph with conditional edges that skip analyze/requirements/research/plan when fast mode is set in state. Less code duplication but adds complexity to the existing graph, harder to reason about, and risk of regressions in the full pipeline.'
+      - option: Conditional path in existing graph
+        description: >-
+          Single graph with conditional edges that skip
+          analyze/requirements/research/plan when fast mode is set in state.
+          Less code duplication but adds complexity to the existing graph,
+          harder to reason about, and risk of regressions in the full pipeline.
         selected: false
-    selectionRationale: 'A separate graph is cleaner — the fast-mode graph has fundamentally different topology (2 nodes vs 10+). Conditional edges in the existing graph would add complexity and risk regressions. The merge node and its dependencies can be shared via composition.'
-    answer: 'Separate graph'
-
-  - question: 'How should the fast-implement node receive its prompt — raw user input or with codebase context?'
+    selectionRationale: >-
+      A separate graph is cleaner — the fast-mode graph has fundamentally
+      different topology (2 nodes vs 10+). Conditional edges in the existing
+      graph would add complexity and risk regressions. The merge node and its
+      dependencies can be shared via composition.
+    answer: Separate graph
+  - question: >-
+      How should the fast-implement node receive its prompt — raw user input or
+      with codebase context?
     resolved: true
     options:
-      - option: 'User prompt + auto-generated codebase context'
-        description: 'The fast-implement node reads key codebase files (CLAUDE.md, package.json, directory structure) and prepends them to the user prompt. This gives the executor enough context to make good changes without the user needing to be exhaustive in their prompt.'
+      - option: User prompt + auto-generated codebase context
+        description: >-
+          The fast-implement node reads key codebase files (CLAUDE.md,
+          package.json, directory structure) and prepends them to the user
+          prompt. This gives the executor enough context to make good changes
+          without the user needing to be exhaustive in their prompt.
         selected: true
-      - option: 'Raw user prompt only'
-        description: 'Pass the user prompt directly to the executor with no augmentation. Fastest but relies entirely on the executor (e.g. Claude Code) having its own codebase awareness. Works for agents that can read files, but not for agents that only receive text prompts.'
+      - option: Raw user prompt only
+        description: >-
+          Pass the user prompt directly to the executor with no augmentation.
+          Fastest but relies entirely on the executor (e.g. Claude Code) having
+          its own codebase awareness. Works for agents that can read files, but
+          not for agents that only receive text prompts.
         selected: false
-    selectionRationale: 'Auto-generated codebase context ensures the executor has essential project information regardless of which agent type is used. The context is lightweight (CLAUDE.md + structure) and takes milliseconds to generate. This matches how the current analyze node works but without the full AI-driven analysis pass.'
-    answer: 'User prompt + auto-generated codebase context'
-
-  - question: 'Should fast mode support approval gates or always run fully autonomous?'
+    selectionRationale: >-
+      Auto-generated codebase context ensures the executor has essential project
+      information regardless of which agent type is used. The context is
+      lightweight (CLAUDE.md + structure) and takes milliseconds to generate.
+      This matches how the current analyze node works but without the full
+      AI-driven analysis pass.
+    answer: User prompt + auto-generated codebase context
+  - question: Should fast mode support approval gates or always run fully autonomous?
     resolved: true
     options:
-      - option: 'Respect existing approval gates'
-        description: 'Honor the same allowMerge gate from ApprovalGates. After implementation, if allowMerge is false, interrupt for user approval before pushing/merging. Consistent with the full pipeline behavior.'
+      - option: Respect existing approval gates
+        description: >-
+          Honor the same allowMerge gate from ApprovalGates. After
+          implementation, if allowMerge is false, interrupt for user approval
+          before pushing/merging. Consistent with the full pipeline behavior.
         selected: true
-      - option: 'Always fully autonomous'
-        description: 'Fast mode means no stops — implement, commit, push, PR in one shot. Simpler but removes the safety net of review before PR creation.'
+      - option: Always fully autonomous
+        description: >-
+          Fast mode means no stops — implement, commit, push, PR in one shot.
+          Simpler but removes the safety net of review before PR creation.
         selected: false
-    selectionRationale: 'Respecting allowMerge preserves user safety expectations. Users who want full autonomy can pass --allow-all. The default should still pause before creating a PR since fast mode is more likely to produce imperfect results that benefit from a review checkpoint.'
-    answer: 'Respect existing approval gates'
-
-  - question: 'Where should the fast mode toggle appear in the Web UI?'
+    selectionRationale: >-
+      Respecting allowMerge preserves user safety expectations. Users who want
+      full autonomy can pass --allow-all. The default should still pause before
+      creating a PR since fast mode is more likely to produce imperfect results
+      that benefit from a review checkpoint.
+    answer: Respect existing approval gates
+  - question: Where should the fast mode toggle appear in the Web UI?
     resolved: true
     options:
-      - option: 'Toggle in the existing create drawer'
-        description: 'Add a "Fast Mode" toggle/switch to the FeatureCreateDrawer component alongside the existing approval gates and git options. Minimal UI change, discoverable, consistent with current workflow. When toggled, the description field label could change to emphasize this is a direct implementation prompt.'
+      - option: Toggle in the existing create drawer
+        description: >-
+          Add a "Fast Mode" toggle/switch to the FeatureCreateDrawer component
+          alongside the existing approval gates and git options. Minimal UI
+          change, discoverable, consistent with current workflow. When toggled,
+          the description field label could change to emphasize this is a direct
+          implementation prompt.
         selected: true
-      - option: 'Separate create flow'
-        description: 'A distinct "Quick Create" button or separate drawer optimized for fast mode — minimal fields, just a prompt box and submit. More streamlined UX for fast mode but adds UI surface area and navigation complexity.'
+      - option: Separate create flow
+        description: >-
+          A distinct "Quick Create" button or separate drawer optimized for fast
+          mode — minimal fields, just a prompt box and submit. More streamlined
+          UX for fast mode but adds UI surface area and navigation complexity.
         selected: false
-    selectionRationale: 'A toggle in the existing drawer is the simplest approach. It reuses the existing UI components, keeps the feature creation flow unified, and avoids fragmenting the UX. Power users can toggle fast mode on while keeping the same approval gate and git option controls.'
-    answer: 'Toggle in the existing create drawer'
-
-content: |
+    selectionRationale: >-
+      A toggle in the existing drawer is the simplest approach. It reuses the
+      existing UI components, keeps the feature creation flow unified, and
+      avoids fragmenting the UX. Power users can toggle fast mode on while
+      keeping the same approval gate and git option controls.
+    answer: Toggle in the existing create drawer
+content: >
   ## Problem Statement
 
+
   Users sometimes want a "quick and dirty" path from a prompt to a pull request
+
   without invoking the full multi-step SDLC pipeline (analyze → requirements →
+
   research → plan → implement). The current workflow requires going through
+
   multiple AI-driven phases with validation loops, which is valuable for complex
+
   features but overkill for small, well-understood changes like "fix the typo in
+
   the README" or "add a loading spinner to the dashboard."
+
 
   Issue: https://github.com/shep-ai/cli/issues/197
 
+
   ## Success Criteria
 
-  - [ ] `shep feat new "fix the typo" --fast` creates a feature, skips SDLC phases, implements directly, and creates a PR
-  - [ ] `shep feat new "fix the typo" --fast --allow-all` runs fully autonomous end-to-end without any pauses
-  - [ ] Fast mode features are visible in the Web UI control center with correct lifecycle tracking
-  - [ ] The Web UI create drawer has a "Fast Mode" toggle that triggers fast-mode feature creation
-  - [ ] Fast mode features can be resumed via `shep feat resume` if they fail mid-execution
-  - [ ] The fast-mode graph reuses the existing merge node for commit/push/PR/CI-fix logic
-  - [ ] Fast mode completes significantly faster than the full pipeline for simple prompts
-  - [ ] All existing full-pipeline functionality remains unaffected (no regressions)
-  - [ ] Fast mode features have a distinct lifecycle flow visible in the UI (skips to Implementation directly)
+
+  - [ ] `shep feat new "fix the typo" --fast` creates a feature, skips SDLC
+  phases, implements directly, and creates a PR
+
+  - [ ] `shep feat new "fix the typo" --fast --allow-all` runs fully autonomous
+  end-to-end without any pauses
+
+  - [ ] Fast mode features are visible in the Web UI control center with correct
+  lifecycle tracking
+
+  - [ ] The Web UI create drawer has a "Fast Mode" toggle that triggers
+  fast-mode feature creation
+
+  - [ ] Fast mode features can be resumed via `shep feat resume` if they fail
+  mid-execution
+
+  - [ ] The fast-mode graph reuses the existing merge node for
+  commit/push/PR/CI-fix logic
+
+  - [ ] Fast mode completes significantly faster than the full pipeline for
+  simple prompts
+
+  - [ ] All existing full-pipeline functionality remains unaffected (no
+  regressions)
+
+  - [ ] Fast mode features have a distinct lifecycle flow visible in the UI
+  (skips to Implementation directly)
+
 
   ## Functional Requirements
 
-  - **FR-1**: Add a `--fast` CLI flag to `shep feat new` that enables fast execution mode
-  - **FR-2**: Add a `fast` boolean field to `CreateFeatureInput` and propagate it through the use case
-  - **FR-3**: Create a new `createFastFeatureAgentGraph()` factory that builds a LangGraph with only `fast-implement → merge` nodes
-  - **FR-4**: The `fast-implement` node must build a prompt from the user's raw input plus lightweight codebase context (CLAUDE.md, project structure) and send it to the executor
-  - **FR-5**: The `fast-implement` node must instruct the executor to make changes, run tests, and fix any failures before returning
-  - **FR-6**: The fast-mode graph must reuse the existing `createMergeNode` and its CI watch/fix loop
-  - **FR-7**: The fast-mode graph must respect the `allowMerge` approval gate for interrupting before PR creation
-  - **FR-8**: The `CreateFeatureUseCase` must detect fast mode and spawn the fast-mode agent process instead of the full pipeline
-  - **FR-9**: Feature entities created in fast mode must set their initial lifecycle to `Implementation` (skipping Requirements/Research/Planning)
-  - **FR-10**: The feature-agent worker process must support instantiating either the full or fast graph based on a configuration flag
-  - **FR-11**: Add a "Fast Mode" toggle to the Web UI `FeatureCreateDrawer` component
-  - **FR-12**: The Web UI `createFeature` server action must pass the `fast` flag through to the use case
-  - **FR-13**: Spec directory initialization in fast mode should create only `feature.yaml` (no spec.yaml, research.yaml, plan.yaml, tasks.yaml needed since there's no spec-driven workflow)
-  - **FR-14**: The fast-implement prompt must include instructions for the executor to create a git branch, but NOT commit/push/PR (that's handled by the merge node)
-  - **FR-15**: Fast mode features must be resumable — if the fast-implement node fails, `shep feat resume` should re-execute from the fast-implement node
+
+  - **FR-1**: Add a `--fast` CLI flag to `shep feat new` that enables fast
+  execution mode
+
+  - **FR-2**: Add a `fast` boolean field to `CreateFeatureInput` and propagate
+  it through the use case
+
+  - **FR-3**: Create a new `createFastFeatureAgentGraph()` factory that builds a
+  LangGraph with only `fast-implement → merge` nodes
+
+  - **FR-4**: The `fast-implement` node must build a prompt from the user's raw
+  input plus lightweight codebase context (CLAUDE.md, project structure) and
+  send it to the executor
+
+  - **FR-5**: The `fast-implement` node must instruct the executor to make
+  changes, run tests, and fix any failures before returning
+
+  - **FR-6**: The fast-mode graph must reuse the existing `createMergeNode` and
+  its CI watch/fix loop
+
+  - **FR-7**: The fast-mode graph must respect the `allowMerge` approval gate
+  for interrupting before PR creation
+
+  - **FR-8**: The `CreateFeatureUseCase` must detect fast mode and spawn the
+  fast-mode agent process instead of the full pipeline
+
+  - **FR-9**: Feature entities created in fast mode must set their initial
+  lifecycle to `Implementation` (skipping Requirements/Research/Planning)
+
+  - **FR-10**: The feature-agent worker process must support instantiating
+  either the full or fast graph based on a configuration flag
+
+  - **FR-11**: Add a "Fast Mode" toggle to the Web UI `FeatureCreateDrawer`
+  component
+
+  - **FR-12**: The Web UI `createFeature` server action must pass the `fast`
+  flag through to the use case
+
+  - **FR-13**: Spec directory initialization in fast mode should create only
+  `feature.yaml` (no spec.yaml, research.yaml, plan.yaml, tasks.yaml needed
+  since there's no spec-driven workflow)
+
+  - **FR-14**: The fast-implement prompt must include instructions for the
+  executor to create a git branch, but NOT commit/push/PR (that's handled by the
+  merge node)
+
+  - **FR-15**: Fast mode features must be resumable — if the fast-implement node
+  fails, `shep feat resume` should re-execute from the fast-implement node
+
 
   ## Non-Functional Requirements
 
-  - **NFR-1**: Fast mode overhead (before executor call) must be under 5 seconds — the only setup is DB record + worktree + minimal context gathering
-  - **NFR-2**: The fast-mode graph factory must be independently testable with a mock executor
-  - **NFR-3**: No changes to the existing `createFeatureAgentGraph()` function — the fast graph is a separate factory
-  - **NFR-4**: The fast-implement prompt must be under 10,000 characters to avoid overwhelming the executor with context
-  - **NFR-5**: Web UI toggle must be accessible (keyboard navigable, proper ARIA labels)
+
+  - **NFR-1**: Fast mode overhead (before executor call) must be under 5 seconds
+  — the only setup is DB record + worktree + minimal context gathering
+
+  - **NFR-2**: The fast-mode graph factory must be independently testable with a
+  mock executor
+
+  - **NFR-3**: No changes to the existing `createFeatureAgentGraph()` function —
+  the fast graph is a separate factory
+
+  - **NFR-4**: The fast-implement prompt must be under 10,000 characters to
+  avoid overwhelming the executor with context
+
+  - **NFR-5**: Web UI toggle must be accessible (keyboard navigable, proper ARIA
+  labels)
+
   - **NFR-6**: All new components must have colocated Storybook stories
+
 
   ## Product Questions & AI Recommendations
 
+
   | # | Question | AI Recommendation | Rationale |
+
   | - | -------- | ----------------- | --------- |
-  | 1 | Feature entity vs bypass? | Create Feature entity + worktree | Minimal overhead, enables resume/tracking/UI visibility |
-  | 2 | Separate graph vs conditional path? | Separate graph | Cleaner separation, no regression risk to full pipeline |
-  | 3 | Prompt context level? | User prompt + auto codebase context | Ensures executor has project info regardless of agent type |
-  | 4 | Approval gates in fast mode? | Respect existing gates | Consistent behavior, users opt into autonomy with --allow-all |
-  | 5 | UI placement? | Toggle in existing create drawer | Simplest approach, reuses existing UI, unified flow |
+
+  | 1 | Feature entity vs bypass? | Create Feature entity + worktree | Minimal
+  overhead, enables resume/tracking/UI visibility |
+
+  | 2 | Separate graph vs conditional path? | Separate graph | Cleaner
+  separation, no regression risk to full pipeline |
+
+  | 3 | Prompt context level? | User prompt + auto codebase context | Ensures
+  executor has project info regardless of agent type |
+
+  | 4 | Approval gates in fast mode? | Respect existing gates | Consistent
+  behavior, users opt into autonomy with --allow-all |
+
+  | 5 | UI placement? | Toggle in existing create drawer | Simplest approach,
+  reuses existing UI, unified flow |
+
 
   ## Affected Areas
 
+
   | Area | Impact | Reasoning |
+
   | ---- | ------ | --------- |
+
   | CLI (presentation) | High | New --fast flag on `shep feat new` command |
-  | Web UI (presentation) | High | Fast mode toggle in create drawer + server action |
-  | Feature Agent Graph (infrastructure) | High | New fast-mode graph factory with fast-implement node |
-  | CreateFeatureUseCase (application) | Medium | Must detect fast flag and spawn appropriate graph |
-  | Feature Agent Worker (infrastructure) | Medium | Must support instantiating fast vs full graph |
-  | Domain types (domain) | Low | New `fast` field on Feature or CreateFeatureInput |
-  | Spec Initializer (infrastructure) | Low | Minimal init mode for fast features (feature.yaml only) |
+
+  | Web UI (presentation) | High | Fast mode toggle in create drawer + server
+  action |
+
+  | Feature Agent Graph (infrastructure) | High | New fast-mode graph factory
+  with fast-implement node |
+
+  | CreateFeatureUseCase (application) | Medium | Must detect fast flag and
+  spawn appropriate graph |
+
+  | Feature Agent Worker (infrastructure) | Medium | Must support instantiating
+  fast vs full graph |
+
+  | Domain types (domain) | Low | New `fast` field on Feature or
+  CreateFeatureInput |
+
+  | Spec Initializer (infrastructure) | Low | Minimal init mode for fast
+  features (feature.yaml only) |
+
 
   ## Dependencies
 
+
   - Existing merge node infrastructure (createMergeNode, MergeNodeDeps)
+
   - Existing worktree service (IWorktreeService)
+
   - Existing feature-agent process service (IFeatureAgentProcessService)
+
   - Existing approval gate mechanism (interrupt/resume pattern)
+
 
   ## Size Estimate
 
-  **L** — This feature touches the CLI command layer, Web UI create drawer, a new
+
+  **L** — This feature touches the CLI command layer, Web UI create drawer, a
+  new
+
   LangGraph factory, a new implement node, the CreateFeatureUseCase, the worker
+
   process, and requires Storybook stories. While each individual piece is
+
   straightforward, the breadth of changes across multiple layers makes this a
+
   Large feature.
 
+
   ---
+
 
   _Requirements defined — proceed with research_

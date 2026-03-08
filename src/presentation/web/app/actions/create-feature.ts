@@ -27,6 +27,8 @@ interface CreateFeatureInput {
   push?: boolean;
   openPr?: boolean;
   parentId?: string;
+  /** When true, skip SDLC phases and implement directly from the prompt. */
+  fast?: boolean;
 }
 
 function composeUserInput(description: string, attachments: Attachment[] | undefined): string {
@@ -43,7 +45,8 @@ function composeUserInput(description: string, attachments: Attachment[] | undef
 export async function createFeature(
   input: CreateFeatureInput
 ): Promise<{ feature?: Feature; error?: string }> {
-  const { description, repositoryPath, attachments, approvalGates, push, openPr, parentId } = input;
+  const { description, repositoryPath, attachments, approvalGates, push, openPr, parentId, fast } =
+    input;
 
   if (!description?.trim()) {
     return { error: 'description is required' };
@@ -72,6 +75,7 @@ export async function createFeature(
       openPr: openPr ?? false,
       ...(parentId ? { parentId } : {}),
       description,
+      ...(fast ? { fast } : {}),
     });
 
     // Phase 2 (background): metadata generation, worktree, spec, agent spawn
@@ -86,6 +90,7 @@ export async function createFeature(
           push: push ?? false,
           openPr: openPr ?? false,
           ...(parentId ? { parentId } : {}),
+          ...(fast ? { fast } : {}),
         },
         shouldSpawn
       )

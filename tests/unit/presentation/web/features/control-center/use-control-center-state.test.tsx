@@ -350,6 +350,144 @@ describe('useControlCenterState', () => {
       // Temp repo node should be removed (no nodes remain)
       expect(screen.getByTestId('node-count')).toHaveTextContent('0');
     });
+
+    describe('first-repo metadata return value', () => {
+      it('returns wasEmpty true when repoMap is empty', () => {
+        let capturedState: ControlCenterState | null = null;
+        renderHook([], [], (state) => {
+          capturedState = state;
+        });
+
+        let result: { wasEmpty: boolean; repoPath: string } | undefined;
+        act(() => {
+          result = capturedState!.handleAddRepository('/home/user/first-repo');
+        });
+
+        expect(result).toBeDefined();
+        expect(result!.wasEmpty).toBe(true);
+      });
+
+      it('returns wasEmpty false when repoMap has entries', () => {
+        let capturedState: ControlCenterState | null = null;
+        renderHook([mockRepoNode] as CanvasNodeType[], [], (state) => {
+          capturedState = state;
+        });
+
+        let result: { wasEmpty: boolean; repoPath: string } | undefined;
+        act(() => {
+          result = capturedState!.handleAddRepository('/home/user/second-repo');
+        });
+
+        expect(result).toBeDefined();
+        expect(result!.wasEmpty).toBe(false);
+      });
+
+      it('returns the correct repoPath', () => {
+        let capturedState: ControlCenterState | null = null;
+        renderHook([], [], (state) => {
+          capturedState = state;
+        });
+
+        let result: { wasEmpty: boolean; repoPath: string } | undefined;
+        act(() => {
+          result = capturedState!.handleAddRepository('/home/user/my-project');
+        });
+
+        expect(result).toBeDefined();
+        expect(result!.repoPath).toBe('/home/user/my-project');
+      });
+
+      it('returns wasEmpty false after a repo has already been added', () => {
+        let capturedState: ControlCenterState | null = null;
+        renderHook([], [], (state) => {
+          capturedState = state;
+        });
+
+        // First add — should be empty
+        let firstResult: { wasEmpty: boolean; repoPath: string } | undefined;
+        act(() => {
+          firstResult = capturedState!.handleAddRepository('/home/user/first-repo');
+        });
+        expect(firstResult!.wasEmpty).toBe(true);
+
+        // Second add — should NOT be empty
+        let secondResult: { wasEmpty: boolean; repoPath: string } | undefined;
+        act(() => {
+          secondResult = capturedState!.handleAddRepository('/home/user/second-repo');
+        });
+        expect(secondResult!.wasEmpty).toBe(false);
+      });
+    });
+  });
+
+  describe('fast-mode feature handling', () => {
+    it('creates optimistic feature node with real featureId when provided', () => {
+      let capturedState: ControlCenterState | null = null;
+      renderHook([mockRepoNode] as CanvasNodeType[], [], (state) => {
+        capturedState = state;
+      });
+
+      act(() => {
+        capturedState!.createFeatureNode('repo-1', {
+          state: 'creating',
+          featureId: 'fast-feat-123',
+          name: 'Fast Feature',
+          repositoryPath: '/home/user/my-repo',
+        });
+      });
+
+      // Node should exist with the provided featureId
+      const newNode = capturedState!.nodes.find(
+        (n) => n.type === 'featureNode' && (n.data as FeatureNodeData).featureId === 'fast-feat-123'
+      );
+      expect(newNode).toBeDefined();
+      expect(newNode!.id).toBe('feat-fast-feat-123');
+    });
+
+    it('feature starting at Implementation lifecycle renders correctly after reconcile', () => {
+      let capturedState: ControlCenterState | null = null;
+
+      const { rerender } = render(
+        <HookTestHarness
+          initialNodes={[mockRepoNode] as CanvasNodeType[]}
+          initialEdges={[]}
+          onStateChange={(state) => {
+            capturedState = state;
+          }}
+        />
+      );
+
+      // Simulate server returning a fast-mode feature with implementation lifecycle
+      const fastFeature: FeatureNodeType = {
+        id: 'feat-fast-1',
+        type: 'featureNode',
+        position: { x: 400, y: 100 },
+        data: {
+          name: 'Quick Fix',
+          featureId: 'fast-1',
+          lifecycle: 'implementation',
+          state: 'running',
+          progress: 0,
+          repositoryPath: '/home/user/my-repo',
+          branch: 'feat/quick-fix',
+        },
+      };
+
+      rerender(
+        <HookTestHarness
+          initialNodes={[mockRepoNode, fastFeature] as CanvasNodeType[]}
+          initialEdges={[]}
+          onStateChange={(state) => {
+            capturedState = state;
+          }}
+        />
+      );
+
+      const fastNode = capturedState!.nodes.find((n) => n.id === 'feat-fast-1');
+      expect(fastNode).toBeDefined();
+      expect((fastNode!.data as FeatureNodeData).lifecycle).toBe('implementation');
+      expect((fastNode!.data as FeatureNodeData).state).toBe('running');
+    });
   });
 
   describe('initialNodes/initialEdges prop sync', () => {

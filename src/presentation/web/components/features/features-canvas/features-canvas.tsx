@@ -11,6 +11,7 @@ import type { FeatureNodeType, FeatureNodeData } from '@/components/common/featu
 import { RepositoryNode } from '@/components/common/repository-node';
 import type { RepositoryNodeType } from '@/components/common/repository-node';
 import { DependencyEdge } from './dependency-edge';
+import { DEFAULT_VIEWPORT, type Viewport } from '@/hooks/use-viewport-persistence';
 
 export type CanvasNodeType = FeatureNodeType | RepositoryNodeType;
 
@@ -18,12 +19,14 @@ export interface FeaturesCanvasProps {
   nodes: CanvasNodeType[];
   edges: Edge[];
   selectedFeatureId?: string | null;
+  defaultViewport?: Viewport;
   onNodesChange?: (changes: NodeChange<CanvasNodeType>[]) => void;
   onAddFeature?: () => void;
   onNodeClick?: (event: React.MouseEvent, node: CanvasNodeType) => void;
   onPaneClick?: (event: React.MouseEvent) => void;
   onConnect?: (connection: Connection) => void;
   onCanvasDrag?: () => void;
+  onMoveEnd?: (viewport: Viewport) => void;
   toolbar?: React.ReactNode;
   emptyState?: React.ReactNode;
 }
@@ -32,12 +35,14 @@ export function FeaturesCanvas({
   nodes,
   edges,
   selectedFeatureId,
+  defaultViewport: defaultViewportProp,
   onNodesChange,
   onAddFeature,
   onConnect,
   onNodeClick,
   onPaneClick,
   onCanvasDrag,
+  onMoveEnd,
   toolbar,
   emptyState,
 }: FeaturesCanvasProps) {
@@ -111,7 +116,8 @@ export function FeaturesCanvas({
         onNodeClick={onNodeClick}
         onPaneClick={onPaneClick}
         onMoveStart={onCanvasDrag}
-        defaultViewport={{ x: 30, y: 30, zoom: 0.85 }}
+        onMoveEnd={onMoveEnd ? (_event, viewport) => onMoveEnd(viewport) : undefined}
+        defaultViewport={defaultViewportProp ?? DEFAULT_VIEWPORT}
         nodesDraggable={false}
         nodesConnectable={false}
         elementsSelectable={false}

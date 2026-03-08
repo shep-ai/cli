@@ -160,6 +160,7 @@ describe('FeatureCreateDrawer', () => {
         approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
         push: false,
         openPr: false,
+        fast: false,
       });
       expect(payload).not.toHaveProperty('name');
     });
@@ -509,6 +510,9 @@ describe('FeatureCreateDrawer', () => {
       // Check "Create PR" (which forces push=true)
       await user.click(screen.getByLabelText('Create PR'));
 
+      // Check "Fast Mode"
+      await user.click(screen.getByLabelText('Fast Mode'));
+
       // Select a parent feature
       await user.click(screen.getByTestId('parent-feature-combobox'));
       await user.click(screen.getByTestId('parent-feature-option-feat-aaa-111'));
@@ -523,6 +527,7 @@ describe('FeatureCreateDrawer', () => {
 
       // Assert all fields are reset to defaults (component is still mounted)
       expect(screen.getByPlaceholderText(descriptionPlaceholder)).toHaveValue('');
+      expect(screen.getByLabelText('Fast Mode')).not.toBeChecked();
       expect(screen.getByLabelText('PRD')).not.toBeChecked();
       expect(screen.getByLabelText('Plan')).not.toBeChecked();
       expect(screen.getByLabelText('Merge')).not.toBeChecked();
@@ -532,7 +537,7 @@ describe('FeatureCreateDrawer', () => {
         'Select parent feature...'
       );
       expect(screen.queryByText('requirements.pdf')).not.toBeInTheDocument();
-    });
+    }, 10_000);
 
     it('clears form data on submit so next open starts fresh', async () => {
       const onSubmit = vi.fn();
@@ -664,6 +669,87 @@ describe('FeatureCreateDrawer', () => {
       await user.type(screen.getByPlaceholderText(descriptionPlaceholder), 'My Feature');
       await user.click(screen.getByRole('button', { name: '+ Create Feature' }));
       expect(mockCreatePlay).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe('fast mode toggle', () => {
+    it('renders fast mode checkbox with label and description', () => {
+      renderDrawer();
+      expect(screen.getByLabelText('Fast Mode')).toBeInTheDocument();
+      expect(
+        screen.getByText('Skip SDLC phases and implement directly from your prompt.')
+      ).toBeInTheDocument();
+    });
+
+    it('renders MODE section label', () => {
+      renderDrawer();
+      expect(screen.getByText('MODE')).toBeInTheDocument();
+    });
+
+    it('fast mode is unchecked by default', () => {
+      renderDrawer();
+      expect(screen.getByLabelText('Fast Mode')).not.toBeChecked();
+    });
+
+    it('toggling fast mode checkbox updates form state', async () => {
+      const user = userEvent.setup();
+      renderDrawer();
+
+      const checkbox = screen.getByLabelText('Fast Mode');
+      expect(checkbox).not.toBeChecked();
+      await user.click(checkbox);
+      expect(checkbox).toBeChecked();
+    });
+
+    it('submitting with fast mode on includes fast=true in payload', async () => {
+      const onSubmit = vi.fn();
+      const user = userEvent.setup();
+      renderDrawer({ onSubmit });
+
+      await user.type(screen.getByPlaceholderText(descriptionPlaceholder), 'Fix the typo');
+      await user.click(screen.getByLabelText('Fast Mode'));
+      await user.click(screen.getByRole('button', { name: '+ Create Feature' }));
+
+      expect(onSubmit).toHaveBeenCalledOnce();
+      expect(onSubmit.mock.calls[0][0]).toEqual(expect.objectContaining({ fast: true }));
+    });
+
+    it('submitting with fast mode off includes fast=false in payload', async () => {
+      const onSubmit = vi.fn();
+      const user = userEvent.setup();
+      renderDrawer({ onSubmit });
+
+      await user.type(screen.getByPlaceholderText(descriptionPlaceholder), 'Fix the typo');
+      await user.click(screen.getByRole('button', { name: '+ Create Feature' }));
+
+      expect(onSubmit).toHaveBeenCalledOnce();
+      expect(onSubmit.mock.calls[0][0]).toEqual(expect.objectContaining({ fast: false }));
+    });
+
+    it('fast mode checkbox has accessible label', () => {
+      renderDrawer();
+      const checkbox = screen.getByLabelText('Fast Mode');
+      expect(checkbox).toHaveAttribute('id', 'fast-mode');
+    });
+
+    it('fast mode checkbox is disabled when isSubmitting', () => {
+      renderDrawer({ isSubmitting: true });
+      expect(screen.getByLabelText('Fast Mode')).toBeDisabled();
+    });
+
+    it('fast mode resets to unchecked after submit', async () => {
+      const onSubmit = vi.fn();
+      const user = userEvent.setup();
+      renderDrawer({ onSubmit });
+
+      await user.type(screen.getByPlaceholderText(descriptionPlaceholder), 'My Feature');
+      await user.click(screen.getByLabelText('Fast Mode'));
+      expect(screen.getByLabelText('Fast Mode')).toBeChecked();
+
+      await user.click(screen.getByRole('button', { name: '+ Create Feature' }));
+
+      // After submit, form resets — fast mode should be unchecked
+      expect(screen.getByLabelText('Fast Mode')).not.toBeChecked();
     });
   });
 });

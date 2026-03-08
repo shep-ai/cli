@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
 
 let currentPathname = '/';
@@ -15,6 +15,26 @@ vi.mock('@/hooks/agent-events-provider', () => ({
     lastEvent: null,
     connectionStatus: 'connected' as const,
   }),
+}));
+
+const mockFitView = vi.fn();
+
+vi.mock('@xyflow/react', () => ({
+  useReactFlow: () => ({ fitView: mockFitView }),
+}));
+
+vi.mock('@/app/actions/add-repository', () => ({
+  addRepository: vi
+    .fn()
+    .mockResolvedValue({ repository: { id: 'test-id', path: '/test', name: 'test' } }),
+}));
+
+vi.mock('@/app/actions/delete-feature', () => ({
+  deleteFeature: vi.fn().mockResolvedValue({}),
+}));
+
+vi.mock('@/app/actions/delete-repository', () => ({
+  deleteRepository: vi.fn().mockResolvedValue({ success: true }),
 }));
 
 import { ControlCenterInner } from '@/components/features/control-center/control-center-inner';
@@ -96,6 +116,7 @@ describe('ControlCenterInner URL-based navigation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     currentPathname = '/';
+    mockFitView.mockReset();
   });
 
   describe('node click navigates to feature route', () => {
@@ -186,6 +207,63 @@ describe('ControlCenterInner URL-based navigation', () => {
     });
   });
 
+  describe('feature-created event with fast-mode features', () => {
+    it('adds optimistic node when shep:feature-created is dispatched', () => {
+      renderControlCenter();
+
+      act(() => {
+        window.dispatchEvent(
+          new CustomEvent('shep:feature-created', {
+            detail: {
+              featureId: 'fast-feature-1',
+              name: 'Fast Feature',
+              description: 'Quick fix',
+              repositoryPath: '/home/user/my-repo',
+            },
+          })
+        );
+      });
+
+      // The node should have been added via createFeatureNode
+      const featureNodes = capturedCanvasProps.nodes.filter((n) => n.type === 'featureNode');
+      const fastNode = featureNodes.find(
+        (n) => (n.data as FeatureNodeData).featureId === 'fast-feature-1'
+      );
+      expect(fastNode).toBeDefined();
+    });
+
+    it('does not navigate on click for creating state nodes (fast or regular)', () => {
+      renderControlCenter();
+
+      // Add a feature node with creating state
+      act(() => {
+        window.dispatchEvent(
+          new CustomEvent('shep:feature-created', {
+            detail: {
+              featureId: 'fast-feat-2',
+              name: 'Fast Feature 2',
+              repositoryPath: '/home/user/my-repo',
+              parentId: undefined,
+            },
+          })
+        );
+      });
+
+      // Simulate clicking on a creating node
+      const creatingNode = capturedCanvasProps.nodes.find(
+        (n) => n.type === 'featureNode' && (n.data as FeatureNodeData).state === 'creating'
+      );
+
+      if (creatingNode) {
+        act(() => {
+          capturedCanvasProps.onNodeClick?.({} as React.MouseEvent, creatingNode);
+        });
+        // Should NOT navigate for creating nodes
+        expect(mockPush).not.toHaveBeenCalledWith(expect.stringContaining('/feature/'));
+      }
+    });
+  });
+
   describe('selectedFeatureId is passed to canvas', () => {
     it('passes feature ID from URL to FeaturesCanvas', () => {
       currentPathname = '/feature/#fa01';
@@ -199,6 +277,110 @@ describe('ControlCenterInner URL-based navigation', () => {
       renderControlCenter();
 
       expect(capturedCanvasProps.selectedFeatureId).toBeNull();
+    });
+  });
+
+  describe('first-repo auto-focus', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('calls fitView when first repo is added to empty canvas', async () => {
+      // Start with empty canvas — renders empty state
+      renderControlCenter([]);
+
+      // Dispatch the add-repository event
+      await act(async () => {
+        window.dispatchEvent(
+          new CustomEvent('shep:add-repository', {
+            detail: { path: '/home/user/first-repo' },
+          })
+        );
+      });
+
+      // Flush setTimeout(0) that waits for next render
+      await act(async () => {
+        vi.advanceTimersByTime(1);
+      });
+
+      expect(mockFitView).toHaveBeenCalledWith({
+        maxZoom: 1.0,
+        padding: 0.5,
+        duration: 500,
+      });
+    });
+
+    it('does NOT call fitView when repo is added to non-empty canvas', async () => {
+      renderControlCenter();
+
+      await act(async () => {
+        window.dispatchEvent(
+          new CustomEvent('shep:add-repository', {
+            detail: { path: '/home/user/another-repo' },
+          })
+        );
+      });
+
+      await act(async () => {
+        vi.advanceTimersByTime(1);
+      });
+
+      expect(mockFitView).not.toHaveBeenCalled();
+    });
+
+    it('opens drawer at /create?repo=<path> after 600ms delay following fitView', async () => {
+      renderControlCenter([]);
+
+      await act(async () => {
+        window.dispatchEvent(
+          new CustomEvent('shep:add-repository', {
+            detail: { path: '/home/user/first-repo' },
+          })
+        );
+      });
+
+      // Flush setTimeout(0) for fitView
+      await act(async () => {
+        vi.advanceTimersByTime(1);
+      });
+
+      // Drawer should NOT have opened yet (only 1ms has passed, need 600ms)
+      expect(mockPush).not.toHaveBeenCalledWith(expect.stringContaining('/create?repo='));
+
+      // Advance past the 600ms delay
+      await act(async () => {
+        vi.advanceTimersByTime(600);
+      });
+
+      expect(mockPush).toHaveBeenCalledWith(
+        `/create?repo=${encodeURIComponent('/home/user/first-repo')}`
+      );
+    });
+
+    it('does NOT open drawer when wasEmpty is false', async () => {
+      renderControlCenter();
+
+      await act(async () => {
+        window.dispatchEvent(
+          new CustomEvent('shep:add-repository', {
+            detail: { path: '/home/user/another-repo' },
+          })
+        );
+      });
+
+      await act(async () => {
+        vi.advanceTimersByTime(1);
+      });
+
+      await act(async () => {
+        vi.advanceTimersByTime(600);
+      });
+
+      expect(mockPush).not.toHaveBeenCalledWith(expect.stringContaining('/create?repo='));
     });
   });
 });

@@ -36,7 +36,7 @@ export interface ControlCenterState {
   edges: Edge[];
   onNodesChange: (changes: NodeChange<CanvasNodeType>[]) => void;
   handleConnect: (connection: Connection) => void;
-  handleAddRepository: (path: string) => void;
+  handleAddRepository: (path: string) => { wasEmpty: boolean; repoPath: string };
   handleLayout: (direction: LayoutDirection) => void;
   handleDeleteFeature: (featureId: string) => void;
   handleDeleteRepository: (repositoryId: string) => Promise<void>;
@@ -79,6 +79,7 @@ export function useControlCenterState(
     replaceRepository,
     getFeatureRepositoryPath,
     getRepositoryData,
+    getRepoMapSize,
     setCallbacks,
   } = useGraphState(initialNodes, initialEdges);
 
@@ -384,7 +385,8 @@ export function useControlCenterState(
   );
 
   const handleAddRepository = useCallback(
-    (path: string) => {
+    (path: string): { wasEmpty: boolean; repoPath: string } => {
+      const wasEmpty = getRepoMapSize() === 0;
       const tempId = `repo-temp-${Date.now()}`;
       const repoName =
         path
@@ -414,8 +416,10 @@ export function useControlCenterState(
           removeRepository(tempId);
           toast.error('Failed to add repository');
         });
+
+      return { wasEmpty, repoPath: path };
     },
-    [addRepositoryToMap, removeRepository, replaceRepository, createSound]
+    [addRepositoryToMap, removeRepository, replaceRepository, createSound, getRepoMapSize]
   );
 
   return {

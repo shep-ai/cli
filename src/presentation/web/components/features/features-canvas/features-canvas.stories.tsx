@@ -5,6 +5,8 @@ import type { CanvasNodeType } from './features-canvas';
 import type { FeatureNodeType } from '@/components/common/feature-node';
 import type { RepositoryNodeType } from '@/components/common/repository-node';
 import { layoutWithDagre } from '@/lib/layout-with-dagre';
+// Viewport type used in story args below
+import type { Viewport } from '@/hooks/use-viewport-persistence';
 
 const meta: Meta<typeof FeaturesCanvas> = {
   title: 'Features/FeaturesCanvas',
@@ -558,5 +560,106 @@ export const InteractiveWithRepository: Story = {
     nodes: repoFeatureNodes,
     edges: repoFeatureEdges,
     onAddFeature: () => undefined,
+  },
+};
+
+// --- Viewport Persistence Stories ---
+
+export const SavedViewport: Story = {
+  name: 'Saved Viewport (Zoomed & Panned)',
+  args: {
+    nodes: repoFeatureNodes,
+    edges: repoFeatureEdges,
+    defaultViewport: { x: 200, y: 150, zoom: 1.5 },
+    onMoveEnd: (_viewport: Viewport) => {
+      // Viewport change handler — visible in Storybook Actions panel
+    },
+  },
+};
+
+export const DefaultViewport: Story = {
+  name: 'Default Viewport (No Saved State)',
+  args: {
+    nodes: repoFeatureNodes,
+    edges: repoFeatureEdges,
+    onMoveEnd: (_viewport: Viewport) => {
+      // Viewport change handler — visible in Storybook Actions panel
+    },
+  },
+};
+
+// --- Fast-mode feature scenario ---
+
+const fastModeNodesRaw: CanvasNodeType[] = [
+  {
+    id: 'repo-1',
+    type: 'repositoryNode',
+    position: { x: 0, y: 0 },
+    data: { name: 'shep-ai/cli' },
+  },
+  {
+    id: 'feat-fast-1',
+    type: 'featureNode',
+    position: { x: 0, y: 0 },
+    data: {
+      name: 'Quick Bug Fix',
+      description: 'Fast-mode feature — skips SDLC, starts at implementation',
+      featureId: '#ff1',
+      lifecycle: 'implementation',
+      state: 'running',
+      progress: 30,
+      repositoryPath: '/home/user/my-repo',
+      branch: 'feat/quick-bug-fix',
+    },
+  },
+  {
+    id: 'feat-full-1',
+    type: 'featureNode',
+    position: { x: 0, y: 0 },
+    data: {
+      name: 'Auth Module',
+      description: 'Full-pipeline feature — goes through all SDLC phases',
+      featureId: '#ff2',
+      lifecycle: 'requirements',
+      state: 'running',
+      progress: 15,
+      repositoryPath: '/home/user/my-repo',
+      branch: 'feat/auth-module',
+    },
+  },
+  {
+    id: 'feat-fast-2',
+    type: 'featureNode',
+    position: { x: 0, y: 0 },
+    data: {
+      name: 'Update README',
+      description: 'Fast-mode feature — already done',
+      featureId: '#ff3',
+      lifecycle: 'deploy',
+      state: 'done',
+      progress: 100,
+      repositoryPath: '/home/user/my-repo',
+      branch: 'feat/update-readme',
+    },
+  },
+];
+
+const fastModeEdges: Edge[] = [
+  { id: 'e-r1-ff1', source: 'repo-1', target: 'feat-fast-1', ...dashedEdge },
+  { id: 'e-r1-ff2', source: 'repo-1', target: 'feat-full-1', ...dashedEdge },
+  { id: 'e-r1-ff3', source: 'repo-1', target: 'feat-fast-2', ...dashedEdge },
+];
+
+const { nodes: fastModeLayoutedNodes, edges: fastModeLayoutedEdges } = layoutWithDagre(
+  fastModeNodesRaw,
+  fastModeEdges,
+  { direction: 'LR' }
+);
+
+export const FastModeFeatures: Story = {
+  name: 'Fast Mode Features (Mixed Pipeline)',
+  args: {
+    nodes: fastModeLayoutedNodes,
+    edges: fastModeLayoutedEdges,
   },
 };
