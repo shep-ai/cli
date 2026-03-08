@@ -472,14 +472,7 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
     <div data-testid="settings-page-client" className="max-w-5xl">
       <div className="mb-4 flex items-center gap-3">
         <h1 className="text-sm font-bold tracking-tight">Settings</h1>
-        {isPending ? <span className="text-muted-foreground text-xs">Saving...</span> : null}
-        {showSaved && !isPending ? (
-          <span className="flex items-center gap-1 text-xs text-green-600">
-            <Check className="h-3 w-3" />
-            Saved
-          </span>
-        ) : null}
-        <nav className="ml-auto flex items-center gap-0.5">
+        <nav className="flex items-center gap-0.5">
           {SECTIONS.map((s) => {
             const SectionIcon = s.icon;
             const isActive = activeSection === s.id;
@@ -501,6 +494,15 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
             );
           })}
         </nav>
+        {isPending ? (
+          <span className="text-muted-foreground ml-auto text-xs">Saving...</span>
+        ) : null}
+        {showSaved && !isPending ? (
+          <span className="ml-auto flex items-center gap-1 text-xs text-green-600">
+            <Check className="h-3 w-3" />
+            Saved
+          </span>
+        ) : null}
       </div>
 
       <div className="flex flex-col gap-3">
