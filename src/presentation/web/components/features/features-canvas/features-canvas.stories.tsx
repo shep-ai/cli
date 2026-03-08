@@ -5,8 +5,7 @@ import type { CanvasNodeType } from './features-canvas';
 import type { FeatureNodeType } from '@/components/common/feature-node';
 import type { RepositoryNodeType } from '@/components/common/repository-node';
 import { layoutWithDagre } from '@/lib/layout-with-dagre';
-// Viewport type used in story args below
-import type { Viewport } from '@/hooks/use-viewport-persistence';
+import { DEFAULT_VIEWPORT } from '@/hooks/use-viewport-persistence';
 
 const meta: Meta<typeof FeaturesCanvas> = {
   title: 'Features/FeaturesCanvas',
@@ -565,26 +564,21 @@ export const InteractiveWithRepository: Story = {
 
 // --- Viewport Persistence Stories ---
 
-export const SavedViewport: Story = {
-  name: 'Saved Viewport (Zoomed & Panned)',
+export const WithSavedViewport: Story = {
   args: {
     nodes: repoFeatureNodes,
     edges: repoFeatureEdges,
-    defaultViewport: { x: 200, y: 150, zoom: 1.5 },
-    onMoveEnd: (_viewport: Viewport) => {
-      // Viewport change handler — visible in Storybook Actions panel
-    },
+    defaultViewport: { x: 200, y: 150, zoom: 1.0 },
+    onResetViewport: () => DEFAULT_VIEWPORT,
   },
 };
 
-export const DefaultViewport: Story = {
-  name: 'Default Viewport (No Saved State)',
+export const ZoomedOutViewport: Story = {
   args: {
-    nodes: repoFeatureNodes,
-    edges: repoFeatureEdges,
-    onMoveEnd: (_viewport: Viewport) => {
-      // Viewport change handler — visible in Storybook Actions panel
-    },
+    nodes: mixedLayoutedNodes,
+    edges: mixedLayoutedEdges,
+    defaultViewport: { x: 0, y: 0, zoom: 0.5 },
+    onResetViewport: () => DEFAULT_VIEWPORT,
   },
 };
 

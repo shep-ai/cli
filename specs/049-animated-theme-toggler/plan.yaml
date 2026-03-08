@@ -1,0 +1,188 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: animated-theme-toggler
+summary: >
+  Replace the ThemeToggle component's click handler with a View Transitions
+  API-powered circular-reveal animation originating from the click coordinates.
+  Entirely confined to the presentation layer: extend toggleTheme to accept a
+  MouseEvent, inject --x/--y CSS custom properties onto :root, wrap setTheme in
+  document.startViewTransition, add @keyframes to globals.css, and update tests
+  and Storybook stories. No new npm packages, no domain/application/infrastructure
+  changes.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - React 19 (TypeScript) — 'use client' component
+  - View Transitions API (document.startViewTransition) — browser native
+  - CSS clip-path circle() — circular reveal animation
+  - CSS custom properties (--x, --y) — click coordinate injection on :root
+  - Tailwind CSS v4 (CSS-first @theme, @custom-variant dark)
+  - lucide-react (Sun, Moon icons — retained unchanged)
+  - shadcn/ui Button (ghost icon variant)
+  - useTheme hook (localStorage + system preference)
+  - useSoundAction hook (toggle-on / toggle-off)
+  - Vitest + @testing-library/react + userEvent
+  - Storybook 8 (mandatory colocated stories)
+  - prefers-reduced-motion media query
+
+relatedLinks:
+  - https://magicui.design/docs/components/animated-theme-toggler
+  - https://developer.mozilla.org/en-US/docs/Web/API/Document/startViewTransition
+  - https://developer.mozilla.org/en-US/docs/Web/CSS/::view-transition-new
+  - https://developer.mozilla.org/en-US/docs/Web/CSS/clip-path
+  - https://developer.mozilla.org/en-US/docs/Web/CSS/@media/prefers-reduced-motion
+  - https://vitest.dev/api/vi.html#vi-stubglobal
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'CSS Foundation — View Transition Keyframes'
+    description: >
+      Add ::view-transition-new/old rules and the theme-reveal @keyframes to
+      globals.css, including the prefers-reduced-motion override. This phase has
+      no JS changes and can be verified independently. Coming first ensures the
+      CSS is in place before the component starts invoking the API, preventing a
+      partial state where startViewTransition fires without the keyframes.
+    parallel: false
+
+  - id: phase-2
+    name: 'Component Update — Animated Toggle Logic'
+    description: >
+      Extend ThemeToggle.toggleTheme to accept a React.MouseEvent, capture
+      clientX/clientY, check for reduced-motion and API availability, and wrap
+      setTheme in document.startViewTransition. The component retains its
+      zero-prop API and 'use client' directive. Sound playback order is preserved
+      (play before transition starts). Depends on phase-1 CSS being present.
+    parallel: false
+
+  - id: phase-3
+    name: 'Test Coverage — Unit Tests'
+    description: >
+      Extend the existing test file with vi.stubGlobal mocks for
+      document.startViewTransition. Add: assertion that startViewTransition is
+      called on click, fallback test (API undefined → direct setTheme), and
+      reduced-motion test (matchMedia returns true → direct setTheme). Existing
+      sound tests must continue to pass unchanged.
+    parallel: false
+
+  - id: phase-4
+    name: 'Storybook Stories — Visual Variants'
+    description: >
+      Add LightMode and DarkMode story variants to the existing stories file
+      (FR-12). Mock document.startViewTransition in a beforeAll/setup decorator
+      so stories render without errors in the Storybook iframe. LightMode and
+      DarkMode variants use a wrapper div with class="dark" to force theme state.
+    parallel: false
+
+# File change tracking
+filesToCreate: []
+
+filesToModify:
+  - src/presentation/web/app/globals.css
+  - src/presentation/web/components/common/theme-toggle/theme-toggle.tsx
+  - tests/unit/presentation/web/components/common/theme-toggle/theme-toggle.test.tsx
+  - src/presentation/web/components/common/theme-toggle/theme-toggle.stories.tsx
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Status
+
+  - **Phase:** Planning (complete)
+  - **Updated:** 2026-03-04
+
+  ## Architecture Overview
+
+  This feature is entirely confined to the **presentation layer**
+  (`src/presentation/web/`). The Clean Architecture constraint (NFR-5) is
+  satisfied: no domain, application, or infrastructure files are touched.
+
+  The existing ThemeToggle sits at:
+  `src/presentation/web/components/common/theme-toggle/theme-toggle.tsx`
+
+  It already encapsulates all theme-switching logic via `useTheme` (localStorage
+  + system preference) and `useSoundAction` (audio feedback). The only change is
+  extending `toggleTheme` to:
+  1. Accept a `React.MouseEvent<HTMLButtonElement>` (reads `clientX`/`clientY`)
+  2. Guard on `document.startViewTransition` availability and `prefers-reduced-motion`
+  3. Inject `--x`/`--y` CSS custom properties onto `document.documentElement`
+  4. Wrap `setTheme` inside `startViewTransition`'s callback
+
+  The `useTheme` hook's `setTheme` applies the theme by toggling the `dark` class
+  on `document.documentElement.classList`. This is the correct insertion point
+  for the View Transitions API: the browser captures the current visual state
+  before the callback, runs the callback (which mutates the DOM), then animates
+  between old and new snapshots using the `::view-transition-*` pseudo-elements
+  and the `@keyframes` defined in `globals.css`.
+
+  ## Key Design Decisions
+
+  ### 1. Inline logic in toggleTheme (not a custom hook)
+  The MagicUI pattern lives directly in the click handler. No new hook or wrapper
+  component is introduced — YAGNI applies: the component is used once in app-shell,
+  and extracting the logic would add indirection with no consumer benefit.
+
+  ### 2. CSS custom properties on :root for click coordinates
+  `document.documentElement.style.setProperty('--x', e.clientX + 'px')` is the
+  only mechanism that makes the click coordinates accessible to
+  `::view-transition-new(*)`, which the browser renders at the document level
+  outside the React component tree. Scoped CSS vars (e.g., inline style on a
+  wrapper div) would not reach these top-level pseudo-elements.
+
+  ### 3. @keyframes in globals.css (not JS-injected)
+  globals.css already owns all animation definitions (accordion-down, spinner,
+  indeterminate-progress, option-highlight). `@keyframes theme-reveal` belongs
+  alongside these. Plain `@keyframes` outside `@theme` are valid in Tailwind v4's
+  CSS-first approach and pass through as standard CSS.
+
+  ### 4. Two-layer reduced-motion handling
+  NFR-8 requires prefers-reduced-motion support. The JS layer
+  (`window.matchMedia('(prefers-reduced-motion: reduce)').matches`) skips
+  `startViewTransition` entirely — no snapshot capture overhead. The CSS layer
+  (`@media (prefers-reduced-motion: reduce) { animation: none }`) is a defensive
+  fallback. Both reduced-motion and unsupported-browser paths share the same
+  direct `setTheme` call — DRY.
+
+  ### 5. ::view-transition-old(*) hidden immediately
+  Hiding the old snapshot via `animation: none` produces the MagicUI reference
+  visual: the new theme "grows in" on top of a static old snapshot that instantly
+  disappears. A simultaneous fade produces an undesirable double-animation with a
+  grey/washed-out middle state.
+
+  ### 6. 400ms ease-in-out animation duration
+  Within NFR-2's 500ms upper bound. Matches the MagicUI reference. Existing project
+  animations range from 200ms (accordion) to 1500ms (indeterminate-progress); 400ms
+  is appropriate for a full-page transition triggered by deliberate user intent.
+
+  ### 7. Keyboard activation via React.MouseEvent (clientX/clientY = 0)
+  React's synthetic MouseEvent from Enter/Space keyboard activation provides
+  `clientX = clientY = 0`. The animation originates from the top-left corner for
+  keyboard users — an acceptable degradation, not a regression. NFR-3 is satisfied:
+  keyboard activation still triggers the view transition. Using useRef +
+  getBoundingClientRect() for keyboard origin would add complexity disproportionate
+  to the benefit.
+
+  ## Implementation Strategy
+
+  Phases are ordered so each builds on the previous without partial states:
+
+  1. **CSS first** — keyframes exist before any JS calls startViewTransition
+  2. **Component logic** — wires the animation using the CSS already in place
+  3. **Tests** — validates all paths (happy, fallback, reduced-motion) with mocks
+  4. **Stories** — visual documentation of both theme states with stable mocks
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | ::view-transition-* rules interfere with existing animations | Scoped to pseudo-elements that only exist during an active view transition; no overlap with existing @keyframes |
+  | Tailwind v4 purges ::view-transition-* rules | Browser pseudo-elements are not processed by Tailwind's purge; they pass through as plain CSS |
+  | startViewTransition unavailable in test environment (jsdom) | vi.stubGlobal mocks the API; tests don't depend on the real browser API |
+  | Sound assertions break after MouseEvent change | Mock startViewTransition calls its callback synchronously; existing assertions work unchanged |
+  | Storybook iframe View Transitions API inconsistency | Stories mock startViewTransition as a no-op; no real browser API is invoked |
+  | prefers-reduced-motion check fails in SSR/test environments | Guard with `typeof window !== 'undefined'` before accessing window.matchMedia |

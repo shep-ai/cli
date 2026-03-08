@@ -1,3 +1,22 @@
+# [1.76.0](https://github.com/shep-ai/cli/compare/v1.75.0...v1.76.0) (2026-03-08)
+
+### Features
+
+- **web:** canvas ux polish - viewport persistence and first-repo auto-focus ([#226](https://github.com/shep-ai/cli/issues/226)) ([5419b9d](https://github.com/shep-ai/cli/commit/5419b9daae476615d3201011c1e9989602ee2a78)), closes [#213](https://github.com/shep-ai/cli/issues/213) [#208](https://github.com/shep-ai/cli/issues/208) [#213](https://github.com/shep-ai/cli/issues/213) [#208](https://github.com/shep-ai/cli/issues/208)
+
+# [1.75.0](https://github.com/shep-ai/cli/compare/v1.74.0...v1.75.0) (2026-03-08)
+
+### Features
+
+- **web:** animated theme toggle with circular reveal ([#236](https://github.com/shep-ai/cli/issues/236)) ([20fd21f](https://github.com/shep-ai/cli/commit/20fd21fa20581bcf2b481408b5949a7d3588b55f))
+
+# [1.74.0](https://github.com/shep-ai/cli/compare/v1.73.1...v1.74.0) (2026-03-08)
+
+### Features
+
+- **web:** remove feature name input from create drawer ([#225](https://github.com/shep-ai/cli/issues/225)) ([33d4856](https://github.com/shep-ai/cli/commit/33d4856b434384382acde261a585a211a2263543)), closes [#192](https://github.com/shep-ai/cli/issues/192)
+- **web:** remove reactflow attribution watermark from canvas ([#224](https://github.com/shep-ai/cli/issues/224)) ([78b152d](https://github.com/shep-ai/cli/commit/78b152df13b38ee7b36750b6960c096c7b99317b))
+
 ## [1.73.1](https://github.com/shep-ai/cli/compare/v1.73.0...v1.73.1) (2026-03-07)
 
 ### Bug Fixes

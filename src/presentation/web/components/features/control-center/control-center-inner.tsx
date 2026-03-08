@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import type { Edge } from '@xyflow/react';
+import type { Edge, Viewport } from '@xyflow/react';
 import { useReactFlow } from '@xyflow/react';
 import { FeaturesCanvas } from '@/components/features/features-canvas';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
@@ -38,9 +38,14 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
   const selectedFeatureId = useSelectedFeatureId();
   const clickSound = useSoundAction('click');
   const { guardedNavigate } = useDrawerCloseGuard();
-  const { defaultViewport, onMoveEnd } = useViewportPersistence();
   const { fitView } = useReactFlow();
   const drawerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const {
+    defaultViewport,
+    onMoveEnd: handleViewportChange,
+    resetViewport,
+  } = useViewportPersistence();
 
   const {
     nodes,
@@ -261,6 +266,13 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     handleDeleteRepository,
   ]);
 
+  const handleMoveEnd = useCallback(
+    (_event: unknown, viewport: Viewport) => {
+      handleViewportChange(viewport);
+    },
+    [handleViewportChange]
+  );
+
   const hasRepositories = nodes.some((n) => n.type === 'repositoryNode');
 
   if (!hasRepositories) {
@@ -278,7 +290,8 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
       onAddFeature={handleAddFeature}
       onNodeClick={handleNodeClick}
       onPaneClick={handleClearDrawers}
-      onMoveEnd={onMoveEnd}
+      onMoveEnd={handleMoveEnd}
+      onResetViewport={resetViewport}
       emptyState={<ControlCenterEmptyState onRepositorySelect={handleAddRepository} />}
     />
   );

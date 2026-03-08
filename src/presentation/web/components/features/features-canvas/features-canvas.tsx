@@ -1,9 +1,9 @@
 'use client';
 
-import { useMemo } from 'react';
-import { ReactFlow, Background, Controls } from '@xyflow/react';
-import type { Connection, Edge, NodeChange } from '@xyflow/react';
-import { Plus } from 'lucide-react';
+import { useCallback, useMemo } from 'react';
+import { ReactFlow, Background, Controls, ControlButton, useReactFlow } from '@xyflow/react';
+import type { Connection, Edge, NodeChange, OnMoveEnd, Viewport } from '@xyflow/react';
+import { Plus, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/common/empty-state';
 import { FeatureNode } from '@/components/common/feature-node';
@@ -11,7 +11,6 @@ import type { FeatureNodeType, FeatureNodeData } from '@/components/common/featu
 import { RepositoryNode } from '@/components/common/repository-node';
 import type { RepositoryNodeType } from '@/components/common/repository-node';
 import { DependencyEdge } from './dependency-edge';
-import { DEFAULT_VIEWPORT, type Viewport } from '@/hooks/use-viewport-persistence';
 
 export type CanvasNodeType = FeatureNodeType | RepositoryNodeType;
 
@@ -26,16 +25,34 @@ export interface FeaturesCanvasProps {
   onPaneClick?: (event: React.MouseEvent) => void;
   onConnect?: (connection: Connection) => void;
   onCanvasDrag?: () => void;
-  onMoveEnd?: (viewport: Viewport) => void;
+  onMoveEnd?: OnMoveEnd;
+  onResetViewport?: () => Viewport;
   toolbar?: React.ReactNode;
   emptyState?: React.ReactNode;
+}
+
+const FALLBACK_VIEWPORT: Viewport = { x: 30, y: 30, zoom: 0.85 };
+
+function ResetButton({ onResetViewport }: { onResetViewport: () => Viewport }) {
+  const { setViewport } = useReactFlow();
+
+  const handleReset = useCallback(() => {
+    const viewport = onResetViewport();
+    setViewport(viewport, { duration: 400 });
+  }, [onResetViewport, setViewport]);
+
+  return (
+    <ControlButton onClick={handleReset} title="Reset view" aria-label="Reset view">
+      <RotateCcw />
+    </ControlButton>
+  );
 }
 
 export function FeaturesCanvas({
   nodes,
   edges,
   selectedFeatureId,
-  defaultViewport: defaultViewportProp,
+  defaultViewport,
   onNodesChange,
   onAddFeature,
   onConnect,
@@ -43,6 +60,7 @@ export function FeaturesCanvas({
   onPaneClick,
   onCanvasDrag,
   onMoveEnd,
+  onResetViewport,
   toolbar,
   emptyState,
 }: FeaturesCanvasProps) {
@@ -116,15 +134,17 @@ export function FeaturesCanvas({
         onNodeClick={onNodeClick}
         onPaneClick={onPaneClick}
         onMoveStart={onCanvasDrag}
-        onMoveEnd={onMoveEnd ? (_event, viewport) => onMoveEnd(viewport) : undefined}
-        defaultViewport={defaultViewportProp ?? DEFAULT_VIEWPORT}
+        onMoveEnd={onMoveEnd}
+        defaultViewport={defaultViewport ?? FALLBACK_VIEWPORT}
         nodesDraggable={false}
         nodesConnectable={false}
         elementsSelectable={false}
         proOptions={{ hideAttribution: true }}
       >
         <Background />
-        <Controls />
+        <Controls showInteractive={false}>
+          {onResetViewport ? <ResetButton onResetViewport={onResetViewport} /> : null}
+        </Controls>
         {toolbar}
       </ReactFlow>
     </div>
