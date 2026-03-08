@@ -18,11 +18,11 @@ describe('DatabaseSettingsSection', () => {
     expect(screen.queryByRole('button', { name: /save/i })).toBeNull();
   });
 
-  it('renders title and description', () => {
+  it('renders title and read-only description', () => {
     render(<DatabaseSettingsSection shepHome="/home/user/.shep" dbFileSize="2.4 MB" />);
     expect(screen.getByText('Database Location')).toBeDefined();
     expect(
-      screen.getByText('Information about your Shep data directory and database')
+      screen.getByText('Read-only information about your Shep data directory and database')
     ).toBeDefined();
   });
 });

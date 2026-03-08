@@ -41,9 +41,9 @@ describe('FeatureFlagsSettingsSection', () => {
     ).toBeDefined();
   });
 
-  it('save button is disabled initially when no changes', () => {
+  it('does not render a save button (auto-saves on change)', () => {
     render(<FeatureFlagsSettingsSection featureFlags={defaultFlags} />);
-    expect(screen.getByTestId('feature-flags-save-button')).toHaveProperty('disabled', true);
+    expect(screen.queryByRole('button', { name: /save/i })).toBeNull();
   });
 
   it('renders title', () => {

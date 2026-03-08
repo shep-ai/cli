@@ -71,8 +71,14 @@ describe('NotificationSettingsSection', () => {
     expect(screen.getByText('PR Checks Failed')).toBeDefined();
   });
 
-  it('save button is disabled initially when no changes', () => {
+  it('groups events under agent events and pr events headings', () => {
     render(<NotificationSettingsSection notifications={defaultNotifications} />);
-    expect(screen.getByTestId('notification-save-button')).toHaveProperty('disabled', true);
+    expect(screen.getByText('Agent Events')).toBeDefined();
+    expect(screen.getByText('PR Events')).toBeDefined();
+  });
+
+  it('does not render a save button (auto-saves on change)', () => {
+    render(<NotificationSettingsSection notifications={defaultNotifications} />);
+    expect(screen.queryByRole('button', { name: /save/i })).toBeNull();
   });
 });

@@ -56,13 +56,13 @@ describe('AgentSettingsSection', () => {
     expect(screen.getByTestId('agent-token-input')).toBeDefined();
   });
 
-  it('save button is disabled initially when no changes', () => {
+  it('does not render a save button (auto-saves on change)', () => {
     render(
       <AgentSettingsSection
         agent={{ type: AgentType.ClaudeCode, authMethod: AgentAuthMethod.Session }}
       />
     );
-    expect(screen.getByTestId('agent-save-button')).toHaveProperty('disabled', true);
+    expect(screen.queryByRole('button', { name: /save/i })).toBeNull();
   });
 
   it('renders toggle for token visibility', () => {
@@ -72,5 +72,14 @@ describe('AgentSettingsSection', () => {
       />
     );
     expect(screen.getByTestId('toggle-token-visibility')).toBeDefined();
+  });
+
+  it('renders section description', () => {
+    render(
+      <AgentSettingsSection
+        agent={{ type: AgentType.ClaudeCode, authMethod: AgentAuthMethod.Session }}
+      />
+    );
+    expect(screen.getByText('Choose your AI coding agent and authentication method')).toBeDefined();
   });
 });

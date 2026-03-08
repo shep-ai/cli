@@ -44,9 +44,9 @@ describe('WorkflowSettingsSection', () => {
     expect(screen.getByTestId('ci-log-max-input')).toBeDefined();
   });
 
-  it('save button is disabled initially when no changes', () => {
+  it('does not render a save button (auto-saves on change)', () => {
     render(<WorkflowSettingsSection workflow={defaultWorkflow} />);
-    expect(screen.getByTestId('workflow-save-button')).toHaveProperty('disabled', true);
+    expect(screen.queryByRole('button', { name: /save/i })).toBeNull();
   });
 
   it('renders title and description', () => {
@@ -55,5 +55,24 @@ describe('WorkflowSettingsSection', () => {
     expect(
       screen.getByText('Configure PR behavior, approval gates, and CI settings')
     ).toBeDefined();
+  });
+
+  it('renders switch descriptions', () => {
+    render(<WorkflowSettingsSection workflow={defaultWorkflow} />);
+    expect(
+      screen.getByText('Automatically create a pull request when the agent finishes')
+    ).toBeDefined();
+    expect(screen.getByText('Push the branch to remote when implementation is done')).toBeDefined();
+  });
+
+  it('renders ci timeout label in seconds', () => {
+    render(<WorkflowSettingsSection workflow={defaultWorkflow} />);
+    expect(screen.getByText('Watch timeout (seconds)')).toBeDefined();
+  });
+
+  it('renders approval gates section heading', () => {
+    render(<WorkflowSettingsSection workflow={defaultWorkflow} />);
+    expect(screen.getByText('Approval Gates')).toBeDefined();
+    expect(screen.getByText('CI Settings')).toBeDefined();
   });
 });

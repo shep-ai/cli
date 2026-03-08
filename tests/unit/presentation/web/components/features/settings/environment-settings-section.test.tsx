@@ -38,12 +38,21 @@ describe('EnvironmentSettingsSection', () => {
     expect(screen.getByTestId('shell-select')).toBeDefined();
   });
 
-  it('save button is disabled initially when no changes', () => {
+  it('does not render a save button (auto-saves on change)', () => {
     render(
       <EnvironmentSettingsSection
         environment={{ defaultEditor: EditorType.VsCode, shellPreference: 'bash' }}
       />
     );
-    expect(screen.getByTestId('environment-save-button')).toHaveProperty('disabled', true);
+    expect(screen.queryByRole('button', { name: /save/i })).toBeNull();
+  });
+
+  it('renders section description', () => {
+    render(
+      <EnvironmentSettingsSection
+        environment={{ defaultEditor: EditorType.VsCode, shellPreference: 'bash' }}
+      />
+    );
+    expect(screen.getByText('Configure your default editor and shell preferences')).toBeDefined();
   });
 });
