@@ -21,6 +21,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { spawn } from 'node:child_process';
+import { createServer } from 'node:net';
 import { mkdtempSync, rmSync, writeFileSync, chmodSync } from 'node:fs';
 import { readFile, access } from 'node:fs/promises';
 import { constants } from 'node:fs';
@@ -99,6 +100,52 @@ function writeDaemonJson(shepHome: string, pid: number, port: number): void {
   );
 }
 
+/**
+ * Find a free port by binding to port 0 and letting the OS assign one.
+ * Closes the probe server immediately and returns the assigned port number.
+ */
+function findFreePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const server = createServer();
+    server.listen(0, '127.0.0.1', () => {
+      const address = server.address();
+      const port = typeof address === 'object' && address ? address.port : 0;
+      server.close(() => resolve(port));
+    });
+    server.on('error', reject);
+  });
+}
+
+/**
+ * Kill a process and its entire process group (best-effort).
+ * Uses negative PID to kill the group, with fallback to direct kill.
+ */
+function killPid(pid: number): void {
+  try {
+    process.kill(-pid, 'SIGKILL');
+  } catch {
+    try {
+      process.kill(pid, 'SIGKILL');
+    } catch {
+      // Already dead
+    }
+  }
+}
+
+/**
+ * Kill any daemon recorded in daemon.json (best-effort, process-group kill).
+ */
+async function killDaemonFromJson(shepHome: string): Promise<void> {
+  if (await daemonJsonExists(shepHome)) {
+    try {
+      const state = await readDaemonJson(shepHome);
+      killPid(state.pid);
+    } catch {
+      // Already dead — OK
+    }
+  }
+}
+
 // ─── Test suites ─────────────────────────────────────────────────────────────
 
 describe('CLI: daemon lifecycle', { timeout: TEST_TIMEOUT }, () => {
@@ -140,8 +187,10 @@ describe('CLI: daemon lifecycle', { timeout: TEST_TIMEOUT }, () => {
     let shepHome: string;
     let cleanup: () => void;
     let runCli: ReturnType<typeof createCliRunner>['run'];
+    let testPort: number;
 
-    beforeAll(() => {
+    beforeAll(async () => {
+      testPort = await findFreePort();
       const temp = makeTempShepHome();
       shepHome = temp.shepHome;
       cleanup = temp.cleanup;
@@ -151,21 +200,13 @@ describe('CLI: daemon lifecycle', { timeout: TEST_TIMEOUT }, () => {
     });
 
     afterAll(async () => {
-      // Best-effort: kill the spawned daemon if it is still alive
-      if (await daemonJsonExists(shepHome)) {
-        try {
-          const state = await readDaemonJson(shepHome);
-          process.kill(state.pid, 'SIGKILL');
-        } catch {
-          // Already dead — OK
-        }
-      }
+      await killDaemonFromJson(shepHome);
       cleanup();
     });
 
     it('exits 0 and prints a localhost URL', () => {
       const startMs = Date.now();
-      const result = runCli('start');
+      const result = runCli(`start --port ${testPort}`);
       const elapsed = Date.now() - startMs;
 
       expect(result.exitCode).toBe(0);
@@ -204,9 +245,10 @@ describe('CLI: daemon lifecycle', { timeout: TEST_TIMEOUT }, () => {
     let cleanup: () => void;
     let runCli: ReturnType<typeof createCliRunner>['run'];
     let fakeProcess: ReturnType<typeof spawn>;
-    const fakePort = 4051;
+    let fakePort: number;
 
     beforeAll(async () => {
+      fakePort = await findFreePort();
       const temp = makeTempShepHome();
       shepHome = temp.shepHome;
       cleanup = temp.cleanup;
@@ -223,12 +265,7 @@ describe('CLI: daemon lifecycle', { timeout: TEST_TIMEOUT }, () => {
     });
 
     afterAll(() => {
-      // Kill the fake process if it is still alive
-      try {
-        if (fakeProcess?.pid) process.kill(fakeProcess.pid, 'SIGKILL');
-      } catch {
-        // Already dead — OK
-      }
+      if (fakeProcess?.pid) killPid(fakeProcess.pid);
       cleanup();
     });
 
@@ -275,9 +312,12 @@ describe('CLI: daemon lifecycle', { timeout: TEST_TIMEOUT }, () => {
       let cleanup: () => void;
       let runCli: ReturnType<typeof createCliRunner>['run'];
       let fakeProcess: ReturnType<typeof spawn>;
-      const fakePort = 4052;
+      let fakePort: number;
+      let restartPort: number;
 
-      beforeAll(() => {
+      beforeAll(async () => {
+        fakePort = await findFreePort();
+        restartPort = await findFreePort();
         const temp = makeTempShepHome();
         shepHome = temp.shepHome;
         cleanup = temp.cleanup;
@@ -291,26 +331,13 @@ describe('CLI: daemon lifecycle', { timeout: TEST_TIMEOUT }, () => {
       });
 
       afterAll(async () => {
-        // Kill old fake process if still alive (likely dead after restart)
-        try {
-          if (fakeProcess?.pid) process.kill(fakeProcess.pid, 'SIGKILL');
-        } catch {
-          // Already dead — OK
-        }
-        // Kill new daemon if startDaemon wrote a new daemon.json
-        if (await daemonJsonExists(shepHome)) {
-          try {
-            const state = await readDaemonJson(shepHome);
-            process.kill(state.pid, 'SIGKILL');
-          } catch {
-            // Already dead — OK
-          }
-        }
+        if (fakeProcess?.pid) killPid(fakeProcess.pid);
+        await killDaemonFromJson(shepHome);
         cleanup();
       });
 
       it('exits 0, stops the old daemon, and invokes startDaemon', async () => {
-        const result = runCli('restart');
+        const result = runCli(`restart --port ${restartPort}`);
 
         expect(result.exitCode).toBe(0);
 
@@ -336,8 +363,10 @@ describe('CLI: daemon lifecycle', { timeout: TEST_TIMEOUT }, () => {
       let shepHome: string;
       let cleanup: () => void;
       let runCli: ReturnType<typeof createCliRunner>['run'];
+      let restartPort: number;
 
-      beforeAll(() => {
+      beforeAll(async () => {
+        restartPort = await findFreePort();
         const temp = makeTempShepHome();
         shepHome = temp.shepHome;
         cleanup = temp.cleanup;
@@ -347,20 +376,12 @@ describe('CLI: daemon lifecycle', { timeout: TEST_TIMEOUT }, () => {
       });
 
       afterAll(async () => {
-        // Kill any daemon that startDaemon may have spawned
-        if (await daemonJsonExists(shepHome)) {
-          try {
-            const state = await readDaemonJson(shepHome);
-            process.kill(state.pid, 'SIGKILL');
-          } catch {
-            // Already dead — OK
-          }
-        }
+        await killDaemonFromJson(shepHome);
         cleanup();
       });
 
       it('exits 0 and prints "Daemon was not running" message', () => {
-        const result = runCli('restart');
+        const result = runCli(`restart --port ${restartPort}`);
         expect(result.exitCode).toBe(0);
         const output = result.stdout + result.stderr;
         expect(output).toMatch(/daemon was not running/i);
@@ -370,7 +391,7 @@ describe('CLI: daemon lifecycle', { timeout: TEST_TIMEOUT }, () => {
         // Output should contain a localhost URL from startDaemon's success path
         // (test runs after the previous test — startDaemon already ran; check prior output indirectly
         //  by re-running; daemon is already up so this tests idempotent path)
-        const result = runCli('restart');
+        const result = runCli(`restart --port ${restartPort}`);
         expect(result.exitCode).toBe(0);
         expect(result.stdout + result.stderr).toMatch(/localhost:\d+/);
       });
@@ -385,9 +406,10 @@ describe('CLI: daemon lifecycle', { timeout: TEST_TIMEOUT }, () => {
       let cleanup: () => void;
       let runCli: ReturnType<typeof createCliRunner>['run'];
       let fakeProcess: ReturnType<typeof spawn>;
-      const fakePort = 4053;
+      let fakePort: number;
 
-      beforeAll(() => {
+      beforeAll(async () => {
+        fakePort = await findFreePort();
         const temp = makeTempShepHome();
         shepHome = temp.shepHome;
         binDir = mkdtempSync(join(tmpdir(), 'shep-e2e-bin-'));
@@ -420,19 +442,8 @@ describe('CLI: daemon lifecycle', { timeout: TEST_TIMEOUT }, () => {
       });
 
       afterAll(async () => {
-        try {
-          if (fakeProcess?.pid) process.kill(fakeProcess.pid, 'SIGKILL');
-        } catch {
-          // Already dead — OK
-        }
-        if (await daemonJsonExists(shepHome)) {
-          try {
-            const state = await readDaemonJson(shepHome);
-            process.kill(state.pid, 'SIGKILL');
-          } catch {
-            // Already dead — OK
-          }
-        }
+        if (fakeProcess?.pid) killPid(fakeProcess.pid);
+        await killDaemonFromJson(shepHome);
         cleanup();
       });
 
@@ -455,9 +466,10 @@ describe('CLI: daemon lifecycle', { timeout: TEST_TIMEOUT }, () => {
       let cleanup: () => void;
       let runCli: ReturnType<typeof createCliRunner>['run'];
       let fakeProcess: ReturnType<typeof spawn>;
-      const fakePort = 4054;
+      let fakePort: number;
 
-      beforeAll(() => {
+      beforeAll(async () => {
+        fakePort = await findFreePort();
         const temp = makeTempShepHome();
         shepHome = temp.shepHome;
         binDir = mkdtempSync(join(tmpdir(), 'shep-e2e-bin-'));
@@ -490,19 +502,8 @@ describe('CLI: daemon lifecycle', { timeout: TEST_TIMEOUT }, () => {
       });
 
       afterAll(async () => {
-        try {
-          if (fakeProcess?.pid) process.kill(fakeProcess.pid, 'SIGKILL');
-        } catch {
-          // Already dead — OK
-        }
-        if (await daemonJsonExists(shepHome)) {
-          try {
-            const state = await readDaemonJson(shepHome);
-            process.kill(state.pid, 'SIGKILL');
-          } catch {
-            // Already dead — OK
-          }
-        }
+        if (fakeProcess?.pid) killPid(fakeProcess.pid);
+        await killDaemonFromJson(shepHome);
         cleanup();
       });
 
