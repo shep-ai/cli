@@ -1,0 +1,96 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: remove-reactflow-attribution
+number: 051
+branch: feat/051-remove-reactflow-attribution
+oneLiner: Remove React Flow attribution watermark from the features canvas
+
+summary: >
+  Add proOptions={{ hideAttribution: true }} to the main ReactFlow component in
+  features-canvas.tsx to remove the "React Flow" watermark from the production canvas.
+  The attribution is already hidden in Storybook stories and tests but is still visible
+  in the actual application.
+
+phase: Analysis
+sizeEstimate: S
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - "@xyflow/react (React Flow v12)"
+  - React
+  - Next.js
+
+relatedLinks:
+  - https://reactflow.dev/learn/troubleshooting/remove-attribution
+
+# Open questions (must be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  The React Flow library renders a small attribution watermark ("React Flow") in the
+  bottom-right corner of the canvas by default. This watermark is currently visible in
+  the production features canvas. According to the React Flow documentation, the
+  attribution can be removed by passing `proOptions={{ hideAttribution: true }}` to the
+  `<ReactFlow>` component.
+
+  Notably, several Storybook stories and test files in this codebase already use
+  `proOptions={{ hideAttribution: true }}` on their own `<ReactFlow>` instances, but the
+  main production component (`features-canvas.tsx`) does not.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The web UI lives under `src/presentation/web/` following Clean Architecture layering.
+  Key directories relevant to this feature:
+
+  - `src/presentation/web/components/features/features-canvas/` — Main canvas component
+  - `src/presentation/web/components/common/feature-node/` — Feature node component
+  - `src/presentation/web/components/common/repository-node/` — Repository node component
+  - `tests/unit/presentation/web/` — Corresponding test files
+
+  ### Architecture Patterns
+
+  - Clean Architecture with presentation layer in `src/presentation/web/`
+  - React Flow (`@xyflow/react` v12) is used for the graph/canvas visualization
+  - Components follow a pattern of co-located stories (`.stories.tsx`) and separate test files
+  - The `FeaturesCanvas` component is the single production `<ReactFlow>` wrapper
+
+  ### Relevant Technologies
+
+  - `@xyflow/react` v12.10.0 — React Flow library providing the canvas
+  - React 19 with Next.js 16
+  - Storybook for component development
+  - Vitest for unit testing
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `src/presentation/web/components/features/features-canvas/features-canvas.tsx` | High | The main `<ReactFlow>` component where `proOptions` must be added (line 104) |
+  | `src/presentation/web/components/features/features-canvas/dependency-edge.stories.tsx` | Low | Story file with a `<ReactFlow>` instance that also lacks `proOptions` — should be consistent |
+  | `tests/unit/presentation/web/features/features-canvas/features-canvas.test.tsx` | Low | May want a test asserting the attribution is hidden, though this is a prop-level concern |
+
+  Files that ALREADY have `proOptions={{ hideAttribution: true }}` (no changes needed):
+  - `src/presentation/web/components/common/feature-node/feature-node.stories.tsx`
+  - `src/presentation/web/components/common/repository-node/repository-node.stories.tsx`
+  - `tests/unit/presentation/web/common/feature-node/feature-node.test.tsx`
+  - `tests/unit/presentation/web/common/repository-node/repository-node.test.tsx`
+
+  ## Dependencies
+
+  - `@xyflow/react` v12.10.0 already installed — the `proOptions` API is available in this version
+  - No new dependencies required
+
+  ## Size Estimate
+
+  **S** — This is a one-line prop addition to the main `<ReactFlow>` component in
+  `features-canvas.tsx`, plus an optional consistency fix in `dependency-edge.stories.tsx`.
+  No architectural changes, no new components, no new tests beyond verifying the existing
+  suite still passes.
