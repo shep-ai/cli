@@ -151,7 +151,12 @@ describe('AgentExecutorFactory', () => {
     it('should return gemini-cli model list', () => {
       const models = factory.getSupportedModels(AgentType.GeminiCli);
 
-      expect(models).toEqual(['gemini-3.1-pro', 'gemini-3-flash', 'gemini-2.5-pro', 'gemini-2.5-flash']);
+      expect(models).toEqual([
+        'gemini-3.1-pro',
+        'gemini-3-flash',
+        'gemini-2.5-pro',
+        'gemini-2.5-flash',
+      ]);
     });
 
     it('should return cursor model list', () => {

@@ -13,6 +13,7 @@
 ### Task 1: Create `getAllAgentModels` server action
 
 **Files:**
+
 - Create: `src/presentation/web/app/actions/get-all-agent-models.ts`
 - Create: `.storybook/mocks/app/actions/get-all-agent-models.ts`
 - Reference: `src/presentation/web/app/actions/get-supported-models.ts` (pattern)
@@ -63,9 +64,21 @@ export async function getAllAgentModels(): Promise<AgentModelGroup[]> {
 // .storybook/mocks/app/actions/get-all-agent-models.ts
 export async function getAllAgentModels() {
   return [
-    { agentType: 'claude-code', label: 'Claude Code', models: ['claude-opus-4-6', 'claude-sonnet-4-6', 'claude-haiku-4-5'] },
-    { agentType: 'cursor', label: 'Cursor', models: ['claude-3-5-sonnet-20241022', 'claude-3-haiku-20240307', 'gpt-4o', 'cursor-small'] },
-    { agentType: 'gemini-cli', label: 'Gemini CLI', models: ['gemini-2.5-pro', 'gemini-2.0-flash', 'gemini-1.5-pro'] },
+    {
+      agentType: 'claude-code',
+      label: 'Claude Code',
+      models: ['claude-opus-4-6', 'claude-sonnet-4-6', 'claude-haiku-4-5'],
+    },
+    {
+      agentType: 'cursor',
+      label: 'Cursor',
+      models: ['claude-3-5-sonnet-20241022', 'claude-3-haiku-20240307', 'gpt-4o', 'cursor-small'],
+    },
+    {
+      agentType: 'gemini-cli',
+      label: 'Gemini CLI',
+      models: ['gemini-2.5-pro', 'gemini-2.0-flash', 'gemini-1.5-pro'],
+    },
     { agentType: 'aider', label: 'Aider', models: [] },
     { agentType: 'continue', label: 'Continue', models: [] },
     { agentType: 'dev', label: 'Dev', models: [] },
@@ -84,6 +97,7 @@ feat(web): add get-all-agent-models server action
 ### Task 2: Create `updateAgentAndModel` server action
 
 **Files:**
+
 - Create: `src/presentation/web/app/actions/update-agent-and-model.ts`
 - Create: `.storybook/mocks/app/actions/update-agent-and-model.ts`
 - Reference: `src/presentation/web/app/actions/update-model.ts` (pattern)
@@ -114,7 +128,10 @@ export async function updateAgentAndModel(
     const currentSettings = getSettings();
     const updatedSettings = {
       ...currentSettings,
-      agent: { ...currentSettings.agent, type: agentType.trim() as typeof currentSettings.agent.type },
+      agent: {
+        ...currentSettings.agent,
+        type: agentType.trim() as typeof currentSettings.agent.type,
+      },
       models: { default: model?.trim() || currentSettings.models.default },
     };
 
@@ -155,6 +172,7 @@ feat(web): add update-agent-and-model server action
 ### Task 3: Build the `AgentModelPicker` component
 
 **Files:**
+
 - Create: `src/presentation/web/components/features/settings/AgentModelPicker/index.tsx`
 - Reference: `src/presentation/web/components/features/settings/ModelPicker/index.tsx` (prior art)
 - Reference: `src/presentation/web/components/common/feature-node/agent-type-icons.tsx` (brand icons)
@@ -163,6 +181,7 @@ feat(web): add update-agent-and-model server action
 **Step 1: Write the component**
 
 The component structure:
+
 - Props: `initialAgentType: string`, `initialModel: string`, `onAgentModelChange?: (agentType: string, model: string) => void`, `disabled?: boolean`, `className?: string`, `mode: 'settings' | 'override'`
 - On mount: calls `getAllAgentModels()` to fetch all groups
 - Trigger button: shows `[AgentIcon] model-name` with ChevronsUpDown chevron
@@ -319,7 +338,7 @@ export function AgentModelPicker({
                       {hasModels ? (
                         <>
                           {/* Agent group header — not clickable */}
-                          <div className="flex items-center gap-2 px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                          <div className="text-muted-foreground flex items-center gap-2 px-2 py-1.5 text-xs font-semibold">
                             <GroupIcon className="h-4 w-4 shrink-0" />
                             {group.label}
                           </div>
@@ -381,6 +400,7 @@ feat(web): add unified agent-model picker component
 ### Task 4: Add Storybook stories for `AgentModelPicker`
 
 **Files:**
+
 - Create: `src/presentation/web/components/features/settings/AgentModelPicker/AgentModelPicker.stories.tsx`
 
 **Step 1: Write stories**
@@ -469,6 +489,7 @@ feat(web): add agent-model picker storybook stories
 ### Task 5: Integrate AgentModelPicker into feature-create drawer
 
 **Files:**
+
 - Modify: `src/presentation/web/components/common/feature-create-drawer/feature-create-drawer.tsx`
 - Modify: `src/presentation/web/components/common/feature-create-drawer/feature-create-drawer.stories.tsx`
 
@@ -486,12 +507,14 @@ model?: string;
 **Step 2: Add state and render the AgentModelPicker in override mode**
 
 Add state variables:
+
 ```ts
 const [overrideAgent, setOverrideAgent] = useState<string | undefined>(undefined);
 const [overrideModel, setOverrideModel] = useState<string | undefined>(undefined);
 ```
 
 Props needed: `initialAgentType` and `initialModel` — these come from the current settings. Add new props to `FeatureCreateDrawerProps`:
+
 ```ts
 /** Current global agent type from settings */
 currentAgentType?: string;
@@ -502,7 +525,9 @@ currentModel?: string;
 Add the picker in the form between the PARENT FEATURE and MODE sections:
 
 ```tsx
-{/* Agent & Model override */}
+{
+  /* Agent & Model override */
+}
 <div className="flex flex-col gap-1.5">
   <Label className="text-muted-foreground text-xs font-semibold tracking-wider">
     AGENT & MODEL
@@ -517,12 +542,13 @@ Add the picker in the form between the PARENT FEATURE and MODE sections:
     }}
     disabled={isSubmitting}
   />
-</div>
+</div>;
 ```
 
 **Step 3: Pass override values through in `handleSubmit`**
 
 Add to the `onSubmit` call:
+
 ```ts
 ...(overrideAgent ? { agentType: overrideAgent } : {}),
 ...(overrideModel ? { model: overrideModel } : {}),
@@ -538,6 +564,7 @@ setOverrideModel(undefined);
 **Step 5: Update stories to provide new props**
 
 Add `currentAgentType` and `currentModel` to stories args:
+
 ```ts
 currentAgentType: 'claude-code',
 currentModel: 'claude-sonnet-4-6',
@@ -554,6 +581,7 @@ feat(web): integrate agent-model picker into feature create drawer
 ### Task 6: Wire `FeatureCreatePayload.agentType` and `model` through to create-feature action
 
 **Files:**
+
 - Modify: `src/presentation/web/app/actions/create-feature.ts`
 - Modify: where create-feature is called from the control center (likely `use-control-center-state.ts` or `create-drawer-client.tsx`)
 
@@ -596,6 +624,7 @@ Expected: Clean.
 
 Run: `pnpm dev:web`
 Open http://localhost:3000 — verify the AgentModelPicker works in:
+
 1. Feature create drawer: shows unified agent+model dropdown
 2. Selecting a model shows `[icon] model-name` on the trigger
 
