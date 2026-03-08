@@ -1,3 +1,5 @@
+## [1.77.2](https://github.com/shep-ai/cli/compare/v1.77.1...v1.77.2) (2026-03-08)
+
 ## [1.77.1](https://github.com/shep-ai/cli/compare/v1.77.0...v1.77.1) (2026-03-08)
 
 ### Bug Fixes
