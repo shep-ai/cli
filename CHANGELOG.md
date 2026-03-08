@@ -1,3 +1,9 @@
+## [1.77.1](https://github.com/shep-ai/cli/compare/v1.77.0...v1.77.1) (2026-03-08)
+
+### Bug Fixes
+
+- **ci:** use random ports and process-group cleanup in daemon e2e tests ([#245](https://github.com/shep-ai/cli/issues/245)) ([4351a02](https://github.com/shep-ai/cli/commit/4351a027e36db71fc0f8216c0486e36079b188ef))
+
 # [1.77.0](https://github.com/shep-ai/cli/compare/v1.76.0...v1.77.0) (2026-03-08)
 
 ### Features
