@@ -1,21 +1,17 @@
 'use client';
 
 import { useCallback, useEffect, useRef } from 'react';
+import type { Viewport } from '@xyflow/react';
 
 export const STORAGE_KEY = 'shep-canvas-viewport';
 export const DEBOUNCE_MS = 500;
-
-export interface Viewport {
-  x: number;
-  y: number;
-  zoom: number;
-}
 
 export const DEFAULT_VIEWPORT: Viewport = { x: 30, y: 30, zoom: 0.85 };
 
 export interface UseViewportPersistenceResult {
   defaultViewport: Viewport;
   onMoveEnd: (viewport: Viewport) => void;
+  resetViewport: () => Viewport;
 }
 
 function isValidViewport(value: unknown): value is Viewport {
@@ -70,5 +66,14 @@ export function useViewportPersistence(): UseViewportPersistenceResult {
     }, DEBOUNCE_MS);
   }, []);
 
-  return { defaultViewport, onMoveEnd };
+  const resetViewport = useCallback((): Viewport => {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      // Silently ignore localStorage errors
+    }
+    return DEFAULT_VIEWPORT;
+  }, []);
+
+  return { defaultViewport, onMoveEnd, resetViewport };
 }

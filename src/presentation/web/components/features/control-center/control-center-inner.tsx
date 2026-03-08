@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import type { Edge } from '@xyflow/react';
+import type { Edge, Viewport } from '@xyflow/react';
 import { FeaturesCanvas } from '@/components/features/features-canvas';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 import type { FeatureNodeData } from '@/components/common/feature-node';
@@ -14,6 +14,7 @@ import {
 import { useSelectedFeatureId } from '@/hooks/use-selected-feature-id';
 import { useSoundAction } from '@/hooks/use-sound-action';
 import { useDrawerCloseGuard } from '@/hooks/drawer-close-guard';
+import { useViewportPersistence } from '@/hooks/use-viewport-persistence';
 import { ControlCenterEmptyState } from './control-center-empty-state';
 import { useControlCenterState } from './use-control-center-state';
 
@@ -28,6 +29,12 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
   const selectedFeatureId = useSelectedFeatureId();
   const clickSound = useSoundAction('click');
   const { guardedNavigate } = useDrawerCloseGuard();
+
+  const {
+    defaultViewport,
+    onMoveEnd: handleViewportChange,
+    resetViewport,
+  } = useViewportPersistence();
 
   const {
     nodes,
@@ -231,6 +238,13 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     handleDeleteRepository,
   ]);
 
+  const handleMoveEnd = useCallback(
+    (_event: unknown, viewport: Viewport) => {
+      handleViewportChange(viewport);
+    },
+    [handleViewportChange]
+  );
+
   const hasRepositories = nodes.some((n) => n.type === 'repositoryNode');
 
   if (!hasRepositories) {
@@ -242,11 +256,14 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
       nodes={nodes}
       edges={edges}
       selectedFeatureId={selectedFeatureId}
+      defaultViewport={defaultViewport}
       onNodesChange={onNodesChange}
       onConnect={handleConnect}
       onAddFeature={handleAddFeature}
       onNodeClick={handleNodeClick}
       onPaneClick={handleClearDrawers}
+      onMoveEnd={handleMoveEnd}
+      onResetViewport={resetViewport}
       emptyState={<ControlCenterEmptyState onRepositorySelect={handleAddRepository} />}
     />
   );

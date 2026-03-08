@@ -1,347 +1,618 @@
-# Feature Specification (YAML)
-# This is the source of truth. Markdown is auto-generated from this file.
-
 name: canvas-ux-polish
-number: 051
+number: 51
 branch: feat/canvas-ux-polish
-oneLiner: Preserve canvas viewport on refresh and auto-focus first repo with new-feature drawer
-
+oneLiner: >-
+  Preserve canvas viewport on refresh and auto-focus first repo with new-feature
+  drawer
 summary: >
-  Two UX enhancements for the features canvas: (1) Persist pan/zoom viewport state across page
-  refreshes using localStorage so users don't lose their canvas position (issue #213), and
-  (2) When the first repository is added to an empty canvas, auto-center and zoom to it, then
-  open the New Feature drawer so the user has a clear next step (issue #208).
+  Two UX enhancements for the features canvas: (1) Persist pan/zoom viewport
+  state across page refreshes using localStorage so users don't lose their
+  canvas position (issue #213), and (2) When the first repository is added to an
+  empty canvas, auto-center and zoom to it, then open the New Feature drawer so
+  the user has a clear next step (issue #208).
 phase: Requirements
 sizeEstimate: M
-
-# Relationships
 relatedFeatures: []
-
 technologies:
-  - '@xyflow/react (React Flow v12) — viewport control via useReactFlow, onMoveEnd, defaultViewport'
-  - 'Next.js App Router — client components, URL-based drawer navigation'
-  - 'localStorage — viewport persistence across refreshes'
+  - >-
+    @xyflow/react (React Flow v12) — viewport control via useReactFlow,
+    onMoveEnd, defaultViewport
+  - Next.js App Router — client components, URL-based drawer navigation
+  - localStorage — viewport persistence across refreshes
   - '@dagrejs/dagre — layout engine for node positioning'
-  - 'Tailwind CSS — styling'
-  - 'Radix UI — drawer/sheet components'
-  - 'Vitest + React Testing Library — unit tests'
-  - 'Storybook — component stories'
-
+  - Tailwind CSS — styling
+  - Radix UI — drawer/sheet components
+  - Vitest + React Testing Library — unit tests
+  - Storybook — component stories
 relatedLinks:
-  - 'https://github.com/shep-ai/cli/issues/213'
-  - 'https://github.com/shep-ai/cli/issues/208'
-
+  - https://github.com/shep-ai/cli/issues/213
+  - https://github.com/shep-ai/cli/issues/208
 openQuestions:
-  - question: 'Should viewport be persisted per-user or per-browser?'
+  - question: Should viewport be persisted per-user or per-browser?
     resolved: true
     options:
-      - option: 'Per-browser (localStorage)'
+      - option: Per-browser (localStorage)
         description: >
-          Store viewport in localStorage, which is scoped to browser + origin. Simple to
-          implement, zero backend changes, works offline. Downside: viewport doesn't roam
-          across browsers or devices, but this is a developer tool used primarily on a single
-          machine so roaming has negligible value.
+          Store viewport in localStorage, which is scoped to browser + origin.
+          Simple to implement, zero backend changes, works offline. Downside:
+          viewport doesn't roam across browsers or devices, but this is a
+          developer tool used primarily on a single machine so roaming has
+          negligible value.
         selected: true
-      - option: 'Per-user (server-side)'
+      - option: Per-user (server-side)
         description: >
-          Store viewport in the database tied to the user/session. Roams across browsers and
-          devices. Requires API endpoint, database schema change, and network round-trip on
-          every viewport save. Significant complexity for minimal benefit given single-machine
-          usage patterns.
+          Store viewport in the database tied to the user/session. Roams across
+          browsers and devices. Requires API endpoint, database schema change,
+          and network round-trip on every viewport save. Significant complexity
+          for minimal benefit given single-machine usage patterns.
         selected: false
     selectionRationale: >
-      localStorage is the right choice because shep is a developer tool typically used on a
-      single machine. Per-browser persistence covers the primary use case (page refresh) with
-      zero backend complexity. The existing codebase already uses localStorage for preferences
-      (e.g., useSoundEnabled with key 'shep-sound-enabled'), establishing a clear precedent.
-    answer: 'Per-browser (localStorage)'
-
-  - question: 'Should the auto-focus on first repo use fitView or a manual setViewport call?'
+      localStorage is the right choice because shep is a developer tool
+      typically used on a single machine. Per-browser persistence covers the
+      primary use case (page refresh) with zero backend complexity. The existing
+      codebase already uses localStorage for preferences (e.g., useSoundEnabled
+      with key 'shep-sound-enabled'), establishing a clear precedent.
+    answer: Per-browser (localStorage)
+  - question: >-
+      Should the auto-focus on first repo use fitView or a manual setViewport
+      call?
     resolved: true
     options:
-      - option: 'fitView with node filter'
+      - option: fitView with node filter
         description: >
-          Use useReactFlow().fitView({ nodes: [repoNode], padding: 0.5 }) to auto-center on
-          the first repo node. fitView handles zoom calculation automatically, adapts to
-          container size, and provides smooth animation via duration option. Simpler API with
-          fewer magic numbers. Works correctly regardless of node dimensions.
+          Use useReactFlow().fitView({ nodes: [repoNode], padding: 0.5 }) to
+          auto-center on the first repo node. fitView handles zoom calculation
+          automatically, adapts to container size, and provides smooth animation
+          via duration option. Simpler API with fewer magic numbers. Works
+          correctly regardless of node dimensions.
         selected: true
-      - option: 'Manual setViewport'
+      - option: Manual setViewport
         description: >
-          Calculate exact viewport position from node coordinates and container dimensions,
-          then call setViewport({ x, y, zoom }). Gives precise control over final viewport
-          state. Requires manual math for centering and zoom, must account for container size,
-          node dimensions, and padding. More code, more edge cases, more brittle.
+          Calculate exact viewport position from node coordinates and container
+          dimensions, then call setViewport({ x, y, zoom }). Gives precise
+          control over final viewport state. Requires manual math for centering
+          and zoom, must account for container size, node dimensions, and
+          padding. More code, more edge cases, more brittle.
         selected: false
     selectionRationale: >
-      fitView with a node filter is the idiomatic React Flow approach. It handles viewport
-      math automatically, adapts to container size changes, and supports smooth animation via
-      the duration option. Manual setViewport requires reimplementing centering logic that
-      fitView already provides. The padding parameter gives sufficient control over whitespace.
-    answer: 'fitView with node filter'
-
-  - question: 'What zoom level and padding should auto-focus use when centering the first repo node?'
+      fitView with a node filter is the idiomatic React Flow approach. It
+      handles viewport math automatically, adapts to container size changes, and
+      supports smooth animation via the duration option. Manual setViewport
+      requires reimplementing centering logic that fitView already provides. The
+      padding parameter gives sufficient control over whitespace.
+    answer: fitView with node filter
+  - question: >-
+      What zoom level and padding should auto-focus use when centering the first
+      repo node?
     resolved: true
     options:
-      - option: 'fitView with maxZoom 1.0 and padding 0.5'
+      - option: fitView with maxZoom 1.0 and padding 0.5
         description: >
-          Let fitView calculate optimal zoom but cap at 1.0 (100%) so the single node is never
-          blown up larger than its natural size. Padding 0.5 provides generous whitespace around
-          the node so it feels centered rather than cramped. This matches the feel of the
-          existing default viewport zoom (0.85) while ensuring the node is visible and prominent.
+          Let fitView calculate optimal zoom but cap at 1.0 (100%) so the single
+          node is never blown up larger than its natural size. Padding 0.5
+          provides generous whitespace around the node so it feels centered
+          rather than cramped. This matches the feel of the existing default
+          viewport zoom (0.85) while ensuring the node is visible and prominent.
         selected: true
-      - option: 'fitView with maxZoom 0.85 and padding 0.3'
+      - option: fitView with maxZoom 0.85 and padding 0.3
         description: >
-          Match the current hardcoded default zoom exactly (0.85). Tighter padding (0.3) shows
-          more canvas. Consistent with the existing default but may feel too zoomed-out for a
-          single node, making it look small and lost on the canvas.
+          Match the current hardcoded default zoom exactly (0.85). Tighter
+          padding (0.3) shows more canvas. Consistent with the existing default
+          but may feel too zoomed-out for a single node, making it look small
+          and lost on the canvas.
         selected: false
-      - option: 'fitView with default maxZoom and padding 0.2'
+      - option: fitView with default maxZoom and padding 0.2
         description: >
-          Use React Flow's default maxZoom (1.2) with minimal padding. The node may appear
-          oversized if the container is large relative to the node, which could look jarring.
+          Use React Flow's default maxZoom (1.2) with minimal padding. The node
+          may appear oversized if the container is large relative to the node,
+          which could look jarring.
         selected: false
     selectionRationale: >
-      maxZoom 1.0 prevents the node from appearing unnaturally large on wide screens while
-      still making it prominent. Padding 0.5 creates a comfortable visual balance — the node
-      is clearly centered with enough surrounding space that the canvas feels spacious rather
-      than empty. This combination works well across different screen sizes.
-    answer: 'fitView with maxZoom 1.0 and padding 0.5'
-
-  - question: 'What localStorage key naming convention should be used for viewport persistence?'
+      maxZoom 1.0 prevents the node from appearing unnaturally large on wide
+      screens while still making it prominent. Padding 0.5 creates a comfortable
+      visual balance — the node is clearly centered with enough surrounding
+      space that the canvas feels spacious rather than empty. This combination
+      works well across different screen sizes.
+    answer: fitView with maxZoom 1.0 and padding 0.5
+  - question: >-
+      What localStorage key naming convention should be used for viewport
+      persistence?
     resolved: true
     options:
       - option: "Single global key: 'shep-canvas-viewport'"
         description: >
-          One key stores the viewport for the canvas. Simple, matches the existing
-          'shep-sound-enabled' key pattern. Since shep operates on one project at a time in the
-          browser, there is no need for per-project scoping. If the user switches projects, a
-          fresh viewport is appropriate anyway.
+          One key stores the viewport for the canvas. Simple, matches the
+          existing 'shep-sound-enabled' key pattern. Since shep operates on one
+          project at a time in the browser, there is no need for per-project
+          scoping. If the user switches projects, a fresh viewport is
+          appropriate anyway.
         selected: true
       - option: "Per-project key: 'shep-canvas-viewport-{projectId}'"
         description: >
-          Scope viewport to each project. Handles multi-project usage without viewport collision.
-          Requires knowing the current project ID at the hook level, which adds a dependency.
-          Risk of localStorage bloat if many projects are used. Currently shep serves one project
-          per browser session so this adds complexity with no immediate benefit.
+          Scope viewport to each project. Handles multi-project usage without
+          viewport collision. Requires knowing the current project ID at the
+          hook level, which adds a dependency. Risk of localStorage bloat if
+          many projects are used. Currently shep serves one project per browser
+          session so this adds complexity with no immediate benefit.
         selected: false
     selectionRationale: >
-      A single global key matches the existing convention (shep-sound-enabled) and aligns with
-      shep's single-project-per-session model. The viewport is a transient preference — if the
-      user switches projects, starting with a fresh viewport is reasonable behavior. This keeps
-      the hook simple with no external dependencies.
+      A single global key matches the existing convention (shep-sound-enabled)
+      and aligns with shep's single-project-per-session model. The viewport is a
+      transient preference — if the user switches projects, starting with a
+      fresh viewport is reasonable behavior. This keeps the hook simple with no
+      external dependencies.
     answer: "Single global key: 'shep-canvas-viewport'"
-
-  - question: 'How should viewport save be debounced to avoid excessive localStorage writes during pan/zoom?'
+  - question: >-
+      How should viewport save be debounced to avoid excessive localStorage
+      writes during pan/zoom?
     resolved: true
     options:
-      - option: '500ms debounce on onMoveEnd'
+      - option: 500ms debounce on onMoveEnd
         description: >
-          Debounce the onMoveEnd callback by 500ms. Since onMoveEnd already fires only at the
-          end of a pan/zoom gesture (not during), the debounce primarily coalesces rapid
-          successive gestures (e.g., scroll-wheel zoom ticks). 500ms is long enough to batch
-          rapid gestures but short enough that the last viewport is captured before the user
-          navigates away. Minimal performance impact since onMoveEnd is already infrequent.
+          Debounce the onMoveEnd callback by 500ms. Since onMoveEnd already
+          fires only at the end of a pan/zoom gesture (not during), the debounce
+          primarily coalesces rapid successive gestures (e.g., scroll-wheel zoom
+          ticks). 500ms is long enough to batch rapid gestures but short enough
+          that the last viewport is captured before the user navigates away.
+          Minimal performance impact since onMoveEnd is already infrequent.
         selected: true
-      - option: 'No debounce, write on every onMoveEnd'
+      - option: No debounce, write on every onMoveEnd
         description: >
-          Write to localStorage on every onMoveEnd event. onMoveEnd fires only at gesture
-          completion, so writes are already infrequent. Simpler implementation with no timer
-          management. Risk: rapid scroll-wheel zooming could cause many writes in quick
-          succession, though localStorage writes are fast (~0.1ms each).
+          Write to localStorage on every onMoveEnd event. onMoveEnd fires only
+          at gesture completion, so writes are already infrequent. Simpler
+          implementation with no timer management. Risk: rapid scroll-wheel
+          zooming could cause many writes in quick succession, though
+          localStorage writes are fast (~0.1ms each).
         selected: false
-      - option: '1000ms debounce on onMoveEnd'
+      - option: 1000ms debounce on onMoveEnd
         description: >
-          Longer debounce window. More aggressive batching but risks missing the last viewport
-          if the user closes the tab within 1 second of their last interaction.
+          Longer debounce window. More aggressive batching but risks missing the
+          last viewport if the user closes the tab within 1 second of their last
+          interaction.
         selected: false
     selectionRationale: >
-      500ms debounce on onMoveEnd strikes the right balance. onMoveEnd is already an end-of-
-      gesture event so it fires infrequently, but scroll-wheel zoom produces rapid successive
-      onMoveEnd events. 500ms coalesces these without risking data loss on tab close. The
-      debounce also serves as a safety net against any future React Flow behavior changes.
-    answer: '500ms debounce on onMoveEnd'
-
-  - question: 'Should the auto-open drawer trigger only on the literal first-ever repo add, or every time a repo is added to an empty canvas?'
+      500ms debounce on onMoveEnd strikes the right balance. onMoveEnd is
+      already an end-of- gesture event so it fires infrequently, but
+      scroll-wheel zoom produces rapid successive onMoveEnd events. 500ms
+      coalesces these without risking data loss on tab close. The debounce also
+      serves as a safety net against any future React Flow behavior changes.
+    answer: 500ms debounce on onMoveEnd
+  - question: >-
+      Should the auto-open drawer trigger only on the literal first-ever repo
+      add, or every time a repo is added to an empty canvas?
     resolved: true
     options:
-      - option: 'Only on transition from 0 to 1 repo during a user-initiated add action'
+      - option: Only on transition from 0 to 1 repo during a user-initiated add action
         description: >
-          Trigger auto-focus and drawer only when the user explicitly adds a repo to an empty
-          canvas (repoMap transitions from size 0 to size 1 during handleAddRepository). Does
-          NOT trigger on page refresh even if the canvas was previously empty. Does NOT trigger
-          if repos are loaded from the server on initial page load. This prevents the drawer
-          from unexpectedly opening on refresh or when data arrives via SSE/polling.
+          Trigger auto-focus and drawer only when the user explicitly adds a
+          repo to an empty canvas (repoMap transitions from size 0 to size 1
+          during handleAddRepository). Does NOT trigger on page refresh even if
+          the canvas was previously empty. Does NOT trigger if repos are loaded
+          from the server on initial page load. This prevents the drawer from
+          unexpectedly opening on refresh or when data arrives via SSE/polling.
         selected: true
-      - option: 'Every time canvas goes from 0 to 1 repo, regardless of source'
+      - option: Every time canvas goes from 0 to 1 repo, regardless of source
         description: >
-          Trigger whenever repoMap transitions from empty to non-empty, including on initial
-          data load and SSE updates. Simpler detection logic but causes unexpected drawer opens
-          on page refresh when the user already has repos. Would be annoying on every page load
-          for existing users.
+          Trigger whenever repoMap transitions from empty to non-empty,
+          including on initial data load and SSE updates. Simpler detection
+          logic but causes unexpected drawer opens on page refresh when the user
+          already has repos. Would be annoying on every page load for existing
+          users.
         selected: false
     selectionRationale: >
-      The auto-focus + drawer is an onboarding flow, not a persistent behavior. It should only
-      fire when the user actively adds their first repo to guide them to create a feature. On
-      subsequent page loads, the data loads from the server and the user already knows what to
-      do. Tying it to the handleAddRepository action (not to reactive Map size changes) ensures
-      it only fires on explicit user action.
-    answer: 'Only on transition from 0 to 1 repo during a user-initiated add action'
-
-content: |
+      The auto-focus + drawer is an onboarding flow, not a persistent behavior.
+      It should only fire when the user actively adds their first repo to guide
+      them to create a feature. On subsequent page loads, the data loads from
+      the server and the user already knows what to do. Tying it to the
+      handleAddRepository action (not to reactive Map size changes) ensures it
+      only fires on explicit user action.
+    answer: Only on transition from 0 to 1 repo during a user-initiated add action
+content: >
   ## Problem Statement
+
 
   Two UX issues on the features canvas need addressing:
 
+
   **Issue #213 — Preserve canvas pan/zoom on refresh:**
-  When users pan and zoom the canvas to a comfortable position, that state is lost on page refresh.
-  The viewport resets to the hardcoded default `{x: 30, y: 30, zoom: 0.85}` every time. For users
-  with many features spread across the canvas, this forces them to re-navigate to their working
+
+  When users pan and zoom the canvas to a comfortable position, that state is
+  lost on page refresh.
+
+  The viewport resets to the hardcoded default `{x: 30, y: 30, zoom: 0.85}`
+  every time. For users
+
+  with many features spread across the canvas, this forces them to re-navigate
+  to their working
+
   area on every page load.
 
+
   **Issue #208 — First repo on canvas alignment:**
-  When a user first opens shep with an empty canvas and adds their first repository, the new repo
-  node appears at a position that may not be visible or centered. It's unclear what to do next.
-  The UX should auto-center the viewport on the new repository node AND automatically open the
+
+  When a user first opens shep with an empty canvas and adds their first
+  repository, the new repo
+
+  node appears at a position that may not be visible or centered. It's unclear
+  what to do next.
+
+  The UX should auto-center the viewport on the new repository node AND
+  automatically open the
+
   New Feature drawer so the user is guided to create their first feature.
+
 
   ## Success Criteria
 
-  - [ ] Canvas viewport (pan + zoom) persists across page refreshes via localStorage
-  - [ ] Saved viewport is restored on page load; falls back to default `{x: 30, y: 30, zoom: 0.85}` when no saved state exists
-  - [ ] Viewport writes to localStorage are debounced (500ms) to avoid excessive writes during rapid pan/zoom
-  - [ ] Corrupted or invalid localStorage data is handled gracefully (falls back to default viewport)
-  - [ ] When the first repo is added to an empty canvas via user action, viewport auto-centers on the repo node using fitView
-  - [ ] New Feature drawer (`/create?repo=<path>`) auto-opens after first repo is added and viewport is centered
-  - [ ] Auto-focus + drawer open only triggers on user-initiated first repo add, NOT on page refresh or SSE data load
-  - [ ] All existing canvas interactions (node click, pane click, drawer open/close, drag) continue unchanged
-  - [ ] Viewport persistence does not interfere with first-repo auto-focus (auto-focus overrides saved viewport when triggered)
-  - [ ] Unit tests cover viewport persistence hook: save, restore, default fallback, corrupted data handling
-  - [ ] Unit tests cover first-repo detection logic: triggers on first add, does not trigger on subsequent adds or page loads
+
+  - [ ] Canvas viewport (pan + zoom) persists across page refreshes via
+  localStorage
+
+  - [ ] Saved viewport is restored on page load; falls back to default `{x: 30,
+  y: 30, zoom: 0.85}` when no saved state exists
+
+  - [ ] Viewport writes to localStorage are debounced (500ms) to avoid excessive
+  writes during rapid pan/zoom
+
+  - [ ] Corrupted or invalid localStorage data is handled gracefully (falls back
+  to default viewport)
+
+  - [ ] When the first repo is added to an empty canvas via user action,
+  viewport auto-centers on the repo node using fitView
+
+  - [ ] New Feature drawer (`/create?repo=<path>`) auto-opens after first repo
+  is added and viewport is centered
+
+  - [ ] Auto-focus + drawer open only triggers on user-initiated first repo add,
+  NOT on page refresh or SSE data load
+
+  - [ ] All existing canvas interactions (node click, pane click, drawer
+  open/close, drag) continue unchanged
+
+  - [ ] Viewport persistence does not interfere with first-repo auto-focus
+  (auto-focus overrides saved viewport when triggered)
+
+  - [ ] Unit tests cover viewport persistence hook: save, restore, default
+  fallback, corrupted data handling
+
+  - [ ] Unit tests cover first-repo detection logic: triggers on first add, does
+  not trigger on subsequent adds or page loads
+
   - [ ] Storybook stories exist for new and modified components
+
   - [ ] `pnpm build`, `pnpm test`, `pnpm lint:fix`, `pnpm validate` all pass
+
 
   ## Functional Requirements
 
+
   ### Viewport Persistence (Issue #213)
 
-  - **FR-1**: The system shall save the current canvas viewport (x, y, zoom) to localStorage under the key `shep-canvas-viewport` whenever the user finishes a pan or zoom gesture (onMoveEnd event).
-  - **FR-2**: The system shall debounce viewport saves with a 500ms window to coalesce rapid successive gestures (e.g., scroll-wheel zoom ticks).
-  - **FR-3**: On page load, the system shall read the saved viewport from localStorage and use it as the initial viewport for the ReactFlow canvas.
-  - **FR-4**: If no saved viewport exists in localStorage, the system shall use the existing default viewport `{x: 30, y: 30, zoom: 0.85}`.
-  - **FR-5**: If the saved viewport data in localStorage is corrupted, malformed, or contains invalid values (non-numeric x/y/zoom, zoom <= 0), the system shall discard it and fall back to the default viewport.
-  - **FR-6**: The viewport persistence hook shall be implemented as a standalone custom hook (`useViewportPersistence`) that encapsulates all localStorage read/write/debounce logic.
-  - **FR-7**: The `FeaturesCanvas` component shall accept the persisted viewport as its `defaultViewport` prop and wire `onMoveEnd` to the persistence hook's save callback.
+
+  - **FR-1**: The system shall save the current canvas viewport (x, y, zoom) to
+  localStorage under the key `shep-canvas-viewport` whenever the user finishes a
+  pan or zoom gesture (onMoveEnd event).
+
+  - **FR-2**: The system shall debounce viewport saves with a 500ms window to
+  coalesce rapid successive gestures (e.g., scroll-wheel zoom ticks).
+
+  - **FR-3**: On page load, the system shall read the saved viewport from
+  localStorage and use it as the initial viewport for the ReactFlow canvas.
+
+  - **FR-4**: If no saved viewport exists in localStorage, the system shall use
+  the existing default viewport `{x: 30, y: 30, zoom: 0.85}`.
+
+  - **FR-5**: If the saved viewport data in localStorage is corrupted,
+  malformed, or contains invalid values (non-numeric x/y/zoom, zoom <= 0), the
+  system shall discard it and fall back to the default viewport.
+
+  - **FR-6**: The viewport persistence hook shall be implemented as a standalone
+  custom hook (`useViewportPersistence`) that encapsulates all localStorage
+  read/write/debounce logic.
+
+  - **FR-7**: The `FeaturesCanvas` component shall accept the persisted viewport
+  as its `defaultViewport` prop and wire `onMoveEnd` to the persistence hook's
+  save callback.
+
 
   ### First Repo Auto-Focus (Issue #208)
 
-  - **FR-8**: When the user adds the first repository to an empty canvas (repoMap transitions from 0 to 1 entry during `handleAddRepository`), the system shall auto-center the viewport on the new repo node.
-  - **FR-9**: Auto-centering shall use `useReactFlow().fitView()` with the repo node filtered, `maxZoom: 1.0`, `padding: 0.5`, and a smooth animation via the `duration` option.
-  - **FR-10**: After the viewport centers on the first repo node, the system shall automatically navigate to `/create?repo=<encodedRepoPath>` to open the New Feature drawer.
-  - **FR-11**: The auto-focus + drawer open shall only trigger when the add is a user-initiated action (via `handleAddRepository`), NOT when repos appear from server data on initial page load or via SSE/polling reconciliation.
-  - **FR-12**: The auto-focus + drawer open shall only trigger when the canvas was previously empty (0 repos). Adding a second, third, etc. repo shall not trigger auto-focus or auto-open drawer.
-  - **FR-13**: When auto-focus triggers, the resulting viewport position shall be saved to localStorage (overriding any previously saved viewport) so that a subsequent refresh preserves the auto-focused position.
+
+  - **FR-8**: When the user adds the first repository to an empty canvas
+  (repoMap transitions from 0 to 1 entry during `handleAddRepository`), the
+  system shall auto-center the viewport on the new repo node.
+
+  - **FR-9**: Auto-centering shall use `useReactFlow().fitView()` with the repo
+  node filtered, `maxZoom: 1.0`, `padding: 0.5`, and a smooth animation via the
+  `duration` option.
+
+  - **FR-10**: After the viewport centers on the first repo node, the system
+  shall automatically navigate to `/create?repo=<encodedRepoPath>` to open the
+  New Feature drawer.
+
+  - **FR-11**: The auto-focus + drawer open shall only trigger when the add is a
+  user-initiated action (via `handleAddRepository`), NOT when repos appear from
+  server data on initial page load or via SSE/polling reconciliation.
+
+  - **FR-12**: The auto-focus + drawer open shall only trigger when the canvas
+  was previously empty (0 repos). Adding a second, third, etc. repo shall not
+  trigger auto-focus or auto-open drawer.
+
+  - **FR-13**: When auto-focus triggers, the resulting viewport position shall
+  be saved to localStorage (overriding any previously saved viewport) so that a
+  subsequent refresh preserves the auto-focused position.
+
 
   ### Integration
 
-  - **FR-14**: The `handleAddRepository` function in `use-control-center-state` shall return or signal metadata needed for first-repo detection (specifically: whether the canvas was empty before the add, and the repo path of the added repo).
-  - **FR-15**: `ControlCenterInner` shall coordinate between first-repo detection, viewport auto-focus, and drawer navigation, using the existing guarded navigation pattern for drawer opens.
+
+  - **FR-14**: The `handleAddRepository` function in `use-control-center-state`
+  shall return or signal metadata needed for first-repo detection (specifically:
+  whether the canvas was empty before the add, and the repo path of the added
+  repo).
+
+  - **FR-15**: `ControlCenterInner` shall coordinate between first-repo
+  detection, viewport auto-focus, and drawer navigation, using the existing
+  guarded navigation pattern for drawer opens.
+
 
   ## Non-Functional Requirements
 
-  - **NFR-1 — Performance**: Viewport persistence shall not cause perceptible UI jank. localStorage reads happen once on mount (synchronous, <1ms). Writes are debounced and off the interaction path.
-  - **NFR-2 — Resilience**: The viewport persistence hook shall never throw or break the canvas. All localStorage operations shall be wrapped in try/catch to handle quota errors, private browsing restrictions, and disabled storage.
-  - **NFR-3 — Testability**: The viewport persistence hook shall be unit-testable in isolation with a mocked localStorage. No direct dependency on React Flow internals in the hook's core logic.
-  - **NFR-4 — UX consistency**: The auto-focus animation shall use a duration of 400-600ms to feel smooth but not sluggish, consistent with the overall app feel.
-  - **NFR-5 — No regression**: All existing canvas behaviors (node clicking, pane clicking, drawer open/close, node highlighting, SSE updates, optimistic updates, layout) shall remain unchanged.
-  - **NFR-6 — Storybook coverage**: Every new or modified component shall have colocated `.stories.tsx` files demonstrating key states (saved viewport, no saved viewport, first-repo auto-focus).
-  - **NFR-7 — Code organization**: The viewport persistence hook shall live in `src/presentation/web/hooks/` alongside existing hooks, following the established pattern (e.g., `use-sound-enabled.ts`).
-  - **NFR-8 — localStorage hygiene**: The system shall use a single key (`shep-canvas-viewport`) and store a compact JSON object `{x, y, zoom}`. No unbounded growth or stale key accumulation.
+
+  - **NFR-1 — Performance**: Viewport persistence shall not cause perceptible UI
+  jank. localStorage reads happen once on mount (synchronous, <1ms). Writes are
+  debounced and off the interaction path.
+
+  - **NFR-2 — Resilience**: The viewport persistence hook shall never throw or
+  break the canvas. All localStorage operations shall be wrapped in try/catch to
+  handle quota errors, private browsing restrictions, and disabled storage.
+
+  - **NFR-3 — Testability**: The viewport persistence hook shall be
+  unit-testable in isolation with a mocked localStorage. No direct dependency on
+  React Flow internals in the hook's core logic.
+
+  - **NFR-4 — UX consistency**: The auto-focus animation shall use a duration of
+  400-600ms to feel smooth but not sluggish, consistent with the overall app
+  feel.
+
+  - **NFR-5 — No regression**: All existing canvas behaviors (node clicking,
+  pane clicking, drawer open/close, node highlighting, SSE updates, optimistic
+  updates, layout) shall remain unchanged.
+
+  - **NFR-6 — Storybook coverage**: Every new or modified component shall have
+  colocated `.stories.tsx` files demonstrating key states (saved viewport, no
+  saved viewport, first-repo auto-focus).
+
+  - **NFR-7 — Code organization**: The viewport persistence hook shall live in
+  `src/presentation/web/hooks/` alongside existing hooks, following the
+  established pattern (e.g., `use-sound-enabled.ts`).
+
+  - **NFR-8 — localStorage hygiene**: The system shall use a single key
+  (`shep-canvas-viewport`) and store a compact JSON object `{x, y, zoom}`. No
+  unbounded growth or stale key accumulation.
+
 
   ## Product Questions & AI Recommendations
 
+
   | # | Question | AI Recommendation | Rationale |
+
   | - | -------- | ----------------- | --------- |
-  | 1 | Per-user or per-browser viewport persistence? | Per-browser (localStorage) | Developer tool used on single machine; matches existing localStorage patterns; zero backend complexity |
-  | 2 | fitView or manual setViewport for auto-focus? | fitView with node filter | Idiomatic React Flow API; handles viewport math automatically; supports smooth animation; less code |
-  | 3 | What zoom/padding for auto-focus? | maxZoom 1.0, padding 0.5 | Prevents oversized node on wide screens; generous whitespace feels centered; works across screen sizes |
-  | 4 | localStorage key naming convention? | Single global key 'shep-canvas-viewport' | Matches existing 'shep-sound-enabled' pattern; single-project-per-session model; keeps hook simple |
-  | 5 | Debounce strategy for viewport saves? | 500ms debounce on onMoveEnd | Coalesces scroll-wheel zoom bursts; short enough to capture last position before tab close |
-  | 6 | When should auto-focus + drawer trigger? | Only on user-initiated first repo add | Onboarding flow, not persistent behavior; prevents unexpected drawer opens on refresh/SSE load |
+
+  | 1 | Per-user or per-browser viewport persistence? | Per-browser
+  (localStorage) | Developer tool used on single machine; matches existing
+  localStorage patterns; zero backend complexity |
+
+  | 2 | fitView or manual setViewport for auto-focus? | fitView with node filter
+  | Idiomatic React Flow API; handles viewport math automatically; supports
+  smooth animation; less code |
+
+  | 3 | What zoom/padding for auto-focus? | maxZoom 1.0, padding 0.5 | Prevents
+  oversized node on wide screens; generous whitespace feels centered; works
+  across screen sizes |
+
+  | 4 | localStorage key naming convention? | Single global key
+  'shep-canvas-viewport' | Matches existing 'shep-sound-enabled' pattern;
+  single-project-per-session model; keeps hook simple |
+
+  | 5 | Debounce strategy for viewport saves? | 500ms debounce on onMoveEnd |
+  Coalesces scroll-wheel zoom bursts; short enough to capture last position
+  before tab close |
+
+  | 6 | When should auto-focus + drawer trigger? | Only on user-initiated first
+  repo add | Onboarding flow, not persistent behavior; prevents unexpected
+  drawer opens on refresh/SSE load |
+
 
   ## Codebase Analysis
 
+
   ### Project Structure
+
 
   Key directories relevant to this feature:
 
+
   | Directory | Purpose |
+
   | --------- | ------- |
-  | `src/presentation/web/components/features/features-canvas/` | ReactFlow canvas component |
-  | `src/presentation/web/components/features/control-center/` | Canvas wrapper with state management |
-  | `src/presentation/web/hooks/use-graph-state.ts` | Domain-model-driven graph state (Maps to nodes/edges) |
-  | `src/presentation/web/lib/layout-with-dagre.ts` | Dagre-based hierarchical layout engine |
-  | `src/presentation/web/lib/derive-graph.ts` | Pure function deriving nodes/edges from domain Maps |
-  | `src/presentation/web/components/common/repository-node/` | Repository node component |
-  | `src/presentation/web/components/common/feature-node/` | Feature node component |
-  | `src/presentation/web/components/common/base-drawer/` | Reusable drawer component |
-  | `src/presentation/web/hooks/use-sound-enabled.ts` | Existing localStorage persistence pattern (precedent) |
+
+  | `src/presentation/web/components/features/features-canvas/` | ReactFlow
+  canvas component |
+
+  | `src/presentation/web/components/features/control-center/` | Canvas wrapper
+  with state management |
+
+  | `src/presentation/web/hooks/use-graph-state.ts` | Domain-model-driven graph
+  state (Maps to nodes/edges) |
+
+  | `src/presentation/web/lib/layout-with-dagre.ts` | Dagre-based hierarchical
+  layout engine |
+
+  | `src/presentation/web/lib/derive-graph.ts` | Pure function deriving
+  nodes/edges from domain Maps |
+
+  | `src/presentation/web/components/common/repository-node/` | Repository node
+  component |
+
+  | `src/presentation/web/components/common/feature-node/` | Feature node
+  component |
+
+  | `src/presentation/web/components/common/base-drawer/` | Reusable drawer
+  component |
+
+  | `src/presentation/web/hooks/use-sound-enabled.ts` | Existing localStorage
+  persistence pattern (precedent) |
+
 
   ### Architecture Patterns
 
-  **Domain-model-driven graph state:** The canvas does NOT use React Flow's internal state for
-  source of truth. Instead, domain Maps (`featureMap`, `repoMap`, `pendingMap`) are the single
-  source of truth. Changes flow: Domain Maps -> `deriveGraph()` -> `layoutWithDagre()` -> React Flow render.
+
+  **Domain-model-driven graph state:** The canvas does NOT use React Flow's
+  internal state for
+
+  source of truth. Instead, domain Maps (`featureMap`, `repoMap`, `pendingMap`)
+  are the single
+
+  source of truth. Changes flow: Domain Maps -> `deriveGraph()` ->
+  `layoutWithDagre()` -> React Flow render.
+
   `onNodesChange` is a no-op.
 
-  **Viewport is currently uncontrolled:** The `<ReactFlow>` component uses `defaultViewport`
-  (uncontrolled) rather than a controlled `viewport` prop. This means React Flow manages viewport
-  state internally. To persist viewport, we keep it uncontrolled and use `onMoveEnd` +
-  `useReactFlow().setViewport()` for save/restore — no need to switch to controlled mode.
 
-  **Repository addition flow:** `handleAddRepository` in `use-control-center-state.ts` creates
-  a temp repo node optimistically, calls the server, then replaces with real ID. The canvas
-  re-renders via domain Map updates. There is no post-add viewport adjustment or drawer opening.
+  **Viewport is currently uncontrolled:** The `<ReactFlow>` component uses
+  `defaultViewport`
 
-  **URL-based drawer routing:** Drawers open via Next.js URL navigation (e.g., `/create`,
-  `/feature/:id`). The create-feature drawer opens at `/create?repo=<path>`. Auto-opening the
-  drawer after first repo add requires a `router.push('/create?repo=...')` through the guarded
+  (uncontrolled) rather than a controlled `viewport` prop. This means React Flow
+  manages viewport
+
+  state internally. To persist viewport, we keep it uncontrolled and use
+  `onMoveEnd` +
+
+  `useReactFlow().setViewport()` for save/restore — no need to switch to
+  controlled mode.
+
+
+  **Repository addition flow:** `handleAddRepository` in
+  `use-control-center-state.ts` creates
+
+  a temp repo node optimistically, calls the server, then replaces with real ID.
+  The canvas
+
+  re-renders via domain Map updates. There is no post-add viewport adjustment or
+  drawer opening.
+
+
+  **URL-based drawer routing:** Drawers open via Next.js URL navigation (e.g.,
+  `/create`,
+
+  `/feature/:id`). The create-feature drawer opens at `/create?repo=<path>`.
+  Auto-opening the
+
+  drawer after first repo add requires a `router.push('/create?repo=...')`
+  through the guarded
+
   navigation system.
 
-  **Existing localStorage pattern:** `useSoundEnabled` hook uses `localStorage.getItem/setItem`
-  with key `shep-sound-enabled` and cross-tab sync via custom events. This establishes the
+
+  **Existing localStorage pattern:** `useSoundEnabled` hook uses
+  `localStorage.getItem/setItem`
+
+  with key `shep-sound-enabled` and cross-tab sync via custom events. This
+  establishes the
+
   precedent for the viewport persistence key naming and approach.
+
 
   ## Affected Areas
 
+
   | Area | Impact | Reasoning |
+
   | ---- | ------ | --------- |
-  | `features-canvas.tsx` | High | Must accept dynamic defaultViewport and wire onMoveEnd callback |
-  | `control-center-inner.tsx` | High | Must detect first-repo-added scenario, trigger viewport focus + drawer navigation |
-  | `use-control-center-state.ts` | Medium | `handleAddRepository` must signal first-repo event for auto-focus |
-  | New: `use-viewport-persistence.ts` hook | High | New hook to save/restore viewport from localStorage with debounce |
-  | `features-canvas.stories.tsx` | Medium | Must add stories demonstrating viewport persistence behavior |
-  | `control-center-inner` stories/tests | Medium | Must cover first-repo auto-focus + drawer open behavior |
-  | Unit tests for viewport hook | High | TDD for localStorage save/restore/validation logic |
+
+  | `features-canvas.tsx` | High | Must accept dynamic defaultViewport and wire
+  onMoveEnd callback |
+
+  | `control-center-inner.tsx` | High | Must detect first-repo-added scenario,
+  trigger viewport focus + drawer navigation |
+
+  | `use-control-center-state.ts` | Medium | `handleAddRepository` must signal
+  first-repo event for auto-focus |
+
+  | New: `use-viewport-persistence.ts` hook | High | New hook to save/restore
+  viewport from localStorage with debounce |
+
+  | `features-canvas.stories.tsx` | Medium | Must add stories demonstrating
+  viewport persistence behavior |
+
+  | `control-center-inner` stories/tests | Medium | Must cover first-repo
+  auto-focus + drawer open behavior |
+
+  | Unit tests for viewport hook | High | TDD for localStorage
+  save/restore/validation logic |
+
 
   ## Dependencies
 
-  - **@xyflow/react** `useReactFlow()` hook — for `getViewport()`, `setViewport()`, `fitView()`
+
+  - **@xyflow/react** `useReactFlow()` hook — for `getViewport()`,
+  `setViewport()`, `fitView()`
+
   - **@xyflow/react** `onMoveEnd` callback — for tracking viewport changes
+
   - **localStorage API** — for viewport persistence
+
   - **Next.js `useRouter`** — for auto-opening create drawer after first repo
-  - Existing `handleAddRepository` in `use-control-center-state.ts` — needs enhancement to signal first-repo scenario
-  - Existing `FeaturesCanvas` component — needs new props for viewport persistence callbacks
+
+  - Existing `handleAddRepository` in `use-control-center-state.ts` — needs
+  enhancement to signal first-repo scenario
+
+  - Existing `FeaturesCanvas` component — needs new props for viewport
+  persistence callbacks
+
   - Existing `DrawerCloseGuard` — guarded navigation for auto-opening drawer
+
 
   ## Size Estimate
 
-  **M** — Two focused UX enhancements touching 5-7 files. The viewport persistence hook is
-  straightforward (localStorage + debounce + validation). The first-repo auto-focus requires
-  careful detection logic tying handleAddRepository to viewport control and drawer navigation,
-  but is well-scoped. TDD cycles for the hook plus Storybook stories for modified components
+
+  **M** — Two focused UX enhancements touching 5-7 files. The viewport
+  persistence hook is
+
+  straightforward (localStorage + debounce + validation). The first-repo
+  auto-focus requires
+
+  careful detection logic tying handleAddRepository to viewport control and
+  drawer navigation,
+
+  but is well-scoped. TDD cycles for the hook plus Storybook stories for
+  modified components
+
   bring the total to a medium-sized effort.
+
 
   ---
 
+
   _Requirements complete — proceed with research phase_
+rejectionFeedback:
+  - iteration: 1
+    message: https://github.com/shep-ai/cli/issues/213 is not resolved.
+    phase: merge
+    timestamp: '2026-03-08T11:15:29.916Z'
+  - iteration: 2
+    message: >-
+      the canvas control panel should have tooltips so we would understand what
+      they are doing, also there needs to be somekind of "rest" button to reset
+      to the way it looked when we started
+    phase: merge
+    timestamp: '2026-03-08T11:27:30.568Z'
+  - iteration: 3
+    message: Do not change the style of the canvas controls, also remove the lock
+    phase: merge
+    timestamp: '2026-03-08T12:00:56.244Z'
+  - iteration: 4
+    message: for reset  use lucid icon "rotate-ccw"  instead of the current svg
+    phase: merge
+    timestamp: '2026-03-08T12:34:56.780Z'
