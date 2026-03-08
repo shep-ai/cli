@@ -17,6 +17,7 @@ import type {
   AgentExecutionStreamEvent,
 } from '../../../../../application/ports/output/agents/agent-executor.interface.js';
 import type { SpawnFunction } from '../types.js';
+import { getLogPrefix } from '../../feature-agent/log-context.js';
 
 /** Features supported by Claude Code CLI */
 const SUPPORTED_FEATURES = new Set<string>([
@@ -43,7 +44,7 @@ export class ClaudeCodeExecutorService implements IAgentExecutor {
   private log(message: string): void {
     if (this.silent) return;
     const ts = new Date().toISOString();
-    process.stdout.write(`[${ts}] [claude-executor] ${message}\n`);
+    process.stdout.write(`[${ts}] ${getLogPrefix()}[claude-executor] ${message}\n`);
   }
 
   async execute(prompt: string, options?: AgentExecutionOptions): Promise<AgentExecutionResult> {

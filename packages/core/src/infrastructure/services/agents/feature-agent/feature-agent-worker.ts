@@ -30,6 +30,7 @@ import { InitializeSettingsUseCase } from '@/application/use-cases/settings/init
 import { setHeartbeatContext } from './heartbeat.js';
 import { setPhaseTimingContext, recordLifecycleEvent } from './phase-timing-context.js';
 import { setLifecycleContext } from './lifecycle-context.js';
+import { setLogPrefix, getLogPrefix } from './log-context.js';
 import type { IPhaseTimingRepository } from '@/application/ports/output/agents/phase-timing-repository.interface.js';
 import { UpdateFeatureLifecycleUseCase } from '@/application/use-cases/features/update/update-feature-lifecycle.use-case.js';
 
@@ -127,7 +128,7 @@ export function parseWorkerArgs(args: string[]): WorkerArgs {
 /** Simple worker logger — writes to stdout which is redirected to log file by the parent. */
 function log(message: string): void {
   const ts = new Date().toISOString();
-  process.stdout.write(`[${ts}] [WORKER] ${message}\n`);
+  process.stdout.write(`[${ts}] ${getLogPrefix()}[WORKER] ${message}\n`);
 }
 
 /** Heartbeat interval (30 seconds) */
@@ -159,13 +160,35 @@ function startHeartbeat(runId: string, runRepository: IAgentRunRepository): () =
  * Initializes DI, creates the graph, and executes it.
  */
 export async function runWorker(args: WorkerArgs): Promise<void> {
-  log(`Starting with featureId=${args.featureId} runId=${args.runId}`);
-  log(`  repo=${args.repo}`);
-  log(`  specDir=${args.specDir}`);
-  log(`  worktreePath=${args.worktreePath ?? '(none)'}`);
-  log(`  approvalGates=${args.approvalGates ? JSON.stringify(args.approvalGates) : '(none)'}`);
-  log(`  resume=${args.resume}`);
-  log(`  fast=${args.fast ?? false}`);
+  // Set log prefix early so all subsequent log lines carry agent/model info
+  const agentLabel = args.agentType ?? 'default';
+  setLogPrefix(agentLabel, args.model);
+
+  // Log the full reconstructed spawn command for debugging
+  const cmdParts = [
+    'feature-agent-worker',
+    '--feature-id',
+    args.featureId,
+    '--run-id',
+    args.runId,
+    '--repo',
+    args.repo,
+    '--spec-dir',
+    args.specDir,
+    ...(args.worktreePath ? ['--worktree-path', args.worktreePath] : []),
+    ...(args.approvalGates ? ['--approval-gates', JSON.stringify(args.approvalGates)] : []),
+    ...(args.resume ? ['--resume'] : []),
+    ...(args.threadId ? ['--thread-id', args.threadId] : []),
+    ...(args.resumeFromInterrupt ? ['--resume-from-interrupt'] : []),
+    ...(args.push ? ['--push'] : []),
+    ...(args.openPr ? ['--open-pr'] : []),
+    ...(args.resumePayload ? ['--resume-payload', args.resumePayload] : []),
+    ...(args.agentType ? ['--agent-type', args.agentType] : []),
+    ...(args.fast ? ['--fast'] : []),
+    ...(args.model ? ['--model', args.model] : []),
+  ];
+  log(`Starting worker — full command:`);
+  log(`  ${cmdParts.join(' ')}`);
 
   log('Initializing container...');
   await initializeContainer();

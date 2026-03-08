@@ -23,6 +23,7 @@ import {
   recordApprovalWaitStart,
 } from '../phase-timing-context.js';
 import { updateNodeLifecycle } from '../lifecycle-context.js';
+import { getLogPrefix } from '../log-context.js';
 
 /**
  * Create a scoped logger that prefixes messages with the node name.
@@ -32,11 +33,11 @@ export function createNodeLogger(nodeName: string) {
   return {
     info(message: string): void {
       const ts = new Date().toISOString();
-      process.stdout.write(`[${ts}] [${nodeName}] ${message}\n`);
+      process.stdout.write(`[${ts}] ${getLogPrefix()}[${nodeName}] ${message}\n`);
     },
     error(message: string): void {
       const ts = new Date().toISOString();
-      process.stderr.write(`[${ts}] [${nodeName}] ERROR: ${message}\n`);
+      process.stderr.write(`[${ts}] ${getLogPrefix()}[${nodeName}] ERROR: ${message}\n`);
     },
   };
 }
