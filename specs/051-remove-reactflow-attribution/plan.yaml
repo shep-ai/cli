@@ -1,0 +1,95 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: remove-reactflow-attribution
+summary: >
+  Add proOptions={{ hideAttribution: true }} to two ReactFlow instances that currently
+  lack the prop: the production features-canvas.tsx component and the
+  dependency-edge.stories.tsx Storybook story. This follows the existing codebase pattern
+  where six other files already use this prop. No new dependencies, abstractions, or tests
+  are needed — the change is confined to the presentation layer.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - '@xyflow/react v12.10.0 (React Flow v12)'
+  - React
+  - Next.js
+  - Storybook
+relatedLinks:
+  - https://reactflow.dev/learn/troubleshooting/remove-attribution
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'Add proOptions to production and story files'
+    description: >
+      Add proOptions={{ hideAttribution: true }} to the two remaining ReactFlow instances
+      that lack the prop: features-canvas.tsx (production) and dependency-edge.stories.tsx
+      (Storybook). This is a single phase because both changes are independent one-line
+      prop additions with no architectural dependencies between them. Verification
+      (build, test, lint) follows immediately.
+    parallel: false
+
+# File change tracking
+filesToCreate: []
+filesToModify:
+  - src/presentation/web/components/features/features-canvas/features-canvas.tsx
+  - src/presentation/web/components/features/features-canvas/dependency-edge.stories.tsx
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Architecture Overview
+
+  This change is entirely within the **presentation layer** (`src/presentation/web/`).
+  No domain, application, or infrastructure layers are affected. No interfaces, types,
+  or contracts change.
+
+  The `<ReactFlow>` component in `features-canvas.tsx` (line 104) is the main production
+  canvas used to render the feature dependency graph. The `<ReactFlow>` component in
+  `dependency-edge.stories.tsx` (line 51) is a Storybook story that demonstrates the
+  DependencyEdge component in isolation.
+
+  Both files follow the same inline-prop pattern used across the codebase for ReactFlow
+  configuration (nodesDraggable, nodesConnectable, elementsSelectable, etc.).
+
+  ## Key Design Decisions
+
+  ### 1. Inline proOptions prop (not extracted to a shared config)
+
+  Every existing ReactFlow instance in the codebase applies `proOptions` inline as a JSX
+  attribute. Extracting it into a shared constant would introduce a pattern not used
+  elsewhere and add unnecessary indirection. The inline approach is consistent with both
+  the codebase convention and each component's own style.
+
+  ### 2. No new tests
+
+  The `features-canvas.test.tsx` file renders `<FeaturesCanvas>` (the wrapper component),
+  not `<ReactFlow>` directly. The `proOptions` prop is applied inside the component. Adding
+  a test that asserts on a specific prop value would couple the test to React Flow internals
+  and provide minimal value for a static boolean. The existing test suite verifies the
+  component renders correctly and will catch any regressions from the prop addition.
+
+  ### 3. No CSS-based approach
+
+  Using CSS to hide the attribution element would be fragile, depending on React Flow's
+  internal DOM structure and class names. The `proOptions` API is the officially documented
+  and supported mechanism for this purpose.
+
+  ## Implementation Strategy
+
+  This is a single-phase implementation. Both files need an identical one-line prop addition.
+  The production file (features-canvas.tsx) is modified first because it addresses the
+  user-facing requirement, followed by the story file for consistency. Verification
+  (existing tests, build, lint) confirms no regressions.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Prop breaks existing component behavior | proOptions only controls the attribution watermark — no layout, interaction, or render changes. Existing test suite covers component rendering. |
+  | Prop not available in installed version | @xyflow/react v12.10.0 is already installed and six other files already use this exact prop successfully. |
+  | Story rendering breaks | The prop is already used in four other story files without issues. Run Storybook build to confirm. |

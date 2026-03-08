@@ -1,0 +1,78 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: remove-reactflow-attribution
+summary: >
+  2 tasks across 1 phase. Add proOptions={{ hideAttribution: true }} to the production
+  ReactFlow component and the dependency-edge Storybook story, then verify with existing
+  tests, build, and lint.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - '@xyflow/react v12.10.0'
+  - React
+relatedLinks: []
+
+# Structured task list
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Add proOptions to features-canvas.tsx and dependency-edge.stories.tsx'
+    description: >
+      Add proOptions={{ hideAttribution: true }} to the <ReactFlow> component in
+      features-canvas.tsx (line 104) and dependency-edge.stories.tsx (line 51). This
+      removes the attribution watermark from the production canvas and the Storybook
+      story, matching the pattern already used in six other files.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'features-canvas.tsx <ReactFlow> element includes proOptions={{ hideAttribution: true }}'
+      - 'dependency-edge.stories.tsx <ReactFlow> element includes proOptions={{ hideAttribution: true }}'
+      - 'No other props or behavior are changed in either file'
+    tdd:
+      red:
+        - 'No new test needed — the spec explicitly resolved that testing a static prop value provides minimal value and couples to React Flow internals (Q2). The existing features-canvas.test.tsx already renders FeaturesCanvas and verifies correct mounting.'
+      green:
+        - 'Add proOptions={{ hideAttribution: true }} to the <ReactFlow> element in features-canvas.tsx after the elementsSelectable prop (line 117)'
+        - 'Add proOptions={{ hideAttribution: true }} to the <ReactFlow> element in dependency-edge.stories.tsx after the nodesConnectable prop (line 78)'
+      refactor:
+        - 'No refactoring needed — single prop additions with no duplication or complexity to reduce'
+    estimatedEffort: '10min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Verify build, tests, and lint pass'
+    description: >
+      Run the full verification suite to confirm the prop additions do not cause any
+      regressions. This includes unit tests, build, lint, and typecheck.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'pnpm build completes without errors'
+      - 'pnpm test passes all existing tests without modification'
+      - 'pnpm validate (lint + format + typecheck + tsp) passes without errors'
+    tdd: null
+    estimatedEffort: '5min'
+
+# Total effort estimate
+totalEstimate: '15min'
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Summary
+
+  The implementation adds a single prop (`proOptions={{ hideAttribution: true }}`) to two
+  ReactFlow instances that currently lack it. The production component (features-canvas.tsx)
+  is the primary target — it removes the visible watermark from the user-facing canvas. The
+  Storybook story (dependency-edge.stories.tsx) is updated for consistency with the six other
+  files in the codebase that already use this prop.
+
+  No new tests are written. The existing test suite renders the FeaturesCanvas component
+  and verifies correct mounting, which is sufficient for a static prop addition. After the
+  code changes, the full verification suite (build, test, lint, typecheck) is run to confirm
+  zero regressions.
