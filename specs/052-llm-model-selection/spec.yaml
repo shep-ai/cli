@@ -1,0 +1,135 @@
+name: llm-model-selection
+number: 052
+branch: feat/052-llm-model-selection
+oneLiner: Consolidate per-phase model config into a unified model setting with agent-advertised model lists and CLI override support
+userQuery: >
+  Lets implement that https://github.com/shep-ai/cli/issues/229
+summary: >
+  The current ModelConfiguration stores a separate model string per SDLC phase (analyze,
+  requirements, plan, implement), making it rigid and hard to manage. This feature
+  consolidates model selection into a single unified setting per agent, adds a mechanism
+  for agent executor implementations to advertise their supported models, and exposes
+  a --model flag on shep feat new for per-invocation overrides.
+phase: Analysis
+sizeEstimate: M
+
+relatedFeatures: []
+
+technologies:
+  - TypeSpec (tsp) — domain model redefinition
+  - TypeScript — application and infrastructure layer changes
+  - Commander.js — CLI flag additions
+  - SQLite / better-sqlite3 — settings persistence schema migration
+  - React / Next.js — web UI settings component
+  - tsyringe — dependency injection wiring
+
+relatedLinks:
+  - https://github.com/shep-ai/cli/issues/229
+
+openQuestions: []
+
+content: |
+  ## Problem Statement
+
+  The current model configuration (`Settings.models: ModelConfiguration`) stores four
+  separate model strings—one per SDLC phase (analyze, requirements, plan, implement).
+  This design has two problems:
+
+  1. **Rigidity**: Choosing four different models for four phases is rarely what users
+     want. Most users want a single model setting that applies globally, with the option
+     to override per-run.
+  2. **Agent unawareness**: The settings layer has no way to know which LLM models a
+     given agent (claude-code, gemini-cli, etc.) actually supports, so there is no
+     validation or model discovery in the settings wizard or web UI.
+
+  GitHub issue #229 requests three improvements:
+  - Replace per-phase model fields with a single global model setting.
+  - Allow agent executor implementations to advertise their supported models.
+  - Add a `--model` flag to `shep feat new` for per-invocation overrides.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  Clean Architecture with four layers under `packages/core/src/`:
+  - `domain/` — TypeSpec-generated types (`generated/output.ts`) + factories
+  - `application/` — use cases + output port interfaces
+  - `infrastructure/` — agent executors, settings service, SQLite repository
+  - `presentation/` — CLI commands (`src/presentation/cli/`), TUI wizards, Next.js web UI
+
+  TypeSpec definitions live in `tsp/` and are compiled to
+  `packages/core/src/domain/generated/output.ts` via `pnpm tsp:compile`.
+  **Generated files must never be hand-edited.**
+
+  ### Architecture Patterns
+
+  - **TypeSpec-first**: All domain model changes start in `tsp/domain/entities/settings.tsp`
+    and propagate through compile → generated → factory → mapper → tests.
+  - **Dependency inversion**: Agent factory and provider are expressed as interfaces
+    (`IAgentExecutorFactory`, `IAgentExecutorProvider`) in the application layer; concrete
+    implementations live in infrastructure.
+  - **Singleton settings**: A single `Settings` row is stored in SQLite; the in-memory
+    `settings.service.ts` caches it for fast access.
+  - **AgentExecutionOptions.model**: The executor interface already accepts an optional
+    `model` string at call time (line 65 in `agent-executor.interface.ts`). ClaudeCodeExecutorService
+    already passes it as `--model <value>` to the `claude` CLI subprocess (line 308 in
+    `claude-code-executor.service.ts`). The plumbing exists; it just isn't wired end-to-end.
+
+  ### Relevant Technologies
+
+  | Technology | Role |
+  | ---------- | ---- |
+  | TypeSpec | Schema source of truth for Settings and ModelConfiguration |
+  | Commander.js | CLI flag parsing for `feat new --model` |
+  | SQLite (better-sqlite3) | Persists settings; schema migration needed for column change |
+  | React / Next.js | Web UI settings page (currently empty placeholder) |
+  | tsyringe | DI container wiring for factory and provider |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `tsp/domain/entities/settings.tsp` | High | Replace `ModelConfiguration` (4 fields) with a single `model: string` field; regeneration cascades to all typed consumers |
+  | `packages/core/src/domain/generated/output.ts` | High | Auto-regenerated; no manual edits but all downstream code must compile against new shape |
+  | `packages/core/src/domain/factories/settings-defaults.factory.ts` | Medium | Update `ModelConfiguration` construction to new single-field shape |
+  | `packages/core/src/application/ports/output/agents/agent-executor-factory.interface.ts` | Medium | Add `getSupportedModels(agentType: AgentType): string[]` method to the port interface |
+  | `packages/core/src/infrastructure/services/agents/common/agent-executor-factory.service.ts` | Medium | Implement `getSupportedModels` returning per-agent model lists (claude-code: opus/sonnet/haiku; gemini-cli: gemini-2.0-flash, etc.) |
+  | `packages/core/src/infrastructure/persistence/sqlite/mappers/settings.mapper.ts` | Medium | Update JSON serialization/deserialization of the simplified `models` field |
+  | `packages/core/src/infrastructure/persistence/sqlite/` (migrations) | Medium | SQLite migration to update the stored JSON structure for the models column |
+  | `packages/core/src/application/use-cases/features/create/create-feature.use-case.ts` | Medium | Accept optional `model` in input DTO and pass it to `AgentExecutionOptions.model` |
+  | `src/presentation/cli/commands/feat/new.command.ts` | Low | Add `--model <model>` option; pass value through to use case input |
+  | `src/presentation/cli/commands/settings/` | Medium | New `shep settings model` command (or extend `agent` command) for configuring the unified model; query agent factory for supported models to present a validated list |
+  | `src/presentation/web/components/features/settings/` | Medium | Implement model selection UI component (currently empty `.gitkeep`); display agent-advertised model list in a dropdown |
+  | `tests/unit/domain/factories/settings-defaults.factory.test.ts` | Low | Update assertions for the new single-field `models` shape |
+  | `tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts` | Medium | Update mapper test fixtures for new shape |
+  | `tests/unit/application/use-cases/update-settings.use-case.test.ts` | Low | Adjust test data to new model shape |
+  | `tests/integration/infrastructure/repositories/sqlite-settings.repository.test.ts` | Medium | Integration tests must validate migration and new shape round-trips |
+  | `tests/e2e/cli/settings-init.test.ts` | Low | E2E fixture data updates |
+  | `apis/json-schema/ModelConfiguration.yaml` | Low | Update generated JSON schema to reflect new structure |
+  | `docs/api/domain-models.md` | Low | Update ModelConfiguration docs |
+  | `docs/architecture/settings-service.md` | Low | Update settings architecture docs |
+
+  ## Dependencies
+
+  - **IAgentExecutorFactory** must exist and be DI-resolved before settings commands can
+    query supported models — already wired in `packages/core/src/infrastructure/di/container.ts`.
+  - **AgentExecutionOptions.model** field already exists in `agent-executor.interface.ts`
+    and is handled by `ClaudeCodeExecutorService.buildArgs()`. GeminiCliExecutorService
+    will need the same wiring verified/added.
+  - **SQLite migration system** — existing migration infrastructure in
+    `packages/core/src/infrastructure/persistence/sqlite/` handles schema changes; a new
+    migration must drop/replace the models JSON column content.
+  - **TypeSpec compile step** (`pnpm tsp:compile`) must run before any TypeScript
+    compilation — already enforced by `pnpm validate`.
+
+  ## Size Estimate
+
+  **M** — The work spans multiple layers but each change is well-scoped:
+  - TypeSpec + compile regeneration: small but triggers cascading type fixes
+  - Factory interface + implementation: small new method
+  - Mapper + migration: small but must be correct
+  - Two use-case / CLI changes: straightforward
+  - Settings CLI command: moderate (interactive model selection list)
+  - Web UI settings component: moderate (new React component with model picker)
+  - Test updates across unit/integration/e2e: moderate but mostly fixture updates
+  Total estimated at 2–3 focused development days with TDD discipline.

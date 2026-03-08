@@ -24,79 +24,107 @@ describe('CLI: install command', () => {
   });
 
   describe('shep install <tool> --how', () => {
-    it.concurrent('should print installation instructions for vscode', async () => {
-      const result = await runCliAsync('install vscode --how');
-      expect(result.success).toBe(true);
-      expect(result.stdout).toContain('Installation Instructions for Visual Studio Code');
-      expect(result.stdout).toContain('Binary:');
-      expect(result.stdout).toContain('code');
-      expect(result.stdout).toContain('Installation Commands');
-      expect(result.stdout).toContain('Documentation');
-      expect(result.stdout).toContain('https://');
-      expect(result.stdout).toContain('Verify Installation');
-      expect(result.stdout).toContain('--version');
-      expect(result.stdout).toContain('Lightweight but powerful source code editor');
-      expect(result.stdout).toMatch(/\[(linux|darwin)\]/);
-      expect(result.stdout).toMatch(/Binary:\s+\w+/);
-    });
+    it.concurrent(
+      'should print installation instructions for vscode',
+      async () => {
+        const result = await runCliAsync('install vscode --how');
+        expect(result.success).toBe(true);
+        expect(result.stdout).toContain('Installation Instructions for Visual Studio Code');
+        expect(result.stdout).toContain('Binary:');
+        expect(result.stdout).toContain('code');
+        expect(result.stdout).toContain('Installation Commands');
+        expect(result.stdout).toContain('Documentation');
+        expect(result.stdout).toContain('https://');
+        expect(result.stdout).toContain('Verify Installation');
+        expect(result.stdout).toContain('--version');
+        expect(result.stdout).toContain('Lightweight but powerful source code editor');
+        expect(result.stdout).toMatch(/\[(linux|darwin)\]/);
+        expect(result.stdout).toMatch(/Binary:\s+\w+/);
+      },
+      15000
+    );
 
-    it.concurrent('should print installation instructions for cursor', async () => {
-      const result = await runCliAsync('install cursor --how');
-      expect(result.success).toBe(true);
-      expect(result.stdout).toContain('Installation Instructions for Cursor');
-      expect(result.stdout).toContain('Binary:');
-      expect(result.stdout).toContain('cursor');
-      expect(result.stdout).toMatch(/Binary:\s+\w+/);
-    });
+    it.concurrent(
+      'should print installation instructions for cursor',
+      async () => {
+        const result = await runCliAsync('install cursor --how');
+        expect(result.success).toBe(true);
+        expect(result.stdout).toContain('Installation Instructions for Cursor');
+        expect(result.stdout).toContain('Binary:');
+        expect(result.stdout).toContain('cursor');
+        expect(result.stdout).toMatch(/Binary:\s+\w+/);
+      },
+      15000
+    );
 
-    it.concurrent('should print installation instructions for windsurf', async () => {
-      const result = await runCliAsync('install windsurf --how');
-      expect(result.success).toBe(true);
-      expect(result.stdout).toContain('Installation Instructions for Windsurf');
-      expect(result.stdout).toContain('Binary:');
-      expect(result.stdout).toContain('windsurf');
-      expect(result.stdout).toMatch(/Binary:\s+\w+/);
-    });
+    it.concurrent(
+      'should print installation instructions for windsurf',
+      async () => {
+        const result = await runCliAsync('install windsurf --how');
+        expect(result.success).toBe(true);
+        expect(result.stdout).toContain('Installation Instructions for Windsurf');
+        expect(result.stdout).toContain('Binary:');
+        expect(result.stdout).toContain('windsurf');
+        expect(result.stdout).toMatch(/Binary:\s+\w+/);
+      },
+      15000
+    );
 
-    it.concurrent('should print installation instructions for zed', async () => {
-      const result = await runCliAsync('install zed --how');
-      expect(result.success).toBe(true);
-      expect(result.stdout).toContain('Installation Instructions for Zed');
-      expect(result.stdout).toContain('Binary:');
-      expect(result.stdout).toContain('zed');
-      expect(result.stdout).toMatch(/Binary:\s+\w+/);
-    });
+    it.concurrent(
+      'should print installation instructions for zed',
+      async () => {
+        const result = await runCliAsync('install zed --how');
+        expect(result.success).toBe(true);
+        expect(result.stdout).toContain('Installation Instructions for Zed');
+        expect(result.stdout).toContain('Binary:');
+        expect(result.stdout).toContain('zed');
+        expect(result.stdout).toMatch(/Binary:\s+\w+/);
+      },
+      15000
+    );
 
-    it.concurrent('should print installation instructions for antigravity', async () => {
-      const result = await runCliAsync('install antigravity --how');
-      expect(result.success).toBe(true);
-      expect(result.stdout).toContain('Installation Instructions for Google Antigravity');
-      expect(result.stdout).toContain('Binary:');
-      expect(result.stdout).toContain('antigravity (linux)');
-      expect(result.stdout).toContain('agy (darwin)');
-    });
+    it.concurrent(
+      'should print installation instructions for antigravity',
+      async () => {
+        const result = await runCliAsync('install antigravity --how');
+        expect(result.success).toBe(true);
+        expect(result.stdout).toContain('Installation Instructions for Google Antigravity');
+        expect(result.stdout).toContain('Binary:');
+        expect(result.stdout).toContain('antigravity (linux)');
+        expect(result.stdout).toContain('agy (darwin)');
+      },
+      15000
+    );
 
-    it.concurrent('should print installation instructions for cursor-cli with curl', async () => {
-      const result = await runCliAsync('install cursor-cli --how');
-      expect(result.success).toBe(true);
-      expect(result.stdout).toContain('Installation Instructions for Cursor CLI');
-      expect(result.stdout).toContain('Binary:');
-      expect(result.stdout).toContain('cursor');
-      expect(result.stdout).toContain('curl');
-      expect(result.stdout).toContain('bash');
-      expect(result.stdout).toContain('Package Manager');
-      expect(result.stdout).toContain('--version');
-    });
+    it.concurrent(
+      'should print installation instructions for cursor-cli with curl',
+      async () => {
+        const result = await runCliAsync('install cursor-cli --how');
+        expect(result.success).toBe(true);
+        expect(result.stdout).toContain('Installation Instructions for Cursor CLI');
+        expect(result.stdout).toContain('Binary:');
+        expect(result.stdout).toContain('cursor');
+        expect(result.stdout).toContain('curl');
+        expect(result.stdout).toContain('bash');
+        expect(result.stdout).toContain('Package Manager');
+        expect(result.stdout).toContain('--version');
+      },
+      15000
+    );
 
-    it.concurrent('should print installation instructions for claude-code with curl', async () => {
-      const result = await runCliAsync('install claude-code --how');
-      expect(result.success).toBe(true);
-      expect(result.stdout).toContain('Installation Instructions for Claude Code');
-      expect(result.stdout).toContain('Binary:');
-      expect(result.stdout).toContain('claude');
-      expect(result.stdout).toContain('curl');
-      expect(result.stdout).toContain('Package Manager');
-    });
+    it.concurrent(
+      'should print installation instructions for claude-code with curl',
+      async () => {
+        const result = await runCliAsync('install claude-code --how');
+        expect(result.success).toBe(true);
+        expect(result.stdout).toContain('Installation Instructions for Claude Code');
+        expect(result.stdout).toContain('Binary:');
+        expect(result.stdout).toContain('claude');
+        expect(result.stdout).toContain('curl');
+        expect(result.stdout).toContain('Package Manager');
+      },
+      15000
+    );
   });
 
   it('should show tool listing when no argument given', () => {

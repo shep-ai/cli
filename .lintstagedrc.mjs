@@ -15,6 +15,8 @@ export default {
 
   // TypeScript files - lint, format, and typecheck
   // Note: Includes src/domain/generated/**/*.ts (TypeSpec-generated files)
+  // --no-warn-ignored suppresses "file ignored" warnings for config files matched
+  // by ESLint's global ignores (e.g. *.config.ts) that lint-staged may stage.
   '*.{ts,tsx,mts,cts}': [
     'eslint --fix --max-warnings 0 --no-warn-ignored',
     'prettier --write',
