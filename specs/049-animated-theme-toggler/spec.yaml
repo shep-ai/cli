@@ -1,0 +1,260 @@
+name: animated-theme-toggler
+number: 049
+branch: feat/049-animated-theme-toggler
+oneLiner: replace theme toggle with MagicUI animated-theme-toggler using view transitions api
+userQuery: >
+  Feature: change theme
+
+  https://magicui.design/docs/components/animated-theme-toggler change theme toggler to use this one
+summary: >
+  Replace the current Sun/Moon icon toggle in the app shell with the MagicUI
+  AnimatedThemeToggler, which uses the browser's View Transitions API
+  (document.startViewTransition) to produce a full-page circular-reveal
+  animation when switching between light and dark mode. The component is
+  copy-pasted (no new npm package) and adapted to work with the project's
+  existing useTheme hook and useSoundAction system. Ships with updated
+  Storybook stories and unit tests that mock document.startViewTransition.
+phase: Requirements
+sizeEstimate: S
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - React 19 (TypeScript)
+  - Next.js 16
+  - Tailwind CSS v4 (CSS-first theming, @theme directive)
+  - View Transitions API (document.startViewTransition)
+  - lucide-react (icon library — Sun/Moon icons retained)
+  - shadcn/ui Button component
+  - Custom useTheme hook (localStorage + system preference detection)
+  - useSoundAction hook (semantic sound effects)
+  - Storybook 8 (mandatory stories)
+  - Vitest (unit tests)
+
+relatedLinks:
+  - https://magicui.design/docs/components/animated-theme-toggler
+  - https://developer.mozilla.org/en-US/docs/Web/API/Document/startViewTransition
+
+openQuestions:
+  - question: 'What animation style should the view transition use?'
+    resolved: true
+    options:
+      - option: 'Circular reveal from click point'
+        description: >
+          Uses clip-path: circle() expanding from the exact (x, y) coordinate
+          where the user clicked. Creates the most visually dynamic effect —
+          the new theme "grows" outward from the toggle button. Requires
+          reading MouseEvent coordinates and passing them as CSS custom
+          properties. Matches the canonical MagicUI implementation.
+        selected: true
+      - option: 'Full-page radial wipe from corner'
+        description: >
+          Simpler implementation — fixed-origin radial wipe from a corner
+          (e.g., top-right where the toggle lives). No need to track click
+          coordinates. Slightly less impressive but easier to implement and
+          test.
+        selected: false
+      - option: 'Horizontal slide wipe'
+        description: >
+          Classic left-to-right slide transition. Simple CSS keyframes, no
+          clip-path needed. Least visually aligned with the MagicUI reference
+          design.
+        selected: false
+    selectionRationale: >
+      The circular reveal from the click origin is the defining visual of the
+      MagicUI AnimatedThemeToggler and what the user explicitly referenced.
+      It requires minimal extra code (capture clientX/clientY from the click
+      event, set as --x/--y CSS vars before calling startViewTransition) and
+      produces the most polished result. This is the canonical approach used
+      by the MagicUI reference implementation.
+    answer: 'Circular reveal from click point'
+
+  - question: 'Should the component accept a className prop for host customization?'
+    resolved: true
+    options:
+      - option: 'No props — zero-config component'
+        description: >
+          ThemeToggle keeps its current zero-prop API. Styling is fully
+          encapsulated. Consumers (app-shell) cannot override classes.
+          Maximally simple, matches the existing component contract, and
+          avoids unnecessary API surface area.
+        selected: true
+      - option: 'Accept optional className prop'
+        description: >
+          Adds className?: string to the component props, merged via cn().
+          Useful if the toggle is ever placed in contexts with different
+          spacing requirements, but introduces API surface that is unlikely
+          to be needed given this is a single-use component.
+        selected: false
+    selectionRationale: >
+      The ThemeToggle is a single-use component rendered exactly once in
+      app-shell. Exposing className adds API surface with no current
+      consumer benefit. Keeping zero-config maintains the existing contract
+      and simplifies the component, stories, and tests. If customisation is
+      ever needed it can be added then.
+    answer: 'No props — zero-config component'
+
+  - question: 'Which icon set should the new component use?'
+    resolved: true
+    options:
+      - option: 'Retain lucide-react Sun/Moon icons'
+        description: >
+          Keep the existing Sun and Moon icons from lucide-react, applying
+          the same CSS scale/rotate transitions inside the button. Only the
+          page-level transition animation changes. No visual regression on
+          the button itself; consistent with the rest of the codebase which
+          uses lucide-react throughout.
+        selected: true
+      - option: 'Adopt MagicUI SVG path icons'
+        description: >
+          Replace Sun/Moon with the inline SVG paths used in the MagicUI
+          reference implementation. Visually different button appearance;
+          requires verifying icon sizing, stroke weight, and dark-mode
+          contrast against the existing design system.
+        selected: false
+    selectionRationale: >
+      lucide-react is already a project dependency and provides consistent
+      icon styling across the entire UI. The MagicUI feature is primarily
+      about the page-level transition, not the button icon. Retaining
+      lucide-react avoids visual regression risk and keeps the codebase
+      consistent. The icons can always be swapped later as a separate
+      design decision.
+    answer: 'Retain lucide-react Sun/Moon icons'
+
+  - question: 'How should the fallback behave in browsers without View Transitions API support?'
+    resolved: true
+    options:
+      - option: 'Silent direct theme switch (no animation)'
+        description: >
+          If document.startViewTransition is undefined, call setTheme()
+          directly with no animation. The user sees an instant theme change.
+          Functionally correct, zero additional CSS or JS complexity.
+          Firefox users get a working toggle without the animation.
+        selected: true
+      - option: 'CSS-only fade fallback'
+        description: >
+          If View Transitions API is unavailable, apply a short CSS opacity
+          transition via a class added to <html>. Adds complexity (JS to
+          toggle class, extra CSS keyframes) for modest gain since the
+          project already has per-element CSS transitions defined.
+        selected: false
+    selectionRationale: >
+      A silent direct switch is the simplest correct fallback. The existing
+      per-element CSS transitions (button icons, component-level) already
+      provide some visual feedback in unsupported browsers. Adding a separate
+      JS-driven fade fallback creates dead code paths that are hard to test
+      and unlikely to add meaningful UX value.
+    answer: 'Silent direct theme switch (no animation)'
+
+  - question: 'Should Storybook stories simulate/demonstrate the view transition animation?'
+    resolved: true
+    options:
+      - option: 'Static stories with mocked transition (no real animation)'
+        description: >
+          Stories mock document.startViewTransition (same as unit tests) so
+          they render without triggering real view transitions. Add a
+          LightMode and DarkMode story variant using Storybook decorators to
+          show both visual states. Documents the component API clearly.
+        selected: true
+      - option: 'Live stories with real view transition'
+        description: >
+          Stories do not mock startViewTransition, allowing the animation to
+          play in the Storybook canvas. Risk: Storybook's iframe environment
+          does not fully support View Transitions API in all versions, which
+          may cause errors or broken previews.
+        selected: false
+    selectionRationale: >
+      Storybook runs inside an iframe where View Transitions API behaviour
+      is inconsistent. Mocking the transition keeps stories stable and
+      reliable. Static LightMode/DarkMode variant stories provide sufficient
+      visual documentation of both states. This matches the approach already
+      used in the unit tests.
+    answer: 'Static stories with mocked transition (no real animation)'
+
+content: |
+  ## Problem Statement
+
+  The current theme toggle (`src/presentation/web/components/common/theme-toggle/`)
+  is a minimal icon-based button that swaps a Sun and Moon icon using CSS
+  scale/rotation transitions. While functional, it lacks a polished animated
+  transition that modern design systems provide. The user wants to adopt the
+  [MagicUI AnimatedThemeToggler](https://magicui.design/docs/components/animated-theme-toggler),
+  which triggers a full-page circular-reveal animation originating from the
+  click point, powered by the browser's native View Transitions API.
+
+  ## Success Criteria
+
+  - [ ] Theme toggle renders visually unchanged in button appearance (Sun/Moon lucide-react icons)
+  - [ ] Clicking the toggle triggers document.startViewTransition with a circular clip-path reveal originating from the click (x, y) coordinates
+  - [ ] The circular reveal animates outward from the toggle button position to fill the viewport
+  - [ ] On browsers without View Transitions API (Firefox), theme switches instantly with no error
+  - [ ] Sound effects: toggle-on plays when switching to dark, toggle-off plays when switching to light — behaviour unchanged
+  - [ ] useTheme hook integration unchanged: system/light/dark modes all work correctly
+  - [ ] CSS keyframes for ::view-transition-new and ::view-transition-old are added to globals.css
+  - [ ] Unit tests cover: toggle-on sound, toggle-off sound, system theme sound, startViewTransition called on click, fallback path when startViewTransition is undefined
+  - [ ] Storybook stories updated: Default, InContext, LightMode, DarkMode variants all render without error
+  - [ ] pnpm validate passes (lint + typecheck + format + tsp)
+  - [ ] pnpm test passes with zero failures
+  - [ ] No new npm packages introduced
+
+  ## Functional Requirements
+
+  - **FR-1**: The ThemeToggle component MUST call document.startViewTransition when the user clicks the toggle and the API is available in the current browser.
+  - **FR-2**: Before calling startViewTransition, the component MUST capture the click event's clientX and clientY coordinates and expose them as CSS custom properties (--x, --y) on the document root so that the clip-path animation can originate from the click point.
+  - **FR-3**: The transition callback passed to startViewTransition MUST call setTheme to apply the new theme class to document.documentElement before the animation frame resolves.
+  - **FR-4**: When document.startViewTransition is undefined (unsupported browser), the component MUST fall back to calling setTheme directly without animation, with no thrown errors.
+  - **FR-5**: The component MUST call useSoundAction('toggle-on').play() when switching to dark mode, and useSoundAction('toggle-off').play() when switching to light mode — preserving existing audio behaviour.
+  - **FR-6**: Sound playback MUST occur before the view transition starts (same as current behaviour: immediate feedback).
+  - **FR-7**: The ThemeToggle component MUST retain its zero-prop API — no new required or optional props.
+  - **FR-8**: The component MUST continue to correctly handle all three theme states: 'light', 'dark', and 'system' (resolving system to the OS preference before toggling).
+  - **FR-9**: globals.css MUST include ::view-transition-new(*) and ::view-transition-old(*) keyframe rules that implement the circular clip-path reveal (clip-path: circle() expanding from --x/--y).
+  - **FR-10**: The unit test suite MUST mock document.startViewTransition via vi.stubGlobal or vi.fn() assignment and assert it is called on toggle click.
+  - **FR-11**: A unit test MUST verify the fallback path: when document.startViewTransition is set to undefined, setTheme is still called and no error is thrown.
+  - **FR-12**: The Storybook story file MUST export at minimum: Default, InContext, LightMode, DarkMode story variants.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1**: No new npm packages may be introduced; the implementation is copy-paste adapted from the MagicUI reference.
+  - **NFR-2**: The view transition animation duration MUST be <= 500ms to avoid perceived sluggishness on repeated toggles.
+  - **NFR-3**: The component MUST be accessible: aria-label correctly reflects the target theme ("Switch to dark mode" / "Switch to light mode"), keyboard activation (Enter/Space) MUST also trigger the view transition.
+  - **NFR-4**: The implementation MUST NOT introduce framer-motion or any other animation library.
+  - **NFR-5**: All changes MUST remain within the presentation layer; no domain, application, or infrastructure files may be modified.
+  - **NFR-6**: The component file MUST remain a 'use client' directive component (browser APIs used).
+  - **NFR-7**: CSS keyframes added to globals.css MUST use @keyframes syntax compatible with Tailwind CSS v4's CSS-first configuration and MUST NOT conflict with existing @theme tokens.
+  - **NFR-8**: The component MUST support reduced-motion preferences: if prefers-reduced-motion: reduce is set, the view transition animation MUST be skipped (fall back to instant switch).
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | What animation style should the view transition use? | Circular reveal from click point | Matches the canonical MagicUI design; requires only minor extra code to capture click coordinates as CSS custom properties |
+  | 2 | Should the component accept a className prop? | No props — zero-config | Single-use component; zero-config matches existing contract; API surface can grow later if needed |
+  | 3 | Which icon set should the component use? | Retain lucide-react Sun/Moon | Consistent with codebase; the feature is about the page transition, not the button icon |
+  | 4 | Fallback behaviour in unsupported browsers? | Silent direct theme switch | Simplest correct fallback; existing per-element CSS transitions still provide visual feedback |
+  | 5 | Should Storybook stories simulate the view transition? | Static stories with mocked transition | Storybook iframe environment does not reliably support View Transitions API; mocking keeps stories stable |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `src/presentation/web/components/common/theme-toggle/theme-toggle.tsx` | High | Primary file to replace with MagicUI-inspired implementation |
+  | `src/presentation/web/components/common/theme-toggle/theme-toggle.stories.tsx` | Medium | Stories must be updated: new LightMode/DarkMode variants added, startViewTransition mocked |
+  | `src/presentation/web/app/globals.css` | Low | Add ::view-transition-* keyframes for the circular reveal animation and prefers-reduced-motion override |
+  | `tests/unit/presentation/web/components/common/theme-toggle/theme-toggle.test.tsx` | Medium | Tests must be extended: mock document.startViewTransition, add fallback test |
+  | `src/presentation/web/components/layouts/app-shell/app-shell.tsx` | None | No import or prop changes expected |
+
+  ## Dependencies
+
+  - **Existing**: `useTheme` hook, `useSoundAction` hook, `Button` (shadcn/ui), lucide-react icons (`Sun`, `Moon`), Tailwind CSS v4, `cn()` utility.
+  - **New CSS API**: `document.startViewTransition` (browser native — no install). Must add browser-support guard (`if (!document.startViewTransition) { ... }`).
+  - **Reduced-motion**: `prefers-reduced-motion` media query in CSS and/or a `window.matchMedia('(prefers-reduced-motion: reduce)')` check in JS.
+  - **No new npm packages**: the MagicUI component is copy-paste, not a package.
+
+  ## Size Estimate
+
+  **S** — Focused single-component replacement confined to the presentation layer.
+  Main work: adapt MagicUI copy-paste to useTheme/useSoundAction, add CSS keyframes
+  to globals.css, extend unit tests (mock startViewTransition + fallback path + reduced-motion),
+  update Storybook stories with two new variants. No domain, application, or
+  infrastructure changes. Estimated effort: 2–4 hours.
