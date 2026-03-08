@@ -115,6 +115,7 @@ export function FeaturesCanvas({
         nodesDraggable={false}
         nodesConnectable={false}
         elementsSelectable={false}
+        proOptions={{ hideAttribution: true }}
       >
         <Background />
         <Controls />
