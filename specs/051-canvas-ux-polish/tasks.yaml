@@ -1,0 +1,329 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: canvas-ux-polish
+summary: >
+  9 tasks across 3 phases. Phase 1 builds and tests the viewport persistence hook in isolation.
+  Phase 2 wires the hook into FeaturesCanvas and ControlCenterInner with Storybook stories.
+  Phase 3 adds first-repo detection, auto-focus via fitView, and delayed drawer auto-open.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - '@xyflow/react ^12.10.0'
+  - 'localStorage API'
+  - 'Vitest + React Testing Library'
+  - 'Storybook'
+relatedLinks: []
+
+# Structured task list
+tasks:
+  # ── Phase 1: Viewport Persistence Hook ──────────────────────────────────
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'TDD viewport persistence hook — localStorage read/write/validate'
+    description: >
+      Create useViewportPersistence hook with synchronous localStorage read on mount (lazy
+      useState initializer), debounced onMoveEnd save (500ms setTimeout/clearTimeout), and
+      viewport validation (finite numbers, zoom > 0). All localStorage operations wrapped
+      in try/catch. Write tests first covering: restore saved viewport, fallback to default
+      when no saved state, fallback on corrupted data (non-numeric, negative zoom, malformed
+      JSON), and localStorage exception handling (quota exceeded, disabled).
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'Hook returns { defaultViewport, onMoveEnd } interface'
+      - 'Reads localStorage synchronously on mount via useState lazy initializer'
+      - 'Falls back to { x: 30, y: 30, zoom: 0.85 } when no saved state or corrupted data'
+      - 'Validates x/y/zoom are finite numbers and zoom > 0'
+      - 'All localStorage operations wrapped in try/catch'
+      - 'Tests pass with mocked localStorage for all scenarios'
+    tdd:
+      red:
+        - 'Write test: returns default viewport when localStorage is empty'
+        - 'Write test: returns saved viewport when valid JSON exists in localStorage'
+        - 'Write test: returns default when localStorage has malformed JSON'
+        - 'Write test: returns default when viewport has non-numeric values'
+        - 'Write test: returns default when zoom is <= 0'
+        - 'Write test: returns default when values are NaN or Infinity'
+        - 'Write test: returns default when localStorage.getItem throws'
+      green:
+        - 'Implement useViewportPersistence with STORAGE_KEY constant'
+        - 'Implement isValidViewport validation function'
+        - 'Implement readViewport function with try/catch and validation'
+        - 'Use useState(() => readViewport()) for synchronous mount-time read'
+        - 'Return { defaultViewport, onMoveEnd: saveCallback }'
+      refactor:
+        - 'Extract DEFAULT_VIEWPORT constant'
+        - 'Extract STORAGE_KEY constant'
+        - 'Ensure all exports have proper TypeScript types'
+    estimatedEffort: '1.5h'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'TDD viewport persistence hook — debounced save via onMoveEnd'
+    description: >
+      Add debounced save behavior to the onMoveEnd callback. Use useRef for the timer and
+      useCallback for a stable callback identity. Test with fake timers that the save is
+      debounced at 500ms, that rapid calls coalesce, and that the cleanup function clears
+      the timer on unmount.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'onMoveEnd callback saves viewport to localStorage after 500ms debounce'
+      - 'Rapid successive calls coalesce — only the last viewport is saved'
+      - 'Timer is cleaned up on hook unmount (useEffect cleanup)'
+      - 'localStorage.setItem is wrapped in try/catch'
+      - 'onMoveEnd has stable identity across re-renders (useCallback)'
+    tdd:
+      red:
+        - 'Write test: onMoveEnd does not write to localStorage before 500ms'
+        - 'Write test: onMoveEnd writes to localStorage after 500ms'
+        - 'Write test: rapid successive onMoveEnd calls only save the last viewport'
+        - 'Write test: localStorage.setItem exceptions are silently caught'
+        - 'Write test: timer is cleaned up on unmount (no writes after unmount)'
+      green:
+        - 'Add useRef for debounce timer'
+        - 'Implement onMoveEnd with clearTimeout + setTimeout(500ms) + localStorage.setItem'
+        - 'Add useEffect cleanup to clear timer on unmount'
+        - 'Wrap setItem in try/catch'
+      refactor:
+        - 'Extract DEBOUNCE_MS constant (500)'
+        - 'Verify useCallback dependency array is minimal and correct'
+    estimatedEffort: '1h'
+
+  # ── Phase 2: Canvas Integration ─────────────────────────────────────────
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Extend FeaturesCanvas props for viewport persistence'
+    description: >
+      Add optional defaultViewport and onMoveEnd props to FeaturesCanvasProps. Replace the
+      hardcoded defaultViewport={{ x: 30, y: 30, zoom: 0.85 }} with the prop value (falling
+      back to the existing default). Wire onMoveEnd to the ReactFlow component alongside
+      the existing onMoveStart={onCanvasDrag}.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'FeaturesCanvasProps has optional defaultViewport?: Viewport and onMoveEnd? prop'
+      - 'ReactFlow uses prop defaultViewport with fallback to { x: 30, y: 30, zoom: 0.85 }'
+      - 'ReactFlow receives onMoveEnd callback when provided'
+      - 'Existing onMoveStart={onCanvasDrag} behavior unchanged'
+      - 'Existing stories continue to compile and render correctly'
+    tdd:
+      red:
+        - 'Write test: FeaturesCanvas renders with custom defaultViewport prop'
+        - 'Write test: FeaturesCanvas renders with default viewport when prop not provided'
+        - 'Write test: onMoveEnd callback is wired to ReactFlow'
+      green:
+        - 'Add defaultViewport and onMoveEnd to FeaturesCanvasProps interface'
+        - 'Replace hardcoded defaultViewport with prop ?? DEFAULT_VIEWPORT'
+        - 'Add onMoveEnd={onMoveEnd} to ReactFlow component'
+      refactor:
+        - 'Import Viewport type from @xyflow/react for proper typing'
+        - 'Extract default viewport constant to avoid inline object'
+    estimatedEffort: '30min'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Wire useViewportPersistence in ControlCenterInner'
+    description: >
+      Import and call useViewportPersistence in ControlCenterInner. Pass defaultViewport
+      and onMoveEnd as props to FeaturesCanvas. This completes the end-to-end viewport
+      persistence wiring.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'ControlCenterInner calls useViewportPersistence()'
+      - 'defaultViewport from hook is passed to FeaturesCanvas'
+      - 'onMoveEnd from hook is passed to FeaturesCanvas'
+      - 'Viewport persists across mock page refreshes (manual verification)'
+    tdd:
+      red:
+        - 'Write test: ControlCenterInner passes defaultViewport to FeaturesCanvas'
+        - 'Write test: ControlCenterInner passes onMoveEnd to FeaturesCanvas'
+      green:
+        - 'Import useViewportPersistence in ControlCenterInner'
+        - 'Destructure { defaultViewport, onMoveEnd } from hook'
+        - 'Pass both props to FeaturesCanvas in the return JSX'
+      refactor:
+        - 'Verify no unnecessary re-renders from hook integration'
+    estimatedEffort: '30min'
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Add Storybook stories for viewport persistence'
+    description: >
+      Add stories to features-canvas.stories.tsx demonstrating viewport persistence scenarios:
+      (1) canvas with a custom defaultViewport showing a pre-saved position, (2) canvas with
+      the default viewport (no saved state). These stories verify the new props work correctly
+      in Storybook and provide visual documentation.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'Story exists showing canvas with custom defaultViewport (e.g., zoomed in, panned)'
+      - 'Story exists showing canvas with default viewport (no savedState scenario)'
+      - 'Stories compile and render in Storybook without errors'
+      - 'Stories are colocated in features-canvas.stories.tsx'
+    tdd: null
+    estimatedEffort: '30min'
+
+  # ── Phase 3: First-Repo Auto-Focus & Drawer ─────────────────────────────
+
+  - id: task-6
+    phaseId: phase-3
+    title: 'TDD handleAddRepository returns first-repo metadata'
+    description: >
+      Modify handleAddRepository in use-control-center-state.ts to check repoMap size before
+      adding and return { wasEmpty: boolean, repoPath: string }. Use the functional form of
+      setRepoMap or repoMapRef to check pre-mutation size. Update the ControlCenterState
+      interface to reflect the new return type. Write tests first verifying the return value.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'handleAddRepository returns { wasEmpty: boolean, repoPath: string }'
+      - 'wasEmpty is true when repoMap was empty before the add'
+      - 'wasEmpty is false when repoMap already had entries'
+      - 'repoPath matches the path argument passed to handleAddRepository'
+      - 'ControlCenterState interface updated with new return type'
+      - 'Existing add-repository behavior unchanged (optimistic add, server call, replace)'
+    tdd:
+      red:
+        - 'Write test: handleAddRepository returns wasEmpty true when repoMap is empty'
+        - 'Write test: handleAddRepository returns wasEmpty false when repoMap has entries'
+        - 'Write test: handleAddRepository returns the correct repoPath'
+      green:
+        - 'Expose getRepoMapSize or wasEmpty check from useGraphState via repoMapRef'
+        - 'Check repoMapRef.current.size === 0 at the start of handleAddRepository'
+        - 'Return { wasEmpty, repoPath: path } from handleAddRepository'
+        - 'Update ControlCenterState interface return type for handleAddRepository'
+      refactor:
+        - 'Verify repoMapRef.current is used (not repoMap state) for pre-mutation check'
+        - 'Update any existing tests that assert handleAddRepository returns void'
+    estimatedEffort: '1h'
+
+  - id: task-7
+    phaseId: phase-3
+    title: 'Wire useReactFlow for auto-focus fitView in ControlCenterInner'
+    description: >
+      Add useReactFlow() call in ControlCenterInner (already inside ReactFlowProvider). In
+      the shep:add-repository event handler, inspect the return value from handleAddRepository.
+      When wasEmpty is true, wait for the next render (so the repo node exists in the DOM),
+      then call fitView with the repo node filtered, maxZoom 1.0, padding 0.5, duration 500.
+      The repo node ID uses the temp ID format from handleAddRepository (repo-temp-{timestamp}).
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'useReactFlow() is called in ControlCenterInner'
+      - 'When handleAddRepository returns wasEmpty: true, fitView is called on next render'
+      - 'fitView is called with nodes filter for the repo node, maxZoom 1.0, padding 0.5, duration 500'
+      - 'fitView is NOT called when wasEmpty is false'
+      - 'Auto-focused viewport is persisted via the existing onMoveEnd callback'
+    tdd:
+      red:
+        - 'Write test: fitView is called when first repo is added to empty canvas'
+        - 'Write test: fitView is NOT called when repo is added to non-empty canvas'
+        - 'Write test: fitView uses correct node filter, maxZoom, padding, and duration'
+      green:
+        - 'Import useReactFlow in ControlCenterInner'
+        - 'Destructure { fitView } from useReactFlow()'
+        - 'In shep:add-repository handler, capture handleAddRepository return value'
+        - 'When wasEmpty, use requestAnimationFrame or setTimeout(0) to wait for render'
+        - 'Call fitView with proper options after render'
+      refactor:
+        - 'Extract fitView options as a constant (AUTO_FOCUS_OPTIONS)'
+        - 'Verify no re-render issues from useReactFlow usage'
+    estimatedEffort: '1h'
+
+  - id: task-8
+    phaseId: phase-3
+    title: 'Wire delayed drawer auto-open after first-repo fitView'
+    description: >
+      After triggering fitView for the first repo, schedule a delayed drawer open using
+      setTimeout(600ms). Navigate to /create?repo=<encodedRepoPath> using guardedNavigate
+      (already available in ControlCenterInner). The delay ensures the fitView animation
+      (500ms) completes before the drawer slides in.
+    state: Todo
+    dependencies:
+      - task-7
+    acceptanceCriteria:
+      - 'Drawer opens at /create?repo=<path> after 600ms delay following fitView'
+      - 'Navigation uses guardedNavigate for drawer close guard compatibility'
+      - 'Drawer does NOT auto-open when wasEmpty is false'
+      - 'Drawer does NOT auto-open on page refresh (only on user-initiated add)'
+      - 'Timer is cleaned up properly if component unmounts during delay'
+    tdd:
+      red:
+        - 'Write test: drawer navigation occurs 600ms after fitView trigger'
+        - 'Write test: drawer URL includes encoded repo path'
+        - 'Write test: drawer does NOT open when wasEmpty is false'
+        - 'Write test: guardedNavigate is used for the navigation'
+      green:
+        - 'Add setTimeout(600ms) after fitView call in the wasEmpty branch'
+        - 'Inside timeout, call guardedNavigate(() => router.push(/create?repo=...))'
+        - 'Use the repoPath from handleAddRepository return value for the URL'
+        - 'Store timeout ref and clear in cleanup'
+      refactor:
+        - 'Extract AUTO_FOCUS_DRAWER_DELAY_MS constant (600)'
+        - 'Ensure timeout cleanup in useEffect return to prevent memory leaks'
+    estimatedEffort: '1h'
+
+  - id: task-9
+    phaseId: phase-3
+    title: 'Final validation — build, test, lint, and manual verification'
+    description: >
+      Run pnpm build, pnpm test, pnpm lint:fix, and pnpm validate to confirm all code
+      compiles, all tests pass, and there are no lint or type errors. Manually verify
+      Storybook stories render correctly. Ensure no regressions in existing canvas behavior.
+    state: Todo
+    dependencies:
+      - task-8
+      - task-5
+    acceptanceCriteria:
+      - 'pnpm build completes without errors'
+      - 'pnpm test passes all tests (including new viewport persistence tests)'
+      - 'pnpm lint:fix reports no remaining issues'
+      - 'pnpm validate passes (lint + format + typecheck + tsp)'
+      - 'Storybook stories for viewport persistence render correctly'
+      - 'No regressions in existing canvas interactions'
+    tdd: null
+    estimatedEffort: '30min'
+
+# Total effort estimate
+totalEstimate: '7.5h'
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Summary
+
+  9 tasks across 3 phases implement viewport persistence and first-repo auto-focus for the
+  features canvas.
+
+  **Phase 1 (Viewport Persistence Hook)** builds the useViewportPersistence hook in complete
+  isolation using TDD. Task 1 covers the core read/write/validate logic with mocked localStorage.
+  Task 2 adds the debounced onMoveEnd save with fake timers. The hook has zero React Flow
+  dependencies, making it fully unit-testable.
+
+  **Phase 2 (Canvas Integration)** wires the hook into the rendering pipeline. Task 3 extends
+  FeaturesCanvasProps with the new defaultViewport and onMoveEnd props. Task 4 connects
+  ControlCenterInner to the hook and passes props through. Task 5 adds Storybook stories
+  demonstrating both saved and default viewport scenarios.
+
+  **Phase 3 (First-Repo Auto-Focus & Drawer)** implements the onboarding UX flow. Task 6
+  modifies handleAddRepository to return first-repo metadata. Task 7 wires useReactFlow
+  and fitView in ControlCenterInner for auto-centering. Task 8 adds the delayed drawer
+  auto-open. Task 9 runs final validation (build, test, lint) to confirm everything works.
+
+  The ordering ensures each phase builds on stable foundations: the hook is tested before
+  integration, integration is wired before orchestration, and final validation confirms
+  no regressions.
