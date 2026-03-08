@@ -1,3 +1,10 @@
+# [1.74.0](https://github.com/shep-ai/cli/compare/v1.73.1...v1.74.0) (2026-03-08)
+
+### Features
+
+- **web:** remove feature name input from create drawer ([#225](https://github.com/shep-ai/cli/issues/225)) ([33d4856](https://github.com/shep-ai/cli/commit/33d4856b434384382acde261a585a211a2263543)), closes [#192](https://github.com/shep-ai/cli/issues/192)
+- **web:** remove reactflow attribution watermark from canvas ([#224](https://github.com/shep-ai/cli/issues/224)) ([78b152d](https://github.com/shep-ai/cli/commit/78b152df13b38ee7b36750b6960c096c7b99317b))
+
 ## [1.73.1](https://github.com/shep-ai/cli/compare/v1.73.0...v1.73.1) (2026-03-07)
 
 ### Bug Fixes
