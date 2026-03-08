@@ -21,7 +21,7 @@ function CheckboxGroupItem({
   disabled,
 }: CheckboxGroupItemProps) {
   return (
-    <div className="flex items-start gap-2">
+    <div className="flex cursor-pointer items-start gap-2">
       <Checkbox
         id={id}
         className="mt-0.75"

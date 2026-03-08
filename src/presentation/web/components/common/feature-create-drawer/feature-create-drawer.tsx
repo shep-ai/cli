@@ -20,10 +20,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { CheckboxGroup } from '@/components/ui/checkbox-group';
-import { CheckboxGroupItem } from '@/components/ui/checkbox-group-item';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Switch } from '@/components/ui/switch';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useGuardedDrawerClose } from '@/hooks/drawer-close-guard';
 import type { FileAttachment } from '@shepai/core/infrastructure/services/file-dialog.service';
 import type { WorkflowDefaults } from '@/app/actions/get-workflow-defaults';
@@ -246,7 +246,7 @@ export function FeatureCreateDrawer({
       {/* Form body */}
       <div className="overflow-y-auto p-4">
         <form id="create-feature-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
-          {/* Description */}
+          {/* Description + inline controls */}
           <div className="flex flex-col gap-1.5">
             <Label
               htmlFor="feature-description"
@@ -254,19 +254,55 @@ export function FeatureCreateDrawer({
             >
               DESCRIBE YOUR FEATURE
             </Label>
-            <Textarea
-              id="feature-description"
-              placeholder="e.g. Add GitHub OAuth login with callback handling and token refresh..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={4}
-              required
-              disabled={isSubmitting}
-            />
+            <div className="border-input focus-within:ring-ring/50 focus-within:border-ring overflow-hidden rounded-md border shadow-xs transition-[color,box-shadow] focus-within:ring-[3px]">
+              <Textarea
+                id="feature-description"
+                placeholder="e.g. Add GitHub OAuth login with callback handling and token refresh..."
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={5}
+                required
+                disabled={isSubmitting}
+                className="resize-none rounded-none border-0 shadow-none focus-visible:ring-0"
+              />
+              <div className="border-input flex items-center gap-3 border-t px-3 py-1.5">
+                <AgentModelPicker
+                  className="w-2/5 shrink-0"
+                  initialAgentType={overrideAgent ?? currentAgentType ?? 'claude-code'}
+                  initialModel={overrideModel ?? currentModel ?? 'claude-sonnet-4-6'}
+                  mode="override"
+                  onAgentModelChange={(agent, model) => {
+                    setOverrideAgent(agent);
+                    setOverrideModel(model);
+                  }}
+                  disabled={isSubmitting}
+                />
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex cursor-pointer items-center gap-2">
+                        <Switch
+                          id="fast-mode"
+                          checked={fast}
+                          onCheckedChange={setFast}
+                          disabled={isSubmitting}
+                        />
+                        <Label htmlFor="fast-mode" className="cursor-pointer text-sm font-medium">
+                          Fast Mode
+                        </Label>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      Skip SDLC phases and implement directly from your prompt.
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+            </div>
           </div>
 
-          {/* Parent feature selector (only when features are available) */}
-          {hasFeatures ? (
+          {/* Parent feature selector (only when opened from a feature node) */}
+          {hasFeatures && initialParentId !== undefined ? (
             <div className="flex flex-col gap-1.5">
               <Label
                 htmlFor="parent-feature"
@@ -283,76 +319,125 @@ export function FeatureCreateDrawer({
             </div>
           ) : null}
 
-          {/* Agent & Model override */}
-          <div className="flex flex-col gap-1.5">
-            <Label className="text-muted-foreground text-xs font-semibold tracking-wider">
-              AGENT & MODEL
-            </Label>
-            <AgentModelPicker
-              initialAgentType={overrideAgent ?? currentAgentType ?? 'claude-code'}
-              initialModel={overrideModel ?? currentModel ?? 'claude-sonnet-4-6'}
-              mode="override"
-              onAgentModelChange={(agent, model) => {
-                setOverrideAgent(agent);
-                setOverrideModel(model);
-              }}
-              disabled={isSubmitting}
-            />
-          </div>
+          {/* Approve + Git — compact switch groups */}
+          <div className="border-input divide-input flex flex-col divide-y rounded-md border">
+            {/* Approve row */}
+            <div className="flex items-center gap-4 px-3 py-2.5">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="text-muted-foreground shrink-0 cursor-default text-xs font-semibold tracking-wider">
+                      APPROVE
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    Auto-approve phase transitions without manual review.
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <div className="flex flex-1 items-center gap-4">
+                {AUTO_APPROVE_OPTIONS.map((opt) => (
+                  <TooltipProvider key={opt.id}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex cursor-pointer items-center gap-1.5">
+                          <Switch
+                            id={`approve-${opt.id}`}
+                            size="sm"
+                            checked={approvalGates[opt.id] ?? false}
+                            onCheckedChange={(v) =>
+                              setApprovalGates((prev) => ({ ...prev, [opt.id]: v }))
+                            }
+                            disabled={isSubmitting}
+                          />
+                          <Label
+                            htmlFor={`approve-${opt.id}`}
+                            className="cursor-pointer text-xs font-medium"
+                          >
+                            {opt.label}
+                          </Label>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">{opt.description}</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ))}
+              </div>
+              {/* Select all shortcut */}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const allOn = AUTO_APPROVE_OPTIONS.every((o) => approvalGates[o.id]);
+                        const next: Record<string, boolean> = {};
+                        for (const o of AUTO_APPROVE_OPTIONS) next[o.id] = !allOn;
+                        setApprovalGates(next);
+                      }}
+                      disabled={isSubmitting}
+                      className={cn(
+                        'text-muted-foreground hover:text-foreground cursor-pointer rounded px-1.5 py-0.5 text-[10px] font-semibold tracking-wider uppercase transition-colors',
+                        AUTO_APPROVE_OPTIONS.every((o) => approvalGates[o.id]) && 'text-primary'
+                      )}
+                    >
+                      All
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">Toggle all approval gates</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
 
-          {/* Fast mode toggle */}
-          <div className="flex flex-col gap-1.5">
-            <Label className="text-muted-foreground text-xs font-semibold tracking-wider">
-              MODE
-            </Label>
-            <CheckboxGroupItem
-              id="fast-mode"
-              label="Fast Mode"
-              description="Skip SDLC phases and implement directly from your prompt."
-              checked={fast}
-              onCheckedChange={setFast}
-              disabled={isSubmitting}
-            />
-          </div>
-
-          {/* Auto-approve checkboxes */}
-          <div className="flex flex-col gap-1.5">
-            <Label className="text-muted-foreground text-xs font-semibold tracking-wider">
-              APPROVE
-            </Label>
-            <CheckboxGroup
-              label="Autonomous Mode"
-              description="YOLO!"
-              parentAriaLabel="Auto approve all"
-              options={AUTO_APPROVE_OPTIONS}
-              value={approvalGates}
-              onValueChange={setApprovalGates}
-              disabled={isSubmitting}
-            />
-          </div>
-
-          {/* Git options */}
-          <div className="flex flex-col gap-1.5">
-            <Label className="text-muted-foreground text-xs font-semibold tracking-wider">
-              GIT
-            </Label>
-            <div className="flex flex-col gap-2">
-              <CheckboxGroupItem
-                id="push"
-                label="Push"
-                description="Push branch to remote after implementation."
-                checked={push || openPr}
-                onCheckedChange={setPush}
-                disabled={openPr || isSubmitting}
-              />
-              <CheckboxGroupItem
-                id="open-pr"
-                label="Create PR"
-                description="Open a pull request after pushing."
-                checked={openPr}
-                onCheckedChange={setOpenPr}
-                disabled={isSubmitting}
-              />
+            {/* Git row */}
+            <div className="flex items-center gap-4 px-3 py-2.5">
+              <span className="text-muted-foreground shrink-0 text-xs font-semibold tracking-wider">
+                GIT
+              </span>
+              <div className="flex flex-1 items-center gap-4">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex cursor-pointer items-center gap-1.5">
+                        <Switch
+                          id="push"
+                          size="sm"
+                          checked={push || openPr}
+                          onCheckedChange={setPush}
+                          disabled={openPr || isSubmitting}
+                        />
+                        <Label htmlFor="push" className="cursor-pointer text-xs font-medium">
+                          Push
+                        </Label>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      Push branch to remote after implementation.
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex cursor-pointer items-center gap-1.5">
+                        <Switch
+                          id="open-pr"
+                          size="sm"
+                          checked={openPr}
+                          onCheckedChange={setOpenPr}
+                          disabled={isSubmitting}
+                        />
+                        <Label htmlFor="open-pr" className="cursor-pointer text-xs font-medium">
+                          Create PR
+                        </Label>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      Open a pull request after pushing.
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
             </div>
           </div>
 
