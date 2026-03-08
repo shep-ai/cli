@@ -276,6 +276,7 @@ export function FeatureCreateDrawer({
                       setOverrideModel(model);
                     }}
                     disabled={isSubmitting}
+                    className="w-55"
                   />
                   <Tooltip>
                     <TooltipTrigger asChild>

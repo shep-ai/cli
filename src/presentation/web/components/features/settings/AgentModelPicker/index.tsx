@@ -111,7 +111,7 @@ export function AgentModelPicker({
 
   const AgentIcon = getAgentTypeIcon(agentType);
   const agentLabel = groups.find((g) => g.agentType === agentType)?.label ?? agentType;
-  const displayModel = model ? getModelMeta(model).displayName || model : agentLabel;
+  const modelName = model ? getModelMeta(model).displayName || model : null;
 
   const activeGroup = drillAgent ? groups.find((g) => g.agentType === drillAgent) : null;
 
@@ -124,15 +124,30 @@ export function AgentModelPicker({
             role="combobox"
             aria-expanded={open}
             disabled={isDisabled}
-            className="w-auto cursor-pointer font-normal"
+            className="w-auto cursor-pointer justify-start font-normal hover:border-violet-300 hover:bg-violet-50/50 dark:hover:border-violet-700 dark:hover:bg-violet-950/30"
           >
             <span className="flex items-center gap-2 truncate">
               <AgentIcon className="h-4 w-4 shrink-0" />
-              {loading ? 'Loading…' : displayModel}
+              {loading ? (
+                'Loading…'
+              ) : (
+                <span className="flex items-center gap-1">
+                  <span className="text-muted-foreground text-xs">{agentLabel}</span>
+                  {modelName ? (
+                    <>
+                      <span className="text-muted-foreground/50 text-xs">·</span>
+                      <span className="text-xs font-medium">{modelName}</span>
+                    </>
+                  ) : null}
+                </span>
+              )}
             </span>
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-64 overflow-hidden p-0" align="start">
+        <PopoverContent
+          className="w-(--radix-popover-trigger-width) overflow-hidden p-0"
+          align="start"
+        >
           {/* Sliding container — both panels side by side, translateX controlled by level */}
           <div
             className="flex transition-transform duration-200 ease-in-out"
