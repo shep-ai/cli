@@ -338,20 +338,23 @@ describe('CursorExecutorService', () => {
       );
     });
 
-    it('should pass -m flag when model option is set', async () => {
+    it('should pass --model flag with cursor-mapped name when model option is set', async () => {
       const mockProc = createMockChildProcess();
       vi.mocked(mockSpawn).mockReturnValue(mockProc as any);
 
       const assistantLine = buildCursorAssistantEvent('Done');
       const resultLine = buildCursorResultEvent('sess-1', 100);
-      const executePromise = executor.execute('Test', { model: 'gpt-5.4', silent: true });
+      const executePromise = executor.execute('Test', {
+        model: 'claude-sonnet-4-6',
+        silent: true,
+      });
       emitStreamData(mockProc, [assistantLine, resultLine], null, 0);
 
       await executePromise;
 
       expect(mockSpawn).toHaveBeenCalledWith(
         'agent',
-        expect.arrayContaining(['-m', 'gpt-5.4']),
+        expect.arrayContaining(['--model', 'sonnet-4.6']),
         expect.any(Object)
       );
     });

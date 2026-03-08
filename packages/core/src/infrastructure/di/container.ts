@@ -234,7 +234,8 @@ export async function initializeContainer(): Promise<typeof container> {
   container.register<IStructuredAgentCaller>('IStructuredAgentCaller', {
     useFactory: (c) => {
       const provider = c.resolve<IAgentExecutorProvider>('IAgentExecutorProvider');
-      return new StructuredAgentCallerService(provider);
+      const factory = c.resolve<IAgentExecutorFactory>('IAgentExecutorFactory');
+      return new StructuredAgentCallerService(provider, factory);
     },
   });
 

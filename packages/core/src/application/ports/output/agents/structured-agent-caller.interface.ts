@@ -28,13 +28,18 @@
  * ```
  */
 
+import type { AgentType } from '../../../../domain/generated/output.js';
 import type { AgentExecutionOptions } from './agent-executor.interface.js';
 
 /**
  * Options for structured agent calls.
  * Same as AgentExecutionOptions but without outputSchema (provided separately as the schema argument).
+ * Optionally accepts agentType to override the default executor resolved from settings.
  */
-export type StructuredCallOptions = Omit<AgentExecutionOptions, 'outputSchema'>;
+export type StructuredCallOptions = Omit<AgentExecutionOptions, 'outputSchema'> & {
+  /** Override executor agent type instead of using the default from settings */
+  agentType?: AgentType;
+};
 
 /**
  * Port interface for making typed calls to AI agents with JSON schema output.

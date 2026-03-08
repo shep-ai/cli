@@ -76,11 +76,11 @@ describe('getSupportedModels server action', () => {
 
   it('passes cursor agent type to factory correctly', async () => {
     mockGetSettings.mockReturnValue({ agent: { type: 'cursor' } });
-    mockGetSupportedModels.mockReturnValue(['claude-opus-4-6', 'gpt-5.4']);
+    mockGetSupportedModels.mockReturnValue(['claude-opus-4-6', 'gpt-5.4-high']);
 
     const result = await getSupportedModels();
 
     expect(mockGetSupportedModels).toHaveBeenCalledWith('cursor');
-    expect(result).toEqual(['claude-opus-4-6', 'gpt-5.4']);
+    expect(result).toEqual(['claude-opus-4-6', 'gpt-5.4-high']);
   });
 });

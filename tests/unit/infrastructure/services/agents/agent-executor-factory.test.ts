@@ -165,8 +165,8 @@ describe('AgentExecutorFactory', () => {
       expect(models).toEqual([
         'claude-opus-4-6',
         'claude-sonnet-4-6',
-        'gpt-5.4',
-        'gpt-5',
+        'gpt-5.4-high',
+        'gpt-5.2',
         'gpt-5.3-codex',
         'gemini-3.1-pro',
         'composer-1.5',

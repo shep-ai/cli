@@ -20,8 +20,8 @@ const MODEL_METADATA: Record<string, ModelMeta> = {
   'gemini-2.5-flash': { displayName: 'Gemini 2.5 Flash', description: 'Speed-optimized' },
 
   // OpenAI models
-  'gpt-5.4': { displayName: 'GPT-5.4', description: 'Latest reasoning model' },
-  'gpt-5': { displayName: 'GPT-5', description: 'Flagship model' },
+  'gpt-5.4-high': { displayName: 'GPT-5.4', description: 'Latest reasoning model' },
+  'gpt-5.2': { displayName: 'GPT-5.2', description: 'Flagship model' },
   'gpt-5.3-codex': { displayName: 'GPT-5.3 Codex', description: 'Code specialist' },
 
   // Other
