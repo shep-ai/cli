@@ -10,8 +10,10 @@ import type { Feature, AgentRun } from '@shepai/core/domain/generated';
 import {
   deriveNodeState,
   deriveProgress,
+  deriveLifecycle,
   mapEventTypeToState,
   mapPhaseNameToLifecycle,
+  sdlcLifecycleMap,
 } from '@/components/common/feature-node/derive-feature-state';
 import {
   lifecycleDisplayLabels,
@@ -313,8 +315,8 @@ describe('mapPhaseNameToLifecycle', () => {
     expect(mapPhaseNameToLifecycle('research')).toBe('research');
   });
 
-  it('maps "plan" to implementation', () => {
-    expect(mapPhaseNameToLifecycle('plan')).toBe('implementation');
+  it('maps "plan" to planning', () => {
+    expect(mapPhaseNameToLifecycle('plan')).toBe('planning');
   });
 
   it('maps "implement" to implementation', () => {
@@ -327,6 +329,19 @@ describe('mapPhaseNameToLifecycle', () => {
 
   it('returns undefined for unrecognized phaseName', () => {
     expect(mapPhaseNameToLifecycle('unknown_phase')).toBeUndefined();
+  });
+});
+
+describe('sdlcLifecycleMap', () => {
+  it('maps Planning to planning', () => {
+    expect(sdlcLifecycleMap['Planning']).toBe('planning');
+  });
+});
+
+describe('deriveLifecycle', () => {
+  it('returns planning for a feature with Planning lifecycle and no agent run', () => {
+    const feature = createMinimalFeature({ lifecycle: SdlcLifecycle.Planning });
+    expect(deriveLifecycle(feature, null)).toBe('planning');
   });
 });
 

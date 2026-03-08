@@ -116,6 +116,7 @@ export function mapEventTypeToState(eventType: NotificationEventType): FeatureNo
 export const sdlcLifecycleMap: Record<string, FeatureLifecyclePhase> = {
   Requirements: 'requirements',
   Research: 'research',
+  Planning: 'planning',
   Implementation: 'implementation',
   Review: 'review',
   'Deploy & QA': 'deploy',
@@ -127,7 +128,7 @@ const phaseNameToLifecycle: Record<string, FeatureLifecyclePhase> = {
   analyze: 'requirements',
   requirements: 'requirements',
   research: 'research',
-  plan: 'implementation',
+  plan: 'planning',
   implement: 'implementation',
   merge: 'review',
   maintain: 'maintain',
