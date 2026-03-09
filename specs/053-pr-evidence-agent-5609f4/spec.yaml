@@ -539,3 +539,7 @@ rejectionFeedback:
     message: rebase on main
     phase: plan
     timestamp: '2026-03-09T11:09:51.730Z'
+  - iteration: 2
+    message: rebase on main
+    phase: merge
+    timestamp: '2026-03-09T12:28:54.986Z'
