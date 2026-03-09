@@ -47,7 +47,14 @@ export function OverviewTab({ data }: OverviewTabProps) {
         {isCompleted && data.pr ? <FeaturePrInfo pr={data.pr} /> : null}
       </div>
       <FeatureInfo data={data} />
-      {!isCompleted && data.pr ? <FeaturePrInfo pr={data.pr} /> : null}
+      {!isCompleted && data.pr ? (
+        <>
+          <Separator />
+          <div className="p-4">
+            <FeaturePrInfo pr={data.pr} />
+          </div>
+        </>
+      ) : null}
       <FeatureDetails data={data} />
     </>
   );
