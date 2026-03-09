@@ -24,12 +24,13 @@ export const Production: Story = {
   },
 };
 
-/** Development mode — amber styling with branch name. */
+/** Development mode — cyan styling with branch name and commit hash. */
 export const Development: Story = {
   args: {
     version: '1.90.0',
     isDev: true,
     branch: 'feat/version-badge',
+    commitHash: '5a84c148b3e2f1a9c7d6e8b4a2f1c3d5e7f9a1b3',
     packageName: '@shepai/cli',
     description: 'Autonomous AI Native SDLC Platform',
     nodeVersion: 'v22.4.0',
@@ -43,6 +44,7 @@ export const LongBranch: Story = {
     version: '1.90.0',
     isDev: true,
     branch: 'feat/056-version-badge-with-tooltip-and-build-info',
+    commitHash: 'abc1234def5678',
     packageName: '@shepai/cli',
     description: 'Autonomous AI Native SDLC Platform',
   },

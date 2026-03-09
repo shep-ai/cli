@@ -10,6 +10,7 @@ describe('VersionPageClient (features/version)', () => {
       version: '1.0.0',
       description: 'Test description',
       branch: '',
+      commitHash: '',
     },
     systemInfo: {
       nodeVersion: 'v20.0.0',

@@ -18,8 +18,10 @@ function loadDevFallbacks(): Record<string, string> {
     const rootPkgPath = resolve(import.meta.dirname, '../../../package.json');
     const pkg = JSON.parse(readFileSync(rootPkgPath, 'utf-8')) as Record<string, string>;
     let branch = '';
+    let commitHash = '';
     try {
       branch = execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf-8' }).trim();
+      commitHash = execSync('git rev-parse HEAD', { encoding: 'utf-8' }).trim();
     } catch {
       // Not in a git repo
     }
@@ -29,6 +31,7 @@ function loadDevFallbacks(): Record<string, string> {
       NEXT_PUBLIC_SHEP_PACKAGE_NAME: pkg.name ?? '@shepai/cli',
       NEXT_PUBLIC_SHEP_DESCRIPTION: pkg.description ?? 'Autonomous AI Native SDLC Platform',
       NEXT_PUBLIC_SHEP_BRANCH: branch,
+      NEXT_PUBLIC_SHEP_COMMIT: commitHash,
     };
   } catch {
     return {

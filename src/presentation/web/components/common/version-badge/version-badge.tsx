@@ -6,6 +6,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 export interface VersionBadgeProps {
   version: string;
   branch?: string;
+  commitHash?: string;
   isDev?: boolean;
   packageName?: string;
   description?: string;
@@ -16,6 +17,7 @@ export interface VersionBadgeProps {
 export function VersionBadge({
   version,
   branch,
+  commitHash,
   isDev = false,
   packageName = '@shepai/cli',
   description,
@@ -23,6 +25,7 @@ export function VersionBadge({
   platform,
 }: VersionBadgeProps) {
   const showBranch = isDev && branch;
+  const shortHash = commitHash?.slice(0, 7);
 
   return (
     <div className="flex items-center gap-1.5">
@@ -30,11 +33,14 @@ export function VersionBadge({
         className={[
           'flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] leading-tight font-medium',
           isDev
-            ? 'bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/25'
+            ? 'bg-cyan-500/15 text-cyan-400 ring-1 ring-cyan-500/25'
             : 'bg-muted text-muted-foreground ring-border ring-1',
         ].join(' ')}
         data-testid="version-label"
       >
+        {isDev ? (
+          <span className="text-[9px] tracking-wider text-cyan-300 uppercase">dev</span>
+        ) : null}
         <span>v{version}</span>
         {showBranch ? (
           <>
@@ -67,6 +73,7 @@ export function VersionBadge({
               <Row label="Version" value={`v${version}`} />
               {isDev ? <Row label="Mode" value="Development" highlight /> : null}
               {branch ? <Row label="Branch" value={branch} /> : null}
+              {shortHash ? <Row label="Commit" value={shortHash} mono /> : null}
               {nodeVersion ? <Row label="Node.js" value={nodeVersion} /> : null}
               {platform ? <Row label="Platform" value={platform} /> : null}
             </div>
@@ -77,11 +84,30 @@ export function VersionBadge({
   );
 }
 
-function Row({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+function Row({
+  label,
+  value,
+  highlight,
+  mono,
+}: {
+  label: string;
+  value: string;
+  highlight?: boolean;
+  mono?: boolean;
+}) {
   return (
     <div className="flex items-center justify-between gap-4 text-[10px]">
       <span className="opacity-60">{label}</span>
-      <span className={highlight ? 'font-medium text-amber-400' : 'font-mono'}>{value}</span>
+      <span
+        className={[
+          highlight ? 'font-medium text-cyan-400' : '',
+          mono || !highlight ? 'font-mono' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+      >
+        {value}
+      </span>
     </div>
   );
 }

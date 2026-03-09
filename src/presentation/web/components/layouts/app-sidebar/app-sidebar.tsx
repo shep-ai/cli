@@ -78,11 +78,16 @@ export function AppSidebar({
                   ].join(' ')}
                   aria-hidden={!expandedVisible}
                 >
-                  <ShepLogo className="shrink-0" size={20} />
+                  <ShepLogo
+                    className="shrink-0"
+                    size={20}
+                    variant={process.env.NODE_ENV === 'development' ? 'dev' : 'default'}
+                  />
                   <span className="truncate text-sm font-semibold tracking-tight">Shep</span>
                   <VersionBadge
                     version={process.env.NEXT_PUBLIC_SHEP_VERSION ?? 'unknown'}
                     branch={process.env.NEXT_PUBLIC_SHEP_BRANCH}
+                    commitHash={process.env.NEXT_PUBLIC_SHEP_COMMIT}
                     isDev={process.env.NODE_ENV === 'development'}
                     packageName={process.env.NEXT_PUBLIC_SHEP_PACKAGE_NAME}
                     description={process.env.NEXT_PUBLIC_SHEP_DESCRIPTION}
