@@ -1,3 +1,9 @@
+# [1.79.0](https://github.com/shep-ai/cli/compare/v1.78.1...v1.79.0) (2026-03-09)
+
+### Features
+
+- **web:** add tabbed layout to feature drawer with overview, activity, messages, and plan tabs ([#241](https://github.com/shep-ai/cli/issues/241)) ([7d7fa90](https://github.com/shep-ai/cli/commit/7d7fa90b1def490817b72edad9f52a989f7aff9a)), closes [#230](https://github.com/shep-ai/cli/issues/230)
+
 ## [1.78.1](https://github.com/shep-ai/cli/compare/v1.78.0...v1.78.1) (2026-03-09)
 
 ### Bug Fixes
