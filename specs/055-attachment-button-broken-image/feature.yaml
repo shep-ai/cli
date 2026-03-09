@@ -1,0 +1,36 @@
+feature:
+  id: '055-attachment-button-broken-image'
+  name: 'attachment-button-broken-image'
+  number: 55
+  branch: 'feat/055-attachment-button-broken-image'
+  lifecycle: 'research'
+  createdAt: '2026-03-09T13:15:07Z'
+
+status:
+  phase: 'research'
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-03-09T13:15:07Z'
+  lastUpdatedBy: 'feature-agent'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-03-09T13:15:07Z'
+    completedBy: 'feature-agent'
+
+errors:
+  current: null
+  history: []
