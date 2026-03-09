@@ -32,6 +32,22 @@ export class GitPrService implements IGitPrService {
     return stdout.trim().length > 0;
   }
 
+  async getRemoteUrl(cwd: string): Promise<string | null> {
+    try {
+      const { stdout } = await this.execFile('git', ['remote', 'get-url', 'origin'], { cwd });
+      const raw = stdout.trim();
+      if (!raw) return null;
+      // Convert SSH URLs to HTTPS: git@github.com:org/repo.git → https://github.com/org/repo
+      if (raw.startsWith('git@')) {
+        return raw.replace(/^git@([^:]+):/, 'https://$1/').replace(/\.git$/, '');
+      }
+      // Strip trailing .git from HTTPS URLs
+      return raw.replace(/\.git$/, '');
+    } catch {
+      return null;
+    }
+  }
+
   async getDefaultBranch(cwd: string): Promise<string> {
     // 1. Try remote HEAD reference (most reliable when remote exists)
     try {

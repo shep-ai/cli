@@ -11,6 +11,8 @@ export interface BuildFeatureNodeDataOptions {
   repositoryName?: string;
   /** AI-generated one-liner from FeatureArtifact */
   oneLiner?: string;
+  /** Remote URL for the repository (HTTPS) */
+  remoteUrl?: string;
 }
 
 /**
@@ -39,6 +41,7 @@ export function buildFeatureNodeData(
     ...(options?.repositoryName && { repositoryName: options.repositoryName }),
     ...(options?.baseBranch && { baseBranch: options.baseBranch }),
     ...(options?.oneLiner && { oneLiner: options.oneLiner }),
+    ...(options?.remoteUrl && { remoteUrl: options.remoteUrl }),
     ...(run?.agentType && { agentType: run.agentType as FeatureNodeData['agentType'] }),
     ...(run?.modelId && { modelId: run.modelId }),
     ...(run?.error && { errorMessage: run.error }),

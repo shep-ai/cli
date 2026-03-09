@@ -109,6 +109,16 @@ export interface IGitPrService {
   hasRemote(cwd: string): Promise<boolean>;
 
   /**
+   * Get the remote URL for the repository (origin remote).
+   * Returns an HTTPS-style URL suitable for browser linking.
+   * SSH URLs (git@...) are converted to https:// equivalents.
+   *
+   * @param cwd - Working directory path
+   * @returns The remote URL, or null if no remote is configured
+   */
+  getRemoteUrl(cwd: string): Promise<string | null>;
+
+  /**
    * Detect the repository's default branch with robust fallback chain:
    * 1. Remote HEAD (git symbolic-ref refs/remotes/origin/HEAD)
    * 2. Local branches named main or master (in that order)

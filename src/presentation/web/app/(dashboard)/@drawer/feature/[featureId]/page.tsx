@@ -31,16 +31,18 @@ export default async function FeatureDrawerPage({ params }: FeatureDrawerPagePro
 
     // Resolve repository name, base branch, and one-liner for the overview tab
     const getArtifact = resolve<GetFeatureArtifactUseCase>('GetFeatureArtifactUseCase');
-    const [repo, baseBranch, artifact] = await Promise.all([
+    const [repo, baseBranch, artifact, remoteUrl] = await Promise.all([
       repoRepo.findByPath(feature.repositoryPath).catch(() => null),
       gitPrService.getDefaultBranch(feature.repositoryPath).catch(() => 'main'),
       getArtifact.execute(featureId).catch(() => null),
+      gitPrService.getRemoteUrl(feature.repositoryPath).catch(() => null),
     ]);
 
     const nodeData = buildFeatureNodeData(feature, run, {
       repositoryName: repo?.name,
       baseBranch,
       oneLiner: artifact?.oneLiner,
+      remoteUrl: remoteUrl ?? undefined,
     });
 
     const view = computeDrawerView({

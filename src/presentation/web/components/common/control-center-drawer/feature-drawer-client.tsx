@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { toast } from 'sonner';
-import { Loader2, Trash2, Play, Square, Copy, Check } from 'lucide-react';
+import { Loader2, Trash2, Play, Square, Copy, Check, Code2, ExternalLink } from 'lucide-react';
 import type {
   PrdApprovalPayload,
   QuestionSelectionChange,
@@ -428,129 +428,144 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
 
   if (featureNode) {
     const shortId = featureNode.featureId.slice(0, 8);
+    const repoName =
+      featureNode.repositoryName ??
+      featureNode.repositoryPath.split('/').filter(Boolean).at(-1) ??
+      '';
     header = (
       <>
         <div data-testid="feature-drawer-header">
           <DrawerTitle>{featureNode.name}</DrawerTitle>
-          <div className="flex items-center gap-1.5 pt-0.5">
-            <code className="bg-muted text-muted-foreground rounded px-1.5 py-0.5 font-mono text-xs">
-              {shortId}
-            </code>
-            <button
-              type="button"
-              onClick={handleCopyId}
-              className="text-muted-foreground hover:text-foreground inline-flex items-center rounded p-0.5 transition-colors"
-              aria-label="Copy feature ID"
-              data-testid="feature-drawer-copy-id"
-            >
-              {idCopied ? (
-                <Check className="size-3.5 text-green-600" />
+          {repoName ? (
+            <div className="flex items-center gap-1.5 pt-0.5">
+              <Code2 className="text-muted-foreground size-3.5 shrink-0" />
+              {featureNode.remoteUrl ? (
+                <a
+                  href={featureNode.remoteUrl as string}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs transition-colors"
+                  data-testid="feature-drawer-repo-link"
+                >
+                  {repoName}
+                  <ExternalLink className="size-3" />
+                </a>
               ) : (
-                <Copy className="size-3.5" />
+                <span className="text-muted-foreground text-xs">{repoName}</span>
               )}
-            </button>
-          </div>
-          {featureNode.oneLiner ? (
-            <DrawerDescription>{featureNode.oneLiner}</DrawerDescription>
-          ) : featureNode.userQuery ? (
-            <DrawerDescription>{featureNode.userQuery}</DrawerDescription>
-          ) : featureNode.description ? (
-            <DrawerDescription>{featureNode.description}</DrawerDescription>
-          ) : featureNode.featureId ? (
-            <DrawerDescription className="sr-only">{featureNode.featureId}</DrawerDescription>
+            </div>
           ) : null}
+          <DrawerDescription className="sr-only">{featureNode.name}</DrawerDescription>
         </div>
 
-        <div className="flex items-center gap-2 pt-2" data-testid="feature-drawer-actions">
-          {featureActionsInput ? (
+        {featureActionsInput ? (
+          <div className="flex items-center gap-2 pt-2" data-testid="feature-drawer-actions">
             <OpenActionMenu
               actions={featureActions}
               repositoryPath={featureActionsInput.repositoryPath}
               showSpecs={!!featureActionsInput.specPath}
             />
-          ) : null}
-          {featureFlags.envDeploy && featureDeployTarget ? (
-            <>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span>
-                      <ActionButton
-                        label={isFeatureDeployActive ? 'Stop Dev Server' : 'Start Dev Server'}
-                        onClick={isFeatureDeployActive ? deployAction.stop : deployAction.deploy}
-                        loading={deployAction.deployLoading || deployAction.stopLoading}
-                        error={!!deployAction.deployError}
-                        icon={isFeatureDeployActive ? Square : Play}
-                        iconOnly
-                        variant="outline"
-                        size="icon-sm"
-                      />
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    {isFeatureDeployActive ? 'Stop Dev Server' : 'Start Dev Server'}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              {isFeatureDeployActive ? (
-                <DeploymentStatusBadge
-                  status={deployAction.status}
-                  url={deployAction.url}
-                  targetId={featureDeployTarget?.targetId}
-                />
-              ) : null}
-            </>
-          ) : null}
-          {featureNode.featureId ? (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="Delete feature"
-                  disabled={isDeleting}
-                  className="text-muted-foreground hover:text-destructive ml-auto"
-                  data-testid="feature-drawer-delete"
-                >
-                  {isDeleting ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <Trash2 className="size-4" />
-                  )}
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Delete feature?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This will permanently delete <strong>{featureNode.name}</strong> (
-                    {featureNode.featureId}). This action cannot be undone.
-                    {featureNode.state === 'running' ? (
-                      <> This feature has a running agent that will be stopped.</>
-                    ) : null}
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    variant="destructive"
+            {featureFlags.envDeploy && featureDeployTarget ? (
+              <>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span>
+                        <ActionButton
+                          label={isFeatureDeployActive ? 'Stop Dev Server' : 'Start Dev Server'}
+                          onClick={isFeatureDeployActive ? deployAction.stop : deployAction.deploy}
+                          loading={deployAction.deployLoading || deployAction.stopLoading}
+                          error={!!deployAction.deployError}
+                          icon={isFeatureDeployActive ? Square : Play}
+                          iconOnly
+                          variant="outline"
+                          size="icon-sm"
+                        />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {isFeatureDeployActive ? 'Stop Dev Server' : 'Start Dev Server'}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                {isFeatureDeployActive ? (
+                  <DeploymentStatusBadge
+                    status={deployAction.status}
+                    url={deployAction.url}
+                    targetId={featureDeployTarget?.targetId}
+                  />
+                ) : null}
+              </>
+            ) : null}
+            <div className="ml-auto flex items-center gap-1.5">
+              <code className="bg-muted text-muted-foreground rounded px-1.5 py-0.5 font-mono text-xs">
+                {shortId}
+              </code>
+              <button
+                type="button"
+                onClick={handleCopyId}
+                className="text-muted-foreground hover:text-foreground inline-flex items-center rounded p-0.5 transition-colors"
+                aria-label="Copy feature ID"
+                data-testid="feature-drawer-copy-id"
+              >
+                {idCopied ? (
+                  <Check className="size-3.5 text-green-600" />
+                ) : (
+                  <Copy className="size-3.5" />
+                )}
+              </button>
+            </div>
+            {featureNode.featureId ? (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="Delete feature"
                     disabled={isDeleting}
-                    onClick={() => handleDelete(featureNode.featureId)}
+                    className="text-muted-foreground hover:text-destructive"
+                    data-testid="feature-drawer-delete"
                   >
                     {isDeleting ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Deleting…
-                      </>
+                      <Loader2 className="size-4 animate-spin" />
                     ) : (
-                      'Delete'
+                      <Trash2 className="size-4" />
                     )}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          ) : null}
-        </div>
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete feature?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently delete <strong>{featureNode.name}</strong> (
+                      {featureNode.featureId}). This action cannot be undone.
+                      {featureNode.state === 'running' ? (
+                        <> This feature has a running agent that will be stopped.</>
+                      ) : null}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      variant="destructive"
+                      disabled={isDeleting}
+                      onClick={() => handleDelete(featureNode.featureId)}
+                    >
+                      {isDeleting ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Deleting…
+                        </>
+                      ) : (
+                        'Delete'
+                      )}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            ) : null}
+          </div>
+        ) : null}
       </>
     );
   }
