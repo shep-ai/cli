@@ -1,3 +1,9 @@
+## [1.86.1](https://github.com/shep-ai/cli/compare/v1.86.0...v1.86.1) (2026-03-09)
+
+### Bug Fixes
+
+- **web:** fix broken image when adding attachment via button ([#259](https://github.com/shep-ai/cli/issues/259)) ([2299778](https://github.com/shep-ai/cli/commit/22997784541802e333d05276f6a5ebc7bb164f69))
+
 # [1.86.0](https://github.com/shep-ai/cli/compare/v1.85.0...v1.86.0) (2026-03-09)
 
 ### Features
