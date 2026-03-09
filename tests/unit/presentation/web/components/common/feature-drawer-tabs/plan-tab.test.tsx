@@ -11,26 +11,49 @@ const mockPlan: PlanData = {
       title: 'Set up auth middleware',
       description: 'Create Express middleware for JWT verification',
       state: 'Done',
+      actionItems: [
+        {
+          name: 'Create middleware function',
+          description: 'JWT verification middleware',
+          acceptanceCriteria: [
+            { description: 'Verifies JWT tokens', verified: true },
+            { description: 'Returns 401 on invalid token', verified: true },
+          ],
+        },
+      ],
     },
     {
       title: 'Build login endpoint',
       description: 'POST /auth/login with email/password',
       state: 'Done',
+      actionItems: [],
     },
     {
       title: 'Implement token refresh',
       description: 'Handle refresh token rotation',
       state: 'Work in Progress',
+      actionItems: [
+        {
+          name: 'Implement rotation logic',
+          description: 'Rotate refresh tokens on use',
+          acceptanceCriteria: [
+            { description: 'Old token is invalidated', verified: true },
+            { description: 'New token is issued', verified: false },
+          ],
+        },
+      ],
     },
     {
       title: 'Add session management',
       description: 'Track active sessions per user',
       state: 'Review',
+      actionItems: [],
     },
     {
       title: 'Write integration tests',
       description: 'Test all auth flows end-to-end',
       state: 'Todo',
+      actionItems: [],
     },
   ],
 };
@@ -91,7 +114,7 @@ describe('PlanTab', () => {
     });
   });
 
-  describe('task list', () => {
+  describe('task progress view', () => {
     it('renders all tasks with their titles', () => {
       render(<PlanTab plan={mockPlan} loading={false} error={null} />);
       expect(screen.getByText('Set up auth middleware')).toBeInTheDocument();
@@ -109,36 +132,21 @@ describe('PlanTab', () => {
       expect(screen.getByText('POST /auth/login with email/password')).toBeInTheDocument();
     });
 
-    it('renders correct status icons for each task state', () => {
+    it('renders the task progress list', () => {
       render(<PlanTab plan={mockPlan} loading={false} error={null} />);
-      const taskList = screen.getByTestId('plan-task-list');
-      expect(taskList).toBeInTheDocument();
-      const taskItems = screen.getAllByTestId(/^plan-task-/);
-      expect(taskItems.length).toBeGreaterThanOrEqual(5);
+      expect(screen.getByTestId('task-progress-list')).toBeInTheDocument();
     });
 
-    it('applies correct color class for Done task state', () => {
+    it('renders task cards with correct testids', () => {
       render(<PlanTab plan={mockPlan} loading={false} error={null} />);
-      const doneTask = screen.getByTestId('plan-task-0');
-      expect(doneTask).toHaveClass('text-emerald-600');
+      const taskCards = screen.getAllByTestId(/^task-card-/);
+      expect(taskCards.length).toBe(5);
     });
 
-    it('applies correct color class for WIP task state', () => {
+    it('renders progress summary', () => {
       render(<PlanTab plan={mockPlan} loading={false} error={null} />);
-      const wipTask = screen.getByTestId('plan-task-2');
-      expect(wipTask).toHaveClass('text-blue-600');
-    });
-
-    it('applies correct color class for Review task state', () => {
-      render(<PlanTab plan={mockPlan} loading={false} error={null} />);
-      const reviewTask = screen.getByTestId('plan-task-3');
-      expect(reviewTask).toHaveClass('text-amber-600');
-    });
-
-    it('applies correct color class for Todo task state', () => {
-      render(<PlanTab plan={mockPlan} loading={false} error={null} />);
-      const todoTask = screen.getByTestId('plan-task-4');
-      expect(todoTask).toHaveClass('text-muted-foreground');
+      expect(screen.getByTestId('task-progress-summary')).toBeInTheDocument();
+      expect(screen.getByText('2 of 5 done')).toBeInTheDocument();
     });
 
     it('renders empty task list message when plan has no tasks', () => {
