@@ -1,0 +1,77 @@
+FeatureNode Unit Tests — Deployment Status Indicator
+=====================================================
+
+Test File: tests/unit/presentation/web/common/feature-node/feature-node.test.tsx
+
+RUN v4.0.18
+
+ ✓ FeatureNode > renders lifecycle phase label using display labels (39ms)
+ ✓ FeatureNode > renders feature name (5ms)
+ ✓ FeatureNode > renders description (6ms)
+ ✓ FeatureNode > renders featureId in non-running state (4ms)
+ ✓ FeatureNode > running state > shows indeterminate progress bar instead of badge (4ms)
+ ✓ FeatureNode > running state > shows lifecycle-specific running verb (3ms)
+ ✓ FeatureNode > running state > shows implementing verb for implementation phase (3ms)
+ ✓ FeatureNode > action button fires onAction callback (6ms)
+ ✓ FeatureNode > agent badge fires onSettings callback (7ms)
+ ✓ FeatureNode > renders Handle components when showHandles is true (4ms)
+ ✓ FeatureNode > renders all lifecycle phases with display labels (18ms)
+ ✓ FeatureNode > renders without description when not provided (3ms)
+ ✓ FeatureNode > done state > shows badge instead of progress bar (3ms)
+ ✓ FeatureNode > done state > shows "Completed" when no runtime provided (3ms)
+ ✓ FeatureNode > done state > shows runtime when provided (3ms)
+ ✓ FeatureNode > done state > does not show progress percentage (4ms)
+ ✓ FeatureNode > blocked state > shows badge instead of progress bar (3ms)
+ ✓ FeatureNode > blocked state > shows "Blocked" when no blockedBy provided (3ms)
+ ✓ FeatureNode > blocked state > shows blockedBy feature when provided (3ms)
+ ✓ FeatureNode > action-required state > shows badge instead of progress bar (2ms)
+ ✓ FeatureNode > action-required state > shows "Review Merge Request" badge in review lifecycle (3ms)
+ ✓ FeatureNode > action-required state > applies emerald badge classes in review lifecycle (3ms)
+ ✓ FeatureNode > action-required state > shows "Review Product Requirements" badge in requirements lifecycle (4ms)
+ ✓ FeatureNode > action-required state > shows "Review Technical Planning" badge in implementation lifecycle (3ms)
+ ✓ FeatureNode > action-required state > shows default "User action required" badge in other lifecycles (3ms)
+ ✓ FeatureNode > error state > shows badge instead of progress bar (4ms)
+ ✓ FeatureNode > error state > shows default error message when none provided (4ms)
+ ✓ FeatureNode > error state > shows custom error message when provided (3ms)
+ ✓ FeatureNode > lifecycleDisplayLabels > maps maintain to COMPLETED (0ms)
+ ✓ FeatureNode > lifecycleDisplayLabels > maps deploy to DEPLOY & QA (0ms)
+ ✓ FeatureNode > lifecycleDisplayLabels > maps research to RESEARCH (0ms)
+ ✓ FeatureNode > lifecycleDisplayLabels > maps review to REVIEW (0ms)
+ ✓ FeatureNode > creating state > renders without throwing when state is creating (2ms)
+ ✓ FeatureNode > creating state > shows "Creating..." badge text (3ms)
+ ✓ FeatureNode > creating state > renders the feature name (3ms)
+ ✓ FeatureNode > creating state > shows indeterminate progress bar (2ms)
+ ✓ FeatureNode > creating state > does not render agent icon element (3ms)
+ ✓ FeatureNode > creating state > has aria-busy="true" on the card element (3ms)
+ ✓ FeatureNode > deployment indicator > does not render indicator when no deployment data (2ms)
+ ✓ FeatureNode > deployment indicator > renders booting indicator with "Deploying..." text (4ms)
+ ✓ FeatureNode > deployment indicator > applies blue styling for booting state (3ms)
+ ✓ FeatureNode > deployment indicator > renders ready indicator with "Live" text when no url (3ms)
+ ✓ FeatureNode > deployment indicator > renders ready indicator with url when provided (3ms)
+ ✓ FeatureNode > deployment indicator > applies green styling for ready state (3ms)
+ ✓ FeatureNode > selected highlight > applies ring classes when selected is true (2ms)
+ ✓ FeatureNode > selected highlight > does not apply ring classes when selected is false (3ms)
+ ✓ FeatureNode > delete button > renders delete button when onDelete and featureId are provided (6ms)
+ ✓ FeatureNode > delete button > does not render delete button when onDelete is absent (2ms)
+ ✓ FeatureNode > delete button > does not render delete button when featureId is empty (2ms)
+ ✓ FeatureNode > delete button > opens confirmation dialog when delete button is clicked (5ms)
+ ✓ FeatureNode > delete button > calls onDelete with featureId only after confirming in the dialog (5ms)
+ ✓ FeatureNode > delete button > does not call onDelete when cancel is clicked (5ms)
+ ✓ FeatureNode > delete button > delete button click stops propagation (5ms)
+ ✓ FeatureNode > delete button > has correct aria-label (3ms)
+ ✓ FeatureNode > delete button > displays feature name in dialog description (4ms)
+
+ Test Files  1 passed (1)
+      Tests  55 passed (55)
+   Start at  15:23:57
+   Duration  712ms
+
+Deployment Indicator Tests (NEW — 6 tests):
+- does not render indicator when no deployment data
+- renders booting indicator with "Deploying..." text
+- applies blue styling for booting state
+- renders ready indicator with "Live" text when no url
+- renders ready indicator with url when provided
+- applies green styling for ready state
+
+Full Suite Summary: 281 test files, 3399 tests — ALL PASSED
