@@ -12,7 +12,7 @@ test.describe('Feature Create Drawer — drag-drop attachment flow', () => {
           name: 'test-screenshot.png',
           size: 5000,
           mimeType: 'image/png',
-          path: '.shep/attachments/pending-abc/test-screenshot.png',
+          path: '/tmp/.shep/attachments/pending-abc/test-screenshot.png',
           createdAt: new Date().toISOString(),
         }),
       })
@@ -35,15 +35,20 @@ test.describe('Feature Create Drawer — drag-drop attachment flow', () => {
     const dropZone = page.getByRole('region', { name: 'File drop zone' });
     await expect(dropZone).toBeVisible();
 
-    // Simulate file drop using Playwright's DataTransfer
-    const dataTransfer = await page.evaluateHandle(() => {
+    // Simulate file drop by dispatching a native drop event inside the page context
+    // This ensures dataTransfer.files is properly populated for React's synthetic event
+    await dropZone.evaluate((el) => {
       const dt = new DataTransfer();
       const file = new File(['fake image data'], 'test-screenshot.png', { type: 'image/png' });
       dt.items.add(file);
-      return dt;
-    });
 
-    await dropZone.dispatchEvent('drop', { dataTransfer });
+      const dropEvent = new DragEvent('drop', {
+        bubbles: true,
+        cancelable: true,
+        dataTransfer: dt,
+      });
+      el.dispatchEvent(dropEvent);
+    });
 
     // Verify the attachment card appears with the filename
     await expect(page.getByText('test-screenshot.png')).toBeVisible({ timeout: 5000 });
@@ -69,17 +74,20 @@ test.describe('Feature Create Drawer — drag-drop attachment flow', () => {
     const dropZone = page.getByRole('region', { name: 'File drop zone' });
     await expect(dropZone).toBeVisible();
 
-    // Create a file that reports as >10 MB
-    const dataTransfer = await page.evaluateHandle(() => {
+    // Simulate dropping an oversized file
+    await dropZone.evaluate((el) => {
       const dt = new DataTransfer();
-      // Create a small file but override its size property
       const file = new File(['x'], 'huge-file.png', { type: 'image/png' });
       Object.defineProperty(file, 'size', { value: 11 * 1024 * 1024 });
       dt.items.add(file);
-      return dt;
-    });
 
-    await dropZone.dispatchEvent('drop', { dataTransfer });
+      const dropEvent = new DragEvent('drop', {
+        bubbles: true,
+        cancelable: true,
+        dataTransfer: dt,
+      });
+      el.dispatchEvent(dropEvent);
+    });
 
     // Error message should appear
     await expect(page.getByText(/exceeds 10 MB/i)).toBeVisible({ timeout: 3000 });
