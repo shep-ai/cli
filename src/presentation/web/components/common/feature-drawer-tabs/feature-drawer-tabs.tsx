@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { getFeaturePhaseTimings } from '@/app/actions/get-feature-phase-timings';
@@ -28,7 +29,10 @@ import { PlanTab } from './plan-tab';
 import { useFeatureLogs } from '@/hooks/use-feature-logs';
 import { useTabDataFetch } from './use-tab-data-fetch';
 import type { TabFetchers } from './use-tab-data-fetch';
-import type { FeatureTabKey } from '@/components/common/control-center-drawer/drawer-view';
+import {
+  parseTabKey,
+  type FeatureTabKey,
+} from '@/components/common/control-center-drawer/drawer-view';
 
 /** Lazy-loaded tab keys (tabs that fetch data on activation). */
 type LazyTabKey = 'activity' | 'plan';
@@ -156,6 +160,9 @@ export function FeatureDrawerTabs({
   chatInput,
   onChatInputChange,
 }: FeatureDrawerTabsProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const featureLogs = useFeatureLogs(featureId);
 
   const visibleTabs = useMemo(() => computeVisibleTabs(featureNode), [featureNode]);
@@ -164,11 +171,46 @@ export function FeatureDrawerTabs({
     [visibleTabs]
   );
 
-  // Use initialTab if it's visible, otherwise default to 'overview'
-  const effectiveInitial = initialTab && visibleTabs.includes(initialTab) ? initialTab : 'overview';
+  // Resolve the effective initial tab: URL ?tab= param > initialTab prop > 'overview'
+  const urlTab = parseTabKey(searchParams.get('tab'));
+  const effectiveInitial = useMemo(() => {
+    if (urlTab && visibleTabs.includes(urlTab)) return urlTab;
+    if (initialTab && visibleTabs.includes(initialTab)) return initialTab;
+    return 'overview';
+    // Only compute on mount — subsequent changes are handled by effects below
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [activeTab, setActiveTab] = useState<FeatureTabKey>(effectiveInitial);
 
   const { tabs, fetchTab, refreshTab } = useTabDataFetch<LazyTabKey>(featureId, TAB_FETCHERS);
+
+  // Sync URL when active tab changes (shallow replace, no scroll)
+  useEffect(() => {
+    const currentUrlTab = parseTabKey(searchParams.get('tab'));
+    // Only update URL if the tab has changed. Omit ?tab= for 'overview' (default).
+    if (activeTab === 'overview' && currentUrlTab === undefined) return;
+    if (activeTab === currentUrlTab) return;
+
+    const params = new URLSearchParams(searchParams.toString());
+    if (activeTab === 'overview') {
+      params.delete('tab');
+    } else {
+      params.set('tab', activeTab);
+    }
+    const qs = params.toString();
+    const url = `${pathname}${qs ? `?${qs}` : ''}` as Parameters<typeof router.replace>[0];
+    router.replace(url, { scroll: false });
+  }, [activeTab, pathname, router, searchParams]);
+
+  // Trigger lazy fetch for URL-driven initial tab
+  const initialFetchDone = useRef(false);
+  useEffect(() => {
+    if (initialFetchDone.current) return;
+    initialFetchDone.current = true;
+    if (activeTab === 'activity' || activeTab === 'plan') {
+      fetchTab(activeTab);
+    }
+  }, [activeTab, fetchTab]);
 
   // Reset tab when featureId changes
   const prevFeatureIdRef = useRef(featureId);

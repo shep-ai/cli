@@ -10,6 +10,16 @@ import type { PlanData } from '@/app/actions/get-feature-plan';
 const mockGetPhaseTimings = vi.fn();
 const mockGetPlan = vi.fn();
 
+// Mock next/navigation
+const mockReplace = vi.fn();
+let mockSearchParams = new URLSearchParams();
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ replace: mockReplace }),
+  usePathname: () => '/feature/f1',
+  useSearchParams: () => mockSearchParams,
+}));
+
 vi.mock('@/app/actions/get-feature-phase-timings', () => ({
   getFeaturePhaseTimings: (...args: unknown[]) => mockGetPhaseTimings(...args),
 }));
@@ -81,8 +91,9 @@ function renderTabs(props: Partial<{ featureNode: FeatureNodeData; featureId: st
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockSearchParams = new URLSearchParams();
 
-  mockGetPhaseTimings.mockResolvedValue({ timings: sampleTimings });
+  mockGetPhaseTimings.mockResolvedValue({ timings: sampleTimings, rejectionFeedback: [] });
   mockGetPlan.mockResolvedValue({ plan: samplePlan });
 });
 
@@ -197,6 +208,81 @@ describe('FeatureDrawerTabs', () => {
       // No fetches should happen — Overview uses prop data directly
       expect(mockGetPhaseTimings).not.toHaveBeenCalled();
       expect(mockGetPlan).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('URL tab routing', () => {
+    it('activates the tab specified in ?tab= query parameter', () => {
+      mockSearchParams = new URLSearchParams('tab=activity');
+      renderTabs();
+
+      const activityTab = screen.getByRole('tab', { name: 'Activity' });
+      expect(activityTab).toHaveAttribute('data-state', 'active');
+    });
+
+    it('ignores invalid ?tab= values and defaults to overview', () => {
+      mockSearchParams = new URLSearchParams('tab=nonexistent');
+      renderTabs();
+
+      const overviewTab = screen.getByRole('tab', { name: 'Overview' });
+      expect(overviewTab).toHaveAttribute('data-state', 'active');
+    });
+
+    it('ignores ?tab= value for a tab not visible in current lifecycle', () => {
+      // prd-review is only visible in requirements+action-required, not implementation+running
+      mockSearchParams = new URLSearchParams('tab=prd-review');
+      renderTabs();
+
+      const overviewTab = screen.getByRole('tab', { name: 'Overview' });
+      expect(overviewTab).toHaveAttribute('data-state', 'active');
+    });
+
+    it('updates URL when user clicks a different tab', async () => {
+      const user = userEvent.setup();
+      renderTabs();
+
+      await user.click(screen.getByRole('tab', { name: 'Activity' }));
+
+      expect(mockReplace).toHaveBeenCalledWith('/feature/f1?tab=activity', { scroll: false });
+    });
+
+    it('removes ?tab= param when switching back to overview', async () => {
+      mockSearchParams = new URLSearchParams('tab=activity');
+      const user = userEvent.setup();
+      renderTabs();
+
+      await user.click(screen.getByRole('tab', { name: 'Overview' }));
+
+      expect(mockReplace).toHaveBeenCalledWith('/feature/f1', { scroll: false });
+    });
+
+    it('fetches lazy tab data when opened via URL', () => {
+      mockSearchParams = new URLSearchParams('tab=activity');
+      renderTabs();
+
+      // Activity is a lazy tab — should fetch on mount when opened via URL
+      expect(mockGetPhaseTimings).toHaveBeenCalledWith('#f1');
+    });
+
+    it('fetches plan tab data when opened via URL', () => {
+      mockSearchParams = new URLSearchParams('tab=plan');
+      renderTabs();
+
+      expect(mockGetPlan).toHaveBeenCalledWith('#f1');
+    });
+
+    it('URL tab takes priority over initialTab prop', () => {
+      mockSearchParams = new URLSearchParams('tab=log');
+      renderTabs({
+        featureNode: {
+          ...defaultFeatureNode,
+          lifecycle: 'requirements',
+          state: 'action-required',
+        },
+      });
+
+      const logTab = screen.getByRole('tab', { name: 'Log' });
+      expect(logTab).toHaveAttribute('data-state', 'active');
     });
   });
 });
