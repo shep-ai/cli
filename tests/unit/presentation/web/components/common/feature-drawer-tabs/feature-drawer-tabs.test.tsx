@@ -4,24 +4,22 @@ import userEvent from '@testing-library/user-event';
 import { FeatureDrawerTabs } from '@/components/common/feature-drawer-tabs/feature-drawer-tabs';
 import type { FeatureNodeData } from '@/components/common/feature-node';
 import type { PhaseTimingData } from '@/app/actions/get-feature-phase-timings';
-import type { MessageData } from '@/app/actions/get-feature-messages';
 import type { PlanData } from '@/app/actions/get-feature-plan';
 
 // Mock server actions
 const mockGetPhaseTimings = vi.fn();
-const mockGetMessages = vi.fn();
 const mockGetPlan = vi.fn();
 
 vi.mock('@/app/actions/get-feature-phase-timings', () => ({
   getFeaturePhaseTimings: (...args: unknown[]) => mockGetPhaseTimings(...args),
 }));
 
-vi.mock('@/app/actions/get-feature-messages', () => ({
-  getFeatureMessages: (...args: unknown[]) => mockGetMessages(...args),
-}));
-
 vi.mock('@/app/actions/get-feature-plan', () => ({
   getFeaturePlan: (...args: unknown[]) => mockGetPlan(...args),
+}));
+
+vi.mock('@/hooks/use-feature-logs', () => ({
+  useFeatureLogs: () => ({ content: '', isConnected: false, error: null }),
 }));
 
 vi.mock('@/hooks/use-sound-action', () => ({
@@ -66,8 +64,6 @@ const sampleTimings: PhaseTimingData[] = [
   },
 ];
 
-const sampleMessages: MessageData[] = [{ role: 'assistant', content: 'Working on it.' }];
-
 const samplePlan: PlanData = {
   state: 'Ready',
   overview: 'Implementation plan',
@@ -87,7 +83,6 @@ beforeEach(() => {
   vi.clearAllMocks();
 
   mockGetPhaseTimings.mockResolvedValue({ timings: sampleTimings });
-  mockGetMessages.mockResolvedValue({ messages: sampleMessages });
   mockGetPlan.mockResolvedValue({ plan: samplePlan });
 });
 
@@ -97,7 +92,7 @@ describe('FeatureDrawerTabs', () => {
       renderTabs();
       expect(screen.getByRole('tab', { name: 'Overview' })).toBeInTheDocument();
       expect(screen.getByRole('tab', { name: 'Activity' })).toBeInTheDocument();
-      expect(screen.getByRole('tab', { name: 'Messages' })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: 'Log' })).toBeInTheDocument();
       expect(screen.getByRole('tab', { name: 'Plan' })).toBeInTheDocument();
     });
   });
@@ -120,7 +115,6 @@ describe('FeatureDrawerTabs', () => {
     it('does not fetch any data on initial render', () => {
       renderTabs();
       expect(mockGetPhaseTimings).not.toHaveBeenCalled();
-      expect(mockGetMessages).not.toHaveBeenCalled();
       expect(mockGetPlan).not.toHaveBeenCalled();
     });
 
@@ -131,15 +125,6 @@ describe('FeatureDrawerTabs', () => {
       await user.click(screen.getByRole('tab', { name: 'Activity' }));
 
       expect(mockGetPhaseTimings).toHaveBeenCalledWith('#f1');
-    });
-
-    it('clicking Messages tab triggers messages fetch', async () => {
-      const user = userEvent.setup();
-      renderTabs();
-
-      await user.click(screen.getByRole('tab', { name: 'Messages' }));
-
-      expect(mockGetMessages).toHaveBeenCalledWith('#f1');
     });
 
     it('clicking Plan tab triggers plan fetch', async () => {
@@ -211,7 +196,6 @@ describe('FeatureDrawerTabs', () => {
 
       // No fetches should happen — Overview uses prop data directly
       expect(mockGetPhaseTimings).not.toHaveBeenCalled();
-      expect(mockGetMessages).not.toHaveBeenCalled();
       expect(mockGetPlan).not.toHaveBeenCalled();
     });
   });

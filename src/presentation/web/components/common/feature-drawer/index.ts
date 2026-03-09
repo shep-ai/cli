@@ -1,1 +1,5 @@
-export { FeatureDrawer, type FeatureDrawerProps } from './feature-drawer';
+export {
+  useFeatureActions,
+  type FeatureActionsInput,
+  type FeatureActionsState,
+} from './use-feature-actions';

@@ -2,7 +2,6 @@ import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import { fn } from '@storybook/test';
 import { PrdQuestionnaire } from './prd-questionnaire';
-import { PrdQuestionnaireDrawer } from './prd-questionnaire-drawer';
 import type { PrdQuestionnaireData } from './prd-questionnaire-config';
 
 const mockQuestions: PrdQuestionnaireData['questions'] = [
@@ -271,110 +270,6 @@ export const MinimalData: Story = {
           description: 'Confirm the decision',
         },
       }}
-    />
-  ),
-};
-
-/* ─── Drawer Variant ─── */
-
-type DrawerStory = StoryObj<typeof PrdQuestionnaireDrawer>;
-
-const drawerMeta = {
-  component: PrdQuestionnaireDrawer,
-  tags: ['autodocs'],
-  parameters: {
-    layout: 'fullscreen',
-  },
-};
-
-function DrawerTemplate({
-  selections: initialSelections = {},
-  ...props
-}: Omit<
-  React.ComponentProps<typeof PrdQuestionnaireDrawer>,
-  'open' | 'onClose' | 'onSelect' | 'onApprove' | 'selections'
-> & { selections?: Record<string, string> }) {
-  const [open, setOpen] = useState(true);
-  const [selections, setSelections] = useState<Record<string, string>>(initialSelections);
-
-  return (
-    <div style={{ height: '100vh', background: '#f8fafc', padding: '2rem' }}>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        style={{ padding: '8px 16px', border: '1px solid #ccc', borderRadius: '6px' }}
-      >
-        Open Drawer
-      </button>
-      <PrdQuestionnaireDrawer
-        {...props}
-        open={open}
-        onClose={() => setOpen(false)}
-        selections={selections}
-        onSelect={(qId, optId) => setSelections((prev) => ({ ...prev, [qId]: optId }))}
-        onApprove={fn().mockName('onApprove')}
-      />
-    </div>
-  );
-}
-
-/** Drawer with stepper — navigate questions one at a time. */
-export const InDrawer: DrawerStory = {
-  ...drawerMeta,
-  render: () => (
-    <DrawerTemplate
-      featureName="User Authentication Flow"
-      featureDescription="Implement OAuth2 login with social providers and MFA support"
-      featureId="FEAT-042"
-      lifecycleLabel="Requirements"
-      data={mockData}
-    />
-  ),
-};
-
-/** Drawer with partial selections showing progress dots. */
-export const InDrawerWithSelections: DrawerStory = {
-  ...drawerMeta,
-  render: () => (
-    <DrawerTemplate
-      featureName="User Authentication Flow"
-      featureId="FEAT-042"
-      lifecycleLabel="Requirements"
-      data={mockData}
-      selections={{
-        problem: 'user_pain',
-        priority: 'p1',
-        success: 'adoption',
-      }}
-    />
-  ),
-};
-
-/** Drawer with delete button visible. */
-export const WithDeleteButton: DrawerStory = {
-  ...drawerMeta,
-  render: () => (
-    <DrawerTemplate
-      featureName="User Authentication Flow"
-      featureId="FEAT-042"
-      lifecycleLabel="Requirements"
-      data={mockData}
-      onDelete={fn().mockName('onDelete')}
-    />
-  ),
-};
-
-/** Drawer with delete in progress (button disabled). */
-export const DeletingState: DrawerStory = {
-  ...drawerMeta,
-  render: () => (
-    <DrawerTemplate
-      featureName="User Authentication Flow"
-      featureId="FEAT-042"
-      lifecycleLabel="Requirements"
-      data={mockData}
-      onDelete={fn().mockName('onDelete')}
-      isDeleting
     />
   ),
 };

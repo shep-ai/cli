@@ -1,8 +1,6 @@
-import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import { fn } from '@storybook/test';
 import { TechDecisionsReview } from './tech-decisions-review';
-import { TechDecisionsDrawer } from './tech-decisions-drawer';
 import type { TechDecisionsReviewData } from './tech-decisions-review-config';
 
 const mockData: TechDecisionsReviewData = {
@@ -97,82 +95,6 @@ export const NoTechnologies: Story = {
     onReject: fn().mockName('onReject'),
     onApprove: fn().mockName('onApprove'),
   },
-};
-
-/* ─── Drawer Variant ─── */
-
-type DrawerStory = StoryObj<typeof TechDecisionsDrawer>;
-
-const drawerMeta = {
-  component: TechDecisionsDrawer,
-  tags: ['autodocs'],
-  parameters: {
-    layout: 'fullscreen',
-  },
-};
-
-function DrawerTemplate(
-  props: Omit<React.ComponentProps<typeof TechDecisionsDrawer>, 'open' | 'onClose'>
-) {
-  const [open, setOpen] = useState(true);
-
-  return (
-    <div style={{ height: '100vh', background: '#f8fafc', padding: '2rem' }}>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        style={{ padding: '8px 16px', border: '1px solid #ccc', borderRadius: '6px' }}
-      >
-        Open Drawer
-      </button>
-      <TechDecisionsDrawer {...props} open={open} onClose={() => setOpen(false)} />
-    </div>
-  );
-}
-
-/** Drawer with tech decisions list. */
-export const InDrawer: DrawerStory = {
-  ...drawerMeta,
-  render: () => (
-    <DrawerTemplate
-      featureName="Agent Executor Abstraction"
-      featureId="FEAT-099"
-      data={mockData}
-      onApprove={fn().mockName('onApprove')}
-      onReject={fn().mockName('onReject')}
-    />
-  ),
-};
-
-/** Drawer with delete button visible. */
-export const WithDeleteButton: DrawerStory = {
-  ...drawerMeta,
-  render: () => (
-    <DrawerTemplate
-      featureName="Agent Executor Abstraction"
-      featureId="FEAT-099"
-      data={mockData}
-      onApprove={fn().mockName('onApprove')}
-      onReject={fn().mockName('onReject')}
-      onDelete={fn().mockName('onDelete')}
-    />
-  ),
-};
-
-/** Drawer with delete in progress (button disabled). */
-export const DeletingState: DrawerStory = {
-  ...drawerMeta,
-  render: () => (
-    <DrawerTemplate
-      featureName="Agent Executor Abstraction"
-      featureId="FEAT-099"
-      data={mockData}
-      onApprove={fn().mockName('onApprove')}
-      onReject={fn().mockName('onReject')}
-      onDelete={fn().mockName('onDelete')}
-      isDeleting
-    />
-  ),
 };
 
 /* ─── Reject Variants ─── */
