@@ -6,39 +6,30 @@ number: 055
 branch: feat/055-attachment-button-broken-image
 oneLiner: When adding attachment via the button next to fast mode - i see broken image, ctrl v works, drag and drop works though!
 
-@/home/blackpc/.shep/attachments/pending-8805177d-3b60-4682-bd59-f9089aa9e73c/image-1004e363.png
 userQuery: >
   When adding attachment via the button next to fast mode - i see broken image, ctrl v works, drag and drop works though!
 
-@/home/blackpc/.shep/attachments/pending-8805177d-3b60-4682-bd59-f9089aa9e73c/image-1004e363.png
 summary: >
   When adding attachment via the button next to fast mode - i see broken image, ctrl v works, drag and drop works though!
 
-@/home/blackpc/.shep/attachments/pending-8805177d-3b60-4682-bd59-f9089aa9e73c/image-1004e363.png
 phase: Analysis
 sizeEstimate: M
 
 # Relationships
-relatedFeatures:
-  []
+relatedFeatures: []
 
-technologies:
-  []
+technologies: []
 
-relatedLinks:
-  []
+relatedLinks: []
 
 # Open questions (must be resolved before implementation)
-openQuestions:
-  []
+openQuestions: []
 
 # Markdown content (the actual spec)
 content: |
   ## Problem Statement
 
   When adding attachment via the button next to fast mode - i see broken image, ctrl v works, drag and drop works though!
-
-@/home/blackpc/.shep/attachments/pending-8805177d-3b60-4682-bd59-f9089aa9e73c/image-1004e363.png
 
   ## Success Criteria
 

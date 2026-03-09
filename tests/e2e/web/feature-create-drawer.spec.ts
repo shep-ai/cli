@@ -20,6 +20,22 @@ test.describe('Feature Create Drawer — native file attachments', () => {
       })
     );
 
+    // Mock the upload-from-path endpoint — the file doesn't exist on CI
+    await page.route('**/api/attachments/upload-from-path', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          id: 'att-test-001',
+          name: 'requirements.pdf',
+          size: 42000,
+          mimeType: 'application/pdf',
+          path: '/tmp/.shep/attachments/pending/requirements.pdf',
+          createdAt: new Date().toISOString(),
+        }),
+      })
+    );
+
     // Navigate to control center
     await page.goto('/');
 
@@ -109,6 +125,32 @@ test.describe('Feature Create Drawer — native file attachments', () => {
         }),
       })
     );
+
+    // Mock upload-from-path to return per-file responses based on request body
+    await page.route('**/api/attachments/upload-from-path', async (route) => {
+      const body = route.request().postDataJSON() as { path: string };
+      const name = body.path.split('/').pop()!;
+      const sizeMap: Record<string, number> = {
+        'requirements.pdf': 42000,
+        'screenshot.png': 150000,
+      };
+      const mimeMap: Record<string, string> = {
+        'requirements.pdf': 'application/pdf',
+        'screenshot.png': 'image/png',
+      };
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          id: `att-${name.replace('.', '-')}`,
+          name,
+          size: sizeMap[name] ?? 1000,
+          mimeType: mimeMap[name] ?? 'application/octet-stream',
+          path: `/tmp/.shep/attachments/pending/${name}`,
+          createdAt: new Date().toISOString(),
+        }),
+      });
+    });
 
     await page.goto('/');
 
