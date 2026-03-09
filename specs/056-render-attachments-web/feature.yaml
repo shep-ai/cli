@@ -1,0 +1,36 @@
+feature:
+  id: '056-render-attachments-web'
+  name: 'render-attachments-web'
+  number: 56
+  branch: 'feat/056-render-attachments-web'
+  lifecycle: 'research'
+  createdAt: '2026-03-09T18:47:00Z'
+
+status:
+  phase: 'research'
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-03-09T18:47:00Z'
+  lastUpdatedBy: 'feature-agent'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-03-09T18:47:00Z'
+    completedBy: 'feature-agent'
+
+errors:
+  current: null
+  history: []

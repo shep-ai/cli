@@ -164,6 +164,25 @@ describe('OverviewTab', () => {
     });
   });
 
+  describe('inline attachments in user query', () => {
+    it('renders inline attachment image when userQuery contains @/path reference', () => {
+      renderOverviewTab({
+        ...defaultData,
+        userQuery: 'Fix this bug @/home/user/.shep/attachments/pending-abc/screenshot.png',
+      });
+      expect(screen.getByTestId('inline-attachment-image')).toBeInTheDocument();
+    });
+
+    it('renders plain text when userQuery has no attachment references', () => {
+      renderOverviewTab({
+        ...defaultData,
+        userQuery: 'Just a simple text query',
+      });
+      expect(screen.getByText('Just a simple text query')).toBeInTheDocument();
+      expect(screen.queryByTestId('inline-attachment-image')).not.toBeInTheDocument();
+    });
+  });
+
   describe('details section', () => {
     it('renders details section with agent type', () => {
       renderOverviewTab({ ...defaultData, agentType: 'cursor' });

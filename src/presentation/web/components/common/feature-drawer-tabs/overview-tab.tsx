@@ -1,6 +1,7 @@
 'use client';
 
 import { ExternalLink, GitBranch, GitCommitHorizontal, Zap } from 'lucide-react';
+import { InlineAttachments } from '@/components/common/inline-attachments';
 import { PrStatus } from '@shepai/core/domain/generated/output';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -139,7 +140,7 @@ function FeatureInfo({ data }: { data: FeatureNodeData }) {
         {data.userQuery ? (
           <div className="flex flex-col gap-0.5">
             <span className="text-muted-foreground text-xs font-medium">User Query</span>
-            <span className="text-sm leading-relaxed">{data.userQuery}</span>
+            <InlineAttachments text={data.userQuery} />
           </div>
         ) : null}
         {data.summary ? (
