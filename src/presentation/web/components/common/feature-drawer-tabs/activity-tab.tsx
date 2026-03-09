@@ -5,6 +5,7 @@ import type {
   PhaseTimingData,
   RejectionFeedbackData,
 } from '@/app/actions/get-feature-phase-timings';
+import { InlineAttachments } from '@/components/common/inline-attachments';
 
 export interface ActivityTabProps {
   timings: PhaseTimingData[] | null;
@@ -59,22 +60,28 @@ function groupTimingsByRun(timings: PhaseTimingData[]): TimingRunGroup[] {
   return groups;
 }
 
+interface RejectionDisplayData {
+  message: string;
+  attachments?: string[];
+}
+
 /**
- * Map each run:rejected timing entry to its rejection feedback message.
+ * Map each run:rejected timing entry to its rejection feedback message and attachments.
  * Matches by sequential order: 1st rejected event → 1st feedback entry, etc.
  */
 function buildRejectionMessageMap(
   timings: PhaseTimingData[],
   feedback?: RejectionFeedbackData[]
-): Map<string, string> {
-  const map = new Map<string, string>();
+): Map<string, RejectionDisplayData> {
+  const map = new Map<string, RejectionDisplayData>();
   if (!feedback?.length) return map;
 
   let rejectionIdx = 0;
   for (const t of timings) {
     if (t.phase === 'run:rejected' && rejectionIdx < feedback.length) {
       const key = `${t.agentRunId}-${t.phase}-${t.startedAt}`;
-      map.set(key, feedback[rejectionIdx].message);
+      const entry = feedback[rejectionIdx];
+      map.set(key, { message: entry.message, attachments: entry.attachments });
       rejectionIdx++;
     }
   }
@@ -156,7 +163,7 @@ function RunGroup({
   groupIdx: number;
   multiRun: boolean;
   maxDurationMs: number;
-  rejectionMessages: Map<string, string>;
+  rejectionMessages: Map<string, RejectionDisplayData>;
 }) {
   return (
     <div className="flex flex-col gap-1.5">
@@ -166,8 +173,15 @@ function RunGroup({
       {group.timings.map((t) => {
         if (isLifecycleEvent(t.phase)) {
           const key = `${t.agentRunId}-${t.phase}-${t.startedAt}`;
-          const message = t.phase === 'run:rejected' ? rejectionMessages.get(key) : undefined;
-          return <LifecycleEventRow key={key} timing={t} message={message} />;
+          const rejection = t.phase === 'run:rejected' ? rejectionMessages.get(key) : undefined;
+          return (
+            <LifecycleEventRow
+              key={key}
+              timing={t}
+              message={rejection?.message}
+              attachments={rejection?.attachments}
+            />
+          );
         }
         return (
           <NodeTimingRow
@@ -181,9 +195,20 @@ function RunGroup({
   );
 }
 
-function LifecycleEventRow({ timing, message }: { timing: PhaseTimingData; message?: string }) {
+function LifecycleEventRow({
+  timing,
+  message,
+  attachments,
+}: {
+  timing: PhaseTimingData;
+  message?: string;
+  attachments?: string[];
+}) {
   const event = LIFECYCLE_EVENTS[timing.phase];
   if (!event) return null;
+
+  const hasAttachments = attachments && attachments.length > 0;
+
   return (
     <div className={`text-xs ${event.colorClass}`}>
       <span>{event.label}</span>
@@ -194,6 +219,11 @@ function LifecycleEventRow({ timing, message }: { timing: PhaseTimingData; messa
         >
           &mdash; {message}
         </span>
+      ) : null}
+      {hasAttachments ? (
+        <div data-testid="rejection-feedback-attachments" className="mt-1.5 ml-2">
+          <InlineAttachments text="" attachmentPaths={attachments} />
+        </div>
       ) : null}
     </div>
   );

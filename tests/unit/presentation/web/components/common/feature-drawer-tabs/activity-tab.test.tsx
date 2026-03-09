@@ -278,6 +278,41 @@ describe('ActivityTab', () => {
       expect(screen.getByText(/Please add more tests/)).toBeInTheDocument();
     });
 
+    it('displays rejection feedback attachments when provided', () => {
+      const timingsWithRejection: PhaseTimingData[] = [
+        {
+          agentRunId: run1Id,
+          phase: 'run:started',
+          startedAt: '2024-01-01T00:00:00.000Z',
+        },
+        {
+          agentRunId: run1Id,
+          phase: 'requirements',
+          startedAt: '2024-01-01T00:00:00.000Z',
+          completedAt: '2024-01-01T00:00:10.000Z',
+          durationMs: 10000,
+        },
+        {
+          agentRunId: run1Id,
+          phase: 'run:rejected',
+          startedAt: '2024-01-01T00:00:15.000Z',
+        },
+      ];
+      renderActivityTab({
+        timings: timingsWithRejection,
+        rejectionFeedback: [
+          {
+            iteration: 1,
+            message: 'Fix the layout',
+            phase: 'requirements',
+            attachments: ['/home/user/.shep/attachments/pending-abc/screenshot.png'],
+          },
+        ],
+      });
+      expect(screen.getByTestId('rejection-feedback-attachments')).toBeInTheDocument();
+      expect(screen.getByTestId('inline-attachment-image')).toBeInTheDocument();
+    });
+
     it('does not display rejection text when no feedback provided', () => {
       const timingsWithRejection: PhaseTimingData[] = [
         {

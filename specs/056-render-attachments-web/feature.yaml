@@ -1,0 +1,52 @@
+feature:
+  id: '056-render-attachments-web'
+  name: 'render-attachments-web'
+  number: 56
+  branch: 'feat/render-attachments-web'
+  lifecycle: 'done'
+  createdAt: '2026-03-09T18:47:00Z'
+
+status:
+  phase: 'done'
+  progress:
+    completed: 4
+    total: 4
+    percentage: 100
+  currentTask: null
+  lastUpdated: '2026-03-09T19:15:00Z'
+  lastUpdatedBy: 'claude-agent'
+
+validation:
+  lastRun: '2026-03-09T19:15:00Z'
+  gatesPassed:
+    - 'unit-tests'
+    - 'storybook-stories'
+    - 'lint'
+    - 'typecheck'
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-03-09T18:47:00Z'
+    completedBy: 'feature-agent'
+  - phase: 'implementation'
+    completedAt: '2026-03-09T19:00:00Z'
+    completedBy: 'claude-agent'
+  - phase: 'fix-attachment-paths'
+    completedAt: '2026-03-09T19:10:00Z'
+    completedBy: 'claude-agent'
+  - phase: 'spec-updated'
+    completedAt: '2026-03-09T19:15:00Z'
+    completedBy: 'claude-agent'
+
+errors:
+  current: null
+  history:
+    - message: 'broken attachment images after pending dir rename'
+      resolvedAt: '2026-03-09T19:10:00Z'
+      resolution: 'fixed path resolution in attachment preview api route'

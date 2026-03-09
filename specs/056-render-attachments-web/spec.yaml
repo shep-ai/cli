@@ -1,0 +1,96 @@
+name: render-attachments-web
+number: 56
+branch: feat/render-attachments-web
+oneLiner: >
+  render inline attachment images in feature overview and activity tabs on the web ui
+userQuery: >
+  we dont render attachments in description nor it activity tab, not good! Add
+  screenshot to PR
+  @/home/blackpc/.shep/attachments/pending-42f6e0f7-40a7-44f1-bb03-588ab81715be/image-244cebb0.png
+summary: >
+  add inline attachment rendering to the web ui so that images referenced in
+  feature descriptions and activity entries display correctly in the overview
+  and activity tabs
+phase: Done
+sizeEstimate: M
+relatedFeatures: []
+technologies:
+  - next.js
+  - react
+  - tailwind-css
+relatedLinks: []
+openQuestions: []
+content: >
+  ## Problem Statement
+
+
+  Attachment images referenced in feature descriptions and activity log entries
+  were not rendered in the web UI. Users saw raw attachment references instead
+  of the actual images in both the overview tab and the activity tab.
+
+
+  ## Solution
+
+
+  Created an `InlineAttachments` component that parses markdown-style image
+  references and renders them as `<img>` tags using the existing
+  `/api/attachments/preview` route. Updated the overview tab and activity tab
+  to use this component for rendering inline attachments. Fixed the attachment
+  preview API route to correctly resolve file paths after the pending directory
+  rename.
+
+
+  ## Success Criteria
+
+
+  - [x] Inline attachment images render in the feature overview tab
+
+  - [x] Inline attachment images render in the activity tab
+
+  - [x] Attachment preview API route resolves paths correctly after pending dir rename
+
+  - [x] InlineAttachments component has unit tests
+
+  - [x] Overview tab and activity tab have updated tests
+
+  - [x] Storybook stories exist for InlineAttachments component
+
+
+  ## Affected Areas
+
+
+  | Area | Impact | Reasoning |
+
+  | ---- | ------ | --------- |
+
+  | Web UI - Overview Tab | High | Added inline attachment rendering to feature descriptions |
+
+  | Web UI - Activity Tab | High | Added inline attachment rendering to activity entries |
+
+  | Attachment Preview API | Medium | Fixed path resolution after pending directory rename |
+
+  | InlineAttachments Component | New | New reusable component for rendering inline images |
+
+
+  ## Dependencies
+
+
+  None.
+
+
+  ## Size Estimate
+
+
+  **M** - New component with tests, stories, and integration into two existing tabs
+rejectionFeedback:
+  - iteration: 1
+    message: broken
+    phase: merge
+    timestamp: '2026-03-09T19:05:08.701Z'
+    attachments:
+      - >-
+        /home/blackpc/.shep/attachments/pending-92603770-e786-43b6-86c7-2036fb61efe8/image-9f298504.png
+  - iteration: 2
+    message: update spec and feature yaml with actual data pliz
+    phase: merge
+    timestamp: '2026-03-09T19:15:34.968Z'

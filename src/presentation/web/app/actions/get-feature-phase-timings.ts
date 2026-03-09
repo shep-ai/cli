@@ -18,6 +18,7 @@ export interface RejectionFeedbackData {
   iteration: number;
   message: string;
   phase?: string;
+  attachments?: string[];
 }
 
 type GetPhaseTimingsResult =
@@ -72,6 +73,9 @@ async function readRejectionFeedback(featureId: string): Promise<RejectionFeedba
       iteration: Number(entry.iteration ?? 1),
       message: String(entry.message ?? ''),
       phase: entry.phase ? String(entry.phase) : undefined,
+      attachments: Array.isArray(entry.attachments)
+        ? (entry.attachments as unknown[]).map(String)
+        : undefined,
     }));
   } catch {
     return [];
