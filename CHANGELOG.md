@@ -1,3 +1,9 @@
+# [1.88.0](https://github.com/shep-ai/cli/compare/v1.87.0...v1.88.0) (2026-03-09)
+
+### Features
+
+- **web:** add deployment status indicator to feature nodes ([#258](https://github.com/shep-ai/cli/issues/258)) ([c513f82](https://github.com/shep-ai/cli/commit/c513f823fd571325c1de6f632bacab1901f39efc))
+
 # [1.87.0](https://github.com/shep-ai/cli/compare/v1.86.1...v1.87.0) (2026-03-09)
 
 ### Features
