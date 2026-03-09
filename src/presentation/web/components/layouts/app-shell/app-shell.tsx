@@ -8,6 +8,7 @@ import { AddRepositoryButton } from '@/components/common/add-repository-button';
 import { ThemeToggle } from '@/components/common/theme-toggle';
 import { SoundToggle } from '@/components/common/sound-toggle';
 import { AgentEventsProvider } from '@/hooks/agent-events-provider';
+import { AppQueryProvider } from '@/hooks/query-provider';
 import { DrawerCloseGuardProvider, useDrawerCloseGuard } from '@/hooks/drawer-close-guard';
 import {
   SidebarFeaturesProvider,
@@ -70,12 +71,14 @@ function AppShellInner({ children }: AppShellProps) {
 
 export function AppShell({ children }: AppShellProps) {
   return (
-    <AgentEventsProvider>
-      <DrawerCloseGuardProvider>
-        <SidebarFeaturesProvider>
-          <AppShellInner>{children}</AppShellInner>
-        </SidebarFeaturesProvider>
-      </DrawerCloseGuardProvider>
-    </AgentEventsProvider>
+    <AppQueryProvider>
+      <AgentEventsProvider>
+        <DrawerCloseGuardProvider>
+          <SidebarFeaturesProvider>
+            <AppShellInner>{children}</AppShellInner>
+          </SidebarFeaturesProvider>
+        </DrawerCloseGuardProvider>
+      </AgentEventsProvider>
+    </AppQueryProvider>
   );
 }

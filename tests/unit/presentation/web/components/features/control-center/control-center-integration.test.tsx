@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 let currentPathname = '/';
 const mockPush = vi.fn();
@@ -35,6 +36,14 @@ vi.mock('@/app/actions/delete-feature', () => ({
 
 vi.mock('@/app/actions/delete-repository', () => ({
   deleteRepository: vi.fn().mockResolvedValue({ success: true }),
+}));
+
+vi.mock('@/app/actions/get-graph-data', () => ({
+  fetchGraphData: vi.fn().mockResolvedValue({ nodes: [], edges: [] }),
+}));
+
+vi.mock('@/app/actions/get-feature-metadata', () => ({
+  getFeatureMetadata: vi.fn().mockResolvedValue(null),
 }));
 
 import { ControlCenterInner } from '@/components/features/control-center/control-center-inner';
@@ -103,12 +112,21 @@ const repoNodeDefault: CanvasNodeType = {
 const initialNodes: CanvasNodeType[] = [repoNodeDefault, featureNodeA, featureNodeB];
 
 function renderControlCenter(nodes = initialNodes) {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, refetchInterval: false, staleTime: Infinity },
+      mutations: { retry: false },
+    },
+  });
+
   return render(
-    <DrawerCloseGuardProvider>
-      <SidebarFeaturesProvider>
-        <ControlCenterInner initialNodes={nodes} initialEdges={[]} />
-      </SidebarFeaturesProvider>
-    </DrawerCloseGuardProvider>
+    <QueryClientProvider client={queryClient}>
+      <DrawerCloseGuardProvider>
+        <SidebarFeaturesProvider>
+          <ControlCenterInner initialNodes={nodes} initialEdges={[]} />
+        </SidebarFeaturesProvider>
+      </DrawerCloseGuardProvider>
+    </QueryClientProvider>
   );
 }
 

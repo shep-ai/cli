@@ -26,6 +26,9 @@ importers:
       '@langchain/langgraph-checkpoint-sqlite':
         specifier: ^1.0.1
         version: 1.0.1(@langchain/core@1.1.22)(@langchain/langgraph-checkpoint@1.0.0(@langchain/core@1.1.22))
+      '@tanstack/react-query':
+        specifier: ^5.90.21
+        version: 5.90.21(react@19.2.4)
       ajv:
         specifier: ^8.18.0
         version: 8.18.0
@@ -295,6 +298,9 @@ importers:
       '@shepai/core':
         specifier: workspace:*
         version: link:../../../packages/core
+      '@tanstack/react-query':
+        specifier: ^5.90.21
+        version: 5.90.21(react@19.2.4)
       '@xyflow/react':
         specifier: ^12.10.0
         version: 12.10.0(@types/react@19.2.10)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -2738,6 +2744,14 @@ packages:
     resolution: {integrity: sha512-jVA+/UpKL1vRLg6Hkao5jldawNmRo7mQYrZtNHMIVpLfLhDml5nMRUo/8MwoX2vNXvnaXNNMedrMfMugAVX1nA==}
     peerDependencies:
       vite: ^5.2.0 || ^6 || ^7
+
+  '@tanstack/query-core@5.90.20':
+    resolution: {integrity: sha512-OMD2HLpNouXEfZJWcKeVKUgQ5n+n3A2JFmBaScpNDUqSrQSjiveC7dKMe53uJUg1nDG16ttFPz2xfilz6i2uVg==}
+
+  '@tanstack/react-query@5.90.21':
+    resolution: {integrity: sha512-0Lu6y5t+tvlTJMTO7oh5NSpJfpg/5D41LlThfepTixPYkJ0sE2Jj0m0f6yYqujBwIXlId87e234+MxG3D3g7kg==}
+    peerDependencies:
+      react: ^18 || ^19
 
   '@testing-library/dom@10.4.0':
     resolution: {integrity: sha512-pemlzrSESWbdAloYml3bAJMEfNh1Z7EduzqPKprCH5S341frlpYnUEW0H72dLxa6IsYr+mPno20GiSm+h9dEdQ==}
@@ -9173,6 +9187,13 @@ snapshots:
       '@tailwindcss/oxide': 4.1.18
       tailwindcss: 4.1.18
       vite: 7.3.1(@types/node@25.2.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2)
+
+  '@tanstack/query-core@5.90.20': {}
+
+  '@tanstack/react-query@5.90.21(react@19.2.4)':
+    dependencies:
+      '@tanstack/query-core': 5.90.20
+      react: 19.2.4
 
   '@testing-library/dom@10.4.0':
     dependencies:

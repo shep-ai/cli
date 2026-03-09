@@ -196,11 +196,17 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     window.addEventListener('shep:add-repository', handler);
     return () => {
       window.removeEventListener('shep:add-repository', handler);
+    };
+  }, [handleAddRepository, fitView, guardedNavigate, router]);
+
+  // Clean up drawer timer on unmount only (must survive effect re-runs above)
+  useEffect(() => {
+    return () => {
       if (drawerTimerRef.current != null) {
         clearTimeout(drawerTimerRef.current);
       }
     };
-  }, [handleAddRepository, fitView, guardedNavigate, router]);
+  }, []);
 
   // Listen for create events from the create drawer (with real feature ID from server)
   useEffect(() => {

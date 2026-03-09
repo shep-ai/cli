@@ -1,8 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { Connection, Edge, NodeChange } from '@xyflow/react';
 import type { FeatureNodeData } from '@/components/common/feature-node';
 import type { RepositoryNodeData } from '@/components/common/repository-node';
@@ -25,11 +26,20 @@ import {
   mapEventTypeToState,
   resolveSseEventUpdates,
 } from '@/components/common/feature-node/derive-feature-state';
-import { useGraphState, type GraphCallbacks } from '@/hooks/use-graph-state';
+import { parseMaps, useGraphDerivedState, type GraphCallbacks } from '@/hooks/use-graph-state';
 import type { FeatureEntry } from '@/lib/derive-graph';
 
-const log = createLogger('[Polling]');
-const POLL_INTERVAL_MS = 3_000;
+const log = createLogger('[GraphQuery]');
+
+/** TanStack Query key for the graph data. */
+export const GRAPH_DATA_QUERY_KEY = ['graph-data'] as const;
+
+const REFETCH_INTERVAL_MS = 3_000;
+
+export interface GraphData {
+  nodes: CanvasNodeType[];
+  edges: Edge[];
+}
 
 export interface ControlCenterState {
   nodes: CanvasNodeType[];
@@ -59,32 +69,121 @@ const METADATA_UPDATED_MESSAGE = 'Feature metadata updated';
 let nextFeatureId = 0;
 let nextRepoTempId = 0;
 
+// ── Cache update helpers ─────────────────────────────────────────────
+
+/** Update a feature node's data fields in the query cache. */
+function updateFeatureInCache(
+  prev: GraphData,
+  nodeId: string,
+  updates: Partial<Pick<FeatureNodeData, 'state' | 'lifecycle' | 'name' | 'description'>>
+): GraphData {
+  let changed = false;
+  const nodes = prev.nodes.map((n) => {
+    if (n.id !== nodeId || n.type !== 'featureNode') return n;
+    const data = n.data as FeatureNodeData;
+    const isUnchanged =
+      (updates.state === undefined || updates.state === data.state) &&
+      (updates.lifecycle === undefined || updates.lifecycle === data.lifecycle) &&
+      (updates.name === undefined || updates.name === data.name) &&
+      (updates.description === undefined || updates.description === data.description);
+    if (isUnchanged) return n;
+    changed = true;
+    return { ...n, data: { ...data, ...updates } };
+  });
+  return changed ? { ...prev, nodes } : prev;
+}
+
+/** Remove a node and its edges from the cache. */
+function removeNodeFromCache(prev: GraphData, nodeId: string): GraphData {
+  return {
+    nodes: prev.nodes.filter((n) => n.id !== nodeId),
+    edges: prev.edges.filter((e) => e.source !== nodeId && e.target !== nodeId),
+  };
+}
+
 export function useControlCenterState(
   initialNodes: CanvasNodeType[],
   initialEdges: Edge[]
 ): ControlCenterState {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const deleteSound = useSoundAction('delete');
   const createSound = useSoundAction('create');
 
-  const {
-    nodes,
-    edges,
-    reconcile,
-    updateFeature,
-    addPendingFeature,
-    removeFeature,
-    restoreFeature,
-    addRepository: addRepositoryToMap,
-    removeRepository,
-    replaceRepository,
-    getFeatureRepositoryPath,
-    getRepositoryData,
-    getRepoMapSize,
-    setCallbacks,
-  } = useGraphState(initialNodes, initialEdges);
+  // ── TanStack Query: replaces setInterval polling ─────────────────
+  const { data: serverData } = useQuery<GraphData>({
+    queryKey: GRAPH_DATA_QUERY_KEY,
+    queryFn: async () => {
+      log.debug('fetching graph data');
+      return fetchGraphData();
+    },
+    initialData: { nodes: initialNodes, edges: initialEdges },
+    initialDataUpdatedAt: Date.now(),
+    refetchInterval: REFETCH_INTERVAL_MS,
+    // Keep stale data visible while refetching (no loading flicker)
+    placeholderData: (prev) => prev,
+  });
 
-  // Refs for stable access to latest nodes/edges without callback recreation
+  // ── Pending map: local state for optimistic creates ──────────────
+  const [pendingMap, setPendingMap] = useState<Map<string, FeatureEntry>>(
+    new Map<string, FeatureEntry>()
+  );
+
+  // Parse server data into domain Maps
+  const { featureMap, repoMap } = useMemo(
+    () => parseMaps(serverData.nodes, serverData.edges),
+    [serverData]
+  );
+
+  // Reconcile pending map: remove entries that now exist in server data
+  const prevServerDataRef = useRef(serverData);
+  useEffect(() => {
+    if (serverData === prevServerDataRef.current) return;
+    prevServerDataRef.current = serverData;
+
+    setPendingMap((currentPendingMap) => {
+      if (currentPendingMap.size === 0) return currentPendingMap;
+
+      // Build set of real feature keys from server data
+      const realFeatureKeys = new Set(
+        [...featureMap.values()].map((e) => `${e.data.name}\0${e.data.repositoryPath}`)
+      );
+
+      let changed = false;
+      const next = new Map(currentPendingMap);
+      for (const [tempId, pendingEntry] of currentPendingMap) {
+        const key = `${pendingEntry.data.name}\0${pendingEntry.data.repositoryPath}`;
+        if (realFeatureKeys.has(key)) {
+          next.delete(tempId);
+          changed = true;
+        }
+      }
+      return changed ? next : currentPendingMap;
+    });
+  }, [serverData, featureMap]);
+
+  // ── Callbacks: ref-based to avoid re-renders ─────────────────────
+  const callbacksRef = useRef<GraphCallbacks>({});
+  const stableCallbacks = useMemo<GraphCallbacks>(
+    () => ({
+      onNodeAction: (nodeId) => callbacksRef.current.onNodeAction?.(nodeId),
+      onNodeSettings: (nodeId) => callbacksRef.current.onNodeSettings?.(nodeId),
+      onFeatureDelete: (featureId) => callbacksRef.current.onFeatureDelete?.(featureId),
+      onRepositoryAdd: (nodeId) => callbacksRef.current.onRepositoryAdd?.(nodeId),
+      onRepositoryClick: (nodeId) => callbacksRef.current.onRepositoryClick?.(nodeId),
+      onRepositoryDelete: (repositoryId) => callbacksRef.current.onRepositoryDelete?.(repositoryId),
+    }),
+    []
+  );
+
+  const setCallbacks = useCallback((callbacks: GraphCallbacks) => {
+    callbacksRef.current = callbacks;
+  }, []);
+
+  // ── Derivation: Maps → React Flow nodes/edges ───────────────────
+  const { nodes, edges } = useGraphDerivedState(featureMap, repoMap, pendingMap, stableCallbacks);
+
+  // Refs for stable access to latest nodes/edges
   const nodesRef = useRef(nodes);
   const edgesRef = useRef(edges);
   useEffect(() => {
@@ -92,47 +191,22 @@ export function useControlCenterState(
     edgesRef.current = edges;
   }, [nodes, edges]);
 
-  // Sync server props into domain Maps when initialNodes/initialEdges change.
-  // Keyed by a stable string so we don't re-reconcile on every render.
-  const initialNodeKey = useMemo(
-    () =>
-      initialNodes
-        .map((n) => n.id)
-        .sort()
-        .join(','),
-    [initialNodes]
-  );
-  const initialDataKey = useMemo(
-    () =>
-      initialNodes
-        .filter((n) => n.type === 'featureNode')
-        .map((n) => {
-          const d = n.data as FeatureNodeData;
-          return `${n.id}:${d.state}:${d.lifecycle}`;
-        })
-        .sort()
-        .join(','),
-    [initialNodes]
-  );
+  // Stable refs for domain Maps (for use in callbacks)
+  const featureMapRef = useRef(featureMap);
+  featureMapRef.current = featureMap;
+  const repoMapRef = useRef(repoMap);
+  repoMapRef.current = repoMap;
 
-  const prevReconcileKey = useRef('');
-
-  useEffect(() => {
-    const key = `${initialNodeKey}|${initialDataKey}`;
-    if (key !== prevReconcileKey.current) {
-      prevReconcileKey.current = key;
-      reconcile(initialNodes, initialEdges);
-    }
-  }, [initialNodeKey, initialDataKey, initialNodes, initialEdges, reconcile]);
+  // ── SSE integration: update query cache directly ─────────────────
 
   // Track previous feature states for fallback notifications
   const prevFeatureStatesRef = useRef<Map<string, FeatureNodeData['state']>>(new Map());
-
   const { events } = useAgentEventsContext();
 
+  // Fallback notifications: detect state changes from server data that SSE missed
   useEffect(() => {
     const prevStates = prevFeatureStatesRef.current;
-    for (const node of initialNodes) {
+    for (const node of serverData.nodes) {
       if (node.type !== 'featureNode') continue;
       const data = node.data as FeatureNodeData;
       const prev = prevStates.get(node.id);
@@ -158,13 +232,12 @@ export function useControlCenterState(
       }
       prevStates.set(node.id, data.state);
     }
-  }, [initialDataKey, initialNodes, events, router]);
+  }, [serverData, events, router]);
 
-  // SSE effect: only state + lifecycle updates
+  // SSE effect: update query cache with state + lifecycle changes
   const processedEventCountRef = useRef(0);
 
   useEffect(() => {
-    // Clamp cursor if events were pruned
     if (processedEventCountRef.current > events.length) {
       processedEventCountRef.current = 0;
     }
@@ -174,30 +247,36 @@ export function useControlCenterState(
 
     for (const { featureId, state, lifecycle } of resolveSseEventUpdates(newEvents)) {
       if (state !== undefined || lifecycle !== undefined) {
-        updateFeature(`feat-${featureId}`, {
-          ...(state !== undefined && { state }),
-          ...(lifecycle !== undefined && { lifecycle }),
+        const nodeId = `feat-${featureId}`;
+        queryClient.setQueryData<GraphData>(GRAPH_DATA_QUERY_KEY, (prev) => {
+          if (!prev) return prev;
+          return updateFeatureInCache(prev, nodeId, {
+            ...(state !== undefined && { state }),
+            ...(lifecycle !== undefined && { lifecycle }),
+          });
         });
       }
     }
-  }, [events, updateFeature]);
+  }, [events, queryClient]);
 
-  // Listen for optimistic approval events from the drawer (fires before SSE arrives)
+  // Listen for optimistic approval events from the drawer
   useEffect(() => {
     const handler = (e: Event) => {
       const { featureId } = (e as CustomEvent<{ featureId: string }>).detail;
-      updateFeature(`feat-${featureId}`, { state: 'running' });
+      queryClient.setQueryData<GraphData>(GRAPH_DATA_QUERY_KEY, (prev) => {
+        if (!prev) return prev;
+        return updateFeatureInCache(prev, `feat-${featureId}`, { state: 'running' });
+      });
     };
     window.addEventListener('shep:feature-approved', handler);
     return () => window.removeEventListener('shep:feature-approved', handler);
-  }, [updateFeature]);
+  }, [queryClient]);
 
-  // Separate effect: fetch metadata (name + description) when SSE reports it changed
+  // SSE metadata updates: fetch name + description when changed
   const metadataFetchedRef = useRef<Set<string>>(new Set());
   const processedMetadataCountRef = useRef(0);
 
   useEffect(() => {
-    // Clamp cursor if events were pruned
     if (processedMetadataCountRef.current > events.length) {
       processedMetadataCountRef.current = 0;
     }
@@ -214,37 +293,174 @@ export function useControlCenterState(
       getFeatureMetadata(event.featureId)
         .then((meta) => {
           if (meta) {
-            updateFeature(nodeId, { name: meta.name, description: meta.description });
+            queryClient.setQueryData<GraphData>(GRAPH_DATA_QUERY_KEY, (prev) => {
+              if (!prev) return prev;
+              return updateFeatureInCache(prev, nodeId, {
+                name: meta.name,
+                description: meta.description,
+              });
+            });
           }
         })
         .catch(() => {
           // Silent: metadata fetch failure is non-critical
         });
     }
-  }, [events, updateFeature]);
+  }, [events, queryClient]);
 
-  // --- Polling fallback: catch any SSE events that were missed ---
-  useEffect(() => {
-    log.debug(`polling enabled (${POLL_INTERVAL_MS}ms interval)`);
+  // ── Mutations ────────────────────────────────────────────────────
 
-    const timer = setInterval(async () => {
-      try {
-        const { nodes: freshNodes, edges: freshEdges } = await fetchGraphData();
-        reconcile(freshNodes, freshEdges);
-      } catch {
-        log.warn('poll fetch failed — will retry next interval');
+  const deleteFeatureMutation = useMutation({
+    mutationFn: (featureId: string) => deleteFeature(featureId),
+    onMutate: (featureId: string) => {
+      const nodeId = `feat-${featureId}`;
+
+      // Snapshot for rollback
+      const previousData = queryClient.getQueryData<GraphData>(GRAPH_DATA_QUERY_KEY);
+
+      // Optimistic removal from cache
+      queryClient.setQueryData<GraphData>(GRAPH_DATA_QUERY_KEY, (prev) => {
+        if (!prev) return prev;
+        return removeNodeFromCache(prev, nodeId);
+      });
+
+      return { previousData };
+    },
+    onSuccess: (result, _featureId, context) => {
+      if ('error' in result && result.error) {
+        // Server rejected: rollback
+        if (context?.previousData) {
+          queryClient.setQueryData(GRAPH_DATA_QUERY_KEY, context.previousData);
+        }
+        toast.error(result.error as string);
+        return;
       }
-    }, POLL_INTERVAL_MS);
+      deleteSound.play();
+      toast.success('Feature deleted successfully');
+      router.push('/');
+    },
+    onError: (_err, _featureId, context) => {
+      // Rollback on network failure
+      if (context?.previousData) {
+        queryClient.setQueryData(GRAPH_DATA_QUERY_KEY, context.previousData);
+      }
+      toast.error('Failed to delete feature');
+    },
+  });
 
-    return () => {
-      log.debug('polling disabled');
-      clearInterval(timer);
-    };
-  }, [reconcile]);
+  const deleteRepositoryMutation = useMutation({
+    mutationFn: (repositoryId: string) => deleteRepository(repositoryId),
+    onMutate: (repositoryId: string) => {
+      const repoNodeId = `repo-${repositoryId}`;
 
-  // onNodesChange is a no-op: nodes are derived from domain Maps.
-  // Since nodesDraggable=false and elementsSelectable=false, only React Flow's
-  // internal replace/dimensions changes come through — we ignore them all.
+      // Snapshot for rollback
+      const previousData = queryClient.getQueryData<GraphData>(GRAPH_DATA_QUERY_KEY);
+
+      // Find children of this repo via current edges
+      const childFeatureIds = new Set(
+        edgesRef.current.filter((e) => e.source === repoNodeId).map((e) => e.target)
+      );
+
+      // Optimistic removal of repo + children
+      queryClient.setQueryData<GraphData>(GRAPH_DATA_QUERY_KEY, (prev) => {
+        if (!prev) return prev;
+        const idsToRemove = new Set([repoNodeId, ...childFeatureIds]);
+        return {
+          nodes: prev.nodes.filter((n) => !idsToRemove.has(n.id)),
+          edges: prev.edges.filter((e) => !idsToRemove.has(e.source) && !idsToRemove.has(e.target)),
+        };
+      });
+
+      return { previousData };
+    },
+    onSuccess: (result, _repositoryId, context) => {
+      if (!result.success) {
+        // Server rejected: rollback
+        if (context?.previousData) {
+          queryClient.setQueryData(GRAPH_DATA_QUERY_KEY, context.previousData);
+        }
+        toast.error(result.error ?? 'Failed to remove repository');
+        return;
+      }
+      deleteSound.play();
+      toast.success('Repository removed');
+    },
+    onError: (_err, _repositoryId, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(GRAPH_DATA_QUERY_KEY, context.previousData);
+      }
+      toast.error('Failed to remove repository');
+    },
+  });
+
+  const addRepositoryMutation = useMutation({
+    mutationFn: (input: { path: string; name: string; tempId: string }) =>
+      addRepository({ path: input.path, name: input.name }),
+    onMutate: (input) => {
+      // Optimistic: add temp repo node to cache
+      queryClient.setQueryData<GraphData>(GRAPH_DATA_QUERY_KEY, (prev) => {
+        if (!prev) return prev;
+        const tempNode: CanvasNodeType = {
+          id: input.tempId,
+          type: 'repositoryNode',
+          position: { x: 0, y: 0 },
+          data: {
+            name: input.name,
+            repositoryPath: input.path,
+            id: input.tempId,
+          } as RepositoryNodeData,
+        } as CanvasNodeType;
+        return { ...prev, nodes: [...prev.nodes, tempNode] };
+      });
+    },
+    onSuccess: (result, input) => {
+      if (result.error) {
+        // Remove temp node
+        queryClient.setQueryData<GraphData>(GRAPH_DATA_QUERY_KEY, (prev) => {
+          if (!prev) return prev;
+          return removeNodeFromCache(prev, input.tempId);
+        });
+        toast.error(result.error);
+        return;
+      }
+      // Replace temp node with real one
+      const repo = result.repository!;
+      queryClient.setQueryData<GraphData>(GRAPH_DATA_QUERY_KEY, (prev) => {
+        if (!prev) return prev;
+        const realId = `repo-${repo.id}`;
+        const nodes = prev.nodes.map((n) => {
+          if (n.id !== input.tempId) return n;
+          return {
+            ...n,
+            id: realId,
+            data: {
+              name: repo.name,
+              repositoryPath: repo.path,
+              id: repo.id,
+            } as RepositoryNodeData,
+          } as CanvasNodeType;
+        });
+        // Update edges that reference the temp ID
+        const edges = prev.edges.map((e) => ({
+          ...e,
+          ...(e.source === input.tempId && { source: realId }),
+          ...(e.target === input.tempId && { target: realId }),
+        }));
+        return { nodes, edges };
+      });
+      createSound.play();
+    },
+    onError: (_err, input) => {
+      queryClient.setQueryData<GraphData>(GRAPH_DATA_QUERY_KEY, (prev) => {
+        if (!prev) return prev;
+        return removeNodeFromCache(prev, input.tempId);
+      });
+      toast.error('Failed to add repository');
+    },
+  });
+
+  // ── Handlers ─────────────────────────────────────────────────────
+
   const onNodesChange = useCallback((_changes: NodeChange<CanvasNodeType>[]) => {
     // Intentional no-op: domain Maps are the source of truth.
   }, []);
@@ -259,7 +475,6 @@ export function useControlCenterState(
       dataOverride?: Partial<FeatureNodeData>,
       edgeType?: string
     ): string => {
-      // Use real feature ID when available (from server), otherwise temp ID
       const id = dataOverride?.featureId
         ? `feat-${dataOverride.featureId}`
         : `feature-${Date.now()}-${nextFeatureId++}`;
@@ -276,118 +491,50 @@ export function useControlCenterState(
 
       const parentNodeId = edgeType === 'dependencyEdge' && sourceNodeId ? sourceNodeId : undefined;
 
-      addPendingFeature(id, newFeatureData, parentNodeId);
+      // Add to pendingMap (local state) — survives refetches until server confirms
+      setPendingMap((prev) => {
+        const next = new Map(prev);
+        next.set(id, { nodeId: id, data: newFeatureData, parentNodeId });
+        return next;
+      });
 
       return id;
     },
-    [addPendingFeature]
+    []
   );
 
   const handleDeleteFeature = useCallback(
     (featureId: string) => {
-      const nodeId = `feat-${featureId}`;
-
-      // Find the current entry for rollback
-      const prevEntry = nodesRef.current
-        .filter((n) => n.id === nodeId)
-        .map((n) => ({
-          nodeId: n.id,
-          data: n.data as FeatureNodeData,
-        }))[0];
-
-      // Optimistic removal
-      removeFeature(nodeId);
-      deleteSound.play();
-      toast.success('Feature deleted successfully');
-      router.push('/');
-
-      deleteFeature(featureId)
-        .then((result) => {
-          if (result.error) {
-            if (prevEntry) restoreFeature(nodeId, prevEntry);
-            toast.error(result.error);
-          }
-        })
-        .catch(() => {
-          if (prevEntry) restoreFeature(nodeId, prevEntry);
-          toast.error('Failed to delete feature');
-        });
+      deleteFeatureMutation.mutate(featureId);
     },
-    [router, deleteSound, removeFeature, restoreFeature]
+    [deleteFeatureMutation]
   );
 
   const handleDeleteRepository = useCallback(
     async (repositoryId: string) => {
-      const repoNodeId = `repo-${repositoryId}`;
-
-      // Find children of this repo via edges
-      const childFeatureIds = new Set(
-        edgesRef.current.filter((e) => e.source === repoNodeId).map((e) => e.target)
-      );
-
-      // Snapshot for rollback
-      const prevRepoData = getRepositoryData(repoNodeId);
-      const childSnapshots = new Map<string, FeatureEntry>();
-      for (const childId of childFeatureIds) {
-        const childNode = nodesRef.current.find((n) => n.id === childId);
-        if (childNode) {
-          childSnapshots.set(childId, { nodeId: childId, data: childNode.data as FeatureNodeData });
-        }
-      }
-
-      const rollback = () => {
-        if (prevRepoData) addRepositoryToMap(repoNodeId, prevRepoData);
-        for (const [childId, entry] of childSnapshots) {
-          restoreFeature(childId, entry);
-        }
-      };
-
-      // Optimistic: remove repo + children
-      removeRepository(repoNodeId);
-      for (const childId of childFeatureIds) {
-        removeFeature(childId);
-      }
-
-      try {
-        const result = await deleteRepository(repositoryId);
-        if (!result.success) {
-          toast.error(result.error ?? 'Failed to remove repository');
-          rollback();
-          return;
-        }
-        deleteSound.play();
-        toast.success('Repository removed');
-      } catch {
-        toast.error('Failed to remove repository');
-        rollback();
-      }
+      deleteRepositoryMutation.mutate(repositoryId);
     },
-    [
-      deleteSound,
-      removeRepository,
-      removeFeature,
-      addRepositoryToMap,
-      restoreFeature,
-      getRepositoryData,
-    ]
+    [deleteRepositoryMutation]
   );
 
   const handleLayout = useCallback(
     (direction: LayoutDirection) => {
-      // Layout is applied via reconcile on next server prop update.
-      // For immediate re-layout, we apply dagre and trigger a reconcile-like update.
       const result = layoutWithDagre(nodesRef.current, edgesRef.current, {
         ...CANVAS_LAYOUT_DEFAULTS,
         direction,
       });
-      reconcile(result.nodes, result.edges);
+      // Apply layout by updating the query cache with re-positioned nodes
+      queryClient.setQueryData<GraphData>(GRAPH_DATA_QUERY_KEY, (prev) => {
+        if (!prev) return prev;
+        return { nodes: result.nodes, edges: result.edges };
+      });
     },
-    [reconcile]
+    [queryClient]
   );
 
   const handleAddRepository = useCallback(
     (path: string): { wasEmpty: boolean; repoPath: string } => {
-      const wasEmpty = getRepoMapSize() === 0;
+      const wasEmpty = repoMapRef.current.size === 0;
       const tempId = `repo-temp-${++nextRepoTempId}`;
       const repoName =
         path
@@ -395,33 +542,20 @@ export function useControlCenterState(
           .split(/[\\/]/)
           .pop() ?? path;
 
-      addRepositoryToMap(tempId, { name: repoName, repositoryPath: path, id: tempId });
-
-      addRepository({ path, name: repoName })
-        .then((result) => {
-          if (result.error) {
-            removeRepository(tempId);
-            toast.error(result.error);
-            return;
-          }
-          const repo = result.repository!;
-          const realId = `repo-${repo.id}`;
-          replaceRepository(tempId, realId, {
-            name: repo.name,
-            repositoryPath: repo.path,
-            id: repo.id,
-          });
-          createSound.play();
-        })
-        .catch(() => {
-          removeRepository(tempId);
-          toast.error('Failed to add repository');
-        });
+      addRepositoryMutation.mutate({ path, name: repoName, tempId });
 
       return { wasEmpty, repoPath: path };
     },
-    [addRepositoryToMap, removeRepository, replaceRepository, createSound, getRepoMapSize]
+    [addRepositoryMutation]
   );
+
+  const getFeatureRepositoryPath = useCallback((featureNodeId: string): string | undefined => {
+    return featureMapRef.current.get(featureNodeId)?.data.repositoryPath;
+  }, []);
+
+  const getRepositoryData = useCallback((nodeId: string): RepositoryNodeData | undefined => {
+    return repoMapRef.current.get(nodeId)?.data;
+  }, []);
 
   return {
     nodes,
