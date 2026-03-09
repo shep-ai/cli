@@ -251,6 +251,49 @@ describe('MergeReview', () => {
     });
   });
 
+  describe('file diffs', () => {
+    it('renders diff view section when fileDiffs are provided', () => {
+      const props: MergeReviewProps = {
+        ...baseProps,
+        data: {
+          ...baseProps.data,
+          fileDiffs: [
+            {
+              path: 'src/app.ts',
+              additions: 5,
+              deletions: 2,
+              status: 'modified',
+              hunks: [{ header: '@@ -1,3 +1,6 @@', lines: [] }],
+            },
+          ],
+        },
+      };
+      render(<MergeReview {...props} />);
+
+      expect(screen.getByText('Changed Files')).toBeInTheDocument();
+      expect(screen.getByText('app.ts')).toBeInTheDocument();
+    });
+
+    it('does not render diff view when fileDiffs is undefined', () => {
+      render(<MergeReview {...baseProps} />);
+
+      expect(screen.queryByText('Changed Files')).not.toBeInTheDocument();
+    });
+
+    it('does not render diff view when fileDiffs is empty', () => {
+      const props: MergeReviewProps = {
+        ...baseProps,
+        data: {
+          ...baseProps.data,
+          fileDiffs: [],
+        },
+      };
+      render(<MergeReview {...props} />);
+
+      expect(screen.queryByText('Changed Files')).not.toBeInTheDocument();
+    });
+  });
+
   describe('no PR', () => {
     it('hides PR card and shows alternate description when pr is undefined', () => {
       const props: MergeReviewProps = {

@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react';
 import { fn } from '@storybook/test';
 import { PrStatus, CiStatus } from '@shepai/core/domain/generated/output';
 import { MergeReview } from './merge-review';
-import type { MergeReviewData } from './merge-review-config';
+import type { MergeReviewData, MergeReviewFileDiff } from './merge-review-config';
 
 const fullPr = {
   url: 'https://github.com/shep-ai/cli/pull/42',
@@ -19,6 +19,66 @@ const samplePhases = [
 ];
 
 const sampleBranch = { source: 'feat/add-auth', target: 'main' };
+
+const sampleFileDiffs: MergeReviewFileDiff[] = [
+  {
+    path: 'src/components/auth/login-form.tsx',
+    additions: 8,
+    deletions: 2,
+    status: 'modified',
+    hunks: [
+      {
+        header: '@@ -1,5 +1,8 @@',
+        lines: [
+          {
+            type: 'context',
+            content: "import { useState } from 'react';",
+            oldNumber: 1,
+            newNumber: 1,
+          },
+          {
+            type: 'added',
+            content: "import { Input } from '@/components/ui/input';",
+            newNumber: 2,
+          },
+          { type: 'context', content: '', oldNumber: 2, newNumber: 3 },
+          { type: 'removed', content: 'export function LoginForm() {', oldNumber: 3 },
+          {
+            type: 'added',
+            content: 'export function LoginForm({ onSubmit }: Props) {',
+            newNumber: 4,
+          },
+          {
+            type: 'context',
+            content: "  const [email, setEmail] = useState('');",
+            oldNumber: 4,
+            newNumber: 5,
+          },
+        ],
+      },
+    ],
+  },
+  {
+    path: 'src/lib/auth.ts',
+    additions: 12,
+    deletions: 0,
+    status: 'added',
+    hunks: [
+      {
+        header: '@@ -0,0 +1,4 @@',
+        lines: [
+          {
+            type: 'added',
+            content: 'export async function hashPassword(pw: string) {',
+            newNumber: 1,
+          },
+          { type: 'added', content: '  return hash(pw, 10);', newNumber: 2 },
+          { type: 'added', content: '}', newNumber: 3 },
+        ],
+      },
+    ],
+  },
+];
 
 const fullData: MergeReviewData = {
   pr: fullPr,
@@ -149,6 +209,17 @@ export const WithPhases: Story = {
     data: {
       ...fullData,
       phases: samplePhases,
+    },
+    ...defaultActions,
+  },
+};
+
+/** With file diffs — shows expandable file list with line-level changes. */
+export const WithFileDiffs: Story = {
+  args: {
+    data: {
+      ...fullData,
+      fileDiffs: sampleFileDiffs,
     },
     ...defaultActions,
   },

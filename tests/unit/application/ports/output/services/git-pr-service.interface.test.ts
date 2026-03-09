@@ -151,6 +151,7 @@ describe('IGitPrService', () => {
       deleteBranch: async () => {
         /* noop */
       },
+      getFileDiffs: async () => [],
       getPrDiffSummary: async () => ({
         filesChanged: 0,
         additions: 0,
@@ -176,6 +177,7 @@ describe('IGitPrService', () => {
       'getCiStatus',
       'watchCi',
       'deleteBranch',
+      'getFileDiffs',
       'getPrDiffSummary',
       'listPrStatuses',
       'verifyMerge',
