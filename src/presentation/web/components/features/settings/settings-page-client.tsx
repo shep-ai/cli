@@ -469,7 +469,7 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
           }
         }
       },
-      { rootMargin: '-20% 0px -60% 0px', threshold: 0 }
+      { rootMargin: '-65px 0px -60% 0px', threshold: 0 }
     );
 
     for (const el of els) observer.observe(el);
@@ -490,7 +490,7 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
   return (
     <div data-testid="settings-page-client" className="max-w-5xl">
       {/* Sticky header — title + save indicator + TOC in one row */}
-      <div className="bg-background/95 supports-backdrop-filter:bg-background/80 sticky top-0 z-10 mb-4 grid grid-cols-1 gap-x-5 backdrop-blur lg:grid-cols-[1fr_280px]">
+      <div className="bg-background/95 supports-backdrop-filter:bg-background/80 sticky top-0 z-10 grid grid-cols-1 gap-x-5 pt-6 pb-4 backdrop-blur lg:grid-cols-[1fr_280px]">
         <div className="flex items-center gap-2">
           <Settings2 className="text-muted-foreground h-4 w-4" />
           <h1 className="text-sm font-bold tracking-tight">Settings</h1>
@@ -542,7 +542,7 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
         {/* ── Agent ── */}
         <div
           id="section-agent"
-          className="grid scroll-mt-14 grid-cols-1 gap-x-5 rounded-lg lg:grid-cols-[1fr_280px]"
+          className="grid scroll-mt-18 grid-cols-1 gap-x-5 rounded-lg lg:grid-cols-[1fr_280px]"
         >
           <SettingsSection
             icon={Bot}
@@ -650,7 +650,7 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
         {/* ── Environment ── */}
         <div
           id="section-environment"
-          className="grid scroll-mt-14 grid-cols-1 gap-x-5 rounded-lg lg:grid-cols-[1fr_280px]"
+          className="grid scroll-mt-18 grid-cols-1 gap-x-5 rounded-lg lg:grid-cols-[1fr_280px]"
         >
           <SettingsSection
             icon={Terminal}
@@ -711,7 +711,7 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
         {/* ── Workflow ── */}
         <div
           id="section-workflow"
-          className="grid scroll-mt-14 grid-cols-1 gap-x-5 rounded-lg lg:grid-cols-[1fr_280px]"
+          className="grid scroll-mt-18 grid-cols-1 gap-x-5 rounded-lg lg:grid-cols-[1fr_280px]"
         >
           <SettingsSection
             icon={GitBranch}
@@ -795,7 +795,7 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
         {/* ── CI ── */}
         <div
           id="section-ci"
-          className="grid scroll-mt-14 grid-cols-1 gap-x-5 rounded-lg lg:grid-cols-[1fr_280px]"
+          className="grid scroll-mt-18 grid-cols-1 gap-x-5 rounded-lg lg:grid-cols-[1fr_280px]"
         >
           <SettingsSection
             icon={Activity}
@@ -881,7 +881,7 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
         {/* ── Notifications ── */}
         <div
           id="section-notifications"
-          className="grid scroll-mt-14 grid-cols-1 gap-x-5 rounded-lg lg:grid-cols-[1fr_280px]"
+          className="grid scroll-mt-18 grid-cols-1 gap-x-5 rounded-lg lg:grid-cols-[1fr_280px]"
         >
           <SettingsSection
             icon={Bell}
@@ -1044,7 +1044,7 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
         {/* ── Feature Flags ── */}
         <div
           id="section-feature-flags"
-          className="grid scroll-mt-14 grid-cols-1 gap-x-5 rounded-lg lg:grid-cols-[1fr_280px]"
+          className="grid scroll-mt-18 grid-cols-1 gap-x-5 rounded-lg lg:grid-cols-[1fr_280px]"
         >
           <SettingsSection
             icon={Flag}
@@ -1100,7 +1100,7 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
         {/* ── Database ── */}
         <div
           id="section-database"
-          className="grid scroll-mt-14 grid-cols-1 gap-x-5 rounded-lg lg:grid-cols-[1fr_280px]"
+          className="grid scroll-mt-18 grid-cols-1 gap-x-5 rounded-lg lg:grid-cols-[1fr_280px]"
         >
           <SettingsSection
             icon={Database}

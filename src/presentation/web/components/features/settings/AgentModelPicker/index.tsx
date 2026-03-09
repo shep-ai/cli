@@ -168,7 +168,7 @@ export function AgentModelPicker({
                     key={group.agentType}
                     type="button"
                     className={cn(
-                      'flex w-full cursor-pointer items-center gap-2.5 px-3 py-2 text-sm transition-colors',
+                      'flex w-full cursor-pointer items-center gap-2.5 px-3 py-2 text-xs transition-colors',
                       'hover:bg-accent hover:text-accent-foreground',
                       isActive && 'bg-accent/50'
                     )}
@@ -222,7 +222,7 @@ export function AgentModelPicker({
                         onClick={() => handleSelect(activeGroup.agentType, m.id)}
                       >
                         <div className="flex min-w-0 flex-1 flex-col">
-                          <span className="text-sm font-medium">{m.displayName}</span>
+                          <span className="text-xs font-medium">{m.displayName}</span>
                           <span className="text-muted-foreground text-xs">{m.description}</span>
                         </div>
                         {isSelected ? (
