@@ -1,3 +1,9 @@
+# [1.85.0](https://github.com/shep-ai/cli/compare/v1.84.0...v1.85.0) (2026-03-09)
+
+### Features
+
+- **web:** add file attachment support for feature creation ([#246](https://github.com/shep-ai/cli/issues/246)) ([ab8494b](https://github.com/shep-ai/cli/commit/ab8494bcd6918f3f9a1f5141af7852e1d1ce40f2))
+
 # [1.84.0](https://github.com/shep-ai/cli/compare/v1.83.0...v1.84.0) (2026-03-09)
 
 ### Features
