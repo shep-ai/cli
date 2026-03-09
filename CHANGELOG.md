@@ -1,3 +1,9 @@
+# [1.82.0](https://github.com/shep-ai/cli/compare/v1.81.0...v1.82.0) (2026-03-09)
+
+### Features
+
+- **web:** add ctrl/cmd+enter shortcut to submit feature create drawer ([#252](https://github.com/shep-ai/cli/issues/252)) ([944ba75](https://github.com/shep-ai/cli/commit/944ba75c2e2e63d697b2d59c441ee01170b235fb))
+
 # [1.81.0](https://github.com/shep-ai/cli/compare/v1.80.0...v1.81.0) (2026-03-09)
 
 ### Features
