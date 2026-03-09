@@ -442,15 +442,7 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
               <span className="text-muted-foreground text-xs">{repoName}</span>
             </div>
           ) : null}
-          {featureNode.oneLiner ? (
-            <DrawerDescription>{featureNode.oneLiner}</DrawerDescription>
-          ) : featureNode.userQuery ? (
-            <DrawerDescription>{featureNode.userQuery}</DrawerDescription>
-          ) : featureNode.description ? (
-            <DrawerDescription>{featureNode.description}</DrawerDescription>
-          ) : featureNode.featureId ? (
-            <DrawerDescription className="sr-only">{featureNode.featureId}</DrawerDescription>
-          ) : null}
+          <DrawerDescription className="sr-only">{featureNode.name}</DrawerDescription>
         </div>
 
         {featureActionsInput ? (

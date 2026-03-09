@@ -104,6 +104,7 @@ function formatRelativeTime(timestamp: string | number): string {
 function FeatureInfo({ data }: { data: FeatureNodeData }) {
   const hasInfo =
     Boolean(data.branch) ||
+    Boolean(data.oneLiner) ||
     Boolean(data.summary) ||
     Boolean(data.userQuery) ||
     Boolean(data.createdAt);
@@ -123,6 +124,12 @@ function FeatureInfo({ data }: { data: FeatureNodeData }) {
                 <span className="text-muted-foreground text-xs">from {data.baseBranch}</span>
               ) : null}
             </span>
+          </div>
+        ) : null}
+        {data.oneLiner ? (
+          <div className="flex flex-col gap-0.5">
+            <span className="text-muted-foreground text-xs font-medium">One-Liner</span>
+            <span className="text-sm leading-relaxed">{data.oneLiner}</span>
           </div>
         ) : null}
         {data.userQuery ? (
