@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import { expect, fn, waitFor } from '@storybook/test';
 import { ReactFlowProvider, ReactFlow, useNodesState } from '@xyflow/react';
+import { DeploymentState } from '@shepai/core/domain/generated/output';
 import { FeatureNode } from './feature-node';
 import type { AgentTypeValue } from './agent-type-icons';
 import type {
@@ -410,6 +411,49 @@ export const FastModeDone: Story = {
     fastMode: true,
     agentType: 'claude-code',
     modelId: 'claude-sonnet-4-6',
+  },
+  render: (args) => <FeatureNodeCanvas data={args} />,
+};
+
+export const DeploymentBooting: Story = {
+  args: {
+    name: 'API Server',
+    description: 'REST API with Express',
+    featureId: '#d1',
+    lifecycle: 'deploy',
+    state: 'running',
+    progress: 80,
+    agentType: 'claude-code',
+    deployment: { status: DeploymentState.Booting },
+  },
+  render: (args) => <FeatureNodeCanvas data={args} />,
+};
+
+export const DeploymentReady: Story = {
+  args: {
+    name: 'Web Dashboard',
+    description: 'Next.js dashboard app',
+    featureId: '#d2',
+    lifecycle: 'deploy',
+    state: 'done',
+    progress: 100,
+    runtime: '45m',
+    agentType: 'claude-code',
+    deployment: { status: DeploymentState.Ready, url: 'http://localhost:3000' },
+  },
+  render: (args) => <FeatureNodeCanvas data={args} />,
+};
+
+export const DeploymentReadyNoUrl: Story = {
+  args: {
+    name: 'Background Worker',
+    description: 'Queue processor service',
+    featureId: '#d3',
+    lifecycle: 'deploy',
+    state: 'done',
+    progress: 100,
+    runtime: '30m',
+    deployment: { status: DeploymentState.Ready },
   },
   render: (args) => <FeatureNodeCanvas data={args} />,
 };

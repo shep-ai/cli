@@ -1,6 +1,6 @@
 import { Loader2, CircleAlert, CircleCheck, Ban, CircleX, type LucideIcon } from 'lucide-react';
 import type { Node } from '@xyflow/react';
-import type { PrStatus, CiStatus } from '@shepai/core/domain/generated/output';
+import type { PrStatus, CiStatus, DeploymentState } from '@shepai/core/domain/generated/output';
 import type { AgentTypeValue } from './agent-type-icons';
 
 export type FeatureNodeState =
@@ -88,6 +88,11 @@ export interface FeatureNodeData {
     status: PrStatus;
     ciStatus?: CiStatus;
     commitHash?: string;
+  };
+  /** Deployment status for features with an active deployment */
+  deployment?: {
+    status: DeploymentState;
+    url?: string;
   };
   onAction?: () => void;
   onSettings?: () => void;

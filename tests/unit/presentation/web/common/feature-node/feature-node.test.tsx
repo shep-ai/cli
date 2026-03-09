@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { ReactFlowProvider, ReactFlow } from '@xyflow/react';
 import { FeatureNode, lifecycleDisplayLabels } from '@/components/common/feature-node';
 import type { FeatureNodeData, FeatureNodeType } from '@/components/common/feature-node';
+import { DeploymentState } from '@shepai/core/domain/generated/output';
 
 // Mock radix-ui tooltip — render trigger children directly, hide content to avoid DOM noise
 vi.mock('radix-ui', () => ({
@@ -332,6 +333,56 @@ describe('FeatureNode', () => {
       renderFeatureNode({ state: 'creating' });
       const card = screen.getByTestId('feature-node-card');
       expect(card).toHaveAttribute('aria-busy', 'true');
+    });
+  });
+
+  describe('deployment indicator', () => {
+    it('does not render indicator when no deployment data', () => {
+      renderFeatureNode();
+      expect(screen.queryByTestId('feature-node-deployment-indicator')).not.toBeInTheDocument();
+    });
+
+    it('renders booting indicator with "Deploying..." text', () => {
+      renderFeatureNode({
+        deployment: { status: DeploymentState.Booting },
+      });
+      const indicator = screen.getByTestId('feature-node-deployment-indicator');
+      expect(indicator).toBeInTheDocument();
+      expect(screen.getByText('Deploying...')).toBeInTheDocument();
+    });
+
+    it('applies blue styling for booting state', () => {
+      renderFeatureNode({
+        deployment: { status: DeploymentState.Booting },
+      });
+      const indicator = screen.getByTestId('feature-node-deployment-indicator');
+      expect(indicator.className).toContain('bg-blue-50');
+      expect(indicator.className).toContain('text-blue-700');
+    });
+
+    it('renders ready indicator with "Live" text when no url', () => {
+      renderFeatureNode({
+        deployment: { status: DeploymentState.Ready },
+      });
+      const indicator = screen.getByTestId('feature-node-deployment-indicator');
+      expect(indicator).toBeInTheDocument();
+      expect(screen.getByText('Live')).toBeInTheDocument();
+    });
+
+    it('renders ready indicator with url when provided', () => {
+      renderFeatureNode({
+        deployment: { status: DeploymentState.Ready, url: 'http://localhost:3000' },
+      });
+      expect(screen.getByText('http://localhost:3000')).toBeInTheDocument();
+    });
+
+    it('applies green styling for ready state', () => {
+      renderFeatureNode({
+        deployment: { status: DeploymentState.Ready },
+      });
+      const indicator = screen.getByTestId('feature-node-deployment-indicator');
+      expect(indicator.className).toContain('bg-green-50');
+      expect(indicator.className).toContain('text-green-700');
     });
   });
 
