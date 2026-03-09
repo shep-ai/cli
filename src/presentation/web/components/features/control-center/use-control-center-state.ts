@@ -38,7 +38,7 @@ export interface ControlCenterState {
   handleConnect: (connection: Connection) => void;
   handleAddRepository: (path: string) => { wasEmpty: boolean; repoPath: string };
   handleLayout: (direction: LayoutDirection) => void;
-  handleDeleteFeature: (featureId: string, cleanup?: boolean) => Promise<void>;
+  handleDeleteFeature: (featureId: string, cleanup?: boolean) => void;
   handleDeleteRepository: (repositoryId: string) => Promise<void>;
   createFeatureNode: (
     sourceNodeId: string | null,

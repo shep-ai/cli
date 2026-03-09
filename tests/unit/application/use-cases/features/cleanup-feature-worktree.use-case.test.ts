@@ -29,6 +29,7 @@ function createMockFeature(overrides?: Partial<Feature>): Feature {
     lifecycle: SdlcLifecycle.Maintain,
     messages: [],
     relatedArtifacts: [],
+    fast: false,
     push: false,
     openPr: false,
     approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
@@ -85,6 +86,7 @@ describe('CleanupFeatureWorktreeUseCase', () => {
       listPrStatuses: vi.fn(),
       verifyMerge: vi.fn(),
       getFailureLogs: vi.fn(),
+      getRemoteUrl: vi.fn(),
     };
 
     useCase = new CleanupFeatureWorktreeUseCase(

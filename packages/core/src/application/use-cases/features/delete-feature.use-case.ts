@@ -49,24 +49,30 @@ export class DeleteFeatureUseCase {
     }
 
     // 2. Cascade delete all sub-features (depth-first)
-    await this.cascadeDeleteChildren(feature.id);
+    await this.cascadeDeleteChildren(feature.id, options);
 
     // 3. Delete the feature itself
-    await this.deleteSingleFeature(feature);
+    await this.deleteSingleFeature(feature, options);
 
     return feature;
   }
 
-  private async cascadeDeleteChildren(parentId: string): Promise<void> {
+  private async cascadeDeleteChildren(
+    parentId: string,
+    options?: DeleteFeatureOptions
+  ): Promise<void> {
     const children = await this.featureRepo.findByParentId(parentId);
     for (const child of children) {
       // Recurse into grandchildren first (depth-first)
-      await this.cascadeDeleteChildren(child.id);
-      await this.deleteSingleFeature(child);
+      await this.cascadeDeleteChildren(child.id, options);
+      await this.deleteSingleFeature(child, options);
     }
   }
 
-  private async deleteSingleFeature(feature: Feature): Promise<void> {
+  private async deleteSingleFeature(
+    feature: Feature,
+    options?: DeleteFeatureOptions
+  ): Promise<void> {
     // Cancel running/pending agent run if present
     if (feature.agentRunId) {
       const run = await this.runRepo.findById(feature.agentRunId);
