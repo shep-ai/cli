@@ -1,0 +1,36 @@
+feature:
+  id: '054-activity-rejected-text-48f690'
+  name: 'activity-rejected-text-48f690'
+  number: 54
+  branch: 'feat/054-activity-rejected-text-48f690'
+  lifecycle: 'research'
+  createdAt: '2026-03-09T11:34:00Z'
+
+status:
+  phase: 'research'
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-03-09T11:34:00Z'
+  lastUpdatedBy: 'feature-agent'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-03-09T11:34:00Z'
+    completedBy: 'feature-agent'
+
+errors:
+  current: null
+  history: []

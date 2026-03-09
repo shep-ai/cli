@@ -11,6 +11,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AgentRunStatus } from '@/domain/generated/output.js';
 import type { AgentRun } from '@/domain/generated/output.js';
 import { RejectAgentRunUseCase } from '@/application/use-cases/agents/reject-agent-run.use-case.js';
+import { recordLifecycleEvent } from '@/infrastructure/services/agents/feature-agent/phase-timing-context.js';
 
 // Mock fs, js-yaml, and writeSpecFileAtomic
 vi.mock('node:fs', () => ({
@@ -26,6 +27,10 @@ vi.mock('js-yaml', () => ({
 
 vi.mock('@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js', () => ({
   writeSpecFileAtomic: vi.fn(),
+}));
+
+vi.mock('@/infrastructure/services/agents/feature-agent/phase-timing-context.js', () => ({
+  recordLifecycleEvent: vi.fn(),
 }));
 
 vi.mock('@/infrastructure/services/ide-launchers/compute-worktree-path.js', () => ({
@@ -135,6 +140,14 @@ describe('RejectAgentRunUseCase', () => {
         updatedAt: expect.any(Date),
       })
     );
+  });
+
+  it('should record run:rejected lifecycle event on rejection', async () => {
+    mockRunRepo.findById.mockResolvedValue(createWaitingRun());
+
+    await useCase.execute('run-001', 'Needs more detail');
+
+    expect(recordLifecycleEvent).toHaveBeenCalledWith('run:rejected', 'run-001', mockTimingRepo);
   });
 
   it('should return error when run not found', async () => {

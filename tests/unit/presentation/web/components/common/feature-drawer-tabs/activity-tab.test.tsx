@@ -215,6 +215,32 @@ describe('ActivityTab', () => {
       expect(screen.getByText('started')).toBeInTheDocument();
       expect(screen.getByText('completed')).toBeInTheDocument();
     });
+
+    it('renders rejected lifecycle event', () => {
+      const timingsWithRejection: PhaseTimingData[] = [
+        {
+          agentRunId: run1Id,
+          phase: 'run:started',
+          startedAt: '2024-01-01T00:00:00.000Z',
+        },
+        {
+          agentRunId: run1Id,
+          phase: 'requirements',
+          startedAt: '2024-01-01T00:00:00.000Z',
+          completedAt: '2024-01-01T00:00:10.000Z',
+          durationMs: 10000,
+          waitingApprovalAt: '2024-01-01T00:00:08.000Z',
+          approvalWaitMs: 5000,
+        },
+        {
+          agentRunId: run1Id,
+          phase: 'run:rejected',
+          startedAt: '2024-01-01T00:00:15.000Z',
+        },
+      ];
+      renderActivityTab({ timings: timingsWithRejection });
+      expect(screen.getByText('rejected')).toBeInTheDocument();
+    });
   });
 
   describe('color coding', () => {

@@ -25,6 +25,7 @@ const LIFECYCLE_EVENTS: Record<string, { label: string; colorClass: string }> = 
   'run:failed': { label: 'failed', colorClass: 'text-red-600' },
   'run:stopped': { label: 'stopped', colorClass: 'text-amber-600' },
   'run:crashed': { label: 'crashed', colorClass: 'text-red-600' },
+  'run:rejected': { label: 'rejected', colorClass: 'text-orange-600' },
 };
 
 function isLifecycleEvent(phase: string): boolean {
