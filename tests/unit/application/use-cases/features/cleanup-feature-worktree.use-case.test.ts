@@ -62,6 +62,7 @@ describe('CleanupFeatureWorktreeUseCase', () => {
     mockWorktreeService = {
       create: vi.fn(),
       remove: vi.fn().mockResolvedValue(undefined),
+      prune: vi.fn().mockResolvedValue(undefined),
       list: vi.fn(),
       exists: vi.fn(),
       branchExists: vi.fn(),
@@ -151,6 +152,45 @@ describe('CleanupFeatureWorktreeUseCase', () => {
       expect.anything()
     );
     // Local branch deletion should still be called
+    expect(mockGitPrService.deleteBranch).toHaveBeenCalledWith('/repo', 'feat/test-feature');
+    warnSpy.mockRestore();
+  });
+
+  it('should call prune after worktree remove fails to clean stale entries', async () => {
+    const feature = createMockFeature();
+    mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
+    mockWorktreeService.remove = vi.fn().mockRejectedValue(new Error('is not a working tree'));
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    await useCase.execute('feat-123-full-uuid');
+
+    expect(mockWorktreeService.prune).toHaveBeenCalledWith('/repo');
+    // Branch deletion should still proceed after prune
+    expect(mockGitPrService.deleteBranch).toHaveBeenCalledWith('/repo', 'feat/test-feature');
+  });
+
+  it('should not call prune when worktree remove succeeds', async () => {
+    const feature = createMockFeature();
+    mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
+
+    await useCase.execute('feat-123-full-uuid');
+
+    expect(mockWorktreeService.prune).not.toHaveBeenCalled();
+  });
+
+  it('should continue with branch deletion even when prune fails', async () => {
+    const feature = createMockFeature();
+    mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
+    mockWorktreeService.remove = vi.fn().mockRejectedValue(new Error('is not a working tree'));
+    mockWorktreeService.prune = vi.fn().mockRejectedValue(new Error('prune failed'));
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    await useCase.execute('feat-123-full-uuid');
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('worktree prune failed'),
+      expect.anything()
+    );
     expect(mockGitPrService.deleteBranch).toHaveBeenCalledWith('/repo', 'feat/test-feature');
     warnSpy.mockRestore();
   });

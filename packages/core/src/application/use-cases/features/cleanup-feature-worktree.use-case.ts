@@ -36,6 +36,13 @@ export class CleanupFeatureWorktreeUseCase {
     } catch (err) {
       // eslint-disable-next-line no-console
       console.warn('[CleanupFeatureWorktreeUseCase] worktree remove failed:', err);
+      // Prune stale worktree entries so the branch is no longer considered "in use"
+      try {
+        await this.worktreeService.prune(feature.repositoryPath);
+      } catch (pruneErr) {
+        // eslint-disable-next-line no-console
+        console.warn('[CleanupFeatureWorktreeUseCase] worktree prune failed:', pruneErr);
+      }
     }
 
     // Step 2: Delete the local feature branch

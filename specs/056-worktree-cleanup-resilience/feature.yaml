@@ -1,0 +1,36 @@
+feature:
+  id: '056-worktree-cleanup-resilience'
+  name: 'worktree-cleanup-resilience'
+  number: 56
+  branch: 'feat/056-worktree-cleanup-resilience'
+  lifecycle: 'research'
+  createdAt: '2026-03-09T19:02:15Z'
+
+status:
+  phase: 'research'
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-03-09T19:02:15Z'
+  lastUpdatedBy: 'feature-agent'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-03-09T19:02:15Z'
+    completedBy: 'feature-agent'
+
+errors:
+  current: null
+  history: []

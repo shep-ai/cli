@@ -74,6 +74,14 @@ export class WorktreeService implements IWorktreeService {
     }
   }
 
+  async prune(repoPath: string): Promise<void> {
+    try {
+      await this.execFile('git', ['worktree', 'prune'], { cwd: repoPath });
+    } catch (error) {
+      throw this.parseGitError(error);
+    }
+  }
+
   async list(repoPath: string): Promise<WorktreeInfo[]> {
     const { stdout } = await this.execFile('git', ['worktree', 'list', '--porcelain'], {
       cwd: repoPath,
