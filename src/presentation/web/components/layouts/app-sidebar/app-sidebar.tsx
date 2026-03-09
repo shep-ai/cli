@@ -17,6 +17,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { SidebarNavItem } from '@/components/common/sidebar-nav-item';
 import { SidebarCollapseToggle } from '@/components/common/sidebar-collapse-toggle';
 import { ShepLogo } from '@/components/common/shep-logo';
+import { VersionBadge } from '@/components/common/version-badge';
 import { FeatureListItem } from '@/components/common/feature-list-item';
 import { FeatureStatusGroup } from '@/components/common/feature-status-group';
 import { SidebarSectionHeader } from '@/components/common/sidebar-section-header';
@@ -79,6 +80,13 @@ export function AppSidebar({
                 >
                   <ShepLogo className="shrink-0" size={20} />
                   <span className="truncate text-sm font-semibold tracking-tight">Shep</span>
+                  <VersionBadge
+                    version={process.env.NEXT_PUBLIC_SHEP_VERSION ?? 'unknown'}
+                    branch={process.env.NEXT_PUBLIC_SHEP_BRANCH}
+                    isDev={process.env.NODE_ENV === 'development'}
+                    packageName={process.env.NEXT_PUBLIC_SHEP_PACKAGE_NAME}
+                    description={process.env.NEXT_PUBLIC_SHEP_DESCRIPTION}
+                  />
                 </div>
               ) : null}
               <SidebarCollapseToggle className="shrink-0 transition-all duration-200" />

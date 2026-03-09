@@ -118,4 +118,5 @@ export function setVersionEnvVars(info: VersionInfo): void {
   process.env.NEXT_PUBLIC_SHEP_VERSION = info.version;
   process.env.NEXT_PUBLIC_SHEP_PACKAGE_NAME = info.name;
   process.env.NEXT_PUBLIC_SHEP_DESCRIPTION = info.description;
+  // Branch is intentionally not set in production mode — only dev mode shows it
 }
