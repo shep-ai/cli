@@ -24,17 +24,7 @@ import { DeploymentStatusBadge } from '@/components/common/deployment-status-bad
 import { DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+import { DeleteFeatureDialog } from '@/components/common/delete-feature-dialog';
 import { ActionButton } from '@/components/common/action-button';
 import { OpenActionMenu } from '@/components/common/open-action-menu';
 import { FeatureDrawerTabs } from '@/components/common/feature-drawer-tabs';
@@ -152,6 +142,7 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
 
   // ── Delete state ───────────────────────────────────────────────────────
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   // ── Shared reject state ────────────────────────────────────────────────
   const [isRejecting, setIsRejecting] = useState(false);
@@ -365,10 +356,10 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
   const handleMergeApprove = useCallback(() => handleSimpleApprove('Merge'), [handleSimpleApprove]);
 
   const handleDelete = useCallback(
-    async (featureId: string) => {
+    async (featureId: string, cleanup?: boolean) => {
       setIsDeleting(true);
       try {
-        const result = await deleteFeature(featureId);
+        const result = await deleteFeature(featureId, cleanup);
         if (result.error) {
           toast.error(result.error);
           return;
@@ -516,53 +507,31 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
               </button>
             </div>
             {featureNode.featureId ? (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label="Delete feature"
-                    disabled={isDeleting}
-                    className="text-muted-foreground hover:text-destructive"
-                    data-testid="feature-drawer-delete"
-                  >
-                    {isDeleting ? (
-                      <Loader2 className="size-4 animate-spin" />
-                    ) : (
-                      <Trash2 className="size-4" />
-                    )}
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Delete feature?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This will permanently delete <strong>{featureNode.name}</strong> (
-                      {featureNode.featureId}). This action cannot be undone.
-                      {featureNode.state === 'running' ? (
-                        <> This feature has a running agent that will be stopped.</>
-                      ) : null}
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      variant="destructive"
-                      disabled={isDeleting}
-                      onClick={() => handleDelete(featureNode.featureId)}
-                    >
-                      {isDeleting ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Deleting…
-                        </>
-                      ) : (
-                        'Delete'
-                      )}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Delete feature"
+                  disabled={isDeleting}
+                  className="text-muted-foreground hover:text-destructive"
+                  data-testid="feature-drawer-delete"
+                  onClick={() => setDeleteDialogOpen(true)}
+                >
+                  {isDeleting ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="size-4" />
+                  )}
+                </Button>
+                <DeleteFeatureDialog
+                  open={deleteDialogOpen}
+                  onOpenChange={setDeleteDialogOpen}
+                  onConfirm={(cleanup) => handleDelete(featureNode.featureId, cleanup)}
+                  isDeleting={isDeleting}
+                  featureName={featureNode.name}
+                  featureId={featureNode.featureId}
+                />
+              </>
             ) : null}
           </div>
         ) : null}

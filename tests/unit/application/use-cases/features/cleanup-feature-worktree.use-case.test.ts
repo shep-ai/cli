@@ -154,13 +154,20 @@ describe('CleanupFeatureWorktreeUseCase', () => {
     warnSpy.mockRestore();
   });
 
-  it('should skip worktree step when feature has no worktreePath', async () => {
+  it('should compute worktree path via getWorktreePath when feature has no worktreePath', async () => {
     const feature = createMockFeature({ worktreePath: undefined });
     mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
+    (mockWorktreeService.getWorktreePath as ReturnType<typeof vi.fn>).mockReturnValue(
+      '/repo/.worktrees/feat-test-feature'
+    );
 
     await useCase.execute('feat-123-full-uuid');
 
-    expect(mockWorktreeService.remove).not.toHaveBeenCalled();
+    expect(mockWorktreeService.getWorktreePath).toHaveBeenCalledWith('/repo', 'feat/test-feature');
+    expect(mockWorktreeService.remove).toHaveBeenCalledWith(
+      '/repo/.worktrees/feat-test-feature',
+      true
+    );
     // Remaining steps still run
     expect(mockGitPrService.deleteBranch).toHaveBeenCalledWith('/repo', 'feat/test-feature');
   });

@@ -28,13 +28,14 @@ export class CleanupFeatureWorktreeUseCase {
     if (!feature) return;
 
     // Step 1: Unlink the git worktree (directory contents are preserved on disk)
-    if (feature.worktreePath) {
-      try {
-        await this.worktreeService.remove(feature.worktreePath, true);
-      } catch (err) {
-        // eslint-disable-next-line no-console
-        console.warn('[CleanupFeatureWorktreeUseCase] worktree remove failed:', err);
-      }
+    const worktreePath =
+      feature.worktreePath ??
+      this.worktreeService.getWorktreePath(feature.repositoryPath, feature.branch);
+    try {
+      await this.worktreeService.remove(worktreePath, true);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn('[CleanupFeatureWorktreeUseCase] worktree remove failed:', err);
     }
 
     // Step 2: Delete the local feature branch
