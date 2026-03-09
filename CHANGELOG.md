@@ -1,3 +1,9 @@
+# [1.80.0](https://github.com/shep-ai/cli/compare/v1.79.0...v1.80.0) (2026-03-09)
+
+### Features
+
+- **web:** show drawer header actions in all feature phases ([#249](https://github.com/shep-ai/cli/issues/249)) ([c7a5479](https://github.com/shep-ai/cli/commit/c7a54792af78b8c3a82328294efe3b0f4547ad31))
+
 # [1.79.0](https://github.com/shep-ai/cli/compare/v1.78.1...v1.79.0) (2026-03-09)
 
 ### Features
