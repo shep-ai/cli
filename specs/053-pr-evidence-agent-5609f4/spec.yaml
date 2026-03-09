@@ -534,3 +534,8 @@ content: >
 
 
   _Requirements complete — proceed with research_
+rejectionFeedback:
+  - iteration: 1
+    message: rebase on main
+    phase: plan
+    timestamp: '2026-03-09T11:09:51.730Z'
