@@ -9,6 +9,7 @@ import { CiStatusBadge } from '@/components/common/ci-status-badge';
 import { CometSpinner } from '@/components/ui/comet-spinner';
 import { featureNodeStateConfig, lifecycleDisplayLabels } from '@/components/common/feature-node';
 import type { FeatureNodeData } from '@/components/common/feature-node';
+import { getAgentTypeIcon, agentTypeLabels } from '@/components/common/feature-node/agent-type-icons';
 
 export interface OverviewTabProps {
   data: FeatureNodeData;
@@ -123,12 +124,26 @@ function FeatureDetails({ data }: { data: FeatureNodeData }) {
     <>
       <Separator />
       <div data-testid="feature-drawer-details" className="flex flex-col gap-3 p-4">
-        {data.agentType ? <DetailRow label="Agent" value={data.agentType} /> : null}
+        {data.agentType ? <AgentDetailRow agentType={data.agentType} /> : null}
         {data.runtime ? <DetailRow label="Runtime" value={data.runtime} /> : null}
         {data.blockedBy ? <DetailRow label="Blocked by" value={data.blockedBy} /> : null}
         {data.errorMessage ? <DetailRow label="Error" value={data.errorMessage} /> : null}
       </div>
     </>
+  );
+}
+
+function AgentDetailRow({ agentType }: { agentType: string }) {
+  const Icon = getAgentTypeIcon(agentType);
+  const label = agentTypeLabels[agentType as keyof typeof agentTypeLabels] ?? agentType;
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className="text-muted-foreground text-xs font-medium">Agent</span>
+      <span className="flex items-center gap-2 text-sm">
+        <Icon className="h-4 w-4 shrink-0" />
+        {label}
+      </span>
+    </div>
   );
 }
 
