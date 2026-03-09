@@ -68,6 +68,48 @@ export interface DiffSummary {
 }
 
 /**
+ * A single hunk in a file diff showing the actual line changes.
+ */
+export interface DiffHunk {
+  /** Header line (e.g. "@@ -1,5 +1,7 @@") */
+  header: string;
+  /** Lines in this hunk with their type and content */
+  lines: DiffLine[];
+}
+
+/**
+ * A single line within a diff hunk.
+ */
+export interface DiffLine {
+  /** Type of change: added, removed, or context (unchanged) */
+  type: 'added' | 'removed' | 'context';
+  /** The line content (without the leading +/-/space) */
+  content: string;
+  /** Old file line number (undefined for added lines) */
+  oldNumber?: number;
+  /** New file line number (undefined for removed lines) */
+  newNumber?: number;
+}
+
+/**
+ * Per-file diff data showing what changed in a single file.
+ */
+export interface FileDiff {
+  /** File path (new path for renames) */
+  path: string;
+  /** Previous path if the file was renamed */
+  oldPath?: string;
+  /** Number of lines added */
+  additions: number;
+  /** Number of lines removed */
+  deletions: number;
+  /** Change type */
+  status: 'added' | 'modified' | 'deleted' | 'renamed';
+  /** Diff hunks with actual line changes */
+  hunks: DiffHunk[];
+}
+
+/**
  * Result of creating a pull request.
  */
 export interface PrCreateResult {
@@ -218,6 +260,16 @@ export interface IGitPrService {
    * @throws GitPrError with GIT_ERROR code
    */
   getPrDiffSummary(cwd: string, baseBranch: string): Promise<DiffSummary>;
+
+  /**
+   * Get per-file diffs between the current branch and a base branch.
+   *
+   * @param cwd - Working directory path
+   * @param baseBranch - Base branch to compare against
+   * @returns Array of per-file diffs with hunks and line changes
+   * @throws GitPrError with GIT_ERROR code
+   */
+  getFileDiffs(cwd: string, baseBranch: string): Promise<FileDiff[]>;
 
   /**
    * List PR statuses for all open and recently-updated PRs in a repository.

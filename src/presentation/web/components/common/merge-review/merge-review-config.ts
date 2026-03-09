@@ -8,6 +8,30 @@ export interface MergeReviewDiffSummary {
   commitCount: number;
 }
 
+/** A line within a diff hunk */
+export interface MergeReviewDiffLine {
+  type: 'added' | 'removed' | 'context';
+  content: string;
+  oldNumber?: number;
+  newNumber?: number;
+}
+
+/** A hunk within a file diff */
+export interface MergeReviewDiffHunk {
+  header: string;
+  lines: MergeReviewDiffLine[];
+}
+
+/** Per-file diff showing what changed in a single file */
+export interface MergeReviewFileDiff {
+  path: string;
+  oldPath?: string;
+  additions: number;
+  deletions: number;
+  status: 'added' | 'modified' | 'deleted' | 'renamed';
+  hunks: MergeReviewDiffHunk[];
+}
+
 /** PR metadata extracted from Feature.pr */
 export interface MergeReviewPr {
   url: string;
@@ -38,6 +62,8 @@ export interface MergeReviewData {
   pr?: MergeReviewPr;
   /** Aggregate diff statistics (omitted when worktree is unavailable) */
   diffSummary?: MergeReviewDiffSummary;
+  /** Per-file diffs with line-level changes (omitted when worktree is unavailable) */
+  fileDiffs?: MergeReviewFileDiff[];
   /** Implementation phases from plan.yaml */
   phases?: MergeReviewPhase[];
   /** Branch merge direction */

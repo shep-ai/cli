@@ -1,2 +1,3 @@
 export { MergeReview } from './merge-review';
-export type { MergeReviewProps, MergeReviewData } from './merge-review-config';
+export { DiffView } from './diff-view';
+export type { MergeReviewProps, MergeReviewData, MergeReviewFileDiff } from './merge-review-config';

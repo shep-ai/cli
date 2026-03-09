@@ -150,6 +150,7 @@ describe('IGitPrService', () => {
       deleteBranch: async () => {
         /* noop */
       },
+      getFileDiffs: async () => [],
       getPrDiffSummary: async () => ({
         filesChanged: 0,
         additions: 0,
@@ -174,13 +175,14 @@ describe('IGitPrService', () => {
       'getCiStatus',
       'watchCi',
       'deleteBranch',
+      'getFileDiffs',
       'getPrDiffSummary',
       'listPrStatuses',
       'verifyMerge',
       'getFailureLogs',
     ];
 
-    expect(methodNames).toHaveLength(15);
+    expect(methodNames).toHaveLength(16);
     for (const name of methodNames) {
       expect(typeof mock[name]).toBe('function');
     }

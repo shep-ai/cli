@@ -86,6 +86,7 @@ function createMockGitPrService(): IGitPrService {
     getPrDiffSummary: vi.fn(),
     listPrStatuses: vi.fn().mockResolvedValue([]),
     getFailureLogs: vi.fn().mockResolvedValue(''),
+    getFileDiffs: vi.fn().mockResolvedValue([]),
     verifyMerge: vi.fn().mockResolvedValue(false),
   };
 }

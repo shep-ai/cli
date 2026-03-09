@@ -131,6 +131,7 @@ export function createStubMergeNodeDeps(featureId?: string): Omit<MergeNodeDeps,
         .fn()
         .mockResolvedValue({ filesChanged: 0, additions: 0, deletions: 0, commitCount: 0 }),
       getFailureLogs: vi.fn().mockResolvedValue(''),
+      getFileDiffs: vi.fn().mockResolvedValue([]),
       listPrStatuses: vi.fn().mockResolvedValue([]),
       verifyMerge: vi.fn().mockResolvedValue(true),
     },

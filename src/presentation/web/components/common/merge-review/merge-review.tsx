@@ -14,6 +14,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { CiStatusBadge } from '@/components/common/ci-status-badge';
 import { DrawerActionBar } from '@/components/common/drawer-action-bar';
+import { DiffView } from './diff-view';
 import type { MergeReviewProps, MergeReviewPhase } from './merge-review-config';
 
 function PhaseList({ phases }: { phases: MergeReviewPhase[] }) {
@@ -55,7 +56,7 @@ export function MergeReview({
   chatInput,
   onChatInputChange,
 }: MergeReviewProps) {
-  const { pr, diffSummary, phases, branch, warning } = data;
+  const { pr, diffSummary, fileDiffs, phases, branch, warning } = data;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -171,6 +172,9 @@ export function MergeReview({
             </div>
           </div>
         ) : null}
+
+        {/* File diffs */}
+        {fileDiffs && fileDiffs.length > 0 ? <DiffView fileDiffs={fileDiffs} /> : null}
 
         {/* Implementation phases */}
         {phases && phases.length > 0 ? <PhaseList phases={phases} /> : null}

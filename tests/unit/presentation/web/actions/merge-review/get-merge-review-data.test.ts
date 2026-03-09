@@ -3,12 +3,14 @@ import { PrStatus, CiStatus } from '@shepai/core/domain/generated/output';
 
 const mockFindById = vi.fn();
 const mockGetPrDiffSummary = vi.fn();
+const mockGetFileDiffs = vi.fn();
 const mockPlanExecute = vi.fn();
 
 vi.mock('@/lib/server-container', () => ({
   resolve: (token: string) => {
     if (token === 'IFeatureRepository') return { findById: mockFindById };
-    if (token === 'IGitPrService') return { getPrDiffSummary: mockGetPrDiffSummary };
+    if (token === 'IGitPrService')
+      return { getPrDiffSummary: mockGetPrDiffSummary, getFileDiffs: mockGetFileDiffs };
     if (token === 'GetPlanArtifactUseCase') return { execute: mockPlanExecute };
     throw new Error(`Unknown token: ${token}`);
   },
@@ -48,11 +50,23 @@ const basePlanArtifact = {
   ],
 };
 
+const baseFileDiffs = [
+  {
+    path: 'src/app.ts',
+    additions: 5,
+    deletions: 2,
+    status: 'modified' as const,
+    hunks: [{ header: '@@ -1,3 +1,6 @@', lines: [] }],
+  },
+];
+
 describe('getMergeReviewData server action', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     // Default: plan unavailable (many tests don't care about it)
     mockPlanExecute.mockRejectedValue(new Error('no plan'));
+    // Default: file diffs unavailable
+    mockGetFileDiffs.mockRejectedValue(new Error('no diffs'));
   });
 
   it('returns error when featureId is empty string', async () => {
@@ -232,5 +246,32 @@ describe('getMergeReviewData server action', () => {
     const result = await getMergeReviewData('feat-123');
 
     expect(result).toEqual({ error: 'Failed to load merge review data' });
+  });
+
+  it('includes fileDiffs when getFileDiffs succeeds', async () => {
+    mockFindById.mockResolvedValue(baseFeature);
+    mockGetPrDiffSummary.mockResolvedValue(baseDiffSummary);
+    mockGetFileDiffs.mockResolvedValue(baseFileDiffs);
+
+    const result = await getMergeReviewData('feat-123');
+
+    expect(result).toMatchObject({
+      diffSummary: baseDiffSummary,
+      fileDiffs: baseFileDiffs,
+    });
+    expect(mockGetFileDiffs).toHaveBeenCalledWith('/tmp/worktree', 'main');
+  });
+
+  it('returns undefined fileDiffs when getFileDiffs fails', async () => {
+    mockFindById.mockResolvedValue(baseFeature);
+    mockGetPrDiffSummary.mockResolvedValue(baseDiffSummary);
+    mockGetFileDiffs.mockRejectedValue(new Error('git error'));
+
+    const result = await getMergeReviewData('feat-123');
+
+    expect(result).toMatchObject({
+      diffSummary: baseDiffSummary,
+      fileDiffs: undefined,
+    });
   });
 });

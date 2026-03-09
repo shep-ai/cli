@@ -639,6 +639,148 @@ describe('GitPrService', () => {
     });
   });
 
+  describe('getFileDiffs', () => {
+    it('should parse a unified diff with modified, added, and deleted files', async () => {
+      const unifiedDiff = [
+        'diff --git a/src/app.ts b/src/app.ts',
+        'index 1234567..abcdefg 100644',
+        '--- a/src/app.ts',
+        '+++ b/src/app.ts',
+        '@@ -1,4 +1,5 @@',
+        " import express from 'express';",
+        "+import cors from 'cors';",
+        ' ',
+        '-const app = express();',
+        '+const app = express();  // updated',
+        ' app.listen(3000);',
+        'diff --git a/src/new-file.ts b/src/new-file.ts',
+        'new file mode 100644',
+        'index 0000000..1234567',
+        '--- /dev/null',
+        '+++ b/src/new-file.ts',
+        '@@ -0,0 +1,2 @@',
+        '+export const hello = true;',
+        "+export const world = 'yes';",
+        'diff --git a/src/old.ts b/src/old.ts',
+        'deleted file mode 100644',
+        'index 1234567..0000000',
+        '--- a/src/old.ts',
+        '+++ /dev/null',
+        '@@ -1,2 +0,0 @@',
+        '-const legacy = true;',
+        '-export default legacy;',
+      ].join('\n');
+
+      vi.mocked(mockExec).mockResolvedValueOnce({ stdout: unifiedDiff, stderr: '' });
+
+      const result = await service.getFileDiffs('/repo', 'main');
+
+      expect(mockExec).toHaveBeenCalledWith('git', ['diff', '--unified=3', 'main...HEAD'], {
+        cwd: '/repo',
+      });
+      expect(result).toHaveLength(3);
+
+      // Modified file
+      expect(result[0].path).toBe('src/app.ts');
+      expect(result[0].status).toBe('modified');
+      expect(result[0].additions).toBe(2);
+      expect(result[0].deletions).toBe(1);
+      expect(result[0].hunks).toHaveLength(1);
+      expect(result[0].hunks[0].lines).toHaveLength(6);
+
+      // Added file
+      expect(result[1].path).toBe('src/new-file.ts');
+      expect(result[1].status).toBe('added');
+      expect(result[1].additions).toBe(2);
+      expect(result[1].deletions).toBe(0);
+
+      // Deleted file
+      expect(result[2].path).toBe('src/old.ts');
+      expect(result[2].status).toBe('deleted');
+      expect(result[2].additions).toBe(0);
+      expect(result[2].deletions).toBe(2);
+    });
+
+    it('should return empty array for empty diff output', async () => {
+      vi.mocked(mockExec).mockResolvedValueOnce({ stdout: '', stderr: '' });
+
+      const result = await service.getFileDiffs('/repo', 'main');
+
+      expect(result).toEqual([]);
+    });
+
+    it('should parse renamed files', async () => {
+      const renameDiff = [
+        'diff --git a/src/old-name.ts b/src/new-name.ts',
+        'similarity index 85%',
+        'rename from src/old-name.ts',
+        'rename to src/new-name.ts',
+        'index 1234567..abcdefg 100644',
+        '--- a/src/old-name.ts',
+        '+++ b/src/new-name.ts',
+        '@@ -1,3 +1,3 @@',
+        " import { x } from './x';",
+        "-export const name = 'old';",
+        "+export const name = 'new';",
+        ' ',
+      ].join('\n');
+
+      vi.mocked(mockExec).mockResolvedValueOnce({ stdout: renameDiff, stderr: '' });
+
+      const result = await service.getFileDiffs('/repo', 'main');
+
+      expect(result).toHaveLength(1);
+      expect(result[0].path).toBe('src/new-name.ts');
+      expect(result[0].oldPath).toBe('src/old-name.ts');
+      expect(result[0].status).toBe('renamed');
+    });
+
+    it('should parse diff line numbers correctly', async () => {
+      const diff = [
+        'diff --git a/file.ts b/file.ts',
+        'index 1234567..abcdefg 100644',
+        '--- a/file.ts',
+        '+++ b/file.ts',
+        '@@ -10,4 +10,5 @@',
+        ' context line',
+        '-removed line',
+        '+added line 1',
+        '+added line 2',
+        ' another context',
+      ].join('\n');
+
+      vi.mocked(mockExec).mockResolvedValueOnce({ stdout: diff, stderr: '' });
+
+      const result = await service.getFileDiffs('/repo', 'main');
+      const lines = result[0].hunks[0].lines;
+
+      expect(lines[0]).toEqual({
+        type: 'context',
+        content: 'context line',
+        oldNumber: 10,
+        newNumber: 10,
+      });
+      expect(lines[1]).toEqual({ type: 'removed', content: 'removed line', oldNumber: 11 });
+      expect(lines[2]).toEqual({ type: 'added', content: 'added line 1', newNumber: 11 });
+      expect(lines[3]).toEqual({ type: 'added', content: 'added line 2', newNumber: 12 });
+      expect(lines[4]).toEqual({
+        type: 'context',
+        content: 'another context',
+        oldNumber: 12,
+        newNumber: 13,
+      });
+    });
+
+    it('should throw GitPrError when git command fails', async () => {
+      vi.mocked(mockExec).mockRejectedValue(new Error('git diff failed'));
+
+      await expect(service.getFileDiffs('/repo', 'main')).rejects.toThrow(GitPrError);
+      await expect(service.getFileDiffs('/repo', 'main')).rejects.toMatchObject({
+        code: GitPrErrorCode.GIT_ERROR,
+      });
+    });
+  });
+
   describe('listPrStatuses', () => {
     it('should call gh pr list with correct arguments including headRefName', async () => {
       const ghOutput = JSON.stringify([

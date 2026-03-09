@@ -52,8 +52,11 @@ export async function getMergeReviewData(featureId: string): Promise<GetMergeRev
 
     try {
       const gitPrService = resolve<IGitPrService>('IGitPrService');
-      const diffSummary = await gitPrService.getPrDiffSummary(feature.worktreePath, 'main');
-      return { pr, branch, phases, diffSummary };
+      const [diffSummary, fileDiffs] = await Promise.all([
+        gitPrService.getPrDiffSummary(feature.worktreePath, 'main'),
+        gitPrService.getFileDiffs(feature.worktreePath, 'main').catch(() => undefined),
+      ]);
+      return { pr, branch, phases, diffSummary, fileDiffs };
     } catch {
       return { pr, branch, phases, warning: 'Diff statistics unavailable' };
     }
