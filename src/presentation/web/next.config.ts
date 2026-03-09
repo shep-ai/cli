@@ -58,9 +58,10 @@ const nextConfig: NextConfig = {
   // Inject version info from package.json for the web UI
   env: loadDevFallbacks(),
 
-  // Use standalone output mode for server-side rendering on demand
-  // This prevents issues with statically prerendering pages that depend on client context
-  output: 'standalone',
+  // Use standalone output mode in production builds only.
+  // Standalone bundles node_modules into .next/ for deployment without pnpm install.
+  // Skipped in dev to avoid extra overhead (copying files, larger .next directory).
+  ...(process.env.NODE_ENV === 'production' ? { output: 'standalone' as const } : {}),
 
   // Allow attachment uploads up to 11 MB (10 MB limit + multipart overhead)
   experimental: {
