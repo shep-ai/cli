@@ -1,3 +1,9 @@
+# [1.84.0](https://github.com/shep-ai/cli/compare/v1.83.0...v1.84.0) (2026-03-09)
+
+### Features
+
+- **web:** add rejected lifecycle event to activity tab ([#253](https://github.com/shep-ai/cli/issues/253)) ([c1f0816](https://github.com/shep-ai/cli/commit/c1f0816c0cef13c1babd2612581712f37febb69e))
+
 # [1.83.0](https://github.com/shep-ai/cli/compare/v1.82.0...v1.83.0) (2026-03-09)
 
 ### Features
