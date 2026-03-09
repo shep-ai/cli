@@ -184,7 +184,7 @@ describe('IGitPrService', () => {
       'getFailureLogs',
     ];
 
-    expect(methodNames).toHaveLength(16);
+    expect(methodNames).toHaveLength(17);
     for (const name of methodNames) {
       expect(typeof mock[name]).toBe('function');
     }
