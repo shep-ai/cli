@@ -223,6 +223,23 @@ export function FeatureDrawerTabs({
     }
   }, [pathname]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // On mount, sync the URL to reflect the effective initial tab when it was
+  // derived from feature state (initialTab) rather than from the URL (urlTab).
+  // Use replaceState so we don't add a duplicate history entry.
+  const initialSyncDone = useRef(false);
+  useEffect(() => {
+    if (initialSyncDone.current) return;
+    initialSyncDone.current = true;
+    // Only sync if the effective tab came from initialTab (not from URL)
+    if (!urlTab && effectiveInitial !== 'overview') {
+      const targetUrl = `${basePath}/${effectiveInitial}`;
+      if (targetUrl !== pathname) {
+        window.history.replaceState(null, '', targetUrl);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Trigger lazy fetch for URL-driven initial tab
   const initialFetchDone = useRef(false);
   useEffect(() => {
@@ -243,6 +260,7 @@ export function FeatureDrawerTabs({
   }, [featureId]);
 
   // When initialTab changes (e.g. SSE updates lifecycle), switch to it if visible
+  // and sync the URL with replaceState so the address bar reflects the new tab.
   const prevInitialTabRef = useRef(initialTab);
   useEffect(() => {
     if (
@@ -252,15 +270,24 @@ export function FeatureDrawerTabs({
     ) {
       prevInitialTabRef.current = initialTab;
       setActiveTab(initialTab);
+      // Sync URL to match the new tab
+      const targetUrl = initialTab === 'overview' ? basePath : `${basePath}/${initialTab}`;
+      if (targetUrl !== window.location.pathname) {
+        window.history.replaceState(null, '', targetUrl);
+      }
     }
-  }, [initialTab, visibleTabs]);
+  }, [initialTab, visibleTabs, basePath]);
 
   // If the active tab becomes invisible (lifecycle changed), fall back to overview
+  // and sync the URL accordingly.
   useEffect(() => {
     if (!visibleTabs.includes(activeTab)) {
       setActiveTab('overview');
+      if (window.location.pathname !== basePath) {
+        window.history.replaceState(null, '', basePath);
+      }
     }
-  }, [visibleTabs, activeTab]);
+  }, [visibleTabs, activeTab, basePath]);
 
   // SSE refresh: re-fetch active lazy tab when featureNode reference changes
   const featureNodeRef = useRef(featureNode);
