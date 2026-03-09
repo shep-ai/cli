@@ -136,6 +136,7 @@ function appendFeatureNodes(
       userQuery: feature.userQuery,
       createdAt:
         feature.createdAt instanceof Date ? feature.createdAt.getTime() : feature.createdAt,
+      ...(feature.fast && { fastMode: true }),
       ...(repoName && { repositoryName: repoName }),
       ...(run?.agentType && { agentType: run.agentType as FeatureNodeData['agentType'] }),
       ...(run?.modelId && { modelId: run.modelId }),

@@ -1,0 +1,36 @@
+feature:
+  id: '053-fast-mode-indicator'
+  name: 'fast-mode-indicator'
+  number: 53
+  branch: 'feat/053-fast-mode-indicator'
+  lifecycle: 'research'
+  createdAt: '2026-03-09T10:45:32Z'
+
+status:
+  phase: 'research'
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-03-09T10:45:32Z'
+  lastUpdatedBy: 'feature-agent'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-03-09T10:45:32Z'
+    completedBy: 'feature-agent'
+
+errors:
+  current: null
+  history: []

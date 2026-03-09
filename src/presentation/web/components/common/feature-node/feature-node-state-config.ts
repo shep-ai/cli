@@ -61,6 +61,8 @@ export interface FeatureNodeData {
   blockedBy?: string;
   /** Short error message for error state */
   errorMessage?: string;
+  /** Whether the feature was created in fast mode (skip SDLC phases). */
+  fastMode?: boolean;
   /** Agent executor type (e.g. "claude-code", "cursor"). */
   agentType?: AgentTypeValue;
   /** LLM model identifier used for this feature's agent run. */

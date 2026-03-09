@@ -11,6 +11,7 @@ import {
   Trash2Icon,
   ChevronsUpDown,
   CheckIcon,
+  Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSoundAction } from '@/hooks/use-sound-action';
@@ -287,7 +288,11 @@ export function FeatureCreateDrawer({
                           onCheckedChange={setFast}
                           disabled={isSubmitting}
                         />
-                        <Label htmlFor="fast-mode" className="cursor-pointer text-sm font-medium">
+                        <Label
+                          htmlFor="fast-mode"
+                          className="flex cursor-pointer items-center gap-1 text-sm font-medium"
+                        >
+                          <Zap className="h-3.5 w-3.5" />
                           Fast Mode
                         </Label>
                       </div>

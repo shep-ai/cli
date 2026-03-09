@@ -41,6 +41,7 @@ function createMockFeature(overrides: Partial<Feature> = {}): Feature {
     lifecycle: SdlcLifecycle.Review,
     messages: [],
     relatedArtifacts: [],
+    fast: false,
     push: true,
     openPr: true,
     approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },

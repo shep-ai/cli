@@ -35,6 +35,7 @@ export function buildFeatureNodeData(
     summary: feature.description,
     userQuery: feature.userQuery,
     createdAt: feature.createdAt instanceof Date ? feature.createdAt.getTime() : feature.createdAt,
+    ...(feature.fast && { fastMode: true }),
     ...(options?.repositoryName && { repositoryName: options.repositoryName }),
     ...(options?.baseBranch && { baseBranch: options.baseBranch }),
     ...(options?.oneLiner && { oneLiner: options.oneLiner }),

@@ -50,6 +50,7 @@ function makeFeature(overrides?: Partial<Feature>): Feature {
     messages: [],
     relatedArtifacts: [],
     agentRunId: 'run-001',
+    fast: false,
     push: false,
     openPr: false,
     approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
