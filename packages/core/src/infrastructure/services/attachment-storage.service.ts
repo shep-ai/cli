@@ -3,6 +3,7 @@ import { mkdirSync, writeFileSync, renameSync, rmSync, existsSync, readdirSync }
 import { join, basename } from 'path';
 import { createHash, randomUUID } from 'crypto';
 import type { Attachment } from '../../domain/generated/output.js';
+import { getShepHomeDir } from './filesystem/shep-directory.service.js';
 
 /** Attachment record extended with SHA-256 hash for dedup tracking. */
 export interface StoredAttachment extends Attachment {
@@ -15,15 +16,14 @@ export class AttachmentStorageService {
   private readonly dedupIndex = new Map<string, Map<string, StoredAttachment>>();
 
   /**
-   * Store a file buffer in the pending attachment directory.
+   * Store a file buffer in the pending attachment directory within SHEP_HOME.
    * Returns existing record if SHA-256 matches (dedup within same session).
    */
   store(
     buffer: Buffer,
     filename: string,
     mimeType: string,
-    sessionId: string,
-    repoPath: string
+    sessionId: string
   ): StoredAttachment {
     const hash = createHash('sha256').update(buffer).digest('hex');
 
@@ -34,7 +34,7 @@ export class AttachmentStorageService {
     }
 
     const sanitized = this.uniqueFilename(this.sanitizeFilename(filename), hash);
-    const pendingDir = this.getPendingDir(sessionId, repoPath);
+    const pendingDir = this.getPendingDir(sessionId);
     mkdirSync(pendingDir, { recursive: true });
 
     const filePath = join(pendingDir, sanitized);
@@ -63,16 +63,16 @@ export class AttachmentStorageService {
    * Commit pending uploads: rename pending dir to feature slug dir,
    * update paths on all attachment records.
    */
-  commit(sessionId: string, featureSlug: string, repoPath: string): Attachment[] {
-    const pendingDir = this.getPendingDir(sessionId, repoPath);
-    const slugDir = this.getSlugDir(featureSlug, repoPath);
+  commit(sessionId: string, featureSlug: string): Attachment[] {
+    const pendingDir = this.getPendingDir(sessionId);
+    const slugDir = this.getSlugDir(featureSlug);
 
     if (!existsSync(pendingDir)) {
       return [];
     }
 
     // Rename atomically
-    mkdirSync(join(repoPath, '.shep', 'attachments'), { recursive: true });
+    mkdirSync(this.getAttachmentsRoot(), { recursive: true });
     renameSync(pendingDir, slugDir);
 
     // Build updated attachment records
@@ -114,19 +114,23 @@ export class AttachmentStorageService {
   /**
    * Delete all attachments for a feature.
    */
-  delete(featureSlug: string, repoPath: string): void {
-    const slugDir = this.getSlugDir(featureSlug, repoPath);
+  delete(featureSlug: string): void {
+    const slugDir = this.getSlugDir(featureSlug);
     if (existsSync(slugDir)) {
       rmSync(slugDir, { recursive: true, force: true });
     }
   }
 
-  private getPendingDir(sessionId: string, repoPath: string): string {
-    return join(repoPath, '.shep', 'attachments', `pending-${sessionId}`);
+  private getAttachmentsRoot(): string {
+    return join(getShepHomeDir(), 'attachments');
   }
 
-  private getSlugDir(featureSlug: string, repoPath: string): string {
-    return join(repoPath, '.shep', 'attachments', featureSlug);
+  private getPendingDir(sessionId: string): string {
+    return join(getShepHomeDir(), 'attachments', `pending-${sessionId}`);
+  }
+
+  private getSlugDir(featureSlug: string): string {
+    return join(getShepHomeDir(), 'attachments', featureSlug);
   }
 
   /** Generate unique filename by appending content hash when name collides (e.g. clipboard "image.png"). */

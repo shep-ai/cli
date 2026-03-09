@@ -891,7 +891,6 @@ describe('FeatureCreateDrawer', () => {
       expect(url).toBe('/api/attachments/upload');
       const body = options.body as FormData;
       expect(body.get('sessionId')).toBeTruthy();
-      expect(body.get('repositoryPath')).toBe('/Users/dev/my-repo');
     });
 
     it('includes sessionId in submitted payload', async () => {

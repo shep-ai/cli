@@ -72,11 +72,10 @@ export async function POST(request: Request): Promise<NextResponse> {
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
     const sessionId = formData.get('sessionId') as string | null;
-    const repositoryPath = formData.get('repositoryPath') as string | null;
 
-    if (!file || !sessionId || !repositoryPath) {
+    if (!file || !sessionId) {
       return NextResponse.json(
-        { error: 'Missing required fields: file, sessionId, repositoryPath' },
+        { error: 'Missing required fields: file, sessionId' },
         { status: 400 }
       );
     }
@@ -103,8 +102,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       buffer,
       file.name,
       file.type ?? 'application/octet-stream',
-      sessionId,
-      repositoryPath
+      sessionId
     );
 
     return NextResponse.json({

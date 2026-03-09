@@ -1,10 +1,11 @@
 import 'reflect-metadata';
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, existsSync, readFileSync, mkdirSync, readdirSync } from 'fs';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { mkdtempSync, existsSync, readFileSync, readdirSync } from 'fs';
 import { rmSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { createHash } from 'crypto';
+
 import { AttachmentStorageService } from '@shepai/core/infrastructure/services/attachment-storage.service';
 
 let tmpDir: string;
@@ -12,13 +13,14 @@ let service: AttachmentStorageService;
 
 beforeEach(() => {
   tmpDir = mkdtempSync(join(tmpdir(), 'shep-attach-test-'));
-  // Create .shep directory to simulate repo structure
-  mkdirSync(join(tmpDir, '.shep'), { recursive: true });
+  // Point SHEP_HOME to tmpDir so getShepHomeDir() resolves there
+  process.env.SHEP_HOME = tmpDir;
   service = new AttachmentStorageService();
 });
 
 afterEach(() => {
   rmSync(tmpDir, { recursive: true, force: true });
+  delete process.env.SHEP_HOME;
 });
 
 function createTestBuffer(content = 'test file content'): Buffer {
@@ -34,7 +36,7 @@ describe('AttachmentStorageService', () => {
     it('writes file to pending dir and returns Attachment with correct fields', () => {
       const buf = createTestBuffer();
       const hash = sha256(buf);
-      const result = service.store(buf, 'screenshot.png', 'image/png', 'session-1', tmpDir);
+      const result = service.store(buf, 'screenshot.png', 'image/png', 'session-1');
 
       // Name includes content hash for uniqueness
       expect(result.name).toBe(`screenshot-${hash.slice(0, 8)}.png`);
@@ -46,10 +48,10 @@ describe('AttachmentStorageService', () => {
 
       // Path should be absolute
       expect(result.path).toMatch(/^\//);
-      expect(result.path).toContain('.shep/attachments/pending-session-1');
+      expect(result.path).toContain('attachments/pending-session-1');
 
       // File should exist on disk
-      const expectedDir = join(tmpDir, '.shep', 'attachments', 'pending-session-1');
+      const expectedDir = join(tmpDir, 'attachments', 'pending-session-1');
       expect(existsSync(expectedDir)).toBe(true);
       const writtenContent = readFileSync(join(expectedDir, result.name));
       expect(writtenContent).toEqual(buf);
@@ -58,8 +60,8 @@ describe('AttachmentStorageService', () => {
     it('returns existing record without writing when SHA-256 matches (dedup)', () => {
       const buf = createTestBuffer('same content');
 
-      const result1 = service.store(buf, 'file1.png', 'image/png', 'session-1', tmpDir);
-      const result2 = service.store(buf, 'file2.png', 'image/png', 'session-1', tmpDir);
+      const result1 = service.store(buf, 'file1.png', 'image/png', 'session-1');
+      const result2 = service.store(buf, 'file2.png', 'image/png', 'session-1');
 
       expect(result2.id).toBe(result1.id);
       expect(result2.name).toBe(result1.name);
@@ -71,14 +73,13 @@ describe('AttachmentStorageService', () => {
         buf,
         '../../etc/passwd test file.png',
         'image/png',
-        'session-1',
-        tmpDir
+        'session-1'
       );
 
       expect(result.name).not.toContain('..');
       expect(result.name).not.toContain('/');
       // File should be stored with sanitized name
-      const pendingDir = join(tmpDir, '.shep', 'attachments', 'pending-session-1');
+      const pendingDir = join(tmpDir, 'attachments', 'pending-session-1');
       const files = readdirSync(pendingDir);
       expect(files.length).toBe(1);
       expect(files[0]).not.toContain('..');
@@ -88,9 +89,9 @@ describe('AttachmentStorageService', () => {
   describe('commit()', () => {
     it('renames pending dir to slug dir and returns updated paths', () => {
       const buf = createTestBuffer();
-      const stored = service.store(buf, 'screenshot.png', 'image/png', 'session-1', tmpDir);
+      const stored = service.store(buf, 'screenshot.png', 'image/png', 'session-1');
 
-      const attachments = service.commit('session-1', 'my-feature', tmpDir);
+      const attachments = service.commit('session-1', 'my-feature');
 
       expect(attachments.length).toBe(1);
       // Path should be absolute and contain slug dir
@@ -99,11 +100,11 @@ describe('AttachmentStorageService', () => {
       expect(attachments[0].path).toMatch(/^\//);
 
       // Pending dir should no longer exist
-      const pendingDir = join(tmpDir, '.shep', 'attachments', 'pending-session-1');
+      const pendingDir = join(tmpDir, 'attachments', 'pending-session-1');
       expect(existsSync(pendingDir)).toBe(false);
 
       // Slug dir should exist with the unique filename
-      const slugDir = join(tmpDir, '.shep', 'attachments', 'my-feature');
+      const slugDir = join(tmpDir, 'attachments', 'my-feature');
       expect(existsSync(slugDir)).toBe(true);
       expect(existsSync(join(slugDir, stored.name))).toBe(true);
     });
@@ -112,17 +113,17 @@ describe('AttachmentStorageService', () => {
   describe('store() edge cases', () => {
     it('handles zero-byte file', () => {
       const buf = Buffer.alloc(0);
-      const result = service.store(buf, 'empty.txt', 'text/plain', 'session-1', tmpDir);
+      const result = service.store(buf, 'empty.txt', 'text/plain', 'session-1');
 
       expect(result.size).toBe(BigInt(0));
       expect(result.name).toMatch(/^empty-[a-f0-9]{8}\.txt$/);
-      const pendingDir = join(tmpDir, '.shep', 'attachments', 'pending-session-1');
+      const pendingDir = join(tmpDir, 'attachments', 'pending-session-1');
       expect(existsSync(join(pendingDir, result.name))).toBe(true);
     });
 
     it('sanitizes filename with unicode characters', () => {
       const buf = createTestBuffer();
-      const result = service.store(buf, 'café_résumé.pdf', 'application/pdf', 'session-1', tmpDir);
+      const result = service.store(buf, 'café_résumé.pdf', 'application/pdf', 'session-1');
 
       // Non-ASCII chars replaced with underscores
       expect(result.name).not.toContain('é');
@@ -131,7 +132,7 @@ describe('AttachmentStorageService', () => {
 
     it('handles filename that is only dots', () => {
       const buf = createTestBuffer();
-      const result = service.store(buf, '...', 'text/plain', 'session-1', tmpDir);
+      const result = service.store(buf, '...', 'text/plain', 'session-1');
 
       // Leading dots stripped, empty name falls back to 'unnamed' + hash
       expect(result.name).toMatch(/^unnamed-[a-f0-9]{8}$/);
@@ -140,8 +141,8 @@ describe('AttachmentStorageService', () => {
     it('isolates dedup across different sessions', () => {
       const buf = createTestBuffer('same content');
 
-      const r1 = service.store(buf, 'file.png', 'image/png', 'session-A', tmpDir);
-      const r2 = service.store(buf, 'file.png', 'image/png', 'session-B', tmpDir);
+      const r1 = service.store(buf, 'file.png', 'image/png', 'session-A');
+      const r2 = service.store(buf, 'file.png', 'image/png', 'session-B');
 
       // Different sessions should get different records even with same content
       expect(r2.id).not.toBe(r1.id);
@@ -150,7 +151,7 @@ describe('AttachmentStorageService', () => {
 
   describe('commit() edge cases', () => {
     it('returns empty array when no pending dir exists', () => {
-      const result = service.commit('nonexistent-session', 'my-feature', tmpDir);
+      const result = service.commit('nonexistent-session', 'my-feature');
       expect(result).toEqual([]);
     });
   });
@@ -158,19 +159,19 @@ describe('AttachmentStorageService', () => {
   describe('delete()', () => {
     it('removes the attachment directory', () => {
       const buf = createTestBuffer();
-      service.store(buf, 'file.png', 'image/png', 'session-1', tmpDir);
-      service.commit('session-1', 'my-feature', tmpDir);
+      service.store(buf, 'file.png', 'image/png', 'session-1');
+      service.commit('session-1', 'my-feature');
 
-      const slugDir = join(tmpDir, '.shep', 'attachments', 'my-feature');
+      const slugDir = join(tmpDir, 'attachments', 'my-feature');
       expect(existsSync(slugDir)).toBe(true);
 
-      service.delete('my-feature', tmpDir);
+      service.delete('my-feature');
 
       expect(existsSync(slugDir)).toBe(false);
     });
 
     it('does not throw when directory does not exist', () => {
-      expect(() => service.delete('nonexistent', tmpDir)).not.toThrow();
+      expect(() => service.delete('nonexistent')).not.toThrow();
     });
   });
 });

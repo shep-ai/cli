@@ -249,8 +249,7 @@ export class CreateFeatureUseCase {
       try {
         committedAttachments = this.attachmentStorage.commit(
           input.sessionId,
-          slug,
-          effectiveRepoPath
+          slug
         );
       } catch {
         // Attachment commit failure should not block feature creation
@@ -270,11 +269,10 @@ export class CreateFeatureUseCase {
             buffer,
             name,
             'application/octet-stream',
-            cliSessionId,
-            effectiveRepoPath
+            cliSessionId
           );
         }
-        committedAttachments = this.attachmentStorage.commit(cliSessionId, slug, effectiveRepoPath);
+        committedAttachments = this.attachmentStorage.commit(cliSessionId, slug);
       } catch {
         // Attachment storage failure should not block feature creation
       }

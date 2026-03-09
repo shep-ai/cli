@@ -262,7 +262,6 @@ export function FeatureCreateDrawer({
           const formData = new FormData();
           formData.append('file', file);
           formData.append('sessionId', sessionIdRef.current);
-          formData.append('repositoryPath', repositoryPath);
 
           const res = await fetch('/api/attachments/upload', {
             method: 'POST',
@@ -292,7 +291,7 @@ export function FeatureCreateDrawer({
         }
       }
     },
-    [repositoryPath]
+    []
   );
 
   const handleDragEnter = useCallback((e: React.DragEvent) => {

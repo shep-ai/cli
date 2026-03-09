@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { readFile, stat } from 'fs/promises';
-import { extname } from 'path';
+import { extname, resolve } from 'path';
+import { getShepHomeDir } from '@shepai/core/infrastructure/services/filesystem/shep-directory.service';
 
 const MIME_MAP: Record<string, string> = {
   '.png': 'image/png',
@@ -27,8 +28,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'Missing path parameter' }, { status: 400 });
   }
 
-  // Security: only allow paths within .shep/attachments
-  if (!path.includes('.shep/attachments')) {
+  // Security: only allow paths within SHEP_HOME/attachments
+  const attachmentsRoot = resolve(getShepHomeDir(), 'attachments');
+  if (!resolve(path).startsWith(attachmentsRoot)) {
     return NextResponse.json({ error: 'Access denied' }, { status: 403 });
   }
 
