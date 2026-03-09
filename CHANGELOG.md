@@ -1,3 +1,9 @@
+# [1.81.0](https://github.com/shep-ai/cli/compare/v1.80.0...v1.81.0) (2026-03-09)
+
+### Features
+
+- **web:** add fast mode lightning icon to feature node, drawer, and create form ([#251](https://github.com/shep-ai/cli/issues/251)) ([f528e7a](https://github.com/shep-ai/cli/commit/f528e7aa3d55db33227f657766edc7e7b8bfd275))
+
 # [1.80.0](https://github.com/shep-ai/cli/compare/v1.79.0...v1.80.0) (2026-03-09)
 
 ### Features
