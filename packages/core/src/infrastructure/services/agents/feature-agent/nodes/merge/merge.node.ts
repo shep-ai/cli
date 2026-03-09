@@ -126,6 +126,9 @@ export function createMergeNode(deps: MergeNodeDeps) {
 
       // --- Check for git remote (needed by both agent calls) ---
       const remoteAvailable = await deps.hasRemote(cwd);
+      const repoUrl = remoteAvailable
+        ? ((await deps.gitPrService.getRemoteUrl(cwd)) ?? undefined)
+        : undefined;
 
       // --- Agent Call 1: Commit + Push + PR (skip on approval resume) ---
       if (!isResumeAfterInterrupt) {
@@ -136,7 +139,12 @@ export function createMergeNode(deps: MergeNodeDeps) {
         const effectiveState = remoteAvailable ? state : { ...state, push: false, openPr: false };
 
         log.info('Agent call 1: commit + push + PR');
-        const commitPushPrPrompt = buildCommitPushPrPrompt(effectiveState, branch, baseBranch);
+        const commitPushPrPrompt = buildCommitPushPrPrompt(
+          effectiveState,
+          branch,
+          baseBranch,
+          repoUrl
+        );
         const commitResult = await retryExecute(executor, commitPushPrPrompt, options, {
           logger: log,
         });

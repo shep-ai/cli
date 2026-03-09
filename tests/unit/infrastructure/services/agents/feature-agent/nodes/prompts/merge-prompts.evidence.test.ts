@@ -13,7 +13,10 @@ vi.mock(
   }
 );
 
-import { buildCommitPushPrPrompt } from '@/infrastructure/services/agents/feature-agent/nodes/prompts/merge-prompts.js';
+import {
+  buildCommitPushPrPrompt,
+  parseGitHubOwnerRepo,
+} from '@/infrastructure/services/agents/feature-agent/nodes/prompts/merge-prompts.js';
 import type { FeatureAgentState } from '@/infrastructure/services/agents/feature-agent/state.js';
 
 function baseState(overrides: Partial<FeatureAgentState> = {}): FeatureAgentState {
@@ -200,5 +203,136 @@ describe('buildCommitPushPrPrompt — evidence rendering', () => {
     // Evidence section should still be present in the prompt so the agent
     // knows about evidence, even if no PR is being created
     expect(prompt).toContain('## Evidence');
+  });
+
+  it('should use absolute raw.githubusercontent.com URLs when repoUrl is provided', () => {
+    const evidence = [
+      makeEvidence({
+        type: EvidenceType.Screenshot,
+        description: 'Dashboard screenshot',
+        relativePath: '.shep/evidence/dashboard.png',
+      }),
+    ];
+    const prompt = buildCommitPushPrPrompt(
+      baseState({ openPr: true, evidence }),
+      'feat/test',
+      'main',
+      'https://github.com/shep-ai/cli'
+    );
+    expect(prompt).toContain(
+      '![Dashboard screenshot](https://raw.githubusercontent.com/shep-ai/cli/feat/test/.shep/evidence/dashboard.png)'
+    );
+  });
+
+  it('should convert SSH remote URLs to raw.githubusercontent.com URLs', () => {
+    const evidence = [
+      makeEvidence({
+        type: EvidenceType.Screenshot,
+        description: 'Feature screenshot',
+        relativePath: '.shep/evidence/feature.png',
+      }),
+    ];
+    const prompt = buildCommitPushPrPrompt(
+      baseState({ openPr: true, evidence }),
+      'feat/my-branch',
+      'main',
+      'git@github.com:owner/repo.git'
+    );
+    expect(prompt).toContain(
+      '![Feature screenshot](https://raw.githubusercontent.com/owner/repo/feat/my-branch/.shep/evidence/feature.png)'
+    );
+  });
+
+  it('should fall back to relative paths when repoUrl is not provided', () => {
+    const evidence = [
+      makeEvidence({
+        type: EvidenceType.Screenshot,
+        description: 'Fallback screenshot',
+        relativePath: '.shep/evidence/fallback.png',
+      }),
+    ];
+    const prompt = buildCommitPushPrPrompt(
+      baseState({ openPr: true, evidence }),
+      'feat/test',
+      'main'
+    );
+    expect(prompt).toContain('![Fallback screenshot](.shep/evidence/fallback.png)');
+    expect(prompt).not.toContain('raw.githubusercontent.com');
+  });
+
+  it('should use absolute URLs for video evidence when repoUrl is provided', () => {
+    const evidence = [
+      makeEvidence({
+        type: EvidenceType.Video,
+        description: 'Demo recording',
+        relativePath: '.shep/evidence/demo.mp4',
+      }),
+    ];
+    const prompt = buildCommitPushPrPrompt(
+      baseState({ openPr: true, evidence }),
+      'feat/test',
+      'main',
+      'https://github.com/org/project.git'
+    );
+    expect(prompt).toContain(
+      '[Demo recording](https://raw.githubusercontent.com/org/project/feat/test/.shep/evidence/demo.mp4)'
+    );
+  });
+
+  it('should keep relative paths for test output even when repoUrl is provided', () => {
+    const evidence = [
+      makeEvidence({
+        type: EvidenceType.TestOutput,
+        description: 'Test results',
+        relativePath: '.shep/evidence/test-output.txt',
+      }),
+    ];
+    const prompt = buildCommitPushPrPrompt(
+      baseState({ openPr: true, evidence }),
+      'feat/test',
+      'main',
+      'https://github.com/org/project'
+    );
+    // Test output uses backtick code reference, not a URL link
+    expect(prompt).toContain('See: `.shep/evidence/test-output.txt`');
+  });
+});
+
+describe('parseGitHubOwnerRepo', () => {
+  it('should parse HTTPS GitHub URLs', () => {
+    expect(parseGitHubOwnerRepo('https://github.com/shep-ai/cli')).toEqual({
+      owner: 'shep-ai',
+      repo: 'cli',
+    });
+  });
+
+  it('should parse HTTPS GitHub URLs with .git suffix', () => {
+    expect(parseGitHubOwnerRepo('https://github.com/owner/repo.git')).toEqual({
+      owner: 'owner',
+      repo: 'repo',
+    });
+  });
+
+  it('should parse SSH GitHub URLs', () => {
+    expect(parseGitHubOwnerRepo('git@github.com:owner/repo.git')).toEqual({
+      owner: 'owner',
+      repo: 'repo',
+    });
+  });
+
+  it('should parse SSH GitHub URLs without .git suffix', () => {
+    expect(parseGitHubOwnerRepo('git@github.com:org/project')).toEqual({
+      owner: 'org',
+      repo: 'project',
+    });
+  });
+
+  it('should return null for non-GitHub URLs', () => {
+    expect(parseGitHubOwnerRepo('https://gitlab.com/owner/repo')).toBeNull();
+  });
+
+  it('should return null for invalid URLs', () => {
+    expect(parseGitHubOwnerRepo('')).toBeNull();
+    expect(parseGitHubOwnerRepo('not-a-url')).toBeNull();
   });
 });

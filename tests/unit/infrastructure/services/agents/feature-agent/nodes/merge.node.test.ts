@@ -171,6 +171,7 @@ function baseDeps(overrides?: Partial<MergeNodeDeps>): MergeNodeDeps {
       watchCi: vi.fn().mockResolvedValue({ status: 'success' }),
       getFailureLogs: vi.fn().mockResolvedValue(''),
       mergePr: vi.fn().mockResolvedValue(undefined),
+      getRemoteUrl: vi.fn().mockResolvedValue('https://github.com/test-owner/test-repo'),
     } as any,
     cleanupFeatureWorktreeUseCase: { execute: mockCleanupExecute } as any,
     ...overrides,
@@ -218,7 +219,8 @@ describe('createMergeNode (agent-driven)', () => {
       expect(mockBuildCommitPushPrPrompt).toHaveBeenCalledWith(
         expect.objectContaining({ featureId: 'feat-001' }),
         expect.any(String),
-        'main'
+        'main',
+        'https://github.com/test-owner/test-repo'
       );
       // retryExecute wraps executor.execute — verify it was called via the mock
       expect(deps.executor.execute).toHaveBeenCalledWith('commit-push-pr prompt');
@@ -329,7 +331,8 @@ describe('createMergeNode (agent-driven)', () => {
       expect(mockBuildCommitPushPrPrompt).toHaveBeenCalledWith(
         expect.objectContaining({ push: false, openPr: false }),
         expect.any(String),
-        'main'
+        'main',
+        'https://github.com/test-owner/test-repo'
       );
     });
 
@@ -341,7 +344,8 @@ describe('createMergeNode (agent-driven)', () => {
       expect(mockBuildCommitPushPrPrompt).toHaveBeenCalledWith(
         expect.objectContaining({ push: true }),
         expect.any(String),
-        'main'
+        'main',
+        'https://github.com/test-owner/test-repo'
       );
     });
 
@@ -353,7 +357,8 @@ describe('createMergeNode (agent-driven)', () => {
       expect(mockBuildCommitPushPrPrompt).toHaveBeenCalledWith(
         expect.objectContaining({ openPr: true }),
         expect.any(String),
-        'main'
+        'main',
+        'https://github.com/test-owner/test-repo'
       );
     });
 
@@ -366,7 +371,8 @@ describe('createMergeNode (agent-driven)', () => {
       expect(mockBuildCommitPushPrPrompt).toHaveBeenCalledWith(
         expect.objectContaining({ push: false, openPr: false }),
         expect.any(String),
-        'main'
+        'main',
+        undefined
       );
       expect(mockParsePrUrl).not.toHaveBeenCalled();
     });

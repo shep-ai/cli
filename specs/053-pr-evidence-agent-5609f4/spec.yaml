@@ -547,3 +547,9 @@ rejectionFeedback:
     message: add support for evidence agent into fast mode as well
     phase: merge
     timestamp: '2026-03-09T12:44:45.459Z'
+  - iteration: 4
+    message: >-
+      I've test and created a feature but the screenshots seems to be broken
+      https://github.com/shep-ai/cli/pull/258 fix
+    phase: merge
+    timestamp: '2026-03-09T13:43:16.681Z'
