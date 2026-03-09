@@ -1,3 +1,9 @@
+# [1.83.0](https://github.com/shep-ai/cli/compare/v1.82.0...v1.83.0) (2026-03-09)
+
+### Features
+
+- **web:** redesign feature drawer header with repo link and reorganized layout ([#256](https://github.com/shep-ai/cli/issues/256)) ([69d799d](https://github.com/shep-ai/cli/commit/69d799d811fd1607de1486560ba8d39df5ff2f28))
+
 # [1.82.0](https://github.com/shep-ai/cli/compare/v1.81.0...v1.82.0) (2026-03-09)
 
 ### Features
