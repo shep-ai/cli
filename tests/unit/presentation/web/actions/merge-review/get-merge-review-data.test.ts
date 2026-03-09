@@ -5,6 +5,9 @@ const mockFindById = vi.fn();
 const mockGetPrDiffSummary = vi.fn();
 const mockGetFileDiffs = vi.fn();
 const mockPlanExecute = vi.fn();
+const mockComputeWorktreePath = vi.fn(
+  (_repoPath: string, branch: string) => `/computed/wt/${branch.replace(/\//g, '-')}`
+);
 
 vi.mock('@/lib/server-container', () => ({
   resolve: (token: string) => {
@@ -14,6 +17,11 @@ vi.mock('@/lib/server-container', () => ({
     if (token === 'GetPlanArtifactUseCase') return { execute: mockPlanExecute };
     throw new Error(`Unknown token: ${token}`);
   },
+}));
+
+vi.mock('@shepai/core/infrastructure/services/ide-launchers/compute-worktree-path', () => ({
+  computeWorktreePath: (...args: unknown[]) =>
+    mockComputeWorktreePath(...(args as [string, string])),
 }));
 
 const { getMergeReviewData } = await import(
@@ -32,6 +40,7 @@ const baseFeature = {
   id: 'feat-123',
   name: 'Test Feature',
   branch: 'feat/test-feature',
+  repositoryPath: '/Users/test/repo',
   worktreePath: '/tmp/worktree',
   pr: basePr,
 };
@@ -101,15 +110,20 @@ describe('getMergeReviewData server action', () => {
     expect(result).toHaveProperty('branch', { source: 'feat/test-feature', target: 'main' });
   });
 
-  it('returns warning when feature has no PR and no worktree', async () => {
-    mockFindById.mockResolvedValue({ ...baseFeature, pr: undefined, worktreePath: undefined });
+  it('returns warning when feature has no PR, no worktree, and no repo+branch', async () => {
+    mockFindById.mockResolvedValue({
+      ...baseFeature,
+      pr: undefined,
+      worktreePath: undefined,
+      repositoryPath: undefined,
+      branch: undefined,
+    });
 
     const result = await getMergeReviewData('feat-123');
 
     expect(result).toMatchObject({
       pr: undefined,
       warning: 'No PR or diff data available',
-      branch: { source: 'feat/test-feature', target: 'main' },
     });
   });
 
@@ -151,22 +165,18 @@ describe('getMergeReviewData server action', () => {
     });
   });
 
-  it('returns PR data without warning when worktreePath is undefined', async () => {
+  it('computes worktree path fallback when worktreePath is undefined but repo+branch exist', async () => {
     mockFindById.mockResolvedValue({ ...baseFeature, worktreePath: undefined });
+    mockGetPrDiffSummary.mockResolvedValue(baseDiffSummary);
 
     const result = await getMergeReviewData('feat-123');
 
-    expect(result).toMatchObject({
-      pr: {
-        url: 'https://github.com/org/repo/pull/42',
-        number: 42,
-        status: PrStatus.Open,
-        commitHash: 'abc1234def',
-        ciStatus: CiStatus.Success,
-      },
-      warning: undefined,
-    });
-    expect(mockGetPrDiffSummary).not.toHaveBeenCalled();
+    expect(mockComputeWorktreePath).toHaveBeenCalledWith(
+      baseFeature.repositoryPath,
+      baseFeature.branch
+    );
+    expect(mockGetPrDiffSummary).toHaveBeenCalledWith('/computed/wt/feat-test-feature', 'main');
+    expect(result).toMatchObject({ diffSummary: baseDiffSummary });
   });
 
   it('returns PR data without optional fields when they are absent', async () => {
@@ -179,6 +189,8 @@ describe('getMergeReviewData server action', () => {
       ...baseFeature,
       pr: minimalPr,
       worktreePath: undefined,
+      repositoryPath: undefined,
+      branch: undefined,
     });
 
     const result = await getMergeReviewData('feat-123');

@@ -8,6 +8,7 @@ import type {
   MergeReviewData,
   MergeReviewPhase,
 } from '@/components/common/merge-review/merge-review-config';
+import { computeWorktreePath } from '@shepai/core/infrastructure/services/ide-launchers/compute-worktree-path';
 
 type GetMergeReviewDataResult = MergeReviewData | { error: string };
 
@@ -46,15 +47,21 @@ export async function getMergeReviewData(featureId: string): Promise<GetMergeRev
       // Plan unavailable — not critical
     }
 
-    if (!feature.worktreePath) {
+    const worktreePath =
+      feature.worktreePath ??
+      (feature.repositoryPath && feature.branch
+        ? computeWorktreePath(feature.repositoryPath, feature.branch)
+        : null);
+
+    if (!worktreePath) {
       return { pr, branch, phases, warning: pr ? undefined : 'No PR or diff data available' };
     }
 
     try {
       const gitPrService = resolve<IGitPrService>('IGitPrService');
       const [diffSummary, fileDiffs] = await Promise.all([
-        gitPrService.getPrDiffSummary(feature.worktreePath, 'main'),
-        gitPrService.getFileDiffs(feature.worktreePath, 'main').catch(() => undefined),
+        gitPrService.getPrDiffSummary(worktreePath, 'main'),
+        gitPrService.getFileDiffs(worktreePath, 'main').catch(() => undefined),
       ]);
       return { pr, branch, phases, diffSummary, fileDiffs };
     } catch {
