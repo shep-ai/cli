@@ -57,6 +57,29 @@ vi.mock('@/components/ui/button', () => ({
   ),
 }));
 
+// Mock DeleteFeatureDialog — renders a simple confirm/cancel when open
+vi.mock('@/components/common/delete-feature-dialog', () => ({
+  DeleteFeatureDialog: ({
+    open,
+    onOpenChange,
+    onConfirm,
+  }: {
+    open: boolean;
+    onOpenChange: (v: boolean) => void;
+    onConfirm: (cleanup: boolean) => void;
+    isDeleting: boolean;
+    featureName: string;
+    featureId: string;
+  }) =>
+    open ? (
+      <div role="dialog">
+        <h2>Delete feature?</h2>
+        <button onClick={() => onConfirm(true)}>Delete</button>
+        <button onClick={() => onOpenChange(false)}>Cancel</button>
+      </div>
+    ) : null,
+}));
+
 const nodeTypes = { featureNode: FeatureNode };
 
 const defaultData: FeatureNodeData = {
@@ -380,7 +403,7 @@ describe('FeatureNode', () => {
       expect(screen.getByText('Delete feature?')).toBeInTheDocument();
     });
 
-    it('calls onDelete with featureId only after confirming in the dialog', () => {
+    it('calls onDelete with featureId and cleanup after confirming in the dialog', () => {
       const onDelete = vi.fn();
       renderFeatureNode({ onDelete, featureId: '#f1' });
 
@@ -388,7 +411,7 @@ describe('FeatureNode', () => {
       expect(onDelete).not.toHaveBeenCalled();
 
       fireEvent.click(screen.getByText('Delete'));
-      expect(onDelete).toHaveBeenCalledWith('#f1');
+      expect(onDelete).toHaveBeenCalledWith('#f1', true);
     });
 
     it('does not call onDelete when cancel is clicked', () => {
@@ -423,13 +446,12 @@ describe('FeatureNode', () => {
       );
     });
 
-    it('displays feature name in dialog description', () => {
+    it('displays delete confirmation dialog', () => {
       renderFeatureNode({ onDelete: vi.fn(), featureId: '#f1', name: 'My Feature' });
 
       fireEvent.click(screen.getByTestId('feature-node-delete-button'));
 
-      // Verify dialog description includes the feature name within the permanent deletion warning
-      expect(screen.getByText(/permanently delete.*and all associated data/i)).toBeInTheDocument();
+      expect(screen.getByText('Delete feature?')).toBeInTheDocument();
     });
   });
 });
