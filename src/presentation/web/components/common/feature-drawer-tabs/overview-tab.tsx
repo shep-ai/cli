@@ -19,6 +19,7 @@ export interface OverviewTabProps {
 }
 
 export function OverviewTab({ data }: OverviewTabProps) {
+  const isCompleted = data.lifecycle === 'maintain';
   return (
     <>
       <div data-testid="feature-drawer-status" className="flex flex-col gap-3 p-4">
@@ -26,7 +27,7 @@ export function OverviewTab({ data }: OverviewTabProps) {
           {lifecycleDisplayLabels[data.lifecycle]}
         </div>
         <FeatureStateBadge data={data} />
-        {data.progress > 0 ? (
+        {!isCompleted && data.progress > 0 ? (
           <div data-testid="feature-drawer-progress" className="flex flex-col gap-1">
             <div className="text-muted-foreground flex items-center justify-between text-xs">
               <span>Progress</span>
@@ -43,12 +44,15 @@ export function OverviewTab({ data }: OverviewTabProps) {
             </div>
           </div>
         ) : null}
+        {isCompleted && data.pr ? <FeaturePrInfo pr={data.pr} /> : null}
       </div>
       <FeatureInfo data={data} />
-      {data.pr ? (
+      {!isCompleted && data.pr ? (
         <>
           <Separator />
-          <FeaturePrInfo pr={data.pr} />
+          <div className="p-4">
+            <FeaturePrInfo pr={data.pr} />
+          </div>
         </>
       ) : null}
       <FeatureDetails data={data} />
@@ -162,8 +166,8 @@ const prStatusStyles: Record<PrStatus, string> = {
 
 function FeaturePrInfo({ pr }: { pr: NonNullable<FeatureNodeData['pr']> }) {
   return (
-    <div data-testid="feature-drawer-pr" className="border-border mx-4 rounded-lg border">
-      <div className="space-y-3 px-4 py-3">
+    <div data-testid="feature-drawer-pr">
+      <div className="space-y-3">
         <div className="flex items-center justify-between">
           <a
             href={pr.url}

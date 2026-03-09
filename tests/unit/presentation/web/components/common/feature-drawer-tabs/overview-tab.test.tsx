@@ -105,6 +105,11 @@ describe('OverviewTab', () => {
       renderOverviewTab({ ...defaultData, progress: 0 });
       expect(screen.queryByTestId('feature-drawer-progress')).not.toBeInTheDocument();
     });
+
+    it('does not render progress bar when lifecycle is maintain (completed)', () => {
+      renderOverviewTab({ ...defaultData, lifecycle: 'maintain', state: 'done', progress: 100 });
+      expect(screen.queryByTestId('feature-drawer-progress')).not.toBeInTheDocument();
+    });
   });
 
   describe('PR info', () => {
@@ -130,6 +135,32 @@ describe('OverviewTab', () => {
       renderOverviewTab({ ...defaultData, pr: prData });
       const link = screen.getByRole('link', { name: /PR #42/i });
       expect(link).toHaveAttribute('href', 'https://github.com/org/repo/pull/42');
+    });
+
+    it('renders PR info inside status section when lifecycle is maintain (completed)', () => {
+      renderOverviewTab({
+        ...defaultData,
+        lifecycle: 'maintain',
+        state: 'done',
+        progress: 100,
+        pr: prData,
+      });
+      const statusSection = screen.getByTestId('feature-drawer-status');
+      const prInfo = screen.getByTestId('feature-drawer-pr');
+      expect(statusSection.contains(prInfo)).toBe(true);
+    });
+
+    it('renders PR info outside status section when lifecycle is not maintain', () => {
+      renderOverviewTab({
+        ...defaultData,
+        lifecycle: 'implementation',
+        state: 'running',
+        progress: 50,
+        pr: prData,
+      });
+      const statusSection = screen.getByTestId('feature-drawer-status');
+      const prInfo = screen.getByTestId('feature-drawer-pr');
+      expect(statusSection.contains(prInfo)).toBe(false);
     });
   });
 
