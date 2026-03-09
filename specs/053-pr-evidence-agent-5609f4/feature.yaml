@@ -1,0 +1,38 @@
+feature:
+  id: 053-pr-evidence-agent-5609f4
+  name: pr-evidence-agent-5609f4
+  number: 53
+  branch: feat/053-pr-evidence-agent-5609f4
+  lifecycle: implementation
+  createdAt: '2026-03-09T09:01:41Z'
+status:
+  phase: ready-to-implement
+  progress:
+    completed: 0
+    total: 13
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-03-09T14:00:00Z'
+  lastUpdatedBy: shep-kit:plan
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-03-09T09:01:41Z'
+    completedBy: feature-agent
+  - phase: plan-complete
+    completedAt: '2026-03-09T14:00:00Z'
+    completedBy: shep-kit:plan
+errors:
+  current: null
+  history: []

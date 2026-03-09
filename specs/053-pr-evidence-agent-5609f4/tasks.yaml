@@ -1,0 +1,477 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: pr-evidence-agent-5609f4
+summary: >
+  13 tasks across 8 phases implementing the evidence-collection node for the
+  feature-agent LangGraph workflow.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - LangGraph (StateGraph, Annotation, nodes, edges)
+  - TypeSpec (domain model generation)
+  - Vitest (unit + integration testing)
+relatedLinks: []
+
+# Structured task list
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Define EvidenceType enum in TypeSpec'
+    description: >
+      Create tsp/common/enums/evidence-type.tsp with the EvidenceType enum
+      containing values Screenshot, Video, TestOutput, and TerminalRecording.
+      Add the import to tsp/common/enums/index.tsp. Follow the existing enum
+      pattern (e.g., PlanState in states.tsp) with @doc annotations.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'EvidenceType enum defined in tsp/common/enums/evidence-type.tsp with 4 values'
+      - 'Import added to tsp/common/enums/index.tsp'
+      - 'Each enum value has an @doc annotation'
+    tdd:
+      red:
+        - 'Run pnpm tsp:compile — should succeed without errors after adding the new enum file'
+      green:
+        - 'Create evidence-type.tsp following the PlanState/TaskState enum pattern'
+        - 'Add import to index.tsp'
+        - 'Run pnpm tsp:compile — verify EvidenceType appears in generated output.ts'
+      refactor:
+        - 'Verify @doc annotations are descriptive and consistent with existing enum style'
+    estimatedEffort: '15min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Define Evidence value object in TypeSpec'
+    description: >
+      Create tsp/domain/value-objects/evidence.tsp with the Evidence model
+      containing fields: type (EvidenceType), capturedAt (string), description
+      (string), relativePath (string), and taskRef (optional string). Add the
+      import to tsp/domain/value-objects/index.tsp. Follow the CiFixRecord
+      value object pattern.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Evidence model defined in tsp/domain/value-objects/evidence.tsp with 5 fields'
+      - 'Import added to tsp/domain/value-objects/index.tsp'
+      - 'Each field has an @doc annotation'
+      - 'taskRef field is optional (marked with ?)'
+      - 'pnpm tsp:compile succeeds and Evidence type appears in generated output.ts'
+      - 'pnpm validate passes'
+    tdd:
+      red:
+        - 'Run pnpm tsp:compile — verify current state compiles cleanly before adding new model'
+      green:
+        - 'Create evidence.tsp following the CiFixRecord model pattern'
+        - 'Add import to index.tsp'
+        - 'Run pnpm tsp:compile — verify Evidence and EvidenceType appear in generated output.ts'
+      refactor:
+        - 'Run pnpm validate to ensure full build pipeline is clean'
+        - 'Verify generated TypeScript types match expected field signatures'
+    estimatedEffort: '20min'
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Add evidence channel to FeatureAgentAnnotation'
+    description: >
+      Add an evidence channel to the FeatureAgentAnnotation in state.ts. The
+      channel is typed as Evidence[] with an accumulating reducer
+      (prev, next) => [...prev, ...next] and default value of empty array.
+      Import Evidence from @/domain/generated/output.js.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'evidence channel added to FeatureAgentAnnotation with Evidence[] type'
+      - 'Accumulating reducer follows ciFixHistory pattern'
+      - 'Default value is empty array'
+      - 'Evidence imported from @/domain/generated/output.js'
+      - 'pnpm validate passes (typecheck, lint, build)'
+    tdd:
+      red:
+        - 'Write a test that creates a state with evidence channel and verifies it accepts Evidence[] values'
+        - 'Test that the accumulating reducer merges evidence arrays correctly'
+      green:
+        - 'Add evidence channel to FeatureAgentAnnotation following ciFixHistory pattern'
+        - 'Import Evidence type from generated output'
+      refactor:
+        - 'Ensure channel comment is consistent with other channel comments in state.ts'
+        - 'Verify FeatureAgentState type includes evidence field'
+    estimatedEffort: '20min'
+
+  - id: task-4
+    phaseId: phase-3
+    title: 'Create evidence output parser'
+    description: >
+      Create evidence-output-parser.ts in the nodes directory following the
+      merge-output-parser.ts pattern. Implements parseEvidenceRecords() that
+      extracts a JSON array of Evidence records from free-form agent text
+      output. Looks for a fenced JSON code block containing an array of evidence
+      objects. Returns Evidence[] on success, empty array on parse failure.
+      Validates that each record has required fields (type, capturedAt,
+      description, relativePath). Sanitizes relativePath to prevent path
+      traversal (no ../ allowed).
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'parseEvidenceRecords(output: string): Evidence[] function exported'
+      - 'Extracts JSON array from fenced code block in agent output'
+      - 'Returns empty array when no JSON block found'
+      - 'Returns empty array on malformed JSON'
+      - 'Validates required fields on each record'
+      - 'Filters out records with path traversal (../) in relativePath'
+      - 'Handles partial valid data (returns only valid records)'
+    tdd:
+      red:
+        - 'Write test: extracts valid Evidence[] from agent output with JSON block'
+        - 'Write test: returns [] when no JSON block found'
+        - 'Write test: returns [] on malformed JSON'
+        - 'Write test: filters records missing required fields'
+        - 'Write test: filters records with path traversal in relativePath'
+        - 'Write test: handles mixed valid and invalid records (returns only valid ones)'
+        - 'Write test: handles empty JSON array'
+      green:
+        - 'Implement parseEvidenceRecords with regex to find JSON block'
+        - 'JSON.parse with try/catch for graceful failure'
+        - 'Field validation loop filtering invalid records'
+        - 'Path traversal check on relativePath'
+      refactor:
+        - 'Extract field validation into helper function if complex'
+        - 'Ensure consistent error handling style with merge-output-parser'
+    estimatedEffort: '1h'
+
+  - id: task-5
+    phaseId: phase-4
+    title: 'Create evidence prompt builder'
+    description: >
+      Create buildEvidencePrompt() in evidence-prompts.ts. The prompt includes
+      the full spec context (spec.yaml), task list (tasks.yaml), worktree path,
+      instructions for agent-directed evidence capture per task type
+      (screenshots for UI, test output for backend, CLI recordings for CLI),
+      instructions to save files in .shep/evidence/ within the worktree,
+      instructions to commit evidence files, and structured output format
+      instructions (JSON array of evidence records in a fenced code block).
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'buildEvidencePrompt(state, log) function exported'
+      - 'Prompt includes spec context from spec.yaml'
+      - 'Prompt includes task list from tasks.yaml'
+      - 'Prompt includes worktree path for file operations'
+      - 'Prompt includes evidence capture instructions per task type'
+      - 'Prompt instructs saving files to .shep/evidence/ directory'
+      - 'Prompt includes commit instructions via buildCommitPushBlock'
+      - 'Prompt includes structured JSON output format instructions'
+      - 'Prompt includes file size constraints (standard resolution, 500-line truncation)'
+      - 'Prompt includes sensitive data redaction instructions'
+    tdd:
+      red:
+        - 'Write test: prompt includes spec context when spec.yaml exists'
+        - 'Write test: prompt includes tasks context when tasks.yaml exists'
+        - 'Write test: prompt includes worktree path'
+        - 'Write test: prompt includes .shep/evidence/ storage instructions'
+        - 'Write test: prompt includes JSON output format instructions'
+        - 'Write test: prompt includes commit block'
+        - 'Write test: prompt handles missing spec/tasks files gracefully'
+      green:
+        - 'Implement buildEvidencePrompt using readSpecFile and buildCommitPushBlock helpers'
+        - 'Include all required sections in the prompt template'
+      refactor:
+        - 'Extract large prompt sections into template constants if needed for readability'
+        - 'Ensure prompt style is consistent with existing prompt builders'
+    estimatedEffort: '1h'
+
+  - id: task-6
+    phaseId: phase-5
+    title: 'Create evidence node'
+    description: >
+      Create evidence.node.ts with createEvidenceNode factory. The node is a
+      custom node that reuses helpers (createNodeLogger, buildExecutorOptions,
+      retryExecute, getCompletedPhases, markPhaseComplete, reportNodeStart,
+      updateNodeLifecycle, recordPhaseStart, recordPhaseEnd) but adds
+      post-execution parsing via parseEvidenceRecords. On success, returns
+      state update with evidence array and messages. On parse failure, logs
+      warning and returns empty evidence array (graceful degradation). The node
+      does not use shouldInterrupt — it always runs automatically. Handles
+      resume via getCompletedPhases check (skip if already completed).
+    state: Todo
+    dependencies:
+      - task-3
+      - task-4
+      - task-5
+    acceptanceCriteria:
+      - 'createEvidenceNode(executor) factory function exported'
+      - 'Node executes agent with buildEvidencePrompt'
+      - 'Node parses Evidence[] from agent output via parseEvidenceRecords'
+      - 'Node returns { evidence, messages, currentNode } in state update'
+      - 'Graceful degradation: parse failure returns { evidence: [] } with warning log'
+      - 'Resume support: skips execution if evidence phase already in completedPhases'
+      - 'Marks phase complete after successful execution'
+      - 'Re-throws LangGraph bubble-up exceptions (isGraphBubbleUp check)'
+      - 'No approval gate (shouldInterrupt not called)'
+    tdd:
+      red:
+        - 'Write test: node calls executor.execute with evidence prompt'
+        - 'Write test: node parses evidence records from executor result'
+        - 'Write test: node returns evidence array in state update'
+        - 'Write test: node returns empty evidence on parse failure (graceful degradation)'
+        - 'Write test: node skips execution when evidence phase already completed'
+        - 'Write test: node marks evidence phase complete after execution'
+        - 'Write test: node re-throws GraphBubbleUp errors'
+        - 'Write test: node throws on non-retryable executor errors'
+      green:
+        - 'Implement createEvidenceNode following merge.node.ts helper-reuse pattern'
+        - 'Wire up logging, timing, lifecycle, resume, and execution'
+        - 'Add parseEvidenceRecords call after executor.execute'
+        - 'Wrap parse step in try/catch for graceful degradation'
+      refactor:
+        - 'Ensure consistent logging messages with other node patterns'
+        - 'Verify error handling follows node-helpers conventions'
+    estimatedEffort: '1.5h'
+
+  - id: task-7
+    phaseId: phase-5
+    title: 'Unit tests for evidence node'
+    description: >
+      Comprehensive unit tests for the evidence node covering success path,
+      graceful degradation, resume behavior, and error handling. Follow the
+      merge.node.test.ts mock patterns (vi.hoisted mocks, vi.mock modules,
+      suppressed stdout/stderr).
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'All tests in evidence.node.test.ts pass'
+      - 'Tests cover: successful evidence collection, empty evidence, parse failure'
+      - 'Tests cover: resume skip, phase marking, error propagation'
+      - 'Mocking pattern follows existing node test conventions'
+      - 'pnpm test:unit passes with zero regressions'
+    tdd:
+      red:
+        - 'Tests already written in task-6 red phase — ensure all pass after implementation'
+      green:
+        - 'Fix any failing tests from task-6 implementation'
+        - 'Add additional edge case tests discovered during implementation'
+      refactor:
+        - 'Remove duplicate test setup by extracting shared fixtures'
+        - 'Ensure test descriptions are clear and match acceptance criteria'
+    estimatedEffort: '30min'
+
+  - id: task-8
+    phaseId: phase-6
+    title: 'Add evidence section to merge prompt'
+    description: >
+      Modify buildCommitPushPrPrompt() in merge-prompts.ts to read evidence from
+      the state parameter and render a structured evidence section in the PR body
+      instructions. The function already receives FeatureAgentState which now
+      includes the evidence channel. When state.evidence is non-empty, append an
+      evidence section to the PR body template. Format per evidence type:
+      screenshots/videos use inline image markdown (![desc](path)), test outputs
+      use fenced code blocks, terminal recordings use file links. When evidence
+      is empty, no section is added (existing behavior preserved).
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'buildCommitPushPrPrompt renders evidence section when state.evidence is non-empty'
+      - 'Screenshots rendered as ![description](relativePath)'
+      - 'Test outputs rendered as fenced code blocks with description header'
+      - 'Videos and terminal recordings rendered as markdown links'
+      - 'No evidence section when state.evidence is empty (backward compatible)'
+      - 'Existing merge-prompts tests continue to pass (zero regression)'
+    tdd:
+      red:
+        - 'Write test: prompt includes evidence section when state has evidence records'
+        - 'Write test: screenshot evidence rendered as inline image'
+        - 'Write test: test output evidence rendered as code block'
+        - 'Write test: video evidence rendered as link'
+        - 'Write test: no evidence section when evidence array is empty'
+        - 'Write test: multiple evidence items rendered in order'
+      green:
+        - 'Add evidence rendering logic to buildCommitPushPrPrompt'
+        - 'Build evidence markdown section with type-specific formatting'
+        - 'Insert section into PR body instructions'
+      refactor:
+        - 'Extract evidence formatting into a helper function (formatEvidenceSection)'
+        - 'Verify existing merge-prompts tests still pass'
+    estimatedEffort: '1h'
+
+  - id: task-9
+    phaseId: phase-6
+    title: 'Unit tests for merge prompt evidence rendering'
+    description: >
+      Add comprehensive tests for the evidence rendering in
+      buildCommitPushPrPrompt. Create a new test file
+      merge-prompts.evidence.test.ts focused specifically on evidence
+      rendering behavior. Verify backward compatibility with existing tests.
+    state: Todo
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - 'All evidence-specific tests pass in merge-prompts.evidence.test.ts'
+      - 'Existing merge-prompts.test.ts tests continue to pass unchanged'
+      - 'Tests cover all evidence types and edge cases'
+      - 'pnpm test:unit passes with zero regressions'
+    tdd:
+      red:
+        - 'Tests already written in task-8 red phase — ensure all pass'
+      green:
+        - 'Fix any failing tests, add edge cases discovered during implementation'
+      refactor:
+        - 'Ensure test fixtures are realistic and maintainable'
+    estimatedEffort: '20min'
+
+  - id: task-10
+    phaseId: phase-7
+    title: 'Wire evidence node into feature-agent graph'
+    description: >
+      Modify feature-agent-graph.ts to import and register the evidence node.
+      Change the implement edge to point to evidence instead of merge/END.
+      Add evidence-to-merge edge (when mergeNodeDeps provided) or
+      evidence-to-END edge (when mergeNodeDeps not provided). The evidence
+      node takes the same executor dependency as other simple nodes.
+    state: Todo
+    dependencies:
+      - task-6
+      - task-8
+    acceptanceCriteria:
+      - 'Evidence node imported and registered via addNode in graph'
+      - 'Edge flow: implement → evidence → merge (when mergeNodeDeps provided)'
+      - 'Edge flow: implement → evidence → END (when mergeNodeDeps not provided)'
+      - 'No validation loop for evidence (no conditional routing)'
+      - 'pnpm validate passes (typecheck, lint, build)'
+      - 'Existing graph tests continue to pass'
+    tdd:
+      red:
+        - 'Write test: compiled graph includes evidence node'
+        - 'Write test: implement transitions to evidence (not directly to merge)'
+        - 'Write test: evidence transitions to merge when mergeNodeDeps provided'
+        - 'Write test: evidence transitions to END when mergeNodeDeps not provided'
+      green:
+        - 'Import createEvidenceNode in feature-agent-graph.ts'
+        - 'Add evidence node via graph.addNode'
+        - 'Change implement edge from merge to evidence'
+        - 'Add evidence-to-merge edge (conditional on mergeNodeDeps)'
+        - 'Add evidence-to-END edge (when no mergeNodeDeps)'
+      refactor:
+        - 'Verify graph comment in docstring reflects new flow'
+        - 'Ensure import ordering follows existing conventions'
+    estimatedEffort: '30min'
+
+  - id: task-11
+    phaseId: phase-8
+    title: 'Integration tests for evidence graph wiring'
+    description: >
+      Write integration tests that compile the full graph and verify the
+      evidence node is correctly wired. Test that evidence flows through state
+      from the evidence node to the merge node. Use mocked executor that
+      returns canned evidence output. Verify the complete pipeline:
+      implement completes → evidence node runs → evidence populates state →
+      merge prompt includes evidence section.
+    state: Todo
+    dependencies:
+      - task-10
+    acceptanceCriteria:
+      - 'Integration test compiles graph with evidence node'
+      - 'Test verifies implement-to-evidence-to-merge edge flow'
+      - 'Test verifies evidence state channel populated after evidence node'
+      - 'Test verifies evidence available in merge node state'
+      - 'Test verifies graph without mergeNodeDeps has evidence-to-END flow'
+      - 'pnpm test:int passes with zero regressions'
+    tdd:
+      red:
+        - 'Write integration test: graph compiles with evidence node'
+        - 'Write integration test: evidence state flows from evidence to merge'
+        - 'Write integration test: empty evidence when agent returns no evidence data'
+        - 'Write integration test: graph without merge deps ends after evidence'
+      green:
+        - 'Set up integration test with mocked executor and compiled graph'
+        - 'Run graph with canned state and verify evidence in final state'
+      refactor:
+        - 'Extract shared graph setup into test helper'
+        - 'Ensure test is deterministic and does not depend on execution timing'
+    estimatedEffort: '1h'
+
+  - id: task-12
+    phaseId: phase-8
+    title: 'Verify existing tests pass with zero regression'
+    description: >
+      Run the full test suite (pnpm test) and the full validation pipeline
+      (pnpm validate) to ensure no regressions from the evidence node changes.
+      Specifically verify: merge.node.test.ts, merge-prompts.test.ts,
+      node-helpers.test.ts, and all feature-agent integration tests pass
+      unchanged.
+    state: Todo
+    dependencies:
+      - task-11
+    acceptanceCriteria:
+      - 'pnpm test passes with zero failures'
+      - 'pnpm validate passes (lint, format, typecheck, tsp)'
+      - 'pnpm build succeeds'
+      - 'No existing test modified to accommodate evidence changes'
+    tdd: null
+    estimatedEffort: '15min'
+
+  - id: task-13
+    phaseId: phase-8
+    title: 'End-to-end verification and cleanup'
+    description: >
+      Final verification pass: review all new files for consistency, ensure
+      naming conventions match existing patterns, verify all imports use the
+      .js extension suffix, check that TypeSpec-generated types are correctly
+      referenced, and confirm the feature is complete per the spec success
+      criteria.
+    state: Todo
+    dependencies:
+      - task-12
+    acceptanceCriteria:
+      - 'All spec success criteria satisfied'
+      - 'All new files follow codebase naming conventions'
+      - 'All imports use .js extension suffix'
+      - 'No TODO/FIXME comments left in new code'
+      - 'pnpm validate and pnpm test both pass cleanly'
+    tdd: null
+    estimatedEffort: '15min'
+
+# Total effort estimate
+totalEstimate: '7.5h'
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Summary
+
+  13 tasks across 8 phases implementing the evidence-collection node. The work
+  proceeds bottom-up: TypeSpec domain models first (phase 1), then state
+  annotation (phase 2), standalone output parser and prompt builder (phases 3-4),
+  the evidence node itself (phase 5), merge prompt integration (phase 6), graph
+  wiring (phase 7), and finally integration testing with regression verification
+  (phase 8).
+
+  Each code task follows TDD: write failing tests first (RED), implement minimal
+  code to pass (GREEN), then clean up (REFACTOR). Non-code tasks (TypeSpec
+  compilation, final verification) skip TDD.
+
+  ## Acceptance Checklist
+
+  - [ ] EvidenceType enum and Evidence value object in TypeSpec, compiled to TypeScript
+  - [ ] evidence channel in FeatureAgentAnnotation with accumulating reducer
+  - [ ] evidence-output-parser.ts with parseEvidenceRecords function
+  - [ ] evidence-prompts.ts with buildEvidencePrompt function
+  - [ ] evidence.node.ts with createEvidenceNode factory
+  - [ ] Merge prompt renders evidence section in PR body
+  - [ ] Graph wired: implement → evidence → merge
+  - [ ] Unit tests for parser, prompt, node, and merge prompt evidence
+  - [ ] Integration tests for graph wiring and state flow
+  - [ ] Zero test regressions across the full suite
+  - [ ] pnpm validate and pnpm build pass cleanly
+
+  ---
+
+  _Task breakdown for implementation tracking_

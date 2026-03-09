@@ -1,31 +1,26 @@
-# Feature Specification (YAML)
-# This is the source of truth. Markdown is auto-generated from this file.
-
 name: pr-evidence-agent-5609f4
-number: 053
+number: 53
 branch: feat/053-pr-evidence-agent-5609f4
 oneLiner: >
-  Add an evidence-collection step to the merge workflow that captures screenshots, videos, and
-  artifacts proving task completion and embeds them in the PR body.
+  Add an evidence-collection step to the merge workflow that captures
+  screenshots, videos, and artifacts proving task completion and embeds them in
+  the PR body.
 userQuery: >
-  Evidence Agent:
-  add to the pull request evidences with images, videos or any other artifacts that the task was
-  completed as expected.
+  Evidence Agent: add to the pull request evidences with images, videos or any
+  other artifacts that the task was completed as expected.
 summary: >
-  Add a new "evidence" node to the feature-agent LangGraph workflow that runs after implementation
-  and before the merge node. This node instructs the agent executor to capture visual and textual
-  evidence (screenshots, test outputs, terminal recordings) proving completed work, commits
-  evidence files to the feature branch in a dedicated directory, and injects a structured
-  evidence section with embedded images and links into the PR body via the merge prompt. Requires
-  a new TypeSpec domain model for evidence records, extensions to the graph state annotation,
-  a new prompt builder for evidence collection, and modifications to the merge prompt to render
-  evidence in the PR body.
-phase: Requirements
+  Add a new "evidence" node to the feature-agent LangGraph workflow that runs
+  after implementation and before the merge node. This node instructs the agent
+  executor to capture visual and textual evidence (screenshots, test outputs,
+  terminal recordings) proving completed work, commits evidence files to the
+  feature branch in a dedicated directory, and injects a structured evidence
+  section with embedded images and links into the PR body via the merge prompt.
+  Requires a new TypeSpec domain model for evidence records, extensions to the
+  graph state annotation, a new prompt builder for evidence collection, and
+  modifications to the merge prompt to render evidence in the PR body.
+phase: Planning
 sizeEstimate: M
-
-# Relationships
 relatedFeatures: []
-
 technologies:
   - LangGraph (StateGraph, Annotation, nodes, edges)
   - TypeSpec (domain model generation)
@@ -33,237 +28,292 @@ technologies:
   - Vitest (unit + integration testing)
   - tsyringe (dependency injection)
   - Playwright (screenshot/video capture for web UI features)
-
 relatedLinks: []
-
-# Open questions — all resolved with AI-recommended defaults
 openQuestions:
   - question: >
-      Where should evidence artifacts be stored — committed to the feature branch, uploaded as
-      GitHub release assets, or stored in ~/.shep/repos/<hash>/evidence/?
+      Where should evidence artifacts be stored — committed to the feature
+      branch, uploaded as GitHub release assets, or stored in
+      ~/.shep/repos/<hash>/evidence/?
     resolved: true
     options:
-      - option: 'Commit to feature branch'
+      - option: Commit to feature branch
         description: >
-          Store evidence files in a dedicated directory (e.g., .shep/evidence/) on the feature
-          branch. Files are committed and pushed alongside code. GitHub renders images inline in
-          PR diffs and supports relative image links in PR bodies. No external hosting needed.
-          Trade-off: adds binary files to git history, but feature branches are squash-merged so
+          Store evidence files in a dedicated directory (e.g., .shep/evidence/)
+          on the feature branch. Files are committed and pushed alongside code.
+          GitHub renders images inline in PR diffs and supports relative image
+          links in PR bodies. No external hosting needed. Trade-off: adds binary
+          files to git history, but feature branches are squash-merged so
           evidence files are discarded on merge.
-        selected: true
-      - option: 'GitHub release assets'
-        description: >
-          Upload evidence via `gh release create` or `gh release upload` to a tagged release.
-          Files get permanent GitHub-hosted URLs. Trade-off: requires creating a release before
-          the PR is merged (semantically awkward), adds complexity, and release assets persist
-          after branch deletion.
         selected: false
-      - option: 'Local ~/.shep directory'
+      - option: GitHub release assets
         description: >
-          Store in ~/.shep/repos/<hash>/evidence/. Trade-off: files are only accessible locally,
-          cannot be rendered in PR bodies on GitHub without a separate upload step, defeating the
-          purpose of embedding evidence in PRs.
+          Upload evidence via `gh release create` or `gh release upload` to a
+          tagged release. Files get permanent GitHub-hosted URLs. Trade-off:
+          requires creating a release before the PR is merged (semantically
+          awkward), adds complexity, and release assets persist after branch
+          deletion.
+        selected: true
+      - option: Local ~/.shep directory
+        description: >
+          Store in ~/.shep/repos/<hash>/evidence/. Trade-off: files are only
+          accessible locally, cannot be rendered in PR bodies on GitHub without
+          a separate upload step, defeating the purpose of embedding evidence in
+          PRs.
         selected: false
     selectionRationale: >
-      Committing to the feature branch is the simplest approach that works end-to-end. Since
-      this project uses squash merges, evidence files in the feature branch do not pollute the
-      main branch history. GitHub natively renders committed images via relative paths in
-      markdown, so PR bodies can reference them directly with no external hosting dependency.
-    answer: 'Commit to feature branch'
-
+      Committing to the feature branch is the simplest approach that works
+      end-to-end. Since this project uses squash merges, evidence files in the
+      feature branch do not pollute the main branch history. GitHub natively
+      renders committed images via relative paths in markdown, so PR bodies can
+      reference them directly with no external hosting dependency.
+    answer: GitHub release assets
   - question: >
-      Should evidence collection be a separate LangGraph node or integrated into the existing
-      merge node?
+      Should evidence collection be a separate LangGraph node or integrated into
+      the existing merge node?
     resolved: true
     options:
-      - option: 'Separate evidence node'
+      - option: Separate evidence node
         description: >
           Add a new node between implement and merge in the graph flow
-          (implement → evidence → merge). Follows single responsibility principle. The evidence
-          node focuses solely on capturing and committing evidence; the merge node reads evidence
-          from state and includes it in the PR body. Trade-off: adds one more node to the graph,
-          but the pattern is well-established.
+          (implement → evidence → merge). Follows single responsibility
+          principle. The evidence node focuses solely on capturing and
+          committing evidence; the merge node reads evidence from state and
+          includes it in the PR body. Trade-off: adds one more node to the
+          graph, but the pattern is well-established.
         selected: true
-      - option: 'Integrate into merge node'
+      - option: Integrate into merge node
         description: >
-          Add evidence collection as an initial phase within the existing merge node, before
-          the commit-push-PR agent call. Trade-off: keeps graph simpler but makes the already
-          complex merge node even more complex (it already handles commit, push, PR creation,
-          CI watch/fix, approval gate, and merge/squash).
+          Add evidence collection as an initial phase within the existing merge
+          node, before the commit-push-PR agent call. Trade-off: keeps graph
+          simpler but makes the already complex merge node even more complex (it
+          already handles commit, push, PR creation, CI watch/fix, approval
+          gate, and merge/squash).
         selected: false
     selectionRationale: >
-      The merge node is already the most complex node in the graph with multiple agent calls,
-      CI watch/fix loops, and approval gates. Adding evidence collection would violate single
-      responsibility. A separate node follows the established pattern (every phase is its own
-      node) and keeps each node focused. The graph wiring is trivial — just insert between
-      implement and merge.
-    answer: 'Separate evidence node'
-
+      The merge node is already the most complex node in the graph with multiple
+      agent calls, CI watch/fix loops, and approval gates. Adding evidence
+      collection would violate single responsibility. A separate node follows
+      the established pattern (every phase is its own node) and keeps each node
+      focused. The graph wiring is trivial — just insert between implement and
+      merge.
+    answer: Separate evidence node
   - question: >
-      What types of evidence should be captured — fully automatic, agent-directed, or
-      user-provided?
+      What types of evidence should be captured — fully automatic,
+      agent-directed, or user-provided?
     resolved: true
     options:
-      - option: 'Agent-directed capture'
+      - option: Agent-directed capture
         description: >
-          The evidence node sends the agent executor a prompt with the task list and spec context,
-          instructing it to capture appropriate evidence for each completed task. The agent
-          decides what evidence to gather based on the task type — running tests and capturing
-          output for backend tasks, taking Playwright screenshots for web UI tasks, capturing
-          CLI output for CLI features. Trade-off: relies on agent intelligence but is flexible
-          across all feature types.
+          The evidence node sends the agent executor a prompt with the task list
+          and spec context, instructing it to capture appropriate evidence for
+          each completed task. The agent decides what evidence to gather based
+          on the task type — running tests and capturing output for backend
+          tasks, taking Playwright screenshots for web UI tasks, capturing CLI
+          output for CLI features. Trade-off: relies on agent intelligence but
+          is flexible across all feature types.
         selected: true
-      - option: 'Fully automatic capture'
+      - option: Fully automatic capture
         description: >
-          Hardcode evidence capture strategies (always run test suite, always take screenshots
-          of specific URLs, always capture build output). Trade-off: predictable but inflexible —
-          cannot adapt to different feature types and may capture irrelevant evidence for some
-          features.
+          Hardcode evidence capture strategies (always run test suite, always
+          take screenshots of specific URLs, always capture build output).
+          Trade-off: predictable but inflexible — cannot adapt to different
+          feature types and may capture irrelevant evidence for some features.
         selected: false
-      - option: 'User-provided artifacts'
+      - option: User-provided artifacts
         description: >
-          Prompt the user to manually provide evidence files or paths. Trade-off: most accurate
-          evidence but requires user intervention, breaking the autonomous workflow that is the
-          core value proposition of shep.
+          Prompt the user to manually provide evidence files or paths.
+          Trade-off: most accurate evidence but requires user intervention,
+          breaking the autonomous workflow that is the core value proposition of
+          shep.
         selected: false
     selectionRationale: >
-      Agent-directed capture is the natural fit for this project's architecture. The entire
-      platform is built around autonomous agent execution — every other node already uses the
-      agent executor to make intelligent decisions about what to do. The agent has full context
-      (spec, tasks, implementation details) and can choose appropriate evidence strategies per
-      task type. This maintains the autonomous workflow while being flexible across backend,
-      frontend, and CLI features.
-    answer: 'Agent-directed capture'
-
+      Agent-directed capture is the natural fit for this project's architecture.
+      The entire platform is built around autonomous agent execution — every
+      other node already uses the agent executor to make intelligent decisions
+      about what to do. The agent has full context (spec, tasks, implementation
+      details) and can choose appropriate evidence strategies per task type.
+      This maintains the autonomous workflow while being flexible across
+      backend, frontend, and CLI features.
+    answer: Agent-directed capture
   - question: >
-      Should the evidence node be gated by an approval gate or always run automatically?
+      Should the evidence node be gated by an approval gate or always run
+      automatically?
     resolved: true
     options:
-      - option: 'Always run automatically'
+      - option: Always run automatically
         description: >
-          Evidence collection runs without user intervention. It is read-only (captures state,
-          does not modify implementation code) and non-destructive. Evidence is committed to the
-          branch, which the user can review in the PR diff. Trade-off: users cannot prevent
-          evidence from being collected, but they can review and edit the PR body after creation.
+          Evidence collection runs without user intervention. It is read-only
+          (captures state, does not modify implementation code) and
+          non-destructive. Evidence is committed to the branch, which the user
+          can review in the PR diff. Trade-off: users cannot prevent evidence
+          from being collected, but they can review and edit the PR body after
+          creation.
         selected: true
-      - option: 'Optional approval gate'
+      - option: Optional approval gate
         description: >
-          Add an interrupt() before evidence collection, controlled by a new ApprovalGates flag
-          (e.g., allowEvidence). Trade-off: adds user friction to an autonomous workflow for a
-          non-destructive operation. Users already have an approval gate at the merge step where
-          they can review the complete PR including evidence.
+          Add an interrupt() before evidence collection, controlled by a new
+          ApprovalGates flag (e.g., allowEvidence). Trade-off: adds user
+          friction to an autonomous workflow for a non-destructive operation.
+          Users already have an approval gate at the merge step where they can
+          review the complete PR including evidence.
         selected: false
     selectionRationale: >
-      Evidence collection is non-destructive — it captures screenshots and test outputs, commits
-      them to the feature branch, and includes them in the PR body. The existing merge approval
-      gate already gives users a chance to review the PR (including evidence) before merging.
-      Adding another gate would add friction to the autonomous workflow without meaningful
-      safety benefit.
-    answer: 'Always run automatically'
-
+      Evidence collection is non-destructive — it captures screenshots and test
+      outputs, commits them to the feature branch, and includes them in the PR
+      body. The existing merge approval gate already gives users a chance to
+      review the PR (including evidence) before merging. Adding another gate
+      would add friction to the autonomous workflow without meaningful safety
+      benefit.
+    answer: Always run automatically
   - question: >
-      Should the evidence section be injected into the PR body during PR creation or added via
-      a subsequent `gh pr edit` call?
+      Should the evidence section be injected into the PR body during PR
+      creation or added via a subsequent `gh pr edit` call?
     resolved: true
     options:
-      - option: 'Include in initial PR creation'
+      - option: Include in initial PR creation
         description: >
-          Pass evidence data from the evidence node to the merge node via graph state. The merge
-          node's commit-push-PR prompt includes evidence in the PR body from the start. Trade-off:
-          requires the evidence node to run before merge (already the plan), and the merge prompt
-          needs to be aware of evidence data, but results in a single atomic PR creation.
+          Pass evidence data from the evidence node to the merge node via graph
+          state. The merge node's commit-push-PR prompt includes evidence in the
+          PR body from the start. Trade-off: requires the evidence node to run
+          before merge (already the plan), and the merge prompt needs to be
+          aware of evidence data, but results in a single atomic PR creation.
         selected: true
-      - option: 'Post-creation PR edit'
+      - option: Post-creation PR edit
         description: >
-          Create the PR first with the existing body, then run a separate `gh pr edit --body`
-          call to append the evidence section. Trade-off: decouples evidence from PR creation
-          but results in two operations, a brief window where the PR lacks evidence, and requires
-          extending IGitPrService with an updatePrBody() method.
+          Create the PR first with the existing body, then run a separate `gh pr
+          edit --body` call to append the evidence section. Trade-off: decouples
+          evidence from PR creation but results in two operations, a brief
+          window where the PR lacks evidence, and requires extending
+          IGitPrService with an updatePrBody() method.
         selected: false
     selectionRationale: >
-      Including evidence in the initial PR creation is simpler and more atomic. The evidence
-      node already runs before merge, so evidence data is available in the graph state when the
-      merge node builds the commit-push-PR prompt. This avoids the need for a separate API call,
-      avoids a window where the PR lacks evidence, and avoids extending IGitPrService. The merge
-      prompt already receives full spec context — adding evidence is a natural extension.
-    answer: 'Include in initial PR creation'
-
+      Including evidence in the initial PR creation is simpler and more atomic.
+      The evidence node already runs before merge, so evidence data is available
+      in the graph state when the merge node builds the commit-push-PR prompt.
+      This avoids the need for a separate API call, avoids a window where the PR
+      lacks evidence, and avoids extending IGitPrService. The merge prompt
+      already receives full spec context — adding evidence is a natural
+      extension.
+    answer: Include in initial PR creation
   - question: >
-      Should evidence be stored as a new Evidence domain model or extend the existing Artifact
-      entity?
+      Should evidence be stored as a new Evidence domain model or extend the
+      existing Artifact entity?
     resolved: true
     options:
-      - option: 'New Evidence value object'
+      - option: New Evidence value object
         description: >
-          Create a new TypeSpec model specifically for evidence records with fields tailored to
-          evidence (type, capturedAt, description, relativePath, taskRef). Evidence has different
-          semantics than artifacts — artifacts are spec documents (PRD, API docs), while evidence
-          is proof of task completion. Trade-off: adds a new model but keeps domain concepts
-          cleanly separated.
+          Create a new TypeSpec model specifically for evidence records with
+          fields tailored to evidence (type, capturedAt, description,
+          relativePath, taskRef). Evidence has different semantics than
+          artifacts — artifacts are spec documents (PRD, API docs), while
+          evidence is proof of task completion. Trade-off: adds a new model but
+          keeps domain concepts cleanly separated.
         selected: true
-      - option: 'Extend Artifact entity'
+      - option: Extend Artifact entity
         description: >
-          Add new ArtifactCategory values (Screenshot, Video, TestOutput) and use the existing
-          Artifact entity for evidence. Trade-off: reuses existing infrastructure but conflates
-          two different domain concepts — spec artifacts vs. completion evidence. The Artifact
-          entity has fields (state: Todo/Elaborating/Done) that do not apply to evidence.
+          Add new ArtifactCategory values (Screenshot, Video, TestOutput) and
+          use the existing Artifact entity for evidence. Trade-off: reuses
+          existing infrastructure but conflates two different domain concepts —
+          spec artifacts vs. completion evidence. The Artifact entity has fields
+          (state: Todo/Elaborating/Done) that do not apply to evidence.
         selected: false
     selectionRationale: >
-      Evidence and Artifacts serve fundamentally different purposes in the domain. Artifacts are
-      specification documents (PRDs, API docs, designs) that go through elaboration states.
-      Evidence is proof of task completion (screenshots, test output, recordings) that is
-      captured once and immutable. A dedicated Evidence value object keeps the domain model
-      clean and avoids forcing evidence into ill-fitting Artifact semantics. The TypeSpec
-      pattern for adding new value objects is well-established.
-    answer: 'New Evidence value object'
-
-content: |
+      Evidence and Artifacts serve fundamentally different purposes in the
+      domain. Artifacts are specification documents (PRDs, API docs, designs)
+      that go through elaboration states. Evidence is proof of task completion
+      (screenshots, test output, recordings) that is captured once and
+      immutable. A dedicated Evidence value object keeps the domain model clean
+      and avoids forcing evidence into ill-fitting Artifact semantics. The
+      TypeSpec pattern for adding new value objects is well-established.
+    answer: New Evidence value object
+content: >
   ## Problem Statement
 
-  When the feature-agent completes implementation and creates a PR, the PR body currently
-  contains only a text summary derived from the spec context. There is no visual or artifact-based
-  proof that the implementation actually works as expected. Reviewers must manually verify
+
+  When the feature-agent completes implementation and creates a PR, the PR body
+  currently
+
+  contains only a text summary derived from the spec context. There is no visual
+  or artifact-based
+
+  proof that the implementation actually works as expected. Reviewers must
+  manually verify
+
   functionality by checking out the branch and running the application.
 
-  This creates friction in the review process: reviewers cannot quickly assess whether UI
-  changes look correct, whether tests pass, or whether CLI output matches expectations without
-  pulling the branch locally. For an autonomous SDLC platform, the PR should be self-contained
+
+  This creates friction in the review process: reviewers cannot quickly assess
+  whether UI
+
+  changes look correct, whether tests pass, or whether CLI output matches
+  expectations without
+
+  pulling the branch locally. For an autonomous SDLC platform, the PR should be
+  self-contained
+
   proof that the work is complete.
 
-  This feature adds an evidence-collection step that captures screenshots, test outputs, and
-  other artifacts demonstrating that each task was completed successfully, and embeds them
+
+  This feature adds an evidence-collection step that captures screenshots, test
+  outputs, and
+
+  other artifacts demonstrating that each task was completed successfully, and
+  embeds them
+
   directly in the PR body for immediate reviewer verification.
+
 
   ## Success Criteria
 
-  - [ ] New `Evidence` TypeSpec value object defined in `tsp/` with fields: type (screenshot,
+
+  - [ ] New `Evidence` TypeSpec value object defined in `tsp/` with fields: type
+  (screenshot,
         video, test-output, terminal-recording), capturedAt, description, relativePath, and
         optional taskRef
-  - [ ] New `EvidenceType` TypeSpec enum with values: Screenshot, Video, TestOutput,
+  - [ ] New `EvidenceType` TypeSpec enum with values: Screenshot, Video,
+  TestOutput,
         TerminalRecording
-  - [ ] Generated TypeScript types available in `domain/generated/output.ts` after `pnpm tsp:compile`
-  - [ ] New `evidence` state channel in `FeatureAgentAnnotation` (array of Evidence records
+  - [ ] Generated TypeScript types available in `domain/generated/output.ts`
+  after `pnpm tsp:compile`
+
+  - [ ] New `evidence` state channel in `FeatureAgentAnnotation` (array of
+  Evidence records
         with accumulating reducer)
-  - [ ] New `evidence.node.ts` LangGraph node that invokes the agent executor to capture
+  - [ ] New `evidence.node.ts` LangGraph node that invokes the agent executor to
+  capture
         evidence for completed tasks
   - [ ] Evidence node wired into graph between implement and merge:
         `implement → evidence → merge`
-  - [ ] Evidence prompt builder (`buildEvidencePrompt`) provides spec context, task list, and
+  - [ ] Evidence prompt builder (`buildEvidencePrompt`) provides spec context,
+  task list, and
         instructions for the agent to capture appropriate evidence per task type
-  - [ ] Agent executor captures evidence files and places them in a `.shep/evidence/` directory
+  - [ ] Agent executor captures evidence files and places them in a
+  `.shep/evidence/` directory
         within the worktree
-  - [ ] Evidence files committed to the feature branch by the agent during evidence collection
-  - [ ] Merge prompt (`buildCommitPushPrPrompt`) updated to accept evidence records and render
+  - [ ] Evidence files committed to the feature branch by the agent during
+  evidence collection
+
+  - [ ] Merge prompt (`buildCommitPushPrPrompt`) updated to accept evidence
+  records and render
         a structured "Evidence" section in the PR body with inline images and links
-  - [ ] Evidence section in PR body uses relative GitHub paths for committed image files
-  - [ ] Unit tests for evidence node with mocked agent executor (RED → GREEN → REFACTOR)
+  - [ ] Evidence section in PR body uses relative GitHub paths for committed
+  image files
+
+  - [ ] Unit tests for evidence node with mocked agent executor (RED → GREEN →
+  REFACTOR)
+
   - [ ] Unit tests for evidence prompt builder
+
   - [ ] Integration tests for evidence flow within the compiled graph
+
   - [ ] Existing merge flow tests continue to pass (zero regression)
-  - [ ] Evidence node gracefully handles capture failures (logs warning, continues with
+
+  - [ ] Evidence node gracefully handles capture failures (logs warning,
+  continues with
         partial evidence rather than failing the entire workflow)
 
   ## Functional Requirements
+
 
   - **FR-1: Evidence TypeSpec Model** — Define a new `Evidence` value object in
     `tsp/domain/value-objects/evidence.tsp` with fields: `type` (EvidenceType enum), `capturedAt`
@@ -276,7 +326,8 @@ content: |
     (`(prev, next) => [...prev, ...next]`) since evidence is collected incrementally. Default
     value is an empty array.
 
-  - **FR-3: Evidence Node** — Create `evidence.node.ts` following the established node pattern:
+  - **FR-3: Evidence Node** — Create `evidence.node.ts` following the
+  established node pattern:
     receives injected dependencies (logger, agentExecutor, featureRepository), reads spec and
     task context from state, builds an evidence collection prompt, invokes the agent executor,
     parses the agent's output to extract evidence records, and returns a partial state update
@@ -290,13 +341,15 @@ content: |
     evidence files in `.shep/evidence/` within the worktree, (e) instructions to output a
     structured list of evidence records (type, path, description, taskRef) for parsing.
 
-  - **FR-5: Graph Wiring** — Insert the evidence node between the implement and merge nodes
+  - **FR-5: Graph Wiring** — Insert the evidence node between the implement and
+  merge nodes
     in `feature-agent-graph.ts`. The edge flow becomes:
     `implement → evidence → merge` (or `implement → evidence → END` when merge deps are not
     provided). No conditional routing or validation loop is needed since evidence output is
     free-form, not YAML requiring schema validation.
 
-  - **FR-6: Merge Prompt Evidence Injection** — Modify `buildCommitPushPrPrompt()` in
+  - **FR-6: Merge Prompt Evidence Injection** — Modify
+  `buildCommitPushPrPrompt()` in
     `merge-prompts.ts` to accept an optional `evidence` parameter (array of Evidence records).
     When evidence is present, include a structured "## Evidence" section in the PR body
     template with: for each evidence record, a subsection with the description, an inline
@@ -304,14 +357,16 @@ content: |
     outputs/terminal recordings). Use GitHub-compatible markdown — relative image paths work
     in PR bodies when files are committed to the branch.
 
-  - **FR-7: Evidence File Storage** — Evidence files are stored in `.shep/evidence/` within
+  - **FR-7: Evidence File Storage** — Evidence files are stored in
+  `.shep/evidence/` within
     the worktree and committed to the feature branch. The directory is created by the agent
     during evidence collection. Files include screenshots (PNG/JPEG), test output logs (TXT),
     and optional video recordings (MP4/WebM). The `.shep/` directory should be added to the
     main branch's `.gitignore` to prevent accidental inclusion on merge, though squash merge
     already discards feature-branch-only files.
 
-  - **FR-8: Graceful Degradation** — If evidence collection fails (agent times out, no
+  - **FR-8: Graceful Degradation** — If evidence collection fails (agent times
+  out, no
     evidence can be captured, or capture partially succeeds), the evidence node must not fail
     the workflow. It should return whatever evidence was collected (possibly empty array) and
     log a warning. The merge node proceeds normally — an empty evidence array results in no
@@ -319,89 +374,163 @@ content: |
 
   ## Non-Functional Requirements
 
-  - **NFR-1: Performance** — The evidence node should complete within the same timeout
+
+  - **NFR-1: Performance** — The evidence node should complete within the same
+  timeout
     constraints as other agent executor calls. Evidence capture (screenshots, test runs) is
     bounded by the agent executor's existing timeout mechanism. No additional timeout
     configuration is required.
 
-  - **NFR-2: File Size** — Evidence files committed to the branch should be reasonable in size.
+  - **NFR-2: File Size** — Evidence files committed to the branch should be
+  reasonable in size.
     The evidence prompt should instruct the agent to capture screenshots at standard resolution
     (no 4K), compress images where possible, and truncate test output to the first 500 lines
     to avoid bloating the branch with large binary files.
 
-  - **NFR-3: Testability** — The evidence node must be fully testable with mocked dependencies
+  - **NFR-3: Testability** — The evidence node must be fully testable with
+  mocked dependencies
     following the existing pattern. Unit tests mock `IAgentExecutor` to return canned evidence
     output. Integration tests verify the node is correctly wired in the graph. No real
     screenshots or agent calls in tests.
 
-  - **NFR-4: Agent Agnosticism** — The evidence node must use `IAgentExecutor` via the
+  - **NFR-4: Agent Agnosticism** — The evidence node must use `IAgentExecutor`
+  via the
     injected provider. It must not hardcode any agent type (Claude Code, Cursor, Gemini CLI).
     Evidence capture instructions in the prompt must be agent-agnostic — describing what to
     capture, not how (the agent executor decides how to execute).
 
-  - **NFR-5: Maintainability** — Follow established patterns: node factory function, injected
+  - **NFR-5: Maintainability** — Follow established patterns: node factory
+  function, injected
     dependencies, separate prompt builder file, co-located unit tests. The node should be
     no more complex than existing nodes (analyze, requirements, research).
 
-  - **NFR-6: Idempotency** — If the evidence node is re-executed (e.g., after a graph
+  - **NFR-6: Idempotency** — If the evidence node is re-executed (e.g., after a
+  graph
     re-execution due to rejection), it should be safe to run again. Previously captured
     evidence files may be overwritten. The accumulating reducer handles state correctly.
 
   ## Product Questions & AI Recommendations
 
+
   | # | Question | AI Recommendation | Rationale |
+
   | - | -------- | ----------------- | --------- |
-  | 1 | Where to store evidence artifacts? | Commit to feature branch | Squash merge discards files; GitHub renders inline images from committed files; no external hosting needed |
-  | 2 | Separate node or integrate into merge? | Separate evidence node | Merge node is already the most complex node; single responsibility principle; follows established graph pattern |
-  | 3 | Automatic, agent-directed, or user-provided evidence? | Agent-directed capture | Matches the autonomous platform architecture; agent has full context to choose appropriate evidence per task type |
-  | 4 | Approval gate or auto-run? | Always run automatically | Non-destructive operation; merge approval gate already provides review opportunity |
-  | 5 | Include in PR creation or post-edit? | Include in initial PR creation | Single atomic operation; no IGitPrService extension needed; evidence available in state when merge prompt is built |
-  | 6 | New Evidence model or extend Artifact? | New Evidence value object | Different domain semantics; Artifact tracks spec documents with elaboration states; Evidence is immutable proof of completion |
+
+  | 1 | Where to store evidence artifacts? | Commit to feature branch | Squash
+  merge discards files; GitHub renders inline images from committed files; no
+  external hosting needed |
+
+  | 2 | Separate node or integrate into merge? | Separate evidence node | Merge
+  node is already the most complex node; single responsibility principle;
+  follows established graph pattern |
+
+  | 3 | Automatic, agent-directed, or user-provided evidence? | Agent-directed
+  capture | Matches the autonomous platform architecture; agent has full context
+  to choose appropriate evidence per task type |
+
+  | 4 | Approval gate or auto-run? | Always run automatically | Non-destructive
+  operation; merge approval gate already provides review opportunity |
+
+  | 5 | Include in PR creation or post-edit? | Include in initial PR creation |
+  Single atomic operation; no IGitPrService extension needed; evidence available
+  in state when merge prompt is built |
+
+  | 6 | New Evidence model or extend Artifact? | New Evidence value object |
+  Different domain semantics; Artifact tracks spec documents with elaboration
+  states; Evidence is immutable proof of completion |
+
 
   ## Affected Areas
 
+
   | Area | Impact | Reasoning |
+
   | ---- | ------ | --------- |
-  | `tsp/domain/value-objects/` | High | New evidence.tsp and evidence-type enum |
-  | `packages/core/src/domain/generated/output.ts` | High | Auto-generated from new TypeSpec model |
-  | `packages/core/src/infrastructure/services/agents/feature-agent/state.ts` | High | New evidence state channel in FeatureAgentAnnotation |
-  | `packages/core/src/infrastructure/services/agents/feature-agent/feature-agent-graph.ts` | High | Wire evidence node into graph between implement and merge |
-  | `packages/core/src/infrastructure/services/agents/feature-agent/nodes/` | High | New evidence.node.ts |
-  | `packages/core/src/infrastructure/services/agents/feature-agent/nodes/prompts/` | High | New evidence-prompts.ts + modified merge-prompts.ts |
-  | `packages/core/src/infrastructure/services/agents/feature-agent/nodes/merge/merge.node.ts` | Medium | Read evidence from state, pass to merge prompt |
+
+  | `tsp/domain/value-objects/` | High | New evidence.tsp and evidence-type enum
+  |
+
+  | `packages/core/src/domain/generated/output.ts` | High | Auto-generated from
+  new TypeSpec model |
+
+  | `packages/core/src/infrastructure/services/agents/feature-agent/state.ts` |
+  High | New evidence state channel in FeatureAgentAnnotation |
+
+  |
+  `packages/core/src/infrastructure/services/agents/feature-agent/feature-agent-graph.ts`
+  | High | Wire evidence node into graph between implement and merge |
+
+  | `packages/core/src/infrastructure/services/agents/feature-agent/nodes/` |
+  High | New evidence.node.ts |
+
+  |
+  `packages/core/src/infrastructure/services/agents/feature-agent/nodes/prompts/`
+  | High | New evidence-prompts.ts + modified merge-prompts.ts |
+
+  |
+  `packages/core/src/infrastructure/services/agents/feature-agent/nodes/merge/merge.node.ts`
+  | Medium | Read evidence from state, pass to merge prompt |
+
   | `tsp/domain/common/enums/` | Medium | New EvidenceType enum |
-  | `tests/unit/infrastructure/services/agents/feature-agent/nodes/` | High | New evidence node tests + updated merge prompt tests |
-  | `tests/integration/infrastructure/services/agents/` | Medium | Integration tests for evidence in graph flow |
+
+  | `tests/unit/infrastructure/services/agents/feature-agent/nodes/` | High |
+  New evidence node tests + updated merge prompt tests |
+
+  | `tests/integration/infrastructure/services/agents/` | Medium | Integration
+  tests for evidence in graph flow |
+
 
   ## Dependencies
+
 
   - **Existing**: LangGraph StateGraph, IAgentExecutor, IAgentExecutorProvider,
     FeatureAgentAnnotation, merge node architecture, TypeSpec compilation pipeline,
     node-helpers (buildExecutorOptions, retryExecute)
-  - **External**: GitHub CLI (`gh`) — no new commands needed; evidence is committed to branch
+  - **External**: GitHub CLI (`gh`) — no new commands needed; evidence is
+  committed to branch
     and referenced via relative paths
-  - **Domain**: PullRequest value object (unchanged), Artifact entity (unchanged — evidence
+  - **Domain**: PullRequest value object (unchanged), Artifact entity (unchanged
+  — evidence
     is a separate model), Feature entity (may add optional evidence reference)
-  - **Testing**: Existing mock patterns for IAgentExecutor, IFeatureRepository provide
+  - **Testing**: Existing mock patterns for IAgentExecutor, IFeatureRepository
+  provide
     templates for evidence node tests
 
   ## Size Estimate
 
+
   **M** — This feature involves:
+
   - 1 new TypeSpec value object + enum + compilation
+
   - 1 new LangGraph node (evidence.node.ts) + prompt builder
+
   - State channel extension (single new channel)
+
   - Graph wiring (one edge insertion)
+
   - Merge prompt modification (add evidence section template)
+
   - Merge node modification (pass evidence from state to prompt)
+
   - Unit tests (evidence node, evidence prompt, updated merge prompt)
+
   - Integration tests (evidence in graph flow)
 
-  The architecture patterns are well-established — the adding-agents guide and existing nodes
-  provide clear templates. The main complexity is in the evidence prompt design (instructing
-  the agent to capture appropriate evidence per task type). No new infrastructure services or
+
+  The architecture patterns are well-established — the adding-agents guide and
+  existing nodes
+
+  provide clear templates. The main complexity is in the evidence prompt design
+  (instructing
+
+  the agent to capture appropriate evidence per task type). No new
+  infrastructure services or
+
   ports are required. Estimated 3-5 days of implementation.
 
+
   ---
+
 
   _Requirements complete — proceed with research_

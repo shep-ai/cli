@@ -1,0 +1,257 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: pr-evidence-agent-5609f4
+summary: >
+  Add a new evidence-collection node to the feature-agent LangGraph graph that
+  captures screenshots, test outputs, and terminal recordings after
+  implementation, commits them to the feature branch, and embeds a structured
+  evidence section in the PR body. Implementation follows the established
+  executeNode helper pattern, adds a new Evidence value object and EvidenceType
+  enum in TypeSpec, extends the graph state with an accumulating evidence
+  channel, and modifies the merge prompt to render evidence in the PR body.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - LangGraph (StateGraph, Annotation, nodes, edges)
+  - TypeSpec (domain model generation)
+  - GitHub CLI (gh) for PR operations
+  - Vitest (unit + integration testing)
+  - js-yaml (YAML parsing for evidence output)
+
+relatedLinks: []
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'Domain Foundation — TypeSpec Models'
+    description: >
+      Define the Evidence value object and EvidenceType enum in TypeSpec, wire
+      them into the index files, and run tsp:compile to generate TypeScript
+      types. This is the foundation that all subsequent phases depend on — the
+      generated Evidence type is used in the state annotation, evidence node,
+      and merge prompt.
+    parallel: false
+
+  - id: phase-2
+    name: 'State Annotation Extension'
+    description: >
+      Add the evidence channel to FeatureAgentAnnotation in state.ts. Uses an
+      accumulating reducer (same pattern as ciFixHistory) with the generated
+      Evidence type. This must be done before the evidence node and merge prompt
+      modifications since both read/write this channel.
+    parallel: false
+
+  - id: phase-3
+    name: 'Evidence Output Parser'
+    description: >
+      Create evidence-output-parser.ts following the merge-output-parser.ts
+      pattern. Parses structured JSON evidence records from free-form agent text
+      output. This is a standalone module with no node dependencies — built and
+      tested in isolation before the evidence node needs it.
+    parallel: false
+
+  - id: phase-4
+    name: 'Evidence Prompt Builder'
+    description: >
+      Create buildEvidencePrompt() in evidence-prompts.ts. The prompt includes
+      spec context, task list, worktree path, instructions for agent-directed
+      evidence capture, and structured output format instructions. Built and
+      tested independently before the evidence node wires it in.
+    parallel: false
+
+  - id: phase-5
+    name: 'Evidence Node Implementation'
+    description: >
+      Create evidence.node.ts — a custom node that reuses node helper internals
+      (createNodeLogger, buildExecutorOptions, retryExecute, markPhaseComplete)
+      but adds post-execution parsing via the evidence output parser to extract
+      Evidence[] from agent output and return it in the state update. Includes
+      graceful degradation per FR-8.
+    parallel: false
+
+  - id: phase-6
+    name: 'Merge Prompt Evidence Integration'
+    description: >
+      Modify buildCommitPushPrPrompt() to read evidence from state and render a
+      structured evidence section in the PR body template. Screenshots use
+      inline image markdown, test outputs use code blocks, videos use links.
+      The merge node already passes the full state, so no merge.node.ts changes
+      are needed.
+    parallel: false
+
+  - id: phase-7
+    name: 'Graph Wiring'
+    description: >
+      Wire the evidence node into the graph between implement and merge. Change
+      implement edge to point to evidence, add evidence-to-merge edge. Handle
+      the no-mergeNodeDeps case (evidence to END). Import and register the
+      evidence node in feature-agent-graph.ts.
+    parallel: false
+
+  - id: phase-8
+    name: 'Integration Testing'
+    description: >
+      Write integration tests verifying the evidence node is correctly wired in
+      the compiled graph, evidence flows through state from evidence node to
+      merge node, and the full evidence-to-PR-body pipeline works end-to-end
+      with mocked executor.
+    parallel: false
+
+# File change tracking
+filesToCreate:
+  - tsp/common/enums/evidence-type.tsp
+  - tsp/domain/value-objects/evidence.tsp
+  - packages/core/src/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.ts
+  - packages/core/src/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.ts
+  - packages/core/src/infrastructure/services/agents/feature-agent/nodes/evidence.node.ts
+  - tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts
+  - tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts
+  - tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts
+  - tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/merge-prompts.evidence.test.ts
+  - tests/integration/infrastructure/services/agents/feature-agent/evidence-graph-wiring.test.ts
+
+filesToModify:
+  - tsp/common/enums/index.tsp
+  - tsp/domain/value-objects/index.tsp
+  - packages/core/src/domain/generated/output.ts
+  - packages/core/src/infrastructure/services/agents/feature-agent/state.ts
+  - packages/core/src/infrastructure/services/agents/feature-agent/feature-agent-graph.ts
+  - packages/core/src/infrastructure/services/agents/feature-agent/nodes/prompts/merge-prompts.ts
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Architecture Overview
+
+  The evidence node fits into the existing feature-agent LangGraph workflow as a
+  new node between `implement` and `merge`. The architecture follows the
+  established clean architecture patterns:
+
+  - **Domain layer**: New `Evidence` value object and `EvidenceType` enum defined
+    in TypeSpec, generated into `domain/generated/output.ts`
+  - **Infrastructure layer**: New evidence node, prompt builder, and output parser
+    in the feature-agent nodes directory
+  - **No application layer changes**: No new ports or use cases needed — the
+    evidence node uses the existing `IAgentExecutor` port
+
+  ### Graph Flow
+
+  ```
+  START → analyze → validate → requirements → validate → research → validate
+        → plan → validate → implement → evidence → merge → END
+  ```
+
+  The evidence node sits after all code is written (implement) and before the
+  commit/push/PR operations (merge). This is the natural position — evidence
+  captures proof of what was implemented.
+
+  ### State Flow
+
+  ```
+  implement node completes
+    ↓
+  evidence node reads: state.specDir, state.worktreePath
+  evidence node writes: state.evidence (Evidence[])
+    ↓
+  merge node reads: state.evidence (via buildCommitPushPrPrompt)
+  merge prompt includes evidence section in PR body
+    ↓
+  agent creates PR with embedded evidence
+  ```
+
+  ## Key Design Decisions
+
+  ### 1. Evidence Node — Custom Node with Helper Reuse
+
+  The evidence node cannot use the pure `executeNode` helper directly because
+  it needs a post-execution parsing step to extract `Evidence[]` from the
+  agent's text output and populate the state channel. Instead, it follows a
+  custom node pattern that reuses the same helpers (`createNodeLogger`,
+  `buildExecutorOptions`, `retryExecute`, `getCompletedPhases`,
+  `markPhaseComplete`) while adding evidence-specific parsing. This is simpler
+  than merge.node.ts (no CI loops, no approval gates, no multi-step agent calls)
+  but more than a pure executeNode call.
+
+  **Rejected**: Pure `executeNode` — no way to parse evidence and populate state.
+  **Rejected**: Merge-style custom node — massive over-engineering for a single
+  agent call.
+
+  ### 2. Single Evidence State Channel
+
+  A single `evidence: Annotation<Evidence[]>` channel with accumulating reducer
+  `(prev, next) => [...prev, ...next]` follows the `ciFixHistory` pattern.
+  Default value is empty array. The merge node reads `state.evidence` directly.
+
+  **Rejected**: Multiple channels — unnecessary surface area.
+  **Rejected**: File-based transfer — breaks LangGraph-native state flow.
+
+  ### 3. JSON Output Parsing from Agent Text
+
+  The evidence prompt instructs the agent to output a JSON array of evidence
+  records in a fenced code block. The evidence-output-parser extracts this
+  using regex + JSON.parse, following the merge-output-parser pattern.
+
+  **Rejected**: File-based manifest — adds I/O coupling.
+  **Rejected**: Agent outputSchema — not all agents support it.
+
+  ### 4. Evidence in PR Body via Merge Prompt Extension
+
+  `buildCommitPushPrPrompt()` is extended to render evidence when
+  `state.evidence` is non-empty. Atomic — evidence appears at PR creation.
+
+  **Rejected**: Post-creation `gh pr edit` — two operations, brief gap.
+
+  ### 5. Graceful Degradation (FR-8)
+
+  The evidence node catches parse failures and returns `{ evidence: [] }`. The
+  merge node omits the evidence section when the array is empty. Evidence
+  failures never block the merge workflow.
+
+  ## Files — New
+
+  | File | Purpose |
+  | ---- | ------- |
+  | `tsp/common/enums/evidence-type.tsp` | EvidenceType enum (Screenshot, Video, TestOutput, TerminalRecording) |
+  | `tsp/domain/value-objects/evidence.tsp` | Evidence value object (type, capturedAt, description, relativePath, taskRef?) |
+  | `.../nodes/evidence-output-parser.ts` | Parse Evidence[] from agent text output |
+  | `.../nodes/prompts/evidence-prompts.ts` | buildEvidencePrompt() — agent-directed evidence capture instructions |
+  | `.../nodes/evidence.node.ts` | Evidence node factory (custom node with helper reuse) |
+
+  ## Files — Modified
+
+  | File | Change |
+  | ---- | ------ |
+  | `tsp/common/enums/index.tsp` | Add `import "./evidence-type.tsp"` |
+  | `tsp/domain/value-objects/index.tsp` | Add `import "./evidence.tsp"` |
+  | `domain/generated/output.ts` | Auto-generated via `pnpm tsp:compile` |
+  | `.../feature-agent/state.ts` | Add `evidence` channel with accumulating reducer |
+  | `.../feature-agent/feature-agent-graph.ts` | Wire evidence node, change edges |
+  | `.../nodes/prompts/merge-prompts.ts` | Add evidence section to PR body template |
+
+  ## Testing Strategy
+
+  - **Unit tests**: Evidence output parser (JSON extraction, edge cases, malformed input)
+  - **Unit tests**: Evidence prompt builder (spec context, task list, output instructions)
+  - **Unit tests**: Evidence node (mocked executor, graceful degradation, state updates)
+  - **Unit tests**: Merge prompt evidence rendering (with/without evidence, per-type formatting)
+  - **Integration tests**: Graph wiring (evidence node between implement and merge, state flow)
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | TypeSpec compilation breaks existing types | Run `pnpm tsp:compile` and `pnpm validate` immediately after adding new .tsp files |
+  | Evidence parser fails on unexpected agent output | Parser returns empty array on any failure; comprehensive edge case tests |
+  | Evidence node breaks existing graph flow | Integration tests verify existing implement-to-merge flow; graceful empty evidence |
+  | Large evidence files bloat feature branch | Prompt instructs standard resolution, image compression, 500-line test output truncation |
+  | Merge prompt changes break existing PR creation | Existing merge-prompts tests continue to pass; evidence section is additive only |
+  | Graph wiring change breaks existing edges | Test both paths: with mergeNodeDeps and without |
+
+  ---
+
+  _Plan complete — proceed to implementation_
