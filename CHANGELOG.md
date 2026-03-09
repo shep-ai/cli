@@ -1,3 +1,9 @@
+# [1.87.0](https://github.com/shep-ai/cli/compare/v1.86.1...v1.87.0) (2026-03-09)
+
+### Features
+
+- **web:** add task progress view component with expandable action items ([#250](https://github.com/shep-ai/cli/issues/250)) ([c6ead44](https://github.com/shep-ai/cli/commit/c6ead44194fcf283e360aa7da7cfcc1a4ee8bbef))
+
 ## [1.86.1](https://github.com/shep-ai/cli/compare/v1.86.0...v1.86.1) (2026-03-09)
 
 ### Bug Fixes
