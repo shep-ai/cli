@@ -461,96 +461,96 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
           ) : null}
         </div>
 
-        {featureActionsInput ? (
-          <div className="flex items-center gap-2 pt-2">
+        <div className="flex items-center gap-2 pt-2" data-testid="feature-drawer-actions">
+          {featureActionsInput ? (
             <OpenActionMenu
               actions={featureActions}
               repositoryPath={featureActionsInput.repositoryPath}
               showSpecs={!!featureActionsInput.specPath}
             />
-            {featureFlags.envDeploy && featureDeployTarget ? (
-              <>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span>
-                        <ActionButton
-                          label={isFeatureDeployActive ? 'Stop Dev Server' : 'Start Dev Server'}
-                          onClick={isFeatureDeployActive ? deployAction.stop : deployAction.deploy}
-                          loading={deployAction.deployLoading || deployAction.stopLoading}
-                          error={!!deployAction.deployError}
-                          icon={isFeatureDeployActive ? Square : Play}
-                          iconOnly
-                          variant="outline"
-                          size="icon-sm"
-                        />
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      {isFeatureDeployActive ? 'Stop Dev Server' : 'Start Dev Server'}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                {isFeatureDeployActive ? (
-                  <DeploymentStatusBadge
-                    status={deployAction.status}
-                    url={deployAction.url}
-                    targetId={featureDeployTarget?.targetId}
-                  />
-                ) : null}
-              </>
-            ) : null}
-            {featureNode.featureId ? (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label="Delete feature"
+          ) : null}
+          {featureFlags.envDeploy && featureDeployTarget ? (
+            <>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span>
+                      <ActionButton
+                        label={isFeatureDeployActive ? 'Stop Dev Server' : 'Start Dev Server'}
+                        onClick={isFeatureDeployActive ? deployAction.stop : deployAction.deploy}
+                        loading={deployAction.deployLoading || deployAction.stopLoading}
+                        error={!!deployAction.deployError}
+                        icon={isFeatureDeployActive ? Square : Play}
+                        iconOnly
+                        variant="outline"
+                        size="icon-sm"
+                      />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {isFeatureDeployActive ? 'Stop Dev Server' : 'Start Dev Server'}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              {isFeatureDeployActive ? (
+                <DeploymentStatusBadge
+                  status={deployAction.status}
+                  url={deployAction.url}
+                  targetId={featureDeployTarget?.targetId}
+                />
+              ) : null}
+            </>
+          ) : null}
+          {featureNode.featureId ? (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Delete feature"
+                  disabled={isDeleting}
+                  className="text-muted-foreground hover:text-destructive ml-auto"
+                  data-testid="feature-drawer-delete"
+                >
+                  {isDeleting ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="size-4" />
+                  )}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete feature?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete <strong>{featureNode.name}</strong> (
+                    {featureNode.featureId}). This action cannot be undone.
+                    {featureNode.state === 'running' ? (
+                      <> This feature has a running agent that will be stopped.</>
+                    ) : null}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    variant="destructive"
                     disabled={isDeleting}
-                    className="text-muted-foreground hover:text-destructive ml-auto"
-                    data-testid="feature-drawer-delete"
+                    onClick={() => handleDelete(featureNode.featureId)}
                   >
                     {isDeleting ? (
-                      <Loader2 className="size-4 animate-spin" />
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Deleting…
+                      </>
                     ) : (
-                      <Trash2 className="size-4" />
+                      'Delete'
                     )}
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Delete feature?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This will permanently delete <strong>{featureNode.name}</strong> (
-                      {featureNode.featureId}). This action cannot be undone.
-                      {featureNode.state === 'running' ? (
-                        <> This feature has a running agent that will be stopped.</>
-                      ) : null}
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      variant="destructive"
-                      disabled={isDeleting}
-                      onClick={() => handleDelete(featureNode.featureId)}
-                    >
-                      {isDeleting ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Deleting…
-                        </>
-                      ) : (
-                        'Delete'
-                      )}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            ) : null}
-          </div>
-        ) : null}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          ) : null}
+        </div>
       </>
     );
   }
