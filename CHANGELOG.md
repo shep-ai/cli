@@ -1,3 +1,9 @@
+## [1.90.1](https://github.com/shep-ai/cli/compare/v1.90.0...v1.90.1) (2026-03-09)
+
+### Bug Fixes
+
+- **web:** persist prompt focus ring when agent picker popover opens ([#266](https://github.com/shep-ai/cli/issues/266)) ([4cae6d2](https://github.com/shep-ai/cli/commit/4cae6d28383c0f6c349fef0de8a9533ad2c0d122))
+
 # [1.90.0](https://github.com/shep-ai/cli/compare/v1.89.0...v1.90.0) (2026-03-09)
 
 ### Bug Fixes
