@@ -45,3 +45,7 @@ rejectionFeedback:
       when clicking "back" on the browsers it doesn't go back
     phase: merge
     timestamp: '2026-03-09T13:00:50.113Z'
+  - iteration: 2
+    message: changing tabs makes the drawer to rerender it shouldnt
+    phase: merge
+    timestamp: '2026-03-09T14:30:15.469Z'

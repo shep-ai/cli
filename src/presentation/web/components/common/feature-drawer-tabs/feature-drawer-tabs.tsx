@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { getFeaturePhaseTimings } from '@/app/actions/get-feature-phase-timings';
@@ -160,7 +160,6 @@ export function FeatureDrawerTabs({
   chatInput,
   onChatInputChange,
 }: FeatureDrawerTabsProps) {
-  const router = useRouter();
   const pathname = usePathname();
   const featureLogs = useFeatureLogs(featureId);
 
@@ -189,7 +188,9 @@ export function FeatureDrawerTabs({
 
   const { tabs, fetchTab, refreshTab } = useTabDataFetch<LazyTabKey>(featureId, TAB_FETCHERS);
 
-  // Sync URL when active tab changes via user interaction (push for history)
+  // Sync URL when active tab changes via user interaction.
+  // Use window.history.pushState instead of router.push to avoid triggering a
+  // server component re-render (which would remount the drawer).
   const isUserInteraction = useRef(false);
   useEffect(() => {
     if (!isUserInteraction.current) return;
@@ -197,11 +198,11 @@ export function FeatureDrawerTabs({
 
     // Build the target URL from the base path + tab segment
     const targetUrl = activeTab === 'overview' ? basePath : `${basePath}/${activeTab}`;
-    // Only navigate if the URL actually changed
+    // Only update URL if it actually changed
     if (targetUrl !== pathname) {
-      router.push(targetUrl as Parameters<typeof router.push>[0], { scroll: false });
+      window.history.pushState(null, '', targetUrl);
     }
-  }, [activeTab, basePath, pathname, router]);
+  }, [activeTab, basePath, pathname]);
 
   // Sync active tab from URL when pathname changes (e.g. browser back/forward).
   // Skip on initial mount — the effectiveInitial handles that via urlTab prop.

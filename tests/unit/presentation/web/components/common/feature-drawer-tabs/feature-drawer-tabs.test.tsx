@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { FeatureDrawerTabs } from '@/components/common/feature-drawer-tabs/feature-drawer-tabs';
@@ -12,13 +12,21 @@ const mockGetPhaseTimings = vi.fn();
 const mockGetPlan = vi.fn();
 
 // Mock next/navigation
-const mockPush = vi.fn();
 let mockPathname = '/feature/f1';
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: mockPush }),
   usePathname: () => mockPathname,
 }));
+
+// Spy on window.history.pushState for URL sync assertions
+const mockPushState = vi.fn();
+const originalPushState = window.history.pushState.bind(window.history);
+beforeAll(() => {
+  window.history.pushState = mockPushState;
+});
+afterAll(() => {
+  window.history.pushState = originalPushState;
+});
 
 vi.mock('@/app/actions/get-feature-phase-timings', () => ({
   getFeaturePhaseTimings: (...args: unknown[]) => mockGetPhaseTimings(...args),
@@ -91,6 +99,7 @@ function renderTabs(props: Partial<FeatureDrawerTabsProps> = {}) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockPushState.mockClear();
   mockPathname = '/feature/f1';
 
   mockGetPhaseTimings.mockResolvedValue({ timings: sampleTimings, rejectionFeedback: [] });
@@ -234,23 +243,23 @@ describe('FeatureDrawerTabs', () => {
       expect(overviewTab).toHaveAttribute('data-state', 'active');
     });
 
-    it('navigates to path-based URL when user clicks a different tab', async () => {
+    it('updates URL via pushState when user clicks a different tab', async () => {
       const user = userEvent.setup();
       renderTabs();
 
       await user.click(screen.getByRole('tab', { name: 'Activity' }));
 
-      expect(mockPush).toHaveBeenCalledWith('/feature/f1/activity', { scroll: false });
+      expect(mockPushState).toHaveBeenCalledWith(null, '', '/feature/f1/activity');
     });
 
-    it('navigates to base path when switching back to overview', async () => {
+    it('updates URL to base path via pushState when switching back to overview', async () => {
       mockPathname = '/feature/f1/activity';
       const user = userEvent.setup();
       renderTabs({ urlTab: 'activity' });
 
       await user.click(screen.getByRole('tab', { name: 'Overview' }));
 
-      expect(mockPush).toHaveBeenCalledWith('/feature/f1', { scroll: false });
+      expect(mockPushState).toHaveBeenCalledWith(null, '', '/feature/f1');
     });
 
     it('fetches lazy tab data when opened via URL', () => {
