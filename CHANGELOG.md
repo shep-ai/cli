@@ -1,3 +1,9 @@
+# [1.86.0](https://github.com/shep-ai/cli/compare/v1.85.0...v1.86.0) (2026-03-09)
+
+### Features
+
+- **domain:** post-feature cleanup on merge and deletion ([#167](https://github.com/shep-ai/cli/issues/167)) ([fcf394c](https://github.com/shep-ai/cli/commit/fcf394c648389a4eef38cb81e8646d38ee7a1f31))
+
 # [1.85.0](https://github.com/shep-ai/cli/compare/v1.84.0...v1.85.0) (2026-03-09)
 
 ### Features
