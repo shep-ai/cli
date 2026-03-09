@@ -1,0 +1,190 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: pr-evidence-agent-5609f4
+number: 053
+branch: feat/053-pr-evidence-agent-5609f4
+oneLiner: >
+  Add an evidence-collection step to the merge workflow that captures screenshots, videos, and
+  artifacts proving task completion and embeds them in the PR body.
+userQuery: >
+  Evidence Agent:
+  add to the pull request evidences with images, videos or any other artifacts that the task was
+  completed as expected.
+summary: >
+  Add a new "evidence" node to the feature-agent LangGraph workflow that runs after implementation
+  and before the merge node. This node uses the agent executor to capture visual evidence
+  (screenshots, screen recordings, test outputs) of completed work, uploads them via the GitHub
+  CLI, and injects the evidence into the PR body. Requires a new TypeSpec domain model for
+  evidence records, extensions to the graph state, and a new prompt builder for evidence
+  collection.
+phase: Analysis
+sizeEstimate: M
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - LangGraph (StateGraph, Annotation, nodes, edges)
+  - TypeSpec (domain model generation)
+  - GitHub CLI (gh) for asset uploads and PR body updates
+  - Vitest (unit + integration testing)
+  - tsyringe (dependency injection)
+  - Playwright (potential evidence capture for web UI features)
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - question: >
+      Where should evidence artifacts be stored before upload — in the worktree, in
+      ~/.shep/repos/<hash>/evidence/, or as GitHub release assets?
+    context: >
+      GitHub PR bodies support inline images via markdown image syntax with URLs. Files need to
+      be uploaded somewhere accessible. Options include GitHub release assets (via gh release),
+      committing to the branch, or a temporary hosting approach.
+  - question: >
+      Should evidence collection be a separate LangGraph node (evidence → merge) or integrated
+      into the existing merge node before the PR creation agent call?
+    context: >
+      A separate node is cleaner architecturally (single responsibility) but adds graph
+      complexity. Integrating into the merge node's commit-push-PR agent call is simpler but
+      mixes concerns.
+  - question: >
+      What types of evidence should be captured automatically vs. requiring user-provided artifacts?
+    context: >
+      The agent executor can run Playwright/screenshots programmatically for web features, but
+      for backend/CLI features the evidence may need to be test output, terminal recordings,
+      or user-supplied files.
+  - question: >
+      Should the evidence node be gated by an approval gate or always run automatically?
+    context: >
+      Evidence collection is read-only and non-destructive, so auto-run seems appropriate, but
+      users may want to review evidence before it appears in the PR.
+
+content: |
+  ## Problem Statement
+
+  When the feature-agent completes implementation and creates a PR, the PR body currently
+  contains only a text summary derived from the spec context. There is no visual or artifact-based
+  proof that the implementation actually works as expected. Reviewers must manually verify
+  functionality by checking out the branch and running the application.
+
+  This feature adds an evidence-collection step that captures screenshots, videos, test outputs,
+  and other artifacts demonstrating that each task was completed successfully, and embeds them
+  directly in the PR body for easy reviewer verification.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The project follows Clean Architecture with four layers in `packages/core/src/`:
+
+  - **domain/** — Core business logic, TypeSpec-generated types (`domain/generated/output.ts`),
+    value objects (PullRequest, CiFixRecord), entities (Feature, Artifact, Task)
+  - **application/** — Use cases and port interfaces. Key output ports: `IAgentExecutor`,
+    `IAgentExecutorProvider`, `IGitPrService`, `IFeatureRepository`
+  - **infrastructure/** — Implementations: Git services, agent executors (claude-code, cursor,
+    gemini-cli, dev), LangGraph feature-agent graph, SQLite repositories, DI container
+  - **presentation/** — CLI commands, TUI wizards, Next.js web UI
+
+  TypeSpec models in `tsp/` are the source of truth for domain types, compiled to
+  `packages/core/src/domain/generated/output.ts`.
+
+  ### Architecture Patterns
+
+  1. **LangGraph StateGraph** — The feature-agent is a compiled LangGraph with typed state
+     channels (`FeatureAgentAnnotation`). Nodes are pure async functions returning partial
+     state updates. The current flow is:
+     `analyze → validate → requirements → validate → research → validate → plan → validate → implement → merge`
+
+  2. **Agent Executor Abstraction** — All AI operations go through `IAgentExecutor.execute()`.
+     No node hardcodes an agent type. Resolution via `IAgentExecutorProvider` → factory → settings.
+
+  3. **Merge Node Architecture** — `merge.node.ts` performs:
+     - Agent Call 1: Commit + push + PR creation (via `buildCommitPushPrPrompt`)
+     - CI Watch/Fix Loop (via `runCiWatchFixLoop`)
+     - Approval Gate (via LangGraph `interrupt()`)
+     - Agent Call 2: Merge/squash
+
+  4. **PR Body Generation** — Currently the agent receives the full `spec.yaml` content and is
+     instructed to "write a rich PR body that summarizes the changes." The body is generated
+     entirely by the agent executor in the commit-push-PR prompt. No structured evidence is
+     injected.
+
+  5. **Validate/Repair Loop** — Each YAML-producing node is followed by a schema validation
+     node and a repair node for automatic error correction.
+
+  ### Relevant Technologies
+
+  - **LangGraph** (`@langchain/langgraph`) — State machine workflow engine
+  - **TypeSpec** — Domain model definitions compiled to TypeScript types
+  - **GitHub CLI** (`gh`) — Used for PR creation (`gh pr create`), CI watching (`gh run watch`),
+    PR merging (`gh pr merge`). Key for this feature: `gh pr edit --body` to update PR body
+    after evidence upload
+  - **tsyringe** — DI container for wiring infrastructure to ports
+  - **Vitest** — Test framework with mocked executors for unit/integration tests
+  - **Playwright** — Used in e2e tests; could be leveraged for screenshot capture
+
+  ## Success Criteria
+
+  - [ ] New `Evidence` TypeSpec model defined in `tsp/` with fields for type (screenshot, video,
+        test-output, artifact), path, description, and URL
+  - [ ] New state channels in `FeatureAgentAnnotation` for evidence records
+  - [ ] New evidence node (or evidence phase in merge) that collects proof of completed work
+  - [ ] Evidence artifacts uploaded and accessible via URL (GitHub release assets or committed)
+  - [ ] PR body updated to include evidence section with embedded images/links
+  - [ ] Prompt builder for evidence collection with spec + task context
+  - [ ] Unit tests for evidence node with mocked executor
+  - [ ] Integration tests for evidence flow within the compiled graph
+  - [ ] Existing merge flow tests continue to pass (no regression)
+  - [ ] `IGitPrService` extended if needed for PR body update operations
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `tsp/domain/` | High | New Evidence value object/entity model |
+  | `packages/core/src/domain/generated/output.ts` | High | Auto-generated from new TypeSpec model |
+  | `packages/core/src/infrastructure/services/agents/feature-agent/state.ts` | High | New evidence state channels in FeatureAgentAnnotation |
+  | `packages/core/src/infrastructure/services/agents/feature-agent/feature-agent-graph.ts` | High | Wire evidence node into graph flow |
+  | `packages/core/src/infrastructure/services/agents/feature-agent/nodes/` | High | New evidence.node.ts + evidence prompt |
+  | `packages/core/src/infrastructure/services/agents/feature-agent/nodes/prompts/merge-prompts.ts` | Medium | Modify buildCommitPushPrPrompt to include evidence in PR body |
+  | `tsp/domain/value-objects/pull-request.tsp` | Medium | Potentially add evidence[] to PullRequest model |
+  | `packages/core/src/application/ports/output/services/git-pr-service.interface.ts` | Medium | May need updatePrBody() or uploadAsset() methods |
+  | `packages/core/src/infrastructure/services/git/git-pr.service.ts` | Medium | Implementation of new IGitPrService methods |
+  | `tsp/domain/entities/feature.tsp` | Low | Feature entity may reference evidence records |
+  | `packages/core/src/infrastructure/services/agents/feature-agent/nodes/merge/merge.node.ts` | Low | May need to pass evidence data to merge prompt |
+  | `tests/unit/infrastructure/services/agents/feature-agent/nodes/` | High | New evidence node tests + updated merge tests |
+  | `tests/integration/infrastructure/services/agents/merge-flow.test.ts` | Medium | Integration tests for evidence in graph flow |
+  | `docs/development/adding-agents.md` | Low | Update if evidence node pattern is novel |
+
+  ## Dependencies
+
+  - **Existing**: LangGraph StateGraph, IAgentExecutor, IGitPrService, FeatureAgentAnnotation,
+    merge node architecture, TypeSpec compilation pipeline
+  - **External**: GitHub CLI (`gh`) for PR body editing and asset upload
+  - **Domain**: Artifact entity exists with categories (PRD, API, Design, Other) — evidence
+    could extend this or be a new model. PullRequest value object exists with PR tracking fields.
+  - **Testing**: Existing mock patterns for IAgentExecutor, IGitPrService, IFeatureRepository
+    provide templates for evidence node tests
+
+  ## Size Estimate
+
+  **M** — This feature involves:
+  - 1 new TypeSpec model + compilation
+  - 1 new LangGraph node (evidence.node.ts) + prompt builder
+  - State channel extensions
+  - Graph wiring changes
+  - Potential IGitPrService extension (updatePrBody/uploadAsset)
+  - Merge prompt modifications
+  - Unit + integration tests
+
+  The architecture patterns are well-established (adding-agents.md provides a clear guide),
+  and the merge node provides a strong reference implementation. The main complexity is in
+  the evidence capture strategy (how to actually take screenshots/recordings) and the upload
+  mechanism (GitHub asset storage). Estimated 3-5 days of implementation.
+
+  ---
+
+  _Analysis complete — proceed with research_
