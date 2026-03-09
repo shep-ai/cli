@@ -33,19 +33,25 @@ describe('AttachmentStorageService', () => {
   describe('store()', () => {
     it('writes file to pending dir and returns Attachment with correct fields', () => {
       const buf = createTestBuffer();
+      const hash = sha256(buf);
       const result = service.store(buf, 'screenshot.png', 'image/png', 'session-1', tmpDir);
 
-      expect(result.name).toBe('screenshot.png');
+      // Name includes content hash for uniqueness
+      expect(result.name).toBe(`screenshot-${hash.slice(0, 8)}.png`);
       expect(result.size).toBe(BigInt(buf.length));
       expect(result.mimeType).toBe('image/png');
       expect(result.id).toBeTruthy();
       expect(result.createdAt).toBeInstanceOf(Date);
-      expect(result.sha256).toBe(sha256(buf));
+      expect(result.sha256).toBe(hash);
+
+      // Path should be absolute
+      expect(result.path).toMatch(/^\//);
+      expect(result.path).toContain('.shep/attachments/pending-session-1');
 
       // File should exist on disk
       const expectedDir = join(tmpDir, '.shep', 'attachments', 'pending-session-1');
       expect(existsSync(expectedDir)).toBe(true);
-      const writtenContent = readFileSync(join(expectedDir, 'screenshot.png'));
+      const writtenContent = readFileSync(join(expectedDir, result.name));
       expect(writtenContent).toEqual(buf);
     });
 
@@ -57,9 +63,6 @@ describe('AttachmentStorageService', () => {
 
       expect(result2.id).toBe(result1.id);
       expect(result2.name).toBe(result1.name);
-      // Second file should NOT exist on disk
-      const pendingDir = join(tmpDir, '.shep', 'attachments', 'pending-session-1');
-      expect(existsSync(join(pendingDir, 'file2.png'))).toBe(false);
     });
 
     it('sanitizes filename containing path traversal (../) and spaces', () => {
@@ -85,22 +88,24 @@ describe('AttachmentStorageService', () => {
   describe('commit()', () => {
     it('renames pending dir to slug dir and returns updated paths', () => {
       const buf = createTestBuffer();
-      service.store(buf, 'screenshot.png', 'image/png', 'session-1', tmpDir);
+      const stored = service.store(buf, 'screenshot.png', 'image/png', 'session-1', tmpDir);
 
       const attachments = service.commit('session-1', 'my-feature', tmpDir);
 
       expect(attachments.length).toBe(1);
+      // Path should be absolute and contain slug dir
       expect(attachments[0].path).toContain('my-feature');
       expect(attachments[0].path).not.toContain('pending');
+      expect(attachments[0].path).toMatch(/^\//);
 
       // Pending dir should no longer exist
       const pendingDir = join(tmpDir, '.shep', 'attachments', 'pending-session-1');
       expect(existsSync(pendingDir)).toBe(false);
 
-      // Slug dir should exist
+      // Slug dir should exist with the unique filename
       const slugDir = join(tmpDir, '.shep', 'attachments', 'my-feature');
       expect(existsSync(slugDir)).toBe(true);
-      expect(existsSync(join(slugDir, 'screenshot.png'))).toBe(true);
+      expect(existsSync(join(slugDir, stored.name))).toBe(true);
     });
   });
 
@@ -110,9 +115,9 @@ describe('AttachmentStorageService', () => {
       const result = service.store(buf, 'empty.txt', 'text/plain', 'session-1', tmpDir);
 
       expect(result.size).toBe(BigInt(0));
-      expect(result.name).toBe('empty.txt');
+      expect(result.name).toMatch(/^empty-[a-f0-9]{8}\.txt$/);
       const pendingDir = join(tmpDir, '.shep', 'attachments', 'pending-session-1');
-      expect(existsSync(join(pendingDir, 'empty.txt'))).toBe(true);
+      expect(existsSync(join(pendingDir, result.name))).toBe(true);
     });
 
     it('sanitizes filename with unicode characters', () => {
@@ -128,8 +133,8 @@ describe('AttachmentStorageService', () => {
       const buf = createTestBuffer();
       const result = service.store(buf, '...', 'text/plain', 'session-1', tmpDir);
 
-      // Leading dots stripped, empty name falls back to 'unnamed'
-      expect(result.name).toBe('unnamed');
+      // Leading dots stripped, empty name falls back to 'unnamed' + hash
+      expect(result.name).toMatch(/^unnamed-[a-f0-9]{8}$/);
     });
 
     it('isolates dedup across different sessions', () => {

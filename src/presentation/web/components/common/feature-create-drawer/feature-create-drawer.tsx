@@ -1,18 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import type { LucideIcon } from 'lucide-react';
-import {
-  PlusIcon,
-  FileIcon,
-  FileTextIcon,
-  ImageIcon,
-  CodeIcon,
-  Trash2Icon,
-  ChevronsUpDown,
-  CheckIcon,
-  Zap,
-} from 'lucide-react';
+import { PaperclipIcon, ChevronsUpDown, CheckIcon, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSoundAction } from '@/hooks/use-sound-action';
 import { BaseDrawer } from '@/components/common/base-drawer';
@@ -26,7 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useGuardedDrawerClose } from '@/hooks/drawer-close-guard';
-import { AttachmentCard } from '@/components/common/attachment-card';
+import { AttachmentChip } from '@/components/common/attachment-chip';
 import type { WorkflowDefaults } from '@/app/actions/get-workflow-defaults';
 import { AgentModelPicker } from '@/components/features/settings/AgentModelPicker';
 import { pickFiles } from './pick-files';
@@ -289,10 +278,14 @@ export function FeatureCreateDrawer({
           }
 
           const uploaded = await res.json();
-          // Replace loading placeholder with real attachment
-          setAttachments((prev) =>
-            prev.map((a) => (a.id === tempId ? { ...uploaded, loading: false } : a))
-          );
+          // Server dedup may return the same path for identical content — drop the duplicate.
+          setAttachments((prev) => {
+            const isDupe = prev.some((a) => a.id !== tempId && a.path === uploaded.path);
+            if (isDupe) return prev.filter((a) => a.id !== tempId);
+            return prev.map((a) =>
+              a.id === tempId ? { ...uploaded, id: tempId, loading: false } : a
+            );
+          });
         } catch {
           setAttachments((prev) => prev.filter((a) => a.id !== tempId));
           setUploadError('Upload failed');
@@ -509,7 +502,7 @@ export function FeatureCreateDrawer({
               >
                 DESCRIBE YOUR FEATURE
               </Label>
-              <div className="border-input focus-within:ring-ring/50 focus-within:border-ring overflow-hidden rounded-md border shadow-xs transition-[color,box-shadow] focus-within:ring-[3px]">
+              <div className="border-input focus-within:ring-ring/50 focus-within:border-ring flex h-56 flex-col overflow-hidden rounded-md border shadow-xs transition-[color,box-shadow] focus-within:ring-[3px]">
                 <Textarea
                   id="feature-description"
                   placeholder="e.g. Add GitHub OAuth login with callback handling and token refresh..."
@@ -517,11 +510,30 @@ export function FeatureCreateDrawer({
                   onChange={(e) => setDescription(e.target.value)}
                   onKeyDown={handleKeyDown}
                   onPaste={handlePaste}
-                  rows={7}
                   required
                   disabled={isSubmitting}
-                  className="field-sizing-fixed min-h-42! resize-none rounded-none border-0 shadow-none focus-visible:ring-0"
+                  className="min-h-0 flex-1 resize-none rounded-none border-0 shadow-none focus-visible:ring-0"
                 />
+                {/* Inline attachment chips — between textarea and controls */}
+                {attachments.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5 px-3 py-2">
+                    {attachments.map((file) => (
+                      <AttachmentChip
+                        key={file.id}
+                        name={file.name}
+                        size={file.size}
+                        mimeType={file.mimeType}
+                        path={file.path}
+                        onRemove={() => handleRemoveFile(file.id)}
+                        disabled={isSubmitting}
+                        loading={file.loading}
+                      />
+                    ))}
+                  </div>
+                )}
+                {uploadError ? (
+                  <p className="text-destructive px-3 pb-2 text-xs">{uploadError}</p>
+                ) : null}
                 <div className="border-input flex items-center gap-3 border-t px-3 py-1.5">
                   <AgentModelPicker
                     initialAgentType={overrideAgent ?? currentAgentType ?? 'claude-code'}
@@ -555,6 +567,20 @@ export function FeatureCreateDrawer({
                     <TooltipContent side="bottom">
                       Skip SDLC phases and implement directly from your prompt.
                     </TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={handleAddFiles}
+                        disabled={isSubmitting}
+                        aria-label="Attach files"
+                        className="text-muted-foreground hover:text-foreground cursor-pointer rounded p-1 transition-colors"
+                      >
+                        <PaperclipIcon className="h-4 w-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">Attach files</TooltipContent>
                   </Tooltip>
                 </div>
               </div>
@@ -700,46 +726,6 @@ export function FeatureCreateDrawer({
               </div>
             </div>
 
-            {/* Attachments */}
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <Label className="text-muted-foreground text-xs font-semibold tracking-wider">
-                  ATTACHMENTS
-                  {attachments.length > 0 && (
-                    <span className="text-muted-foreground/60 ml-1.5">({attachments.length})</span>
-                  )}
-                </Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="xs"
-                  onClick={handleAddFiles}
-                  disabled={isSubmitting}
-                >
-                  <PlusIcon className="size-3" />
-                  Add Files
-                </Button>
-              </div>
-
-              {uploadError ? <p className="text-destructive text-xs">{uploadError}</p> : null}
-
-              {attachments.length > 0 && (
-                <div className="flex flex-col gap-2">
-                  {attachments.map((file) => (
-                    <AttachmentCard
-                      key={file.id}
-                      name={file.name}
-                      size={file.size}
-                      mimeType={file.mimeType}
-                      subtitle={file.path || undefined}
-                      onRemove={() => handleRemoveFile(file.id)}
-                      disabled={isSubmitting}
-                      loading={file.loading}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
           </form>
         </TooltipProvider>
       </div>

@@ -1,6 +1,6 @@
 import { injectable } from 'tsyringe';
 import { mkdirSync, writeFileSync, renameSync, rmSync, existsSync, readdirSync } from 'fs';
-import { join, relative, basename } from 'path';
+import { join, basename } from 'path';
 import { createHash, randomUUID } from 'crypto';
 import type { Attachment } from '../../domain/generated/output.js';
 
@@ -33,7 +33,7 @@ export class AttachmentStorageService {
       return sessionMap.get(hash)!;
     }
 
-    const sanitized = this.sanitizeFilename(filename);
+    const sanitized = this.uniqueFilename(this.sanitizeFilename(filename), hash);
     const pendingDir = this.getPendingDir(sessionId, repoPath);
     mkdirSync(pendingDir, { recursive: true });
 
@@ -45,7 +45,7 @@ export class AttachmentStorageService {
       name: sanitized,
       size: BigInt(buffer.length),
       mimeType,
-      path: relative(repoPath, filePath),
+      path: filePath,
       createdAt: new Date(),
       sha256: hash,
     };
@@ -87,7 +87,7 @@ export class AttachmentStorageService {
           name: stored.name,
           size: stored.size,
           mimeType: stored.mimeType,
-          path: relative(repoPath, newPath),
+          path: newPath,
           createdAt: stored.createdAt,
         });
       }
@@ -102,7 +102,7 @@ export class AttachmentStorageService {
           name: file,
           size: BigInt(0),
           mimeType: 'application/octet-stream',
-          path: relative(repoPath, filePath),
+          path: filePath,
           createdAt: new Date(),
         });
       }
@@ -127,6 +127,13 @@ export class AttachmentStorageService {
 
   private getSlugDir(featureSlug: string, repoPath: string): string {
     return join(repoPath, '.shep', 'attachments', featureSlug);
+  }
+
+  /** Generate unique filename by appending content hash when name collides (e.g. clipboard "image.png"). */
+  private uniqueFilename(filename: string, hash: string): string {
+    const dot = filename.lastIndexOf('.');
+    if (dot <= 0) return `${filename}-${hash.slice(0, 8)}`;
+    return `${filename.slice(0, dot)}-${hash.slice(0, 8)}${filename.slice(dot)}`;
   }
 
   /** Strip path traversal and non-safe characters from filenames. */
