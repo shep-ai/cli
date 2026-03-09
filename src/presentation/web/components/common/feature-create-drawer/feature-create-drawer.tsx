@@ -551,7 +551,7 @@ export function FeatureCreateDrawer({
                 onBlur={handlePromptBlur}
                 className={cn(
                   'border-input flex h-56 flex-col overflow-hidden rounded-md border shadow-xs transition-[color,box-shadow]',
-                  isPromptFocused && 'ring-ring/50 border-ring ring-[3px]',
+                  isPromptFocused && 'ring-ring/50 border-ring ring-[3px]'
                 )}
               >
                 <Textarea
