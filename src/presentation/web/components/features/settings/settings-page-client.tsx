@@ -15,6 +15,7 @@ import {
   Minus,
   Plus,
   ExternalLink,
+  Settings2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -71,17 +72,35 @@ export interface SettingsPageClientProps {
 
 function useSaveIndicator() {
   const [isPending, startTransition] = useTransition();
+  const [showSaving, setShowSaving] = useState(false);
   const [showSaved, setShowSaved] = useState(false);
-  const prevPendingRef = useRef(false);
+  const minTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingDoneRef = useRef(false);
 
+  // Show "Saving..." with a minimum display time of 600ms
   useEffect(() => {
-    if (prevPendingRef.current && !isPending) {
-      setShowSaved(true);
-      const timer = setTimeout(() => setShowSaved(false), 2000);
-      return () => clearTimeout(timer);
+    if (isPending && !showSaving) {
+      setShowSaving(true);
+      pendingDoneRef.current = false;
+      minTimerRef.current = setTimeout(() => {
+        minTimerRef.current = null;
+        if (pendingDoneRef.current) {
+          setShowSaving(false);
+          setShowSaved(true);
+          setTimeout(() => setShowSaved(false), 2000);
+        }
+      }, 350);
     }
-    prevPendingRef.current = isPending;
-  }, [isPending]);
+    if (!isPending && showSaving) {
+      pendingDoneRef.current = true;
+      // If min timer already elapsed, transition now
+      if (!minTimerRef.current) {
+        setShowSaving(false);
+        setShowSaved(true);
+        setTimeout(() => setShowSaved(false), 2000);
+      }
+    }
+  }, [isPending, showSaving]);
 
   const save = useCallback(
     (payload: Record<string, unknown>) => {
@@ -95,7 +114,7 @@ function useSaveIndicator() {
     [startTransition]
   );
 
-  return { isPending, showSaved, save };
+  return { showSaving, showSaved, save };
 }
 
 /* ── Reusable row components ── */
@@ -316,7 +335,7 @@ function SectionHint({
 /* ── Main component ── */
 
 export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsPageClientProps) {
-  const { isPending, showSaved, save } = useSaveIndicator();
+  const { showSaving, showSaved, save } = useSaveIndicator();
   const featureFlags = settings.featureFlags ?? { skills: false, envDeploy: false, debug: false };
 
   // Agent state
@@ -470,46 +489,60 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
 
   return (
     <div data-testid="settings-page-client" className="max-w-5xl">
-      <div className="mb-4 flex items-center gap-3">
-        <h1 className="text-sm font-bold tracking-tight">Settings</h1>
-        <nav className="flex items-center gap-0.5">
-          {SECTIONS.map((s) => {
-            const SectionIcon = s.icon;
-            const isActive = activeSection === s.id;
-            return (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => scrollToSection(s.id)}
-                className={cn(
-                  'flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-1 text-[11px] transition-all',
-                  isActive
-                    ? 'bg-accent text-foreground font-medium'
-                    : 'text-muted-foreground/60 hover:text-foreground hover:bg-accent/50'
-                )}
-              >
-                <SectionIcon className="h-3 w-3" />
-                <span className="hidden sm:inline">{s.label}</span>
-              </button>
-            );
-          })}
-        </nav>
-        {isPending ? (
-          <span className="text-muted-foreground ml-auto text-xs">Saving...</span>
-        ) : null}
-        {showSaved && !isPending ? (
-          <span className="ml-auto flex items-center gap-1 text-xs text-green-600">
-            <Check className="h-3 w-3" />
-            Saved
+      {/* Sticky header — title + save indicator + TOC in one row */}
+      <div className="bg-background/95 supports-backdrop-filter:bg-background/80 sticky top-0 z-10 mb-4 grid grid-cols-1 gap-x-5 backdrop-blur lg:grid-cols-[1fr_280px]">
+        <div className="flex items-center gap-2">
+          <Settings2 className="text-muted-foreground h-4 w-4" />
+          <h1 className="text-sm font-bold tracking-tight">Settings</h1>
+          <span className="relative h-4 w-16">
+            <span
+              className={cn(
+                'text-muted-foreground absolute inset-0 flex items-center text-xs transition-opacity duration-300',
+                showSaving ? 'opacity-100' : 'opacity-0'
+              )}
+            >
+              Saving...
+            </span>
+            <span
+              className={cn(
+                'absolute inset-0 flex items-center gap-1 text-xs text-green-600 transition-opacity duration-300',
+                showSaved && !showSaving ? 'opacity-100' : 'opacity-0'
+              )}
+            >
+              <Check className="h-3 w-3" />
+              Saved
+            </span>
           </span>
-        ) : null}
+          <nav className="ml-auto flex items-center gap-0.5">
+            {SECTIONS.map((s) => {
+              const SectionIcon = s.icon;
+              const isActive = activeSection === s.id;
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => scrollToSection(s.id)}
+                  className={cn(
+                    'flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-1 text-[11px] transition-all',
+                    isActive
+                      ? 'bg-accent text-foreground font-medium'
+                      : 'text-muted-foreground/60 hover:text-foreground hover:bg-accent/50'
+                  )}
+                >
+                  <SectionIcon className="h-3 w-3" />
+                  <span className="hidden sm:inline">{s.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+        </div>
       </div>
 
       <div className="flex flex-col gap-3">
         {/* ── Agent ── */}
         <div
           id="section-agent"
-          className="grid scroll-mt-6 grid-cols-1 gap-x-5 rounded-lg lg:grid-cols-[1fr_280px]"
+          className="grid scroll-mt-14 grid-cols-1 gap-x-5 rounded-lg lg:grid-cols-[1fr_280px]"
         >
           <SettingsSection
             icon={Bot}
@@ -617,7 +650,7 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
         {/* ── Environment ── */}
         <div
           id="section-environment"
-          className="grid scroll-mt-6 grid-cols-1 gap-x-5 rounded-lg lg:grid-cols-[1fr_280px]"
+          className="grid scroll-mt-14 grid-cols-1 gap-x-5 rounded-lg lg:grid-cols-[1fr_280px]"
         >
           <SettingsSection
             icon={Terminal}
@@ -678,7 +711,7 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
         {/* ── Workflow ── */}
         <div
           id="section-workflow"
-          className="grid scroll-mt-6 grid-cols-1 gap-x-5 rounded-lg lg:grid-cols-[1fr_280px]"
+          className="grid scroll-mt-14 grid-cols-1 gap-x-5 rounded-lg lg:grid-cols-[1fr_280px]"
         >
           <SettingsSection
             icon={GitBranch}
@@ -762,7 +795,7 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
         {/* ── CI ── */}
         <div
           id="section-ci"
-          className="grid scroll-mt-6 grid-cols-1 gap-x-5 rounded-lg lg:grid-cols-[1fr_280px]"
+          className="grid scroll-mt-14 grid-cols-1 gap-x-5 rounded-lg lg:grid-cols-[1fr_280px]"
         >
           <SettingsSection
             icon={Activity}
@@ -848,7 +881,7 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
         {/* ── Notifications ── */}
         <div
           id="section-notifications"
-          className="grid scroll-mt-6 grid-cols-1 gap-x-5 rounded-lg lg:grid-cols-[1fr_280px]"
+          className="grid scroll-mt-14 grid-cols-1 gap-x-5 rounded-lg lg:grid-cols-[1fr_280px]"
         >
           <SettingsSection
             icon={Bell}
@@ -1011,7 +1044,7 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
         {/* ── Feature Flags ── */}
         <div
           id="section-feature-flags"
-          className="grid scroll-mt-6 grid-cols-1 gap-x-5 rounded-lg lg:grid-cols-[1fr_280px]"
+          className="grid scroll-mt-14 grid-cols-1 gap-x-5 rounded-lg lg:grid-cols-[1fr_280px]"
         >
           <SettingsSection
             icon={Flag}
@@ -1067,7 +1100,7 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
         {/* ── Database ── */}
         <div
           id="section-database"
-          className="grid scroll-mt-6 grid-cols-1 gap-x-5 rounded-lg lg:grid-cols-[1fr_280px]"
+          className="grid scroll-mt-14 grid-cols-1 gap-x-5 rounded-lg lg:grid-cols-[1fr_280px]"
         >
           <SettingsSection
             icon={Database}
