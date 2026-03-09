@@ -67,7 +67,7 @@ const sampleTimings: PhaseTimingData[] = [
 const samplePlan: PlanData = {
   state: 'Ready',
   overview: 'Implementation plan',
-  tasks: [{ title: 'Task 1', description: 'Do something', state: 'Todo' }],
+  tasks: [{ title: 'Task 1', description: 'Do something', state: 'Todo', actionItems: [] }],
 };
 
 function renderTabs(props: Partial<{ featureNode: FeatureNodeData; featureId: string }> = {}) {

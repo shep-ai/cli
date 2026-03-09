@@ -34,31 +34,96 @@ const mixedTasksPlan: PlanData = {
       title: 'Set up OAuth provider configuration',
       description: 'Configure Google and GitHub OAuth apps with client IDs and secrets',
       state: 'Done',
+      actionItems: [
+        {
+          name: 'Create OAuth config module',
+          description: 'Define provider configuration schema and load from env',
+          acceptanceCriteria: [
+            { description: 'Config loads from environment variables', verified: true },
+            { description: 'Validation rejects missing client ID or secret', verified: true },
+          ],
+        },
+        {
+          name: 'Register OAuth apps',
+          description: 'Register apps with Google and GitHub developer consoles',
+          acceptanceCriteria: [
+            { description: 'Google OAuth app created with correct scopes', verified: true },
+            { description: 'GitHub OAuth app created with correct callback URL', verified: true },
+          ],
+        },
+      ],
     },
     {
       title: 'Implement callback handler',
       description: 'Handle OAuth callback with authorization code exchange',
       state: 'Done',
+      actionItems: [
+        {
+          name: 'Build callback endpoint',
+          description: 'GET /auth/callback with code exchange logic',
+          acceptanceCriteria: [
+            { description: 'Exchanges authorization code for tokens', verified: true },
+          ],
+        },
+      ],
     },
     {
       title: 'Add token refresh logic',
       description: 'Implement silent token refresh using refresh tokens stored in httpOnly cookies',
       state: 'Work in Progress',
+      actionItems: [
+        {
+          name: 'Implement refresh endpoint',
+          description: 'POST /auth/refresh to issue new access token',
+          acceptanceCriteria: [
+            { description: 'Returns new access token when refresh token is valid', verified: true },
+            { description: 'Returns 401 when refresh token is expired', verified: false },
+          ],
+        },
+        {
+          name: 'Add httpOnly cookie handling',
+          description: 'Store refresh tokens in secure httpOnly cookies',
+          acceptanceCriteria: [
+            { description: 'Cookies are set with Secure and HttpOnly flags', verified: false },
+          ],
+        },
+      ],
     },
     {
       title: 'Create user profile sync',
       description: 'Sync user profile data from identity providers on login',
       state: 'Todo',
+      actionItems: [
+        {
+          name: 'Fetch profile from provider',
+          description: 'Use access token to retrieve user profile from Google/GitHub',
+          acceptanceCriteria: [
+            { description: 'Retrieves name, email, and avatar from Google', verified: false },
+            { description: 'Retrieves name, email, and avatar from GitHub', verified: false },
+          ],
+        },
+      ],
     },
     {
       title: 'Write integration tests',
       description: 'Test the full OAuth flow with mocked providers',
       state: 'Todo',
+      actionItems: [],
     },
     {
       title: 'Update API documentation',
       description: 'Document new authentication endpoints and flows',
       state: 'Review',
+      actionItems: [
+        {
+          name: 'Document auth endpoints',
+          description: 'Add OpenAPI specs for all auth routes',
+          acceptanceCriteria: [
+            { description: 'All endpoints have OpenAPI documentation', verified: true },
+            { description: 'Examples included for each endpoint', verified: true },
+          ],
+        },
+      ],
     },
   ],
 };
@@ -72,21 +137,25 @@ const allDonePlan: PlanData = {
       title: 'Design sliding window algorithm',
       description: 'Implement Redis-backed sliding window counter',
       state: 'Done',
+      actionItems: [],
     },
     {
       title: 'Add rate limit middleware',
       description: 'Express middleware that checks rate limits per IP',
       state: 'Done',
+      actionItems: [],
     },
     {
       title: 'Configure limits per endpoint',
       description: 'Set different rate limits for public vs authenticated endpoints',
       state: 'Done',
+      actionItems: [],
     },
     {
       title: 'Add rate limit headers',
       description: 'Include X-RateLimit-* headers in responses',
       state: 'Done',
+      actionItems: [],
     },
   ],
 };
@@ -100,16 +169,19 @@ const draftPlan: PlanData = {
       title: 'Define notification types',
       description: 'Enumerate all notification events and their payloads',
       state: 'Todo',
+      actionItems: [],
     },
     {
       title: 'Set up WebSocket server',
       description: 'Configure Socket.io with Redis adapter for horizontal scaling',
       state: 'Todo',
+      actionItems: [],
     },
     {
       title: 'Implement notification store',
       description: 'Persist notifications in database with read/unread tracking',
       state: 'Todo',
+      actionItems: [],
     },
   ],
 };
@@ -122,11 +194,13 @@ const clarificationPlan: PlanData = {
       title: 'Set up email provider',
       description: 'Configure SendGrid API integration',
       state: 'Done',
+      actionItems: [],
     },
     {
       title: 'Create template engine',
       description: 'Implement Handlebars-based email template rendering',
       state: 'Todo',
+      actionItems: [],
     },
   ],
 };

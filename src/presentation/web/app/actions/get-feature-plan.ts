@@ -3,10 +3,22 @@
 import { resolve } from '@/lib/server-container';
 import type { IFeatureRepository } from '@shepai/core/application/ports/output/repositories/feature-repository.interface';
 
+export interface AcceptanceCriterionData {
+  description: string;
+  verified: boolean;
+}
+
+export interface ActionItemData {
+  name: string;
+  description: string;
+  acceptanceCriteria: AcceptanceCriterionData[];
+}
+
 export interface PlanTaskData {
   title: string;
   description: string;
   state: string;
+  actionItems: ActionItemData[];
 }
 
 export interface PlanData {
@@ -41,6 +53,14 @@ export async function getFeaturePlan(featureId: string): Promise<GetPlanResult> 
         title: t.title ?? '',
         description: t.description ?? '',
         state: t.state,
+        actionItems: (t.actionItems ?? []).map((ai) => ({
+          name: ai.name,
+          description: ai.description,
+          acceptanceCriteria: (ai.acceptanceCriteria ?? []).map((ac) => ({
+            description: ac.description,
+            verified: ac.verified,
+          })),
+        })),
       })),
     };
 

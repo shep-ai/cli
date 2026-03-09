@@ -65,11 +65,13 @@ describe('getFeaturePlan', () => {
             title: 'Create login form',
             description: 'Build the UI for login',
             state: 'Done',
+            actionItems: [],
           },
           {
             title: 'Add auth middleware',
             description: 'Protect routes with JWT',
             state: 'Work in Progress',
+            actionItems: [],
           },
         ],
       },
