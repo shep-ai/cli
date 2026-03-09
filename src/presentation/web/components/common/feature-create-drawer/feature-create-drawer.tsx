@@ -181,10 +181,12 @@ export function FeatureCreateDrawer({
   const [overrideModel, setOverrideModel] = useState<string | undefined>(undefined);
   const [isDragOver, setIsDragOver] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [isPromptFocused, setIsPromptFocused] = useState(false);
 
   // Stable sessionId per mount — used for upload dedup grouping
   const sessionIdRef = useRef(crypto.randomUUID());
   const dragCounterRef = useRef(0);
+  const promptContainerRef = useRef<HTMLDivElement>(null);
 
   // Sync state when workflowDefaults load asynchronously
   useEffect(() => {
@@ -456,6 +458,24 @@ export function FeatureCreateDrawer({
     }
   }, []);
 
+  const handlePromptFocus = useCallback(() => {
+    setIsPromptFocused(true);
+  }, []);
+
+  const handlePromptBlur = useCallback(() => {
+    // Defer the check so focus has time to settle on the new target.
+    // This correctly handles Radix portals (e.g. AgentModelPicker popover) that
+    // render outside the container DOM but are logically part of the prompt area.
+    setTimeout(() => {
+      const withinContainer = promptContainerRef.current?.contains(document.activeElement);
+      const pickerPopoverOpen =
+        promptContainerRef.current?.querySelector('[aria-expanded="true"]') !== null;
+      if (!withinContainer && !pickerPopoverOpen) {
+        setIsPromptFocused(false);
+      }
+    }, 0);
+  }, []);
+
   const hasFeatures = features && features.length > 0;
 
   return (
@@ -525,7 +545,15 @@ export function FeatureCreateDrawer({
               >
                 DESCRIBE YOUR FEATURE
               </Label>
-              <div className="border-input focus-within:ring-ring/50 focus-within:border-ring flex h-56 flex-col overflow-hidden rounded-md border shadow-xs transition-[color,box-shadow] focus-within:ring-[3px]">
+              <div
+                ref={promptContainerRef}
+                onFocus={handlePromptFocus}
+                onBlur={handlePromptBlur}
+                className={cn(
+                  'border-input flex h-56 flex-col overflow-hidden rounded-md border shadow-xs transition-[color,box-shadow]',
+                  isPromptFocused && 'ring-ring/50 border-ring ring-[3px]',
+                )}
+              >
                 <Textarea
                   id="feature-description"
                   placeholder="e.g. Add GitHub OAuth login with callback handling and token refresh..."

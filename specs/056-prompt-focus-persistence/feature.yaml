@@ -1,0 +1,36 @@
+feature:
+  id: '056-prompt-focus-persistence'
+  name: 'prompt-focus-persistence'
+  number: 56
+  branch: 'feat/056-prompt-focus-persistence'
+  lifecycle: 'research'
+  createdAt: '2026-03-09T18:45:15Z'
+
+status:
+  phase: 'research'
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-03-09T18:45:15Z'
+  lastUpdatedBy: 'feature-agent'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-03-09T18:45:15Z'
+    completedBy: 'feature-agent'
+
+errors:
+  current: null
+  history: []
