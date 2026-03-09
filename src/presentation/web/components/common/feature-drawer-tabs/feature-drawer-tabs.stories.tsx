@@ -306,6 +306,37 @@ export const ErrorState: Story = {
 };
 
 /* ---------------------------------------------------------------------------
+ * Fast mode stories
+ * ------------------------------------------------------------------------- */
+
+const fastModeFeature: FeatureNodeData = {
+  name: 'Quick Fix',
+  description: 'Fast mode feature — skipping SDLC phases',
+  featureId: 'fast-mode-123',
+  lifecycle: 'implementation',
+  state: 'running',
+  progress: 50,
+  fastMode: true,
+  agentType: 'claude-code',
+  repositoryPath: '/home/user/my-repo',
+  branch: 'feat/quick-fix',
+  oneLiner: 'quick fix for the login bug',
+  userQuery: 'fix the login bug',
+  summary: 'Quick fix applied directly from prompt via fast mode',
+  createdAt: Date.now() - 10 * 60 * 1000, // 10 minutes ago
+  repositoryName: 'my-repo',
+  baseBranch: 'main',
+};
+
+/** Fast mode feature — shows lightning icon in overview details. */
+export const FastModeFeature: Story = {
+  args: {
+    featureNode: fastModeFeature,
+    featureId: fastModeFeature.featureId,
+  },
+};
+
+/* ---------------------------------------------------------------------------
  * Review tab stories
  * ------------------------------------------------------------------------- */
 

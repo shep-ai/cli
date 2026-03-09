@@ -39,6 +39,7 @@ describe('Feature parent_id migration and findByParentId', () => {
     lifecycle: SdlcLifecycle.Requirements,
     messages: [],
     relatedArtifacts: [],
+    fast: false,
     push: false,
     openPr: false,
     approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },

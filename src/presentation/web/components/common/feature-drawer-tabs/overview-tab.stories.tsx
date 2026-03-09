@@ -162,6 +162,33 @@ export const Minimal: Story = {
 };
 
 /* ---------------------------------------------------------------------------
+ * Fast mode stories
+ * ------------------------------------------------------------------------- */
+
+const fastModeData: FeatureNodeData = {
+  name: 'Quick Fix',
+  description: 'Fast mode feature — skipping SDLC phases',
+  featureId: '#fm1',
+  lifecycle: 'implementation',
+  state: 'running',
+  progress: 50,
+  fastMode: true,
+  agentType: 'claude-code',
+  repositoryPath: '/home/user/my-repo',
+  branch: 'feat/quick-fix',
+  userQuery: 'fix the login bug',
+  summary: 'Quick fix applied directly from prompt via fast mode',
+  createdAt: Date.now() - 10 * 60 * 1000,
+  repositoryName: 'my-repo',
+  baseBranch: 'main',
+};
+
+/** Fast mode feature — shows lightning icon in details section. */
+export const FastMode: Story = {
+  args: { data: fastModeData },
+};
+
+/* ---------------------------------------------------------------------------
  * Lifecycle phase stories
  * ------------------------------------------------------------------------- */
 

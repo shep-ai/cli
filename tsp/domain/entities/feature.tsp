@@ -369,6 +369,9 @@ model Feature extends BaseEntity {
 
   // ── Workflow Configuration ──────────────────────────────────
 
+  @doc("When true, SDLC phases were skipped and the feature was implemented directly from the prompt")
+  fast: boolean = false;
+
   @doc("Push branch to remote after implementation (default: false)")
   push: boolean = false;
 

@@ -34,6 +34,7 @@ function makeFeature(overrides?: Partial<Feature>): Feature {
     lifecycle: SdlcLifecycle.Planning,
     messages: [],
     relatedArtifacts: [],
+    fast: false,
     push: false,
     openPr: false,
     approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },

@@ -445,6 +445,17 @@ WHERE repository_path NOT IN (SELECT path FROM repositories WHERE path IS NOT NU
       }
     },
   },
+  {
+    version: 27,
+    // Migration 027: Add fast column to features for fast mode tracking.
+    sql: '',
+    handler: (db: Database.Database) => {
+      const columns = db.pragma('table_info(features)') as { name: string }[];
+      if (!columns.some((c) => c.name === 'fast')) {
+        db.exec('ALTER TABLE features ADD COLUMN fast INTEGER NOT NULL DEFAULT 0');
+      }
+    },
+  },
 ];
 
 /**
