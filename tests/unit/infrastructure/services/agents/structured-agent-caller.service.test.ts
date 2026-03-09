@@ -1,15 +1,22 @@
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+vi.mock('@/infrastructure/services/settings.service.js', () => ({
+  getSettings: vi.fn().mockReturnValue({ agent: { type: 'claude-code' } }),
+}));
+
 import { StructuredAgentCallerService } from '@/infrastructure/services/agents/common/structured-agent-caller.service.js';
 import { StructuredCallError } from '@/application/ports/output/agents/structured-call-error.js';
 import type { IAgentExecutor } from '@/application/ports/output/agents/agent-executor.interface.js';
 import type { IAgentExecutorProvider } from '@/application/ports/output/agents/agent-executor-provider.interface.js';
+import type { IAgentExecutorFactory } from '@/application/ports/output/agents/agent-executor-factory.interface.js';
 import { AgentFeature } from '@/domain/generated/output.js';
 
 describe('StructuredAgentCallerService', () => {
   let service: StructuredAgentCallerService;
   let mockExecutor: IAgentExecutor;
   let mockProvider: IAgentExecutorProvider;
+  let mockFactory: IAgentExecutorFactory;
 
   const testSchema = {
     type: 'object',
@@ -32,7 +39,13 @@ describe('StructuredAgentCallerService', () => {
     mockProvider = {
       getExecutor: vi.fn().mockReturnValue(mockExecutor),
     };
-    service = new StructuredAgentCallerService(mockProvider);
+    mockFactory = {
+      createExecutor: vi.fn().mockReturnValue(mockExecutor),
+      getSupportedModels: vi.fn().mockReturnValue([]),
+      getSupportedAgents: vi.fn().mockReturnValue([]),
+      getCliInfo: vi.fn().mockReturnValue(undefined),
+    };
+    service = new StructuredAgentCallerService(mockProvider, mockFactory);
   });
 
   describe('native path (agent supports structured-output)', () => {
@@ -211,6 +224,37 @@ describe('StructuredAgentCallerService', () => {
       await expect(service.call('extract data', testSchema)).rejects.not.toBeInstanceOf(
         StructuredCallError
       );
+    });
+  });
+
+  describe('agent type override', () => {
+    it('uses factory when agentType option is provided', async () => {
+      const cursorExecutor: IAgentExecutor = {
+        agentType: 'cursor' as any,
+        execute: vi.fn().mockResolvedValue({
+          result: '{"name":"cursor","count":1}',
+        }),
+        executeStream: vi.fn(),
+        supportsFeature: vi.fn().mockReturnValue(false),
+      };
+      vi.mocked(mockFactory.createExecutor).mockReturnValue(cursorExecutor);
+
+      await service.call('test', testSchema, { agentType: 'cursor' as any });
+
+      expect(mockFactory.createExecutor).toHaveBeenCalledWith('cursor', expect.any(Object));
+      expect(mockProvider.getExecutor).not.toHaveBeenCalled();
+    });
+
+    it('uses provider when agentType is not provided', async () => {
+      vi.mocked(mockExecutor.supportsFeature).mockReturnValue(false);
+      vi.mocked(mockExecutor.execute).mockResolvedValue({
+        result: '{"name":"default","count":1}',
+      });
+
+      await service.call('test', testSchema);
+
+      expect(mockProvider.getExecutor).toHaveBeenCalled();
+      expect(mockFactory.createExecutor).not.toHaveBeenCalled();
     });
   });
 

@@ -19,6 +19,22 @@ import type {
 import type { SpawnFunction } from '../types.js';
 import { getCurrentPhase, getLogPrefix } from '../../feature-agent/log-context.js';
 
+/**
+ * Map canonical model IDs (used across shep) to Cursor CLI model names.
+ * Cursor uses short names like "sonnet-4.6" instead of "claude-sonnet-4-6".
+ * Models that already match Cursor's naming pass through unchanged.
+ */
+const CURSOR_MODEL_MAP: Record<string, string> = {
+  'claude-opus-4-6': 'opus-4.6',
+  'claude-sonnet-4-6': 'sonnet-4.6',
+  'claude-haiku-4-5': 'haiku-4.5',
+  'grok-code': 'grok',
+};
+
+function toCursorModelName(model: string): string {
+  return CURSOR_MODEL_MAP[model] ?? model;
+}
+
 /** Features supported by Cursor CLI */
 const SUPPORTED_FEATURES = new Set<string>(['session-resume', 'streaming']);
 
@@ -264,7 +280,7 @@ export class CursorExecutorService implements IAgentExecutor {
   private buildArgs(prompt: string, options?: AgentExecutionOptions): string[] {
     const args = ['-p', prompt, '--output-format', 'json', '--force'];
     if (options?.resumeSession) args.push('--resume', options.resumeSession);
-    if (options?.model) args.push('-m', options.model);
+    if (options?.model) args.push('--model', toCursorModelName(options.model));
     // Unsupported options silently omitted: systemPrompt, allowedTools, maxTurns, outputSchema
     // No auth flags — binary handles its own auth
     return args;

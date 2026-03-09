@@ -1,12 +1,14 @@
 import { injectable, inject } from 'tsyringe';
 import { AgentFeature } from '../../../../domain/generated/output.js';
 import type { IAgentExecutorProvider } from '../../../../application/ports/output/agents/agent-executor-provider.interface.js';
+import type { IAgentExecutorFactory } from '../../../../application/ports/output/agents/agent-executor-factory.interface.js';
 import type { IAgentExecutor } from '../../../../application/ports/output/agents/agent-executor.interface.js';
 import type {
   IStructuredAgentCaller,
   StructuredCallOptions,
 } from '../../../../application/ports/output/agents/structured-agent-caller.interface.js';
 import { StructuredCallError } from '../../../../application/ports/output/agents/structured-call-error.js';
+import { getSettings } from '../../settings.service.js';
 
 /**
  * Structured agent caller that abstracts native structured output vs prompt-based JSON extraction.
@@ -18,11 +20,19 @@ import { StructuredCallError } from '../../../../application/ports/output/agents
 export class StructuredAgentCallerService implements IStructuredAgentCaller {
   constructor(
     @inject('IAgentExecutorProvider')
-    private readonly executorProvider: IAgentExecutorProvider
+    private readonly executorProvider: IAgentExecutorProvider,
+    @inject('IAgentExecutorFactory')
+    private readonly executorFactory: IAgentExecutorFactory
   ) {}
 
   async call<T>(prompt: string, schema: object, options?: StructuredCallOptions): Promise<T> {
-    const executor = await this.executorProvider.getExecutor();
+    let executor: IAgentExecutor;
+    if (options?.agentType) {
+      const settings = getSettings();
+      executor = this.executorFactory.createExecutor(options.agentType, settings.agent);
+    } else {
+      executor = await this.executorProvider.getExecutor();
+    }
 
     if (executor.supportsFeature(AgentFeature.structuredOutput)) {
       return this.callWithNativeSchema<T>(executor, prompt, schema, options);

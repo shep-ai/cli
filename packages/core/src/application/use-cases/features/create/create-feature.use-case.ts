@@ -208,7 +208,10 @@ export class CreateFeatureUseCase {
     // Ensure the target directory is a git repository (auto-init if needed)
     await this.worktreeService.ensureGitRepository(effectiveRepoPath);
 
-    const metadata = await this.metadataGenerator.generateMetadata(input.userInput);
+    const metadata = await this.metadataGenerator.generateMetadata(
+      input.userInput,
+      input.agentType as AgentType | undefined
+    );
     const originalSlug = metadata.slug;
 
     const { slug, branch, warning } = await this.slugResolver.resolveUniqueSlug(

@@ -33,7 +33,7 @@ export const ClaudeCodeDefault: Story = {
 export const CursorSelected: Story = {
   args: {
     initialAgentType: 'cursor',
-    initialModel: 'gpt-5.4',
+    initialModel: 'gpt-5.4-high',
     mode: 'settings',
   },
 };

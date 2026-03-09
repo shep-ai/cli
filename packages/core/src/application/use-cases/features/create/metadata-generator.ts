@@ -7,6 +7,7 @@
  */
 
 import { injectable, inject } from 'tsyringe';
+import type { AgentType } from '../../../../domain/generated/output.js';
 import type { IStructuredAgentCaller } from '../../../ports/output/agents/structured-agent-caller.interface.js';
 
 interface FeatureMetadata {
@@ -40,7 +41,7 @@ export class MetadataGenerator {
    * Generate feature metadata from user input via AI.
    * Errors are propagated to the caller.
    */
-  async generateMetadata(userInput: string): Promise<FeatureMetadata> {
+  async generateMetadata(userInput: string, agentType?: AgentType): Promise<FeatureMetadata> {
     const truncated =
       userInput.length > MAX_INPUT_FOR_AI
         ? `${userInput.slice(0, MAX_INPUT_FOR_AI)}...`
@@ -62,6 +63,7 @@ Return a JSON object with these fields:
       maxTurns: 10,
       allowedTools: [],
       silent: true,
+      agentType,
     });
 
     if (!parsed.slug || !parsed.name || !parsed.description) {
