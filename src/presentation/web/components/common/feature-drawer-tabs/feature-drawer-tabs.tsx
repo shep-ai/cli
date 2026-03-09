@@ -224,12 +224,9 @@ export function FeatureDrawerTabs({
         className="flex min-h-0 flex-1 flex-col"
       >
         <div className="shrink-0 overflow-x-auto px-4 pt-4">
-          <TabsList
-            className="grid w-full"
-            style={{ gridTemplateColumns: `repeat(${visibleTabDefs.length}, minmax(0, 1fr))` }}
-          >
+          <TabsList className="flex w-full">
             {visibleTabDefs.map((tab) => (
-              <TabsTrigger key={tab.key} value={tab.key}>
+              <TabsTrigger key={tab.key} value={tab.key} className="flex-1">
                 {tab.label}
               </TabsTrigger>
             ))}
