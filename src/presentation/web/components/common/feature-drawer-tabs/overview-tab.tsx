@@ -102,10 +102,7 @@ function formatRelativeTime(timestamp: string | number): string {
 }
 
 function FeatureInfo({ data }: { data: FeatureNodeData }) {
-  const repoName =
-    data.repositoryName ?? data.repositoryPath.split('/').filter(Boolean).at(-1) ?? '';
   const hasInfo =
-    Boolean(repoName) ||
     Boolean(data.branch) ||
     Boolean(data.summary) ||
     Boolean(data.userQuery) ||
@@ -116,7 +113,6 @@ function FeatureInfo({ data }: { data: FeatureNodeData }) {
     <>
       <Separator />
       <div data-testid="feature-drawer-info" className="flex flex-col gap-3 p-4">
-        {repoName ? <DetailRow label="Repository" value={repoName} /> : null}
         {data.branch ? (
           <div className="flex flex-col gap-0.5">
             <span className="text-muted-foreground text-xs font-medium">Branch</span>

@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { toast } from 'sonner';
-import { Loader2, Trash2, Play, Square, Copy, Check } from 'lucide-react';
+import { Loader2, Trash2, Play, Square, Copy, Check, Code2 } from 'lucide-react';
 import type {
   PrdApprovalPayload,
   QuestionSelectionChange,
@@ -428,28 +428,20 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
 
   if (featureNode) {
     const shortId = featureNode.featureId.slice(0, 8);
+    const repoName =
+      featureNode.repositoryName ??
+      featureNode.repositoryPath.split('/').filter(Boolean).at(-1) ??
+      '';
     header = (
       <>
         <div data-testid="feature-drawer-header">
           <DrawerTitle>{featureNode.name}</DrawerTitle>
-          <div className="flex items-center gap-1.5 pt-0.5">
-            <code className="bg-muted text-muted-foreground rounded px-1.5 py-0.5 font-mono text-xs">
-              {shortId}
-            </code>
-            <button
-              type="button"
-              onClick={handleCopyId}
-              className="text-muted-foreground hover:text-foreground inline-flex items-center rounded p-0.5 transition-colors"
-              aria-label="Copy feature ID"
-              data-testid="feature-drawer-copy-id"
-            >
-              {idCopied ? (
-                <Check className="size-3.5 text-green-600" />
-              ) : (
-                <Copy className="size-3.5" />
-              )}
-            </button>
-          </div>
+          {repoName ? (
+            <div className="flex items-center gap-1.5 pt-0.5">
+              <Code2 className="text-muted-foreground size-3.5 shrink-0" />
+              <span className="text-muted-foreground text-xs">{repoName}</span>
+            </div>
+          ) : null}
           {featureNode.oneLiner ? (
             <DrawerDescription>{featureNode.oneLiner}</DrawerDescription>
           ) : featureNode.userQuery ? (
@@ -500,6 +492,24 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
                 ) : null}
               </>
             ) : null}
+            <div className="ml-auto flex items-center gap-1.5">
+              <code className="bg-muted text-muted-foreground rounded px-1.5 py-0.5 font-mono text-xs">
+                {shortId}
+              </code>
+              <button
+                type="button"
+                onClick={handleCopyId}
+                className="text-muted-foreground hover:text-foreground inline-flex items-center rounded p-0.5 transition-colors"
+                aria-label="Copy feature ID"
+                data-testid="feature-drawer-copy-id"
+              >
+                {idCopied ? (
+                  <Check className="size-3.5 text-green-600" />
+                ) : (
+                  <Copy className="size-3.5" />
+                )}
+              </button>
+            </div>
             {featureNode.featureId ? (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
@@ -508,7 +518,7 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
                     size="icon-sm"
                     aria-label="Delete feature"
                     disabled={isDeleting}
-                    className="text-muted-foreground hover:text-destructive ml-auto"
+                    className="text-muted-foreground hover:text-destructive"
                     data-testid="feature-drawer-delete"
                   >
                     {isDeleting ? (
