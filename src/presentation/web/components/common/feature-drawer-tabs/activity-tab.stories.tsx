@@ -236,7 +236,7 @@ export const Error: Story = {
   },
 };
 
-/** Rejection — shows rejected lifecycle event after an approval wait. */
+/** Rejection — shows rejected lifecycle event with user feedback text. */
 export const WithRejection: Story = {
   args: {
     timings: [
@@ -295,6 +295,13 @@ export const WithRejection: Story = {
         phase: 'run:completed',
         startedAt: '2025-01-15T10:05:00Z',
         durationMs: 0,
+      },
+    ],
+    rejectionFeedback: [
+      {
+        iteration: 1,
+        message: 'The requirements are missing error handling for edge cases',
+        phase: 'requirements',
       },
     ],
     loading: false,

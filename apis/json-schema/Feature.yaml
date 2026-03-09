@@ -45,6 +45,10 @@ properties:
   repositoryId:
     $ref: UUID.yaml
     description: ID of the Repository entity this feature belongs to
+  fast:
+    type: boolean
+    default: false
+    description: When true, SDLC phases were skipped and the feature was implemented directly from the prompt
   push:
     type: boolean
     default: false
@@ -75,6 +79,7 @@ required:
   - lifecycle
   - messages
   - relatedArtifacts
+  - fast
   - push
   - openPr
   - approvalGates

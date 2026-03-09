@@ -1,12 +1,16 @@
 'use client';
 
 import { Loader2, AlertCircle, Clock } from 'lucide-react';
-import type { PhaseTimingData } from '@/app/actions/get-feature-phase-timings';
+import type {
+  PhaseTimingData,
+  RejectionFeedbackData,
+} from '@/app/actions/get-feature-phase-timings';
 
 export interface ActivityTabProps {
   timings: PhaseTimingData[] | null;
   loading: boolean;
   error: string | null;
+  rejectionFeedback?: RejectionFeedbackData[];
 }
 
 const NODE_TO_PHASE: Record<string, string> = {
@@ -55,7 +59,29 @@ function groupTimingsByRun(timings: PhaseTimingData[]): TimingRunGroup[] {
   return groups;
 }
 
-export function ActivityTab({ timings, loading, error }: ActivityTabProps) {
+/**
+ * Map each run:rejected timing entry to its rejection feedback message.
+ * Matches by sequential order: 1st rejected event → 1st feedback entry, etc.
+ */
+function buildRejectionMessageMap(
+  timings: PhaseTimingData[],
+  feedback?: RejectionFeedbackData[]
+): Map<string, string> {
+  const map = new Map<string, string>();
+  if (!feedback?.length) return map;
+
+  let rejectionIdx = 0;
+  for (const t of timings) {
+    if (t.phase === 'run:rejected' && rejectionIdx < feedback.length) {
+      const key = `${t.agentRunId}-${t.phase}-${t.startedAt}`;
+      map.set(key, feedback[rejectionIdx].message);
+      rejectionIdx++;
+    }
+  }
+  return map;
+}
+
+export function ActivityTab({ timings, loading, error, rejectionFeedback }: ActivityTabProps) {
   if (loading) {
     return (
       <div data-testid="activity-tab-loading" className="flex items-center justify-center p-8">
@@ -89,6 +115,9 @@ export function ActivityTab({ timings, loading, error }: ActivityTabProps) {
     0
   );
 
+  // Build a map from rejection index to feedback message
+  const rejectionMessages = buildRejectionMessageMap(timings, rejectionFeedback);
+
   const groups = groupTimingsByRun(timings);
   const multiRun = groups.length > 1;
 
@@ -105,6 +134,7 @@ export function ActivityTab({ timings, loading, error }: ActivityTabProps) {
             groupIdx={groupIdx}
             multiRun={multiRun}
             maxDurationMs={maxDurationMs}
+            rejectionMessages={rejectionMessages}
           />
         ))}
       </div>
@@ -120,11 +150,13 @@ function RunGroup({
   groupIdx,
   multiRun,
   maxDurationMs,
+  rejectionMessages,
 }: {
   group: { runId: string; timings: PhaseTimingData[] };
   groupIdx: number;
   multiRun: boolean;
   maxDurationMs: number;
+  rejectionMessages: Map<string, string>;
 }) {
   return (
     <div className="flex flex-col gap-1.5">
@@ -133,7 +165,9 @@ function RunGroup({
       ) : null}
       {group.timings.map((t) => {
         if (isLifecycleEvent(t.phase)) {
-          return <LifecycleEventRow key={`${t.agentRunId}-${t.phase}-${t.startedAt}`} timing={t} />;
+          const key = `${t.agentRunId}-${t.phase}-${t.startedAt}`;
+          const message = t.phase === 'run:rejected' ? rejectionMessages.get(key) : undefined;
+          return <LifecycleEventRow key={key} timing={t} message={message} />;
         }
         return (
           <NodeTimingRow
@@ -147,12 +181,20 @@ function RunGroup({
   );
 }
 
-function LifecycleEventRow({ timing }: { timing: PhaseTimingData }) {
+function LifecycleEventRow({ timing, message }: { timing: PhaseTimingData; message?: string }) {
   const event = LIFECYCLE_EVENTS[timing.phase];
   if (!event) return null;
   return (
     <div className={`text-xs ${event.colorClass}`}>
       <span>{event.label}</span>
+      {message ? (
+        <span
+          data-testid="rejection-feedback-text"
+          className="text-muted-foreground ml-2 font-normal italic"
+        >
+          &mdash; {message}
+        </span>
+      ) : null}
     </div>
   );
 }

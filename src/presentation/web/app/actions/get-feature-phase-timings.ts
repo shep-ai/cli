@@ -2,6 +2,7 @@
 
 import { resolve } from '@/lib/server-container';
 import type { IPhaseTimingRepository } from '@shepai/core/application/ports/output/agents/phase-timing-repository.interface';
+import type { IFeatureRepository } from '@shepai/core/application/ports/output/repositories/feature-repository.interface';
 
 export interface PhaseTimingData {
   agentRunId: string;
@@ -13,7 +14,15 @@ export interface PhaseTimingData {
   approvalWaitMs?: number;
 }
 
-type GetPhaseTimingsResult = { timings: PhaseTimingData[] } | { error: string };
+export interface RejectionFeedbackData {
+  iteration: number;
+  message: string;
+  phase?: string;
+}
+
+type GetPhaseTimingsResult =
+  | { timings: PhaseTimingData[]; rejectionFeedback: RejectionFeedbackData[] }
+  | { error: string };
 
 export async function getFeaturePhaseTimings(featureId: string): Promise<GetPhaseTimingsResult> {
   if (!featureId.trim()) {
@@ -34,9 +43,37 @@ export async function getFeaturePhaseTimings(featureId: string): Promise<GetPhas
       approvalWaitMs: t.approvalWaitMs != null ? Number(t.approvalWaitMs) : undefined,
     }));
 
-    return { timings };
+    // Read rejection feedback from spec.yaml
+    const rejectionFeedback = await readRejectionFeedback(featureId);
+
+    return { timings, rejectionFeedback };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to load phase timings';
     return { error: message };
+  }
+}
+
+async function readRejectionFeedback(featureId: string): Promise<RejectionFeedbackData[]> {
+  try {
+    const featureRepo = resolve<IFeatureRepository>('IFeatureRepository');
+    const feature = await featureRepo.findById(featureId);
+    if (!feature?.specPath) return [];
+
+    const { readFileSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const yaml = (await import('js-yaml')).default;
+
+    const specContent = readFileSync(join(feature.specPath, 'spec.yaml'), 'utf-8');
+    const spec = yaml.load(specContent) as Record<string, unknown>;
+
+    if (!Array.isArray(spec?.rejectionFeedback)) return [];
+
+    return (spec.rejectionFeedback as Record<string, unknown>[]).map((entry) => ({
+      iteration: Number(entry.iteration ?? 1),
+      message: String(entry.message ?? ''),
+      phase: entry.phase ? String(entry.phase) : undefined,
+    }));
+  } catch {
+    return [];
   }
 }

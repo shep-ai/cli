@@ -1,11 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const mockFindByFeatureId = vi.fn();
+const mockFeatureFindById = vi.fn();
 
 vi.mock('@/lib/server-container', () => ({
-  resolve: vi.fn(() => ({
-    findByFeatureId: mockFindByFeatureId,
-  })),
+  resolve: vi.fn((token: string) => {
+    if (token === 'IFeatureRepository') return { findById: mockFeatureFindById };
+    return { findByFeatureId: mockFindByFeatureId };
+  }),
 }));
 
 // Must import after vi.mock
@@ -62,6 +64,7 @@ describe('getFeaturePhaseTimings', () => {
           approvalWaitMs: 5000,
         },
       ],
+      rejectionFeedback: [],
     });
   });
 
@@ -93,13 +96,14 @@ describe('getFeaturePhaseTimings', () => {
           approvalWaitMs: undefined,
         },
       ],
+      rejectionFeedback: [],
     });
   });
 
   it('returns empty timings array when no timings exist', async () => {
     mockFindByFeatureId.mockResolvedValue([]);
     const result = await getFeaturePhaseTimings('feat-1');
-    expect(result).toEqual({ timings: [] });
+    expect(result).toEqual({ timings: [], rejectionFeedback: [] });
   });
 
   it('returns error on repository failure', async () => {
