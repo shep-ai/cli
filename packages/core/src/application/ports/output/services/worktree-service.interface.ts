@@ -119,6 +119,13 @@ export interface IWorktreeService {
   getWorktreePath(repoPath: string, branch: string): string;
 
   /**
+   * Prune stale worktree entries whose directories no longer exist.
+   *
+   * @param repoPath - Path to the git repository
+   */
+  prune(repoPath: string): Promise<void>;
+
+  /**
    * Ensure a directory is a valid git repository with at least one commit.
    * If the directory is not a git repo, initializes it with `git init`
    * and creates an empty initial commit. No-ops for existing repos.

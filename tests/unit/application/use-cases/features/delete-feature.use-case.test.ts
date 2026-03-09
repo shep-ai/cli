@@ -77,6 +77,7 @@ describe('DeleteFeatureUseCase', () => {
     mockWorktreeService = {
       create: vi.fn(),
       remove: vi.fn(),
+      prune: vi.fn(),
       list: vi.fn(),
       exists: vi.fn(),
       branchExists: vi.fn(),

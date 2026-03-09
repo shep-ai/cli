@@ -102,6 +102,7 @@ describe('CreateFeatureUseCase', () => {
     mockWorktreeService = {
       create: vi.fn().mockResolvedValue(undefined),
       remove: vi.fn().mockResolvedValue(undefined),
+      prune: vi.fn().mockResolvedValue(undefined),
       list: vi.fn().mockResolvedValue([]),
       exists: vi.fn().mockResolvedValue(false),
       branchExists: vi.fn().mockResolvedValue(false),
