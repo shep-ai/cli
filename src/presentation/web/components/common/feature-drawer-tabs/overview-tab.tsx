@@ -1,6 +1,6 @@
 'use client';
 
-import { ExternalLink, GitCommitHorizontal } from 'lucide-react';
+import { ExternalLink, GitBranch, GitCommitHorizontal } from 'lucide-react';
 import { PrStatus } from '@shepai/core/domain/generated/output';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -9,7 +9,10 @@ import { CiStatusBadge } from '@/components/common/ci-status-badge';
 import { CometSpinner } from '@/components/ui/comet-spinner';
 import { featureNodeStateConfig, lifecycleDisplayLabels } from '@/components/common/feature-node';
 import type { FeatureNodeData } from '@/components/common/feature-node';
-import { getAgentTypeIcon, agentTypeLabels } from '@/components/common/feature-node/agent-type-icons';
+import {
+  getAgentTypeIcon,
+  agentTypeLabels,
+} from '@/components/common/feature-node/agent-type-icons';
 
 export interface OverviewTabProps {
   data: FeatureNodeData;
@@ -41,6 +44,7 @@ export function OverviewTab({ data }: OverviewTabProps) {
           </div>
         ) : null}
       </div>
+      <FeatureInfo data={data} />
       {data.pr ? (
         <>
           <Separator />
@@ -72,6 +76,80 @@ function FeatureStateBadge({ data }: { data: FeatureNodeData }) {
     </div>
   );
 }
+
+// ── Feature Info section ─────────────────────────────────────────────
+
+function formatRelativeTime(timestamp: string | number): string {
+  const now = Date.now();
+  const time = typeof timestamp === 'string' ? new Date(timestamp).getTime() : timestamp;
+  const diffMs = now - time;
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHr = Math.floor(diffMin / 60);
+  const diffDay = Math.floor(diffHr / 24);
+
+  if (diffDay > 30) {
+    return new Date(time).toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  }
+  if (diffDay > 0) return `${diffDay} day${diffDay === 1 ? '' : 's'} ago`;
+  if (diffHr > 0) return `${diffHr} hour${diffHr === 1 ? '' : 's'} ago`;
+  if (diffMin > 0) return `${diffMin} minute${diffMin === 1 ? '' : 's'} ago`;
+  return 'just now';
+}
+
+function FeatureInfo({ data }: { data: FeatureNodeData }) {
+  const repoName =
+    data.repositoryName ?? data.repositoryPath.split('/').filter(Boolean).at(-1) ?? '';
+  const hasInfo =
+    Boolean(repoName) ||
+    Boolean(data.branch) ||
+    Boolean(data.summary) ||
+    Boolean(data.userQuery) ||
+    Boolean(data.createdAt);
+  if (!hasInfo) return null;
+
+  return (
+    <>
+      <Separator />
+      <div data-testid="feature-drawer-info" className="flex flex-col gap-3 p-4">
+        {repoName ? <DetailRow label="Repository" value={repoName} /> : null}
+        {data.branch ? (
+          <div className="flex flex-col gap-0.5">
+            <span className="text-muted-foreground text-xs font-medium">Branch</span>
+            <span className="flex items-center gap-1.5 text-sm">
+              <GitBranch className="text-muted-foreground h-3.5 w-3.5 shrink-0" />
+              <code className="bg-muted rounded px-1 py-0.5 font-mono text-xs">{data.branch}</code>
+              {data.baseBranch ? (
+                <span className="text-muted-foreground text-xs">from {data.baseBranch}</span>
+              ) : null}
+            </span>
+          </div>
+        ) : null}
+        {data.userQuery ? (
+          <div className="flex flex-col gap-0.5">
+            <span className="text-muted-foreground text-xs font-medium">User Query</span>
+            <span className="text-sm leading-relaxed">{data.userQuery}</span>
+          </div>
+        ) : null}
+        {data.summary ? (
+          <div className="flex flex-col gap-0.5">
+            <span className="text-muted-foreground text-xs font-medium">Summary</span>
+            <span className="text-sm leading-relaxed">{data.summary}</span>
+          </div>
+        ) : null}
+        {data.createdAt ? (
+          <DetailRow label="Created" value={formatRelativeTime(data.createdAt)} />
+        ) : null}
+      </div>
+    </>
+  );
+}
+
+// ── PR Info section ──────────────────────────────────────────────────
 
 const prStatusStyles: Record<PrStatus, string> = {
   [PrStatus.Open]: 'border-transparent bg-blue-50 text-blue-700 hover:bg-blue-50',
@@ -116,6 +194,8 @@ function FeaturePrInfo({ pr }: { pr: NonNullable<FeatureNodeData['pr']> }) {
     </div>
   );
 }
+
+// ── Details section ──────────────────────────────────────────────────
 
 function FeatureDetails({ data }: { data: FeatureNodeData }) {
   const hasAnyDetail = data.agentType ?? data.runtime ?? data.blockedBy ?? data.errorMessage;

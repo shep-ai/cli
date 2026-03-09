@@ -6,11 +6,22 @@ import {
 } from '@/components/common/feature-node/derive-feature-state';
 import type { FeatureNodeData } from '@/components/common/feature-node';
 
+export interface BuildFeatureNodeDataOptions {
+  baseBranch?: string;
+  repositoryName?: string;
+  /** AI-generated one-liner from FeatureArtifact */
+  oneLiner?: string;
+}
+
 /**
  * Builds a FeatureNodeData object from a Feature entity and optional AgentRun.
  * This is the single-feature version of the logic in `buildGraphNodes`.
  */
-export function buildFeatureNodeData(feature: Feature, run: AgentRun | null): FeatureNodeData {
+export function buildFeatureNodeData(
+  feature: Feature,
+  run: AgentRun | null,
+  options?: BuildFeatureNodeDataOptions
+): FeatureNodeData {
   return {
     name: feature.name,
     description: feature.description ?? feature.slug,
@@ -21,6 +32,12 @@ export function buildFeatureNodeData(feature: Feature, run: AgentRun | null): Fe
     specPath: feature.specPath,
     state: deriveNodeState(feature, run),
     progress: deriveProgress(feature),
+    summary: feature.description,
+    userQuery: feature.userQuery,
+    createdAt: feature.createdAt instanceof Date ? feature.createdAt.getTime() : feature.createdAt,
+    ...(options?.repositoryName && { repositoryName: options.repositoryName }),
+    ...(options?.baseBranch && { baseBranch: options.baseBranch }),
+    ...(options?.oneLiner && { oneLiner: options.oneLiner }),
     ...(run?.agentType && { agentType: run.agentType as FeatureNodeData['agentType'] }),
     ...(run?.modelId && { modelId: run.modelId }),
     ...(run?.error && { errorMessage: run.error }),

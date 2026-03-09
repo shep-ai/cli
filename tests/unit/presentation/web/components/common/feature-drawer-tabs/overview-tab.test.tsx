@@ -137,7 +137,7 @@ describe('OverviewTab', () => {
     it('renders details section with agent type', () => {
       renderOverviewTab({ ...defaultData, agentType: 'cursor' });
       expect(screen.getByText('Agent')).toBeInTheDocument();
-      expect(screen.getByText('cursor')).toBeInTheDocument();
+      expect(screen.getByText('Cursor')).toBeInTheDocument();
     });
 
     it('renders details section with runtime', () => {

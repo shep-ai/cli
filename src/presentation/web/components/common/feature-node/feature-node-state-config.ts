@@ -65,6 +65,18 @@ export interface FeatureNodeData {
   agentType?: AgentTypeValue;
   /** LLM model identifier used for this feature's agent run. */
   modelId?: string;
+  /** Feature summary / user query */
+  summary?: string;
+  /** Epoch ms or ISO string when the feature was created */
+  createdAt?: string | number;
+  /** Repository display name (e.g. "my-repo") */
+  repositoryName?: string;
+  /** Base branch the feature was branched from (e.g. "main") */
+  baseBranch?: string;
+  /** AI-generated one-line description of the feature (from spec artifact) */
+  oneLiner?: string;
+  /** Original user query that initiated this feature */
+  userQuery?: string;
   /** PR metadata for features with an associated pull request */
   pr?: {
     url: string;

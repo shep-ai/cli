@@ -33,7 +33,7 @@ type Story = StoryObj<typeof FeatureDrawerTabs>;
 const runningFeature: FeatureNodeData = {
   name: 'Auth Module',
   description: 'Implement OAuth2 authentication flow with multiple providers',
-  featureId: '#f1',
+  featureId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
   lifecycle: 'implementation',
   state: 'running',
   progress: 65,
@@ -41,6 +41,13 @@ const runningFeature: FeatureNodeData = {
   runtime: '2h 15m',
   repositoryPath: '/home/user/my-repo',
   branch: 'feat/auth-module',
+  oneLiner: 'implement oauth2 authentication flow with google and github providers',
+  userQuery: 'add oauth2 authentication with google and github',
+  summary:
+    'Implement OAuth2 authentication flow with multiple providers including Google, GitHub, and custom OIDC',
+  createdAt: Date.now() - 2 * 60 * 60 * 1000, // 2 hours ago
+  repositoryName: 'my-repo',
+  baseBranch: 'main',
   pr: {
     url: 'https://github.com/org/repo/pull/42',
     number: 42,
@@ -53,13 +60,19 @@ const runningFeature: FeatureNodeData = {
 const doneFeature: FeatureNodeData = {
   name: 'Payment Gateway',
   description: 'Stripe integration for subscriptions',
-  featureId: '#f3',
+  featureId: 'b2c3d4e5-f6a7-8901-bcde-f23456789012',
   lifecycle: 'deploy',
   state: 'done',
   progress: 100,
   runtime: '1h 42m',
   repositoryPath: '/home/user/my-repo',
   branch: 'feat/payment-gateway',
+  oneLiner: 'stripe payment gateway integration for subscriptions and one-time purchases',
+  userQuery: 'integrate stripe for payments',
+  summary: 'Stripe integration for subscriptions and one-time payments',
+  createdAt: Date.now() - 3 * 24 * 60 * 60 * 1000, // 3 days ago
+  repositoryName: 'my-repo',
+  baseBranch: 'main',
   pr: {
     url: 'https://github.com/org/repo/pull/55',
     number: 55,
@@ -72,34 +85,52 @@ const doneFeature: FeatureNodeData = {
 const requirementsFeature: FeatureNodeData = {
   name: 'API Rate Limiting',
   description: 'Implement sliding window rate limiting for public endpoints',
-  featureId: '#bi1',
+  featureId: 'c3d4e5f6-a7b8-9012-cdef-345678901234',
   lifecycle: 'requirements',
   state: 'action-required',
   progress: 0,
   repositoryPath: '/home/user/my-repo',
   branch: 'feat/api-rate-limiting',
+  oneLiner: 'sliding window rate limiter for all public-facing api endpoints',
+  userQuery: 'add rate limiting to public api endpoints',
+  summary: 'Implement sliding window rate limiting for public endpoints',
+  createdAt: Date.now() - 30 * 60 * 1000, // 30 minutes ago
+  repositoryName: 'my-repo',
+  baseBranch: 'main',
 };
 
 const techReviewFeature: FeatureNodeData = {
   name: 'Agent Executor',
   description: 'Abstraction layer for multiple AI agent backends',
-  featureId: '#f7',
+  featureId: 'd4e5f6a7-b8c9-0123-defa-456789012345',
   lifecycle: 'implementation',
   state: 'action-required',
   progress: 25,
   repositoryPath: '/home/user/my-repo',
   branch: 'feat/agent-executor',
+  oneLiner: 'agent executor abstraction layer supporting multiple ai backends',
+  userQuery: 'abstract agent executors for multi-backend support',
+  summary: 'Abstraction layer for multiple AI agent backends',
+  createdAt: Date.now() - 5 * 60 * 60 * 1000, // 5 hours ago
+  repositoryName: 'my-repo',
+  baseBranch: 'develop',
 };
 
 const mergeReviewFeature: FeatureNodeData = {
   name: 'Auth Module',
   description: 'OAuth2 authentication flow',
-  featureId: '#f8',
+  featureId: 'e5f6a7b8-c9d0-1234-efab-567890123456',
   lifecycle: 'review',
   state: 'action-required',
   progress: 90,
   repositoryPath: '/home/user/my-repo',
   branch: 'feat/auth-module',
+  oneLiner: 'oauth2 login flow with google and github identity providers',
+  userQuery: 'add oauth2 login flow',
+  summary: 'OAuth2 authentication flow with Google and GitHub providers',
+  createdAt: Date.now() - 2 * 24 * 60 * 60 * 1000, // 2 days ago
+  repositoryName: 'my-repo',
+  baseBranch: 'main',
   pr: {
     url: 'https://github.com/shep-ai/cli/pull/42',
     number: 42,
@@ -112,13 +143,19 @@ const mergeReviewFeature: FeatureNodeData = {
 const errorFeature: FeatureNodeData = {
   name: 'Email Service',
   description: 'Transactional email with SendGrid',
-  featureId: '#f5',
+  featureId: 'f6a7b8c9-d0e1-2345-fabc-678901234567',
   lifecycle: 'review',
   state: 'error',
   progress: 30,
   errorMessage: 'Build failed: type mismatch in EmailHandler',
   repositoryPath: '/home/user/my-repo',
   branch: 'feat/email-service',
+  oneLiner: 'sendgrid-based transactional email service for notifications and alerts',
+  userQuery: 'set up sendgrid for transactional emails',
+  summary: 'Transactional email with SendGrid for notifications and alerts',
+  createdAt: Date.now() - 7 * 24 * 60 * 60 * 1000, // 1 week ago
+  repositoryName: 'my-repo',
+  baseBranch: 'main',
 };
 
 /* ---------------------------------------------------------------------------
@@ -240,7 +277,7 @@ const mergeFixture: MergeReviewData = {
 export const Default: Story = {
   args: {
     featureNode: runningFeature,
-    featureId: '#f1',
+    featureId: runningFeature.featureId,
   },
 };
 
@@ -248,7 +285,7 @@ export const Default: Story = {
 export const CompletedFeature: Story = {
   args: {
     featureNode: doneFeature,
-    featureId: '#f3',
+    featureId: doneFeature.featureId,
   },
 };
 
@@ -256,7 +293,7 @@ export const CompletedFeature: Story = {
 export const RequirementsPhase: Story = {
   args: {
     featureNode: requirementsFeature,
-    featureId: '#bi1',
+    featureId: requirementsFeature.featureId,
   },
 };
 
@@ -264,7 +301,7 @@ export const RequirementsPhase: Story = {
 export const ErrorState: Story = {
   args: {
     featureNode: errorFeature,
-    featureId: '#f5',
+    featureId: errorFeature.featureId,
   },
 };
 
@@ -276,7 +313,7 @@ export const ErrorState: Story = {
 export const PrdReviewActive: Story = {
   args: {
     featureNode: requirementsFeature,
-    featureId: '#bi1',
+    featureId: requirementsFeature.featureId,
     initialTab: 'prd-review',
     prdData: prdFixture,
     prdSelections: { problem: 'user_pain', priority: 'p1' },
@@ -290,7 +327,7 @@ export const PrdReviewActive: Story = {
 export const TechReviewActive: Story = {
   args: {
     featureNode: techReviewFeature,
-    featureId: '#f7',
+    featureId: techReviewFeature.featureId,
     initialTab: 'tech-decisions',
     techData: techFixture,
     productData: productFixture,
@@ -303,7 +340,7 @@ export const TechReviewActive: Story = {
 export const MergeReviewActive: Story = {
   args: {
     featureNode: mergeReviewFeature,
-    featureId: '#f8',
+    featureId: mergeReviewFeature.featureId,
     initialTab: 'merge-review',
     mergeData: mergeFixture,
     onMergeApprove: () => undefined,
