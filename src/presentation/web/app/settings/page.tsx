@@ -16,7 +16,7 @@ export default async function SettingsPage() {
   }
 
   return (
-    <div className="flex h-full flex-col p-6">
+    <div className="flex h-full flex-col px-6 pb-6">
       <SettingsPageClient
         settings={settings}
         shepHome={shepHome ?? ''}
