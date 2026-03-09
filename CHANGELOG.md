@@ -1,3 +1,10 @@
+# [1.89.0](https://github.com/shep-ai/cli/compare/v1.88.0...v1.89.0) (2026-03-09)
+
+### Features
+
+- **web:** hide progress and show pr in status section for completed features ([#255](https://github.com/shep-ai/cli/issues/255)) ([6eb64a9](https://github.com/shep-ai/cli/commit/6eb64a996ba4206e3023ee62101834ce0eaf115c))
+- **web:** unified reject-approve button with file attachments ([#261](https://github.com/shep-ai/cli/issues/261)) ([b737423](https://github.com/shep-ai/cli/commit/b737423d3ea9da163c4efe2f2bcb98f2c6cf59cc))
+
 # [1.88.0](https://github.com/shep-ai/cli/compare/v1.87.0...v1.88.0) (2026-03-09)
 
 ### Features
