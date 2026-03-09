@@ -37,10 +37,14 @@ const nextConfig: NextConfig = {
     root: resolve(import.meta.dirname, '../../..'),
   },
 
-  // Exclude native/DI packages and Node.js builtins from Next.js bundling.
-  // Without this, Turbopack statically evaluates os.platform() at build time
-  // and tree-shakes platform-conditional branches (e.g., open-shell.ts).
+  // Exclude packages from Turbopack bundling — use Node.js require() instead.
+  // @shepai/core: 187 source files; bundling them makes Turbopack recompile
+  //   the entire core on every server request. Externalizing it eliminates
+  //   ~80-110ms compile overhead per request.
+  // tsyringe/reflect-metadata/better-sqlite3: native/DI packages.
+  // node:*: prevents Turbopack from statically evaluating platform APIs.
   serverExternalPackages: [
+    '@shepai/core',
     'tsyringe',
     'reflect-metadata',
     'better-sqlite3',
