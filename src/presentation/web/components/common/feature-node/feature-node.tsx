@@ -2,7 +2,17 @@
 
 import { useState } from 'react';
 import { Handle, Position } from '@xyflow/react';
-import { Plus, FileText, Wrench, GitMerge, Trash2, Zap, type LucideIcon } from 'lucide-react';
+import {
+  Plus,
+  FileText,
+  Wrench,
+  GitMerge,
+  Trash2,
+  Zap,
+  Loader2,
+  Globe,
+  type LucideIcon,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { DeleteFeatureDialog } from '@/components/common/delete-feature-dialog';
@@ -14,6 +24,7 @@ import {
 import type { FeatureNodeData } from './feature-node-state-config';
 import { getAgentTypeIcon, agentTypeLabels, type AgentTypeValue } from './agent-type-icons';
 import { getModelMeta } from '@/lib/model-metadata';
+import { DeploymentState } from '@shepai/core/domain/generated/output';
 
 function AgentIcon({ agentType, className }: { agentType?: string; className?: string }) {
   const IconComponent = getAgentTypeIcon(agentType);
@@ -209,6 +220,30 @@ export function FeatureNode({
           >
             {data.description}
           </p>
+        ) : null}
+
+        {/* Deployment status indicator */}
+        {data.deployment ? (
+          <div
+            data-testid="feature-node-deployment-indicator"
+            className={cn(
+              'mt-1.5 flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium',
+              data.deployment.status === DeploymentState.Booting
+                ? 'bg-blue-50 text-blue-700'
+                : 'bg-green-50 text-green-700'
+            )}
+          >
+            {data.deployment.status === DeploymentState.Booting ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <Globe className="h-3 w-3" />
+            )}
+            <span className="truncate">
+              {data.deployment.status === DeploymentState.Booting
+                ? 'Deploying...'
+                : (data.deployment.url ?? 'Live')}
+            </span>
+          </div>
         ) : null}
 
         {/* Bottom section — pushed to bottom for consistent card height */}
