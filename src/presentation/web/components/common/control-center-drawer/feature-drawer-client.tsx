@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { toast } from 'sonner';
-import { Loader2, Trash2, Play, Square, Copy, Check, Code2 } from 'lucide-react';
+import { Loader2, Trash2, Play, Square, Copy, Check, Code2, ExternalLink } from 'lucide-react';
 import type {
   PrdApprovalPayload,
   QuestionSelectionChange,
@@ -439,7 +439,20 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
           {repoName ? (
             <div className="flex items-center gap-1.5 pt-0.5">
               <Code2 className="text-muted-foreground size-3.5 shrink-0" />
-              <span className="text-muted-foreground text-xs">{repoName}</span>
+              {featureNode.remoteUrl ? (
+                <a
+                  href={featureNode.remoteUrl as string}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs transition-colors"
+                  data-testid="feature-drawer-repo-link"
+                >
+                  {repoName}
+                  <ExternalLink className="size-3" />
+                </a>
+              ) : (
+                <span className="text-muted-foreground text-xs">{repoName}</span>
+              )}
             </div>
           ) : null}
           <DrawerDescription className="sr-only">{featureNode.name}</DrawerDescription>

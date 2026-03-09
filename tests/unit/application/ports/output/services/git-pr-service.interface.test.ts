@@ -132,6 +132,7 @@ describe('IGitPrService', () => {
     // Compile-time check: a mock class implementing IGitPrService must provide all methods
     const mock: IGitPrService = {
       hasRemote: async () => true,
+      getRemoteUrl: async () => 'https://github.com/org/repo',
       getDefaultBranch: async () => 'main',
       hasUncommittedChanges: async () => false,
       commitAll: async () => 'abc123',
@@ -164,6 +165,7 @@ describe('IGitPrService', () => {
     // Verify all methods exist
     const methodNames: (keyof IGitPrService)[] = [
       'hasRemote',
+      'getRemoteUrl',
       'getDefaultBranch',
       'hasUncommittedChanges',
       'commitAll',
@@ -180,7 +182,7 @@ describe('IGitPrService', () => {
       'getFailureLogs',
     ];
 
-    expect(methodNames).toHaveLength(15);
+    expect(methodNames).toHaveLength(16);
     for (const name of methodNames) {
       expect(typeof mock[name]).toBe('function');
     }

@@ -72,6 +72,7 @@ function createMockFeatureRepository(features: Feature[] = []): IFeatureReposito
 function createMockGitPrService(): IGitPrService {
   return {
     hasRemote: vi.fn().mockResolvedValue(true),
+    getRemoteUrl: vi.fn().mockResolvedValue('https://github.com/org/repo'),
     getDefaultBranch: vi.fn().mockResolvedValue('main'),
     hasUncommittedChanges: vi.fn(),
     commitAll: vi.fn(),

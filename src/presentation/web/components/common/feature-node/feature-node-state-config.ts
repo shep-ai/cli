@@ -71,6 +71,8 @@ export interface FeatureNodeData {
   createdAt?: string | number;
   /** Repository display name (e.g. "my-repo") */
   repositoryName?: string;
+  /** Remote URL for the repository (HTTPS, suitable for browser linking) */
+  remoteUrl?: string;
   /** Base branch the feature was branched from (e.g. "main") */
   baseBranch?: string;
   /** AI-generated one-line description of the feature (from spec artifact) */

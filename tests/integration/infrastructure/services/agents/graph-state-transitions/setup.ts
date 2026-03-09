@@ -115,6 +115,7 @@ export function createStubMergeNodeDeps(featureId?: string): Omit<MergeNodeDeps,
     featureRepository: createStatefulFeatureRepo(featureId),
     gitPrService: {
       hasRemote: vi.fn().mockResolvedValue(true),
+      getRemoteUrl: vi.fn().mockResolvedValue('https://github.com/test/repo'),
       getDefaultBranch: vi.fn().mockResolvedValue('main'),
       hasUncommittedChanges: vi.fn().mockResolvedValue(false),
       commitAll: vi.fn().mockResolvedValue('abc1234'),
