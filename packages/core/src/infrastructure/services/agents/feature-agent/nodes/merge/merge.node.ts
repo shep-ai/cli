@@ -84,12 +84,12 @@ export function createMergeNode(deps: MergeNodeDeps) {
     if (isResumeAfterInterrupt && state._approvalAction === 'rejected') {
       const feedback = state._rejectionFeedback ?? '(no feedback)';
       log.info(`Merge rejected with feedback: "${feedback}" — scheduling re-execution`);
-      // Reset lifecycle so re-execution doesn't detect as resume
+      // Reset lifecycle so re-execution doesn't detect as resume.
+      // Preserve PR data — the PR still exists and will be updated by the agent.
       if (featureForResume) {
         await deps.featureRepository.update({
           ...featureForResume,
           lifecycle: SdlcLifecycle.Implementation,
-          pr: undefined,
           updatedAt: new Date(),
         });
       }
@@ -116,8 +116,8 @@ export function createMergeNode(deps: MergeNodeDeps) {
       const options = buildExecutorOptions(state);
 
       let commitHash = state.commitHash;
-      let prUrl = state.prUrl;
-      let prNumber = state.prNumber;
+      let prUrl = state.prUrl ?? feature?.pr?.url ?? null;
+      let prNumber = state.prNumber ?? feature?.pr?.number ?? null;
       let ciStatus = state.ciStatus;
 
       let ciFixAttempts = state.ciFixAttempts ?? 0;
