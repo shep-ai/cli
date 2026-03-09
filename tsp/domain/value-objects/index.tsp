@@ -44,3 +44,4 @@ import "./ci-fix-record.tsp";
 import "./pull-request.tsp";
 import "./feature-status-metadata.tsp";
 import "./attachment.tsp";
+import "./evidence.tsp";

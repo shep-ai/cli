@@ -7,6 +7,7 @@
  */
 
 import yaml from 'js-yaml';
+import { EvidenceType, type Evidence } from '@/domain/generated/output.js';
 import { readSpecFile } from '../node-helpers.js';
 import type { FeatureAgentState } from '../../state.js';
 
@@ -49,6 +50,41 @@ ${olderSection}
 }
 
 /**
+ * Format a single evidence record as GitHub-compatible markdown.
+ */
+function formatEvidenceItem(e: Evidence): string {
+  const taskLine = e.taskRef ? ` (${e.taskRef})` : '';
+  switch (e.type) {
+    case EvidenceType.Screenshot:
+      return `- **${e.description}**${taskLine}\n  ![${e.description}](${e.relativePath})`;
+    case EvidenceType.TestOutput:
+      return `- **${e.description}**${taskLine}\n  See: \`${e.relativePath}\``;
+    case EvidenceType.Video:
+      return `- [${e.description}](${e.relativePath})${taskLine}`;
+    case EvidenceType.TerminalRecording:
+      return `- [${e.description}](${e.relativePath})${taskLine}`;
+    default:
+      return `- [${e.description}](${e.relativePath})${taskLine}`;
+  }
+}
+
+/**
+ * Build a markdown evidence section from evidence records.
+ * Returns empty string when no evidence is available.
+ */
+function formatEvidenceSection(evidence: Evidence[]): string {
+  if (!evidence || evidence.length === 0) return '';
+
+  const items = evidence.map(formatEvidenceItem).join('\n');
+  return `\n## Evidence
+
+The following evidence was captured to prove task completion. Include this section in the PR body:
+
+${items}
+`;
+}
+
+/**
  * Build a prompt for the commit + push + PR agent call.
  *
  * The agent always commits. Push and PR creation are conditional based
@@ -63,6 +99,7 @@ export function buildCommitPushPrPrompt(
   const cwd = state.worktreePath || state.repositoryPath;
   const shouldPush = state.push || state.openPr;
   const rejectionSection = getMergeRejectionFeedback(specContent);
+  const evidenceSection = formatEvidenceSection(state.evidence);
 
   const steps: string[] = [];
 
@@ -113,7 +150,7 @@ ${cwd}
 ## Instructions
 
 ${steps.join('\n')}
-
+${evidenceSection}
 ## Constraints
 
 - Write a meaningful conventional commit message derived from the actual diff — do NOT use generic messages

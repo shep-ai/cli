@@ -57,6 +57,7 @@ function baseState(_overrides: Partial<FeatureAgentState> = {}): FeatureAgentSta
     ciFixAttempts: 0,
     ciFixHistory: [],
     ciFixStatus: 'idle',
+    evidence: [],
     model: undefined,
   } as FeatureAgentState;
 }

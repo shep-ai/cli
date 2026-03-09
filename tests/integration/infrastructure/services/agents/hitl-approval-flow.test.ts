@@ -161,8 +161,8 @@ describe('HITL Approval Flow (Graph-level)', () => {
     const interrupts3 = getInterrupts(result3);
     expect(interrupts3).toHaveLength(0);
 
-    // implement = 1 more call (plan NOT re-executed), graph reaches END
-    expect(executor.execute).toHaveBeenCalledTimes(5);
+    // implement + evidence = 2 more calls (plan NOT re-executed), graph reaches END
+    expect(executor.execute).toHaveBeenCalledTimes(6);
 
     // All nodes ran — verify messages accumulated
     expect(result3.messages.length).toBeGreaterThanOrEqual(1);

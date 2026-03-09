@@ -6,6 +6,7 @@ import { createRequirementsNode } from './nodes/requirements.node.js';
 import { createResearchNode } from './nodes/research.node.js';
 import { createPlanNode } from './nodes/plan.node.js';
 import { createImplementNode } from './nodes/implement.node.js';
+import { createEvidenceNode } from './nodes/evidence.node.js';
 import { createMergeNode, type MergeNodeDeps } from './nodes/merge/merge.node.js';
 import { createValidateNode } from './nodes/validate.node.js';
 import { createRepairNode } from './nodes/repair.node.js';
@@ -174,6 +175,7 @@ export function createFeatureAgentGraph(
     .addNode('research', createResearchNode(executor))
     .addNode('plan', createPlanNode(executor))
     .addNode('implement', createImplementNode(executor))
+    .addNode('collect_evidence', createEvidenceNode(executor))
 
     // --- Validate nodes ---
     .addNode('validate_spec_analyze', createValidateNode('spec.yaml', validateSpecAnalyze))
@@ -217,6 +219,9 @@ export function createFeatureAgentGraph(
     .addConditionalEdges('validate_plan_tasks', routeValidation('implement', 'repair_plan_tasks'))
     .addEdge('repair_plan_tasks', 'validate_plan_tasks');
 
+  // --- Evidence node: always wired after implement ---
+  graph.addEdge('implement', 'collect_evidence');
+
   // --- Merge node: wired when deps are provided ---
   if (deps.mergeNodeDeps) {
     const mergeNodeDeps: MergeNodeDeps = {
@@ -225,10 +230,10 @@ export function createFeatureAgentGraph(
     };
     graph
       .addNode('merge', createMergeNode(mergeNodeDeps))
-      .addEdge('implement', 'merge')
+      .addEdge('collect_evidence', 'merge')
       .addConditionalEdges('merge', routeReexecution('merge', END));
   } else {
-    graph.addEdge('implement', END);
+    graph.addEdge('collect_evidence', END);
   }
 
   return graph.compile({ checkpointer });

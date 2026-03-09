@@ -1505,6 +1505,38 @@ export type ToolInstallCommand = {
    */
   packageManager: string;
 };
+export enum EvidenceType {
+  Screenshot = 'Screenshot',
+  Video = 'Video',
+  TestOutput = 'TestOutput',
+  TerminalRecording = 'TerminalRecording',
+}
+
+/**
+ * Record of evidence captured to prove task completion
+ */
+export type Evidence = {
+  /**
+   * Category of evidence captured
+   */
+  type: EvidenceType;
+  /**
+   * ISO 8601 timestamp when the evidence was captured
+   */
+  capturedAt: string;
+  /**
+   * Human-readable description of what this evidence proves
+   */
+  description: string;
+  /**
+   * Path relative to repo root for GitHub rendering
+   */
+  relativePath: string;
+  /**
+   * Optional reference to the task this evidence proves
+   */
+  taskRef?: string;
+};
 export enum AgentStatus {
   Idle = 'Idle',
   Running = 'Running',
