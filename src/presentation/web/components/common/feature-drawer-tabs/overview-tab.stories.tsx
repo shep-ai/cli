@@ -211,3 +211,22 @@ export const ReviewPhase: Story = {
 export const MaintainPhase: Story = {
   args: { data: { ...noPrData, lifecycle: 'maintain' as const } },
 };
+
+/** Completed feature with PR — progress hidden, PR shown in status section without borders. */
+export const CompletedWithPr: Story = {
+  args: {
+    data: {
+      ...fullData,
+      lifecycle: 'maintain' as const,
+      state: 'done' as const,
+      progress: 100,
+      pr: {
+        url: 'https://github.com/org/repo/pull/55',
+        number: 55,
+        status: PrStatus.Merged,
+        ciStatus: CiStatus.Success,
+        commitHash: 'def4567890abc123',
+      },
+    },
+  },
+};
