@@ -124,7 +124,8 @@ test.describe('Feature Create Drawer — native file attachments', () => {
     await attachFilesButton.click();
 
     // Verify both file names are displayed in chips
+    // Image files render as <img> thumbnails with title attribute, non-images show text
     await expect(page.getByText('requirements.pdf')).toBeVisible();
-    await expect(page.getByText('screenshot.png')).toBeVisible();
+    await expect(page.locator('[title="screenshot.png"]')).toBeVisible();
   });
 });

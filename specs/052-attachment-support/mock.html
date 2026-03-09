@@ -1,265 +1,474 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Attachment Support — UI Mock</title>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #09090b; color: #fafafa; padding: 2rem; }
-    h1 { font-size: 1rem; font-weight: 600; margin-bottom: 1.5rem; color: #a1a1aa; letter-spacing: 0.05em; }
-    h2 { font-size: 0.75rem; font-weight: 600; color: #71717a; letter-spacing: 0.08em; margin-bottom: 0.75rem; }
-    .mock-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; max-width: 900px; }
-    .mock-card { background: #18181b; border: 1px solid #27272a; border-radius: 0.75rem; padding: 1.25rem; }
-    .mock-card h2 { margin-bottom: 1rem; }
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Attachment Support — UI Mock</title>
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: #09090b;
+        color: #fafafa;
+        padding: 2rem;
+      }
+      h1 {
+        font-size: 1rem;
+        font-weight: 600;
+        margin-bottom: 1.5rem;
+        color: #a1a1aa;
+        letter-spacing: 0.05em;
+      }
+      h2 {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #71717a;
+        letter-spacing: 0.08em;
+        margin-bottom: 0.75rem;
+      }
+      .mock-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2rem;
+        max-width: 900px;
+      }
+      .mock-card {
+        background: #18181b;
+        border: 1px solid #27272a;
+        border-radius: 0.75rem;
+        padding: 1.25rem;
+      }
+      .mock-card h2 {
+        margin-bottom: 1rem;
+      }
 
-    /* Drawer shell */
-    .drawer { background: #18181b; border: 1px solid #27272a; border-radius: 0.75rem; overflow: hidden; }
-    .drawer-header { display: flex; align-items: center; gap: 0.5rem; padding: 1rem 1.25rem; border-bottom: 1px solid #27272a; }
-    .drawer-header .dot { width: 10px; height: 10px; border-radius: 50%; background: #3b82f6; }
-    .drawer-header span { font-size: 0.8rem; font-weight: 700; letter-spacing: 0.06em; }
-    .drawer-body { padding: 1rem 1.25rem; display: flex; flex-direction: column; gap: 1rem; }
-    .drawer-footer { display: flex; justify-content: flex-end; gap: 0.5rem; padding: 1rem 1.25rem; border-top: 1px solid #27272a; }
+      /* Drawer shell */
+      .drawer {
+        background: #18181b;
+        border: 1px solid #27272a;
+        border-radius: 0.75rem;
+        overflow: hidden;
+      }
+      .drawer-header {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid #27272a;
+      }
+      .drawer-header .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #3b82f6;
+      }
+      .drawer-header span {
+        font-size: 0.8rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+      }
+      .drawer-body {
+        padding: 1rem 1.25rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
+      .drawer-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.5rem;
+        padding: 1rem 1.25rem;
+        border-top: 1px solid #27272a;
+      }
 
-    /* Form elements */
-    .label { font-size: 0.65rem; font-weight: 600; color: #71717a; letter-spacing: 0.08em; margin-bottom: 0.375rem; }
-    .textarea { width: 100%; background: #09090b; border: 1px solid #27272a; border-radius: 0.375rem; padding: 0.625rem; color: #a1a1aa; font-size: 0.8rem; resize: none; min-height: 80px; }
-    .btn { padding: 0.375rem 0.75rem; border-radius: 0.375rem; font-size: 0.8rem; font-weight: 500; border: none; cursor: pointer; }
-    .btn-outline { background: transparent; border: 1px solid #27272a; color: #fafafa; }
-    .btn-primary { background: #fafafa; color: #09090b; }
-    .btn-xs { padding: 0.25rem 0.5rem; font-size: 0.7rem; display: inline-flex; align-items: center; gap: 0.25rem; }
-    .btn-ghost { background: transparent; border: none; color: #71717a; padding: 0.25rem; cursor: pointer; }
+      /* Form elements */
+      .label {
+        font-size: 0.65rem;
+        font-weight: 600;
+        color: #71717a;
+        letter-spacing: 0.08em;
+        margin-bottom: 0.375rem;
+      }
+      .textarea {
+        width: 100%;
+        background: #09090b;
+        border: 1px solid #27272a;
+        border-radius: 0.375rem;
+        padding: 0.625rem;
+        color: #a1a1aa;
+        font-size: 0.8rem;
+        resize: none;
+        min-height: 80px;
+      }
+      .btn {
+        padding: 0.375rem 0.75rem;
+        border-radius: 0.375rem;
+        font-size: 0.8rem;
+        font-weight: 500;
+        border: none;
+        cursor: pointer;
+      }
+      .btn-outline {
+        background: transparent;
+        border: 1px solid #27272a;
+        color: #fafafa;
+      }
+      .btn-primary {
+        background: #fafafa;
+        color: #09090b;
+      }
+      .btn-xs {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.7rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+      }
+      .btn-ghost {
+        background: transparent;
+        border: none;
+        color: #71717a;
+        padding: 0.25rem;
+        cursor: pointer;
+      }
 
-    /* Drop zone states */
-    .drop-zone { border: 2px dashed transparent; border-radius: 0.5rem; transition: border-color 0.15s, background 0.15s; }
-    .drop-zone--active { border-color: #3b82f6; background: rgba(59, 130, 246, 0.06); }
+      /* Drop zone states */
+      .drop-zone {
+        border: 2px dashed transparent;
+        border-radius: 0.5rem;
+        transition:
+          border-color 0.15s,
+          background 0.15s;
+      }
+      .drop-zone--active {
+        border-color: #3b82f6;
+        background: rgba(59, 130, 246, 0.06);
+      }
 
-    /* Attachment cards */
-    .attachment-list { display: flex; flex-direction: column; gap: 0.5rem; }
-    .attachment-card { display: flex; align-items: center; gap: 0.75rem; border: 1px solid #27272a; border-radius: 0.375rem; padding: 0.5rem; }
-    .attachment-icon { width: 2rem; height: 2rem; border-radius: 0.25rem; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; flex-shrink: 0; }
-    .icon-image { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
-    .icon-pdf { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
-    .icon-code { background: rgba(16, 185, 129, 0.1); color: #10b981; }
-    .attachment-info { flex: 1; min-width: 0; }
-    .attachment-name { font-size: 0.8rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .attachment-size { font-size: 0.7rem; color: #71717a; }
-    .attachment-remove { font-size: 0.7rem; color: #71717a; background: none; border: none; cursor: pointer; padding: 0.25rem; }
-    .attachment-remove:hover { color: #ef4444; }
+      /* Attachment cards */
+      .attachment-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+      .attachment-card {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        border: 1px solid #27272a;
+        border-radius: 0.375rem;
+        padding: 0.5rem;
+      }
+      .attachment-icon {
+        width: 2rem;
+        height: 2rem;
+        border-radius: 0.25rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+        flex-shrink: 0;
+      }
+      .icon-image {
+        background: rgba(59, 130, 246, 0.1);
+        color: #3b82f6;
+      }
+      .icon-pdf {
+        background: rgba(239, 68, 68, 0.1);
+        color: #ef4444;
+      }
+      .icon-code {
+        background: rgba(16, 185, 129, 0.1);
+        color: #10b981;
+      }
+      .attachment-info {
+        flex: 1;
+        min-width: 0;
+      }
+      .attachment-name {
+        font-size: 0.8rem;
+        font-weight: 500;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .attachment-size {
+        font-size: 0.7rem;
+        color: #71717a;
+      }
+      .attachment-remove {
+        font-size: 0.7rem;
+        color: #71717a;
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 0.25rem;
+      }
+      .attachment-remove:hover {
+        color: #ef4444;
+      }
 
-    /* Loading chip */
-    .attachment-card--loading { opacity: 0.6; }
-    .spinner { width: 14px; height: 14px; border: 2px solid #27272a; border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.6s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
+      /* Loading chip */
+      .attachment-card--loading {
+        opacity: 0.6;
+      }
+      .spinner {
+        width: 14px;
+        height: 14px;
+        border: 2px solid #27272a;
+        border-top-color: #3b82f6;
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
 
-    /* Error message */
-    .error-msg { display: flex; align-items: center; gap: 0.5rem; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 0.375rem; padding: 0.5rem 0.75rem; font-size: 0.75rem; color: #fca5a5; }
-    .error-icon { color: #ef4444; font-weight: 700; }
+      /* Error message */
+      .error-msg {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: rgba(239, 68, 68, 0.08);
+        border: 1px solid rgba(239, 68, 68, 0.2);
+        border-radius: 0.375rem;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.75rem;
+        color: #fca5a5;
+      }
+      .error-icon {
+        color: #ef4444;
+        font-weight: 700;
+      }
 
-    /* Section header with button */
-    .section-header { display: flex; align-items: center; justify-content: space-between; }
-    .attachment-count { color: #52525b; margin-left: 0.375rem; }
-  </style>
-</head>
-<body>
-  <h1>052 — ATTACHMENT SUPPORT — UI MOCK</h1>
-  <div class="mock-grid">
-
-    <!-- State 1: Empty (no attachments) -->
-    <div class="mock-card">
-      <h2>STATE 1 — EMPTY (NO ATTACHMENTS)</h2>
-      <div class="drawer">
-        <div class="drawer-header">
-          <div class="dot"></div>
-          <span>NEW FEATURE</span>
-        </div>
-        <div class="drawer-body">
-          <div>
-            <div class="label">DESCRIBE YOUR FEATURE</div>
-            <div class="drop-zone">
-              <textarea class="textarea" placeholder="e.g. Add GitHub OAuth login with callback handling and token refresh..."></textarea>
+      /* Section header with button */
+      .section-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .attachment-count {
+        color: #52525b;
+        margin-left: 0.375rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>052 — ATTACHMENT SUPPORT — UI MOCK</h1>
+    <div class="mock-grid">
+      <!-- State 1: Empty (no attachments) -->
+      <div class="mock-card">
+        <h2>STATE 1 — EMPTY (NO ATTACHMENTS)</h2>
+        <div class="drawer">
+          <div class="drawer-header">
+            <div class="dot"></div>
+            <span>NEW FEATURE</span>
+          </div>
+          <div class="drawer-body">
+            <div>
+              <div class="label">DESCRIBE YOUR FEATURE</div>
+              <div class="drop-zone">
+                <textarea
+                  class="textarea"
+                  placeholder="e.g. Add GitHub OAuth login with callback handling and token refresh..."
+                ></textarea>
+              </div>
+            </div>
+            <div>
+              <div class="section-header">
+                <div class="label">ATTACHMENTS</div>
+                <button class="btn btn-outline btn-xs">+ Add Files</button>
+              </div>
             </div>
           </div>
-          <div>
-            <div class="section-header">
-              <div class="label">ATTACHMENTS</div>
-              <button class="btn btn-outline btn-xs">+ Add Files</button>
-            </div>
+          <div class="drawer-footer">
+            <button class="btn btn-outline">Cancel</button>
+            <button class="btn btn-primary">+ Create Feature</button>
           </div>
         </div>
-        <div class="drawer-footer">
-          <button class="btn btn-outline">Cancel</button>
-          <button class="btn btn-primary">+ Create Feature</button>
+      </div>
+
+      <!-- State 2: Drag-over highlight -->
+      <div class="mock-card">
+        <h2>STATE 2 — DRAG-OVER HIGHLIGHT</h2>
+        <div class="drawer">
+          <div class="drawer-header">
+            <div class="dot"></div>
+            <span>NEW FEATURE</span>
+          </div>
+          <div class="drawer-body">
+            <div>
+              <div class="label">DESCRIBE YOUR FEATURE</div>
+              <div class="drop-zone drop-zone--active">
+                <textarea
+                  class="textarea"
+                  placeholder="Drop files here..."
+                  style="pointer-events: none; border-color: #3b82f6"
+                ></textarea>
+              </div>
+            </div>
+            <div>
+              <div class="section-header">
+                <div class="label">ATTACHMENTS</div>
+                <button class="btn btn-outline btn-xs">+ Add Files</button>
+              </div>
+            </div>
+          </div>
+          <div class="drawer-footer">
+            <button class="btn btn-outline">Cancel</button>
+            <button class="btn btn-primary">+ Create Feature</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- State 3: Attachments loaded -->
+      <div class="mock-card">
+        <h2>STATE 3 — ATTACHMENTS LOADED</h2>
+        <div class="drawer">
+          <div class="drawer-header">
+            <div class="dot"></div>
+            <span>NEW FEATURE</span>
+          </div>
+          <div class="drawer-body">
+            <div>
+              <div class="label">DESCRIBE YOUR FEATURE</div>
+              <div class="drop-zone">
+                <textarea class="textarea">
+Add dark mode toggle with system preference detection</textarea
+                >
+              </div>
+            </div>
+            <div>
+              <div class="section-header">
+                <div class="label">ATTACHMENTS <span class="attachment-count">(2)</span></div>
+                <button class="btn btn-outline btn-xs">+ Add Files</button>
+              </div>
+              <div class="attachment-list">
+                <div class="attachment-card">
+                  <div class="attachment-icon icon-image">IMG</div>
+                  <div class="attachment-info">
+                    <div class="attachment-name">screenshot.png</div>
+                    <div class="attachment-size">146.5 KB</div>
+                  </div>
+                  <button class="attachment-remove" aria-label="Remove attachment">✕</button>
+                </div>
+                <div class="attachment-card">
+                  <div class="attachment-icon icon-pdf">PDF</div>
+                  <div class="attachment-info">
+                    <div class="attachment-name">requirements.pdf</div>
+                    <div class="attachment-size">41.0 KB</div>
+                  </div>
+                  <button class="attachment-remove" aria-label="Remove attachment">✕</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="drawer-footer">
+            <button class="btn btn-outline">Cancel</button>
+            <button class="btn btn-primary">+ Create Feature</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- State 4: File too large error -->
+      <div class="mock-card">
+        <h2>STATE 4 — FILE TOO LARGE ERROR</h2>
+        <div class="drawer">
+          <div class="drawer-header">
+            <div class="dot"></div>
+            <span>NEW FEATURE</span>
+          </div>
+          <div class="drawer-body">
+            <div>
+              <div class="label">DESCRIBE YOUR FEATURE</div>
+              <div class="drop-zone">
+                <textarea class="textarea">Implement caching layer for API responses</textarea>
+              </div>
+            </div>
+            <div>
+              <div class="section-header">
+                <div class="label">ATTACHMENTS <span class="attachment-count">(1)</span></div>
+                <button class="btn btn-outline btn-xs">+ Add Files</button>
+              </div>
+              <div class="error-msg">
+                <span class="error-icon">⚠</span>
+                <span
+                  >"large-video.mp4" exceeds 10 MB limit (24.3 MB) — file was not uploaded.</span
+                >
+              </div>
+              <div class="attachment-list">
+                <div class="attachment-card">
+                  <div class="attachment-icon icon-code">TS</div>
+                  <div class="attachment-info">
+                    <div class="attachment-name">api-schema.ts</div>
+                    <div class="attachment-size">1.0 KB</div>
+                  </div>
+                  <button class="attachment-remove" aria-label="Remove attachment">✕</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="drawer-footer">
+            <button class="btn btn-outline">Cancel</button>
+            <button class="btn btn-primary">+ Create Feature</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- State 5: Upload in progress (loading chip) -->
+      <div class="mock-card">
+        <h2>STATE 5 — UPLOAD IN PROGRESS</h2>
+        <div class="drawer">
+          <div class="drawer-header">
+            <div class="dot"></div>
+            <span>NEW FEATURE</span>
+          </div>
+          <div class="drawer-body">
+            <div>
+              <div class="label">DESCRIBE YOUR FEATURE</div>
+              <div class="drop-zone">
+                <textarea class="textarea">Add onboarding flow with guided tour</textarea>
+              </div>
+            </div>
+            <div>
+              <div class="section-header">
+                <div class="label">ATTACHMENTS <span class="attachment-count">(2)</span></div>
+                <button class="btn btn-outline btn-xs">+ Add Files</button>
+              </div>
+              <div class="attachment-list">
+                <div class="attachment-card">
+                  <div class="attachment-icon icon-image">IMG</div>
+                  <div class="attachment-info">
+                    <div class="attachment-name">design-mockup.png</div>
+                    <div class="attachment-size">320.0 KB</div>
+                  </div>
+                  <button class="attachment-remove" aria-label="Remove attachment">✕</button>
+                </div>
+                <div class="attachment-card attachment-card--loading">
+                  <div class="attachment-icon icon-image">IMG</div>
+                  <div class="attachment-info">
+                    <div class="attachment-name">onboarding-flow.png</div>
+                    <div class="attachment-size">Uploading...</div>
+                  </div>
+                  <div class="spinner"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="drawer-footer">
+            <button class="btn btn-outline">Cancel</button>
+            <button class="btn btn-primary">+ Create Feature</button>
+          </div>
         </div>
       </div>
     </div>
-
-    <!-- State 2: Drag-over highlight -->
-    <div class="mock-card">
-      <h2>STATE 2 — DRAG-OVER HIGHLIGHT</h2>
-      <div class="drawer">
-        <div class="drawer-header">
-          <div class="dot"></div>
-          <span>NEW FEATURE</span>
-        </div>
-        <div class="drawer-body">
-          <div>
-            <div class="label">DESCRIBE YOUR FEATURE</div>
-            <div class="drop-zone drop-zone--active">
-              <textarea class="textarea" placeholder="Drop files here..." style="pointer-events:none; border-color: #3b82f6;"></textarea>
-            </div>
-          </div>
-          <div>
-            <div class="section-header">
-              <div class="label">ATTACHMENTS</div>
-              <button class="btn btn-outline btn-xs">+ Add Files</button>
-            </div>
-          </div>
-        </div>
-        <div class="drawer-footer">
-          <button class="btn btn-outline">Cancel</button>
-          <button class="btn btn-primary">+ Create Feature</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- State 3: Attachments loaded -->
-    <div class="mock-card">
-      <h2>STATE 3 — ATTACHMENTS LOADED</h2>
-      <div class="drawer">
-        <div class="drawer-header">
-          <div class="dot"></div>
-          <span>NEW FEATURE</span>
-        </div>
-        <div class="drawer-body">
-          <div>
-            <div class="label">DESCRIBE YOUR FEATURE</div>
-            <div class="drop-zone">
-              <textarea class="textarea">Add dark mode toggle with system preference detection</textarea>
-            </div>
-          </div>
-          <div>
-            <div class="section-header">
-              <div class="label">ATTACHMENTS <span class="attachment-count">(2)</span></div>
-              <button class="btn btn-outline btn-xs">+ Add Files</button>
-            </div>
-            <div class="attachment-list">
-              <div class="attachment-card">
-                <div class="attachment-icon icon-image">IMG</div>
-                <div class="attachment-info">
-                  <div class="attachment-name">screenshot.png</div>
-                  <div class="attachment-size">146.5 KB</div>
-                </div>
-                <button class="attachment-remove" aria-label="Remove attachment">✕</button>
-              </div>
-              <div class="attachment-card">
-                <div class="attachment-icon icon-pdf">PDF</div>
-                <div class="attachment-info">
-                  <div class="attachment-name">requirements.pdf</div>
-                  <div class="attachment-size">41.0 KB</div>
-                </div>
-                <button class="attachment-remove" aria-label="Remove attachment">✕</button>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="drawer-footer">
-          <button class="btn btn-outline">Cancel</button>
-          <button class="btn btn-primary">+ Create Feature</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- State 4: File too large error -->
-    <div class="mock-card">
-      <h2>STATE 4 — FILE TOO LARGE ERROR</h2>
-      <div class="drawer">
-        <div class="drawer-header">
-          <div class="dot"></div>
-          <span>NEW FEATURE</span>
-        </div>
-        <div class="drawer-body">
-          <div>
-            <div class="label">DESCRIBE YOUR FEATURE</div>
-            <div class="drop-zone">
-              <textarea class="textarea">Implement caching layer for API responses</textarea>
-            </div>
-          </div>
-          <div>
-            <div class="section-header">
-              <div class="label">ATTACHMENTS <span class="attachment-count">(1)</span></div>
-              <button class="btn btn-outline btn-xs">+ Add Files</button>
-            </div>
-            <div class="error-msg">
-              <span class="error-icon">⚠</span>
-              <span>"large-video.mp4" exceeds 10 MB limit (24.3 MB) — file was not uploaded.</span>
-            </div>
-            <div class="attachment-list">
-              <div class="attachment-card">
-                <div class="attachment-icon icon-code">TS</div>
-                <div class="attachment-info">
-                  <div class="attachment-name">api-schema.ts</div>
-                  <div class="attachment-size">1.0 KB</div>
-                </div>
-                <button class="attachment-remove" aria-label="Remove attachment">✕</button>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="drawer-footer">
-          <button class="btn btn-outline">Cancel</button>
-          <button class="btn btn-primary">+ Create Feature</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- State 5: Upload in progress (loading chip) -->
-    <div class="mock-card">
-      <h2>STATE 5 — UPLOAD IN PROGRESS</h2>
-      <div class="drawer">
-        <div class="drawer-header">
-          <div class="dot"></div>
-          <span>NEW FEATURE</span>
-        </div>
-        <div class="drawer-body">
-          <div>
-            <div class="label">DESCRIBE YOUR FEATURE</div>
-            <div class="drop-zone">
-              <textarea class="textarea">Add onboarding flow with guided tour</textarea>
-            </div>
-          </div>
-          <div>
-            <div class="section-header">
-              <div class="label">ATTACHMENTS <span class="attachment-count">(2)</span></div>
-              <button class="btn btn-outline btn-xs">+ Add Files</button>
-            </div>
-            <div class="attachment-list">
-              <div class="attachment-card">
-                <div class="attachment-icon icon-image">IMG</div>
-                <div class="attachment-info">
-                  <div class="attachment-name">design-mockup.png</div>
-                  <div class="attachment-size">320.0 KB</div>
-                </div>
-                <button class="attachment-remove" aria-label="Remove attachment">✕</button>
-              </div>
-              <div class="attachment-card attachment-card--loading">
-                <div class="attachment-icon icon-image">IMG</div>
-                <div class="attachment-info">
-                  <div class="attachment-name">onboarding-flow.png</div>
-                  <div class="attachment-size">Uploading...</div>
-                </div>
-                <div class="spinner"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="drawer-footer">
-          <button class="btn btn-outline">Cancel</button>
-          <button class="btn btn-primary">+ Create Feature</button>
-        </div>
-      </div>
-    </div>
-
-  </div>
-</body>
+  </body>
 </html>

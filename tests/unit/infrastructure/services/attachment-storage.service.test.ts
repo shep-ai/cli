@@ -69,12 +69,7 @@ describe('AttachmentStorageService', () => {
 
     it('sanitizes filename containing path traversal (../) and spaces', () => {
       const buf = createTestBuffer();
-      const result = service.store(
-        buf,
-        '../../etc/passwd test file.png',
-        'image/png',
-        'session-1'
-      );
+      const result = service.store(buf, '../../etc/passwd test file.png', 'image/png', 'session-1');
 
       expect(result.name).not.toContain('..');
       expect(result.name).not.toContain('/');

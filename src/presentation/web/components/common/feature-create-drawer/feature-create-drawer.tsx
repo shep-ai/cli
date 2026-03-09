@@ -224,75 +224,72 @@ export function FeatureCreateDrawer({
   const { attemptClose } = useGuardedDrawerClose({ open, isDirty, onClose, onReset: resetForm });
 
   /** Validate and upload files from drop or paste. */
-  const handleFiles = useCallback(
-    async (fileList: File[]) => {
-      setUploadError(null);
+  const handleFiles = useCallback(async (fileList: File[]) => {
+    setUploadError(null);
 
-      for (const file of fileList) {
-        // Client-side size validation
-        if (file.size > MAX_FILE_SIZE) {
-          setUploadError(`"${file.name}" exceeds 10 MB limit`);
-          return;
-        }
-        // Client-side extension validation
-        const ext = getExtension(file.name);
-        if (ext && !ALLOWED_EXTENSIONS.has(ext)) {
-          setUploadError(`File type "${ext}" is not allowed`);
-          return;
-        }
+    for (const file of fileList) {
+      // Client-side size validation
+      if (file.size > MAX_FILE_SIZE) {
+        setUploadError(`"${file.name}" exceeds 10 MB limit`);
+        return;
       }
+      // Client-side extension validation
+      const ext = getExtension(file.name);
+      if (ext && !ALLOWED_EXTENSIONS.has(ext)) {
+        setUploadError(`File type "${ext}" is not allowed`);
+        return;
+      }
+    }
 
-      for (const file of fileList) {
-        const tempId = crypto.randomUUID();
+    for (const file of fileList) {
+      const tempId = crypto.randomUUID();
 
-        // Optimistic loading placeholder
-        setAttachments((prev) => [
-          ...prev,
-          {
-            id: tempId,
-            name: file.name,
-            size: file.size,
-            mimeType: file.type || 'application/octet-stream',
-            path: '',
-            loading: true,
-          },
-        ]);
+      // Optimistic loading placeholder
+      setAttachments((prev) => [
+        ...prev,
+        {
+          id: tempId,
+          name: file.name,
+          size: file.size,
+          mimeType: file.type || 'application/octet-stream',
+          path: '',
+          loading: true,
+        },
+      ]);
 
-        try {
-          const formData = new FormData();
-          formData.append('file', file);
-          formData.append('sessionId', sessionIdRef.current);
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('sessionId', sessionIdRef.current);
 
-          const res = await fetch('/api/attachments/upload', {
-            method: 'POST',
-            body: formData,
-          });
+        const res = await fetch('/api/attachments/upload', {
+          method: 'POST',
+          body: formData,
+        });
 
-          if (!res.ok) {
-            const body = await res.json().catch(() => ({ error: 'Upload failed' }));
-            // Remove loading placeholder on error
-            setAttachments((prev) => prev.filter((a) => a.id !== tempId));
-            setUploadError(body.error ?? 'Upload failed');
-            return;
-          }
-
-          const uploaded = await res.json();
-          // Server dedup may return the same path for identical content — drop the duplicate.
-          setAttachments((prev) => {
-            const isDupe = prev.some((a) => a.id !== tempId && a.path === uploaded.path);
-            if (isDupe) return prev.filter((a) => a.id !== tempId);
-            return prev.map((a) =>
-              a.id === tempId ? { ...uploaded, id: tempId, loading: false } : a
-            );
-          });
-        } catch {
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({ error: 'Upload failed' }));
+          // Remove loading placeholder on error
           setAttachments((prev) => prev.filter((a) => a.id !== tempId));
-          setUploadError('Upload failed');
+          setUploadError(body.error ?? 'Upload failed');
+          return;
         }
+
+        const uploaded = await res.json();
+        // Server dedup may return the same path for identical content — drop the duplicate.
+        setAttachments((prev) => {
+          const isDupe = prev.some((a) => a.id !== tempId && a.path === uploaded.path);
+          if (isDupe) return prev.filter((a) => a.id !== tempId);
+          return prev.map((a) =>
+            a.id === tempId ? { ...uploaded, id: tempId, loading: false } : a
+          );
+        });
+      } catch {
+        setAttachments((prev) => prev.filter((a) => a.id !== tempId));
+        setUploadError('Upload failed');
       }
-    },
-    []
-  );
+    }
+  }, []);
 
   const handleDragEnter = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -724,7 +721,6 @@ export function FeatureCreateDrawer({
                 </div>
               </div>
             </div>
-
           </form>
         </TooltipProvider>
       </div>

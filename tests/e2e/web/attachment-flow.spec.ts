@@ -2,17 +2,17 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Feature Create Drawer — drag-drop attachment flow', () => {
   test('dropping a file shows attachment card in the drawer', async ({ page }) => {
-    // Mock the upload API route
+    // Mock the upload API route — return a non-image file so the chip renders text (not <img>)
     await page.route('**/api/attachments/upload', (route) =>
       route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
           id: 'att-e2e-001',
-          name: 'test-screenshot.png',
+          name: 'test-doc.pdf',
           size: 5000,
-          mimeType: 'image/png',
-          path: '/tmp/.shep/attachments/pending-abc/test-screenshot.png',
+          mimeType: 'application/pdf',
+          path: '/tmp/.shep/attachments/pending-abc/test-doc.pdf',
           createdAt: new Date().toISOString(),
         }),
       })
@@ -36,10 +36,9 @@ test.describe('Feature Create Drawer — drag-drop attachment flow', () => {
     await expect(dropZone).toBeVisible();
 
     // Simulate file drop by dispatching a native drop event inside the page context
-    // This ensures dataTransfer.files is properly populated for React's synthetic event
     await dropZone.evaluate((el) => {
       const dt = new DataTransfer();
-      const file = new File(['fake image data'], 'test-screenshot.png', { type: 'image/png' });
+      const file = new File(['fake pdf data'], 'test-doc.pdf', { type: 'application/pdf' });
       dt.items.add(file);
 
       const dropEvent = new DragEvent('drop', {
@@ -50,8 +49,8 @@ test.describe('Feature Create Drawer — drag-drop attachment flow', () => {
       el.dispatchEvent(dropEvent);
     });
 
-    // Verify the attachment card appears with the filename
-    await expect(page.getByText('test-screenshot.png')).toBeVisible({ timeout: 5000 });
+    // Verify the attachment chip appears with the filename
+    await expect(page.getByText('test-doc.pdf')).toBeVisible({ timeout: 5000 });
   });
 
   test('dropping an oversized file shows error without uploading', async ({ page }) => {

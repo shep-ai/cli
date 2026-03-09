@@ -83,7 +83,7 @@ export function AttachmentChip({
             </button>
           )}
         </div>
-        <DialogContent className="max-w-3xl gap-0 overflow-hidden border-0 p-0 [&>button:last-child]:!rounded-full [&>button:last-child]:!bg-black/70 [&>button:last-child]:!p-1.5 [&>button:last-child]:!text-white [&>button:last-child]:!opacity-100 [&>button:last-child]:!shadow-lg [&>button:last-child]:!backdrop-blur-md [&>button:last-child]:!cursor-pointer [&>button:last-child]:hover:!bg-black/90">
+        <DialogContent className="max-w-3xl gap-0 overflow-hidden border-0 p-0 [&>button:last-child]:!cursor-pointer [&>button:last-child]:!rounded-full [&>button:last-child]:!bg-black/70 [&>button:last-child]:!p-1.5 [&>button:last-child]:!text-white [&>button:last-child]:!opacity-100 [&>button:last-child]:!shadow-lg [&>button:last-child]:!backdrop-blur-md [&>button:last-child]:hover:!bg-black/90">
           <VisuallyHidden.Root>
             <DialogTitle>Preview: {name}</DialogTitle>
           </VisuallyHidden.Root>
@@ -118,7 +118,7 @@ export function AttachmentChip({
       <div
         className={cn(
           'flex h-6 w-6 shrink-0 items-center justify-center rounded-full',
-          iconColorClass,
+          iconColorClass
         )}
       >
         <Icon className="h-3 w-3" />

@@ -247,10 +247,7 @@ export class CreateFeatureUseCase {
     let committedAttachments = input.attachments;
     if (input.sessionId) {
       try {
-        committedAttachments = this.attachmentStorage.commit(
-          input.sessionId,
-          slug
-        );
+        committedAttachments = this.attachmentStorage.commit(input.sessionId, slug);
       } catch {
         // Attachment commit failure should not block feature creation
       }
@@ -265,12 +262,7 @@ export class CreateFeatureUseCase {
         for (const filePath of input.attachmentPaths) {
           const buffer = readFileSync(filePath);
           const name = basename(filePath);
-          this.attachmentStorage.store(
-            buffer,
-            name,
-            'application/octet-stream',
-            cliSessionId
-          );
+          this.attachmentStorage.store(buffer, name, 'application/octet-stream', cliSessionId);
         }
         committedAttachments = this.attachmentStorage.commit(cliSessionId, slug);
       } catch {

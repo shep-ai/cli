@@ -19,12 +19,7 @@ export class AttachmentStorageService {
    * Store a file buffer in the pending attachment directory within SHEP_HOME.
    * Returns existing record if SHA-256 matches (dedup within same session).
    */
-  store(
-    buffer: Buffer,
-    filename: string,
-    mimeType: string,
-    sessionId: string
-  ): StoredAttachment {
+  store(buffer: Buffer, filename: string, mimeType: string, sessionId: string): StoredAttachment {
     const hash = createHash('sha256').update(buffer).digest('hex');
 
     // Check dedup
