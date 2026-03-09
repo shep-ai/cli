@@ -166,7 +166,8 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
   // ── Data fetching ─────────────────────────────────────────────────────
 
   const prdFeatureId =
-    featureNode?.lifecycle === 'requirements' && featureNode?.state === 'action-required'
+    (featureNode?.lifecycle === 'requirements' || featureNode?.lifecycle === 'gathering') &&
+    featureNode?.state === 'action-required'
       ? featureNode.featureId
       : null;
   const isLoadingPrd = useArtifactFetch(
@@ -197,7 +198,8 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
   );
 
   const techFeatureId =
-    featureNode?.lifecycle === 'implementation' && featureNode?.state === 'action-required'
+    (featureNode?.lifecycle === 'implementation' || featureNode?.lifecycle === 'planning') &&
+    featureNode?.state === 'action-required'
       ? featureNode.featureId
       : null;
   const isLoadingTech = useArtifactFetch(
@@ -245,7 +247,7 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
   // ── Close guard ──────────────────────────────────────────────────────
   const isChatDirty = chatInput.trim().length > 0;
   const isPrdDirty =
-    featureNode?.lifecycle === 'requirements' &&
+    (featureNode?.lifecycle === 'requirements' || featureNode?.lifecycle === 'gathering') &&
     featureNode?.state === 'action-required' &&
     Object.keys(prdDefaultSelections).some((k) => prdDefaultSelections[k] !== prdSelections[k]);
   const isDirty = isChatDirty || isPrdDirty;
