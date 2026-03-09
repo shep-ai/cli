@@ -3,19 +3,24 @@ import type { RepositoryNodeData } from '@/components/common/repository-node';
 import type { ParentFeatureOption } from '@/components/common/feature-create-drawer/feature-create-drawer';
 import type { WorkflowDefaults } from '@/app/actions/get-workflow-defaults';
 
+/** Tab key matching FeatureDrawerTabs */
+export type FeatureTabKey =
+  | 'overview'
+  | 'activity'
+  | 'log'
+  | 'plan'
+  | 'prd-review'
+  | 'tech-decisions'
+  | 'product-decisions'
+  | 'merge-review';
+
 /**
  * Discriminated union representing every possible drawer state in the control center.
  * Only one view can be active at a time.
  */
 export type DrawerView =
-  /** Generic feature info (running, done, blocked, error, or unhandled action-required phases) */
-  | { type: 'feature'; node: FeatureNodeData }
-  /** requirements lifecycle + action-required → PRD questionnaire */
-  | { type: 'prd-review'; node: FeatureNodeData }
-  /** implementation lifecycle + action-required → tech decisions review */
-  | { type: 'tech-review'; node: FeatureNodeData }
-  /** review lifecycle + action-required|error → merge review */
-  | { type: 'merge-review'; node: FeatureNodeData }
+  /** All feature views — tabs handle the lifecycle-specific content */
+  | { type: 'feature'; node: FeatureNodeData; initialTab: FeatureTabKey }
   /** Feature creation form */
   | {
       type: 'feature-create';
@@ -27,20 +32,19 @@ export type DrawerView =
   /** Repository node actions */
   | { type: 'repository'; data: RepositoryNodeData };
 
-/** Derives the feature-specific view type from node lifecycle + state. */
-export function deriveFeatureViewType(
-  node: FeatureNodeData
-): 'feature' | 'prd-review' | 'tech-review' | 'merge-review' {
+/** Derives the initial tab from node lifecycle + state. */
+export function deriveInitialTab(node: FeatureNodeData): FeatureTabKey {
   if (node.lifecycle === 'requirements' && node.state === 'action-required') return 'prd-review';
-  if (node.lifecycle === 'implementation' && node.state === 'action-required') return 'tech-review';
+  if (node.lifecycle === 'implementation' && node.state === 'action-required')
+    return 'tech-decisions';
   if (node.lifecycle === 'review' && (node.state === 'action-required' || node.state === 'error'))
     return 'merge-review';
-  return 'feature';
+  return 'overview';
 }
 
 /**
  * Derives the active DrawerView from control-center state.
- * Priority: feature-create > selected-node (prd/tech/merge/feature) > repository
+ * Priority: feature-create > selected-node > repository
  */
 export function computeDrawerView({
   selectedNode,
@@ -70,7 +74,7 @@ export function computeDrawerView({
   }
 
   if (selectedNode) {
-    return { type: deriveFeatureViewType(selectedNode), node: selectedNode };
+    return { type: 'feature', node: selectedNode, initialTab: deriveInitialTab(selectedNode) };
   }
 
   if (selectedRepoNode) {

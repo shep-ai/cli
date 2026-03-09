@@ -1,0 +1,269 @@
+name: feature-drawer-tabs
+summary: >
+  Implementation plan for adding a tabbed layout to the feature drawer with
+  Overview, Activity, Messages, and Plan tabs. The approach replaces the current
+  single-body feature view in FeatureDrawerClient with a FeatureDrawerTabs
+  component that uses shadcn/ui Tabs primitives and follows the TechReviewTabs
+  flex-column layout pattern. Three new server actions fetch tab-specific data
+  lazily (phase timings, messages, plan) via DI-resolved repositories. A custom
+  useTabDataFetch hook manages per-tab caching, lazy triggering, and feature-change
+  reset. The Activity tab adapts the CLI phase timing visualization to web using
+  Tailwind CSS proportional-width bars. All components have colocated Storybook
+  stories. Implementation is split into 5 phases: server actions, custom hook,
+  tab content components, container integration, and stories/validation.
+
+relatedFeatures: []
+
+technologies:
+  - React 19 (Next.js 16 App Router)
+  - shadcn/ui Tabs (Radix UI primitives)
+  - Tailwind CSS v4
+  - Storybook 8
+  - TypeSpec domain models
+  - Next.js Server Actions
+  - SSE (Server-Sent Events)
+  - tsyringe (DI container)
+
+relatedLinks:
+  - https://github.com/shep-ai/cli/issues/230
+
+phases:
+  - id: phase-1
+    name: 'Server Actions & Data Layer'
+    description: >
+      Create three new server actions (getFeaturePhaseTimings, getFeatureMessages,
+      getFeaturePlan) that fetch tab-specific data via DI-resolved repositories.
+      Each action follows the established pattern: resolve repository from container,
+      query data, convert bigint fields to number, return typed result with error
+      handling. Storybook mock stubs are created alongside to prevent build failures.
+      This phase comes first because all tab content components depend on these
+      data-fetching functions.
+    parallel: false
+
+  - id: phase-2
+    name: 'Custom Hook — useTabDataFetch'
+    description: >
+      Build the useTabDataFetch custom hook that provides lazy loading, per-tab
+      caching, feature-change reset, and SSE-triggered re-fetch semantics. Uses
+      ref-based callbacks (matching useArtifactFetch pattern) to avoid stale
+      closures. This hook is the shared data management layer that all tab content
+      components consume, so it must be built before the tab components.
+    parallel: false
+
+  - id: phase-3
+    name: 'Tab Content Components'
+    description: >
+      Build the four tab content components: OverviewTab (extracted from existing
+      feature view body), ActivityTab (phase timing visualization with duration bars
+      and multi-run grouping), MessagesTab (chronological message list with role
+      distinction), and PlanTab (plan state badge and task list with status indicators).
+      Each component is self-contained with loading, empty, and error states.
+      Components can be built in parallel since they share no dependencies beyond
+      the hook from Phase 2.
+    parallel: true
+
+  - id: phase-4
+    name: 'Container Integration'
+    description: >
+      Build the FeatureDrawerTabs container component that wires together the
+      shadcn/ui Tabs primitives, the useTabDataFetch hook, and the four tab content
+      components. Integrate into FeatureDrawerClient by replacing the feature view
+      body (lines 544-578). Wire up controlled tab state with feature-change reset
+      and SSE-driven refresh. This phase depends on all tab content components
+      being complete.
+    parallel: false
+
+  - id: phase-5
+    name: 'Storybook Stories & Validation'
+    description: >
+      Create comprehensive Storybook stories for all new components covering
+      populated, empty, loading, and error states. Run full validation suite
+      (build, test, lint, typecheck) to ensure production readiness. This phase
+      is last because stories need finalized component APIs to test against.
+    parallel: false
+
+filesToCreate:
+  - src/presentation/web/app/actions/get-feature-phase-timings.ts
+  - src/presentation/web/app/actions/get-feature-messages.ts
+  - src/presentation/web/app/actions/get-feature-plan.ts
+  - .storybook/mocks/app/actions/get-feature-phase-timings.ts
+  - .storybook/mocks/app/actions/get-feature-messages.ts
+  - .storybook/mocks/app/actions/get-feature-plan.ts
+  - src/presentation/web/components/common/feature-drawer-tabs/feature-drawer-tabs.tsx
+  - src/presentation/web/components/common/feature-drawer-tabs/overview-tab.tsx
+  - src/presentation/web/components/common/feature-drawer-tabs/activity-tab.tsx
+  - src/presentation/web/components/common/feature-drawer-tabs/messages-tab.tsx
+  - src/presentation/web/components/common/feature-drawer-tabs/plan-tab.tsx
+  - src/presentation/web/components/common/feature-drawer-tabs/use-tab-data-fetch.ts
+  - src/presentation/web/components/common/feature-drawer-tabs/index.ts
+  - src/presentation/web/components/common/feature-drawer-tabs/feature-drawer-tabs.stories.tsx
+  - src/presentation/web/components/common/feature-drawer-tabs/overview-tab.stories.tsx
+  - src/presentation/web/components/common/feature-drawer-tabs/activity-tab.stories.tsx
+  - src/presentation/web/components/common/feature-drawer-tabs/messages-tab.stories.tsx
+  - src/presentation/web/components/common/feature-drawer-tabs/plan-tab.stories.tsx
+
+filesToModify:
+  - src/presentation/web/components/common/control-center-drawer/feature-drawer-client.tsx
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  The feature drawer tabs integrate into the existing FeatureDrawerClient view system,
+  which uses a discriminated union (`DrawerView`) to switch between four view types:
+  `'feature'`, `'prd-review'`, `'tech-review'`, and `'merge-review'`. The tabs apply
+  exclusively to the `'feature'` view type, replacing the single-body content block
+  (lines 544-578) with a `FeatureDrawerTabs` component. Review views remain untouched.
+
+  ### Component Hierarchy
+
+  ```
+  FeatureDrawerClient (existing orchestrator)
+  ├── SSE event processing (unchanged)
+  ├── Review view data fetching (unchanged)
+  ├── Body rendering:
+  │   ├── 'feature' → FeatureDrawerTabs (NEW)
+  │   │   ├── OverviewTab (extracted from current feature view body)
+  │   │   ├── ActivityTab (phase timing visualization)
+  │   │   ├── MessagesTab (message log)
+  │   │   └── PlanTab (plan state + task list)
+  │   ├── 'prd-review' → PrdQuestionnaire (unchanged)
+  │   ├── 'tech-review' → TechReviewTabs (unchanged)
+  │   └── 'merge-review' → MergeReview (unchanged)
+  └── Footer: DrawerActionBar (remains outside tabs)
+  ```
+
+  ### Data Flow
+
+  - **Overview tab**: Uses existing `FeatureNodeData` passed as a prop — no server action.
+  - **Activity tab**: `getFeaturePhaseTimings(featureId)` → `IPhaseTimingRepository.findByFeatureId()`.
+  - **Messages tab**: `getFeatureMessages(featureId)` → `IFeatureRepository.findById()` → `feature.messages`.
+  - **Plan tab**: `getFeaturePlan(featureId)` → `IFeatureRepository.findById()` → `feature.plan`.
+
+  All three server actions follow the established pattern: resolve repository from DI
+  container via `resolve<T>('Token')`, execute query, convert bigint fields to number,
+  return `{ data } | { error }` union type.
+
+  ### Layout Pattern
+
+  The tab layout follows the TechReviewTabs flex-column pattern:
+
+  ```
+  <div className="flex min-h-0 flex-1 flex-col">
+    <Tabs value={activeTab} onValueChange={setActiveTab}
+          className="flex min-h-0 flex-1 flex-col">
+      <div className="shrink-0 px-4 pt-4">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="activity">Activity</TabsTrigger>
+          <TabsTrigger value="messages">Messages</TabsTrigger>
+          <TabsTrigger value="plan">Plan</TabsTrigger>
+        </TabsList>
+      </div>
+      <TabsContent value="..." className="mt-0 flex-1 overflow-y-auto">
+        <!-- Tab content with independent scrolling -->
+      </TabsContent>
+    </Tabs>
+  </div>
+  ```
+
+  Key constraints: `min-h-0` prevents flex overflow, `shrink-0` pins the tab bar,
+  `flex-1 overflow-y-auto` enables independent tab content scrolling, `mt-0` removes
+  default shadcn/ui margin.
+
+  ## Key Design Decisions
+
+  ### 1. Replace Feature View Body (Not Create New View Type)
+
+  The tabs replace the feature view body block in FeatureDrawerClient (lines 544-578),
+  not a new DrawerView type. DrawerView maps lifecycle+state to view types (feature,
+  prd-review, tech-review, merge-review). Tabs are a UI layout concern within the
+  existing "feature" view. Adding a tab-specific view type would conflate layout with
+  lifecycle semantics.
+
+  ### 2. Custom useTabDataFetch Hook (Not useArtifactFetch or React Query)
+
+  useArtifactFetch fetches immediately when featureId becomes non-null — wrong semantics
+  for lazy tab data that should only fetch on tab click. React Query / SWR are not used
+  anywhere in the codebase and would add inconsistency. The custom hook provides:
+  (1) explicit fetch triggering on tab activation, (2) per-tab caching for instant
+  re-visits, (3) full cache clear on featureId change, (4) active-tab re-fetch on SSE
+  events. Uses ref-based callbacks matching useArtifactFetch's pattern.
+
+  ### 3. Controlled Tab State (Not defaultValue)
+
+  `useState` + `value`/`onValueChange` props enable programmatic tab reset when featureId
+  changes (FR-10) and allow the hook to know which tab is active for lazy fetch decisions.
+  Uncontrolled `defaultValue` would prevent both capabilities.
+
+  ### 4. Tailwind CSS Proportional Bars (Not Chart Library)
+
+  Phase timing visualization uses percentage-width divs with Tailwind color classes
+  (emerald-500, blue-500, red-500, amber-500). This matches the existing progress bar
+  pattern in the drawer and avoids adding a chart library for simple horizontal bars.
+  The CLI renders these with character-based bars; the web adapts to percentage widths.
+
+  ### 5. Separate Server Actions Per Data Type (Not Unified)
+
+  Three separate actions align with lazy loading (each tab fetches only what it needs),
+  follow existing patterns (getFeatureArtifact, getResearchArtifact, getMergeReviewData
+  are all separate), and simplify error handling per tab. A unified action would fetch
+  unnecessary data and break the lazy-loading strategy.
+
+  ### 6. SSE Refresh Via nodeData Prop Changes (Not Custom Listeners)
+
+  FeatureDrawerClient already processes SSE events and calls router.refresh(), which
+  updates FeatureNodeData. The FeatureDrawerTabs component watches for nodeData changes
+  via useEffect and invalidates the active tab's cached data. No new SSE listeners needed.
+
+  ### 7. Scrollable Message List (Not Chat Bubbles or Accordion)
+
+  Messages are historical agent-user interaction logs, not real-time chat. A scrollable
+  list with role-based styling (assistant: muted bg, user: accent border) matches the
+  log nature. Features typically have 5-30 messages — manageable without pagination.
+
+  ### 8. Inline Task Status Icons (Not Kanban or Progress Bars)
+
+  The drawer is 384-576px wide (sm/md sizes) — too narrow for a kanban layout. Tasks
+  have discrete states (Todo, WIP, Done, Review), not continuous progress. Status icons
+  with colored text follow existing FeatureNodeState patterns.
+
+  ## Implementation Strategy
+
+  The implementation proceeds in 5 phases, ordered by dependency:
+
+  **Phase 1 (Server Actions)** comes first because all tab content components need
+  data-fetching functions to build and test against. Creating Storybook mock stubs
+  alongside prevents build failures when stories import these actions.
+
+  **Phase 2 (Custom Hook)** follows because it provides the shared lazy-loading and
+  caching mechanism that all tab components consume. Building it before the tabs allows
+  thorough unit testing of fetch, cache, and reset semantics in isolation.
+
+  **Phase 3 (Tab Content Components)** can be parallelized because the four tab
+  components (Overview, Activity, Messages, Plan) are independent — they each receive
+  data via props and render their own content. OverviewTab is simplest (extract existing
+  code), ActivityTab is most complex (phase timing visualization).
+
+  **Phase 4 (Container Integration)** wires everything together: the Tabs primitives,
+  the custom hook, and the four tab components. It also modifies FeatureDrawerClient to
+  render the tabbed component instead of the current feature view body.
+
+  **Phase 5 (Stories & Validation)** ensures production readiness with comprehensive
+  Storybook stories and full validation checks (build, test, lint, typecheck).
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Breaking existing review views (prd-review, tech-review, merge-review) | Only the `'feature'` view body block (lines 544-578) is modified. Review views use separate branches in the view-type switch and are completely untouched. Integration tests verify review views still render correctly. |
+  | Layout shift when switching tabs | Follow TechReviewTabs flex-column pattern with fixed TabsList (shrink-0) and scrollable TabsContent (flex-1 overflow-y-auto). Tab bar never resizes. Each tab content independently scrolls. |
+  | Stale data after SSE events | FeatureDrawerTabs watches for nodeData prop changes (triggered by router.refresh on SSE events) and invalidates active tab's cached data, triggering re-fetch. |
+  | BigInt serialization failure across RSC boundary | Server actions convert bigint to number at the action boundary (Number(phaseTiming.durationMs)). Duration values in ms never exceed Number.MAX_SAFE_INTEGER. The CLI already does this conversion. |
+  | Tab data cache not clearing on feature switch | useTabDataFetch hook watches featureId via useEffect and clears all cached tab data + resets active tab to "overview" when featureId changes. |
+  | Activity tab complexity (multi-run grouping, duration bars, approval waits) | Adapt logic directly from CLI show command (lines 130-404). Group by agentRunId, compute max duration for proportional bars, handle lifecycle events separately. Break ActivityTab into focused sub-sections. |
+  | Storybook build failures from server action imports | Create mock stub files in .storybook/mocks/app/actions/ alongside the real actions. Storybook's path alias redirection (@/app/actions → mock directory) prevents DI-dependent code from executing. |
+  | Tab content components exceeding 300-line NFR-5 limit | Each tab is a separate file. ActivityTab (most complex) may need helper functions extracted to the same file or a shared utils module. Monitor line counts during implementation. |
+  | Drawer footer (DrawerActionBar) interaction with tabs | Footer remains outside the Tabs component, same as TechReviewTabs pattern. The footer is rendered by FeatureDrawerClient, not by FeatureDrawerTabs. |
+  | Accessibility regression from custom tab styling | Radix UI Tabs handles keyboard navigation (arrow keys, Enter/Space), ARIA roles, and focus management. Custom Tailwind styling only affects visuals, not behavior. No custom event handlers that could break accessibility. |

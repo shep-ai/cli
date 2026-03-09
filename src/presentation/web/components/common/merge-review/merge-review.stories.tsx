@@ -1,9 +1,7 @@
-import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import { fn } from '@storybook/test';
 import { PrStatus, CiStatus } from '@shepai/core/domain/generated/output';
 import { MergeReview } from './merge-review';
-import { MergeReviewDrawer } from './merge-review-drawer';
 import type { MergeReviewData } from './merge-review-config';
 
 const fullPr = {
@@ -154,86 +152,4 @@ export const WithPhases: Story = {
     },
     ...defaultActions,
   },
-};
-
-/* ─── Drawer Variant ─── */
-
-type DrawerStory = StoryObj<typeof MergeReviewDrawer>;
-
-const drawerMeta = {
-  component: MergeReviewDrawer,
-  tags: ['autodocs'],
-  parameters: {
-    layout: 'fullscreen',
-  },
-};
-
-function DrawerTemplate(
-  props: Omit<React.ComponentProps<typeof MergeReviewDrawer>, 'open' | 'onClose'>
-) {
-  const [open, setOpen] = useState(true);
-
-  return (
-    <div style={{ height: '100vh', background: '#f8fafc', padding: '2rem' }}>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        style={{ padding: '8px 16px', border: '1px solid #ccc', borderRadius: '6px' }}
-      >
-        Open Drawer
-      </button>
-      <MergeReviewDrawer {...props} open={open} onClose={() => setOpen(false)} />
-    </div>
-  );
-}
-
-/** Merge review drawer with full data. */
-export const InDrawer: DrawerStory = {
-  ...drawerMeta,
-  render: () => (
-    <DrawerTemplate
-      featureName="Add User Authentication"
-      featureId="FEAT-042"
-      repositoryPath="/home/user/projects/my-app"
-      branch="feat/add-auth"
-      data={fullData}
-      {...defaultActions}
-    />
-  ),
-};
-
-/** Drawer with delete button visible. */
-export const WithDeleteButton: DrawerStory = {
-  ...drawerMeta,
-  render: () => (
-    <DrawerTemplate
-      featureName="Add User Authentication"
-      featureId="FEAT-042"
-      repositoryPath="/home/user/projects/my-app"
-      branch="feat/add-auth"
-      data={fullData}
-      {...defaultActions}
-      onDelete={fn().mockName('onDelete')}
-    />
-  ),
-};
-
-/** Drawer without PR — direct merge with diff summary and branch info. */
-export const InDrawerNoPr: DrawerStory = {
-  ...drawerMeta,
-  render: () => (
-    <DrawerTemplate
-      featureName="Fix Login Bug"
-      featureId="FEAT-099"
-      repositoryPath="/home/user/projects/my-app"
-      branch="feat/fix-login"
-      data={{
-        branch: { source: 'feat/fix-login', target: 'main' },
-        phases: samplePhases,
-        diffSummary: fullData.diffSummary,
-      }}
-      {...defaultActions}
-      onDelete={fn().mockName('onDelete')}
-    />
-  ),
 };

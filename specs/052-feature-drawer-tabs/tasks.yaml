@@ -1,0 +1,746 @@
+name: feature-drawer-tabs
+summary: >
+  20 tasks across 5 phases implementing a tabbed layout for the feature drawer.
+  Phase 1 creates three server actions and Storybook mocks for data fetching.
+  Phase 2 builds the useTabDataFetch custom hook for lazy loading and caching.
+  Phase 3 builds four tab content components (Overview, Activity, Messages, Plan).
+  Phase 4 integrates the container component into FeatureDrawerClient.
+  Phase 5 creates Storybook stories and runs full validation.
+  Total estimated effort: 18 hours.
+
+relatedFeatures: []
+
+technologies:
+  - React 19 (Next.js 16 App Router)
+  - shadcn/ui Tabs (Radix UI primitives)
+  - Tailwind CSS v4
+  - Storybook 8
+  - Next.js Server Actions
+  - tsyringe (DI container)
+  - Vitest + React Testing Library
+
+relatedLinks:
+  - https://github.com/shep-ai/cli/issues/230
+
+tasks:
+  # ============================================================================
+  # PHASE 1: SERVER ACTIONS & DATA LAYER
+  # ============================================================================
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Create getFeaturePhaseTimings server action'
+    description: >
+      Create a new server action that fetches phase timings for a feature by resolving
+      IPhaseTimingRepository from the DI container and calling findByFeatureId(). The
+      action converts bigint fields (durationMs, approvalWaitMs) to number for RSC
+      serialization safety. Returns typed result with error handling following the
+      existing getFeatureArtifact/getMergeReviewData patterns.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - Server action file exists at src/presentation/web/app/actions/get-feature-phase-timings.ts
+      - Action is marked with 'use server' directive
+      - Action resolves IPhaseTimingRepository from DI container via resolve<T>('IPhaseTimingRepository')
+      - Action calls findByFeatureId(featureId) on the repository
+      - Action converts bigint fields (durationMs, approvalWaitMs) to number via Number()
+      - 'Action returns { timings: PhaseTimingData[] } on success'
+      - 'Action returns { error: string } on failure with try/catch'
+      - Action validates featureId is non-empty before querying
+      - PhaseTimingData interface includes agentRunId, phase, startedAt, completedAt, durationMs, waitingApprovalAt, approvalWaitMs
+    tdd:
+      red:
+        - 'Write test in tests/unit/presentation/web/app/actions/get-feature-phase-timings.test.ts'
+        - 'Mock the DI container resolve function to return a mock IPhaseTimingRepository'
+        - 'Test that calling getFeaturePhaseTimings("feat-1") returns { timings: [...] } with bigint fields converted to number'
+        - 'Test that calling getFeaturePhaseTimings("") returns { error: string }'
+        - 'Test that findByFeatureId is called with the correct featureId'
+        - 'Run pnpm test:unit -- get-feature-phase-timings — tests should fail (action does not exist yet)'
+      green:
+        - 'Create src/presentation/web/app/actions/get-feature-phase-timings.ts'
+        - 'Add "use server" directive, import resolve from @/lib/server-container'
+        - 'Import IPhaseTimingRepository type from @shepai/core'
+        - 'Define PhaseTimingData interface and GetPhaseTimingsResult type'
+        - 'Implement the action: validate featureId, resolve repo, call findByFeatureId, convert bigint to number, return result'
+        - 'Run tests — should pass'
+      refactor:
+        - 'Extract PhaseTimingData interface to a shared types location if needed by multiple consumers'
+        - 'Ensure error messages are descriptive and consistent with existing actions'
+    estimatedEffort: '1h'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Create getFeatureMessages server action'
+    description: >
+      Create a server action that fetches feature messages by resolving
+      IFeatureRepository from the DI container, calling findById(), and extracting
+      feature.messages. Returns the message array with role, content, options,
+      selectedOption, and answer fields.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - Server action file exists at src/presentation/web/app/actions/get-feature-messages.ts
+      - Action is marked with 'use server' directive
+      - Action resolves IFeatureRepository from DI container via resolve<T>('IFeatureRepository')
+      - Action calls findById(featureId) on the repository
+      - Action extracts and returns feature.messages array
+      - 'Action returns { messages: MessageData[] } on success'
+      - 'Action returns { error: string } when feature not found or on failure'
+      - MessageData interface includes role, content, options, selectedOption, answer
+    tdd:
+      red:
+        - 'Write test in tests/unit/presentation/web/app/actions/get-feature-messages.test.ts'
+        - 'Mock DI container to return mock IFeatureRepository'
+        - 'Test that calling getFeatureMessages("feat-1") returns { messages: [...] }'
+        - 'Test that calling getFeatureMessages("") returns { error: string }'
+        - 'Test that findById is called with correct featureId'
+        - 'Test that when feature has no messages, returns { messages: [] }'
+        - 'Run pnpm test:unit -- get-feature-messages — tests should fail'
+      green:
+        - 'Create src/presentation/web/app/actions/get-feature-messages.ts'
+        - 'Add "use server" directive, import resolve from @/lib/server-container'
+        - 'Import IFeatureRepository type from @shepai/core'
+        - 'Define MessageData interface and GetMessagesResult type'
+        - 'Implement the action: validate featureId, resolve repo, call findById, extract messages, return result'
+        - 'Run tests — should pass'
+      refactor:
+        - 'Ensure MessageData maps cleanly from the domain Message type'
+        - 'Verify error handling is consistent with task-1 action'
+    estimatedEffort: '45min'
+
+  - id: task-3
+    phaseId: phase-1
+    title: 'Create getFeaturePlan server action'
+    description: >
+      Create a server action that fetches the feature plan by resolving
+      IFeatureRepository from the DI container, calling findById(), and extracting
+      feature.plan. Returns plan state, overview text, and task list with status
+      indicators. Handles the case where a feature has no plan (returns plan as undefined).
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - Server action file exists at src/presentation/web/app/actions/get-feature-plan.ts
+      - Action is marked with 'use server' directive
+      - Action resolves IFeatureRepository from DI container
+      - Action calls findById(featureId) and extracts feature.plan
+      - 'Action returns { plan: PlanData } when plan exists'
+      - 'Action returns { plan: undefined } when feature exists but has no plan'
+      - 'Action returns { error: string } on failure'
+      - PlanData interface includes state, overview, and tasks array with title, description, state
+    tdd:
+      red:
+        - 'Write test in tests/unit/presentation/web/app/actions/get-feature-plan.test.ts'
+        - 'Mock DI container to return mock IFeatureRepository'
+        - 'Test that getFeaturePlan("feat-1") returns { plan: PlanData } when plan exists'
+        - 'Test that getFeaturePlan("feat-2") returns { plan: undefined } when feature has no plan'
+        - 'Test that getFeaturePlan("") returns { error: string }'
+        - 'Run pnpm test:unit -- get-feature-plan — tests should fail'
+      green:
+        - 'Create src/presentation/web/app/actions/get-feature-plan.ts'
+        - 'Add "use server" directive, import resolve'
+        - 'Define PlanData interface and GetPlanResult type'
+        - 'Implement the action: validate featureId, resolve repo, call findById, extract plan, return result'
+        - 'Run tests — should pass'
+      refactor:
+        - 'Ensure PlanData.tasks maps cleanly from domain Task type'
+        - 'Verify consistent error handling with task-1 and task-2 actions'
+    estimatedEffort: '45min'
+
+  - id: task-4
+    phaseId: phase-1
+    title: 'Create Storybook mock stubs for new server actions'
+    description: >
+      Create three mock files in .storybook/mocks/app/actions/ that return error
+      stubs for the new server actions. These prevent Storybook build failures when
+      the @/app/actions alias resolves to the mock directory. Follows the existing
+      pattern established by get-merge-review-data.ts and get-feature-artifact.ts mocks.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - Mock file exists at .storybook/mocks/app/actions/get-feature-phase-timings.ts
+      - Mock file exists at .storybook/mocks/app/actions/get-feature-messages.ts
+      - Mock file exists at .storybook/mocks/app/actions/get-feature-plan.ts
+      - Each mock exports a function matching the real action signature
+      - "Each mock returns { error: 'Not available in Storybook' }"
+      - Storybook build passes (pnpm build:storybook or pnpm storybook:web)
+    tdd: null
+    estimatedEffort: '15min'
+
+  # ============================================================================
+  # PHASE 2: CUSTOM HOOK — useTabDataFetch
+  # ============================================================================
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Create useTabDataFetch hook with lazy loading and caching'
+    description: >
+      Build a custom React hook that manages lazy data fetching for tabs. The hook
+      accepts a map of tab keys to fetcher functions, and provides: (1) explicit
+      fetch triggering when a tab is activated, (2) per-tab cached data so revisiting
+      a loaded tab is instant, (3) per-tab loading and error states, (4) full cache
+      clear when featureId changes, (5) re-fetch of active tab when triggered by
+      external events (SSE). Uses ref-based callbacks following useArtifactFetch pattern.
+    state: Todo
+    dependencies:
+      - task-1
+      - task-2
+      - task-3
+    acceptanceCriteria:
+      - Hook file exists at src/presentation/web/components/common/feature-drawer-tabs/use-tab-data-fetch.ts
+      - Hook accepts featureId and a configuration for each tab (fetcher function)
+      - Hook returns per-tab state (data, loading, error) and a fetchTab function
+      - Calling fetchTab("activity") triggers the activity fetcher only on first call
+      - Subsequent fetchTab("activity") calls return cached data without re-fetching
+      - When featureId changes, all cached data is cleared and active tab resets
+      - Hook provides a refreshActiveTab function for SSE-triggered re-fetch
+      - Uses useRef for fetcher callbacks to avoid stale closures
+      - TypeScript types are clean and generic where appropriate
+    tdd:
+      red:
+        - 'Write tests in tests/unit/presentation/web/components/common/feature-drawer-tabs/use-tab-data-fetch.test.ts'
+        - 'Test: calling fetchTab("activity") invokes the activity fetcher'
+        - 'Test: calling fetchTab("activity") a second time does NOT invoke the fetcher again (cache hit)'
+        - 'Test: after featureId changes, cached data is cleared'
+        - 'Test: loading state is true while fetcher is in progress, false after completion'
+        - 'Test: error state is populated when fetcher throws'
+        - 'Test: refreshActiveTab re-invokes the fetcher for the currently active tab'
+        - 'Run tests — should fail (hook does not exist yet)'
+      green:
+        - 'Create use-tab-data-fetch.ts with the hook implementation'
+        - 'Use useState for per-tab data, loading, and error maps'
+        - 'Use useRef for fetcher callbacks (avoids stale closures)'
+        - 'Use useEffect to clear cache when featureId changes'
+        - 'Implement fetchTab to check cache before invoking fetcher'
+        - 'Implement refreshActiveTab to bypass cache for active tab'
+        - 'Run tests — should pass'
+      refactor:
+        - 'Extract types to improve readability'
+        - 'Ensure the hook handles unmount/cancellation to prevent state updates on unmounted components'
+        - 'Verify ref-based callback pattern matches useArtifactFetch conventions'
+    estimatedEffort: '2h'
+
+  # ============================================================================
+  # PHASE 3: TAB CONTENT COMPONENTS
+  # ============================================================================
+
+  - id: task-6
+    phaseId: phase-3
+    title: 'Create OverviewTab component'
+    description: >
+      Extract the current feature view body content (status badge, lifecycle label,
+      progress bar, PR info, feature details) from FeatureDrawerClient lines 544-578
+      into a standalone OverviewTab component. This component receives FeatureNodeData
+      as a prop and renders exactly the same content as the current feature view body.
+      No server action needed — all data comes from the prop.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - Component file exists at src/presentation/web/components/common/feature-drawer-tabs/overview-tab.tsx
+      - Component accepts FeatureNodeData as a prop (same data already available in the drawer)
+      - Component renders lifecycle label, FeatureStateBadge, progress bar (when > 0), PR info, and FeatureDetails
+      - Component produces identical output to current feature view body (lines 544-578)
+      - Component is under 300 lines (NFR-5)
+      - No server actions or data fetching in this component
+    tdd:
+      red:
+        - 'Write test in tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx'
+        - 'Test: renders lifecycle phase label from FeatureNodeData'
+        - 'Test: renders FeatureStateBadge with correct data'
+        - 'Test: renders progress bar when progress > 0'
+        - 'Test: does not render progress bar when progress is 0'
+        - 'Test: renders PR info when PR exists'
+        - 'Test: renders FeatureDetails section'
+        - 'Run tests — should fail'
+      green:
+        - 'Create overview-tab.tsx'
+        - 'Import FeatureStateBadge, FeaturePrInfo, FeatureDetails, Separator, and cn utility'
+        - 'Render the same structure as FeatureDrawerClient lines 544-578, accepting data as props'
+        - 'Run tests — should pass'
+      refactor:
+        - 'Ensure component follows existing code style and naming conventions'
+        - 'Verify no unnecessary re-renders by checking prop types'
+    estimatedEffort: '1h'
+
+  - id: task-7
+    phaseId: phase-3
+    title: 'Create ActivityTab component — phase timing visualization'
+    description: >
+      Build the Activity tab component that renders phase timings with duration bars,
+      multi-run grouping, and approval wait indicators. Adapts the CLI show command
+      visualization (lines 130-404) to web using Tailwind CSS proportional-width bars.
+      Handles loading, empty, and error states. This is the most complex tab.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - Component file exists at src/presentation/web/components/common/feature-drawer-tabs/activity-tab.tsx
+      - Component accepts phase timing data array, loading state, and error state as props
+      - When loading, shows a loading spinner/skeleton
+      - When no data, shows empty state message "No activity recorded yet"
+      - When error, shows inline error message
+      - Groups phase timings by agentRunId with run headers
+      - Renders horizontal bars proportional to duration (percentage of maxDuration)
+      - Color-codes bars by status (emerald=completed, blue=running, red=crashed, amber=approval wait)
+      - Shows duration text (Xs) next to each bar
+      - Shows approval wait sub-row for gated phases with amber bar
+      - Shows summary totals (total execution, total wait, total wall-clock time)
+      - Filters and displays lifecycle events separately
+      - Component is under 300 lines (NFR-5)
+    tdd:
+      red:
+        - 'Write test in tests/unit/presentation/web/components/common/feature-drawer-tabs/activity-tab.test.tsx'
+        - 'Test: renders loading spinner when loading=true'
+        - 'Test: renders empty state when timings array is empty'
+        - 'Test: renders error message when error is provided'
+        - 'Test: renders phase name and duration bar for each timing'
+        - 'Test: groups timings by agentRunId with run headers'
+        - 'Test: renders approval wait sub-row when approvalWaitMs > 0'
+        - 'Test: renders summary totals'
+        - 'Run tests — should fail'
+      green:
+        - 'Create activity-tab.tsx'
+        - 'Define props interface accepting timings data, loading, and error'
+        - 'Implement grouping logic (group by agentRunId)'
+        - 'Implement proportional bar rendering (width as % of maxDuration)'
+        - 'Apply color classes based on timing status'
+        - 'Add approval wait sub-row rendering'
+        - 'Add summary totals section'
+        - 'Add loading, empty, and error states'
+        - 'Run tests — should pass'
+      refactor:
+        - 'Extract grouping/formatting helper functions to keep component under 300 lines'
+        - 'Ensure duration formatting is consistent (Xs with one decimal)'
+        - 'Verify color classes match codebase conventions (emerald-500, blue-500, etc.)'
+    estimatedEffort: '3h'
+
+  - id: task-8
+    phaseId: phase-3
+    title: 'Create MessagesTab component — message log display'
+    description: >
+      Build the Messages tab component that renders feature messages in chronological
+      order with role-based styling. Shows role labels (assistant/user), full message
+      content, and when present, options with the selected option highlighted. Handles
+      loading, empty, and error states.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - Component file exists at src/presentation/web/components/common/feature-drawer-tabs/messages-tab.tsx
+      - Component accepts messages data array, loading state, and error state as props
+      - When loading, shows a loading spinner/skeleton
+      - When no messages, shows empty state message "No messages yet"
+      - When error, shows inline error message
+      - Renders messages in chronological order (array order)
+      - Shows role label with visual distinction (assistant vs user)
+      - Shows full message content (not truncated)
+      - When message has options, displays them as a list
+      - When message has answer/selectedOption, highlights the selected option
+      - Component is under 300 lines (NFR-5)
+    tdd:
+      red:
+        - 'Write test in tests/unit/presentation/web/components/common/feature-drawer-tabs/messages-tab.test.tsx'
+        - 'Test: renders loading spinner when loading=true'
+        - 'Test: renders empty state when messages array is empty'
+        - 'Test: renders error message when error is provided'
+        - 'Test: renders role label for each message'
+        - 'Test: renders full content text for each message'
+        - 'Test: renders options list when message has options'
+        - 'Test: highlights selected option when answer/selectedOption is present'
+        - 'Run tests — should fail'
+      green:
+        - 'Create messages-tab.tsx'
+        - 'Define props interface accepting messages data, loading, and error'
+        - 'Implement message list rendering with role-based styling'
+        - 'Implement options display with selected option highlight'
+        - 'Add loading, empty, and error states'
+        - 'Run tests — should pass'
+      refactor:
+        - 'Ensure role styling matches codebase conventions (muted-foreground, etc.)'
+        - 'Verify message content handles long text without layout breaks'
+    estimatedEffort: '1.5h'
+
+  - id: task-9
+    phaseId: phase-3
+    title: 'Create PlanTab component — plan state and task list'
+    description: >
+      Build the Plan tab component that renders plan state, overview text, and task
+      list with status indicators. Shows a state badge (Draft, Approved, Implementing),
+      plan overview text, and a vertical task list with status icons (circle=Todo,
+      loader=WIP, check=Done, eye=Review) and colored text. Handles loading, empty,
+      and error states.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - Component file exists at src/presentation/web/components/common/feature-drawer-tabs/plan-tab.tsx
+      - Component accepts plan data, loading state, and error state as props
+      - When loading, shows a loading spinner/skeleton
+      - When no plan (plan is undefined), shows empty state message "No plan created yet"
+      - When error, shows inline error message
+      - Renders plan state as a badge (matching FeatureStateBadge styling patterns)
+      - Renders plan overview text
+      - Renders task list with status icon and colored text per task
+      - Status icons map to task state (circle=Todo, loader=WIP, check=Done, eye=Review)
+      - Task state colors match existing FeatureNodeState patterns (blue=WIP, emerald=Done, amber=Review, muted=Todo)
+      - Component is under 300 lines (NFR-5)
+    tdd:
+      red:
+        - 'Write test in tests/unit/presentation/web/components/common/feature-drawer-tabs/plan-tab.test.tsx'
+        - 'Test: renders loading spinner when loading=true'
+        - 'Test: renders empty state when plan is undefined'
+        - 'Test: renders error message when error is provided'
+        - 'Test: renders plan state badge'
+        - 'Test: renders plan overview text'
+        - 'Test: renders task list with correct status icons'
+        - 'Test: applies correct color classes per task state'
+        - 'Run tests — should fail'
+      green:
+        - 'Create plan-tab.tsx'
+        - 'Define props interface accepting plan data, loading, and error'
+        - 'Implement state badge rendering using existing badge patterns'
+        - 'Implement overview text section'
+        - 'Implement task list with status icons and colored text'
+        - 'Add loading, empty, and error states'
+        - 'Run tests — should pass'
+      refactor:
+        - 'Extract task state icon/color mapping to a config object for clarity'
+        - 'Ensure badge styling is consistent with FeatureStateBadge patterns'
+    estimatedEffort: '1.5h'
+
+  # ============================================================================
+  # PHASE 4: CONTAINER INTEGRATION
+  # ============================================================================
+
+  - id: task-10
+    phaseId: phase-4
+    title: 'Create FeatureDrawerTabs container component'
+    description: >
+      Build the top-level tab container component that wires together shadcn/ui Tabs
+      primitives, the useTabDataFetch hook, and the four tab content components.
+      Manages controlled tab state (useState + value/onValueChange), triggers lazy
+      fetches on tab switch, and resets to Overview when featureId changes. Follows
+      the TechReviewTabs flex-column layout pattern.
+    state: Todo
+    dependencies:
+      - task-6
+      - task-7
+      - task-8
+      - task-9
+    acceptanceCriteria:
+      - Component file exists at src/presentation/web/components/common/feature-drawer-tabs/feature-drawer-tabs.tsx
+      - Component uses shadcn/ui Tabs with controlled state (value + onValueChange)
+      - Component renders TabsList with four TabsTrigger components (Overview, Activity, Messages, Plan)
+      - Component renders TabsContent for each tab with the corresponding tab content component
+      - Default tab is "overview" on initial render
+      - Tab state resets to "overview" when featureId prop changes
+      - Switching to Activity/Messages/Plan tab triggers lazy data fetch via useTabDataFetch
+      - Cached tabs switch instantly without re-fetching
+      - Component passes loading/error/data states to tab content components
+      - Layout uses TechReviewTabs flex-column pattern (min-h-0, shrink-0, flex-1 overflow-y-auto)
+      - Component is under 300 lines (NFR-5)
+    tdd:
+      red:
+        - 'Write test in tests/unit/presentation/web/components/common/feature-drawer-tabs/feature-drawer-tabs.test.tsx'
+        - 'Test: renders four tab triggers (Overview, Activity, Messages, Plan)'
+        - 'Test: Overview tab is active by default'
+        - 'Test: clicking Activity tab triggers data fetch'
+        - 'Test: clicking Activity tab again does not trigger another fetch (cache hit)'
+        - 'Test: tab resets to Overview when featureId prop changes'
+        - 'Run tests — should fail'
+      green:
+        - 'Create feature-drawer-tabs.tsx'
+        - 'Import Tabs, TabsList, TabsTrigger, TabsContent from @/components/ui/tabs'
+        - 'Import useTabDataFetch hook and tab content components'
+        - 'Implement controlled tab state with useState'
+        - 'Wire onValueChange to trigger fetchTab for non-overview tabs'
+        - 'Add useEffect to reset tab and clear cache when featureId changes'
+        - 'Render each tab content component with appropriate props'
+        - 'Run tests — should pass'
+      refactor:
+        - 'Verify layout matches TechReviewTabs pattern exactly'
+        - 'Ensure tab trigger labels are correct (Overview, Activity, Messages, Plan)'
+    estimatedEffort: '2h'
+
+  - id: task-11
+    phaseId: phase-4
+    title: 'Create barrel export (index.ts) for feature-drawer-tabs directory'
+    description: >
+      Create the index.ts barrel export file that re-exports the FeatureDrawerTabs
+      component and any types needed by FeatureDrawerClient.
+    state: Todo
+    dependencies:
+      - task-10
+    acceptanceCriteria:
+      - File exists at src/presentation/web/components/common/feature-drawer-tabs/index.ts
+      - Exports FeatureDrawerTabs component
+      - Exports any props types needed by consumers
+      - No circular import issues
+    tdd: null
+    estimatedEffort: '5min'
+
+  - id: task-12
+    phaseId: phase-4
+    title: 'Integrate FeatureDrawerTabs into FeatureDrawerClient'
+    description: >
+      Replace the feature view body block (lines 544-578) in FeatureDrawerClient with
+      the FeatureDrawerTabs component. Pass featureNode data and featureId as props.
+      Review views (prd-review, tech-review, merge-review) remain completely untouched.
+      SSE-driven refresh is handled by the FeatureDrawerTabs component watching for
+      nodeData prop changes.
+    state: Todo
+    dependencies:
+      - task-11
+    acceptanceCriteria:
+      - FeatureDrawerClient imports FeatureDrawerTabs from feature-drawer-tabs directory
+      - Lines 544-578 (feature view body) replaced with <FeatureDrawerTabs> component
+      - FeatureDrawerTabs receives featureNode (FeatureNodeData) and featureId as props
+      - Review views (prd-review, tech-review, merge-review) render unchanged
+      - DrawerActionBar footer remains outside the tabs component
+      - No TypeScript errors (pnpm typecheck:web)
+      - Existing feature drawer behavior preserved (status, progress, PR, details)
+    tdd:
+      red:
+        - 'Write integration test verifying FeatureDrawerClient renders FeatureDrawerTabs for feature view type'
+        - 'Test: when view.type is "feature", FeatureDrawerTabs is rendered'
+        - 'Test: when view.type is "prd-review", PrdQuestionnaire is still rendered (not tabs)'
+        - 'Test: when view.type is "tech-review", TechReviewTabs is still rendered (not feature tabs)'
+        - 'Run tests — should fail'
+      green:
+        - 'In feature-drawer-client.tsx, import FeatureDrawerTabs'
+        - 'Replace the feature view body block (lines 544-578) with <FeatureDrawerTabs featureNode={featureNode} featureId={featureId} />'
+        - 'Ensure featureId is passed (already available in the component)'
+        - 'Run tests — should pass'
+      refactor:
+        - 'Remove any unused imports that were only needed by the old feature view body'
+        - 'Verify the replacement is clean with no leftover code'
+    estimatedEffort: '1h'
+
+  - id: task-13
+    phaseId: phase-4
+    title: 'Wire SSE-driven refresh for active tab'
+    description: >
+      Ensure that when SSE events trigger router.refresh() and FeatureNodeData prop
+      updates, the FeatureDrawerTabs component invalidates and re-fetches the active
+      tab's data. This leverages the existing SSE infrastructure without adding new
+      event listeners.
+    state: Todo
+    dependencies:
+      - task-12
+    acceptanceCriteria:
+      - FeatureDrawerTabs watches for featureNode prop reference changes (useEffect)
+      - When featureNode changes (SSE refresh), the active tab's cached data is invalidated
+      - Active tab re-fetches its data after invalidation
+      - Non-active tabs retain their cache (only refreshed when user switches to them)
+      - No new SSE event listeners added
+      - No unnecessary re-fetches (only active tab is refreshed)
+    tdd:
+      red:
+        - 'Write test that verifies active tab data is re-fetched when featureNode prop changes'
+        - 'Test: after initial Activity tab fetch, changing featureNode triggers re-fetch of Activity data'
+        - 'Test: non-active tab data is NOT re-fetched when featureNode changes'
+        - 'Run tests — should fail'
+      green:
+        - 'Add useEffect in FeatureDrawerTabs watching featureNode reference'
+        - 'On change, call refreshActiveTab from useTabDataFetch hook'
+        - 'Ensure only the active tab is invalidated, not all tabs'
+        - 'Run tests — should pass'
+      refactor:
+        - 'Verify no race conditions between SSE refresh and tab switch'
+        - 'Ensure the effect cleanup prevents stale updates'
+    estimatedEffort: '45min'
+
+  # ============================================================================
+  # PHASE 5: STORYBOOK STORIES & VALIDATION
+  # ============================================================================
+
+  - id: task-14
+    phaseId: phase-5
+    title: 'Create OverviewTab Storybook stories'
+    description: >
+      Create colocated Storybook stories for the OverviewTab component covering
+      populated state (with all data), minimal state (no PR, no progress), and
+      various lifecycle phases.
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - Story file exists at src/presentation/web/components/common/feature-drawer-tabs/overview-tab.stories.tsx
+      - Default story shows full feature data (status, progress, PR, details)
+      - Story for feature with no PR
+      - Story for feature with 0% progress (no progress bar)
+      - Story for different lifecycle phases
+      - Stories render correctly in Storybook
+    tdd: null
+    estimatedEffort: '45min'
+
+  - id: task-15
+    phaseId: phase-5
+    title: 'Create ActivityTab Storybook stories'
+    description: >
+      Create colocated Storybook stories for the ActivityTab component covering
+      populated state (multi-run grouping, approval waits, lifecycle events),
+      empty state, loading state, and error state.
+    state: Todo
+    dependencies:
+      - task-7
+    acceptanceCriteria:
+      - Story file exists at src/presentation/web/components/common/feature-drawer-tabs/activity-tab.stories.tsx
+      - Default story shows phase timings with multiple runs and duration bars
+      - Story with approval wait indicators
+      - Empty state story ("No activity recorded yet")
+      - Loading state story (spinner/skeleton)
+      - Error state story (inline error message)
+      - Stories use realistic mock data matching PhaseTiming structure
+    tdd: null
+    estimatedEffort: '1h'
+
+  - id: task-16
+    phaseId: phase-5
+    title: 'Create MessagesTab Storybook stories'
+    description: >
+      Create colocated Storybook stories for the MessagesTab component covering
+      populated state (mixed roles, messages with options), empty state, loading
+      state, and error state.
+    state: Todo
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - Story file exists at src/presentation/web/components/common/feature-drawer-tabs/messages-tab.stories.tsx
+      - Default story shows messages with mixed roles (assistant + user)
+      - Story with messages containing options and selected answers
+      - Empty state story ("No messages yet")
+      - Loading state story
+      - Error state story
+      - Stories use realistic mock data matching Message structure
+    tdd: null
+    estimatedEffort: '45min'
+
+  - id: task-17
+    phaseId: phase-5
+    title: 'Create PlanTab Storybook stories'
+    description: >
+      Create colocated Storybook stories for the PlanTab component covering
+      populated state (plan with tasks in various states), empty state (no plan),
+      loading state, and error state.
+    state: Todo
+    dependencies:
+      - task-9
+    acceptanceCriteria:
+      - Story file exists at src/presentation/web/components/common/feature-drawer-tabs/plan-tab.stories.tsx
+      - Default story shows plan with overview text and tasks in various states
+      - Story with all tasks completed
+      - Story with plan in different states (Draft, Approved, Implementing)
+      - Empty state story ("No plan created yet")
+      - Loading state story
+      - Error state story
+      - Stories use realistic mock data matching Plan structure
+    tdd: null
+    estimatedEffort: '45min'
+
+  - id: task-18
+    phaseId: phase-5
+    title: 'Create FeatureDrawerTabs container Storybook stories'
+    description: >
+      Create colocated Storybook stories for the FeatureDrawerTabs container
+      component covering the full tabbed experience with tab switching,
+      and various feature states.
+    state: Todo
+    dependencies:
+      - task-10
+      - task-14
+      - task-15
+      - task-16
+      - task-17
+    acceptanceCriteria:
+      - Story file exists at src/presentation/web/components/common/feature-drawer-tabs/feature-drawer-tabs.stories.tsx
+      - Default story renders the full tabbed drawer with all four tabs
+      - Tab switching works in Storybook
+      - Story shows feature in different lifecycle states
+      - Stories render correctly in Storybook
+    tdd: null
+    estimatedEffort: '1h'
+
+  - id: task-19
+    phaseId: phase-5
+    title: 'Run full test suite and fix any failures'
+    description: >
+      Run the complete test suite (unit, integration), typecheck, and lint to ensure
+      all new code is correct and no regressions exist. Fix any failures before
+      proceeding.
+    state: Todo
+    dependencies:
+      - task-13
+      - task-18
+    acceptanceCriteria:
+      - pnpm test:unit passes (all tests including all new tab component tests)
+      - pnpm test:int passes (no integration test regressions)
+      - pnpm validate passes (lint + format + typecheck + tsp)
+      - pnpm build passes (CLI + web build without errors)
+      - No console errors or warnings in test output
+      - All new files follow established code style
+    tdd: null
+    estimatedEffort: '1h'
+
+  - id: task-20
+    phaseId: phase-5
+    title: 'Storybook build verification and manual visual check'
+    description: >
+      Build Storybook and verify all new stories render correctly. Manually check
+      tab switching, loading states, empty states, and error states in the browser.
+      Verify layout stability (no shifts) and scroll behavior (independent per tab).
+    state: Todo
+    dependencies:
+      - task-19
+    acceptanceCriteria:
+      - Storybook build passes without errors
+      - All new component stories render correctly
+      - Tab switching is instant for cached tabs
+      - Loading states display spinner/skeleton correctly
+      - Empty states display descriptive messages correctly
+      - Error states display inline error messages correctly
+      - Tab bar does not shift or resize when switching tabs
+      - Tab content scrolls independently without affecting tab bar or drawer header
+      - Layout works at both sm and md drawer sizes
+    tdd: null
+    estimatedEffort: '30min'
+
+totalEstimate: '18h'
+openQuestions: []
+
+content: |
+  ## Summary
+
+  This task breakdown implements the feature drawer tabs through five dependency-ordered
+  phases totaling 20 tasks.
+
+  The work begins with the **data layer** (Phase 1): three server actions fetch phase
+  timings, messages, and plan data from the DI-resolved repositories, with Storybook
+  mock stubs created alongside to prevent build failures. These actions follow the
+  established codebase patterns (getFeatureArtifact, getMergeReviewData) with consistent
+  error handling and bigint-to-number conversion at the serialization boundary.
+
+  Next, the **useTabDataFetch hook** (Phase 2) provides the shared lazy-loading and
+  caching mechanism. It manages per-tab state (data, loading, error), explicit fetch
+  triggering on tab activation, cache invalidation on feature change, and SSE-triggered
+  refresh. The hook uses ref-based callbacks matching the useArtifactFetch pattern.
+
+  **Tab content components** (Phase 3) are built in parallel: OverviewTab extracts the
+  current feature view body, ActivityTab adapts the CLI phase timing visualization to
+  web with proportional-width bars and multi-run grouping, MessagesTab renders a
+  chronological message list with role distinction, and PlanTab shows plan state and
+  task list with status indicators. Each handles loading, empty, and error states.
+
+  The **container integration** (Phase 4) wires everything together: FeatureDrawerTabs
+  uses shadcn/ui Tabs with controlled state, the custom hook for data management, and
+  the four tab components for rendering. It integrates into FeatureDrawerClient by
+  replacing the feature view body block. SSE refresh is handled by watching nodeData
+  prop changes.
+
+  Finally, **Storybook stories and validation** (Phase 5) ensure production readiness
+  with comprehensive stories for all components (populated, empty, loading, error states)
+  and a full test/build/lint verification pass.
+
+  Every code task follows TDD (RED-GREEN-REFACTOR) as mandated by CLAUDE.md. The most
+  complex task is ActivityTab (3h estimate) due to multi-run grouping, proportional
+  duration bars, and approval wait visualization. Total effort: 18 hours.

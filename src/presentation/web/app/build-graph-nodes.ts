@@ -53,7 +53,7 @@ export function buildGraphNodes(
     });
 
     const repoFeatures = featuresByRepo[repo.path] ?? [];
-    appendFeatureNodes(repoFeatures, repoNodeId, featuresWithRuns, nodes, edges);
+    appendFeatureNodes(repoFeatures, repoNodeId, featuresWithRuns, nodes, edges, repo.name);
   }
 
   // Second pass: group orphaned features under virtual repository nodes
@@ -69,7 +69,7 @@ export function buildGraphNodes(
       data: { name: repoName, repositoryPath: repoPath },
     });
 
-    appendFeatureNodes(orphanFeatures, virtualRepoNodeId, featuresWithRuns, nodes, edges);
+    appendFeatureNodes(orphanFeatures, virtualRepoNodeId, featuresWithRuns, nodes, edges, repoName);
   }
 
   // Add parent→child dependency edges
@@ -96,7 +96,8 @@ function appendFeatureNodes(
   repoNodeId: string,
   allFeaturesWithRuns: FeatureWithRun[],
   nodes: CanvasNodeType[],
-  edges: Edge[]
+  edges: Edge[],
+  repoName?: string
 ): void {
   // Sort by createdAt so newest features appear last (bottom) in the layout
   const sorted = [...repoFeatures].sort((a, b) => {
@@ -131,6 +132,11 @@ function appendFeatureNodes(
       specPath: feature.specPath,
       state: deriveNodeState(feature, run),
       progress: deriveProgress(feature),
+      summary: feature.description,
+      userQuery: feature.userQuery,
+      createdAt:
+        feature.createdAt instanceof Date ? feature.createdAt.getTime() : feature.createdAt,
+      ...(repoName && { repositoryName: repoName }),
       ...(run?.agentType && { agentType: run.agentType as FeatureNodeData['agentType'] }),
       ...(run?.modelId && { modelId: run.modelId }),
       ...(run?.error && { errorMessage: run.error }),

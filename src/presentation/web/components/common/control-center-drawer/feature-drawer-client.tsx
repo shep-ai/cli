@@ -3,19 +3,17 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { toast } from 'sonner';
-import { Loader2, Trash2, ExternalLink, GitCommitHorizontal, Play, Square } from 'lucide-react';
+import { Loader2, Trash2, Play, Square, Copy, Check } from 'lucide-react';
 import type {
   PrdApprovalPayload,
   QuestionSelectionChange,
 } from '@shepai/core/domain/generated/output';
-import { PrStatus } from '@shepai/core/domain/generated/output';
 import { approveFeature } from '@/app/actions/approve-feature';
 import { rejectFeature } from '@/app/actions/reject-feature';
 import { getFeatureArtifact } from '@/app/actions/get-feature-artifact';
 import { getResearchArtifact } from '@/app/actions/get-research-artifact';
 import { getMergeReviewData } from '@/app/actions/get-merge-review-data';
 import { deleteFeature } from '@/app/actions/delete-feature';
-import { cn } from '@/lib/utils';
 import { useFeatureFlags } from '@/hooks/feature-flags-context';
 import { useSoundAction } from '@/hooks/use-sound-action';
 import { useGuardedDrawerClose } from '@/hooks/drawer-close-guard';
@@ -25,10 +23,7 @@ import { BaseDrawer } from '@/components/common/base-drawer';
 import { DeploymentStatusBadge } from '@/components/common/deployment-status-badge';
 import { DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { CometSpinner } from '@/components/ui/comet-spinner';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,21 +35,16 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { CiStatusBadge } from '@/components/common/ci-status-badge';
 import { ActionButton } from '@/components/common/action-button';
 import { OpenActionMenu } from '@/components/common/open-action-menu';
-import { PrdQuestionnaire } from '@/components/common/prd-questionnaire';
-import { TechReviewTabs } from '@/components/common/tech-review-tabs';
-import type { ProductDecisionsSummaryData } from '@/components/common/product-decisions-summary';
-import { MergeReview } from '@/components/common/merge-review';
-import { featureNodeStateConfig, lifecycleDisplayLabels } from '@/components/common/feature-node';
-import type { FeatureNodeData } from '@/components/common/feature-node';
+import { FeatureDrawerTabs } from '@/components/common/feature-drawer-tabs';
 import { useFeatureActions } from '@/components/common/feature-drawer/use-feature-actions';
 import type { PrdQuestionnaireData } from '@/components/common/prd-questionnaire';
 import type { TechDecisionsReviewData } from '@/components/common/tech-decisions-review';
+import type { ProductDecisionsSummaryData } from '@/components/common/product-decisions-summary';
 import type { MergeReviewData } from '@/components/common/merge-review';
 import { resolveSseEventUpdates } from '@/components/common/feature-node/derive-feature-state';
-import { deriveFeatureViewType } from './drawer-view';
+import { deriveInitialTab } from './drawer-view';
 import type { DrawerView } from './drawer-view';
 import { useArtifactFetch } from './use-artifact-fetch';
 
@@ -76,13 +66,7 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
     setView(initialView);
   }, [initialView]);
 
-  const featureNode =
-    view.type === 'feature' ||
-    view.type === 'prd-review' ||
-    view.type === 'tech-review' ||
-    view.type === 'merge-review'
-      ? view.node
-      : null;
+  const featureNode = view.type === 'feature' ? view.node : null;
 
   // SSE: update drawer view when feature state changes
   const { events } = useAgentEventsContext();
@@ -107,23 +91,17 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
       if (isOpenRef.current && !isDirtyRef.current && !isRejectingRef.current) router.refresh();
 
       if (update.state !== undefined || update.lifecycle !== undefined) {
-        // Optimistically update the node data AND re-derive the view type so the
-        // drawer switches immediately (e.g. prd-review → feature when agent resumes)
+        // Optimistically update the node data AND re-derive the initial tab so the
+        // drawer switches immediately (e.g. prd-review → overview when agent resumes)
         // without waiting for the router.refresh() round-trip.
         setView((prev) => {
-          if (
-            prev.type !== 'feature' &&
-            prev.type !== 'prd-review' &&
-            prev.type !== 'tech-review' &&
-            prev.type !== 'merge-review'
-          )
-            return prev;
+          if (prev.type !== 'feature') return prev;
           const updatedNode = {
             ...prev.node,
             ...(update.state !== undefined && { state: update.state }),
             ...(update.lifecycle !== undefined && { lifecycle: update.lifecycle }),
           };
-          return { ...prev, type: deriveFeatureViewType(updatedNode), node: updatedNode };
+          return { ...prev, node: updatedNode, initialTab: deriveInitialTab(updatedNode) };
         });
       }
     }
@@ -179,15 +157,18 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
   const [isRejecting, setIsRejecting] = useState(false);
   const isRejectingRef = useRef(false);
 
-  // Reset chat input whenever the view type changes
-  const viewType = view.type;
+  // Reset chat input whenever the initialTab changes (lifecycle transition)
+  const initialTab = view.type === 'feature' ? view.initialTab : undefined;
   useEffect(() => {
     setChatInput('');
-  }, [viewType]);
+  }, [initialTab]);
 
   // ── Data fetching ─────────────────────────────────────────────────────
 
-  const prdFeatureId = view.type === 'prd-review' ? view.node.featureId : null;
+  const prdFeatureId =
+    featureNode?.lifecycle === 'requirements' && featureNode?.state === 'action-required'
+      ? featureNode.featureId
+      : null;
   const isLoadingPrd = useArtifactFetch(
     prdFeatureId,
     getFeatureArtifact,
@@ -215,7 +196,10 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
     'Failed to load questionnaire'
   );
 
-  const techFeatureId = view.type === 'tech-review' ? view.node.featureId : null;
+  const techFeatureId =
+    featureNode?.lifecycle === 'implementation' && featureNode?.state === 'action-required'
+      ? featureNode.featureId
+      : null;
   const isLoadingTech = useArtifactFetch(
     techFeatureId,
     getResearchArtifact,
@@ -239,7 +223,11 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
     () => setTechProductData(undefined)
   );
 
-  const mergeFeatureId = view.type === 'merge-review' ? view.node.featureId : null;
+  const mergeFeatureId =
+    featureNode?.lifecycle === 'review' &&
+    (featureNode?.state === 'action-required' || featureNode?.state === 'error')
+      ? featureNode.featureId
+      : null;
   const isLoadingMerge = useArtifactFetch(
     mergeFeatureId,
     getMergeReviewData,
@@ -257,7 +245,8 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
   // ── Close guard ──────────────────────────────────────────────────────
   const isChatDirty = chatInput.trim().length > 0;
   const isPrdDirty =
-    view.type === 'prd-review' &&
+    featureNode?.lifecycle === 'requirements' &&
+    featureNode?.state === 'action-required' &&
     Object.keys(prdDefaultSelections).some((k) => prdDefaultSelections[k] !== prdSelections[k]);
   const isDirty = isChatDirty || isPrdDirty;
 
@@ -275,18 +264,13 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
 
   // ── Approve / reject handlers ─────────────────────────────────────────
 
-  const reviewNode =
-    view.type === 'prd-review' || view.type === 'tech-review' || view.type === 'merge-review'
-      ? view.node
-      : null;
-
   const handleReject = useCallback(
     async (feedback: string, label: string, onDone?: () => void) => {
-      if (!reviewNode?.featureId) return;
+      if (!featureNode?.featureId) return;
       isRejectingRef.current = true;
       setIsRejecting(true);
       try {
-        const result = await rejectFeature(reviewNode.featureId, feedback);
+        const result = await rejectFeature(featureNode.featureId, feedback);
         if (!result.rejected) {
           toast.error(result.error ?? `Failed to reject ${label.toLowerCase()}`);
           return;
@@ -306,7 +290,7 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
         setIsRejecting(false);
       }
     },
-    [reviewNode, onClose, rejectSound]
+    [featureNode, onClose, rejectSound]
   );
 
   const handlePrdReject = useCallback(
@@ -324,8 +308,8 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
 
   const handleSimpleApprove = useCallback(
     async (label: string) => {
-      if (!reviewNode?.featureId) return;
-      const result = await approveFeature(reviewNode.featureId);
+      if (!featureNode?.featureId) return;
+      const result = await approveFeature(featureNode.featureId);
       if (!result.approved) {
         toast.error(result.error ?? `Failed to approve ${label.toLowerCase()}`);
         return;
@@ -335,17 +319,17 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
       // Optimistically update canvas node before SSE arrives (~500ms delay)
       window.dispatchEvent(
         new CustomEvent('shep:feature-approved', {
-          detail: { featureId: reviewNode.featureId },
+          detail: { featureId: featureNode.featureId },
         })
       );
       onClose();
     },
-    [reviewNode, onClose]
+    [featureNode, onClose]
   );
 
   const handlePrdApprove = useCallback(
     async (_actionId: string) => {
-      if (view.type !== 'prd-review') return;
+      if (view.type !== 'feature' || !featureNode) return;
       let payload: PrdApprovalPayload | undefined;
       if (prdData) {
         const changedSelections: QuestionSelectionChange[] = [];
@@ -358,7 +342,7 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
         }
         payload = { approved: true, changedSelections };
       }
-      const result = await approveFeature(view.node.featureId, payload);
+      const result = await approveFeature(featureNode.featureId, payload);
       if (!result.approved) {
         toast.error(result.error ?? 'Failed to approve requirements');
         return;
@@ -368,13 +352,13 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
       // Optimistically update canvas node before SSE arrives (~500ms delay)
       window.dispatchEvent(
         new CustomEvent('shep:feature-approved', {
-          detail: { featureId: view.node.featureId },
+          detail: { featureId: featureNode.featureId },
         })
       );
       setPrdSelections({});
       onClose();
     },
-    [view, prdData, prdSelections, onClose]
+    [view, featureNode, prdData, prdSelections, onClose]
   );
 
   const handleTechApprove = useCallback(() => handleSimpleApprove('Plan'), [handleSimpleApprove]);
@@ -428,16 +412,49 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
   const isFeatureDeployActive =
     deployAction.status === 'Booting' || deployAction.status === 'Ready';
 
+  // ── Short ID copy ───────────────────────────────────────────────────
+  const COPY_FEEDBACK_DELAY = 2000;
+  const [idCopied, setIdCopied] = useState(false);
+  const handleCopyId = useCallback(() => {
+    if (!featureNode?.featureId) return;
+    void navigator.clipboard.writeText(featureNode.featureId);
+    setIdCopied(true);
+    setTimeout(() => setIdCopied(false), COPY_FEEDBACK_DELAY);
+  }, [featureNode?.featureId]);
+
   // ── Header ────────────────────────────────────────────────────────────
 
   let header: React.ReactNode = undefined;
 
   if (featureNode) {
+    const shortId = featureNode.featureId.slice(0, 8);
     header = (
       <>
         <div data-testid="feature-drawer-header">
           <DrawerTitle>{featureNode.name}</DrawerTitle>
-          {featureNode.description ? (
+          <div className="flex items-center gap-1.5 pt-0.5">
+            <code className="bg-muted text-muted-foreground rounded px-1.5 py-0.5 font-mono text-xs">
+              {shortId}
+            </code>
+            <button
+              type="button"
+              onClick={handleCopyId}
+              className="text-muted-foreground hover:text-foreground inline-flex items-center rounded p-0.5 transition-colors"
+              aria-label="Copy feature ID"
+              data-testid="feature-drawer-copy-id"
+            >
+              {idCopied ? (
+                <Check className="size-3.5 text-green-600" />
+              ) : (
+                <Copy className="size-3.5" />
+              )}
+            </button>
+          </div>
+          {featureNode.oneLiner ? (
+            <DrawerDescription>{featureNode.oneLiner}</DrawerDescription>
+          ) : featureNode.userQuery ? (
+            <DrawerDescription>{featureNode.userQuery}</DrawerDescription>
+          ) : featureNode.description ? (
             <DrawerDescription>{featureNode.description}</DrawerDescription>
           ) : featureNode.featureId ? (
             <DrawerDescription className="sr-only">{featureNode.featureId}</DrawerDescription>
@@ -544,89 +561,29 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
 
   if (view.type === 'feature' && featureNode) {
     body = (
-      <div className="flex-1 overflow-y-auto">
-        <div data-testid="feature-drawer-status" className="flex flex-col gap-3 p-4">
-          <div className="text-muted-foreground text-xs font-semibold tracking-wider">
-            {lifecycleDisplayLabels[featureNode.lifecycle]}
-          </div>
-          <FeatureStateBadge data={featureNode} />
-          {featureNode.progress > 0 ? (
-            <div data-testid="feature-drawer-progress" className="flex flex-col gap-1">
-              <div className="text-muted-foreground flex items-center justify-between text-xs">
-                <span>Progress</span>
-                <span>{featureNode.progress}%</span>
-              </div>
-              <div className="bg-muted h-2 w-full overflow-hidden rounded-full">
-                <div
-                  className={cn(
-                    'h-full rounded-full transition-all',
-                    featureNodeStateConfig[featureNode.state].progressClass
-                  )}
-                  style={{ width: `${featureNode.progress}%` }}
-                />
-              </div>
-            </div>
-          ) : null}
-        </div>
-        {featureNode.pr ? (
-          <>
-            <Separator />
-            <FeaturePrInfo pr={featureNode.pr} />
-          </>
-        ) : null}
-        <FeatureDetails data={featureNode} />
-      </div>
-    );
-  } else if (view.type === 'prd-review') {
-    body = prdData ? (
-      <PrdQuestionnaire
-        data={prdData}
-        selections={prdSelections}
-        onSelect={(qId, oId) => setPrdSelections((prev) => ({ ...prev, [qId]: oId }))}
-        onApprove={handlePrdApprove}
-        onReject={handlePrdReject}
-        isProcessing={isLoadingPrd}
-        isRejecting={isRejecting}
-        chatInput={chatInput}
-        onChatInputChange={setChatInput}
-      />
-    ) : (
-      <div className="flex items-center justify-center p-8">
-        <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" />
-      </div>
-    );
-  } else if (view.type === 'tech-review') {
-    body = techData ? (
-      <TechReviewTabs
+      <FeatureDrawerTabs
+        featureNode={featureNode}
+        featureId={featureNode.featureId}
+        initialTab={view.initialTab}
+        prdData={prdData}
+        prdSelections={prdSelections}
+        onPrdSelect={(qId, oId) => setPrdSelections((prev) => ({ ...prev, [qId]: oId }))}
+        onPrdApprove={handlePrdApprove}
+        onPrdReject={handlePrdReject}
+        isPrdLoading={isLoadingPrd}
         techData={techData}
+        onTechApprove={handleTechApprove}
+        onTechReject={handleTechReject}
+        isTechLoading={isLoadingTech}
         productData={isLoadingTechProduct ? null : techProductData}
-        onApprove={handleTechApprove}
-        onReject={handleTechReject}
-        isProcessing={isLoadingTech}
+        mergeData={mergeData}
+        onMergeApprove={handleMergeApprove}
+        onMergeReject={handleMergeReject}
+        isMergeLoading={isLoadingMerge}
         isRejecting={isRejecting}
         chatInput={chatInput}
         onChatInputChange={setChatInput}
       />
-    ) : (
-      <div className="flex items-center justify-center p-8">
-        <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" />
-      </div>
-    );
-  } else if (view.type === 'merge-review') {
-    body = mergeData ? (
-      <MergeReview
-        data={mergeData}
-        onApprove={handleMergeApprove}
-        onReject={handleMergeReject}
-        isProcessing={isLoadingMerge}
-        isRejecting={isRejecting}
-        chatInput={chatInput}
-        onChatInputChange={setChatInput}
-      />
-    ) : (
-      <div className="flex items-center justify-center p-8">
-        <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" />
-      </div>
     );
   }
 
@@ -637,107 +594,9 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
       size="md"
       modal={false}
       header={header}
-      data-testid={
-        view.type === 'feature'
-          ? 'feature-drawer'
-          : view.type === 'repository'
-            ? 'repository-drawer'
-            : 'review-drawer'
-      }
+      data-testid={view.type === 'feature' ? 'feature-drawer' : 'repository-drawer'}
     >
       {body}
     </BaseDrawer>
-  );
-}
-
-// ── Private sub-components ──────────────────────────────────────────────────
-
-function FeatureStateBadge({ data }: { data: FeatureNodeData }) {
-  const config = featureNodeStateConfig[data.state];
-  const Icon = config.icon;
-  return (
-    <div
-      className={cn(
-        'flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium',
-        config.badgeBgClass,
-        config.badgeClass
-      )}
-    >
-      {data.state === 'running' ? (
-        <CometSpinner size="sm" className="shrink-0" />
-      ) : (
-        <Icon className="h-4 w-4 shrink-0" />
-      )}
-      <span>{config.label}</span>
-    </div>
-  );
-}
-
-function FeaturePrInfo({ pr }: { pr: NonNullable<FeatureNodeData['pr']> }) {
-  const prStatusStyles: Record<PrStatus, string> = {
-    [PrStatus.Open]: 'border-transparent bg-blue-50 text-blue-700 hover:bg-blue-50',
-    [PrStatus.Merged]: 'border-transparent bg-purple-50 text-purple-700 hover:bg-purple-50',
-    [PrStatus.Closed]: 'border-transparent bg-red-50 text-red-700 hover:bg-red-50',
-  };
-
-  return (
-    <div data-testid="feature-drawer-pr" className="border-border mx-4 rounded-lg border">
-      <div className="space-y-3 px-4 py-3">
-        <div className="flex items-center justify-between">
-          <a
-            href={pr.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-primary flex items-center gap-1.5 text-sm font-semibold underline underline-offset-2"
-          >
-            PR #{pr.number}
-            <ExternalLink className="h-3.5 w-3.5" />
-          </a>
-          <Badge className={prStatusStyles[pr.status]}>{pr.status}</Badge>
-        </div>
-        {pr.ciStatus ? (
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground text-xs font-medium">CI Status</span>
-            <CiStatusBadge status={pr.ciStatus} />
-          </div>
-        ) : null}
-        {pr.commitHash ? (
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground text-xs font-medium">Commit</span>
-            <div className="flex items-center gap-1.5">
-              <GitCommitHorizontal className="text-muted-foreground h-3.5 w-3.5" />
-              <code className="bg-muted text-foreground rounded-md px-1.5 py-0.5 font-mono text-[11px]">
-                {pr.commitHash.slice(0, 7)}
-              </code>
-            </div>
-          </div>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-function FeatureDetails({ data }: { data: FeatureNodeData }) {
-  const hasAnyDetail = data.agentType ?? data.runtime ?? data.blockedBy ?? data.errorMessage;
-  if (!hasAnyDetail) return null;
-  return (
-    <>
-      <Separator />
-      <div data-testid="feature-drawer-details" className="flex flex-col gap-3 p-4">
-        {data.agentType ? <DetailRow label="Agent" value={data.agentType} /> : null}
-        {data.runtime ? <DetailRow label="Runtime" value={data.runtime} /> : null}
-        {data.blockedBy ? <DetailRow label="Blocked by" value={data.blockedBy} /> : null}
-        {data.errorMessage ? <DetailRow label="Error" value={data.errorMessage} /> : null}
-      </div>
-    </>
-  );
-}
-
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex flex-col gap-0.5">
-      <span className="text-muted-foreground text-xs font-medium">{label}</span>
-      <span className="text-sm">{value}</span>
-    </div>
   );
 }

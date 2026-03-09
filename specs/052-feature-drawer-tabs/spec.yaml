@@ -1,0 +1,455 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feature-drawer-tabs
+number: 052
+branch: feat/052-feature-drawer-tabs
+oneLiner: add tabbed layout to the feature drawer with overview, activity, messages, and plan tabs
+userQuery: >
+  https://github.com/shep-ai/cli/issues/230
+summary: >
+  The feature drawer currently shows all information in a single scrollable view.
+  This feature adds a tabbed layout to organize content into four logical sections
+  (Overview, Activity, Messages, Plan), matching the rich data available via
+  `shep feat show <id>` in the CLI. The shadcn/ui Tabs component and an existing
+  tabbed pattern (TechReviewTabs) are already in the codebase. The Overview tab
+  preserves existing drawer content, while Activity, Messages, and Plan tabs
+  surface data that was previously only available via the CLI.
+phase: Requirements
+sizeEstimate: M
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - React (Next.js 16 App Router)
+  - shadcn/ui Tabs (Radix UI primitives)
+  - Tailwind CSS
+  - Storybook 8
+  - TypeSpec domain models
+  - Server Actions (Next.js)
+  - SSE (Server-Sent Events for real-time updates)
+
+relatedLinks:
+  - https://github.com/shep-ai/cli/issues/230
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - question: 'How should tab data be fetched — eagerly on drawer open or lazily on tab switch?'
+    resolved: true
+    options:
+      - option: 'Lazy fetch on tab switch'
+        description: >
+          Data for non-active tabs is fetched only when the user clicks on them.
+          Reduces initial load time and unnecessary API calls. Requires loading
+          states per tab. Matches the pattern used in TechReviewTabs where artifact
+          data is fetched on demand.
+        selected: true
+      - option: 'Eager fetch all on drawer open'
+        description: >
+          All tab data is fetched when the drawer opens. Simpler implementation
+          with no per-tab loading states, but increases initial load time and
+          fetches data the user may never view. Could cause unnecessary DB queries.
+        selected: false
+      - option: 'Eager overview, lazy others'
+        description: >
+          Overview tab data loads immediately (already available from FeatureNodeData),
+          while Activity/Messages/Plan fetch lazily. Hybrid approach but effectively
+          the same as lazy-only since Overview already has its data from the node.
+        selected: false
+    selectionRationale: >
+      Lazy fetching on tab switch is recommended because the Overview tab already
+      has all its data from FeatureNodeData (no fetch needed), and fetching
+      Activity/Messages/Plan eagerly would add latency to every drawer open even
+      when users only glance at the overview. The existing TechReviewTabs pattern
+      already uses on-demand artifact fetching, establishing a codebase precedent.
+    answer: 'Lazy fetch on tab switch'
+
+  - question: 'Should tab selection persist when switching between different features in the drawer?'
+    resolved: true
+    options:
+      - option: 'Reset to Overview tab'
+        description: >
+          When the user selects a different feature node, the drawer always opens
+          to the Overview tab. Simple, predictable behavior. Users always start
+          with the most important context (status, lifecycle, PR).
+        selected: true
+      - option: 'Preserve last active tab'
+        description: >
+          When switching features, keep whichever tab was active. Useful if user
+          is comparing the same data across features (e.g., checking plans). But
+          can be confusing if the user forgot which tab was active, and some tabs
+          may have no data for certain features.
+        selected: false
+    selectionRationale: >
+      Resetting to Overview matches the acceptance criteria in the GitHub issue
+      ("Tab state resets when switching between features") and provides a
+      predictable experience. The Overview tab gives the most important at-a-glance
+      information (status, lifecycle phase, PR), making it the right default.
+    answer: 'Reset to Overview tab'
+
+  - question: 'How should empty tab content be handled when a feature has no messages, no plan, or no phase timings?'
+    resolved: true
+    options:
+      - option: 'Show empty state with explanation'
+        description: >
+          Display a centered message like "No messages yet" or "Plan not available"
+          with an icon. The tab remains clickable and visible. Users understand the
+          data will appear as the feature progresses. Consistent UX pattern.
+        selected: true
+      - option: 'Hide tabs with no data'
+        description: >
+          Dynamically show/hide tabs based on available data. Cleaner for early-stage
+          features but causes layout shifts. Tab count changes as features progress,
+          which may confuse users. Requires checking data availability before rendering.
+        selected: false
+      - option: 'Disable tabs with no data'
+        description: >
+          Show all tabs but disable (grey out) those without data. Communicates
+          that data will eventually appear but adds visual noise. Disabled tabs
+          may frustrate users who don't understand why they're disabled.
+        selected: false
+    selectionRationale: >
+      Showing empty states is the most user-friendly approach. It keeps the tab
+      layout stable (no layout shifts), communicates clearly what each section
+      is for, and signals that data will appear as the feature lifecycle
+      progresses. This is a common pattern in dashboard-style UIs.
+    answer: 'Show empty state with explanation'
+
+  - question: 'Should the Activity tab show phase timing visualization with duration bars or a simpler timeline list?'
+    resolved: true
+    options:
+      - option: 'Duration bars with visual indicators'
+        description: >
+          Render horizontal bars proportional to phase duration, with color-coded
+          segments for execution vs approval wait time. Matches the CLI output
+          format. More complex to implement but provides rich, scannable data.
+          Shows multi-run grouping with collapsible sections.
+        selected: true
+      - option: 'Simple timeline list'
+        description: >
+          Render phase timings as a vertical list with timestamps and duration text.
+          Simpler to build but loses the visual impact of the CLI bars. Less
+          scannable for comparing phase durations at a glance.
+        selected: false
+    selectionRationale: >
+      Duration bars match the existing CLI experience and provide much richer
+      information density. The CLI's phase timing visualization is one of the
+      key pieces of data that motivated this feature — rendering it as a flat
+      list would lose the visual power that makes the Activity tab valuable.
+      The web platform can render these bars even more effectively than terminal.
+    answer: 'Duration bars with visual indicators'
+
+  - question: 'How many server actions should be created for tab data fetching?'
+    resolved: true
+    options:
+      - option: 'One unified action returning all tab data'
+        description: >
+          Single server action `getFeatureTabData(featureId)` returns phase timings,
+          messages, and plan in one call. Simpler API surface, one round trip.
+          But fetches more data than needed if only one tab is viewed, and breaks
+          the lazy-loading pattern.
+        selected: false
+      - option: 'Separate actions per data type'
+        description: >
+          Individual server actions: `getFeaturePhaseTimings(featureId)`,
+          `getFeatureMessages(featureId)`, `getFeaturePlan(featureId)`. Each tab
+          fetches only what it needs. Aligns with lazy loading, single-responsibility,
+          and existing codebase patterns (one action per data type).
+        selected: true
+    selectionRationale: >
+      Separate actions per data type aligns with the lazy-loading strategy,
+      follows the existing codebase pattern (getFeatureArtifact, getResearchArtifact,
+      getMergeReviewData are all separate), and ensures each tab only fetches
+      what it needs. This also makes caching and error handling simpler per tab.
+    answer: 'Separate actions per data type'
+
+  - question: 'Should the Messages tab display all messages or paginate/limit them?'
+    resolved: true
+    options:
+      - option: 'Show all messages with scroll'
+        description: >
+          Render the complete message history in a scrollable container.
+          Features typically have 5-30 messages, which is manageable. Simpler
+          implementation with no pagination logic. Users can scroll to see
+          full conversation context.
+        selected: true
+      - option: 'Show last N with load-more'
+        description: >
+          Display last 20 messages with a "Load more" button at the top.
+          Better for features with very long conversations, but adds UI
+          complexity. The CLI already shows last 5 as a preview.
+        selected: false
+    selectionRationale: >
+      Features typically accumulate a manageable number of messages (5-30).
+      Showing all messages in a scrollable list is simpler and gives full
+      context without pagination complexity. If performance becomes an issue
+      with very long conversations, virtualization can be added later.
+    answer: 'Show all messages with scroll'
+
+content: |
+  ## Problem Statement
+
+  The feature drawer (`FeatureDrawerClient`) currently renders the "feature" view
+  as a single scrollable body containing status, PR info, and details. Meanwhile,
+  the CLI command `shep feat show <id>` surfaces much richer data: phase timings
+  with duration bars, lifecycle events, multi-run grouping, approval wait times,
+  rejection feedback, feature messages, and plan state with task breakdowns.
+
+  There is no way for the web UI to display this additional information without
+  overloading a single scroll view. A tabbed layout solves this by organizing
+  content into logical sections, giving the web UI feature parity with the CLI's
+  `feat show` output.
+
+  ## Success Criteria
+
+  - [ ] Feature drawer displays a tab navigation bar with four tabs: Overview, Activity, Messages, Plan
+  - [ ] Tabs switch content inline without closing or reopening the drawer
+  - [ ] Overview tab renders all current drawer content (status, progress, PR info, details) unchanged
+  - [ ] Activity tab shows phase timings with duration bars, multi-run grouping, and approval wait indicators
+  - [ ] Messages tab displays the feature's conversation history with role labels and message content
+  - [ ] Plan tab shows plan state, overview text, and task list with status indicators
+  - [ ] Default tab is Overview on initial drawer open
+  - [ ] Tab state resets to Overview when the user switches to a different feature
+  - [ ] Each tab shows an appropriate empty state when no data is available
+  - [ ] Tab data (Activity, Messages, Plan) is fetched lazily on first tab switch
+  - [ ] Existing review views (PRD, tech, merge) continue to function without tabs
+  - [ ] All new components have colocated Storybook stories with mock data
+  - [ ] SSE-driven updates refresh the active tab's data when relevant events arrive
+  - [ ] All new server actions follow existing patterns (DI container, error handling)
+
+  ## Functional Requirements
+
+  - **FR-1**: The feature drawer MUST render a `FeatureDrawerTabs` component within the
+    `'feature'` view type, replacing the current single-body rendering in `FeatureDrawerClient`.
+    The `'prd-review'`, `'tech-review'`, and `'merge-review'` views MUST remain unchanged.
+
+  - **FR-2**: The tab bar MUST display four tabs in this order: Overview, Activity, Messages, Plan.
+    The tab bar MUST use the existing shadcn/ui `Tabs`, `TabsList`, and `TabsTrigger` components.
+
+  - **FR-3**: The Overview tab MUST render all content currently shown in the feature drawer body:
+    status badge with lifecycle phase label, progress bar (when progress > 0), PR info card
+    (when a PR exists), and details section (agent type, runtime, blocked-by, error message).
+
+  - **FR-4**: The Activity tab MUST fetch phase timings via a new `getFeaturePhaseTimings(featureId)`
+    server action that calls `IPhaseTimingRepository.findByFeatureId()`. It MUST render:
+    - Phase name and duration as a horizontal bar (proportional width)
+    - Color-coded segments distinguishing execution time from approval wait time
+    - Multi-run grouping: timings grouped by `agentRunId` with run headers
+    - Total execution time, total wait time, and wall-clock time summaries
+
+  - **FR-5**: The Messages tab MUST fetch feature messages via a new
+    `getFeatureMessages(featureId)` server action. It MUST render all messages in
+    chronological order with:
+    - Role label (assistant/user) with visual distinction
+    - Message content (full text, not truncated)
+    - For messages with `options`, display the options and `answer`/`selectedOption` if present
+
+  - **FR-6**: The Plan tab MUST fetch the feature plan via a new `getFeaturePlan(featureId)`
+    server action. It MUST render:
+    - Plan state badge (e.g., Draft, Approved, Implementing)
+    - Plan overview text
+    - Task list with each task's title, state indicator (Todo/WIP/Done/Review), and description
+
+  - **FR-7**: Tab data for Activity, Messages, and Plan MUST be fetched lazily — only when
+    the user first clicks on that tab. Subsequent tab switches to an already-loaded tab
+    MUST use cached data (no re-fetch). The Overview tab requires no fetching since
+    `FeatureNodeData` already contains all needed data.
+
+  - **FR-8**: Each tab MUST show a loading spinner/skeleton while data is being fetched.
+
+  - **FR-9**: Each tab MUST show an empty state with a descriptive message when no data
+    is available (e.g., "No activity recorded yet", "No messages", "No plan created yet").
+
+  - **FR-10**: When the user selects a different feature (the drawer's `featureId` changes),
+    the active tab MUST reset to Overview and all cached tab data MUST be cleared.
+
+  - **FR-11**: When an SSE event is received (via `useAgentEventsContext` / `router.refresh()`),
+    the data for the currently active tab MUST be re-fetched to reflect updates.
+
+  - **FR-12**: Each new server action MUST use the DI container (`resolve<T>(token)`) for
+    repository access, following the existing pattern in `getFeatureArtifact` and
+    `getMergeReviewData`.
+
+  - **FR-13**: All new UI components MUST have colocated Storybook stories covering:
+    populated state, empty state, loading state, and error state.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1 (Performance)**: Tab switching MUST feel instant (<100ms) for cached tabs.
+    Initial data fetch per tab should complete within 500ms for features with typical
+    data volumes (<50 phase timings, <30 messages, <20 tasks).
+
+  - **NFR-2 (Layout stability)**: The tab bar and drawer shell MUST NOT shift or resize
+    when switching tabs. Each tab content area MUST independently scroll without
+    affecting the tab bar or drawer header.
+
+  - **NFR-3 (Accessibility)**: Tab navigation MUST support keyboard navigation (arrow keys
+    between tabs, Enter/Space to activate). This is provided by the Radix UI Tabs
+    primitive and MUST NOT be broken by custom styling.
+
+  - **NFR-4 (Consistency)**: The tabbed layout MUST follow the same flex-column pattern
+    established by `TechReviewTabs`: `TabsList` in a `shrink-0` header, `TabsContent`
+    with `flex-1 overflow-y-auto` for scrollable content.
+
+  - **NFR-5 (Maintainability)**: Each tab's content MUST be extracted into its own component
+    file (e.g., `overview-tab.tsx`, `activity-tab.tsx`, `messages-tab.tsx`, `plan-tab.tsx`)
+    to keep individual files under 300 lines.
+
+  - **NFR-6 (Responsiveness)**: The tab layout MUST work within both `sm` and `md` drawer
+    sizes defined in `BaseDrawer`. Tab triggers MUST not overflow or wrap at narrow widths.
+
+  - **NFR-7 (Error handling)**: Server action failures MUST display an inline error message
+    within the affected tab, not a global error. Other tabs MUST remain functional.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | How should tab data be fetched? | Lazy fetch on tab switch | Overview data is already available; fetching Activity/Messages/Plan eagerly adds unnecessary latency. Matches TechReviewTabs pattern. |
+  | 2 | Should tab selection persist across feature switches? | Reset to Overview tab | Matches issue acceptance criteria. Overview provides the most important at-a-glance info. |
+  | 3 | How to handle empty tab content? | Show empty state with explanation | Keeps layout stable, communicates clearly, signals data will appear as feature progresses. |
+  | 4 | Activity tab: duration bars or simple list? | Duration bars with visual indicators | Matches CLI experience, provides rich visual data. Web can render even better than terminal. |
+  | 5 | How many server actions? | Separate actions per data type | Aligns with lazy loading, follows existing patterns (one action per data type), simpler caching. |
+  | 6 | Messages tab: show all or paginate? | Show all messages with scroll | Features have 5-30 messages typically. Full list is simpler and provides complete context. |
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The project follows Clean Architecture with four layers:
+
+  - `packages/core/src/domain/` — Domain models (Feature, Plan, Message, PhaseTiming, AgentRun)
+  - `packages/core/src/application/` — Use cases and output port interfaces
+  - `packages/core/src/infrastructure/` — SQLite repositories, agent services
+  - `src/presentation/web/` — Next.js 16 web UI (App Router)
+
+  Web component hierarchy relevant to this feature:
+
+  ```
+  src/presentation/web/components/
+  ├── ui/tabs.tsx                          # shadcn/ui Tabs primitives (READY)
+  ├── common/
+  │   ├── control-center-drawer/
+  │   │   ├── feature-drawer-client.tsx    # Main drawer orchestrator (743 lines)
+  │   │   ├── drawer-view.ts              # View type derivation logic
+  │   │   └── use-artifact-fetch.ts        # Data fetching hook
+  │   ├── feature-drawer/
+  │   │   ├── feature-drawer.tsx           # Current simple feature view
+  │   │   ├── feature-drawer.stories.tsx   # Existing stories
+  │   │   ├── use-feature-actions.ts       # Action callbacks hook
+  │   │   └── index.ts
+  │   └── tech-review-tabs/
+  │       ├── tech-review-tabs.tsx         # REFERENCE tabbed pattern
+  │       ├── tech-review-tabs-config.ts   # Props type definition
+  │       └── tech-review-tabs.stories.tsx # Stories pattern reference
+  ```
+
+  ### Architecture Patterns
+
+  **Drawer View System**: `FeatureDrawerClient` uses a discriminated union (`DrawerView`)
+  to switch between four view types:
+  - `'feature'` — default view (this is what gets tabs)
+  - `'prd-review'` — requirements review (PrdQuestionnaire)
+  - `'tech-review'` — technical review (TechReviewTabs, already tabbed)
+  - `'merge-review'` — merge review (MergeReview)
+
+  `deriveFeatureViewType(node)` maps lifecycle + state to the view type. The tabs
+  only apply to the `'feature'` view; review views remain unchanged.
+
+  **Data Flow**: Canvas node click → `useControlCenterState` → server refetch →
+  `FeatureDrawerClient` receives `DrawerView` with `FeatureNodeData` → derives
+  view type → renders appropriate body. SSE events trigger `router.refresh()` and
+  optimistic view updates.
+
+  **Existing Tab Pattern**: `TechReviewTabs` uses shadcn/ui `Tabs` with flex column
+  layout: `TabsList` in a shrink-0 header, `TabsContent` with `flex-1 overflow-y-auto`
+  for scrollable content, and `DrawerActionBar` at the bottom.
+
+  **Server Actions**: Data fetching uses Next.js server actions in
+  `src/presentation/web/app/actions/`. Currently `getFeatureMetadata` and
+  `getFeatureArtifact` exist. New server actions will be needed for phase timings,
+  messages, and plan data.
+
+  ### Relevant Technologies
+
+  - **shadcn/ui Tabs** (`src/presentation/web/components/ui/tabs.tsx`): Radix UI-based
+    Tabs, TabsList, TabsTrigger, TabsContent — already installed and used.
+  - **Next.js 16 Server Actions**: Used for data fetching in the drawer system.
+  - **SSE via useAgentEventsContext**: Real-time updates that trigger drawer refresh.
+  - **Storybook 8**: Mandatory colocated `.stories.tsx` files for all UI components.
+
+  ### Domain Models
+
+  Key types from `packages/core/src/domain/generated/output.ts`:
+
+  - **Feature**: Contains `messages: Message[]`, `plan?: Plan`, `lifecycle: SdlcLifecycle`
+  - **Message**: `role: MessageRole`, `content: string`, `options?: string[]`, `answer?: string`
+  - **Plan**: `overview: string`, `tasks: Task[]`, `state: PlanState`, `requirements: Requirement[]`
+  - **PhaseTiming**: `agentRunId`, `phase`, `startedAt`, `completedAt?`, `durationMs?`,
+    `waitingApprovalAt?`, `approvalWaitMs?`
+  - **AgentRun**: `status: AgentRunStatus`, `startedAt?`, `completedAt?`, `featureId?`
+
+  ### Data Availability
+
+  - **Overview tab**: Uses existing `FeatureNodeData` — no new fetching needed.
+  - **Activity tab**: Requires `PhaseTiming[]` via `IPhaseTimingRepository.findByFeatureId()`.
+    New server action needed.
+  - **Messages tab**: Requires `Feature.messages[]` via `IFeatureRepository.findById()`.
+    New server action needed (or extend existing `getFeatureMetadata`).
+  - **Plan tab**: Requires `Feature.plan` via `IFeatureRepository.findById()`.
+    New server action needed (or extend existing `getFeatureMetadata`).
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `src/presentation/web/components/common/feature-drawer/` | High | New tabbed component replaces current single-view body |
+  | `src/presentation/web/components/common/control-center-drawer/feature-drawer-client.tsx` | High | Must wire tabbed component into the 'feature' view body rendering |
+  | `src/presentation/web/app/actions/` | Medium | New server actions for phase timings, messages, and plan data |
+  | `src/presentation/web/components/ui/tabs.tsx` | None | Already exists and is ready to use |
+  | `packages/core/src/application/ports/output/agents/phase-timing-repository.interface.ts` | None | `findByFeatureId` already exists |
+  | `packages/core/src/application/use-cases/features/show-feature.use-case.ts` | Low | May need to expose messages/plan separately or reuse existing |
+  | `src/presentation/cli/commands/feat/show.command.ts` | None | Read-only reference for Activity tab rendering logic |
+  | `.storybook/mocks/` | Medium | Mock data for new server actions in stories |
+
+  ## Dependencies
+
+  **Existing infrastructure (no changes needed):**
+  - `shadcn/ui Tabs` component (`ui/tabs.tsx`)
+  - `IPhaseTimingRepository.findByFeatureId()` — already implemented in SQLite repo
+  - `IFeatureRepository.findById()` — returns full Feature with messages and plan
+  - `ShowFeatureUseCase` — retrieves Feature by ID
+  - `FeatureNodeData` type — already contains all Overview tab data
+  - `BaseDrawer` component — drawer shell with sizing/modal support
+  - `TechReviewTabs` — pattern reference for tabbed drawer implementation
+
+  **New code required:**
+  - `getFeaturePhaseTimings(featureId)` server action
+  - `getFeatureMessages(featureId)` server action
+  - `getFeaturePlan(featureId)` server action
+  - `FeatureDrawerTabs` component (tab container with lazy-loading logic)
+  - `OverviewTab` component (extracted from current feature-drawer body)
+  - `ActivityTab` component (phase timing visualization)
+  - `MessagesTab` component (message log display)
+  - `PlanTab` component (plan state + task list)
+  - Storybook stories for all new components
+
+  ## Size Estimate
+
+  **M** — This is a multi-day effort with well-defined scope. The UI primitives
+  (Tabs component) and data layer (repositories, domain models) already exist.
+  The main work is:
+  1. Creating 5 new presentation components (tab container + 4 tab content components)
+  2. Adding 3 new server actions for data fetching
+  3. Integrating into the existing FeatureDrawerClient view system
+  4. Adapting CLI rendering logic (phase timing visualization) for web
+  5. Writing comprehensive Storybook stories for all new components
+
+  The Activity tab (phase timing visualization with duration bars, multi-run
+  grouping, approval waits) is the most complex piece. Overview and Messages
+  tabs are straightforward. Plan tab is medium complexity.
+
+  ---
+
+  _Requirements complete — proceed with research_

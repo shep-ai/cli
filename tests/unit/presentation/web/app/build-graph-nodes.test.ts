@@ -224,6 +224,25 @@ describe('buildGraphNodes', () => {
     });
   });
 
+  describe('feature node data includes summary, createdAt, and repositoryName', () => {
+    it('passes summary and createdAt from the Feature entity', () => {
+      const repo = makeRepo({ path: '/my/repo', name: 'my-repo' });
+      const feature = makeFeature({
+        repositoryPath: '/my/repo',
+        description: 'A detailed summary',
+        createdAt: new Date('2026-01-15T10:00:00Z'),
+      });
+      const { nodes } = buildGraphNodes([repo], [{ feature, run: null }]);
+
+      const featureNode = nodes.find((n) => n.id === 'feat-feat-1');
+      expect(featureNode).toBeDefined();
+      const data = featureNode!.data as Record<string, unknown>;
+      expect(data.summary).toBe('A detailed summary');
+      expect(data.createdAt).toBe(new Date('2026-01-15T10:00:00Z').getTime());
+      expect(data.repositoryName).toBe('my-repo');
+    });
+  });
+
   describe('empty inputs', () => {
     it('returns empty nodes and edges when both inputs are empty', () => {
       const { nodes, edges } = buildGraphNodes([], []);
