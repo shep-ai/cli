@@ -680,4 +680,70 @@ describe('FeatureCreateDrawer', () => {
       expect(screen.getByLabelText('Fast Mode')).not.toBeChecked();
     });
   });
+
+  describe('keyboard shortcut (Ctrl/Cmd+Enter)', () => {
+    it('submits the form when Ctrl+Enter is pressed in the textarea', async () => {
+      const onSubmit = vi.fn();
+      const user = userEvent.setup();
+      renderDrawer({ onSubmit });
+
+      const textarea = screen.getByPlaceholderText(descriptionPlaceholder);
+      await user.type(textarea, 'OAuth2 flow');
+      await user.keyboard('{Control>}{Enter}{/Control}');
+
+      expect(onSubmit).toHaveBeenCalledOnce();
+      expect(onSubmit.mock.calls[0][0].description).toBe('OAuth2 flow');
+    });
+
+    it('submits the form when Meta+Enter is pressed in the textarea', async () => {
+      const onSubmit = vi.fn();
+      const user = userEvent.setup();
+      renderDrawer({ onSubmit });
+
+      const textarea = screen.getByPlaceholderText(descriptionPlaceholder);
+      await user.type(textarea, 'OAuth2 flow');
+      await user.keyboard('{Meta>}{Enter}{/Meta}');
+
+      expect(onSubmit).toHaveBeenCalledOnce();
+      expect(onSubmit.mock.calls[0][0].description).toBe('OAuth2 flow');
+    });
+
+    it('does not submit when description is empty and Ctrl+Enter is pressed', async () => {
+      const onSubmit = vi.fn();
+      const user = userEvent.setup();
+      renderDrawer({ onSubmit });
+
+      const textarea = screen.getByPlaceholderText(descriptionPlaceholder);
+      await user.click(textarea);
+      await user.keyboard('{Control>}{Enter}{/Control}');
+
+      expect(onSubmit).not.toHaveBeenCalled();
+    });
+
+    it('does not submit when isSubmitting and Ctrl+Enter is pressed', () => {
+      const onSubmit = vi.fn();
+      renderDrawer({ onSubmit, isSubmitting: true });
+
+      // Textarea is disabled when isSubmitting, so we fire the event on the form
+      const form = document.getElementById('create-feature-form')!;
+      form.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true })
+      );
+
+      expect(onSubmit).not.toHaveBeenCalled();
+    });
+
+    it('does not submit on plain Enter (without modifier)', async () => {
+      const onSubmit = vi.fn();
+      const user = userEvent.setup();
+      renderDrawer({ onSubmit });
+
+      const textarea = screen.getByPlaceholderText(descriptionPlaceholder);
+      await user.type(textarea, 'OAuth2 flow');
+      // Plain Enter in a textarea should just add a newline, not submit
+      await user.keyboard('{Enter}');
+
+      expect(onSubmit).not.toHaveBeenCalled();
+    });
+  });
 });

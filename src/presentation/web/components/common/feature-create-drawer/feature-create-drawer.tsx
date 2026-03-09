@@ -204,6 +204,15 @@ export function FeatureCreateDrawer({
     setAttachments((prev) => prev.filter((f) => f.path !== path));
   }, []);
 
+  const formRef = useRef<HTMLFormElement>(null);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault();
+      formRef.current?.requestSubmit();
+    }
+  }, []);
+
   const hasFeatures = features && features.length > 0;
 
   return (
@@ -247,7 +256,12 @@ export function FeatureCreateDrawer({
       {/* Form body */}
       <div className="overflow-y-auto p-4">
         <TooltipProvider delayDuration={400}>
-          <form id="create-feature-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <form
+            ref={formRef}
+            id="create-feature-form"
+            onSubmit={handleSubmit}
+            className="flex flex-col gap-4"
+          >
             {/* Description + inline controls */}
             <div className="flex flex-col gap-1.5">
               <Label
@@ -262,6 +276,7 @@ export function FeatureCreateDrawer({
                   placeholder="e.g. Add GitHub OAuth login with callback handling and token refresh..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
+                  onKeyDown={handleKeyDown}
                   rows={7}
                   required
                   disabled={isSubmitting}
