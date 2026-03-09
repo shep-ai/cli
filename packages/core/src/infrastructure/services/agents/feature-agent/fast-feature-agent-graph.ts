@@ -1,10 +1,11 @@
 /**
  * Fast Feature Agent Graph Factory
  *
- * Creates a LangGraph StateGraph with only 2 nodes: fast-implement → merge.
+ * Creates a LangGraph StateGraph with nodes: fast-implement → collect_evidence → merge.
  * This is the fast-mode alternative to createFeatureAgentGraph() which has
  * 15+ nodes. The merge node and its CI watch/fix loop are reused via
- * composition from the full graph's createMergeNode().
+ * composition from the full graph's createMergeNode(). The evidence node
+ * captures proof of completion (screenshots, test output) just like the full graph.
  *
  * Uses the same FeatureAgentAnnotation state shape as the full graph,
  * enabling checkpointing, resume, and identical worker lifecycle handling.
@@ -14,6 +15,7 @@ import { StateGraph, START, END, type BaseCheckpointSaver } from '@langchain/lan
 import type { IAgentExecutor } from '@/application/ports/output/agents/agent-executor.interface.js';
 import { FeatureAgentAnnotation, type FeatureAgentState } from './state.js';
 import { createFastImplementNode } from './nodes/fast-implement.node.js';
+import { createEvidenceNode } from './nodes/evidence.node.js';
 import { createMergeNode, type MergeNodeDeps } from './nodes/merge/merge.node.js';
 
 // Re-export for consumers
@@ -48,7 +50,7 @@ function routeReexecution(
  * Factory function that creates and compiles the fast-mode feature agent graph.
  *
  * The graph defines a minimal workflow:
- *   START → fast-implement → merge → conditional(reexecute or END)
+ *   START → fast-implement → collect_evidence → merge → conditional(reexecute or END)
  *
  * When merge is rejected, routeReexecution routes back to fast-implement
  * for a fresh implementation pass.
@@ -66,10 +68,12 @@ export function createFastFeatureAgentGraph(
     'execute' in depsOrExecutor ? { executor: depsOrExecutor } : depsOrExecutor;
   const { executor } = deps;
 
-  const graph = new StateGraph(FeatureAgentAnnotation).addNode(
-    'fast-implement',
-    createFastImplementNode(executor)
-  );
+  const graph = new StateGraph(FeatureAgentAnnotation)
+    .addNode('fast-implement', createFastImplementNode(executor))
+    .addNode('collect_evidence', createEvidenceNode(executor));
+
+  // --- Evidence node: always wired after fast-implement ---
+  graph.addEdge(START, 'fast-implement').addEdge('fast-implement', 'collect_evidence');
 
   // Wire merge node when deps are provided
   if (deps.mergeNodeDeps) {
@@ -79,12 +83,11 @@ export function createFastFeatureAgentGraph(
     };
     graph
       .addNode('merge', createMergeNode(mergeNodeDeps))
-      .addEdge(START, 'fast-implement')
-      .addEdge('fast-implement', 'merge')
+      .addEdge('collect_evidence', 'merge')
       .addConditionalEdges('merge', routeReexecution('fast-implement', END));
   } else {
-    // Without merge deps, fast-implement goes directly to END
-    graph.addEdge(START, 'fast-implement').addEdge('fast-implement', END);
+    // Without merge deps, evidence goes directly to END
+    graph.addEdge('collect_evidence', END);
   }
 
   return graph.compile({ checkpointer });
