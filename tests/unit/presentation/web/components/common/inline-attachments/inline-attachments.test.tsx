@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import {
   InlineAttachments,
   parseAttachmentRefs,
@@ -93,5 +93,15 @@ describe('InlineAttachments', () => {
     expect(screen.getByText('Before the image')).toBeInTheDocument();
     expect(screen.getByText('after the image')).toBeInTheDocument();
     expect(screen.getByTestId('inline-attachment-image')).toBeInTheDocument();
+  });
+
+  it('shows error fallback when image fails to load', () => {
+    render(
+      <InlineAttachments text="See: @/home/user/.shep/attachments/pending-abc/screenshot.png" />
+    );
+    const img = screen.getByTestId('inline-attachment-image');
+    fireEvent.error(img);
+    expect(screen.getByTestId('inline-attachment-image-error')).toBeInTheDocument();
+    expect(screen.getByText('screenshot.png')).toBeInTheDocument();
   });
 });

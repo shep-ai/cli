@@ -1,9 +1,10 @@
 /* eslint-disable @next/next/no-img-element -- Local file preview requires raw <img>, not next/image */
 'use client';
 
+import { useState } from 'react';
 import { Dialog, DialogTrigger, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { VisuallyHidden } from 'radix-ui';
-import { DownloadIcon } from 'lucide-react';
+import { DownloadIcon, ImageOff } from 'lucide-react';
 
 const IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.ico', '.bmp']);
 
@@ -104,8 +105,21 @@ export function InlineAttachments({ text, attachmentPaths }: InlineAttachmentsPr
 
 function AttachmentPreview({ path }: { path: string }) {
   const filename = getFilename(path);
+  const [loadError, setLoadError] = useState(false);
 
   if (isImagePath(path)) {
+    if (loadError) {
+      return (
+        <div
+          data-testid="inline-attachment-image-error"
+          className="text-muted-foreground flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
+        >
+          <ImageOff className="h-4 w-4 shrink-0" />
+          <span className="truncate">{filename}</span>
+        </div>
+      );
+    }
+
     return (
       <Dialog>
         <DialogTrigger asChild>
@@ -113,6 +127,7 @@ function AttachmentPreview({ path }: { path: string }) {
             src={previewUrl(path)}
             alt={filename}
             data-testid="inline-attachment-image"
+            onError={() => setLoadError(true)}
             className="max-h-48 max-w-full cursor-pointer rounded-md border object-contain transition-opacity hover:opacity-80"
           />
         </DialogTrigger>
