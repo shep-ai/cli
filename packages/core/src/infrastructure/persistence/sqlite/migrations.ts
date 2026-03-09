@@ -405,12 +405,12 @@ WHERE repository_path NOT IN (SELECT path FROM repositories WHERE path IS NOT NU
       const columns = db.pragma('table_info(settings)') as { name: string }[];
       const addNotNull = (col: string, dflt: string) => {
         if (!columns.some((c) => c.name === col)) {
-          db.exec('ALTER TABLE settings ADD COLUMN ' + col + ' INTEGER NOT NULL DEFAULT ' + dflt);
+          db.exec(`ALTER TABLE settings ADD COLUMN ${col} INTEGER NOT NULL DEFAULT ${dflt}`);
         }
       };
       const addNullable = (col: string) => {
         if (!columns.some((c) => c.name === col)) {
-          db.exec('ALTER TABLE settings ADD COLUMN ' + col + ' INTEGER');
+          db.exec(`ALTER TABLE settings ADD COLUMN ${col} INTEGER`);
         }
       };
       addNotNull('feature_flag_skills', '0');
