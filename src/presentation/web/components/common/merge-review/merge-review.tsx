@@ -2,8 +2,6 @@
 
 import {
   ExternalLink,
-  GitMerge,
-  Loader2,
   AlertTriangle,
   FileDiff,
   GitCommitHorizontal,
@@ -180,13 +178,6 @@ export function MergeReview({
         onReject={onReject}
         onApprove={onApprove}
         approveLabel="Approve Merge"
-        approveIcon={
-          isProcessing ? (
-            <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-          ) : (
-            <GitMerge className="mr-1.5 h-4 w-4" />
-          )
-        }
         revisionPlaceholder="Ask AI to revise before merging..."
         isProcessing={isProcessing}
         isRejecting={isRejecting}

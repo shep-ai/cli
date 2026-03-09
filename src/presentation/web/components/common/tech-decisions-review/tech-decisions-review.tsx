@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import type { Components } from 'react-markdown';
 import Markdown from 'react-markdown';
-import { Check, ChevronRight, GitCompareArrows, Layers } from 'lucide-react';
+import { ChevronRight, GitCompareArrows, Layers } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { DrawerActionBar } from '@/components/common/drawer-action-bar';
 import { useSoundAction } from '@/hooks/use-sound-action';
@@ -180,7 +180,6 @@ export function TechDecisionsReview({
         onReject={onReject}
         onApprove={onApprove}
         approveLabel="Approve Plan"
-        approveIcon={<Check className="mr-1.5 h-4 w-4" />}
         revisionPlaceholder="Ask AI to revise the plan..."
         isProcessing={isProcessing}
         isRejecting={isRejecting}

@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -169,7 +169,6 @@ export function PrdQuestionnaire({
         onReject={onReject}
         onApprove={() => onApprove(finalAction.id)}
         approveLabel={finalAction.label}
-        approveIcon={<Check className="mr-1.5 h-4 w-4" />}
         revisionPlaceholder="Ask AI to refine requirements..."
         isProcessing={isProcessing}
         isRejecting={isRejecting}

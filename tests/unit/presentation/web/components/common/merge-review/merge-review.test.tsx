@@ -208,7 +208,7 @@ describe('MergeReview', () => {
       fireEvent.change(input, { target: { value: '  fix the tests  ' } });
       fireEvent.submit(input.closest('form')!);
 
-      expect(onReject).toHaveBeenCalledWith('fix the tests');
+      expect(onReject).toHaveBeenCalledWith('fix the tests', []);
     });
 
     it('does not call onReject when input is empty', () => {
@@ -230,11 +230,14 @@ describe('MergeReview', () => {
   });
 
   describe('approve button', () => {
-    it('renders "Approve Merge" button that calls onApprove', () => {
+    it('renders "Approve Merge" button that calls onApprove when Ctrl+Shift is held', () => {
       const onApprove = vi.fn();
       render(<MergeReview {...baseProps} onApprove={onApprove} />);
 
-      const button = screen.getByRole('button', { name: /approve merge/i });
+      // Hold Ctrl+Shift to switch the single button into approve mode
+      fireEvent.keyDown(window, { key: 'Control' });
+      fireEvent.keyDown(window, { key: 'Shift' });
+      const button = screen.getByTestId('drawer-action-submit');
       fireEvent.click(button);
 
       expect(onApprove).toHaveBeenCalledTimes(1);
@@ -243,7 +246,7 @@ describe('MergeReview', () => {
     it('disables approve button when isProcessing is true', () => {
       render(<MergeReview {...baseProps} isProcessing />);
 
-      const button = screen.getByRole('button', { name: /approve merge/i });
+      const button = screen.getByTestId('drawer-action-submit');
       expect(button).toBeDisabled();
     });
   });

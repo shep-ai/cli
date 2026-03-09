@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Loader2, Check } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { getFeaturePhaseTimings } from '@/app/actions/get-feature-phase-timings';
 import type {
@@ -20,6 +20,7 @@ import { TechDecisionsContent } from '@/components/common/tech-decisions-review'
 import { ProductDecisionsSummary } from '@/components/common/product-decisions-summary';
 import { MergeReview } from '@/components/common/merge-review';
 import { DrawerActionBar } from '@/components/common/drawer-action-bar';
+import type { RejectAttachment } from '@/components/common/drawer-action-bar';
 import { OverviewTab } from './overview-tab';
 import { ActivityTab } from './activity-tab';
 import { LogTab } from './log-tab';
@@ -86,13 +87,13 @@ export interface FeatureDrawerTabsProps {
   prdSelections?: Record<string, string>;
   onPrdSelect?: (questionId: string, optionId: string) => void;
   onPrdApprove?: (actionId: string) => void;
-  onPrdReject?: (feedback: string) => void;
+  onPrdReject?: (feedback: string, attachments: RejectAttachment[]) => void;
   isPrdLoading?: boolean;
 
   // Tech decisions
   techData?: TechDecisionsReviewData | null;
   onTechApprove?: () => void;
-  onTechReject?: (feedback: string) => void;
+  onTechReject?: (feedback: string, attachments: RejectAttachment[]) => void;
   isTechLoading?: boolean;
 
   // Product decisions
@@ -101,7 +102,7 @@ export interface FeatureDrawerTabsProps {
   // Merge review
   mergeData?: MergeReviewData | null;
   onMergeApprove?: () => void;
-  onMergeReject?: (feedback: string) => void;
+  onMergeReject?: (feedback: string, attachments: RejectAttachment[]) => void;
   isMergeLoading?: boolean;
 
   // Shared
@@ -371,7 +372,7 @@ function DrawerActionBarForTech({
   onChatInputChange,
 }: {
   onApprove: () => void;
-  onReject?: (feedback: string) => void;
+  onReject?: (feedback: string, attachments: RejectAttachment[]) => void;
   isProcessing?: boolean;
   isRejecting?: boolean;
   chatInput?: string;
@@ -382,7 +383,6 @@ function DrawerActionBarForTech({
       onReject={onReject}
       onApprove={onApprove}
       approveLabel="Approve Plan"
-      approveIcon={<Check className="mr-1.5 h-4 w-4" />}
       revisionPlaceholder="Ask AI to revise the plan..."
       isProcessing={isProcessing}
       isRejecting={isRejecting}

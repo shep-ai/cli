@@ -6,7 +6,8 @@ import type { IFeatureRepository } from '@shepai/core/application/ports/output/r
 
 export async function rejectFeature(
   featureId: string,
-  feedback: string
+  feedback: string,
+  attachments?: string[]
 ): Promise<{
   rejected: boolean;
   iteration?: number;
@@ -34,7 +35,7 @@ export async function rejectFeature(
     }
 
     const rejectUseCase = resolve<RejectAgentRunUseCase>('RejectAgentRunUseCase');
-    const result = await rejectUseCase.execute(feature.agentRunId, feedback);
+    const result = await rejectUseCase.execute(feature.agentRunId, feedback, attachments);
 
     if (!result.rejected) {
       return { rejected: false, error: result.reason };

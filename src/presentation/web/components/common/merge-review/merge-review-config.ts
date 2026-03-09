@@ -1,4 +1,5 @@
 import type { PrStatus, CiStatus } from '@shepai/core/domain/generated/output';
+import type { RejectAttachment } from '@/components/common/drawer-action-bar';
 
 /** Diff summary statistics for the PR */
 export interface MergeReviewDiffSummary {
@@ -53,7 +54,7 @@ export interface MergeReviewProps {
   /** Approve merge callback */
   onApprove: () => void;
   /** Reject merge callback — opens feedback dialog when provided; also used for inline text rejection */
-  onReject?: (feedback: string) => void;
+  onReject?: (feedback: string, attachments: RejectAttachment[]) => void;
   /** Controls disabled state during approval */
   isProcessing?: boolean;
   /** Whether a reject operation is in flight */

@@ -13,6 +13,11 @@ properties:
     minimum: -2147483648
     maximum: 2147483647
     description: Iteration number (1-based, derived from PhaseTiming row count)
+  attachments:
+    type: array
+    items:
+      type: string
+    description: File attachment paths included with the rejection feedback
 required:
   - rejected
   - feedback

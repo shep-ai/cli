@@ -16,12 +16,12 @@ vi.mock('@/hooks/use-sound-action', () => ({
   }),
 }));
 
-describe('DrawerActionBar — sound effects', () => {
+describe('DrawerActionBar', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('plays approve sound when approve button is clicked', async () => {
+  it('plays approve sound when approve button is clicked (no onReject)', async () => {
     const user = userEvent.setup();
     const onApprove = vi.fn();
     render(<DrawerActionBar onApprove={onApprove} approveLabel="Approve" />);
@@ -32,16 +32,16 @@ describe('DrawerActionBar — sound effects', () => {
     expect(onApprove).toHaveBeenCalledOnce();
   });
 
-  it('calls onReject when revision is submitted via chat input', async () => {
+  it('calls onReject when revision is submitted via submit button', async () => {
     const user = userEvent.setup();
     const onReject = vi.fn();
     render(<DrawerActionBar onApprove={vi.fn()} approveLabel="Approve" onReject={onReject} />);
 
     const input = screen.getByRole('textbox');
     await user.type(input, 'please revise this');
-    await user.click(screen.getByRole('button', { name: /send/i }));
+    await user.click(screen.getByTestId('drawer-action-submit'));
 
-    expect(onReject).toHaveBeenCalledWith('please revise this');
+    expect(onReject).toHaveBeenCalledWith('please revise this', []);
   });
 
   it('disables all controls when isProcessing is true', () => {
@@ -55,8 +55,8 @@ describe('DrawerActionBar — sound effects', () => {
     );
 
     expect(screen.getByRole('textbox')).toBeDisabled();
-    expect(screen.getByRole('button', { name: /send/i })).toBeDisabled();
-    expect(screen.getByRole('button', { name: /approve/i })).toBeDisabled();
+    expect(screen.getByTestId('drawer-action-submit')).toBeDisabled();
+    // Single button — approve is now part of drawer-action-submit
     expect(mockApprovePlay).not.toHaveBeenCalled();
   });
 });

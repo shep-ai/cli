@@ -1,15 +1,23 @@
 import type { ReactNode } from 'react';
 
+/** Attachment record for the reject form — mirrors FormAttachment from feature-create-drawer. */
+export interface RejectAttachment {
+  id: string;
+  name: string;
+  size: number;
+  mimeType: string;
+  path: string;
+  loading?: boolean;
+}
+
 export interface DrawerActionBarProps {
   /** Callback when user rejects with feedback (inline input or dialog) */
-  onReject?: (feedback: string) => void;
+  onReject?: (feedback: string, attachments: RejectAttachment[]) => void;
   /** Callback when user approves */
   onApprove: () => void;
-  /** Label for the approve button */
+  /** Label for the approve button (used in both the split button and dropdown) */
   approveLabel: string;
-  /** Icon element for the approve button */
-  approveIcon?: ReactNode;
-  /** Placeholder for the inline revision input */
+  /** Placeholder for the inline revision textarea */
   revisionPlaceholder?: string;
   /** Whether an approval/processing operation is in flight */
   isProcessing?: boolean;

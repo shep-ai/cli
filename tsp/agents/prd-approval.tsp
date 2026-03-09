@@ -34,6 +34,9 @@ model PrdRejectionPayload {
 
   @doc("Iteration number (1-based, derived from PhaseTiming row count)")
   iteration: int32;
+
+  @doc("File attachment paths included with the rejection feedback")
+  attachments?: string[];
 }
 
 @doc("A single question with its options as presented in the review TUI")

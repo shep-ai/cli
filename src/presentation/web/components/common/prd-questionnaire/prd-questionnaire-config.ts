@@ -4,6 +4,7 @@ import type {
   PrdFinalAction,
   PrdQuestionnaireData,
 } from '@shepai/core/domain/generated/output';
+import type { RejectAttachment } from '@/components/common/drawer-action-bar';
 
 export type { PrdOption, PrdQuestion, PrdFinalAction, PrdQuestionnaireData };
 
@@ -17,7 +18,7 @@ export interface PrdQuestionnaireProps {
   /** Finalize requirements callback */
   onApprove: (actionId: string) => void;
   /** Reject requirements callback — opens feedback dialog when provided; also used for inline text rejection */
-  onReject?: (feedback: string) => void;
+  onReject?: (feedback: string, attachments: RejectAttachment[]) => void;
   /** Controls disabled/animated state during refinement */
   isProcessing?: boolean;
   /** Whether a reject operation is in flight */

@@ -38,7 +38,8 @@ export class RejectAgentRunUseCase {
 
   async execute(
     id: string,
-    feedback: string
+    feedback: string,
+    attachments?: string[]
   ): Promise<{
     rejected: boolean;
     reason: string;
@@ -88,6 +89,7 @@ export class RejectAgentRunUseCase {
         message: feedback,
         phase: rejectedPhase,
         timestamp: new Date().toISOString(),
+        ...(attachments && attachments.length > 0 ? { attachments } : {}),
       };
 
       spec.rejectionFeedback = [...existingFeedback, newEntry];
@@ -128,6 +130,7 @@ export class RejectAgentRunUseCase {
       rejected: true,
       feedback,
       iteration,
+      ...(attachments && attachments.length > 0 ? { attachments } : {}),
     };
 
     // Derive worktree path with fallback — the mapper conditionally sets
