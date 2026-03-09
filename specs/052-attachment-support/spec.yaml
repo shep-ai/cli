@@ -1,0 +1,333 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: attachment-support
+number: 052
+branch: feat/052-attachment-support
+oneLiner: add file attachment support to UI (drag-drop/paste) and CLI (--files flag) with @filepath agent references
+summary: >
+  Users need to attach files (images, documents, code snippets) when creating or messaging features
+  in both the web UI and CLI. The web UI should support drag-and-drop and Ctrl+V image pasting into
+  the prompt area, uploading files to a .shep/attachments/<feature-slug>/ directory and referencing
+  them with @<within-shep-dir-path> syntax; the CLI should accept a --files flag that appends
+  @filepath references to prompts. Attachment metadata (name, size, mime-type, path) is persisted
+  in SQLite and defined as a TypeSpec value object. All agent executors already accept file
+  references in prompt text, so the primary work is in ingestion, storage, and prompt composition.
+phase: Requirements
+sizeEstimate: L
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - TypeSpec (domain model extension for Attachment value object)
+  - Next.js 16 (drag-drop API, Clipboard API, file upload route handler)
+  - React 19 (onDrop, onPaste event handlers, state management)
+  - Node.js fs/path/crypto (file reading, .shep/attachments/ directory management, SHA-256 dedup)
+  - better-sqlite3 (persist attachment metadata with Feature)
+  - Commander.js (--files CLI flag)
+  - Tailwind CSS / Radix UI (drag-drop visual feedback, attachment chips)
+  - Storybook (mandatory .stories.tsx for all new components)
+  - Vitest (unit tests for use case and file service)
+  - Playwright (E2E tests for full drag-drop and CLI flow)
+
+relatedLinks:
+  - https://github.com/shep-ai/cli/issues/223
+
+openQuestions:
+  - question: 'How should image files be provided to agent prompts?'
+    resolved: true
+    options:
+      - option: '@path reference only'
+        description: >
+          Always append @<relative-path> references to prompt text. Agents that support file
+          references (Claude Code, Gemini CLI) resolve paths natively. Simple, consistent,
+          no prompt bloat, works for all file types uniformly. Requires the agent executor
+          to have filesystem access at the referenced path.
+        selected: true
+      - option: 'Base64 inline for images'
+        description: >
+          Detect image MIME types and base64-encode them into the prompt. Ensures agents
+          without filesystem access can still process images. Significantly increases prompt
+          size; may hit token limits for large images; inconsistent handling between images
+          and other file types.
+        selected: false
+    selectionRationale: >
+      @path references are simpler, consistent across all file types, and already supported
+      natively by Claude Code and Gemini CLI — the primary executors. Base64 encoding inflates
+      prompts and risks token-limit issues. If a future executor lacks filesystem access,
+      that executor adapter can handle encoding at that layer — not the attachment layer.
+    answer: '@path reference only'
+
+  - question: 'What is the maximum file size for uploads?'
+    resolved: true
+    options:
+      - option: '10 MB limit'
+        description: >
+          Reject files larger than 10 MB at the API route and drag-drop handler with a clear
+          error message. Covers most screenshots, design docs, and code files. Prevents
+          accidental upload of large binaries or build artifacts. Enforced both client-side
+          (before upload) and server-side (in the API route).
+        selected: true
+      - option: '25 MB limit'
+        description: >
+          Higher limit accommodates larger design files (Figma exports, PDFs). Increases
+          server memory pressure during multipart parsing and risks slow uploads on poor
+          connections. Most agent prompts become unwieldy with very large context files anyway.
+        selected: false
+      - option: 'No limit (configurable)'
+        description: >
+          Let users configure via settings. Adds implementation complexity for a configuration
+          surface that most users will never touch. Defer until there is a concrete user request
+          for larger limits.
+        selected: false
+    selectionRationale: >
+      10 MB covers the vast majority of real use cases (screenshots, design mockups, source files)
+      while providing a clear, memorable boundary. It aligns with common web upload conventions
+      and avoids server memory pressure. The limit should be enforced on both client (fast feedback)
+      and server (security) sides.
+    answer: '10 MB limit'
+
+  - question: 'For CLI --files flag, should file content be inlined or referenced by path?'
+    resolved: true
+    options:
+      - option: '@path reference appended'
+        description: >
+          Append @<absolute-or-relative-path> to the prompt text for each file provided.
+          Consistent with web UI behaviour. Files remain on disk; agents resolve them natively.
+          No risk of reading large files into memory or leaking content in logs.
+        selected: true
+      - option: 'File content inlined'
+        description: >
+          Read file contents and embed them directly in the prompt (with fenced code blocks
+          for text files). Useful for agents without filesystem access. Increases prompt
+          size dramatically for large files; binary files cannot be inlined meaningfully.
+        selected: false
+    selectionRationale: >
+      @path references keep CLI and web UI behaviour consistent, avoid memory/logging risks,
+      and match what agent executors already handle natively. Content inlining can be added
+      later as an explicit --inline flag if a concrete use case emerges.
+    answer: '@path reference appended'
+
+  - question: 'Should attachments be scoped per-feature or global to the repo?'
+    resolved: true
+    options:
+      - option: 'Per-feature scope'
+        description: >
+          Store attachments under .shep/attachments/<feature-slug>/. Attachments are logically
+          owned by a feature; deleting a feature can clean up its attachments. Prevents namespace
+          collisions between features. Simple mental model for users.
+        selected: true
+      - option: 'Global repo scope'
+        description: >
+          Store all attachments under .shep/attachments/ without feature subdirectories. Allows
+          reuse of the same file across multiple features. Complicates lifecycle management —
+          unclear when to delete files. Harder to reason about what belongs to what.
+        selected: false
+    selectionRationale: >
+      Per-feature scoping aligns with how all other feature data is managed (the feature is the
+      unit of work), makes cleanup straightforward, and avoids cross-feature attachment confusion.
+      If cross-feature file reuse is needed in future, that can be addressed with symlinks or a
+      shared attachments pool at that time.
+    answer: 'Per-feature scope'
+
+  - question: 'Should attachment metadata be persisted in SQLite and TypeSpec?'
+    resolved: true
+    options:
+      - option: 'Full metadata persistence'
+        description: >
+          Define an Attachment value object in TypeSpec with id, name, size, mimeType, path,
+          createdAt. Persist per-feature in SQLite. Enables listing, auditing, and future UI
+          features (attachment gallery, re-attach). Follows TypeSpec-first mandate. Moderate
+          implementation cost (one TypeSpec model + SQLite table + repository adapter).
+        selected: true
+      - option: 'Path-only, no DB persistence'
+        description: >
+          Store only the file on disk; reconstruct attachment list by scanning the directory.
+          Simpler initial implementation. Loses metadata (original filename, MIME type, upload
+          time). Makes it hard to display rich attachment UI or support deletion by ID. Violates
+          the TypeSpec-first mandate if there is no domain model.
+        selected: false
+    selectionRationale: >
+      The TypeSpec-first mandate requires any persistent domain concept to be modelled in tsp/
+      first. Metadata persistence (name, size, mimeType, path) is needed to render the existing
+      AttachmentCard UI correctly and to support future operations like deletion by ID. The
+      implementation cost is low given the existing repository pattern infrastructure.
+    answer: 'Full metadata persistence'
+
+content: |
+  ## Problem Statement
+
+  The platform has no way for users to provide files (screenshots, design docs, existing code,
+  images) alongside their feature requests. Agents only receive text prompts today. Referenced
+  in https://github.com/shep-ai/cli/issues/223, the community requests:
+
+  1. **Web UI**: Drag-and-drop files and Ctrl+V (clipboard paste) of images into the prompt
+     input area. Files are uploaded to `.shep/attachments/<feature-slug>/` and referenced as
+     `@<relative-path>` in agent prompts.
+  2. **CLI**: A `--files <path,...>` flag on `shep feat create` and related commands that
+     appends `@<filepath>` references to the user prompt.
+  3. **Agent consumption**: All executors already handle `@filepath` syntax in Claude Code and
+     similar tools — the integration point is prompt composition, not executor changes.
+
+  Additionally, the spec requires a **static HTML mock** (with screenshots committed to the
+  spec directory) showing the intended UI look-and-feel before any implementation begins.
+
+  ## Success Criteria
+
+  - [ ] A user can drag one or more files onto the feature-create-drawer prompt area and see
+        attachment chips appear within 500 ms of drop.
+  - [ ] A user can paste an image from clipboard (Ctrl+V / Cmd+V) into the prompt area and
+        see an attachment chip appear.
+  - [ ] Files are rejected with a visible error message if they exceed 10 MB; upload is not
+        initiated.
+  - [ ] Accepted files are uploaded to `.shep/attachments/<feature-slug>/` via the
+        `/api/attachments/upload` route and persisted as Attachment records in SQLite.
+  - [ ] The submitted prompt sent to agent executors contains `@<relative-path>` references
+        for every attached file, with paths relative to the repository root.
+  - [ ] `shep feat create --files path1,path2` appends `@path1 @path2` references to the
+        prompt and the feature is created with those attachment records.
+  - [ ] The CLI validates that all --files paths exist on disk before creating the feature,
+        showing a clear error for missing paths.
+  - [ ] The Attachment value object is defined in `tsp/` and TypeScript types are regenerated
+        via `pnpm tsp:compile` with no manual edits to generated files.
+  - [ ] Attachment metadata (id, name, size, mimeType, path, createdAt) is persisted in SQLite
+        and readable from the feature detail view.
+  - [ ] All new and modified web components have updated `.stories.tsx` files that render
+        correctly in Storybook.
+  - [ ] Unit tests cover: file-size validation, @path composition, duplicate-file dedup logic,
+        CLI flag parsing, and use-case attachment handling.
+  - [ ] E2E test covers the full web drag-drop → feature create → agent prompt flow.
+  - [ ] A static HTML mock with at least one screenshot is committed to `specs/052-attachment-support/`
+        before implementation begins.
+  - [ ] `pnpm build`, `pnpm test`, and `pnpm lint` all pass with zero errors.
+
+  ## Functional Requirements
+
+  - **FR-1**: The web UI feature-create-drawer MUST accept files via drag-and-drop onto the
+    prompt input area (`onDrop` event handler on the textarea/container).
+  - **FR-2**: The web UI feature-create-drawer MUST accept image files pasted from the
+    clipboard via `onPaste` event handler using the Clipboard API
+    (`navigator.clipboard.read()` / `ClipboardEvent.clipboardData`).
+  - **FR-3**: The web UI MUST display a visual drag-over overlay (highlighted border or shaded
+    background) while files are being dragged over the drop zone.
+  - **FR-4**: Each accepted file MUST appear as an attachment chip (showing filename and size)
+    in the attachment list below the prompt input, matching the existing `AttachmentCard` UI
+    component design.
+  - **FR-5**: The web UI MUST reject files larger than 10 MB before initiating any upload,
+    displaying a user-visible inline error message identifying the rejected filename(s).
+  - **FR-6**: Accepted files MUST be uploaded to the server via `POST /api/attachments/upload`
+    (multipart/form-data) and stored at `<repositoryPath>/.shep/attachments/<feature-slug>/`.
+  - **FR-7**: If a file with the same SHA-256 hash already exists in the feature's attachment
+    directory, the upload MUST return the existing record without duplicating the file on disk.
+  - **FR-8**: An `Attachment` value object MUST be defined in `tsp/domain/value-objects/` (or
+    entities/) with fields: `id` (ulid), `name` (string), `size` (int64), `mimeType` (string),
+    `path` (string, relative to repo root), `createdAt` (utcDateTime). TypeScript types are
+    generated via `pnpm tsp:compile`.
+  - **FR-9**: Attachment metadata MUST be persisted in SQLite (scoped to its feature) via a
+    repository adapter following the existing IRepository pattern.
+  - **FR-10**: `composeUserInput()` in `create-feature.ts` (and equivalent prompt composers)
+    MUST format file references as `@<relative-path>` (space-separated), appended after the
+    user's text, replacing any existing bare-path concatenation logic.
+  - **FR-11**: `shep feat create` MUST accept a `--files <path1,path2,...>` option (comma-
+    separated or repeated flag) that appends `@<filepath>` references to the submitted prompt.
+  - **FR-12**: The CLI `--files` handler MUST validate that each specified path exists on the
+    local filesystem before feature creation, exiting with a non-zero status code and a clear
+    error message identifying missing paths.
+  - **FR-13**: The CLI `--files` handler MUST copy referenced files into the feature's
+    `.shep/attachments/<feature-slug>/` directory and persist Attachment records in SQLite,
+    consistent with web UI behaviour.
+  - **FR-14**: The attachment chip in the web UI MUST include a remove/dismiss button that
+    deletes the attachment record and removes the file from disk (or marks it orphaned if
+    feature is not yet created).
+  - **FR-15**: A static HTML mock showing the drag-drop UI, attachment chips, and error states
+    MUST be committed to `specs/052-attachment-support/` as the first deliverable.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1 Performance**: The drag-drop visual overlay MUST appear within one animation frame
+    (<16 ms) of `dragover`. The attachment chip MUST appear within 500 ms of a successful
+    upload response.
+  - **NFR-2 Security**: The upload API route MUST validate MIME type and file extension on the
+    server side (not rely solely on client-provided Content-Type). Files MUST be written only
+    to the designated `.shep/attachments/` directory; path traversal characters (`../`) in
+    filenames MUST be stripped or rejected.
+  - **NFR-3 Security**: The 10 MB size limit MUST be enforced at the HTTP layer (Next.js route
+    config `sizeLimit`) in addition to client-side validation, preventing oversized uploads from
+    reaching application code.
+  - **NFR-4 Maintainability**: The `Attachment` TypeSpec model MUST be the single source of
+    truth for the domain type. No manual edits to `packages/core/src/domain/generated/output.ts`.
+  - **NFR-5 Accessibility**: The drag-drop zone MUST have appropriate ARIA roles and labels so
+    screen readers announce the drop target. Attachment chips MUST have accessible remove buttons
+    with `aria-label`.
+  - **NFR-6 Storybook**: Every new or modified web component (drag-drop zone, attachment chip,
+    error state) MUST have a colocated `.stories.tsx` file. CI will reject commits without stories.
+  - **NFR-7 Testing**: Unit test coverage for file validation, @path composition, dedup logic,
+    and CLI flag parsing. At minimum one Playwright E2E test covering the full web attachment
+    flow. All tests must pass in CI (GitHub Actions).
+  - **NFR-8 Portability**: Attachment paths stored in SQLite and sent to agents MUST be relative
+    to the repository root (not absolute), ensuring portability across machines.
+  - **NFR-9 Error UX**: All error states (file too large, invalid type, upload failure, missing
+    CLI path) MUST surface a clear, actionable message to the user — never a silent failure.
+  - **NFR-10 Consistency**: CLI and web UI MUST produce identical `@<relative-path>` formatted
+    prompt references and identical SQLite records for equivalent attachments.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | How should image files be provided to agent prompts? | @path reference only | Consistent across file types; native executor support; avoids prompt bloat |
+  | 2 | What is the maximum file size for uploads? | 10 MB limit | Covers real use cases; clear boundary; enforced client + server |
+  | 3 | For CLI --files flag, should content be inlined or @path referenced? | @path reference appended | Consistent with web UI; no memory/log risk; natively supported by executors |
+  | 4 | Should attachments be scoped per-feature or global to the repo? | Per-feature scope | Matches feature-as-unit-of-work model; clean lifecycle management |
+  | 5 | Should attachment metadata be persisted in SQLite and TypeSpec? | Full metadata persistence | TypeSpec-first mandate requires domain model; metadata needed for UI and future ops |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `tsp/domain/entities/` or `tsp/domain/value-objects/` | High | New `Attachment` model must be defined here first (TypeSpec-first mandate) |
+  | `packages/core/src/domain/generated/output.ts` | High | Auto-generated; regenerated after TypeSpec changes |
+  | `packages/core/src/application/use-cases/features/create/` | High | `CreateFeatureUseCase` must handle attachments: copy/move files to `.shep/attachments/`, compose @refs |
+  | `packages/core/src/infrastructure/services/file-dialog.service.ts` | Medium | May need to extend to support reading file content for inline embedding (images) |
+  | `packages/core/src/infrastructure/services/agents/feature-agent/nodes/` | Medium | Prompt builders (analyze, requirements, etc.) may need to include attachment @refs |
+  | `src/presentation/web/components/common/feature-create-drawer/` | High | Add drag-drop zone, onPaste handler, visual feedback, attachment preview — plus mandatory .stories.tsx update |
+  | `src/presentation/web/app/api/` | High | New `/api/attachments/upload` route for multipart file upload to `.shep/attachments/` |
+  | `src/presentation/web/app/actions/create-feature.ts` | Medium | `composeUserInput()` evolves to proper `@<relative-path>` format |
+  | `src/presentation/cli/commands/feat/index.ts` | Medium | Add `--files <paths>` option; append @filepath refs to prompt text |
+  | `specs/052-attachment-support/` | High | Static HTML mock + screenshot must be committed as first deliverable |
+
+  ## Dependencies
+
+  - **Existing `FileDialogService`** (`packages/core/src/infrastructure/services/file-dialog.service.ts`):
+    native OS picker returning `FileAttachment[]`; this feature extends beyond desktop picker to
+    browser drag-drop and clipboard — different ingestion paths.
+  - **Existing attachment UI** in `feature-create-drawer.tsx`: already renders `AttachmentCard`
+    components and stores `attachments` in state — the ingestion layer (drag-drop, paste) is missing.
+  - **`composeUserInput()`** in `create-feature.ts`: already concatenates file paths as text;
+    needs to change from bare path list to `@path` references.
+  - **`.shep/` directory convention**: project data stored in `~/.shep/repos/<hash>/`; attachments
+    should live under `<repositoryPath>/.shep/attachments/<feature-slug>/` for portability.
+  - **Agent executor @filepath support**: Claude Code and Gemini CLI natively support file references
+    in prompts — no executor changes required.
+  - **Storybook requirement**: every modified web component needs an updated `.stories.tsx`.
+
+  ## Size Estimate
+
+  **L** — Spans multiple layers (TypeSpec domain → use case → infrastructure → web UI → CLI):
+
+  - TypeSpec Attachment value object + codegen (S)
+  - SQLite attachment repository + DI wiring (S)
+  - Upload API route + `.shep/attachments/` file management + dedup (S)
+  - Web UI drag-drop + Ctrl+V paste with visual feedback + ARIA (M, complex browser API surface)
+  - Prompt composition with @filepath references (S)
+  - CLI --files flag + validation + file copy + prompt composition (S)
+  - Static HTML mock + screenshot (S, but required before implementation starts)
+  - Tests: unit for use case + file service + CLI, component tests for drag-drop UI, E2E for full flow (M)
+  - Storybook stories for all modified components (S)
+
+  Total: approximately 3–5 days of focused development, justifying **L**.
+
+  ---
+
+  _Requirements complete — proceed with /shep-kit:plan_

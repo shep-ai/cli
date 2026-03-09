@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Feature Create Drawer — native file attachments', () => {
-  test('create feature with attachment shows full absolute file path', async ({ page }) => {
+  test('create feature with attachment shows file name and size', async ({ page }) => {
     // Mock the native file picker API route before navigating
     await page.route('**/api/dialog/pick-files', (route) =>
       route.fulfill({
@@ -40,21 +40,15 @@ test.describe('Feature Create Drawer — native file attachments', () => {
     await expect(descriptionInput).toBeVisible();
     await descriptionInput.fill('Test Feature With Attachment');
 
-    // Click "Add Files" to trigger the mocked native file picker
-    const addFilesButton = page.getByRole('button', { name: /add files/i });
-    await addFilesButton.click();
+    // Click "Attach files" to trigger the mocked native file picker
+    const attachFilesButton = page.getByRole('button', { name: /attach files/i });
+    await attachFilesButton.click();
 
-    // Verify the attachment card shows the file name (exact match to avoid matching full path)
-    await expect(page.getByText('requirements.pdf', { exact: true })).toBeVisible();
-
-    // Verify the attachment card shows the FULL absolute file path
-    await expect(page.getByText('/Users/test/docs/requirements.pdf')).toBeVisible();
+    // Verify the attachment chip shows the file name
+    await expect(page.getByText('requirements.pdf')).toBeVisible();
 
     // Verify the file size is displayed (42000 bytes = 41.0 KB)
     await expect(page.getByText('41.0 KB')).toBeVisible();
-
-    // Verify the attachment count badge shows (1)
-    await expect(page.getByText('(1)')).toBeVisible();
 
     // Verify the submit button is enabled (description is filled)
     const submitButton = page.getByRole('button', { name: '+ Create Feature' });
@@ -84,16 +78,16 @@ test.describe('Feature Create Drawer — native file attachments', () => {
       timeout: 10000,
     });
 
-    // Click "Add Files" — picker returns cancelled
-    const addFilesButton = page.getByRole('button', { name: /add files/i });
-    await addFilesButton.click();
+    // Click "Attach files" — picker returns cancelled
+    const attachFilesButton = page.getByRole('button', { name: /attach files/i });
+    await attachFilesButton.click();
 
-    // No attachment card should appear — wait briefly and verify
+    // No attachment chip should appear — wait briefly and verify
     await page.waitForTimeout(500);
-    await expect(page.getByText('requirements.pdf', { exact: true })).not.toBeVisible();
+    await expect(page.getByText('requirements.pdf')).not.toBeVisible();
   });
 
-  test('multiple files show full paths for each', async ({ page }) => {
+  test('multiple files show chips for each', async ({ page }) => {
     await page.route('**/api/dialog/pick-files', (route) =>
       route.fulfill({
         status: 200,
@@ -126,18 +120,12 @@ test.describe('Feature Create Drawer — native file attachments', () => {
       timeout: 10000,
     });
 
-    const addFilesButton = page.getByRole('button', { name: /add files/i });
-    await addFilesButton.click();
+    const attachFilesButton = page.getByRole('button', { name: /attach files/i });
+    await attachFilesButton.click();
 
-    // Verify both files show full paths
-    await expect(page.getByText('/Users/test/docs/requirements.pdf')).toBeVisible();
-    await expect(page.getByText('/Users/test/images/screenshot.png')).toBeVisible();
-
-    // Verify both file names are displayed (exact match to avoid matching full path)
-    await expect(page.getByText('requirements.pdf', { exact: true })).toBeVisible();
-    await expect(page.getByText('screenshot.png', { exact: true })).toBeVisible();
-
-    // Verify attachment count
-    await expect(page.getByText('(2)')).toBeVisible();
+    // Verify both file names are displayed in chips
+    // Image files render as <img> thumbnails with title attribute, non-images show text
+    await expect(page.getByText('requirements.pdf')).toBeVisible();
+    await expect(page.locator('[title="screenshot.png"]')).toBeVisible();
   });
 });

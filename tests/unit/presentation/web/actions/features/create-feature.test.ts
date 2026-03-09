@@ -86,7 +86,7 @@ describe('createFeature server action', () => {
 
     expect(mockCreateRecord).toHaveBeenCalledWith(
       expect.objectContaining({
-        userInput: 'See attached\n\nAttached files:\n- /src/index.ts\n- /src/utils.ts',
+        userInput: 'See attached\n\n@/src/index.ts @/src/utils.ts',
         repositoryPath: '/repo',
         description: 'See attached',
       })
@@ -105,7 +105,7 @@ describe('createFeature server action', () => {
 
     expect(mockCreateRecord).toHaveBeenCalledWith(
       expect.objectContaining({
-        userInput: 'Build a dashboard\n\nAttached files:\n- /readme.md',
+        userInput: 'Build a dashboard\n\n@/readme.md',
         repositoryPath: '/repo',
         description: 'Build a dashboard',
       })

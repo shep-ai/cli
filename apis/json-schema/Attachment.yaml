@@ -1,0 +1,31 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: Attachment.yaml
+type: object
+properties:
+  id:
+    $ref: UUID.yaml
+    description: Unique identifier for this attachment (UUID v4)
+  name:
+    type: string
+    description: Original filename of the attached file
+  size:
+    type: string
+    description: File size in bytes
+  mimeType:
+    type: string
+    description: MIME type of the file (e.g. image/png, application/pdf)
+  path:
+    type: string
+    description: File path relative to the repository root
+  createdAt:
+    type: string
+    format: date-time
+    description: Timestamp when the attachment was created
+required:
+  - id
+  - name
+  - size
+  - mimeType
+  - path
+  - createdAt
+description: File attachment metadata for a feature (value object, embedded in Feature)

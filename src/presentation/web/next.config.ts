@@ -61,6 +61,13 @@ const nextConfig: NextConfig = {
   // Use standalone output mode for server-side rendering on demand
   // This prevents issues with statically prerendering pages that depend on client context
   output: 'standalone',
+
+  // Allow attachment uploads up to 11 MB (10 MB limit + multipart overhead)
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '11mb',
+    },
+  },
 };
 
 export default nextConfig;

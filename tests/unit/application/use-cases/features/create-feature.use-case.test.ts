@@ -166,6 +166,12 @@ describe('CreateFeatureUseCase', () => {
       getPr: vi.fn().mockResolvedValue(null),
     } as unknown as IGitPrService;
 
+    const mockAttachmentStorage = {
+      store: vi.fn(),
+      commit: vi.fn().mockReturnValue([]),
+      delete: vi.fn(),
+    };
+
     useCase = new CreateFeatureUseCase(
       mockFeatureRepo,
       mockWorktreeService,
@@ -175,7 +181,8 @@ describe('CreateFeatureUseCase', () => {
       mockMetadataGenerator,
       mockSlugResolver,
       mockRepositoryRepo,
-      mockGitPrService
+      mockGitPrService,
+      mockAttachmentStorage as any
     );
   });
 

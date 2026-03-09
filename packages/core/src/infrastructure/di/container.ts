@@ -46,6 +46,7 @@ import type { IDaemonService } from '../../application/ports/output/services/dae
 import { DaemonPidService } from '../services/daemon/daemon-pid.service.js';
 import type { IDeploymentService } from '../../application/ports/output/services/deployment-service.interface.js';
 import { DeploymentService } from '../services/deployment/deployment.service.js';
+import { AttachmentStorageService } from '../services/attachment-storage.service.js';
 
 // Agent infrastructure interfaces and implementations
 import type { IAgentExecutorFactory } from '../../application/ports/output/agents/agent-executor-factory.interface.js';
@@ -189,6 +190,8 @@ export async function initializeContainer(): Promise<typeof container> {
     JsonDrivenIdeLauncherService
   );
   container.registerSingleton<IDaemonService>('IDaemonService', DaemonPidService);
+  container.registerSingleton(AttachmentStorageService);
+  container.register('AttachmentStorageService', { useToken: AttachmentStorageService });
   const deploymentService = new DeploymentService();
   container.registerInstance<IDeploymentService>('IDeploymentService', deploymentService);
 

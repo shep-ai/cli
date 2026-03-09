@@ -57,6 +57,8 @@ export interface FeatureRow {
   ci_fix_history: string | null;
   // Feature dependency
   parent_id: string | null;
+  // User attachments (JSON array)
+  attachments: string;
   created_at: number;
   updated_at: number;
 }
@@ -105,6 +107,10 @@ export function toDatabase(feature: Feature): FeatureRow {
     ci_fix_history: feature.pr?.ciFixHistory ? JSON.stringify(feature.pr.ciFixHistory) : null,
     // Feature dependency
     parent_id: feature.parentId ?? null,
+    // User attachments
+    attachments: JSON.stringify(
+      (feature.attachments ?? []).map((a) => ({ ...a, size: Number(a.size) }))
+    ),
     created_at: feature.createdAt instanceof Date ? feature.createdAt.getTime() : feature.createdAt,
     updated_at: feature.updatedAt instanceof Date ? feature.updatedAt.getTime() : feature.updatedAt,
   };
@@ -161,5 +167,7 @@ export function fromDatabase(row: FeatureRow): Feature {
     }),
     // Feature dependency
     ...(row.parent_id != null && { parentId: row.parent_id }),
+    // User attachments
+    attachments: JSON.parse(row.attachments ?? '[]'),
   };
 }

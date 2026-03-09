@@ -1,18 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import type { LucideIcon } from 'lucide-react';
-import {
-  PlusIcon,
-  FileIcon,
-  FileTextIcon,
-  ImageIcon,
-  CodeIcon,
-  Trash2Icon,
-  ChevronsUpDown,
-  CheckIcon,
-  Zap,
-} from 'lucide-react';
+import { PaperclipIcon, ChevronsUpDown, CheckIcon, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSoundAction } from '@/hooks/use-sound-action';
 import { BaseDrawer } from '@/components/common/base-drawer';
@@ -26,12 +15,22 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useGuardedDrawerClose } from '@/hooks/drawer-close-guard';
-import type { FileAttachment } from '@shepai/core/infrastructure/services/file-dialog.service';
+import { AttachmentChip } from '@/components/common/attachment-chip';
 import type { WorkflowDefaults } from '@/app/actions/get-workflow-defaults';
 import { AgentModelPicker } from '@/components/features/settings/AgentModelPicker';
 import { pickFiles } from './pick-files';
 
 export type { FileAttachment } from '@shepai/core/infrastructure/services/file-dialog.service';
+
+/** Attachment record for the create form — supports both picker and upload sources. */
+export interface FormAttachment {
+  id: string;
+  name: string;
+  size: number;
+  mimeType: string;
+  path: string;
+  loading?: boolean;
+}
 
 /** Minimal feature descriptor for the parent selector. */
 export interface ParentFeatureOption {
@@ -41,7 +40,7 @@ export interface ParentFeatureOption {
 
 export interface FeatureCreatePayload {
   description: string;
-  attachments: FileAttachment[];
+  attachments: FormAttachment[];
   repositoryPath: string;
   approvalGates: {
     allowPrd: boolean;
@@ -57,6 +56,72 @@ export interface FeatureCreatePayload {
   agentType?: string;
   /** Optional model override for this feature run */
   model?: string;
+  sessionId?: string;
+}
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+
+const ALLOWED_EXTENSIONS = new Set([
+  '.png',
+  '.jpg',
+  '.jpeg',
+  '.gif',
+  '.webp',
+  '.svg',
+  '.bmp',
+  '.ico',
+  '.pdf',
+  '.doc',
+  '.docx',
+  '.xls',
+  '.xlsx',
+  '.ppt',
+  '.pptx',
+  '.txt',
+  '.md',
+  '.csv',
+  '.json',
+  '.yaml',
+  '.yml',
+  '.xml',
+  '.ts',
+  '.tsx',
+  '.js',
+  '.jsx',
+  '.py',
+  '.rb',
+  '.go',
+  '.rs',
+  '.java',
+  '.c',
+  '.cpp',
+  '.h',
+  '.hpp',
+  '.cs',
+  '.swift',
+  '.kt',
+  '.html',
+  '.css',
+  '.scss',
+  '.less',
+  '.sh',
+  '.bash',
+  '.zsh',
+  '.fish',
+  '.toml',
+  '.ini',
+  '.cfg',
+  '.conf',
+  '.env',
+  '.zip',
+  '.tar',
+  '.gz',
+  '.log',
+]);
+
+function getExtension(filename: string): string {
+  const dot = filename.lastIndexOf('.');
+  return dot >= 0 ? filename.slice(dot).toLowerCase() : '';
 }
 
 const AUTO_APPROVE_OPTIONS = [
@@ -106,7 +171,7 @@ export function FeatureCreateDrawer({
   const defaultOpenPr = workflowDefaults?.openPr ?? false;
 
   const [description, setDescription] = useState('');
-  const [attachments, setAttachments] = useState<FileAttachment[]>([]);
+  const [attachments, setAttachments] = useState<FormAttachment[]>([]);
   const [approvalGates, setApprovalGates] = useState<Record<string, boolean>>({ ...defaultGates });
   const [push, setPush] = useState(defaultPush);
   const [openPr, setOpenPr] = useState(defaultOpenPr);
@@ -114,6 +179,12 @@ export function FeatureCreateDrawer({
   const [fast, setFast] = useState(false);
   const [overrideAgent, setOverrideAgent] = useState<string | undefined>(undefined);
   const [overrideModel, setOverrideModel] = useState<string | undefined>(undefined);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  // Stable sessionId per mount — used for upload dedup grouping
+  const sessionIdRef = useRef(crypto.randomUUID());
+  const dragCounterRef = useRef(0);
 
   // Sync state when workflowDefaults load asynchronously
   useEffect(() => {
@@ -141,6 +212,9 @@ export function FeatureCreateDrawer({
     setFast(false);
     setOverrideAgent(undefined);
     setOverrideModel(undefined);
+    setUploadError(null);
+    dragCounterRef.current = 0;
+    setIsDragOver(false);
   }, [defaultGates, defaultPush, defaultOpenPr]);
 
   // Track whether the form has unsaved data
@@ -149,6 +223,133 @@ export function FeatureCreateDrawer({
   // Shared close guard — shows confirmation when dirty, prevents navigation
   const { attemptClose } = useGuardedDrawerClose({ open, isDirty, onClose, onReset: resetForm });
 
+  /** Validate and upload files from drop or paste. */
+  const handleFiles = useCallback(async (fileList: File[]) => {
+    setUploadError(null);
+
+    for (const file of fileList) {
+      // Client-side size validation
+      if (file.size > MAX_FILE_SIZE) {
+        setUploadError(`"${file.name}" exceeds 10 MB limit`);
+        return;
+      }
+      // Client-side extension validation
+      const ext = getExtension(file.name);
+      if (ext && !ALLOWED_EXTENSIONS.has(ext)) {
+        setUploadError(`File type "${ext}" is not allowed`);
+        return;
+      }
+    }
+
+    for (const file of fileList) {
+      const tempId = crypto.randomUUID();
+
+      // Optimistic loading placeholder
+      setAttachments((prev) => [
+        ...prev,
+        {
+          id: tempId,
+          name: file.name,
+          size: file.size,
+          mimeType: file.type || 'application/octet-stream',
+          path: '',
+          loading: true,
+        },
+      ]);
+
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('sessionId', sessionIdRef.current);
+
+        const res = await fetch('/api/attachments/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({ error: 'Upload failed' }));
+          // Remove loading placeholder on error
+          setAttachments((prev) => prev.filter((a) => a.id !== tempId));
+          setUploadError(body.error ?? 'Upload failed');
+          return;
+        }
+
+        const uploaded = await res.json();
+        // Server dedup may return the same path for identical content — drop the duplicate.
+        setAttachments((prev) => {
+          const isDupe = prev.some((a) => a.id !== tempId && a.path === uploaded.path);
+          if (isDupe) return prev.filter((a) => a.id !== tempId);
+          return prev.map((a) =>
+            a.id === tempId ? { ...uploaded, id: tempId, loading: false } : a
+          );
+        });
+      } catch {
+        setAttachments((prev) => prev.filter((a) => a.id !== tempId));
+        setUploadError('Upload failed');
+      }
+    }
+  }, []);
+
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current += 1;
+    if (dragCounterRef.current === 1) {
+      setIsDragOver(true);
+    }
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current -= 1;
+    if (dragCounterRef.current === 0) {
+      setIsDragOver(false);
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragCounterRef.current = 0;
+      setIsDragOver(false);
+
+      const files = Array.from(e.dataTransfer.files);
+      if (files.length > 0) {
+        handleFiles(files);
+      }
+    },
+    [handleFiles]
+  );
+
+  const handlePaste = useCallback(
+    (e: React.ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      const files: File[] = [];
+      for (const item of Array.from(items)) {
+        if (item.kind === 'file') {
+          const file = item.getAsFile();
+          if (file) files.push(file);
+        }
+      }
+
+      if (files.length > 0) {
+        e.preventDefault();
+        handleFiles(files);
+      }
+    },
+    [handleFiles]
+  );
+
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault();
@@ -156,7 +357,7 @@ export function FeatureCreateDrawer({
       createSound.play();
       onSubmit({
         description: description.trim(),
-        attachments,
+        attachments: attachments.filter((a) => !a.loading),
         repositoryPath,
         approvalGates: {
           allowPrd: approvalGates.allowPrd ?? false,
@@ -169,6 +370,7 @@ export function FeatureCreateDrawer({
         ...(overrideAgent ? { agentType: overrideAgent } : {}),
         ...(overrideModel ? { model: overrideModel } : {}),
         ...(parentId ? { parentId } : {}),
+        sessionId: sessionIdRef.current,
       });
       resetForm();
     },
@@ -193,15 +395,29 @@ export function FeatureCreateDrawer({
     try {
       const files = await pickFiles();
       if (files) {
-        setAttachments((prev) => [...prev, ...files]);
+        setAttachments((prev) => {
+          const existingPaths = new Set(prev.map((f) => f.path));
+          const unique = files
+            .filter((f) => !existingPaths.has(f.path))
+            .map(
+              (f): FormAttachment => ({
+                id: crypto.randomUUID(),
+                name: f.name,
+                size: f.size,
+                mimeType: 'application/octet-stream',
+                path: f.path,
+              })
+            );
+          return unique.length > 0 ? [...prev, ...unique] : prev;
+        });
       }
     } catch {
       // Native dialog failed — silently ignore (user can retry)
     }
   }, []);
 
-  const handleRemoveFile = useCallback((path: string) => {
-    setAttachments((prev) => prev.filter((f) => f.path !== path));
+  const handleRemoveFile = useCallback((id: string) => {
+    setAttachments((prev) => prev.filter((f) => f.id !== id));
   }, []);
 
   const formRef = useRef<HTMLFormElement>(null);
@@ -262,26 +478,58 @@ export function FeatureCreateDrawer({
             onSubmit={handleSubmit}
             className="flex flex-col gap-4"
           >
-            {/* Description + inline controls */}
-            <div className="flex flex-col gap-1.5">
+            {/* Description + inline controls with drop zone */}
+            <div
+              role="region"
+              aria-label="File drop zone"
+              data-drag-over={isDragOver ? 'true' : 'false'}
+              onDragEnter={handleDragEnter}
+              onDragLeave={handleDragLeave}
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
+              className={cn(
+                'flex flex-col gap-1.5 rounded-md border-2 border-transparent p-1 transition-colors',
+                isDragOver && 'border-primary/50 bg-primary/5'
+              )}
+            >
               <Label
                 htmlFor="feature-description"
                 className="text-muted-foreground text-xs font-semibold tracking-wider"
               >
                 DESCRIBE YOUR FEATURE
               </Label>
-              <div className="border-input focus-within:ring-ring/50 focus-within:border-ring overflow-hidden rounded-md border shadow-xs transition-[color,box-shadow] focus-within:ring-[3px]">
+              <div className="border-input focus-within:ring-ring/50 focus-within:border-ring flex h-56 flex-col overflow-hidden rounded-md border shadow-xs transition-[color,box-shadow] focus-within:ring-[3px]">
                 <Textarea
                   id="feature-description"
                   placeholder="e.g. Add GitHub OAuth login with callback handling and token refresh..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  rows={7}
+                  onPaste={handlePaste}
                   required
                   disabled={isSubmitting}
-                  className="field-sizing-fixed min-h-42! resize-none rounded-none border-0 shadow-none focus-visible:ring-0"
+                  className="min-h-0 flex-1 resize-none rounded-none border-0 shadow-none focus-visible:ring-0"
                 />
+                {/* Inline attachment chips — between textarea and controls */}
+                {attachments.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5 px-3 py-2">
+                    {attachments.map((file) => (
+                      <AttachmentChip
+                        key={file.id}
+                        name={file.name}
+                        size={file.size}
+                        mimeType={file.mimeType}
+                        path={file.path}
+                        onRemove={() => handleRemoveFile(file.id)}
+                        disabled={isSubmitting}
+                        loading={file.loading}
+                      />
+                    ))}
+                  </div>
+                )}
+                {uploadError ? (
+                  <p className="text-destructive px-3 pb-2 text-xs">{uploadError}</p>
+                ) : null}
                 <div className="border-input flex items-center gap-3 border-t px-3 py-1.5">
                   <AgentModelPicker
                     initialAgentType={overrideAgent ?? currentAgentType ?? 'claude-code'}
@@ -315,6 +563,20 @@ export function FeatureCreateDrawer({
                     <TooltipContent side="bottom">
                       Skip SDLC phases and implement directly from your prompt.
                     </TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={handleAddFiles}
+                        disabled={isSubmitting}
+                        aria-label="Attach files"
+                        className="text-muted-foreground hover:text-foreground cursor-pointer rounded p-1 transition-colors"
+                      >
+                        <PaperclipIcon className="h-4 w-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">Attach files</TooltipContent>
                   </Tooltip>
                 </div>
               </div>
@@ -458,41 +720,6 @@ export function FeatureCreateDrawer({
                   </Tooltip>
                 </div>
               </div>
-            </div>
-
-            {/* Attachments */}
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <Label className="text-muted-foreground text-xs font-semibold tracking-wider">
-                  ATTACHMENTS
-                  {attachments.length > 0 && (
-                    <span className="text-muted-foreground/60 ml-1.5">({attachments.length})</span>
-                  )}
-                </Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="xs"
-                  onClick={handleAddFiles}
-                  disabled={isSubmitting}
-                >
-                  <PlusIcon className="size-3" />
-                  Add Files
-                </Button>
-              </div>
-
-              {attachments.length > 0 && (
-                <div className="flex flex-col gap-2">
-                  {attachments.map((file) => (
-                    <AttachmentCard
-                      key={file.path}
-                      file={file}
-                      onRemove={() => handleRemoveFile(file.path)}
-                      disabled={isSubmitting}
-                    />
-                  ))}
-                </div>
-              )}
             </div>
           </form>
         </TooltipProvider>
@@ -640,88 +867,4 @@ function ParentFeatureCombobox({
       </PopoverContent>
     </Popover>
   );
-}
-
-/* ---------------------------------------------------------------------------
- * Private sub-components & utilities
- * ------------------------------------------------------------------------- */
-
-function AttachmentCard({
-  file,
-  onRemove,
-  disabled,
-}: {
-  file: FileAttachment;
-  onRemove: () => void;
-  disabled?: boolean;
-}) {
-  const ext = getExtension(file.name);
-  const Icon = getFileIcon(ext);
-  const iconColorClass = getFileIconColor(ext);
-
-  return (
-    <div className="flex items-center gap-3 rounded-md border p-2">
-      <div
-        className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded', iconColorClass)}
-      >
-        <Icon className="h-4 w-4" />
-      </div>
-      <div className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-sm font-medium">{file.name}</span>
-        <span className="text-muted-foreground truncate text-xs">{file.path}</span>
-        <span className="text-muted-foreground text-xs">{formatFileSize(file.size)}</span>
-      </div>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-xs"
-        onClick={onRemove}
-        disabled={disabled}
-        aria-label={`Remove ${file.name}`}
-      >
-        <Trash2Icon className="h-3 w-3" />
-      </Button>
-    </div>
-  );
-}
-
-function getExtension(filename: string): string {
-  const dot = filename.lastIndexOf('.');
-  return dot >= 0 ? filename.slice(dot).toLowerCase() : '';
-}
-
-const IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.ico', '.bmp']);
-const CODE_EXTS = new Set([
-  '.ts',
-  '.tsx',
-  '.js',
-  '.jsx',
-  '.json',
-  '.yaml',
-  '.yml',
-  '.xml',
-  '.html',
-  '.css',
-  '.md',
-]);
-
-function getFileIcon(ext: string): LucideIcon {
-  if (IMAGE_EXTS.has(ext)) return ImageIcon;
-  if (ext === '.pdf') return FileTextIcon;
-  if (CODE_EXTS.has(ext)) return CodeIcon;
-  return FileIcon;
-}
-
-function getFileIconColor(ext: string): string {
-  if (ext === '.pdf') return 'bg-red-50 text-red-600';
-  if (IMAGE_EXTS.has(ext)) return 'bg-blue-50 text-blue-600';
-  if (CODE_EXTS.has(ext)) return 'bg-emerald-50 text-emerald-600';
-  return 'bg-gray-50 text-gray-600';
-}
-
-function formatFileSize(bytes: number): string {
-  if (bytes === 0) return '0 B';
-  const units = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  return `${(bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
 }

@@ -748,6 +748,36 @@ export type PullRequest = {
 };
 
 /**
+ * File attachment metadata for a feature (value object, embedded in Feature)
+ */
+export type Attachment = {
+  /**
+   * Unique identifier for this attachment (UUID v4)
+   */
+  id: UUID;
+  /**
+   * Original filename of the attached file
+   */
+  name: string;
+  /**
+   * File size in bytes
+   */
+  size: bigint;
+  /**
+   * MIME type of the file (e.g. image/png, application/pdf)
+   */
+  mimeType: string;
+  /**
+   * File path relative to the repository root
+   */
+  path: string;
+  /**
+   * Timestamp when the attachment was created
+   */
+  createdAt: any;
+};
+
+/**
  * Central entity tracking a piece of work through the SDLC lifecycle (Aggregate Root)
  */
 export type Feature = BaseEntity & {
@@ -831,6 +861,10 @@ export type Feature = BaseEntity & {
    * Parent feature ID for dependency tracking (optional)
    */
   parentId?: UUID;
+  /**
+   * Files attached by the user when creating or messaging this feature
+   */
+  attachments?: Attachment[];
 };
 
 /**

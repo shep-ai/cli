@@ -456,6 +456,22 @@ WHERE repository_path NOT IN (SELECT path FROM repositories WHERE path IS NOT NU
       }
     },
   },
+  {
+    version: 28,
+    // Migration 028: Add attachments JSON column to features.
+    // Also backfills fast column if missing (rebase reordered migrations 27/28,
+    // so DBs that ran the old migration 27 may have attachments but not fast).
+    sql: '',
+    handler: (db: Database.Database) => {
+      const columns = db.pragma('table_info(features)') as { name: string }[];
+      if (!columns.some((c) => c.name === 'fast')) {
+        db.exec('ALTER TABLE features ADD COLUMN fast INTEGER NOT NULL DEFAULT 0');
+      }
+      if (!columns.some((c) => c.name === 'attachments')) {
+        db.exec("ALTER TABLE features ADD COLUMN attachments TEXT NOT NULL DEFAULT '[]'");
+      }
+    },
+  },
 ];
 
 /**

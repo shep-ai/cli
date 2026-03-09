@@ -119,6 +119,7 @@ import "./plan.tsp";
 import "./artifact.tsp";
 import "../../agents/approval-gates.tsp";
 import "../value-objects/pull-request.tsp";
+import "../value-objects/attachment.tsp";
 
 /**
  * Feature Entity (Aggregate Root)
@@ -402,4 +403,9 @@ model Feature extends BaseEntity {
    */
   @doc("Parent feature ID for dependency tracking (optional)")
   parentId?: UUID;
+
+  // ── User Attachments ─────────────────────────────────────
+
+  @doc("Files attached by the user when creating or messaging this feature")
+  attachments?: Attachment[];
 }

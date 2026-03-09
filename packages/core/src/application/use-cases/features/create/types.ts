@@ -1,4 +1,4 @@
-import type { ApprovalGates, Feature } from '../../../../domain/generated/output.js';
+import type { ApprovalGates, Attachment, Feature } from '../../../../domain/generated/output.js';
 
 export interface CreateFeatureInput {
   userInput: string;
@@ -18,6 +18,12 @@ export interface CreateFeatureInput {
   agentType?: string;
   /** Optional model identifier forwarded to the agent executor for this invocation. */
   model?: string;
+  /** Attachment records to persist with the feature. */
+  attachments?: Attachment[];
+  /** Session ID for committing pending uploads (web UI flow). */
+  sessionId?: string;
+  /** Absolute file paths to attach (CLI --attach flow). */
+  attachmentPaths?: string[];
 }
 
 export interface CreateFeatureResult {

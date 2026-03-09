@@ -1,0 +1,708 @@
+name: attachment-support
+summary: >
+  Attachment support extends the existing FileAttachment type and AttachmentCard UI with
+  drag-drop/paste ingestion, a dedicated upload API route, per-feature disk storage under
+  .shep/attachments/<slug>/, and a new TypeSpec Attachment value object persisted as a JSON
+  column in the features table. The CLI gains a --attach flag that appends @path references
+  to the prompt, consistent with web UI behaviour. No new third-party libraries are required —
+  all implementation uses existing project dependencies plus native browser/Node.js APIs.
+
+relatedFeatures: []
+
+technologies:
+  - TypeSpec (new Attachment value object in tsp/domain/value-objects/)
+  - Next.js App Router (new POST /api/attachments/upload route handler)
+  - React 19 (onDrop, onDragOver, onPaste event handlers, useState)
+  - Node.js crypto (SHA-256 deduplication), fs/path (file storage)
+  - better-sqlite3 (JSON column attachments in features table, migration 024)
+  - Commander.js (repeatable --attach option on shep feat new)
+  - Tailwind CSS + Radix UI (drag-over visual feedback, ARIA attributes)
+  - Storybook (mandatory .stories.tsx for all modified components)
+  - Vitest (unit tests for validation, dedup, prompt composition, CLI parsing)
+  - Playwright (E2E test for web drag-drop to create to agent prompt flow)
+
+relatedLinks:
+  - https://github.com/shep-ai/cli/issues/223
+  - https://developer.mozilla.org/en-US/docs/Web/API/HTML_Drag_and_Drop_API
+  - https://developer.mozilla.org/en-US/docs/Web/API/ClipboardEvent
+  - https://nodejs.org/api/crypto.html#cryptocreatehashalgorithm
+
+decisions:
+  - title: 'TypeSpec Attachment Model — Value Object vs Standalone Entity'
+    chosen: >
+      Define Attachment as a plain TypeSpec value object (no BaseEntity extension) in
+      tsp/domain/value-objects/attachment.tsp with fields: id (UUID/ulid), name (string),
+      size (int64), mimeType (string), path (string), createdAt (utcDateTime). Add
+      attachments?: Attachment[] to the Feature entity. Persist as a JSON TEXT column in
+      the features table, consistent with how messages and relatedArtifacts are stored.
+    rejected:
+      - >
+        Standalone Entity with own SQLite table: A separate attachments table with a
+        feature_id FK would require a new IAttachmentRepository interface, DI registration,
+        a dedicated mapper, join queries on feature loads, and cascade deletes. The existing
+        codebase has no precedent for cross-table joins — feature loading always reads a
+        single row. This adds substantial infrastructure complexity for no query-pattern
+        benefit since attachments are always loaded with their feature.
+      - >
+        Reuse existing FileAttachment from file-dialog.service.ts without a TypeSpec model:
+        FileAttachment is an infrastructure-layer type {path, name, size} with no id or
+        mimeType fields. Using it as the domain type violates the TypeSpec-first mandate
+        (CLAUDE.md) and would make attachments unaddressable by ID (needed for FR-14
+        remove button). A proper domain model is required.
+    rationale: >
+      The JSON column approach exactly mirrors how messages: Message[] and
+      relatedArtifacts: Artifact[] are persisted in the features table (see
+      packages/core/src/infrastructure/persistence/sqlite/mappers/feature.mapper.ts).
+      Attachments are always accessed through their owning feature, never queried
+      independently, making a separate table unnecessary. The value object pattern (no
+      BaseEntity) matches pull-request.tsp — Attachment is a sub-concept of Feature,
+      not an independently addressable aggregate root.
+
+  - title: 'File Storage Location and Naming Strategy'
+    chosen: >
+      Store uploaded files at <repositoryPath>/.shep/attachments/<feature-slug>/<filename>
+      on the server. Before writing, compute SHA-256 of the incoming file buffer and check
+      for an existing Attachment record with the same hash in that session/feature. If found,
+      return the existing Attachment record without writing a duplicate. Sanitize filenames
+      by stripping path traversal characters and replacing whitespace with underscores before
+      writing to disk.
+    rejected:
+      - >
+        Global attachment pool at .shep/attachments/ (no feature subdirectory): The spec
+        resolves this question explicitly (per-feature scope selected). A flat pool makes
+        lifecycle management ambiguous, complicates the removal flow (FR-14), and breaks the
+        mental model that feature data lives under its feature slug. Cross-feature reuse can
+        be addressed later with symlinks if needed.
+      - >
+        Client-generated UUIDs as filenames: Generating UUID filenames on the client before
+        upload avoids naming collisions but loses the original filename entirely, making the
+        .shep/attachments/ directory unreadable by humans and harder to reference in agent
+        prompts. SHA-256 dedup with sanitized original names is more transparent and matches
+        how developers expect files to look in version control.
+    rationale: >
+      Per-feature subdirectory scope is mandated by the open questions resolution in the
+      spec. SHA-256 dedup (FR-7) prevents duplicate file writes without requiring
+      client-side coordination. Filename sanitization is required by NFR-2 (path traversal
+      prevention). The existing .shep/ directory convention is already established for all
+      project data.
+
+  - title: 'Web Upload Architecture — Immediate Upload vs Deferred to Feature Creation'
+    chosen: >
+      Upload files immediately when dropped/pasted via POST /api/attachments/upload
+      (multipart/form-data). The route accepts the file binary, a sessionId (generated
+      client-side on drawer open), and repositoryPath. It writes the file to
+      .shep/attachments/pending-<sessionId>/ on disk, creates the Attachment record,
+      and returns {id, name, size, mimeType, path, createdAt}. The React state holds
+      Attachment[] (not File[]). On feature creation, the use case renames the pending
+      directory to .shep/attachments/<feature-slug>/ and updates path fields accordingly.
+    rejected:
+      - >
+        Buffer files in browser memory (as File objects) until feature creation, then
+        upload inline with the create request: This risks data loss if the user refreshes
+        the page before submitting, requires feature slug to be known before upload (a
+        chicken-and-egg problem for path generation), and makes it impossible to enforce
+        the 10 MB server-side limit (NFR-3) at the HTTP layer separately from the create
+        payload. It also prevents showing upload progress or handling partial failures.
+      - >
+        Inline file bytes as base64 JSON in the create-feature server action: Next.js
+        server actions have a 10 MB default body limit that applies to the entire payload.
+        Embedding multiple file blobs in the action payload would hit this limit quickly.
+        Server actions also lack proper streaming support and cannot return HTTP 413
+        natively, making client-side size enforcement messaging harder to implement cleanly.
+    rationale: >
+      Immediate upload to a dedicated route is the standard web pattern for file attachment
+      (used by GitHub, Notion, Linear). It cleanly separates concerns: the upload route
+      handles file I/O and dedup; the create-feature action handles business logic with
+      already-resolved attachment IDs. The pending-session strategy allows uploads before
+      the feature slug is known (since the slug may be AI-generated post-creation).
+
+  - title: 'Server-Side File Size Enforcement in Next.js App Router'
+    chosen: >
+      Enforce the 10 MB limit at two layers: (1) set experimental.serverMaxBodySize to
+      11mb in next.config.js to block oversized requests before they reach application code,
+      and (2) programmatically check the file size in the route handler after calling
+      request.formData() — if size exceeds 10 MB, return HTTP 413 with a JSON error body.
+      Client-side validation in the drop/paste handler provides immediate feedback before
+      the upload is initiated (fast UX, NFR-1).
+    rejected:
+      - >
+        Next.js Pages Router api/config bodyParser.sizeLimit: The codebase uses Next.js App
+        Router (all API routes are route.ts files under app/api/). The Pages Router config
+        export is not applicable here and would silently fail to enforce the limit.
+      - >
+        Middleware-only enforcement via Content-Length header check: The Content-Length
+        header is browser-supplied for multipart uploads but is not guaranteed for all
+        clients. A malicious or custom client could omit it, bypassing the check.
+        Server-side validation after parsing is more reliable and provides a structured
+        JSON error response rather than a raw Next.js error page.
+    rationale: >
+      NFR-3 requires the limit to be enforced at the HTTP layer. The App Router
+      experimental.serverMaxBodySize config is the correct mechanism for preventing
+      oversized requests from reaching application code. The programmatic double-check
+      provides defense-in-depth and a structured error response. Client-side validation
+      satisfies NFR-1 (fast feedback) while server-side enforcement satisfies NFR-3.
+
+  - title: 'Drag-Drop Implementation — Native HTML5 vs Third-Party Library'
+    chosen: >
+      Use native HTML5 Drag and Drop API with onDrop, onDragOver, onDragEnter, and
+      onDragLeave event handlers directly on the existing prompt container div in
+      feature-create-drawer. Track isDraggingOver boolean state to toggle the visual
+      overlay via Tailwind class. Call event.preventDefault() in onDragOver to enable
+      dropping. Read files from event.dataTransfer.files in onDrop.
+    rejected:
+      - >
+        react-dropzone library: Adds a ~25 KB dependency for functionality only needed on
+        a single component. The native API is sufficient, well-supported across all modern
+        browsers, and avoids dependency bloat. react-dropzone's value proposition
+        (accessibility helpers, multiple input types) overlaps with what we build manually.
+      - >
+        @use-gesture/react or react-dnd: These libraries target complex drag interactions
+        (sortable lists, kanban boards). File drop from the OS is a simpler use case
+        handled well by the native dragover/drop events. Adding gesture libraries would be
+        significant over-engineering for a single drop zone.
+    rationale: >
+      The existing FeatureCreateDrawer manages complex state without gesture libraries.
+      The native drag-drop API requires approximately 20 lines of event handler code and
+      zero new dependencies. NFR-5 (ARIA) is handled by adding role="region" and
+      aria-label="File drop zone" on the container, which is simpler with native elements
+      than with library abstractions.
+
+  - title: 'Clipboard Paste — ClipboardEvent vs Async Clipboard API'
+    chosen: >
+      Use the synchronous onPaste handler on the prompt textarea/container and read
+      event.clipboardData.items to find files (items with kind === "file"). Call
+      item.getAsFile() to get the File object, then trigger the same upload flow as
+      drag-drop. This approach requires no permissions and works in all browsers for
+      user-initiated paste actions.
+    rejected:
+      - >
+        navigator.clipboard.read() async Clipboard API: Requires the user to grant the
+        clipboard-read permission, which triggers a browser permission prompt. This is
+        unnecessary friction for a paste action the user is already initiating deliberately.
+        The ClipboardEvent approach reads the same data synchronously without any permission
+        prompt because the read is initiated by the user's own paste gesture.
+      - >
+        Capture paste globally via document.addEventListener: Attaching a global paste
+        listener would intercept paste events in all text inputs across the application,
+        causing conflicts when the user pastes text into unrelated fields. The onPaste
+        handler scoped to the prompt container correctly limits capture to the intended
+        interaction zone.
+    rationale: >
+      The ClipboardEvent on the prompt container is the standard pattern used by GitHub,
+      Slack, and Linear for image paste. It is synchronous, permission-free, and universally
+      supported. The existing textarea in FeatureCreateDrawer already has focus management,
+      so scoping the paste handler to that element is natural and non-disruptive.
+
+  - title: 'AttachmentCard — Keep Inline vs Extract as Shared Component'
+    chosen: >
+      Extract the existing inline AttachmentCard function (currently inside
+      feature-create-drawer.tsx) into a standalone exported component at
+      src/presentation/web/components/common/attachment-card/attachment-card.tsx with
+      its own colocated attachment-card.stories.tsx file. Add an onRemove prop (already
+      present on the inline version) and a loading prop for the pending upload state.
+      Keep AttachmentCard purely presentational with no upload logic.
+    rejected:
+      - >
+        Keep AttachmentCard as an inline function in feature-create-drawer.tsx: The current
+        inline implementation has no .stories.tsx file, violating the Storybook mandate
+        (NFR-6). A colocated story requires a named exported component in its own directory.
+        The extraction is also needed to reuse AttachmentCard in the feature detail view
+        for displaying attachments after creation.
+      - >
+        Create an entirely new AttachmentChip component alongside the existing inline
+        AttachmentCard: This would duplicate icon logic, size formatting, and remove button
+        styling. The existing inline AttachmentCard already covers the needed functionality;
+        extraction is cleaner than duplication.
+    rationale: >
+      CLAUDE.md mandates every web UI component has a colocated .stories.tsx file.
+      An inline function cannot have a colocated story file. Extraction is required to
+      comply with the project mandate. The component is already logically self-contained
+      (icon selection, size formatting, remove button) so extraction is low-risk and
+      enables future reuse in the feature detail view.
+
+  - title: 'CLI --attach Option Parsing — Repeatable Flag vs Comma-Separated String'
+    chosen: >
+      Use Commander.js repeatable option pattern in new.command.ts:
+      .option('--attach <path>', 'Attach a file (repeatable)', collect, []) where
+      collect = (val, prev) => [...prev, ...val.split(',')]. This supports both
+      --attach path1 --attach path2 and --attach path1,path2 syntaxes. Validate all
+      resolved paths exist on disk before proceeding; exit with code 1 and a clear
+      error message listing missing paths (FR-12).
+    rejected:
+      - >
+        Single .option('--files <paths>') with comma-only parsing: A single string option
+        breaks for file paths containing commas (uncommon but valid on Unix). The repeatable
+        flag pattern is idiomatic Commander.js and allows shell glob expansion per-flag
+        which is impossible with a single comma-separated string.
+      - >
+        Positional variadic arguments after description (shep feat new "desc" file1 file2):
+        This changes the command signature in a backwards-incompatible way. The description
+        argument is already positional; adding variadic file arguments after it is ambiguous
+        with future positional arguments. Named options are more explicit and composable.
+    rationale: >
+      FR-11 specifies a --files flag. The Commander.js repeatable collect pattern is used
+      by many CLI tools (git -f, docker --volume) and is familiar to developers. Comma-
+      separation support is additive convenience. Existing new.command.ts uses only named
+      options, so this is consistent with the established CLI pattern.
+
+  - title: 'Prompt Composition — @path Reference Format'
+    chosen: >
+      Update composeUserInput() in create-feature.ts to append attachment references as
+      space-separated @<relative-path> tokens on a new line after the user description:
+      "${description}\n\n${attachments.map(a => '@' + a.path).join(' ')}". The path field
+      in the Attachment record is stored relative to the repository root (NFR-8). The raw
+      userQuery column preserves the original user text; the composed string (with @refs)
+      is passed to agent executors.
+    rejected:
+      - >
+        Current bare-path format ("Attached files:\n- /absolute/path"): The current
+        composeUserInput() output is a plain list that no agent executor natively understands
+        as a file reference. Absolute paths are machine-specific, violating NFR-8
+        portability. The @path syntax is the native file reference format for Claude Code
+        and Gemini CLI — the primary executors in this project.
+      - >
+        Base64-encode images and embed in prompt text: Ruled out in the spec open questions.
+        Inflates prompt size significantly, risks token limit exhaustion for large images,
+        and is inconsistent with non-image file types. Agent executors already handle
+        @path natively without encoding.
+    rationale: >
+      FR-10 explicitly requires @<relative-path> format. Relative paths (computed from
+      repositoryPath as the base) ensure the same prompt works on any machine with the
+      repo checked out (NFR-8). Preserving userQuery as the raw input and composing the
+      agent prompt separately maintains the existing design where userQuery is a faithful
+      record of user intent, not the full agent input.
+
+  - title: 'Pending Attachment Strategy Before Feature Slug Is Known'
+    chosen: >
+      Generate a sessionId (crypto.randomUUID()) on the client when FeatureCreateDrawer
+      opens. Send it with each upload. The server stores files in
+      .shep/attachments/pending-<sessionId>/. On CreateFeatureUseCase.execute(), call
+      AttachmentStorageService.commit(sessionId, featureSlug, repositoryPath) which
+      renames the pending directory to .shep/attachments/<feature-slug>/ and updates the
+      path field on all Attachment records. Orphaned pending directories (drawer closed
+      without submit) are left on disk and can be pruned by a future maintenance command.
+    rejected:
+      - >
+        Require feature slug before upload by creating a placeholder feature first: Adds
+        complexity (partial feature creation, rollback on cancel), pollutes the features
+        table with placeholder records, and requires a two-phase create flow. The existing
+        single-phase CreateFeatureUseCase would need substantial refactoring.
+      - >
+        Upload to /tmp and copy to .shep/ on feature creation: /tmp is not guaranteed to be
+        on the same filesystem as the repository, making rename() a cross-device copy that
+        requires read+write+delete. More critically, /tmp is cleared on system restart,
+        losing pending uploads. The .shep/ directory ensures persistence and co-location
+        with the repository.
+    rationale: >
+      The pending-session approach is the simplest that satisfies the constraint that uploads
+      must happen before the feature slug is known (since the slug is derived from the
+      feature name, which may be AI-generated). It avoids partial database records, keeps
+      cleanup simple (a single directory rename = atomic metadata operation on same
+      filesystem), and is consistent with the per-feature storage convention.
+
+openQuestions:
+  - question: 'How should the upload API route handle authentication in the web context?'
+    resolved: true
+    options:
+      - option: No authentication — same-origin only
+        description: >
+          The upload route is called only from the same Next.js origin running locally.
+          The route is only reachable via the locally running dev or prod server bound to
+          localhost. No additional auth is needed beyond the same-origin guarantee of the
+          browser's CORS policy. Consistent with all existing API routes.
+        selected: true
+      - option: CSRF token validation
+        description: >
+          Generate a CSRF token on drawer open and validate it as a request header in the
+          upload route. Adds protection against cross-site upload attacks. However, since
+          the server binds to localhost and has no cross-origin use case, CSRF attacks
+          require local machine access — which implies physical compromise, not a web threat.
+        selected: false
+      - option: Bearer token from app settings
+        description: >
+          Add a shared API secret to app settings and require it as an Authorization header
+          on the upload route. Substantial complexity for a local-only server. Introduces a
+          secret management concern where none exists today in any existing API route.
+        selected: false
+    selectionRationale: >
+      The application runs locally (localhost) and is not exposed to the internet. All
+      existing API routes (pick-files, agent-events, features) use no authentication —
+      they rely on the same-origin guarantee. Consistent behaviour with existing routes is
+      more important than theoretical CSRF hardening for a local dev tool.
+
+  - question: 'How should attachment cleanup be handled when a feature is deleted?'
+    resolved: true
+    options:
+      - option: Delete .shep/attachments/<slug>/ directory on feature delete
+        description: >
+          When the delete use case or command runs, also remove the feature's attachment
+          directory from disk using fs.rm(dir, {recursive: true}). Simple, keeps disk clean,
+          no orphaned files. The delete operation already has access to the feature record
+          containing repositoryPath and slug.
+        selected: true
+      - option: Leave files on disk and rely on manual cleanup
+        description: >
+          Document that users can manually delete .shep/attachments/ subdirectories. Zero
+          implementation cost now but creates disk clutter over time, especially for users
+          who create many features with large attachments (screenshots, PDFs).
+        selected: false
+      - option: Implement a dedicated cleanup command (shep attachments prune)
+        description: >
+          Add a new CLI command that scans .shep/attachments/ and removes directories with
+          no corresponding feature in the database. Powerful but adds a new command surface
+          and defers the immediate cleanup need. Overengineered for the initial release.
+        selected: false
+    selectionRationale: >
+      Automatic cleanup on feature delete is the correct long-term behaviour since
+      attachments are scoped to their feature. The delete operation already has access to
+      the feature record (repositoryPath and slug). Adding fs.rm() is a small addition.
+      A prune command can be added later if orphan cleanup from cancelled drawers becomes
+      a real user concern.
+
+  - question: 'Should upload be a Next.js Route Handler or a Server Action?'
+    resolved: true
+    options:
+      - option: Route Handler (POST /api/attachments/upload)
+        description: >
+          Standard Next.js App Router route handler in app/api/attachments/upload/route.ts.
+          Accepts multipart/form-data via request.formData(). Returns JSON with Attachment
+          metadata. Follows the existing pattern used by pick-files and agent-events routes.
+          Supports proper HTTP status codes (413 for size limit, 400 for invalid type).
+        selected: true
+      - option: Server Action with FormData
+        description: >
+          Use a Next.js Server Action accepting FormData directly, called from React via
+          useTransition. Simpler React integration. However, server actions share the default
+          body size limit with all other actions and cannot return raw HTTP status codes —
+          errors must be thrown as JavaScript exceptions, making structured error handling
+          (size limit, invalid type) harder to implement on the client.
+        selected: false
+      - option: Dedicated microservice or external storage (S3-compatible)
+        description: >
+          Upload files to an S3-compatible store or a separate Node.js service. Enables
+          horizontal scaling and CDN delivery. Massively overengineered for a local dev
+          tool. The .shep/ directory on localhost is the correct storage target; external
+          services add network latency, auth complexity, and cost for no benefit.
+        selected: false
+    selectionRationale: >
+      Route Handlers are the existing pattern for all API endpoints in this codebase
+      (app/api/dialog/pick-files/route.ts, app/api/agent-events/route.ts). They support
+      proper HTTP semantics (status codes, Content-Type headers) needed for the 413 size
+      limit response (NFR-3). Server Actions cannot return HTTP 413 natively, making
+      structured client-side error handling for size and type violations harder to implement.
+
+content: |
+  ## Status
+
+  - **Phase:** Research Complete
+  - **Updated:** 2026-03-08
+
+  ## Executive Summary
+
+  The attachment support feature builds on a solid existing foundation: the web UI already
+  has an `AttachmentCard` component and `attachments` state in `FeatureCreateDrawer`, a
+  `FileDialogService` for OS-native file picking, and `composeUserInput()` that currently
+  appends bare file paths. The missing pieces are:
+
+  1. A TypeSpec `Attachment` value object (domain model, TypeSpec-first mandate)
+  2. A JSON column `attachments` in the features table (SQLite migration 024)
+  3. Drag-drop and paste event handlers in `FeatureCreateDrawer` (web UI)
+  4. A dedicated `POST /api/attachments/upload` route handler
+  5. Extraction of `AttachmentCard` as a standalone component with `.stories.tsx`
+  6. Updated `composeUserInput()` to produce `@<relative-path>` references
+  7. `--attach` flag on `shep feat new` CLI command
+  8. `AttachmentStorageService` in the infrastructure layer for testable file I/O
+
+  No new third-party libraries are required.
+
+  ---
+
+  ## Technology Decisions
+
+  ### 1. TypeSpec Attachment Value Object
+
+  **Chosen:** Plain value object (no BaseEntity) in `tsp/domain/value-objects/attachment.tsp`
+
+  ```typespec
+  @doc("A file attached to a feature for agent context")
+  model Attachment {
+    @doc("Unique identifier (ULID)")
+    id: UUID;
+    @doc("Original filename")
+    name: string;
+    @doc("File size in bytes")
+    size: int64;
+    @doc("MIME type (server-validated)")
+    mimeType: string;
+    @doc("Path relative to repository root")
+    path: string;
+    @doc("Upload timestamp")
+    createdAt: utcDateTime;
+  }
+  ```
+
+  Add `attachments?: Attachment[]` to `Feature` in `tsp/domain/entities/feature.tsp`.
+
+  **Rejected:**
+  - Standalone Entity with own DB table — unnecessary complexity; no query-pattern benefit
+  - Reuse existing `FileAttachment` from infrastructure — violates TypeSpec-first mandate
+
+  **Rationale:** Mirrors how `messages: Message[]` and `relatedArtifacts: Artifact[]` are
+  stored as JSON in the features table. Attachments are always accessed through their
+  feature — a separate table adds joins for no benefit.
+
+  ### 2. SQLite Persistence
+
+  **Chosen:** JSON column `attachments TEXT NOT NULL DEFAULT '[]'` in features table
+
+  New migration 024:
+  ```sql
+  ALTER TABLE features ADD COLUMN attachments TEXT NOT NULL DEFAULT '[]';
+  ```
+
+  Stored as a JSON array of `Attachment` objects. Serialized/deserialized in
+  `feature.mapper.ts` alongside `messages` and `relatedArtifacts` (same pattern).
+
+  **Rejected:**
+  - Separate `attachments` table — adds join complexity, no query-pattern justification
+  - Filesystem-only storage — cannot render UI metadata, violates FR-9
+
+  ### 3. Upload Architecture
+
+  **Chosen:** Dedicated Route Handler at `POST /api/attachments/upload`
+
+  Flow:
+  ```
+  Browser drop/paste -> FormData(file, sessionId, repositoryPath)
+    -> POST /api/attachments/upload
+      -> Validate size (<=10 MB), extension allowlist, sanitize filename
+      -> SHA-256 dedup check against existing Attachment records for session
+      -> Write file to .shep/attachments/pending-<sessionId>/<sanitized-filename>
+      -> Return: { id, name, size, mimeType, path, createdAt }
+
+  On feature creation:
+  CreateFeatureUseCase.execute({ userInput, sessionId, attachments })
+    -> AttachmentStorageService.commit(sessionId, featureSlug, repositoryPath)
+      -> fs.renameSync(pending-dir, feature-slug-dir)
+      -> Update path fields on Attachment records
+    -> Store feature with updated attachments as JSON in DB
+  ```
+
+  **Rejected:**
+  - Buffer in browser memory until feature creation — data loss risk, body size conflicts
+  - Inline base64 in server action — body limit conflict, no HTTP 413 support
+
+  ### 4. Drag-Drop and Paste
+
+  **Chosen:** Native HTML5 Drag and Drop API + ClipboardEvent on prompt container
+
+  ```typescript
+  // Drag-drop handlers on the prompt container div
+  onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+  onDragLeave={() => setIsDragOver(false)}
+  onDrop={async (e) => {
+    e.preventDefault(); setIsDragOver(false);
+    await handleFiles(Array.from(e.dataTransfer.files));
+  }}
+
+  // Clipboard paste on prompt textarea
+  onPaste={async (e) => {
+    const files = Array.from(e.clipboardData.items)
+      .filter(item => item.kind === 'file')
+      .map(item => item.getAsFile())
+      .filter(Boolean) as File[];
+    if (files.length > 0) { e.preventDefault(); await handleFiles(files); }
+  }}
+  ```
+
+  Visual feedback: `isDragOver` state -> Tailwind border/bg class on container.
+
+  **Rejected:**
+  - `react-dropzone` — unnecessary 25 KB dependency for a single drop zone
+  - `navigator.clipboard.read()` — requires permission prompt; ClipboardEvent is better
+
+  ### 5. File Deduplication
+
+  **Chosen:** SHA-256 hash of file buffer, compared against existing Attachment records
+
+  Store `sha256` as a field in the Attachment JSON record (infrastructure implementation
+  detail, not in the TypeSpec domain model). On upload, load existing Attachment records
+  for the session and compare hashes before writing. If match found, return existing record.
+
+  **Rejected:**
+  - Name+size dedup only — unreliable (same file renamed, different files same size)
+  - No dedup — creates duplicate files on re-upload, wastes disk space
+
+  ### 6. CLI --attach Flag
+
+  **Chosen:** Repeatable Commander.js option with comma-split convenience
+
+  ```typescript
+  const collect = (val: string, prev: string[]) => [...prev, ...val.split(',')];
+
+  new Command('new')
+    .option('--attach <path>', 'Attach a file (repeatable)', collect, [])
+    .action(async (description, options) => {
+      const paths: string[] = options.attach ?? [];
+      const missing = paths.filter(p => !fs.existsSync(p));
+      if (missing.length > 0) {
+        console.error(`Error: files not found: ${missing.join(', ')}`);
+        process.exit(1);
+      }
+      // Copy to .shep/attachments/<slug>/, build Attachment records, compose @refs
+    });
+  ```
+
+  **Rejected:**
+  - Single `--files <paths>` string — breaks for paths containing commas
+  - Positional variadic args — backwards-incompatible change to command signature
+
+  ### 7. Prompt Composition
+
+  **Chosen:** `@<relative-path>` format appended to user description
+
+  ```typescript
+  export function composeUserInput(description: string, attachments: Attachment[]): string {
+    if (attachments.length === 0) return description;
+    const refs = attachments.map(a => `@${a.path}`).join(' ');
+    return `${description}\n\n${refs}`;
+  }
+  ```
+
+  `a.path` is relative to the repository root (stored that way in the Attachment record,
+  satisfying NFR-8 portability). The raw `userQuery` column preserves the original user text.
+
+  **Rejected:**
+  - Current "Attached files:\n- /absolute/path" format — not native @path syntax, machine-specific
+  - Base64 inline — ruled out in spec open questions; prompt bloat, token limits
+
+  ---
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | Native HTML5 Drag-Drop API | File drop on prompt area | Use | Zero deps; sufficient for single drop zone |
+  | ClipboardEvent API | Ctrl+V image paste | Use | Synchronous, no permission prompt, universal support |
+  | Node.js `crypto` | SHA-256 deduplication | Use | Already in stdlib; no new dependency |
+  | Node.js `fs/path` | File read/write/rename | Use | Already used throughout infrastructure layer |
+  | `react-dropzone` | Drag-drop abstraction | Reject | Unnecessary 25 KB dependency; native API sufficient |
+  | `formidable` / `busboy` | Multipart parsing | Reject | Next.js App Router request.formData() handles multipart natively |
+  | `multer` | Multipart parsing | Reject | Pages Router middleware only; incompatible with App Router |
+  | `sharp` | Image processing | Reject | No image transformation needed; @path references suffice |
+  | `file-type` | MIME detection from buffer | Reject | Extension allowlist + path.extname() is sufficient; no dep needed |
+
+  ---
+
+  ## Security Considerations
+
+  **NFR-2 — MIME type and extension validation (server-side):**
+  - Maintain an extension allowlist: `.png .jpg .jpeg .gif .webp .svg .pdf .txt .md .ts .tsx .js .jsx .json .yaml .yml .toml .py .go .rs .rb .java .c .cpp .h .cs .sh .csv`
+  - Check `path.extname(filename).toLowerCase()` against allowlist in the upload route
+  - Do NOT rely on client-supplied `Content-Type` — re-derive MIME from extension on server
+
+  **NFR-2 — Path traversal prevention:**
+  - Sanitize filename: `path.basename(filename).replace(/[^a-zA-Z0-9._\-]/g, '_')`
+  - Resolve final write path and assert it starts with the expected attachment directory prefix before writing
+  - Never execute uploaded files — files are only read by agent executors as references
+
+  **NFR-3 — 10 MB size limit (two-layer enforcement):**
+  - Client-side: check `file.size > 10 * 1024 * 1024` before initiating upload
+  - Server-side: check file size in route handler after formData() parse; return HTTP 413 if exceeded
+  - `next.config.js`: `experimental.serverMaxBodySize = '11mb'` to reject at HTTP layer before app code
+
+  ---
+
+  ## Performance Implications
+
+  **NFR-1 — Drag-over overlay (<16 ms):**
+  - `onDragOver` sets `isDragOver` state — React re-render with Tailwind class change
+  - No async operations in `onDragOver`; requirement is trivially satisfied
+
+  **NFR-1 — Attachment chip within 500 ms:**
+  - Upload completes via POST to localhost: file write <50 ms for 10 MB on SSD, network <1 ms
+  - Show optimistic chip immediately on drop (loading state) -> update with server response
+  - 500 ms budget is comfortably achievable
+
+  **SHA-256 dedup:**
+  - SHA-256 of 10 MB file in Node.js: ~15-20 ms (negligible)
+  - Record scan for dedup: O(n) over a tiny array (<20 items typically)
+
+  **Directory rename on feature creation:**
+  - `fs.renameSync()` on same filesystem = atomic metadata operation: <1 ms
+  - No file copying needed as long as `.shep/` is on the same filesystem (always true locally)
+
+  ---
+
+  ## Architecture Notes
+
+  ### Clean Architecture Layer Placement
+
+  ```
+  domain/          <- Attachment value object (TypeSpec -> generated output.ts)
+  application/     <- CreateFeatureUseCase gains Attachment[] + sessionId in input type
+  infrastructure/  <- AttachmentStorageService (new), migration 024, mapper update
+  presentation/    <- Route handler (web upload), drag-drop component (web), CLI flag
+  ```
+
+  The dependency rule is respected: presentation -> application -> infrastructure.
+  The upload route handler is presentation layer — it parses HTTP and delegates to
+  `AttachmentStorageService` (infrastructure) through the use case (application).
+
+  ### New Infrastructure Service: AttachmentStorageService
+
+  Thin injectable service in `packages/core/src/infrastructure/services/`:
+
+  ```typescript
+  @injectable()
+  export class AttachmentStorageService {
+    store(buffer: Buffer, filename: string, sessionId: string, repoPath: string): Promise<Attachment & { sha256: string }>;
+    commit(sessionId: string, featureSlug: string, repoPath: string): Promise<Attachment[]>;
+    delete(featureSlug: string, repoPath: string): Promise<void>;
+  }
+  ```
+
+  Keeps the route handler thin and file I/O logic fully testable in Vitest unit tests.
+
+  ### Integration Points
+
+  1. **`tsp/domain/value-objects/attachment.tsp`** — new file (first deliverable after mock)
+  2. **`tsp/domain/entities/feature.tsp`** — add `attachments?: Attachment[]`
+  3. **`packages/core/src/application/use-cases/features/create/types.ts`** — add
+     `attachments?: Attachment[]` and `sessionId?: string` to `CreateFeatureInput`
+  4. **`create-feature.use-case.ts`** — call `attachmentStorageService.commit()`, pass
+     attachments to feature record
+  5. **`packages/core/src/infrastructure/persistence/sqlite/migrations.ts`** — migration 024
+  6. **`feature.mapper.ts`** — serialize/deserialize `attachments` JSON column
+  7. **`src/presentation/web/app/actions/create-feature.ts`** — update `composeUserInput()`
+  8. **`src/presentation/web/app/api/attachments/upload/route.ts`** — new upload route
+  9. **`feature-create-drawer.tsx`** — drag-drop/paste handlers, sessionId generation
+  10. **`attachment-card/attachment-card.tsx`** — extracted component + stories
+  11. **`src/presentation/cli/commands/feat/new.command.ts`** — `--attach` flag
+
+  ### Static HTML Mock
+
+  Per FR-15, a static HTML mock must be the first committed deliverable in
+  `specs/052-attachment-support/`. It must show:
+  - Prompt area with drag-over highlighted border state
+  - Attachment chips below prompt (filename, size, remove button)
+  - File-too-large inline error state
+  - Empty state (prompt only, no attachments)
+
+  ---
+
+  ## Implementation Order
+
+  1. Static HTML mock -> commit to specs/ (FR-15 prerequisite before any code)
+  2. TypeSpec Attachment value object + pnpm tsp:compile
+  3. SQLite migration 024 + feature.mapper.ts update
+  4. AttachmentStorageService (store, commit, delete methods)
+  5. POST /api/attachments/upload route handler
+  6. CreateFeatureUseCase update (input type + commit logic + composeUserInput)
+  7. AttachmentCard extraction + attachment-card.stories.tsx
+  8. FeatureCreateDrawer drag-drop + paste + overlay + updated stories
+  9. CLI --attach flag on new.command.ts
+  10. Unit tests: Vitest for file validation, dedup, prompt composition, CLI parsing
+  11. E2E test: Playwright for full web drag-drop -> create -> agent prompt flow
+
+  _Research complete — proceed with /shep-kit:plan_

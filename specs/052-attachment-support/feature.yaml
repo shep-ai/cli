@@ -1,0 +1,45 @@
+feature:
+  id: 052-attachment-support
+  name: attachment-support
+  number: 52
+  branch: feat/052-attachment-support
+  lifecycle: implementation
+  createdAt: '2026-03-08T13:14:15Z'
+status:
+  phase: ready-for-review
+  progress:
+    completed: 12
+    total: 12
+    percentage: 100
+  currentTask: null
+  lastUpdated: '2026-03-08T18:25:00Z'
+  lastUpdatedBy: shep-kit:implement
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+    - plan
+    - implementation
+validation:
+  lastRun: '2026-03-08T17:30:00Z'
+  gatesPassed:
+    - completeness
+    - consistency
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-03-08T13:14:15Z'
+    completedBy: feature-agent
+  - phase: validation-passed
+    completedAt: '2026-03-08T17:30:00Z'
+    completedBy: shep-kit:implement
+  - phase: implementation-complete
+    completedAt: '2026-03-08T18:25:00Z'
+    completedBy: shep-kit:implement
+errors:
+  current: null
+  history: []

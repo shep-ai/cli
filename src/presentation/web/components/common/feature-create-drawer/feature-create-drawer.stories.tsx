@@ -491,6 +491,29 @@ export const DiscardConfirmation: Story = {
 };
 
 /* ---------------------------------------------------------------------------
+ * Attachment stories
+ * ------------------------------------------------------------------------- */
+
+/**
+ * Drawer ready for drag-and-drop — open the drawer and drag a file over
+ * the "DESCRIBE YOUR FEATURE" area to see the drag-over highlight.
+ * In Storybook, the upload API isn't available, but the visual states render.
+ */
+export const DragDropReady: Story = {
+  render: () => <CreateDrawerTrigger label="Open (Drag & Drop)" />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Open (Drag & Drop)' }));
+
+    const body = within(canvasElement.ownerDocument.body);
+    const descInput = await body.findByPlaceholderText(
+      'e.g. Add GitHub OAuth login with callback handling and token refresh...'
+    );
+    await userEvent.type(descInput, 'Add attachment support with drag and drop');
+  },
+};
+
+/* ---------------------------------------------------------------------------
  * Interactive story — full paths shown in submitted data panel
  * ------------------------------------------------------------------------- */
 

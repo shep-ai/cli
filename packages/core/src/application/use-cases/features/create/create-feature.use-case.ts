@@ -33,6 +33,7 @@ import type { IRepositoryRepository } from '../../../ports/output/repositories/r
 import type { IGitPrService } from '../../../ports/output/services/git-pr-service.interface.js';
 import { getSettings } from '../../../../infrastructure/services/settings.service.js';
 import { POST_IMPLEMENTATION } from '../../../../domain/lifecycle-gates.js';
+import { AttachmentStorageService } from '../../../../infrastructure/services/attachment-storage.service.js';
 import { MetadataGenerator } from './metadata-generator.js';
 import { SlugResolver } from './slug-resolver.js';
 import type { CreateFeatureInput, CreateFeatureResult, CreateRecordResult } from './types.js';
@@ -57,7 +58,9 @@ export class CreateFeatureUseCase {
     @inject('IRepositoryRepository')
     private readonly repositoryRepo: IRepositoryRepository,
     @inject('IGitPrService')
-    private readonly gitPrService: IGitPrService
+    private readonly gitPrService: IGitPrService,
+    @inject(AttachmentStorageService)
+    private readonly attachmentStorage: AttachmentStorageService
   ) {}
 
   /**
@@ -240,7 +243,34 @@ export class CreateFeatureUseCase {
       input.fast ? 'fast' : undefined
     );
 
-    // Update feature record with refined metadata, branch, and specPath
+    // Commit pending attachments if sessionId was provided (web UI flow)
+    let committedAttachments = input.attachments;
+    if (input.sessionId) {
+      try {
+        committedAttachments = this.attachmentStorage.commit(input.sessionId, slug);
+      } catch {
+        // Attachment commit failure should not block feature creation
+      }
+    }
+
+    // Store CLI --attach files directly (CLI flow)
+    if (input.attachmentPaths?.length) {
+      try {
+        const { readFileSync } = await import('fs');
+        const { basename } = await import('path');
+        const cliSessionId = `cli-${feature.id}`;
+        for (const filePath of input.attachmentPaths) {
+          const buffer = readFileSync(filePath);
+          const name = basename(filePath);
+          this.attachmentStorage.store(buffer, name, 'application/octet-stream', cliSessionId);
+        }
+        committedAttachments = this.attachmentStorage.commit(cliSessionId, slug);
+      } catch {
+        // Attachment storage failure should not block feature creation
+      }
+    }
+
+    // Update feature record with refined metadata, branch, specPath, and attachments
     const updatedFeature: Feature = {
       ...feature,
       name: metadata.name,
@@ -248,6 +278,7 @@ export class CreateFeatureUseCase {
       description: metadata.description,
       branch,
       specPath: specDir,
+      ...(committedAttachments?.length ? { attachments: committedAttachments } : {}),
       updatedAt: new Date(),
     };
     await this.featureRepo.update(updatedFeature);
