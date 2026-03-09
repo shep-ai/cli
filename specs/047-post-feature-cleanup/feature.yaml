@@ -1,0 +1,48 @@
+feature:
+  id: 047-post-feature-cleanup
+  name: post-feature-cleanup
+  number: 47
+  branch: feat/047-post-feature-cleanup
+  prUrl: https://github.com/shep-ai/cli/pull/167
+  lifecycle: review
+  createdAt: '2026-02-26T17:58:07Z'
+status:
+  phase: in-review
+  progress:
+    completed: 12
+    total: 12
+    percentage: 100
+  currentTask: null
+  lastUpdated: '2026-03-04T13:20:00.000Z'
+  lastUpdatedBy: shep-kit:commit-pr
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+    - plan
+    - phase-1
+    - phase-2
+    - phase-3
+    - phase-4
+    - phase-5
+    - phase-6
+    - phase-7
+    - phase-8
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-02-26T17:58:07Z'
+    completedBy: feature-agent
+  - phase: pr-created
+    completedAt: '2026-03-04T13:20:00.000Z'
+    completedBy: shep-kit:commit-pr
+errors:
+  current: null
+  history: []

@@ -33,6 +33,7 @@ const {
   mockBuildMergeSquashPrompt,
   mockParseCommitHash,
   mockParsePrUrl,
+  mockCleanupExecute,
 } = vi.hoisted(() => ({
   mockInterrupt: vi.fn(),
   mockShouldInterrupt: vi.fn().mockReturnValue(false),
@@ -48,6 +49,7 @@ const {
   mockParsePrUrl: vi
     .fn()
     .mockReturnValue({ url: 'https://github.com/test/repo/pull/42', number: 42 }),
+  mockCleanupExecute: vi.fn().mockResolvedValue(undefined),
 }));
 
 // Mock LangGraph interrupt
@@ -170,6 +172,7 @@ function baseDeps(overrides?: Partial<MergeNodeDeps>): MergeNodeDeps {
       getFailureLogs: vi.fn().mockResolvedValue(''),
       mergePr: vi.fn().mockResolvedValue(undefined),
     } as any,
+    cleanupFeatureWorktreeUseCase: { execute: mockCleanupExecute } as any,
     ...overrides,
   };
 }
@@ -579,6 +582,61 @@ describe('createMergeNode (agent-driven)', () => {
       // PR merge via gitPrService — no local verification needed
       expect(deps.verifyMerge).not.toHaveBeenCalled();
       expect(deps.gitPrService.mergePr).toHaveBeenCalledWith('/tmp/worktree', 99, 'squash');
+    });
+  });
+
+  // --- Post-merge cleanup ---
+  describe('post-merge cleanup', () => {
+    it('should call cleanupFeatureWorktreeUseCase.execute with feature id when merged=true', async () => {
+      const node = createMergeNode(deps);
+      const state = baseState({
+        approvalGates: { allowPrd: false, allowPlan: false, allowMerge: true },
+      });
+      await node(state);
+
+      expect(mockCleanupExecute).toHaveBeenCalledOnce();
+      expect(mockCleanupExecute).toHaveBeenCalledWith('feat-001');
+    });
+
+    it('should NOT call cleanupFeatureWorktreeUseCase.execute when merged=false (no allowMerge)', async () => {
+      const node = createMergeNode(deps);
+      const state = baseState();
+      await node(state);
+
+      expect(mockCleanupExecute).not.toHaveBeenCalled();
+    });
+
+    it('should call cleanup after featureRepository.update() when merged=true', async () => {
+      const callOrder: string[] = [];
+      const orderedFeatureRepo = {
+        findById: vi
+          .fn()
+          .mockResolvedValue({ id: 'feat-001', lifecycle: 'Implementation', branch: 'feat/test' }),
+        update: vi.fn().mockImplementation(async () => {
+          callOrder.push('update');
+        }),
+      } as any;
+      const orderedCleanup = {
+        execute: vi.fn().mockImplementation(async () => {
+          callOrder.push('cleanup');
+        }),
+      } as any;
+      const node = createMergeNode(
+        baseDeps({
+          featureRepository: orderedFeatureRepo,
+          cleanupFeatureWorktreeUseCase: orderedCleanup,
+        })
+      );
+      const state = baseState({
+        approvalGates: { allowPrd: false, allowPlan: false, allowMerge: true },
+      });
+      mockParsePrUrl.mockReturnValueOnce(null);
+      await node(state);
+
+      const updateIdx = callOrder.indexOf('update');
+      const cleanupIdx = callOrder.indexOf('cleanup');
+      expect(updateIdx).toBeGreaterThanOrEqual(0);
+      expect(cleanupIdx).toBeGreaterThan(updateIdx);
     });
   });
 

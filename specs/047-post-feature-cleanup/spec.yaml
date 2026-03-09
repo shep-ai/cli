@@ -1,0 +1,291 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: post-feature-cleanup
+number: 047
+branch: feat/047-post-feature-cleanup
+oneLiner: automatically clean up worktree and branches after feature merge or deletion
+userQuery: >
+  Feature: feature cleanup
+
+  Lets make sure that after feature is finished, we delete the worktree and branch. Also add cleanup
+  as an optional parameter on feature deletion with a checkbox option in CLI and web UI.
+summary: >
+  When a feature completes its lifecycle and reaches the Maintain state (after merge), the system
+  should automatically unlink the git worktree (preserving directory contents) and delete the local
+  and remote feature branches. Additionally, feature deletion (via CLI or web UI) should offer an
+  optional cleanup parameter (default: enabled) that performs the same worktree + branch cleanup.
+  The CLI presents this as an interactive checkbox in the confirmation prompt, and the web UI shows
+  it as a checkbox in a confirmation dialog.
+phase: Requirements
+sizeEstimate: M
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - TypeScript
+  - Node.js
+  - LangGraph
+  - git (worktree, branch operations)
+  - TSyringe (DI)
+  - Clean Architecture
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - question: 'Where should the post-merge cleanup logic live?'
+    resolved: true
+    options:
+      - option: 'Inline in merge.node.ts'
+        description: >
+          Add cleanup calls directly inside merge.node.ts after the lifecycle update to Maintain.
+          Simple and co-located with the trigger. Keeps the node self-contained but mixes
+          infrastructure concerns (git cleanup) with the merge orchestration logic. Harder to unit
+          test cleanup in isolation.
+        selected: false
+      - option: 'New CleanupFeatureWorktreeUseCase'
+        description: >
+          Create a dedicated use case in application/use-cases/features/ that encapsulates worktree
+          unlinking and branch deletion. merge.node.ts calls the use case after setting lifecycle to
+          Maintain. Follows Clean Architecture — the use case owns the cleanup orchestration,
+          infrastructure services do the git work. Cleanly unit-testable and reusable.
+        selected: true
+      - option: 'Post-graph hook in feature-agent-worker.ts'
+        description: >
+          Add a post-graph cleanup hook in feature-agent-worker.ts that inspects final state and
+          cleans up after graph completion. Keeps cleanup out of the node graph entirely but adds
+          coupling to the worker process and makes the trigger less explicit (relying on state
+          inspection rather than lifecycle transition).
+        selected: false
+    selectionRationale: >
+      A dedicated CleanupFeatureWorktreeUseCase is recommended because it follows Clean Architecture
+      principles — the use case layer owns orchestration of infrastructure services. This gives a
+      clear, testable unit that can be called from merge.node.ts at the exact moment of lifecycle
+      transition. It mirrors the existing DeleteFeatureUseCase pattern and keeps merge.node.ts
+      focused on merge orchestration rather than git housekeeping.
+    answer: 'New CleanupFeatureWorktreeUseCase'
+
+  - question: 'Should cleanup failures (worktree already gone, remote already deleted) be fatal or non-fatal?'
+    resolved: true
+    options:
+      - option: 'Fatal — throw on any cleanup error'
+        description: >
+          Any failure during worktree removal or branch deletion throws an error and surfaces to
+          the user. Guarantees cleanup always succeeds, but may leave features stuck in Maintain
+          state if git has an unexpected error (e.g., network issue deleting remote). Poor UX since
+          the merge itself succeeded.
+        selected: false
+      - option: 'Non-fatal — log warnings, never block completion'
+        description: >
+          Cleanup errors are caught, logged as warnings, and the feature is still marked Maintain.
+          The feature is successfully merged; cleanup is best-effort. Already-gone worktrees and
+          already-deleted remotes are silently handled as no-ops. Any unexpected errors are logged
+          but do not fail the run. This matches the intent: merge is the primary operation,
+          cleanup is housekeeping.
+        selected: true
+    selectionRationale: >
+      Non-fatal is the correct choice because the primary goal (merging the feature) has already
+      succeeded by the time cleanup runs. Failing the entire run due to a stale worktree or
+      already-deleted remote branch would be a poor user experience and could leave features in
+      an inconsistent state. Many CI/CD systems auto-delete the remote branch on PR merge, making
+      "remote already gone" a routine, expected condition. Cleanup should be best-effort housekeeping.
+    answer: 'Non-fatal — log warnings, never block completion'
+
+  - question: 'Should git worktree remove use --force flag?'
+    resolved: true
+    options:
+      - option: 'Always use --force'
+        description: >
+          Pass --force to git worktree remove unconditionally. Handles edge cases where the
+          worktree has untracked files or other git state that would otherwise cause removal to
+          fail. Since directory contents are preserved (only git tracking is removed), --force
+          is safe. Simplest implementation.
+        selected: true
+      - option: 'Try without --force first, retry with --force on failure'
+        description: >
+          Attempt removal without --force; if it fails, retry with --force. More conservative
+          but adds complexity and a second git call. The retry adds little value since the
+          directory contents are always preserved regardless of --force.
+        selected: false
+    selectionRationale: >
+      Always using --force is recommended because: (1) directory contents are preserved regardless
+      — --force only affects whether git will unlink a dirty worktree, not whether files are kept;
+      (2) post-merge worktrees can legitimately have untracked files or other state that standard
+      remove would reject; (3) the simpler path has no downsides. The current WorktreeService.remove()
+      does not pass --force, so this requires updating the service method.
+    answer: 'Always use --force'
+
+  - question: 'Should remote branch deletion check for existence before attempting delete?'
+    resolved: true
+    options:
+      - option: 'Check existence first via remoteBranchExists(), then delete if present'
+        description: >
+          Call IWorktreeService.remoteBranchExists() before attempting deletion. Only calls
+          deleteBranch with deleteRemote=true if the remote branch exists. Avoids a git error
+          when the remote is already gone (common when CI auto-deletes on PR merge). Slightly
+          more network calls but cleaner error handling.
+        selected: true
+      - option: 'Attempt delete and swallow the "not found" error'
+        description: >
+          Always attempt git push origin --delete <branch> and catch the specific error when
+          the remote branch does not exist. Fewer git calls (one instead of two) but requires
+          parsing git error messages to distinguish "not found" from real errors. More fragile
+          across git versions.
+        selected: false
+    selectionRationale: >
+      Checking existence first is recommended because IWorktreeService already exposes
+      remoteBranchExists() and the pattern is already established in the codebase. This is
+      cleaner than parsing git error messages and more robust across git server implementations
+      (GitHub, GitLab, Gitea all report "not found" differently). The extra network call is
+      negligible in a post-merge context.
+    answer: 'Check existence first via remoteBranchExists(), then delete if present'
+
+content: |
+  ## Problem Statement
+
+  After a feature is merged and transitions to the `Maintain` lifecycle state, the system leaves
+  behind a stale git worktree and the feature branch (both locally and on the remote). There is no
+  automatic cleanup. Users must manually run `git worktree remove` and `git branch -d` after every
+  feature completes. Over time this accumulates clutter in both the local git repo and the remote.
+
+  Additionally, when a user deletes a feature via CLI (`shep feat del`) or web UI, the deletion
+  removes the worktree and feature record but does NOT delete the local or remote branches, leaving
+  stale branches behind.
+
+  The desired behavior has two parts:
+
+  **Part 1 — Post-merge cleanup** (already implemented):
+  Once a feature reaches `SdlcLifecycle.Maintain`, the system automatically performs cleanup via
+  `CleanupFeatureWorktreeUseCase`.
+
+  **Part 2 — Cleanup on feature deletion** (new scope):
+  When a user deletes a feature, they should be offered an optional cleanup that reuses
+  `CleanupFeatureWorktreeUseCase` to handle worktree unlinking + local/remote branch deletion.
+  This is presented as:
+  - **CLI**: Interactive checkbox in the confirmation prompt (default: yes). `--no-cleanup` flag
+    to skip. `--force` skips prompts but still cleans up unless `--no-cleanup` is also passed.
+  - **Web UI**: Confirmation dialog with a "Clean up worktree and branches" checkbox (default: checked).
+
+  ## Success Criteria
+
+  ### Post-merge cleanup (Phase 1-4 — already implemented)
+  - [x] After a feature reaches `SdlcLifecycle.Maintain`, the git worktree is automatically unlinked
+  - [x] After a feature reaches `SdlcLifecycle.Maintain`, the local feature branch is deleted
+  - [x] After a feature reaches `SdlcLifecycle.Maintain`, the remote feature branch is deleted if
+        it exists (silently skipped if already gone)
+  - [x] The feature DB record is NOT deleted — only git artifacts are cleaned up
+  - [x] Cleanup failures are logged as warnings and do not cause the feature run to fail
+  - [x] `WorktreeService.remove()` supports `--force` flag
+  - [x] `CleanupFeatureWorktreeUseCase` encapsulates the cleanup orchestration
+  - [x] Unit tests cover happy path and edge cases
+
+  ### Cleanup on feature deletion (Phase 5-8 — new scope)
+  - [ ] `DeleteFeatureUseCase.execute()` accepts optional `{ cleanup?: boolean }` (default: true)
+  - [ ] When `cleanup=true`, `CleanupFeatureWorktreeUseCase.execute()` is called before record deletion
+  - [ ] When `cleanup=true`, the existing worktree removal in DeleteFeatureUseCase is skipped (handled by CleanupFeatureWorktreeUseCase)
+  - [ ] When `cleanup=false`, existing behavior is preserved (worktree removal + record deletion only)
+  - [ ] CLI shows "Also clean up worktree and branches?" checkbox after deletion confirmation (default: Y)
+  - [ ] CLI `--no-cleanup` flag skips cleanup
+  - [ ] CLI `--force` skips prompts but still runs cleanup unless `--no-cleanup` is passed
+  - [ ] Web UI shows confirmation dialog with feature info and cleanup checkbox (default: checked)
+  - [ ] Web server action `deleteFeature()` accepts optional `cleanup` parameter
+  - [ ] Unit tests for DeleteFeatureUseCase with cleanup=true and cleanup=false
+  - [ ] CLI command tests for --no-cleanup flag
+  - [ ] Web confirmation dialog has Storybook story
+
+  ## Functional Requirements
+
+  ### Post-merge cleanup (already implemented)
+  - **FR-1**: The system MUST automatically trigger cleanup when `SdlcLifecycle.Maintain` is set in
+    `merge.node.ts` after a successful merge (i.e., when `merged === true`).
+  - **FR-2**: Cleanup MUST unlink the git worktree at `feature.worktreePath` using
+    `git worktree remove --force <path>`, preserving all directory contents on disk.
+  - **FR-3**: Cleanup MUST delete the local feature branch named `feature.branch`.
+  - **FR-4**: Cleanup MUST check whether the remote feature branch exists before attempting remote
+    deletion. If it exists, delete it; if not, skip silently.
+  - **FR-5**: The feature DB record MUST be preserved after post-merge cleanup.
+  - **FR-6**: If the worktree is already unlinked, the step MUST be silently skipped.
+  - **FR-7**: If the local branch is already deleted, the step MUST be silently skipped.
+  - **FR-8**: Any unexpected error during cleanup MUST be caught, logged as warning, and not propagate.
+  - **FR-9**: Cleanup MUST only run when `merged === true`.
+  - **FR-10**: `WorktreeService.remove()` MUST accept an optional `force` boolean parameter.
+  - **FR-11**: `IWorktreeService` interface MUST include the `force` parameter on `remove()`.
+
+  ### Cleanup on feature deletion (new scope)
+  - **FR-12**: `DeleteFeatureUseCase.execute()` MUST accept an optional second parameter
+    `options?: { cleanup?: boolean }` with `cleanup` defaulting to `true`.
+  - **FR-13**: When `cleanup=true`, `DeleteFeatureUseCase` MUST call
+    `CleanupFeatureWorktreeUseCase.execute(featureId)` before deleting the feature record.
+  - **FR-14**: When `cleanup=true`, the existing worktree removal step in `DeleteFeatureUseCase`
+    MUST be skipped (it is already handled by `CleanupFeatureWorktreeUseCase`).
+  - **FR-15**: When `cleanup=false`, the existing behavior MUST be preserved: worktree removal
+    + record deletion, no branch deletion.
+  - **FR-16**: `CleanupFeatureWorktreeUseCase` MUST be injected as a new dependency of
+    `DeleteFeatureUseCase`.
+  - **FR-17**: The CLI `shep feat del` command MUST show a second interactive prompt after the
+    delete confirmation: "Also clean up worktree and branches?" (default: Y).
+  - **FR-18**: The CLI MUST support a `--no-cleanup` flag that explicitly disables cleanup.
+  - **FR-19**: When `--force` is passed, the CLI MUST skip all prompts but still run cleanup
+    unless `--no-cleanup` is also passed.
+  - **FR-20**: The web server action `deleteFeature()` MUST accept an optional `cleanup?: boolean`
+    parameter and pass it through to `DeleteFeatureUseCase`.
+  - **FR-21**: The web UI MUST show a confirmation dialog (AlertDialog) before deletion, containing
+    feature name/branch info, a "Clean up worktree and branches" checkbox (default: checked),
+    and Confirm/Cancel buttons.
+  - **FR-22**: The web confirmation dialog component MUST have a colocated Storybook story.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1 — Clean Architecture compliance**: Cleanup orchestration lives in the application layer.
+    `DeleteFeatureUseCase` composes `CleanupFeatureWorktreeUseCase` rather than duplicating logic.
+  - **NFR-2 — No new domain models**: No TypeSpec or generated domain type changes required.
+  - **NFR-3 — Testability**: All new paths unit-testable with mocked dependencies.
+  - **NFR-4 — Idempotency**: Running cleanup multiple times is safe.
+  - **NFR-5 — Logging**: Cleanup steps emit structured log messages at appropriate levels.
+  - **NFR-6 — No user-visible delay**: Cleanup is fast git commands, no perceptible delay.
+  - **NFR-7 — DI compliance**: All use cases registered in TSyringe container.
+  - **NFR-8 — Backward compatibility**: `DeleteFeatureUseCase.execute(featureId)` without options
+    continues to work (cleanup defaults to true, which is a behavior change but an improvement).
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Where should cleanup logic live? | New CleanupFeatureWorktreeUseCase | Follows Clean Architecture; mirrors DeleteFeatureUseCase pattern |
+  | 2 | Should cleanup failures be fatal? | Non-fatal — log warnings | Merge/delete already succeeded; cleanup is housekeeping |
+  | 3 | Should worktree remove use --force? | Always use --force | Directory contents preserved regardless |
+  | 4 | Should remote deletion check existence first? | Check via remoteBranchExists() first | Cleaner than parsing git errors |
+  | 5 | How to wire cleanup into deletion? | Compose CleanupFeatureWorktreeUseCase into DeleteFeatureUseCase | Reuse existing tested logic; single source of truth |
+  | 6 | CLI cleanup option UX? | Interactive checkbox in confirmation prompt | Natural flow; --no-cleanup for scripting |
+  | 7 | Web cleanup option UX? | Checkbox in confirmation dialog | Standard UX pattern; checkbox defaults to checked |
+  | 8 | Default cleanup behavior? | Enabled (opt-out) | Keeps things tidy by default |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `packages/core/src/application/use-cases/features/delete-feature.use-case.ts` | High | Add cleanup option, inject CleanupFeatureWorktreeUseCase, conditionally call it |
+  | `src/presentation/cli/commands/feat/del.command.ts` | High | Add --no-cleanup flag, add interactive cleanup prompt |
+  | `src/presentation/web/app/actions/delete-feature.ts` | Medium | Add cleanup parameter to server action |
+  | `src/presentation/web/components/features/` | Medium | New confirmation dialog with cleanup checkbox |
+  | `packages/core/src/infrastructure/di/container.ts` | Low | Update DeleteFeatureUseCase DI if needed |
+  | `packages/core/src/infrastructure/services/agents/feature-agent/nodes/merge/merge.node.ts` | Already done | Post-merge cleanup wiring |
+  | `packages/core/src/application/use-cases/features/cleanup-feature-worktree.use-case.ts` | Already done | Cleanup use case |
+
+  ## Dependencies
+
+  - `CleanupFeatureWorktreeUseCase` — already implemented, reused by DeleteFeatureUseCase
+  - `IWorktreeService.remove()` with force — already implemented
+  - `DeleteFeatureUseCase` — needs options parameter added
+  - `@inquirer/prompts` — already used in CLI for confirm, need checkbox/confirm for cleanup
+  - `shadcn AlertDialog` — for web confirmation dialog
+
+  ## Size Estimate
+
+  **M** — Phase 1-4 already implemented. Remaining work (Phase 5-8):
+  1. Update `DeleteFeatureUseCase` with cleanup option and compose `CleanupFeatureWorktreeUseCase`
+  2. Update CLI with --no-cleanup flag and interactive cleanup prompt
+  3. Update web server action and add confirmation dialog with checkbox
+  4. Tests and Storybook story

@@ -91,7 +91,7 @@ export interface FeatureNodeData {
   };
   onAction?: () => void;
   onSettings?: () => void;
-  onDelete?: (featureId: string) => void;
+  onDelete?: (featureId: string, cleanup?: boolean) => void;
   showHandles?: boolean;
 }
 

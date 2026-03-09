@@ -4,17 +4,8 @@ import { useState } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import { Plus, FileText, Wrench, GitMerge, Trash2, Zap, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { DeleteFeatureDialog } from '@/components/common/delete-feature-dialog';
 import {
   featureNodeStateConfig,
   lifecycleDisplayLabels,
@@ -124,32 +115,17 @@ export function FeatureNode({
             </TooltipProvider>
           </div>
 
-          <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-            <DialogContent className="max-w-xs">
-              <DialogHeader>
-                <DialogTitle>Delete feature?</DialogTitle>
-                <DialogDescription>
-                  This will permanently delete <strong>{data.name}</strong> and all associated data
-                  including specs, branches, and progress.
-                </DialogDescription>
-              </DialogHeader>
-              <DialogFooter className="grid grid-cols-2 gap-2 sm:flex-none">
-                <DialogClose asChild>
-                  <Button variant="outline">Cancel</Button>
-                </DialogClose>
-                <Button
-                  variant="destructive"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setConfirmOpen(false);
-                    data.onDelete?.(data.featureId);
-                  }}
-                >
-                  Delete
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <DeleteFeatureDialog
+            open={confirmOpen}
+            onOpenChange={setConfirmOpen}
+            onConfirm={(cleanup) => {
+              setConfirmOpen(false);
+              data.onDelete?.(data.featureId, cleanup);
+            }}
+            isDeleting={false}
+            featureName={data.name ?? 'this feature'}
+            featureId={data.featureId}
+          />
         </>
       ) : null}
 

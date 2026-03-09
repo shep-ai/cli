@@ -21,6 +21,11 @@ import type { IFeatureRepository } from '../../ports/output/repositories/feature
 import type { IWorktreeService } from '../../ports/output/services/worktree-service.interface.js';
 import type { IFeatureAgentProcessService } from '../../ports/output/agents/feature-agent-process.interface.js';
 import type { IAgentRunRepository } from '../../ports/output/agents/agent-run-repository.interface.js';
+import type { CleanupFeatureWorktreeUseCase } from './cleanup-feature-worktree.use-case.js';
+
+export interface DeleteFeatureOptions {
+  cleanup?: boolean;
+}
 
 @injectable()
 export class DeleteFeatureUseCase {
@@ -29,10 +34,12 @@ export class DeleteFeatureUseCase {
     @inject('IWorktreeService') private readonly worktreeService: IWorktreeService,
     @inject('IFeatureAgentProcessService')
     private readonly processService: IFeatureAgentProcessService,
-    @inject('IAgentRunRepository') private readonly runRepo: IAgentRunRepository
+    @inject('IAgentRunRepository') private readonly runRepo: IAgentRunRepository,
+    @inject('CleanupFeatureWorktreeUseCase')
+    private readonly cleanupUseCase: Pick<CleanupFeatureWorktreeUseCase, 'execute'>
   ) {}
 
-  async execute(featureId: string): Promise<Feature> {
+  async execute(featureId: string, options?: DeleteFeatureOptions): Promise<Feature> {
     // 1. Find feature (exact or prefix match)
     const feature =
       (await this.featureRepo.findById(featureId)) ??
@@ -42,24 +49,30 @@ export class DeleteFeatureUseCase {
     }
 
     // 2. Cascade delete all sub-features (depth-first)
-    await this.cascadeDeleteChildren(feature.id);
+    await this.cascadeDeleteChildren(feature.id, options);
 
     // 3. Delete the feature itself
-    await this.deleteSingleFeature(feature);
+    await this.deleteSingleFeature(feature, options);
 
     return feature;
   }
 
-  private async cascadeDeleteChildren(parentId: string): Promise<void> {
+  private async cascadeDeleteChildren(
+    parentId: string,
+    options?: DeleteFeatureOptions
+  ): Promise<void> {
     const children = await this.featureRepo.findByParentId(parentId);
     for (const child of children) {
       // Recurse into grandchildren first (depth-first)
-      await this.cascadeDeleteChildren(child.id);
-      await this.deleteSingleFeature(child);
+      await this.cascadeDeleteChildren(child.id, options);
+      await this.deleteSingleFeature(child, options);
     }
   }
 
-  private async deleteSingleFeature(feature: Feature): Promise<void> {
+  private async deleteSingleFeature(
+    feature: Feature,
+    options?: DeleteFeatureOptions
+  ): Promise<void> {
     // Cancel running/pending agent run if present
     if (feature.agentRunId) {
       const run = await this.runRepo.findById(feature.agentRunId);
@@ -75,15 +88,24 @@ export class DeleteFeatureUseCase {
       }
     }
 
-    // Remove worktree (ignore errors if already removed)
-    const worktreePath = this.worktreeService.getWorktreePath(
-      feature.repositoryPath,
-      feature.branch
-    );
-    try {
-      await this.worktreeService.remove(worktreePath);
-    } catch {
-      // Worktree might already be removed - that's fine
+    // 4. Cleanup: either full cleanup (worktree + branches) or just worktree removal
+    const cleanup = options?.cleanup !== false;
+    if (cleanup) {
+      try {
+        await this.cleanupUseCase.execute(feature.id);
+      } catch {
+        // Cleanup is best-effort — don't block deletion
+      }
+    } else {
+      const worktreePath = this.worktreeService.getWorktreePath(
+        feature.repositoryPath,
+        feature.branch
+      );
+      try {
+        await this.worktreeService.remove(worktreePath);
+      } catch {
+        // Worktree might already be removed - that's fine
+      }
     }
 
     // Delete feature record

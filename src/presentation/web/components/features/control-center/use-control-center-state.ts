@@ -38,7 +38,7 @@ export interface ControlCenterState {
   handleConnect: (connection: Connection) => void;
   handleAddRepository: (path: string) => { wasEmpty: boolean; repoPath: string };
   handleLayout: (direction: LayoutDirection) => void;
-  handleDeleteFeature: (featureId: string) => void;
+  handleDeleteFeature: (featureId: string, cleanup?: boolean) => void;
   handleDeleteRepository: (repositoryId: string) => Promise<void>;
   createFeatureNode: (
     sourceNodeId: string | null,
@@ -284,7 +284,7 @@ export function useControlCenterState(
   );
 
   const handleDeleteFeature = useCallback(
-    (featureId: string) => {
+    (featureId: string, cleanup?: boolean) => {
       const nodeId = `feat-${featureId}`;
 
       // Find the current entry for rollback
@@ -301,7 +301,7 @@ export function useControlCenterState(
       toast.success('Feature deleted successfully');
       router.push('/');
 
-      deleteFeature(featureId)
+      deleteFeature(featureId, cleanup)
         .then((result) => {
           if (result.error) {
             if (prevEntry) restoreFeature(nodeId, prevEntry);
