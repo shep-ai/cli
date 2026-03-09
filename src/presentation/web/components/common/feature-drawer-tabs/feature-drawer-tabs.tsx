@@ -4,7 +4,10 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Loader2, Check } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { getFeaturePhaseTimings } from '@/app/actions/get-feature-phase-timings';
-import type { PhaseTimingData } from '@/app/actions/get-feature-phase-timings';
+import type {
+  PhaseTimingData,
+  RejectionFeedbackData,
+} from '@/app/actions/get-feature-phase-timings';
 import { getFeaturePlan } from '@/app/actions/get-feature-plan';
 import type { PlanData } from '@/app/actions/get-feature-plan';
 import type { FeatureNodeData } from '@/components/common/feature-node';
@@ -107,10 +110,15 @@ export interface FeatureDrawerTabsProps {
   onChatInputChange?: (value: string) => void;
 }
 
-async function fetchActivity(featureId: string): Promise<PhaseTimingData[]> {
+interface ActivityData {
+  timings: PhaseTimingData[];
+  rejectionFeedback: RejectionFeedbackData[];
+}
+
+async function fetchActivity(featureId: string): Promise<ActivityData> {
   const result = await getFeaturePhaseTimings(featureId);
   if ('error' in result) throw new Error(result.error);
-  return result.timings;
+  return { timings: result.timings, rejectionFeedback: result.rejectionFeedback };
 }
 
 async function fetchPlan(featureId: string): Promise<PlanData | undefined> {
@@ -239,9 +247,10 @@ export function FeatureDrawerTabs({
 
         <TabsContent value="activity" className="mt-0 flex-1 overflow-y-auto">
           <ActivityTab
-            timings={tabs.activity.data as PhaseTimingData[] | null}
+            timings={(tabs.activity.data as ActivityData | null)?.timings ?? null}
             loading={tabs.activity.loading}
             error={tabs.activity.error}
+            rejectionFeedback={(tabs.activity.data as ActivityData | null)?.rejectionFeedback}
           />
         </TabsContent>
 

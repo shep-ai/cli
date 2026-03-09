@@ -20,6 +20,7 @@ import type {
   RejectionFeedbackEntry,
 } from '../../../domain/generated/output.js';
 import { writeSpecFileAtomic } from '../../../infrastructure/services/agents/feature-agent/nodes/node-helpers.js';
+import { recordLifecycleEvent } from '../../../infrastructure/services/agents/feature-agent/phase-timing-context.js';
 import { computeWorktreePath } from '../../../infrastructure/services/ide-launchers/compute-worktree-path.js';
 
 @injectable()
@@ -118,6 +119,9 @@ export class RejectAgentRunUseCase {
     } catch {
       // Non-fatal
     }
+
+    // Record rejected lifecycle event
+    await recordLifecycleEvent('run:rejected', id, this.phaseTimingRepository);
 
     // Spawn worker with rejection payload
     const rejectionPayload: PrdRejectionPayload = {

@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import { ActivityTab } from '@/components/common/feature-drawer-tabs/activity-tab';
-import type { PhaseTimingData } from '@/app/actions/get-feature-phase-timings';
+import type {
+  PhaseTimingData,
+  RejectionFeedbackData,
+} from '@/app/actions/get-feature-phase-timings';
 
 const run1Id = 'run-001';
 const run2Id = 'run-002';
@@ -77,12 +80,14 @@ function renderActivityTab(
     timings: PhaseTimingData[] | null;
     loading: boolean;
     error: string | null;
+    rejectionFeedback: RejectionFeedbackData[];
   }> = {}
 ) {
   const defaultProps = {
     timings: null as PhaseTimingData[] | null,
     loading: false,
     error: null as string | null,
+    rejectionFeedback: undefined as RejectionFeedbackData[] | undefined,
     ...props,
   };
   return render(<ActivityTab {...defaultProps} />);
@@ -214,6 +219,81 @@ describe('ActivityTab', () => {
       // run:started and run:completed lifecycle events
       expect(screen.getByText('started')).toBeInTheDocument();
       expect(screen.getByText('completed')).toBeInTheDocument();
+    });
+
+    it('renders rejected lifecycle event', () => {
+      const timingsWithRejection: PhaseTimingData[] = [
+        {
+          agentRunId: run1Id,
+          phase: 'run:started',
+          startedAt: '2024-01-01T00:00:00.000Z',
+        },
+        {
+          agentRunId: run1Id,
+          phase: 'requirements',
+          startedAt: '2024-01-01T00:00:00.000Z',
+          completedAt: '2024-01-01T00:00:10.000Z',
+          durationMs: 10000,
+          waitingApprovalAt: '2024-01-01T00:00:08.000Z',
+          approvalWaitMs: 5000,
+        },
+        {
+          agentRunId: run1Id,
+          phase: 'run:rejected',
+          startedAt: '2024-01-01T00:00:15.000Z',
+        },
+      ];
+      renderActivityTab({ timings: timingsWithRejection });
+      expect(screen.getByText('rejected')).toBeInTheDocument();
+    });
+
+    it('displays rejection feedback text when provided', () => {
+      const timingsWithRejection: PhaseTimingData[] = [
+        {
+          agentRunId: run1Id,
+          phase: 'run:started',
+          startedAt: '2024-01-01T00:00:00.000Z',
+        },
+        {
+          agentRunId: run1Id,
+          phase: 'requirements',
+          startedAt: '2024-01-01T00:00:00.000Z',
+          completedAt: '2024-01-01T00:00:10.000Z',
+          durationMs: 10000,
+        },
+        {
+          agentRunId: run1Id,
+          phase: 'run:rejected',
+          startedAt: '2024-01-01T00:00:15.000Z',
+        },
+      ];
+      renderActivityTab({
+        timings: timingsWithRejection,
+        rejectionFeedback: [
+          { iteration: 1, message: 'Please add more tests', phase: 'requirements' },
+        ],
+      });
+      expect(screen.getByText('rejected')).toBeInTheDocument();
+      expect(screen.getByTestId('rejection-feedback-text')).toBeInTheDocument();
+      expect(screen.getByText(/Please add more tests/)).toBeInTheDocument();
+    });
+
+    it('does not display rejection text when no feedback provided', () => {
+      const timingsWithRejection: PhaseTimingData[] = [
+        {
+          agentRunId: run1Id,
+          phase: 'run:started',
+          startedAt: '2024-01-01T00:00:00.000Z',
+        },
+        {
+          agentRunId: run1Id,
+          phase: 'run:rejected',
+          startedAt: '2024-01-01T00:00:15.000Z',
+        },
+      ];
+      renderActivityTab({ timings: timingsWithRejection });
+      expect(screen.getByText('rejected')).toBeInTheDocument();
+      expect(screen.queryByTestId('rejection-feedback-text')).not.toBeInTheDocument();
     });
   });
 
