@@ -167,10 +167,10 @@ describe('PrdQuestionnaire', () => {
       const input = screen.getByLabelText('Ask AI to refine requirements...');
       fireEvent.change(input, { target: { value: 'Make it simpler' } });
 
-      const sendButton = screen.getByRole('button', { name: /send/i });
+      const sendButton = screen.getByRole('button', { name: /reject/i });
       fireEvent.click(sendButton);
 
-      expect(onReject).toHaveBeenCalledWith('Make it simpler');
+      expect(onReject).toHaveBeenCalledWith('Make it simpler', []);
     });
 
     it('approve button calls onApprove with finalAction.id', () => {
@@ -230,7 +230,7 @@ describe('PrdQuestionnaire', () => {
       expect(prevButton).toBeDisabled();
 
       // Send button is disabled
-      const sendButton = screen.getByRole('button', { name: /send/i });
+      const sendButton = screen.getByRole('button', { name: /reject/i });
       expect(sendButton).toBeDisabled();
 
       // Chat input is disabled
@@ -314,9 +314,9 @@ describe('PrdQuestionnaire', () => {
 
       const input = screen.getByLabelText('Ask AI to refine requirements...');
       fireEvent.change(input, { target: { value: 'Needs more detail' } });
-      fireEvent.click(screen.getByRole('button', { name: /send/i }));
+      fireEvent.click(screen.getByRole('button', { name: /reject/i }));
 
-      expect(onReject).toHaveBeenCalledWith('Needs more detail');
+      expect(onReject).toHaveBeenCalledWith('Needs more detail', []);
     });
 
     it('approve button is disabled when isRejecting is true', () => {

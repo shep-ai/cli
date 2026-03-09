@@ -10,6 +10,7 @@ import type {
 } from '@shepai/core/domain/generated/output';
 import { approveFeature } from '@/app/actions/approve-feature';
 import { rejectFeature } from '@/app/actions/reject-feature';
+import type { RejectAttachment } from '@/components/common/drawer-action-bar';
 import { getFeatureArtifact } from '@/app/actions/get-feature-artifact';
 import { getResearchArtifact } from '@/app/actions/get-research-artifact';
 import { getMergeReviewData } from '@/app/actions/get-merge-review-data';
@@ -256,12 +257,18 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
   // ── Approve / reject handlers ─────────────────────────────────────────
 
   const handleReject = useCallback(
-    async (feedback: string, label: string, onDone?: () => void) => {
+    async (
+      feedback: string,
+      label: string,
+      attachments: RejectAttachment[] = [],
+      onDone?: () => void
+    ) => {
       if (!featureNode?.featureId) return;
       isRejectingRef.current = true;
       setIsRejecting(true);
       try {
-        const result = await rejectFeature(featureNode.featureId, feedback);
+        const attachmentPaths = attachments.map((a) => a.path).filter(Boolean);
+        const result = await rejectFeature(featureNode.featureId, feedback, attachmentPaths);
         if (!result.rejected) {
           toast.error(result.error ?? `Failed to reject ${label.toLowerCase()}`);
           return;
@@ -285,15 +292,18 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
   );
 
   const handlePrdReject = useCallback(
-    (feedback: string) => handleReject(feedback, 'Requirements', () => setPrdSelections({})),
+    (feedback: string, attachments: RejectAttachment[]) =>
+      handleReject(feedback, 'Requirements', attachments, () => setPrdSelections({})),
     [handleReject]
   );
   const handleTechReject = useCallback(
-    (feedback: string) => handleReject(feedback, 'Plan'),
+    (feedback: string, attachments: RejectAttachment[]) =>
+      handleReject(feedback, 'Plan', attachments),
     [handleReject]
   );
   const handleMergeReject = useCallback(
-    (feedback: string) => handleReject(feedback, 'Merge'),
+    (feedback: string, attachments: RejectAttachment[]) =>
+      handleReject(feedback, 'Merge', attachments),
     [handleReject]
   );
 

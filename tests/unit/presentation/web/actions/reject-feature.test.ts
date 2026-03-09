@@ -71,7 +71,7 @@ describe('rejectFeature server action', () => {
     const result = await rejectFeature('feat-1', 'needs changes');
 
     expect(result).toEqual({ rejected: false, error: 'Not waiting for approval' });
-    expect(mockExecute).toHaveBeenCalledWith('run-1', 'needs changes');
+    expect(mockExecute).toHaveBeenCalledWith('run-1', 'needs changes', undefined);
   });
 
   it('returns success with iteration info on successful rejection', async () => {

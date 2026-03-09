@@ -17,6 +17,11 @@ properties:
     type: string
     format: date-time
     description: When the rejection occurred
+  attachments:
+    type: array
+    items:
+      type: string
+    description: File attachment paths included with the rejection feedback
 required:
   - iteration
   - message

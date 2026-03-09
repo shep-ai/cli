@@ -987,6 +987,10 @@ export type RejectionFeedbackEntry = {
    * When the rejection occurred
    */
   timestamp: any;
+  /**
+   * File attachment paths included with the rejection feedback
+   */
+  attachments?: string[];
 };
 
 /**
@@ -1902,6 +1906,10 @@ export type PrdRejectionPayload = {
    * Iteration number (1-based, derived from PhaseTiming row count)
    */
   iteration: number;
+  /**
+   * File attachment paths included with the rejection feedback
+   */
+  attachments?: string[];
 };
 
 /**

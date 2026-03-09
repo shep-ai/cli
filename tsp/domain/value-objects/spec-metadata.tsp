@@ -108,6 +108,9 @@ model RejectionFeedbackEntry {
 
   @doc("When the rejection occurred")
   timestamp: utcDateTime;
+
+  @doc("File attachment paths included with the rejection feedback")
+  attachments?: string[];
 }
 
 /**

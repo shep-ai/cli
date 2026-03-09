@@ -85,9 +85,9 @@ describe('TechDecisionsReview', () => {
 
       const input = screen.getByLabelText('Ask AI to revise the plan...');
       fireEvent.change(input, { target: { value: 'Reconsider the database' } });
-      fireEvent.click(screen.getByRole('button', { name: /send/i }));
+      fireEvent.click(screen.getByRole('button', { name: /reject/i }));
 
-      expect(onReject).toHaveBeenCalledWith('Reconsider the database');
+      expect(onReject).toHaveBeenCalledWith('Reconsider the database', []);
     });
 
     it('approve button is disabled when isRejecting is true', () => {
@@ -115,10 +115,10 @@ describe('TechDecisionsReview', () => {
       const input = screen.getByLabelText('Ask AI to revise the plan...');
       fireEvent.change(input, { target: { value: 'Add caching layer' } });
 
-      const sendButton = screen.getByRole('button', { name: /send/i });
+      const sendButton = screen.getByRole('button', { name: /reject/i });
       fireEvent.click(sendButton);
 
-      expect(onReject).toHaveBeenCalledWith('Add caching layer');
+      expect(onReject).toHaveBeenCalledWith('Add caching layer', []);
     });
   });
 
@@ -134,7 +134,7 @@ describe('TechDecisionsReview', () => {
       render(<TechDecisionsReview {...defaultProps} onReject={onReject} isProcessing />);
 
       expect(screen.getByLabelText('Ask AI to revise the plan...')).toBeDisabled();
-      expect(screen.getByRole('button', { name: /send/i })).toBeDisabled();
+      expect(screen.getByRole('button', { name: /reject/i })).toBeDisabled();
     });
   });
 });

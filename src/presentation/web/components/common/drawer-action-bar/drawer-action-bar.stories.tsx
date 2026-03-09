@@ -1,6 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react';
 import { fn } from '@storybook/test';
-import { Check } from 'lucide-react';
 import { DrawerActionBar } from './drawer-action-bar';
 
 const meta: Meta<typeof DrawerActionBar> = {
@@ -26,18 +25,10 @@ const meta: Meta<typeof DrawerActionBar> = {
 export default meta;
 type Story = StoryObj<typeof DrawerActionBar>;
 
-/** Default — approve button only. Plays "approve" sound on click. */
+/** Default — approve-only button (no reject input). */
 export const Default: Story = {};
 
-/** With approve icon. */
-export const WithIcon: Story = {
-  args: {
-    approveLabel: 'Approve PRD',
-    approveIcon: <Check className="mr-1.5 h-4 w-4" />,
-  },
-};
-
-/** With revision input — single line: chat input, send, approve. */
+/** Two-button bar: Reject + Approve with slide-expand animation on hover. */
 export const WithReject: Story = {
   args: {
     onReject: fn().mockName('onReject'),
@@ -67,7 +58,7 @@ export const Rejecting: Story = {
 export const WithRevisionInput: Story = {
   args: {
     onReject: fn().mockName('onReject'),
-    approveLabel: 'Approve',
+    approveLabel: 'Approve Plan',
     revisionPlaceholder: 'Ask AI to revise the plan...',
   },
 };
