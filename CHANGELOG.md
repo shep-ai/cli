@@ -1,3 +1,13 @@
+# [1.91.0](https://github.com/shep-ai/cli/compare/v1.90.1...v1.91.0) (2026-03-09)
+
+### Bug Fixes
+
+- **domain:** prune stale worktree entries before branch deletion on cleanup failure ([#268](https://github.com/shep-ai/cli/issues/268)) ([fcbe462](https://github.com/shep-ai/cli/commit/fcbe462d99d0b696ab097b2d5bc2041095027631))
+
+### Features
+
+- **web:** render inline attachments in overview and activity tabs ([#267](https://github.com/shep-ai/cli/issues/267)) ([5dddf22](https://github.com/shep-ai/cli/commit/5dddf2274859d940e0fb750d40b86123c9ab5198))
+
 ## [1.90.1](https://github.com/shep-ai/cli/compare/v1.90.0...v1.90.1) (2026-03-09)
 
 ### Bug Fixes
