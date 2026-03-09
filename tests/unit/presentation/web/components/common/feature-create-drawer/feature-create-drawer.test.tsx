@@ -78,6 +78,27 @@ const mockTs: FileAttachment = {
   size: 1024,
 };
 
+/** Returns a mock fetch stub for the upload-from-path API endpoint. */
+function makeUploadFromPathFetch() {
+  return vi.fn().mockImplementation(async (_url: string, options: RequestInit) => {
+    const { path } = JSON.parse(options.body as string) as { path: string; sessionId: string };
+    const name = path.split('/').pop()!;
+    const knownFile = [mockPdf, mockPng, mockTs].find((f) => f.path === path);
+    return {
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          id: `att-${crypto.randomUUID().slice(0, 8)}`,
+          name,
+          size: knownFile?.size ?? 1000,
+          mimeType: 'application/octet-stream',
+          path: `/tmp/.shep/attachments/pending/${name}`,
+          createdAt: '2026-03-08T10:00:00.000Z',
+        }),
+    };
+  });
+}
+
 describe('FeatureCreateDrawer', () => {
   describe('rendering', () => {
     it('renders the drawer header when open', () => {
@@ -167,6 +188,7 @@ describe('FeatureCreateDrawer', () => {
     });
 
     it('includes attachments array with file objects', async () => {
+      vi.stubGlobal('fetch', makeUploadFromPathFetch());
       mockPickFiles.mockResolvedValue([mockPdf]);
       const onSubmit = vi.fn();
       const user = userEvent.setup();
@@ -174,6 +196,7 @@ describe('FeatureCreateDrawer', () => {
 
       await user.type(screen.getByPlaceholderText(descriptionPlaceholder), 'Add a feature');
       await user.click(screen.getByRole('button', { name: /attach files/i }));
+      await waitFor(() => expect(screen.getByText('requirements.pdf')).toBeInTheDocument());
 
       await user.click(screen.getByRole('button', { name: '+ Create Feature' }));
 
@@ -184,7 +207,7 @@ describe('FeatureCreateDrawer', () => {
       expect(submittedData.attachments[0]).toMatchObject({
         name: 'requirements.pdf',
         size: 42000,
-        path: '/Users/dev/docs/requirements.pdf',
+        path: '/tmp/.shep/attachments/pending/requirements.pdf',
       });
       expect(submittedData.repositoryPath).toBe('/Users/dev/my-repo');
       expect(submittedData).not.toHaveProperty('name');
@@ -420,6 +443,7 @@ describe('FeatureCreateDrawer', () => {
     });
 
     it('clears all form fields after submit without unmounting', async () => {
+      vi.stubGlobal('fetch', makeUploadFromPathFetch());
       mockPickFiles.mockResolvedValue([mockPdf]);
       const onSubmit = vi.fn();
       const onClose = vi.fn();
@@ -461,7 +485,7 @@ describe('FeatureCreateDrawer', () => {
 
       // Add an attachment
       await user.click(screen.getByRole('button', { name: /attach files/i }));
-      expect(screen.getByText('requirements.pdf')).toBeInTheDocument();
+      await waitFor(() => expect(screen.getByText('requirements.pdf')).toBeInTheDocument());
 
       // Submit the form
       await user.click(screen.getByRole('button', { name: '+ Create Feature' }));
@@ -519,6 +543,10 @@ describe('FeatureCreateDrawer', () => {
   });
 
   describe('attachments (native file picker)', () => {
+    beforeEach(() => {
+      vi.stubGlobal('fetch', makeUploadFromPathFetch());
+    });
+
     it('calls pickFiles and displays attachment chip', async () => {
       mockPickFiles.mockResolvedValue([mockPdf]);
       const user = userEvent.setup();
@@ -527,7 +555,7 @@ describe('FeatureCreateDrawer', () => {
       await user.click(screen.getByRole('button', { name: /attach files/i }));
 
       expect(mockPickFiles).toHaveBeenCalledOnce();
-      expect(screen.getByText('requirements.pdf')).toBeInTheDocument();
+      await waitFor(() => expect(screen.getByText('requirements.pdf')).toBeInTheDocument());
     });
 
     it('displays file size', async () => {
@@ -537,7 +565,7 @@ describe('FeatureCreateDrawer', () => {
 
       await user.click(screen.getByRole('button', { name: /attach files/i }));
 
-      expect(screen.getByText('41.0 KB')).toBeInTheDocument();
+      await waitFor(() => expect(screen.getByText('41.0 KB')).toBeInTheDocument());
     });
 
     it('supports multiple file selections across multiple picks', async () => {
@@ -546,13 +574,16 @@ describe('FeatureCreateDrawer', () => {
 
       mockPickFiles.mockResolvedValueOnce([mockPdf]);
       await user.click(screen.getByRole('button', { name: /attach files/i }));
+      await waitFor(() => expect(screen.getByText('requirements.pdf')).toBeInTheDocument());
 
       mockPickFiles.mockResolvedValueOnce([mockPng, mockTs]);
       await user.click(screen.getByRole('button', { name: /attach files/i }));
 
-      expect(screen.getByText('requirements.pdf')).toBeInTheDocument();
-      expect(screen.getByTitle('screenshot.png')).toBeInTheDocument();
-      expect(screen.getByText('index.ts')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByText('requirements.pdf')).toBeInTheDocument();
+        expect(screen.getByTitle('screenshot.png')).toBeInTheDocument();
+        expect(screen.getByText('index.ts')).toBeInTheDocument();
+      });
     });
 
     it('removes attachment when remove button is clicked', async () => {
@@ -561,7 +592,7 @@ describe('FeatureCreateDrawer', () => {
       renderDrawer();
 
       await user.click(screen.getByRole('button', { name: /attach files/i }));
-      expect(screen.getByText('requirements.pdf')).toBeInTheDocument();
+      await waitFor(() => expect(screen.getByText('requirements.pdf')).toBeInTheDocument());
 
       await user.click(screen.getByRole('button', { name: 'Remove requirements.pdf' }));
       expect(screen.queryByText('requirements.pdf')).not.toBeInTheDocument();
@@ -574,8 +605,10 @@ describe('FeatureCreateDrawer', () => {
 
       await user.click(screen.getByRole('button', { name: /attach files/i }));
 
-      expect(screen.getByText('requirements.pdf')).toBeInTheDocument();
-      expect(screen.getByTitle('screenshot.png')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByText('requirements.pdf')).toBeInTheDocument();
+        expect(screen.getByTitle('screenshot.png')).toBeInTheDocument();
+      });
     });
 
     it('does not add files when user cancels the picker', async () => {
@@ -595,15 +628,15 @@ describe('FeatureCreateDrawer', () => {
       // Pick mockPdf the first time
       mockPickFiles.mockResolvedValueOnce([mockPdf]);
       await user.click(screen.getByRole('button', { name: /attach files/i }));
-      expect(screen.getByText('requirements.pdf')).toBeInTheDocument();
+      await waitFor(() => expect(screen.getByText('requirements.pdf')).toBeInTheDocument());
 
       // Pick mockPdf again (same path) along with a new file
       mockPickFiles.mockResolvedValueOnce([mockPdf, mockPng]);
       await user.click(screen.getByRole('button', { name: /attach files/i }));
 
       // Should have 2 files, not 3 — mockPdf is deduped
+      await waitFor(() => expect(screen.getByTitle('screenshot.png')).toBeInTheDocument());
       expect(screen.getAllByText('requirements.pdf')).toHaveLength(1);
-      expect(screen.getByTitle('screenshot.png')).toBeInTheDocument();
     });
 
     it('handles pickFiles error gracefully', async () => {

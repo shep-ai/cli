@@ -394,22 +394,49 @@ export function FeatureCreateDrawer({
   const handleAddFiles = useCallback(async () => {
     try {
       const files = await pickFiles();
-      if (files) {
-        setAttachments((prev) => {
-          const existingPaths = new Set(prev.map((f) => f.path));
-          const unique = files
-            .filter((f) => !existingPaths.has(f.path))
-            .map(
-              (f): FormAttachment => ({
-                id: crypto.randomUUID(),
-                name: f.name,
-                size: f.size,
-                mimeType: 'application/octet-stream',
-                path: f.path,
-              })
+      if (!files) return;
+
+      for (const file of files) {
+        const tempId = crypto.randomUUID();
+
+        setAttachments((prev) => [
+          ...prev,
+          {
+            id: tempId,
+            name: file.name,
+            size: file.size,
+            mimeType: 'application/octet-stream',
+            path: '',
+            loading: true,
+          },
+        ]);
+
+        try {
+          const res = await fetch('/api/attachments/upload-from-path', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: file.path, sessionId: sessionIdRef.current }),
+          });
+
+          if (!res.ok) {
+            const body = await res.json().catch(() => ({ error: 'Upload failed' }));
+            setAttachments((prev) => prev.filter((a) => a.id !== tempId));
+            setUploadError(body.error ?? 'Upload failed');
+            return;
+          }
+
+          const uploaded = await res.json();
+          setAttachments((prev) => {
+            const isDupe = prev.some((a) => a.id !== tempId && a.path === uploaded.path);
+            if (isDupe) return prev.filter((a) => a.id !== tempId);
+            return prev.map((a) =>
+              a.id === tempId ? { ...uploaded, id: tempId, loading: false } : a
             );
-          return unique.length > 0 ? [...prev, ...unique] : prev;
-        });
+          });
+        } catch {
+          setAttachments((prev) => prev.filter((a) => a.id !== tempId));
+          setUploadError('Upload failed');
+        }
       }
     } catch {
       // Native dialog failed — silently ignore (user can retry)
