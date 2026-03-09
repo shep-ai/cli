@@ -459,7 +459,7 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
         </div>
 
         {featureActionsInput ? (
-          <div className="flex items-center gap-2 pt-2">
+          <div className="flex items-center gap-2 pt-2" data-testid="feature-drawer-actions">
             <OpenActionMenu
               actions={featureActions}
               repositoryPath={featureActionsInput.repositoryPath}

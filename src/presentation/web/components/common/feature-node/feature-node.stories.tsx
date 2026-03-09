@@ -383,6 +383,37 @@ export const WithDeleteButton: Story = {
   render: (args) => <FeatureNodeCanvas data={args} />,
 };
 
+export const FastMode: Story = {
+  args: {
+    name: 'Quick Feature',
+    description: 'Fast mode feature — skipping SDLC phases',
+    featureId: '#fm1',
+    lifecycle: 'implementation',
+    state: 'running',
+    progress: 50,
+    fastMode: true,
+    agentType: 'claude-code',
+    modelId: 'claude-sonnet-4-6',
+  },
+  render: (args) => <FeatureNodeCanvas data={args} />,
+};
+
+export const FastModeDone: Story = {
+  args: {
+    name: 'Fast Feature Done',
+    description: 'Completed fast mode feature',
+    featureId: '#fm2',
+    lifecycle: 'deploy',
+    state: 'done',
+    progress: 100,
+    runtime: '12m',
+    fastMode: true,
+    agentType: 'claude-code',
+    modelId: 'claude-sonnet-4-6',
+  },
+  render: (args) => <FeatureNodeCanvas data={args} />,
+};
+
 const interactiveInitialNodes: FeatureNodeType[] = [
   {
     id: 'node-1',

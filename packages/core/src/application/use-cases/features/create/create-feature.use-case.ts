@@ -152,6 +152,7 @@ export class CreateFeatureUseCase {
       lifecycle: initialLifecycle,
       messages: [],
       relatedArtifacts: [],
+      fast: input.fast ?? false,
       push: input.push ?? false,
       openPr: input.openPr ?? false,
       approvalGates: input.approvalGates ?? {

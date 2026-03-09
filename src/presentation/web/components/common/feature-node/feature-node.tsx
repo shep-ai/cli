@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Handle, Position } from '@xyflow/react';
-import { Plus, FileText, Wrench, GitMerge, Trash2, type LucideIcon } from 'lucide-react';
+import { Plus, FileText, Wrench, GitMerge, Trash2, Zap, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   Dialog,
@@ -169,41 +169,57 @@ export function FeatureNode({
           >
             {data.state === 'blocked' ? 'BLOCKED' : lifecycleDisplayLabels[data.lifecycle]}
           </span>
-          {data.agentType ? (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    aria-label={agentTypeLabels[data.agentType as AgentTypeValue] ?? data.agentType}
-                    data-testid="feature-node-agent-badge"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      data.onSettings?.();
-                    }}
-                    className={cn(
-                      'nodrag -mt-1 -mr-1 p-1',
-                      data.onSettings
-                        ? 'cursor-pointer opacity-80 transition-opacity hover:opacity-100'
-                        : 'cursor-default'
-                    )}
-                  >
-                    <AgentIcon agentType={data.agentType} className="h-3.5 w-3.5" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  <span className="font-medium">
-                    {agentTypeLabels[data.agentType as AgentTypeValue] ?? data.agentType}
-                  </span>
-                  {data.modelId ? (
-                    <span className="ml-1 opacity-70">
-                      · {getModelMeta(data.modelId).displayName || data.modelId}
+          <div className="flex items-center gap-0.5">
+            {data.fastMode ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span data-testid="feature-node-fast-mode-badge" className="-mt-1 p-1">
+                      <Zap className="h-3.5 w-3.5 text-amber-500" />
                     </span>
-                  ) : null}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          ) : null}
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">Fast Mode</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : null}
+            {data.agentType ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      aria-label={
+                        agentTypeLabels[data.agentType as AgentTypeValue] ?? data.agentType
+                      }
+                      data-testid="feature-node-agent-badge"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        data.onSettings?.();
+                      }}
+                      className={cn(
+                        'nodrag -mt-1 -mr-1 p-1',
+                        data.onSettings
+                          ? 'cursor-pointer opacity-80 transition-opacity hover:opacity-100'
+                          : 'cursor-default'
+                      )}
+                    >
+                      <AgentIcon agentType={data.agentType} className="h-3.5 w-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <span className="font-medium">
+                      {agentTypeLabels[data.agentType as AgentTypeValue] ?? data.agentType}
+                    </span>
+                    {data.modelId ? (
+                      <span className="ml-1 opacity-70">
+                        · {getModelMeta(data.modelId).displayName || data.modelId}
+                      </span>
+                    ) : null}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : null}
+          </div>
         </div>
 
         {/* Name */}

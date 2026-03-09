@@ -804,6 +804,10 @@ export type Feature = BaseEntity & {
    */
   repositoryId?: UUID;
   /**
+   * When true, SDLC phases were skipped and the feature was implemented directly from the prompt
+   */
+  fast: boolean;
+  /**
    * Push branch to remote after implementation (default: false)
    */
   push: boolean;

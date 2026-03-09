@@ -1,3 +1,21 @@
+# [1.82.0](https://github.com/shep-ai/cli/compare/v1.81.0...v1.82.0) (2026-03-09)
+
+### Features
+
+- **web:** add ctrl/cmd+enter shortcut to submit feature create drawer ([#252](https://github.com/shep-ai/cli/issues/252)) ([944ba75](https://github.com/shep-ai/cli/commit/944ba75c2e2e63d697b2d59c441ee01170b235fb))
+
+# [1.81.0](https://github.com/shep-ai/cli/compare/v1.80.0...v1.81.0) (2026-03-09)
+
+### Features
+
+- **web:** add fast mode lightning icon to feature node, drawer, and create form ([#251](https://github.com/shep-ai/cli/issues/251)) ([f528e7a](https://github.com/shep-ai/cli/commit/f528e7aa3d55db33227f657766edc7e7b8bfd275))
+
+# [1.80.0](https://github.com/shep-ai/cli/compare/v1.79.0...v1.80.0) (2026-03-09)
+
+### Features
+
+- **web:** show drawer header actions in all feature phases ([#249](https://github.com/shep-ai/cli/issues/249)) ([c7a5479](https://github.com/shep-ai/cli/commit/c7a54792af78b8c3a82328294efe3b0f4547ad31))
+
 # [1.79.0](https://github.com/shep-ai/cli/compare/v1.78.1...v1.79.0) (2026-03-09)
 
 ### Features

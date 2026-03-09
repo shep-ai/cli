@@ -1,6 +1,6 @@
 'use client';
 
-import { ExternalLink, GitBranch, GitCommitHorizontal } from 'lucide-react';
+import { ExternalLink, GitBranch, GitCommitHorizontal, Zap } from 'lucide-react';
 import { PrStatus } from '@shepai/core/domain/generated/output';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -201,12 +201,22 @@ function FeaturePrInfo({ pr }: { pr: NonNullable<FeatureNodeData['pr']> }) {
 // ── Details section ──────────────────────────────────────────────────
 
 function FeatureDetails({ data }: { data: FeatureNodeData }) {
-  const hasAnyDetail = data.agentType ?? data.runtime ?? data.blockedBy ?? data.errorMessage;
+  const hasAnyDetail =
+    data.fastMode ?? data.agentType ?? data.runtime ?? data.blockedBy ?? data.errorMessage;
   if (!hasAnyDetail) return null;
   return (
     <>
       <Separator />
       <div data-testid="feature-drawer-details" className="flex flex-col gap-3 p-4">
+        {data.fastMode ? (
+          <div className="flex flex-col gap-0.5">
+            <span className="text-muted-foreground text-xs font-medium">Mode</span>
+            <span className="flex items-center gap-2 text-sm">
+              <Zap className="h-4 w-4 shrink-0 text-amber-500" />
+              Fast Mode
+            </span>
+          </div>
+        ) : null}
         {data.agentType ? <AgentDetailRow agentType={data.agentType} /> : null}
         {data.runtime ? <DetailRow label="Runtime" value={data.runtime} /> : null}
         {data.blockedBy ? <DetailRow label="Blocked by" value={data.blockedBy} /> : null}
