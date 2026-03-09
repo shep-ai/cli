@@ -1,3 +1,13 @@
+# [1.90.0](https://github.com/shep-ai/cli/compare/v1.89.0...v1.90.0) (2026-03-09)
+
+### Bug Fixes
+
+- **web:** compute worktree path fallback in merge review ([#262](https://github.com/shep-ai/cli/issues/262)) ([0e80645](https://github.com/shep-ai/cli/commit/0e80645a97a924604d2c912c27677364205a4ff3))
+
+### Features
+
+- **web:** add diff view to merge review showing file-level changes ([#254](https://github.com/shep-ai/cli/issues/254)) ([d433cf3](https://github.com/shep-ai/cli/commit/d433cf3ad544017426695b561a53f8d2af7ef914))
+
 # [1.89.0](https://github.com/shep-ai/cli/compare/v1.88.0...v1.89.0) (2026-03-09)
 
 ### Features
