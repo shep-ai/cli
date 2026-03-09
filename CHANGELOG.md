@@ -1,3 +1,9 @@
+## [1.78.1](https://github.com/shep-ai/cli/compare/v1.78.0...v1.78.1) (2026-03-09)
+
+### Bug Fixes
+
+- **agents:** cursor model selection and slug agent override ([#247](https://github.com/shep-ai/cli/issues/247)) ([24c14af](https://github.com/shep-ai/cli/commit/24c14affd4f422b810bdc109221941e2fca20c6f))
+
 # [1.78.0](https://github.com/shep-ai/cli/compare/v1.77.2...v1.78.0) (2026-03-08)
 
 ### Features
