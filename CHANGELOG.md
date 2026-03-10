@@ -1,3 +1,9 @@
+## [1.92.1](https://github.com/shep-ai/cli/compare/v1.92.0...v1.92.1) (2026-03-10)
+
+### Performance Improvements
+
+- **agents:** lazy-load heavy imports to reduce cli startup by ~300ms ([#276](https://github.com/shep-ai/cli/issues/276)) ([c8e6f92](https://github.com/shep-ai/cli/commit/c8e6f927f89adbd4831958a9100c4ed963160ce7))
+
 # [1.92.0](https://github.com/shep-ai/cli/compare/v1.91.2...v1.92.0) (2026-03-10)
 
 ### Bug Fixes
