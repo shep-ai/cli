@@ -10,6 +10,8 @@ export interface WorkflowDefaults {
   };
   push: boolean;
   openPr: boolean;
+  enableEvidence: boolean;
+  commitEvidence: boolean;
 }
 
 export async function getWorkflowDefaults(): Promise<WorkflowDefaults> {
@@ -24,5 +26,7 @@ export async function getWorkflowDefaults(): Promise<WorkflowDefaults> {
     },
     push: workflow.approvalGateDefaults.pushOnImplementationComplete,
     openPr: workflow.openPrOnImplementationComplete,
+    enableEvidence: workflow.enableEvidence,
+    commitEvidence: workflow.commitEvidence,
   };
 }

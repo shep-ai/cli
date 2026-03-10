@@ -7,5 +7,7 @@ export async function getWorkflowDefaults() {
     },
     push: false,
     openPr: false,
+    enableEvidence: false,
+    commitEvidence: false,
   };
 }

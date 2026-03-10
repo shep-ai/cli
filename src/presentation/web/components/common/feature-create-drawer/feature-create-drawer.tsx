@@ -49,6 +49,8 @@ export interface FeatureCreatePayload {
   };
   push: boolean;
   openPr: boolean;
+  enableEvidence: boolean;
+  commitEvidence: boolean;
   parentId?: string;
   /** When true, skip SDLC phases and implement directly from the prompt. */
   fast: boolean;
@@ -169,12 +171,16 @@ export function FeatureCreateDrawer({
   const defaultGates = workflowDefaults?.approvalGates ?? EMPTY_GATES;
   const defaultPush = workflowDefaults?.push ?? false;
   const defaultOpenPr = workflowDefaults?.openPr ?? false;
+  const defaultEnableEvidence = workflowDefaults?.enableEvidence ?? false;
+  const defaultCommitEvidence = workflowDefaults?.commitEvidence ?? false;
 
   const [description, setDescription] = useState('');
   const [attachments, setAttachments] = useState<FormAttachment[]>([]);
   const [approvalGates, setApprovalGates] = useState<Record<string, boolean>>({ ...defaultGates });
   const [push, setPush] = useState(defaultPush);
   const [openPr, setOpenPr] = useState(defaultOpenPr);
+  const [enableEvidence, setEnableEvidence] = useState(defaultEnableEvidence);
+  const [commitEvidence, setCommitEvidence] = useState(defaultCommitEvidence);
   const [parentId, setParentId] = useState<string | undefined>(undefined);
   const [fast, setFast] = useState(false);
   const [overrideAgent, setOverrideAgent] = useState<string | undefined>(undefined);
@@ -194,6 +200,8 @@ export function FeatureCreateDrawer({
       setApprovalGates({ ...workflowDefaults.approvalGates });
       setPush(workflowDefaults.push);
       setOpenPr(workflowDefaults.openPr);
+      setEnableEvidence(workflowDefaults.enableEvidence);
+      setCommitEvidence(workflowDefaults.commitEvidence);
     }
   }, [workflowDefaults]);
 
@@ -210,6 +218,8 @@ export function FeatureCreateDrawer({
     setApprovalGates({ ...defaultGates });
     setPush(defaultPush);
     setOpenPr(defaultOpenPr);
+    setEnableEvidence(defaultEnableEvidence);
+    setCommitEvidence(defaultCommitEvidence);
     setParentId(undefined);
     setFast(false);
     setOverrideAgent(undefined);
@@ -217,7 +227,7 @@ export function FeatureCreateDrawer({
     setUploadError(null);
     dragCounterRef.current = 0;
     setIsDragOver(false);
-  }, [defaultGates, defaultPush, defaultOpenPr]);
+  }, [defaultGates, defaultPush, defaultOpenPr, defaultEnableEvidence, defaultCommitEvidence]);
 
   // Track whether the form has unsaved data
   const isDirty = description.trim() !== '' || attachments.length > 0;
@@ -368,6 +378,8 @@ export function FeatureCreateDrawer({
         },
         push: push || openPr,
         openPr,
+        enableEvidence,
+        commitEvidence,
         fast,
         ...(overrideAgent ? { agentType: overrideAgent } : {}),
         ...(overrideModel ? { model: overrideModel } : {}),
@@ -384,6 +396,8 @@ export function FeatureCreateDrawer({
       onSubmit,
       push,
       openPr,
+      enableEvidence,
+      commitEvidence,
       fast,
       overrideAgent,
       overrideModel,
@@ -726,6 +740,76 @@ export function FeatureCreateDrawer({
                 </Tooltip>
               </div>
 
+              {/* Evidence row */}
+              <div className="border-input flex items-center gap-4 rounded-md border px-3 py-2.5">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="text-muted-foreground w-16 shrink-0 cursor-default text-xs font-semibold tracking-wider">
+                      EVIDENCE
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    Collect and attach evidence after implementation.
+                  </TooltipContent>
+                </Tooltip>
+                <div className="flex flex-1 items-center gap-4">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex cursor-pointer items-center gap-1.5">
+                        <Switch
+                          id="enable-evidence"
+                          size="sm"
+                          checked={enableEvidence}
+                          onCheckedChange={(v) => {
+                            setEnableEvidence(v);
+                            if (!v) setCommitEvidence(false);
+                          }}
+                          disabled={isSubmitting}
+                        />
+                        <Label
+                          htmlFor="enable-evidence"
+                          className="cursor-pointer text-xs font-medium"
+                        >
+                          Collect
+                        </Label>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      Capture screenshots and artifacts after implementation.
+                    </TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex cursor-pointer items-center gap-1.5">
+                        <Switch
+                          id="commit-evidence"
+                          size="sm"
+                          checked={commitEvidence}
+                          onCheckedChange={setCommitEvidence}
+                          disabled={isSubmitting || !enableEvidence || !openPr}
+                        />
+                        <Label
+                          htmlFor="commit-evidence"
+                          className={cn(
+                            'cursor-pointer text-xs font-medium',
+                            (!enableEvidence || !openPr) && 'opacity-50'
+                          )}
+                        >
+                          Add to PR
+                        </Label>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      {!openPr
+                        ? 'Requires PR to be enabled'
+                        : !enableEvidence
+                          ? 'Requires evidence collection to be enabled'
+                          : 'Include evidence in the pull request body.'}
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              </div>
+
               {/* Git row */}
               <div className="border-input flex items-center gap-4 rounded-md border px-3 py-2.5">
                 <span className="text-muted-foreground w-16 shrink-0 text-xs font-semibold tracking-wider">
@@ -761,7 +845,10 @@ export function FeatureCreateDrawer({
                           id="open-pr"
                           size="sm"
                           checked={openPr}
-                          onCheckedChange={setOpenPr}
+                          onCheckedChange={(v) => {
+                            setOpenPr(v);
+                            if (!v) setCommitEvidence(false);
+                          }}
                           disabled={isSubmitting}
                         />
                         <Label htmlFor="open-pr" className="cursor-pointer text-xs font-medium">
