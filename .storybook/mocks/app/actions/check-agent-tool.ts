@@ -4,15 +4,22 @@ export async function checkAgentTool(agentType: string) {
     cursor: 'cursor-cli',
     'gemini-cli': 'gemini-cli',
   };
+  const binaryMap: Record<string, string> = {
+    'claude-code': 'claude',
+    cursor: 'cursor',
+    'gemini-cli': 'gemini',
+  };
   const toolId = toolMap[agentType] ?? null;
+  const binaryName = binaryMap[agentType] ?? null;
 
   if (!toolId) {
-    return { agentType, toolId: null, tool: null, installed: true };
+    return { agentType, toolId: null, tool: null, installed: true, binaryName: null };
   }
 
   return {
     agentType,
     toolId,
+    binaryName,
     tool: {
       id: toolId,
       name:

@@ -1,12 +1,11 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Github, Plus, TerminalSquare, Copy, Check, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { pickFolder } from '@/components/common/add-repository-button/pick-folder';
+import { isAgentSetupComplete } from '@/app/actions/agent-setup-flag';
 import { WelcomeAgentSetup } from './welcome-agent-setup';
-
-const AGENT_CONFIGURED_KEY = 'shep:agent-configured';
 
 export interface ControlCenterEmptyStateProps {
   onRepositorySelect?: (path: string) => void;
@@ -21,10 +20,13 @@ export function ControlCenterEmptyState({
 }: ControlCenterEmptyStateProps) {
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [agentReady, setAgentReady] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return localStorage.getItem(AGENT_CONFIGURED_KEY) === 'true';
-  });
+  const [agentReady, setAgentReady] = useState(false);
+
+  useEffect(() => {
+    isAgentSetupComplete().then((done) => {
+      if (done) setAgentReady(true);
+    });
+  }, []);
 
   async function handlePickerClick() {
     if (loading) return;
@@ -46,7 +48,6 @@ export function ControlCenterEmptyState({
   }, []);
 
   const handleAgentSetupComplete = useCallback(() => {
-    localStorage.setItem(AGENT_CONFIGURED_KEY, 'true');
     setAgentReady(true);
   }, []);
 
