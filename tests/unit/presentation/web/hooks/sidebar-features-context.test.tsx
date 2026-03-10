@@ -17,8 +17,8 @@ describe('mapNodeStateToSidebarStatus', () => {
     ['action-required', 'action-needed'],
     ['running', 'in-progress'],
     ['done', 'done'],
-    ['blocked', 'in-progress'],
-    ['error', 'in-progress'],
+    ['blocked', 'blocked'],
+    ['error', 'error'],
     ['creating', null],
   ])('maps %s → %s', (input, expected) => {
     expect(mapNodeStateToSidebarStatus(input)).toBe(expected);

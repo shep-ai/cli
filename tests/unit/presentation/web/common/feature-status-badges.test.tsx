@@ -10,7 +10,9 @@ function renderWithSidebar(ui: React.ReactElement) {
 describe('FeatureStatusBadges', () => {
   it('renders badges for statuses with counts > 0', () => {
     renderWithSidebar(
-      <FeatureStatusBadges counts={{ 'action-needed': 2, 'in-progress': 3, done: 5 }} />
+      <FeatureStatusBadges
+        counts={{ 'action-needed': 2, 'in-progress': 3, blocked: 0, error: 0, done: 5 }}
+      />
     );
 
     expect(screen.getByTestId('feature-status-badges')).toBeInTheDocument();
@@ -21,7 +23,9 @@ describe('FeatureStatusBadges', () => {
 
   it('displays correct count numbers', () => {
     renderWithSidebar(
-      <FeatureStatusBadges counts={{ 'action-needed': 2, 'in-progress': 3, done: 5 }} />
+      <FeatureStatusBadges
+        counts={{ 'action-needed': 2, 'in-progress': 3, blocked: 0, error: 0, done: 5 }}
+      />
     );
 
     expect(screen.getByText('2')).toBeInTheDocument();
@@ -31,7 +35,9 @@ describe('FeatureStatusBadges', () => {
 
   it('hides statuses with zero count', () => {
     renderWithSidebar(
-      <FeatureStatusBadges counts={{ 'action-needed': 0, 'in-progress': 2, done: 0 }} />
+      <FeatureStatusBadges
+        counts={{ 'action-needed': 0, 'in-progress': 2, blocked: 0, error: 0, done: 0 }}
+      />
     );
 
     expect(screen.queryByTestId('feature-status-badge-action-needed')).not.toBeInTheDocument();
@@ -41,7 +47,9 @@ describe('FeatureStatusBadges', () => {
 
   it('renders nothing when all counts are zero', () => {
     const { container } = renderWithSidebar(
-      <FeatureStatusBadges counts={{ 'action-needed': 0, 'in-progress': 0, done: 0 }} />
+      <FeatureStatusBadges
+        counts={{ 'action-needed': 0, 'in-progress': 0, blocked: 0, error: 0, done: 0 }}
+      />
     );
 
     expect(screen.queryByTestId('feature-status-badges')).not.toBeInTheDocument();
@@ -51,7 +59,7 @@ describe('FeatureStatusBadges', () => {
   it('applies custom className', () => {
     renderWithSidebar(
       <FeatureStatusBadges
-        counts={{ 'action-needed': 1, 'in-progress': 0, done: 0 }}
+        counts={{ 'action-needed': 1, 'in-progress': 0, blocked: 0, error: 0, done: 0 }}
         className="custom-class"
       />
     );

@@ -115,9 +115,16 @@ export function layoutWithDagre<N extends Node>(
     centerMap.set(node.id, { cx: dagreNode.x, cy: dagreNode.y, w: size.width, h: size.height });
   }
 
-  // Post-process: center each group of children around their parent's
-  // secondary-axis center so the edge fans out symmetrically.
-  // Build parent→children map from the edges.
+  // ── Proper tree layout for the secondary axis ──
+  // Dagre gives us correct primary-axis (rank/X) positions but its secondary-
+  // axis (Y) positioning doesn't respect our tree structure well. Replace it
+  // with a bottom-up tree layout:
+  //   1. Compute subtree heights (leaves → roots)
+  //   2. Position children centered on parent (roots → leaves)
+  // This guarantees: no overlaps, parents centered on children, and straight
+  // lines for 1-to-1 connections at every depth.
+
+  // Build parent→children map from edges
   const childrenOf = new Map<string, string[]>();
   for (const edge of edges) {
     if (!centerMap.has(edge.source) || !centerMap.has(edge.target)) continue;
@@ -125,68 +132,82 @@ export function layoutWithDagre<N extends Node>(
     childrenOf.get(edge.source)!.push(edge.target);
   }
 
-  for (const [parentId, childIds] of childrenOf) {
-    if (childIds.length <= 1) continue;
-
-    const parent = centerMap.get(parentId)!;
-    const parentCenter = isHorizontal ? parent.cy : parent.cx;
-
-    // Sort children by their current secondary-axis position
-    const sorted = childIds
-      .filter((id) => centerMap.has(id))
-      .sort((a, b) => {
-        const pa = centerMap.get(a)!;
-        const pb = centerMap.get(b)!;
-        return isHorizontal ? pa.cy - pb.cy : pa.cx - pb.cx;
-      });
-
-    // Compute the current center of the children group
-    const first = centerMap.get(sorted[0])!;
-    const last = centerMap.get(sorted[sorted.length - 1])!;
-    const groupCenter = isHorizontal ? (first.cy + last.cy) / 2 : (first.cx + last.cx) / 2;
-
-    // Shift all children so the group center aligns with the parent center
-    const shift = parentCenter - groupCenter;
-    if (Math.abs(shift) > 1) {
-      for (const childId of sorted) {
-        const c = centerMap.get(childId)!;
-        if (isHorizontal) {
-          c.cy += shift;
-        } else {
-          c.cx += shift;
-        }
-      }
-    }
-  }
-
-  // Enforce input-order within each sibling group so that the caller's
-  // sort (e.g. by createdAt) is respected on the secondary axis.
+  // Sort children by input order (preserves caller's ordering, e.g. createdAt)
   const inputIndex = new Map<string, number>();
   for (let i = 0; i < graphNodes.length; i++) {
     inputIndex.set(graphNodes[i].id, i);
   }
+  for (const [, kids] of childrenOf) {
+    kids.sort((a, b) => (inputIndex.get(a) ?? 0) - (inputIndex.get(b) ?? 0));
+  }
 
-  for (const [, childIds] of childrenOf) {
-    const valid = childIds.filter((id) => centerMap.has(id));
-    if (valid.length <= 1) continue;
+  // Find tree roots (nodes that are parents but not children)
+  const childSet = new Set<string>();
+  for (const ids of childrenOf.values()) {
+    for (const id of ids) childSet.add(id);
+  }
+  // Include leaf nodes that have no children and are not in childrenOf keys
+  const allConnected = new Set(centerMap.keys());
+  const roots = [...allConnected].filter((id) => !childSet.has(id));
 
-    // Collect current secondary-axis positions, sorted ascending
-    const positions = valid
-      .map((id) => (isHorizontal ? centerMap.get(id)!.cy : centerMap.get(id)!.cx))
-      .sort((a, b) => a - b);
-
-    // Sort children by input index (preserves caller's ordering, e.g. createdAt)
-    const byInput = [...valid].sort((a, b) => (inputIndex.get(a) ?? 0) - (inputIndex.get(b) ?? 0));
-
-    // Assign sorted positions in input order
-    for (let i = 0; i < byInput.length; i++) {
-      const c = centerMap.get(byInput[i])!;
-      if (isHorizontal) {
-        c.cy = positions[i];
-      } else {
-        c.cx = positions[i];
-      }
+  // Bottom-up: compute the total secondary-axis span each subtree needs
+  const subtreeSpan = new Map<string, number>();
+  function computeSpan(nodeId: string): number {
+    if (subtreeSpan.has(nodeId)) return subtreeSpan.get(nodeId)!;
+    const c = centerMap.get(nodeId)!;
+    const nodeSpan = isHorizontal ? c.h : c.w;
+    const kids = childrenOf.get(nodeId);
+    if (!kids || kids.length === 0) {
+      subtreeSpan.set(nodeId, nodeSpan);
+      return nodeSpan;
     }
+    let childrenTotalSpan = 0;
+    for (const kid of kids) {
+      childrenTotalSpan += computeSpan(kid);
+    }
+    childrenTotalSpan += (kids.length - 1) * nodesep;
+    const span = Math.max(nodeSpan, childrenTotalSpan);
+    subtreeSpan.set(nodeId, span);
+    return span;
+  }
+
+  for (const root of roots) computeSpan(root);
+
+  // Top-down: position each node on the secondary axis, centering parent
+  // on its children block. For 1-to-1 edges the child gets the same
+  // secondary-axis value as its parent (straight line).
+  function positionTree(nodeId: string, centerPos: number): void {
+    const c = centerMap.get(nodeId)!;
+    if (isHorizontal) {
+      c.cy = centerPos;
+    } else {
+      c.cx = centerPos;
+    }
+    const kids = childrenOf.get(nodeId);
+    if (!kids || kids.length === 0) return;
+
+    // Total span occupied by children
+    let childrenTotalSpan = 0;
+    for (const kid of kids) {
+      childrenTotalSpan += subtreeSpan.get(kid) ?? 0;
+    }
+    childrenTotalSpan += (kids.length - 1) * nodesep;
+
+    // Start from the top of the centered children block
+    let cursor = centerPos - childrenTotalSpan / 2;
+    for (const kid of kids) {
+      const kidSpan = subtreeSpan.get(kid) ?? 0;
+      positionTree(kid, cursor + kidSpan / 2);
+      cursor += kidSpan + nodesep;
+    }
+  }
+
+  // Position each root tree. Stack root trees vertically with nodesep gap.
+  let rootCursor = 0;
+  for (const root of roots) {
+    const span = subtreeSpan.get(root) ?? 0;
+    positionTree(root, rootCursor + span / 2);
+    rootCursor += span + nodesep;
   }
 
   // Build result array converting center-coords to React Flow top-left
