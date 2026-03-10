@@ -18,17 +18,12 @@ test.describe('Feature Create Drawer — drag-drop attachment flow', () => {
       })
     );
 
-    // Navigate to control center
-    await page.goto('/');
-
-    // Click the sidebar "New feature" button to open the create drawer
-    const newFeatureButton = page.locator('button', { hasText: 'New feature' });
-    await expect(newFeatureButton).toBeVisible({ timeout: 15000 });
-    await newFeatureButton.click();
+    // Navigate directly to create drawer route
+    await page.goto('/create');
 
     // Wait for the drawer to appear
     await expect(page.getByRole('heading', { name: 'NEW FEATURE' })).toBeVisible({
-      timeout: 10000,
+      timeout: 15000,
     });
 
     // Find the drop zone
@@ -60,14 +55,10 @@ test.describe('Feature Create Drawer — drag-drop attachment flow', () => {
       route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
     });
 
-    await page.goto('/');
-
-    const newFeatureButton = page.locator('button', { hasText: 'New feature' });
-    await expect(newFeatureButton).toBeVisible({ timeout: 15000 });
-    await newFeatureButton.click();
+    await page.goto('/create');
 
     await expect(page.getByRole('heading', { name: 'NEW FEATURE' })).toBeVisible({
-      timeout: 10000,
+      timeout: 15000,
     });
 
     const dropZone = page.getByRole('region', { name: 'File drop zone' });

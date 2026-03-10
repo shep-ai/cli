@@ -17,6 +17,8 @@ export interface VersionInfo {
   version: string;
   name: string;
   description: string;
+  branch: string;
+  commitHash: string;
 }
 
 /** System runtime information */
@@ -35,6 +37,8 @@ export function getVersionInfo(): VersionInfo {
     version: process.env.NEXT_PUBLIC_SHEP_VERSION ?? 'unknown',
     name: process.env.NEXT_PUBLIC_SHEP_PACKAGE_NAME ?? '@shepai/cli',
     description: process.env.NEXT_PUBLIC_SHEP_DESCRIPTION ?? 'Autonomous AI Native SDLC Platform',
+    branch: process.env.NEXT_PUBLIC_SHEP_BRANCH ?? '',
+    commitHash: process.env.NEXT_PUBLIC_SHEP_COMMIT ?? '',
   };
 }
 

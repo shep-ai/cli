@@ -1,4 +1,5 @@
 import type { NextConfig } from 'next';
+import { execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -16,10 +17,22 @@ function loadDevFallbacks(): Record<string, string> {
     // Web package is at src/presentation/web/, root package.json is 3 levels up
     const rootPkgPath = resolve(import.meta.dirname, '../../../package.json');
     const pkg = JSON.parse(readFileSync(rootPkgPath, 'utf-8')) as Record<string, string>;
+    let branch = '';
+    let commitHash = '';
+    try {
+      branch = execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf-8' }).trim();
+      commitHash = execSync('git rev-parse HEAD', { encoding: 'utf-8' }).trim();
+    } catch {
+      // Not in a git repo
+    }
+
     return {
       NEXT_PUBLIC_SHEP_VERSION: pkg.version ?? 'unknown',
       NEXT_PUBLIC_SHEP_PACKAGE_NAME: pkg.name ?? '@shepai/cli',
       NEXT_PUBLIC_SHEP_DESCRIPTION: pkg.description ?? 'Autonomous AI Native SDLC Platform',
+      NEXT_PUBLIC_SHEP_BRANCH: branch,
+      NEXT_PUBLIC_SHEP_COMMIT: commitHash,
+      NEXT_PUBLIC_SHEP_INSTANCE_PATH: process.cwd(),
     };
   } catch {
     return {
