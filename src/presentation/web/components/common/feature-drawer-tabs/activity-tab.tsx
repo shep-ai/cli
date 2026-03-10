@@ -6,6 +6,7 @@ import type {
   RejectionFeedbackData,
 } from '@/app/actions/get-feature-phase-timings';
 import { InlineAttachments } from '@/components/common/inline-attachments';
+import { formatDuration } from '@/lib/format-duration';
 
 export interface ActivityTabProps {
   timings: PhaseTimingData[] | null;
@@ -35,10 +36,6 @@ const LIFECYCLE_EVENTS: Record<string, { label: string; colorClass: string }> = 
 
 function isLifecycleEvent(phase: string): boolean {
   return phase.startsWith('run:');
-}
-
-function formatDuration(ms: number): string {
-  return `${(ms / 1000).toFixed(1)}s`;
 }
 
 /* ---------------------------------------------------------------------------
