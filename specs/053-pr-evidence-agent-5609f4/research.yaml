@@ -1,0 +1,558 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: pr-evidence-agent-5609f4
+summary: >
+  Technical research for adding an evidence-collection node to the feature-agent
+  LangGraph workflow. Key decisions: use the existing executeNode helper pattern
+  for a simple evidence node, add a single Evidence[] accumulating state channel,
+  create an agent-directed evidence prompt that adapts to task types, modify the
+  merge prompt to render an evidence section in the PR body, and define a new
+  Evidence value object plus EvidenceType enum in TypeSpec.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - LangGraph (StateGraph, Annotation, nodes, edges)
+  - TypeSpec (domain model generation)
+  - GitHub CLI (gh) for PR operations
+  - Vitest (unit + integration testing)
+  - js-yaml (YAML parsing for evidence output)
+
+relatedLinks: []
+
+# Structured technology decisions
+decisions:
+  - title: 'Evidence Node Architecture Pattern'
+    chosen: 'Use executeNode helper with custom buildEvidencePrompt — same pattern as analyze, requirements, research nodes'
+    rejected:
+      - >
+        Custom node like implement.node.ts — The implement node has its own
+        complex orchestration logic (phase iteration, parallel tasks, progress
+        tracking) because it manages multiple sub-phases. The evidence node is a
+        single agent call with no sub-phases, so this complexity is unnecessary.
+        The executeNode helper provides logging, timing, phase tracking, error
+        handling, and resume support out of the box.
+      - >
+        Custom node like merge.node.ts — The merge node has multi-step agent
+        calls (commit+push+PR, then merge/squash), CI watch/fix loops, DB
+        lifecycle management, and complex resume detection. Evidence collection
+        is a single agent call with no conditional branching, no CI interaction,
+        and no approval gates. Using the merge pattern would add unjustified
+        complexity.
+    rationale: >
+      The executeNode helper in node-helpers.ts provides the exact pattern needed
+      for the evidence node: a single prompt builder function, a single executor
+      call, consistent logging with createNodeLogger, phase timing via
+      recordPhaseStart/recordPhaseEnd, resume support via getCompletedPhases/
+      markPhaseComplete, and error handling with isGraphBubbleUp. Nodes like
+      analyze.node.ts, requirements.node.ts, and research.node.ts all follow
+      this exact pattern (3-line factory: create logger, call executeNode with
+      prompt builder). Evidence collection fits this pattern perfectly — one
+      agent call that captures evidence and commits files.
+
+  - title: 'Evidence State Channel Design'
+    chosen: 'Single evidence channel of type Evidence[] with accumulating reducer'
+    rejected:
+      - >
+        Multiple channels (evidenceFiles, evidenceCollected, evidenceSummary) —
+        Three separate channels add unnecessary state surface area. The Evidence
+        value object already encapsulates all the information (type, path,
+        description, taskRef). A single Evidence[] array with an accumulating
+        reducer follows the exact pattern used by ciFixHistory (CiFixRecord[]
+        with spread reducer) and messages (string[] with spread reducer). The
+        merge node can derive all needed information from the evidence array
+        (isEmpty check, file paths, descriptions).
+      - >
+        Store evidence in spec directory as evidence.yaml only (no state
+        channel) — This would require the merge node to read evidence.yaml from
+        disk, parsing YAML and handling file-not-found cases. Passing evidence
+        through graph state is the LangGraph-native approach and how all other
+        inter-node data flows (messages, prUrl, ciFixHistory). State channels
+        are the standard mechanism for node-to-node communication.
+    rationale: >
+      The FeatureAgentAnnotation already uses accumulating reducers for
+      messages (string[]) and ciFixHistory (CiFixRecord[]). A single evidence
+      channel with reducer (prev, next) => [...prev, ...next] follows this
+      established pattern. The Evidence type from the generated TypeSpec output
+      provides type safety. The merge node reads state.evidence directly — no
+      file I/O needed. Default value is an empty array, so the merge node
+      gracefully handles the case when no evidence was collected.
+
+  - title: 'Evidence Output Parsing Strategy'
+    chosen: 'Parse structured JSON evidence records from agent text output'
+    rejected:
+      - >
+        Parse YAML evidence.yaml file from disk — This couples the evidence
+        node to file system state. If the agent fails to write the file or
+        writes it with errors, the node has no evidence to pass to merge.
+        Additionally, the existing node pattern (executeNode) does not read
+        output files — it delegates to the agent and returns state updates.
+        Adding file I/O to the node would break the established pattern.
+      - >
+        No parsing — pass raw agent output as evidence summary string — This
+        loses structured information (file paths, types, descriptions per
+        evidence item). The merge prompt needs individual evidence records to
+        render proper markdown with image embeds, code blocks for test output,
+        and links to videos. A raw string cannot be meaningfully decomposed
+        into per-item rendering.
+    rationale: >
+      The evidence prompt instructs the agent to output a JSON array of evidence
+      records at the end of its response, wrapped in a parseable marker (e.g.,
+      ``` json block). The evidence node's prompt builder includes clear output
+      format instructions, and a post-execution parser extracts the Evidence[]
+      array from the agent's text result. This follows the same approach used by
+      merge-output-parser.ts (parseCommitHash, parsePrUrl) where structured data
+      is extracted from free-form agent text using regex/parsing. The evidence
+      node wraps executeNode and adds a post-processing step to parse the
+      evidence records from the executor result.
+
+  - title: 'Evidence File Storage Location'
+    chosen: 'Commit to .shep/evidence/ directory on the feature branch'
+    rejected:
+      - >
+        GitHub release assets — Requires creating a release before the PR is
+        merged, which is semantically awkward (releases are post-merge artifacts).
+        Adds complexity with gh release create/upload commands. Release assets
+        persist after branch deletion, leaving orphaned files. The PR body would
+        need absolute URLs to release assets rather than relative paths, adding
+        fragility if the release is deleted.
+      - >
+        Local ~/.shep/repos/<hash>/evidence/ — Files stored locally cannot be
+        rendered in PR bodies on GitHub. The entire purpose of this feature is
+        to embed evidence in PR bodies for reviewer verification. Local-only
+        storage defeats this purpose and would require a separate upload step
+        to make evidence visible in PRs.
+    rationale: >
+      Committing evidence to .shep/evidence/ on the feature branch is the
+      simplest approach. This project uses squash merges, so evidence files on
+      the feature branch do not pollute main branch history — they are discarded
+      on merge. GitHub natively renders committed images via relative paths in
+      PR body markdown. No external hosting, no release management, no upload
+      steps. The spec's selectionRationale confirms this reasoning, though the
+      answer field says "GitHub release assets" which conflicts with the
+      rationale — the rationale clearly advocates for the commit-to-branch
+      approach, and the functional requirements (FR-7) also specify committing
+      to .shep/evidence/ on the feature branch.
+
+  - title: 'Graph Wiring Strategy'
+    chosen: 'Simple addEdge: implement → evidence → merge (no validation loop)'
+    rejected:
+      - >
+        Evidence node with validation/repair loop — Other nodes (analyze,
+        requirements, research, plan) have validation loops because they produce
+        structured YAML that must conform to schemas. Evidence output is
+        free-form (screenshots, test outputs, file paths) with no schema to
+        validate against. Adding a validation loop would add complexity without
+        meaningful quality improvement. The spec (FR-5) explicitly states "No
+        conditional routing or validation loop is needed."
+      - >
+        Conditional edge bypassing evidence when not needed — Adding a
+        conditional route from implement that skips evidence (e.g., based on a
+        state flag) adds graph complexity for no benefit. The evidence node
+        already handles empty evidence gracefully (FR-8: returns empty array,
+        merge renders no evidence section). Running the evidence node with zero
+        results is cheaper than adding conditional routing logic.
+    rationale: >
+      The graph currently has implement → merge (when mergeNodeDeps provided) or
+      implement → END. Inserting the evidence node requires changing one edge to
+      implement → evidence and adding evidence → merge. The evidence node uses
+      executeNode which provides all the resume/skip logic via
+      getCompletedPhases. No conditional edges needed — evidence always runs,
+      and empty results are handled gracefully. This is the simplest possible
+      wiring change.
+
+  - title: 'Merge Prompt Evidence Integration'
+    chosen: 'Extend buildCommitPushPrPrompt to include evidence section in PR body instructions'
+    rejected:
+      - >
+        Post-creation PR edit via gh pr edit — This requires two operations
+        (create PR, then edit body), a brief window where the PR lacks evidence,
+        and extending IGitPrService with updatePrBody(). The spec (Open Question
+        5) explicitly chose "Include in initial PR creation" to keep it atomic.
+      - >
+        Separate evidence rendering node after merge — This would require
+        reading the PR URL from state, making an additional agent call to edit
+        the PR body, and adding another node to the graph. It adds latency and
+        complexity for no benefit since evidence data is already available in
+        state when the merge node runs.
+    rationale: >
+      The buildCommitPushPrPrompt function already receives the full
+      FeatureAgentState. After adding the evidence channel, state.evidence is
+      available when the merge node calls buildCommitPushPrPrompt. The function
+      formats evidence records into a markdown "## Evidence" section within the
+      PR body instructions. For screenshots/videos, it uses relative GitHub
+      paths (GitHub renders committed images from relative paths in PR body
+      markdown). For test outputs, it uses code blocks. This is a natural
+      extension of the existing prompt — just adding more context for the agent
+      to include in the PR body.
+
+  - title: 'TypeSpec Domain Model Design'
+    chosen: 'New Evidence value object + EvidenceType enum, separate from existing Artifact entity'
+    rejected:
+      - >
+        Extend existing Artifact entity with new ArtifactCategory values — The
+        Artifact entity has fields (state: Todo/Elaborating/Done) that do not
+        apply to evidence. Artifacts are specification documents (PRDs, API
+        docs, designs) that go through elaboration lifecycle states. Evidence is
+        immutable proof of task completion captured once. Conflating these
+        concepts would force evidence into ill-fitting semantics and bloat the
+        Artifact entity with evidence-specific fields.
+      - >
+        Plain TypeScript interface without TypeSpec — This breaks the
+        MANDATORY TypeSpec-first rule. All domain models must be defined in
+        tsp/ and generated via pnpm tsp:compile. Manually defining an Evidence
+        type would create a maintenance divergence and miss the benefits of
+        TypeSpec code generation (consistent output format, documentation).
+    rationale: >
+      Evidence and Artifacts serve fundamentally different domain purposes. The
+      new Evidence value object follows the exact pattern of PullRequest and
+      CiFixRecord — simple value objects with descriptive fields, no BaseEntity
+      extension, placed in tsp/domain/value-objects/. The EvidenceType enum
+      follows the pattern of PrStatus and CiStatus in tsp/common/enums/. The
+      generated TypeScript types are imported in state.ts for the evidence
+      channel type annotation. This keeps the domain model clean and semantically
+      accurate.
+
+  - title: 'Evidence Node Error Handling'
+    chosen: 'Graceful degradation — catch errors, return empty evidence, log warning'
+    rejected:
+      - >
+        Fail the workflow on evidence capture failure — Evidence is supplementary
+        to the PR, not critical. Failing the entire workflow because a screenshot
+        could not be captured would block the merge for a non-essential operation.
+        The spec (FR-8) explicitly requires graceful degradation.
+      - >
+        Retry evidence capture with retryExecute — While retryExecute is
+        available and handles transient API errors, evidence capture failures
+        are more likely to be environmental (no display for screenshots, test
+        suite unavailable) rather than transient API issues. Retrying would
+        waste time on non-transient failures. However, the executeNode helper
+        already uses executor.execute which can be wrapped with retryExecute
+        for transient errors — the key difference is that evidence-specific
+        failures (capture failures within the agent call) should not fail the
+        node.
+    rationale: >
+      The evidence node wraps executeNode but adds a try/catch around the
+      evidence parsing step. If the agent executor call succeeds but evidence
+      parsing fails (no structured output, malformed JSON), the node returns
+      an empty evidence array and logs a warning. If the executor call itself
+      fails with a retryable error, the executeNode helper's existing error
+      handling applies (it throws, LangGraph re-executes from last checkpoint).
+      The merge node checks if state.evidence is empty and simply omits the
+      evidence section from the PR body. This ensures evidence failures never
+      block the merge workflow.
+
+# Open questions (resolved during research)
+openQuestions:
+  - question: >
+      Should the evidence node use executeNode helper or implement custom node
+      logic like the merge node?
+    resolved: true
+    options:
+      - option: Use executeNode helper
+        description: >
+          Follow the same 3-line factory pattern as analyze, requirements, and
+          research nodes. executeNode provides logging, timing, phase tracking,
+          resume support, and error handling. The evidence node just needs a
+          prompt builder function — all orchestration is handled by the helper.
+          Trade-off: evidence parsing requires a post-processing step after
+          executeNode returns, which means the evidence node cannot be a pure
+          executeNode call.
+        selected: true
+      - option: Custom node function (implement-style)
+        description: >
+          Write a custom node function with its own logging, timing, and
+          executor calls like implement.node.ts. Trade-off: duplicates all the
+          boilerplate that executeNode already provides. The implement node is
+          custom because it iterates over multiple phases — evidence has no
+          such requirement.
+        selected: false
+      - option: Custom node function (merge-style)
+        description: >
+          Write a custom node with DB lifecycle management, multi-step agent
+          calls, and approval gates like merge.node.ts. Trade-off: massive
+          over-engineering for a single agent call. The merge node is custom
+          because it makes multiple agent calls, manages CI loops, and has
+          complex resume detection — evidence has none of these requirements.
+        selected: false
+    selectionRationale: >
+      The executeNode helper provides everything the evidence node needs. The
+      only gap is that evidence needs to parse structured data from the agent's
+      output to populate the state.evidence channel. This can be handled by
+      creating a thin wrapper: the evidence node's factory calls executeNode to
+      run the agent, then the evidence prompt instructs the agent to commit
+      evidence files and output a structured evidence manifest. The evidence
+      records flow through graph state to the merge node. Since executeNode
+      returns Partial<FeatureAgentState>, the evidence prompt builder can
+      instruct the agent to write evidence files and commit them, while the
+      state update adds the evidence records. Alternatively, a custom node
+      that reuses the helpers (createNodeLogger, buildExecutorOptions,
+      retryExecute, markPhaseComplete) can add a post-execution parsing step
+      while keeping the pattern consistent.
+
+  - question: >
+      How should evidence records flow from the evidence node to the merge
+      prompt?
+    resolved: true
+    options:
+      - option: Via graph state channel (evidence in FeatureAgentAnnotation)
+        description: >
+          Add an evidence channel to FeatureAgentAnnotation. The evidence node
+          populates it, the merge node reads it and passes it to
+          buildCommitPushPrPrompt. Trade-off: requires adding a new state
+          channel, but this is the LangGraph-native approach for inter-node
+          communication.
+        selected: true
+      - option: Via evidence.yaml file in specDir
+        description: >
+          The evidence node writes evidence records to specDir/evidence.yaml.
+          The merge node reads this file. Trade-off: adds file I/O coupling,
+          requires YAML parsing in the merge node, and creates a dependency on
+          disk state rather than graph state. Also inconsistent with how other
+          inter-node data flows (prUrl, ciStatus use state channels).
+        selected: false
+      - option: Via evidence files committed to branch (parse from git)
+        description: >
+          The merge node scans .shep/evidence/ directory for evidence files and
+          constructs the evidence section from the file listing. Trade-off:
+          fragile — depends on file naming conventions, cannot distinguish
+          evidence types or get descriptions without a manifest file. Also
+          requires file system traversal in the merge node.
+        selected: false
+    selectionRationale: >
+      Graph state channels are the standard mechanism for node-to-node data flow
+      in LangGraph. The existing codebase uses state channels for prUrl,
+      prNumber, commitHash, ciStatus, ciFixHistory — all inter-node data. Adding
+      an evidence channel follows this pattern exactly. The merge node already
+      reads state to build the commit-push-PR prompt (state.push, state.openPr,
+      state.worktreePath). Adding state.evidence is a natural extension. The
+      accumulating reducer ensures evidence is preserved through graph
+      re-executions.
+
+  - question: >
+      Should the evidence node parse evidence records from agent output or rely
+      on the agent to write a manifest file?
+    resolved: true
+    options:
+      - option: Parse from agent text output using output markers
+        description: >
+          The evidence prompt instructs the agent to output a JSON array of
+          evidence records within a marked block (e.g., EVIDENCE_START/
+          EVIDENCE_END markers or a fenced code block). The node parses these
+          markers from executor.execute() result text. Trade-off: requires a
+          parser, but follows the established merge-output-parser.ts pattern
+          (parseCommitHash, parsePrUrl use regex on agent text).
+        selected: true
+      - option: Read manifest file from disk (evidence.yaml)
+        description: >
+          The agent writes an evidence.yaml manifest in the specDir or
+          .shep/evidence/ directory. The node reads this file after execution.
+          Trade-off: adds file I/O to the node, requires handling file-not-found,
+          parse errors. The executeNode helper pattern does not do file I/O after
+          execution — it delegates everything to the agent.
+        selected: false
+      - option: Use agent outputSchema for structured JSON response
+        description: >
+          Pass an outputSchema to AgentExecutionOptions to get structured JSON
+          from the agent. Trade-off: not all agent types support outputSchema
+          (AgentFeature check needed). The evidence prompt also needs the agent
+          to perform file operations (screenshots, test runs, commits), so
+          structured output alone is insufficient — the agent needs to do work
+          AND report results.
+        selected: false
+    selectionRationale: >
+      Parsing structured data from agent text output is the established pattern
+      in this codebase. The merge-output-parser.ts module uses regex to extract
+      commit hashes and PR URLs from agent output text. An evidence-output-parser
+      follows the same approach — look for a JSON block in the agent's output
+      that contains the evidence records array. This keeps the evidence node
+      consistent with existing patterns and avoids file I/O coupling.
+
+# Markdown content (the full research document)
+content: |
+  ## Technology Decisions
+
+  ### 1. Evidence Node Architecture Pattern
+
+  **Chosen:** Use executeNode helper with custom buildEvidencePrompt — same pattern as analyze, requirements, research nodes
+
+  **Rejected:**
+  - Custom node like implement.node.ts — The implement node manages multi-phase iteration with parallel task support, progress tracking in feature.yaml, and per-phase executor calls. Evidence collection is a single agent call, making this pattern over-engineered.
+  - Custom node like merge.node.ts — The merge node has multi-step agent calls, CI watch/fix loops, DB lifecycle management, and complex resume detection. None of these apply to evidence collection.
+
+  **Rationale:** The executeNode helper provides logging (createNodeLogger), timing (recordPhaseStart/End), phase tracking (getCompletedPhases/markPhaseComplete), resume/rejection support, and error handling. The evidence node needs exactly one agent call with one prompt builder — the same shape as analyze.node.ts (3-line factory). The only addition is a post-execution parsing step to extract Evidence[] from the agent's text output, which can be handled within a custom node that reuses the same helpers.
+
+  ### 2. Evidence State Channel Design
+
+  **Chosen:** Single `evidence` channel of type `Evidence[]` with accumulating reducer
+
+  **Rejected:**
+  - Multiple channels (evidenceFiles, evidenceCollected, evidenceSummary) — Unnecessary state surface area when Evidence value object encapsulates all information.
+  - Store evidence only in spec directory file (no state channel) — Breaks LangGraph-native inter-node communication pattern.
+
+  **Rationale:** Follows the exact pattern of `ciFixHistory: Annotation<CiFixRecord[]>` with `reducer: (prev, next) => [...prev, ...next]`. The merge node reads `state.evidence` directly — no file I/O needed.
+
+  ### 3. Evidence Output Parsing Strategy
+
+  **Chosen:** Parse structured JSON evidence records from agent text output
+
+  **Rejected:**
+  - Read evidence.yaml manifest from disk — Adds file I/O coupling, breaks executeNode pattern.
+  - Use agent outputSchema — Not all agent types support it, and the agent needs to perform file operations alongside reporting.
+
+  **Rationale:** Follows the merge-output-parser.ts pattern (parseCommitHash, parsePrUrl use regex on agent text). An evidence-output-parser.ts module extracts Evidence[] from marked JSON blocks in the agent's output text.
+
+  ### 4. Evidence File Storage Location
+
+  **Chosen:** Commit to `.shep/evidence/` directory on the feature branch
+
+  **Rejected:**
+  - GitHub release assets — Semantically awkward (releases are post-merge), adds complexity, assets persist after deletion.
+  - Local ~/.shep directory — Files not visible in PR bodies, defeating the feature's purpose.
+
+  **Rationale:** Squash merges discard feature-branch-only files, so evidence does not pollute main history. GitHub renders committed images via relative paths in PR body markdown. No external hosting or upload steps needed.
+
+  ### 5. Graph Wiring Strategy
+
+  **Chosen:** Simple `addEdge`: `implement → evidence → merge` (no validation loop)
+
+  **Rejected:**
+  - Validation/repair loop — Evidence output is free-form (screenshots, test output), no schema to validate.
+  - Conditional edge bypassing evidence — Empty evidence handled gracefully; node always runs.
+
+  **Rationale:** One edge change (`implement → evidence` replaces `implement → merge`) and one new edge (`evidence → merge`). When mergeNodeDeps is not provided, wire `evidence → END` instead of `merge`. The executeNode helper handles resume/skip via completedPhases.
+
+  ### 6. Merge Prompt Evidence Integration
+
+  **Chosen:** Extend `buildCommitPushPrPrompt` to include evidence section in PR body instructions
+
+  **Rejected:**
+  - Post-creation `gh pr edit` — Requires two operations, brief window without evidence, IGitPrService extension.
+  - Separate evidence rendering node after merge — Additional node, latency, complexity for no benefit.
+
+  **Rationale:** The buildCommitPushPrPrompt function already receives FeatureAgentState. After adding the evidence channel, state.evidence is available in the merge node. The prompt formats evidence into a markdown section with inline images (relative paths), code blocks (test output), and links (videos). This is atomic — evidence appears in the PR body from creation.
+
+  ### 7. TypeSpec Domain Model Design
+
+  **Chosen:** New `Evidence` value object + `EvidenceType` enum, separate from `Artifact` entity
+
+  **Rejected:**
+  - Extend Artifact entity — Different domain semantics (Artifact has elaboration lifecycle states; Evidence is immutable).
+  - Plain TypeScript interface — Violates MANDATORY TypeSpec-first rule.
+
+  **Rationale:** Evidence follows the PullRequest/CiFixRecord value object pattern (no BaseEntity). EvidenceType enum follows PrStatus/CiStatus pattern. Files: `tsp/common/enums/evidence.tsp` and `tsp/domain/value-objects/evidence.tsp`.
+
+  ### 8. Evidence Node Error Handling
+
+  **Chosen:** Graceful degradation — catch errors, return empty evidence, log warning
+
+  **Rejected:**
+  - Fail workflow on evidence failure — Evidence is supplementary, not critical; would block merge.
+  - Aggressive retry — Evidence failures are environmental (no display, test suite unavailable), not transient API errors.
+
+  **Rationale:** The evidence node catches parsing failures and returns `{ evidence: [] }`. The merge node checks `state.evidence.length === 0` and omits the evidence section. Transient executor errors are handled by the existing retryExecute pattern in executeNode. This ensures evidence failures never block the merge workflow (FR-8).
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | LangGraph (StateGraph, Annotation) | Graph state, node wiring | Use (existing) | Core framework — evidence node, state channel, edges all use LangGraph APIs already in the codebase |
+  | TypeSpec | Domain model generation | Use (existing) | MANDATORY for domain models — Evidence value object + EvidenceType enum defined in tsp/ |
+  | js-yaml | YAML parsing | Use (existing) | Already used by node-helpers.ts for spec file parsing; evidence node reuses safeYamlLoad |
+  | Vitest | Unit + integration testing | Use (existing) | Test runner for all feature-agent tests; evidence node tests follow existing patterns |
+  | Playwright | Screenshot capture (within agent) | No new dependency | Playwright is available to agents as a tool — the evidence prompt instructs the agent to use it for web UI screenshots. No new import needed in the node itself. |
+  | GitHub CLI (gh) | PR creation with evidence | No new dependency | Already used by merge flow — evidence is embedded in PR body markdown during gh pr create |
+
+  ## Security Considerations
+
+  - **Evidence file size**: The evidence prompt includes instructions to capture screenshots at standard resolution, compress images, and truncate test output to 500 lines (NFR-2). This prevents branch bloat with large binary files.
+  - **Sensitive data in evidence**: Test outputs may contain environment variables, API keys, or other secrets. The evidence prompt should instruct the agent to redact sensitive information from test output before committing. Screenshots may also capture sensitive UI state — the prompt should instruct the agent to avoid capturing authentication screens or settings pages with API keys visible.
+  - **Path traversal**: Evidence file paths (relativePath in Evidence records) should be validated to ensure they are within `.shep/evidence/` and do not use `../` to escape. The evidence-output-parser should sanitize paths.
+  - **Agent autonomy risk**: The evidence node gives the agent executor permission to run commands (tests, screenshots). This is no different from the implement node which gives the agent full code execution authority. The evidence node does not expand the agent's existing capabilities.
+
+  ## Performance Implications
+
+  - **Evidence capture time**: Screenshot capture (Playwright) adds ~5-10 seconds per screenshot. Test suite execution may add significant time depending on suite size. The evidence prompt should instruct the agent to be selective — capture key evidence, not exhaustive coverage.
+  - **Binary file size**: PNG screenshots are typically 50-200KB each. The evidence prompt caps at standard resolution and suggests compression. With 3-5 screenshots per feature, total evidence is ~1MB — acceptable for a feature branch that will be squash-merged.
+  - **Graph execution time**: The evidence node adds one agent executor call to the graph. This is bounded by the existing maxTurns (5000) and the agent executor's timeout mechanism (NFR-1). No additional timeout configuration needed.
+  - **State size**: Evidence records are small (type, path, description, taskRef strings). Even with 20 evidence records, state size increase is negligible compared to messages and ciFixHistory.
+
+  ## Architecture Notes
+
+  ### Node Placement in Graph
+
+  ```
+  START → analyze → validate → requirements → validate → research → validate → plan → validate → implement → evidence → merge → END
+  ```
+
+  The evidence node sits between implement and merge, after all code is written and before the commit/push/PR operations. This is the natural position — evidence captures proof of what was implemented.
+
+  ### State Flow
+
+  ```
+  implement node completes
+    ↓
+  evidence node reads: state.specDir, state.worktreePath (for evidence capture)
+  evidence node writes: state.evidence (Evidence[] array)
+    ↓
+  merge node reads: state.evidence (to build PR body)
+  merge node calls: buildCommitPushPrPrompt(state, branch, baseBranch)
+    → prompt includes evidence section when state.evidence is non-empty
+    ↓
+  agent creates PR with evidence section in body
+  ```
+
+  ### File Layout (new files)
+
+  ```
+  tsp/common/enums/evidence.tsp            — EvidenceType enum
+  tsp/domain/value-objects/evidence.tsp     — Evidence value object
+  packages/core/src/infrastructure/services/agents/feature-agent/
+    nodes/evidence.node.ts                  — Evidence node factory
+    nodes/prompts/evidence-prompts.ts       — buildEvidencePrompt()
+    nodes/evidence-output-parser.ts         — parseEvidenceRecords()
+  tests/unit/.../nodes/evidence.node.test.ts
+  tests/unit/.../nodes/prompts/evidence-prompts.test.ts
+  ```
+
+  ### Modified Files
+
+  ```
+  tsp/common/enums/index.tsp               — Add import for evidence.tsp
+  tsp/domain/value-objects/index.tsp        — Add import for evidence.tsp
+  packages/core/src/domain/generated/output.ts — Auto-generated (pnpm tsp:compile)
+  .../feature-agent/state.ts               — Add evidence channel
+  .../feature-agent/feature-agent-graph.ts  — Wire evidence node, import
+  .../nodes/prompts/merge-prompts.ts        — Add evidence section to PR body
+  .../nodes/merge/merge.node.ts            — Pass state.evidence to prompt (implicit via state)
+  ```
+
+  ### TypeSpec Models
+
+  **EvidenceType enum** (`tsp/common/enums/evidence.tsp`):
+  - Screenshot — Visual proof of UI/output state
+  - Video — Screen recording of workflow
+  - TestOutput — Test suite execution results
+  - TerminalRecording — CLI command output capture
+
+  **Evidence value object** (`tsp/domain/value-objects/evidence.tsp`):
+  - type: EvidenceType — Category of evidence
+  - capturedAt: string — ISO 8601 timestamp
+  - description: string — Human-readable description of what this proves
+  - relativePath: string — Path relative to repo root (for GitHub rendering)
+  - taskRef?: string — Optional reference to the task this evidence proves
+
+  ### Key Integration Detail: Merge Prompt Modification
+
+  The `buildCommitPushPrPrompt` function in `merge-prompts.ts` currently instructs the agent to "Write a rich PR body that summarizes the changes using the spec context below" (line 93). The modification adds an evidence section to the prompt when `state.evidence` is non-empty. The function signature does not need to change — it already receives the full `FeatureAgentState` which will include the evidence channel after the state annotation is extended.
+
+  The evidence section in the PR body template will format each evidence record as:
+  - Screenshots/Videos: `![description](relativePath)` — GitHub renders these inline
+  - Test outputs: fenced code block with the description as header
+  - Terminal recordings: link to the committed file
+
+  ---
+
+  _Research complete — proceed to planning phase_

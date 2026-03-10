@@ -1,0 +1,25 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: Evidence.yaml
+type: object
+properties:
+  type:
+    $ref: EvidenceType.yaml
+    description: Category of evidence captured
+  capturedAt:
+    type: string
+    description: ISO 8601 timestamp when the evidence was captured
+  description:
+    type: string
+    description: Human-readable description of what this evidence proves
+  relativePath:
+    type: string
+    description: Path relative to repo root for GitHub rendering
+  taskRef:
+    type: string
+    description: Optional reference to the task this evidence proves
+required:
+  - type
+  - capturedAt
+  - description
+  - relativePath
+description: Record of evidence captured to prove task completion

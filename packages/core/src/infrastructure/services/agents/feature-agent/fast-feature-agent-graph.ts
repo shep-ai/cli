@@ -1,10 +1,11 @@
 /**
  * Fast Feature Agent Graph Factory
  *
- * Creates a LangGraph StateGraph with only 2 nodes: fast-implement → merge.
+ * Creates a LangGraph StateGraph with nodes: fast-implement (+ evidence sub-agent) → merge.
  * This is the fast-mode alternative to createFeatureAgentGraph() which has
  * 15+ nodes. The merge node and its CI watch/fix loop are reused via
- * composition from the full graph's createMergeNode().
+ * composition from the full graph's createMergeNode(). Evidence collection
+ * runs as a sub-agent call within fast-implement, not as a separate node.
  *
  * Uses the same FeatureAgentAnnotation state shape as the full graph,
  * enabling checkpointing, resume, and identical worker lifecycle handling.
@@ -48,10 +49,11 @@ function routeReexecution(
  * Factory function that creates and compiles the fast-mode feature agent graph.
  *
  * The graph defines a minimal workflow:
- *   START → fast-implement → merge → conditional(reexecute or END)
+ *   START → fast-implement (+ evidence sub-agent) → merge → conditional(reexecute or END)
  *
- * When merge is rejected, routeReexecution routes back to fast-implement
- * for a fresh implementation pass.
+ * Evidence collection runs as a sub-agent call within fast-implement, not as
+ * a separate graph node. When merge is rejected, routeReexecution routes back
+ * to fast-implement for a fresh implementation pass.
  *
  * @param depsOrExecutor - Graph dependencies or a legacy executor
  * @param checkpointer - Optional checkpoint saver for state persistence
@@ -71,6 +73,8 @@ export function createFastFeatureAgentGraph(
     createFastImplementNode(executor)
   );
 
+  graph.addEdge(START, 'fast-implement');
+
   // Wire merge node when deps are provided
   if (deps.mergeNodeDeps) {
     const mergeNodeDeps: MergeNodeDeps = {
@@ -79,12 +83,10 @@ export function createFastFeatureAgentGraph(
     };
     graph
       .addNode('merge', createMergeNode(mergeNodeDeps))
-      .addEdge(START, 'fast-implement')
       .addEdge('fast-implement', 'merge')
       .addConditionalEdges('merge', routeReexecution('fast-implement', END));
   } else {
-    // Without merge deps, fast-implement goes directly to END
-    graph.addEdge(START, 'fast-implement').addEdge('fast-implement', END);
+    graph.addEdge('fast-implement', END);
   }
 
   return graph.compile({ checkpointer });

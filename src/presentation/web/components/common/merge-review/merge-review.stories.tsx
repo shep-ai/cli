@@ -205,3 +205,42 @@ export const WithFileDiffs: Story = {
     ...defaultActions,
   },
 };
+
+/** With evidence — shows evidence items captured during implementation. */
+export const WithEvidence: Story = {
+  args: {
+    data: {
+      ...fullData,
+      evidence: [
+        {
+          type: 'Screenshot',
+          capturedAt: '2026-03-09T12:00:00Z',
+          description: 'Homepage showing new auth banner',
+          relativePath: '.shep/evidence/homepage-banner.png',
+          taskRef: 'task-1',
+        },
+        {
+          type: 'TestOutput',
+          capturedAt: '2026-03-09T12:01:00Z',
+          description: 'Unit tests — all 42 passing',
+          relativePath: '.shep/evidence/unit-test-results.txt',
+          taskRef: 'task-2',
+        },
+        {
+          type: 'Video',
+          capturedAt: '2026-03-09T12:02:00Z',
+          description: 'Login flow walkthrough recording',
+          relativePath: '.shep/evidence/login-flow.mp4',
+        },
+        {
+          type: 'TerminalRecording',
+          capturedAt: '2026-03-09T12:03:00Z',
+          description: 'CLI auth command output',
+          relativePath: '.shep/evidence/cli-auth.txt',
+          taskRef: 'task-3',
+        },
+      ],
+    },
+    ...defaultActions,
+  },
+};

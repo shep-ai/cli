@@ -24,7 +24,17 @@ properties:
     minimum: -2147483648
     maximum: 2147483647
     description: "Maximum characters of CI failure logs to pass to the executor (default: 50000)"
+  enableEvidence:
+    type: boolean
+    default: false
+    description: "Enable evidence collection after implementation (default: false)"
+  commitEvidence:
+    type: boolean
+    default: false
+    description: "Commit evidence to PR (default: false, requires enableEvidence)"
 required:
   - openPrOnImplementationComplete
   - approvalGateDefaults
+  - enableEvidence
+  - commitEvidence
 description: Global workflow configuration defaults

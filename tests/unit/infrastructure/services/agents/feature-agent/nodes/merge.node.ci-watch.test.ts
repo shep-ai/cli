@@ -173,6 +173,8 @@ function createMockGitPrService(overrides: Partial<IGitPrService> = {}): IGitPrS
       .fn()
       .mockResolvedValue({ filesChanged: 1, additions: 5, deletions: 2, commitCount: 1 }),
     verifyMerge: vi.fn().mockResolvedValue(true),
+    getRemoteUrl: vi.fn().mockResolvedValue('https://github.com/test-owner/test-repo'),
+    listPrStatuses: vi.fn().mockResolvedValue([]),
     ...overrides,
   } as IGitPrService;
 }
@@ -215,6 +217,7 @@ function baseState(overrides: Partial<FeatureAgentState> = {}): FeatureAgentStat
     ciFixAttempts: 0,
     ciFixHistory: [],
     ciFixStatus: 'idle',
+    evidence: [],
     ...overrides,
   } as FeatureAgentState;
 }

@@ -50,6 +50,15 @@ export interface MergeReviewBranch {
   target: string;
 }
 
+/** An evidence record captured during implementation */
+export interface MergeReviewEvidence {
+  type: 'Screenshot' | 'Video' | 'TestOutput' | 'TerminalRecording';
+  capturedAt: string;
+  description: string;
+  relativePath: string;
+  taskRef?: string;
+}
+
 /** Data returned by the getMergeReviewData server action */
 export interface MergeReviewData {
   /** PR metadata (omitted when the feature has no PR) */
@@ -62,6 +71,10 @@ export interface MergeReviewData {
   branch?: MergeReviewBranch;
   /** Warning message when diff summary could not be retrieved */
   warning?: string;
+  /** Evidence captured during implementation */
+  evidence?: MergeReviewEvidence[];
+  /** Absolute path to the evidence directory (for serving files via API) */
+  evidenceBasePath?: string;
 }
 
 /** Props for the merge review content component */

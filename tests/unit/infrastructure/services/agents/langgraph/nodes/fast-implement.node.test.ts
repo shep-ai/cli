@@ -53,6 +53,14 @@ vi.mock('@/infrastructure/services/agents/feature-agent/phase-timing-context.js'
   recordPhaseEnd: vi.fn().mockResolvedValue(undefined),
 }));
 
+// Mock settings service — evidence enabled by default in tests
+vi.mock('@/infrastructure/services/settings.service.js', () => ({
+  hasSettings: vi.fn().mockReturnValue(true),
+  getSettings: vi.fn().mockReturnValue({
+    workflow: { enableEvidence: true, commitEvidence: false },
+  }),
+}));
+
 import { buildFastImplementPrompt } from '@/infrastructure/services/agents/feature-agent/nodes/prompts/fast-implement.prompt.js';
 import { createFastImplementNode } from '@/infrastructure/services/agents/feature-agent/nodes/fast-implement.node.js';
 
@@ -103,6 +111,7 @@ function createMockState(overrides?: Partial<FeatureAgentState>): FeatureAgentSt
     ciFixAttempts: 0,
     ciFixHistory: [],
     ciFixStatus: 'idle',
+    evidence: [],
     model: undefined,
     ...overrides,
   };
@@ -326,7 +335,8 @@ describe('createFastImplementNode', () => {
 
     await node(state);
 
-    expect(mockExecutor.execute).toHaveBeenCalledTimes(1);
+    // 1 implementation call + 1 evidence sub-agent call = 2
+    expect(mockExecutor.execute).toHaveBeenCalledTimes(2);
     const [prompt] = (mockExecutor.execute as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(prompt).toContain('Fix the typo in the README');
   });

@@ -20,6 +20,12 @@ import { Command } from '@langchain/langgraph';
 import { createFeatureAgentGraph } from '@/infrastructure/services/agents/feature-agent/feature-agent-graph.js';
 import { createCheckpointer } from '@/infrastructure/services/agents/common/checkpointer.js';
 import type { IAgentExecutor } from '@/application/ports/output/agents/agent-executor.interface.js';
+import {
+  initializeSettings,
+  hasSettings,
+  resetSettings,
+} from '@/infrastructure/services/settings.service.js';
+import type { Settings } from '@/domain/generated/output.js';
 
 function createMockExecutor(): IAgentExecutor {
   return {
@@ -42,6 +48,48 @@ describe('HITL Approval Flow (Graph-level)', () => {
   let stderrSpy: ReturnType<typeof vi.spyOn>;
 
   beforeAll(() => {
+    // Initialize settings with evidence enabled so implement node runs evidence sub-agent
+    if (!hasSettings()) {
+      initializeSettings({
+        id: 'test',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        models: { default: 'claude-sonnet-4' },
+        user: {},
+        environment: { defaultEditor: 'vscode', shellPreference: 'bash' },
+        system: { autoUpdate: false, logLevel: 'error' },
+        agent: { type: 'claude-code', authMethod: 'session' },
+        notifications: {
+          inApp: { enabled: false },
+          browser: { enabled: false },
+          desktop: { enabled: false },
+          events: {
+            agentStarted: false,
+            phaseCompleted: false,
+            waitingApproval: false,
+            agentCompleted: false,
+            agentFailed: false,
+            prMerged: false,
+            prClosed: false,
+            prChecksPassed: false,
+            prChecksFailed: false,
+          },
+        },
+        workflow: {
+          openPrOnImplementationComplete: false,
+          approvalGateDefaults: {
+            allowPrd: false,
+            allowPlan: false,
+            allowMerge: false,
+            pushOnImplementationComplete: false,
+          },
+          enableEvidence: true,
+          commitEvidence: false,
+        },
+        onboardingComplete: true,
+      } as Settings);
+    }
+
     tempDir = mkdtempSync(join(tmpdir(), 'shep-hitl-test-'));
     specDir = join(tempDir, 'specs', '001-test');
     mkdirSync(specDir, { recursive: true });
@@ -122,6 +170,7 @@ describe('HITL Approval Flow (Graph-level)', () => {
     stdoutSpy.mockRestore();
     stderrSpy.mockRestore();
     rmSync(tempDir, { recursive: true, force: true });
+    resetSettings();
   });
 
   it('should pause at requirements, plan, and implement gates then complete on final resume', async () => {
@@ -161,8 +210,8 @@ describe('HITL Approval Flow (Graph-level)', () => {
     const interrupts3 = getInterrupts(result3);
     expect(interrupts3).toHaveLength(0);
 
-    // implement = 1 more call (plan NOT re-executed), graph reaches END
-    expect(executor.execute).toHaveBeenCalledTimes(5);
+    // implement + evidence = 2 more calls (plan NOT re-executed), graph reaches END
+    expect(executor.execute).toHaveBeenCalledTimes(6);
 
     // All nodes ran — verify messages accumulated
     expect(result3.messages.length).toBeGreaterThanOrEqual(1);

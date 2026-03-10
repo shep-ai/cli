@@ -1,7 +1,8 @@
 import 'reflect-metadata';
 import { describe, it, expect } from 'vitest';
 import { FeatureAgentAnnotation } from '@/infrastructure/services/agents/feature-agent/state.js';
-import type { CiFixRecord } from '@/domain/generated/output.js';
+import type { CiFixRecord, Evidence } from '@/domain/generated/output.js';
+import { EvidenceType } from '@/domain/generated/output.js';
 
 describe('FeatureAgentAnnotation', () => {
   describe('merge state channels exist on type', () => {
@@ -48,7 +49,69 @@ describe('FeatureAgentAnnotation', () => {
       expect(channelNames).toContain('ciFixHistory');
       expect(channelNames).toContain('ciFixStatus');
       expect(channelNames).toContain('model');
-      expect(channelNames.length).toBe(24);
+      expect(channelNames).toContain('evidence');
+      expect(channelNames.length).toBe(25);
+    });
+  });
+
+  describe('evidence state channel', () => {
+    const makeEvidence = (index: number): Evidence => ({
+      type: EvidenceType.Screenshot,
+      capturedAt: `2026-01-0${index}T00:00:00Z`,
+      description: `evidence ${index}`,
+      relativePath: `.shep/evidence/screenshot-${index}.png`,
+      taskRef: `task-${index}`,
+    });
+
+    describe('initial default', () => {
+      it('evidence defaults to empty array', () => {
+        const channel = FeatureAgentAnnotation.spec.evidence as unknown as {
+          initialValueFactory: () => Evidence[];
+        };
+        expect(channel.initialValueFactory()).toEqual([]);
+      });
+    });
+
+    describe('evidence reducer — append (accumulating)', () => {
+      const getOperator = () =>
+        (
+          FeatureAgentAnnotation.spec.evidence as unknown as {
+            operator: (prev: Evidence[], next: Evidence[]) => Evidence[];
+          }
+        ).operator;
+
+      it('accumulates evidence records across two state updates', () => {
+        const op = getOperator();
+        const evidence1 = makeEvidence(1);
+        const evidence2 = makeEvidence(2);
+
+        const afterFirst = op([], [evidence1]);
+        expect(afterFirst).toHaveLength(1);
+        expect(afterFirst[0]).toEqual(evidence1);
+
+        const afterSecond = op(afterFirst, [evidence2]);
+        expect(afterSecond).toHaveLength(2);
+        expect(afterSecond[0]).toEqual(evidence1);
+        expect(afterSecond[1]).toEqual(evidence2);
+      });
+
+      it('does not lose prior records on checkpoint restore (append semantics)', () => {
+        const op = getOperator();
+        const existing = [makeEvidence(1), makeEvidence(2)];
+        const newEvidence = makeEvidence(3);
+
+        const result = op(existing, [newEvidence]);
+        expect(result).toHaveLength(3);
+        expect(result[2]).toEqual(newEvidence);
+      });
+
+      it('produces [...prev, ...next] — not a replace', () => {
+        const op = getOperator();
+        const prev = [makeEvidence(1)];
+        const next = [makeEvidence(2)];
+        const result = op(prev, next);
+        expect(result).toEqual([...prev, ...next]);
+      });
     });
   });
 

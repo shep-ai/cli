@@ -47,6 +47,8 @@ function createTestSettings(overrides: Partial<Settings> = {}): Settings {
         allowMerge: false,
         pushOnImplementationComplete: false,
       },
+      enableEvidence: false,
+      commitEvidence: false,
     },
     onboardingComplete: false,
     ...overrides,

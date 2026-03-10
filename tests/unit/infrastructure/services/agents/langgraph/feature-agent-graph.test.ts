@@ -30,6 +30,14 @@ vi.mock('node:fs', async (importOriginal) => {
   };
 });
 
+// Mock settings service — evidence enabled by default in tests
+vi.mock('@/infrastructure/services/settings.service.js', () => ({
+  hasSettings: vi.fn().mockReturnValue(true),
+  getSettings: vi.fn().mockReturnValue({
+    workflow: { enableEvidence: true, commitEvidence: false },
+  }),
+}));
+
 const MOCK_SPEC_YAML = `name: test
 oneLiner: A test feature
 summary: Test feature summary
@@ -253,8 +261,8 @@ describe('createFeatureAgentGraph', () => {
         { configurable: { thread_id: 'test-thread-1' } }
       );
 
-      // 4 earlier nodes + 1 implement phase = 5 executor calls
-      expect(mockExecutor.execute).toHaveBeenCalledTimes(5);
+      // 4 earlier nodes + 1 implement phase + 1 evidence sub-agent = 6 executor calls
+      expect(mockExecutor.execute).toHaveBeenCalledTimes(6);
       expect(result.currentNode).toBe('implement');
       expect(result.messages).toContainEqual(expect.stringContaining('[analyze]'));
       expect(result.error).toBeNull();
@@ -382,8 +390,8 @@ describe('createFeatureAgentGraph', () => {
         config
       );
 
-      // 4 earlier nodes + 1 implement phase = 5 executor calls
-      expect(mockExecutor.execute).toHaveBeenCalledTimes(5);
+      // 4 earlier nodes + 1 implement phase + 1 evidence sub-agent = 6 executor calls
+      expect(mockExecutor.execute).toHaveBeenCalledTimes(6);
       expect(result.currentNode).toBe('implement');
     });
 
@@ -403,7 +411,7 @@ describe('createFeatureAgentGraph', () => {
         config
       );
 
-      expect(mockExecutor.execute).toHaveBeenCalledTimes(5);
+      expect(mockExecutor.execute).toHaveBeenCalledTimes(6);
       expect(result.currentNode).toBe('implement');
     });
 

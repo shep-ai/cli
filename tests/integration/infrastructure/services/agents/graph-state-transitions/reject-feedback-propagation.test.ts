@@ -258,8 +258,8 @@ describe('Graph State Transitions › Reject Feedback Propagation', () => {
       const rApprove = await ctx.graph.invoke(approveCommand(), config);
       expectNoInterrupts(rApprove); // implement runs, no merge gate
 
-      // implement(15) = 15
-      expect(ctx.executor.callCount).toBe(15);
+      // implement(15) + evidence(16) = 16
+      expect(ctx.executor.callCount).toBe(16);
     });
   });
 
@@ -289,8 +289,8 @@ describe('Graph State Transitions › Reject Feedback Propagation', () => {
       // Initial run — interrupt at merge
       const r1 = await ctx.graph.invoke(state, config);
       expectInterruptAt(r1, 'merge');
-      // analyze + req + research + plan + implement + merge-commit = 6
-      expect(ctx.executor.callCount).toBe(6);
+      // analyze + req + research + plan + implement + evidence + merge-commit = 7
+      expect(ctx.executor.callCount).toBe(7);
 
       const messages = [
         'fix commit message format',
@@ -318,8 +318,8 @@ describe('Graph State Transitions › Reject Feedback Propagation', () => {
         const result = await ctx.graph.invoke(rejectCommand(messages[i]), config);
         expectInterruptAt(result, 'merge');
 
-        // 4. Call count: initial(6) + rejections(i+1)
-        expect(ctx.executor.callCount).toBe(7 + i);
+        // 4. Call count: initial(7) + rejections(i+1)
+        expect(ctx.executor.callCount).toBe(8 + i);
 
         // 5. Verify the merge re-execution prompt contains merge-specific feedback
         const reexecPrompt = ctx.executor.prompts[ctx.executor.prompts.length - 1];
@@ -337,8 +337,8 @@ describe('Graph State Transitions › Reject Feedback Propagation', () => {
       expect(finalFeedback).toHaveLength(10);
       expect(finalFeedback.every((f) => f.phase === 'merge')).toBe(true);
 
-      // Call count: initial(6) + 10 re-execs = 16
-      expect(ctx.executor.callCount).toBe(16);
+      // Call count: initial(7) + 10 re-execs = 17
+      expect(ctx.executor.callCount).toBe(17);
 
       // Approve and complete
       const rApprove = await ctx.graph.invoke(approveCommand(), config);
@@ -434,8 +434,8 @@ describe('Graph State Transitions › Reject Feedback Propagation', () => {
 
       const rApprovePlan = await ctx.graph.invoke(approveCommand(), config);
       expectInterruptAt(rApprovePlan, 'merge');
-      // implement(25) + merge-commit(26) = 26
-      expect(ctx.executor.callCount).toBe(26);
+      // implement(25) + evidence(26) + merge-commit(27) = 27
+      expect(ctx.executor.callCount).toBe(27);
 
       // ========== Phase 3: Merge — 10 rejections ==========
 
@@ -445,7 +445,7 @@ describe('Graph State Transitions › Reject Feedback Propagation', () => {
 
         const result = await ctx.graph.invoke(rejectCommand(msg), config);
         expectInterruptAt(result, 'merge');
-        expect(ctx.executor.callCount).toBe(27 + i);
+        expect(ctx.executor.callCount).toBe(28 + i);
 
         // Verify merge feedback section in prompt
         const prompt = ctx.executor.prompts[ctx.executor.prompts.length - 1];
@@ -478,7 +478,7 @@ describe('Graph State Transitions › Reject Feedback Propagation', () => {
       expect(finalFeedback[29].iteration).toBe(30);
 
       // Approve merge — graph completes
-      expect(ctx.executor.callCount).toBe(36);
+      expect(ctx.executor.callCount).toBe(37);
       const rApproveMerge = await ctx.graph.invoke(approveCommand(), config);
       expectNoInterrupts(rApproveMerge);
     });

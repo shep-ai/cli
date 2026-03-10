@@ -71,6 +71,8 @@ describe('SQLiteSettingsRepository', () => {
         allowMerge: false,
         pushOnImplementationComplete: false,
       },
+      enableEvidence: false,
+      commitEvidence: false,
     },
     onboardingComplete: false,
   });

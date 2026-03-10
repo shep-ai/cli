@@ -44,3 +44,18 @@ export const AllSections: Story = {
     dbFileSize: '12.8 MB',
   },
 };
+
+export const EvidenceEnabled: Story = {
+  args: {
+    settings: {
+      ...defaultSettings,
+      workflow: {
+        ...defaultSettings.workflow,
+        enableEvidence: true,
+        commitEvidence: true,
+      },
+    },
+    shepHome: '/home/user/.shep',
+    dbFileSize: '2.4 MB',
+  },
+};

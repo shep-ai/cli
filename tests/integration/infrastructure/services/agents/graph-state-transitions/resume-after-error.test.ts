@@ -34,6 +34,12 @@ import {
   VALID_TASKS_YAML,
 } from './fixtures.js';
 import { expectNoInterrupts, ALL_GATES_ENABLED } from './helpers.js';
+import {
+  initializeSettings,
+  hasSettings,
+  resetSettings,
+} from '@/infrastructure/services/settings.service.js';
+import type { Settings } from '@/domain/generated/output.js';
 
 /**
  * Non-retryable error message. retryExecute() checks for "Process exited with code"
@@ -122,6 +128,48 @@ describe('Graph State Transitions › Resume After Error', () => {
   let output: { restore: () => void };
 
   beforeAll(() => {
+    // Initialize settings singleton so evidence sub-agent runs within implement node
+    if (!hasSettings()) {
+      initializeSettings({
+        id: 'test',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        models: { default: 'claude-sonnet-4' },
+        user: {},
+        environment: { defaultEditor: 'vscode', shellPreference: 'bash' },
+        system: { autoUpdate: false, logLevel: 'error' },
+        agent: { type: 'claude-code', authMethod: 'session' },
+        notifications: {
+          inApp: { enabled: false },
+          browser: { enabled: false },
+          desktop: { enabled: false },
+          events: {
+            agentStarted: false,
+            phaseCompleted: false,
+            waitingApproval: false,
+            agentCompleted: false,
+            agentFailed: false,
+            prMerged: false,
+            prClosed: false,
+            prChecksPassed: false,
+            prChecksFailed: false,
+          },
+        },
+        workflow: {
+          openPrOnImplementationComplete: false,
+          approvalGateDefaults: {
+            allowPrd: false,
+            allowPlan: false,
+            allowMerge: false,
+            pushOnImplementationComplete: false,
+          },
+          enableEvidence: true,
+          commitEvidence: false,
+        },
+        onboardingComplete: true,
+      } as Settings);
+    }
+
     output = (() => {
       const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
       const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
@@ -150,6 +198,7 @@ describe('Graph State Transitions › Resume After Error', () => {
   afterAll(() => {
     output.restore();
     if (tempDir) rmSync(tempDir, { recursive: true, force: true });
+    resetSettings();
   });
 
   /**
@@ -196,11 +245,11 @@ describe('Graph State Transitions › Resume After Error', () => {
     // Capture baseline message count before resume
     // Invocation #2: resume with same config (same thread_id + checkpointer)
     // Should NOT re-execute analyze, requirements, research, plan
-    // Should ONLY re-execute implement
+    // Should ONLY re-execute implement (+ evidence runs after)
     const result = await graph.invoke(initialState, config);
 
     expectNoInterrupts(result);
-    expect(executor.callCount).toBe(1);
+    expect(executor.callCount).toBe(2);
     expect(getExecutedNodes(executor.prompts)).toEqual(['implement']);
   });
 
@@ -219,11 +268,11 @@ describe('Graph State Transitions › Resume After Error', () => {
     executor.clearThrow();
     executor.resetCounts();
 
-    // Invocation #2: should skip analyze + requirements, re-run research + plan + implement
+    // Invocation #2: should skip analyze + requirements, re-run research + plan + implement + evidence
     const result = await graph.invoke(initialState, config);
 
     expectNoInterrupts(result);
-    expect(executor.callCount).toBe(3);
+    expect(executor.callCount).toBe(4);
     expect(getExecutedNodes(executor.prompts)).toEqual(['research', 'plan', 'implement']);
   });
 
@@ -242,11 +291,11 @@ describe('Graph State Transitions › Resume After Error', () => {
     executor.clearThrow();
     executor.resetCounts();
 
-    // Invocation #2: nothing was completed, so all nodes run
+    // Invocation #2: nothing was completed, so all nodes run (including evidence)
     const result = await graph.invoke(initialState, config);
 
     expectNoInterrupts(result);
-    expect(executor.callCount).toBe(5);
+    expect(executor.callCount).toBe(6);
     expect(getExecutedNodes(executor.prompts)).toEqual([
       'analyze',
       'requirements',
@@ -271,11 +320,11 @@ describe('Graph State Transitions › Resume After Error', () => {
     executor.clearThrow();
     executor.resetCounts();
 
-    // Invocation #2: skip analyze + req + research, re-run plan + implement
+    // Invocation #2: skip analyze + req + research, re-run plan + implement + evidence
     const result = await graph.invoke(initialState, config);
 
     expectNoInterrupts(result);
-    expect(executor.callCount).toBe(2);
+    expect(executor.callCount).toBe(3);
     expect(getExecutedNodes(executor.prompts)).toEqual(['plan', 'implement']);
   });
 
@@ -298,14 +347,14 @@ describe('Graph State Transitions › Resume After Error', () => {
     await expect(graph.invoke(initialState, config)).rejects.toThrow();
     expect(executor.callCount).toBe(1); // Only implement was attempted
 
-    // Invocation #3: finally succeed
+    // Invocation #3: finally succeed (implement + evidence)
     executor.clearThrow();
     executor.resetCounts();
 
     const result = await graph.invoke(initialState, config);
 
     expectNoInterrupts(result);
-    expect(executor.callCount).toBe(1);
+    expect(executor.callCount).toBe(2);
     expect(getExecutedNodes(executor.prompts)).toEqual(['implement']);
   });
 });

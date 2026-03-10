@@ -1,8 +1,9 @@
 /**
  * Fast Feature Agent Graph Unit Tests
  *
- * Tests for the fast-mode LangGraph StateGraph that contains only
- * fast-implement → merge nodes (or just fast-implement → END without merge deps).
+ * Tests for the fast-mode LangGraph StateGraph that contains
+ * fast-implement (+ evidence sub-agent) → merge nodes (or
+ * fast-implement → END without merge deps).
  */
 
 import 'reflect-metadata';
@@ -52,6 +53,14 @@ vi.mock('@/infrastructure/services/agents/feature-agent/phase-timing-context.js'
   recordPhaseStart: vi.fn().mockResolvedValue('timing-id'),
   recordPhaseEnd: vi.fn().mockResolvedValue(undefined),
   recordApprovalWaitStart: vi.fn().mockResolvedValue(undefined),
+}));
+
+// Mock settings service — evidence enabled by default in tests
+vi.mock('@/infrastructure/services/settings.service.js', () => ({
+  hasSettings: vi.fn().mockReturnValue(true),
+  getSettings: vi.fn().mockReturnValue({
+    workflow: { enableEvidence: true, commitEvidence: false },
+  }),
 }));
 
 const MOCK_SPEC_YAML = `name: quick-fix
@@ -156,6 +165,8 @@ describe('createFastFeatureAgentGraph', () => {
       expect(nodeIds).not.toContain('research');
       expect(nodeIds).not.toContain('plan');
       expect(nodeIds).not.toContain('implement');
+      // Evidence is now a sub-agent within fast-implement, not a separate node
+      expect(nodeIds).not.toContain('collect_evidence');
     });
 
     it('should have edge from START to fast-implement', () => {
@@ -176,7 +187,7 @@ describe('createFastFeatureAgentGraph', () => {
   });
 
   describe('node execution', () => {
-    it('should call executor for fast-implement node', async () => {
+    it('should call executor for fast-implement and evidence sub-agent', async () => {
       setupFileMocks();
       const compiled = createFastFeatureAgentGraph(mockExecutor, checkpointer);
 
@@ -190,11 +201,12 @@ describe('createFastFeatureAgentGraph', () => {
         { configurable: { thread_id: 'fast-thread-1' } }
       );
 
-      expect(mockExecutor.execute).toHaveBeenCalledTimes(1);
+      // Called twice: once for fast-implement, once for evidence sub-agent within fast-implement
+      expect(mockExecutor.execute).toHaveBeenCalledTimes(2);
       expect(result.currentNode).toBe('fast-implement');
     });
 
-    it('should accumulate messages from fast-implement node', async () => {
+    it('should accumulate messages from fast-implement including evidence', async () => {
       setupFileMocks();
       const compiled = createFastFeatureAgentGraph(mockExecutor, checkpointer);
 
@@ -208,7 +220,7 @@ describe('createFastFeatureAgentGraph', () => {
         { configurable: { thread_id: 'fast-thread-2' } }
       );
 
-      expect(result.messages.length).toBeGreaterThanOrEqual(1);
+      expect(result.messages.length).toBeGreaterThanOrEqual(2);
       expect(result.messages.some((m: string) => m.includes('[fast-implement]'))).toBe(true);
     });
 

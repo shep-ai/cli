@@ -192,8 +192,8 @@ describe('Graph State Transitions › Reject Flow', () => {
     const rApprove = await ctx.graph.invoke(approveCommand(), config);
     expectNoInterrupts(rApprove);
 
-    // After approve: implement(13)
-    expect(ctx.executor.callCount).toBe(13);
+    // After approve: implement(13) + evidence(14)
+    expect(ctx.executor.callCount).toBe(14);
   });
 
   it('should reject plan, re-execute plan only (Test 6)', async () => {

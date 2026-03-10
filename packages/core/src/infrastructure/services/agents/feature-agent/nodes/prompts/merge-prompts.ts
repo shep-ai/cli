@@ -7,6 +7,7 @@
  */
 
 import yaml from 'js-yaml';
+import { EvidenceType, type Evidence } from '@/domain/generated/output.js';
 import { readSpecFile } from '../node-helpers.js';
 import type { FeatureAgentState } from '../../state.js';
 
@@ -49,6 +50,81 @@ ${olderSection}
 }
 
 /**
+ * Parse a GitHub remote URL (HTTPS or SSH) into owner/repo.
+ * Returns null if the URL does not match a known GitHub format.
+ */
+export function parseGitHubOwnerRepo(remoteUrl: string): { owner: string; repo: string } | null {
+  // HTTPS: https://github.com/owner/repo.git or https://github.com/owner/repo
+  const httpsMatch = remoteUrl.match(/github\.com\/([^/]+)\/([^/.]+?)(?:\.git)?$/);
+  if (httpsMatch) return { owner: httpsMatch[1], repo: httpsMatch[2] };
+
+  // SSH: git@github.com:owner/repo.git or git@github.com:owner/repo
+  const sshMatch = remoteUrl.match(/github\.com:([^/]+)\/([^/.]+?)(?:\.git)?$/);
+  if (sshMatch) return { owner: sshMatch[1], repo: sshMatch[2] };
+
+  return null;
+}
+
+/**
+ * Convert a relative evidence path to an absolute GitHub raw URL.
+ * Falls back to the relative path if repoUrl is unavailable or not a GitHub repo.
+ */
+function toGitHubRawUrl(
+  relativePath: string,
+  branch: string | undefined,
+  repoUrl: string | undefined
+): string {
+  if (!repoUrl || !branch) return relativePath;
+  const parsed = parseGitHubOwnerRepo(repoUrl);
+  if (!parsed) return relativePath;
+  return `https://raw.githubusercontent.com/${parsed.owner}/${parsed.repo}/${branch}/${relativePath}`;
+}
+
+/**
+ * Format a single evidence record as GitHub-compatible markdown.
+ * When repoUrl and branch are provided, converts relative paths to
+ * absolute raw.githubusercontent.com URLs so images render in PR bodies.
+ */
+function formatEvidenceItem(e: Evidence, branch?: string, repoUrl?: string): string {
+  const taskLine = e.taskRef ? ` (${e.taskRef})` : '';
+  const url = toGitHubRawUrl(e.relativePath, branch, repoUrl);
+  switch (e.type) {
+    case EvidenceType.Screenshot:
+      return `- **${e.description}**${taskLine}\n  ![${e.description}](${url})`;
+    case EvidenceType.TestOutput:
+      return `- **${e.description}**${taskLine}\n  See: \`${e.relativePath}\``;
+    case EvidenceType.Video:
+      return `- [${e.description}](${url})${taskLine}`;
+    case EvidenceType.TerminalRecording:
+      return `- [${e.description}](${url})${taskLine}`;
+    default:
+      return `- [${e.description}](${url})${taskLine}`;
+  }
+}
+
+/**
+ * Build a markdown evidence section from evidence records.
+ * Returns empty string when no evidence is available.
+ * When branch and repoUrl are provided, image paths are converted to
+ * absolute raw.githubusercontent.com URLs for correct rendering in PR bodies.
+ */
+export function formatEvidenceSection(
+  evidence: Evidence[],
+  branch?: string,
+  repoUrl?: string
+): string {
+  if (!evidence || evidence.length === 0) return '';
+
+  const items = evidence.map((e) => formatEvidenceItem(e, branch, repoUrl)).join('\n');
+  return `\n## Evidence
+
+The following evidence was captured to prove task completion. Include this section in the PR body:
+
+${items}
+`;
+}
+
+/**
  * Build a prompt for the commit + push + PR agent call.
  *
  * The agent always commits. Push and PR creation are conditional based
@@ -57,12 +133,17 @@ ${olderSection}
 export function buildCommitPushPrPrompt(
   state: FeatureAgentState,
   branch: string,
-  baseBranch: string
+  baseBranch: string,
+  repoUrl?: string
 ): string {
   const specContent = readSpecFile(state.specDir, 'spec.yaml');
   const cwd = state.worktreePath || state.repositoryPath;
   const shouldPush = state.push || state.openPr;
   const rejectionSection = getMergeRejectionFeedback(specContent);
+  // Only include evidence in the PR body when commitEvidence is enabled
+  const evidenceSection = state.evidence?.length
+    ? formatEvidenceSection(state.evidence, branch, repoUrl)
+    : '';
 
   const steps: string[] = [];
 
@@ -113,7 +194,7 @@ ${cwd}
 ## Instructions
 
 ${steps.join('\n')}
-
+${evidenceSection}
 ## Constraints
 
 - Write a meaningful conventional commit message derived from the actual diff — do NOT use generic messages

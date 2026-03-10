@@ -58,7 +58,8 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
         onboarding_complete,
         approval_gate_allow_prd, approval_gate_allow_plan,
         approval_gate_allow_merge, approval_gate_push_on_impl_complete,
-        feature_flag_skills, feature_flag_env_deploy, feature_flag_debug
+        feature_flag_skills, feature_flag_env_deploy, feature_flag_debug,
+        workflow_enable_evidence, workflow_commit_evidence
       ) VALUES (
         @id, @created_at, @updated_at,
         @model_analyze, @model_requirements, @model_plan, @model_implement, @model_default,
@@ -74,7 +75,8 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
         @onboarding_complete,
         @approval_gate_allow_prd, @approval_gate_allow_plan,
         @approval_gate_allow_merge, @approval_gate_push_on_impl_complete,
-        @feature_flag_skills, @feature_flag_env_deploy, @feature_flag_debug
+        @feature_flag_skills, @feature_flag_env_deploy, @feature_flag_debug,
+        @workflow_enable_evidence, @workflow_commit_evidence
       )
     `);
 
@@ -158,7 +160,9 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
         approval_gate_push_on_impl_complete = @approval_gate_push_on_impl_complete,
         feature_flag_skills = @feature_flag_skills,
         feature_flag_env_deploy = @feature_flag_env_deploy,
-        feature_flag_debug = @feature_flag_debug
+        feature_flag_debug = @feature_flag_debug,
+        workflow_enable_evidence = @workflow_enable_evidence,
+        workflow_commit_evidence = @workflow_commit_evidence
       WHERE id = @id
     `);
 

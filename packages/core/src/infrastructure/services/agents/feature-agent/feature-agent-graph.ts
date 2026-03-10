@@ -149,7 +149,7 @@ function createPlanTasksValidator(): (
  * Factory function that creates and compiles the feature-agent LangGraph.
  *
  * The graph defines a linear SDLC workflow with validation gates:
- *   analyze → validate → requirements → validate → research → validate → plan → validate → implement → merge
+ *   analyze → validate → requirements → validate → research → validate → plan → validate → implement (+ evidence sub-agent) → merge
  *
  * Each YAML-producing node is followed by a validate/repair loop that ensures
  * the output YAML conforms to its schema before proceeding.

@@ -23,13 +23,64 @@ import {
 import type { MergeNodeDeps } from '@/infrastructure/services/agents/feature-agent/nodes/merge/merge.node.js';
 import { createCheckpointer } from '@/infrastructure/services/agents/common/checkpointer.js';
 import type { IAgentExecutor } from '@/application/ports/output/agents/agent-executor.interface.js';
-import type { ApprovalGates } from '@/domain/generated/output.js';
+import type { ApprovalGates, Settings } from '@/domain/generated/output.js';
+import {
+  initializeSettings,
+  hasSettings,
+  resetSettings,
+} from '@/infrastructure/services/settings.service.js';
 import {
   VALID_SPEC_YAML,
   VALID_RESEARCH_YAML,
   VALID_PLAN_YAML,
   VALID_TASKS_YAML,
 } from './fixtures.js';
+
+/**
+ * Ensure the settings singleton is initialized with evidence enabled.
+ * Safe to call multiple times — only initializes once.
+ */
+function ensureSettingsInitialized(): void {
+  if (hasSettings()) return;
+  initializeSettings({
+    id: 'test',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    models: { default: 'claude-sonnet-4' },
+    user: {},
+    environment: { defaultEditor: 'vscode', shellPreference: 'bash' },
+    system: { autoUpdate: false, logLevel: 'error' },
+    agent: { type: 'claude-code', authMethod: 'session' },
+    notifications: {
+      inApp: { enabled: false },
+      browser: { enabled: false },
+      desktop: { enabled: false },
+      events: {
+        agentStarted: false,
+        phaseCompleted: false,
+        waitingApproval: false,
+        agentCompleted: false,
+        agentFailed: false,
+        prMerged: false,
+        prClosed: false,
+        prChecksPassed: false,
+        prChecksFailed: false,
+      },
+    },
+    workflow: {
+      openPrOnImplementationComplete: false,
+      approvalGateDefaults: {
+        allowPrd: false,
+        allowPlan: false,
+        allowMerge: false,
+        pushOnImplementationComplete: false,
+      },
+      enableEvidence: true,
+      commitEvidence: false,
+    },
+    onboardingComplete: true,
+  } as Settings);
+}
 
 /* ------------------------------------------------------------------ */
 /*  Stub Executor                                                     */
@@ -237,6 +288,7 @@ export function createTestContext(options?: TestContextOptions): TestContext {
     },
 
     init: () => {
+      ensureSettingsInitialized();
       tempDir = mkdtempSync(join(tmpdir(), 'shep-gst-'));
       specDir = join(tempDir, 'specs', '001-test');
       mkdirSync(specDir, { recursive: true });
@@ -252,6 +304,7 @@ export function createTestContext(options?: TestContextOptions): TestContext {
 
     cleanup: () => {
       if (tempDir) rmSync(tempDir, { recursive: true, force: true });
+      resetSettings();
     },
 
     suppressOutput: () => {
