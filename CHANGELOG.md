@@ -1,3 +1,9 @@
+# [1.96.0](https://github.com/shep-ai/cli/compare/v1.95.0...v1.96.0) (2026-03-10)
+
+### Features
+
+- **web:** add welcome onboarding wizard with agent setup gate ([#278](https://github.com/shep-ai/cli/issues/278)) ([b610777](https://github.com/shep-ai/cli/commit/b6107770a15bc9cf2a93229eba90b33a8574521e))
+
 # [1.95.0](https://github.com/shep-ai/cli/compare/v1.94.0...v1.95.0) (2026-03-10)
 
 ### Features
