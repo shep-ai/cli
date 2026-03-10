@@ -88,3 +88,12 @@ rejectionFeedback:
     attachments:
       - >-
         /home/blackpc/.shep/attachments/pending-14578541-30aa-4c42-af99-0569296ed2d3/image-7bf87dfc.png
+  - iteration: 3
+    message: |-
+      i want to see selected agent icon and name on model selection.
+      The example shep feat new command is broken in 2 lines, not good
+    phase: merge
+    timestamp: '2026-03-10T12:54:03.227Z'
+    attachments:
+      - >-
+        /home/blackpc/.shep/attachments/pending-fbdd8f4e-d318-44d7-8cd5-1976a5e61313/image-e3ba2506.png

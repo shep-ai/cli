@@ -11,7 +11,7 @@ export interface ControlCenterEmptyStateProps {
   className?: string;
 }
 
-const commands = ['cd ~/my-repo', 'shep feat new "create modern, sleek dashboards"'];
+const commands = ['cd ~/my-repo', 'shep feat new "sleek dashboard"'];
 
 export function ControlCenterEmptyState({
   onRepositorySelect,
@@ -121,7 +121,7 @@ export function ControlCenterEmptyState({
                 </button>
                 <div className="space-y-0.5">
                   {commands.map((cmd) => (
-                    <div key={cmd}>
+                    <div key={cmd} className="whitespace-nowrap">
                       <span className="text-zinc-500 select-none">$ </span>
                       <span>{cmd}</span>
                     </div>

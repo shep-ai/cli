@@ -160,13 +160,38 @@ export function WelcomeAgentSetup({ onComplete, className }: WelcomeAgentSetupPr
       className={cn('flex flex-col items-center gap-4', WIZARD_WIDTH, className)}
     >
       {/* Section header */}
-      <div className="text-muted-foreground flex items-center gap-2">
-        <Bot className="h-3.5 w-3.5" />
-        <span className="text-[10px] font-semibold tracking-widest uppercase">
-          {step === 'select-agent' && 'Choose your agent'}
-          {step === 'select-model' && 'Pick a model'}
-          {step === 'check-tool' && 'Verifying setup'}
-        </span>
+      <div className="flex flex-col items-center gap-1">
+        <div className="text-muted-foreground flex items-center gap-2">
+          {step === 'select-agent' && (
+            <>
+              <Bot className="h-3.5 w-3.5" />
+              <span className="text-[10px] font-semibold tracking-widest uppercase">
+                Choose your agent
+              </span>
+            </>
+          )}
+          {step === 'select-model' && activeGroup
+            ? (() => {
+                const AgentIcon = getAgentTypeIcon(activeGroup.agentType);
+                return (
+                  <>
+                    <AgentIcon className="h-3.5 w-3.5" />
+                    <span className="text-[10px] font-semibold tracking-widest uppercase">
+                      {activeGroup.label} — Pick a model
+                    </span>
+                  </>
+                );
+              })()
+            : null}
+          {step === 'check-tool' && (
+            <>
+              <Bot className="h-3.5 w-3.5" />
+              <span className="text-[10px] font-semibold tracking-widest uppercase">
+                Verifying setup
+              </span>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Step indicator — fixed width */}
