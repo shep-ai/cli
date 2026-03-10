@@ -2,9 +2,9 @@
 
 # Shep AI
 
-### Autonomous AI Native SDLC Platform
+### One command. Full lifecycle. Merged PR.
 
-_Run `shep` in any repo to manage features through the full development lifecycle — requirements, planning, implementation, review, and deployment — using AI coding agents with human-in-the-loop approval gates._
+_Describe a feature in plain English — Shep researches, plans, codes, tests, and opens a PR. You approve when you want to, or let it run hands-free._
 
 [![CI](https://github.com/shep-ai/cli/actions/workflows/ci.yml/badge.svg)](https://github.com/shep-ai/cli/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/@shepai/cli.svg?color=cb3837&logo=npm)](https://www.npmjs.com/package/@shepai/cli)
@@ -43,14 +43,19 @@ shep
 
 ## Features
 
-- **Full SDLC automation** — AI agents handle requirements gathering, research, planning, implementation, and review
-- **Human-in-the-loop gates** — Approval checkpoints at PRD, Plan, and Merge phases (configurable or skip with `--allow-all`)
-- **Multi-agent support** — Plug in Claude Code, Cursor CLI, or Gemini CLI as your coding agent
-- **Web UI dashboard** — Interactive React Flow canvas showing features and repos as graph nodes with real-time SSE updates
-- **Git worktree isolation** — Each feature gets its own worktree, no branch switching or stashing
-- **CLI-first workflow** — Full feature management, agent control, settings, and tooling from the terminal
-- **TUI onboarding wizard** — Guided setup on first run
-- **Per-repo SQLite database** — All data lives locally in `~/.shep/`, no cloud dependency
+```bash
+shep feat new "add stripe payments" --allow-all --push --pr
+# ↳ PRD → research → plan → code → tests → PR → CI watch — done.
+```
+
+- **Full lifecycle in one shot** — From idea to merged PR: requirements, technical research, implementation plan, code with tests, PR creation, and CI fix loop
+- **Approve or go hands-free** — Three review gates (PRD, Plan, Merge) you can enable, disable, or skip entirely with `--allow-all`
+- **Run 10 features in parallel** — Each gets its own git worktree — switch context instantly, no stashing, no branch juggling, no conflicts
+- **Pick your agent** — Claude Code, Cursor CLI, or Gemini CLI — swap per feature, per repo, anytime
+- **Live dashboard** — Interactive graph of every repo and feature — review diffs, approve merges, launch dev servers, all in-browser
+- **100% local, zero signup** — SQLite in `~/.shep/`, nothing leaves your machine, no account needed
+
+> **[See the full Features Guide with screenshots →](./docs/FEATURES.md)**
 
 ---
 
@@ -227,17 +232,19 @@ All data lives locally in `~/.shep/`. Per-repo SQLite databases. No cloud depend
 
 ## Documentation
 
-| Document                                           | Description                           |
-| -------------------------------------------------- | ------------------------------------- |
-| [CLAUDE.md](./CLAUDE.md)                           | Guidance for Claude Code instances    |
-| [AGENTS.md](./AGENTS.md)                           | Agent system architecture             |
-| [CONTRIBUTING-AGENTS.md](./CONTRIBUTING-AGENTS.md) | AI agent contribution guidelines      |
-| [Architecture](./docs/architecture/)               | System design and patterns            |
-| [Concepts](./docs/concepts/)                       | Core domain concepts                  |
-| [UI](./docs/ui/)                                   | Web UI architecture and design system |
-| [Guides](./docs/guides/)                           | User guides and tutorials             |
-| [Development](./docs/development/)                 | Contributing and development setup    |
-| [API Reference](./docs/api/)                       | Interface and model documentation     |
+| Document                                           | Description                                |
+| -------------------------------------------------- | ------------------------------------------ |
+| [Features Guide](./docs/FEATURES.md)               | Full features overview with screenshots    |
+| [Competitive Landscape](./docs/competitors/)       | How Shep fits in the AI dev tool ecosystem |
+| [CLAUDE.md](./CLAUDE.md)                           | Guidance for Claude Code instances         |
+| [AGENTS.md](./AGENTS.md)                           | Agent system architecture                  |
+| [CONTRIBUTING-AGENTS.md](./CONTRIBUTING-AGENTS.md) | AI agent contribution guidelines           |
+| [Architecture](./docs/architecture/)               | System design and patterns                 |
+| [Concepts](./docs/concepts/)                       | Core domain concepts                       |
+| [UI](./docs/ui/)                                   | Web UI architecture and design system      |
+| [Guides](./docs/guides/)                           | User guides and tutorials                  |
+| [Development](./docs/development/)                 | Contributing and development setup         |
+| [API Reference](./docs/api/)                       | Interface and model documentation          |
 
 ## Contributing
 

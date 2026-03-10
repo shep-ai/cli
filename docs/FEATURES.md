@@ -6,55 +6,6 @@ Shep is the first truly autonomous software development lifecycle platform. Desc
 
 ---
 
-## Progress Tracker
-
-### Screenshot Capture Plan
-
-| #   | Feature / Screen                                    | Status | File                                     |
-| --- | --------------------------------------------------- | ------ | ---------------------------------------- |
-| 1   | Dashboard — Canvas with features & repos (light)    | Done   | `01-dashboard-canvas.png`                |
-| 2   | Feature Detail — Merge Review tab                   | Done   | `02-feature-drawer-merge-review.png`     |
-| 3   | Feature Detail — Overview tab                       | Done   | `03-feature-overview-tab.png`            |
-| 4   | Feature Detail — Activity tab (fast mode)           | Done   | `04-feature-activity-tab.png`            |
-| 5   | Feature Detail — Log tab (live streaming)           | Done   | `05-feature-log-tab.png`                 |
-| 6   | Feature Detail — Activity tab (full lifecycle)      | Done   | `06-feature-activity-full-lifecycle.png` |
-| 7   | Create Feature — Drawer form                        | Done   | `07-create-feature-drawer.png`           |
-| 8   | Settings page (full page)                           | Done   | `08-settings-page.png`                   |
-| 9   | Tools page                                          | Done   | `09-tools-page.png`                      |
-| 10  | Dashboard — Dark mode                               | Done   | `10-dashboard-dark-mode.png`             |
-| 11  | Merge Review — Dark mode                            | Done   | `11-merge-review-dark-mode.png`          |
-| 12  | Diff View — Dark mode with expanded file            | Done   | `12-diff-view-dark-mode.png`             |
-| 13  | Repo node — Quick action toolbar                    | Done   | `13-repo-node-actions.png`               |
-| 14  | Feature drawer — Open dropdown (IDE/Terminal/Specs) | Done   | `14-feature-open-dropdown.png`           |
-| 15  | Diff View — Light mode with expanded file           | Done   | `15-diff-view-light-mode.png`            |
-| 16  | Tool detail drawer — Claude Code                    | Done   | `16-tool-detail-drawer.png`              |
-| 17  | Dev server running — green localhost link           | Done   | `17-dev-server-running.png`              |
-| 18  | Onboarding — Choose your agent                      | Done   | `18-onboarding-choose-agent.png`         |
-| 19  | Onboarding — Select model                           | Done   | `19-onboarding-select-model.png`         |
-| 20  | Onboarding — Authenticate                           | Done   | `20-onboarding-authenticate.png`         |
-| 21  | Onboarding — Add repository                         | Done   | `21-onboarding-add-repository.png`       |
-
-### Document Sections
-
-| Section                       | Status |
-| ----------------------------- | ------ |
-| Quick Start                   | Done   |
-| Onboarding                    | Done   |
-| The Dashboard                 | Done   |
-| Creating Features             | Done   |
-| Feature Lifecycle             | Done   |
-| Approval Gates & Merge Review | Done   |
-| Feature Detail Tabs           | Done   |
-| Settings & Configuration      | Done   |
-| Tool Management               | Done   |
-| Dark Mode                     | Done   |
-| CLI Reference                 | Done   |
-| Quick Actions & Dev Server    | Done   |
-| Architecture                  | Done   |
-| Supported Integrations        | Done   |
-
----
-
 ## Table of Contents
 
 - [Quick Start](#quick-start)
@@ -650,7 +601,3 @@ shep feat new "Add login page component" --repo ./frontend
 ```
 
 Manage features across multiple repositories from a single dashboard.
-
----
-
-_Generated with live screenshots from Shep AI v1.94.0_
