@@ -279,13 +279,28 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
 
   const hasRepositories = nodes.some((n) => n.type === 'repositoryNode');
 
+  // Pulse the "+" button when there's a single repo with no features and the
+  // create-feature drawer is not open — draws attention to the next action.
+  const isCreateDrawerOpen = pathname.startsWith('/create');
+  const displayNodes = useMemo(() => {
+    const repoNodes = nodes.filter((n) => n.type === 'repositoryNode');
+    const hasFeatures = nodes.some((n) => n.type === 'featureNode');
+    const shouldPulse = repoNodes.length === 1 && !hasFeatures && !isCreateDrawerOpen;
+
+    if (!shouldPulse) return nodes;
+
+    return nodes.map((n) =>
+      n.type === 'repositoryNode' ? { ...n, data: { ...n.data, pulseAdd: true } } : n
+    );
+  }, [nodes, isCreateDrawerOpen]);
+
   if (!hasRepositories) {
     return <ControlCenterEmptyState onRepositorySelect={handleAddRepository} />;
   }
 
   return (
     <FeaturesCanvas
-      nodes={nodes}
+      nodes={displayNodes}
       edges={edges}
       selectedFeatureId={selectedFeatureId}
       defaultViewport={defaultViewport}

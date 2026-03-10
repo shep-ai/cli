@@ -405,6 +405,29 @@ describe('RepositoryNode', () => {
     });
   });
 
+  describe('pulse add animation', () => {
+    it('applies pulse animation class when pulseAdd is true', () => {
+      renderNode({ ...defaultData, onAdd: vi.fn(), pulseAdd: true });
+
+      const addButton = screen.getByTestId('repository-node-add-button');
+      expect(addButton).toHaveClass('animate-pulse-cta');
+    });
+
+    it('does not apply pulse animation class when pulseAdd is false', () => {
+      renderNode({ ...defaultData, onAdd: vi.fn(), pulseAdd: false });
+
+      const addButton = screen.getByTestId('repository-node-add-button');
+      expect(addButton).not.toHaveClass('animate-pulse-cta');
+    });
+
+    it('does not apply pulse animation class when pulseAdd is not set', () => {
+      renderNode({ ...defaultData, onAdd: vi.fn() });
+
+      const addButton = screen.getByTestId('repository-node-add-button');
+      expect(addButton).not.toHaveClass('animate-pulse-cta');
+    });
+  });
+
   describe('existing behavior preserved', () => {
     it('renders repository name', () => {
       renderNode(defaultData);

@@ -237,7 +237,11 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
                       e.stopPropagation();
                       data.onAdd?.();
                     }}
-                    className="text-muted-foreground hover:bg-accent dark:hover:bg-accent/50 flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors hover:text-blue-500"
+                    className={cn(
+                      'text-muted-foreground hover:bg-accent dark:hover:bg-accent/50 flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors hover:text-blue-500',
+                      data.pulseAdd &&
+                        'animate-pulse-cta bg-blue-100 text-blue-500 dark:bg-blue-900/40'
+                    )}
                   >
                     <Plus className="h-3.5 w-3.5" />
                   </button>

@@ -141,6 +141,17 @@ export const MultipleWithButton: Story = {
   },
 };
 
+export const WithPulseAdd: Story = {
+  args: {
+    repositoryPath: '/home/user/shep-ai/cli',
+    pulseAdd: true,
+  },
+  argTypes: {
+    onAdd: { action: 'onAdd' },
+  },
+  render: (args) => <RepositoryNodeCanvas data={args} />,
+};
+
 export const WithActions: Story = {
   args: {
     repositoryPath: '/home/user/shep-ai/cli',

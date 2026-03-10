@@ -72,6 +72,7 @@
   --animate-spinner: spinner 0.8s linear infinite;
   --animate-indeterminate-progress: indeterminate-progress 1.5s ease-in-out infinite;
   --animate-option-highlight: option-highlight 1.5s ease-out;
+  --animate-pulse-cta: pulse-cta 2s ease-in-out infinite;
 }
 
 /* Dark Mode Theme Overrides */
@@ -157,6 +158,16 @@
   }
   100% {
     box-shadow: 0 0 0 2px oklch(0.7 0.15 270 / 0);
+  }
+}
+
+@keyframes pulse-cta {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(59 130 246 / 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgb(59 130 246 / 0);
   }
 }
 
