@@ -11,7 +11,7 @@ const meta: Meta<typeof WelcomeAgentSetup> = {
   },
   decorators: [
     (Story) => (
-      <div style={{ width: 420, padding: 24 }}>
+      <div style={{ width: 480, padding: 48, display: 'flex', justifyContent: 'center' }}>
         <Story />
       </div>
     ),

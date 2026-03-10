@@ -181,6 +181,6 @@ describe('WelcomeAgentSetup', () => {
       expect(screen.getByTestId('welcome-agent-setup')).toBeInTheDocument();
     });
 
-    expect(screen.getByText('Set up your AI agent')).toBeInTheDocument();
+    expect(screen.getByText('Choose your agent')).toBeInTheDocument();
   });
 });
