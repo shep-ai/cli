@@ -1,3 +1,9 @@
+# [1.98.0](https://github.com/shep-ai/cli/compare/v1.97.0...v1.98.0) (2026-03-10)
+
+### Features
+
+- **web:** overhaul readme and all docs with verified accurate content ([#288](https://github.com/shep-ai/cli/issues/288)) ([a15430f](https://github.com/shep-ai/cli/commit/a15430f262968c3d69a4f5a70e5a1a5007ff02f6))
+
 # [1.97.0](https://github.com/shep-ai/cli/compare/v1.96.0...v1.97.0) (2026-03-10)
 
 ### Features
