@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Check,
   ChevronRight,
@@ -29,6 +29,11 @@ export interface WelcomeAgentSetupProps {
 
 type SetupStep = 'select-agent' | 'select-model' | 'check-tool';
 
+const STEPS: SetupStep[] = ['select-agent', 'select-model', 'check-tool'];
+
+/** Fixed width for the wizard content area to prevent layout jumps */
+const WIZARD_WIDTH = 'w-72';
+
 export function WelcomeAgentSetup({ onComplete, className }: WelcomeAgentSetupProps) {
   const [groups, setGroups] = useState<AgentModelGroup[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,8 +43,10 @@ export function WelcomeAgentSetup({ onComplete, className }: WelcomeAgentSetupPr
   const [toolStatus, setToolStatus] = useState<AgentToolStatus | null>(null);
   const [checkingTool, setCheckingTool] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [transitioning, setTransitioning] = useState(false);
+  const [visible, setVisible] = useState(true);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  // Load available agents
   useEffect(() => {
     getAllAgentModels()
       .then(setGroups)
@@ -48,45 +55,74 @@ export function WelcomeAgentSetup({ onComplete, className }: WelcomeAgentSetupPr
 
   const activeGroup = selectedAgent ? groups.find((g) => g.agentType === selectedAgent) : null;
 
+  /** Animate step transition: fade out → change step → fade in */
+  const transitionTo = useCallback((nextStep: SetupStep, setup?: () => void) => {
+    setTransitioning(true);
+    setVisible(false);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => {
+      setup?.();
+      setStep(nextStep);
+      // Small delay to let React render the new content before fading in
+      requestAnimationFrame(() => {
+        setVisible(true);
+        setTransitioning(false);
+      });
+    }, 150);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
+
   const handleAgentSelect = useCallback(
     (agentType: string) => {
       const group = groups.find((g) => g.agentType === agentType);
-      setSelectedAgent(agentType);
       if (group && group.models.length > 0) {
-        setStep('select-model');
+        transitionTo('select-model', () => {
+          setSelectedAgent(agentType);
+        });
       } else {
-        // Agent without models — go straight to tool check
-        setSelectedModel('');
-        setStep('check-tool');
+        transitionTo('check-tool', () => {
+          setSelectedAgent(agentType);
+          setSelectedModel('');
+        });
       }
     },
-    [groups]
+    [groups, transitionTo]
   );
 
-  const handleModelSelect = useCallback((model: string) => {
-    setSelectedModel(model);
-    setStep('check-tool');
-  }, []);
+  const handleModelSelect = useCallback(
+    (model: string) => {
+      transitionTo('check-tool', () => {
+        setSelectedModel(model);
+      });
+    },
+    [transitionTo]
+  );
 
   const handleBack = useCallback(() => {
     if (step === 'select-model') {
-      setSelectedAgent(null);
-      setStep('select-agent');
+      transitionTo('select-agent', () => {
+        setSelectedAgent(null);
+      });
     } else if (step === 'check-tool') {
       if (activeGroup && activeGroup.models.length > 0) {
-        setSelectedModel(null);
-        setStep('select-model');
+        transitionTo('select-model', () => {
+          setSelectedModel(null);
+        });
       } else {
-        setSelectedAgent(null);
-        setStep('select-agent');
+        transitionTo('select-agent', () => {
+          setSelectedAgent(null);
+        });
       }
     }
-  }, [step, activeGroup]);
+  }, [step, activeGroup, transitionTo]);
 
-  // Check tool status when entering check-tool step
   useEffect(() => {
     if (step !== 'check-tool' || !selectedAgent) return;
-
     setCheckingTool(true);
     checkAgentTool(selectedAgent)
       .then(setToolStatus)
@@ -110,124 +146,128 @@ export function WelcomeAgentSetup({ onComplete, className }: WelcomeAgentSetupPr
         data-testid="welcome-agent-setup"
         className={cn('flex flex-col items-center justify-center gap-3', className)}
       >
-        <Loader2 className="text-muted-foreground h-5 w-5 animate-spin" />
-        <p className="text-muted-foreground text-sm">Loading agents...</p>
+        <Loader2 className="text-muted-foreground h-4 w-4 animate-spin" />
+        <p className="text-muted-foreground text-xs">Loading agents…</p>
       </div>
     );
   }
 
+  const stepIndex = STEPS.indexOf(step);
+
   return (
     <div
       data-testid="welcome-agent-setup"
-      className={cn('flex w-full flex-col items-center gap-4', className)}
+      className={cn('flex flex-col items-center gap-4', WIZARD_WIDTH, className)}
     >
-      {/* Section header — matches the "Repositories" label style in add-repo */}
+      {/* Section header */}
       <div className="text-muted-foreground flex items-center gap-2">
-        <Bot className="h-4 w-4" />
-        <span className="text-xs font-semibold tracking-widest uppercase">
+        <Bot className="h-3.5 w-3.5" />
+        <span className="text-[10px] font-semibold tracking-widest uppercase">
           {step === 'select-agent' && 'Choose your agent'}
           {step === 'select-model' && 'Pick a model'}
           {step === 'check-tool' && 'Verifying setup'}
         </span>
       </div>
 
-      {/* Step indicator */}
-      <div className="flex w-48 items-center gap-1.5">
-        {['select-agent', 'select-model', 'check-tool'].map((s, i) => (
+      {/* Step indicator — fixed width */}
+      <div className="flex w-32 items-center gap-1">
+        {STEPS.map((s, i) => (
           <div
             key={s}
             className={cn(
-              'h-1 flex-1 rounded-full transition-colors',
-              i <= ['select-agent', 'select-model', 'check-tool'].indexOf(step)
-                ? 'bg-primary'
-                : 'bg-muted'
+              'h-0.5 flex-1 rounded-full transition-colors duration-300',
+              i <= stepIndex ? 'bg-foreground/60' : 'bg-muted'
             )}
           />
         ))}
       </div>
 
-      {/* Step 1: Agent selection */}
-      {step === 'select-agent' && (
-        <div data-testid="agent-list" className="flex flex-col gap-2">
-          {groups.map((group) => {
-            const GroupIcon = getAgentTypeIcon(group.agentType);
-            return (
-              <button
-                key={group.agentType}
-                type="button"
-                data-testid={`agent-option-${group.agentType}`}
-                className="border-muted-foreground/30 hover:border-primary hover:text-primary flex cursor-pointer items-center gap-3 rounded-lg border-2 border-dashed px-8 py-4 transition-colors"
-                onClick={() => handleAgentSelect(group.agentType)}
-              >
-                <GroupIcon className="h-5 w-5 shrink-0" />
-                <div className="flex-1">
-                  <span className="text-sm font-medium">{group.label}</span>
-                  {group.models.length > 0 && (
-                    <span className="text-muted-foreground ml-1.5 text-xs">
-                      {group.models.length} model{group.models.length !== 1 ? 's' : ''}
-                    </span>
-                  )}
-                </div>
-                <ChevronRight className="text-muted-foreground h-4 w-4" />
-              </button>
-            );
-          })}
-        </div>
-      )}
+      {/* Step content — fixed dimensions, fade transition */}
+      <div
+        className={cn(
+          'flex w-full flex-col items-center transition-opacity duration-150',
+          visible && !transitioning ? 'opacity-100' : 'opacity-0'
+        )}
+      >
+        {/* Step 1: Agent selection */}
+        {step === 'select-agent' && (
+          <div data-testid="agent-list" className="flex w-full flex-col gap-1.5">
+            {groups.map((group) => {
+              const GroupIcon = getAgentTypeIcon(group.agentType);
+              return (
+                <button
+                  key={group.agentType}
+                  type="button"
+                  data-testid={`agent-option-${group.agentType}`}
+                  className="border-border hover:border-foreground/40 flex w-full cursor-pointer items-center gap-2.5 rounded-md border border-dashed px-4 py-2.5 transition-colors"
+                  onClick={() => handleAgentSelect(group.agentType)}
+                >
+                  <GroupIcon className="text-muted-foreground h-4 w-4 shrink-0" />
+                  <span className="flex-1 text-left text-xs font-medium">{group.label}</span>
+                  <ChevronRight className="text-muted-foreground h-3 w-3" />
+                </button>
+              );
+            })}
+          </div>
+        )}
 
-      {/* Step 2: Model selection */}
-      {step === 'select-model' && activeGroup ? (
-        <div data-testid="model-list" className="flex flex-col gap-2">
-          <button
-            type="button"
-            className="text-muted-foreground hover:text-foreground mb-1 flex cursor-pointer items-center gap-1.5 self-start text-xs font-medium transition-colors"
-            onClick={handleBack}
-          >
-            <ChevronLeft className="h-3.5 w-3.5" />
-            Back to agents
-          </button>
-          {activeGroup.models.map((m) => {
-            const meta = getModelMeta(m.id);
-            return (
-              <button
-                key={m.id}
-                type="button"
-                data-testid={`model-option-${m.id}`}
-                className="border-muted-foreground/30 hover:border-primary hover:text-primary flex cursor-pointer items-center gap-3 rounded-lg border-2 border-dashed px-8 py-4 text-left transition-colors"
-                onClick={() => handleModelSelect(m.id)}
-              >
-                <div className="flex min-w-0 flex-1 flex-col">
-                  <span className="text-sm font-medium">{meta.displayName || m.displayName}</span>
-                  <span className="text-muted-foreground text-xs">
-                    {meta.description || m.description}
-                  </span>
-                </div>
-                <ChevronRight className="text-muted-foreground h-3.5 w-3.5" />
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
+        {/* Step 2: Model selection */}
+        {step === 'select-model' && activeGroup ? (
+          <div data-testid="model-list" className="flex w-full flex-col gap-1.5">
+            <button
+              type="button"
+              className="text-muted-foreground hover:text-foreground mb-0.5 flex cursor-pointer items-center gap-1 self-start text-[10px] font-medium transition-colors"
+              onClick={handleBack}
+            >
+              <ChevronLeft className="h-3 w-3" />
+              Back
+            </button>
+            <div className="flex max-h-48 w-full flex-col gap-1.5 overflow-y-auto">
+              {activeGroup.models.map((m) => {
+                const meta = getModelMeta(m.id);
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    data-testid={`model-option-${m.id}`}
+                    className="border-border hover:border-foreground/40 flex w-full cursor-pointer items-center gap-2.5 rounded-md border border-dashed px-4 py-2.5 text-left transition-colors"
+                    onClick={() => handleModelSelect(m.id)}
+                  >
+                    <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                      <span className="text-xs font-medium">
+                        {meta.displayName || m.displayName}
+                      </span>
+                      <span className="text-muted-foreground text-[10px] leading-tight">
+                        {meta.description || m.description}
+                      </span>
+                    </div>
+                    <ChevronRight className="text-muted-foreground h-3 w-3 shrink-0" />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
 
-      {/* Step 3: Tool check */}
-      {step === 'check-tool' && (
-        <ToolCheckStep
-          toolStatus={toolStatus}
-          checking={checkingTool}
-          saving={saving}
-          onConfirm={handleConfirm}
-          onBack={handleBack}
-          onToolInstalled={() => {
-            // Re-check tool after install
-            if (selectedAgent) {
-              setCheckingTool(true);
-              checkAgentTool(selectedAgent)
-                .then(setToolStatus)
-                .finally(() => setCheckingTool(false));
-            }
-          }}
-        />
-      )}
+        {/* Step 3: Tool check */}
+        {step === 'check-tool' && (
+          <ToolCheckStep
+            toolStatus={toolStatus}
+            checking={checkingTool}
+            saving={saving}
+            onConfirm={handleConfirm}
+            onBack={handleBack}
+            onToolInstalled={() => {
+              if (selectedAgent) {
+                setCheckingTool(true);
+                checkAgentTool(selectedAgent)
+                  .then(setToolStatus)
+                  .finally(() => setCheckingTool(false));
+              }
+            }}
+          />
+        )}
+      </div>
     </div>
   );
 }
@@ -250,9 +290,9 @@ function ToolCheckStep({
 }) {
   if (checking || !toolStatus) {
     return (
-      <div className="flex flex-col items-center gap-3 py-4">
-        <Loader2 className="text-muted-foreground h-5 w-5 animate-spin" />
-        <p className="text-muted-foreground text-sm">Checking tool availability...</p>
+      <div className="flex flex-col items-center gap-2 py-4">
+        <Loader2 className="text-muted-foreground h-4 w-4 animate-spin" />
+        <p className="text-muted-foreground text-[10px]">Checking tool availability…</p>
       </div>
     );
   }
@@ -260,77 +300,28 @@ function ToolCheckStep({
   // Agent doesn't require a tool (e.g., dev/demo)
   if (!toolStatus.toolId) {
     return (
-      <div className="flex flex-col items-center gap-4">
-        <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
-          <CheckCircle2 className="h-4 w-4" />
-          <span className="text-sm font-medium">No additional tools required</span>
+      <div className="flex w-full flex-col items-center gap-3">
+        <div className="text-muted-foreground flex items-center gap-1.5">
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          <span className="text-xs">No additional tools required</span>
         </div>
-        <div className="flex items-center gap-4">
-          <button
-            type="button"
-            className="text-muted-foreground hover:text-foreground cursor-pointer text-xs transition-colors"
-            onClick={onBack}
-          >
-            <ChevronLeft className="mr-0.5 inline h-3.5 w-3.5" />
-            Back
-          </button>
-          <button
-            type="button"
-            data-testid="agent-setup-confirm"
-            disabled={saving}
-            className="border-primary text-primary hover:bg-primary hover:text-primary-foreground flex cursor-pointer items-center gap-1.5 rounded-lg border-2 border-dashed px-8 py-4 text-sm font-medium transition-colors disabled:opacity-60"
-            onClick={onConfirm}
-          >
-            {saving ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Check className="h-3.5 w-3.5" />
-            )}
-            Continue
-          </button>
-        </div>
+        <ConfirmRow saving={saving} onConfirm={onConfirm} onBack={onBack} />
       </div>
     );
   }
 
   if (toolStatus.installed) {
     return (
-      <div className="flex flex-col items-center gap-4">
-        <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
-          <CheckCircle2 className="h-4 w-4" />
-          <span className="text-sm font-medium">
-            {toolStatus.tool?.name ?? toolStatus.toolId} is installed
-          </span>
+      <div className="flex w-full flex-col items-center gap-3">
+        <div className="text-muted-foreground flex items-center gap-1.5">
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          <span className="text-xs">{toolStatus.tool?.name ?? toolStatus.toolId} is installed</span>
         </div>
-        <div className="flex items-center gap-4">
-          <button
-            type="button"
-            className="text-muted-foreground hover:text-foreground cursor-pointer text-xs transition-colors"
-            onClick={onBack}
-          >
-            <ChevronLeft className="mr-0.5 inline h-3.5 w-3.5" />
-            Back
-          </button>
-          <button
-            type="button"
-            data-testid="agent-setup-confirm"
-            disabled={saving}
-            className="border-primary text-primary hover:bg-primary hover:text-primary-foreground flex cursor-pointer items-center gap-1.5 rounded-lg border-2 border-dashed px-8 py-4 text-sm font-medium transition-colors disabled:opacity-60"
-            onClick={onConfirm}
-          >
-            {saving ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Check className="h-3.5 w-3.5" />
-            )}
-            Continue
-          </button>
-        </div>
+        <ConfirmRow saving={saving} onConfirm={onConfirm} onBack={onBack} />
       </div>
     );
   }
 
-  // Tool not installed — show install option
   return (
     <ToolInstallInline
       toolStatus={toolStatus}
@@ -339,6 +330,40 @@ function ToolCheckStep({
       onBack={onBack}
       onInstalled={onToolInstalled}
     />
+  );
+}
+
+/** Shared back + continue row */
+function ConfirmRow({
+  saving,
+  onConfirm,
+  onBack,
+}: {
+  saving: boolean;
+  onConfirm: () => void;
+  onBack: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-3">
+      <button
+        type="button"
+        className="text-muted-foreground hover:text-foreground cursor-pointer text-[10px] transition-colors"
+        onClick={onBack}
+      >
+        <ChevronLeft className="mr-0.5 inline h-3 w-3" />
+        Back
+      </button>
+      <button
+        type="button"
+        data-testid="agent-setup-confirm"
+        disabled={saving}
+        className="border-border hover:border-foreground/40 flex cursor-pointer items-center gap-1.5 rounded-md border border-dashed px-4 py-2 text-xs font-medium transition-colors disabled:opacity-50"
+        onClick={onConfirm}
+      >
+        {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+        Continue
+      </button>
+    </div>
   );
 }
 
@@ -369,28 +394,24 @@ function ToolInstallInline({
   }, [isInstallDone, onInstalled]);
 
   return (
-    <div className="flex flex-col items-center gap-4">
-      <div className="flex items-center gap-2">
+    <div className="flex w-full flex-col items-center gap-3">
+      <div className="flex items-center gap-1.5">
         {isInstallDone ? (
-          <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+          <CheckCircle2 className="text-muted-foreground h-3.5 w-3.5" />
         ) : isInstallError ? (
-          <AlertCircle className="h-4 w-4 text-red-500" />
+          <AlertCircle className="text-destructive h-3.5 w-3.5" />
         ) : (
-          <Circle className="text-muted-foreground h-4 w-4" />
+          <Circle className="text-muted-foreground h-3.5 w-3.5" />
         )}
-        <span className="text-sm font-medium">
+        <span className="text-xs">
           {toolStatus.tool?.name ?? toolId}{' '}
-          {isInstallDone
-            ? 'installed successfully'
-            : isInstallError
-              ? 'installation failed'
-              : 'is not installed'}
+          {isInstallDone ? 'installed' : isInstallError ? 'install failed' : 'is not installed'}
         </span>
       </div>
 
       {/* Install command info */}
       {toolStatus.tool?.installCommand && status === 'idle' ? (
-        <div className="w-full rounded-lg bg-zinc-900 px-5 py-4 font-mono text-sm text-zinc-100">
+        <div className="w-full rounded-md bg-zinc-900 px-3 py-2 font-mono text-[11px] text-zinc-300">
           <span className="text-zinc-500 select-none">$ </span>
           {toolStatus.tool.installCommand}
         </div>
@@ -398,7 +419,7 @@ function ToolInstallInline({
 
       {/* Install log */}
       {(status === 'streaming' || isInstallDone || isInstallError) && logs.length > 0 ? (
-        <div className="max-h-32 w-full overflow-auto rounded-lg bg-zinc-900 px-5 py-4 font-mono text-[11px] leading-relaxed text-zinc-300">
+        <div className="max-h-28 w-full overflow-auto rounded-md bg-zinc-900 px-3 py-2 font-mono text-[10px] leading-relaxed text-zinc-400">
           {logs.map((line, idx) => (
             // eslint-disable-next-line react/no-array-index-key -- logs are append-only, never reorder
             <div key={idx} className="break-all whitespace-pre-wrap">
@@ -406,57 +427,51 @@ function ToolInstallInline({
             </div>
           ))}
           {isInstallDone ? (
-            <div className="mt-1 text-emerald-400">Installation complete</div>
+            <div className="text-muted-foreground mt-1">Installation complete</div>
           ) : null}
           {isInstallError ? (
-            <div className="mt-1 text-red-400">Installation failed — try installing manually</div>
+            <div className="text-destructive mt-1">Installation failed — try manually</div>
           ) : null}
         </div>
       ) : null}
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
         <button
           type="button"
-          className="text-muted-foreground hover:text-foreground cursor-pointer text-xs transition-colors"
+          className="text-muted-foreground hover:text-foreground cursor-pointer text-[10px] transition-colors"
           onClick={onBack}
         >
-          <ChevronLeft className="mr-0.5 inline h-3.5 w-3.5" />
+          <ChevronLeft className="mr-0.5 inline h-3 w-3" />
           Back
         </button>
-        <div className="flex items-center gap-2">
-          {!isInstallDone && toolStatus.tool?.autoInstall ? (
-            <button
-              type="button"
-              data-testid="agent-setup-install"
-              disabled={status === 'streaming'}
-              className="border-primary text-primary hover:bg-primary hover:text-primary-foreground flex cursor-pointer items-center gap-1.5 rounded-lg border-2 border-dashed px-8 py-4 text-sm font-medium transition-colors disabled:opacity-60"
-              onClick={startInstall}
-            >
-              {status === 'streaming' ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Download className="h-3.5 w-3.5" />
-              )}
-              {status === 'streaming' ? 'Installing...' : 'Install'}
-            </button>
-          ) : null}
-          {isInstallDone ? (
-            <button
-              type="button"
-              data-testid="agent-setup-confirm"
-              disabled={saving}
-              className="border-primary text-primary hover:bg-primary hover:text-primary-foreground flex cursor-pointer items-center gap-1.5 rounded-lg border-2 border-dashed px-8 py-4 text-sm font-medium transition-colors disabled:opacity-60"
-              onClick={onConfirm}
-            >
-              {saving ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Check className="h-3.5 w-3.5" />
-              )}
-              Continue
-            </button>
-          ) : null}
-        </div>
+        {!isInstallDone && toolStatus.tool?.autoInstall ? (
+          <button
+            type="button"
+            data-testid="agent-setup-install"
+            disabled={status === 'streaming'}
+            className="border-border hover:border-foreground/40 flex cursor-pointer items-center gap-1.5 rounded-md border border-dashed px-4 py-2 text-xs font-medium transition-colors disabled:opacity-50"
+            onClick={startInstall}
+          >
+            {status === 'streaming' ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <Download className="h-3 w-3" />
+            )}
+            {status === 'streaming' ? 'Installing…' : 'Install'}
+          </button>
+        ) : null}
+        {isInstallDone ? (
+          <button
+            type="button"
+            data-testid="agent-setup-confirm"
+            disabled={saving}
+            className="border-border hover:border-foreground/40 flex cursor-pointer items-center gap-1.5 rounded-md border border-dashed px-4 py-2 text-xs font-medium transition-colors disabled:opacity-50"
+            onClick={onConfirm}
+          >
+            {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+            Continue
+          </button>
+        ) : null}
       </div>
     </div>
   );

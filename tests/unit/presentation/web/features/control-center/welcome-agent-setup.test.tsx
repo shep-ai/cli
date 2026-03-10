@@ -171,7 +171,7 @@ describe('WelcomeAgentSetup', () => {
 
   it('shows loading state initially', () => {
     render(<WelcomeAgentSetup onComplete={onComplete} />);
-    expect(screen.getByText('Loading agents...')).toBeInTheDocument();
+    expect(screen.getByText('Loading agents…')).toBeInTheDocument();
   });
 
   it('renders step indicator', async () => {

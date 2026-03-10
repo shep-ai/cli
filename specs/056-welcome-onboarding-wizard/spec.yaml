@@ -75,3 +75,16 @@ rejectionFeedback:
       conceptually
     phase: merge
     timestamp: '2026-03-10T12:38:11.462Z'
+  - iteration: 2
+    message: >-
+      still something is off, button is too large, everything too colorfull, not
+      SLEEK.
+
+      Also for cursor CLI there is a looong list, hard to see like that, also
+      agent/model swithc have jumps, not consistent, i like consitent positions,
+      width/ehgith etc! smooth transitions!
+    phase: merge
+    timestamp: '2026-03-10T12:46:03.922Z'
+    attachments:
+      - >-
+        /home/blackpc/.shep/attachments/pending-14578541-30aa-4c42-af99-0569296ed2d3/image-7bf87dfc.png
