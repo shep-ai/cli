@@ -93,6 +93,13 @@ export const Default: Story = {
   },
 };
 
+export const WithNewFeatureButton: Story = {
+  args: {
+    features: mockFeatures,
+    showNewFeature: true,
+  },
+};
+
 export const Collapsed: Story = {
   args: {
     features: mockFeatures,

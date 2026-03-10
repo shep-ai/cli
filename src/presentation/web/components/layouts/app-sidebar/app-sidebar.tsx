@@ -38,6 +38,8 @@ export interface FeatureItem {
 export interface AppSidebarProps {
   features: FeatureItem[];
   featureFlags: FeatureFlagsState;
+  /** Whether to show the "New feature" button in the sidebar footer. Defaults to `false`. */
+  showNewFeature?: boolean;
   onNewFeature?: () => void;
   onFeatureClick?: (featureId: string) => void;
 }
@@ -45,6 +47,7 @@ export interface AppSidebarProps {
 export function AppSidebar({
   features,
   featureFlags,
+  showNewFeature = false,
   onNewFeature,
   onFeatureClick,
 }: AppSidebarProps) {
@@ -142,16 +145,18 @@ export function AppSidebar({
         ) : null}
       </SidebarContent>
 
-      <SidebarFooter>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton onClick={onNewFeature} tooltip="New feature">
-              <Plus />
-              <span>New feature</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarFooter>
+      {showNewFeature ? (
+        <SidebarFooter>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton onClick={onNewFeature} tooltip="New feature">
+                <Plus />
+                <span>New feature</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarFooter>
+      ) : null}
 
       <SidebarRail />
     </Sidebar>
