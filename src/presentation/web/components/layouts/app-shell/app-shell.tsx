@@ -51,7 +51,6 @@ function AppShellInner({ children }: AppShellProps) {
       <AppSidebar
         features={features}
         featureFlags={featureFlags}
-        showNewFeature
         onNewFeature={handleNewFeature}
         onFeatureClick={handleFeatureClick}
       />
