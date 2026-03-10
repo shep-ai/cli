@@ -1,3 +1,9 @@
+# [1.93.0](https://github.com/shep-ai/cli/compare/v1.92.2...v1.93.0) (2026-03-10)
+
+### Features
+
+- **web:** format activity tab durations as human-friendly time strings ([#282](https://github.com/shep-ai/cli/issues/282)) ([cbfff84](https://github.com/shep-ai/cli/commit/cbfff840f8bff6622df98b4c29f08f22f69bd895))
+
 ## [1.92.2](https://github.com/shep-ai/cli/compare/v1.92.1...v1.92.2) (2026-03-10)
 
 ### Bug Fixes
