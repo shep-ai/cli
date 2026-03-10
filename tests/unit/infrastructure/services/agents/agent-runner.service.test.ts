@@ -34,6 +34,12 @@ vi.mock('@/infrastructure/services/settings.service.js', () => ({
   }),
 }));
 
+// Mock the checkpointer module (lazy-loaded by agent-runner)
+const mockCheckpointer = {};
+vi.mock('@/infrastructure/services/agents/common/checkpointer.js', () => ({
+  createCheckpointer: vi.fn().mockReturnValue(mockCheckpointer),
+}));
+
 // UUID regex for non-deterministic ID assertions
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
@@ -41,7 +47,6 @@ describe('AgentRunnerService', () => {
   let runner: AgentRunnerService;
   let mockRegistry: IAgentRegistry;
   let mockExecutorProvider: IAgentExecutorProvider;
-  let mockCheckpointer: any;
   let mockRunRepository: IAgentRunRepository;
   let mockExecutor: IAgentExecutor;
   let mockCompiledGraph: any;
@@ -70,15 +75,13 @@ describe('AgentRunnerService', () => {
 
     mockRegistry = {
       register: vi.fn(),
-      get: vi.fn().mockReturnValue(mockDefinition),
+      get: vi.fn().mockResolvedValue(mockDefinition),
       list: vi.fn().mockReturnValue([mockDefinition]),
     };
 
     mockExecutorProvider = {
       getExecutor: vi.fn().mockReturnValue(mockExecutor),
     };
-
-    mockCheckpointer = {};
 
     const storedRuns = new Map<string, AgentRun>();
     mockRunRepository = {
@@ -104,12 +107,7 @@ describe('AgentRunnerService', () => {
       delete: vi.fn().mockResolvedValue(undefined),
     };
 
-    runner = new AgentRunnerService(
-      mockRegistry,
-      mockExecutorProvider,
-      mockCheckpointer,
-      mockRunRepository
-    );
+    runner = new AgentRunnerService(mockRegistry, mockExecutorProvider, mockRunRepository);
   });
 
   describe('runAgent', () => {
@@ -208,7 +206,7 @@ describe('AgentRunnerService', () => {
     });
 
     it('should throw error when agent is not found', async () => {
-      vi.mocked(mockRegistry.get).mockReturnValue(undefined);
+      vi.mocked(mockRegistry.get).mockResolvedValue(undefined);
 
       await expect(runner.runAgent('non-existent', 'Analyze')).rejects.toThrow(
         "Agent 'non-existent' not found"
@@ -216,7 +214,7 @@ describe('AgentRunnerService', () => {
     });
 
     it('should include available agents in not-found error message', async () => {
-      vi.mocked(mockRegistry.get).mockReturnValue(undefined);
+      vi.mocked(mockRegistry.get).mockResolvedValue(undefined);
 
       await expect(runner.runAgent('non-existent', 'Analyze')).rejects.toThrow(
         'analyze-repository'
@@ -393,7 +391,7 @@ describe('AgentRunnerService', () => {
     });
 
     it('should throw for unknown agent name', async () => {
-      vi.mocked(mockRegistry.get).mockReturnValue(undefined);
+      vi.mocked(mockRegistry.get).mockResolvedValue(undefined);
 
       const streamFn = async () => {
         for await (const _event of runner.runAgentStream('non-existent', 'Analyze')) {

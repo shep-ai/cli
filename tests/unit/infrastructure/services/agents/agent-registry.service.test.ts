@@ -19,8 +19,8 @@ describe('AgentRegistryService', () => {
   });
 
   describe('constructor', () => {
-    it('should pre-register the analyze-repository agent', () => {
-      const agent = registry.get('analyze-repository');
+    it('should pre-register the analyze-repository agent', async () => {
+      const agent = await registry.get('analyze-repository');
 
       expect(agent).toBeDefined();
       expect(agent!.name).toBe('analyze-repository');
@@ -32,7 +32,7 @@ describe('AgentRegistryService', () => {
   });
 
   describe('register', () => {
-    it('should register a new agent definition', () => {
+    it('should register a new agent definition', async () => {
       const definition: AgentDefinitionWithFactory = {
         name: 'gather-requirements',
         description: 'Gather and refine user requirements',
@@ -41,11 +41,11 @@ describe('AgentRegistryService', () => {
 
       registry.register(definition);
 
-      const result = registry.get('gather-requirements');
+      const result = await registry.get('gather-requirements');
       expect(result).toBe(definition);
     });
 
-    it('should overwrite an existing agent with the same name', () => {
+    it('should overwrite an existing agent with the same name', async () => {
       const original: AgentDefinitionWithFactory = {
         name: 'test-agent',
         description: 'Original',
@@ -60,22 +60,22 @@ describe('AgentRegistryService', () => {
       registry.register(original);
       registry.register(updated);
 
-      const result = registry.get('test-agent');
+      const result = await registry.get('test-agent');
       expect(result).toBe(updated);
       expect(result!.description).toBe('Updated');
     });
   });
 
   describe('get', () => {
-    it('should return a registered agent by name', () => {
-      const agent = registry.get('analyze-repository');
+    it('should return a registered agent by name', async () => {
+      const agent = await registry.get('analyze-repository');
 
       expect(agent).toBeDefined();
       expect(agent!.name).toBe('analyze-repository');
     });
 
-    it('should return undefined for an unknown agent name', () => {
-      const agent = registry.get('non-existent-agent');
+    it('should return undefined for an unknown agent name', async () => {
+      const agent = await registry.get('non-existent-agent');
 
       expect(agent).toBeUndefined();
     });

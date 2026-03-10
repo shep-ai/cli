@@ -52,7 +52,7 @@ export class RunAgentUseCase {
    * @throws Error if the agent name is not registered
    */
   async execute(input: RunAgentInput): Promise<AgentRun> {
-    const definition = this.agentRegistry.get(input.agentName);
+    const definition = await this.agentRegistry.get(input.agentName);
     if (!definition) {
       const available = this.agentRegistry.list().map((a) => a.name);
       throw new Error(
@@ -71,7 +71,7 @@ export class RunAgentUseCase {
    * @throws Error if the agent name is not registered
    */
   async *executeStream(input: RunAgentInput): AsyncIterable<AgentRunEvent> {
-    const definition = this.agentRegistry.get(input.agentName);
+    const definition = await this.agentRegistry.get(input.agentName);
     if (!definition) {
       const available = this.agentRegistry.list().map((a) => a.name);
       throw new Error(

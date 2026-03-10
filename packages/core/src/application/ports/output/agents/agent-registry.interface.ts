@@ -85,7 +85,7 @@ export interface IAgentRegistry {
    * @param name - The unique agent name (e.g., 'analyze-repository')
    * @returns The agent definition, or undefined if not registered
    */
-  get(name: string): AgentDefinitionWithFactory | undefined;
+  get(name: string): Promise<AgentDefinitionWithFactory | undefined>;
 
   /**
    * List all registered agent definitions.

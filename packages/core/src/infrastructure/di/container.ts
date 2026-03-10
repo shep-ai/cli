@@ -33,7 +33,6 @@ import { execFile } from 'node:child_process';
 import type { IVersionService } from '../../application/ports/output/services/version-service.interface.js';
 import { VersionService } from '../services/version.service.js';
 import type { IWebServerService } from '../../application/ports/output/services/web-server-service.interface.js';
-import { WebServerService } from '../services/web-server.service.js';
 import type { IWorktreeService } from '../../application/ports/output/services/worktree-service.interface.js';
 import { WorktreeService } from '../services/git/worktree.service.js';
 import type { IToolInstallerService } from '../../application/ports/output/services/tool-installer.service.js';
@@ -72,8 +71,6 @@ import { SpecInitializerService } from '../services/spec/spec-initializer.servic
 import { DesktopNotifier } from '../services/notifications/desktop-notifier.js';
 import { NotificationService } from '../services/notifications/notification.service.js';
 import { getNotificationBus } from '../services/notifications/notification-bus.js';
-import { createCheckpointer } from '../services/agents/common/checkpointer.js';
-import type { BaseCheckpointSaver } from '@langchain/langgraph';
 import { spawn } from 'node:child_process';
 
 // Use cases
@@ -177,8 +174,28 @@ export async function initializeContainer(): Promise<typeof container> {
   // Register services (singletons via @injectable + token)
   container.registerSingleton<IAgentValidator>('IAgentValidator', AgentValidatorService);
   container.registerSingleton<IVersionService>('IVersionService', VersionService);
+  // IWebServerService is registered as a lazy proxy to avoid importing `next`
+  // (~80ms) for non-web commands. The actual service is loaded on first method call.
   container.register<IWebServerService>('IWebServerService', {
-    useFactory: () => new WebServerService(),
+    useFactory: () => {
+      let instance: IWebServerService | null = null;
+      const getInstance = async (): Promise<IWebServerService> => {
+        if (!instance) {
+          const { WebServerService } = await import('../services/web-server.service.js');
+          instance = new WebServerService();
+        }
+        return instance;
+      };
+      return new Proxy({} as IWebServerService, {
+        get: (_target, prop) => {
+          return async (...args: unknown[]) => {
+            const svc = await getInstance();
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            return (svc as any)[prop](...args);
+          };
+        },
+      });
+    },
   });
   container.registerSingleton<IWorktreeService>('IWorktreeService', WorktreeService);
   container.registerSingleton<IToolInstallerService>(
@@ -247,17 +264,14 @@ export async function initializeContainer(): Promise<typeof container> {
     useFactory: () => new AgentRegistryService(),
   });
 
-  container.register('Checkpointer', {
-    useFactory: () => createCheckpointer(':memory:'),
-  });
-
   container.register<IAgentRunner>('IAgentRunner', {
     useFactory: (c) => {
       const registry = c.resolve<IAgentRegistry>('IAgentRegistry');
       const executorProvider = c.resolve<IAgentExecutorProvider>('IAgentExecutorProvider');
-      const checkpointer = c.resolve('Checkpointer') as BaseCheckpointSaver;
       const runRepository = c.resolve<IAgentRunRepository>('IAgentRunRepository');
-      return new AgentRunnerService(registry, executorProvider, checkpointer, runRepository);
+      // Checkpointer is lazy-loaded to avoid ~240ms startup cost from
+      // @langchain/langgraph-checkpoint-sqlite on every CLI invocation.
+      return new AgentRunnerService(registry, executorProvider, runRepository);
     },
   });
 
