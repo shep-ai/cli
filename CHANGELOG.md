@@ -1,3 +1,9 @@
+## [1.92.2](https://github.com/shep-ai/cli/compare/v1.92.1...v1.92.2) (2026-03-10)
+
+### Bug Fixes
+
+- **web:** fix deep tree layout and align sidebar status with canvas nodes ([#280](https://github.com/shep-ai/cli/issues/280)) ([547e4d6](https://github.com/shep-ai/cli/commit/547e4d6be695568973e759b052f6dbd535098355))
+
 ## [1.92.1](https://github.com/shep-ai/cli/compare/v1.92.0...v1.92.1) (2026-03-10)
 
 ### Performance Improvements
