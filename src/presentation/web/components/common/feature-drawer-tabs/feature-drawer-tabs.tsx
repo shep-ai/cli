@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { usePathname } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { getFeaturePhaseTimings } from '@/app/actions/get-feature-phase-timings';
@@ -81,6 +82,8 @@ export interface FeatureDrawerTabsProps {
   featureNode: FeatureNodeData;
   featureId: string;
   initialTab?: FeatureTabKey;
+  /** Tab key from URL path segment (e.g. /feature/[id]/activity → 'activity'). */
+  urlTab?: FeatureTabKey;
 
   // PRD review
   prdData?: PrdQuestionnaireData | null;
@@ -137,6 +140,7 @@ export function FeatureDrawerTabs({
   featureNode,
   featureId,
   initialTab,
+  urlTab,
   prdData,
   prdSelections,
   onPrdSelect,
@@ -156,6 +160,7 @@ export function FeatureDrawerTabs({
   chatInput,
   onChatInputChange,
 }: FeatureDrawerTabsProps) {
+  const pathname = usePathname();
   const featureLogs = useFeatureLogs(featureId);
 
   const visibleTabs = useMemo(() => computeVisibleTabs(featureNode), [featureNode]);
@@ -164,11 +169,86 @@ export function FeatureDrawerTabs({
     [visibleTabs]
   );
 
-  // Use initialTab if it's visible, otherwise default to 'overview'
-  const effectiveInitial = initialTab && visibleTabs.includes(initialTab) ? initialTab : 'overview';
+  // Derive the base path (without tab segment) from the current pathname.
+  // e.g. /feature/abc123/activity → /feature/abc123
+  const basePath = useMemo(() => {
+    const match = pathname.match(/^(\/feature\/[^/]+)/);
+    return match ? match[1] : pathname;
+  }, [pathname]);
+
+  // Resolve the effective initial tab: URL path tab > initialTab prop > 'overview'
+  const effectiveInitial = useMemo(() => {
+    if (urlTab && visibleTabs.includes(urlTab)) return urlTab;
+    if (initialTab && visibleTabs.includes(initialTab)) return initialTab;
+    return 'overview';
+    // Only compute on mount — subsequent changes are handled by effects below
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [activeTab, setActiveTab] = useState<FeatureTabKey>(effectiveInitial);
 
   const { tabs, fetchTab, refreshTab } = useTabDataFetch<LazyTabKey>(featureId, TAB_FETCHERS);
+
+  // Sync URL when active tab changes via user interaction.
+  // Use window.history.pushState instead of router.push to avoid triggering a
+  // server component re-render (which would remount the drawer).
+  const isUserInteraction = useRef(false);
+  useEffect(() => {
+    if (!isUserInteraction.current) return;
+    isUserInteraction.current = false;
+
+    // Build the target URL from the base path + tab segment
+    const targetUrl = activeTab === 'overview' ? basePath : `${basePath}/${activeTab}`;
+    // Only update URL if it actually changed
+    if (targetUrl !== pathname) {
+      window.history.pushState(null, '', targetUrl);
+    }
+  }, [activeTab, basePath, pathname]);
+
+  // Sync active tab from URL when pathname changes (e.g. browser back/forward).
+  // Skip on initial mount — the effectiveInitial handles that via urlTab prop.
+  const prevPathnameRef = useRef(pathname);
+  useEffect(() => {
+    if (prevPathnameRef.current === pathname) return; // Skip initial mount
+    prevPathnameRef.current = pathname;
+    if (isUserInteraction.current) return; // Skip — this is our own navigation
+    const segments = pathname.split('/');
+    // pathname is /feature/[id] or /feature/[id]/[tab]
+    const pathTab = segments.length >= 4 ? (segments[3] as FeatureTabKey) : undefined;
+    const resolved = pathTab && visibleTabs.includes(pathTab) ? pathTab : 'overview';
+    if (resolved !== activeTab) {
+      setActiveTab(resolved);
+      if (resolved === 'activity' || resolved === 'plan') {
+        fetchTab(resolved);
+      }
+    }
+  }, [pathname]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // On mount, sync the URL to reflect the effective initial tab when it was
+  // derived from feature state (initialTab) rather than from the URL (urlTab).
+  // Use replaceState so we don't add a duplicate history entry.
+  const initialSyncDone = useRef(false);
+  useEffect(() => {
+    if (initialSyncDone.current) return;
+    initialSyncDone.current = true;
+    // Only sync if the effective tab came from initialTab (not from URL)
+    if (!urlTab && effectiveInitial !== 'overview') {
+      const targetUrl = `${basePath}/${effectiveInitial}`;
+      if (targetUrl !== pathname) {
+        window.history.replaceState(null, '', targetUrl);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Trigger lazy fetch for URL-driven initial tab
+  const initialFetchDone = useRef(false);
+  useEffect(() => {
+    if (initialFetchDone.current) return;
+    initialFetchDone.current = true;
+    if (activeTab === 'activity' || activeTab === 'plan') {
+      fetchTab(activeTab);
+    }
+  }, [activeTab, fetchTab]);
 
   // Reset tab when featureId changes
   const prevFeatureIdRef = useRef(featureId);
@@ -180,6 +260,7 @@ export function FeatureDrawerTabs({
   }, [featureId]);
 
   // When initialTab changes (e.g. SSE updates lifecycle), switch to it if visible
+  // and sync the URL with replaceState so the address bar reflects the new tab.
   const prevInitialTabRef = useRef(initialTab);
   useEffect(() => {
     if (
@@ -189,15 +270,24 @@ export function FeatureDrawerTabs({
     ) {
       prevInitialTabRef.current = initialTab;
       setActiveTab(initialTab);
+      // Sync URL to match the new tab
+      const targetUrl = initialTab === 'overview' ? basePath : `${basePath}/${initialTab}`;
+      if (targetUrl !== window.location.pathname) {
+        window.history.replaceState(null, '', targetUrl);
+      }
     }
-  }, [initialTab, visibleTabs]);
+  }, [initialTab, visibleTabs, basePath]);
 
   // If the active tab becomes invisible (lifecycle changed), fall back to overview
+  // and sync the URL accordingly.
   useEffect(() => {
     if (!visibleTabs.includes(activeTab)) {
       setActiveTab('overview');
+      if (window.location.pathname !== basePath) {
+        window.history.replaceState(null, '', basePath);
+      }
     }
-  }, [visibleTabs, activeTab]);
+  }, [visibleTabs, activeTab, basePath]);
 
   // SSE refresh: re-fetch active lazy tab when featureNode reference changes
   const featureNodeRef = useRef(featureNode);
@@ -217,6 +307,7 @@ export function FeatureDrawerTabs({
   const handleTabChange = useCallback(
     (value: string) => {
       const tab = value as FeatureTabKey;
+      isUserInteraction.current = true;
       setActiveTab(tab);
       if (tab === 'activity' || tab === 'plan') {
         fetchTab(tab);
