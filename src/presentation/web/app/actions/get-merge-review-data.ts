@@ -56,7 +56,7 @@ export async function getMergeReviewData(featureId: string): Promise<GetMergeRev
         const manifestPath = join(evidenceDir, 'manifest.json');
         if (existsSync(manifestPath)) {
           evidence = JSON.parse(readFileSync(manifestPath, 'utf-8'));
-          evidenceBasePath = evidenceDir;
+          evidenceBasePath = worktreePath;
         }
       } catch {
         // Evidence unavailable — not critical
