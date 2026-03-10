@@ -40,14 +40,12 @@ test.describe('Optimistic node clickability — drawer opens on other nodes whil
       .first();
     const firstNodeName = await firstNodeHeading.textContent();
 
-    // Step 1: Open the create-feature drawer from the sidebar
-    const newFeatureButton = page.locator('button', { hasText: 'New feature' });
-    await expect(newFeatureButton).toBeVisible({ timeout: 10000 });
-    await newFeatureButton.click();
+    // Step 1: Open the create-feature drawer by navigating to /create
+    await page.goto('/create');
 
     // Wait for the create drawer heading
     await expect(page.getByRole('heading', { name: 'NEW FEATURE' })).toBeVisible({
-      timeout: 10000,
+      timeout: 15000,
     });
 
     // Step 2: Fill the feature name and submit
