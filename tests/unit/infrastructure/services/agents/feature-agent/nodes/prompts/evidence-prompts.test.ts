@@ -173,6 +173,35 @@ describe('buildEvidencePrompt', () => {
     });
   });
 
+  describe('mandatory screenshot rule', () => {
+    it('should require screenshots for UI changes', () => {
+      const prompt = buildEvidencePrompt(baseState());
+      expect(prompt).toContain('MANDATORY Screenshot Rule');
+      expect(prompt).toContain('you MUST capture at least one Screenshot');
+    });
+
+    it('should include Playwright installation instructions', () => {
+      const prompt = buildEvidencePrompt(baseState());
+      expect(prompt).toContain('npx playwright install chromium');
+    });
+
+    it('should include screenshot capture script example', () => {
+      const prompt = buildEvidencePrompt(baseState());
+      expect(prompt).toContain('page.screenshot');
+    });
+
+    it('should state minimum evidence requirements', () => {
+      const prompt = buildEvidencePrompt(baseState());
+      expect(prompt).toContain('Minimum Evidence Requirements');
+      expect(prompt).toContain('Do NOT output only TestOutput/TerminalRecording');
+    });
+
+    it('should not contain "be selective" language', () => {
+      const prompt = buildEvidencePrompt(baseState());
+      expect(prompt).not.toContain('Be selective');
+    });
+  });
+
   describe('commitEvidence=true', () => {
     it('should include spec evidence folder storage instructions', () => {
       const prompt = buildEvidencePrompt(baseState(), { commitEvidence: true });

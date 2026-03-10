@@ -105,18 +105,54 @@ ${cwd}
 
 ## Evidence Capture Instructions
 
-Review the completed tasks above and capture appropriate evidence for each:
+Review the completed tasks above and capture evidence for each.
 
-- **UI/Web tasks**: Take screenshots using Playwright or a browser automation tool. Capture the relevant pages or components that demonstrate the feature working correctly.
+### MANDATORY Screenshot Rule
+
+**If ANY task touches UI code (components, pages, views, styles, layouts, templates, JSX/TSX, HTML, CSS), you MUST capture at least one Screenshot.** This is non-negotiable. Changing a heading, button label, color, layout, or any visible element requires a screenshot proving the change renders correctly.
+
+To capture screenshots:
+1. Install Playwright if not already available: \`npx playwright install chromium --with-deps 2>/dev/null || npx playwright install chromium\`
+2. Start the dev server in the background (e.g., \`npm run dev &\` or \`pnpm dev &\`)
+3. Wait for the server to be ready
+4. Use a Playwright script to navigate and screenshot:
+   \`\`\`bash
+   node -e "
+   const { chromium } = require('playwright');
+   (async () => {
+     const browser = await chromium.launch();
+     const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+     await page.goto('http://localhost:PORT');
+     await page.waitForLoadState('networkidle');
+     await page.screenshot({ path: 'SCREENSHOT_PATH' });
+     await browser.close();
+   })();
+   "
+   \`\`\`
+5. Stop the dev server after capturing
+
+If Playwright installation fails, try alternative approaches (e.g., \`npx puppeteer\`, \`curl\` for API responses). Only skip screenshots if ALL browser automation approaches fail — and in that case, explicitly note the failure reason in the evidence description.
+
+### Evidence by Task Type
+
+- **UI/Web tasks**: You MUST take screenshots (see mandatory rule above). Also run and capture test output.
 - **Backend/API tasks**: Run the relevant test suite and capture test output showing passing tests.
 - **CLI tasks**: Run the CLI commands and capture terminal output demonstrating correct behavior.
 - **Refactoring/Infrastructure tasks**: Capture test output or build output confirming no regressions.
 
-For each task, choose the most appropriate evidence type:
-- **Screenshot** — Visual proof of UI or output state (PNG/JPEG)
+### Evidence Types
+
+- **Screenshot** — Visual proof of UI or output state (PNG/JPEG). **Required for any UI change.**
 - **Video** — Screen recording of a workflow or interaction (MP4/WebM)
 - **TestOutput** — Test suite execution results (TXT)
 - **TerminalRecording** — CLI command output capture (TXT)
+
+### Minimum Evidence Requirements
+
+Your output MUST include:
+1. At least one **Screenshot** if any task modifies UI/visual code (components, styles, templates, markup)
+2. At least one **TestOutput** if the project has a test suite
+3. Do NOT output only TestOutput/TerminalRecording when the feature involves visible UI changes — screenshots are mandatory in that case
 
 ${storageSection}
 
@@ -172,8 +208,8 @@ If no evidence can be captured (e.g., no UI to screenshot, no tests to run), out
 ## Constraints
 
 - Capture evidence for completed tasks only — do NOT modify any implementation code
-- Be selective — capture key evidence that proves the feature works, not exhaustive screenshots of every page
-- If a capture fails (e.g., Playwright not available, test suite broken), skip it and continue with other evidence
+- Capture evidence that proves the feature works — prioritize screenshots for UI changes, test output for logic changes
+- If a screenshot capture fails, document the failure reason in the evidence description and try alternative approaches before giving up
 - Do NOT capture evidence for documentation-only changes or spec files
 ${commitSection}`;
 }
