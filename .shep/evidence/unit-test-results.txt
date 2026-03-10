@@ -1,0 +1,15 @@
+ShepLogo Unit Test Results
+==========================
+Run: 2026-03-10
+Command: pnpm test:unit -- --reporter=verbose tests/unit/presentation/web/common/shep-logo.test.tsx
+
+ShepLogo test suite: 4 tests passed
+
+  ✓ renders an svg element
+  ✓ does not apply a color class in default variant
+  ✓ applies blue color class in dev variant
+  ✓ uses the specified size
+
+Full suite results:
+  Test Files: 291 passed (291)
+  Tests:      3549 passed (3549)
