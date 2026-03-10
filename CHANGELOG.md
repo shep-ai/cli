@@ -1,3 +1,15 @@
+# [1.92.0](https://github.com/shep-ai/cli/compare/v1.91.2...v1.92.0) (2026-03-10)
+
+### Bug Fixes
+
+- **web:** render activity timeline as lifecycle-aware iteration groups ([#271](https://github.com/shep-ai/cli/issues/271)) ([a24c59d](https://github.com/shep-ai/cli/commit/a24c59db207a78d42b89e7a1fc4a3b5ad3816254))
+
+### Features
+
+- **web:** add version badge component next to shep logo in sidebar ([#270](https://github.com/shep-ai/cli/issues/270)) ([1120108](https://github.com/shep-ai/cli/commit/11201088f7edc64eb7098113d061d1bd58b41253))
+- **web:** hide sidenav new feature button by default with configurable prop ([#272](https://github.com/shep-ai/cli/issues/272)) ([bfcc60c](https://github.com/shep-ai/cli/commit/bfcc60c9dff7fc991ec140565a17705418acab98))
+- **web:** limit textarea height to 35dvh in drawer and reject dialog ([#275](https://github.com/shep-ai/cli/issues/275)) ([e8ac1c3](https://github.com/shep-ai/cli/commit/e8ac1c3ffa345c36ef889bd1374f6568bd1ec097))
+
 ## [1.91.2](https://github.com/shep-ai/cli/compare/v1.91.1...v1.91.2) (2026-03-10)
 
 ### Bug Fixes
