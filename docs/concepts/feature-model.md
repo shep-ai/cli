@@ -4,12 +4,10 @@ The Feature is the central aggregate root in Shep, representing a piece of work 
 
 ## Entity Definition
 
-```typescript
-export class Feature {
-  readonly id: string;
-  readonly createdAt: Date;
-  readonly updatedAt: Date;
+From `packages/core/src/domain/generated/output.ts` (TypeSpec-generated):
 
+```typescript
+export type Feature = BaseEntity & {
   name: string;
   userQuery: string;
   slug: string;
@@ -17,106 +15,150 @@ export class Feature {
   repositoryPath: string;
   branch: string;
   lifecycle: SdlcLifecycle;
-
   messages: Message[];
   plan?: Plan;
   relatedArtifacts: Artifact[];
-
   agentRunId?: string;
   specPath?: string;
-  worktreePath?: string;
+  repositoryId?: UUID;
+  fast: boolean;
   push: boolean;
   openPr: boolean;
-  approvalGates: ApprovalGate[];
+  approvalGates: ApprovalGates;
+  worktreePath?: string;
   pr?: PullRequest;
-}
+  parentId?: UUID;
+  attachments?: Attachment[];
+};
 ```
 
 ## Properties
 
 ### Identity
 
-| Property         | Type     | Description                 |
-| ---------------- | -------- | --------------------------- |
-| `id`             | `string` | Unique identifier (UUID)    |
-| `repositoryPath` | `string` | Absolute path to repository |
-| `createdAt`      | `Date`   | Creation timestamp          |
-| `updatedAt`      | `Date`   | Last update timestamp       |
+| Property         | Type     | Description                           |
+| ---------------- | -------- | ------------------------------------- |
+| `id`             | `UUID`   | Unique identifier (UUID v4)           |
+| `repositoryPath` | `string` | Absolute path to repository           |
+| `repositoryId`   | `UUID?`  | ID of the Repository entity           |
+| `slug`           | `string` | URL-friendly identifier (unique/repo) |
+| `createdAt`      | `any`    | Creation timestamp                    |
+| `updatedAt`      | `any`    | Last update timestamp                 |
 
 ### Core
 
-| Property       | Type            | Description                       |
-| -------------- | --------------- | --------------------------------- |
-| `name`         | `string`        | Human-readable feature name       |
-| `userQuery`    | `string`        | Original user query/request       |
-| `slug`         | `string`        | URL-friendly identifier           |
-| `description`  | `string`        | Detailed feature description      |
-| `branch`       | `string`        | Git branch for the feature        |
-| `lifecycle`    | `SdlcLifecycle` | Current lifecycle phase           |
-| `push`         | `boolean`       | Whether to push changes           |
-| `openPr`       | `boolean`       | Whether to open a pull request    |
-| `agentRunId`   | `string?`       | Agent execution run ID (optional) |
-| `specPath`     | `string?`       | Path to feature spec (optional)   |
-| `worktreePath` | `string?`       | Path to git worktree (optional)   |
+| Property       | Type            | Description                                          |
+| -------------- | --------------- | ---------------------------------------------------- |
+| `name`         | `string`        | Human-readable feature name                          |
+| `userQuery`    | `string`        | Original user query/request (preserved verbatim)     |
+| `description`  | `string`        | Detailed feature description                         |
+| `branch`       | `string`        | Git branch for the feature                           |
+| `lifecycle`    | `SdlcLifecycle` | Current lifecycle phase                              |
+| `fast`         | `boolean`       | Whether SDLC phases were skipped (fast mode)         |
+| `push`         | `boolean`       | Push branch to remote after implementation           |
+| `openPr`       | `boolean`       | Create PR after implementation                       |
+| `agentRunId`   | `string?`       | Agent execution run ID (optional)                    |
+| `specPath`     | `string?`       | Absolute path to feature spec directory (optional)   |
+| `worktreePath` | `string?`       | Absolute path to git worktree (optional)             |
+| `parentId`     | `UUID?`         | Parent feature ID for dependency tracking (optional) |
 
 ### Relationships
 
-| Property           | Type             | Description                                               |
-| ------------------ | ---------------- | --------------------------------------------------------- |
-| `messages`         | `Message[]`      | Conversation messages                                     |
-| `plan`             | `Plan?`          | Plan (contains requirements, tasks, artifacts) (optional) |
-| `relatedArtifacts` | `Artifact[]`     | Generated documents                                       |
-| `approvalGates`    | `ApprovalGate[]` | Approval gates for the feature                            |
-| `pr`               | `PullRequest?`   | Associated pull request (optional)                        |
+| Property           | Type            | Description                                     |
+| ------------------ | --------------- | ----------------------------------------------- |
+| `messages`         | `Message[]`     | Conversation history with AI assistant          |
+| `plan`             | `Plan?`         | Implementation plan (tasks, artifacts, reqs)    |
+| `relatedArtifacts` | `Artifact[]`    | Generated documents attached to this feature    |
+| `approvalGates`    | `ApprovalGates` | Human-in-the-loop approval gate configuration   |
+| `pr`               | `PullRequest?`  | Pull request tracking data (null until created) |
+| `attachments`      | `Attachment[]?` | Files attached by user when creating/messaging  |
+
+### ApprovalGates
+
+```typescript
+export type ApprovalGates = {
+  allowPrd: boolean; // Skip human review after requirements phase
+  allowPlan: boolean; // Skip human review after plan phase
+  allowMerge: boolean; // Skip human review after merge phase
+};
+```
+
+### PullRequest
+
+```typescript
+export type PullRequest = {
+  url: string;
+  number: number;
+  status: PrStatus; // Open, Merged, Closed
+  commitHash?: string;
+  ciStatus?: CiStatus; // Pending, Success, Failure
+  ciFixAttempts?: number;
+  ciFixHistory?: CiFixRecord[];
+};
+```
+
+### Attachment
+
+```typescript
+export type Attachment = {
+  id: UUID;
+  name: string;
+  size: bigint;
+  mimeType: string;
+  path: string;
+  createdAt: any;
+};
+```
 
 ## Relationships Diagram
 
 ```
-                    ┌─────────────────────────┐
-                    │        Feature          │
-                    │                         │
-                    │  id                     │
-                    │  name, slug, userQuery  │
-                    │  description            │
-                    │  repositoryPath, branch │
-                    │  lifecycle              │
-                    └──────────┬──────────────┘
-                               │
-          ┌────────────────────┼──────────────────┐
-          │                    │                  │
-          ▼                    ▼                  ▼
-┌─────────────────┐  ┌─────────────────┐  ┌──────────────────┐
-│    Message[]    │  │   Plan? ────────┼──│ relatedArtifacts │
-│                 │  │                 │  │   Artifact[]     │
-│  conversation   │  │  requirements[] │  └──────────────────┘
-│  messages       │  │  tasks[]        │
-└─────────────────┘  │  artifacts[]    │
-                     └────────┬────────┘
-                              │
-               ┌──────────────┼──────────────┐
-               │              │              │
-               ▼              ▼              ▼
-     ┌──────────────┐ ┌────────────┐ ┌────────────┐
-     │ Requirement  │ │    Task    │ │  Artifact  │
-     │              │ │            │ │            │
-     │ id, slug     │ │ id         │ │ id, name   │
-     │ userQuery    │ │ title?     │ │ type       │
-     │ type         │ │ state      │ │ category   │
-     │ researches[] │ │ baseBranch │ │ format     │
-     └──────────────┘ │ branch     │ │ summary    │
-                      │ dependsOn[]│ │ path       │
-                      │ actions[] ─┤ │ state      │
-                      └────────┬───┘ └────────────┘
-                               │
-                               ▼
-                     ┌──────────────────────┐
-                     │     ActionItem       │
-                     │                      │
-                     │  id, name            │
-                     │  description, branch │
-                     │  dependsOn[]         │
-                     │  acceptanceCriteria[]│
-                     └──────────────────────┘
+                    +-------------------------+
+                    |        Feature          |
+                    |                         |
+                    |  id, name, slug         |
+                    |  userQuery, description |
+                    |  repositoryPath, branch |
+                    |  lifecycle, fast        |
+                    |  push, openPr           |
+                    |  approvalGates          |
+                    +----------+--------------+
+                               |
+          +--------------------+------------------+
+          |                    |                  |
+          v                    v                  v
++-----------------+  +-----------------+  +------------------+
+|    Message[]    |  |   Plan? --------+--| relatedArtifacts |
+|                 |  |                 |  |   Artifact[]     |
+|  conversation   |  |  requirements[] |  +------------------+
+|  messages       |  |  tasks[]        |
++-----------------+  |  artifacts[]    |
+                     +--------+--------+
+                              |
+               +--------------+--------------+
+               |              |              |
+               v              v              v
+     +--------------+ +------------+ +------------+
+     | Requirement  | |    Task    | |  Artifact  |
+     |              | |            | |            |
+     | id, slug     | | id         | | id, name   |
+     | userQuery    | | title?     | | type       |
+     | type         | | state      | | category   |
+     | researches[] | | baseBranch | | format     |
+     +--------------+ | branch     | | summary    |
+                      | dependsOn[]| | path       |
+                      | actions[] -+ | state      |
+                      +--------+---+ +------------+
+                               |
+                               v
+                     +----------------------+
+                     |     ActionItem       |
+                     |                      |
+                     |  id, name            |
+                     |  description, branch |
+                     |  dependsOn[]         |
+                     |  acceptanceCriteria[]|
+                     +----------------------+
 ```
 
 ## Lifecycle Integration
@@ -133,6 +175,7 @@ Feature lifecycle determines available operations:
 | Implementation | Update task state           |
 | Review         | Review and approve changes  |
 | Maintain       | All (new iteration)         |
+| Blocked        | Await resolution            |
 
 ## Aggregate Rules
 
@@ -143,164 +186,21 @@ As an aggregate root, Feature enforces these invariants:
 3. **Dependency Integrity**: Task dependencies reference valid tasks within the plan
 4. **Artifact Ownership**: Artifacts belong to exactly one feature (via plan or relatedArtifacts)
 
-## Factory Method
-
-```typescript
-export class Feature {
-  static create(props: CreateFeatureProps): Feature {
-    return new Feature(
-      generateId(),
-      props.name,
-      props.userQuery,
-      props.slug,
-      props.description,
-      props.repositoryPath,
-      props.branch,
-      SdlcLifecycle.Started,
-      new Date(),
-      new Date(),
-      [], // messages
-      undefined, // plan
-      [] // relatedArtifacts
-    );
-  }
-}
-```
-
-## Domain Methods
-
-### Lifecycle Transitions
-
-```typescript
-canTransitionTo(target: SdlcLifecycle): boolean {
-  return LifecycleRules.canTransition(this.lifecycle, target);
-}
-
-transitionTo(target: SdlcLifecycle): void {
-  if (!this.canTransitionTo(target)) {
-    throw new InvalidLifecycleTransitionError(this.lifecycle, target);
-  }
-  this.lifecycle = target;
-}
-```
-
-### Requirements Management
-
-```typescript
-addRequirement(requirement: Requirement): void {
-  if (this.lifecycle !== SdlcLifecycle.Requirements) {
-    throw new RequirementsLockedError();
-  }
-  if (!this.plan) {
-    throw new PlanNotInitializedError();
-  }
-  this.plan.requirements.push(requirement);
-}
-```
-
-### Task Management
-
-```typescript
-setTasks(tasks: Task[]): void {
-  if (this.lifecycle !== SdlcLifecycle.Planning) {
-    throw new InvalidOperationForLifecycleError('setTasks', this.lifecycle);
-  }
-  if (!this.plan) {
-    throw new PlanNotInitializedError();
-  }
-  this.validateTaskDependencies(tasks);
-  this.plan.tasks = tasks;
-}
-
-private validateTaskDependencies(tasks: Task[]): void {
-  const taskIds = new Set(tasks.map(t => t.id));
-  for (const task of tasks) {
-    for (const dep of task.dependsOn) {
-      if (!taskIds.has(dep.id)) {
-        throw new InvalidDependencyError(task.id, dep.id);
-      }
-    }
-  }
-  // Check for cycles
-  if (DependencyValidator.hasCycles(tasks)) {
-    throw new CircularDependencyError();
-  }
-}
-```
-
-### Progress Calculation
-
-```typescript
-get progress(): FeatureProgress {
-  const tasks = this.plan?.tasks ?? [];
-  if (tasks.length === 0) {
-    return { completed: 0, total: 0, percentage: 0 };
-  }
-
-  const completed = tasks.filter(
-    t => t.state === TaskState.Done
-  ).length;
-
-  return {
-    completed,
-    total: tasks.length,
-    percentage: Math.round((completed / tasks.length) * 100)
-  };
-}
-```
-
 ## Persistence
 
-Features are persisted via `IFeatureRepository`:
+Features are persisted via `IFeatureRepository` (in `packages/core/src/application/ports/output/repositories/feature-repository.interface.ts`):
 
 ```typescript
 interface IFeatureRepository {
+  create(feature: Feature): Promise<void>;
   findById(id: string): Promise<Feature | null>;
-  findByRepositoryPath(repositoryPath: string): Promise<Feature[]>;
-  findByLifecycle(lifecycle: SdlcLifecycle): Promise<Feature[]>;
-  save(feature: Feature): Promise<void>;
+  findByIdPrefix(prefix: string): Promise<Feature | null>;
+  findBySlug(slug: string, repositoryPath: string): Promise<Feature | null>;
+  list(filters?: FeatureListFilters): Promise<Feature[]>;
+  update(feature: Feature): Promise<void>;
+  findByParentId(parentId: string): Promise<Feature[]>;
   delete(id: string): Promise<void>;
 }
-```
-
-## Usage Example
-
-```typescript
-// Create new feature
-const feature = Feature.create({
-  name: 'User Authentication',
-  userQuery: 'Add OAuth2 login flow',
-  slug: 'user-authentication',
-  description: 'Implement OAuth2 login flow',
-  repositoryPath: '/home/user/myapp',
-  branch: 'feat/auth',
-});
-
-// Transition through early phases
-feature.transitionTo(SdlcLifecycle.Analyze);
-feature.transitionTo(SdlcLifecycle.Requirements);
-
-// Add requirements (Requirements phase)
-feature.addRequirement(
-  new Requirement({
-    slug: 'google-oauth',
-    userQuery: 'Support Google OAuth',
-    type: RequirementType.Functional,
-  })
-);
-
-// Transition to Research, then Planning
-feature.transitionTo(SdlcLifecycle.Research);
-feature.transitionTo(SdlcLifecycle.Planning);
-
-// Set tasks (Planning phase)
-feature.setTasks(planningResult.tasks);
-
-// Transition to Implementation
-feature.transitionTo(SdlcLifecycle.Implementation);
-
-// Track progress
-console.log(feature.progress); // { completed: 2, total: 5, percentage: 40 }
 ```
 
 ---
@@ -309,7 +209,7 @@ console.log(feature.progress); // { completed: 2, total: 5, percentage: 40 }
 
 **Update when:**
 
-- Feature entity properties change
+- Feature entity properties change (check `packages/core/src/domain/generated/output.ts`)
 - New domain methods are added
 - Aggregate rules evolve
 - Relationship structure changes

@@ -9,15 +9,16 @@ This directory contains documentation about Shep AI CLI's system architecture an
 | [overview.md](./overview.md)                     | High-level system architecture and component interactions |
 | [clean-architecture.md](./clean-architecture.md) | Clean Architecture implementation details                 |
 | [repository-pattern.md](./repository-pattern.md) | Data persistence and repository pattern                   |
-| [agent-system.md](./agent-system.md)             | Multi-agent system design and implementation              |
+| [agent-system.md](./agent-system.md)             | LangGraph-based agent system design and implementation    |
+| [settings-service.md](./settings-service.md)     | Global settings service architecture                      |
 
 ## Quick Reference
 
 ### Architecture Layers
 
 ```
-Presentation → Application → Domain ← Infrastructure
-     ↓              ↓          ↑           ↑
+Presentation -> Application -> Domain <- Infrastructure
+     |              |          ^           ^
    CLI/Web      Use Cases   Entities   Repositories
 ```
 

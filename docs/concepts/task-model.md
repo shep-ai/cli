@@ -69,28 +69,26 @@ export class ActionItem {
 ## AcceptanceCriteria Entity
 
 ```typescript
-export class AcceptanceCriteria {
-  readonly id: string;
-
+export type AcceptanceCriteria = BaseEntity & {
   description: string;
-  met: boolean;
-}
+  verified: boolean;
+};
 ```
 
 ### Properties
 
-| Property      | Type      | Description                  |
-| ------------- | --------- | ---------------------------- |
-| `id`          | `string`  | Unique identifier (UUID)     |
-| `description` | `string`  | Criterion description        |
-| `met`         | `boolean` | Whether the criterion is met |
+| Property      | Type      | Description                       |
+| ------------- | --------- | --------------------------------- |
+| `id`          | `string`  | Unique identifier (UUID)          |
+| `description` | `string`  | Criterion description             |
+| `verified`    | `boolean` | Whether the criterion is verified |
 
 ## TaskState Enum
 
 ```typescript
 export enum TaskState {
   Todo = 'Todo',
-  WIP = 'WIP',
+  WIP = 'Work in Progress',
   Done = 'Done',
   Review = 'Review',
 }
@@ -265,7 +263,7 @@ class Task {
     }
 
     const completed = this.actionItems.filter((ai) =>
-      ai.acceptanceCriteria.every((c) => c.met)
+      ai.acceptanceCriteria.every((c) => c.verified)
     ).length;
 
     return {

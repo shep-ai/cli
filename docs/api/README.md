@@ -4,19 +4,19 @@ Technical reference documentation for Shep AI CLI interfaces and models.
 
 ## Contents
 
-| Document                                               | Description             |
-| ------------------------------------------------------ | ----------------------- |
-| [repository-interfaces.md](./repository-interfaces.md) | Data access interfaces  |
-| [domain-models.md](./domain-models.md)                 | Core entity definitions |
-| [agent-interfaces.md](./agent-interfaces.md)           | Agent system interfaces |
+| Document                                               | Description                       |
+| ------------------------------------------------------ | --------------------------------- |
+| [domain-models.md](./domain-models.md)                 | Core entity definitions and enums |
+| [repository-interfaces.md](./repository-interfaces.md) | Data access interfaces (ports)    |
+| [agent-interfaces.md](./agent-interfaces.md)           | Agent system interfaces           |
 
 ## Overview
 
 This directory contains technical specifications for:
 
-- **Repository Interfaces** - Ports for data persistence
-- **Domain Models** - Business entities and value objects
-- **Agent Interfaces** - Multi-agent system contracts
+- **Domain Models** -- Business entities, value objects, and enums (TypeSpec-generated)
+- **Repository Interfaces** -- Ports for data persistence (IFeatureRepository, ISettingsRepository, IRepositoryRepository)
+- **Agent Interfaces** -- Agent execution, orchestration, and lifecycle contracts
 
 ## Audience
 
@@ -28,9 +28,10 @@ This documentation is for:
 
 ## Usage Notes
 
-- All interfaces use TypeScript
-- Examples show typical implementation patterns
-- Related docs link to architectural context
+- All types are generated from TypeSpec definitions in `tsp/`
+- Generated output lives in `packages/core/src/domain/generated/output.ts`
+- Repository interfaces are in `packages/core/src/application/ports/output/repositories/`
+- Agent interfaces are in `packages/core/src/application/ports/output/agents/`
 
 ## Quick Links
 
@@ -40,19 +41,20 @@ This documentation is for:
 - [Task](./domain-models.md#task)
 - [ActionItem](./domain-models.md#actionitem)
 - [Artifact](./domain-models.md#artifact)
-- [Requirement](./domain-models.md#requirement)
+- [Settings](./domain-models.md#settings)
+- [Repository](./domain-models.md#repository)
 
 ### Repositories
 
 - [IFeatureRepository](./repository-interfaces.md#ifeaturerepository)
-- [ITaskRepository](./repository-interfaces.md#itaskrepository)
-- [IArtifactRepository](./repository-interfaces.md#iartifactrepository)
+- [ISettingsRepository](./repository-interfaces.md#isettingsrepository)
+- [IRepositoryRepository](./repository-interfaces.md#irepositoryrepository)
 
 ### Agents
 
-- [IAgent](./agent-interfaces.md#iagent)
-- [AgentMessage](./agent-interfaces.md#agentmessage)
-- [AgentOrchestrator](./agent-interfaces.md#agentorchestrator)
+- [IAgentExecutor](./agent-interfaces.md#iagentexecutor)
+- [IAgentExecutorProvider](./agent-interfaces.md#iagentexecutorprovider)
+- [IAgentExecutorFactory](./agent-interfaces.md#iagentexecutorfactory)
 
 ---
 
@@ -68,4 +70,4 @@ This documentation is for:
 
 - Use TypeScript code blocks
 - Include JSDoc comments
-- Show example implementations
+- Reference actual file paths

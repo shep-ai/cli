@@ -4,26 +4,42 @@
 
 Entry point: `src/presentation/cli/index.ts`
 
-The `bootstrap()` function runs three sequential steps:
+The `bootstrap()` function runs four sequential steps:
 
-1. **Initialize DI container** -- `initializeContainer()` opens SQLite, runs migrations, registers repositories and use cases.
+1. **Initialize DI container** -- `initializeContainer()` opens SQLite, runs migrations, registers repositories and use cases. Exposes the container on `globalThis.__shepContainer` for the web UI's server-side code.
 2. **Initialize settings** -- Resolves `InitializeSettingsUseCase` from the container, executes it to load/create settings, then calls `initializeSettings(settings)` to populate the in-memory singleton.
-3. **Configure Commander** -- Creates the root `Command('shep')`, registers subcommands, calls `program.parseAsync()`.
+3. **First-run onboarding gate** -- If running in an interactive TTY and onboarding is not complete, launches the onboarding wizard (`onboardingWizard()`). The wizard is lazy-imported to avoid startup cost when already complete.
+4. **Configure Commander** -- Creates the root `Command('shep')`, registers subcommands, calls `program.parseAsync()`. The default action (no subcommand) starts the daemon via `startDaemon()`.
 
 ```typescript
 async function bootstrap() {
   await initializeContainer();
-  const useCase = container.resolve(InitializeSettingsUseCase);
-  const settings = await useCase.execute();
+  (globalThis as Record<string, unknown>).__shepContainer = container;
+
+  const initializeSettingsUseCase = container.resolve(InitializeSettingsUseCase);
+  const settings = await initializeSettingsUseCase.execute();
   initializeSettings(settings);
+
+  // First-run onboarding gate (TTY only)
+  if (process.stdin.isTTY) {
+    const onboardingCheck = new CheckOnboardingStatusUseCase();
+    const { isComplete } = await onboardingCheck.execute();
+    if (!isComplete) {
+      const { onboardingWizard } = await import('../tui/wizards/onboarding/onboarding.wizard.js');
+      await onboardingWizard();
+    }
+  }
 
   const program = new Command()
     .name('shep')
     .version(version, '-v, --version')
-    .action(() => program.outputHelp());
+    .action(async () => {
+      await startDaemon();
+    });
 
   program.addCommand(createVersionCommand());
   program.addCommand(createSettingsCommand());
+  // ... all other commands
   await program.parseAsync();
 }
 ```
@@ -56,11 +72,57 @@ export function createXxxCommand(): Command {
 
 ```
 commands/
-  version.command.ts            # Top-level command
+  version.command.ts              # Top-level command
+  run.command.ts                  # shep run
+  ui.command.ts                   # shep ui
+  start.command.ts                # shep start (daemon)
+  stop.command.ts                 # shep stop (daemon)
+  restart.command.ts              # shep restart (daemon)
+  status.command.ts               # shep status (daemon)
+  _serve.command.ts               # shep serve (hidden, internal)
+  upgrade.command.ts              # shep upgrade
+  install.command.ts              # shep install
+  ide-open.command.ts             # shep ide-open
+  tools.command.ts                # shep tools (group)
   settings/
-    index.ts                    # createSettingsCommand() - group
-    show.command.ts             # createShowCommand() - subcommand
-    init.command.ts             # createInitCommand() - subcommand
+    index.ts                      # settings command group
+    show.command.ts               # shep settings show
+    init.command.ts               # shep settings init
+    agent.command.ts              # shep settings agent
+    ide.command.ts                # shep settings ide
+    workflow.command.ts           # shep settings workflow
+    model.command.ts              # shep settings model
+  feat/
+    index.ts                      # feat command group
+    new.command.ts                # shep feat new
+    ls.command.ts                 # shep feat ls
+    show.command.ts               # shep feat show
+    del.command.ts                # shep feat del
+    resume.command.ts             # shep feat resume
+    review.command.ts             # shep feat review
+    approve.command.ts            # shep feat approve
+    reject.command.ts             # shep feat reject
+    logs.command.ts               # shep feat logs
+  agent/
+    index.ts                      # agent command group
+    ls.command.ts                 # shep agent ls
+    show.command.ts               # shep agent show
+    stop.command.ts               # shep agent stop
+    logs.command.ts               # shep agent logs
+    delete.command.ts             # shep agent delete
+    approve.command.ts            # shep agent approve
+    reject.command.ts             # shep agent reject
+  repo/
+    index.ts                      # repo command group
+    ls.command.ts                 # shep repo ls
+    show.command.ts               # shep repo show
+  session/
+    index.ts                      # session command group
+    ls.command.ts                 # shep session ls
+    show.command.ts               # shep session show
+  daemon/
+    start-daemon.ts               # Daemon start logic
+    stop-daemon.ts                # Daemon stop logic
 ```
 
 To add a new command group:
@@ -130,7 +192,7 @@ Error stack traces are only printed when the `DEBUG` environment variable is set
 
 ## Help Text Conventions
 
-- Root command shows help by default (no arguments).
+- Root command starts the daemon by default (no arguments).
 - `--version` / `-v` prints version number only.
 - `version` subcommand prints detailed info (name, description, Node version, platform).
 - Command groups show their subcommand list when invoked without a subcommand.

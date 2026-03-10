@@ -7,7 +7,7 @@ High-level architecture of the Shep AI CLI platform.
 ```mermaid
 flowchart LR
     subgraph Users[" "]
-        User([👤 User])
+        User(["User"])
     end
 
     subgraph UI["Presentation"]
@@ -19,16 +19,16 @@ flowchart LR
 
     subgraph Core["Shep AI Core"]
         direction TB
-        App["<b>Application</b><br/>Use Cases · Ports"]
-        Dom["<b>Domain</b><br/>Feature · Task · Artifact"]
-        Infra["<b>Infrastructure</b><br/>Repos · Agents · FS"]
+        App["<b>Application</b><br/>Use Cases and Ports"]
+        Dom["<b>Domain</b><br/>Feature, Task, Artifact"]
+        Infra["<b>Infrastructure</b><br/>Repos, Agents, FS"]
     end
 
     subgraph Ext["External"]
         direction TB
         FS[("~/.shep/")]
         DB[("SQLite")]
-        AI[("Claude API")]
+        AI[("AI Agents")]
     end
 
     User --> UI
@@ -68,90 +68,85 @@ All presentation components use the Application layer - they never directly acce
 
 ### 2. Application Subsystem
 
-Orchestrates business operations through Use Cases:
+Orchestrates business operations through Use Cases and defines output port interfaces:
 
-- **InitUseCase** - Initialize Shep in a repository
-- **AnalyzeRepositoryUseCase** - Trigger repository analysis
-- **GatherRequirementsUseCase** - Run requirements conversation
-- **CreatePlanUseCase** - Generate Tasks, ActionItems, Artifacts
-- **ExecuteImplementationUseCase** - Run implementation agents
-- **TransitionLifecycleUseCase** - Move Feature between phases
+**Repositories** (in `packages/core/src/application/ports/output/repositories/`):
+
+- `IFeatureRepository` -- Feature CRUD with slug lookup, prefix search, parent/child hierarchy
+- `ISettingsRepository` -- Singleton settings persistence (initialize, load, update)
+- `IRepositoryRepository` -- Repository entity management with soft delete
+
+**Agent Ports** (in `packages/core/src/application/ports/output/agents/`):
+
+- `IAgentExecutor` -- Execute prompts against AI coding agents
+- `IAgentExecutorFactory` -- Create executors for agent types
+- `IAgentExecutorProvider` -- Resolve current executor from settings
+- `IAgentRegistry` -- Register and discover agent definitions
+- `IAgentRunner` -- Run agent workflows with lifecycle management
+- `IAgentRunRepository` -- Persist agent run records
+- `IAgentValidator` -- Validate agent tool availability
+- `IFeatureAgentProcessService` -- Manage background agent processes
+- `IStructuredAgentCaller` -- Make typed calls to agents
+- `IPhaseTimingRepository` -- Track SDLC phase durations
+- `IAgentSessionRepository` -- Manage agent sessions
+
+**Service Ports** (in `packages/core/src/application/ports/output/services/`):
+
+- `IDaemonService`, `IDeploymentService`, `IGitPrService`, `IIdeLauncherService`
+- `INotificationService`, `ISpecInitializer`, `IToolInstallerService`
+- `IVersionService`, `IWebServerService`, `IWorktreeService`
+- `IExternalIssueFetcher`
 
 ### 3. Domain Subsystem
 
-Pure business logic with no external dependencies:
+Pure business logic with no external dependencies. Domain types are generated from TypeSpec definitions:
 
-- **Entities**: Feature, Task, ActionItem, Artifact, Requirement
-- **Value Objects**: SdlcLifecycle, TaskStatus, ArtifactType
-- **Domain Services**: Dependency graph validation, lifecycle rules
+- **Source of truth**: `tsp/` directory (TypeSpec files)
+- **Generated types**: `packages/core/src/domain/generated/output.ts`
+- **Key entities**: Feature, Task, ActionItem, Artifact, Requirement, Plan, Settings, Repository
+- **Key enums**: SdlcLifecycle, TaskState, PlanState, ArtifactCategory, AgentType
 
 ### 4. Infrastructure Subsystem
 
 External concerns implementation:
 
-- **Repositories**: SQLite implementations of data access interfaces
-- **Agent System**: Multi-agent orchestration (see [agent-system.md](./agent-system.md))
-- **File System**: Analysis document persistence
-- **External Services**: Claude AI API integration
+- **Repositories**: SQLite implementations (`sqlite-feature.repository.ts`, `sqlite-settings.repository.ts`, `sqlite-repository.repository.ts`, `agent-run.repository.ts`, `sqlite-phase-timing.repository.ts`)
+- **Agent System**: LangGraph-based orchestration (see [agent-system.md](./agent-system.md))
+- **Persistence**: SQLite via better-sqlite3 with migration system (28 migrations)
+- **DI Container**: tsyringe-based dependency injection
 
 ## Data Flow
-
-### Initialization Flow
-
-```
-User runs: shep --init
-         │
-         ▼
-    CLI parses command
-         │
-         ▼
-    InitUseCase.execute()
-         │
-         ├─→ Check existing config
-         │
-         ├─→ Launch TUI wizard
-         │         │
-         │         ├─→ Auth method selection
-         │         └─→ Token setup
-         │
-         ├─→ Persist config to ~/.shep/
-         │
-         └─→ Trigger AnalyzeRepositoryUseCase
-                   │
-                   ├─→ Spawn RepositoryAnalysisAgent
-                   │
-                   └─→ Persist analysis to ~/.shep/repos/<repo>/docs/
-```
 
 ### Feature Lifecycle Flow
 
 ```
-Requirements ──→ Plan ──→ Implementation ──→ Test ──→ Deploy ──→ Maintenance
-     │            │            │
-     ▼            ▼            ▼
- Requirements  Planning   Implementation
-    Agent       Agent        Agent
+Started --> Analyze --> Requirements --> Research --> Planning --> Implementation --> Review --> Maintain
+                                                                                                 |
+                                                                                         (Blocked possible
+                                                                                          from any phase)
 ```
 
 ## File System Structure
 
 ```
 ~/.shep/
-├── data                           # SQLite database (global settings)
-└── repos/
-    └── <base64-encoded-repo-path>/
-        ├── data                   # SQLite database file
-        ├── docs/                  # Repository analysis documents
-        │   ├── architecture.md
-        │   ├── dependencies.md
-        │   ├── patterns.md
-        │   └── ...
-        └── artifacts/             # Generated feature artifacts
-            └── <feature-id>/
-                ├── prd.md
-                ├── rfc.md
-                └── ...
++-- data                           # SQLite database (global settings)
++-- repos/
+    +-- <base64-encoded-repo-path>/
+        +-- data                   # SQLite database file (features, agent_runs, etc.)
+        +-- docs/                  # Repository analysis documents
+        +-- artifacts/             # Generated feature artifacts
 ```
+
+## SQLite Schema (actual tables)
+
+| Table           | Purpose                                                                                                      |
+| --------------- | ------------------------------------------------------------------------------------------------------------ |
+| `settings`      | Singleton global settings (model config, user profile, agent config, notifications, workflow, feature flags) |
+| `features`      | Feature entities with full lifecycle tracking, PR data, approval gates, worktree paths                       |
+| `agent_runs`    | Agent execution records with status, timing, approval gates                                                  |
+| `phase_timings` | SDLC phase duration tracking per agent run                                                                   |
+| `repositories`  | Tracked code repositories with soft delete support                                                           |
 
 ## Technology Decisions
 
@@ -165,17 +160,20 @@ Requirements ──→ Plan ──→ Implementation ──→ Test ──→ De
 | UI Components   | shadcn/ui         | Radix primitives + Tailwind, accessible, customizable                          |
 | Design System   | Storybook         | Component documentation, visual testing, design tokens                         |
 | Build Tool      | tsc + tsc-alias   | Standard TypeScript compilation with path alias resolution                     |
-| Database        | SQLite            | Zero setup, portable, sufficient for local use                                 |
+| Database        | SQLite            | Zero setup, portable, sufficient for local use (via better-sqlite3)            |
 | Agent Pattern   | LangGraph         | State-based workflow orchestration with typed graphs                           |
 | Unit Testing    | Vitest            | Fast, ESM-native, Vite-compatible                                              |
 | E2E Testing     | Playwright        | Cross-browser, reliable, great DX                                              |
 | Methodology     | TDD               | Red-Green-Refactor, confidence, design quality                                 |
+| DI Container    | tsyringe          | Lightweight IoC container with decorator support                               |
+| Domain Models   | TypeSpec          | Single source of truth, generates TypeScript types                             |
 
 ## Related Documentation
 
 - [clean-architecture.md](./clean-architecture.md) - Layer details
 - [repository-pattern.md](./repository-pattern.md) - Data access patterns
 - [agent-system.md](./agent-system.md) - Agent implementation
+- [settings-service.md](./settings-service.md) - Settings architecture
 - [AGENTS.md](../../AGENTS.md) - Agent reference
 
 ---
@@ -191,6 +189,6 @@ Requirements ──→ Plan ──→ Implementation ──→ Test ──→ De
 
 **Keep current:**
 
-- ASCII diagrams should reflect actual implementation
+- Diagrams should reflect actual implementation
 - Technology choices should match package.json
 - File paths should be accurate

@@ -14,6 +14,7 @@ export enum SdlcLifecycle {
   Implementation = 'Implementation',
   Review = 'Review',
   Maintain = 'Maintain',
+  Blocked = 'Blocked',
 }
 ```
 
@@ -198,47 +199,66 @@ export enum SdlcLifecycle {
 
 **Artifacts produced:** Various
 
+### Blocked
+
+**Purpose:** Indicates a feature is blocked and cannot progress.
+
+**Entry criteria:**
+
+- Feature encounters a blocking issue from any phase
+
+**Activities:**
+
+- Awaiting external resolution
+- User intervention needed
+
+**Exit criteria:**
+
+- Blocking issue resolved
+
 ## State Transitions
 
 ```
-┌──────────────┐
-│   Started    │
-└──────┬───────┘
-       │ begin analysis
-       ▼
-┌──────────────┐
-│   Analyze    │
-└──────┬───────┘
-       │ analysis complete
-       ▼
-┌──────────────┐
-│ Requirements │
-└──────┬───────┘
-       │ requirements gathered
-       ▼
-┌──────────────┐
-│   Research   │
-└──────┬───────┘
-       │ research complete
-       ▼
-┌──────────────┐
-│   Planning   │
-└──────┬───────┘
-       │ plan complete
-       ▼
-┌──────────────┐
-│Implementation│
-└──────┬───────┘
-       │ implementation complete
-       ▼
-┌──────────────┐
-│    Review    │
-└──────┬───────┘
-       │ review passed
-       ▼
-┌──────────────┐
-│   Maintain   │
-└──────────────┘
++----> Blocked (can be entered from any phase)
+|
++--------------+
+|   Started    |
++------+-------+
+       | begin analysis
+       v
++--------------+
+|   Analyze    |
++------+-------+
+       | analysis complete
+       v
++--------------+
+| Requirements |
++------+-------+
+       | requirements gathered
+       v
++--------------+
+|   Research   |
++------+-------+
+       | research complete
+       v
++--------------+
+|   Planning   |
++------+-------+
+       | plan complete
+       v
++--------------+
+|Implementation|
++------+-------+
+       | implementation complete
+       v
++--------------+
+|    Review    |
++------+-------+
+       | review passed
+       v
++--------------+
+|   Maintain   |
++--------------+
 ```
 
 ## Transition Rules
@@ -260,47 +280,19 @@ Valid transitions are forward-only with specific exceptions:
 | Review         | Maintain       | Yes     | Normal flow            |
 | Review         | Implementation | Yes     | Fixes needed           |
 | Maintain       | Requirements   | Yes     | New feature iteration  |
-
-## Implementation
-
-Domain service enforces transition rules:
-
-```typescript
-// src/domain/services/lifecycle-rules.ts
-export class LifecycleRules {
-  private static transitions: Map<SdlcLifecycle, SdlcLifecycle[]> = new Map([
-    [SdlcLifecycle.Started, [SdlcLifecycle.Analyze]],
-    [SdlcLifecycle.Analyze, [SdlcLifecycle.Requirements]],
-    [SdlcLifecycle.Requirements, [SdlcLifecycle.Research]],
-    [SdlcLifecycle.Research, [SdlcLifecycle.Planning, SdlcLifecycle.Requirements]],
-    [SdlcLifecycle.Planning, [SdlcLifecycle.Implementation, SdlcLifecycle.Research]],
-    [SdlcLifecycle.Implementation, [SdlcLifecycle.Review, SdlcLifecycle.Planning]],
-    [SdlcLifecycle.Review, [SdlcLifecycle.Maintain, SdlcLifecycle.Implementation]],
-    [SdlcLifecycle.Maintain, [SdlcLifecycle.Requirements]],
-  ]);
-
-  static canTransition(from: SdlcLifecycle, to: SdlcLifecycle): boolean {
-    const allowed = this.transitions.get(from) ?? [];
-    return allowed.includes(to);
-  }
-
-  static getValidTransitions(from: SdlcLifecycle): SdlcLifecycle[] {
-    return this.transitions.get(from) ?? [];
-  }
-}
-```
+| Any            | Blocked        | Yes     | Blocking issue         |
 
 ## UI Representation
 
 In the web UI, lifecycle is shown as a progress indicator:
 
 ```
-[Started] → [Analyze] → [Requirements] → [Research] → [Planning] → [Implementation] → [Review] → [Maintain]
-    ✓           ✓              ✓              ●            ○               ○               ○          ○
+[Started] -> [Analyze] -> [Requirements] -> [Research] -> [Planning] -> [Implementation] -> [Review] -> [Maintain]
+    v            v              v              *            o               o               o          o
 
-✓ = Completed
-● = Current
-○ = Pending
+v = Completed
+* = Current
+o = Pending
 ```
 
 ---
@@ -316,4 +308,3 @@ In the web UI, lifecycle is shown as a progress indicator:
 **Related docs:**
 
 - [feature-model.md](./feature-model.md) - Feature entity owns lifecycle
-- [../guides/web-ui.md](../guides/web-ui.md) - UI lifecycle visualization

@@ -34,67 +34,35 @@ Repository settings override global settings.
 
 ### Authentication Methods
 
-#### Token-Based (Default)
-
-Use a Claude API key:
+Agent authentication is configured through the interactive settings wizard:
 
 ```bash
-# Interactive setup
-shep --auth
+# Launch the interactive settings wizard
+shep settings
 
-# Or set directly
-shep config set auth.token YOUR_API_KEY
+# Or configure the agent directly
+shep settings agent
 ```
 
-Token is stored securely at `~/.shep/credentials`.
+The selected agent type and its authentication are persisted in `~/.shep/data` (SQLite).
 
 #### Session-Based
 
-Use an existing Claude Code session:
+For Claude Code, Shep can detect and use an existing authenticated session automatically.
 
-```bash
-shep config set auth.method session
-```
+#### Token-Based
 
-Shep detects and uses the existing authenticated session.
-
-### Re-authenticating
-
-To change authentication:
-
-```bash
-shep --auth
-```
-
-Or reset credentials:
-
-```bash
-shep config reset auth
-```
+For providers that require API keys, the settings wizard prompts for the token during agent configuration.
 
 ## Server Settings
 
 ### Port Configuration
 
-Default port is 4050. To change:
+Default port is 4050. The port can be overridden via the `SHEP_PORT` environment variable:
 
 ```bash
-# Command line (temporary)
-shep --port 8080
-
-# Persistent
-shep config set server.port 8080
+SHEP_PORT=8080 shep
 ```
-
-### Host Binding
-
-Default is localhost only. To allow network access:
-
-```bash
-shep config set server.host 0.0.0.0
-```
-
-**Warning:** This exposes Shep to your network. Use with caution.
 
 ## Analysis Settings
 
@@ -258,33 +226,31 @@ Control progress verbosity:
 }
 ```
 
-## CLI Configuration Commands
+## Settings Commands
 
-### View Configuration
-
-```bash
-# View all
-shep config list
-
-# View specific
-shep config get server.port
-```
-
-### Set Configuration
+Settings are managed via the `shep settings` command group:
 
 ```bash
-shep config set server.port 8080
-shep config set analysis.maxFileSize 2097152
-```
+# Launch interactive settings wizard
+shep settings
 
-### Reset Configuration
+# Display current settings
+shep settings show
 
-```bash
-# Reset specific
-shep config reset server.port
+# Initialize settings
+shep settings init
 
-# Reset all
-shep config reset --all
+# Configure agent type and auth
+shep settings agent
+
+# Configure IDE preference
+shep settings ide
+
+# Configure workflow settings
+shep settings workflow
+
+# Configure AI model preferences
+shep settings model
 ```
 
 ## Environment Variables

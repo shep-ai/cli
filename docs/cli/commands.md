@@ -7,33 +7,219 @@
 | `-v, --version` | Display version number and exit |
 | `-h, --help`    | Display help and exit           |
 
-Running `shep` with no arguments displays help.
+Running `shep` with no arguments starts the web UI daemon (or runs onboarding on first launch).
 
 ---
 
-## `shep version`
+## Daemon Commands
 
-Display detailed version information.
+### `shep`
 
-**Source**: `src/presentation/cli/commands/version.command.ts`
+Start the web UI daemon (or run the onboarding wizard on first launch). This is the default action when no subcommand is provided.
 
+**Source**: `src/presentation/cli/index.ts` (default action) + `src/presentation/cli/commands/daemon/start-daemon.ts`
+
+### `shep start`
+
+Start the web UI as a background daemon.
+
+**Source**: `src/presentation/cli/commands/start.command.ts`
+
+### `shep stop`
+
+Stop the running web UI daemon.
+
+**Source**: `src/presentation/cli/commands/stop.command.ts`
+
+### `shep restart`
+
+Restart (or start) the web UI daemon.
+
+**Source**: `src/presentation/cli/commands/restart.command.ts`
+
+### `shep status`
+
+Show status and metrics of the running daemon.
+
+**Source**: `src/presentation/cli/commands/status.command.ts`
+
+### `shep ui`
+
+Start the web UI in foreground (interactive, non-daemon mode).
+
+**Source**: `src/presentation/cli/commands/ui.command.ts`
+
+**Options**:
+
+| Option                | Description              | Default |
+| --------------------- | ------------------------ | ------- |
+| `-p, --port <number>` | Port number (1024-65535) | `4050`  |
+
+**Examples**:
+
+```bash
+# Start on default port
+shep ui
+
+# Start on custom port
+shep ui --port 8080
 ```
-$ shep version
 
-@shepai/cli v0.1.0
-Autonomous AI Native SDLC Platform
+**Behavior**:
 
-Node:     v20.10.0
-Platform: linux x64
-```
+- Starts the web UI server and prints the URL.
+- Auto-increments port if the requested port is already occupied.
+- Graceful shutdown on Ctrl+C.
 
-Output includes package name, version (via `VersionService`), description, Node.js version, and OS platform/arch.
+### `shep serve` (hidden)
+
+Internal command used by the daemon to start the web server in a child process. Hidden from `--help`.
+
+**Source**: `src/presentation/cli/commands/_serve.command.ts`
 
 ---
 
-## `shep settings`
+## Feature Commands
 
-Command group for managing global settings. Running `shep settings` without a subcommand displays subcommand help.
+### `shep feat new`
+
+Create a new feature.
+
+**Source**: `src/presentation/cli/commands/feat/new.command.ts`
+
+### `shep feat ls`
+
+List all features.
+
+**Source**: `src/presentation/cli/commands/feat/ls.command.ts`
+
+### `shep feat show`
+
+Show details of a specific feature.
+
+**Source**: `src/presentation/cli/commands/feat/show.command.ts`
+
+### `shep feat del`
+
+Delete a feature.
+
+**Source**: `src/presentation/cli/commands/feat/del.command.ts`
+
+### `shep feat resume`
+
+Resume a paused or blocked feature.
+
+**Source**: `src/presentation/cli/commands/feat/resume.command.ts`
+
+### `shep feat review`
+
+Review a feature (triggers merge review).
+
+**Source**: `src/presentation/cli/commands/feat/review.command.ts`
+
+### `shep feat approve`
+
+Approve a feature.
+
+**Source**: `src/presentation/cli/commands/feat/approve.command.ts`
+
+### `shep feat reject`
+
+Reject a feature.
+
+**Source**: `src/presentation/cli/commands/feat/reject.command.ts`
+
+### `shep feat logs`
+
+View logs for a feature.
+
+**Source**: `src/presentation/cli/commands/feat/logs.command.ts`
+
+---
+
+## Agent Commands
+
+### `shep agent ls`
+
+List all agent runs.
+
+**Source**: `src/presentation/cli/commands/agent/ls.command.ts`
+
+### `shep agent show`
+
+Show details of a specific agent run.
+
+**Source**: `src/presentation/cli/commands/agent/show.command.ts`
+
+### `shep agent stop`
+
+Stop a running agent.
+
+**Source**: `src/presentation/cli/commands/agent/stop.command.ts`
+
+### `shep agent logs`
+
+View agent run logs.
+
+**Source**: `src/presentation/cli/commands/agent/logs.command.ts`
+
+### `shep agent delete`
+
+Delete an agent run record.
+
+**Source**: `src/presentation/cli/commands/agent/delete.command.ts`
+
+### `shep agent approve`
+
+Approve an agent action.
+
+**Source**: `src/presentation/cli/commands/agent/approve.command.ts`
+
+### `shep agent reject`
+
+Reject an agent action.
+
+**Source**: `src/presentation/cli/commands/agent/reject.command.ts`
+
+---
+
+## Repository Commands
+
+### `shep repo ls`
+
+List tracked repositories.
+
+**Source**: `src/presentation/cli/commands/repo/ls.command.ts`
+
+### `shep repo show`
+
+Show details of a specific repository.
+
+**Source**: `src/presentation/cli/commands/repo/show.command.ts`
+
+---
+
+## Session Commands
+
+### `shep session ls`
+
+List sessions.
+
+**Source**: `src/presentation/cli/commands/session/ls.command.ts`
+
+### `shep session show`
+
+Show details of a specific session.
+
+**Source**: `src/presentation/cli/commands/session/show.command.ts`
+
+---
+
+## Settings Commands
+
+### `shep settings`
+
+Launch the full setup wizard (agent + IDE + workflow). Running `shep settings` without a subcommand launches the onboarding wizard interactively.
 
 **Source**: `src/presentation/cli/commands/settings/index.ts`
 
@@ -133,39 +319,79 @@ shep settings agent --agent claude-code --auth session
 - Without flags: Launches an interactive wizard that guides through agent selection, authentication method, and token entry.
 - With flags: Runs non-interactively using the provided values.
 
-**Error handling**: Same pattern as `settings show`.
+### `shep settings ide`
+
+Configure preferred IDE.
+
+**Source**: `src/presentation/cli/commands/settings/ide.command.ts`
+
+### `shep settings workflow`
+
+Configure workflow defaults.
+
+**Source**: `src/presentation/cli/commands/settings/workflow.command.ts`
+
+### `shep settings model`
+
+Configure default LLM model.
+
+**Source**: `src/presentation/cli/commands/settings/model.command.ts`
 
 ---
 
-## `shep ui`
+## Tools Commands
 
-Start the Shep web UI server.
+### `shep tools list`
 
-**Source**: `src/presentation/cli/commands/ui.command.ts`
+List all available development tools with their installed status.
 
-**Options**:
+**Source**: `src/presentation/cli/commands/tools.command.ts`
 
-| Option                | Description              | Default |
-| --------------------- | ------------------------ | ------- |
-| `-p, --port <number>` | Port number (1024-65535) | `4050`  |
+### `shep install`
 
-**Examples**:
+Install a development tool.
 
-```bash
-# Start on default port
-shep ui
+**Source**: `src/presentation/cli/commands/install.command.ts`
 
-# Start on custom port
-shep ui --port 8080
+### `shep ide-open`
+
+Open the IDE for a repository.
+
+**Source**: `src/presentation/cli/commands/ide-open.command.ts`
+
+---
+
+## Other Commands
+
+### `shep version`
+
+Display detailed version information.
+
+**Source**: `src/presentation/cli/commands/version.command.ts`
+
+```
+$ shep version
+
+@shepai/cli v0.1.0
+Autonomous AI Native SDLC Platform
+
+Node:     v20.10.0
+Platform: linux x64
 ```
 
-**Behavior**:
+Output includes package name, version (via `VersionService`), description, Node.js version, and OS platform/arch.
 
-- Starts the web UI server and prints the URL.
-- Auto-increments port if the requested port is already occupied.
-- Graceful shutdown on Ctrl+C.
+### `shep run`
 
-**Error handling**: Same pattern as `settings show`.
+Run an AI agent workflow.
+
+**Source**: `src/presentation/cli/commands/run.command.ts`
+
+### `shep upgrade`
+
+Upgrade Shep CLI to the latest version.
+
+**Source**: `src/presentation/cli/commands/upgrade.command.ts`
 
 ---
 

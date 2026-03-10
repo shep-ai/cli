@@ -4,421 +4,151 @@ Data access interfaces (ports) defined in the Application layer.
 
 ## Overview
 
-Repository interfaces abstract data persistence, allowing the domain to remain independent of storage implementation. These are defined in `src/application/ports/output/`.
+Repository interfaces abstract data persistence, allowing the domain to remain independent of storage implementation. These are defined in `packages/core/src/application/ports/output/repositories/`.
 
 ## IFeatureRepository
 
-Primary repository for Feature aggregate.
+Primary repository for Feature aggregate. Located at `packages/core/src/application/ports/output/repositories/feature-repository.interface.ts`.
 
 ```typescript
-/**
- * Repository interface for Feature aggregate persistence.
- * @see Feature - Domain entity
- * @see SqliteFeatureRepository - Default implementation
- */
+export interface FeatureListFilters {
+  repositoryPath?: string;
+  lifecycle?: SdlcLifecycle;
+}
+
 export interface IFeatureRepository {
   /**
-   * Find a feature by its unique identifier.
-   * @param id - Feature UUID
-   * @returns Feature if found, null otherwise
+   * Create a new feature record.
+   */
+  create(feature: Feature): Promise<void>;
+
+  /**
+   * Find a feature by its unique ID.
    */
   findById(id: string): Promise<Feature | null>;
 
   /**
-   * Find all features for a specific repository path.
-   * @param repoPath - Absolute path to repository
-   * @returns Array of features (may be empty)
+   * Find a feature by an ID prefix (e.g. first 8 chars from `feat ls`).
+   * Returns the feature if exactly one match, null if none, throws if ambiguous.
    */
-  findByRepoPath(repoPath: string): Promise<Feature[]>;
+  findByIdPrefix(prefix: string): Promise<Feature | null>;
 
   /**
-   * Find all features in a specific lifecycle state.
-   * @param lifecycle - Target lifecycle state
-   * @returns Array of matching features
+   * Find a feature by its slug within a repository.
    */
-  findByLifecycle(lifecycle: SdlcLifecycle): Promise<Feature[]>;
+  findBySlug(slug: string, repositoryPath: string): Promise<Feature | null>;
 
   /**
-   * Persist a feature (insert or update).
-   * @param feature - Feature to save
-   * @throws RepositoryError on persistence failure
+   * List features with optional filters.
    */
-  save(feature: Feature): Promise<void>;
+  list(filters?: FeatureListFilters): Promise<Feature[]>;
 
   /**
-   * Delete a feature and all related entities.
-   * @param id - Feature UUID to delete
-   * @throws RepositoryError if feature not found
+   * Update an existing feature.
+   */
+  update(feature: Feature): Promise<void>;
+
+  /**
+   * Returns all direct (non-recursive) children of the given parent feature ID.
+   * Children are ordered by creation time ascending.
+   */
+  findByParentId(parentId: string): Promise<Feature[]>;
+
+  /**
+   * Delete a feature by ID.
    */
   delete(id: string): Promise<void>;
 }
 ```
 
-### Implementation Notes
+### Implementation
 
-- `findById` should load related entities (requirements, tasks, artifacts)
-- `save` should use upsert semantics
-- `delete` should cascade to related entities
+`SqliteFeatureRepository` in `packages/core/src/infrastructure/repositories/sqlite-feature.repository.ts` stores features in the `features` SQLite table with JSON columns for nested data (messages, plan, related_artifacts, attachments, ci_fix_history).
 
-### Example Implementation
+## ISettingsRepository
+
+Singleton settings persistence. Located at `packages/core/src/application/ports/output/repositories/settings.repository.interface.ts`.
 
 ```typescript
-export class SqliteFeatureRepository implements IFeatureRepository {
-  constructor(
-    private readonly db: Database,
-    private readonly taskRepo: ITaskRepository,
-    private readonly artifactRepo: IArtifactRepository,
-    private readonly requirementRepo: IRequirementRepository
-  ) {}
+export interface ISettingsRepository {
+  /**
+   * Initialize settings for the first time.
+   * @throws Error if settings already exist (singleton constraint)
+   */
+  initialize(settings: Settings): Promise<void>;
 
-  async findById(id: string): Promise<Feature | null> {
-    const row = await this.db.get<FeatureRow>('SELECT * FROM features WHERE id = ?', [id]);
+  /**
+   * Load existing settings from the database.
+   */
+  load(): Promise<Settings | null>;
 
-    if (!row) return null;
-
-    const [tasks, artifacts, requirements] = await Promise.all([
-      this.taskRepo.findByFeatureId(id),
-      this.artifactRepo.findByFeatureId(id),
-      this.requirementRepo.findByFeatureId(id),
-    ]);
-
-    return FeatureMapper.toDomain(row, tasks, artifacts, requirements);
-  }
-
-  async save(feature: Feature): Promise<void> {
-    await this.db.run(
-      `
-      INSERT INTO features (id, name, description, lifecycle, repo_path)
-      VALUES (?, ?, ?, ?, ?)
-      ON CONFLICT(id) DO UPDATE SET
-        name = excluded.name,
-        description = excluded.description,
-        lifecycle = excluded.lifecycle,
-        updated_at = CURRENT_TIMESTAMP
-    `,
-      [feature.id, feature.name, feature.description, feature.lifecycle, feature.repoPath]
-    );
-  }
+  /**
+   * Update existing settings in the database.
+   * @throws Error if settings don't exist (must initialize first)
+   */
+  update(settings: Settings): Promise<void>;
 }
 ```
 
-## ITaskRepository
+### Implementation
 
-Repository for Task entities.
+`SQLiteSettingsRepository` in `packages/core/src/infrastructure/repositories/sqlite-settings.repository.ts` stores settings in a flattened column format in the `settings` table.
+
+## IRepositoryRepository
+
+Repository entity management with soft delete. Located at `packages/core/src/application/ports/output/repositories/repository-repository.interface.ts`.
 
 ```typescript
-/**
- * Repository interface for Task entity persistence.
- */
-export interface ITaskRepository {
-  /**
-   * Find a task by its unique identifier.
-   * @param id - Task UUID
-   * @returns Task if found, null otherwise
-   */
-  findById(id: string): Promise<Task | null>;
-
-  /**
-   * Find all tasks belonging to a feature.
-   * @param featureId - Parent feature UUID
-   * @returns Array of tasks with action items loaded
-   */
-  findByFeatureId(featureId: string): Promise<Task[]>;
-
-  /**
-   * Find all tasks with a specific status.
-   * @param status - Target status
-   * @returns Matching tasks
-   */
-  findByStatus(status: TaskStatus): Promise<Task[]>;
-
-  /**
-   * Find a task with its full dependency graph.
-   * @param taskId - Task UUID
-   * @returns Task with populated dependsOn and dependents
-   */
-  findWithDependencies(taskId: string): Promise<TaskWithDependencies | null>;
-
-  /**
-   * Persist a single task.
-   * @param task - Task to save
-   */
-  save(task: Task): Promise<void>;
-
-  /**
-   * Persist multiple tasks in a transaction.
-   * @param tasks - Tasks to save
-   */
-  saveMany(tasks: Task[]): Promise<void>;
-
-  /**
-   * Delete a task and its action items.
-   * @param id - Task UUID
-   */
-  delete(id: string): Promise<void>;
-
-  /**
-   * Delete all tasks for a feature.
-   * @param featureId - Parent feature UUID
-   */
-  deleteByFeatureId(featureId: string): Promise<void>;
-}
-
-/**
- * Task with resolved dependency references.
- */
-export interface TaskWithDependencies {
-  task: Task;
-  dependsOn: Task[];
-  dependents: Task[];
+export interface IRepositoryRepository {
+  create(repository: Repository): Promise<Repository>;
+  findById(id: string): Promise<Repository | null>;
+  findByPath(path: string): Promise<Repository | null>;
+  /** Find by path including soft-deleted records (for re-activation). */
+  findByPathIncludingDeleted(path: string): Promise<Repository | null>;
+  list(): Promise<Repository[]>;
+  remove(id: string): Promise<void>;
+  softDelete(id: string): Promise<void>;
+  /** Restore a soft-deleted repository by clearing deletedAt. */
+  restore(id: string): Promise<void>;
 }
 ```
 
-## IActionItemRepository
+### Implementation
 
-Repository for ActionItem entities.
+`SqliteRepositoryRepository` in `packages/core/src/infrastructure/repositories/sqlite-repository.repository.ts`.
+
+## Agent-Related Repositories
+
+Defined in `packages/core/src/application/ports/output/agents/`:
+
+### IAgentRunRepository
+
+Persists agent execution run records in the `agent_runs` table.
+
+### IPhaseTimingRepository
+
+Tracks SDLC phase durations per agent run in the `phase_timings` table.
+
+### IAgentSessionRepository
+
+Manages agent sessions with list and get operations.
 
 ```typescript
-/**
- * Repository interface for ActionItem entity persistence.
- */
-export interface IActionItemRepository {
-  /**
-   * Find an action item by its unique identifier.
-   * @param id - ActionItem UUID
-   */
-  findById(id: string): Promise<ActionItem | null>;
-
-  /**
-   * Find all action items belonging to a task.
-   * @param taskId - Parent task UUID
-   */
-  findByTaskId(taskId: string): Promise<ActionItem[]>;
-
-  /**
-   * Persist a single action item.
-   * @param actionItem - ActionItem to save
-   */
-  save(actionItem: ActionItem): Promise<void>;
-
-  /**
-   * Persist multiple action items in a transaction.
-   * @param actionItems - ActionItems to save
-   */
-  saveMany(actionItems: ActionItem[]): Promise<void>;
-
-  /**
-   * Delete an action item.
-   * @param id - ActionItem UUID
-   */
-  delete(id: string): Promise<void>;
+export interface IAgentSessionRepository {
+  list(options?: ListSessionsOptions): Promise<AgentSession[]>;
+  get(options: GetSessionOptions): Promise<AgentSession | null>;
 }
 ```
 
-## IArtifactRepository
+## Implementation Summary
 
-Repository for Artifact entities.
-
-```typescript
-/**
- * Repository interface for Artifact entity persistence.
- */
-export interface IArtifactRepository {
-  /**
-   * Find an artifact by its unique identifier.
-   * @param id - Artifact UUID
-   */
-  findById(id: string): Promise<Artifact | null>;
-
-  /**
-   * Find all artifacts belonging to a feature.
-   * @param featureId - Parent feature UUID
-   */
-  findByFeatureId(featureId: string): Promise<Artifact[]>;
-
-  /**
-   * Find all artifacts of a specific type.
-   * @param type - Artifact type
-   */
-  findByType(type: ArtifactType): Promise<Artifact[]>;
-
-  /**
-   * Persist an artifact.
-   * @param artifact - Artifact to save
-   */
-  save(artifact: Artifact): Promise<void>;
-
-  /**
-   * Delete an artifact.
-   * @param id - Artifact UUID
-   */
-  delete(id: string): Promise<void>;
-}
-```
-
-## IRequirementRepository
-
-Repository for Requirement entities.
-
-```typescript
-/**
- * Repository interface for Requirement entity persistence.
- */
-export interface IRequirementRepository {
-  /**
-   * Find a requirement by its unique identifier.
-   * @param id - Requirement UUID
-   */
-  findById(id: string): Promise<Requirement | null>;
-
-  /**
-   * Find all requirements belonging to a feature.
-   * @param featureId - Parent feature UUID
-   */
-  findByFeatureId(featureId: string): Promise<Requirement[]>;
-
-  /**
-   * Persist a single requirement.
-   * @param requirement - Requirement to save
-   */
-  save(requirement: Requirement): Promise<void>;
-
-  /**
-   * Persist multiple requirements in a transaction.
-   * @param requirements - Requirements to save
-   */
-  saveMany(requirements: Requirement[]): Promise<void>;
-
-  /**
-   * Delete a requirement.
-   * @param id - Requirement UUID
-   */
-  delete(id: string): Promise<void>;
-}
-```
-
-## IUnitOfWork
-
-Transaction management across repositories.
-
-```typescript
-/**
- * Unit of Work pattern for transactional operations.
- */
-export interface IUnitOfWork {
-  /** Feature repository instance */
-  features: IFeatureRepository;
-
-  /** Task repository instance */
-  tasks: ITaskRepository;
-
-  /** ActionItem repository instance */
-  actionItems: IActionItemRepository;
-
-  /** Artifact repository instance */
-  artifacts: IArtifactRepository;
-
-  /** Requirement repository instance */
-  requirements: IRequirementRepository;
-
-  /**
-   * Begin a transaction.
-   */
-  begin(): Promise<void>;
-
-  /**
-   * Commit the current transaction.
-   * @throws TransactionError on commit failure
-   */
-  commit(): Promise<void>;
-
-  /**
-   * Rollback the current transaction.
-   */
-  rollback(): Promise<void>;
-}
-```
-
-### Usage Example
-
-```typescript
-async function createFeatureWithPlan(
-  uow: IUnitOfWork,
-  featureData: CreateFeatureData,
-  tasks: Task[]
-): Promise<Feature> {
-  await uow.begin();
-
-  try {
-    const feature = Feature.create(featureData);
-    await uow.features.save(feature);
-
-    for (const task of tasks) {
-      task.featureId = feature.id;
-    }
-    await uow.tasks.saveMany(tasks);
-
-    await uow.commit();
-    return feature;
-  } catch (error) {
-    await uow.rollback();
-    throw error;
-  }
-}
-```
-
-## IAnalysisRepository
-
-Repository for repository analysis documents.
-
-```typescript
-/**
- * Repository for analysis document persistence.
- * Note: This uses file system, not SQLite.
- */
-export interface IAnalysisRepository {
-  /**
-   * Get the analysis directory path for a repository.
-   * @param repoPath - Repository path
-   */
-  getAnalysisPath(repoPath: string): string;
-
-  /**
-   * Check if analysis exists and is current.
-   * @param repoPath - Repository path
-   * @param maxAge - Maximum age in milliseconds
-   */
-  isAnalysisCurrent(repoPath: string, maxAge?: number): Promise<boolean>;
-
-  /**
-   * Read an analysis document.
-   * @param repoPath - Repository path
-   * @param docName - Document name (e.g., 'architecture.md')
-   */
-  readDocument(repoPath: string, docName: string): Promise<string | null>;
-
-  /**
-   * Write an analysis document.
-   * @param repoPath - Repository path
-   * @param docName - Document name
-   * @param content - Document content
-   */
-  writeDocument(repoPath: string, docName: string, content: string): Promise<void>;
-
-  /**
-   * Read the analysis summary.
-   * @param repoPath - Repository path
-   */
-  readSummary(repoPath: string): Promise<AnalysisSummary | null>;
-
-  /**
-   * Write the analysis summary.
-   * @param repoPath - Repository path
-   * @param summary - Summary data
-   */
-  writeSummary(repoPath: string, summary: AnalysisSummary): Promise<void>;
-}
-```
+| Interface                | Implementation                | Table           |
+| ------------------------ | ----------------------------- | --------------- |
+| `IFeatureRepository`     | `SqliteFeatureRepository`     | `features`      |
+| `ISettingsRepository`    | `SQLiteSettingsRepository`    | `settings`      |
+| `IRepositoryRepository`  | `SqliteRepositoryRepository`  | `repositories`  |
+| `IAgentRunRepository`    | `AgentRunRepository`          | `agent_runs`    |
+| `IPhaseTimingRepository` | `SqlitePhaseTimingRepository` | `phase_timings` |
 
 ---
 
@@ -429,7 +159,6 @@ export interface IAnalysisRepository {
 - Repository interfaces change
 - New repositories are added
 - Method signatures change
-- New patterns are introduced
 
 **Related docs:**
 

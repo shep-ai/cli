@@ -4,12 +4,20 @@ Guides for developing and contributing to Shep AI CLI.
 
 ## Contents
 
-| Document                     | Description                     |
-| ---------------------------- | ------------------------------- |
-| [setup.md](./setup.md)       | Development environment setup   |
-| [testing.md](./testing.md)   | Testing strategy and commands   |
-| [building.md](./building.md) | Build process and tooling       |
-| [cicd.md](./cicd.md)         | CI/CD pipeline and Docker setup |
+| Document                                               | Description                             |
+| ------------------------------------------------------ | --------------------------------------- |
+| [setup.md](./setup.md)                                 | Development environment setup           |
+| [tdd-guide.md](./tdd-guide.md)                         | TDD methodology with Clean Architecture |
+| [spec-driven-workflow.md](./spec-driven-workflow.md)   | Shep-kit spec-driven development flow   |
+| [implementation-guide.md](./implementation-guide.md)   | Implementation discipline and patterns  |
+| [testing.md](./testing.md)                             | Testing strategy and commands           |
+| [building.md](./building.md)                           | Build process and tooling               |
+| [cicd.md](./cicd.md)                                   | CI/CD pipeline and Docker setup         |
+| [typespec-guide.md](./typespec-guide.md)               | TypeSpec domain modeling guide          |
+| [adding-agents.md](./adding-agents.md)                 | Adding new LangGraph agent nodes        |
+| [feature-yaml-protocol.md](./feature-yaml-protocol.md) | feature.yaml status tracking protocol   |
+| [web-component-library.md](./web-component-library.md) | Web UI component library reference      |
+| [shep-kit-reference.md](./shep-kit-reference.md)       | Shep-kit skills complete reference      |
 
 ## Quick Start for Contributors
 
@@ -22,13 +30,16 @@ cd cli
 pnpm install
 
 # Build
-pnpm run build
+pnpm build
 
 # Run tests
 pnpm test
 
-# Start development mode
-pnpm run dev
+# Start CLI in development mode
+pnpm dev:cli
+
+# Start Web UI in development mode
+pnpm dev:web
 ```
 
 ## Development Workflow
@@ -44,9 +55,10 @@ pnpm run dev
 ## Key Guidelines
 
 - Follow [Clean Architecture](../architecture/clean-architecture.md) principles
-- Write tests for new functionality
+- Write tests for new functionality (TDD mandatory)
 - Keep commits atomic and well-described
 - Update documentation for user-facing changes
+- All features start with `/shep-kit:new-feature`
 
 ## Related Documents
 
