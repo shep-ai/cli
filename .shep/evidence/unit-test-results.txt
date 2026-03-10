@@ -1,0 +1,14 @@
+$ pnpm test:unit -- --reporter=verbose tests/unit/presentation/web/components/common/shep-logo/shep-logo.test.tsx
+
+ RUN  v4.0.18
+
+ ✓ [web] tests/unit/presentation/web/components/common/shep-logo/shep-logo.test.tsx (4 tests) 92ms
+   ✓ ShepLogo > renders an SVG element
+   ✓ ShepLogo > applies hover:text-black class for hover color change
+   ✓ ShepLogo > applies hover:text-black class in dev variant
+   ✓ ShepLogo > preserves custom className alongside hover class
+
+ Test Files  290 passed (290)
+      Tests  3540 passed (3540)
+   Start at  13:52:08
+   Duration  41.90s
