@@ -2,17 +2,7 @@
 
 import { useState } from 'react';
 import { Handle, Position } from '@xyflow/react';
-import {
-  Plus,
-  FileText,
-  Wrench,
-  GitMerge,
-  Trash2,
-  Zap,
-  Loader2,
-  Globe,
-  type LucideIcon,
-} from 'lucide-react';
+import { Plus, Trash2, Zap, Loader2, Globe, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { DeleteFeatureDialog } from '@/components/common/delete-feature-dialog';
@@ -20,6 +10,8 @@ import {
   featureNodeStateConfig,
   lifecycleDisplayLabels,
   lifecycleRunningVerbs,
+  lifecycleStageIcons,
+  actionRequiredLifecycleIcons,
 } from './feature-node-state-config';
 import type { FeatureNodeData } from './feature-node-state-config';
 import { getAgentTypeIcon, agentTypeLabels, type AgentTypeValue } from './agent-type-icons';
@@ -31,18 +23,18 @@ function AgentIcon({ agentType, className }: { agentType?: string; className?: s
   return <IconComponent className={className} />;
 }
 
-function getBadgeIcon(data: FeatureNodeData): LucideIcon {
-  const config = featureNodeStateConfig[data.state];
-  if (data.state === 'action-required') {
-    if (data.lifecycle === 'requirements') return FileText;
-    if (data.lifecycle === 'implementation') return Wrench;
-    if (data.lifecycle === 'review') return GitMerge;
+function getStatusRowIcon(data: FeatureNodeData): LucideIcon {
+  if (data.state === 'running') {
+    return lifecycleStageIcons[data.lifecycle];
   }
-  return config.icon;
+  if (data.state === 'action-required') {
+    return actionRequiredLifecycleIcons[data.lifecycle] ?? featureNodeStateConfig[data.state].icon;
+  }
+  return featureNodeStateConfig[data.state].icon;
 }
 
 /** Returns override badge classes for action-required based on lifecycle phase. */
-function getActionRequiredBadgeClasses(data: FeatureNodeData): {
+function getActionRequiredStatusClasses(data: FeatureNodeData): {
   badgeClass: string;
   badgeBgClass: string;
 } | null {
@@ -56,7 +48,7 @@ function getActionRequiredBadgeClasses(data: FeatureNodeData): {
   return null; // requirements stays amber (default)
 }
 
-function getBadgeText(data: FeatureNodeData): string {
+function getStatusRowText(data: FeatureNodeData): string {
   const config = featureNodeStateConfig[data.state];
   switch (data.state) {
     case 'creating':
@@ -88,7 +80,6 @@ export function FeatureNode({
   [key: string]: unknown;
 }) {
   const config = featureNodeStateConfig[data.state];
-  const Icon = config.icon;
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   return (
@@ -144,7 +135,8 @@ export function FeatureNode({
         data-testid="feature-node-card"
         aria-busy={data.state === 'creating' ? 'true' : undefined}
         className={cn(
-          'bg-card flex min-h-35 w-72 cursor-pointer flex-col rounded-lg border p-3 shadow-sm',
+          'bg-card flex min-h-35 w-72 cursor-pointer flex-col rounded-lg border border-l-4 p-3 shadow-sm',
+          config.borderClass,
           selected && 'ring-primary ring-2'
         )}
       >
@@ -248,65 +240,46 @@ export function FeatureNode({
 
         {/* Bottom section — pushed to bottom for consistent card height */}
         <div className="mt-auto pt-2">
-          {data.state === 'creating' ? (
-            <>
-              {/* Creating status: loader icon + "Creating..." text */}
-              <div className="mt-1.5 flex items-center gap-1.5 text-xs">
-                <Icon className="h-3.5 w-3.5 shrink-0 animate-spin" />
-                <span className="text-muted-foreground">{getBadgeText(data)}</span>
-              </div>
+          {/* Feature ID — shown for non-active states only */}
+          {data.state !== 'creating' && data.state !== 'running' ? (
+            <div className="text-muted-foreground text-[10px]">
+              <span>{data.featureId}</span>
+            </div>
+          ) : null}
 
-              {/* Indeterminate progress bar */}
-              <div
-                data-testid="feature-node-progress-bar"
-                className="bg-muted mt-1.5 h-1 w-full overflow-hidden rounded-full"
-              >
-                <div className="motion-safe:animate-indeterminate-progress bg-foreground/30 h-full w-1/3 rounded-full" />
-              </div>
-            </>
-          ) : data.state === 'running' ? (
-            <>
-              {/* Running status: agent icon + verb */}
-              <div className="mt-1.5 flex items-center gap-1.5 text-xs">
-                <AgentIcon agentType={data.agentType} className="h-3.5 w-3.5 shrink-0" />
-                <span className="text-muted-foreground">{getBadgeText(data)}</span>
-              </div>
-
-              {/* Indeterminate progress bar */}
-              <div
-                data-testid="feature-node-progress-bar"
-                className="bg-muted mt-1.5 h-1 w-full overflow-hidden rounded-full"
-              >
-                <div className="animate-indeterminate-progress bg-foreground/30 h-full w-1/3 rounded-full" />
-              </div>
-            </>
-          ) : (
-            <>
-              {/* featureId row */}
-              <div className="text-muted-foreground text-[10px]">
-                <span>{data.featureId}</span>
-              </div>
-
-              {/* State badge */}
+          {/* Unified status row: icon + status text */}
+          {(() => {
+            const StatusIcon = getStatusRowIcon(data);
+            const override = getActionRequiredStatusClasses(data);
+            return (
               <div
                 data-testid="feature-node-badge"
-                className={(() => {
-                  const override = getActionRequiredBadgeClasses(data);
-                  return cn(
-                    'mt-1.5 flex items-center justify-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium',
-                    override?.badgeBgClass ?? config.badgeBgClass,
-                    override?.badgeClass ?? config.badgeClass
-                  );
-                })()}
+                className={cn(
+                  'mt-1.5 flex items-center justify-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium',
+                  override?.badgeBgClass ?? config.badgeBgClass,
+                  override?.badgeClass ?? config.badgeClass
+                )}
               >
-                {(() => {
-                  const BadgeIcon = getBadgeIcon(data);
-                  return <BadgeIcon className="h-3.5 w-3.5 shrink-0" />;
-                })()}
-                <span className="truncate">{getBadgeText(data)}</span>
+                <StatusIcon
+                  className={cn(
+                    'h-3.5 w-3.5 shrink-0',
+                    data.state === 'creating' && 'animate-spin'
+                  )}
+                />
+                <span className="truncate">{getStatusRowText(data)}</span>
               </div>
-            </>
-          )}
+            );
+          })()}
+
+          {/* Indeterminate progress bar — active states only */}
+          {data.state === 'creating' || data.state === 'running' ? (
+            <div
+              data-testid="feature-node-progress-bar"
+              className="bg-muted mt-1.5 h-1 w-full overflow-hidden rounded-full"
+            >
+              <div className="motion-safe:animate-indeterminate-progress bg-foreground/30 h-full w-1/3 rounded-full" />
+            </div>
+          ) : null}
         </div>
       </div>
 

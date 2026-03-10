@@ -131,10 +131,10 @@ describe('FeatureNode', () => {
   });
 
   describe('running state', () => {
-    it('shows indeterminate progress bar instead of badge', () => {
+    it('shows indeterminate progress bar and unified status row', () => {
       renderFeatureNode({ state: 'running', progress: 45 });
       expect(screen.getByTestId('feature-node-progress-bar')).toBeInTheDocument();
-      expect(screen.queryByTestId('feature-node-badge')).not.toBeInTheDocument();
+      expect(screen.getByTestId('feature-node-badge')).toBeInTheDocument();
     });
 
     it('shows lifecycle-specific running verb', () => {
@@ -145,6 +145,11 @@ describe('FeatureNode', () => {
     it('shows implementing verb for implementation phase', () => {
       renderFeatureNode({ state: 'running', lifecycle: 'implementation' });
       expect(screen.getByText('Implementing')).toBeInTheDocument();
+    });
+
+    it('does not show featureId for running state', () => {
+      renderFeatureNode({ state: 'running', featureId: '#f1' });
+      expect(screen.queryByText('#f1')).not.toBeInTheDocument();
     });
   });
 
@@ -336,10 +341,15 @@ describe('FeatureNode', () => {
       expect(screen.getByText('New Feature')).toBeInTheDocument();
     });
 
-    it('shows indeterminate progress bar', () => {
+    it('shows indeterminate progress bar and unified status row', () => {
       renderFeatureNode({ state: 'creating' });
       expect(screen.getByTestId('feature-node-progress-bar')).toBeInTheDocument();
-      expect(screen.queryByTestId('feature-node-badge')).not.toBeInTheDocument();
+      expect(screen.getByTestId('feature-node-badge')).toBeInTheDocument();
+    });
+
+    it('does not show featureId for creating state', () => {
+      renderFeatureNode({ state: 'creating', featureId: '#f1' });
+      expect(screen.queryByText('#f1')).not.toBeInTheDocument();
     });
 
     it('does not render agent icon element', () => {
@@ -503,6 +513,95 @@ describe('FeatureNode', () => {
       fireEvent.click(screen.getByTestId('feature-node-delete-button'));
 
       expect(screen.getByText('Delete feature?')).toBeInTheDocument();
+    });
+  });
+
+  describe('left border color', () => {
+    it('applies border-l-4 and blue border for running state', () => {
+      renderFeatureNode({ state: 'running' });
+      const card = screen.getByTestId('feature-node-card');
+      expect(card.className).toContain('border-l-4');
+      expect(card.className).toContain('border-l-blue-500');
+    });
+
+    it('applies emerald border for done state', () => {
+      renderFeatureNode({ state: 'done' });
+      const card = screen.getByTestId('feature-node-card');
+      expect(card.className).toContain('border-l-4');
+      expect(card.className).toContain('border-l-emerald-500');
+    });
+
+    it('applies red border for error state', () => {
+      renderFeatureNode({ state: 'error' });
+      const card = screen.getByTestId('feature-node-card');
+      expect(card.className).toContain('border-l-4');
+      expect(card.className).toContain('border-l-red-500');
+    });
+
+    it('applies amber border for action-required state', () => {
+      renderFeatureNode({ state: 'action-required' });
+      const card = screen.getByTestId('feature-node-card');
+      expect(card.className).toContain('border-l-4');
+      expect(card.className).toContain('border-l-amber-500');
+    });
+
+    it('applies gray border for blocked state', () => {
+      renderFeatureNode({ state: 'blocked' });
+      const card = screen.getByTestId('feature-node-card');
+      expect(card.className).toContain('border-l-4');
+      expect(card.className).toContain('border-l-gray-400');
+    });
+  });
+
+  describe('unified status row', () => {
+    it('renders status row badge for all states', () => {
+      const states = [
+        'creating',
+        'running',
+        'done',
+        'blocked',
+        'error',
+        'action-required',
+      ] as const;
+      for (const state of states) {
+        const { unmount } = renderFeatureNode({ state });
+        expect(screen.getByTestId('feature-node-badge')).toBeInTheDocument();
+        unmount();
+      }
+    });
+
+    it('shows progress bar only for active states', () => {
+      const activeStates = ['creating', 'running'] as const;
+      const inactiveStates = ['done', 'blocked', 'error', 'action-required'] as const;
+
+      for (const state of activeStates) {
+        const { unmount } = renderFeatureNode({ state });
+        expect(screen.getByTestId('feature-node-progress-bar')).toBeInTheDocument();
+        unmount();
+      }
+
+      for (const state of inactiveStates) {
+        const { unmount } = renderFeatureNode({ state });
+        expect(screen.queryByTestId('feature-node-progress-bar')).not.toBeInTheDocument();
+        unmount();
+      }
+    });
+
+    it('shows featureId only for non-active states', () => {
+      const activeStates = ['creating', 'running'] as const;
+      const inactiveStates = ['done', 'blocked', 'error', 'action-required'] as const;
+
+      for (const state of activeStates) {
+        const { unmount } = renderFeatureNode({ state, featureId: '#f1' });
+        expect(screen.queryByText('#f1')).not.toBeInTheDocument();
+        unmount();
+      }
+
+      for (const state of inactiveStates) {
+        const { unmount } = renderFeatureNode({ state, featureId: '#f1' });
+        expect(screen.getByText('#f1')).toBeInTheDocument();
+        unmount();
+      }
     });
   });
 });
