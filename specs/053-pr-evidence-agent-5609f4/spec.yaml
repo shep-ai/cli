@@ -587,3 +587,9 @@ rejectionFeedback:
     message: the evidence settings should be visble in the UI
     phase: merge
     timestamp: '2026-03-10T13:56:58.118Z'
+  - iteration: 9
+    message: >-
+      In settings I change the collect evidence to enabled, after refresh it
+      went back to disabled. fix it.
+    phase: merge
+    timestamp: '2026-03-10T14:22:08.265Z'
