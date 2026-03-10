@@ -1,0 +1,129 @@
+name: activity-tab-rejections
+number: 57
+branch: feat/activity-tab-rejections
+oneLiner: >-
+  Fix activity tab bug where not all rejection feedback entries are rendered
+  when there are more feedback entries than run:rejected timing events.
+userQuery: >
+  Fix a bug in the Activity tab for the Pull Request Evidence Agent UI. In the
+  Activity tab, not all rejection comments are shown, even though they exist in
+  the CLI output and in spec.yaml. The actual run contains 4 rejection feedback
+  entries but only 2 are displayed.
+summary: >
+  Fix activity tab bug where rejection feedback entries were lost when the
+  timing array contained fewer run:rejected events than feedback entries. The
+  fix synthesises additional timing events for unmatched feedback so every
+  rejection comment renders in the timeline.
+phase: Analysis
+sizeEstimate: M
+relatedFeatures: []
+technologies: []
+relatedLinks: []
+openQuestions: []
+content: >
+  ## Problem Statement
+
+
+  Fix a bug in the Activity tab for the Pull Request Evidence Agent UI where not
+  all rejection comments are shown. The UI only renders rejection feedback
+  entries that have a matching run:rejected timing event, but some runs have
+  more feedback entries than timing events. The fix ensures every rejection
+  feedback entry has a corresponding timing event and renders in the timeline.
+
+
+  ## Success Criteria
+
+
+  - All rejection feedback entries appear in the Activity tab
+
+  - Duplicate messages appear as separate events
+
+  - Long messages render without data loss
+
+  - Tests cover multiple rejections and identical messages across iterations
+
+
+  ## Affected Areas
+
+
+  | Area | Impact | Reasoning |
+
+  | ---- | ------ | --------- |
+
+  | activity-tab.tsx | High | Core fix for rejection mapping logic |
+
+  | get-feature-phase-timings.ts | Low | Added timestamp field to data type |
+
+
+  ## Dependencies
+
+
+  None identified.
+
+
+  ## Size Estimate
+
+
+  **M** - Bug fix with test coverage
+rejectionFeedback:
+  - iteration: 1
+    message: >-
+      Fix the activity timeline so it represents rejection/revision cycles
+      correctly.
+
+
+      Source of truth:
+
+      - The CLI output is correct in terms of lifecycle meaning.
+
+      - The web UI is currently misleading.
+
+
+      Bug:
+
+      The web activity view flattens or misrepresents rejection history. It does
+      not clearly show that there were multiple rejection + resumed + re-review
+      cycles. This makes the review lifecycle hard to understand.
+
+
+      Required outcome:
+
+      - Render activity in a lifecycle-aware way.
+
+      - Show each rejection as part of the correct review iteration.
+
+      - Preserve resumed / next revision transitions.
+
+      - Keep multiple rejection reasons visible and ordered.
+
+      - Do not hide critical rejection text behind ellipsis if that removes
+      meaning.
+
+
+      Approach:
+
+      - Inspect current timeline data + rendering.
+
+      - Fix grouping / ordering / nesting at the right layer.
+
+      - Prefer a proper transformation/view-model if needed instead of patching
+      JSX conditionals.
+
+      - Keep the solution clean and maintainable.
+
+
+      Acceptance criteria:
+
+      - A user can visually follow:
+        rev N -> approval/review -> rejected(reason) -> resumed -> rev N+1 -> approval/review -> rejected(reason) ...
+      - Multiple rejection comments are shown distinctly.
+
+      - The UI reflects iteration like the CLI does.
+
+      - Tests added/updated for multi-rejection multi-resume histories.
+    phase: merge
+    timestamp: '2026-03-10T08:15:28.424Z'
+  - iteration: 2
+    message: rebase on main and resolve conflicts
+    phase: merge
+    timestamp: '2026-03-10T10:17:01.958Z'

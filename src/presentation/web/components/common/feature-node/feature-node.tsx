@@ -144,7 +144,7 @@ export function FeatureNode({
         data-testid="feature-node-card"
         aria-busy={data.state === 'creating' ? 'true' : undefined}
         className={cn(
-          'bg-card flex min-h-35 w-72 flex-col rounded-lg border p-3 shadow-sm',
+          'bg-card flex min-h-35 w-72 cursor-pointer flex-col rounded-lg border p-3 shadow-sm',
           selected && 'ring-primary ring-2'
         )}
       >
@@ -278,24 +278,6 @@ export function FeatureNode({
                 className="bg-muted mt-1.5 h-1 w-full overflow-hidden rounded-full"
               >
                 <div className="animate-indeterminate-progress bg-foreground/30 h-full w-1/3 rounded-full" />
-              </div>
-            </>
-          ) : config.showProgressBar ? (
-            <>
-              {/* Bottom row: progress percentage */}
-              <div className="text-muted-foreground flex items-center justify-end text-[10px]">
-                <span>{data.progress}%</span>
-              </div>
-
-              {/* Determinate progress bar */}
-              <div
-                data-testid="feature-node-progress-bar"
-                className="bg-muted mt-1.5 h-1 w-full overflow-hidden rounded-full"
-              >
-                <div
-                  className={cn('h-full rounded-full transition-all', config.progressClass)}
-                  style={{ width: `${data.progress}%` }}
-                />
               </div>
             </>
           ) : (

@@ -2,6 +2,8 @@ export { FeatureNode } from './feature-node';
 export {
   featureNodeStateConfig,
   lifecycleDisplayLabels,
+  lifecycleStageIcons,
+  actionRequiredLifecycleIcons,
   type FeatureNodeState,
   type FeatureLifecyclePhase,
   type FeatureNodeData,

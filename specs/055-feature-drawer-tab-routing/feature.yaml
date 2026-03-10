@@ -1,0 +1,36 @@
+feature:
+  id: '055-feature-drawer-tab-routing'
+  name: 'feature-drawer-tab-routing'
+  number: 55
+  branch: 'feat/055-feature-drawer-tab-routing'
+  lifecycle: 'research'
+  createdAt: '2026-03-09T12:33:26Z'
+
+status:
+  phase: 'research'
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-03-09T12:33:26Z'
+  lastUpdatedBy: 'feature-agent'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-03-09T12:33:26Z'
+    completedBy: 'feature-agent'
+
+errors:
+  current: null
+  history: []

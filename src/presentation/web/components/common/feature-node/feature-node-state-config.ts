@@ -1,4 +1,18 @@
-import { Loader2, CircleAlert, CircleCheck, Ban, CircleX, type LucideIcon } from 'lucide-react';
+import {
+  Loader2,
+  CircleAlert,
+  CircleCheck,
+  Ban,
+  CircleX,
+  FileText,
+  Search,
+  Code,
+  GitPullRequest,
+  Rocket,
+  Wrench,
+  GitMerge,
+  type LucideIcon,
+} from 'lucide-react';
 import type { Node } from '@xyflow/react';
 import type { PrStatus, CiStatus, DeploymentState } from '@shepai/core/domain/generated/output';
 import type { AgentTypeValue } from './agent-type-icons';
@@ -37,6 +51,23 @@ export const lifecycleRunningVerbs: Record<FeatureLifecyclePhase, string> = {
   review: 'Reviewing',
   deploy: 'Deploying',
   maintain: 'Maintaining',
+};
+
+/** Stage-relevant icons for the status row, keyed by lifecycle phase. */
+export const lifecycleStageIcons: Record<FeatureLifecyclePhase, LucideIcon> = {
+  requirements: FileText,
+  research: Search,
+  implementation: Code,
+  review: GitPullRequest,
+  deploy: Rocket,
+  maintain: Wrench,
+};
+
+/** Lifecycle-specific icon overrides for the action-required state. */
+export const actionRequiredLifecycleIcons: Partial<Record<FeatureLifecyclePhase, LucideIcon>> = {
+  requirements: FileText,
+  implementation: Wrench,
+  review: GitMerge,
 };
 
 export interface FeatureNodeData {
@@ -110,7 +141,6 @@ export interface FeatureNodeStateConfig {
   badgeClass: string;
   badgeBgClass: string;
   label: string;
-  showProgressBar: boolean;
 }
 
 export const featureNodeStateConfig: Record<FeatureNodeState, FeatureNodeStateConfig> = {
@@ -122,7 +152,6 @@ export const featureNodeStateConfig: Record<FeatureNodeState, FeatureNodeStateCo
     badgeClass: 'text-blue-700',
     badgeBgClass: 'bg-blue-50',
     label: 'Creating...',
-    showProgressBar: false,
   },
   running: {
     icon: Loader2,
@@ -132,7 +161,6 @@ export const featureNodeStateConfig: Record<FeatureNodeState, FeatureNodeStateCo
     badgeClass: 'text-blue-700',
     badgeBgClass: 'bg-blue-50',
     label: 'Running',
-    showProgressBar: false,
   },
   'action-required': {
     icon: CircleAlert,
@@ -142,7 +170,6 @@ export const featureNodeStateConfig: Record<FeatureNodeState, FeatureNodeStateCo
     badgeClass: 'text-amber-700',
     badgeBgClass: 'bg-amber-50',
     label: 'User action required',
-    showProgressBar: false,
   },
   done: {
     icon: CircleCheck,
@@ -152,7 +179,6 @@ export const featureNodeStateConfig: Record<FeatureNodeState, FeatureNodeStateCo
     badgeClass: 'text-emerald-700',
     badgeBgClass: 'bg-emerald-50',
     label: 'Done',
-    showProgressBar: false,
   },
   blocked: {
     icon: Ban,
@@ -162,7 +188,6 @@ export const featureNodeStateConfig: Record<FeatureNodeState, FeatureNodeStateCo
     badgeClass: 'text-gray-600',
     badgeBgClass: 'bg-gray-100',
     label: 'Blocked',
-    showProgressBar: false,
   },
   error: {
     icon: CircleX,
@@ -172,6 +197,5 @@ export const featureNodeStateConfig: Record<FeatureNodeState, FeatureNodeStateCo
     badgeClass: 'text-red-700',
     badgeBgClass: 'bg-red-50',
     label: 'Error',
-    showProgressBar: false,
   },
 };
