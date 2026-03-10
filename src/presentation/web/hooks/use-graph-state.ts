@@ -120,6 +120,11 @@ export function useGraphState(
     Map<string, Partial<Pick<FeatureNodeData, 'state' | 'lifecycle' | 'name' | 'description'>>>
   >(new Map());
 
+  // Track 'deleting' features that the server no longer returns.
+  // Retained for one extra reconcile cycle so the user sees the deleting state
+  // before the node disappears from the canvas.
+  const deletingRetainedRef = useRef<Set<string>>(new Set());
+
   // Callbacks stored in a ref so changing them doesn't trigger re-render.
   // The stable wrapper object reads from the ref so node closures always use latest callbacks.
   const callbacksRef = useRef<GraphCallbacks>({});
@@ -220,17 +225,28 @@ export function useGraphState(
         }
       }
 
-      // Preserve 'deleting' state for features the server still returns
-      // (server hasn't finished soft-delete yet). Once soft-deleted, the
-      // server won't include the feature, so it naturally disappears.
+      // Preserve 'deleting' state for features being deleted.
+      // If the server still returns the feature, override its state to 'deleting'.
+      // If the server no longer returns it (soft-deleted), retain it for one
+      // extra reconcile cycle so the user sees the deleting animation.
+      const nextRetained = new Set<string>();
       for (const [id, entry] of currentFeatureMap) {
-        if (entry.data.state === 'deleting' && merged.has(id)) {
-          merged.set(id, {
-            ...merged.get(id)!,
-            data: { ...merged.get(id)!.data, state: 'deleting' },
-          });
+        if (entry.data.state === 'deleting') {
+          if (merged.has(id)) {
+            // Server still has it — override state to keep showing 'deleting'
+            merged.set(id, {
+              ...merged.get(id)!,
+              data: { ...merged.get(id)!.data, state: 'deleting' },
+            });
+          } else if (!deletingRetainedRef.current.has(id)) {
+            // First reconcile after server removal — retain with deleting state
+            merged.set(id, entry);
+            nextRetained.add(id);
+          }
+          // else: already retained once — let it disappear
         }
       }
+      deletingRetainedRef.current = nextRetained;
 
       // Apply any buffered SSE updates to features that now exist in the map
       for (const [nodeId, updates] of pendingUpdatesRef.current) {

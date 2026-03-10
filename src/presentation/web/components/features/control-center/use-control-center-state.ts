@@ -287,12 +287,33 @@ export function useControlCenterState(
     (featureId: string, cleanup?: boolean) => {
       const nodeId = `feat-${featureId}`;
 
-      // Snapshot current state for rollback
-      const prevNode = nodesRef.current.find((n) => n.id === nodeId);
-      const prevState = prevNode ? (prevNode.data as FeatureNodeData).state : undefined;
+      // Collect all descendant feature node IDs (children, grandchildren, etc.)
+      const descendants: string[] = [];
+      const queue = [nodeId];
+      while (queue.length > 0) {
+        const current = queue.shift()!;
+        for (const edge of edgesRef.current) {
+          if (edge.type === 'dependencyEdge' && edge.source === current) {
+            descendants.push(edge.target);
+            queue.push(edge.target);
+          }
+        }
+      }
 
-      // Optimistic: show "deleting" state instead of removing
+      // Snapshot current states for rollback (parent + descendants)
+      const prevStates = new Map<string, FeatureNodeData['state']>();
+      for (const nid of [nodeId, ...descendants]) {
+        const node = nodesRef.current.find((n) => n.id === nid);
+        if (node) {
+          prevStates.set(nid, (node.data as FeatureNodeData).state);
+        }
+      }
+
+      // Optimistic: show "deleting" state on parent AND all descendants
       updateFeature(nodeId, { state: 'deleting' });
+      for (const childId of descendants) {
+        updateFeature(childId, { state: 'deleting' });
+      }
       deleteSound.play();
       toast.success('Deleting feature…');
       router.push('/');
@@ -300,13 +321,17 @@ export function useControlCenterState(
       deleteFeature(featureId, cleanup)
         .then((result) => {
           if (result.error) {
-            // Rollback to previous state
-            if (prevState) updateFeature(nodeId, { state: prevState });
+            // Rollback all to previous states
+            for (const [nid, prevState] of prevStates) {
+              if (prevState) updateFeature(nid, { state: prevState });
+            }
             toast.error(result.error);
           }
         })
         .catch(() => {
-          if (prevState) updateFeature(nodeId, { state: prevState });
+          for (const [nid, prevState] of prevStates) {
+            if (prevState) updateFeature(nid, { state: prevState });
+          }
           toast.error('Failed to delete feature');
         });
     },

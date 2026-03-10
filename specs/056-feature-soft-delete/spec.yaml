@@ -87,3 +87,9 @@ rejectionFeedback:
       before finish!
     phase: merge
     timestamp: '2026-03-10T14:26:35.666Z'
+  - iteration: 2
+    message: >-
+      after deleting feature node with children, i see deleting only on parent
+      and THEN a full refresh and they disappear!
+    phase: merge
+    timestamp: '2026-03-10T15:02:24.017Z'
