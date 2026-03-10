@@ -152,6 +152,7 @@ function SwitchRow({
   testId,
   checked,
   onChange,
+  disabled,
 }: {
   label: string;
   description?: string;
@@ -159,6 +160,7 @@ function SwitchRow({
   testId: string;
   checked: boolean;
   onChange: (value: boolean) => void;
+  disabled?: boolean;
 }) {
   return (
     <SettingsRow label={label} description={description} htmlFor={id}>
@@ -167,7 +169,8 @@ function SwitchRow({
         data-testid={testId}
         checked={checked}
         onCheckedChange={onChange}
-        className="cursor-pointer"
+        disabled={disabled}
+        className={cn('cursor-pointer', disabled && 'cursor-not-allowed opacity-50')}
       />
     </SettingsRow>
   );
@@ -356,6 +359,8 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
   const [allowPrd, setAllowPrd] = useState(settings.workflow.approvalGateDefaults.allowPrd);
   const [allowPlan, setAllowPlan] = useState(settings.workflow.approvalGateDefaults.allowPlan);
   const [allowMerge, setAllowMerge] = useState(settings.workflow.approvalGateDefaults.allowMerge);
+  const [enableEvidence, setEnableEvidence] = useState(settings.workflow.enableEvidence);
+  const [commitEvidence, setCommitEvidence] = useState(settings.workflow.commitEvidence);
   const [ciMaxFix, setCiMaxFix] = useState(
     settings.workflow.ciMaxFixAttempts != null ? String(settings.workflow.ciMaxFixAttempts) : ''
   );
@@ -411,6 +416,8 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
       allowPrd?: boolean;
       allowPlan?: boolean;
       allowMerge?: boolean;
+      enableEvidence?: boolean;
+      commitEvidence?: boolean;
       ciMaxFix?: string;
       ciTimeout?: string;
       ciLogMax?: string;
@@ -426,6 +433,8 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
           allowPlan: overrides.allowPlan ?? allowPlan,
           allowMerge: overrides.allowMerge ?? allowMerge,
         },
+        enableEvidence: overrides.enableEvidence ?? enableEvidence,
+        commitEvidence: overrides.commitEvidence ?? commitEvidence,
         ciMaxFixAttempts: parseOptionalInt(overrides.ciMaxFix ?? ciMaxFix),
         ciWatchTimeoutMs: timeoutSeconds != null ? timeoutSeconds * 1000 : undefined,
         ciLogMaxChars: parseOptionalInt(overrides.ciLogMax ?? ciLogMax),
@@ -772,6 +781,35 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
               onChange={(v) => {
                 setOpenPr(v);
                 save(buildWorkflowPayload({ openPr: v }));
+              }}
+            />
+            <SubsectionLabel>Evidence</SubsectionLabel>
+            <SwitchRow
+              label="Collect evidence"
+              description="Capture screenshots and artifacts after implementation"
+              id="enable-evidence"
+              testId="switch-enable-evidence"
+              checked={enableEvidence}
+              onChange={(v) => {
+                setEnableEvidence(v);
+                if (!v) {
+                  setCommitEvidence(false);
+                  save(buildWorkflowPayload({ enableEvidence: v, commitEvidence: false }));
+                } else {
+                  save(buildWorkflowPayload({ enableEvidence: v }));
+                }
+              }}
+            />
+            <SwitchRow
+              label="Commit evidence to PR"
+              description="Include evidence in the pull request body"
+              id="commit-evidence"
+              testId="switch-commit-evidence"
+              checked={commitEvidence}
+              disabled={!enableEvidence}
+              onChange={(v) => {
+                setCommitEvidence(v);
+                save(buildWorkflowPayload({ commitEvidence: v }));
               }}
             />
           </SettingsSection>

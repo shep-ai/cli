@@ -583,3 +583,7 @@ rejectionFeedback:
       evidences
     phase: merge
     timestamp: '2026-03-10T13:06:44.505Z'
+  - iteration: 8
+    message: the evidence settings should be visble in the UI
+    phase: merge
+    timestamp: '2026-03-10T13:56:58.118Z'
