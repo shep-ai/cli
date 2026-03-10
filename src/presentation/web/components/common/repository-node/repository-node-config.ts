@@ -12,6 +12,8 @@ export interface RepositoryNodeData {
   onAdd?: () => void;
   onDelete?: (repositoryId: string) => void;
   showHandles?: boolean;
+  /** When true, the "+" add-feature button shows a pulse attention animation. */
+  pulseAdd?: boolean;
 }
 
 export type RepositoryNodeType = Node<RepositoryNodeData, 'repositoryNode'>;

@@ -1,0 +1,36 @@
+feature:
+  id: '059-empty-repo-pulse-cta'
+  name: 'empty-repo-pulse-cta'
+  number: 59
+  branch: 'feat/059-empty-repo-pulse-cta'
+  lifecycle: 'research'
+  createdAt: '2026-03-10T14:04:32Z'
+
+status:
+  phase: 'research'
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-03-10T14:04:32Z'
+  lastUpdatedBy: 'feature-agent'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-03-10T14:04:32Z'
+    completedBy: 'feature-agent'
+
+errors:
+  current: null
+  history: []
