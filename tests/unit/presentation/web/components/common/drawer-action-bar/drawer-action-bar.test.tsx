@@ -44,6 +44,14 @@ describe('DrawerActionBar', () => {
     expect(onReject).toHaveBeenCalledWith('please revise this', []);
   });
 
+  it('limits textarea height to 35dvh to prevent unbounded growth', () => {
+    render(<DrawerActionBar onApprove={vi.fn()} approveLabel="Approve" onReject={vi.fn()} />);
+
+    const textarea = screen.getByRole('textbox');
+    expect(textarea.className).toContain('max-h-[35dvh]');
+    expect(textarea.className).toContain('overflow-y-auto');
+  });
+
   it('disables all controls when isProcessing is true', () => {
     render(
       <DrawerActionBar

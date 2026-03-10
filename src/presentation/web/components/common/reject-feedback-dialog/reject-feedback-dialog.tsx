@@ -52,6 +52,7 @@ export function RejectFeedbackDialog({
           onChange={(e) => setFeedback(e.target.value)}
           disabled={isSubmitting}
           rows={4}
+          className="max-h-[35dvh] overflow-y-auto"
         />
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isSubmitting} onClick={() => onOpenChange(false)}>

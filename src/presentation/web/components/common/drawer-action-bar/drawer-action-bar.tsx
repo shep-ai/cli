@@ -336,7 +336,7 @@ export function DrawerActionBar({
                   onKeyDown={handleKeyDown}
                   onPaste={handlePaste}
                   rows={3}
-                  className="min-h-0 flex-1 resize-none rounded-none border-0 shadow-none focus-visible:ring-0"
+                  className="max-h-[35dvh] min-h-0 flex-1 resize-none overflow-y-auto rounded-none border-0 shadow-none focus-visible:ring-0"
                   data-testid="drawer-chat-input"
                 />
                 {attachments.length > 0 && (

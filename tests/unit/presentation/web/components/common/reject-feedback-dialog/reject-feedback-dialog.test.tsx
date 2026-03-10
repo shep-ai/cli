@@ -56,6 +56,13 @@ describe('RejectFeedbackDialog', () => {
       render(<RejectFeedbackDialog {...defaultProps} />);
       expect(screen.getByLabelText('Rejection feedback')).toBeInTheDocument();
     });
+
+    it('limits textarea height to 35dvh to prevent unbounded growth', () => {
+      render(<RejectFeedbackDialog {...defaultProps} />);
+      const textarea = screen.getByLabelText('Rejection feedback');
+      expect(textarea.className).toContain('max-h-[35dvh]');
+      expect(textarea.className).toContain('overflow-y-auto');
+    });
   });
 
   describe('confirm button state', () => {
