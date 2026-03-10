@@ -61,7 +61,6 @@ import { initializeContainer, container } from '@/infrastructure/di/container.js
 import { InitializeSettingsUseCase } from '@/application/use-cases/settings/initialize-settings.use-case.js';
 import { initializeSettings } from '@/infrastructure/services/settings.service.js';
 import { CheckOnboardingStatusUseCase } from '@/application/use-cases/settings/check-onboarding-status.use-case.js';
-import { onboardingWizard } from '../tui/wizards/onboarding/onboarding.wizard.js';
 
 /**
  * Bootstrap function - initializes all dependencies before CLI starts.
@@ -97,6 +96,8 @@ async function bootstrap() {
       const onboardingCheck = new CheckOnboardingStatusUseCase();
       const { isComplete } = await onboardingCheck.execute();
       if (!isComplete) {
+        // Lazy-import to avoid ~460ms startup cost when onboarding is already complete
+        const { onboardingWizard } = await import('../tui/wizards/onboarding/onboarding.wizard.js');
         await onboardingWizard();
       }
     }

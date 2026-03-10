@@ -64,8 +64,8 @@ describe('RunAgentUseCase', () => {
     mockRegistry = {
       register: vi.fn(),
       get: vi
-        .fn<(name: string) => AgentDefinitionWithFactory | undefined>()
-        .mockReturnValue(createMockDefinition('analyze-repository')),
+        .fn<(name: string) => Promise<AgentDefinitionWithFactory | undefined>>()
+        .mockResolvedValue(createMockDefinition('analyze-repository')),
       list: vi
         .fn<() => AgentDefinitionWithFactory[]>()
         .mockReturnValue([createMockDefinition('analyze-repository')]),
@@ -123,7 +123,7 @@ describe('RunAgentUseCase', () => {
 
   describe('agent not found', () => {
     it('should throw error when agent name is not found in registry', async () => {
-      vi.mocked(mockRegistry.get).mockReturnValue(undefined);
+      vi.mocked(mockRegistry.get).mockResolvedValue(undefined);
 
       await expect(
         useCase.execute({
@@ -136,7 +136,7 @@ describe('RunAgentUseCase', () => {
     });
 
     it('should include available agents in error message', async () => {
-      vi.mocked(mockRegistry.get).mockReturnValue(undefined);
+      vi.mocked(mockRegistry.get).mockResolvedValue(undefined);
       vi.mocked(mockRegistry.list).mockReturnValue([
         createMockDefinition('analyze-repository'),
         createMockDefinition('gather-requirements'),
@@ -151,7 +151,7 @@ describe('RunAgentUseCase', () => {
     });
 
     it('should handle empty agent list in error message', async () => {
-      vi.mocked(mockRegistry.get).mockReturnValue(undefined);
+      vi.mocked(mockRegistry.get).mockResolvedValue(undefined);
       vi.mocked(mockRegistry.list).mockReturnValue([]);
 
       await expect(
@@ -179,7 +179,7 @@ describe('RunAgentUseCase', () => {
     });
 
     it('should validate agent exists before streaming', async () => {
-      vi.mocked(mockRegistry.get).mockReturnValue(undefined);
+      vi.mocked(mockRegistry.get).mockResolvedValue(undefined);
 
       const streamFn = async () => {
         for await (const _event of useCase.executeStream({

@@ -23,11 +23,24 @@ import { getSettings } from '@/infrastructure/services/settings.service.js';
 import { EventChannel } from '../streaming/event-channel.js';
 import { StreamingExecutorProxy } from '../streaming/streaming-executor-proxy.js';
 
+/**
+ * Lazy-loads the checkpointer to avoid ~240ms startup cost from
+ * @langchain/langgraph-checkpoint-sqlite on every CLI invocation.
+ * The import only happens when an agent is actually run.
+ */
+let _checkpointer: BaseCheckpointSaver | null = null;
+async function getCheckpointer(): Promise<BaseCheckpointSaver> {
+  if (!_checkpointer) {
+    const { createCheckpointer } = await import('./checkpointer.js');
+    _checkpointer = createCheckpointer(':memory:');
+  }
+  return _checkpointer;
+}
+
 export class AgentRunnerService implements IAgentRunner {
   constructor(
     private readonly registry: IAgentRegistry,
     private readonly executorProvider: IAgentExecutorProvider,
-    private readonly checkpointer: BaseCheckpointSaver,
     private readonly runRepository: IAgentRunRepository
   ) {}
 
@@ -35,7 +48,8 @@ export class AgentRunnerService implements IAgentRunner {
     const { definition, executor, runId, threadId } = await this.setupRun(agentName, prompt);
 
     try {
-      const compiledGraph = definition.graphFactory(executor, this.checkpointer);
+      const checkpointer = await getCheckpointer();
+      const compiledGraph = definition.graphFactory(executor, checkpointer);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const result = await (compiledGraph as any).invoke(
         { repositoryPath: options?.repositoryPath ?? process.cwd() },
@@ -62,7 +76,8 @@ export class AgentRunnerService implements IAgentRunner {
     const proxy = new StreamingExecutorProxy(executor, channel);
 
     // Compile graph with proxy (graph doesn't know about streaming)
-    const compiledGraph = definition.graphFactory(proxy, this.checkpointer);
+    const checkpointer = await getCheckpointer();
+    const compiledGraph = definition.graphFactory(proxy, checkpointer);
 
     // Start graph invocation in background
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -95,7 +110,7 @@ export class AgentRunnerService implements IAgentRunner {
   }
 
   private async setupRun(agentName: string, prompt: string) {
-    const definition = this.registry.get(agentName);
+    const definition = await this.registry.get(agentName);
     if (!definition) {
       throw new Error(
         `Agent '${agentName}' not found. Available: ${this.registry

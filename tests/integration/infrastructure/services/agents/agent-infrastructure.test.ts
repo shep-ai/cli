@@ -20,7 +20,6 @@ import { SQLiteAgentRunRepository } from '@/infrastructure/repositories/agent-ru
 import { AgentExecutorFactory } from '@/infrastructure/services/agents/common/agent-executor-factory.service.js';
 import { AgentRegistryService } from '@/infrastructure/services/agents/common/agent-registry.service.js';
 import { AgentRunnerService } from '@/infrastructure/services/agents/common/agent-runner.service.js';
-import { createCheckpointer } from '@/infrastructure/services/agents/common/checkpointer.js';
 import { RunAgentUseCase } from '@/application/use-cases/agents/run-agent.use-case.js';
 
 // Port interfaces
@@ -30,7 +29,6 @@ import type { IAgentExecutorProvider } from '@/application/ports/output/agents/a
 import type { IAgentRegistry } from '@/application/ports/output/agents/agent-registry.interface.js';
 import type { IAgentRunner } from '@/application/ports/output/agents/agent-runner.interface.js';
 import type { ISettingsRepository } from '@/application/ports/output/repositories/settings.repository.interface.js';
-import type { BaseCheckpointSaver } from '@langchain/langgraph';
 import { AgentExecutorProvider } from '@/infrastructure/services/agents/common/agent-executor-provider.service.js';
 
 import { runSQLiteMigrations } from '@/infrastructure/persistence/sqlite/migrations.js';
@@ -60,10 +58,6 @@ describe('Agent Infrastructure Integration', () => {
       useFactory: () => new AgentRegistryService(),
     });
 
-    container.register('Checkpointer', {
-      useFactory: () => createCheckpointer(':memory:'),
-    });
-
     container.register<ISettingsRepository>('ISettingsRepository', {
       useValue: {
         load: async () => ({ agent: { type: 'claude-code', authMethod: 'session' } }),
@@ -86,9 +80,8 @@ describe('Agent Infrastructure Integration', () => {
       useFactory: (c) => {
         const registry = c.resolve<IAgentRegistry>('IAgentRegistry');
         const executorProvider = c.resolve<IAgentExecutorProvider>('IAgentExecutorProvider');
-        const checkpointer = c.resolve('Checkpointer') as BaseCheckpointSaver;
         const runRepository = c.resolve<IAgentRunRepository>('IAgentRunRepository');
-        return new AgentRunnerService(registry, executorProvider, checkpointer, runRepository);
+        return new AgentRunnerService(registry, executorProvider, runRepository);
       },
     });
 
@@ -132,9 +125,9 @@ describe('Agent Infrastructure Integration', () => {
   });
 
   describe('Agent Registry', () => {
-    it('should have analyze-repository agent with graph factory', () => {
+    it('should have analyze-repository agent with graph factory', async () => {
       const registry = container.resolve<IAgentRegistry>('IAgentRegistry');
-      const definition = registry.get('analyze-repository');
+      const definition = await registry.get('analyze-repository');
 
       expect(definition).toBeDefined();
       expect(definition!.name).toBe('analyze-repository');
@@ -142,7 +135,7 @@ describe('Agent Infrastructure Integration', () => {
       expect(typeof definition!.graphFactory).toBe('function');
     });
 
-    it('should allow registering custom agents', () => {
+    it('should allow registering custom agents', async () => {
       const registry = container.resolve<IAgentRegistry>('IAgentRegistry');
       const before = registry.list().length;
 
@@ -153,7 +146,7 @@ describe('Agent Infrastructure Integration', () => {
       });
 
       expect(registry.list().length).toBe(before + 1);
-      expect(registry.get('test-agent')).toBeDefined();
+      expect(await registry.get('test-agent')).toBeDefined();
     });
   });
 

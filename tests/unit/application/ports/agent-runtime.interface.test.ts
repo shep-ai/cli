@@ -104,7 +104,7 @@ describe('IAgentRegistry type contracts', () => {
     const mockRegistry: IAgentRegistry = {
       // eslint-disable-next-line @typescript-eslint/no-empty-function
       register: (_def) => {},
-      get: (_name) => undefined,
+      get: async (_name) => undefined,
       list: () => [],
     };
     expect(mockRegistry.register).toBeDefined();
@@ -123,14 +123,14 @@ describe('IAgentRegistry type contracts', () => {
     expect(def.graphFactory).toBeDefined();
   });
 
-  it('should return undefined for unregistered agent names', () => {
+  it('should return undefined for unregistered agent names', async () => {
     const mockRegistry: IAgentRegistry = {
       // eslint-disable-next-line @typescript-eslint/no-empty-function
       register: () => {},
-      get: () => undefined,
+      get: async () => undefined,
       list: () => [],
     };
-    expect(mockRegistry.get('nonexistent')).toBeUndefined();
+    expect(await mockRegistry.get('nonexistent')).toBeUndefined();
   });
 
   it('should return registered agents from list', () => {
@@ -149,7 +149,7 @@ describe('IAgentRegistry type contracts', () => {
     const mockRegistry: IAgentRegistry = {
       // eslint-disable-next-line @typescript-eslint/no-empty-function
       register: () => {},
-      get: (name) => defs.find((d) => d.name === name),
+      get: async (name) => defs.find((d) => d.name === name),
       list: () => defs,
     };
     expect(mockRegistry.list()).toHaveLength(2);
@@ -157,7 +157,7 @@ describe('IAgentRegistry type contracts', () => {
     expect(mockRegistry.list()[1].name).toBe('gather-requirements');
   });
 
-  it('should retrieve a registered agent by name', () => {
+  it('should retrieve a registered agent by name', async () => {
     const def: AgentDefinitionWithFactory = {
       name: 'implement-feature',
       description: 'Implement a feature from a plan',
@@ -166,10 +166,10 @@ describe('IAgentRegistry type contracts', () => {
     const mockRegistry: IAgentRegistry = {
       // eslint-disable-next-line @typescript-eslint/no-empty-function
       register: () => {},
-      get: (name) => (name === 'implement-feature' ? def : undefined),
+      get: async (name) => (name === 'implement-feature' ? def : undefined),
       list: () => [def],
     };
-    const found = mockRegistry.get('implement-feature');
+    const found = await mockRegistry.get('implement-feature');
     expect(found).toBeDefined();
     expect(found?.name).toBe('implement-feature');
     expect(found?.graphFactory()).toEqual({ nodes: [] });
