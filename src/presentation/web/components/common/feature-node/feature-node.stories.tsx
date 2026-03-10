@@ -56,6 +56,8 @@ const meta: Meta<FeatureNodeData> = {
     lifecycle: 'requirements',
     state: 'running',
     progress: 45,
+    repositoryPath: '/home/user/my-repo',
+    branch: 'feat/auth-module',
   },
 };
 
@@ -304,6 +306,8 @@ export const LongContent: Story = {
     name: 'Enterprise Authentication Module With SSO Integration',
     description:
       'Implement a comprehensive OAuth2 authentication flow with support for multiple identity providers including Google, GitHub, and custom SAML-based enterprise SSO',
+    repositoryPath: '/home/user/my-repo',
+    branch: 'feat/enterprise-auth',
   },
   render: (args) => <FeatureNodeCanvas data={args} />,
 };
@@ -317,6 +321,8 @@ export const DoneWithRuntime: Story = {
     state: 'done',
     progress: 100,
     runtime: '2h 15m',
+    repositoryPath: '/home/user/my-repo',
+    branch: 'feat/payment-gateway',
   },
   render: (args) => <FeatureNodeCanvas data={args} />,
 };
@@ -330,6 +336,8 @@ export const BlockedByFeature: Story = {
     state: 'blocked',
     progress: 20,
     blockedBy: 'Auth Module',
+    repositoryPath: '/home/user/my-repo',
+    branch: 'feat/search-index',
   },
   render: (args) => <FeatureNodeCanvas data={args} />,
 };
@@ -342,6 +350,8 @@ export const Creating: Story = {
     lifecycle: 'requirements',
     state: 'creating',
     progress: 0,
+    repositoryPath: '/home/user/my-repo',
+    branch: '',
   },
   render: (args) => <FeatureNodeCanvas data={args} />,
 };
@@ -354,6 +364,56 @@ export const MergeReviewActionRequired: Story = {
     lifecycle: 'review',
     state: 'action-required',
     progress: 90,
+    repositoryPath: '/home/user/my-repo',
+    branch: 'feat/merge-review',
+  },
+  render: (args) => <FeatureNodeCanvas data={args} />,
+};
+
+export const ActionRequiredRequirements: Story = {
+  args: {
+    name: 'API Rate Limiting',
+    description: 'Implement sliding window rate limiting for public endpoints',
+    featureId: '#bi1',
+    lifecycle: 'requirements',
+    state: 'action-required',
+    progress: 22,
+    agentType: 'claude-code',
+    modelId: 'claude-sonnet-4-6',
+    repositoryPath: '/home/user/my-repo',
+    branch: 'feat/api-rate-limiting',
+  },
+  render: (args) => <FeatureNodeCanvas data={args} />,
+};
+
+export const ActionRequiredImplementation: Story = {
+  args: {
+    name: 'Data Pipeline',
+    description: 'ETL pipeline for analytics dashboard',
+    featureId: '#bi2',
+    lifecycle: 'implementation',
+    state: 'action-required',
+    progress: 40,
+    agentType: 'cursor',
+    modelId: 'claude-opus-4-6',
+    repositoryPath: '/home/user/my-repo',
+    branch: 'feat/data-pipeline',
+  },
+  render: (args) => <FeatureNodeCanvas data={args} />,
+};
+
+export const ActionRequiredReview: Story = {
+  args: {
+    name: 'Merge Review',
+    description: 'PR ready for merge approval',
+    featureId: '#bi3',
+    lifecycle: 'review',
+    state: 'action-required',
+    progress: 90,
+    agentType: 'gemini-cli',
+    modelId: 'gemini-2.5-pro',
+    repositoryPath: '/home/user/my-repo',
+    branch: 'feat/merge-review',
   },
   render: (args) => <FeatureNodeCanvas data={args} />,
 };
@@ -367,6 +427,8 @@ export const ErrorWithMessage: Story = {
     state: 'error',
     progress: 30,
     errorMessage: 'Build failed: type mismatch',
+    repositoryPath: '/home/user/my-repo',
+    branch: 'feat/email-service',
   },
   render: (args) => <FeatureNodeCanvas data={args} />,
 };
@@ -380,6 +442,8 @@ export const WithDeleteButton: Story = {
     state: 'running',
     progress: 45,
     onDelete: fn(),
+    repositoryPath: '/home/user/my-repo',
+    branch: 'feat/auth-module',
   },
   render: (args) => <FeatureNodeCanvas data={args} />,
 };
@@ -395,6 +459,8 @@ export const FastMode: Story = {
     fastMode: true,
     agentType: 'claude-code',
     modelId: 'claude-sonnet-4-6',
+    repositoryPath: '/home/user/my-repo',
+    branch: 'feat/quick-feature',
   },
   render: (args) => <FeatureNodeCanvas data={args} />,
 };
@@ -411,6 +477,8 @@ export const FastModeDone: Story = {
     fastMode: true,
     agentType: 'claude-code',
     modelId: 'claude-sonnet-4-6',
+    repositoryPath: '/home/user/my-repo',
+    branch: 'feat/fast-feature',
   },
   render: (args) => <FeatureNodeCanvas data={args} />,
 };
@@ -425,6 +493,8 @@ export const DeploymentBooting: Story = {
     progress: 80,
     agentType: 'claude-code',
     deployment: { status: DeploymentState.Booting },
+    repositoryPath: '/home/user/my-repo',
+    branch: 'feat/api-server',
   },
   render: (args) => <FeatureNodeCanvas data={args} />,
 };
@@ -440,6 +510,8 @@ export const DeploymentReady: Story = {
     runtime: '45m',
     agentType: 'claude-code',
     deployment: { status: DeploymentState.Ready, url: 'http://localhost:3000' },
+    repositoryPath: '/home/user/my-repo',
+    branch: 'feat/web-dashboard',
   },
   render: (args) => <FeatureNodeCanvas data={args} />,
 };
@@ -454,6 +526,8 @@ export const DeploymentReadyNoUrl: Story = {
     progress: 100,
     runtime: '30m',
     deployment: { status: DeploymentState.Ready },
+    repositoryPath: '/home/user/my-repo',
+    branch: 'feat/background-worker',
   },
   render: (args) => <FeatureNodeCanvas data={args} />,
 };
