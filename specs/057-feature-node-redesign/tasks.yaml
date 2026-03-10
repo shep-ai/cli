@@ -1,0 +1,355 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feature-node-redesign
+summary: >
+  9 tasks across 3 phases. Phase 1 (state config extension) has 3 tasks,
+  phase 2 (component refactoring) has 4 tasks, phase 3 (stories and
+  verification) has 2 tasks.
+
+relatedFeatures: []
+technologies:
+  - React (functional components with hooks)
+  - React Flow (@xyflow/react) custom nodes
+  - Tailwind CSS
+  - Lucide React icons
+  - Storybook
+relatedLinks: []
+
+tasks:
+  # ── Phase 1: State Config Extension ──────────────────────────────────────
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Add lifecycleStageIcons mapping to state config'
+    description: >
+      Add a new exported const lifecycleStageIcons record in
+      feature-node-state-config.ts that maps each FeatureLifecyclePhase to the
+      corresponding Lucide icon component. Import 4 new icons (Search, Code,
+      GitPullRequest, Rocket) and re-export FileText, Wrench from lucide-react
+      in this module. This record is the foundation for the status row icon
+      resolution in phase 2.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'lifecycleStageIcons record is exported from feature-node-state-config.ts'
+      - 'Record maps: requirements->FileText, research->Search, implementation->Code, review->GitPullRequest, deploy->Rocket, maintain->Wrench'
+      - 'Search, Code, GitPullRequest, Rocket imported from lucide-react'
+      - 'FileText and Wrench imported from lucide-react (moved from feature-node.tsx later)'
+      - 'Record type is Record<FeatureLifecyclePhase, LucideIcon>'
+      - 'Module compiles without errors'
+    tdd:
+      red:
+        - 'Write test that imports lifecycleStageIcons from state config and asserts it has entries for all 6 lifecycle phases'
+        - 'Write test that asserts each lifecycle phase maps to the correct icon component (e.g. research -> Search)'
+      green:
+        - 'Add the lifecycleStageIcons record with all 6 entries'
+        - 'Import Search, Code, GitPullRequest, Rocket, FileText, Wrench from lucide-react'
+        - 'Export the new record alongside existing exports'
+      refactor:
+        - 'Ensure import ordering follows project conventions (lucide-react grouped together)'
+        - 'Add the record adjacent to lifecycleDisplayLabels and lifecycleRunningVerbs for co-location'
+    estimatedEffort: '30min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Remove dead showProgressBar and progressClass from state config'
+    description: >
+      Remove the showProgressBar and progressClass fields from the
+      FeatureNodeStateConfig interface and from all 6 state records in
+      featureNodeStateConfig. These fields are false/empty for all states and
+      the determinate progress bar JSX branch never renders. This is dead code
+      removal per NFR-1 (complexity reduction).
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'showProgressBar field removed from FeatureNodeStateConfig interface'
+      - 'progressClass field removed from FeatureNodeStateConfig interface'
+      - 'showProgressBar removed from all 6 state records in featureNodeStateConfig'
+      - 'progressClass removed from all 6 state records in featureNodeStateConfig'
+      - 'Module compiles without errors'
+      - 'No references to showProgressBar or progressClass remain in the codebase'
+    tdd:
+      red:
+        - 'Write test that asserts FeatureNodeStateConfig keys do NOT include showProgressBar or progressClass'
+        - 'Write test that verifies featureNodeStateConfig records only contain expected keys (icon, borderClass, labelClass, badgeClass, badgeBgClass, label)'
+      green:
+        - 'Remove showProgressBar and progressClass from the FeatureNodeStateConfig interface'
+        - 'Remove showProgressBar and progressClass from all 6 state config objects'
+      refactor:
+        - 'Verify no other file references the removed fields (grep for showProgressBar)'
+    estimatedEffort: '15min'
+
+  - id: task-3
+    phaseId: phase-1
+    title: 'Add actionRequiredLifecycleIcons mapping for action-required overrides'
+    description: >
+      Add an exported const for the action-required lifecycle icon overrides
+      (requirements->FileText, implementation->Wrench, review->GitMerge). This
+      extracts the icon logic currently inline in getBadgeIcon (lines 34-42 of
+      feature-node.tsx) into the state config module as declarative data,
+      enabling the component to look up icons rather than hardcoding switch
+      logic. Also import GitMerge in state config.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'actionRequiredLifecycleIcons record exported from state config'
+      - 'Maps: requirements->FileText, implementation->Wrench, review->GitMerge'
+      - 'GitMerge imported from lucide-react in state config'
+      - 'Type is Partial<Record<FeatureLifecyclePhase, LucideIcon>> (only 3 phases have overrides)'
+      - 'Module compiles without errors'
+    tdd:
+      red:
+        - 'Write test that imports actionRequiredLifecycleIcons and asserts it maps requirements->FileText, implementation->Wrench, review->GitMerge'
+        - 'Write test that asserts phases without overrides (research, deploy, maintain) return undefined from the record'
+      green:
+        - 'Add the actionRequiredLifecycleIcons record with 3 entries'
+        - 'Import GitMerge from lucide-react'
+      refactor:
+        - 'Verify naming is consistent with existing record naming conventions'
+    estimatedEffort: '15min'
+
+  # ── Phase 2: Component Refactoring ───────────────────────────────────────
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Create getStatusRowIcon helper function'
+    description: >
+      Replace the existing getBadgeIcon helper (lines 34-42) with a new
+      getStatusRowIcon function that resolves the correct icon for the unified
+      status row. For running state, look up lifecycleStageIcons by lifecycle.
+      For action-required, look up actionRequiredLifecycleIcons (falling back
+      to featureNodeStateConfig icon). For all other states (creating, done,
+      blocked, error), use the icon from featureNodeStateConfig. Import
+      lifecycleStageIcons and actionRequiredLifecycleIcons from state config.
+    state: Todo
+    dependencies:
+      - task-1
+      - task-3
+    acceptanceCriteria:
+      - 'getStatusRowIcon function replaces getBadgeIcon'
+      - 'Running state returns lifecycle-stage icon (Search for research, Code for implementation, etc.)'
+      - 'Action-required state returns lifecycle-specific override (FileText for requirements, Wrench for implementation, GitMerge for review)'
+      - 'Action-required state falls back to CircleAlert for phases without overrides'
+      - 'Creating state returns Loader2, done returns CircleCheck, blocked returns Ban, error returns CircleX'
+      - 'FileText, Wrench, GitMerge imports removed from feature-node.tsx (now imported via state config)'
+    tdd:
+      red:
+        - 'Write test for getStatusRowIcon: running + research lifecycle -> Search icon'
+        - 'Write test for getStatusRowIcon: running + implementation lifecycle -> Code icon'
+        - 'Write test for getStatusRowIcon: running + all 6 lifecycle phases -> correct stage icons'
+        - 'Write test for getStatusRowIcon: action-required + requirements -> FileText'
+        - 'Write test for getStatusRowIcon: action-required + implementation -> Wrench'
+        - 'Write test for getStatusRowIcon: action-required + review -> GitMerge'
+        - 'Write test for getStatusRowIcon: action-required + research -> CircleAlert (fallback)'
+        - 'Write test for getStatusRowIcon: creating -> Loader2, done -> CircleCheck, blocked -> Ban, error -> CircleX'
+      green:
+        - 'Implement getStatusRowIcon with state check -> running uses lifecycleStageIcons[lifecycle], action-required uses actionRequiredLifecycleIcons[lifecycle] ?? config.icon, others use config.icon'
+        - 'Import lifecycleStageIcons and actionRequiredLifecycleIcons from state config'
+        - 'Remove getBadgeIcon function'
+        - 'Remove FileText, Wrench, GitMerge imports from feature-node.tsx'
+      refactor:
+        - 'Ensure function is positioned at the same location as the old getBadgeIcon (above the component)'
+        - 'Verify no references to getBadgeIcon remain'
+    estimatedEffort: '45min'
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Rename getBadgeText and getActionRequiredBadgeClasses helpers'
+    description: >
+      Rename getBadgeText to getStatusRowText and getActionRequiredBadgeClasses
+      to getActionRequiredStatusClasses. The "badge" concept no longer exists
+      in the new design — the bottom section is now a "status row" everywhere.
+      The function logic remains unchanged; only names update to match the new
+      design terminology.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'getBadgeText renamed to getStatusRowText throughout feature-node.tsx'
+      - 'getActionRequiredBadgeClasses renamed to getActionRequiredStatusClasses throughout feature-node.tsx'
+      - 'No references to old function names remain'
+      - 'Function logic is unchanged — same input/output behavior'
+      - 'Component compiles without errors'
+    tdd:
+      red:
+        - 'Write test that asserts getStatusRowText returns correct text for each state (creating->"Creating...", running->lifecycle verb, done->"Completed in {runtime}", etc.)'
+        - 'Write test that asserts getActionRequiredStatusClasses returns correct CSS class overrides per lifecycle'
+      green:
+        - 'Rename getBadgeText to getStatusRowText (find and replace within file)'
+        - 'Rename getActionRequiredBadgeClasses to getActionRequiredStatusClasses (find and replace within file)'
+      refactor:
+        - 'Verify all call sites updated (search for old names)'
+    estimatedEffort: '15min'
+
+  - id: task-6
+    phaseId: phase-2
+    title: 'Replace 4-way conditional bottom section with unified status row'
+    description: >
+      Replace the entire 4-way conditional bottom section (lines 251-327) with
+      a single unified template. The template structure is:
+      (1) Optional featureId line above status row (non-active states only),
+      (2) Icon + status text row using getStatusRowIcon and getStatusRowText,
+      (3) Optional indeterminate progress bar below (creating/running only).
+      Remove the dead determinate progress bar branch. Apply state-specific
+      styling using config.badgeClass and config.badgeBgClass for the status
+      row, with getActionRequiredStatusClasses overrides for action-required.
+      For the creating state, add spin animation to the Loader2 icon.
+    state: Todo
+    dependencies:
+      - task-4
+      - task-5
+    acceptanceCriteria:
+      - 'Single unified bottom section template replaces 4 conditional branches'
+      - 'All 6 states render icon + status text in the status row'
+      - 'featureId shown above status row only for non-active states (not creating, not running)'
+      - 'Indeterminate progress bar shown only for creating and running states'
+      - 'Determinate progress bar branch (old lines 283-300) completely removed'
+      - 'Loader2 icon has animate-spin class for creating state'
+      - 'Status row uses config.badgeClass/badgeBgClass for colors, with action-required overrides'
+      - 'Component renders all 6 states correctly'
+      - 'Component line count is less than or equal to 362'
+    tdd:
+      red:
+        - 'Write test that renders FeatureNode in creating state and asserts: Loader2 icon present with spin, "Creating..." text, progress bar visible, no featureId'
+        - 'Write test that renders FeatureNode in running state with research lifecycle and asserts: Search icon present, "Researching" text, progress bar visible, no featureId'
+        - 'Write test that renders FeatureNode in running state with implementation lifecycle and asserts: Code icon present, "Implementing" text'
+        - 'Write test that renders FeatureNode in done state and asserts: CircleCheck icon, "Completed" text, no progress bar, featureId visible'
+        - 'Write test that renders FeatureNode in blocked state and asserts: Ban icon, blocker text, no progress bar, featureId visible'
+        - 'Write test that renders FeatureNode in error state and asserts: CircleX icon, error text, no progress bar, featureId visible'
+        - 'Write test that renders FeatureNode in action-required state with requirements lifecycle and asserts: FileText icon, "Review Product Requirements" text, featureId visible'
+      green:
+        - 'Remove all 4 conditional branches (lines 251-327)'
+        - 'Implement single template: optional featureId + icon/text row + optional progress bar'
+        - 'Use getStatusRowIcon(data) for the icon'
+        - 'Use getStatusRowText(data) for the text'
+        - 'Conditionally render progress bar: (data.state === "creating" || data.state === "running")'
+        - 'Conditionally render featureId: (data.state !== "creating" && data.state !== "running")'
+      refactor:
+        - 'Remove any unused imports (e.g. Plus if no longer needed for progress)'
+        - 'Verify JSX structure is clean and consistent'
+        - 'Ensure component line count is <= 362'
+    estimatedEffort: '1h'
+
+  - id: task-7
+    phaseId: phase-2
+    title: 'Add left border color to card element'
+    description: >
+      Add border-l-4 and config.borderClass to the card div className (currently
+      at line 146). The featureNodeStateConfig already defines borderClass for
+      every state (e.g. border-l-blue-500 for creating/running, border-l-amber-500
+      for action-required, border-l-emerald-500 for done) but the current
+      component never applies these classes. This activates FR-13.
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'Card div includes border-l-4 class'
+      - 'Card div includes config.borderClass dynamically based on state'
+      - 'Creating/running states show blue left border'
+      - 'Action-required shows amber left border'
+      - 'Done shows emerald left border'
+      - 'Blocked shows gray left border'
+      - 'Error shows red left border'
+      - 'Component compiles and renders without layout issues'
+    tdd:
+      red:
+        - 'Write test that renders FeatureNode in running state and asserts card div has border-l-4 and border-l-blue-500 classes'
+        - 'Write test that renders FeatureNode in done state and asserts card div has border-l-emerald-500 class'
+        - 'Write test that renders FeatureNode in error state and asserts card div has border-l-red-500 class'
+      green:
+        - 'Add border-l-4 to the card div cn() call'
+        - 'Add config.borderClass to the card div cn() call'
+      refactor:
+        - 'Verify border-l-4 does not conflict with the existing border class on the card'
+    estimatedEffort: '15min'
+
+  # ── Phase 3: Storybook Stories & Verification ────────────────────────────
+
+  - id: task-8
+    phaseId: phase-3
+    title: 'Update existing stories and add action-required lifecycle variants'
+    description: >
+      Verify all 18 existing stories render correctly with the new unified
+      bottom row layout. Add new stories for action-required state across
+      different lifecycle phases to verify the lifecycle-specific icon overrides:
+      ActionRequiredRequirements (FileText icon), ActionRequiredImplementation
+      (Wrench icon), ActionRequiredReview (GitMerge icon). The existing
+      AllLifecycles story already covers running state across all 6 phases,
+      verifying stage-relevant icons automatically.
+    state: Todo
+    dependencies:
+      - task-6
+      - task-7
+    acceptanceCriteria:
+      - 'All 18 existing stories compile and render without errors'
+      - 'New ActionRequiredRequirements story added showing FileText icon in status row'
+      - 'New ActionRequiredImplementation story added showing Wrench icon in status row'
+      - 'New ActionRequiredReview story added showing GitMerge icon in status row'
+      - 'AllLifecycles story visually shows correct stage icons (FileText, Search, Code, GitPullRequest, Rocket, Wrench)'
+      - 'AllStates story visually shows correct state icons for all 6 states'
+      - 'Story data objects have all required FeatureNodeData fields (add repositoryPath/branch if missing)'
+    tdd:
+      red:
+        - 'Write new ActionRequiredRequirements story with lifecycle=requirements, state=action-required'
+        - 'Write new ActionRequiredImplementation story with lifecycle=implementation, state=action-required'
+        - 'Write new ActionRequiredReview story with lifecycle=review, state=action-required'
+      green:
+        - 'Add 3 new stories with correct data props for each action-required lifecycle variant'
+        - 'Fix any existing story data objects that are missing required fields'
+        - 'Verify all stories render in Storybook without console errors'
+      refactor:
+        - 'Order new stories logically within the stories file (group action-required stories together)'
+        - 'Ensure story names follow existing naming conventions'
+    estimatedEffort: '45min'
+
+  - id: task-9
+    phaseId: phase-3
+    title: 'Run build, tests, and lint verification'
+    description: >
+      Run pnpm build, pnpm test, and pnpm lint to verify zero regressions.
+      Fix any issues found. This is the final verification gate before the
+      implementation is considered complete.
+    state: Todo
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - 'pnpm build compiles without errors'
+      - 'pnpm test passes all tests (unit + integration)'
+      - 'pnpm lint passes with no errors'
+      - 'No new TypeScript errors introduced'
+      - 'Component line count of feature-node.tsx is <= 362 (verify NFR-8)'
+    tdd: null
+    estimatedEffort: '30min'
+
+totalEstimate: '3h 30min'
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation is organized into 9 tasks across 3 phases totaling an
+  estimated 3.5 hours.
+
+  Phase 1 (State Config Extension) lays the foundation by adding the
+  lifecycleStageIcons and actionRequiredLifecycleIcons mappings to the state
+  config module and removing the dead showProgressBar/progressClass fields.
+  These are pure configuration changes with no rendering impact.
+
+  Phase 2 (Component Refactoring) is the core work: replacing the 4-way
+  conditional bottom section with a unified status row template, creating the
+  getStatusRowIcon helper, renaming badge-era helpers to status-row terminology,
+  and activating the left border color. Each task in this phase is small and
+  focused — the icon helper, the naming cleanup, the template replacement, and
+  the border addition are independent concerns that happen to depend on each
+  other sequentially.
+
+  Phase 3 (Stories & Verification) updates all 18 existing stories and adds 3
+  new action-required lifecycle variant stories, then runs the full build/test/
+  lint verification suite to confirm zero regressions.
+
+  The TDD approach for each task follows the project's mandatory RED-GREEN-
+  REFACTOR cycle: write tests asserting the new behavior first, implement the
+  minimum code to pass, then clean up.

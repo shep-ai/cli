@@ -1,0 +1,185 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feature-node-redesign
+summary: >
+  Redesign the FeatureNode bottom section from a 4-way conditional (creating
+  spinner / running verb / determinate progress / state badge) into a single
+  unified status row with lifecycle-stage-relevant icons. Implementation
+  proceeds in 3 phases: (1) extend state config with lifecycle icon mapping and
+  clean up dead code, (2) refactor the component bottom section and helper
+  functions, (3) update and expand Storybook stories. All changes are confined
+  to 3 files in the presentation layer — zero domain or backend impact.
+
+relatedFeatures: []
+technologies:
+  - React (functional components with hooks)
+  - React Flow (@xyflow/react) custom nodes
+  - Tailwind CSS (utility-first styling)
+  - Lucide React icons
+  - Storybook (component stories and visual testing)
+  - shadcn/ui (tooltip, dialog primitives)
+relatedLinks: []
+
+phases:
+  - id: phase-1
+    name: 'State Config Extension'
+    description: >
+      Extend feature-node-state-config.ts with the new lifecycleStageIcons
+      mapping, import 4 new Lucide icons (Search, Code, GitPullRequest, Rocket),
+      move icon imports (FileText, Wrench, GitMerge) from feature-node.tsx to
+      state config, and remove the dead showProgressBar/progressClass fields
+      from the FeatureNodeStateConfig interface and all 6 state records. This
+      phase comes first because the component refactoring in phase 2 depends on
+      the lifecycle icon mapping being available as an import.
+    parallel: false
+  - id: phase-2
+    name: 'Component Refactoring'
+    description: >
+      Refactor feature-node.tsx to replace the 4-way conditional bottom section
+      (lines 251-327) with a single unified status row template. Create new
+      getStatusRowIcon helper (replacing getBadgeIcon), rename getBadgeText to
+      getStatusRowText, rename getActionRequiredBadgeClasses to
+      getActionRequiredStatusClasses, and add border-l-4 with config.borderClass
+      to the card div. Target: fewer lines than the current 362.
+    parallel: false
+  - id: phase-3
+    name: 'Storybook Stories & Verification'
+    description: >
+      Update all 18 existing stories to render correctly with the new unified
+      bottom row. Add new stories for action-required across lifecycle phases
+      (requirements, implementation, review) to verify lifecycle-specific icon
+      overrides. Run build, tests, and lint to verify zero regressions.
+    parallel: false
+
+filesToCreate: []
+
+filesToModify:
+  - src/presentation/web/components/common/feature-node/feature-node-state-config.ts
+  - src/presentation/web/components/common/feature-node/feature-node.tsx
+  - src/presentation/web/components/common/feature-node/feature-node.stories.tsx
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  The feature node redesign is a purely presentational refactoring within the
+  presentation layer. The component receives `FeatureNodeData` props via the
+  existing SSE -> useAgentEvents -> deriveGraph -> React Flow pipeline. No data
+  flow changes occur.
+
+  Three files are modified — all within
+  `src/presentation/web/components/common/feature-node/`:
+
+  1. **feature-node-state-config.ts** — Configuration data module. Already
+     houses `featureNodeStateConfig`, `lifecycleDisplayLabels`, and
+     `lifecycleRunningVerbs`. Extended with a new `lifecycleStageIcons` record
+     mapping each FeatureLifecyclePhase to a Lucide icon component.
+  2. **feature-node.tsx** — Main component (362 lines). Bottom section
+     restructured from 4 conditional branches to 1 unified template. Helper
+     functions renamed/consolidated to match the new "status row" terminology.
+  3. **feature-node.stories.tsx** — Visual test coverage (543 lines, 18 stories).
+     All stories verified against new layout; new action-required lifecycle
+     variant stories added.
+
+  Files NOT modified: agent-type-icons.tsx, features-canvas.tsx, domain layer,
+  tailwind config, globals.css, derive-feature-state.ts.
+
+  ## Key Design Decisions
+
+  ### 1. Lifecycle Icon Mapping in State Config
+
+  **Chosen:** Add `lifecycleStageIcons: Record<FeatureLifecyclePhase, LucideIcon>`
+  to feature-node-state-config.ts alongside existing lifecycle records.
+
+  **Rejected alternatives:**
+  - Separate file (lifecycle-icons.ts) — fragments config surface; violates the
+    established pattern of co-locating all feature-node config in one module.
+  - Inline in feature-node.tsx — mixes configuration data with rendering logic;
+    increases component line count rather than reducing it.
+
+  **Rationale:** The state config module is the established location for all
+  feature-node configuration. `lifecycleDisplayLabels` and `lifecycleRunningVerbs`
+  already follow the `Record<FeatureLifecyclePhase, T>` pattern. A new icon
+  record is identical in shape and co-location.
+
+  ### 2. Single Unified Bottom Template
+
+  **Chosen:** Replace all 4 conditional branches with one template containing:
+  - Optional featureId line (non-active states only)
+  - Icon + status text row (all states)
+  - Optional indeterminate progress bar (creating/running only)
+
+  **Rejected alternatives:**
+  - Extract separate FeatureNodeBottomRow sub-component — adds indirection for a
+    section only used in one place and tightly coupled to node data props.
+  - Keep 2 branches (active vs terminal) — still duplicates the icon + text row
+    structure for no benefit.
+
+  **Rationale:** The 4-way conditional (lines 251-327) is the primary source of
+  component complexity. The new design intentionally unifies the bottom section.
+  The only variations (icon, text, progress bar, featureId) are simple inline
+  conditionals within one template — far simpler than 4 separate JSX blocks.
+
+  ### 3. Icon Resolution via Helper Function
+
+  **Chosen:** Single `getStatusRowIcon(data)` helper function that returns the
+  appropriate LucideIcon based on state and lifecycle. Replaces `getBadgeIcon`.
+
+  **Rejected alternatives:**
+  - Nest lifecycle icons inside featureNodeStateConfig — wrong key dimension
+    (states vs phases); creates a confusing cross-product structure.
+  - Inline switch in JSX — requires IIFEs; existing codebase pattern uses named
+    helper functions above the component.
+
+  **Rationale:** Follows the existing pattern of helper functions (getBadgeIcon at
+  line 34, getBadgeText at line 59). The new function absorbs getBadgeIcon's
+  logic and adds lifecycle-stage resolution for running state.
+
+  ### 4. Left Border Color Activation
+
+  **Chosen:** Add `border-l-4` + `config.borderClass` to the card div's `cn()` call.
+
+  **Rationale:** `featureNodeStateConfig` already defines `borderClass` for every
+  state (e.g. `border-l-blue-500`, `border-l-amber-500`) but the current component
+  at line 146 never applies it. Adding `border-l-4` and the config class is a
+  one-line change that activates an already-designed feature per FR-13.
+
+  ### 5. Dead Code Removal
+
+  **Chosen:** Remove `showProgressBar` and `progressClass` from
+  `FeatureNodeStateConfig` interface and all 6 state records.
+
+  **Rationale:** `showProgressBar` is `false` for all 6 states. The determinate
+  progress bar JSX branch (lines 283-300) never renders. Removing dead code is
+  part of the NFR-1 complexity reduction goal.
+
+  ## Implementation Strategy
+
+  **Phase 1 (State Config)** comes first because it introduces the
+  `lifecycleStageIcons` export that phase 2 imports. It also moves icon imports
+  from the component to the config module — a prerequisite for the component
+  refactoring. This phase is pure configuration: no rendering logic changes.
+
+  **Phase 2 (Component)** depends on phase 1. This is the core refactoring:
+  replacing the 4-way conditional with the unified template, updating helper
+  functions, and adding the left border. All changes are within feature-node.tsx.
+  TDD approach: write tests that assert the new rendering behavior first, then
+  implement the minimal changes to pass them.
+
+  **Phase 3 (Stories)** depends on phase 2. Stories verify the visual output
+  of the refactored component. The existing AllLifecycles story automatically
+  verifies stage-relevant icons once the component is updated. New stories are
+  added for action-required lifecycle variants.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Removing showProgressBar breaks something | Verify field is false for all 6 states and the JSX branch (lines 283-300) is dead code. No external code references it — only used in feature-node.tsx. |
+  | Border-l-4 conflicts with existing border styling | The card has `border` (1px all sides). `border-l-4` overrides only left border width. Tailwind applies independently. Verify visually in Storybook. |
+  | Helper function renames break imports | getBadgeIcon, getBadgeText, getActionRequiredBadgeClasses are defined and used within the same file. No external imports exist. Rename is safe. |
+  | Missing icon imports after moving to state config | TypeScript compiler (`pnpm build`) catches missing imports immediately. Run build as part of verification. |
+  | Story data objects missing required fields | Some stories may omit `repositoryPath`/`branch` fields. Fix by adding these fields if TypeScript errors surface. |
+  | Visual regression in existing stories | Verify every existing story renders correctly in Storybook. AllStates and AllLifecycles grids provide at-a-glance comparison. |
