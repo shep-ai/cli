@@ -109,7 +109,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     (_event: React.MouseEvent, node: CanvasNodeType) => {
       if (node.type === 'featureNode') {
         const data = node.data as FeatureNodeData;
-        if (data.state === 'creating') return;
+        if (data.state === 'creating' || data.state === 'deleting') return;
         guardedNavigate(() => {
           clickSound.play();
           router.push(`/feature/${data.featureId}`);
