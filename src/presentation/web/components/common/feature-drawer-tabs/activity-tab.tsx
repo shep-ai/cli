@@ -41,101 +41,111 @@ function formatDuration(ms: number): string {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
-interface TimingRunGroup {
-  runId: string;
+/* ---------------------------------------------------------------------------
+ * Lifecycle-aware view model
+ * ------------------------------------------------------------------------- */
+
+/**
+ * A single iteration in the lifecycle timeline.
+ *
+ * An iteration represents one cycle of work:
+ *   started/resumed → phase work → rejected/completed/failed
+ *
+ * Each rejected iteration has associated rejection feedback.
+ */
+export interface TimelineIteration {
+  /** 1-based iteration number */
+  number: number;
+  /** The timing events in this iteration */
   timings: PhaseTimingData[];
-}
-
-function groupTimingsByRun(timings: PhaseTimingData[]): TimingRunGroup[] {
-  const groups: TimingRunGroup[] = [];
-
-  for (const t of timings) {
-    const last = groups[groups.length - 1];
-    if (last?.runId === t.agentRunId) {
-      last.timings.push(t);
-    } else {
-      groups.push({ runId: t.agentRunId, timings: [t] });
-    }
-  }
-  return groups;
-}
-
-interface RejectionDisplayData {
-  message: string;
-  attachments?: string[];
+  /** If this iteration ended with rejection, the feedback message */
+  rejectionMessage?: string;
+  /** If this iteration ended with rejection, any attachments */
+  rejectionAttachments?: string[];
 }
 
 /**
- * Ensure every rejection feedback entry has a corresponding run:rejected timing event
- * and build a map from each event key to its display data.
+ * Build a lifecycle-aware timeline from flat timing events and rejection feedback.
  *
- * The timings array may contain fewer run:rejected events than the feedback array
- * (e.g. 2 timing events for 4 feedback entries). For any unmatched feedback entries,
- * synthetic run:rejected timing events are inserted after the last existing
- * run:rejected event in the timings array so that all feedback is rendered.
+ * Splits the timing stream at run:rejected boundaries to produce iterations.
+ * Each rejection feedback entry is matched to its iteration by index.
+ *
+ * When there are more feedback entries than run:rejected events in the timings,
+ * synthetic run:rejected + run:resumed events are appended to ensure every
+ * feedback entry is represented.
  */
-function ensureRejectionTimingsAndBuildMap(
+export function buildLifecycleTimeline(
   timings: PhaseTimingData[],
   feedback?: RejectionFeedbackData[]
-): { timings: PhaseTimingData[]; rejectionMessages: Map<string, RejectionDisplayData> } {
-  const map = new Map<string, RejectionDisplayData>();
-  if (!feedback?.length) return { timings, rejectionMessages: map };
+): TimelineIteration[] {
+  if (!timings.length) return [];
 
-  // Collect existing run:rejected events
-  const existingRejections: { index: number; timing: PhaseTimingData }[] = [];
-  for (let i = 0; i < timings.length; i++) {
-    if (timings[i].phase === 'run:rejected') {
-      existingRejections.push({ index: i, timing: timings[i] });
+  // Count existing run:rejected events
+  const existingRejectionCount = timings.filter((t) => t.phase === 'run:rejected').length;
+  const feedbackCount = feedback?.length ?? 0;
+
+  // Augment timings with synthetic rejection/resumed cycles for unmatched feedback
+  let augmented = timings;
+  if (feedbackCount > existingRejectionCount) {
+    augmented = [...timings];
+
+    // Use last timing's agentRunId as template
+    const templateRunId = timings[timings.length - 1].agentRunId;
+
+    for (let i = existingRejectionCount; i < feedbackCount; i++) {
+      const fb = feedback![i];
+      // Add run:resumed before work (except for the first synthetic, which continues from existing)
+      if (i > existingRejectionCount) {
+        augmented.push({
+          agentRunId: templateRunId,
+          phase: 'run:resumed',
+          startedAt: fb.timestamp ?? `synthetic-resumed-${i}`,
+        });
+      }
+      // Add run:rejected
+      augmented.push({
+        agentRunId: templateRunId,
+        phase: 'run:rejected',
+        startedAt: fb.timestamp ?? `synthetic-${i}`,
+      });
     }
   }
 
-  // Pair existing events with feedback sequentially
-  const paired = Math.min(existingRejections.length, feedback.length);
-  for (let i = 0; i < paired; i++) {
-    const t = existingRejections[i].timing;
-    const key = `${t.agentRunId}-${t.phase}-${t.startedAt}`;
-    map.set(key, { message: feedback[i].message, attachments: feedback[i].attachments });
+  // Split into iterations at run:rejected boundaries
+  const iterations: TimelineIteration[] = [];
+  let currentEvents: PhaseTimingData[] = [];
+  let rejectionIndex = 0;
+
+  for (const t of augmented) {
+    currentEvents.push(t);
+
+    if (t.phase === 'run:rejected') {
+      const fb = feedback?.[rejectionIndex];
+      iterations.push({
+        number: iterations.length + 1,
+        timings: currentEvents,
+        rejectionMessage: fb?.message,
+        rejectionAttachments: fb?.attachments,
+      });
+      currentEvents = [];
+      rejectionIndex++;
+    }
   }
 
-  // If all feedback is covered, no need to inject synthetic entries
-  if (paired >= feedback.length) {
-    return { timings, rejectionMessages: map };
+  // Remaining events after last rejection (or all events if no rejections)
+  if (currentEvents.length > 0) {
+    iterations.push({
+      number: iterations.length + 1,
+      timings: currentEvents,
+    });
   }
 
-  // Synthesize additional run:rejected timing entries for remaining feedback
-  const result = [...timings];
-
-  // Determine where to insert: after the last existing run:rejected, or at the end
-  let insertAfter = result.length - 1;
-  if (existingRejections.length > 0) {
-    insertAfter = existingRejections[existingRejections.length - 1].index;
-  }
-
-  // Use the last existing rejected event as a template for agentRunId,
-  // or fall back to the first timing entry's agentRunId
-  const templateRunId =
-    existingRejections.length > 0
-      ? existingRejections[existingRejections.length - 1].timing.agentRunId
-      : (timings[0]?.agentRunId ?? 'unknown');
-
-  const synthetic: PhaseTimingData[] = [];
-  for (let i = paired; i < feedback.length; i++) {
-    const fb = feedback[i];
-    const syntheticTiming: PhaseTimingData = {
-      agentRunId: templateRunId,
-      phase: 'run:rejected',
-      startedAt: fb.timestamp ?? `synthetic-${i}`,
-    };
-    const key = `${syntheticTiming.agentRunId}-${syntheticTiming.phase}-${syntheticTiming.startedAt}`;
-    map.set(key, { message: fb.message, attachments: fb.attachments });
-    synthetic.push(syntheticTiming);
-  }
-
-  // Insert synthetic entries after the last existing run:rejected
-  result.splice(insertAfter + 1, 0, ...synthetic);
-
-  return { timings: result, rejectionMessages: map };
+  return iterations;
 }
+
+/* ---------------------------------------------------------------------------
+ * Component
+ * ------------------------------------------------------------------------- */
 
 export function ActivityTab({ timings, loading, error, rejectionFeedback }: ActivityTabProps) {
   if (loading) {
@@ -171,14 +181,8 @@ export function ActivityTab({ timings, loading, error, rejectionFeedback }: Acti
     0
   );
 
-  // Ensure every rejection feedback entry has a timing event and build display map
-  const { timings: enrichedTimings, rejectionMessages } = ensureRejectionTimingsAndBuildMap(
-    timings,
-    rejectionFeedback
-  );
-
-  const groups = groupTimingsByRun(enrichedTimings);
-  const multiRun = groups.length > 1;
+  const iterations = buildLifecycleTimeline(timings, rejectionFeedback);
+  const hasMultipleIterations = iterations.length > 1;
 
   const totalExecMs = nodeTimings.reduce((sum, t) => sum + (t.durationMs ?? 0), 0);
   const totalWaitMs = nodeTimings.reduce((sum, t) => sum + (t.approvalWaitMs ?? 0), 0);
@@ -186,14 +190,12 @@ export function ActivityTab({ timings, loading, error, rejectionFeedback }: Acti
   return (
     <div className="flex flex-col gap-4 p-4">
       <div data-testid="activity-timings" className="flex flex-col gap-3">
-        {groups.map((group, groupIdx) => (
-          <RunGroup
-            key={group.runId}
-            group={group}
-            groupIdx={groupIdx}
-            multiRun={multiRun}
+        {iterations.map((iteration) => (
+          <IterationGroup
+            key={iteration.number}
+            iteration={iteration}
+            showHeader={hasMultipleIterations}
             maxDurationMs={maxDurationMs}
-            rejectionMessages={rejectionMessages}
           />
         ))}
       </div>
@@ -204,34 +206,36 @@ export function ActivityTab({ timings, loading, error, rejectionFeedback }: Acti
   );
 }
 
-function RunGroup({
-  group,
-  groupIdx,
-  multiRun,
+/* ---------------------------------------------------------------------------
+ * Iteration group — one cycle of work
+ * ------------------------------------------------------------------------- */
+
+function IterationGroup({
+  iteration,
+  showHeader,
   maxDurationMs,
-  rejectionMessages,
 }: {
-  group: { runId: string; timings: PhaseTimingData[] };
-  groupIdx: number;
-  multiRun: boolean;
+  iteration: TimelineIteration;
+  showHeader: boolean;
   maxDurationMs: number;
-  rejectionMessages: Map<string, RejectionDisplayData>;
 }) {
   return (
-    <div className="flex flex-col gap-1.5">
-      {multiRun ? (
-        <div className="text-muted-foreground text-xs font-medium">Run #{groupIdx + 1}</div>
+    <div data-testid={`iteration-${iteration.number}`} className="flex flex-col gap-1.5">
+      {showHeader ? (
+        <div className="text-muted-foreground text-xs font-medium">
+          Iteration {iteration.number}
+        </div>
       ) : null}
-      {group.timings.map((t) => {
+      {iteration.timings.map((t) => {
         if (isLifecycleEvent(t.phase)) {
-          const key = `${t.agentRunId}-${t.phase}-${t.startedAt}`;
-          const rejection = t.phase === 'run:rejected' ? rejectionMessages.get(key) : undefined;
+          // For run:rejected, the message comes from the iteration, not a separate map
+          const isRejection = t.phase === 'run:rejected';
           return (
             <LifecycleEventRow
-              key={key}
+              key={`${t.agentRunId}-${t.phase}-${t.startedAt}`}
               timing={t}
-              message={rejection?.message}
-              attachments={rejection?.attachments}
+              message={isRejection ? iteration.rejectionMessage : undefined}
+              attachments={isRejection ? iteration.rejectionAttachments : undefined}
             />
           );
         }
@@ -246,6 +250,10 @@ function RunGroup({
     </div>
   );
 }
+
+/* ---------------------------------------------------------------------------
+ * Row components
+ * ------------------------------------------------------------------------- */
 
 function LifecycleEventRow({
   timing,
