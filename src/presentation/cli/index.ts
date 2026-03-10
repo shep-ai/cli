@@ -60,7 +60,6 @@ import { startDaemon } from './commands/daemon/start-daemon.js';
 import { initializeContainer, container } from '@/infrastructure/di/container.js';
 import { InitializeSettingsUseCase } from '@/application/use-cases/settings/initialize-settings.use-case.js';
 import { initializeSettings } from '@/infrastructure/services/settings.service.js';
-import { CheckOnboardingStatusUseCase } from '@/application/use-cases/settings/check-onboarding-status.use-case.js';
 
 /**
  * Bootstrap function - initializes all dependencies before CLI starts.
@@ -88,18 +87,6 @@ async function bootstrap() {
       const err = error instanceof Error ? error : new Error(String(error));
       messages.error('Failed to initialize settings', err);
       throw error;
-    }
-
-    // Step 2.5: First-run onboarding gate
-    // Only run in interactive terminals (the wizard needs TTY for prompts)
-    if (process.stdin.isTTY) {
-      const onboardingCheck = new CheckOnboardingStatusUseCase();
-      const { isComplete } = await onboardingCheck.execute();
-      if (!isComplete) {
-        // Lazy-import to avoid ~460ms startup cost when onboarding is already complete
-        const { onboardingWizard } = await import('../tui/wizards/onboarding/onboarding.wizard.js');
-        await onboardingWizard();
-      }
     }
 
     // Step 3: Set up Commander CLI

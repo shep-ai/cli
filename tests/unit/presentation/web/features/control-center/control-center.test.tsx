@@ -14,6 +14,53 @@ vi.mock('@/hooks/agent-events-provider', () => ({
   }),
 }));
 
+vi.mock('@/app/actions/get-all-agent-models', () => ({
+  getAllAgentModels: vi.fn(() =>
+    Promise.resolve([{ agentType: 'dev', label: 'Demo', models: [] }])
+  ),
+}));
+
+vi.mock('@/app/actions/check-agent-tool', () => ({
+  checkAgentTool: vi.fn(() =>
+    Promise.resolve({ agentType: 'dev', toolId: null, tool: null, installed: true })
+  ),
+}));
+
+vi.mock('@/app/actions/update-agent-and-model', () => ({
+  updateAgentAndModel: vi.fn(() => Promise.resolve({ ok: true })),
+}));
+
+vi.mock('@/hooks/use-tool-install-stream', () => ({
+  useToolInstallStream: () => ({
+    logs: [],
+    status: 'idle',
+    result: null,
+    startInstall: vi.fn(),
+  }),
+}));
+
+vi.mock('@/components/common/feature-node/agent-type-icons', () => ({
+  getAgentTypeIcon: () => {
+    function MockIcon(props: Record<string, unknown>) {
+      return <span data-testid="agent-icon" {...props} />;
+    }
+    return MockIcon;
+  },
+}));
+
+vi.mock('@/lib/model-metadata', () => ({
+  getModelMeta: (id: string) => ({
+    displayName: id,
+    description: `Description for ${id}`,
+  }),
+}));
+
+vi.mock('next/image', () => ({
+  default: function MockImage(props: Record<string, unknown>) {
+    return <img {...props} />;
+  },
+}));
+
 import { ControlCenter } from '@/components/features/control-center';
 import { SidebarFeaturesProvider } from '@/hooks/sidebar-features-context';
 import { DrawerCloseGuardProvider } from '@/hooks/drawer-close-guard';
@@ -64,7 +111,7 @@ describe('ControlCenter', () => {
     expect(screen.getByTestId('control-center')).toBeInTheDocument();
   });
 
-  it('shows empty state when no nodes provided', () => {
+  it('shows empty state with agent setup when no nodes provided', () => {
     render(
       <DrawerCloseGuardProvider>
         <SidebarFeaturesProvider>
@@ -73,7 +120,8 @@ describe('ControlCenter', () => {
       </DrawerCloseGuardProvider>
     );
     expect(screen.getByTestId('control-center-empty-state')).toBeInTheDocument();
-    expect(screen.getByText('Add Repository')).toBeInTheDocument();
+    // Agent setup wizard is shown first — repo section is gated behind it
+    expect(screen.getByTestId('welcome-agent-setup')).toBeInTheDocument();
   });
 
   it('renders feature nodes when initialNodes has feature nodes', () => {

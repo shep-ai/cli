@@ -47,7 +47,7 @@ function AppShellInner({ children }: AppShellProps) {
   }, []);
 
   return (
-    <SidebarProvider>
+    <SidebarProvider defaultOpen={false}>
       <AppSidebar
         features={features}
         featureFlags={featureFlags}

@@ -2,11 +2,11 @@
 
 import { resolve } from '@/lib/server-container';
 import {
-  getSettings,
   resetSettings,
   initializeSettings,
 } from '@shepai/core/infrastructure/services/settings.service';
-import type { UpdateSettingsUseCase } from '@shepai/core/application/use-cases/settings/update-settings.use-case';
+import type { CompleteWebOnboardingUseCase } from '@shepai/core/application/use-cases/settings/complete-web-onboarding.use-case';
+import type { AgentType } from '@shepai/core/domain/generated/output';
 
 export async function updateAgentAndModel(
   agentType: string,
@@ -17,18 +17,11 @@ export async function updateAgentAndModel(
   }
 
   try {
-    const currentSettings = getSettings();
-    const updatedSettings = {
-      ...currentSettings,
-      agent: {
-        ...currentSettings.agent,
-        type: agentType.trim() as typeof currentSettings.agent.type,
-      },
-      models: { default: model?.trim() ?? currentSettings.models.default },
-    };
-
-    const updateUseCase = resolve<UpdateSettingsUseCase>('UpdateSettingsUseCase');
-    await updateUseCase.execute(updatedSettings);
+    const useCase = resolve<CompleteWebOnboardingUseCase>('CompleteWebOnboardingUseCase');
+    const updatedSettings = await useCase.execute({
+      agentType: agentType.trim() as AgentType,
+      model,
+    });
 
     resetSettings();
     initializeSettings(updatedSettings);

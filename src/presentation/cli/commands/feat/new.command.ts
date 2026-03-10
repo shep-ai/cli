@@ -22,6 +22,8 @@ import type { IFeatureRepository } from '@/application/ports/output/repositories
 import { colors, messages, spinner } from '../../ui/index.js';
 import { getShepHomeDir } from '@/infrastructure/services/filesystem/shep-directory.service.js';
 import { getSettings, hasSettings } from '@/infrastructure/services/settings.service.js';
+import { CheckOnboardingStatusUseCase } from '@/application/use-cases/settings/check-onboarding-status.use-case.js';
+import { onboardingWizard } from '../../../tui/wizards/onboarding/onboarding.wizard.js';
 
 interface NewOptions {
   repo?: string;
@@ -89,6 +91,14 @@ export function createNewCommand(): Command {
     .option('--attach <path>', 'Attach a file (repeatable)', collect, [])
     .action(async (description: string, options: NewOptions) => {
       try {
+        // First-run onboarding gate — only for interactive terminals
+        if (process.stdin.isTTY) {
+          const { isComplete } = await new CheckOnboardingStatusUseCase().execute();
+          if (!isComplete) {
+            await onboardingWizard();
+          }
+        }
+
         const useCase = container.resolve(CreateFeatureUseCase);
         const repoPath = options.repo ?? process.cwd();
 
