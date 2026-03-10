@@ -1,3 +1,9 @@
+## [1.91.2](https://github.com/shep-ai/cli/compare/v1.91.1...v1.91.2) (2026-03-10)
+
+### Bug Fixes
+
+- **web:** add cursor pointer to all interactive elements globally ([#269](https://github.com/shep-ai/cli/issues/269)) ([2efdd03](https://github.com/shep-ai/cli/commit/2efdd0347f251379c90702d7e55d59e4df862a64))
+
 ## [1.91.1](https://github.com/shep-ai/cli/compare/v1.91.0...v1.91.1) (2026-03-10)
 
 ### Bug Fixes
