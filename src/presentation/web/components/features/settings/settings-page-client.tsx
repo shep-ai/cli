@@ -728,6 +728,7 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
             description="Automation behavior after implementation"
             testId="workflow-settings-section"
           >
+            <SubsectionLabel>Approve</SubsectionLabel>
             <SwitchRow
               label="Auto-approve PRD"
               description="Skip manual review of requirements"
@@ -761,6 +762,36 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
                 save(buildWorkflowPayload({ allowMerge: v }));
               }}
             />
+            <SubsectionLabel>Evidence</SubsectionLabel>
+            <SwitchRow
+              label="Collect evidence"
+              description="Capture screenshots and artifacts after implementation"
+              id="enable-evidence"
+              testId="switch-enable-evidence"
+              checked={enableEvidence}
+              onChange={(v) => {
+                setEnableEvidence(v);
+                if (!v) {
+                  setCommitEvidence(false);
+                  save(buildWorkflowPayload({ enableEvidence: v, commitEvidence: false }));
+                } else {
+                  save(buildWorkflowPayload({ enableEvidence: v }));
+                }
+              }}
+            />
+            <SwitchRow
+              label="Add evidence to PR"
+              description="Include evidence in the pull request body"
+              id="commit-evidence"
+              testId="switch-commit-evidence"
+              checked={commitEvidence}
+              disabled={!enableEvidence || !openPr}
+              onChange={(v) => {
+                setCommitEvidence(v);
+                save(buildWorkflowPayload({ commitEvidence: v }));
+              }}
+            />
+            <SubsectionLabel>Git</SubsectionLabel>
             <SwitchRow
               label="Push on complete"
               description="Push to remote when implementation finishes"
@@ -780,36 +811,12 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
               checked={openPr}
               onChange={(v) => {
                 setOpenPr(v);
-                save(buildWorkflowPayload({ openPr: v }));
-              }}
-            />
-            <SubsectionLabel>Evidence</SubsectionLabel>
-            <SwitchRow
-              label="Collect evidence"
-              description="Capture screenshots and artifacts after implementation"
-              id="enable-evidence"
-              testId="switch-enable-evidence"
-              checked={enableEvidence}
-              onChange={(v) => {
-                setEnableEvidence(v);
                 if (!v) {
                   setCommitEvidence(false);
-                  save(buildWorkflowPayload({ enableEvidence: v, commitEvidence: false }));
+                  save(buildWorkflowPayload({ openPr: v, commitEvidence: false }));
                 } else {
-                  save(buildWorkflowPayload({ enableEvidence: v }));
+                  save(buildWorkflowPayload({ openPr: v }));
                 }
-              }}
-            />
-            <SwitchRow
-              label="Commit evidence to PR"
-              description="Include evidence in the pull request body"
-              id="commit-evidence"
-              testId="switch-commit-evidence"
-              checked={commitEvidence}
-              disabled={!enableEvidence}
-              onChange={(v) => {
-                setCommitEvidence(v);
-                save(buildWorkflowPayload({ commitEvidence: v }));
               }}
             />
           </SettingsSection>
