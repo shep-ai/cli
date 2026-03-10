@@ -13,7 +13,7 @@ export function ShepLogo({ className, size = 24, variant = 'default' }: ShepLogo
       viewBox="0 0 194 200"
       width={size}
       height={size}
-      className={cn('shrink-0', variant === 'dev' && 'text-cyan-400', className)}
+      className={cn('shrink-0', variant === 'dev' && 'text-blue-500', className)}
       aria-hidden="true"
     >
       <g transform="matrix(1, 0, 0, 1, -111, -208)">

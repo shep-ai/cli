@@ -1,0 +1,36 @@
+feature:
+  id: '059-dev-mode-logo-color'
+  name: 'dev-mode-logo-color'
+  number: 59
+  branch: 'feat/059-dev-mode-logo-color'
+  lifecycle: 'research'
+  createdAt: '2026-03-10T15:48:48Z'
+
+status:
+  phase: 'research'
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-03-10T15:48:48Z'
+  lastUpdatedBy: 'feature-agent'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-03-10T15:48:48Z'
+    completedBy: 'feature-agent'
+
+errors:
+  current: null
+  history: []
