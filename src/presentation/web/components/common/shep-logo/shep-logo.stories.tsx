@@ -32,3 +32,16 @@ export const DevMode: Story = {
     variant: 'dev',
   },
 };
+
+export const HoverBlack: Story = {
+  args: {
+    size: 48,
+  },
+  parameters: {
+    docs: {
+      description: {
+        story: 'Hover over the logo to see it turn black.',
+      },
+    },
+  },
+};
