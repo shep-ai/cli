@@ -1,0 +1,193 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feature-node-redesign
+number: 057
+branch: feat/057-feature-node-redesign
+oneLiner: Redesign feature node cards to match updated design mockups with new layout variants
+
+summary: >
+  The designer has proposed visual changes to the FeatureNode component displayed on the
+  React Flow canvas. The mockup shows four layout variants for feature node cards, including
+  changes to the information hierarchy, agent icon prominence, text truncation, and bottom
+  status row presentation. The primary affected area is the web UI presentation layer —
+  specifically the feature-node component, its state config, and associated Storybook stories.
+
+phase: Analysis
+sizeEstimate: M
+
+relatedFeatures: []
+
+technologies:
+  - React (functional components with hooks)
+  - React Flow (@xyflow/react) custom nodes
+  - Tailwind CSS (utility-first styling)
+  - Lucide React icons
+  - Storybook (component stories and visual testing)
+  - shadcn/ui (tooltip, dialog primitives)
+
+relatedLinks: []
+
+openQuestions:
+  - >
+    The mockup shows 4 distinct layout variants per row. Are all 4 variants intended to be
+    implemented (e.g. different states/contexts render different layouts), or is the designer
+    showing a progression toward a single preferred variant? Which variant(s) should be built?
+  - >
+    The third variant (with the large centered agent icon) represents a significant layout
+    departure from the current card. Should this be the new default, or is it contextual
+    (e.g. only shown when the node is selected or expanded)?
+  - >
+    Should the node width remain at 288px (w-72) or change to accommodate the new layout?
+  - >
+    The current node has multiple bottom-section layouts for creating, running, progress-bar,
+    and badge states. Do the new designs replace all of these, or only the running/creating states?
+
+content: |
+  ## Problem Statement
+
+  The current FeatureNode component (288×140px+ card) displays feature metadata on the React
+  Flow canvas with a fixed layout: lifecycle label top-left, agent icon top-right, bold name,
+  truncated description, and a bottom section that varies by state (creating spinner,
+  running verb, progress bar, or state badge). The designer has proposed updated mockups that
+  refine this layout with changes to visual hierarchy, agent icon presentation, and status
+  row styling.
+
+  The design mockup (see attached image) shows 4 variants across two rows:
+  - Row 1: "Wire PRD & Tech Design Drawer Application" in RESEARCH state (4 variants)
+  - Row 2: "Auto-Relayout After Feature Deletion" in IMPLEMENTATION state (4 variants)
+
+  Key design changes observed across variants:
+  1. **Agent icon prominence**: One variant features a larger, centered agent icon as a visual
+     focal point rather than the small top-right badge
+  2. **Status row consistency**: All variants show a bottom status row with agent icon + lifecycle
+     verb (e.g. "Researching", "Implementing") — more consistent than the current state-dependent
+     bottom section
+  3. **Text hierarchy refinements**: Slight adjustments to spacing, sizing, and truncation of the
+     name and description text
+  4. **Layout variations**: Range from minor tweaks to the current layout (variants 1, 2, 4) to
+     a significantly different centered-icon layout (variant 3)
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The web UI lives under `src/presentation/web/` following Clean Architecture principles.
+  The feature node implementation spans these key directories:
+
+  | Directory | Purpose |
+  | --------- | ------- |
+  | `src/presentation/web/components/common/feature-node/` | FeatureNode component, state config, state derivation, agent icons |
+  | `src/presentation/web/components/features/features-canvas/` | React Flow canvas wrapper, dependency edges |
+  | `src/presentation/web/app/` | Graph node builders (`build-graph-nodes.ts`, `build-feature-node-data.ts`) |
+  | `src/presentation/web/hooks/` | Graph state hooks (`use-graph-state.ts`) |
+  | `src/presentation/web/lib/` | Graph derivation (`derive-graph.ts`), model metadata |
+  | `packages/core/src/domain/generated/output.ts` | Auto-generated domain types from TypeSpec |
+
+  ### Architecture Patterns
+
+  - **Clean Architecture**: Presentation layer depends inward on domain. Feature node is purely
+    presentational — it receives `FeatureNodeData` props and renders UI.
+  - **State derivation**: `derive-feature-state.ts` maps domain `Feature` + `AgentRun` entities
+    to UI state (`FeatureNodeState`, `FeatureLifecyclePhase`, progress).
+  - **Configuration-driven styling**: `feature-node-state-config.ts` maps each state to icons,
+    colors, and CSS classes via a `Record<FeatureNodeState, FeatureNodeStateConfig>`.
+  - **React Flow custom nodes**: Registered in `features-canvas.tsx` via `nodeTypes` map.
+    Nodes receive data via React Flow's `data` prop.
+  - **Colocated stories**: Every component has a `.stories.tsx` file (mandatory per CLAUDE.md).
+
+  ### Relevant Technologies
+
+  - **@xyflow/react**: React Flow v12 — custom node rendering via `nodeTypes` registration.
+    Nodes use `<Handle>` components for connection points.
+  - **Tailwind CSS**: All styling is utility-class-based. Custom animations defined in
+    `tailwind.config.ts` (e.g. `animate-indeterminate-progress`).
+  - **Lucide React**: Icon library for state icons (Loader2, CircleCheck, CircleX, etc.).
+  - **shadcn/ui**: Tooltip, Dialog primitives used for hover tooltips and delete confirmation.
+  - **Storybook**: 543-line stories file with 18+ stories covering all states, lifecycles,
+    agent types, and interactive canvas.
+
+  ### Current Feature Node Layout
+
+  The current `feature-node.tsx` (362 lines) renders this structure:
+
+  ```
+  ┌─────────────────────────────────┐
+  │ LIFECYCLE LABEL    ⚡ 🤖 agent  │  ← top row
+  │ Feature Name (bold, truncated)  │
+  │ Description (muted, truncated)  │
+  │ [Deployment indicator]          │  ← optional
+  │                                 │
+  │ ── mt-auto spacer ──           │
+  │ [State-dependent bottom]:       │
+  │   creating: 🔄 Creating...     │
+  │   running:  🤖 Implementing    │
+  │   progress: ████░░░░░░ 45%     │
+  │   badge:    ⚠️ Review PRD      │
+  └─────────────────────────────────┘
+  ```
+
+  Width: 288px (w-72), Min-height: 140px (min-h-35), Padding: 12px (p-3)
+
+  ### Current FeatureNodeData Interface
+
+  The data interface (101 lines) includes: `name`, `description`, `featureId`, `lifecycle`,
+  `state`, `progress`, `agentType`, `modelId`, `fastMode`, `runtime`, `blockedBy`,
+  `errorMessage`, `deployment`, `pr`, plus callback props (`onAction`, `onSettings`, `onDelete`).
+
+  ### Current State System
+
+  6 states: `creating`, `running`, `action-required`, `done`, `blocked`, `error`
+  6 lifecycle phases: `requirements`, `research`, `implementation`, `review`, `deploy`, `maintain`
+  Each state maps to: icon, border/label/progress/badge CSS classes, label text, showProgressBar flag.
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `src/presentation/web/components/common/feature-node/feature-node.tsx` | High | Main component — layout and JSX restructuring needed |
+  | `src/presentation/web/components/common/feature-node/feature-node-state-config.ts` | Medium | State config may need new fields or adjusted classes for redesigned layout |
+  | `src/presentation/web/components/common/feature-node/feature-node.stories.tsx` | High | All stories must be updated to reflect new visual layout and any new variants |
+  | `src/presentation/web/components/common/feature-node/agent-type-icons.tsx` | Low | May need size adjustments if agent icon is rendered larger in new design |
+  | `src/presentation/web/components/common/feature-node/agent-type-icons.stories.tsx` | Low | May need new size variants to match redesign |
+  | `src/presentation/web/components/features/features-canvas/features-canvas.tsx` | Low | Node dimensions may need adjustment if card size changes |
+  | `src/presentation/web/components/features/features-canvas/features-canvas.stories.tsx` | Low | Canvas stories may need viewport adjustments |
+  | `tailwind.config.ts` | Low | Custom animations or spacing utilities may need additions |
+
+  ## Dependencies
+
+  - **No domain/application layer changes**: This is a purely presentational redesign. The
+    `FeatureNodeData` interface and state derivation logic should remain unchanged.
+  - **No backend changes**: The feature node receives data via SSE → hooks → React Flow props.
+    The data pipeline is unaffected.
+  - **Existing UI primitives**: Uses shadcn/ui Tooltip, Lucide icons, and Tailwind — all
+    already in the project.
+  - **React Flow constraints**: Custom nodes must still include `<Handle>` components for
+    edge connections. The delete button and action button (+ add child) hover behaviors
+    must be preserved.
+
+  ## Success Criteria
+
+  - [ ] Feature node cards match the approved design variant from the mockup
+  - [ ] All 6 node states render correctly with the new layout (creating, running, action-required, done, blocked, error)
+  - [ ] All 6 lifecycle phases display correctly
+  - [ ] All agent type icons render at the correct size
+  - [ ] Fast mode indicator (Zap icon) still visible
+  - [ ] Deployment status indicator still functional
+  - [ ] Delete button and action (+) button hover behaviors preserved
+  - [ ] Text truncation works correctly for long names/descriptions
+  - [ ] Storybook stories updated and visually verified for all states
+  - [ ] No regressions in existing functionality (handles, selection ring, callbacks)
+  - [ ] Build, test, and lint pass clean
+
+  ## Size Estimate
+
+  **M (days)** — The feature node component is 362 lines with complex state-dependent rendering.
+  The stories file is 543 lines with 18+ stories. Restructuring the JSX layout, adjusting styles,
+  and updating all stories is a moderate effort. No domain/backend changes reduce scope. The main
+  risk is the open question of which variant(s) to implement — if multiple variants are needed
+  (e.g. context-dependent layouts), this could push toward L.
+
+  ---
+
+  _Analysis completed — proceed with research after resolving open questions_
