@@ -8,14 +8,14 @@ describe('VersionBadge', () => {
     expect(screen.getByTestId('version-label')).toHaveTextContent('v1.90.0');
   });
 
-  it('shows dev with commit hash in dev mode', () => {
+  it('shows version-dev in dev mode', () => {
     render(<VersionBadge version="1.90.0" isDev commitHash="abc1234def5678" />);
-    expect(screen.getByTestId('version-label')).toHaveTextContent('dev·abc1234');
+    expect(screen.getByTestId('version-label')).toHaveTextContent('1.90.0-dev');
   });
 
-  it('shows dev without hash when no commit provided', () => {
+  it('shows version-dev without hash when no commit provided', () => {
     render(<VersionBadge version="1.90.0" isDev />);
-    expect(screen.getByTestId('version-label')).toHaveTextContent('dev');
+    expect(screen.getByTestId('version-label')).toHaveTextContent('1.90.0-dev');
   });
 
   it('does not show branch inline in production mode', () => {

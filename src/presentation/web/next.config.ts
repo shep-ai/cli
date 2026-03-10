@@ -32,6 +32,7 @@ function loadDevFallbacks(): Record<string, string> {
       NEXT_PUBLIC_SHEP_DESCRIPTION: pkg.description ?? 'Autonomous AI Native SDLC Platform',
       NEXT_PUBLIC_SHEP_BRANCH: branch,
       NEXT_PUBLIC_SHEP_COMMIT: commitHash,
+      NEXT_PUBLIC_SHEP_INSTANCE_PATH: process.cwd(),
     };
   } catch {
     return {

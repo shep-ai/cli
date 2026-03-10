@@ -13,18 +13,16 @@ const meta: Meta<typeof VersionBadge> = {
 export default meta;
 type Story = StoryObj<typeof VersionBadge>;
 
-/** Production mode — shows version only as dimmed text. */
+/** Production mode — shows "v1.90.0" as dimmed text, no dev details in tooltip. */
 export const Production: Story = {
   args: {
     version: '1.90.0',
     packageName: '@shepai/cli',
     description: 'Autonomous AI Native SDLC Platform',
-    nodeVersion: 'v22.4.0',
-    platform: 'linux x64',
   },
 };
 
-/** Development mode — shows "dev·<hash>" to clearly indicate non-stable build. */
+/** Development mode — shows "1.90.0-dev", tooltip includes branch, commit, and path. */
 export const Development: Story = {
   args: {
     version: '1.90.0',
@@ -33,8 +31,7 @@ export const Development: Story = {
     commitHash: '5a84c148b3e2f1a9c7d6e8b4a2f1c3d5e7f9a1b3',
     packageName: '@shepai/cli',
     description: 'Autonomous AI Native SDLC Platform',
-    nodeVersion: 'v22.4.0',
-    platform: 'linux x64',
+    instancePath: '/home/user/projects/shep',
   },
 };
 
@@ -47,6 +44,7 @@ export const LongBranch: Story = {
     commitHash: 'abc1234def5678',
     packageName: '@shepai/cli',
     description: 'Autonomous AI Native SDLC Platform',
+    instancePath: '/home/user/very/deep/nested/project/path',
   },
 };
 

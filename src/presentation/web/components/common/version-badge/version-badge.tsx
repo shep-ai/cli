@@ -9,8 +9,7 @@ export interface VersionBadgeProps {
   isDev?: boolean;
   packageName?: string;
   description?: string;
-  nodeVersion?: string;
-  platform?: string;
+  instancePath?: string;
 }
 
 export function VersionBadge({
@@ -20,13 +19,12 @@ export function VersionBadge({
   isDev = false,
   packageName = '@shepai/cli',
   description,
-  nodeVersion,
-  platform,
+  instancePath,
 }: VersionBadgeProps) {
   const shortHash = commitHash?.slice(0, 7);
 
-  // In dev mode show "dev·abc1234" to make it clearly not a stable release
-  const displayVersion = isDev ? (shortHash ? `dev·${shortHash}` : 'dev') : `v${version}`;
+  // In dev mode show "1.92.2-dev", in production show "v1.92.2"
+  const displayVersion = isDev ? `${version}-dev` : `v${version}`;
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -45,12 +43,10 @@ export function VersionBadge({
             <div className="text-[10px] leading-snug opacity-70">{description}</div>
           ) : null}
           <div className="border-t border-white/10 pt-1.5">
-            <Row label="Version" value={`v${version}`} />
-            {isDev ? <Row label="Mode" value="Development" highlight /> : null}
-            {branch ? <Row label="Branch" value={branch} /> : null}
-            {shortHash ? <Row label="Commit" value={shortHash} mono /> : null}
-            {nodeVersion ? <Row label="Node.js" value={nodeVersion} /> : null}
-            {platform ? <Row label="Platform" value={platform} /> : null}
+            <Row label="Version" value={displayVersion} />
+            {isDev && branch ? <Row label="Branch" value={branch} /> : null}
+            {isDev && shortHash ? <Row label="Commit" value={shortHash} mono /> : null}
+            {isDev && instancePath ? <Row label="Path" value={instancePath} mono /> : null}
           </div>
         </TooltipContent>
       </Tooltip>

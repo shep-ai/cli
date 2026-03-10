@@ -91,6 +91,7 @@ export function AppSidebar({
                     isDev={process.env.NODE_ENV === 'development'}
                     packageName={process.env.NEXT_PUBLIC_SHEP_PACKAGE_NAME}
                     description={process.env.NEXT_PUBLIC_SHEP_DESCRIPTION}
+                    instancePath={process.env.NEXT_PUBLIC_SHEP_INSTANCE_PATH}
                   />
                 </div>
               ) : null}
