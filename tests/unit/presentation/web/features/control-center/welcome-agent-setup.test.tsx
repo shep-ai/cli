@@ -25,7 +25,13 @@ vi.mock('@/app/actions/get-all-agent-models', () => ({
 vi.mock('@/app/actions/check-agent-tool', () => ({
   checkAgentTool: vi.fn((agentType: string) => {
     if (agentType === 'dev') {
-      return Promise.resolve({ agentType, toolId: null, tool: null, installed: true });
+      return Promise.resolve({
+        agentType,
+        toolId: null,
+        tool: null,
+        installed: true,
+        binaryName: null,
+      });
     }
     return Promise.resolve({
       agentType,
@@ -37,6 +43,7 @@ vi.mock('@/app/actions/check-agent-tool', () => ({
         autoInstall: true,
       },
       installed: true,
+      binaryName: 'claude',
     });
   }),
 }));
@@ -111,7 +118,7 @@ describe('WelcomeAgentSetup', () => {
     });
   });
 
-  it('skips model selection for agents without models and shows tool check', async () => {
+  it('skips model selection and tool check for agents without models/tools', async () => {
     const user = userEvent.setup();
     render(<WelcomeAgentSetup onComplete={onComplete} />);
 
@@ -121,12 +128,13 @@ describe('WelcomeAgentSetup', () => {
 
     await user.click(screen.getByTestId('agent-option-dev'));
 
+    // Auto-skips check-tool and lands on authenticate step
     await waitFor(() => {
-      expect(screen.getByText('No additional tools required')).toBeInTheDocument();
+      expect(screen.getByText('No authentication required')).toBeInTheDocument();
     });
   });
 
-  it('shows tool status after selecting agent and model', async () => {
+  it('shows authenticate step after selecting agent and model (auto-skips tool check)', async () => {
     const user = userEvent.setup();
     render(<WelcomeAgentSetup onComplete={onComplete} />);
 
@@ -142,12 +150,13 @@ describe('WelcomeAgentSetup', () => {
 
     await user.click(screen.getByTestId('model-option-opus-4'));
 
+    // Auto-skips check-tool (tool installed) and shows authenticate step
     await waitFor(() => {
-      expect(screen.getByText(/installed/i)).toBeInTheDocument();
+      expect(screen.getByTestId('agent-setup-launch')).toBeInTheDocument();
     });
   });
 
-  it('calls onComplete after confirming setup', async () => {
+  it('calls onComplete after confirming setup on authenticate step', async () => {
     const user = userEvent.setup();
     render(<WelcomeAgentSetup onComplete={onComplete} />);
 
@@ -158,8 +167,9 @@ describe('WelcomeAgentSetup', () => {
 
     await user.click(screen.getByTestId('agent-option-dev'));
 
+    // Wait for authenticate step (auto-skips check-tool)
     await waitFor(() => {
-      expect(screen.getByTestId('agent-setup-confirm')).toBeInTheDocument();
+      expect(screen.getByText('No authentication required')).toBeInTheDocument();
     });
 
     await user.click(screen.getByTestId('agent-setup-confirm'));
