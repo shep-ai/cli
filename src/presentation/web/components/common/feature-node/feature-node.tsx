@@ -144,7 +144,7 @@ export function FeatureNode({
         data-testid="feature-node-card"
         aria-busy={data.state === 'creating' ? 'true' : undefined}
         className={cn(
-          'bg-card flex min-h-35 w-72 flex-col rounded-lg border p-3 shadow-sm',
+          'bg-card flex min-h-35 w-72 cursor-pointer flex-col rounded-lg border p-3 shadow-sm',
           selected && 'ring-primary ring-2'
         )}
       >

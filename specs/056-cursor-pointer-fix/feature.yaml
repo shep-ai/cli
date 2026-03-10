@@ -1,0 +1,36 @@
+feature:
+  id: '056-cursor-pointer-fix'
+  name: 'cursor-pointer-fix'
+  number: 56
+  branch: 'feat/056-cursor-pointer-fix'
+  lifecycle: 'research'
+  createdAt: '2026-03-09T19:17:18Z'
+
+status:
+  phase: 'research'
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-03-09T19:17:18Z'
+  lastUpdatedBy: 'feature-agent'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-03-09T19:17:18Z'
+    completedBy: 'feature-agent'
+
+errors:
+  current: null
+  history: []
