@@ -1,3 +1,9 @@
+## [1.91.1](https://github.com/shep-ai/cli/compare/v1.91.0...v1.91.1) (2026-03-10)
+
+### Bug Fixes
+
+- **web:** path-based tab routing for feature drawer without re-renders ([#257](https://github.com/shep-ai/cli/issues/257)) ([52fbf61](https://github.com/shep-ai/cli/commit/52fbf618d9f44ae4344c4ce5b8149a0238a12fb5))
+
 # [1.91.0](https://github.com/shep-ai/cli/compare/v1.90.1...v1.91.0) (2026-03-09)
 
 ### Bug Fixes
