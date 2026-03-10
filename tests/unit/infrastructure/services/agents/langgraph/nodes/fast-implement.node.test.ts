@@ -327,7 +327,8 @@ describe('createFastImplementNode', () => {
 
     await node(state);
 
-    expect(mockExecutor.execute).toHaveBeenCalledTimes(1);
+    // 1 implementation call + 1 evidence sub-agent call = 2
+    expect(mockExecutor.execute).toHaveBeenCalledTimes(2);
     const [prompt] = (mockExecutor.execute as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(prompt).toContain('Fix the typo in the README');
   });

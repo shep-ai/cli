@@ -6,7 +6,6 @@ import { createRequirementsNode } from './nodes/requirements.node.js';
 import { createResearchNode } from './nodes/research.node.js';
 import { createPlanNode } from './nodes/plan.node.js';
 import { createImplementNode } from './nodes/implement.node.js';
-import { createEvidenceNode } from './nodes/evidence.node.js';
 import { createMergeNode, type MergeNodeDeps } from './nodes/merge/merge.node.js';
 import { createValidateNode } from './nodes/validate.node.js';
 import { createRepairNode } from './nodes/repair.node.js';
@@ -150,7 +149,7 @@ function createPlanTasksValidator(): (
  * Factory function that creates and compiles the feature-agent LangGraph.
  *
  * The graph defines a linear SDLC workflow with validation gates:
- *   analyze → validate → requirements → validate → research → validate → plan → validate → implement → merge
+ *   analyze → validate → requirements → validate → research → validate → plan → validate → implement (+ evidence sub-agent) → merge
  *
  * Each YAML-producing node is followed by a validate/repair loop that ensures
  * the output YAML conforms to its schema before proceeding.
@@ -175,7 +174,6 @@ export function createFeatureAgentGraph(
     .addNode('research', createResearchNode(executor))
     .addNode('plan', createPlanNode(executor))
     .addNode('implement', createImplementNode(executor))
-    .addNode('collect_evidence', createEvidenceNode(executor))
 
     // --- Validate nodes ---
     .addNode('validate_spec_analyze', createValidateNode('spec.yaml', validateSpecAnalyze))
@@ -219,9 +217,6 @@ export function createFeatureAgentGraph(
     .addConditionalEdges('validate_plan_tasks', routeValidation('implement', 'repair_plan_tasks'))
     .addEdge('repair_plan_tasks', 'validate_plan_tasks');
 
-  // --- Evidence node: always wired after implement ---
-  graph.addEdge('implement', 'collect_evidence');
-
   // --- Merge node: wired when deps are provided ---
   if (deps.mergeNodeDeps) {
     const mergeNodeDeps: MergeNodeDeps = {
@@ -230,10 +225,10 @@ export function createFeatureAgentGraph(
     };
     graph
       .addNode('merge', createMergeNode(mergeNodeDeps))
-      .addEdge('collect_evidence', 'merge')
+      .addEdge('implement', 'merge')
       .addConditionalEdges('merge', routeReexecution('merge', END));
   } else {
-    graph.addEdge('collect_evidence', END);
+    graph.addEdge('implement', END);
   }
 
   return graph.compile({ checkpointer });

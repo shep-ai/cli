@@ -2,8 +2,8 @@
  * Fast Feature Agent Graph Unit Tests
  *
  * Tests for the fast-mode LangGraph StateGraph that contains
- * fast-implement → collect_evidence → merge nodes (or fast-implement →
- * collect_evidence → END without merge deps).
+ * fast-implement (+ evidence sub-agent) → merge nodes (or
+ * fast-implement → END without merge deps).
  */
 
 import 'reflect-metadata';
@@ -139,13 +139,12 @@ describe('createFastFeatureAgentGraph', () => {
   });
 
   describe('graph structure (without merge deps)', () => {
-    it('should have fast-implement and collect_evidence nodes', () => {
+    it('should have fast-implement node', () => {
       const compiled = createFastFeatureAgentGraph(mockExecutor, checkpointer);
       const graphRepr = compiled.getGraph();
       const nodeIds = Object.keys(graphRepr.nodes);
 
       expect(nodeIds).toContain('fast-implement');
-      expect(nodeIds).toContain('collect_evidence');
     });
 
     it('should NOT have full pipeline nodes', () => {
@@ -158,6 +157,8 @@ describe('createFastFeatureAgentGraph', () => {
       expect(nodeIds).not.toContain('research');
       expect(nodeIds).not.toContain('plan');
       expect(nodeIds).not.toContain('implement');
+      // Evidence is now a sub-agent within fast-implement, not a separate node
+      expect(nodeIds).not.toContain('collect_evidence');
     });
 
     it('should have edge from START to fast-implement', () => {
@@ -168,25 +169,17 @@ describe('createFastFeatureAgentGraph', () => {
       expect(edgePairs).toContainEqual(['__start__', 'fast-implement']);
     });
 
-    it('should have edge from fast-implement to collect_evidence', () => {
+    it('should have edge from fast-implement to END when no merge deps', () => {
       const compiled = createFastFeatureAgentGraph(mockExecutor, checkpointer);
       const graphRepr = compiled.getGraph();
       const edgePairs = graphRepr.edges.map((e) => [e.source, e.target]);
 
-      expect(edgePairs).toContainEqual(['fast-implement', 'collect_evidence']);
-    });
-
-    it('should have edge from collect_evidence to END when no merge deps', () => {
-      const compiled = createFastFeatureAgentGraph(mockExecutor, checkpointer);
-      const graphRepr = compiled.getGraph();
-      const edgePairs = graphRepr.edges.map((e) => [e.source, e.target]);
-
-      expect(edgePairs).toContainEqual(['collect_evidence', '__end__']);
+      expect(edgePairs).toContainEqual(['fast-implement', '__end__']);
     });
   });
 
   describe('node execution', () => {
-    it('should call executor for fast-implement and evidence nodes', async () => {
+    it('should call executor for fast-implement and evidence sub-agent', async () => {
       setupFileMocks();
       const compiled = createFastFeatureAgentGraph(mockExecutor, checkpointer);
 
@@ -200,12 +193,12 @@ describe('createFastFeatureAgentGraph', () => {
         { configurable: { thread_id: 'fast-thread-1' } }
       );
 
-      // Called twice: once for fast-implement, once for collect_evidence
+      // Called twice: once for fast-implement, once for evidence sub-agent within fast-implement
       expect(mockExecutor.execute).toHaveBeenCalledTimes(2);
-      expect(result.currentNode).toBe('evidence');
+      expect(result.currentNode).toBe('fast-implement');
     });
 
-    it('should accumulate messages from fast-implement and evidence nodes', async () => {
+    it('should accumulate messages from fast-implement including evidence', async () => {
       setupFileMocks();
       const compiled = createFastFeatureAgentGraph(mockExecutor, checkpointer);
 
@@ -221,7 +214,6 @@ describe('createFastFeatureAgentGraph', () => {
 
       expect(result.messages.length).toBeGreaterThanOrEqual(2);
       expect(result.messages.some((m: string) => m.includes('[fast-implement]'))).toBe(true);
-      expect(result.messages.some((m: string) => m.includes('[evidence]'))).toBe(true);
     });
 
     it('should throw on executor errors for resumability', async () => {
@@ -267,7 +259,7 @@ describe('createFastFeatureAgentGraph', () => {
 
       expect(state.values.featureId).toBe('feat-persist');
       expect(state.values.messages.length).toBeGreaterThan(0);
-      expect(state.values.currentNode).toBe('evidence');
+      expect(state.values.currentNode).toBe('fast-implement');
     });
   });
 

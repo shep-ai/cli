@@ -12,6 +12,7 @@ import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { interrupt, isGraphBubbleUp } from '@langchain/langgraph';
 import type { IAgentExecutor } from '@/application/ports/output/agents/agent-executor.interface.js';
+import type { Evidence } from '@/domain/generated/output.js';
 import type { FeatureAgentState } from '../state.js';
 import {
   createNodeLogger,
@@ -37,6 +38,8 @@ import {
   type PhaseTask,
   type TasksYaml,
 } from './prompts/implement.prompt.js';
+import { buildEvidencePrompt } from './prompts/evidence-prompts.js';
+import { parseEvidenceRecords } from './evidence-output-parser.js';
 
 /**
  * Update feature.yaml with current implementation progress.
@@ -231,6 +234,10 @@ export function createImplementNode(executor: IAgentExecutor) {
         `[implement] Complete: ${totalTasks} tasks across ${totalPhases} phases (${elapsed}s)`
       );
 
+      // --- Evidence sub-agent: capture proof of completion ---
+      const evidence = await collectEvidence(executor, state, log);
+      messages.push(`[implement] Evidence: ${evidence.length} record(s) captured`);
+
       // Record top-level implement phase completion
       await recordPhaseEnd(implementTimingId, Date.now() - startTime);
 
@@ -243,7 +250,7 @@ export function createImplementNode(executor: IAgentExecutor) {
         });
       }
 
-      return { currentNode: 'implement', messages };
+      return { currentNode: 'implement', evidence, messages };
     } catch (err: unknown) {
       if (isGraphBubbleUp(err)) throw err;
 
@@ -260,4 +267,39 @@ export function createImplementNode(executor: IAgentExecutor) {
       throw new Error(`[implement] ${message}`);
     }
   };
+}
+
+/**
+ * Sub-agent call to collect evidence after implementation completes.
+ * Graceful degradation: returns empty array on any failure so evidence
+ * collection never blocks the workflow.
+ */
+async function collectEvidence(
+  executor: IAgentExecutor,
+  state: FeatureAgentState,
+  log: ReturnType<typeof createNodeLogger>
+): Promise<Evidence[]> {
+  try {
+    log.info('Collecting evidence (sub-agent)');
+    const prompt = buildEvidencePrompt(state);
+    const options = buildExecutorOptions(state);
+    const result = await retryExecute(executor, prompt, options, { logger: log });
+
+    try {
+      const evidence = parseEvidenceRecords(result.result);
+      log.info(`Parsed ${evidence.length} evidence record(s)`);
+      return evidence;
+    } catch (parseErr) {
+      const msg = parseErr instanceof Error ? parseErr.message : String(parseErr);
+      log.error(`Warning: evidence parsing failed: ${msg} — continuing with empty evidence`);
+      return [];
+    }
+  } catch (err) {
+    // Re-throw LangGraph control-flow exceptions
+    if (isGraphBubbleUp(err)) throw err;
+
+    const msg = err instanceof Error ? err.message : String(err);
+    log.error(`Evidence collection failed: ${msg} — continuing without evidence`);
+    return [];
+  }
 }

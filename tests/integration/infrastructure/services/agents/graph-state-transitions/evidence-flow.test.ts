@@ -1,16 +1,16 @@
 /**
  * Evidence Flow Tests
  *
- * Tests that the evidence node is correctly wired in the graph and
- * evidence records flow through state from evidence → merge.
+ * Tests that evidence collection runs as a sub-agent within the implement node
+ * and that evidence records flow through state to the merge node.
  *
  * Covers:
- * - Evidence node executes between implement and merge
- * - Evidence state channel populated from evidence node output
+ * - Evidence sub-agent executes within implement node
+ * - Evidence state channel populated from implement node output
  * - Evidence available in merge node state (via merge prompt)
  * - Empty evidence when agent returns no parseable evidence data
- * - Graph without merge deps ends after evidence (evidence → END)
- * - Evidence does not interrupt (auto-runs, no approval gate)
+ * - Graph without merge deps ends after implement (implement → END)
+ * - Evidence does not add a separate graph node
  */
 
 import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from 'vitest';
@@ -19,7 +19,6 @@ import {
   expectInterruptAt,
   expectNoInterrupts,
   approveCommand,
-  readCompletedPhases,
   ALL_GATES_ENABLED,
   PRD_PLAN_ALLOWED,
 } from './helpers.js';
@@ -80,14 +79,14 @@ describe('Graph State Transitions › Evidence Flow (with merge)', () => {
     ctx.cleanup();
   });
 
-  it('should execute evidence node between implement and merge', async () => {
+  it('should execute evidence sub-agent within implement node', async () => {
     const config = ctx.newConfig();
     const state = ctx.initialState(PRD_PLAN_ALLOWED); // allowMerge=false
 
     const result = await ctx.graph.invoke(state, config);
     expectInterruptAt(result, 'merge');
 
-    // Nodes: analyze + requirements + research + plan + implement + evidence + merge-commit = 7
+    // Nodes: analyze + requirements + research + plan + implement(1 phase + 1 evidence sub-agent) + merge-commit = 7
     expect(ctx.executor.callCount).toBe(7);
   });
 
@@ -181,7 +180,7 @@ describe('Graph State Transitions › Evidence Flow (with merge)', () => {
     const result = await ctx.graph.invoke(state, config);
 
     expectNoInterrupts(result);
-    // All nodes + merge: analyze + requirements + research + plan + implement + evidence + merge-commit + merge-squash = 8
+    // All nodes + merge: analyze + requirements + research + plan + implement(1 phase + 1 evidence) + merge-commit + merge-squash = 8
     expect(ctx.executor.callCount).toBe(8);
   });
 
@@ -199,25 +198,15 @@ describe('Graph State Transitions › Evidence Flow (with merge)', () => {
     const r2 = await ctx.graph.invoke(approveCommand(), config);
     expectInterruptAt(r2, 'plan');
 
-    // Step 3: approve → implement runs, evidence runs (no interrupt), interrupt at merge
+    // Step 3: approve → implement runs (with evidence sub-agent, no interrupt), interrupt at merge
     const r3 = await ctx.graph.invoke(approveCommand(), config);
     expectInterruptAt(r3, 'merge');
-    // Evidence ran without interrupting — gate walkthrough skipped evidence
-  });
-
-  it('should record evidence phase in completedPhases', async () => {
-    const config = ctx.newConfig();
-    const state = ctx.initialState(PRD_PLAN_ALLOWED);
-
-    await ctx.graph.invoke(state, config);
-
-    const completed = readCompletedPhases(ctx.specDir);
-    expect(completed).toContain('evidence');
+    // Evidence ran as sub-agent within implement without interrupting
   });
 });
 
 /* ------------------------------------------------------------------ */
-/*  Tests: Graph without merge node (evidence → END)                  */
+/*  Tests: Graph without merge node (implement → END)                 */
 /* ------------------------------------------------------------------ */
 
 describe('Graph State Transitions › Evidence Flow (without merge)', () => {
@@ -239,18 +228,18 @@ describe('Graph State Transitions › Evidence Flow (without merge)', () => {
     ctx.cleanup();
   });
 
-  it('should run evidence node and end graph when no merge deps', async () => {
+  it('should run evidence sub-agent within implement and end graph when no merge deps', async () => {
     const config = ctx.newConfig();
     const state = ctx.initialState();
 
     const result = await ctx.graph.invoke(state, config);
 
     expectNoInterrupts(result);
-    // Nodes: analyze + requirements + research + plan + implement + evidence = 6
+    // Nodes: analyze + requirements + research + plan + implement(1 phase + 1 evidence sub-agent) = 6
     expect(ctx.executor.callCount).toBe(6);
   });
 
-  it('should populate evidence state when graph ends after evidence', async () => {
+  it('should populate evidence state when graph ends after implement', async () => {
     ctx.executor.execute = vi.fn(async (prompt: string) => {
       if (prompt.includes('EVIDENCE COLLECTION')) {
         return { result: EVIDENCE_AGENT_OUTPUT, exitCode: 0 };
@@ -270,7 +259,7 @@ describe('Graph State Transitions › Evidence Flow (without merge)', () => {
     expect(result.evidence[1].type).toBe(EvidenceType.TestOutput);
   });
 
-  it('should handle empty evidence gracefully when graph ends after evidence', async () => {
+  it('should handle empty evidence gracefully when graph ends after implement', async () => {
     ctx.executor.execute = vi.fn(async (prompt: string) => {
       if (prompt.includes('EVIDENCE COLLECTION')) {
         return { result: NO_EVIDENCE_AGENT_OUTPUT, exitCode: 0 };

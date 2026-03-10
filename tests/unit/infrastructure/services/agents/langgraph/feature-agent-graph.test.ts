@@ -227,8 +227,7 @@ describe('createFeatureAgentGraph', () => {
       expect(edgePairs).toContainEqual(['requirements', 'validate_spec_requirements']);
       expect(edgePairs).toContainEqual(['research', 'validate_research']);
       expect(edgePairs).toContainEqual(['plan', 'validate_plan_tasks']);
-      expect(edgePairs).toContainEqual(['implement', 'collect_evidence']);
-      expect(edgePairs).toContainEqual(['collect_evidence', '__end__']);
+      expect(edgePairs).toContainEqual(['implement', '__end__']);
 
       // Repair loops
       expect(edgePairs).toContainEqual(['repair_spec_analyze', 'validate_spec_analyze']);
@@ -254,9 +253,9 @@ describe('createFeatureAgentGraph', () => {
         { configurable: { thread_id: 'test-thread-1' } }
       );
 
-      // 4 earlier nodes + 1 implement phase + 1 evidence = 6 executor calls
+      // 4 earlier nodes + 1 implement phase + 1 evidence sub-agent = 6 executor calls
       expect(mockExecutor.execute).toHaveBeenCalledTimes(6);
-      expect(result.currentNode).toBe('evidence');
+      expect(result.currentNode).toBe('implement');
       expect(result.messages).toContainEqual(expect.stringContaining('[analyze]'));
       expect(result.error).toBeNull();
     });
@@ -305,7 +304,7 @@ describe('createFeatureAgentGraph', () => {
         expect(result.messages.some((m: string) => m.includes(`[${name}]`))).toBe(true);
       }
       expect(result.messages.length).toBeGreaterThanOrEqual(5);
-      expect(result.currentNode).toBe('evidence');
+      expect(result.currentNode).toBe('implement');
       expect(result.error).toBeNull();
     });
   });
@@ -383,9 +382,9 @@ describe('createFeatureAgentGraph', () => {
         config
       );
 
-      // 4 earlier nodes + 1 implement phase + 1 evidence = 6 executor calls
+      // 4 earlier nodes + 1 implement phase + 1 evidence sub-agent = 6 executor calls
       expect(mockExecutor.execute).toHaveBeenCalledTimes(6);
-      expect(result.currentNode).toBe('evidence');
+      expect(result.currentNode).toBe('implement');
     });
 
     it('should not interrupt with allow-all gates', async () => {
@@ -405,7 +404,7 @@ describe('createFeatureAgentGraph', () => {
       );
 
       expect(mockExecutor.execute).toHaveBeenCalledTimes(6);
-      expect(result.currentNode).toBe('evidence');
+      expect(result.currentNode).toBe('implement');
     });
 
     it('should interrupt at plan in allow-prd gates', async () => {
