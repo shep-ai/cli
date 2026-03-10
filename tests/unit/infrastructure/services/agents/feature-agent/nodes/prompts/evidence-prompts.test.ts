@@ -24,8 +24,8 @@ function baseState(overrides: Partial<FeatureAgentState> = {}): FeatureAgentStat
   return {
     featureId: 'feat-001',
     repositoryPath: '/tmp/repo',
-    worktreePath: '/tmp/worktree',
-    specDir: '/tmp/specs',
+    worktreePath: '/home/user/.shep/repos/abc123/wt/feat-test',
+    specDir: '/home/user/.shep/repos/abc123/wt/feat-test/specs/057-test-feature',
     currentNode: 'evidence',
     error: null,
     messages: [],
@@ -69,15 +69,20 @@ describe('buildEvidencePrompt', () => {
   });
 
   it('should include worktree path', () => {
-    const prompt = buildEvidencePrompt(baseState({ worktreePath: '/my/worktree/path' }));
-    expect(prompt).toContain('/my/worktree/path');
+    const prompt = buildEvidencePrompt(
+      baseState({ worktreePath: '/home/user/.shep/repos/abc123/wt/my-feature' })
+    );
+    expect(prompt).toContain('/home/user/.shep/repos/abc123/wt/my-feature');
   });
 
   it('should fall back to repositoryPath when worktreePath is absent', () => {
     const prompt = buildEvidencePrompt(
-      baseState({ worktreePath: '', repositoryPath: '/fallback/repo' })
+      baseState({
+        worktreePath: '',
+        repositoryPath: '/home/user/.shep/repos/abc123/wt/fallback',
+      })
     );
-    expect(prompt).toContain('/fallback/repo');
+    expect(prompt).toContain('/home/user/.shep/repos/abc123/wt/fallback');
   });
 
   it('should include JSON output format instructions', () => {
@@ -169,9 +174,9 @@ describe('buildEvidencePrompt', () => {
   });
 
   describe('commitEvidence=true', () => {
-    it('should include .shep/evidence/ worktree storage instructions', () => {
+    it('should include spec evidence folder storage instructions', () => {
       const prompt = buildEvidencePrompt(baseState(), { commitEvidence: true });
-      expect(prompt).toContain('.shep/evidence/');
+      expect(prompt).toContain('specs/057-test-feature/evidence');
     });
 
     it('should include commit block via buildCommitPushBlock', () => {
@@ -182,11 +187,13 @@ describe('buildEvidencePrompt', () => {
       expect(vi.mocked(buildCommitPushBlock)).toHaveBeenCalled();
     });
 
-    it('should pass .shep/evidence/ path in commit block files', () => {
+    it('should pass spec evidence path in commit block files', () => {
       buildEvidencePrompt(baseState(), { commitEvidence: true });
       expect(vi.mocked(buildCommitPushBlock)).toHaveBeenCalledWith(
         expect.objectContaining({
-          files: expect.arrayContaining([expect.stringContaining('.shep/evidence/')]),
+          files: expect.arrayContaining([
+            expect.stringContaining('specs/057-test-feature/evidence/'),
+          ]),
         })
       );
     });
@@ -206,7 +213,7 @@ describe('buildEvidencePrompt', () => {
     it('should save to BOTH locations', () => {
       const prompt = buildEvidencePrompt(baseState(), { commitEvidence: true });
       expect(prompt).toContain('Shep home folder');
-      expect(prompt).toContain('Worktree');
+      expect(prompt).toContain('Spec folder');
     });
   });
 });

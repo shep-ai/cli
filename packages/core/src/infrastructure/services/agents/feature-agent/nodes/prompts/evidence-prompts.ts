@@ -5,12 +5,13 @@
  * (screenshots, test outputs, terminal recordings) proving that
  * completed tasks work as expected. Evidence files are saved to the
  * shep home folder (~/.shep/repos/<hash>/evidence/). When commitEvidence
- * is enabled, files are also committed to .shep/evidence/ in the worktree.
- * The agent outputs a structured JSON manifest of evidence records
- * that the evidence-output-parser extracts for the graph state.
+ * is enabled, files are also committed to specs/<NNN>-<feature>/evidence/
+ * in the worktree. The agent outputs a structured JSON manifest of
+ * evidence records that the evidence-output-parser extracts for the
+ * graph state.
  */
 
-import { join, dirname } from 'node:path';
+import { join, dirname, relative } from 'node:path';
 import { readSpecFile, buildCommitPushBlock } from '../node-helpers.js';
 import type { FeatureAgentState } from '../../state.js';
 
@@ -54,6 +55,11 @@ ${tasksContent}
 `
     : '';
 
+  // Relative spec dir path from worktree root (e.g., "specs/057-sidenav-feature-toggle")
+  const relativeSpecDir = relative(cwd, state.specDir);
+  const specEvidenceRelPath = `${relativeSpecDir}/evidence`;
+  const specEvidenceAbsPath = join(state.specDir, 'evidence');
+
   const storageSection = options.commitEvidence
     ? `## Evidence Storage
 
@@ -63,12 +69,12 @@ Save all evidence files to BOTH locations:
    \`mkdir -p ${shepEvidenceDir}/\`
    Save each file here first.
 
-2. **Worktree** (for PR commit):
-   \`mkdir -p ${cwd}/.shep/evidence/\`
+2. **Spec folder** (for PR commit):
+   \`mkdir -p ${specEvidenceAbsPath}/\`
    Copy each file here too.
 
 3. Use descriptive file names (e.g., \`homepage-screenshot.png\`, \`unit-test-results.txt\`)
-4. In the output JSON, use relative paths from the repo root (e.g., \`.shep/evidence/homepage-screenshot.png\`)`
+4. In the output JSON, use relative paths from the repo root (e.g., \`${specEvidenceRelPath}/homepage-screenshot.png\`)`
     : `## Evidence Storage
 
 Save all evidence files to the shep home folder:
@@ -80,7 +86,7 @@ Save all evidence files to the shep home folder:
   const commitSection = options.commitEvidence
     ? `\n${buildCommitPushBlock({
         push: state.push,
-        files: ['.shep/evidence/'],
+        files: [`${specEvidenceRelPath}/`],
         commitHint: 'chore(agents): capture evidence for completed tasks',
       })}`
     : `\n## Git Operations
@@ -137,14 +143,14 @@ After capturing all evidence, output a JSON array of evidence records in a fence
     "type": "Screenshot",
     "capturedAt": "2026-01-01T12:00:00Z",
     "description": "Homepage showing new feature banner",
-    "relativePath": "${options.commitEvidence ? '.shep/evidence/homepage-banner.png' : `${shepEvidenceDir}/homepage-banner.png`}",
+    "relativePath": "${options.commitEvidence ? `${specEvidenceRelPath}/homepage-banner.png` : `${shepEvidenceDir}/homepage-banner.png`}",
     "taskRef": "task-1"
   },
   {
     "type": "TestOutput",
     "capturedAt": "2026-01-01T12:01:00Z",
     "description": "Unit test results — all 42 tests passing",
-    "relativePath": "${options.commitEvidence ? '.shep/evidence/unit-test-results.txt' : `${shepEvidenceDir}/unit-test-results.txt`}",
+    "relativePath": "${options.commitEvidence ? `${specEvidenceRelPath}/unit-test-results.txt` : `${shepEvidenceDir}/unit-test-results.txt`}",
     "taskRef": "task-2"
   }
 ]
@@ -154,7 +160,7 @@ Each evidence record must have:
 - **type**: One of Screenshot, Video, TestOutput, TerminalRecording
 - **capturedAt**: ISO 8601 timestamp of when the evidence was captured
 - **description**: Human-readable description of what this evidence proves
-- **relativePath**: ${options.commitEvidence ? 'Path relative to the repo root (must start with `.shep/evidence/`)' : `Absolute path in the shep home evidence folder (must start with \`${shepEvidenceDir}/\`)`}
+- **relativePath**: ${options.commitEvidence ? `Path relative to the repo root (must start with \`${specEvidenceRelPath}/\`)` : `Absolute path in the shep home evidence folder (must start with \`${shepEvidenceDir}/\`)`}
 - **taskRef**: (optional) Reference to the task ID this evidence proves
 
 If no evidence can be captured (e.g., no UI to screenshot, no tests to run), output an empty JSON array:
