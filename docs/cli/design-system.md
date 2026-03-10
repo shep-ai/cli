@@ -103,6 +103,22 @@ messages.error('Connection failed', err); // "cross Connection failed" (+ stack 
 messages.warning('File not found'); // "warning-triangle File not found"
 ```
 
+## Spinner (`ui/spinner.ts`)
+
+Terminal spinner for long-running operations. Uses braille animation frames with ASCII fallback.
+
+## List View (`ui/list-view.ts`)
+
+Utilities for rendering lists of items in the terminal.
+
+## Detail View (`ui/detail-view.ts`)
+
+Utilities for rendering detailed item views in the terminal.
+
+## Install Messages (`ui/install-messages.ts`)
+
+Styled messages specific to tool installation flows.
+
 ## Output Formatting (`ui/output.ts`)
 
 `OutputFormatter` is a static class that formats data in three formats via `OutputFormatter.format(data, format)`.

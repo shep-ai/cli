@@ -27,61 +27,62 @@ Tier 3: features/  → Domain-specific UI bound to routes/data (use all lower ti
 ```
 components/
 ├── ui/                           # Tier 0: shadcn/ui primitives (CLI-managed)
-│   ├── accordion.tsx
-│   ├── accordion.stories.tsx
-│   ├── alert.tsx
-│   ├── alert.stories.tsx
-│   ├── badge.tsx
-│   ├── button.tsx
-│   ├── card.tsx
-│   ├── dialog.tsx
-│   ├── input.tsx
-│   ├── label.tsx
-│   ├── popover.tsx
-│   ├── select.tsx
-│   ├── sonner.tsx
-│   └── tabs.tsx
+│   ├── accordion.tsx             # ~28 primitives including:
+│   ├── alert-dialog.tsx          # badge, button, card, checkbox, dialog,
+│   ├── badge.tsx                 # drawer, input, label, popover, select,
+│   ├── button.tsx                # sidebar, skeleton, sonner, spinner, tabs,
+│   ├── comet-spinner.tsx         # textarea, tooltip, etc.
+│   └── ...
 ├── common/                       # Tier 1: Cross-feature composed components
-│   ├── index.ts                  # Tier-level barrel (re-exports all common components)
-│   ├── theme-toggle/
-│   │   ├── theme-toggle.tsx
-│   │   ├── theme-toggle.stories.tsx
-│   │   └── index.ts
-│   ├── page-header/
-│   │   ├── page-header.tsx
-│   │   ├── page-header.stories.tsx
-│   │   └── index.ts
-│   ├── empty-state/
-│   │   ├── empty-state.tsx
-│   │   ├── empty-state.stories.tsx
-│   │   └── index.ts
-│   └── loading-skeleton/
-│       ├── loading-skeleton.tsx
-│       ├── loading-skeleton.stories.tsx
-│       └── index.ts
+│   ├── index.ts                  # Tier-level barrel
+│   ├── feature-node/             # React Flow feature node
+│   ├── repository-node/          # React Flow repository node
+│   ├── base-drawer/              # Foundation drawer component
+│   ├── feature-drawer/           # Feature detail drawer
+│   ├── feature-drawer-tabs/      # Drawer tab navigation
+│   ├── feature-create-drawer/    # Create feature form drawer
+│   ├── control-center-drawer/    # Drawer orchestrator
+│   ├── feature-list-item/        # Sidebar feature list item
+│   ├── feature-status-badges/    # Status badge components
+│   ├── feature-status-group/     # Grouped features by status
+│   ├── page-header/              # Page header with title/actions
+│   ├── empty-state/              # Empty content placeholder
+│   ├── loading-skeleton/         # Loading placeholders
+│   ├── theme-toggle/             # Light/dark/system toggle
+│   ├── sidebar-nav-item/         # Sidebar navigation item
+│   ├── sidebar-collapse-toggle/  # Sidebar collapse button
+│   ├── sidebar-section-header/   # Sidebar section header
+│   ├── shep-logo/                # Branding logo
+│   ├── version-badge/            # Version display badge
+│   ├── elapsed-time/             # Live elapsed time
+│   ├── action-button/            # Styled action button
+│   ├── ci-status-badge/          # CI pipeline status
+│   ├── deployment-status-badge/  # Deployment status
+│   ├── delete-feature-dialog/    # Delete confirmation
+│   ├── reject-feedback-dialog/   # Rejection feedback
+│   ├── drawer-action-bar/        # Drawer action buttons
+│   ├── drawer-revision-input/    # Revision text input
+│   ├── prd-questionnaire/        # PRD questionnaire form
+│   ├── merge-review/             # Merge review UI
+│   ├── task-progress-view/       # Task progress display
+│   ├── server-log-viewer/        # Log viewer
+│   ├── sound-toggle/             # Sound on/off toggle
+│   └── ...                       # ~40 components total
 ├── layouts/                      # Tier 2: Page shells, structural wrappers
 │   ├── index.ts                  # Tier-level barrel
-│   ├── sidebar/
-│   │   ├── sidebar.tsx
-│   │   ├── sidebar.stories.tsx
-│   │   └── index.ts
-│   ├── header/
-│   │   ├── header.tsx
-│   │   ├── header.stories.tsx
-│   │   └── index.ts
-│   ├── dashboard-layout/
-│   │   ├── dashboard-layout.tsx
-│   │   ├── dashboard-layout.stories.tsx
-│   │   └── index.ts
-│   └── app-shell/
-│       ├── app-shell.tsx
-│       └── index.ts
+│   ├── app-shell/                # Top-level app wrapper
+│   ├── app-sidebar/              # Application sidebar
+│   ├── dashboard-layout/         # Dashboard page shell
+│   ├── header/                   # Top navigation bar
+│   └── sidebar/                  # Base sidebar layout
 └── features/                     # Tier 3: Domain-specific UI
     ├── index.ts                  # Tier-level barrel
-    ├── version/
-    │   └── version-page-client.tsx
-    └── settings/
-        └── .gitkeep
+    ├── control-center/           # Dashboard control center + state
+    ├── features-canvas/          # React Flow canvas + custom edges
+    ├── settings/                 # Settings page sections + pickers
+    ├── skills/                   # Skills page + cards + drawer
+    ├── tools/                    # Tools page + cards + drawer
+    └── version/                  # Version display page
 ```
 
 ## Export Pattern

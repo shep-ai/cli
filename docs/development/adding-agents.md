@@ -35,7 +35,6 @@ Before adding a new node, understand:
 - [AGENTS.md — Settings-Driven Agent Resolution](../../AGENTS.md#settings-driven-agent-resolution-mandatory) - **MANDATORY: How agent executors are resolved**
 - [LangGraph Agents Guide](../guides/langgraph-agents.md) - Core concepts
 - [Agent System Architecture](../architecture/agent-system.md) - Full architecture
-- [Context Layer](../architecture/context-layer.md) - Vector DB integration
 
 ## Step-by-Step Guide
 
@@ -497,5 +496,4 @@ Before submitting your new node:
 
 - [AGENTS.md](../../AGENTS.md) - Agent reference
 - [langgraph-agents.md](../guides/langgraph-agents.md) - Working with agents
-- [context-layer.md](../architecture/context-layer.md) - Vector DB integration
 - [tdd-guide.md](./tdd-guide.md) - TDD workflow

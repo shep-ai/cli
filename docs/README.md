@@ -4,17 +4,18 @@ Central navigation for all Shep AI CLI documentation.
 
 ## Sections
 
-| Section                         | Description                                             |
-| ------------------------------- | ------------------------------------------------------- |
-| [Architecture](./architecture/) | System design, Clean Architecture, repository pattern   |
-| [Concepts](./concepts/)         | Core domain models: features, tasks, artifacts, SDLC    |
-| [CLI](./cli/)                   | CLI architecture, design system, command reference      |
-| [TUI](./tui/)                   | Terminal UI architecture and prompt patterns            |
-| [Web UI](./ui/)                 | Web interface architecture and component library        |
-| [Guides](./guides/)             | Getting started, configuration, CLI commands            |
-| [Development](./development/)   | Setup, testing, building, CI/CD, TDD guide              |
-| [API Reference](./api/)         | Domain models, repository interfaces, agent APIs        |
-| [POC: Feature Flow](./poc/)     | Interactive feature lifecycle demo with live simulation |
+| Section                         | Description                                           |
+| ------------------------------- | ----------------------------------------------------- |
+| [Architecture](./architecture/) | System design, Clean Architecture, repository pattern |
+| [Concepts](./concepts/)         | Core domain models: features, tasks, artifacts, SDLC  |
+| [CLI](./cli/)                   | CLI architecture, design system, command reference    |
+| [TUI](./tui/)                   | Terminal UI architecture and prompt patterns          |
+| [Web UI](./ui/)                 | Web interface architecture and component library      |
+| [Guides](./guides/)             | Getting started, configuration, CLI commands          |
+| [Development](./development/)   | Setup, testing, building, CI/CD, TDD guide            |
+| [API Reference](./api/)         | Domain models, repository interfaces, agent APIs      |
+
+> **Note:** The [docs/poc/](./poc/) directory contains archived early-phase design mockups. It does not reflect the current codebase.
 
 ## Quick Links
 
@@ -44,9 +45,19 @@ Central navigation for all Shep AI CLI documentation.
 - [TDD Guide](./development/tdd-guide.md)
 - [TypeSpec Guide](./development/typespec-guide.md)
 - [Spec-Driven Workflow](./development/spec-driven-workflow.md)
+- [Implementation Guide](./development/implementation-guide.md)
 - [CI/CD Pipeline](./development/cicd.md)
 - [Testing Strategy](./development/testing.md)
+- [Building](./development/building.md)
+- [Adding Agents](./development/adding-agents.md)
+- [Web Component Library](./development/web-component-library.md)
+- [Shep-Kit Reference](./development/shep-kit-reference.md)
+- [feature.yaml Protocol](./development/feature-yaml-protocol.md)
 
-### Demos
+### Guides
 
-- [Feature Flow POC](./poc/) - Interactive demo of feature lifecycle, environment cards, and TDD implementation phases with live simulation
+- [Getting Started](./guides/getting-started.md)
+- [CLI Commands](./guides/cli-commands.md)
+- [Configuration](./guides/configuration.md)
+- [Web UI](./guides/web-ui.md)
+- [LangGraph Agents](./guides/langgraph-agents.md)

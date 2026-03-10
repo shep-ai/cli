@@ -15,11 +15,13 @@ Shep uses the **TypeScript compiler (`tsc`)** with `tsc-alias` for building:
 ### Development Build
 
 ```bash
-# Watch mode with hot reload
+# Start the web dev server
 pnpm dev
-```
 
-This starts the CLI in development mode with hot reload.
+# Or run CLI and web separately
+pnpm dev:cli    # Run CLI via ts-node
+pnpm dev:web    # Start Next.js dev server
+```
 
 ### Production Build
 
@@ -81,51 +83,39 @@ tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json && pnpm build:web
 
 ## Build Outputs
 
-### ESM Bundle
+### Compiled JavaScript
 
-```javascript
-// dist/index.js
-export { Feature } from './domain/entities/feature.js';
-export { CreatePlanUseCase } from './application/use-cases/create-plan.js';
-// ...
+Output goes to `dist/` mirroring the `src/` directory structure:
+
+```
+dist/
+├── src/
+│   ├── presentation/
+│   │   ├── cli/         # CLI entry point
+│   │   ├── tui/         # TUI components
+│   │   └── web/         # Web server integration
+│   └── ...
+└── packages/
+    └── core/
+        └── src/         # Core business logic
 ```
 
-### CommonJS Bundle
+### Web UI Output
 
-```javascript
-// dist/index.cjs
-const { Feature } = require('./domain/entities/feature.cjs');
-// ...
+The Next.js web UI is built separately and copied to `web/` for distribution:
+
 ```
-
-### Type Declarations
-
-```typescript
-// dist/index.d.ts
-export declare class Feature {
-  readonly id: string;
-  readonly name: string;
-  // ...
-}
+web/                     # Pre-built Next.js output (in .gitignore)
 ```
 
 ## CLI Executable
-
-The CLI entry point includes a shebang:
-
-```javascript
-#!/usr/bin/env node
-// dist/cli.js
-import { program } from './presentation/cli/index.js';
-program.parse();
-```
 
 Package.json bin configuration:
 
 ```json
 {
   "bin": {
-    "shep": "./dist/cli.js"
+    "shep": "./dist/src/presentation/cli/index.js"
   }
 }
 ```

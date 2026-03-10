@@ -94,13 +94,26 @@ export const shepTheme = {
 
 ```
 src/presentation/tui/
-├── index.ts              # Barrel exports
-├── wizards/              # Multi-step wizard flows
-│   └── agent-config.wizard.ts
-├── prompts/              # Reusable prompt configurations
+├── index.ts                    # Barrel exports
+├── wizards/                    # Multi-step wizard flows
+│   ├── agent-config.wizard.ts  # Agent selection + auth config
+│   ├── merge-review.wizard.ts  # Merge/PR review flow
+│   ├── plan-review.wizard.ts   # Plan review flow
+│   ├── prd-review.wizard.ts    # PRD review flow
+│   └── onboarding/             # First-run onboarding wizard
+│       ├── onboarding.wizard.ts
+│       ├── types.ts
+│       └── steps/
+│           ├── agent.step.ts
+│           ├── ide.step.ts
+│           └── workflow-defaults.step.ts
+├── prompts/                    # Reusable prompt configurations
 │   ├── agent-select.prompt.ts
-│   └── auth-method.prompt.ts
-└── themes/               # Custom Inquirer themes
+│   ├── auth-method.prompt.ts
+│   ├── ide-select.prompt.ts
+│   ├── prd-review-question.prompt.ts
+│   └── prd-review-summary.prompt.ts
+└── themes/                     # Custom Inquirer themes
     └── shep.theme.ts
 ```
 
@@ -109,14 +122,3 @@ src/presentation/tui/
 - **Unit tests**: Mock `@inquirer/prompts` imports, test wizard logic and result mapping
 - **Integration tests**: Test CLI command with `--flag` bypass (non-interactive)
 - **E2E tests**: Use expect/spawn patterns for interactive terminal testing (future)
-
----
-
-## Maintaining This Document
-
-**Update when:**
-
-- New wizards are added
-- Prompt patterns evolve
-- Theme system changes
-- Testing approach updates

@@ -1,6 +1,12 @@
+> **ARCHIVED -- Design Concepts**
+>
+> This document contains early-phase POC design mockups and aspirational feature descriptions. It does NOT reflect the current state of the codebase. Many features described here (memory system, `shep mem` command, `shep feat preview`, vector search with LanceDB, Transformers.js embeddings) are **not implemented**. Refer to [docs/guides/cli-commands.md](../guides/cli-commands.md) for the actual CLI command reference and [docs/README.md](../README.md) for current documentation.
+
+---
+
 <div align="center">
 
-# Shep AI
+# Shep AI (Design Concept)
 
 ### Multi-Session SDLC Control Center for AI Coding Agents
 

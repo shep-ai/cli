@@ -283,9 +283,9 @@ Large repositories may take longer. You can:
    }
    ```
 
-2. Use shallow analysis:
+2. Restart and let analysis complete:
    ```bash
-   shep --init --shallow
+   shep restart
    ```
 
 ### Authentication Failed
@@ -294,13 +294,9 @@ If authentication fails:
 
 1. Check your API key is valid for your selected provider
 2. Ensure you have access to your chosen agent provider
-3. Try re-authenticating:
+3. Reconfigure the agent:
    ```bash
-   shep --auth
-   ```
-4. To switch providers:
-   ```bash
-   shep --setup
+   shep settings agent
    ```
 
 ### Port Already in Use

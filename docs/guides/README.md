@@ -4,12 +4,13 @@ Guides for using Shep AI CLI effectively.
 
 ## Contents
 
-| Guide                                      | Description                    |
-| ------------------------------------------ | ------------------------------ |
-| [getting-started.md](./getting-started.md) | Installation and first run     |
-| [configuration.md](./configuration.md)     | Authentication and settings    |
-| [cli-commands.md](./cli-commands.md)       | Complete CLI command reference |
-| [web-ui.md](./web-ui.md)                   | Web interface usage            |
+| Guide                                        | Description                    |
+| -------------------------------------------- | ------------------------------ |
+| [getting-started.md](./getting-started.md)   | Installation and first run     |
+| [configuration.md](./configuration.md)       | Authentication and settings    |
+| [cli-commands.md](./cli-commands.md)         | Complete CLI command reference |
+| [web-ui.md](./web-ui.md)                     | Web interface usage            |
+| [langgraph-agents.md](./langgraph-agents.md) | LangGraph agent system guide   |
 
 ## Quick Start
 
@@ -24,7 +25,7 @@ cd ~/projects/my-app
 shep
 ```
 
-This launches the setup wizard on first run, then opens `http://localhost:3030/`.
+This launches the setup wizard on first run, then opens `http://localhost:4050/`.
 
 ## Guide Categories
 
@@ -43,6 +44,10 @@ Looking for specific commands? Check [cli-commands.md](./cli-commands.md) for th
 ### Web Interface
 
 Prefer the browser? Read [web-ui.md](./web-ui.md) for web UI features.
+
+### Agent System
+
+Working with LangGraph agents? See [langgraph-agents.md](./langgraph-agents.md) for concepts and patterns.
 
 ---
 

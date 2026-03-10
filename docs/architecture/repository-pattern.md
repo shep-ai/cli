@@ -7,349 +7,147 @@ Data persistence strategy using the Repository Pattern with SQLite.
 The Repository Pattern abstracts data access, providing a collection-like interface for domain objects while hiding storage implementation details.
 
 ```
-┌─────────────────────────┐
-│     Application Layer   │
-│                         │
-│  ┌───────────────────┐  │
-│  │  IFeatureRepository│  │  ← Interface (Port)
-│  └─────────┬─────────┘  │
-└────────────┼────────────┘
-             │ implements
-┌────────────┼────────────┐
-│  Infrastructure Layer   │
-│                         │
-│  ┌───────────────────┐  │
-│  │SqliteFeatureRepo  │  │  ← Implementation
-│  └─────────┬─────────┘  │
-│            │            │
-│  ┌─────────▼─────────┐  │
-│  │   SQLite Database │  │
-│  └───────────────────┘  │
-└─────────────────────────┘
++-------------------------+
+|     Application Layer   |
+|                         |
+|  +-------------------+  |
+|  | IFeatureRepository|  |  <-- Interface (Port)
+|  +---------+---------+  |
++------------+------------+
+             | implements
++------------+------------+
+|  Infrastructure Layer   |
+|                         |
+|  +-------------------+  |
+|  |SqliteFeatureRepo  |  |  <-- Implementation
+|  +---------+---------+  |
+|            |            |
+|  +---------v---------+  |
+|  |   SQLite Database |  |
+|  +-------------------+  |
++-------------------------+
 ```
 
 ## Repository Interfaces
 
-Defined in `packages/core/src/application/ports/output/`:
+Defined in `packages/core/src/application/ports/output/repositories/`:
 
 ### IFeatureRepository
 
 ```typescript
 export interface IFeatureRepository {
-  // Queries
+  create(feature: Feature): Promise<void>;
   findById(id: string): Promise<Feature | null>;
-  findByRepoPath(repoPath: string): Promise<Feature[]>;
-  findByLifecycle(lifecycle: SdlcLifecycle): Promise<Feature[]>;
-
-  // Commands
-  save(feature: Feature): Promise<void>;
+  findByIdPrefix(prefix: string): Promise<Feature | null>;
+  findBySlug(slug: string, repositoryPath: string): Promise<Feature | null>;
+  list(filters?: FeatureListFilters): Promise<Feature[]>;
+  update(feature: Feature): Promise<void>;
+  findByParentId(parentId: string): Promise<Feature[]>;
   delete(id: string): Promise<void>;
+}
+
+export interface FeatureListFilters {
+  repositoryPath?: string;
+  lifecycle?: SdlcLifecycle;
 }
 ```
 
-### ITaskRepository
+### ISettingsRepository
 
 ```typescript
-export interface ITaskRepository {
-  findById(id: string): Promise<Task | null>;
-  findByFeatureId(featureId: string): Promise<Task[]>;
-  findByStatus(status: TaskStatus): Promise<Task[]>;
-  findWithDependencies(taskId: string): Promise<TaskWithDeps>;
-
-  save(task: Task): Promise<void>;
-  saveMany(tasks: Task[]): Promise<void>;
-  delete(id: string): Promise<void>;
-  deleteByFeatureId(featureId: string): Promise<void>;
+export interface ISettingsRepository {
+  initialize(settings: Settings): Promise<void>;
+  load(): Promise<Settings | null>;
+  update(settings: Settings): Promise<void>;
 }
 ```
 
-### IActionItemRepository
+### IRepositoryRepository
 
 ```typescript
-export interface IActionItemRepository {
-  findById(id: string): Promise<ActionItem | null>;
-  findByTaskId(taskId: string): Promise<ActionItem[]>;
-
-  save(actionItem: ActionItem): Promise<void>;
-  saveMany(actionItems: ActionItem[]): Promise<void>;
-  delete(id: string): Promise<void>;
+export interface IRepositoryRepository {
+  create(repository: Repository): Promise<Repository>;
+  findById(id: string): Promise<Repository | null>;
+  findByPath(path: string): Promise<Repository | null>;
+  findByPathIncludingDeleted(path: string): Promise<Repository | null>;
+  list(): Promise<Repository[]>;
+  remove(id: string): Promise<void>;
+  softDelete(id: string): Promise<void>;
+  restore(id: string): Promise<void>;
 }
 ```
 
-### IArtifactRepository
+### Agent-Related Repositories
 
-```typescript
-export interface IArtifactRepository {
-  findById(id: string): Promise<Artifact | null>;
-  findByFeatureId(featureId: string): Promise<Artifact[]>;
-  findByType(type: ArtifactType): Promise<Artifact[]>;
+Defined in `packages/core/src/application/ports/output/agents/`:
 
-  save(artifact: Artifact): Promise<void>;
-  delete(id: string): Promise<void>;
-}
-```
-
-### IRequirementRepository
-
-```typescript
-export interface IRequirementRepository {
-  findById(id: string): Promise<Requirement | null>;
-  findByFeatureId(featureId: string): Promise<Requirement[]>;
-
-  save(requirement: Requirement): Promise<void>;
-  saveMany(requirements: Requirement[]): Promise<void>;
-  delete(id: string): Promise<void>;
-}
-```
+- **IAgentRunRepository** -- Persist agent run records
+- **IPhaseTimingRepository** -- Track SDLC phase durations per agent run
+- **IAgentSessionRepository** -- Manage agent sessions (list, get)
 
 ## SQLite Implementation
 
-### Database Location
+### Database Locations
 
-```
-~/.shep/repos/<base64-encoded-repo-path>/data
-```
+- **Global settings**: `~/.shep/data` (settings table)
+- **Per-repo data**: `~/.shep/repos/<base64-encoded-repo-path>/data` (features, agent_runs, etc.)
 
 The repo path is base64-encoded to create valid directory names while preserving uniqueness.
 
-### Schema
+### Actual Schema
 
-```sql
--- features table
-CREATE TABLE features (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
-  description TEXT,
-  lifecycle TEXT NOT NULL DEFAULT 'requirements',
-  repo_path TEXT NOT NULL,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
+The schema is managed through 28 migrations in `packages/core/src/infrastructure/persistence/sqlite/migrations.ts`. Key tables:
 
--- tasks table
-CREATE TABLE tasks (
-  id TEXT PRIMARY KEY,
-  feature_id TEXT NOT NULL REFERENCES features(id) ON DELETE CASCADE,
-  title TEXT NOT NULL,
-  description TEXT,
-  status TEXT NOT NULL DEFAULT 'pending',
-  order_index INTEGER NOT NULL DEFAULT 0,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
+#### settings table
 
--- task_dependencies table (self-referencing many-to-many)
-CREATE TABLE task_dependencies (
-  task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-  depends_on_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-  PRIMARY KEY (task_id, depends_on_id)
-);
+Singleton row with flattened columns for nested configuration objects:
 
--- action_items table
-CREATE TABLE action_items (
-  id TEXT PRIMARY KEY,
-  task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-  title TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'pending',
-  order_index INTEGER NOT NULL DEFAULT 0,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
+- Model config: `model_default`, `model_analyze`, `model_requirements`, `model_plan`, `model_implement`
+- User profile: `user_name`, `user_email`, `user_github_username`
+- Environment: `env_default_editor`, `env_shell_preference`
+- System: `sys_auto_update`, `sys_log_level`
+- Agent: `agent_type`, `agent_auth_method`, `agent_token`
+- Notifications: `notif_in_app_enabled`, `notif_browser_enabled`, `notif_desktop_enabled`, plus event filters
+- Workflow: `workflow_open_pr_on_impl_complete`, approval gate defaults
+- Feature flags: `feature_flag_skills`, `feature_flag_env_deploy`, `feature_flag_debug`
+- CI config: `ci_max_fix_attempts`, `ci_watch_timeout_ms`, `ci_log_max_chars`
 
--- action_item_dependencies table
-CREATE TABLE action_item_dependencies (
-  action_item_id TEXT NOT NULL REFERENCES action_items(id) ON DELETE CASCADE,
-  depends_on_id TEXT NOT NULL REFERENCES action_items(id) ON DELETE CASCADE,
-  PRIMARY KEY (action_item_id, depends_on_id)
-);
+#### features table
 
--- artifacts table
-CREATE TABLE artifacts (
-  id TEXT PRIMARY KEY,
-  feature_id TEXT NOT NULL REFERENCES features(id) ON DELETE CASCADE,
-  type TEXT NOT NULL,
-  title TEXT NOT NULL,
-  content TEXT,
-  file_path TEXT,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
+Stores Feature entities with JSON columns for complex nested data (`messages`, `plan`, `related_artifacts`, `ci_fix_history`, `attachments`). Includes columns for lifecycle tracking, PR state, approval gates, worktree paths, and parent/child hierarchy.
 
--- requirements table
-CREATE TABLE requirements (
-  id TEXT PRIMARY KEY,
-  feature_id TEXT NOT NULL REFERENCES features(id) ON DELETE CASCADE,
-  description TEXT NOT NULL,
-  source TEXT,  -- 'user' | 'inferred' | 'clarified'
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
+#### agent_runs table
 
--- Indexes
-CREATE INDEX idx_tasks_feature_id ON tasks(feature_id);
-CREATE INDEX idx_action_items_task_id ON action_items(task_id);
-CREATE INDEX idx_artifacts_feature_id ON artifacts(feature_id);
-CREATE INDEX idx_requirements_feature_id ON requirements(feature_id);
-CREATE INDEX idx_features_repo_path ON features(repo_path);
-```
+Tracks agent execution records with status, timing, PID for background processes, approval configuration, and model selection.
 
-### Data Mappers
+#### repositories table
 
-Mappers translate between domain entities and persistence format:
+Tracked code repositories with soft delete support via `deleted_at` column.
 
-```typescript
-// packages/core/src/infrastructure/repositories/mappers/feature.mapper.ts
-export class FeatureMapper {
-  static toDomain(row: FeatureRow): Feature {
-    return new Feature(
-      row.id,
-      row.name,
-      row.description,
-      row.lifecycle as SdlcLifecycle,
-      [], // Requirements loaded separately
-      [], // Tasks loaded separately
-      [] // Artifacts loaded separately
-    );
-  }
+#### phase_timings table
 
-  static toPersistence(feature: Feature): FeatureRow {
-    return {
-      id: feature.id,
-      name: feature.name,
-      description: feature.description,
-      lifecycle: feature.lifecycle,
-      repo_path: feature.repoPath,
-    };
-  }
-}
-```
+Per-phase timing data for agent runs, including approval wait tracking.
 
-### Repository Implementation Example
-
-```typescript
-// packages/core/src/infrastructure/repositories/sqlite/feature.repository.ts
-export class SqliteFeatureRepository implements IFeatureRepository {
-  constructor(
-    private readonly db: Database,
-    private readonly taskRepository: ITaskRepository,
-    private readonly artifactRepository: IArtifactRepository,
-    private readonly requirementRepository: IRequirementRepository
-  ) {}
-
-  async findById(id: string): Promise<Feature | null> {
-    const row = await this.db.get<FeatureRow>('SELECT * FROM features WHERE id = ?', [id]);
-
-    if (!row) return null;
-
-    // Load aggregates
-    const [tasks, artifacts, requirements] = await Promise.all([
-      this.taskRepository.findByFeatureId(id),
-      this.artifactRepository.findByFeatureId(id),
-      this.requirementRepository.findByFeatureId(id),
-    ]);
-
-    return FeatureMapper.toDomain(row, tasks, artifacts, requirements);
-  }
-
-  async save(feature: Feature): Promise<void> {
-    const data = FeatureMapper.toPersistence(feature);
-
-    await this.db.run(
-      `
-      INSERT INTO features (id, name, description, lifecycle, repo_path, updated_at)
-      VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-      ON CONFLICT(id) DO UPDATE SET
-        name = excluded.name,
-        description = excluded.description,
-        lifecycle = excluded.lifecycle,
-        updated_at = CURRENT_TIMESTAMP
-    `,
-      [data.id, data.name, data.description, data.lifecycle, data.repo_path]
-    );
-  }
-}
-```
-
-## Unit of Work
-
-For transactions spanning multiple repositories:
-
-```typescript
-export interface IUnitOfWork {
-  features: IFeatureRepository;
-  tasks: ITaskRepository;
-  actionItems: IActionItemRepository;
-  artifacts: IArtifactRepository;
-  requirements: IRequirementRepository;
-
-  begin(): Promise<void>;
-  commit(): Promise<void>;
-  rollback(): Promise<void>;
-}
-```
-
-Usage:
-
-```typescript
-async function createFeatureWithPlan(
-  uow: IUnitOfWork,
-  feature: Feature,
-  tasks: Task[]
-): Promise<void> {
-  await uow.begin();
-  try {
-    await uow.features.save(feature);
-    await uow.tasks.saveMany(tasks);
-    await uow.commit();
-  } catch (error) {
-    await uow.rollback();
-    throw error;
-  }
-}
-```
-
-## Migrations
-
-Migrations live in `packages/core/src/infrastructure/persistence/migrations/`:
+### Implementation Files
 
 ```
-migrations/
-├── 001_initial_schema.ts
-├── 002_add_task_dependencies.ts
-└── ...
+packages/core/src/infrastructure/
++-- persistence/
+|   +-- sqlite/
+|       +-- connection.ts          # Database connection
+|       +-- migrations.ts          # 28 migrations (user_version pragma)
+|       +-- mappers/               # Domain <-> Persistence mapping
++-- repositories/
+    +-- sqlite-feature.repository.ts
+    +-- sqlite-settings.repository.ts
+    +-- sqlite-repository.repository.ts
+    +-- agent-run.repository.ts
+    +-- sqlite-phase-timing.repository.ts
 ```
 
-Migration runner:
+### Migrations
 
-```typescript
-export async function runMigrations(db: Database): Promise<void> {
-  await db.run(`
-    CREATE TABLE IF NOT EXISTS migrations (
-      id INTEGER PRIMARY KEY,
-      name TEXT NOT NULL,
-      applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  const applied = await db.all<{ name: string }>('SELECT name FROM migrations');
-  const appliedNames = new Set(applied.map((m) => m.name));
-
-  for (const migration of migrations) {
-    if (!appliedNames.has(migration.name)) {
-      await migration.up(db);
-      await db.run('INSERT INTO migrations (name) VALUES (?)', [migration.name]);
-    }
-  }
-}
-```
-
-## Future Considerations
-
-The interface-based design allows for:
-
-- **Alternative backends**: PostgreSQL, MongoDB, etc.
-- **Caching layer**: Redis or in-memory cache wrapper
-- **Sync adapters**: Cloud storage, remote databases
-- **Testing**: In-memory implementations for fast tests
+Migrations are managed via SQLite `user_version` pragma. All migration SQL is inlined in TypeScript (not separate .sql files) so it survives tsc compilation. The `runSQLiteMigrations()` function applies pending migrations transactionally.
 
 ---
 
@@ -357,7 +155,7 @@ The interface-based design allows for:
 
 **Update when:**
 
-- Schema changes occur
+- Schema changes occur (new migrations added)
 - New repositories are added
 - Migration strategy changes
 - New persistence features are introduced

@@ -59,14 +59,14 @@ The Settings Service provides global application configuration accessible throug
 │  │ SettingsMapper (settings.mapper.ts)                       │  │
 │  │   toDatabase(settings): SettingsRow                       │  │
 │  │   fromDatabase(row): Settings                             │  │
-│  │   - Flattens nested objects (models.analyze → model_analyze) │
+│  │   - Flattens nested objects (models.default → model_default)  │
 │  │   - Converts types (boolean → integer, Date → ISO string) │  │
 │  └──────────────────────────────────────────────────────────┘  │
 │                              ↓                                   │
 │  ┌──────────────────────────────────────────────────────────┐  │
 │  │ SQLite Database (~/.shep/data)                            │  │
 │  │   Table: settings (singleton constraint on 'id')          │  │
-│  │   Columns: snake_case (model_analyze, sys_log_level, ...) │  │
+│  │   Columns: snake_case (model_default, sys_log_level, ...)  │  │
 │  └──────────────────────────────────────────────────────────┘  │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
@@ -87,7 +87,7 @@ The Settings Service provides global application configuration accessible throug
 │  Usage:                                                          │
 │    import { getSettings } from '@/infrastructure/services/settings.service'; │
 │    const settings = getSettings();                               │
-│    console.log(settings.models.analyze); // 'claude-opus-4'      │
+│    console.log(settings.models.default); // 'claude-sonnet-4-6'  │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -108,23 +108,22 @@ The Settings Service provides global application configuration accessible throug
 **Implementation:**
 
 ```typescript
-// tsp/domain/entities/settings.tsp
-model Settings extends BaseEntity {
-  id: "singleton";
+// Generated: packages/core/src/domain/generated/output.ts
+export type Settings = BaseEntity & {
   models: ModelConfiguration;
   user: UserProfile;
   environment: EnvironmentConfig;
   system: SystemConfig;
-}
+  agent: AgentConfig;
+  notifications: NotificationPreferences;
+  workflow: WorkflowConfig;
+  featureFlags?: FeatureFlags;
+  onboardingComplete: boolean;
+};
 
-// Generated: packages/core/src/domain/generated/output.ts
-export interface Settings {
-  id: string;
-  createdAt: Date;
-  updatedAt: Date;
-  models: ModelConfiguration;
-  // ...
-}
+export type ModelConfiguration = {
+  default: string; // Default model identifier for all agents
+};
 ```
 
 **Trade-offs:**
@@ -225,10 +224,10 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
     const stmt = this.db.prepare(`
       INSERT INTO settings (
         id, created_at, updated_at,
-        model_analyze, model_requirements, ...
+        model_default, agent_type, agent_auth_method, ...
       ) VALUES (
         @id, @created_at, @updated_at,
-        @model_analyze, @model_requirements, ...
+        @model_default, @agent_type, @agent_auth_method, ...
       )
     `);
     stmt.run(row); // Named parameters prevent SQL injection
@@ -252,7 +251,7 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
 
 - SQLite uses snake_case, TypeScript uses camelCase
 - SQLite has limited types (no boolean, only integer 0/1)
-- Nested objects must be flattened (models.analyze → model_analyze)
+- Nested objects must be flattened (models.default -> model_default)
 - Separation of concerns (repository logic vs. mapping logic)
 
 **Implementation:**
@@ -264,17 +263,19 @@ export interface SettingsRow {
   id: string;
   created_at: string; // ISO 8601 string (SQLite TEXT)
   updated_at: string;
-  model_analyze: string; // Flattened from models.analyze
-  sys_auto_update: number; // Boolean → Integer (SQLite limitation)
-  // ...
+  model_default: string; // Flattened from models.default
+  sys_auto_update: number; // Boolean -> Integer (SQLite limitation)
+  agent_type: string;
+  // ... many more flattened columns
 }
 
 export function toDatabase(settings: Settings): SettingsRow {
   return {
     id: settings.id,
     created_at: settings.createdAt.toISOString(),
-    model_analyze: settings.models.analyze,
+    model_default: settings.models.default,
     sys_auto_update: settings.system.autoUpdate ? 1 : 0,
+    agent_type: settings.agent.type,
     // ...
   };
 }
@@ -284,11 +285,14 @@ export function fromDatabase(row: SettingsRow): Settings {
     id: row.id,
     createdAt: new Date(row.created_at),
     models: {
-      analyze: row.model_analyze,
-      // ...
+      default: row.model_default,
     },
     system: {
       autoUpdate: row.sys_auto_update === 1,
+      // ...
+    },
+    agent: {
+      type: row.agent_type as AgentType,
       // ...
     },
     // ...
@@ -464,12 +468,12 @@ bootstrap();
 ### Update Flow
 
 ```
-1. User runs: shep settings update --model-analyze claude-opus-4.5
-   ↓
+1. User runs: shep settings update --model claude-opus-4-5
+   |
 2. Command handler:
-   ├─ settings = getSettings() (load from singleton)
-   ├─ settings.models.analyze = 'claude-opus-4.5'
-   └─ container.resolve(UpdateSettingsUseCase)
+   +-- settings = getSettings() (load from singleton)
+   +-- settings.models.default = 'claude-opus-4-5'
+   +-- container.resolve(UpdateSettingsUseCase)
        ↓
 3. useCase.execute(settings)
    ├─ repository.update(settings) → SQL UPDATE

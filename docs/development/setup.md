@@ -40,27 +40,7 @@ pnpm install
 
 This installs all dependencies including dev dependencies.
 
-### 3. Environment Setup
-
-Create a development config:
-
-```bash
-cp .env.example .env.development
-```
-
-Edit `.env.development`:
-
-```env
-# Development settings
-NODE_ENV=development
-LOG_LEVEL=debug
-SHEP_PORT=4050
-
-# Optional: Claude API key for testing
-CLAUDE_API_KEY=your-dev-key
-```
-
-### 4. Verify Setup
+### 3. Verify Setup
 
 ```bash
 # Run type check
@@ -174,14 +154,8 @@ Debug configuration (`.vscode/launch.json`):
 ### Starting Development
 
 ```bash
-# Watch mode with hot reload
-pnpm dev
-
 # Run CLI directly (ts-node)
-pnpm cli -- --help
-
-# Run CLI with specific command
-pnpm cli -- init
+pnpm dev:cli
 
 # Start Web UI (Next.js)
 pnpm dev:web
@@ -261,13 +235,13 @@ export function createTestDatabase(): Database {
 
 ```bash
 # Via environment variable
-DEBUG=shep:* pnpm dev
+DEBUG=shep:* pnpm dev:cli
 
 # Or specific modules
-DEBUG=shep:agents:* pnpm dev
+DEBUG=shep:agents:* pnpm dev:cli
 
 # Enable deployment service logging (dev server start/stop, port detection)
-DEBUG=1 pnpm dev
+DEBUG=1 pnpm dev:cli
 ```
 
 For web UI client-side debug logging, add to `src/presentation/web/.env.local`:
