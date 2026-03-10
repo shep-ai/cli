@@ -1,25 +1,25 @@
-# Feature Specification (YAML)
-# This is the source of truth. Markdown is auto-generated from this file.
-
 name: feature-node-redesign
-number: 057
+number: 57
 branch: feat/057-feature-node-redesign
-oneLiner: Redesign feature node cards to match updated design mockups with unified bottom status row and refined layout
-
+oneLiner: >-
+  Redesign feature node cards with unified bottom status row using
+  stage-relevant icons and refined layout
 summary: >
-  Redesign the FeatureNode component on the React Flow canvas to implement the approved
-  design variant. The new layout unifies the bottom section across all node states into a
-  consistent status row showing agent icon + lifecycle verb, refines text hierarchy and
-  spacing, and preserves all existing functionality (handles, selection ring, hover actions,
-  deployment indicator, fast mode badge). This is a purely presentational change affecting
-  the feature-node component, its state config, and Storybook stories — no domain or
-  backend changes required.
-
+  Redesign the FeatureNode component on the React Flow canvas to implement the
+  approved design variant (2nd revision). The new layout unifies the bottom
+  section across all node states into a consistent status row showing a
+  lifecycle-stage-relevant icon + status verb, refines text hierarchy and
+  spacing, and preserves all existing functionality (handles, selection ring,
+  hover actions, deployment indicator, fast mode badge). The key design change
+  is that the bottom status row uses icons relevant to the current lifecycle
+  stage (e.g. FileText for Requirements, Search for Research, Code for
+  Implementation) rather than the agent type icon, making the node's current
+  activity immediately scannable. This is a purely presentational change
+  affecting the feature-node component, its state config, and Storybook
+  stories — no domain or backend changes required.
 phase: Requirements
 sizeEstimate: M
-
 relatedFeatures: []
-
 technologies:
   - React (functional components with hooks)
   - React Flow (@xyflow/react) custom nodes
@@ -27,208 +27,240 @@ technologies:
   - Lucide React icons
   - Storybook (component stories and visual testing)
   - shadcn/ui (tooltip, dialog primitives)
-
 relatedLinks: []
-
 openQuestions:
   - question: >
-      The mockup shows 4 distinct layout variants per row. Are all 4 variants intended
-      to be implemented, or should we converge on a single preferred variant?
+      The mockup shows 4 distinct layout variants per row. Are all 4 variants
+      intended to be implemented, or should we converge on a single preferred
+      variant?
     resolved: true
     options:
-      - option: 'Single refined variant'
+      - option: Single refined variant
         description: >
-          Implement one layout that incorporates the best elements from across the variants
-          (unified bottom status row, refined text hierarchy, small top-right agent badge).
-          This is the most maintainable approach — one layout to test, one set of stories,
-          no conditional rendering complexity. The variants in the mockup represent design
-          exploration, and the final design should cherry-pick the best aspects.
+          Implement one layout that incorporates the best elements from across
+          the variants (unified bottom status row, refined text hierarchy, small
+          top-right agent badge). This is the most maintainable approach — one
+          layout to test, one set of stories, no conditional rendering
+          complexity. The variants in the mockup represent design exploration,
+          and the final design should cherry-pick the best aspects.
         selected: true
-      - option: 'Multiple context-dependent variants'
+      - option: Multiple context-dependent variants
         description: >
-          Implement 2-3 layout variants that render differently based on node state or
-          selection. More flexible but significantly increases component complexity,
-          testing surface, and maintenance burden. Risk of inconsistent user experience.
+          Implement 2-3 layout variants that render differently based on node
+          state or selection. More flexible but significantly increases
+          component complexity, testing surface, and maintenance burden. Risk of
+          inconsistent user experience.
         selected: false
-      - option: 'All 4 variants'
+      - option: All 4 variants
         description: >
-          Implement all 4 mockup variants with a mechanism to switch between them.
-          Maximum flexibility but highest implementation cost. Unlikely to be the
-          intended design — mockups typically show exploration, not feature requirements.
+          Implement all 4 mockup variants with a mechanism to switch between
+          them. Maximum flexibility but highest implementation cost. Unlikely to
+          be the intended design — mockups typically show exploration, not
+          feature requirements.
         selected: false
     selectionRationale: >
-      Design mockups showing multiple variants typically represent exploration toward a
-      final design, not separate features. A single refined variant that cherry-picks the
-      best elements (unified bottom status row from all variants, refined spacing from
-      variants 1-2, small top-right agent badge from variants 1/2/4) is the most
-      maintainable and provides a consistent user experience. If the designer later
-      wants context-dependent variants, that can be a separate follow-up feature.
-    answer: 'Single refined variant'
-
+      Design mockups showing multiple variants typically represent exploration
+      toward a final design, not separate features. A single refined variant
+      that cherry-picks the best elements (unified bottom status row from all
+      variants, refined spacing from variants 1-2, small top-right agent badge
+      from variants 1/2/4) is the most maintainable and provides a consistent
+      user experience. If the designer later wants context-dependent variants,
+      that can be a separate follow-up feature.
+    answer: Single refined variant
   - question: >
-      Should the large centered agent icon (variant 3 in the mockup) be the default
-      layout, or should the small top-right agent badge be preserved?
+      What icon strategy should the bottom status row use — agent type icons,
+      stage-relevant lifecycle icons, or state-only icons?
     resolved: true
     options:
-      - option: 'Keep small top-right agent badge'
+      - option: Stage-relevant lifecycle icons (2nd revision design)
         description: >
-          Preserve the current small agent icon in the top-right corner alongside the
-          lifecycle label. This is consistent with variants 1, 2, and 4 in the mockup
-          and maintains the current information hierarchy where the feature name is the
-          primary focal point. The agent type is secondary metadata, not the main content.
+          Use icons that represent the current lifecycle stage in the bottom
+          status row: FileText for Requirements, Search for Research, Code for
+          Implementation, GitPullRequest for Review, Rocket for Deploy,
+          Wrench for Maintain. For non-running states (done, blocked, error,
+          action-required), use state-specific icons (CircleCheck, Ban,
+          CircleX, CircleAlert). This makes the node's current activity
+          immediately scannable — users can see at a glance what stage a
+          feature is in without reading text. The agent type remains visible
+          in the top-right badge.
         selected: true
-      - option: 'Large centered agent icon as default'
+      - option: Agent type icons in status row
         description: >
-          Make the large centered agent icon from variant 3 the default layout. This is a
-          significant departure that makes the agent type the visual focal point, pushing
-          the feature name and description to secondary prominence. Could make the canvas
-          feel more visual but reduces information density.
+          Show the agent type icon (Claude, Cursor, etc.) in the bottom
+          status row for running states. This tells users which agent is
+          doing the work but doesn't communicate what stage the work is in —
+          that information requires reading the lifecycle label at the top.
+          Less immediately scannable for stage context.
         selected: false
-      - option: 'Large icon for running states only'
+      - option: State-only icons (no lifecycle differentiation)
         description: >
-          Use the large centered icon only when the node is in running or creating states
-          (active work), and the small badge for idle states. Adds conditional rendering
-          complexity and makes the layout shift when state changes.
+          Use only state-level icons (Loader2 for creating/running,
+          CircleCheck for done, etc.) without differentiating by lifecycle
+          stage. Simplest approach but loses the visual scanning benefit of
+          knowing the specific stage at a glance.
         selected: false
     selectionRationale: >
-      The feature name should remain the primary visual element — users scan the canvas to
-      find specific features by name, not by agent type. The small top-right badge (used
-      in 3 of 4 variants) provides agent type information without dominating the layout.
-      The large centered icon from variant 3 is a significant departure that would make
-      the agent type more prominent than the feature name, which inverts the information
-      hierarchy. If users need to see agent types at a glance, the small badge is sufficient.
-    answer: 'Keep small top-right agent badge'
-
+      Per user feedback (2nd revision design): The bottom status row should use
+      icons relevant to each lifecycle stage, making the node's current activity
+      immediately scannable. A Search icon for Research or Code icon for
+      Implementation communicates the stage visually without requiring users to
+      read the lifecycle label text. The agent type information is still
+      available in the top-right badge, so no information is lost. This approach
+      aligns with the 2nd revision mockup that the user explicitly selected.
+    answer: Stage-relevant lifecycle icons (2nd revision design)
   - question: >
-      Should the node width remain at 288px (w-72) or change to accommodate the new layout?
+      Should the node width remain at 288px (w-72) or change to accommodate the
+      new layout?
     resolved: true
     options:
-      - option: 'Keep 288px width (w-72)'
+      - option: Keep 288px width (w-72)
         description: >
-          Maintain the current 288px width. The new layout changes are primarily about
-          the bottom status row and text spacing — none of which require more horizontal
-          space. Keeping the same width ensures zero impact on canvas layout, auto-fit,
-          and existing edge routing.
+          Maintain the current 288px width. The new layout changes are primarily
+          about the bottom status row and text spacing — none of which require
+          more horizontal space. Keeping the same width ensures zero impact on
+          canvas layout, auto-fit, and existing edge routing.
         selected: true
-      - option: 'Increase to 320px (w-80)'
+      - option: Increase to 320px (w-80)
         description: >
-          Slightly wider card gives more room for text and the bottom status row. But
-          this affects canvas density, auto-layout spacing, and edge positioning. Would
-          require adjusting canvas-level node spacing calculations.
+          Slightly wider card gives more room for text and the bottom status
+          row. But this affects canvas density, auto-layout spacing, and edge
+          positioning. Would require adjusting canvas-level node spacing
+          calculations.
         selected: false
     selectionRationale: >
-      The mockup variants show similar proportions to the current card. The design changes
-      (unified bottom row, text refinements) work within 288px. Changing the width would
-      cascade into canvas layout, auto-fit calculations, and edge positioning — unnecessary
-      risk for no clear design benefit.
-    answer: 'Keep 288px width (w-72)'
-
+      The mockup variants show similar proportions to the current card. The
+      design changes (unified bottom row, text refinements) work within 288px.
+      Changing the width would cascade into canvas layout, auto-fit
+      calculations, and edge positioning — unnecessary risk for no clear design
+      benefit.
+    answer: Keep 288px width (w-72)
   - question: >
-      The current node has 4 bottom-section layouts (creating, running, progress-bar,
-      badge). Should the new unified status row replace all of these or only some?
+      The current node has 4 bottom-section layouts (creating, running,
+      progress-bar, badge). Should the new unified status row replace all of
+      these or only some?
     resolved: true
     options:
-      - option: 'Replace all with unified status row'
+      - option: Replace all with unified status row
         description: >
-          All 6 states use the same bottom layout: agent icon (or state icon for
-          creating/no-agent) + status text + optional progress bar beneath. This
-          dramatically simplifies the component by removing 4 conditional branches.
-          The status text varies by state (e.g. "Implementing", "Completed in 2h 15m",
-          "Blocked by Auth Module", "Review Product Requirements"). The progress bar
-          appears below the status row for running/creating states.
+          All 6 states use the same bottom layout: stage-relevant icon (or
+          state icon for terminal states) + status text + optional progress
+          bar beneath. This dramatically simplifies the component by removing
+          4 conditional branches. The status text varies by state (e.g.
+          "Implementing", "Completed in 2h 15m", "Blocked by Auth Module",
+          "Review Product Requirements"). The progress bar appears below the
+          status row for running/creating states.
         selected: true
-      - option: 'Keep badge layout for idle states'
+      - option: Keep badge layout for idle states
         description: >
-          Use the unified status row for active states (creating, running) but keep the
-          current state badge (pill with icon + text) for terminal/idle states (done,
-          blocked, error, action-required). Preserves visual distinction between active
-          and idle states but keeps the complexity of multiple bottom layouts.
+          Use the unified status row for active states (creating, running) but
+          keep the current state badge (pill with icon + text) for terminal/idle
+          states (done, blocked, error, action-required). Preserves visual
+          distinction between active and idle states but keeps the complexity of
+          multiple bottom layouts.
         selected: false
     selectionRationale: >
-      The mockup consistently shows a bottom status row across all variants and both
-      states shown (RESEARCH running, IMPLEMENTATION running). A unified bottom section
-      for all states simplifies the component significantly — from 4 conditional branches
-      to 1 template with variable text/icon. State-specific visual differentiation is
-      already handled by the border color, lifecycle label, and state icon. The bottom
-      row can still vary its text and icon per state while using the same layout structure.
-    answer: 'Replace all with unified status row'
-
+      The mockup consistently shows a bottom status row across all variants and
+      both states shown (RESEARCH running, IMPLEMENTATION running). A unified
+      bottom section for all states simplifies the component significantly —
+      from 4 conditional branches to 1 template with variable text/icon.
+      State-specific visual differentiation is already handled by the border
+      color, lifecycle label, and state icon. The bottom row can still vary its
+      text and icon per state while using the same layout structure.
+    answer: Replace all with unified status row
   - question: >
-      Should the indeterminate progress bar be shown for all active states (creating,
-      running) and hidden for terminal states, or should the progress bar behavior change?
+      Should the indeterminate progress bar be shown for all active states
+      (creating, running) and hidden for terminal states, or should the progress
+      bar behavior change?
     resolved: true
     options:
-      - option: 'Progress bar for active states only'
+      - option: Progress bar for active states only
         description: >
-          Show the indeterminate progress bar below the status row only for creating and
-          running states. Hide it for done, blocked, error, and action-required. This
-          matches the current behavior and the mockup (which shows active states).
-          Provides a clear visual signal of "work in progress" without cluttering idle cards.
+          Show the indeterminate progress bar below the status row only for
+          creating and running states. Hide it for done, blocked, error, and
+          action-required. This matches the current behavior and the mockup
+          (which shows active states). Provides a clear visual signal of "work
+          in progress" without cluttering idle cards.
         selected: true
-      - option: 'Always show progress bar'
+      - option: Always show progress bar
         description: >
-          Show the progress bar in all states — indeterminate for active, determinate
-          (full) for done, empty for blocked/error. Adds visual consistency but adds
-          visual noise to idle cards.
+          Show the progress bar in all states — indeterminate for active,
+          determinate (full) for done, empty for blocked/error. Adds visual
+          consistency but adds visual noise to idle cards.
         selected: false
     selectionRationale: >
-      The current behavior of showing the progress bar only for active states provides
-      a clear visual distinction between "working" and "idle" nodes on the canvas. The
-      mockup shows active states with progress bars. Terminal states don't need a
-      progress indicator — their state is communicated by the badge color and status text.
-    answer: 'Progress bar for active states only'
-
+      The current behavior of showing the progress bar only for active states
+      provides a clear visual distinction between "working" and "idle" nodes on
+      the canvas. The mockup shows active states with progress bars. Terminal
+      states don't need a progress indicator — their state is communicated by
+      the badge color and status text.
+    answer: Progress bar for active states only
 content: |
   ## Problem Statement
 
-  The current FeatureNode component (288x140px+ card) displays feature metadata on the React
-  Flow canvas with a fixed layout: lifecycle label top-left, agent icon top-right, bold name,
-  truncated description, and a bottom section that varies significantly by state — 4 different
-  conditional layouts for creating (spinner), running (agent icon + verb), progress bar, and
-  state badge. This inconsistency makes the cards visually unpredictable and the component
-  code unnecessarily complex (362 lines with deeply nested conditional rendering).
+  The current FeatureNode component (288x140px+ card) displays feature metadata
+  on the React Flow canvas with a fixed layout: lifecycle label top-left, agent
+  icon top-right, bold name, truncated description, and a bottom section that
+  varies significantly by state — 4 different conditional layouts for creating
+  (spinner), running (agent icon + verb), progress bar, and state badge. This
+  inconsistency makes the cards visually unpredictable and the component code
+  unnecessarily complex (362 lines with deeply nested conditional rendering).
 
-  The designer has proposed updated mockups that unify the bottom section into a consistent
-  status row across all states, refine text spacing, and maintain the current information
-  hierarchy with the feature name as the primary focal point. This redesign simplifies both
-  the visual design and the component implementation.
+  The designer has proposed updated mockups (2nd revision selected by user) that
+  unify the bottom section into a consistent status row using stage-relevant
+  lifecycle icons across all states. This makes each node's current activity
+  immediately scannable — users can see at a glance what lifecycle stage a
+  feature is in (Research, Implementation, Review, etc.) through the icon alone,
+  without reading text. The redesign simplifies both the visual design and the
+  component implementation.
 
   ## Success Criteria
 
-  - [ ] SC-1: Feature node renders the unified bottom status row with state icon + status text for all 6 states
+  - [ ] SC-1: Feature node renders the unified bottom status row with stage-relevant icon + status text for all 6 states
   - [ ] SC-2: All 6 lifecycle phases display correct labels and running verbs
-  - [ ] SC-3: All agent type icons render at correct size (h-3.5 w-3.5 in top-right badge)
-  - [ ] SC-4: Fast mode indicator (Zap icon) remains visible and functional in top-right area
-  - [ ] SC-5: Deployment status indicator (booting/ready) renders correctly with the new layout
-  - [ ] SC-6: Delete button hover behavior preserved (left side, visible on group hover)
-  - [ ] SC-7: Action (+) button hover behavior preserved (right side, visible on group hover)
-  - [ ] SC-8: Text truncation works correctly for names up to 80 characters and descriptions up to 200 characters
-  - [ ] SC-9: Selection ring (ring-2 ring-primary) renders correctly on the new card layout
-  - [ ] SC-10: React Flow handles (source/target) positioned correctly for edge connections
-  - [ ] SC-11: Storybook stories updated with all 18+ existing scenarios reflecting the new layout
-  - [ ] SC-12: Indeterminate progress bar appears only for creating and running states
-  - [ ] SC-13: Node card maintains 288px width (w-72) and minimum 140px height (min-h-35)
-  - [ ] SC-14: Build compiles without errors (`pnpm build`)
-  - [ ] SC-15: All existing tests pass (`pnpm test`)
-  - [ ] SC-16: Lint passes clean (`pnpm lint`)
-  - [ ] SC-17: Component bottom section uses a single unified template (no 4-way conditional)
+  - [ ] SC-3: Running states show lifecycle-stage-relevant icons (FileText for requirements, Search for research, Code for implementation, GitPullRequest for review, Rocket for deploy, Wrench for maintain)
+  - [ ] SC-4: Non-running states show state-specific icons (Loader2 for creating, CircleCheck for done, Ban for blocked, CircleX for error, CircleAlert for action-required)
+  - [ ] SC-5: Agent type icon renders at correct size (h-3.5 w-3.5) in the top-right badge
+  - [ ] SC-6: Fast mode indicator (Zap icon) remains visible and functional in top-right area
+  - [ ] SC-7: Deployment status indicator (booting/ready) renders correctly with the new layout
+  - [ ] SC-8: Delete button hover behavior preserved (left side, visible on group hover)
+  - [ ] SC-9: Action (+) button hover behavior preserved (right side, visible on group hover)
+  - [ ] SC-10: Text truncation works correctly for names up to 80 characters and descriptions up to 200 characters
+  - [ ] SC-11: Selection ring (ring-2 ring-primary) renders correctly on the new card layout
+  - [ ] SC-12: React Flow handles (source/target) positioned correctly for edge connections
+  - [ ] SC-13: Storybook stories updated with all 18+ existing scenarios reflecting the new layout
+  - [ ] SC-14: Indeterminate progress bar appears only for creating and running states
+  - [ ] SC-15: Node card maintains 288px width (w-72) and minimum 140px height (min-h-35)
+  - [ ] SC-16: Build compiles without errors (`pnpm build`)
+  - [ ] SC-17: All existing tests pass (`pnpm test`)
+  - [ ] SC-18: Lint passes clean (`pnpm lint`)
+  - [ ] SC-19: Component bottom section uses a single unified template (no 4-way conditional)
 
   ## Functional Requirements
 
-  - **FR-1: Unified bottom status row**: Replace the current 4-way conditional bottom section
-    (creating spinner / running verb / progress bar / state badge) with a single unified
-    layout: a row containing a state-appropriate icon + status text, with an optional
-    indeterminate progress bar below for active states.
+  - **FR-1: Unified bottom status row**: Replace the current 4-way conditional
+    bottom section (creating spinner / running verb / progress bar / state badge)
+    with a single unified layout: a row containing a stage-appropriate icon +
+    status text, with an optional indeterminate progress bar below for active states.
 
-  - **FR-2: State-specific status icon**: The status row icon varies by state:
-    - `creating`: Loader2 icon (spinning)
-    - `running`: Agent type icon (from `getAgentTypeIcon`)
-    - `action-required`: State-specific icon (FileText for requirements, Wrench for implementation, GitMerge for review, CircleAlert default)
+  - **FR-2: Lifecycle-stage-relevant icons for running states**: When a feature
+    is in the `running` state, the status row icon must reflect the current
+    lifecycle stage, NOT the agent type:
+    - `requirements`: FileText icon (document representing requirements gathering)
+    - `research`: Search icon (magnifying glass representing investigation)
+    - `implementation`: Code icon (code brackets representing coding)
+    - `review`: GitPullRequest icon (PR representing code review)
+    - `deploy`: Rocket icon (launch representing deployment)
+    - `maintain`: Wrench icon (tool representing maintenance)
+
+  - **FR-3: State-specific icons for non-running states**: For states other than
+    `running`, the status row icon indicates the state itself:
+    - `creating`: Loader2 icon (spinning animation)
+    - `action-required`: CircleAlert icon (or lifecycle-specific override: FileText for requirements, Wrench for implementation, GitMerge for review)
     - `done`: CircleCheck icon
     - `blocked`: Ban icon
     - `error`: CircleX icon
 
-  - **FR-3: State-specific status text**: The status row text varies by state:
+  - **FR-4: State-specific status text**: The status row text varies by state:
     - `creating`: "Creating..."
     - `running`: Lifecycle running verb (e.g. "Researching", "Implementing")
     - `action-required`: Context-specific text (e.g. "Review Product Requirements", "Review Technical Planning", "Review Merge Request")
@@ -236,80 +268,93 @@ content: |
     - `blocked`: "Waiting on {blockedBy}" or "Blocked"
     - `error`: Error message or "Something went wrong"
 
-  - **FR-4: Progress bar for active states**: Show an indeterminate progress bar below
-    the status row only for `creating` and `running` states. Hide the progress bar for
-    all other states (done, blocked, error, action-required).
+  - **FR-5: Progress bar for active states**: Show an indeterminate progress bar
+    below the status row only for `creating` and `running` states. Hide the
+    progress bar for all other states (done, blocked, error, action-required).
 
-  - **FR-5: Feature ID display**: Display the feature ID (e.g. "#f1") in the bottom area
-    for non-active states (done, blocked, error, action-required), positioned above the
-    status row as a subtle metadata line.
+  - **FR-6: Feature ID display**: Display the feature ID (e.g. "#f1") in the
+    bottom area for non-active states (done, blocked, error, action-required),
+    positioned above the status row as a subtle metadata line.
 
-  - **FR-6: Preserved top row layout**: The top row continues to show the lifecycle label
-    (left) and agent badge with optional fast mode Zap icon (right). No changes to this
-    section beyond minor spacing refinements if needed.
+  - **FR-7: Preserved top row layout**: The top row continues to show the
+    lifecycle label (left) and agent badge with optional fast mode Zap icon
+    (right). The agent type icon remains in the top-right as a small badge —
+    it provides agent metadata while the bottom status row provides stage context.
+    No changes to this section beyond minor spacing refinements if needed.
 
-  - **FR-7: Preserved text section**: Feature name (bold, truncated, text-sm) and optional
-    description (muted, truncated, text-xs) remain in the same position below the top row.
-    Spacing may be refined (mt-1, mt-0.5).
+  - **FR-8: Preserved text section**: Feature name (bold, truncated, text-sm)
+    and optional description (muted, truncated, text-xs) remain in the same
+    position below the top row. Spacing may be refined (mt-1, mt-0.5).
 
-  - **FR-8: Preserved deployment indicator**: The deployment status pill (booting/ready)
-    continues to render between the description and the bottom section when present.
+  - **FR-9: Preserved deployment indicator**: The deployment status pill
+    (booting/ready) continues to render between the description and the bottom
+    section when present.
 
-  - **FR-9: Preserved interactive elements**: Delete button (hover left), action button
-    (hover right/source handle), settings button (agent badge click), and confirmation
-    dialog all remain functional with no behavioral changes.
+  - **FR-10: Preserved interactive elements**: Delete button (hover left), action
+    button (hover right/source handle), settings button (agent badge click), and
+    confirmation dialog all remain functional with no behavioral changes.
 
-  - **FR-10: Preserved handle positioning**: React Flow `<Handle>` components (source/target)
-    remain at Position.Left and Position.Right with identical styling.
+  - **FR-11: Preserved handle positioning**: React Flow `<Handle>` components
+    (source/target) remain at Position.Left and Position.Right with identical
+    styling.
 
-  - **FR-11: Updated Storybook stories**: All existing 18+ stories must be updated to
-    visually verify the new layout. No new stories required unless the layout introduces
-    genuinely new visual states not covered by existing stories.
+  - **FR-12: Updated Storybook stories**: All existing 18+ stories must be
+    updated to visually verify the new layout. New stories should be added for
+    each lifecycle stage in running state to verify the correct stage-relevant
+    icon is displayed.
 
-  - **FR-12: State-dependent border color**: The left border color continues to indicate
-    state via the existing `borderClass` from state config (currently not applied in the
-    component — if the mockup shows left border coloring, add `border-l-4` with the
-    state-specific color class from config).
+  - **FR-13: State-dependent border color**: The left border color continues to
+    indicate state via the existing `borderClass` from state config (currently
+    not applied in the component — if the mockup shows left border coloring,
+    add `border-l-4` with the state-specific color class from config).
+
+  - **FR-14: Lifecycle icon mapping**: A new mapping (or extension of the state
+    config) must define the icon for each lifecycle stage. This mapping is used
+    by FR-2 to resolve the correct icon for the running state's bottom status row.
 
   ## Non-Functional Requirements
 
-  - **NFR-1: Component complexity reduction**: The refactored bottom section should have
-    fewer conditional branches than the current 4-way conditional. Target: 1 unified
-    template with variable icon/text, not 4 separate JSX blocks.
+  - **NFR-1: Component complexity reduction**: The refactored bottom section
+    should have fewer conditional branches than the current 4-way conditional.
+    Target: 1 unified template with variable icon/text, not 4 separate JSX blocks.
 
-  - **NFR-2: Rendering performance**: The component must render without layout shifts or
-    visual jank when state transitions occur (e.g. creating → running → done). The
-    unified bottom row ensures consistent card height across state changes.
+  - **NFR-2: Rendering performance**: The component must render without layout
+    shifts or visual jank when state transitions occur (e.g. creating → running
+    → done). The unified bottom row ensures consistent card height across state
+    changes.
 
-  - **NFR-3: Accessibility**: All interactive elements (agent badge button, delete button,
-    action button) must retain `aria-label` attributes. Status text must be readable by
-    screen readers (no icon-only status indicators).
+  - **NFR-3: Accessibility**: All interactive elements (agent badge button,
+    delete button, action button) must retain `aria-label` attributes. Status
+    text must be readable by screen readers (no icon-only status indicators).
 
-  - **NFR-4: Dark mode compatibility**: All colors must use Tailwind's semantic color
-    classes (text-muted-foreground, bg-card, border) or state-specific classes that work
-    with the existing dark mode configuration. No hardcoded hex/rgb values.
+  - **NFR-4: Dark mode compatibility**: All colors must use Tailwind's semantic
+    color classes (text-muted-foreground, bg-card, border) or state-specific
+    classes that work with the existing dark mode configuration. No hardcoded
+    hex/rgb values.
 
-  - **NFR-5: Animation continuity**: The Loader2 spin animation (creating state) and
-    indeterminate progress bar animation must remain smooth. No new animations required.
+  - **NFR-5: Animation continuity**: The Loader2 spin animation (creating state)
+    and indeterminate progress bar animation must remain smooth. No new
+    animations required.
 
-  - **NFR-6: Storybook visual coverage**: Every state × lifecycle combination that
-    appears in the existing stories must be visually verifiable in Storybook after
-    the redesign. No reduction in story coverage.
+  - **NFR-6: Storybook visual coverage**: Every state × lifecycle combination
+    that appears in the existing stories must be visually verifiable in Storybook
+    after the redesign. Additional stories for running states across all 6
+    lifecycle stages to verify stage-relevant icons.
 
   - **NFR-7: Zero domain layer impact**: No changes to FeatureNodeData interface,
-    state derivation logic, domain types, or any file outside the presentation layer.
-    The redesign is purely visual.
+    state derivation logic, domain types, or any file outside the presentation
+    layer. The redesign is purely visual.
 
-  - **NFR-8: Code maintainability**: The refactored component should be shorter than
-    or equal to the current 362 lines. The unified bottom section should reduce total
-    line count, not increase it.
+  - **NFR-8: Code maintainability**: The refactored component should be shorter
+    than or equal to the current 362 lines. The unified bottom section should
+    reduce total line count, not increase it.
 
   ## Product Questions & AI Recommendations
 
   | # | Question | AI Recommendation | Rationale |
   | - | -------- | ----------------- | --------- |
   | 1 | How many layout variants to implement? | Single refined variant | Mockups show design exploration; one layout is most maintainable |
-  | 2 | Large centered agent icon or small badge? | Keep small top-right badge | Feature name should be primary focal point, not agent type |
+  | 2 | What icon strategy for the bottom status row? | Stage-relevant lifecycle icons (2nd revision) | Per user feedback — lifecycle icons (Search, Code, GitPullRequest, etc.) make the node's stage immediately scannable; agent type stays in top-right badge |
   | 3 | Change node width from 288px? | Keep 288px (w-72) | No design benefit; changing width cascades into canvas layout |
   | 4 | Replace all bottom sections or just some? | Replace all with unified status row | Simplifies component; state differentiation via border/label/icon |
   | 5 | Progress bar visibility behavior? | Active states only (creating, running) | Clear visual distinction between working and idle nodes |
@@ -318,36 +363,52 @@ content: |
 
   | Area | Impact | Reasoning |
   | ---- | ------ | --------- |
-  | `src/presentation/web/components/common/feature-node/feature-node.tsx` | High | Main component — bottom section JSX restructuring, reduced conditionals |
-  | `src/presentation/web/components/common/feature-node/feature-node-state-config.ts` | Medium | May need adjusted classes or new fields for unified bottom row styling |
-  | `src/presentation/web/components/common/feature-node/feature-node.stories.tsx` | High | All 18+ stories must be updated to reflect new visual layout |
-  | `src/presentation/web/components/common/feature-node/agent-type-icons.tsx` | Low | No size changes needed — badge remains h-3.5 w-3.5 |
+  | `src/presentation/web/components/common/feature-node/feature-node.tsx` | High | Main component — bottom section JSX restructuring, lifecycle icon resolution, reduced conditionals |
+  | `src/presentation/web/components/common/feature-node/feature-node-state-config.ts` | Medium | Add lifecycle-stage icon mapping; may adjust classes for unified bottom row styling |
+  | `src/presentation/web/components/common/feature-node/feature-node.stories.tsx` | High | All 18+ stories updated; new stories added for running state across all 6 lifecycle stages |
+  | `src/presentation/web/components/common/feature-node/agent-type-icons.tsx` | Low | No changes — agent badge remains in top-right at h-3.5 w-3.5 |
   | `src/presentation/web/components/common/feature-node/agent-type-icons.stories.tsx` | Low | No changes expected |
   | `src/presentation/web/components/features/features-canvas/features-canvas.tsx` | None | Node dimensions unchanged; no canvas-level changes |
   | `tailwind.config.ts` | Low | May need border-l-4 utility if not available; existing animations suffice |
 
   ## Dependencies
 
-  - **No domain/application layer changes**: This is a purely presentational redesign. The
-    `FeatureNodeData` interface and state derivation logic remain unchanged.
-  - **No backend changes**: The feature node receives data via SSE → hooks → React Flow props.
-    The data pipeline is unaffected.
-  - **Existing UI primitives**: Uses shadcn/ui Tooltip, Lucide icons, and Tailwind — all
-    already in the project.
-  - **React Flow constraints**: Custom nodes must still include `<Handle>` components for
-    edge connections. The delete button and action button (+ add child) hover behaviors
-    must be preserved.
-  - **Existing state config**: The `featureNodeStateConfig` record provides icons, colors,
-    and CSS classes per state. The unified bottom row reuses these — no new config shape needed.
+  - **No domain/application layer changes**: This is a purely presentational
+    redesign. The `FeatureNodeData` interface and state derivation logic remain
+    unchanged.
+  - **No backend changes**: The feature node receives data via SSE → hooks →
+    React Flow props. The data pipeline is unaffected.
+  - **Existing UI primitives**: Uses shadcn/ui Tooltip, Lucide icons, and
+    Tailwind — all already in the project.
+  - **New Lucide icons**: The lifecycle-stage icon mapping requires importing
+    additional Lucide icons: Search, Code, GitPullRequest, Rocket. FileText,
+    Wrench, and GitMerge are already imported.
+  - **React Flow constraints**: Custom nodes must still include `<Handle>`
+    components for edge connections. The delete button and action button (+ add
+    child) hover behaviors must be preserved.
+  - **Existing state config**: The `featureNodeStateConfig` record provides
+    icons, colors, and CSS classes per state. A new `lifecycleIcons` mapping
+    will be added alongside it for stage-relevant icon resolution.
 
   ## Size Estimate
 
-  **M (days)** — The core work is restructuring the bottom section JSX in `feature-node.tsx`
-  (replacing 4 conditional branches with 1 unified template) and updating all 18+ Storybook
-  stories to reflect the new layout. The component is 362 lines but the refactoring should
-  reduce line count. No domain/backend changes. No new dependencies. The main risk was the
-  open question of variant count — resolved to a single variant, which keeps this firmly at M.
+  **M (days)** — The core work is restructuring the bottom section JSX in
+  `feature-node.tsx` (replacing 4 conditional branches with 1 unified template),
+  adding a lifecycle-stage icon mapping, and updating all 18+ Storybook stories
+  plus new stories for running states across all lifecycle stages. The component
+  is 362 lines but the refactoring should reduce line count. No domain/backend
+  changes. No new dependencies beyond additional Lucide icon imports. The main
+  risk was the open question of icon strategy — resolved to stage-relevant
+  lifecycle icons per user selection of the 2nd revision design, which keeps
+  this firmly at M.
 
   ---
 
   _Requirements defined — proceed with research phase_
+rejectionFeedback:
+  - iteration: 1
+    message: >-
+      regarding question 2, the ui proposal is to have relevant icon for the
+      stages, lets use the version from the 2nd revision
+    phase: requirements
+    timestamp: '2026-03-10T08:21:40.581Z'
