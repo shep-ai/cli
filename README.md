@@ -27,18 +27,16 @@ _Run `shep` in any repo to manage features through the full development lifecycl
 
 ---
 
-### Install
+## Quick Start
 
 ```bash
+# 1. Install
 npm i -g @shepai/cli
-```
 
-### Try it
+# 2. Run Shep — completes setup on first run, then opens the web UI
+shep
 
-```bash
-cd your-project/
-shep                                    # First-run onboarding + web UI
-shep feat new "Add unit tests"          # Create a feature, agent takes over
+# 3. Browser opens at http://localhost:4050 — you're in
 ```
 
 ---
@@ -55,18 +53,6 @@ shep feat new "Add unit tests"          # Create a feature, agent takes over
 - **Per-repo SQLite database** — All data lives locally in `~/.shep/`, no cloud dependency
 
 ---
-
-## Quick Start
-
-```bash
-# 1. Install
-npm i -g @shepai/cli
-
-# 2. Run Shep — completes setup on first run, then opens the web UI
-shep
-
-# 3. Browser opens at http://localhost:4050 — you're in
-```
 
 ## CLI Reference
 
