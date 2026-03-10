@@ -1,3 +1,9 @@
+# [1.97.0](https://github.com/shep-ai/cli/compare/v1.96.0...v1.97.0) (2026-03-10)
+
+### Features
+
+- **domain:** add soft-delete for features with deleting lifecycle state ([#281](https://github.com/shep-ai/cli/issues/281)) ([62464c2](https://github.com/shep-ai/cli/commit/62464c24f689526cd6f9f10d305f98989030b106))
+
 # [1.96.0](https://github.com/shep-ai/cli/compare/v1.95.0...v1.96.0) (2026-03-10)
 
 ### Features
