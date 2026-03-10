@@ -19,6 +19,10 @@ _Run `shep` in any repo to manage features through the full development lifecycl
 
 [Features](#features) · [Quick Start](#quick-start) · [CLI Reference](#cli-reference) · [Architecture](#architecture) · [Contributing](#contributing)
 
+<br />
+
+<img src="docs/screenshots/features-guide/01-dashboard-canvas.png" alt="Shep AI — Control Center Dashboard" width="900" />
+
 </div>
 
 ---
