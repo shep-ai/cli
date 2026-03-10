@@ -14,6 +14,7 @@ import type { IFeatureRepository } from '@/application/ports/output/repositories
 import type { IWorktreeService } from '@/application/ports/output/services/worktree-service.interface.js';
 import type { IFeatureAgentProcessService } from '@/application/ports/output/agents/feature-agent-process.interface.js';
 import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
+import type { IGitPrService } from '@/application/ports/output/services/git-pr-service.interface.js';
 import { AgentRunStatus, AgentType, SdlcLifecycle } from '@/domain/generated/output.js';
 import type { Feature, AgentRun } from '@/domain/generated/output.js';
 
@@ -59,10 +60,9 @@ describe('DeleteFeatureUseCase', () => {
   let mockWorktreeService: IWorktreeService;
   let mockProcessService: IFeatureAgentProcessService;
   let mockRunRepo: IAgentRunRepository;
-  let mockCleanupUseCase: { execute: ReturnType<typeof vi.fn> };
+  let mockGitPrService: IGitPrService;
 
   beforeEach(() => {
-    mockCleanupUseCase = { execute: vi.fn().mockResolvedValue(undefined) };
     mockFeatureRepo = {
       create: vi.fn(),
       findById: vi.fn().mockResolvedValue(createMockFeature()),
@@ -82,7 +82,7 @@ describe('DeleteFeatureUseCase', () => {
       list: vi.fn(),
       exists: vi.fn(),
       branchExists: vi.fn(),
-      remoteBranchExists: vi.fn(),
+      remoteBranchExists: vi.fn().mockResolvedValue(false),
       getWorktreePath: vi.fn().mockReturnValue('/repo/.worktrees/feat-test-feature'),
       ensureGitRepository: vi.fn(),
     };
@@ -103,12 +103,24 @@ describe('DeleteFeatureUseCase', () => {
       delete: vi.fn(),
     };
 
+    mockGitPrService = {
+      getDefaultBranch: vi.fn().mockResolvedValue('main'),
+      deleteBranch: vi.fn().mockResolvedValue(undefined),
+      getRemoteUrl: vi.fn().mockResolvedValue(null),
+      getOpenPrForBranch: vi.fn().mockResolvedValue(null),
+      getPrChecks: vi.fn().mockResolvedValue([]),
+      mergePr: vi.fn(),
+      createPr: vi.fn(),
+      getPrDiff: vi.fn(),
+      getPrComments: vi.fn().mockResolvedValue([]),
+    } as unknown as IGitPrService;
+
     useCase = new DeleteFeatureUseCase(
       mockFeatureRepo,
       mockWorktreeService,
       mockProcessService,
       mockRunRepo,
-      mockCleanupUseCase as any
+      mockGitPrService
     );
   });
 
@@ -119,7 +131,7 @@ describe('DeleteFeatureUseCase', () => {
     const result = await useCase.execute('feat-123-full-uuid');
 
     expect(result.id).toBe('feat-123-full-uuid');
-    expect(mockCleanupUseCase.execute).toHaveBeenCalledWith('feat-123-full-uuid');
+    expect(mockWorktreeService.remove).toHaveBeenCalled();
     expect(mockFeatureRepo.softDelete).toHaveBeenCalledWith('feat-123-full-uuid');
   });
 
@@ -131,8 +143,11 @@ describe('DeleteFeatureUseCase', () => {
 
     expect(result.id).toBe('feat-123-full-uuid');
     expect(mockWorktreeService.getWorktreePath).toHaveBeenCalledWith('/repo', 'feat/test-feature');
-    expect(mockWorktreeService.remove).toHaveBeenCalledWith('/repo/.worktrees/feat-test-feature');
-    expect(mockCleanupUseCase.execute).not.toHaveBeenCalled();
+    expect(mockWorktreeService.remove).toHaveBeenCalledWith(
+      '/repo/.worktrees/feat-test-feature',
+      true
+    );
+    expect(mockGitPrService.deleteBranch).not.toHaveBeenCalled();
     expect(mockFeatureRepo.softDelete).toHaveBeenCalledWith('feat-123-full-uuid');
   });
 
@@ -360,24 +375,30 @@ describe('DeleteFeatureUseCase', () => {
   // -------------------------------------------------------------------------
 
   describe('cleanup option', () => {
-    it('should call CleanupFeatureWorktreeUseCase when cleanup=true', async () => {
+    it('should delete local and remote branches when cleanup=true', async () => {
       const feature = createMockFeature();
       mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
+      mockWorktreeService.remoteBranchExists = vi.fn().mockResolvedValue(true);
 
       await useCase.execute('feat-123-full-uuid', { cleanup: true });
 
-      expect(mockCleanupUseCase.execute).toHaveBeenCalledWith('feat-123-full-uuid');
-      expect(mockWorktreeService.remove).not.toHaveBeenCalled();
+      expect(mockWorktreeService.remove).toHaveBeenCalled();
+      expect(mockGitPrService.deleteBranch).toHaveBeenCalledWith('/repo', 'feat/test-feature');
+      expect(mockGitPrService.deleteBranch).toHaveBeenCalledWith(
+        '/repo',
+        'feat/test-feature',
+        true
+      );
       expect(mockFeatureRepo.softDelete).toHaveBeenCalledWith('feat-123-full-uuid');
     });
 
-    it('should NOT call CleanupFeatureWorktreeUseCase when cleanup=false', async () => {
+    it('should NOT delete branches when cleanup=false', async () => {
       const feature = createMockFeature();
       mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
 
       await useCase.execute('feat-123-full-uuid', { cleanup: false });
 
-      expect(mockCleanupUseCase.execute).not.toHaveBeenCalled();
+      expect(mockGitPrService.deleteBranch).not.toHaveBeenCalled();
       expect(mockWorktreeService.remove).toHaveBeenCalled();
       expect(mockFeatureRepo.softDelete).toHaveBeenCalledWith('feat-123-full-uuid');
     });
@@ -388,18 +409,31 @@ describe('DeleteFeatureUseCase', () => {
 
       await useCase.execute('feat-123-full-uuid');
 
-      expect(mockCleanupUseCase.execute).toHaveBeenCalledWith('feat-123-full-uuid');
-      expect(mockWorktreeService.remove).not.toHaveBeenCalled();
+      expect(mockGitPrService.deleteBranch).toHaveBeenCalledWith('/repo', 'feat/test-feature');
     });
 
-    it('should still delete feature record even if cleanup use case fails', async () => {
+    it('should still delete feature record even if branch cleanup fails', async () => {
       const feature = createMockFeature();
       mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
-      mockCleanupUseCase.execute = vi.fn().mockRejectedValue(new Error('cleanup failed'));
+      (mockGitPrService.deleteBranch as ReturnType<typeof vi.fn>).mockRejectedValue(
+        new Error('branch not found')
+      );
 
       await useCase.execute('feat-123-full-uuid', { cleanup: true });
 
       expect(mockFeatureRepo.softDelete).toHaveBeenCalledWith('feat-123-full-uuid');
+    });
+
+    it('should skip remote branch delete when remote does not exist', async () => {
+      const feature = createMockFeature();
+      mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
+      mockWorktreeService.remoteBranchExists = vi.fn().mockResolvedValue(false);
+
+      await useCase.execute('feat-123-full-uuid', { cleanup: true });
+
+      // Only local branch delete — no remote
+      expect(mockGitPrService.deleteBranch).toHaveBeenCalledTimes(1);
+      expect(mockGitPrService.deleteBranch).toHaveBeenCalledWith('/repo', 'feat/test-feature');
     });
   });
 });

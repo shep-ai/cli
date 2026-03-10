@@ -20,7 +20,7 @@ import type { IFeatureRepository } from '../../ports/output/repositories/feature
 import type { IWorktreeService } from '../../ports/output/services/worktree-service.interface.js';
 import type { IFeatureAgentProcessService } from '../../ports/output/agents/feature-agent-process.interface.js';
 import type { IAgentRunRepository } from '../../ports/output/agents/agent-run-repository.interface.js';
-import type { CleanupFeatureWorktreeUseCase } from './cleanup-feature-worktree.use-case.js';
+import type { IGitPrService } from '../../ports/output/services/git-pr-service.interface.js';
 
 export interface DeleteFeatureOptions {
   cleanup?: boolean;
@@ -34,8 +34,7 @@ export class DeleteFeatureUseCase {
     @inject('IFeatureAgentProcessService')
     private readonly processService: IFeatureAgentProcessService,
     @inject('IAgentRunRepository') private readonly runRepo: IAgentRunRepository,
-    @inject('CleanupFeatureWorktreeUseCase')
-    private readonly cleanupUseCase: Pick<CleanupFeatureWorktreeUseCase, 'execute'>
+    @inject('IGitPrService') private readonly gitPrService: IGitPrService
   ) {}
 
   async execute(featureId: string, options?: DeleteFeatureOptions): Promise<Feature> {
@@ -113,23 +112,38 @@ export class DeleteFeatureUseCase {
       }
     }
 
-    // Cleanup: either full cleanup (worktree + branches) or just worktree removal
+    // Cleanup worktree and branches directly using the feature data we already
+    // have (CleanupFeatureWorktreeUseCase.execute() would fail because
+    // findById() excludes soft-deleted features).
+    const worktreePath =
+      feature.worktreePath ??
+      this.worktreeService.getWorktreePath(feature.repositoryPath, feature.branch);
+    try {
+      await this.worktreeService.remove(worktreePath, true);
+    } catch {
+      // Worktree might already be removed - that's fine
+    }
+
     const cleanup = options?.cleanup !== false;
     if (cleanup) {
+      // Delete local feature branch
       try {
-        await this.cleanupUseCase.execute(feature.id);
+        await this.gitPrService.deleteBranch(feature.repositoryPath, feature.branch);
       } catch {
-        // Cleanup is best-effort — don't block deletion
+        // Branch might not exist
       }
-    } else {
-      const worktreePath = this.worktreeService.getWorktreePath(
-        feature.repositoryPath,
-        feature.branch
-      );
+
+      // Delete remote feature branch if it exists
       try {
-        await this.worktreeService.remove(worktreePath);
+        const remoteExists = await this.worktreeService.remoteBranchExists(
+          feature.repositoryPath,
+          feature.branch
+        );
+        if (remoteExists) {
+          await this.gitPrService.deleteBranch(feature.repositoryPath, feature.branch, true);
+        }
       } catch {
-        // Worktree might already be removed - that's fine
+        // Remote branch cleanup is best-effort
       }
     }
   }

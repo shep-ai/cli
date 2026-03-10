@@ -174,7 +174,14 @@ export function useControlCenterState(
 
     for (const { featureId, state, lifecycle } of resolveSseEventUpdates(newEvents)) {
       if (state !== undefined || lifecycle !== undefined) {
-        updateFeature(`feat-${featureId}`, {
+        const nodeId = `feat-${featureId}`;
+        // Skip SSE updates for features in 'deleting' state — the optimistic
+        // delete state must not be overwritten by stale SSE events (e.g. agent
+        // cancellation emitting AgentFailed during the soft-delete window).
+        const existingNode = nodesRef.current.find((n) => n.id === nodeId);
+        if (existingNode && (existingNode.data as FeatureNodeData).state === 'deleting') continue;
+
+        updateFeature(nodeId, {
           ...(state !== undefined && { state }),
           ...(lifecycle !== undefined && { lifecycle }),
         });
@@ -326,6 +333,14 @@ export function useControlCenterState(
               if (prevState) updateFeature(nid, { state: prevState });
             }
             toast.error(result.error);
+          } else {
+            // Delete succeeded — remove features from the canvas.  The polling
+            // reconcile would eventually clean them up, but we remove them
+            // explicitly so the user sees them disappear promptly.
+            removeFeature(nodeId);
+            for (const childId of descendants) {
+              removeFeature(childId);
+            }
           }
         })
         .catch(() => {
@@ -335,7 +350,7 @@ export function useControlCenterState(
           toast.error('Failed to delete feature');
         });
     },
-    [router, deleteSound, updateFeature]
+    [router, deleteSound, updateFeature, removeFeature]
   );
 
   const handleDeleteRepository = useCallback(

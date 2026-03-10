@@ -701,7 +701,7 @@ describe('useControlCenterState', () => {
       expect(mockDeleteFeature).toHaveBeenCalledWith('1', undefined);
     });
 
-    it('transitions deleted node to deleting state instead of removing', async () => {
+    it('removes deleted node from canvas after successful delete', async () => {
       mockDeleteFeature.mockResolvedValue({ feature: { id: 'f1' } });
 
       renderHook([featureNode, featureNode2, repoNode] as CanvasNodeType[], [
@@ -715,11 +715,11 @@ describe('useControlCenterState', () => {
         fireEvent.click(screen.getByTestId('delete-feature'));
       });
 
-      // feat-1 still present but in deleting state; all 3 nodes remain
-      expect(screen.getByTestId('node-count')).toHaveTextContent('3');
+      // feat-1 removed after server confirms deletion; feat-2 + repo remain
+      expect(screen.getByTestId('node-count')).toHaveTextContent('2');
     });
 
-    it('preserves edges when feature transitions to deleting state', async () => {
+    it('removes edges for deleted feature', async () => {
       mockDeleteFeature.mockResolvedValue({ feature: { id: 'f1' } });
 
       renderHook([featureNode, featureNode2, repoNode] as CanvasNodeType[], [
@@ -734,8 +734,8 @@ describe('useControlCenterState', () => {
         fireEvent.click(screen.getByTestId('delete-feature'));
       });
 
-      // Both edges remain since the node is still present (in deleting state)
-      expect(screen.getByTestId('edge-count')).toHaveTextContent('2');
+      // feat-1 removed; only repo→feat-2 edge remains
+      expect(screen.getByTestId('edge-count')).toHaveTextContent('1');
     });
 
     it('shows success toast on successful deletion', async () => {
@@ -875,7 +875,7 @@ describe('useControlCenterState', () => {
         target: 'feat-2',
       };
 
-      it('keeps all nodes after deletion (feature transitions to deleting state)', async () => {
+      it('removes deleted feature from canvas after successful delete', async () => {
         mockDeleteFeature.mockResolvedValue({ feature: { id: 'f1' } });
 
         let capturedState: ControlCenterState | null = null;
@@ -894,11 +894,9 @@ describe('useControlCenterState', () => {
           capturedState!.handleDeleteFeature('1');
         });
 
-        // All 3 nodes remain — feat-1 is now in deleting state
-        expect(capturedState!.nodes).toHaveLength(3);
-        const feat1 = capturedState!.nodes.find((n) => n.id === 'feat-1')!;
-        expect(feat1).toBeDefined();
-        expect((feat1.data as { state: string }).state).toBe('deleting');
+        // feat-1 removed after server confirms deletion; feat-2 + repo remain
+        expect(capturedState!.nodes).toHaveLength(2);
+        expect(capturedState!.nodes.find((n) => n.id === 'feat-1')).toBeUndefined();
       });
 
       it('restores all nodes and edges on server action error', async () => {
@@ -931,7 +929,7 @@ describe('useControlCenterState', () => {
         expect(capturedState!.edges).toHaveLength(2);
       });
 
-      it('all nodes have valid positions after deleting transition', async () => {
+      it('remaining nodes have valid positions after deletion', async () => {
         mockDeleteFeature.mockResolvedValue({ feature: { id: 'f1' } });
 
         let capturedState: ControlCenterState | null = null;
@@ -950,14 +948,14 @@ describe('useControlCenterState', () => {
           capturedState!.handleDeleteFeature('1');
         });
 
-        // All 3 nodes remain with valid positions
+        // Remaining nodes have valid positions
         for (const node of capturedState!.nodes) {
           expect(typeof node.position.x).toBe('number');
           expect(typeof node.position.y).toBe('number');
         }
       });
 
-      it('preserves correct node and edge counts after deleting transition', async () => {
+      it('removes deleted feature and its edges after successful delete', async () => {
         mockDeleteFeature.mockResolvedValue({ feature: { id: 'f1' } });
 
         let capturedState: ControlCenterState | null = null;
@@ -980,16 +978,12 @@ describe('useControlCenterState', () => {
           capturedState!.handleDeleteFeature('1');
         });
 
-        // After deletion: all 3 nodes remain (feat-1 now in deleting state)
-        expect(capturedState!.nodes).toHaveLength(3);
-        expect(capturedState!.nodes.map((n) => n.id).sort()).toEqual([
-          'feat-1',
-          'feat-2',
-          'repo-1',
-        ]);
+        // After deletion: feat-1 removed, feat-2 + repo remain
+        expect(capturedState!.nodes).toHaveLength(2);
+        expect(capturedState!.nodes.map((n) => n.id).sort()).toEqual(['feat-2', 'repo-1']);
 
-        // Both edges remain since feat-1 is still present
-        expect(capturedState!.edges).toHaveLength(2);
+        // Only repo→feat-2 edge remains
+        expect(capturedState!.edges).toHaveLength(1);
       });
     });
   });
