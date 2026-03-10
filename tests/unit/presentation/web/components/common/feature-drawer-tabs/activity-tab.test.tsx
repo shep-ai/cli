@@ -104,8 +104,8 @@ describe('ActivityTab', () => {
 
     it('renders duration text next to each completed timing', () => {
       renderActivityTab({ timings: singleRunTimings });
-      expect(screen.getByText('5.0s')).toBeInTheDocument();
-      expect(screen.getByText('10.0s')).toBeInTheDocument();
+      expect(screen.getByText('5s')).toBeInTheDocument();
+      expect(screen.getByText('10s')).toBeInTheDocument();
     });
 
     it('renders a duration bar for each node timing', () => {
@@ -159,7 +159,7 @@ describe('ActivityTab', () => {
       // Requirements has approvalWaitMs: 3000
       const waitRow = screen.getByTestId('approval-wait-requirements');
       expect(waitRow).toBeInTheDocument();
-      expect(within(waitRow).getByText('3.0s')).toBeInTheDocument();
+      expect(within(waitRow).getByText('3s')).toBeInTheDocument();
     });
 
     it('does not render approval wait for phases without approvalWaitMs', () => {
@@ -174,8 +174,8 @@ describe('ActivityTab', () => {
       renderActivityTab({ timings: singleRunTimings });
       const summary = screen.getByTestId('activity-summary');
       expect(within(summary).getByText('Total execution')).toBeInTheDocument();
-      // 5000 + 10000 = 15000ms = 15.0s
-      expect(within(summary).getByText('15.0s')).toBeInTheDocument();
+      // 5000 + 10000 = 15000ms = 15s
+      expect(within(summary).getByText('15s')).toBeInTheDocument();
     });
 
     it('renders total wait time when approval waits exist', () => {
@@ -188,8 +188,8 @@ describe('ActivityTab', () => {
       renderActivityTab({ timings: singleRunTimings });
       const summary = screen.getByTestId('activity-summary');
       expect(within(summary).getByText('Total wall-clock')).toBeInTheDocument();
-      // 15000 + 3000 = 18000ms = 18.0s
-      expect(within(summary).getByText('18.0s')).toBeInTheDocument();
+      // 15000 + 3000 = 18000ms = 18s
+      expect(within(summary).getByText('18s')).toBeInTheDocument();
     });
 
     it('does not render summary when there are no node timings', () => {
