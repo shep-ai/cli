@@ -1,3 +1,9 @@
+# [1.94.0](https://github.com/shep-ai/cli/compare/v1.93.0...v1.94.0) (2026-03-10)
+
+### Features
+
+- **web:** remove implementation phases from merge review tab ([#283](https://github.com/shep-ai/cli/issues/283)) ([9cff019](https://github.com/shep-ai/cli/commit/9cff019a867d315ec541fb425639c932dcc75ae3))
+
 # [1.93.0](https://github.com/shep-ai/cli/compare/v1.92.2...v1.93.0) (2026-03-10)
 
 ### Features
