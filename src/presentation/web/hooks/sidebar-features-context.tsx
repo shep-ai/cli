@@ -17,20 +17,20 @@ export interface SidebarFeatureItem {
 }
 
 // ---------------------------------------------------------------------------
-// Pure mapping: FeatureNodeState (6-state) → FeatureStatus (3-state) | null
+// Pure mapping: FeatureNodeState (6-state) → FeatureStatus (5-state) | null
 // ---------------------------------------------------------------------------
 
 const stateMapping: Record<FeatureNodeState, FeatureStatus | null> = {
   'action-required': 'action-needed',
   running: 'in-progress',
   done: 'done',
-  blocked: 'in-progress',
-  error: 'in-progress',
+  blocked: 'blocked',
+  error: 'error',
   creating: null,
 };
 
 /**
- * Maps a canvas FeatureNodeState to the sidebar's 3-state FeatureStatus.
+ * Maps a canvas FeatureNodeState to the sidebar's 5-state FeatureStatus.
  * Returns `null` for `creating` (optimistic UI) — these should be excluded from the sidebar.
  */
 export function mapNodeStateToSidebarStatus(state: FeatureNodeState): FeatureStatus | null {

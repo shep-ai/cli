@@ -52,6 +52,24 @@ export const Done: Story = {
   },
 };
 
+export const Blocked: Story = {
+  args: {
+    name: 'Dependency Resolver',
+    status: 'blocked',
+    agentType: 'claude-code',
+    modelId: 'claude-sonnet-4-6',
+  },
+};
+
+export const Error: Story = {
+  args: {
+    name: 'Broken Pipeline',
+    status: 'error',
+    agentType: 'cursor',
+    modelId: 'claude-opus-4-6',
+  },
+};
+
 export const WithClickHandler: Story = {
   args: {
     name: 'API Gateway',
