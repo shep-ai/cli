@@ -49,3 +49,4 @@ export { SidebarCollapseToggle, type SidebarCollapseToggleProps } from './sideba
 export { SidebarNavItem, type SidebarNavItemProps } from './sidebar-nav-item';
 export { SidebarSectionHeader, type SidebarSectionHeaderProps } from './sidebar-section-header';
 export { ThemeToggle } from './theme-toggle';
+export { VersionBadge, type VersionBadgeProps } from './version-badge';

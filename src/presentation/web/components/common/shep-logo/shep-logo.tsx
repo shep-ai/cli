@@ -3,16 +3,17 @@ import { cn } from '@/lib/utils';
 export interface ShepLogoProps {
   className?: string;
   size?: number;
+  variant?: 'default' | 'dev';
 }
 
-export function ShepLogo({ className, size = 24 }: ShepLogoProps) {
+export function ShepLogo({ className, size = 24, variant = 'default' }: ShepLogoProps) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       viewBox="0 0 194 200"
       width={size}
       height={size}
-      className={cn('shrink-0', className)}
+      className={cn('shrink-0', variant === 'dev' && 'text-cyan-400', className)}
       aria-hidden="true"
     >
       <g transform="matrix(1, 0, 0, 1, -111, -208)">

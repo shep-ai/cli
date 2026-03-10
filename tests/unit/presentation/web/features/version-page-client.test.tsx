@@ -9,6 +9,8 @@ describe('VersionPageClient (features/version)', () => {
       name: '@shepai/cli',
       version: '1.0.0',
       description: 'Test description',
+      branch: '',
+      commitHash: '',
     },
     systemInfo: {
       nodeVersion: 'v20.0.0',

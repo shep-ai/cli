@@ -26,3 +26,9 @@ export const Large: Story = {
     size: 48,
   },
 };
+
+export const DevMode: Story = {
+  args: {
+    variant: 'dev',
+  },
+};

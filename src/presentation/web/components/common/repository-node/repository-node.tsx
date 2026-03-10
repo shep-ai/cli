@@ -118,7 +118,7 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
             data.onClick?.();
           }
         }}
-        className="nodrag bg-card flex min-w-[18rem] cursor-default items-center gap-3 rounded-full border px-4 py-3 shadow-sm"
+        className="nodrag bg-card flex min-w-[18rem] cursor-pointer items-center gap-3 rounded-full border px-4 py-3 shadow-sm"
       >
         <Github className="text-muted-foreground h-5 w-5 shrink-0" />
         <span data-testid="repository-node-name" className="min-w-0 truncate text-sm font-medium">

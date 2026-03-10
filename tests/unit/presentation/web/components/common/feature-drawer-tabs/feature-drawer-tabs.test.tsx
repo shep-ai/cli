@@ -1,14 +1,32 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { FeatureDrawerTabs } from '@/components/common/feature-drawer-tabs/feature-drawer-tabs';
 import type { FeatureNodeData } from '@/components/common/feature-node';
+import type { FeatureDrawerTabsProps } from '@/components/common/feature-drawer-tabs/feature-drawer-tabs';
 import type { PhaseTimingData } from '@/app/actions/get-feature-phase-timings';
 import type { PlanData } from '@/app/actions/get-feature-plan';
 
 // Mock server actions
 const mockGetPhaseTimings = vi.fn();
 const mockGetPlan = vi.fn();
+
+// Mock next/navigation
+let mockPathname = '/feature/f1';
+
+vi.mock('next/navigation', () => ({
+  usePathname: () => mockPathname,
+}));
+
+// Spy on window.history.pushState for URL sync assertions
+const mockPushState = vi.fn();
+const originalPushState = window.history.pushState.bind(window.history);
+beforeAll(() => {
+  window.history.pushState = mockPushState;
+});
+afterAll(() => {
+  window.history.pushState = originalPushState;
+});
 
 vi.mock('@/app/actions/get-feature-phase-timings', () => ({
   getFeaturePhaseTimings: (...args: unknown[]) => mockGetPhaseTimings(...args),
@@ -70,8 +88,8 @@ const samplePlan: PlanData = {
   tasks: [{ title: 'Task 1', description: 'Do something', state: 'Todo', actionItems: [] }],
 };
 
-function renderTabs(props: Partial<{ featureNode: FeatureNodeData; featureId: string }> = {}) {
-  const defaultProps = {
+function renderTabs(props: Partial<FeatureDrawerTabsProps> = {}) {
+  const defaultProps: FeatureDrawerTabsProps = {
     featureNode: defaultFeatureNode,
     featureId: '#f1',
     ...props,
@@ -81,8 +99,10 @@ function renderTabs(props: Partial<{ featureNode: FeatureNodeData; featureId: st
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockPushState.mockClear();
+  mockPathname = '/feature/f1';
 
-  mockGetPhaseTimings.mockResolvedValue({ timings: sampleTimings });
+  mockGetPhaseTimings.mockResolvedValue({ timings: sampleTimings, rejectionFeedback: [] });
   mockGetPlan.mockResolvedValue({ plan: samplePlan });
 });
 
@@ -197,6 +217,76 @@ describe('FeatureDrawerTabs', () => {
       // No fetches should happen — Overview uses prop data directly
       expect(mockGetPhaseTimings).not.toHaveBeenCalled();
       expect(mockGetPlan).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('URL tab routing', () => {
+    it('activates the tab specified in urlTab prop', () => {
+      renderTabs({ urlTab: 'activity' });
+
+      const activityTab = screen.getByRole('tab', { name: 'Activity' });
+      expect(activityTab).toHaveAttribute('data-state', 'active');
+    });
+
+    it('defaults to overview when no urlTab is provided', () => {
+      renderTabs();
+
+      const overviewTab = screen.getByRole('tab', { name: 'Overview' });
+      expect(overviewTab).toHaveAttribute('data-state', 'active');
+    });
+
+    it('ignores urlTab for a tab not visible in current lifecycle', () => {
+      // prd-review is only visible in requirements+action-required, not implementation+running
+      renderTabs({ urlTab: 'prd-review' });
+
+      const overviewTab = screen.getByRole('tab', { name: 'Overview' });
+      expect(overviewTab).toHaveAttribute('data-state', 'active');
+    });
+
+    it('updates URL via pushState when user clicks a different tab', async () => {
+      const user = userEvent.setup();
+      renderTabs();
+
+      await user.click(screen.getByRole('tab', { name: 'Activity' }));
+
+      expect(mockPushState).toHaveBeenCalledWith(null, '', '/feature/f1/activity');
+    });
+
+    it('updates URL to base path via pushState when switching back to overview', async () => {
+      mockPathname = '/feature/f1/activity';
+      const user = userEvent.setup();
+      renderTabs({ urlTab: 'activity' });
+
+      await user.click(screen.getByRole('tab', { name: 'Overview' }));
+
+      expect(mockPushState).toHaveBeenCalledWith(null, '', '/feature/f1');
+    });
+
+    it('fetches lazy tab data when opened via URL', () => {
+      renderTabs({ urlTab: 'activity' });
+
+      // Activity is a lazy tab — should fetch on mount when opened via URL
+      expect(mockGetPhaseTimings).toHaveBeenCalledWith('#f1');
+    });
+
+    it('fetches plan tab data when opened via URL', () => {
+      renderTabs({ urlTab: 'plan' });
+
+      expect(mockGetPlan).toHaveBeenCalledWith('#f1');
+    });
+
+    it('URL tab takes priority over initialTab prop', () => {
+      renderTabs({
+        urlTab: 'log',
+        featureNode: {
+          ...defaultFeatureNode,
+          lifecycle: 'requirements',
+          state: 'action-required',
+        },
+      });
+
+      const logTab = screen.getByRole('tab', { name: 'Log' });
+      expect(logTab).toHaveAttribute('data-state', 'active');
     });
   });
 });

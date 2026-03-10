@@ -17,6 +17,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { SidebarNavItem } from '@/components/common/sidebar-nav-item';
 import { SidebarCollapseToggle } from '@/components/common/sidebar-collapse-toggle';
 import { ShepLogo } from '@/components/common/shep-logo';
+import { VersionBadge } from '@/components/common/version-badge';
 import { FeatureListItem } from '@/components/common/feature-list-item';
 import { FeatureStatusGroup } from '@/components/common/feature-status-group';
 import { SidebarSectionHeader } from '@/components/common/sidebar-section-header';
@@ -38,6 +39,8 @@ export interface FeatureItem {
 export interface AppSidebarProps {
   features: FeatureItem[];
   featureFlags: FeatureFlagsState;
+  /** Whether to show the "New feature" button in the sidebar footer. Defaults to `false`. */
+  showNewFeature?: boolean;
   onNewFeature?: () => void;
   onFeatureClick?: (featureId: string) => void;
 }
@@ -45,6 +48,7 @@ export interface AppSidebarProps {
 export function AppSidebar({
   features,
   featureFlags,
+  showNewFeature = false,
   onNewFeature,
   onFeatureClick,
 }: AppSidebarProps) {
@@ -74,8 +78,21 @@ export function AppSidebar({
                   ].join(' ')}
                   aria-hidden={!expandedVisible}
                 >
-                  <ShepLogo className="shrink-0" size={20} />
+                  <ShepLogo
+                    className="shrink-0"
+                    size={20}
+                    variant={process.env.NODE_ENV === 'development' ? 'dev' : 'default'}
+                  />
                   <span className="truncate text-sm font-semibold tracking-tight">Shep</span>
+                  <VersionBadge
+                    version={process.env.NEXT_PUBLIC_SHEP_VERSION ?? 'unknown'}
+                    branch={process.env.NEXT_PUBLIC_SHEP_BRANCH}
+                    commitHash={process.env.NEXT_PUBLIC_SHEP_COMMIT}
+                    isDev={process.env.NODE_ENV === 'development'}
+                    packageName={process.env.NEXT_PUBLIC_SHEP_PACKAGE_NAME}
+                    description={process.env.NEXT_PUBLIC_SHEP_DESCRIPTION}
+                    instancePath={process.env.NEXT_PUBLIC_SHEP_INSTANCE_PATH}
+                  />
                 </div>
               ) : null}
               <SidebarCollapseToggle className="shrink-0 transition-all duration-200" />
@@ -142,16 +159,18 @@ export function AppSidebar({
         ) : null}
       </SidebarContent>
 
-      <SidebarFooter>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton onClick={onNewFeature} tooltip="New feature">
-              <Plus />
-              <span>New feature</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarFooter>
+      {showNewFeature ? (
+        <SidebarFooter>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton onClick={onNewFeature} tooltip="New feature">
+                <Plus />
+                <span>New feature</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarFooter>
+      ) : null}
 
       <SidebarRail />
     </Sidebar>

@@ -309,6 +309,87 @@ export const WithRejection: Story = {
   },
 };
 
+/**
+ * Multiple rejection/resume cycles — realistic lifecycle showing:
+ * Iteration 1: work → rejected("rebase on main")
+ * Iteration 2: resumed → work → rejected("rebase on main")
+ * Iteration 3: rejected("add support for evidence agent...") — synthetic
+ * Iteration 4: rejected("screenshots broken...") — synthetic
+ */
+export const MultipleRejections: Story = {
+  args: {
+    timings: [
+      {
+        agentRunId: 'run-1',
+        phase: 'run:started',
+        startedAt: '2025-01-15T10:00:00Z',
+        durationMs: 0,
+      },
+      {
+        agentRunId: 'run-1',
+        phase: 'plan',
+        startedAt: '2025-01-15T10:00:01Z',
+        completedAt: '2025-01-15T10:05:00Z',
+        durationMs: 300000,
+      },
+      {
+        agentRunId: 'run-1',
+        phase: 'run:rejected',
+        startedAt: '2025-01-15T10:05:00Z',
+        durationMs: 0,
+      },
+      {
+        agentRunId: 'run-1',
+        phase: 'run:resumed',
+        startedAt: '2025-01-15T10:10:00Z',
+        durationMs: 0,
+      },
+      {
+        agentRunId: 'run-1',
+        phase: 'merge',
+        startedAt: '2025-01-15T10:10:01Z',
+        completedAt: '2025-01-15T10:15:00Z',
+        durationMs: 299000,
+      },
+      {
+        agentRunId: 'run-1',
+        phase: 'run:rejected',
+        startedAt: '2025-01-15T10:15:00Z',
+        durationMs: 0,
+      },
+    ],
+    rejectionFeedback: [
+      {
+        iteration: 1,
+        message: 'rebase on main',
+        phase: 'plan',
+        timestamp: '2025-01-15T10:05:00Z',
+      },
+      {
+        iteration: 2,
+        message: 'rebase on main',
+        phase: 'merge',
+        timestamp: '2025-01-15T10:15:00Z',
+      },
+      {
+        iteration: 3,
+        message: 'add support for evidence agent into fast mode as well',
+        phase: 'merge',
+        timestamp: '2025-01-15T10:20:00Z',
+      },
+      {
+        iteration: 4,
+        message:
+          "I've test and created a feature but the screenshots seems to be broken https://github.com/shep-ai/cli/pull/258 fix",
+        phase: 'merge',
+        timestamp: '2025-01-15T10:25:00Z',
+      },
+    ],
+    loading: false,
+    error: null,
+  },
+};
+
 /** Approval wait indicators — phases with approval wait sub-rows. */
 export const WithApprovalWaits: Story = {
   args: {
@@ -337,6 +418,141 @@ export const WithApprovalWaits: Story = {
         startedAt: '2025-01-15T10:06:00Z',
         completedAt: '2025-01-15T10:16:00Z',
         durationMs: 600000,
+      },
+    ],
+    loading: false,
+    error: null,
+  },
+};
+
+/**
+ * Full lifecycle — realistic multi-iteration rejection/resume cycle.
+ * Shows the full pattern: start → work → rejected → resumed → work → rejected → resumed → completed
+ */
+export const FullLifecycle: Story = {
+  args: {
+    timings: [
+      // Iteration 1
+      {
+        agentRunId: 'run-1',
+        phase: 'run:started',
+        startedAt: '2025-01-15T10:00:00Z',
+        durationMs: 0,
+      },
+      {
+        agentRunId: 'run-1',
+        phase: 'analyze',
+        startedAt: '2025-01-15T10:00:01Z',
+        completedAt: '2025-01-15T10:00:15Z',
+        durationMs: 14000,
+      },
+      {
+        agentRunId: 'run-1',
+        phase: 'requirements',
+        startedAt: '2025-01-15T10:00:15Z',
+        completedAt: '2025-01-15T10:02:00Z',
+        durationMs: 105000,
+        waitingApprovalAt: '2025-01-15T10:01:30Z',
+        approvalWaitMs: 20000,
+      },
+      {
+        agentRunId: 'run-1',
+        phase: 'plan',
+        startedAt: '2025-01-15T10:02:00Z',
+        completedAt: '2025-01-15T10:04:00Z',
+        durationMs: 120000,
+      },
+      {
+        agentRunId: 'run-1',
+        phase: 'implement',
+        startedAt: '2025-01-15T10:04:00Z',
+        completedAt: '2025-01-15T10:14:00Z',
+        durationMs: 600000,
+      },
+      {
+        agentRunId: 'run-1',
+        phase: 'merge',
+        startedAt: '2025-01-15T10:14:00Z',
+        completedAt: '2025-01-15T10:15:00Z',
+        durationMs: 60000,
+        waitingApprovalAt: '2025-01-15T10:14:30Z',
+        approvalWaitMs: 25000,
+      },
+      {
+        agentRunId: 'run-1',
+        phase: 'run:rejected',
+        startedAt: '2025-01-15T10:15:00Z',
+        durationMs: 0,
+      },
+      // Iteration 2
+      {
+        agentRunId: 'run-1',
+        phase: 'run:resumed',
+        startedAt: '2025-01-15T10:20:00Z',
+        durationMs: 0,
+      },
+      {
+        agentRunId: 'run-1',
+        phase: 'implement',
+        startedAt: '2025-01-15T10:20:01Z',
+        completedAt: '2025-01-15T10:28:00Z',
+        durationMs: 479000,
+      },
+      {
+        agentRunId: 'run-1',
+        phase: 'merge',
+        startedAt: '2025-01-15T10:28:00Z',
+        completedAt: '2025-01-15T10:29:00Z',
+        durationMs: 60000,
+        waitingApprovalAt: '2025-01-15T10:28:30Z',
+        approvalWaitMs: 20000,
+      },
+      {
+        agentRunId: 'run-1',
+        phase: 'run:rejected',
+        startedAt: '2025-01-15T10:29:00Z',
+        durationMs: 0,
+      },
+      // Iteration 3
+      {
+        agentRunId: 'run-1',
+        phase: 'run:resumed',
+        startedAt: '2025-01-15T10:35:00Z',
+        durationMs: 0,
+      },
+      {
+        agentRunId: 'run-1',
+        phase: 'implement',
+        startedAt: '2025-01-15T10:35:01Z',
+        completedAt: '2025-01-15T10:40:00Z',
+        durationMs: 299000,
+      },
+      {
+        agentRunId: 'run-1',
+        phase: 'merge',
+        startedAt: '2025-01-15T10:40:00Z',
+        completedAt: '2025-01-15T10:41:00Z',
+        durationMs: 60000,
+      },
+      {
+        agentRunId: 'run-1',
+        phase: 'run:completed',
+        startedAt: '2025-01-15T10:41:00Z',
+        durationMs: 0,
+      },
+    ],
+    rejectionFeedback: [
+      {
+        iteration: 1,
+        message: 'The PR has merge conflicts — rebase on main first',
+        phase: 'merge',
+        timestamp: '2025-01-15T10:15:00Z',
+      },
+      {
+        iteration: 2,
+        message: 'Tests are failing in the CI pipeline — fix the snapshot tests',
+        phase: 'merge',
+        timestamp: '2025-01-15T10:29:00Z',
       },
     ],
     loading: false,

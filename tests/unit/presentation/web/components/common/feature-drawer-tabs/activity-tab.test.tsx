@@ -1,13 +1,15 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
-import { ActivityTab } from '@/components/common/feature-drawer-tabs/activity-tab';
+import {
+  ActivityTab,
+  buildLifecycleTimeline,
+} from '@/components/common/feature-drawer-tabs/activity-tab';
 import type {
   PhaseTimingData,
   RejectionFeedbackData,
 } from '@/app/actions/get-feature-phase-timings';
 
 const run1Id = 'run-001';
-const run2Id = 'run-002';
 
 const singleRunTimings: PhaseTimingData[] = [
   {
@@ -35,43 +37,6 @@ const singleRunTimings: PhaseTimingData[] = [
     agentRunId: run1Id,
     phase: 'run:completed',
     startedAt: '2024-01-01T00:00:15.000Z',
-  },
-];
-
-const multiRunTimings: PhaseTimingData[] = [
-  {
-    agentRunId: run1Id,
-    phase: 'run:started',
-    startedAt: '2024-01-01T00:00:00.000Z',
-  },
-  {
-    agentRunId: run1Id,
-    phase: 'analyze',
-    startedAt: '2024-01-01T00:00:00.000Z',
-    completedAt: '2024-01-01T00:00:05.000Z',
-    durationMs: 5000,
-  },
-  {
-    agentRunId: run1Id,
-    phase: 'run:completed',
-    startedAt: '2024-01-01T00:00:05.000Z',
-  },
-  {
-    agentRunId: run2Id,
-    phase: 'run:started',
-    startedAt: '2024-01-01T00:01:00.000Z',
-  },
-  {
-    agentRunId: run2Id,
-    phase: 'implement',
-    startedAt: '2024-01-01T00:01:00.000Z',
-    completedAt: '2024-01-01T00:01:20.000Z',
-    durationMs: 20000,
-  },
-  {
-    agentRunId: run2Id,
-    phase: 'run:completed',
-    startedAt: '2024-01-01T00:01:20.000Z',
   },
 ];
 
@@ -152,16 +117,39 @@ describe('ActivityTab', () => {
     });
   });
 
-  describe('multi-run grouping', () => {
-    it('groups timings by agentRunId with run headers', () => {
-      renderActivityTab({ timings: multiRunTimings });
-      expect(screen.getByText('Run #1')).toBeInTheDocument();
-      expect(screen.getByText('Run #2')).toBeInTheDocument();
+  describe('iteration grouping', () => {
+    it('does not show iteration headers for single-iteration timings', () => {
+      renderActivityTab({ timings: singleRunTimings });
+      expect(screen.queryByText(/Iteration/)).not.toBeInTheDocument();
     });
 
-    it('does not show run headers for single-run timings', () => {
-      renderActivityTab({ timings: singleRunTimings });
-      expect(screen.queryByText('Run #1')).not.toBeInTheDocument();
+    it('shows iteration headers when there are rejection cycles', () => {
+      const timings: PhaseTimingData[] = [
+        { agentRunId: run1Id, phase: 'run:started', startedAt: '2024-01-01T00:00:00.000Z' },
+        {
+          agentRunId: run1Id,
+          phase: 'plan',
+          startedAt: '2024-01-01T00:00:01.000Z',
+          completedAt: '2024-01-01T00:00:05.000Z',
+          durationMs: 4000,
+        },
+        { agentRunId: run1Id, phase: 'run:rejected', startedAt: '2024-01-01T00:00:05.000Z' },
+        { agentRunId: run1Id, phase: 'run:resumed', startedAt: '2024-01-01T00:00:10.000Z' },
+        {
+          agentRunId: run1Id,
+          phase: 'implement',
+          startedAt: '2024-01-01T00:00:10.000Z',
+          completedAt: '2024-01-01T00:00:20.000Z',
+          durationMs: 10000,
+        },
+        { agentRunId: run1Id, phase: 'run:completed', startedAt: '2024-01-01T00:00:20.000Z' },
+      ];
+      renderActivityTab({
+        timings,
+        rejectionFeedback: [{ iteration: 1, message: 'fix it', phase: 'plan' }],
+      });
+      expect(screen.getByText('Iteration 1')).toBeInTheDocument();
+      expect(screen.getByText('Iteration 2')).toBeInTheDocument();
     });
   });
 
@@ -330,6 +318,294 @@ describe('ActivityTab', () => {
       expect(screen.getByText('rejected')).toBeInTheDocument();
       expect(screen.queryByTestId('rejection-feedback-text')).not.toBeInTheDocument();
     });
+
+    it('displays all rejection feedback entries even when more feedback than run:rejected events', () => {
+      // Simulate the real-world scenario: 4 rejection feedback entries
+      // but only 2 run:rejected timing events
+      const timingsWithTwoRejections: PhaseTimingData[] = [
+        {
+          agentRunId: run1Id,
+          phase: 'run:started',
+          startedAt: '2024-01-01T00:00:00.000Z',
+        },
+        {
+          agentRunId: run1Id,
+          phase: 'plan',
+          startedAt: '2024-01-01T00:00:01.000Z',
+          completedAt: '2024-01-01T00:00:05.000Z',
+          durationMs: 4000,
+        },
+        {
+          agentRunId: run1Id,
+          phase: 'run:rejected',
+          startedAt: '2024-01-01T00:00:05.000Z',
+        },
+        {
+          agentRunId: run1Id,
+          phase: 'run:resumed',
+          startedAt: '2024-01-01T00:00:10.000Z',
+        },
+        {
+          agentRunId: run1Id,
+          phase: 'merge',
+          startedAt: '2024-01-01T00:00:10.000Z',
+          completedAt: '2024-01-01T00:00:20.000Z',
+          durationMs: 10000,
+        },
+        {
+          agentRunId: run1Id,
+          phase: 'run:rejected',
+          startedAt: '2024-01-01T00:00:20.000Z',
+        },
+      ];
+
+      const feedback: RejectionFeedbackData[] = [
+        { iteration: 1, message: 'rebase on main', phase: 'plan' },
+        { iteration: 2, message: 'rebase on main', phase: 'merge' },
+        {
+          iteration: 3,
+          message: 'add support for evidence agent into fast mode as well',
+          phase: 'merge',
+        },
+        {
+          iteration: 4,
+          message:
+            "I've test and created a feature but the screenshots seems to be broken https://github.com/shep-ai/cli/pull/258 fix",
+          phase: 'merge',
+        },
+      ];
+
+      renderActivityTab({
+        timings: timingsWithTwoRejections,
+        rejectionFeedback: feedback,
+      });
+
+      // All 4 rejection feedback texts must be visible
+      const feedbackElements = screen.getAllByTestId('rejection-feedback-text');
+      expect(feedbackElements).toHaveLength(4);
+
+      // Verify specific messages
+      expect(
+        screen.getByText(/add support for evidence agent into fast mode as well/)
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/I've test and created a feature but the screenshots seems to be broken/)
+      ).toBeInTheDocument();
+    });
+
+    it('shows duplicate rejection messages as separate events', () => {
+      const timingsWithRejection: PhaseTimingData[] = [
+        {
+          agentRunId: run1Id,
+          phase: 'run:started',
+          startedAt: '2024-01-01T00:00:00.000Z',
+        },
+        {
+          agentRunId: run1Id,
+          phase: 'plan',
+          startedAt: '2024-01-01T00:00:01.000Z',
+          completedAt: '2024-01-01T00:00:05.000Z',
+          durationMs: 4000,
+        },
+        {
+          agentRunId: run1Id,
+          phase: 'run:rejected',
+          startedAt: '2024-01-01T00:00:05.000Z',
+        },
+        {
+          agentRunId: run1Id,
+          phase: 'run:resumed',
+          startedAt: '2024-01-01T00:00:10.000Z',
+        },
+        {
+          agentRunId: run1Id,
+          phase: 'merge',
+          startedAt: '2024-01-01T00:00:10.000Z',
+          completedAt: '2024-01-01T00:00:20.000Z',
+          durationMs: 10000,
+        },
+        {
+          agentRunId: run1Id,
+          phase: 'run:rejected',
+          startedAt: '2024-01-01T00:00:20.000Z',
+        },
+      ];
+
+      // Two identical messages from different iterations
+      const feedback: RejectionFeedbackData[] = [
+        { iteration: 1, message: 'rebase on main', phase: 'plan' },
+        { iteration: 2, message: 'rebase on main', phase: 'merge' },
+      ];
+
+      renderActivityTab({
+        timings: timingsWithRejection,
+        rejectionFeedback: feedback,
+      });
+
+      // Both "rebase on main" must appear as separate rejection events
+      const feedbackElements = screen.getAllByTestId('rejection-feedback-text');
+      expect(feedbackElements).toHaveLength(2);
+      // Both should contain the same message text
+      for (const el of feedbackElements) {
+        expect(el.textContent).toContain('rebase on main');
+      }
+    });
+
+    it('renders long rejection messages without data loss', () => {
+      const timingsWithRejection: PhaseTimingData[] = [
+        {
+          agentRunId: run1Id,
+          phase: 'run:started',
+          startedAt: '2024-01-01T00:00:00.000Z',
+        },
+        {
+          agentRunId: run1Id,
+          phase: 'run:rejected',
+          startedAt: '2024-01-01T00:00:05.000Z',
+        },
+      ];
+
+      const longMessage =
+        "I've test and created a feature but the screenshots seems to be broken https://github.com/shep-ai/cli/pull/258 fix";
+      renderActivityTab({
+        timings: timingsWithRejection,
+        rejectionFeedback: [{ iteration: 1, message: longMessage, phase: 'merge' }],
+      });
+
+      expect(screen.getByTestId('rejection-feedback-text')).toBeInTheDocument();
+      expect(screen.getByText(new RegExp(longMessage.slice(0, 40)))).toBeInTheDocument();
+    });
+  });
+
+  describe('lifecycle iteration rendering', () => {
+    it('renders each rejection cycle as a separate iteration', () => {
+      const timings: PhaseTimingData[] = [
+        { agentRunId: run1Id, phase: 'run:started', startedAt: '2024-01-01T00:00:00.000Z' },
+        {
+          agentRunId: run1Id,
+          phase: 'plan',
+          startedAt: '2024-01-01T00:00:01.000Z',
+          completedAt: '2024-01-01T00:00:05.000Z',
+          durationMs: 4000,
+        },
+        { agentRunId: run1Id, phase: 'run:rejected', startedAt: '2024-01-01T00:00:05.000Z' },
+        { agentRunId: run1Id, phase: 'run:resumed', startedAt: '2024-01-01T00:00:10.000Z' },
+        {
+          agentRunId: run1Id,
+          phase: 'implement',
+          startedAt: '2024-01-01T00:00:10.000Z',
+          completedAt: '2024-01-01T00:00:20.000Z',
+          durationMs: 10000,
+        },
+        { agentRunId: run1Id, phase: 'run:rejected', startedAt: '2024-01-01T00:00:20.000Z' },
+        { agentRunId: run1Id, phase: 'run:resumed', startedAt: '2024-01-01T00:00:25.000Z' },
+        {
+          agentRunId: run1Id,
+          phase: 'merge',
+          startedAt: '2024-01-01T00:00:25.000Z',
+          completedAt: '2024-01-01T00:00:30.000Z',
+          durationMs: 5000,
+        },
+        { agentRunId: run1Id, phase: 'run:completed', startedAt: '2024-01-01T00:00:30.000Z' },
+      ];
+
+      const feedback: RejectionFeedbackData[] = [
+        { iteration: 1, message: 'rebase on main', phase: 'plan' },
+        { iteration: 2, message: 'fix tests', phase: 'implement' },
+      ];
+
+      renderActivityTab({ timings, rejectionFeedback: feedback });
+
+      // Should show 3 iterations: rejected, rejected, completed
+      expect(screen.getByText('Iteration 1')).toBeInTheDocument();
+      expect(screen.getByText('Iteration 2')).toBeInTheDocument();
+      expect(screen.getByText('Iteration 3')).toBeInTheDocument();
+
+      // Rejection messages should be in their respective iterations
+      expect(screen.getByText(/rebase on main/)).toBeInTheDocument();
+      expect(screen.getByText(/fix tests/)).toBeInTheDocument();
+
+      // Final iteration should show completed
+      const iter3 = screen.getByTestId('iteration-3');
+      expect(within(iter3).getByText('completed')).toBeInTheDocument();
+    });
+
+    it('shows resumed events at the start of subsequent iterations', () => {
+      const timings: PhaseTimingData[] = [
+        { agentRunId: run1Id, phase: 'run:started', startedAt: '2024-01-01T00:00:00.000Z' },
+        {
+          agentRunId: run1Id,
+          phase: 'plan',
+          startedAt: '2024-01-01T00:00:01.000Z',
+          completedAt: '2024-01-01T00:00:05.000Z',
+          durationMs: 4000,
+        },
+        { agentRunId: run1Id, phase: 'run:rejected', startedAt: '2024-01-01T00:00:05.000Z' },
+        { agentRunId: run1Id, phase: 'run:resumed', startedAt: '2024-01-01T00:00:10.000Z' },
+        {
+          agentRunId: run1Id,
+          phase: 'implement',
+          startedAt: '2024-01-01T00:00:10.000Z',
+          completedAt: '2024-01-01T00:00:20.000Z',
+          durationMs: 10000,
+        },
+        { agentRunId: run1Id, phase: 'run:completed', startedAt: '2024-01-01T00:00:20.000Z' },
+      ];
+
+      renderActivityTab({
+        timings,
+        rejectionFeedback: [{ iteration: 1, message: 'fix it', phase: 'plan' }],
+      });
+
+      // Iteration 2 should contain the "resumed" event
+      const iter2 = screen.getByTestId('iteration-2');
+      expect(within(iter2).getByText('resumed')).toBeInTheDocument();
+    });
+
+    it('creates synthetic iterations for unmatched feedback entries', () => {
+      // 2 run:rejected events but 4 feedback entries
+      const timings: PhaseTimingData[] = [
+        { agentRunId: run1Id, phase: 'run:started', startedAt: '2024-01-01T00:00:00.000Z' },
+        {
+          agentRunId: run1Id,
+          phase: 'plan',
+          startedAt: '2024-01-01T00:00:01.000Z',
+          completedAt: '2024-01-01T00:00:05.000Z',
+          durationMs: 4000,
+        },
+        { agentRunId: run1Id, phase: 'run:rejected', startedAt: '2024-01-01T00:00:05.000Z' },
+        { agentRunId: run1Id, phase: 'run:resumed', startedAt: '2024-01-01T00:00:10.000Z' },
+        {
+          agentRunId: run1Id,
+          phase: 'merge',
+          startedAt: '2024-01-01T00:00:10.000Z',
+          completedAt: '2024-01-01T00:00:20.000Z',
+          durationMs: 10000,
+        },
+        { agentRunId: run1Id, phase: 'run:rejected', startedAt: '2024-01-01T00:00:20.000Z' },
+      ];
+
+      const feedback: RejectionFeedbackData[] = [
+        { iteration: 1, message: 'rebase on main', phase: 'plan' },
+        { iteration: 2, message: 'rebase on main', phase: 'merge' },
+        { iteration: 3, message: 'add evidence agent support', phase: 'merge' },
+        { iteration: 4, message: 'screenshots broken', phase: 'merge' },
+      ];
+
+      renderActivityTab({ timings, rejectionFeedback: feedback });
+
+      // Should produce 4 iterations (2 real + 2 synthetic)
+      expect(screen.getByTestId('iteration-1')).toBeInTheDocument();
+      expect(screen.getByTestId('iteration-2')).toBeInTheDocument();
+      expect(screen.getByTestId('iteration-3')).toBeInTheDocument();
+      expect(screen.getByTestId('iteration-4')).toBeInTheDocument();
+
+      // All 4 rejection messages visible
+      const feedbackElements = screen.getAllByTestId('rejection-feedback-text');
+      expect(feedbackElements).toHaveLength(4);
+      expect(screen.getByText(/add evidence agent support/)).toBeInTheDocument();
+      expect(screen.getByText(/screenshots broken/)).toBeInTheDocument();
+    });
   });
 
   describe('color coding', () => {
@@ -344,5 +620,88 @@ describe('ActivityTab', () => {
       const waitBar = screen.getByTestId('approval-wait-requirements');
       expect(waitBar.querySelector('.bg-amber-500')).toBeInTheDocument();
     });
+  });
+});
+
+describe('buildLifecycleTimeline', () => {
+  it('returns empty array for empty timings', () => {
+    expect(buildLifecycleTimeline([])).toEqual([]);
+  });
+
+  it('produces a single iteration when no rejections', () => {
+    const result = buildLifecycleTimeline(singleRunTimings);
+    expect(result).toHaveLength(1);
+    expect(result[0].number).toBe(1);
+    expect(result[0].rejectionMessage).toBeUndefined();
+    expect(result[0].timings).toEqual(singleRunTimings);
+  });
+
+  it('splits at run:rejected boundaries', () => {
+    const timings: PhaseTimingData[] = [
+      { agentRunId: 'r1', phase: 'run:started', startedAt: 't0' },
+      { agentRunId: 'r1', phase: 'plan', startedAt: 't1', completedAt: 't2', durationMs: 1000 },
+      { agentRunId: 'r1', phase: 'run:rejected', startedAt: 't2' },
+      { agentRunId: 'r1', phase: 'run:resumed', startedAt: 't3' },
+      {
+        agentRunId: 'r1',
+        phase: 'implement',
+        startedAt: 't3',
+        completedAt: 't4',
+        durationMs: 2000,
+      },
+      { agentRunId: 'r1', phase: 'run:completed', startedAt: 't4' },
+    ];
+    const feedback: RejectionFeedbackData[] = [{ iteration: 1, message: 'fix it', phase: 'plan' }];
+
+    const result = buildLifecycleTimeline(timings, feedback);
+
+    expect(result).toHaveLength(2);
+    expect(result[0].number).toBe(1);
+    expect(result[0].rejectionMessage).toBe('fix it');
+    expect(result[0].timings).toHaveLength(3); // started, plan, rejected
+    expect(result[1].number).toBe(2);
+    expect(result[1].rejectionMessage).toBeUndefined();
+    expect(result[1].timings).toHaveLength(3); // resumed, implement, completed
+  });
+
+  it('synthesizes additional rejected events for unmatched feedback', () => {
+    const timings: PhaseTimingData[] = [
+      { agentRunId: 'r1', phase: 'run:started', startedAt: 't0' },
+      { agentRunId: 'r1', phase: 'run:rejected', startedAt: 't1' },
+    ];
+    const feedback: RejectionFeedbackData[] = [
+      { iteration: 1, message: 'first', phase: 'merge' },
+      { iteration: 2, message: 'second', phase: 'merge', timestamp: 'ts2' },
+      { iteration: 3, message: 'third', phase: 'merge', timestamp: 'ts3' },
+    ];
+
+    const result = buildLifecycleTimeline(timings, feedback);
+
+    expect(result).toHaveLength(3);
+    expect(result[0].rejectionMessage).toBe('first');
+    expect(result[1].rejectionMessage).toBe('second');
+    expect(result[2].rejectionMessage).toBe('third');
+  });
+
+  it('matches feedback by position to iterations', () => {
+    const timings: PhaseTimingData[] = [
+      { agentRunId: 'r1', phase: 'run:started', startedAt: 't0' },
+      { agentRunId: 'r1', phase: 'run:rejected', startedAt: 't1' },
+      { agentRunId: 'r1', phase: 'run:resumed', startedAt: 't2' },
+      { agentRunId: 'r1', phase: 'run:rejected', startedAt: 't3' },
+      { agentRunId: 'r1', phase: 'run:resumed', startedAt: 't4' },
+      { agentRunId: 'r1', phase: 'run:completed', startedAt: 't5' },
+    ];
+    const feedback: RejectionFeedbackData[] = [
+      { iteration: 1, message: 'first rejection', phase: 'plan' },
+      { iteration: 2, message: 'second rejection', phase: 'merge' },
+    ];
+
+    const result = buildLifecycleTimeline(timings, feedback);
+
+    expect(result).toHaveLength(3);
+    expect(result[0].rejectionMessage).toBe('first rejection');
+    expect(result[1].rejectionMessage).toBe('second rejection');
+    expect(result[2].rejectionMessage).toBeUndefined();
   });
 });

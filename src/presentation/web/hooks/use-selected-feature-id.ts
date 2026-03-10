@@ -8,6 +8,6 @@ import { usePathname } from 'next/navigation';
  */
 export function useSelectedFeatureId(): string | null {
   const pathname = usePathname();
-  const match = pathname.match(/^\/feature\/(.+)$/);
+  const match = pathname.match(/^\/feature\/([^/]+)/);
   return match?.[1] ?? null;
 }

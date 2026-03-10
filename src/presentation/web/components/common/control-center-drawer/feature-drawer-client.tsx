@@ -36,14 +36,16 @@ import type { ProductDecisionsSummaryData } from '@/components/common/product-de
 import type { MergeReviewData } from '@/components/common/merge-review';
 import { resolveSseEventUpdates } from '@/components/common/feature-node/derive-feature-state';
 import { deriveInitialTab } from './drawer-view';
-import type { DrawerView } from './drawer-view';
+import type { DrawerView, FeatureTabKey } from './drawer-view';
 import { useArtifactFetch } from './use-artifact-fetch';
 
 export interface FeatureDrawerClientProps {
   view: DrawerView;
+  /** Tab key extracted from the URL path segment (e.g. /feature/[id]/activity → 'activity'). */
+  urlTab?: FeatureTabKey;
 }
 
-export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientProps) {
+export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawerClientProps) {
   const featureFlags = useFeatureFlags();
   const router = useRouter();
   const deleteSound = useSoundAction('delete');
@@ -559,6 +561,7 @@ export function FeatureDrawerClient({ view: initialView }: FeatureDrawerClientPr
         featureNode={featureNode}
         featureId={featureNode.featureId}
         initialTab={view.initialTab}
+        urlTab={urlTab}
         prdData={prdData}
         prdSelections={prdSelections}
         onPrdSelect={(qId, oId) => setPrdSelections((prev) => ({ ...prev, [qId]: oId }))}

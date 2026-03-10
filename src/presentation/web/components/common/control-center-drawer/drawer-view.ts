@@ -14,6 +14,24 @@ export type FeatureTabKey =
   | 'product-decisions'
   | 'merge-review';
 
+/** All valid tab key values — used for URL param validation. */
+export const VALID_TAB_KEYS: ReadonlySet<string> = new Set<FeatureTabKey>([
+  'overview',
+  'activity',
+  'log',
+  'plan',
+  'prd-review',
+  'tech-decisions',
+  'product-decisions',
+  'merge-review',
+]);
+
+/** Type-guard: returns the value as FeatureTabKey if valid, otherwise undefined. */
+export function parseTabKey(value: string | null | undefined): FeatureTabKey | undefined {
+  if (value && VALID_TAB_KEYS.has(value)) return value as FeatureTabKey;
+  return undefined;
+}
+
 /**
  * Discriminated union representing every possible drawer state in the control center.
  * Only one view can be active at a time.
