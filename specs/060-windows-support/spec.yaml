@@ -1,0 +1,161 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: windows-support
+number: 060
+branch: feat/060-windows-support
+oneLiner: Add Windows (win32) platform support across CLI, Web UI, tool installer, process management, CI, and build scripts
+userQuery: >
+  Currently the project support linux and osx, add support to windows
+summary: >
+  The @shepai/cli project currently runs on Linux and macOS. While some services already
+  include win32 platform branches (browser opener, file/folder dialogs, CLI symbol detection),
+  many critical areas lack Windows support: shell command execution uses Unix-only 'sh',
+  binary detection uses 'which' (not available on Windows), Web UI open-shell/open-folder
+  actions have no win32 entry, build scripts use rm/cp/mkdir shell commands, process
+  management relies on Unix signals (SIGTERM/SIGKILL) and negative-PID process groups,
+  tool JSON files lack win32 install commands, path validation assumes Unix '/' prefix,
+  and CI runs exclusively on ubuntu-latest.
+phase: Analysis
+sizeEstimate: L
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - Node.js (child_process, os, path, fs modules)
+  - TypeScript
+  - pnpm (monorepo workspaces)
+  - GitHub Actions CI/CD
+  - Next.js (web UI)
+  - Vitest (testing)
+  - Playwright (E2E web tests)
+  - Commander.js (CLI)
+  - better-sqlite3 (native binding)
+  - node-notifier (desktop notifications)
+  - PowerShell (Windows commands)
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - "Should we support native Windows (CMD/PowerShell) or only WSL/Git Bash?"
+  - "Which Windows package manager to target for tool install commands — winget, choco, scoop, or all three?"
+  - "Should CI run full test suite on windows-latest or a reduced matrix (unit + build only)?"
+  - "How to handle process group termination on Windows where negative PID kill is unsupported?"
+  - "Should the tool installer use 'where.exe' on Windows or a cross-platform binary-exists check?"
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  The @shepai/cli platform currently supports Linux and macOS but lacks Windows compatibility.
+  While the codebase includes partial win32 support in some services (browser opener, file/folder
+  dialogs, CLI Unicode detection), many critical subsystems use Unix-only APIs: `sh -c` for
+  shell execution, `which` for binary detection, SIGTERM/SIGKILL for process management,
+  negative-PID process group kills, and `rm -rf`/`cp -r`/`mkdir -p` in build scripts. The Web
+  UI's open-shell and open-folder actions explicitly exclude Windows, path validation assumes
+  Unix-style absolute paths starting with `/`, and all CI/CD jobs run on `ubuntu-latest` only.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The project is a pnpm monorepo with two packages:
+
+  - **Root** (`@shepai/cli`) — CLI entry point, web UI (Next.js), E2E tests
+  - **`packages/core`** — Clean Architecture core: domain, application, infrastructure layers
+
+  Key directories:
+
+  | Directory | Purpose |
+  | --------- | ------- |
+  | `packages/core/src/domain/` | Domain models, generated TypeSpec output |
+  | `packages/core/src/application/` | Use cases, output port interfaces |
+  | `packages/core/src/infrastructure/` | Services, repositories, DI container |
+  | `src/presentation/cli/` | Commander.js CLI commands and UI helpers |
+  | `src/presentation/web/` | Next.js web UI with server actions |
+  | `tsp/` | TypeSpec domain model definitions |
+  | `tests/` | Unit, integration, E2E tests |
+  | `.github/workflows/` | CI/CD pipelines |
+
+  ### Architecture Patterns
+
+  - **Clean Architecture** with dependency inversion (tsyringe DI)
+  - **Port/Adapter pattern** — output port interfaces in application layer, implementations in infrastructure
+  - **JSON-driven tool metadata** — tool definitions in `tools/*.json` with per-platform commands
+  - **Platform detection via `os.platform()`** with Record lookups for platform-specific logic
+  - **Detached child processes** for daemon, workers, and IDE launchers
+  - **Process management** using Unix signals (SIGTERM, SIGKILL) and process.kill()
+
+  ### Relevant Technologies
+
+  - **Node.js child_process** — spawn, fork, execFile, exec used extensively for agent execution, daemon management, tool installation, IDE launching
+  - **better-sqlite3** — Native C++ binding, requires platform-specific compilation (already in `onlyBuiltDependencies`)
+  - **node-notifier** — Already supports Windows toast notifications
+  - **TypeSpec** — Domain model generation, platform-agnostic
+  - **Next.js** — Web UI, server actions contain platform-specific spawn calls
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `packages/core/src/infrastructure/services/tool-installer/tool-installer.service.ts` | High | Uses `execFile('which', ...)` and `spawn('sh', ['-c', ...])` — neither available on Windows |
+  | `packages/core/src/infrastructure/services/tool-installer/tools/*.json` (16 files) | High | Most tool JSON files lack `win32` install commands; only list `linux` and `darwin` |
+  | `src/presentation/web/app/actions/open-shell.ts` | High | SHELL_COMMANDS record has no `win32` entry — returns error on Windows |
+  | `src/presentation/web/app/actions/open-folder.ts` | High | FOLDER_COMMANDS record has no `win32` entry — returns error on Windows |
+  | `src/presentation/web/app/actions/open-ide.ts` | High | Path validation uses `startsWith('/')` — rejects Windows paths like `C:\...` |
+  | `src/presentation/web/app/actions/deploy-repository.ts` | High | Same `startsWith('/')` path validation issue |
+  | `packages/core/src/infrastructure/services/deployment/deployment.service.ts` | High | Uses `kill(-pid, 'SIGTERM')` and `kill(-pid, 'SIGKILL')` for process groups — negative PID not supported on Windows |
+  | `src/presentation/cli/commands/daemon/stop-daemon.ts` | High | Uses `process.kill(pid, 'SIGTERM')` then `process.kill(pid, 'SIGKILL')` |
+  | `src/presentation/cli/commands/daemon/start-daemon.ts` | Medium | Detached spawn with `stdio: ['ignore', logFd, logFd]` — may behave differently on Windows |
+  | `packages/core/src/infrastructure/services/agents/feature-agent/feature-agent-process.service.ts` | Medium | Uses `fork()` with detached mode and `process.kill(pid, 0)` for liveness check |
+  | `packages/core/src/infrastructure/services/ide-launchers/json-driven-ide-launcher.service.ts` | Medium | Uses `execFile('which', ...)` for availability check — not available on Windows |
+  | `packages/core/src/infrastructure/services/filesystem/shep-directory.service.ts` | Low | Uses `mode: 0o700` in mkdir — permissions ignored on Windows but harmless |
+  | `package.json` build scripts (`build:cli`, `build:web:prod`) | High | Uses `rm -rf`, `mkdir -p`, `cp -r` — Unix shell commands not available in CMD/PowerShell |
+  | `.github/workflows/ci.yml` | Medium | All jobs use `runs-on: ubuntu-latest` — no Windows CI coverage |
+  | `src/presentation/cli/ui/symbols.ts` | Low | Already has Windows terminal detection — no changes needed |
+  | `packages/core/src/infrastructure/services/browser-opener.service.ts` | Low | Already has win32 entry — no changes needed |
+  | `packages/core/src/infrastructure/services/file-dialog.service.ts` | Low | Already has win32 PowerShell command — no changes needed |
+  | `packages/core/src/infrastructure/services/folder-dialog.service.ts` | Low | Already has win32 PowerShell command — no changes needed |
+  | `packages/core/src/infrastructure/services/notifications/desktop-notifier.ts` | Low | node-notifier supports Windows toast — no changes needed |
+  | `tests/e2e/cli/daemon-lifecycle.test.ts` | Medium | Creates shell scripts with shebangs, uses `chmodSync(0o755)`, hardcodes Unix PATH separator |
+  | `tests/e2e/cli/feat.test.ts` | Medium | Uses `pkill` and `sleep` commands — Unix-only |
+  | `tests/helpers/cli/server.ts` | Medium | Uses `process.kill(-pid, signal)` for process group termination |
+  | `packages/core/src/infrastructure/services/agents/sessions/claude-code-session.repository.ts` | Low | Uses `filePath.startsWith(home + '/')` — needs path.sep on Windows |
+  | `packages/core/src/infrastructure/services/git/worktree.service.ts` | Low | Path normalization only handles macOS `/private/var` — may need Windows-specific handling |
+
+  ## Dependencies
+
+  ### Already Cross-Platform (no changes needed)
+  - `node-notifier` — Supports Windows toast notifications
+  - `better-sqlite3` — Native binding with Windows prebuilds (in `onlyBuiltDependencies`)
+  - `commander` — CLI framework, cross-platform
+  - `@inquirer/prompts` — Terminal prompts, cross-platform
+  - `picocolors` — Terminal colors, cross-platform
+  - `next` — Web framework, cross-platform
+  - `path.join()`, `path.normalize()`, `homedir()` — Already used correctly in most places
+
+  ### Needs Windows Adaptation
+  - `child_process` usage patterns — `sh -c`, `which`, negative-PID kill
+  - Build scripts — Need cross-platform replacements for `rm`, `cp`, `mkdir`
+  - Tool JSON metadata — Need `win32` install commands
+  - GitHub Actions — Need Windows runner matrix
+
+  ### Potential New Dependencies
+  - `cross-env` or `shx` for cross-platform npm scripts (alternative: rewrite as Node.js scripts)
+  - `rimraf` for cross-platform recursive delete (alternative: `fs.rm` with `recursive: true`)
+  - `tree-kill` for cross-platform process tree termination (alternative: custom implementation)
+
+  ## Size Estimate
+
+  **L (week+)** — This feature touches 20+ files across all layers (infrastructure services,
+  web actions, CLI commands, build scripts, CI, tool metadata, and tests). The critical areas
+  are process management (signal handling, process groups), shell command execution (replacing
+  `sh -c` and `which`), and build script portability. Many services already have the
+  platform-detection pattern in place, so the adaptation follows an established convention.
+  However, testing on actual Windows environments and updating CI adds significant scope.
+
+  ---
+
+  _Analysis completed — proceed with research phase_
