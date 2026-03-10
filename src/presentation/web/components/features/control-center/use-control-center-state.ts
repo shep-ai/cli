@@ -287,33 +287,30 @@ export function useControlCenterState(
     (featureId: string, cleanup?: boolean) => {
       const nodeId = `feat-${featureId}`;
 
-      // Find the current entry for rollback
-      const prevEntry = nodesRef.current
-        .filter((n) => n.id === nodeId)
-        .map((n) => ({
-          nodeId: n.id,
-          data: n.data as FeatureNodeData,
-        }))[0];
+      // Snapshot current state for rollback
+      const prevNode = nodesRef.current.find((n) => n.id === nodeId);
+      const prevState = prevNode ? (prevNode.data as FeatureNodeData).state : undefined;
 
-      // Optimistic removal
-      removeFeature(nodeId);
+      // Optimistic: show "deleting" state instead of removing
+      updateFeature(nodeId, { state: 'deleting' });
       deleteSound.play();
-      toast.success('Feature deleted successfully');
+      toast.success('Deleting feature…');
       router.push('/');
 
       deleteFeature(featureId, cleanup)
         .then((result) => {
           if (result.error) {
-            if (prevEntry) restoreFeature(nodeId, prevEntry);
+            // Rollback to previous state
+            if (prevState) updateFeature(nodeId, { state: prevState });
             toast.error(result.error);
           }
         })
         .catch(() => {
-          if (prevEntry) restoreFeature(nodeId, prevEntry);
+          if (prevState) updateFeature(nodeId, { state: prevState });
           toast.error('Failed to delete feature');
         });
     },
-    [router, deleteSound, removeFeature, restoreFeature]
+    [router, deleteSound, updateFeature]
   );
 
   const handleDeleteRepository = useCallback(

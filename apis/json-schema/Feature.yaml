@@ -89,5 +89,5 @@ required:
   - openPr
   - approvalGates
 allOf:
-  - $ref: BaseEntity.yaml
+  - $ref: SoftDeletableEntity.yaml
 description: Central entity tracking a piece of work through the SDLC lifecycle (Aggregate Root)

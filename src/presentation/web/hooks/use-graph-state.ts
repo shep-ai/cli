@@ -220,6 +220,18 @@ export function useGraphState(
         }
       }
 
+      // Preserve 'deleting' state for features the server still returns
+      // (server hasn't finished soft-delete yet). Once soft-deleted, the
+      // server won't include the feature, so it naturally disappears.
+      for (const [id, entry] of currentFeatureMap) {
+        if (entry.data.state === 'deleting' && merged.has(id)) {
+          merged.set(id, {
+            ...merged.get(id)!,
+            data: { ...merged.get(id)!.data, state: 'deleting' },
+          });
+        }
+      }
+
       // Apply any buffered SSE updates to features that now exist in the map
       for (const [nodeId, updates] of pendingUpdatesRef.current) {
         const entry = merged.get(nodeId);

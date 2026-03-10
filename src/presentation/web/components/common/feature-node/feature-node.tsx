@@ -102,8 +102,8 @@ export function FeatureNode({
         />
       ) : null}
 
-      {/* Delete button — visible on hover, positioned to the left */}
-      {data.onDelete && data.featureId ? (
+      {/* Delete button — visible on hover, positioned to the left (hidden when deleting) */}
+      {data.onDelete && data.featureId && data.state !== 'deleting' ? (
         <>
           <div className="absolute top-1/2 -left-10 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100">
             <TooltipProvider>
@@ -142,10 +142,11 @@ export function FeatureNode({
 
       <div
         data-testid="feature-node-card"
-        aria-busy={data.state === 'creating' ? 'true' : undefined}
+        aria-busy={data.state === 'creating' || data.state === 'deleting' ? 'true' : undefined}
         className={cn(
           'bg-card flex min-h-35 w-72 cursor-pointer flex-col rounded-lg border p-3 shadow-sm',
-          selected && 'ring-primary ring-2'
+          selected && 'ring-primary ring-2',
+          data.state === 'deleting' && 'opacity-60'
         )}
       >
         {/* Top row: lifecycle label + agent icon */}
@@ -248,7 +249,23 @@ export function FeatureNode({
 
         {/* Bottom section — pushed to bottom for consistent card height */}
         <div className="mt-auto pt-2">
-          {data.state === 'creating' ? (
+          {data.state === 'deleting' ? (
+            <>
+              {/* Deleting status: trash icon + "Deleting..." text */}
+              <div className="mt-1.5 flex items-center gap-1.5 text-xs">
+                <Trash2 className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+                <span className="text-muted-foreground">Deleting…</span>
+              </div>
+
+              {/* Indeterminate progress bar */}
+              <div
+                data-testid="feature-node-progress-bar"
+                className="bg-muted mt-1.5 h-1 w-full overflow-hidden rounded-full"
+              >
+                <div className="motion-safe:animate-indeterminate-progress bg-foreground/30 h-full w-1/3 rounded-full" />
+              </div>
+            </>
+          ) : data.state === 'creating' ? (
             <>
               {/* Creating status: loader icon + "Creating..." text */}
               <div className="mt-1.5 flex items-center gap-1.5 text-xs">
@@ -328,8 +345,8 @@ export function FeatureNode({
         </div>
       </div>
 
-      {/* Source handle — action button rendered as detached handle child */}
-      {data.onAction ? (
+      {/* Source handle — action button rendered as detached handle child (hidden when deleting) */}
+      {data.onAction && data.state !== 'deleting' ? (
         <Handle
           type="source"
           position={Position.Right}
