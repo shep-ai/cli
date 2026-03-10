@@ -20,10 +20,7 @@ import { Badge } from '@/components/ui/badge';
 import { CiStatusBadge } from '@/components/common/ci-status-badge';
 import { DrawerActionBar } from '@/components/common/drawer-action-bar';
 import { DiffView } from './diff-view';
-import type {
-  MergeReviewProps,
-  MergeReviewEvidence,
-} from './merge-review-config';
+import type { MergeReviewProps, MergeReviewEvidence } from './merge-review-config';
 
 const EVIDENCE_ICONS: Record<MergeReviewEvidence['type'], typeof Camera> = {
   Screenshot: Camera,
