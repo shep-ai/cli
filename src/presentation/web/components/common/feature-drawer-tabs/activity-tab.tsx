@@ -66,26 +66,75 @@ interface RejectionDisplayData {
 }
 
 /**
- * Map each run:rejected timing entry to its rejection feedback message and attachments.
- * Matches by sequential order: 1st rejected event → 1st feedback entry, etc.
+ * Ensure every rejection feedback entry has a corresponding run:rejected timing event
+ * and build a map from each event key to its display data.
+ *
+ * The timings array may contain fewer run:rejected events than the feedback array
+ * (e.g. 2 timing events for 4 feedback entries). For any unmatched feedback entries,
+ * synthetic run:rejected timing events are inserted after the last existing
+ * run:rejected event in the timings array so that all feedback is rendered.
  */
-function buildRejectionMessageMap(
+function ensureRejectionTimingsAndBuildMap(
   timings: PhaseTimingData[],
   feedback?: RejectionFeedbackData[]
-): Map<string, RejectionDisplayData> {
+): { timings: PhaseTimingData[]; rejectionMessages: Map<string, RejectionDisplayData> } {
   const map = new Map<string, RejectionDisplayData>();
-  if (!feedback?.length) return map;
+  if (!feedback?.length) return { timings, rejectionMessages: map };
 
-  let rejectionIdx = 0;
-  for (const t of timings) {
-    if (t.phase === 'run:rejected' && rejectionIdx < feedback.length) {
-      const key = `${t.agentRunId}-${t.phase}-${t.startedAt}`;
-      const entry = feedback[rejectionIdx];
-      map.set(key, { message: entry.message, attachments: entry.attachments });
-      rejectionIdx++;
+  // Collect existing run:rejected events
+  const existingRejections: { index: number; timing: PhaseTimingData }[] = [];
+  for (let i = 0; i < timings.length; i++) {
+    if (timings[i].phase === 'run:rejected') {
+      existingRejections.push({ index: i, timing: timings[i] });
     }
   }
-  return map;
+
+  // Pair existing events with feedback sequentially
+  const paired = Math.min(existingRejections.length, feedback.length);
+  for (let i = 0; i < paired; i++) {
+    const t = existingRejections[i].timing;
+    const key = `${t.agentRunId}-${t.phase}-${t.startedAt}`;
+    map.set(key, { message: feedback[i].message, attachments: feedback[i].attachments });
+  }
+
+  // If all feedback is covered, no need to inject synthetic entries
+  if (paired >= feedback.length) {
+    return { timings, rejectionMessages: map };
+  }
+
+  // Synthesize additional run:rejected timing entries for remaining feedback
+  const result = [...timings];
+
+  // Determine where to insert: after the last existing run:rejected, or at the end
+  let insertAfter = result.length - 1;
+  if (existingRejections.length > 0) {
+    insertAfter = existingRejections[existingRejections.length - 1].index;
+  }
+
+  // Use the last existing rejected event as a template for agentRunId,
+  // or fall back to the first timing entry's agentRunId
+  const templateRunId =
+    existingRejections.length > 0
+      ? existingRejections[existingRejections.length - 1].timing.agentRunId
+      : (timings[0]?.agentRunId ?? 'unknown');
+
+  const synthetic: PhaseTimingData[] = [];
+  for (let i = paired; i < feedback.length; i++) {
+    const fb = feedback[i];
+    const syntheticTiming: PhaseTimingData = {
+      agentRunId: templateRunId,
+      phase: 'run:rejected',
+      startedAt: fb.timestamp ?? `synthetic-${i}`,
+    };
+    const key = `${syntheticTiming.agentRunId}-${syntheticTiming.phase}-${syntheticTiming.startedAt}`;
+    map.set(key, { message: fb.message, attachments: fb.attachments });
+    synthetic.push(syntheticTiming);
+  }
+
+  // Insert synthetic entries after the last existing run:rejected
+  result.splice(insertAfter + 1, 0, ...synthetic);
+
+  return { timings: result, rejectionMessages: map };
 }
 
 export function ActivityTab({ timings, loading, error, rejectionFeedback }: ActivityTabProps) {
@@ -122,10 +171,13 @@ export function ActivityTab({ timings, loading, error, rejectionFeedback }: Acti
     0
   );
 
-  // Build a map from rejection index to feedback message
-  const rejectionMessages = buildRejectionMessageMap(timings, rejectionFeedback);
+  // Ensure every rejection feedback entry has a timing event and build display map
+  const { timings: enrichedTimings, rejectionMessages } = ensureRejectionTimingsAndBuildMap(
+    timings,
+    rejectionFeedback
+  );
 
-  const groups = groupTimingsByRun(timings);
+  const groups = groupTimingsByRun(enrichedTimings);
   const multiRun = groups.length > 1;
 
   const totalExecMs = nodeTimings.reduce((sum, t) => sum + (t.durationMs ?? 0), 0);

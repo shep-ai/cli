@@ -1,0 +1,67 @@
+name: activity-tab-rejections
+number: 57
+branch: feat/activity-tab-rejections
+oneLiner: >-
+  Fix activity tab bug where not all rejection feedback entries are rendered
+  when there are more feedback entries than run:rejected timing events.
+userQuery: >
+  Fix a bug in the Activity tab for the Pull Request Evidence Agent UI.
+  In the Activity tab, not all rejection comments are shown, even though they
+  exist in the CLI output and in spec.yaml. The actual run contains 4 rejection
+  feedback entries but only 2 are displayed.
+summary: >
+  Fix activity tab bug where rejection feedback entries were lost when the
+  timing array contained fewer run:rejected events than feedback entries.
+  The fix synthesises additional timing events for unmatched feedback so every
+  rejection comment renders in the timeline.
+phase: Analysis
+sizeEstimate: M
+relatedFeatures: []
+technologies: []
+relatedLinks: []
+openQuestions: []
+content: >
+  ## Problem Statement
+
+
+  Fix a bug in the Activity tab for the Pull Request Evidence Agent UI where
+  not all rejection comments are shown. The UI only renders rejection feedback
+  entries that have a matching run:rejected timing event, but some runs have
+  more feedback entries than timing events. The fix ensures every rejection
+  feedback entry has a corresponding timing event and renders in the timeline.
+
+
+  ## Success Criteria
+
+
+  - All rejection feedback entries appear in the Activity tab
+
+  - Duplicate messages appear as separate events
+
+  - Long messages render without data loss
+
+  - Tests cover multiple rejections and identical messages across iterations
+
+
+  ## Affected Areas
+
+
+  | Area | Impact | Reasoning |
+
+  | ---- | ------ | --------- |
+
+  | activity-tab.tsx | High | Core fix for rejection mapping logic |
+
+  | get-feature-phase-timings.ts | Low | Added timestamp field to data type |
+
+
+  ## Dependencies
+
+
+  None identified.
+
+
+  ## Size Estimate
+
+
+  **M** - Bug fix with test coverage

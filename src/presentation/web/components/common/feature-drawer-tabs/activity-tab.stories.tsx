@@ -309,6 +309,81 @@ export const WithRejection: Story = {
   },
 };
 
+/** Multiple rejections — all feedback entries shown even with fewer run:rejected events. */
+export const MultipleRejections: Story = {
+  args: {
+    timings: [
+      {
+        agentRunId: 'run-1',
+        phase: 'run:started',
+        startedAt: '2025-01-15T10:00:00Z',
+        durationMs: 0,
+      },
+      {
+        agentRunId: 'run-1',
+        phase: 'plan',
+        startedAt: '2025-01-15T10:00:01Z',
+        completedAt: '2025-01-15T10:05:00Z',
+        durationMs: 300000,
+      },
+      {
+        agentRunId: 'run-1',
+        phase: 'run:rejected',
+        startedAt: '2025-01-15T10:05:00Z',
+        durationMs: 0,
+      },
+      {
+        agentRunId: 'run-1',
+        phase: 'run:resumed',
+        startedAt: '2025-01-15T10:10:00Z',
+        durationMs: 0,
+      },
+      {
+        agentRunId: 'run-1',
+        phase: 'merge',
+        startedAt: '2025-01-15T10:10:01Z',
+        completedAt: '2025-01-15T10:15:00Z',
+        durationMs: 299000,
+      },
+      {
+        agentRunId: 'run-1',
+        phase: 'run:rejected',
+        startedAt: '2025-01-15T10:15:00Z',
+        durationMs: 0,
+      },
+    ],
+    rejectionFeedback: [
+      {
+        iteration: 1,
+        message: 'rebase on main',
+        phase: 'plan',
+        timestamp: '2025-01-15T10:05:00Z',
+      },
+      {
+        iteration: 2,
+        message: 'rebase on main',
+        phase: 'merge',
+        timestamp: '2025-01-15T10:15:00Z',
+      },
+      {
+        iteration: 3,
+        message: 'add support for evidence agent into fast mode as well',
+        phase: 'merge',
+        timestamp: '2025-01-15T10:20:00Z',
+      },
+      {
+        iteration: 4,
+        message:
+          "I've test and created a feature but the screenshots seems to be broken https://github.com/shep-ai/cli/pull/258 fix",
+        phase: 'merge',
+        timestamp: '2025-01-15T10:25:00Z',
+      },
+    ],
+    loading: false,
+    error: null,
+  },
+};
+
 /** Approval wait indicators — phases with approval wait sub-rows. */
 export const WithApprovalWaits: Story = {
   args: {

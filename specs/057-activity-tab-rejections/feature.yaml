@@ -1,0 +1,36 @@
+feature:
+  id: '057-activity-tab-rejections'
+  name: 'activity-tab-rejections'
+  number: 57
+  branch: 'feat/057-activity-tab-rejections'
+  lifecycle: 'research'
+  createdAt: '2026-03-10T07:34:56Z'
+
+status:
+  phase: 'research'
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-03-10T07:34:56Z'
+  lastUpdatedBy: 'feature-agent'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-03-10T07:34:56Z'
+    completedBy: 'feature-agent'
+
+errors:
+  current: null
+  history: []

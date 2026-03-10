@@ -330,6 +330,163 @@ describe('ActivityTab', () => {
       expect(screen.getByText('rejected')).toBeInTheDocument();
       expect(screen.queryByTestId('rejection-feedback-text')).not.toBeInTheDocument();
     });
+
+    it('displays all rejection feedback entries even when more feedback than run:rejected events', () => {
+      // Simulate the real-world scenario: 4 rejection feedback entries
+      // but only 2 run:rejected timing events
+      const timingsWithTwoRejections: PhaseTimingData[] = [
+        {
+          agentRunId: run1Id,
+          phase: 'run:started',
+          startedAt: '2024-01-01T00:00:00.000Z',
+        },
+        {
+          agentRunId: run1Id,
+          phase: 'plan',
+          startedAt: '2024-01-01T00:00:01.000Z',
+          completedAt: '2024-01-01T00:00:05.000Z',
+          durationMs: 4000,
+        },
+        {
+          agentRunId: run1Id,
+          phase: 'run:rejected',
+          startedAt: '2024-01-01T00:00:05.000Z',
+        },
+        {
+          agentRunId: run1Id,
+          phase: 'run:resumed',
+          startedAt: '2024-01-01T00:00:10.000Z',
+        },
+        {
+          agentRunId: run1Id,
+          phase: 'merge',
+          startedAt: '2024-01-01T00:00:10.000Z',
+          completedAt: '2024-01-01T00:00:20.000Z',
+          durationMs: 10000,
+        },
+        {
+          agentRunId: run1Id,
+          phase: 'run:rejected',
+          startedAt: '2024-01-01T00:00:20.000Z',
+        },
+      ];
+
+      const feedback: RejectionFeedbackData[] = [
+        { iteration: 1, message: 'rebase on main', phase: 'plan' },
+        { iteration: 2, message: 'rebase on main', phase: 'merge' },
+        {
+          iteration: 3,
+          message: 'add support for evidence agent into fast mode as well',
+          phase: 'merge',
+        },
+        {
+          iteration: 4,
+          message:
+            "I've test and created a feature but the screenshots seems to be broken https://github.com/shep-ai/cli/pull/258 fix",
+          phase: 'merge',
+        },
+      ];
+
+      renderActivityTab({
+        timings: timingsWithTwoRejections,
+        rejectionFeedback: feedback,
+      });
+
+      // All 4 rejection feedback texts must be visible
+      const feedbackElements = screen.getAllByTestId('rejection-feedback-text');
+      expect(feedbackElements).toHaveLength(4);
+
+      // Verify specific messages
+      expect(
+        screen.getByText(/add support for evidence agent into fast mode as well/)
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/I've test and created a feature but the screenshots seems to be broken/)
+      ).toBeInTheDocument();
+    });
+
+    it('shows duplicate rejection messages as separate events', () => {
+      const timingsWithRejection: PhaseTimingData[] = [
+        {
+          agentRunId: run1Id,
+          phase: 'run:started',
+          startedAt: '2024-01-01T00:00:00.000Z',
+        },
+        {
+          agentRunId: run1Id,
+          phase: 'plan',
+          startedAt: '2024-01-01T00:00:01.000Z',
+          completedAt: '2024-01-01T00:00:05.000Z',
+          durationMs: 4000,
+        },
+        {
+          agentRunId: run1Id,
+          phase: 'run:rejected',
+          startedAt: '2024-01-01T00:00:05.000Z',
+        },
+        {
+          agentRunId: run1Id,
+          phase: 'run:resumed',
+          startedAt: '2024-01-01T00:00:10.000Z',
+        },
+        {
+          agentRunId: run1Id,
+          phase: 'merge',
+          startedAt: '2024-01-01T00:00:10.000Z',
+          completedAt: '2024-01-01T00:00:20.000Z',
+          durationMs: 10000,
+        },
+        {
+          agentRunId: run1Id,
+          phase: 'run:rejected',
+          startedAt: '2024-01-01T00:00:20.000Z',
+        },
+      ];
+
+      // Two identical messages from different iterations
+      const feedback: RejectionFeedbackData[] = [
+        { iteration: 1, message: 'rebase on main', phase: 'plan' },
+        { iteration: 2, message: 'rebase on main', phase: 'merge' },
+      ];
+
+      renderActivityTab({
+        timings: timingsWithRejection,
+        rejectionFeedback: feedback,
+      });
+
+      // Both "rebase on main" must appear as separate rejection events
+      const feedbackElements = screen.getAllByTestId('rejection-feedback-text');
+      expect(feedbackElements).toHaveLength(2);
+      // Both should contain the same message text
+      for (const el of feedbackElements) {
+        expect(el.textContent).toContain('rebase on main');
+      }
+    });
+
+    it('renders long rejection messages without data loss', () => {
+      const timingsWithRejection: PhaseTimingData[] = [
+        {
+          agentRunId: run1Id,
+          phase: 'run:started',
+          startedAt: '2024-01-01T00:00:00.000Z',
+        },
+        {
+          agentRunId: run1Id,
+          phase: 'run:rejected',
+          startedAt: '2024-01-01T00:00:05.000Z',
+        },
+      ];
+
+      const longMessage =
+        "I've test and created a feature but the screenshots seems to be broken https://github.com/shep-ai/cli/pull/258 fix";
+      renderActivityTab({
+        timings: timingsWithRejection,
+        rejectionFeedback: [{ iteration: 1, message: longMessage, phase: 'merge' }],
+      });
+
+      expect(screen.getByTestId('rejection-feedback-text')).toBeInTheDocument();
+      expect(screen.getByText(new RegExp(longMessage.slice(0, 40)))).toBeInTheDocument();
+    });
   });
 
   describe('color coding', () => {
