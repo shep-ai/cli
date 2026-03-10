@@ -55,6 +55,14 @@ vi.mock('@/infrastructure/services/agents/feature-agent/phase-timing-context.js'
   recordApprovalWaitStart: vi.fn().mockResolvedValue(undefined),
 }));
 
+// Mock settings service — evidence enabled by default in tests
+vi.mock('@/infrastructure/services/settings.service.js', () => ({
+  hasSettings: vi.fn().mockReturnValue(true),
+  getSettings: vi.fn().mockReturnValue({
+    workflow: { enableEvidence: true, commitEvidence: false },
+  }),
+}));
+
 const MOCK_SPEC_YAML = `name: quick-fix
 userQuery: >
   Fix the typo in the README

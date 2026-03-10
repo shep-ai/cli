@@ -484,6 +484,24 @@ WHERE repository_path NOT IN (SELECT path FROM repositories WHERE path IS NOT NU
       }
     },
   },
+  {
+    version: 30,
+    // Migration 030: Add evidence workflow settings to settings table.
+    sql: '',
+    handler: (db: Database.Database) => {
+      const columns = db.pragma('table_info(settings)') as { name: string }[];
+      if (!columns.some((c) => c.name === 'workflow_enable_evidence')) {
+        db.exec(
+          'ALTER TABLE settings ADD COLUMN workflow_enable_evidence INTEGER NOT NULL DEFAULT 0'
+        );
+      }
+      if (!columns.some((c) => c.name === 'workflow_commit_evidence')) {
+        db.exec(
+          'ALTER TABLE settings ADD COLUMN workflow_commit_evidence INTEGER NOT NULL DEFAULT 0'
+        );
+      }
+    },
+  },
 ];
 
 /**

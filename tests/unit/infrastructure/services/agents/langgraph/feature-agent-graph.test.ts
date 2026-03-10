@@ -30,6 +30,14 @@ vi.mock('node:fs', async (importOriginal) => {
   };
 });
 
+// Mock settings service — evidence enabled by default in tests
+vi.mock('@/infrastructure/services/settings.service.js', () => ({
+  hasSettings: vi.fn().mockReturnValue(true),
+  getSettings: vi.fn().mockReturnValue({
+    workflow: { enableEvidence: true, commitEvidence: false },
+  }),
+}));
+
 const MOCK_SPEC_YAML = `name: test
 oneLiner: A test feature
 summary: Test feature summary

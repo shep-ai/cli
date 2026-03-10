@@ -565,3 +565,21 @@ rejectionFeedback:
     message: rebase on main.
     phase: merge
     timestamp: '2026-03-10T11:30:05.997Z'
+  - iteration: 7
+    message: >-
+      The evidence "agent" should be enabled/disabled via settings under
+      workflow.
+
+      once the toggle enabled evidence are saved under the shep_home folder.
+
+
+      there should be also another toggle option that can be enabled only if the
+      evidence are enabled which will commit the evidence and add it to the pull
+      request.
+
+
+      by default the evidence is not commited is just saved in the shep home
+      folder and can be seen in the merge review in a new section called
+      evidences
+    phase: merge
+    timestamp: '2026-03-10T13:06:44.505Z'

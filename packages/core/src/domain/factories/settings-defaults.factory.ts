@@ -134,6 +134,8 @@ export function createDefaultSettings(): Settings {
   const workflow: WorkflowConfig = {
     openPrOnImplementationComplete: false,
     approvalGateDefaults,
+    enableEvidence: false,
+    commitEvidence: false,
   };
 
   const featureFlags: FeatureFlags = {

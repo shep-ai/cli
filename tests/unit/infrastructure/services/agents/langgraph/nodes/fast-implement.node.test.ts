@@ -53,6 +53,14 @@ vi.mock('@/infrastructure/services/agents/feature-agent/phase-timing-context.js'
   recordPhaseEnd: vi.fn().mockResolvedValue(undefined),
 }));
 
+// Mock settings service — evidence enabled by default in tests
+vi.mock('@/infrastructure/services/settings.service.js', () => ({
+  hasSettings: vi.fn().mockReturnValue(true),
+  getSettings: vi.fn().mockReturnValue({
+    workflow: { enableEvidence: true, commitEvidence: false },
+  }),
+}));
+
 import { buildFastImplementPrompt } from '@/infrastructure/services/agents/feature-agent/nodes/prompts/fast-implement.prompt.js';
 import { createFastImplementNode } from '@/infrastructure/services/agents/feature-agent/nodes/fast-implement.node.js';
 

@@ -20,6 +20,8 @@ const defaultWorkflow = {
     allowMerge: false,
     pushOnImplementationComplete: false,
   },
+  enableEvidence: false,
+  commitEvidence: false,
 };
 
 describe('WorkflowSettingsSection', () => {

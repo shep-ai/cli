@@ -80,11 +80,6 @@ describe('buildEvidencePrompt', () => {
     expect(prompt).toContain('/fallback/repo');
   });
 
-  it('should include .shep/evidence/ storage instructions', () => {
-    const prompt = buildEvidencePrompt(baseState());
-    expect(prompt).toContain('.shep/evidence/');
-  });
-
   it('should include JSON output format instructions', () => {
     const prompt = buildEvidencePrompt(baseState());
     // Should instruct the agent to output a fenced JSON code block with evidence records
@@ -102,30 +97,6 @@ describe('buildEvidencePrompt', () => {
     expect(prompt).toContain('Video');
     expect(prompt).toContain('TestOutput');
     expect(prompt).toContain('TerminalRecording');
-  });
-
-  it('should include commit block via buildCommitPushBlock', () => {
-    vi.mocked(buildCommitPushBlock).mockReturnValue('## Final Step — Commit Your Work\n(mocked)');
-
-    const prompt = buildEvidencePrompt(baseState());
-    expect(prompt).toContain('## Final Step — Commit Your Work');
-    expect(vi.mocked(buildCommitPushBlock)).toHaveBeenCalled();
-  });
-
-  it('should pass .shep/evidence/ path in commit block files', () => {
-    buildEvidencePrompt(baseState());
-    expect(vi.mocked(buildCommitPushBlock)).toHaveBeenCalledWith(
-      expect.objectContaining({
-        files: expect.arrayContaining([expect.stringContaining('.shep/evidence/')]),
-      })
-    );
-  });
-
-  it('should pass push flag through to buildCommitPushBlock', () => {
-    buildEvidencePrompt(baseState({ push: true }));
-    expect(vi.mocked(buildCommitPushBlock)).toHaveBeenCalledWith(
-      expect.objectContaining({ push: true })
-    );
   });
 
   it('should include file size constraints (standard resolution)', () => {
@@ -147,11 +118,8 @@ describe('buildEvidencePrompt', () => {
   it('should include evidence capture instructions per task type', () => {
     const prompt = buildEvidencePrompt(baseState());
     const lower = prompt.toLowerCase();
-    // Should mention screenshots for UI tasks
     expect(lower).toContain('screenshot');
-    // Should mention test output for backend tasks
     expect(lower).toMatch(/test output|test result/);
-    // Should mention CLI/terminal for CLI tasks
     expect(lower).toMatch(/terminal|cli/);
   });
 
@@ -159,9 +127,7 @@ describe('buildEvidencePrompt', () => {
     vi.mocked(readSpecFile).mockReturnValue('');
 
     const prompt = buildEvidencePrompt(baseState());
-    // Should still produce a valid prompt even with empty spec
     expect(prompt.length).toBeGreaterThan(100);
-    expect(prompt).toContain('.shep/evidence/');
   });
 
   it('should handle missing tasks.yaml gracefully', () => {
@@ -172,7 +138,6 @@ describe('buildEvidencePrompt', () => {
 
     const prompt = buildEvidencePrompt(baseState());
     expect(prompt.length).toBeGreaterThan(100);
-    expect(prompt).toContain('.shep/evidence/');
   });
 
   it('should be deterministic (same input = same output)', () => {
@@ -183,10 +148,65 @@ describe('buildEvidencePrompt', () => {
     expect(prompt1).toBe(prompt2);
   });
 
-  it('should include the specDir for evidence storage path context', () => {
-    const prompt = buildEvidencePrompt(baseState({ specDir: '/custom/specs' }));
-    // The prompt may reference specDir for context
-    expect(prompt).toBeDefined();
-    expect(prompt.length).toBeGreaterThan(0);
+  describe('commitEvidence=false (default)', () => {
+    it('should store evidence in shep home folder by default', () => {
+      const prompt = buildEvidencePrompt(baseState());
+      // Should reference the shep home evidence directory (derived from worktree path)
+      expect(prompt).toContain('evidence');
+      expect(prompt).toContain('shep home');
+    });
+
+    it('should NOT include commit/push block', () => {
+      const prompt = buildEvidencePrompt(baseState());
+      expect(prompt).toContain('Do NOT commit or push');
+      expect(vi.mocked(buildCommitPushBlock)).not.toHaveBeenCalled();
+    });
+
+    it('should instruct NOT to commit files', () => {
+      const prompt = buildEvidencePrompt(baseState(), { commitEvidence: false });
+      expect(prompt).toContain('Do NOT commit or push');
+    });
+  });
+
+  describe('commitEvidence=true', () => {
+    it('should include .shep/evidence/ worktree storage instructions', () => {
+      const prompt = buildEvidencePrompt(baseState(), { commitEvidence: true });
+      expect(prompt).toContain('.shep/evidence/');
+    });
+
+    it('should include commit block via buildCommitPushBlock', () => {
+      vi.mocked(buildCommitPushBlock).mockReturnValue('## Final Step — Commit Your Work\n(mocked)');
+
+      const prompt = buildEvidencePrompt(baseState(), { commitEvidence: true });
+      expect(prompt).toContain('## Final Step — Commit Your Work');
+      expect(vi.mocked(buildCommitPushBlock)).toHaveBeenCalled();
+    });
+
+    it('should pass .shep/evidence/ path in commit block files', () => {
+      buildEvidencePrompt(baseState(), { commitEvidence: true });
+      expect(vi.mocked(buildCommitPushBlock)).toHaveBeenCalledWith(
+        expect.objectContaining({
+          files: expect.arrayContaining([expect.stringContaining('.shep/evidence/')]),
+        })
+      );
+    });
+
+    it('should pass push flag through to buildCommitPushBlock', () => {
+      buildEvidencePrompt(baseState({ push: true }), { commitEvidence: true });
+      expect(vi.mocked(buildCommitPushBlock)).toHaveBeenCalledWith(
+        expect.objectContaining({ push: true })
+      );
+    });
+
+    it('should mention PR body in the prompt', () => {
+      const prompt = buildEvidencePrompt(baseState(), { commitEvidence: true });
+      expect(prompt).toContain('pull request body');
+    });
+
+    it('should save to BOTH locations', () => {
+      const prompt = buildEvidencePrompt(baseState(), { commitEvidence: true });
+      expect(prompt).toContain('Shep home folder');
+      expect(prompt).toContain('Worktree');
+    });
   });
 });

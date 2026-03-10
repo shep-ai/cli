@@ -7,12 +7,61 @@ import {
   GitCommitHorizontal,
   GitBranch,
   ArrowRight,
+  Camera,
+  FileText,
+  MonitorPlay,
+  Terminal,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { CiStatusBadge } from '@/components/common/ci-status-badge';
 import { DrawerActionBar } from '@/components/common/drawer-action-bar';
 import { DiffView } from './diff-view';
-import type { MergeReviewProps } from './merge-review-config';
+import type {
+  MergeReviewProps,
+  MergeReviewEvidence,
+} from './merge-review-config';
+
+const EVIDENCE_ICONS: Record<MergeReviewEvidence['type'], typeof Camera> = {
+  Screenshot: Camera,
+  Video: MonitorPlay,
+  TestOutput: FileText,
+  TerminalRecording: Terminal,
+};
+
+function EvidenceList({ evidence }: { evidence: MergeReviewEvidence[] }) {
+  return (
+    <div className="border-border rounded-lg border">
+      <div className="px-4 py-3">
+        <div className="mb-3 flex items-center gap-2">
+          <Camera className="text-muted-foreground h-4 w-4" />
+          <span className="text-foreground text-xs font-semibold">Evidences</span>
+          <Badge variant="secondary" className="text-[10px]">
+            {evidence.length}
+          </Badge>
+        </div>
+        <ul className="space-y-2">
+          {evidence.map((e) => {
+            const Icon = EVIDENCE_ICONS[e.type] ?? Camera;
+            return (
+              <li key={`${e.type}-${e.relativePath}`} className="flex items-start gap-2.5">
+                <Icon className="text-muted-foreground mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <div className="min-w-0">
+                  <span className="text-foreground text-xs font-medium">{e.description}</span>
+                  {e.taskRef ? (
+                    <span className="text-muted-foreground ml-1.5 text-[10px]">({e.taskRef})</span>
+                  ) : null}
+                  <p className="text-muted-foreground mt-0.5 truncate font-mono text-[10px]">
+                    {e.relativePath}
+                  </p>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </div>
+  );
+}
 
 export function MergeReview({
   data,
@@ -23,7 +72,7 @@ export function MergeReview({
   chatInput,
   onChatInputChange,
 }: MergeReviewProps) {
-  const { pr, diffSummary, fileDiffs, branch, warning } = data;
+  const { pr, diffSummary, fileDiffs, branch, warning, evidence } = data;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -139,6 +188,9 @@ export function MergeReview({
             </div>
           </div>
         ) : null}
+
+        {/* Evidence */}
+        {evidence && evidence.length > 0 ? <EvidenceList evidence={evidence} /> : null}
 
         {/* File diffs */}
         {fileDiffs && fileDiffs.length > 0 ? <DiffView fileDiffs={fileDiffs} /> : null}

@@ -225,6 +225,7 @@ export function createMergeNode(deps: MergeNodeDeps) {
             prUrl,
             prNumber,
             ciStatus,
+            evidence: state.evidence ?? [],
           });
         }
       } else {

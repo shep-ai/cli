@@ -140,7 +140,10 @@ export function buildCommitPushPrPrompt(
   const cwd = state.worktreePath || state.repositoryPath;
   const shouldPush = state.push || state.openPr;
   const rejectionSection = getMergeRejectionFeedback(specContent);
-  const evidenceSection = formatEvidenceSection(state.evidence, branch, repoUrl);
+  // Only include evidence in the PR body when commitEvidence is enabled
+  const evidenceSection = state.evidence?.length
+    ? formatEvidenceSection(state.evidence, branch, repoUrl)
+    : '';
 
   const steps: string[] = [];
 

@@ -34,6 +34,12 @@ import {
   VALID_TASKS_YAML,
 } from './fixtures.js';
 import { expectNoInterrupts, ALL_GATES_ENABLED } from './helpers.js';
+import {
+  initializeSettings,
+  hasSettings,
+  resetSettings,
+} from '@/infrastructure/services/settings.service.js';
+import type { Settings } from '@/domain/generated/output.js';
 
 /**
  * Non-retryable error message. retryExecute() checks for "Process exited with code"
@@ -122,6 +128,48 @@ describe('Graph State Transitions › Resume After Error', () => {
   let output: { restore: () => void };
 
   beforeAll(() => {
+    // Initialize settings singleton so evidence sub-agent runs within implement node
+    if (!hasSettings()) {
+      initializeSettings({
+        id: 'test',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        models: { default: 'claude-sonnet-4' },
+        user: {},
+        environment: { defaultEditor: 'vscode', shellPreference: 'bash' },
+        system: { autoUpdate: false, logLevel: 'error' },
+        agent: { type: 'claude-code', authMethod: 'session' },
+        notifications: {
+          inApp: { enabled: false },
+          browser: { enabled: false },
+          desktop: { enabled: false },
+          events: {
+            agentStarted: false,
+            phaseCompleted: false,
+            waitingApproval: false,
+            agentCompleted: false,
+            agentFailed: false,
+            prMerged: false,
+            prClosed: false,
+            prChecksPassed: false,
+            prChecksFailed: false,
+          },
+        },
+        workflow: {
+          openPrOnImplementationComplete: false,
+          approvalGateDefaults: {
+            allowPrd: false,
+            allowPlan: false,
+            allowMerge: false,
+            pushOnImplementationComplete: false,
+          },
+          enableEvidence: true,
+          commitEvidence: false,
+        },
+        onboardingComplete: true,
+      } as Settings);
+    }
+
     output = (() => {
       const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
       const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
@@ -150,6 +198,7 @@ describe('Graph State Transitions › Resume After Error', () => {
   afterAll(() => {
     output.restore();
     if (tempDir) rmSync(tempDir, { recursive: true, force: true });
+    resetSettings();
   });
 
   /**

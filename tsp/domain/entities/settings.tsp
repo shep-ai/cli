@@ -241,6 +241,24 @@ model WorkflowConfig {
 
   @doc("Maximum characters of CI failure logs to pass to the executor (default: 50000)")
   ciLogMaxChars?: int32;
+
+  /**
+   * Whether evidence collection is enabled after implementation.
+   * When enabled, the agent captures screenshots, test outputs, and other
+   * artifacts proving task completion. Evidence is saved to the shep home
+   * folder (~/.shep/repos/<hash>/evidence/).
+   */
+  @doc("Enable evidence collection after implementation (default: false)")
+  enableEvidence: boolean = false;
+
+  /**
+   * Whether to commit evidence files to the feature branch and include
+   * them in the PR body. Only takes effect when enableEvidence is true.
+   * When disabled, evidence is saved locally and visible in the merge
+   * review UI but not committed to the repository.
+   */
+  @doc("Commit evidence to PR (default: false, requires enableEvidence)")
+  commitEvidence: boolean = false;
 }
 
 @doc("AI coding agent configuration")

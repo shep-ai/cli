@@ -33,6 +33,7 @@ import { recordPhaseStart, recordPhaseEnd } from '../phase-timing-context.js';
 import { updateNodeLifecycle } from '../lifecycle-context.js';
 import { buildEvidencePrompt } from './prompts/evidence-prompts.js';
 import { parseEvidenceRecords } from './evidence-output-parser.js';
+import { hasSettings, getSettings } from '../../../settings.service.js';
 
 /**
  * Factory that creates the evidence collection node function.
@@ -63,7 +64,8 @@ export function createEvidenceNode(executor: IAgentExecutor) {
     const timingId = await recordPhaseStart('evidence');
 
     try {
-      const prompt = buildEvidencePrompt(state);
+      const commitEvidence = hasSettings() && getSettings().workflow.commitEvidence;
+      const prompt = buildEvidencePrompt(state, { commitEvidence });
       const options = buildExecutorOptions(state);
 
       log.info(`Executing agent at cwd=${options.cwd}`);

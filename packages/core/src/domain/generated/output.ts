@@ -349,6 +349,14 @@ export type WorkflowConfig = {
    * Maximum characters of CI failure logs to pass to the executor (default: 50000)
    */
   ciLogMaxChars?: number;
+  /**
+   * Enable evidence collection after implementation (default: false)
+   */
+  enableEvidence: boolean;
+  /**
+   * Commit evidence to PR (default: false, requires enableEvidence)
+   */
+  commitEvidence: boolean;
 };
 export enum AgentType {
   ClaudeCode = 'claude-code',

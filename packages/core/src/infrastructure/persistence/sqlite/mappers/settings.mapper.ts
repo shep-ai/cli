@@ -85,6 +85,10 @@ export interface SettingsRow {
   approval_gate_allow_merge: number;
   approval_gate_push_on_impl_complete: number;
 
+  // WorkflowConfig evidence settings (workflow.*)
+  workflow_enable_evidence: number;
+  workflow_commit_evidence: number;
+
   // FeatureFlags (featureFlags.*)
   feature_flag_skills: number;
   feature_flag_env_deploy: number;
@@ -153,6 +157,10 @@ export function toDatabase(settings: Settings): SettingsRow {
     ci_max_fix_attempts: settings.workflow.ciMaxFixAttempts ?? null,
     ci_watch_timeout_ms: settings.workflow.ciWatchTimeoutMs ?? null,
     ci_log_max_chars: settings.workflow.ciLogMaxChars ?? null,
+
+    // WorkflowConfig evidence settings (boolean → INTEGER)
+    workflow_enable_evidence: settings.workflow.enableEvidence ? 1 : 0,
+    workflow_commit_evidence: settings.workflow.commitEvidence ? 1 : 0,
 
     // Onboarding (boolean → INTEGER)
     onboarding_complete: settings.onboardingComplete ? 1 : 0,
@@ -248,6 +256,8 @@ export function fromDatabase(row: SettingsRow): Settings {
       ...(row.ci_max_fix_attempts !== null && { ciMaxFixAttempts: row.ci_max_fix_attempts }),
       ...(row.ci_watch_timeout_ms !== null && { ciWatchTimeoutMs: row.ci_watch_timeout_ms }),
       ...(row.ci_log_max_chars !== null && { ciLogMaxChars: row.ci_log_max_chars }),
+      enableEvidence: row.workflow_enable_evidence === 1,
+      commitEvidence: row.workflow_commit_evidence === 1,
     },
 
     // FeatureFlags (INTEGER 0/1 → boolean)

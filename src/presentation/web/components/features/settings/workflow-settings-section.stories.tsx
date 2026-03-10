@@ -23,6 +23,8 @@ export const Default: Story = {
         allowMerge: false,
         pushOnImplementationComplete: false,
       },
+      enableEvidence: false,
+      commitEvidence: false,
     },
   },
 };
@@ -40,6 +42,8 @@ export const AllEnabled: Story = {
       ciMaxFixAttempts: 3,
       ciWatchTimeoutMs: 300000,
       ciLogMaxChars: 50000,
+      enableEvidence: true,
+      commitEvidence: true,
     },
   },
 };
@@ -57,6 +61,8 @@ export const WithCiSettings: Story = {
       ciMaxFixAttempts: 5,
       ciWatchTimeoutMs: 600000,
       ciLogMaxChars: 100000,
+      enableEvidence: false,
+      commitEvidence: false,
     },
   },
 };

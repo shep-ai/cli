@@ -30,6 +30,8 @@ const {
   mockBuildEvidencePrompt,
   mockParseEvidenceRecords,
   mockIsGraphBubbleUp,
+  mockHasSettings,
+  mockGetSettings,
 } = vi.hoisted(() => ({
   mockGetCompletedPhases: vi.fn().mockReturnValue([]),
   mockMarkPhaseComplete: vi.fn(),
@@ -38,6 +40,8 @@ const {
   mockBuildEvidencePrompt: vi.fn().mockReturnValue('evidence collection prompt'),
   mockParseEvidenceRecords: vi.fn().mockReturnValue([]),
   mockIsGraphBubbleUp: vi.fn().mockReturnValue(false),
+  mockHasSettings: vi.fn().mockReturnValue(true),
+  mockGetSettings: vi.fn().mockReturnValue({ workflow: { commitEvidence: false } }),
 }));
 
 // Mock LangGraph
@@ -88,6 +92,12 @@ vi.mock('@/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-p
 // Mock evidence output parser
 vi.mock('@/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.js', () => ({
   parseEvidenceRecords: mockParseEvidenceRecords,
+}));
+
+// Mock settings service
+vi.mock('@/infrastructure/services/settings.service.js', () => ({
+  hasSettings: mockHasSettings,
+  getSettings: mockGetSettings,
 }));
 
 import { createEvidenceNode } from '@/infrastructure/services/agents/feature-agent/nodes/evidence.node.js';
@@ -162,7 +172,7 @@ describe('createEvidenceNode', () => {
       const state = baseState();
       await node(state);
 
-      expect(mockBuildEvidencePrompt).toHaveBeenCalledWith(state);
+      expect(mockBuildEvidencePrompt).toHaveBeenCalledWith(state, { commitEvidence: false });
       expect(executor.execute).toHaveBeenCalledWith('evidence collection prompt');
     });
 
