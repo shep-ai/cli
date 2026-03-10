@@ -66,8 +66,16 @@ describe('AppSidebar', () => {
     expect(screen.getByText('Settings Page')).toBeInTheDocument();
   });
 
-  it('renders New feature button in footer', () => {
+  it('hides New feature button by default', () => {
     renderWithSidebar(<AppSidebar features={mockFeatures} featureFlags={defaultFlags} />);
+
+    expect(screen.queryByRole('button', { name: /new feature/i })).not.toBeInTheDocument();
+  });
+
+  it('renders New feature button when showNewFeature is true', () => {
+    renderWithSidebar(
+      <AppSidebar features={mockFeatures} featureFlags={defaultFlags} showNewFeature />
+    );
 
     expect(screen.getByRole('button', { name: /new feature/i })).toBeInTheDocument();
   });
@@ -98,6 +106,7 @@ describe('AppSidebar', () => {
       <AppSidebar
         features={mockFeatures}
         featureFlags={defaultFlags}
+        showNewFeature
         onNewFeature={handleNewFeature}
       />
     );
