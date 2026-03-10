@@ -51,6 +51,18 @@ function createMinimalAgentRun(overrides: Partial<AgentRun> = {}): AgentRun {
 }
 
 describe('deriveNodeState', () => {
+  it('returns deleting for Deleting lifecycle (takes top priority)', () => {
+    const feature = createMinimalFeature({ lifecycle: SdlcLifecycle.Deleting });
+    // Even with a running agent, Deleting lifecycle takes priority
+    const run = createMinimalAgentRun({ status: AgentRunStatus.running });
+    expect(deriveNodeState(feature, run)).toBe('deleting');
+  });
+
+  it('returns deleting for Deleting lifecycle without agent run', () => {
+    const feature = createMinimalFeature({ lifecycle: SdlcLifecycle.Deleting });
+    expect(deriveNodeState(feature)).toBe('deleting');
+  });
+
   describe('with agent run (primary signal)', () => {
     it('returns action-required when agent is waiting_approval', () => {
       const feature = createMinimalFeature({ lifecycle: SdlcLifecycle.Requirements });

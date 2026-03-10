@@ -27,6 +27,7 @@ const stateMapping: Record<FeatureNodeState, FeatureStatus | null> = {
   blocked: 'blocked',
   error: 'error',
   creating: null,
+  deleting: null,
 };
 
 /**

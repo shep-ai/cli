@@ -661,6 +661,7 @@ export enum SdlcLifecycle {
   Review = 'Review',
   Maintain = 'Maintain',
   Blocked = 'Blocked',
+  Deleting = 'Deleting',
 }
 
 /**
@@ -780,7 +781,7 @@ export type Attachment = {
 /**
  * Central entity tracking a piece of work through the SDLC lifecycle (Aggregate Root)
  */
-export type Feature = BaseEntity & {
+export type Feature = SoftDeletableEntity & {
   /**
    * Human-readable name identifying this feature
    */

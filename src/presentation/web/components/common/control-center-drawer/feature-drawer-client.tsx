@@ -78,6 +78,11 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
     for (const update of resolveSseEventUpdates(newEvents)) {
       if (update.featureId !== featureNode.featureId) continue;
 
+      // Skip SSE updates for features in 'deleting' state — prevents stale
+      // events from overwriting the delete animation or triggering artifact
+      // fetches (which would fail with "not found" for soft-deleted features).
+      if (featureNode.state === 'deleting') continue;
+
       // Trigger a server refresh to get the latest drawer view,
       // but skip when the drawer is closed, the user has unsaved changes,
       // or a rejection is in-flight to avoid unnecessary refreshes.

@@ -3,6 +3,7 @@
  *
  * Implements IFeatureRepository using SQLite database.
  * Uses prepared statements to prevent SQL injection.
+ * Excludes soft-deleted features (deleted_at IS NOT NULL) from queries by default.
  */
 
 import type Database from 'better-sqlite3';
@@ -57,7 +58,7 @@ export class SQLiteFeatureRepository implements IFeatureRepository {
   }
 
   async findById(id: string): Promise<Feature | null> {
-    const stmt = this.db.prepare('SELECT * FROM features WHERE id = ?');
+    const stmt = this.db.prepare('SELECT * FROM features WHERE id = ? AND deleted_at IS NULL');
     const row = stmt.get(id) as FeatureRow | undefined;
 
     if (!row) {
@@ -68,7 +69,7 @@ export class SQLiteFeatureRepository implements IFeatureRepository {
   }
 
   async findByIdPrefix(prefix: string): Promise<Feature | null> {
-    const stmt = this.db.prepare('SELECT * FROM features WHERE id LIKE ?');
+    const stmt = this.db.prepare('SELECT * FROM features WHERE id LIKE ? AND deleted_at IS NULL');
     const rows = stmt.all(`${prefix}%`) as FeatureRow[];
 
     if (rows.length === 0) return null;
@@ -82,7 +83,9 @@ export class SQLiteFeatureRepository implements IFeatureRepository {
   }
 
   async findBySlug(slug: string, repositoryPath: string): Promise<Feature | null> {
-    const stmt = this.db.prepare('SELECT * FROM features WHERE slug = ? AND repository_path = ?');
+    const stmt = this.db.prepare(
+      'SELECT * FROM features WHERE slug = ? AND repository_path = ? AND deleted_at IS NULL'
+    );
     const row = stmt.get(slug, repositoryPath) as FeatureRow | undefined;
 
     if (!row) {
@@ -95,6 +98,10 @@ export class SQLiteFeatureRepository implements IFeatureRepository {
   async list(filters?: FeatureListFilters): Promise<Feature[]> {
     const conditions: string[] = [];
     const params: unknown[] = [];
+
+    if (!filters?.includeDeleted) {
+      conditions.push('deleted_at IS NULL');
+    }
 
     if (filters?.repositoryPath) {
       conditions.push('repository_path = ?');
@@ -153,6 +160,7 @@ export class SQLiteFeatureRepository implements IFeatureRepository {
         ci_fix_attempts = @ci_fix_attempts,
         ci_fix_history = @ci_fix_history,
         parent_id = @parent_id,
+        deleted_at = @deleted_at,
         updated_at = @updated_at
       WHERE id = @id
     `);
@@ -163,5 +171,11 @@ export class SQLiteFeatureRepository implements IFeatureRepository {
   async delete(id: string): Promise<void> {
     const stmt = this.db.prepare('DELETE FROM features WHERE id = ?');
     stmt.run(id);
+  }
+
+  async softDelete(id: string): Promise<void> {
+    const now = Date.now();
+    const stmt = this.db.prepare('UPDATE features SET deleted_at = ?, updated_at = ? WHERE id = ?');
+    stmt.run(now, now, id);
   }
 }

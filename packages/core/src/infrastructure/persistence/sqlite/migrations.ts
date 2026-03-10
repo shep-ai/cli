@@ -472,6 +472,18 @@ WHERE repository_path NOT IN (SELECT path FROM repositories WHERE path IS NOT NU
       }
     },
   },
+  {
+    version: 29,
+    // Migration 029: Add soft delete support to features table.
+    sql: '',
+    handler: (db: Database.Database) => {
+      const columns = db.pragma('table_info(features)') as { name: string }[];
+      if (!columns.some((c) => c.name === 'deleted_at')) {
+        db.exec('ALTER TABLE features ADD COLUMN deleted_at INTEGER');
+        db.exec('CREATE INDEX IF NOT EXISTS idx_features_deleted_at ON features(deleted_at)');
+      }
+    },
+  },
 ];
 
 /**

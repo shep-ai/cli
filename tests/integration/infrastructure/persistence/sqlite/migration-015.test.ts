@@ -25,8 +25,8 @@ describe('Migration 015 — onboarding and approval gate defaults', () => {
     db.close();
   });
 
-  it('should set LATEST_SCHEMA_VERSION to 28', () => {
-    expect(LATEST_SCHEMA_VERSION).toBe(28);
+  it('should set LATEST_SCHEMA_VERSION to 29', () => {
+    expect(LATEST_SCHEMA_VERSION).toBe(29);
   });
 
   it('should add all 5 new columns to settings table', () => {

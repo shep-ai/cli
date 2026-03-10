@@ -59,6 +59,8 @@ export interface FeatureRow {
   parent_id: string | null;
   // User attachments (JSON array)
   attachments: string;
+  // Soft delete
+  deleted_at: number | null;
   created_at: number;
   updated_at: number;
 }
@@ -111,6 +113,9 @@ export function toDatabase(feature: Feature): FeatureRow {
     attachments: JSON.stringify(
       (feature.attachments ?? []).map((a) => ({ ...a, size: Number(a.size) }))
     ),
+    // Soft delete
+    deleted_at:
+      feature.deletedAt instanceof Date ? feature.deletedAt.getTime() : (feature.deletedAt ?? null),
     created_at: feature.createdAt instanceof Date ? feature.createdAt.getTime() : feature.createdAt,
     updated_at: feature.updatedAt instanceof Date ? feature.updatedAt.getTime() : feature.updatedAt,
   };
@@ -169,5 +174,7 @@ export function fromDatabase(row: FeatureRow): Feature {
     ...(row.parent_id != null && { parentId: row.parent_id }),
     // User attachments
     attachments: JSON.parse(row.attachments ?? '[]'),
+    // Soft delete
+    ...(row.deleted_at != null && { deletedAt: new Date(row.deleted_at) }),
   };
 }

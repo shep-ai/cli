@@ -70,6 +70,7 @@ function createTestRow(overrides: Partial<FeatureRow> = {}): FeatureRow {
     parent_id: null,
     fast: 0,
     attachments: '[]',
+    deleted_at: null,
     created_at: new Date('2026-03-08T10:00:00Z').getTime(),
     updated_at: new Date('2026-03-08T10:00:00Z').getTime(),
     ...overrides,
@@ -127,6 +128,38 @@ describe('Feature Mapper — attachments', () => {
       delete (row as unknown as Record<string, unknown>).attachments;
       const feature = fromDatabase(row);
       expect(feature.attachments).toEqual([]);
+    });
+  });
+});
+
+describe('Feature Mapper — soft delete', () => {
+  describe('toDatabase()', () => {
+    it('maps deletedAt Date to unix milliseconds', () => {
+      const deletedAt = new Date('2026-03-09T12:00:00Z');
+      const feature = createTestFeature({ deletedAt });
+      const row = toDatabase(feature);
+      expect(row.deleted_at).toBe(deletedAt.getTime());
+    });
+
+    it('maps undefined deletedAt to null', () => {
+      const feature = createTestFeature();
+      const row = toDatabase(feature);
+      expect(row.deleted_at).toBeNull();
+    });
+  });
+
+  describe('fromDatabase()', () => {
+    it('maps non-null deleted_at to Date', () => {
+      const ts = new Date('2026-03-09T12:00:00Z').getTime();
+      const row = createTestRow({ deleted_at: ts });
+      const feature = fromDatabase(row);
+      expect(feature.deletedAt).toEqual(new Date(ts));
+    });
+
+    it('omits deletedAt when deleted_at is null', () => {
+      const row = createTestRow({ deleted_at: null });
+      const feature = fromDatabase(row);
+      expect(feature.deletedAt).toBeUndefined();
     });
   });
 });

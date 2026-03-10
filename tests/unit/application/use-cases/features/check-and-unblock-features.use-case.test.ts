@@ -69,6 +69,7 @@ describe('CheckAndUnblockFeaturesUseCase', () => {
       findByParentId: vi.fn().mockResolvedValue([]),
       update: vi.fn().mockResolvedValue(undefined),
       delete: vi.fn(),
+      softDelete: vi.fn(),
     };
 
     mockAgentProcess = {

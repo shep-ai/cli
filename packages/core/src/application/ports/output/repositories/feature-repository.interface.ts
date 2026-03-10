@@ -17,6 +17,8 @@ import type { Feature, SdlcLifecycle } from '../../../../domain/generated/output
 export interface FeatureListFilters {
   repositoryPath?: string;
   lifecycle?: SdlcLifecycle;
+  /** When true, include soft-deleted features in results. Default: false. */
+  includeDeleted?: boolean;
 }
 
 /**
@@ -26,6 +28,7 @@ export interface FeatureListFilters {
  * - Handle database connection management
  * - Provide thread-safe operations
  * - Support query by slug + repositoryPath for uniqueness
+ * - Exclude soft-deleted features from queries by default
  */
 export interface IFeatureRepository {
   /**
@@ -36,7 +39,7 @@ export interface IFeatureRepository {
   create(feature: Feature): Promise<void>;
 
   /**
-   * Find a feature by its unique ID.
+   * Find a feature by its unique ID (excludes soft-deleted).
    *
    * @param id - The feature ID
    * @returns The feature or null if not found
@@ -45,6 +48,7 @@ export interface IFeatureRepository {
 
   /**
    * Find a feature by an ID prefix (e.g. first 8 chars from `feat ls`).
+   * Excludes soft-deleted features.
    *
    * @param prefix - A prefix of the feature UUID
    * @returns The feature if exactly one match, null if none, throws if ambiguous
@@ -52,7 +56,7 @@ export interface IFeatureRepository {
   findByIdPrefix(prefix: string): Promise<Feature | null>;
 
   /**
-   * Find a feature by its slug within a repository.
+   * Find a feature by its slug within a repository (excludes soft-deleted).
    *
    * @param slug - The URL-friendly feature identifier
    * @param repositoryPath - The repository path to scope the search
@@ -62,8 +66,9 @@ export interface IFeatureRepository {
 
   /**
    * List features with optional filters.
+   * Excludes soft-deleted features unless includeDeleted is true.
    *
-   * @param filters - Optional filters for repositoryPath and lifecycle
+   * @param filters - Optional filters for repositoryPath, lifecycle, and includeDeleted
    * @returns Array of matching features
    */
   list(filters?: FeatureListFilters): Promise<Feature[]>;
@@ -78,6 +83,7 @@ export interface IFeatureRepository {
   /**
    * Returns all direct (non-recursive) children of the given parent feature ID.
    * Children are ordered by creation time ascending.
+   * Includes children regardless of soft-delete status (for cascade operations).
    *
    * @param parentId - The parent feature ID
    * @returns Array of direct child features
@@ -85,9 +91,16 @@ export interface IFeatureRepository {
   findByParentId(parentId: string): Promise<Feature[]>;
 
   /**
-   * Delete a feature by ID.
+   * Delete a feature by ID (hard delete).
    *
    * @param id - The feature ID to delete
    */
   delete(id: string): Promise<void>;
+
+  /**
+   * Soft-delete a feature by setting deletedAt timestamp.
+   *
+   * @param id - The feature ID to soft-delete
+   */
+  softDelete(id: string): Promise<void>;
 }

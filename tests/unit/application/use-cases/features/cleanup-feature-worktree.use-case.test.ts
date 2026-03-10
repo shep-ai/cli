@@ -57,6 +57,7 @@ describe('CleanupFeatureWorktreeUseCase', () => {
       findByParentId: vi.fn().mockResolvedValue([]),
       update: vi.fn(),
       delete: vi.fn(),
+      softDelete: vi.fn(),
     };
 
     mockWorktreeService = {

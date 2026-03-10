@@ -63,6 +63,7 @@ describe('UpdateFeatureLifecycleUseCase', () => {
       findByParentId: vi.fn(),
       update: vi.fn().mockResolvedValue(undefined),
       delete: vi.fn(),
+      softDelete: vi.fn(),
     };
 
     mockCheckAndUnblock = {

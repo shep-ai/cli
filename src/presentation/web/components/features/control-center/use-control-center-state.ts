@@ -174,7 +174,14 @@ export function useControlCenterState(
 
     for (const { featureId, state, lifecycle } of resolveSseEventUpdates(newEvents)) {
       if (state !== undefined || lifecycle !== undefined) {
-        updateFeature(`feat-${featureId}`, {
+        const nodeId = `feat-${featureId}`;
+        // Skip SSE updates for features in 'deleting' state — the optimistic
+        // delete state must not be overwritten by stale SSE events (e.g. agent
+        // cancellation emitting AgentFailed during the soft-delete window).
+        const existingNode = nodesRef.current.find((n) => n.id === nodeId);
+        if (existingNode && (existingNode.data as FeatureNodeData).state === 'deleting') continue;
+
+        updateFeature(nodeId, {
           ...(state !== undefined && { state }),
           ...(lifecycle !== undefined && { lifecycle }),
         });
@@ -287,33 +294,63 @@ export function useControlCenterState(
     (featureId: string, cleanup?: boolean) => {
       const nodeId = `feat-${featureId}`;
 
-      // Find the current entry for rollback
-      const prevEntry = nodesRef.current
-        .filter((n) => n.id === nodeId)
-        .map((n) => ({
-          nodeId: n.id,
-          data: n.data as FeatureNodeData,
-        }))[0];
+      // Collect all descendant feature node IDs (children, grandchildren, etc.)
+      const descendants: string[] = [];
+      const queue = [nodeId];
+      while (queue.length > 0) {
+        const current = queue.shift()!;
+        for (const edge of edgesRef.current) {
+          if (edge.type === 'dependencyEdge' && edge.source === current) {
+            descendants.push(edge.target);
+            queue.push(edge.target);
+          }
+        }
+      }
 
-      // Optimistic removal
-      removeFeature(nodeId);
+      // Snapshot current states for rollback (parent + descendants)
+      const prevStates = new Map<string, FeatureNodeData['state']>();
+      for (const nid of [nodeId, ...descendants]) {
+        const node = nodesRef.current.find((n) => n.id === nid);
+        if (node) {
+          prevStates.set(nid, (node.data as FeatureNodeData).state);
+        }
+      }
+
+      // Optimistic: show "deleting" state on parent AND all descendants
+      updateFeature(nodeId, { state: 'deleting' });
+      for (const childId of descendants) {
+        updateFeature(childId, { state: 'deleting' });
+      }
       deleteSound.play();
-      toast.success('Feature deleted successfully');
+      toast.success('Deleting feature…');
       router.push('/');
 
       deleteFeature(featureId, cleanup)
         .then((result) => {
           if (result.error) {
-            if (prevEntry) restoreFeature(nodeId, prevEntry);
+            // Rollback all to previous states
+            for (const [nid, prevState] of prevStates) {
+              if (prevState) updateFeature(nid, { state: prevState });
+            }
             toast.error(result.error);
+          } else {
+            // Delete succeeded — remove features from the canvas.  The polling
+            // reconcile would eventually clean them up, but we remove them
+            // explicitly so the user sees them disappear promptly.
+            removeFeature(nodeId);
+            for (const childId of descendants) {
+              removeFeature(childId);
+            }
           }
         })
         .catch(() => {
-          if (prevEntry) restoreFeature(nodeId, prevEntry);
+          for (const [nid, prevState] of prevStates) {
+            if (prevState) updateFeature(nid, { state: prevState });
+          }
           toast.error('Failed to delete feature');
         });
     },
-    [router, deleteSound, removeFeature, restoreFeature]
+    [router, deleteSound, updateFeature, removeFeature]
   );
 
   const handleDeleteRepository = useCallback(

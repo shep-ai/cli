@@ -49,6 +49,7 @@ describe('ShowFeatureUseCase', () => {
       findByParentId: vi.fn().mockResolvedValue([]),
       update: vi.fn(),
       delete: vi.fn(),
+      softDelete: vi.fn(),
     };
     useCase = new ShowFeatureUseCase(mockRepo);
   });

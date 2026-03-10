@@ -701,7 +701,7 @@ describe('useControlCenterState', () => {
       expect(mockDeleteFeature).toHaveBeenCalledWith('1', undefined);
     });
 
-    it('removes deleted node from nodes on success', async () => {
+    it('removes deleted node from canvas after successful delete', async () => {
       mockDeleteFeature.mockResolvedValue({ feature: { id: 'f1' } });
 
       renderHook([featureNode, featureNode2, repoNode] as CanvasNodeType[], [
@@ -715,11 +715,11 @@ describe('useControlCenterState', () => {
         fireEvent.click(screen.getByTestId('delete-feature'));
       });
 
-      // feat-1 removed, feat-2 and repo-1 remain
+      // feat-1 removed after server confirms deletion; feat-2 + repo remain
       expect(screen.getByTestId('node-count')).toHaveTextContent('2');
     });
 
-    it('removes edges connected to deleted node on success', async () => {
+    it('removes edges for deleted feature', async () => {
       mockDeleteFeature.mockResolvedValue({ feature: { id: 'f1' } });
 
       renderHook([featureNode, featureNode2, repoNode] as CanvasNodeType[], [
@@ -734,7 +734,7 @@ describe('useControlCenterState', () => {
         fireEvent.click(screen.getByTestId('delete-feature'));
       });
 
-      // After deleting feat-1, repo→feat-2 remains (derived from repositoryPath)
+      // feat-1 removed; only repo→feat-2 edge remains
       expect(screen.getByTestId('edge-count')).toHaveTextContent('1');
     });
 
@@ -875,10 +875,9 @@ describe('useControlCenterState', () => {
         target: 'feat-2',
       };
 
-      it('repositions remaining nodes after successful deletion', async () => {
+      it('removes deleted feature from canvas after successful delete', async () => {
         mockDeleteFeature.mockResolvedValue({ feature: { id: 'f1' } });
 
-        const positionsBefore = new Map<string, { x: number; y: number }>();
         let capturedState: ControlCenterState | null = null;
 
         render(
@@ -891,29 +890,13 @@ describe('useControlCenterState', () => {
           />
         );
 
-        // Record positions before deletion
-        for (const node of capturedState!.nodes) {
-          positionsBefore.set(node.id, { ...node.position });
-        }
-
         await act(async () => {
           capturedState!.handleDeleteFeature('1');
         });
 
-        // After deletion + relayout, remaining nodes should have different positions
-        const repoAfter = capturedState!.nodes.find((n) => n.id === 'repo-1')!;
-        const feat2After = capturedState!.nodes.find((n) => n.id === 'feat-2')!;
-
-        const repoPosBefore = positionsBefore.get('repo-1')!;
-        const feat2PosBefore = positionsBefore.get('feat-2')!;
-
-        // At least one remaining node must have moved (relayout repositions them)
-        const repoMoved =
-          repoAfter.position.x !== repoPosBefore.x || repoAfter.position.y !== repoPosBefore.y;
-        const feat2Moved =
-          feat2After.position.x !== feat2PosBefore.x || feat2After.position.y !== feat2PosBefore.y;
-
-        expect(repoMoved || feat2Moved).toBe(true);
+        // feat-1 removed after server confirms deletion; feat-2 + repo remain
+        expect(capturedState!.nodes).toHaveLength(2);
+        expect(capturedState!.nodes.find((n) => n.id === 'feat-1')).toBeUndefined();
       });
 
       it('restores all nodes and edges on server action error', async () => {
@@ -946,7 +929,7 @@ describe('useControlCenterState', () => {
         expect(capturedState!.edges).toHaveLength(2);
       });
 
-      it('remaining connected nodes are properly laid out after deletion', async () => {
+      it('remaining nodes have valid positions after deletion', async () => {
         mockDeleteFeature.mockResolvedValue({ feature: { id: 'f1' } });
 
         let capturedState: ControlCenterState | null = null;
@@ -965,20 +948,14 @@ describe('useControlCenterState', () => {
           capturedState!.handleDeleteFeature('1');
         });
 
-        // After deleting feat-1, feat-2 is still connected to repo via repositoryPath.
-        // Dagre should lay out the remaining 2 nodes with valid positions.
-        const repoAfter = capturedState!.nodes.find((n) => n.id === 'repo-1')!;
-        const feat2After = capturedState!.nodes.find((n) => n.id === 'feat-2')!;
-
-        expect(repoAfter).toBeDefined();
-        expect(feat2After).toBeDefined();
-        // There should be 1 edge (repo→feat-2) derived from repositoryPath
-        expect(capturedState!.edges).toHaveLength(1);
-        expect(typeof repoAfter.position.x).toBe('number');
-        expect(typeof feat2After.position.x).toBe('number');
+        // Remaining nodes have valid positions
+        for (const node of capturedState!.nodes) {
+          expect(typeof node.position.x).toBe('number');
+          expect(typeof node.position.y).toBe('number');
+        }
       });
 
-      it('preserves correct node and edge counts after relayout', async () => {
+      it('removes deleted feature and its edges after successful delete', async () => {
         mockDeleteFeature.mockResolvedValue({ feature: { id: 'f1' } });
 
         let capturedState: ControlCenterState | null = null;
@@ -1001,11 +978,11 @@ describe('useControlCenterState', () => {
           capturedState!.handleDeleteFeature('1');
         });
 
-        // After deletion: 2 nodes remain (repo-1 and feat-2)
+        // After deletion: feat-1 removed, feat-2 + repo remain
         expect(capturedState!.nodes).toHaveLength(2);
         expect(capturedState!.nodes.map((n) => n.id).sort()).toEqual(['feat-2', 'repo-1']);
 
-        // feat-2 still has repositoryPath matching repo → 1 derived edge remains
+        // Only repo→feat-2 edge remains
         expect(capturedState!.edges).toHaveLength(1);
       });
     });
