@@ -6,6 +6,8 @@ import { cn } from '@/lib/utils';
 import { pickFolder } from '@/components/common/add-repository-button/pick-folder';
 import { WelcomeAgentSetup } from './welcome-agent-setup';
 
+const AGENT_CONFIGURED_KEY = 'shep:agent-configured';
+
 export interface ControlCenterEmptyStateProps {
   onRepositorySelect?: (path: string) => void;
   className?: string;
@@ -19,7 +21,10 @@ export function ControlCenterEmptyState({
 }: ControlCenterEmptyStateProps) {
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [agentReady, setAgentReady] = useState(false);
+  const [agentReady, setAgentReady] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem(AGENT_CONFIGURED_KEY) === 'true';
+  });
 
   async function handlePickerClick() {
     if (loading) return;
@@ -41,6 +46,7 @@ export function ControlCenterEmptyState({
   }, []);
 
   const handleAgentSetupComplete = useCallback(() => {
+    localStorage.setItem(AGENT_CONFIGURED_KEY, 'true');
     setAgentReady(true);
   }, []);
 
