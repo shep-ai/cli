@@ -3,11 +3,7 @@
 import { resolve } from '@/lib/server-container';
 import type { IFeatureRepository } from '@shepai/core/application/ports/output/repositories/feature-repository.interface';
 import type { IGitPrService } from '@shepai/core/application/ports/output/services/git-pr-service.interface';
-import type { GetPlanArtifactUseCase } from '@shepai/core/application/use-cases/features/get-plan-artifact.use-case';
-import type {
-  MergeReviewData,
-  MergeReviewPhase,
-} from '@/components/common/merge-review/merge-review-config';
+import type { MergeReviewData } from '@/components/common/merge-review/merge-review-config';
 import { computeWorktreePath } from '@shepai/core/infrastructure/services/ide-launchers/compute-worktree-path';
 
 type GetMergeReviewDataResult = MergeReviewData | { error: string };
@@ -37,16 +33,6 @@ export async function getMergeReviewData(featureId: string): Promise<GetMergeRev
 
     const branch = feature.branch ? { source: feature.branch, target: 'main' } : undefined;
 
-    // Load plan phases (best-effort)
-    let phases: MergeReviewPhase[] | undefined;
-    try {
-      const planUseCase = resolve<GetPlanArtifactUseCase>('GetPlanArtifactUseCase');
-      const plan = await planUseCase.execute(featureId);
-      phases = plan.phases.map(({ id, name, description }) => ({ id, name, description }));
-    } catch {
-      // Plan unavailable — not critical
-    }
-
     const worktreePath =
       feature.worktreePath ??
       (feature.repositoryPath && feature.branch
@@ -54,7 +40,7 @@ export async function getMergeReviewData(featureId: string): Promise<GetMergeRev
         : null);
 
     if (!worktreePath) {
-      return { pr, branch, phases, warning: pr ? undefined : 'No PR or diff data available' };
+      return { pr, branch, warning: pr ? undefined : 'No PR or diff data available' };
     }
 
     try {
@@ -63,9 +49,9 @@ export async function getMergeReviewData(featureId: string): Promise<GetMergeRev
         gitPrService.getPrDiffSummary(worktreePath, 'main'),
         gitPrService.getFileDiffs(worktreePath, 'main').catch(() => undefined),
       ]);
-      return { pr, branch, phases, diffSummary, fileDiffs };
+      return { pr, branch, diffSummary, fileDiffs };
     } catch {
-      return { pr, branch, phases, warning: 'Diff statistics unavailable' };
+      return { pr, branch, warning: 'Diff statistics unavailable' };
     }
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to load merge review data';

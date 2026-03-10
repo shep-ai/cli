@@ -4,7 +4,6 @@ import { PrStatus, CiStatus } from '@shepai/core/domain/generated/output';
 const mockFindById = vi.fn();
 const mockGetPrDiffSummary = vi.fn();
 const mockGetFileDiffs = vi.fn();
-const mockPlanExecute = vi.fn();
 const mockComputeWorktreePath = vi.fn(
   (_repoPath: string, branch: string) => `/computed/wt/${branch.replace(/\//g, '-')}`
 );
@@ -14,7 +13,6 @@ vi.mock('@/lib/server-container', () => ({
     if (token === 'IFeatureRepository') return { findById: mockFindById };
     if (token === 'IGitPrService')
       return { getPrDiffSummary: mockGetPrDiffSummary, getFileDiffs: mockGetFileDiffs };
-    if (token === 'GetPlanArtifactUseCase') return { execute: mockPlanExecute };
     throw new Error(`Unknown token: ${token}`);
   },
 }));
@@ -52,13 +50,6 @@ const baseDiffSummary = {
   commitCount: 3,
 };
 
-const basePlanArtifact = {
-  phases: [
-    { id: 'phase-1', name: 'Foundation', description: 'Set up types', parallel: false },
-    { id: 'phase-2', name: 'Implementation', description: 'Build UI', parallel: false },
-  ],
-};
-
 const baseFileDiffs = [
   {
     path: 'src/app.ts',
@@ -72,8 +63,6 @@ const baseFileDiffs = [
 describe('getMergeReviewData server action', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Default: plan unavailable (many tests don't care about it)
-    mockPlanExecute.mockRejectedValue(new Error('no plan'));
     // Default: file diffs unavailable
     mockGetFileDiffs.mockRejectedValue(new Error('no diffs'));
   });
@@ -197,31 +186,6 @@ describe('getMergeReviewData server action', () => {
 
     expect('pr' in result && result.pr?.commitHash).toBeUndefined();
     expect('pr' in result && result.pr?.ciStatus).toBeUndefined();
-  });
-
-  it('includes phases when plan artifact is available', async () => {
-    mockFindById.mockResolvedValue(baseFeature);
-    mockGetPrDiffSummary.mockResolvedValue(baseDiffSummary);
-    mockPlanExecute.mockResolvedValue(basePlanArtifact);
-
-    const result = await getMergeReviewData('feat-123');
-
-    expect(result).toMatchObject({
-      phases: [
-        { id: 'phase-1', name: 'Foundation', description: 'Set up types' },
-        { id: 'phase-2', name: 'Implementation', description: 'Build UI' },
-      ],
-    });
-  });
-
-  it('returns undefined phases when plan artifact is unavailable', async () => {
-    mockFindById.mockResolvedValue(baseFeature);
-    mockGetPrDiffSummary.mockResolvedValue(baseDiffSummary);
-    mockPlanExecute.mockRejectedValue(new Error('no spec path'));
-
-    const result = await getMergeReviewData('feat-123');
-
-    expect(result).toMatchObject({ phases: undefined });
   });
 
   it('includes branch info from feature', async () => {

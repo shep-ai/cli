@@ -42,13 +42,6 @@ export interface MergeReviewPr {
   ciStatus?: CiStatus;
 }
 
-/** A phase from the implementation plan */
-export interface MergeReviewPhase {
-  id: string;
-  name: string;
-  description?: string;
-}
-
 /** Branch merge direction info */
 export interface MergeReviewBranch {
   /** Feature branch name */
@@ -65,8 +58,6 @@ export interface MergeReviewData {
   diffSummary?: MergeReviewDiffSummary;
   /** Per-file diffs with line-level changes (omitted when worktree is unavailable) */
   fileDiffs?: MergeReviewFileDiff[];
-  /** Implementation phases from plan.yaml */
-  phases?: MergeReviewPhase[];
   /** Branch merge direction */
   branch?: MergeReviewBranch;
   /** Warning message when diff summary could not be retrieved */

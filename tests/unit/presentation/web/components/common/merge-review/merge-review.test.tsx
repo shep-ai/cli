@@ -164,33 +164,6 @@ describe('MergeReview', () => {
     });
   });
 
-  describe('phases', () => {
-    it('renders phase list when phases are provided', () => {
-      const props: MergeReviewProps = {
-        ...baseProps,
-        data: {
-          ...baseProps.data,
-          phases: [
-            { id: 'p1', name: 'Foundation', description: 'Set up types' },
-            { id: 'p2', name: 'Implementation' },
-          ],
-        },
-      };
-      render(<MergeReview {...props} />);
-
-      expect(screen.getByText('Implementation Phases')).toBeInTheDocument();
-      expect(screen.getByText('Foundation')).toBeInTheDocument();
-      expect(screen.getByText('Set up types')).toBeInTheDocument();
-      expect(screen.getByText('Implementation')).toBeInTheDocument();
-    });
-
-    it('does not render phases section when phases is undefined', () => {
-      render(<MergeReview {...baseProps} />);
-
-      expect(screen.queryByText('Implementation Phases')).not.toBeInTheDocument();
-    });
-  });
-
   describe('chat input', () => {
     it('renders the chat input field', () => {
       render(<MergeReview {...baseProps} />);

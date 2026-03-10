@@ -7,43 +7,12 @@ import {
   GitCommitHorizontal,
   GitBranch,
   ArrowRight,
-  Layers,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { CiStatusBadge } from '@/components/common/ci-status-badge';
 import { DrawerActionBar } from '@/components/common/drawer-action-bar';
 import { DiffView } from './diff-view';
-import type { MergeReviewProps, MergeReviewPhase } from './merge-review-config';
-
-function PhaseList({ phases }: { phases: MergeReviewPhase[] }) {
-  return (
-    <div className="border-border rounded-lg border">
-      <div className="px-4 py-3">
-        <div className="mb-3 flex items-center gap-2">
-          <Layers className="text-muted-foreground h-4 w-4" />
-          <span className="text-foreground text-xs font-semibold">Implementation Phases</span>
-        </div>
-        <ol className="space-y-2">
-          {phases.map((phase, i) => (
-            <li key={phase.id} className="flex items-start gap-2.5">
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[10px] font-bold text-emerald-700">
-                {i + 1}
-              </span>
-              <div className="min-w-0">
-                <span className="text-foreground text-xs font-medium">{phase.name}</span>
-                {phase.description ? (
-                  <p className="text-muted-foreground mt-0.5 text-[11px] leading-relaxed">
-                    {phase.description}
-                  </p>
-                ) : null}
-              </div>
-            </li>
-          ))}
-        </ol>
-      </div>
-    </div>
-  );
-}
+import type { MergeReviewProps } from './merge-review-config';
 
 export function MergeReview({
   data,
@@ -54,7 +23,7 @@ export function MergeReview({
   chatInput,
   onChatInputChange,
 }: MergeReviewProps) {
-  const { pr, diffSummary, fileDiffs, phases, branch, warning } = data;
+  const { pr, diffSummary, fileDiffs, branch, warning } = data;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -173,9 +142,6 @@ export function MergeReview({
 
         {/* File diffs */}
         {fileDiffs && fileDiffs.length > 0 ? <DiffView fileDiffs={fileDiffs} /> : null}
-
-        {/* Implementation phases */}
-        {phases && phases.length > 0 ? <PhaseList phases={phases} /> : null}
       </div>
 
       <DrawerActionBar
