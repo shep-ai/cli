@@ -269,17 +269,24 @@ function LifecycleEventRow({
   return (
     <div className={`text-xs ${event.colorClass}`}>
       <span>{event.label}</span>
-      {message ? (
-        <span
-          data-testid="rejection-feedback-text"
-          className="text-muted-foreground ml-2 font-normal italic"
+      {message || hasAttachments ? (
+        <div
+          data-testid="rejection-feedback-container"
+          className="mt-1 ml-2 max-h-[120px] overflow-y-auto"
         >
-          &mdash; {message}
-        </span>
-      ) : null}
-      {hasAttachments ? (
-        <div data-testid="rejection-feedback-attachments" className="mt-1.5 ml-2">
-          <InlineAttachments text="" attachmentPaths={attachments} />
+          {message ? (
+            <span
+              data-testid="rejection-feedback-text"
+              className="text-muted-foreground font-normal italic"
+            >
+              &mdash; {message}
+            </span>
+          ) : null}
+          {hasAttachments ? (
+            <div data-testid="rejection-feedback-attachments" className="mt-1.5">
+              <InlineAttachments text="" attachmentPaths={attachments} />
+            </div>
+          ) : null}
         </div>
       ) : null}
     </div>

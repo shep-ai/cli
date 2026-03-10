@@ -1,0 +1,36 @@
+feature:
+  id: '059-rejection-text-scrollbar'
+  name: 'rejection-text-scrollbar'
+  number: 59
+  branch: 'feat/059-rejection-text-scrollbar'
+  lifecycle: 'research'
+  createdAt: '2026-03-10T14:07:28Z'
+
+status:
+  phase: 'research'
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-03-10T14:07:28Z'
+  lastUpdatedBy: 'feature-agent'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-03-10T14:07:28Z'
+    completedBy: 'feature-agent'
+
+errors:
+  current: null
+  history: []

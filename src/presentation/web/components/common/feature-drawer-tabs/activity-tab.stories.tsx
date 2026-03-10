@@ -390,6 +390,67 @@ export const MultipleRejections: Story = {
   },
 };
 
+/** Long rejection text — demonstrates scrollbar for lengthy feedback. */
+export const LongRejectionText: Story = {
+  args: {
+    timings: [
+      {
+        agentRunId: 'run-1',
+        phase: 'run:started',
+        startedAt: '2025-01-15T10:00:00Z',
+        durationMs: 0,
+      },
+      {
+        agentRunId: 'run-1',
+        phase: 'implement',
+        startedAt: '2025-01-15T10:00:01Z',
+        completedAt: '2025-01-15T10:10:00Z',
+        durationMs: 600000,
+      },
+      {
+        agentRunId: 'run-1',
+        phase: 'run:rejected',
+        startedAt: '2025-01-15T10:10:00Z',
+        durationMs: 0,
+      },
+      {
+        agentRunId: 'run-1',
+        phase: 'run:resumed',
+        startedAt: '2025-01-15T10:15:00Z',
+        durationMs: 0,
+      },
+      {
+        agentRunId: 'run-1',
+        phase: 'implement',
+        startedAt: '2025-01-15T10:15:01Z',
+        completedAt: '2025-01-15T10:25:00Z',
+        durationMs: 599000,
+      },
+      {
+        agentRunId: 'run-1',
+        phase: 'run:completed',
+        startedAt: '2025-01-15T10:25:00Z',
+        durationMs: 0,
+      },
+    ],
+    rejectionFeedback: [
+      {
+        iteration: 1,
+        message:
+          'The implementation has several issues that need to be addressed before we can proceed:\n\n' +
+          '1. The authentication middleware is not properly validating JWT tokens — it accepts expired tokens without checking the exp claim.\n\n' +
+          '2. The database migration script is missing a rollback strategy. If the migration fails halfway through, we need to be able to revert to the previous schema state.\n\n' +
+          '3. The error handling in the API endpoints is inconsistent — some endpoints return structured error objects while others return plain text messages.\n\n' +
+          '4. The test coverage for the new user service is below 80%. We need tests for the edge cases: duplicate email registration, password reset with expired tokens, and concurrent session handling.\n\n' +
+          '5. The CI pipeline configuration needs to include the new integration test suite. Currently only unit tests are running in the PR checks.',
+        phase: 'implement',
+      },
+    ],
+    loading: false,
+    error: null,
+  },
+};
+
 /** Approval wait indicators — phases with approval wait sub-rows. */
 export const WithApprovalWaits: Story = {
   args: {

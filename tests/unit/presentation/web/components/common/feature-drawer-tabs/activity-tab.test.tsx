@@ -451,6 +451,33 @@ describe('ActivityTab', () => {
       }
     });
 
+    it('wraps rejection feedback in a scrollable container with max-height', () => {
+      const timingsWithRejection: PhaseTimingData[] = [
+        {
+          agentRunId: run1Id,
+          phase: 'run:started',
+          startedAt: '2024-01-01T00:00:00.000Z',
+        },
+        {
+          agentRunId: run1Id,
+          phase: 'run:rejected',
+          startedAt: '2024-01-01T00:00:05.000Z',
+        },
+      ];
+
+      renderActivityTab({
+        timings: timingsWithRejection,
+        rejectionFeedback: [
+          { iteration: 1, message: 'Please add more tests', phase: 'requirements' },
+        ],
+      });
+
+      const container = screen.getByTestId('rejection-feedback-container');
+      expect(container).toBeInTheDocument();
+      expect(container.className).toContain('max-h-');
+      expect(container.className).toContain('overflow-y-auto');
+    });
+
     it('renders long rejection messages without data loss', () => {
       const timingsWithRejection: PhaseTimingData[] = [
         {
