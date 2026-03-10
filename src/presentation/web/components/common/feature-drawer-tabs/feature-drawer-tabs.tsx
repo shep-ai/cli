@@ -304,6 +304,20 @@ export function FeatureDrawerTabs({
     }
   }, [featureNode, refreshTab]);
 
+  // Live polling: refresh the activity tab every 3s while the feature is active.
+  // Phase timing durations update continuously in the DB while the agent runs,
+  // but SSE only emits lifecycle/status deltas — not timing detail changes.
+  const ACTIVITY_POLL_MS = 3_000;
+  const isFeatureActive = featureNode.state === 'running' || featureNode.state === 'creating';
+
+  useEffect(() => {
+    if (!isFeatureActive || activeTab !== 'activity') return;
+    const id = setInterval(() => {
+      refreshTab('activity');
+    }, ACTIVITY_POLL_MS);
+    return () => clearInterval(id);
+  }, [isFeatureActive, activeTab, refreshTab]);
+
   const handleTabChange = useCallback(
     (value: string) => {
       const tab = value as FeatureTabKey;

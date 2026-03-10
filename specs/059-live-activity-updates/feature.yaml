@@ -1,0 +1,36 @@
+feature:
+  id: '059-live-activity-updates'
+  name: 'live-activity-updates'
+  number: 59
+  branch: 'feat/059-live-activity-updates'
+  lifecycle: 'research'
+  createdAt: '2026-03-10T16:10:22Z'
+
+status:
+  phase: 'research'
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-03-10T16:10:22Z'
+  lastUpdatedBy: 'feature-agent'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-03-10T16:10:22Z'
+    completedBy: 'feature-agent'
+
+errors:
+  current: null
+  history: []

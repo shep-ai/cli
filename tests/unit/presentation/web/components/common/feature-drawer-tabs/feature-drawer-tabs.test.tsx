@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from 'vitest';
+import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { FeatureDrawerTabs } from '@/components/common/feature-drawer-tabs/feature-drawer-tabs';
 import type { FeatureNodeData } from '@/components/common/feature-node';
@@ -104,6 +104,10 @@ beforeEach(() => {
 
   mockGetPhaseTimings.mockResolvedValue({ timings: sampleTimings, rejectionFeedback: [] });
   mockGetPlan.mockResolvedValue({ plan: samplePlan });
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe('FeatureDrawerTabs', () => {
@@ -287,6 +291,125 @@ describe('FeatureDrawerTabs', () => {
 
       const logTab = screen.getByRole('tab', { name: 'Log' });
       expect(logTab).toHaveAttribute('data-state', 'active');
+    });
+  });
+
+  describe('live activity polling', () => {
+    it('polls activity data every 3s when feature is running and activity tab is active', async () => {
+      vi.useFakeTimers();
+      userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+      renderTabs({
+        featureNode: { ...defaultFeatureNode, state: 'running' },
+        urlTab: 'activity',
+      });
+
+      // Initial fetch from opening the tab via URL
+      expect(mockGetPhaseTimings).toHaveBeenCalledTimes(1);
+
+      // Advance 3s — should trigger a poll
+      await act(async () => {
+        vi.advanceTimersByTime(3_000);
+      });
+      expect(mockGetPhaseTimings).toHaveBeenCalledTimes(2);
+
+      // Advance another 3s — should trigger again
+      await act(async () => {
+        vi.advanceTimersByTime(3_000);
+      });
+      expect(mockGetPhaseTimings).toHaveBeenCalledTimes(3);
+    });
+
+    it('polls activity data when feature state is creating', async () => {
+      vi.useFakeTimers();
+      userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+      renderTabs({
+        featureNode: { ...defaultFeatureNode, state: 'creating' },
+        urlTab: 'activity',
+      });
+
+      expect(mockGetPhaseTimings).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        vi.advanceTimersByTime(3_000);
+      });
+      expect(mockGetPhaseTimings).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not poll when feature is done', async () => {
+      vi.useFakeTimers();
+
+      renderTabs({
+        featureNode: { ...defaultFeatureNode, state: 'done' },
+        urlTab: 'activity',
+      });
+
+      // Initial fetch only
+      expect(mockGetPhaseTimings).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        vi.advanceTimersByTime(6_000);
+      });
+
+      // Should still be 1 — no polling
+      expect(mockGetPhaseTimings).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not poll when overview tab is active even if feature is running', async () => {
+      vi.useFakeTimers();
+
+      renderTabs({
+        featureNode: { ...defaultFeatureNode, state: 'running' },
+      });
+
+      // No fetch at all — overview is default tab
+      expect(mockGetPhaseTimings).not.toHaveBeenCalled();
+
+      await act(async () => {
+        vi.advanceTimersByTime(6_000);
+      });
+
+      expect(mockGetPhaseTimings).not.toHaveBeenCalled();
+    });
+
+    it('stops polling when feature transitions from running to done', async () => {
+      vi.useFakeTimers();
+
+      const { rerender } = renderTabs({
+        featureNode: { ...defaultFeatureNode, state: 'running' },
+        urlTab: 'activity',
+      });
+
+      expect(mockGetPhaseTimings).toHaveBeenCalledTimes(1);
+
+      // First poll fires
+      await act(async () => {
+        vi.advanceTimersByTime(3_000);
+      });
+      expect(mockGetPhaseTimings).toHaveBeenCalledTimes(2);
+
+      // Feature completes
+      rerender(
+        <FeatureDrawerTabs
+          featureNode={{ ...defaultFeatureNode, state: 'done' }}
+          featureId="#f1"
+          urlTab="activity"
+        />
+      );
+
+      // Advance past when next poll would fire
+      await act(async () => {
+        vi.advanceTimersByTime(6_000);
+      });
+
+      // refreshTab from featureNode change (SSE effect) adds 1 call,
+      // but no further polling should happen
+      const callCount = mockGetPhaseTimings.mock.calls.length;
+      await act(async () => {
+        vi.advanceTimersByTime(6_000);
+      });
+      expect(mockGetPhaseTimings).toHaveBeenCalledTimes(callCount);
     });
   });
 });
