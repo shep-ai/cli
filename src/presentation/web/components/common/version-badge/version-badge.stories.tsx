@@ -13,7 +13,7 @@ const meta: Meta<typeof VersionBadge> = {
 export default meta;
 type Story = StoryObj<typeof VersionBadge>;
 
-/** Production mode — shows version only with neutral styling. */
+/** Production mode — shows version only as dimmed text. */
 export const Production: Story = {
   args: {
     version: '1.90.0',
@@ -24,7 +24,7 @@ export const Production: Story = {
   },
 };
 
-/** Development mode — cyan styling with branch name and commit hash. */
+/** Development mode — shows "dev·<hash>" to clearly indicate non-stable build. */
 export const Development: Story = {
   args: {
     version: '1.90.0',
@@ -38,7 +38,7 @@ export const Development: Story = {
   },
 };
 
-/** Development mode with a long branch name — truncated. */
+/** Development mode with a long branch name — shown in tooltip. */
 export const LongBranch: Story = {
   args: {
     version: '1.90.0',

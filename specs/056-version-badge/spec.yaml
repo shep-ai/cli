@@ -75,3 +75,11 @@ rejectionFeedback:
     attachments:
       - >-
         /home/blackpc/.shep/attachments/pending-d4c8347f-7aba-450f-a6ad-2815df076222/image-73744d04.png
+  - iteration: 2
+    message: >-
+      Make the version itself just plan sleek text- dimmed a bit, remove (i)
+      icon, hovering on version should show tooltip. Btw I still DONT see the
+      commit/buid version - i dont see its dev, i see like 1.91.0 as if it
+      stable!
+    phase: merge
+    timestamp: '2026-03-10T10:15:30.304Z'
