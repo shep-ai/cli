@@ -73,6 +73,8 @@ export interface MergeReviewData {
   warning?: string;
   /** Evidence captured during implementation */
   evidence?: MergeReviewEvidence[];
+  /** Absolute path to the evidence directory (for serving files via API) */
+  evidenceBasePath?: string;
 }
 
 /** Props for the merge review content component */

@@ -46,14 +46,17 @@ export async function getMergeReviewData(featureId: string): Promise<GetMergeRev
 
     // Load evidence manifest (best-effort)
     let evidence: MergeReviewEvidence[] | undefined;
+    let evidenceBasePath: string | undefined;
     if (worktreePath) {
       try {
         // Worktree path: ~/.shep/repos/<hash>/wt/<slug>
         // Evidence manifest: ~/.shep/repos/<hash>/evidence/manifest.json
         const repoHashDir = dirname(dirname(worktreePath));
-        const manifestPath = join(repoHashDir, 'evidence', 'manifest.json');
+        const evidenceDir = join(repoHashDir, 'evidence');
+        const manifestPath = join(evidenceDir, 'manifest.json');
         if (existsSync(manifestPath)) {
           evidence = JSON.parse(readFileSync(manifestPath, 'utf-8'));
+          evidenceBasePath = evidenceDir;
         }
       } catch {
         // Evidence unavailable — not critical
@@ -65,6 +68,7 @@ export async function getMergeReviewData(featureId: string): Promise<GetMergeRev
         pr,
         branch,
         evidence,
+        evidenceBasePath,
         warning: pr ? undefined : 'No PR or diff data available',
       };
     }
@@ -75,9 +79,15 @@ export async function getMergeReviewData(featureId: string): Promise<GetMergeRev
         gitPrService.getPrDiffSummary(worktreePath, 'main'),
         gitPrService.getFileDiffs(worktreePath, 'main').catch(() => undefined),
       ]);
-      return { pr, branch, diffSummary, fileDiffs, evidence };
+      return { pr, branch, diffSummary, fileDiffs, evidence, evidenceBasePath };
     } catch {
-      return { pr, branch, evidence, warning: 'Diff statistics unavailable' };
+      return {
+        pr,
+        branch,
+        evidence,
+        evidenceBasePath,
+        warning: 'Diff statistics unavailable',
+      };
     }
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to load merge review data';

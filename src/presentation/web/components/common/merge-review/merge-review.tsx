@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import {
   ExternalLink,
   AlertTriangle,
@@ -11,6 +12,9 @@ import {
   FileText,
   MonitorPlay,
   Terminal,
+  Download,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { CiStatusBadge } from '@/components/common/ci-status-badge';
@@ -28,35 +32,161 @@ const EVIDENCE_ICONS: Record<MergeReviewEvidence['type'], typeof Camera> = {
   TerminalRecording: Terminal,
 };
 
-function EvidenceList({ evidence }: { evidence: MergeReviewEvidence[] }) {
+const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp']);
+const VIDEO_EXTENSIONS = new Set(['.mp4', '.webm', '.mov']);
+
+function getExtension(path: string): string {
+  const dot = path.lastIndexOf('.');
+  return dot >= 0 ? path.slice(dot).toLowerCase() : '';
+}
+
+/** Build the API URL for serving an evidence file. */
+function buildEvidenceUrl(relativePath: string, basePath?: string): string | undefined {
+  // If relativePath is already absolute, use it directly
+  const filePath = relativePath.startsWith('/')
+    ? relativePath
+    : basePath
+      ? `${basePath}/${relativePath}`
+      : undefined;
+  if (!filePath) return undefined;
+  return `/api/evidence?path=${encodeURIComponent(filePath)}`;
+}
+
+function EvidenceItem({
+  evidence,
+  basePath,
+}: {
+  evidence: MergeReviewEvidence;
+  basePath?: string;
+}) {
+  const [expanded, setExpanded] = useState(true);
+  const Icon = EVIDENCE_ICONS[evidence.type] ?? Camera;
+  const ext = getExtension(evidence.relativePath);
+  const url = buildEvidenceUrl(evidence.relativePath, basePath);
+  const isImage = evidence.type === 'Screenshot' || IMAGE_EXTENSIONS.has(ext);
+  const isVideo = evidence.type === 'Video' || VIDEO_EXTENSIONS.has(ext);
+  const isText = evidence.type === 'TestOutput' || evidence.type === 'TerminalRecording';
+
+  return (
+    <li className="border-border rounded-md border">
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="flex w-full cursor-pointer items-center gap-2.5 px-3 py-2.5 text-left"
+      >
+        {expanded ? (
+          <ChevronDown className="text-muted-foreground h-3 w-3 shrink-0" />
+        ) : (
+          <ChevronRight className="text-muted-foreground h-3 w-3 shrink-0" />
+        )}
+        <Icon className="text-muted-foreground h-3.5 w-3.5 shrink-0" />
+        <div className="min-w-0 flex-1">
+          <span className="text-foreground text-xs font-medium">{evidence.description}</span>
+          {evidence.taskRef ? (
+            <span className="text-muted-foreground ml-1.5 text-[10px]">({evidence.taskRef})</span>
+          ) : null}
+        </div>
+        {url ? (
+          <a
+            href={url}
+            download
+            onClick={(e) => e.stopPropagation()}
+            className="text-muted-foreground hover:text-foreground shrink-0 rounded p-1 transition-colors"
+            aria-label="Download"
+          >
+            <Download className="h-3 w-3" />
+          </a>
+        ) : null}
+      </button>
+      {expanded && url ? (
+        <div className="border-border border-t px-3 py-2.5">
+          {isImage ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={url}
+              alt={evidence.description}
+              className="max-h-80 w-full rounded-md border object-contain"
+              loading="lazy"
+            />
+          ) : isVideo ? (
+            <video
+              src={url}
+              controls
+              className="max-h-80 w-full rounded-md border"
+              preload="metadata"
+            >
+              <track kind="captions" />
+            </video>
+          ) : isText ? (
+            <EvidenceTextPreview url={url} />
+          ) : (
+            <p className="text-muted-foreground truncate font-mono text-[10px]">
+              {evidence.relativePath}
+            </p>
+          )}
+        </div>
+      ) : null}
+      {expanded && !url ? (
+        <div className="border-border border-t px-3 py-2.5">
+          <p className="text-muted-foreground truncate font-mono text-[10px]">
+            {evidence.relativePath}
+          </p>
+        </div>
+      ) : null}
+    </li>
+  );
+}
+
+function EvidenceTextPreview({ url }: { url: string }) {
+  const [content, setContent] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+
+  if (!loaded) {
+    fetch(url)
+      .then((r) => (r.ok ? r.text() : Promise.reject(new Error('Failed'))))
+      .then((text) => {
+        // Limit to first 100 lines for preview
+        const lines = text.split('\n');
+        setContent(lines.length > 100 ? `${lines.slice(0, 100).join('\n')}\n...` : text);
+      })
+      .catch(() => setContent(null))
+      .finally(() => setLoaded(true));
+
+    return <div className="bg-muted/50 h-16 animate-pulse rounded-md" />;
+  }
+
+  if (!content) {
+    return <p className="text-muted-foreground text-[10px]">Unable to load preview</p>;
+  }
+
+  return (
+    <pre className="bg-muted/50 max-h-60 overflow-auto rounded-md p-3 font-mono text-[11px] leading-relaxed">
+      {content}
+    </pre>
+  );
+}
+
+function EvidenceList({
+  evidence,
+  basePath,
+}: {
+  evidence: MergeReviewEvidence[];
+  basePath?: string;
+}) {
   return (
     <div className="border-border rounded-lg border">
       <div className="px-4 py-3">
         <div className="mb-3 flex items-center gap-2">
           <Camera className="text-muted-foreground h-4 w-4" />
-          <span className="text-foreground text-xs font-semibold">Evidences</span>
+          <span className="text-foreground text-xs font-semibold">Evidence</span>
           <Badge variant="secondary" className="text-[10px]">
             {evidence.length}
           </Badge>
         </div>
         <ul className="space-y-2">
-          {evidence.map((e) => {
-            const Icon = EVIDENCE_ICONS[e.type] ?? Camera;
-            return (
-              <li key={`${e.type}-${e.relativePath}`} className="flex items-start gap-2.5">
-                <Icon className="text-muted-foreground mt-0.5 h-3.5 w-3.5 shrink-0" />
-                <div className="min-w-0">
-                  <span className="text-foreground text-xs font-medium">{e.description}</span>
-                  {e.taskRef ? (
-                    <span className="text-muted-foreground ml-1.5 text-[10px]">({e.taskRef})</span>
-                  ) : null}
-                  <p className="text-muted-foreground mt-0.5 truncate font-mono text-[10px]">
-                    {e.relativePath}
-                  </p>
-                </div>
-              </li>
-            );
-          })}
+          {evidence.map((e) => (
+            <EvidenceItem key={`${e.type}-${e.relativePath}`} evidence={e} basePath={basePath} />
+          ))}
         </ul>
       </div>
     </div>
@@ -72,7 +202,7 @@ export function MergeReview({
   chatInput,
   onChatInputChange,
 }: MergeReviewProps) {
-  const { pr, diffSummary, fileDiffs, branch, warning, evidence } = data;
+  const { pr, diffSummary, fileDiffs, branch, warning, evidence, evidenceBasePath } = data;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -190,7 +320,9 @@ export function MergeReview({
         ) : null}
 
         {/* Evidence */}
-        {evidence && evidence.length > 0 ? <EvidenceList evidence={evidence} /> : null}
+        {evidence && evidence.length > 0 ? (
+          <EvidenceList evidence={evidence} basePath={evidenceBasePath} />
+        ) : null}
 
         {/* File diffs */}
         {fileDiffs && fileDiffs.length > 0 ? <DiffView fileDiffs={fileDiffs} /> : null}
