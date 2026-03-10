@@ -1,3 +1,9 @@
+# [1.99.0](https://github.com/shep-ai/cli/compare/v1.98.0...v1.99.0) (2026-03-10)
+
+### Features
+
+- **agents:** add pr evidence collection with mandatory screenshots ([#291](https://github.com/shep-ai/cli/issues/291)) ([4f92729](https://github.com/shep-ai/cli/commit/4f92729b15eec9fee083e5ee2406c54a52d2a8b6))
+
 # [1.98.0](https://github.com/shep-ai/cli/compare/v1.97.0...v1.98.0) (2026-03-10)
 
 ### Features
