@@ -12,12 +12,6 @@ const fullPr = {
   ciStatus: CiStatus.Success,
 } as const;
 
-const samplePhases = [
-  { id: 'phase-1', name: 'Foundation & Config', description: 'Set up types and server action' },
-  { id: 'phase-2', name: 'Component Implementation', description: 'Build the merge review UI' },
-  { id: 'phase-3', name: 'Integration & Wiring', description: 'Connect to control center' },
-];
-
 const sampleBranch = { source: 'feat/add-auth', target: 'main' };
 
 const sampleFileDiffs: MergeReviewFileDiff[] = [
@@ -83,7 +77,6 @@ const sampleFileDiffs: MergeReviewFileDiff[] = [
 const fullData: MergeReviewData = {
   pr: fullPr,
   branch: sampleBranch,
-  phases: samplePhases,
   diffSummary: {
     filesChanged: 12,
     additions: 340,
@@ -185,7 +178,6 @@ export const NoPrWithDiff: Story = {
   args: {
     data: {
       branch: { source: 'feat/fix-login', target: 'main' },
-      phases: samplePhases,
       diffSummary: fullData.diffSummary,
     },
     ...defaultActions,
@@ -198,17 +190,6 @@ export const NoPrNoDiff: Story = {
     data: {
       branch: { source: 'feat/fix-login', target: 'main' },
       warning: 'No PR or diff data available',
-    },
-    ...defaultActions,
-  },
-};
-
-/** With implementation phases shown. */
-export const WithPhases: Story = {
-  args: {
-    data: {
-      ...fullData,
-      phases: samplePhases,
     },
     ...defaultActions,
   },

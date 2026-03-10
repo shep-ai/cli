@@ -256,10 +256,6 @@ const mergeFixture: MergeReviewData = {
     ciStatus: CiStatus.Success,
   },
   branch: { source: 'feat/add-auth', target: 'main' },
-  phases: [
-    { id: 'phase-1', name: 'Foundation & Config', description: 'Set up types and server action' },
-    { id: 'phase-2', name: 'Component Implementation', description: 'Build the merge review UI' },
-  ],
   diffSummary: { filesChanged: 12, additions: 340, deletions: 85, commitCount: 5 },
 };
 

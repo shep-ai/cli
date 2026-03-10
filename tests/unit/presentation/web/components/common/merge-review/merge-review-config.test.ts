@@ -4,7 +4,6 @@ import type {
   MergeReviewData,
   MergeReviewProps,
   MergeReviewDrawerProps,
-  MergeReviewPhase,
   MergeReviewBranch,
 } from '../../../../../../../src/presentation/web/components/common/merge-review/merge-review-config';
 
@@ -25,7 +24,6 @@ describe('MergeReviewData interface', () => {
         commitCount: 3,
       },
       branch: { source: 'feat/x', target: 'main' },
-      phases: [{ id: 'p1', name: 'Foundation' }],
     };
 
     expectTypeOf(data).toMatchTypeOf<MergeReviewData>();
@@ -57,20 +55,6 @@ describe('MergeReviewData interface', () => {
     };
 
     expectTypeOf(data).toMatchTypeOf<MergeReviewData>();
-  });
-});
-
-describe('MergeReviewPhase interface', () => {
-  it('accepts phase with description', () => {
-    const phase: MergeReviewPhase = { id: 'p1', name: 'Foundation', description: 'Set up types' };
-
-    expectTypeOf(phase).toMatchTypeOf<MergeReviewPhase>();
-  });
-
-  it('accepts phase without description', () => {
-    const phase: MergeReviewPhase = { id: 'p1', name: 'Foundation' };
-
-    expectTypeOf(phase).toMatchTypeOf<MergeReviewPhase>();
   });
 });
 
