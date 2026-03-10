@@ -1,3 +1,9 @@
+# [1.95.0](https://github.com/shep-ai/cli/compare/v1.94.0...v1.95.0) (2026-03-10)
+
+### Features
+
+- **web:** add pulse attention animation to add-feature button on empty repos ([#286](https://github.com/shep-ai/cli/issues/286)) ([21dfd37](https://github.com/shep-ai/cli/commit/21dfd37124743d70555b6b35db18997cad0f972e))
+
 # [1.94.0](https://github.com/shep-ai/cli/compare/v1.93.0...v1.94.0) (2026-03-10)
 
 ### Features
