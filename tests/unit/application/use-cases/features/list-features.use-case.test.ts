@@ -27,6 +27,7 @@ describe('ListFeaturesUseCase', () => {
       findByParentId: vi.fn().mockResolvedValue([]),
       update: vi.fn(),
       delete: vi.fn(),
+      softDelete: vi.fn(),
     };
     useCase = new ListFeaturesUseCase(mockRepo);
   });

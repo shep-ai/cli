@@ -30,6 +30,7 @@ function createMockFeatureRepo(): IFeatureRepository {
     update: vi.fn(),
     findByParentId: vi.fn().mockResolvedValue([]),
     delete: vi.fn(),
+    softDelete: vi.fn(),
   };
 }
 

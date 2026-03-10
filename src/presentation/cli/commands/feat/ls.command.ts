@@ -22,6 +22,7 @@ import { colors, symbols, messages, renderListView } from '../../ui/index.js';
 
 interface LsOptions {
   repo?: string;
+  includeDeleted?: boolean;
 }
 
 /** Map graph node names to human-readable phase labels (active). */
@@ -60,6 +61,10 @@ const STATUS_PRIORITY: Record<string, number> = {
  */
 function formatStatus(feature: Feature, run: AgentRun | null): string {
   // Blocked features show "Waiting" — the parent relationship is conveyed by tree indentation
+  if (feature.lifecycle === 'Deleting') {
+    return `${colors.muted(symbols.spinner[0])} ${colors.muted('Deleting')}`;
+  }
+
   if (feature.lifecycle === 'Blocked') {
     return `${colors.warning(symbols.dotEmpty)} ${colors.warning('Blocked')}`;
   }
@@ -180,14 +185,20 @@ export function createLsCommand(): Command {
   return new Command('ls')
     .description('List features')
     .option('-r, --repo <path>', 'Filter by repository path')
+    .option('--include-deleted', 'Include soft-deleted features')
     .action(async (options: LsOptions) => {
       try {
         const useCase = container.resolve(ListFeaturesUseCase);
         const runRepo = container.resolve<IAgentRunRepository>('IAgentRunRepository');
         const phaseRepo = container.resolve<IPhaseTimingRepository>('IPhaseTimingRepository');
 
-        const filters = options.repo ? { repositoryPath: options.repo } : undefined;
-        const features = await useCase.execute(filters);
+        const filters = {
+          ...(options.repo && { repositoryPath: options.repo }),
+          ...(options.includeDeleted && { includeDeleted: true }),
+        };
+        const features = await useCase.execute(
+          Object.keys(filters).length > 0 ? filters : undefined
+        );
 
         // Load agent runs and phase timings for all features in parallel
         const [runs, timings] = await Promise.all([

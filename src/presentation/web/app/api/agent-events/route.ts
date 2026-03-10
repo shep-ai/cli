@@ -54,6 +54,7 @@ const LIFECYCLE_TO_NODE: Record<SdlcLifecycle, string> = {
   [SdlcLifecycle.Review]: 'merge',
   [SdlcLifecycle.Maintain]: 'maintain',
   [SdlcLifecycle.Blocked]: 'blocked',
+  [SdlcLifecycle.Deleting]: 'blocked',
 };
 
 const STATUS_TO_EVENT: Partial<

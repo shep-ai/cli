@@ -97,6 +97,7 @@ describe('CreateFeatureUseCase', () => {
       findByParentId: vi.fn().mockResolvedValue([]),
       update: vi.fn().mockResolvedValue(undefined),
       delete: vi.fn().mockResolvedValue(undefined),
+      softDelete: vi.fn(),
     };
 
     mockWorktreeService = {

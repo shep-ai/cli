@@ -220,7 +220,7 @@ import "../value-objects/attachment.tsp";
  * ```
  */
 @doc("Central entity tracking a piece of work through the SDLC lifecycle (Aggregate Root)")
-model Feature extends BaseEntity {
+model Feature extends SoftDeletableEntity {
   /**
    * Human-readable name of the feature.
    *

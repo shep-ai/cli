@@ -1,0 +1,36 @@
+feature:
+  id: '056-feature-soft-delete'
+  name: 'feature-soft-delete'
+  number: 56
+  branch: 'feat/056-feature-soft-delete'
+  lifecycle: 'research'
+  createdAt: '2026-03-10T12:59:42Z'
+
+status:
+  phase: 'research'
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-03-10T12:59:42Z'
+  lastUpdatedBy: 'feature-agent'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-03-10T12:59:42Z'
+    completedBy: 'feature-agent'
+
+errors:
+  current: null
+  history: []

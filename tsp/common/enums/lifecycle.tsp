@@ -88,4 +88,12 @@ enum SdlcLifecycle {
    */
   @doc("Waiting for parent feature to satisfy a lifecycle gate — agent not yet spawned")
   Blocked,
+
+  /**
+   * Deleting state. The feature is being deleted — cleanup of worktrees,
+   * branches, and agent runs is in progress. The feature will be soft-deleted
+   * (deletedAt set) once cleanup completes.
+   */
+  @doc("Feature is being deleted — cleanup in progress before soft-delete")
+  Deleting,
 }

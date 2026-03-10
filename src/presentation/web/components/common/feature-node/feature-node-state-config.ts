@@ -1,4 +1,12 @@
-import { Loader2, CircleAlert, CircleCheck, Ban, CircleX, type LucideIcon } from 'lucide-react';
+import {
+  Loader2,
+  CircleAlert,
+  CircleCheck,
+  Ban,
+  CircleX,
+  Trash2,
+  type LucideIcon,
+} from 'lucide-react';
 import type { Node } from '@xyflow/react';
 import type { PrStatus, CiStatus, DeploymentState } from '@shepai/core/domain/generated/output';
 import type { AgentTypeValue } from './agent-type-icons';
@@ -9,7 +17,8 @@ export type FeatureNodeState =
   | 'action-required'
   | 'done'
   | 'blocked'
-  | 'error';
+  | 'error'
+  | 'deleting';
 
 export type FeatureLifecyclePhase =
   | 'requirements'
@@ -172,6 +181,16 @@ export const featureNodeStateConfig: Record<FeatureNodeState, FeatureNodeStateCo
     badgeClass: 'text-red-700',
     badgeBgClass: 'bg-red-50',
     label: 'Error',
+    showProgressBar: false,
+  },
+  deleting: {
+    icon: Trash2,
+    borderClass: 'border-l-gray-400',
+    labelClass: 'text-gray-400',
+    progressClass: 'bg-gray-400',
+    badgeClass: 'text-gray-600',
+    badgeBgClass: 'bg-gray-100',
+    label: 'Deleting...',
     showProgressBar: false,
   },
 };

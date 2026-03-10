@@ -67,6 +67,7 @@ function createMockFeatureRepository(features: Feature[] = []): IFeatureReposito
     list: vi.fn().mockResolvedValue(features),
     update: vi.fn(),
     delete: vi.fn(),
+    softDelete: vi.fn(),
   };
 }
 

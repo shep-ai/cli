@@ -72,6 +72,7 @@ describe('DeleteFeatureUseCase', () => {
       findByParentId: vi.fn().mockResolvedValue([]),
       update: vi.fn(),
       delete: vi.fn(),
+      softDelete: vi.fn(),
     };
 
     mockWorktreeService = {
@@ -119,7 +120,7 @@ describe('DeleteFeatureUseCase', () => {
 
     expect(result.id).toBe('feat-123-full-uuid');
     expect(mockCleanupUseCase.execute).toHaveBeenCalledWith('feat-123-full-uuid');
-    expect(mockFeatureRepo.delete).toHaveBeenCalledWith('feat-123-full-uuid');
+    expect(mockFeatureRepo.softDelete).toHaveBeenCalledWith('feat-123-full-uuid');
   });
 
   it('should remove worktree directly when cleanup=false', async () => {
@@ -132,7 +133,7 @@ describe('DeleteFeatureUseCase', () => {
     expect(mockWorktreeService.getWorktreePath).toHaveBeenCalledWith('/repo', 'feat/test-feature');
     expect(mockWorktreeService.remove).toHaveBeenCalledWith('/repo/.worktrees/feat-test-feature');
     expect(mockCleanupUseCase.execute).not.toHaveBeenCalled();
-    expect(mockFeatureRepo.delete).toHaveBeenCalledWith('feat-123-full-uuid');
+    expect(mockFeatureRepo.softDelete).toHaveBeenCalledWith('feat-123-full-uuid');
   });
 
   it('should cancel a running agent run before deletion', async () => {
@@ -144,7 +145,7 @@ describe('DeleteFeatureUseCase', () => {
     await useCase.execute('feat-123-full-uuid');
 
     expect(mockRunRepo.updateStatus).toHaveBeenCalledWith('run-1', AgentRunStatus.cancelled);
-    expect(mockFeatureRepo.delete).toHaveBeenCalledWith('feat-123-full-uuid');
+    expect(mockFeatureRepo.softDelete).toHaveBeenCalledWith('feat-123-full-uuid');
   });
 
   it('should kill the OS process if running agent has a live PID', async () => {
@@ -183,7 +184,7 @@ describe('DeleteFeatureUseCase', () => {
     await useCase.execute('feat-123-full-uuid');
 
     expect(mockRunRepo.updateStatus).not.toHaveBeenCalled();
-    expect(mockFeatureRepo.delete).toHaveBeenCalledWith('feat-123-full-uuid');
+    expect(mockFeatureRepo.softDelete).toHaveBeenCalledWith('feat-123-full-uuid');
   });
 
   it('should throw if feature is not found', async () => {
@@ -208,7 +209,7 @@ describe('DeleteFeatureUseCase', () => {
     const result = await useCase.execute('feat-123-full-uuid', { cleanup: false });
 
     expect(result.id).toBe('feat-123-full-uuid');
-    expect(mockFeatureRepo.delete).toHaveBeenCalledWith('feat-123-full-uuid');
+    expect(mockFeatureRepo.softDelete).toHaveBeenCalledWith('feat-123-full-uuid');
   });
 
   it('should find feature by prefix match', async () => {
@@ -220,7 +221,7 @@ describe('DeleteFeatureUseCase', () => {
 
     expect(result.id).toBe('feat-123-full-uuid');
     expect(mockFeatureRepo.findByIdPrefix).toHaveBeenCalledWith('feat-123');
-    expect(mockFeatureRepo.delete).toHaveBeenCalledWith('feat-123-full-uuid');
+    expect(mockFeatureRepo.softDelete).toHaveBeenCalledWith('feat-123-full-uuid');
   });
 
   it('should return the deleted feature', async () => {
@@ -254,17 +255,18 @@ describe('DeleteFeatureUseCase', () => {
       branch: 'feat/child-two',
     });
     mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
-    mockFeatureRepo.findByParentId = vi
-      .fn()
-      .mockResolvedValueOnce([blockedChild1, blockedChild2])
-      .mockResolvedValue([]);
+    // findByParentId is called twice per parent: once for soft-delete, once for cleanup
+    mockFeatureRepo.findByParentId = vi.fn().mockImplementation(async (parentId: string) => {
+      if (parentId === 'feat-123-full-uuid') return [blockedChild1, blockedChild2];
+      return [];
+    });
 
     const result = await useCase.execute('feat-123-full-uuid');
 
     expect(result.id).toBe('feat-123-full-uuid');
-    expect(mockFeatureRepo.delete).toHaveBeenCalledWith('child-001');
-    expect(mockFeatureRepo.delete).toHaveBeenCalledWith('child-002');
-    expect(mockFeatureRepo.delete).toHaveBeenCalledWith('feat-123-full-uuid');
+    expect(mockFeatureRepo.softDelete).toHaveBeenCalledWith('child-001');
+    expect(mockFeatureRepo.softDelete).toHaveBeenCalledWith('child-002');
+    expect(mockFeatureRepo.softDelete).toHaveBeenCalledWith('feat-123-full-uuid');
   });
 
   it('should cascade delete children in any lifecycle state', async () => {
@@ -276,16 +278,16 @@ describe('DeleteFeatureUseCase', () => {
       branch: 'feat/child-started',
     });
     mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
-    mockFeatureRepo.findByParentId = vi
-      .fn()
-      .mockResolvedValueOnce([startedChild])
-      .mockResolvedValue([]);
+    mockFeatureRepo.findByParentId = vi.fn().mockImplementation(async (parentId: string) => {
+      if (parentId === 'feat-123-full-uuid') return [startedChild];
+      return [];
+    });
 
     const result = await useCase.execute('feat-123-full-uuid');
 
     expect(result.id).toBe('feat-123-full-uuid');
-    expect(mockFeatureRepo.delete).toHaveBeenCalledWith('child-001');
-    expect(mockFeatureRepo.delete).toHaveBeenCalledWith('feat-123-full-uuid');
+    expect(mockFeatureRepo.softDelete).toHaveBeenCalledWith('child-001');
+    expect(mockFeatureRepo.softDelete).toHaveBeenCalledWith('feat-123-full-uuid');
   });
 
   it('should recursively delete grandchildren', async () => {
@@ -305,18 +307,18 @@ describe('DeleteFeatureUseCase', () => {
       branch: 'feat/grandchild',
     });
     mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
-    mockFeatureRepo.findByParentId = vi
-      .fn()
-      .mockResolvedValueOnce([child]) // children of parent
-      .mockResolvedValueOnce([grandchild]) // children of child
-      .mockResolvedValue([]); // children of grandchild
+    mockFeatureRepo.findByParentId = vi.fn().mockImplementation(async (parentId: string) => {
+      if (parentId === 'feat-123-full-uuid') return [child];
+      if (parentId === 'child-001') return [grandchild];
+      return [];
+    });
 
     const result = await useCase.execute('feat-123-full-uuid');
 
     expect(result.id).toBe('feat-123-full-uuid');
-    expect(mockFeatureRepo.delete).toHaveBeenCalledWith('grandchild-001');
-    expect(mockFeatureRepo.delete).toHaveBeenCalledWith('child-001');
-    expect(mockFeatureRepo.delete).toHaveBeenCalledWith('feat-123-full-uuid');
+    expect(mockFeatureRepo.softDelete).toHaveBeenCalledWith('grandchild-001');
+    expect(mockFeatureRepo.softDelete).toHaveBeenCalledWith('child-001');
+    expect(mockFeatureRepo.softDelete).toHaveBeenCalledWith('feat-123-full-uuid');
   });
 
   it('should cancel agent runs on children during cascade delete', async () => {
@@ -330,13 +332,16 @@ describe('DeleteFeatureUseCase', () => {
     });
     const childRun = createMockAgentRun({ id: 'child-run-1', status: AgentRunStatus.running });
     mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
-    mockFeatureRepo.findByParentId = vi.fn().mockResolvedValueOnce([child]).mockResolvedValue([]);
+    mockFeatureRepo.findByParentId = vi.fn().mockImplementation(async (parentId: string) => {
+      if (parentId === 'feat-123-full-uuid') return [child];
+      return [];
+    });
     mockRunRepo.findById = vi.fn().mockResolvedValue(childRun);
 
     await useCase.execute('feat-123-full-uuid');
 
     expect(mockRunRepo.updateStatus).toHaveBeenCalledWith('child-run-1', AgentRunStatus.cancelled);
-    expect(mockFeatureRepo.delete).toHaveBeenCalledWith('child-001');
+    expect(mockFeatureRepo.softDelete).toHaveBeenCalledWith('child-001');
   });
 
   it('should succeed when there are no children at all', async () => {
@@ -347,7 +352,7 @@ describe('DeleteFeatureUseCase', () => {
     const result = await useCase.execute('feat-123-full-uuid');
 
     expect(result.id).toBe('feat-123-full-uuid');
-    expect(mockFeatureRepo.delete).toHaveBeenCalledWith('feat-123-full-uuid');
+    expect(mockFeatureRepo.softDelete).toHaveBeenCalledWith('feat-123-full-uuid');
   });
 
   // -------------------------------------------------------------------------
@@ -363,7 +368,7 @@ describe('DeleteFeatureUseCase', () => {
 
       expect(mockCleanupUseCase.execute).toHaveBeenCalledWith('feat-123-full-uuid');
       expect(mockWorktreeService.remove).not.toHaveBeenCalled();
-      expect(mockFeatureRepo.delete).toHaveBeenCalledWith('feat-123-full-uuid');
+      expect(mockFeatureRepo.softDelete).toHaveBeenCalledWith('feat-123-full-uuid');
     });
 
     it('should NOT call CleanupFeatureWorktreeUseCase when cleanup=false', async () => {
@@ -374,7 +379,7 @@ describe('DeleteFeatureUseCase', () => {
 
       expect(mockCleanupUseCase.execute).not.toHaveBeenCalled();
       expect(mockWorktreeService.remove).toHaveBeenCalled();
-      expect(mockFeatureRepo.delete).toHaveBeenCalledWith('feat-123-full-uuid');
+      expect(mockFeatureRepo.softDelete).toHaveBeenCalledWith('feat-123-full-uuid');
     });
 
     it('should default to cleanup=true when no options provided', async () => {
@@ -394,7 +399,7 @@ describe('DeleteFeatureUseCase', () => {
 
       await useCase.execute('feat-123-full-uuid', { cleanup: true });
 
-      expect(mockFeatureRepo.delete).toHaveBeenCalledWith('feat-123-full-uuid');
+      expect(mockFeatureRepo.softDelete).toHaveBeenCalledWith('feat-123-full-uuid');
     });
   });
 });
