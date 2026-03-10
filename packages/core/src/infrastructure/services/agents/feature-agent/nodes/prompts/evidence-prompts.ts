@@ -30,9 +30,9 @@ export function buildEvidencePrompt(
 
   // Derive the shep home evidence directory from the worktree path.
   // Worktree path is: ~/.shep/repos/<hash>/wt/<slug>
-  // Evidence path is: ~/.shep/repos/<hash>/evidence/
+  // Evidence path is: ~/.shep/repos/<hash>/evidence/<featureId>/
   const repoHashDir = dirname(dirname(cwd)); // go up from wt/<slug>
-  const shepEvidenceDir = join(repoHashDir, 'evidence');
+  const shepEvidenceDir = join(repoHashDir, 'evidence', state.featureId);
 
   const specSection = specContent
     ? `## Feature Specification (spec.yaml)

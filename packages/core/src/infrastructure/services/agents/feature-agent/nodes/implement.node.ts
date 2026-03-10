@@ -324,9 +324,9 @@ function saveEvidenceManifest(
   try {
     const cwd = state.worktreePath || state.repositoryPath;
     // Worktree path: ~/.shep/repos/<hash>/wt/<slug>
-    // Evidence dir:  ~/.shep/repos/<hash>/evidence/
+    // Evidence dir:  ~/.shep/repos/<hash>/evidence/<featureId>/
     const repoHashDir = dirname(dirname(cwd));
-    const evidenceDir = join(repoHashDir, 'evidence');
+    const evidenceDir = join(repoHashDir, 'evidence', state.featureId);
     mkdirSync(evidenceDir, { recursive: true });
     writeFileSync(join(evidenceDir, 'manifest.json'), JSON.stringify(evidence, null, 2), 'utf-8');
     log.info(`Saved evidence manifest to ${evidenceDir}/manifest.json`);

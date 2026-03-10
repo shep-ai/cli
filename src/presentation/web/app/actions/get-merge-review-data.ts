@@ -50,9 +50,9 @@ export async function getMergeReviewData(featureId: string): Promise<GetMergeRev
     if (worktreePath) {
       try {
         // Worktree path: ~/.shep/repos/<hash>/wt/<slug>
-        // Evidence manifest: ~/.shep/repos/<hash>/evidence/manifest.json
+        // Evidence manifest: ~/.shep/repos/<hash>/evidence/<featureId>/manifest.json
         const repoHashDir = dirname(dirname(worktreePath));
-        const evidenceDir = join(repoHashDir, 'evidence');
+        const evidenceDir = join(repoHashDir, 'evidence', featureId);
         const manifestPath = join(evidenceDir, 'manifest.json');
         if (existsSync(manifestPath)) {
           evidence = JSON.parse(readFileSync(manifestPath, 'utf-8'));
