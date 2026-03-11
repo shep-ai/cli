@@ -283,6 +283,13 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
 
   const hasRepositories = nodes.some((n) => n.type === 'repositoryNode');
 
+  // Sticky latch: once repositories exist, never flash the empty state back.
+  // A stale poll or brief reconcile gap could momentarily drop repos — the latch
+  // prevents the empty-state overlay from flickering in during that window.
+  const hadRepositoriesRef = useRef(hasRepositories);
+  if (hasRepositories) hadRepositoriesRef.current = true;
+  const showCanvas = hasRepositories || hadRepositoriesRef.current;
+
   // Pulse the "+" button when there's a single repo with no features and the
   // create-feature drawer is not open — draws attention to the next action.
   const isCreateDrawerOpen = pathname.startsWith('/create');
@@ -300,8 +307,8 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
 
   return (
     <FeaturesCanvas
-      nodes={hasRepositories ? displayNodes : []}
-      edges={hasRepositories ? edges : []}
+      nodes={showCanvas ? displayNodes : []}
+      edges={showCanvas ? edges : []}
       selectedFeatureId={selectedFeatureId}
       defaultViewport={defaultViewport}
       onNodesChange={onNodesChange}

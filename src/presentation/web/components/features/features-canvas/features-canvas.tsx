@@ -155,7 +155,7 @@ export function FeaturesCanvas({
         {toolbar}
       </ReactFlow>
       {isEmpty && (emptyState || fallbackEmptyState) ? (
-        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+        <div className="animate-in fade-in pointer-events-none absolute inset-0 z-10 flex items-center justify-center duration-200">
           <div className="pointer-events-auto">{emptyState ?? fallbackEmptyState}</div>
         </div>
       ) : null}
