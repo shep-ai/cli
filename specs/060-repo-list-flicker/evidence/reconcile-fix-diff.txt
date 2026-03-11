@@ -1,0 +1,34 @@
+diff --git a/src/presentation/web/hooks/use-graph-state.ts b/src/presentation/web/hooks/use-graph-state.ts
+index fef197a7..069695ea 100644
+--- a/src/presentation/web/hooks/use-graph-state.ts
++++ b/src/presentation/web/hooks/use-graph-state.ts
+@@ -275,7 +275,28 @@ export function useGraphState(
+       return changed ? next : currentPendingMap;
+     });
+ 
+-    setRepoMap(newRepoMap);
++    // Merge repoMap: preserve optimistic (temp) repos that the server doesn't
++    // know about yet.  Temp repos use IDs like "repo-temp-*".  Without this,
++    // a polling reconcile that fires before the server action returns would
++    // wipe the optimistic entry, causing the repo to disappear and reappear.
++    setRepoMap((currentRepoMap) => {
++      // Start with everything the server returned
++      const merged = new Map(newRepoMap);
++
++      // Build a set of repositoryPaths present in server data for dedup
++      const serverPaths = new Set(
++        [...newRepoMap.values()].map((e) => e.data.repositoryPath)
++      );
++
++      // Keep optimistic entries whose path isn't in server data yet
++      for (const [id, entry] of currentRepoMap) {
++        if (id.startsWith('repo-temp-') && !serverPaths.has(entry.data.repositoryPath)) {
++          merged.set(id, entry);
++        }
++      }
++
++      return merged;
++    });
+   }, []);
+ 
+   const updateFeature = useCallback((featureNodeId: string, updates: FeatureDataUpdates) => {

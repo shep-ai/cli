@@ -1,0 +1,28 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-repo-list-flicker
+
+ ✓  web  tests/unit/presentation/web/hooks/use-graph-state.test.tsx > useGraphState > initialization > initializes with features/repos and returns correct nodes/edges 84ms
+ ✓  web  tests/unit/presentation/web/hooks/use-graph-state.test.tsx > useGraphState > initialization > derives edges from repositoryPath matching (repo→feature) 165ms
+ ✓  web  tests/unit/presentation/web/hooks/use-graph-state.test.tsx > useGraphState > initialization > derives dependency edge from dep- prefixed initialEdge 17ms
+ ✓  web  tests/unit/presentation/web/hooks/use-graph-state.test.tsx > useGraphState > reconcile > adds new server feature → new node appears 52ms
+ ✓  web  tests/unit/presentation/web/hooks/use-graph-state.test.tsx > useGraphState > reconcile > removes server feature → node disappears 16ms
+ ✓  web  tests/unit/presentation/web/hooks/use-graph-state.test.tsx > useGraphState > reconcile > replaces pending feature with real feature when reconcile arrives 163ms
+ ✓  web  tests/unit/presentation/web/hooks/use-graph-state.test.tsx > useGraphState > reconcile > edges are correct after pending→real replacement 9ms
+ ✓  web  tests/unit/presentation/web/hooks/use-graph-state.test.tsx > useGraphState > reconcile > preserves optimistic temp repo when server data does not include it yet 14ms
+ ✓  web  tests/unit/presentation/web/hooks/use-graph-state.test.tsx > useGraphState > reconcile > drops temp repo once server data includes the same repositoryPath 8ms
+ ✓  web  tests/unit/presentation/web/hooks/use-graph-state.test.tsx > useGraphState > reconcile > does not preserve non-temp repos that the server no longer returns 10ms
+ ✓  web  tests/unit/presentation/web/hooks/use-graph-state.test.tsx > useGraphState > updateFeature > changes state → derived node state changes 11ms
+ ✓  web  tests/unit/presentation/web/hooks/use-graph-state.test.tsx > useGraphState > updateFeature > changes lifecycle → derived node lifecycle changes 6ms
+ ✓  web  tests/unit/presentation/web/hooks/use-graph-state.test.tsx > useGraphState > updateFeature > unknown featureId is silently ignored (no crash) 10ms
+ ✓  web  tests/unit/presentation/web/hooks/use-graph-state.test.tsx > useGraphState > addPendingFeature / removePendingFeature > adds pending feature → creating node with edge to repo appears 7ms
+ ✓  web  tests/unit/presentation/web/hooks/use-graph-state.test.tsx > useGraphState > addPendingFeature / removePendingFeature > removePendingFeature → creating node disappears 6ms
+ ✓  web  tests/unit/presentation/web/hooks/use-graph-state.test.tsx > useGraphState > full lifecycle: addPending → SSE → reconcile with AI rename > BUG REPRO: SSE updates + reconcile with AI-changed name → exactly ONE node with correct state 8ms
+ ✓  web  tests/unit/presentation/web/hooks/use-graph-state.test.tsx > useGraphState > full lifecycle: addPending → SSE → reconcile with AI rename > BUG REPRO: SSE arrives BEFORE reconcile for unknown feature → buffered updates applied on reconcile 161ms
+ ✓  web  tests/unit/presentation/web/hooks/use-graph-state.test.tsx > useGraphState > full lifecycle: addPending → SSE → reconcile with AI rename > BUG REPRO: reconcile with name change does NOT leave stale pendingMap ghost node 61ms
+ ✓  web  tests/unit/presentation/web/hooks/use-graph-state.test.tsx > useGraphState > stable references > nodes/edges have stable references when Maps do not change 26ms
+
+ Test Files  1 passed (1)
+      Tests  19 passed (19)
+   Start at  13:18:10
+   Duration  10.30s (transform 1.60s, setup 4.13s, import 1.54s, tests 852ms, environment 3.18s)
+
