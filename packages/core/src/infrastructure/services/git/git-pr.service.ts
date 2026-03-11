@@ -530,10 +530,15 @@ export class GitPrService implements IGitPrService {
     }
   }
 
-  async getFailureLogs(runId: string, _branch: string, logMaxChars = 50_000): Promise<string> {
+  async getFailureLogs(
+    cwd: string,
+    runId: string,
+    _branch: string,
+    logMaxChars = 50_000
+  ): Promise<string> {
     try {
       const { stdout } = await this.execFile('gh', ['run', 'view', runId, '--log-failed'], {
-        cwd: undefined,
+        cwd,
       });
       return this.truncateLog(stdout, logMaxChars, runId);
     } catch (error) {

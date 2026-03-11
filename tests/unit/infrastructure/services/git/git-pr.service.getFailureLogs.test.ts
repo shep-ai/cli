@@ -33,10 +33,10 @@ describe('GitPrService.getFailureLogs', () => {
     const shortLog = 'Error: some test failed\n  at test.ts:10:5\n';
     vi.mocked(mockExec).mockResolvedValue({ stdout: shortLog, stderr: '' });
 
-    const result = await service.getFailureLogs('12345', 'feat/my-branch', 50_000);
+    const result = await service.getFailureLogs('/tmp/test', '12345', 'feat/my-branch', 50_000);
 
     expect(mockExec).toHaveBeenCalledWith('gh', ['run', 'view', '12345', '--log-failed'], {
-      cwd: undefined,
+      cwd: '/tmp/test',
     });
     expect(result).toBe(shortLog);
   });
@@ -45,7 +45,7 @@ describe('GitPrService.getFailureLogs', () => {
     const longLog = 'A'.repeat(100);
     vi.mocked(mockExec).mockResolvedValue({ stdout: longLog, stderr: '' });
 
-    const result = await service.getFailureLogs('99999', 'feat/my-branch', 50);
+    const result = await service.getFailureLogs('/tmp/test', '99999', 'feat/my-branch', 50);
 
     expect(result).toBe(
       `${'A'.repeat(50)}\n[Log truncated at 50 chars — full log available via gh run view 99999]`
@@ -56,7 +56,7 @@ describe('GitPrService.getFailureLogs', () => {
     const shortLog = 'short log output';
     vi.mocked(mockExec).mockResolvedValue({ stdout: shortLog, stderr: '' });
 
-    const result = await service.getFailureLogs('11111', 'feat/branch');
+    const result = await service.getFailureLogs('/tmp/test', '11111', 'feat/branch');
 
     expect(result).toBe(shortLog);
   });
@@ -66,17 +66,23 @@ describe('GitPrService.getFailureLogs', () => {
     (execError as NodeJS.ErrnoException).code = 'ENOENT';
     vi.mocked(mockExec).mockRejectedValue(execError);
 
-    await expect(service.getFailureLogs('12345', 'feat/branch')).rejects.toThrow(GitPrError);
-    await expect(service.getFailureLogs('12345', 'feat/branch')).rejects.toMatchObject({
-      code: GitPrErrorCode.GH_NOT_FOUND,
-    });
+    await expect(service.getFailureLogs('/tmp/test', '12345', 'feat/branch')).rejects.toThrow(
+      GitPrError
+    );
+    await expect(service.getFailureLogs('/tmp/test', '12345', 'feat/branch')).rejects.toMatchObject(
+      {
+        code: GitPrErrorCode.GH_NOT_FOUND,
+      }
+    );
   });
 
   it('should throw GitPrError with GIT_ERROR on generic gh failure', async () => {
     vi.mocked(mockExec).mockRejectedValue(new Error('gh run view failed: run not found'));
 
-    await expect(service.getFailureLogs('12345', 'feat/branch')).rejects.toMatchObject({
-      code: GitPrErrorCode.GIT_ERROR,
-    });
+    await expect(service.getFailureLogs('/tmp/test', '12345', 'feat/branch')).rejects.toMatchObject(
+      {
+        code: GitPrErrorCode.GIT_ERROR,
+      }
+    );
   });
 });

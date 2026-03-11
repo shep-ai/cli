@@ -56,14 +56,14 @@ describe('GitPrService.getFailureLogs (integration)', () => {
   });
 
   describe('gh command invocation', () => {
-    it('calls gh with run view <runId> --log-failed and no cwd', async () => {
+    it('calls gh with run view <runId> --log-failed and the given cwd', async () => {
       vi.mocked(mockExec).mockResolvedValue({ stdout: REALISTIC_TYPECHECK_FAILURE, stderr: '' });
 
-      await service.getFailureLogs('9876543210', 'feat/ci-watch-fix-loop');
+      await service.getFailureLogs('/tmp/test', '9876543210', 'feat/ci-watch-fix-loop');
 
       expect(mockExec).toHaveBeenCalledOnce();
       expect(mockExec).toHaveBeenCalledWith('gh', ['run', 'view', '9876543210', '--log-failed'], {
-        cwd: undefined,
+        cwd: '/tmp/test',
       });
     });
 
@@ -71,7 +71,7 @@ describe('GitPrService.getFailureLogs (integration)', () => {
       vi.mocked(mockExec).mockResolvedValue({ stdout: '', stderr: '' });
       const runId = '1234567890987654321';
 
-      await service.getFailureLogs(runId, 'main');
+      await service.getFailureLogs('/tmp/test', runId, 'main');
 
       const callArgs = vi.mocked(mockExec).mock.calls[0];
       expect(callArgs[1]).toContain(runId);
@@ -86,7 +86,7 @@ describe('GitPrService.getFailureLogs (integration)', () => {
         stderr: '',
       });
 
-      const result = await service.getFailureLogs('9876543210', 'feat/branch');
+      const result = await service.getFailureLogs('/tmp/test', '9876543210', 'feat/branch');
 
       expect(result).toBe(REALISTIC_TYPECHECK_FAILURE);
       expect(result).not.toContain('[Log truncated');
@@ -98,7 +98,7 @@ describe('GitPrService.getFailureLogs (integration)', () => {
         stderr: '',
       });
 
-      const result = await service.getFailureLogs('1122334455', 'feat/branch');
+      const result = await service.getFailureLogs('/tmp/test', '1122334455', 'feat/branch');
 
       expect(result).toBe(REALISTIC_LINT_FAILURE);
       expect(result).not.toContain('[Log truncated');
@@ -107,7 +107,7 @@ describe('GitPrService.getFailureLogs (integration)', () => {
     it('returns empty string when gh exits with code 0 and no output', async () => {
       vi.mocked(mockExec).mockResolvedValue({ stdout: '', stderr: '' });
 
-      const result = await service.getFailureLogs('5544332211', 'feat/no-failures');
+      const result = await service.getFailureLogs('/tmp/test', '5544332211', 'feat/no-failures');
 
       expect(result).toBe('');
     });
@@ -124,7 +124,7 @@ describe('GitPrService.getFailureLogs (integration)', () => {
 
       vi.mocked(mockExec).mockResolvedValue({ stdout: longLog, stderr: '' });
 
-      const result = await service.getFailureLogs('7788990011', 'feat/flaky-tests');
+      const result = await service.getFailureLogs('/tmp/test', '7788990011', 'feat/flaky-tests');
 
       expect(result.length).toBeGreaterThan(50_000); // includes the notice
       expect(result.startsWith(longLog.slice(0, 50_000))).toBe(true);
@@ -137,7 +137,7 @@ describe('GitPrService.getFailureLogs (integration)', () => {
       const log = 'X'.repeat(200);
       vi.mocked(mockExec).mockResolvedValue({ stdout: log, stderr: '' });
 
-      const result = await service.getFailureLogs('1234567890', 'feat/branch', 100);
+      const result = await service.getFailureLogs('/tmp/test', '1234567890', 'feat/branch', 100);
 
       expect(result).toBe(
         `${'X'.repeat(
@@ -150,7 +150,7 @@ describe('GitPrService.getFailureLogs (integration)', () => {
       const log = 'A'.repeat(50_000);
       vi.mocked(mockExec).mockResolvedValue({ stdout: log, stderr: '' });
 
-      const result = await service.getFailureLogs('9999999999', 'feat/exact');
+      const result = await service.getFailureLogs('/tmp/test', '9999999999', 'feat/exact');
 
       expect(result).toBe(log);
       expect(result).not.toContain('[Log truncated');
@@ -163,9 +163,13 @@ describe('GitPrService.getFailureLogs (integration)', () => {
       (notFoundError as NodeJS.ErrnoException).code = 'ENOENT';
       vi.mocked(mockExec).mockRejectedValue(notFoundError);
 
-      await expect(service.getFailureLogs('9876543210', 'feat/branch')).rejects.toThrow(GitPrError);
+      await expect(
+        service.getFailureLogs('/tmp/test', '9876543210', 'feat/branch')
+      ).rejects.toThrow(GitPrError);
 
-      await expect(service.getFailureLogs('9876543210', 'feat/branch')).rejects.toMatchObject({
+      await expect(
+        service.getFailureLogs('/tmp/test', '9876543210', 'feat/branch')
+      ).rejects.toMatchObject({
         code: GitPrErrorCode.GH_NOT_FOUND,
       });
     });
@@ -176,7 +180,9 @@ describe('GitPrService.getFailureLogs (integration)', () => {
       );
       vi.mocked(mockExec).mockRejectedValue(execError);
 
-      await expect(service.getFailureLogs('9876543210', 'feat/branch')).rejects.toMatchObject({
+      await expect(
+        service.getFailureLogs('/tmp/test', '9876543210', 'feat/branch')
+      ).rejects.toMatchObject({
         code: GitPrErrorCode.GIT_ERROR,
       });
     });
@@ -187,7 +193,7 @@ describe('GitPrService.getFailureLogs (integration)', () => {
 
       let thrown: GitPrError | undefined;
       try {
-        await service.getFailureLogs('12345', 'feat/branch');
+        await service.getFailureLogs('/tmp/test', '12345', 'feat/branch');
       } catch (e) {
         thrown = e as GitPrError;
       }

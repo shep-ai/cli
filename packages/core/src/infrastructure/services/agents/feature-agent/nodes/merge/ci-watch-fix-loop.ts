@@ -132,7 +132,7 @@ export async function runCiWatchFixLoop(
 
     // Fetch failure logs
     const runId = extractRunId(runUrl) ?? '';
-    const failureLogs = await gitPrService.getFailureLogs(runId, branch, logMaxChars);
+    const failureLogs = await gitPrService.getFailureLogs(cwd, runId, branch, logMaxChars);
     const startedAt = new Date().toISOString();
 
     log.info(`CI fix attempt ${ciFixAttempts + 1}/${maxAttempts} for run ${runId}`);
