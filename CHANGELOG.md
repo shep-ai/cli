@@ -1,3 +1,13 @@
+# [1.104.0](https://github.com/shep-ai/cli/compare/v1.103.1...v1.104.0) (2026-03-11)
+
+### Bug Fixes
+
+- **web:** add live elapsed time and phase-based tab switching to feature drawer ([#297](https://github.com/shep-ai/cli/issues/297)) ([c232fe0](https://github.com/shep-ai/cli/commit/c232fe02387e8bd39c6b56ac51b0e6b420873f4f))
+
+### Features
+
+- **web:** add in-app cli upgrade via server-side npm install ([#308](https://github.com/shep-ai/cli/issues/308)) ([1d302db](https://github.com/shep-ai/cli/commit/1d302dbb68e9210141e466eb1f095c2244575a4f))
+
 ## [1.103.1](https://github.com/shep-ai/cli/compare/v1.103.0...v1.103.1) (2026-03-11)
 
 ### Bug Fixes
