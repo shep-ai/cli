@@ -230,6 +230,11 @@ export class WorktreeService implements IWorktreeService {
       return normalized.slice('/private'.length);
     }
 
+    // On Windows, paths are case-insensitive (e.g., D:\ vs d:\)
+    if (process.platform === 'win32') {
+      return normalized.toLowerCase();
+    }
+
     return normalized;
   }
 }
