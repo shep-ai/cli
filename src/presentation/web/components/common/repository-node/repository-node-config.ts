@@ -8,6 +8,8 @@ export interface RepositoryNodeData {
   name: string;
   /** Absolute path to the repository root, used for IDE/shell actions */
   repositoryPath?: string;
+  /** Creation timestamp (epoch ms) — used for stable vertical ordering. */
+  createdAt?: number;
   onClick?: () => void;
   onAdd?: () => void;
   onDelete?: (repositoryId: string) => void;

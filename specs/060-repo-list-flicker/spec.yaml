@@ -79,3 +79,14 @@ rejectionFeedback:
       shep
     phase: merge
     timestamp: '2026-03-11T12:09:00.049Z'
+  - iteration: 2
+    message: |-
+      The issue still happen
+      repo "1" jumped to the top
+    phase: merge
+    timestamp: '2026-03-11T12:47:41.563Z'
+    attachments:
+      - >-
+        /Users/arielshadkhan/.shep/attachments/pending-f5c02629-0e0c-436f-bccd-e2c0db8c6619/image-9c042942.png
+      - >-
+        /Users/arielshadkhan/.shep/attachments/pending-f5c02629-0e0c-436f-bccd-e2c0db8c6619/image-3c57fa9b.png

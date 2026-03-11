@@ -33,7 +33,8 @@ function makeFeatureEntry(
 function makeRepoEntry(
   nodeId: string,
   repositoryPath: string,
-  name = 'my-repo'
+  name = 'my-repo',
+  createdAt?: number
 ): [string, RepoEntry] {
   return [
     nodeId,
@@ -43,6 +44,7 @@ function makeRepoEntry(
         name,
         repositoryPath,
         id: nodeId.replace('repo-', ''),
+        ...(createdAt !== undefined && { createdAt }),
       } as RepositoryNodeData,
     },
   ];
@@ -264,6 +266,22 @@ describe('deriveGraph', () => {
       const data = creatingNode?.data as FeatureNodeData;
       expect(data.onAction).toBeUndefined();
       expect(data.onSettings).toBeUndefined();
+    });
+
+    it('repos are sorted by createdAt regardless of Map insertion order', () => {
+      // Insert repos in reverse creation order (simulates dagre reordering the array)
+      const repoMap = new Map([
+        makeRepoEntry('repo-3', '/repo-c', 'repo-c', 3000),
+        makeRepoEntry('repo-1', '/repo-a', 'repo-a', 1000),
+        makeRepoEntry('repo-2', '/repo-b', 'repo-b', 2000),
+      ]);
+      const featureMap = new Map<string, FeatureEntry>();
+      const pendingMap = new Map<string, FeatureEntry>();
+
+      const { nodes } = deriveGraph(featureMap, repoMap, pendingMap);
+
+      const repoNodes = nodes.filter((n) => n.type === 'repositoryNode');
+      expect(repoNodes.map((n) => n.id)).toEqual(['repo-1', 'repo-2', 'repo-3']);
     });
 
     it('repo nodes get onAdd/onClick/onDelete callbacks', () => {

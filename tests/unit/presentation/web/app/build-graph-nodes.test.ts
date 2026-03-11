@@ -243,6 +243,51 @@ describe('buildGraphNodes', () => {
     });
   });
 
+  describe('repository node data includes createdAt', () => {
+    it('passes createdAt from the Repository entity as epoch ms', () => {
+      const repo = makeRepo({ path: '/my/repo', createdAt: new Date('2026-01-15T10:00:00Z') });
+      const { nodes } = buildGraphNodes([repo], []);
+
+      const repoNode = nodes.find((n) => n.id === 'repo-repo-1');
+      expect(repoNode).toBeDefined();
+      const data = repoNode!.data as Record<string, unknown>;
+      expect(data.createdAt).toBe(new Date('2026-01-15T10:00:00Z').getTime());
+    });
+  });
+
+  describe('repository ordering after dagre layout survives reconcile', () => {
+    it('repos maintain createdAt order even when dagre reorders the node array', () => {
+      // Repo A created first, has no features (disconnected → dagre puts it last)
+      // Repo B created second, has a feature (connected → dagre puts it first)
+      const repoA = makeRepo({
+        id: 'repo-a',
+        name: 'repo-a',
+        path: '/repo-a',
+        createdAt: new Date('2025-01-01'),
+      });
+      const repoB = makeRepo({
+        id: 'repo-b',
+        name: 'repo-b',
+        path: '/repo-b',
+        createdAt: new Date('2025-06-01'),
+      });
+      const feature = makeFeature({ id: 'feat-1', repositoryPath: '/repo-b' });
+
+      const { nodes, edges } = buildGraphNodes([repoA, repoB], [{ feature, run: null }]);
+
+      // After dagre layout, the node array order may change
+      const laid = layoutWithDagre(nodes, edges, CANVAS_LAYOUT_DEFAULTS);
+
+      // Verify both repos have createdAt set
+      const laidRepoA = laid.nodes.find((n) => n.id === 'repo-repo-a');
+      const laidRepoB = laid.nodes.find((n) => n.id === 'repo-repo-b');
+      expect(laidRepoA).toBeDefined();
+      expect(laidRepoB).toBeDefined();
+      expect((laidRepoA!.data as Record<string, unknown>).createdAt).toBeDefined();
+      expect((laidRepoB!.data as Record<string, unknown>).createdAt).toBeDefined();
+    });
+  });
+
   describe('empty inputs', () => {
     it('returns empty nodes and edges when both inputs are empty', () => {
       const { nodes, edges } = buildGraphNodes([], []);
