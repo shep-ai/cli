@@ -118,7 +118,7 @@ describe('WelcomeAgentSetup', () => {
     });
   });
 
-  it('skips model selection and tool check for agents without models/tools', async () => {
+  it('auto-completes for agents without models/tools', async () => {
     const user = userEvent.setup();
     render(<WelcomeAgentSetup onComplete={onComplete} />);
 
@@ -128,13 +128,13 @@ describe('WelcomeAgentSetup', () => {
 
     await user.click(screen.getByTestId('agent-option-dev'));
 
-    // Auto-skips check-tool and lands on authenticate step
+    // Auto-skips check-tool (no tool needed) and calls onComplete directly
     await waitFor(() => {
-      expect(screen.getByText('No authentication required')).toBeInTheDocument();
+      expect(onComplete).toHaveBeenCalled();
     });
   });
 
-  it('shows authenticate step after selecting agent and model (auto-skips tool check)', async () => {
+  it('auto-completes after selecting agent and model when tool is installed', async () => {
     const user = userEvent.setup();
     render(<WelcomeAgentSetup onComplete={onComplete} />);
 
@@ -150,30 +150,7 @@ describe('WelcomeAgentSetup', () => {
 
     await user.click(screen.getByTestId('model-option-opus-4'));
 
-    // Auto-skips check-tool (tool installed) and shows authenticate step
-    await waitFor(() => {
-      expect(screen.getByTestId('agent-setup-launch')).toBeInTheDocument();
-    });
-  });
-
-  it('calls onComplete after confirming setup on authenticate step', async () => {
-    const user = userEvent.setup();
-    render(<WelcomeAgentSetup onComplete={onComplete} />);
-
-    // Select dev agent (no models, no tool needed)
-    await waitFor(() => {
-      expect(screen.getByTestId('agent-option-dev')).toBeInTheDocument();
-    });
-
-    await user.click(screen.getByTestId('agent-option-dev'));
-
-    // Wait for authenticate step (auto-skips check-tool)
-    await waitFor(() => {
-      expect(screen.getByText('No authentication required')).toBeInTheDocument();
-    });
-
-    await user.click(screen.getByTestId('agent-setup-confirm'));
-
+    // Auto-skips check-tool (tool installed) and calls onComplete directly
     await waitFor(() => {
       expect(onComplete).toHaveBeenCalled();
     });

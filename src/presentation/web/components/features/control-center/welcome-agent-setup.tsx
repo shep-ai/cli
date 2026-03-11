@@ -11,8 +11,6 @@ import {
   Circle,
   AlertCircle,
   Bot,
-  Terminal,
-  ExternalLink,
 } from 'lucide-react';
 import { getAllAgentModels } from '@/app/actions/get-all-agent-models';
 import type { AgentModelGroup } from '@/app/actions/get-all-agent-models';
@@ -29,9 +27,9 @@ export interface WelcomeAgentSetupProps {
   className?: string;
 }
 
-type SetupStep = 'select-agent' | 'select-model' | 'check-tool' | 'authenticate';
+type SetupStep = 'select-agent' | 'select-model' | 'check-tool';
 
-const STEPS: SetupStep[] = ['select-agent', 'select-model', 'check-tool', 'authenticate'];
+const STEPS: SetupStep[] = ['select-agent', 'select-model', 'check-tool'];
 
 /** Fixed width for the wizard content area to prevent layout jumps */
 const WIZARD_WIDTH = 'w-72';
@@ -105,10 +103,6 @@ export function WelcomeAgentSetup({ onComplete, className }: WelcomeAgentSetupPr
     [transitionTo]
   );
 
-  const handleProceedToAuth = useCallback(() => {
-    transitionTo('authenticate');
-  }, [transitionTo]);
-
   const handleBack = useCallback(() => {
     if (step === 'select-model') {
       transitionTo('select-agent', () => {
@@ -124,35 +118,28 @@ export function WelcomeAgentSetup({ onComplete, className }: WelcomeAgentSetupPr
           setSelectedAgent(null);
         });
       }
-    } else if (step === 'authenticate') {
-      // If tool needed install, go back to check-tool; otherwise skip to model/agent
-      if (toolStatus && !toolStatus.installed && toolStatus.toolId) {
-        transitionTo('check-tool');
-      } else if (activeGroup && activeGroup.models.length > 0) {
-        transitionTo('select-model', () => {
-          setSelectedModel(null);
-        });
-      } else {
-        transitionTo('select-agent', () => {
-          setSelectedAgent(null);
-        });
-      }
     }
-  }, [step, activeGroup, toolStatus, transitionTo]);
+  }, [step, activeGroup, transitionTo]);
 
   useEffect(() => {
     if (step !== 'check-tool' || !selectedAgent) return;
     setCheckingTool(true);
     checkAgentTool(selectedAgent)
-      .then((status) => {
+      .then(async (status) => {
         setToolStatus(status);
-        // Auto-skip to authenticate when tool is already available or not required
+        // Auto-complete when tool is already available or not required
         if (status.installed || !status.toolId) {
-          transitionTo('authenticate');
+          setSaving(true);
+          try {
+            await updateAgentAndModel(selectedAgent, selectedModel ?? null);
+            onComplete();
+          } finally {
+            setSaving(false);
+          }
         }
       })
       .finally(() => setCheckingTool(false));
-  }, [step, selectedAgent, transitionTo]);
+  }, [step, selectedAgent, selectedModel, onComplete]);
 
   const handleConfirm = useCallback(async () => {
     if (!selectedAgent) return;
@@ -216,19 +203,6 @@ export function WelcomeAgentSetup({ onComplete, className }: WelcomeAgentSetupPr
               </span>
             </>
           )}
-          {step === 'authenticate' && activeGroup
-            ? (() => {
-                const AgentIcon = getAgentTypeIcon(activeGroup.agentType);
-                return (
-                  <>
-                    <AgentIcon className="h-3.5 w-3.5" />
-                    <span className="text-[10px] font-semibold tracking-widest uppercase">
-                      Authenticate
-                    </span>
-                  </>
-                );
-              })()
-            : null}
         </div>
       </div>
 
@@ -317,8 +291,8 @@ export function WelcomeAgentSetup({ onComplete, className }: WelcomeAgentSetupPr
           <ToolCheckStep
             toolStatus={toolStatus}
             checking={checkingTool}
-            saving={false}
-            onConfirm={handleProceedToAuth}
+            saving={saving}
+            onConfirm={handleConfirm}
             onBack={handleBack}
             onToolInstalled={() => {
               if (selectedAgent) {
@@ -330,17 +304,6 @@ export function WelcomeAgentSetup({ onComplete, className }: WelcomeAgentSetupPr
             }}
           />
         )}
-
-        {/* Step 4: Authenticate */}
-        {step === 'authenticate' && toolStatus ? (
-          <AuthenticateStep
-            toolStatus={toolStatus}
-            agentLabel={activeGroup?.label ?? selectedAgent ?? 'Agent'}
-            saving={saving}
-            onConfirm={handleConfirm}
-            onBack={handleBack}
-          />
-        ) : null}
       </div>
     </div>
   );
@@ -379,7 +342,7 @@ function ToolCheckStep({
           <CheckCircle2 className="h-3.5 w-3.5" />
           <span className="text-xs">No additional tools required</span>
         </div>
-        <ConfirmRow saving={saving} onConfirm={onConfirm} onBack={onBack} />
+        <ConfirmRow saving={saving} onConfirm={onConfirm} onBack={onBack} label="Done" />
       </div>
     );
   }
@@ -391,7 +354,7 @@ function ToolCheckStep({
           <CheckCircle2 className="h-3.5 w-3.5" />
           <span className="text-xs">{toolStatus.tool?.name ?? toolStatus.toolId} is installed</span>
         </div>
-        <ConfirmRow saving={saving} onConfirm={onConfirm} onBack={onBack} />
+        <ConfirmRow saving={saving} onConfirm={onConfirm} onBack={onBack} label="Done" />
       </div>
     );
   }
@@ -443,109 +406,6 @@ function ConfirmRow({
   );
 }
 
-/** Authenticate step — optional agent launch for auth */
-function AuthenticateStep({
-  toolStatus,
-  agentLabel,
-  saving,
-  onConfirm,
-  onBack,
-}: {
-  toolStatus: AgentToolStatus;
-  agentLabel: string;
-  saving: boolean;
-  onConfirm: () => void;
-  onBack: () => void;
-}) {
-  const [launching, setLaunching] = useState(false);
-  const [launched, setLaunched] = useState(false);
-
-  const handleLaunch = useCallback(async () => {
-    if (!toolStatus.toolId) return;
-    setLaunching(true);
-    try {
-      const res = await fetch(`/api/tools/${toolStatus.toolId}/launch`, { method: 'POST' });
-      if (res.ok) setLaunched(true);
-    } finally {
-      setLaunching(false);
-    }
-  }, [toolStatus.toolId]);
-
-  // No tool = no auth needed, skip straight to confirm
-  if (!toolStatus.toolId) {
-    return (
-      <div className="flex w-full flex-col items-center gap-3">
-        <p className="text-muted-foreground text-[10px]">No authentication required</p>
-        <ConfirmRow saving={saving} onConfirm={onConfirm} onBack={onBack} label="Done" />
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex w-full flex-col items-center gap-3">
-      <p className="text-muted-foreground text-center text-[10px] leading-relaxed">
-        Open {agentLabel} in a terminal to sign in.
-        <br />
-        Follow the prompts, then come back here.
-      </p>
-
-      <button
-        type="button"
-        data-testid="agent-setup-launch"
-        disabled={launching}
-        onClick={handleLaunch}
-        className="border-border hover:border-foreground/40 flex w-full cursor-pointer items-center gap-2.5 rounded-md border border-dashed px-4 py-2.5 transition-colors disabled:opacity-50"
-      >
-        {launching ? (
-          <Loader2 className="text-muted-foreground h-4 w-4 animate-spin" />
-        ) : (
-          <Terminal className="text-muted-foreground h-4 w-4" />
-        )}
-        <span className="flex-1 text-left text-xs font-medium">
-          {launched ? 'Open again' : `Open ${agentLabel}`}
-        </span>
-        <ExternalLink className="text-muted-foreground h-3 w-3" />
-      </button>
-
-      {launched ? (
-        <p className="text-muted-foreground text-[10px]">
-          Terminal opened — complete sign-in there
-        </p>
-      ) : null}
-
-      {toolStatus.binaryName ? (
-        <div className="flex w-full flex-col gap-1">
-          <p className="text-muted-foreground text-[10px]">Or run manually in any terminal:</p>
-          <div className="w-full rounded-md bg-zinc-900 px-3 py-1.5 font-mono text-[11px] text-zinc-300">
-            <span className="text-zinc-500 select-none">$ </span>
-            {toolStatus.binaryName}
-          </div>
-        </div>
-      ) : null}
-
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          className="text-muted-foreground hover:text-foreground cursor-pointer text-[10px] transition-colors"
-          onClick={onBack}
-        >
-          <ChevronLeft className="mr-0.5 inline h-3 w-3" />
-          Back
-        </button>
-        <button
-          type="button"
-          data-testid="agent-setup-confirm"
-          disabled={saving}
-          className="border-border hover:border-foreground/40 flex cursor-pointer items-center gap-1.5 rounded-md border border-dashed px-4 py-2 text-xs font-medium transition-colors disabled:opacity-50"
-          onClick={onConfirm}
-        >
-          {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-          {launched ? 'Done' : 'Skip'}
-        </button>
-      </div>
-    </div>
-  );
-}
 
 /** Inline tool installer for the welcome wizard */
 function ToolInstallInline({
