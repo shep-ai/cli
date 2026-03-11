@@ -1,6 +1,7 @@
 'use client';
 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useNpmVersionCheck } from '@/hooks/use-npm-version-check';
 
 export interface VersionBadgeProps {
   version: string;
@@ -22,19 +23,28 @@ export function VersionBadge({
   instancePath,
 }: VersionBadgeProps) {
   const shortHash = commitHash?.slice(0, 7);
+  const { latest, updateAvailable } = useNpmVersionCheck(version);
 
   // In dev mode show "1.92.2-dev", in production show "v1.92.2"
   const displayVersion = isDev ? `${version}-dev` : `v${version}`;
+
+  const npmUrl = `https://www.npmjs.com/package/${packageName}`;
 
   return (
     <TooltipProvider delayDuration={200}>
       <Tooltip>
         <TooltipTrigger asChild>
           <span
-            className="text-muted-foreground/80 hover:text-muted-foreground cursor-default text-[11px] leading-tight transition-colors"
+            className="text-muted-foreground/80 hover:text-muted-foreground relative cursor-default text-[11px] leading-tight transition-colors"
             data-testid="version-label"
           >
             {displayVersion}
+            {updateAvailable ? (
+              <span
+                className="absolute -top-0.5 -right-1.5 size-1.5 rounded-full bg-emerald-400"
+                data-testid="update-dot"
+              />
+            ) : null}
           </span>
         </TooltipTrigger>
         <TooltipContent side="right" className="max-w-[280px] space-y-1 p-3 text-left">
@@ -47,7 +57,23 @@ export function VersionBadge({
             {isDev && branch ? <Row label="Branch" value={branch} /> : null}
             {isDev && shortHash ? <Row label="Commit" value={shortHash} mono /> : null}
             {isDev && instancePath ? <Row label="Path" value={instancePath} mono /> : null}
+            {latest ? (
+              <Row label="Latest" value={`v${latest}`} highlight={updateAvailable} />
+            ) : null}
           </div>
+          {updateAvailable ? (
+            <div className="border-t border-white/10 pt-1.5">
+              <a
+                href={npmUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-400 transition-colors hover:text-emerald-300"
+                data-testid="upgrade-link"
+              >
+                Upgrade to v{latest} →
+              </a>
+            </div>
+          ) : null}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
@@ -70,7 +96,7 @@ function Row({
       <span className="opacity-60">{label}</span>
       <span
         className={[
-          highlight ? 'font-medium text-cyan-400' : '',
+          highlight ? 'font-medium text-emerald-400' : '',
           mono || !highlight ? 'font-mono' : '',
         ]
           .filter(Boolean)

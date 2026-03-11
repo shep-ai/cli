@@ -1,0 +1,36 @@
+feature:
+  id: '060-npm-version-checker'
+  name: 'npm-version-checker'
+  number: 60
+  branch: 'feat/060-npm-version-checker'
+  lifecycle: 'research'
+  createdAt: '2026-03-11T10:50:25Z'
+
+status:
+  phase: 'research'
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-03-11T10:50:25Z'
+  lastUpdatedBy: 'feature-agent'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-03-11T10:50:25Z'
+    completedBy: 'feature-agent'
+
+errors:
+  current: null
+  history: []
