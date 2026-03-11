@@ -1,3 +1,13 @@
+# [1.103.0](https://github.com/shep-ai/cli/compare/v1.102.0...v1.103.0) (2026-03-11)
+
+### Bug Fixes
+
+- **agents:** pass cwd to getFailureLogs to prevent ci watch failure in worktrees ([#305](https://github.com/shep-ai/cli/issues/305)) ([74360e6](https://github.com/shep-ai/cli/commit/74360e6d53359788ea1aeab336fb5d0f8569b66d))
+
+### Features
+
+- **web:** canvas animations, dialog transitions, and onboarding polish ([#301](https://github.com/shep-ai/cli/issues/301)) ([15beef3](https://github.com/shep-ai/cli/commit/15beef36f830b8cc7897f64b4661ff59bdf05035))
+
 # [1.102.0](https://github.com/shep-ai/cli/compare/v1.101.4...v1.102.0) (2026-03-11)
 
 ### Features
