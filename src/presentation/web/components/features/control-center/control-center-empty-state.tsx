@@ -83,7 +83,7 @@ export function ControlCenterEmptyState({
       className={cn('flex flex-col items-center justify-center', className)}
     >
       {/* Glassy container */}
-      <div className="w-96 animate-in fade-in slide-in-from-bottom-2 duration-300 rounded-2xl border border-white/30 bg-white/50 px-8 py-8 shadow-lg backdrop-blur-xl dark:border-white/10 dark:bg-white/5">
+      <div className="animate-in fade-in slide-in-from-bottom-2 w-96 rounded-2xl border border-white/30 bg-white/50 px-8 py-8 shadow-lg backdrop-blur-xl duration-300 dark:border-white/10 dark:bg-white/5">
         <div className="flex flex-col items-center gap-4">
           {/* Page header — inside card */}
           <div className="mb-2 text-center">
@@ -98,10 +98,7 @@ export function ControlCenterEmptyState({
             /* Step 2: Add repository (shown immediately after agent is configured) */
             <>
               {/* Background auth status banner */}
-              <AgentAuthBanner
-                status={authStatus}
-                onRetry={handleRetryAuth}
-              />
+              <AgentAuthBanner status={authStatus} onRetry={handleRetryAuth} />
 
               {/* Repositories label */}
               <div className="text-muted-foreground flex items-center gap-2">
@@ -188,7 +185,7 @@ function AgentAuthBanner({
   // Still checking — show subtle spinner
   if (!status) {
     return (
-      <div className="flex w-full items-center gap-2 rounded-md bg-muted/50 px-3 py-1.5">
+      <div className="bg-muted/50 flex w-full items-center gap-2 rounded-md px-3 py-1.5">
         <Loader2 className="text-muted-foreground h-3 w-3 animate-spin" />
         <span className="text-muted-foreground text-[10px]">Checking agent setup…</span>
       </div>
@@ -226,7 +223,7 @@ function AgentAuthBanner({
         <button
           type="button"
           onClick={onRetry}
-          className="text-amber-700 hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-100 self-start text-[10px] font-medium underline underline-offset-2"
+          className="self-start text-[10px] font-medium text-amber-700 underline underline-offset-2 hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-100"
         >
           Re-check
         </button>
@@ -256,7 +253,8 @@ function AgentAuthBanner({
             data-testid="auth-banner-open-terminal"
             onClick={async () => {
               try {
-                const toolId = status.agentType === 'claude-code' ? 'claude-code' : status.agentType;
+                const toolId =
+                  status.agentType === 'claude-code' ? 'claude-code' : status.agentType;
                 await fetch(`/api/tools/${toolId}/launch`, { method: 'POST' });
               } catch {
                 // best effort
@@ -271,7 +269,7 @@ function AgentAuthBanner({
         <button
           type="button"
           onClick={onRetry}
-          className="text-amber-700 hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-100 text-[10px] font-medium underline underline-offset-2"
+          className="text-[10px] font-medium text-amber-700 underline underline-offset-2 hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-100"
         >
           Re-check
         </button>

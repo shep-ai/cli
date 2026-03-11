@@ -1,12 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import {
-  ChevronRight,
-  ChevronLeft,
-  Loader2,
-  Bot,
-} from 'lucide-react';
+import { ChevronRight, ChevronLeft, Loader2, Bot } from 'lucide-react';
 import { getAllAgentModels } from '@/app/actions/get-all-agent-models';
 import type { AgentModelGroup } from '@/app/actions/get-all-agent-models';
 import { updateAgentAndModel } from '@/app/actions/update-agent-and-model';
