@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { SidebarProvider, useSidebar } from '@/components/ui/sidebar';
+import { SidebarProvider, useSidebar, SIDEBAR_STORAGE_KEY } from '@/components/ui/sidebar';
 
 /** Helper that renders a SidebarProvider and exposes sidebar context via a test harness. */
 function SidebarHarness(props: React.ComponentProps<typeof SidebarProvider>) {
@@ -81,7 +81,7 @@ describe('SidebarProvider localStorage persistence', () => {
 
     await user.click(screen.getByTestId('toggle'));
 
-    expect(setItemMock).toHaveBeenCalledWith('sidebar_state', 'true');
+    expect(setItemMock).toHaveBeenCalledWith(SIDEBAR_STORAGE_KEY, 'true');
   });
 
   it('persists state to localStorage when toggled closed', async () => {
@@ -97,7 +97,7 @@ describe('SidebarProvider localStorage persistence', () => {
     // Sidebar is now open from localStorage, toggle closes it
     await user.click(screen.getByTestId('toggle'));
 
-    expect(setItemMock).toHaveBeenCalledWith('sidebar_state', 'false');
+    expect(setItemMock).toHaveBeenCalledWith(SIDEBAR_STORAGE_KEY, 'false');
   });
 });
 
