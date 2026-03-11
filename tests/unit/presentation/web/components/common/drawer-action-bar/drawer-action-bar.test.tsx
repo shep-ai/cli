@@ -52,6 +52,33 @@ describe('DrawerActionBar', () => {
     expect(textarea.className).toContain('overflow-y-auto');
   });
 
+  it('approves by default when chat input is empty', async () => {
+    const user = userEvent.setup();
+    const onApprove = vi.fn();
+    const onReject = vi.fn();
+    render(<DrawerActionBar onApprove={onApprove} approveLabel="Approve" onReject={onReject} />);
+
+    await user.click(screen.getByTestId('drawer-action-submit'));
+
+    expect(mockApprovePlay).toHaveBeenCalledOnce();
+    expect(onApprove).toHaveBeenCalledOnce();
+    expect(onReject).not.toHaveBeenCalled();
+  });
+
+  it('rejects when chat input has text and submit is clicked', async () => {
+    const user = userEvent.setup();
+    const onApprove = vi.fn();
+    const onReject = vi.fn();
+    render(<DrawerActionBar onApprove={onApprove} approveLabel="Approve" onReject={onReject} />);
+
+    const input = screen.getByRole('textbox');
+    await user.type(input, 'needs changes');
+    await user.click(screen.getByTestId('drawer-action-submit'));
+
+    expect(onReject).toHaveBeenCalledWith('needs changes', []);
+    expect(onApprove).not.toHaveBeenCalled();
+  });
+
   it('disables all controls when isProcessing is true', () => {
     render(
       <DrawerActionBar
