@@ -1,3 +1,9 @@
+# [1.101.0](https://github.com/shep-ai/cli/compare/v1.100.0...v1.101.0) (2026-03-11)
+
+### Features
+
+- **web:** default to approve action when chat input is empty ([#300](https://github.com/shep-ai/cli/issues/300)) ([232532f](https://github.com/shep-ai/cli/commit/232532fe17cb225f569d05e1dda16edc36d4df06))
+
 # [1.100.0](https://github.com/shep-ai/cli/compare/v1.99.0...v1.100.0) (2026-03-11)
 
 ### Features
