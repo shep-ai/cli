@@ -265,6 +265,7 @@ export function FeatureDrawerTabs({
 
   // When initialTab changes (e.g. SSE updates lifecycle), switch to it if visible
   // and sync the URL with replaceState so the address bar reflects the new tab.
+  // Also trigger lazy fetch for the new tab so data is ready immediately.
   const prevInitialTabRef = useRef(initialTab);
   useEffect(() => {
     if (
@@ -274,13 +275,17 @@ export function FeatureDrawerTabs({
     ) {
       prevInitialTabRef.current = initialTab;
       setActiveTab(initialTab);
+      // Trigger lazy fetch for the new tab if it's a lazy-loaded tab
+      if (initialTab === 'activity' || initialTab === 'plan') {
+        fetchTab(initialTab as LazyTabKey);
+      }
       // Sync URL to match the new tab
       const targetUrl = initialTab === 'overview' ? basePath : `${basePath}/${initialTab}`;
       if (targetUrl !== window.location.pathname) {
         window.history.replaceState(null, '', targetUrl);
       }
     }
-  }, [initialTab, visibleTabs, basePath]);
+  }, [initialTab, visibleTabs, basePath, fetchTab]);
 
   // If the active tab becomes invisible (lifecycle changed), fall back to overview
   // and sync the URL accordingly.
@@ -293,8 +298,10 @@ export function FeatureDrawerTabs({
     }
   }, [visibleTabs, activeTab, basePath]);
 
-  // SSE refresh: re-fetch active lazy tab when relevant SSE events arrive
+  // SSE refresh: re-fetch lazy tab data when relevant SSE events arrive
   // for this feature (e.g. PhaseCompleted, AgentStarted, AgentCompleted).
+  // Always refresh 'activity' data (even if not the active tab) so switching
+  // to the activity tab shows up-to-date timings without a loading flash.
   const activeTabRef = useRef(activeTab);
   activeTabRef.current = activeTab;
   const sseProcessedRef = useRef(0);
@@ -313,8 +320,11 @@ export function FeatureDrawerTabs({
     const hasRelevantEvent = newEvents.some((e) => e.featureId === featureId);
     if (!hasRelevantEvent) return;
 
+    // Always refresh activity data so it stays current for when the user switches tabs
+    refreshTab('activity' as LazyTabKey);
+
     const current = activeTabRef.current;
-    if (current === 'activity' || current === 'plan') {
+    if (current === 'plan') {
       refreshTab(current);
     }
   }, [sseEvents, featureId, refreshTab]);

@@ -228,7 +228,7 @@ describe('FeatureDrawerTabs', () => {
       expect(mockGetPhaseTimings).toHaveBeenCalledTimes(2);
     });
 
-    it('does not re-fetch when overview tab is active and SSE events arrive', () => {
+    it('refreshes activity data even when overview tab is active and SSE events arrive', () => {
       const { rerender } = renderTabs({ sseEvents: [] });
 
       // Simulate SSE event while on Overview
@@ -240,8 +240,9 @@ describe('FeatureDrawerTabs', () => {
         />
       );
 
-      // No fetches should happen — Overview uses prop data directly
-      expect(mockGetPhaseTimings).not.toHaveBeenCalled();
+      // Activity data should be pre-fetched so it's ready when user switches tabs
+      expect(mockGetPhaseTimings).toHaveBeenCalledWith('#f1');
+      // Plan should NOT be fetched — only activity is always refreshed
       expect(mockGetPlan).not.toHaveBeenCalled();
     });
 
@@ -287,6 +288,94 @@ describe('FeatureDrawerTabs', () => {
       );
       // Should NOT re-fetch — no new events
       expect(mockGetPhaseTimings).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('phase transition tab switching', () => {
+    it('switches to merge-review tab when initialTab changes due to lifecycle transition', () => {
+      const { rerender } = renderTabs({
+        featureNode: { ...defaultFeatureNode, lifecycle: 'implementation', state: 'running' },
+      });
+
+      // Verify starting on overview
+      expect(screen.getByRole('tab', { name: 'Overview' })).toHaveAttribute('data-state', 'active');
+
+      // Simulate lifecycle transition: implementation → review (waiting for merge)
+      rerender(
+        <FeatureDrawerTabs
+          featureNode={{
+            ...defaultFeatureNode,
+            lifecycle: 'review',
+            state: 'action-required',
+          }}
+          featureId="#f1"
+          initialTab="merge-review"
+        />
+      );
+
+      // Should switch to merge-review tab
+      expect(screen.getByRole('tab', { name: 'Merge Review' })).toHaveAttribute(
+        'data-state',
+        'active'
+      );
+    });
+
+    it('switches to prd-review tab when feature enters requirements action-required', () => {
+      const { rerender } = renderTabs({
+        featureNode: { ...defaultFeatureNode, lifecycle: 'requirements', state: 'running' },
+      });
+
+      expect(screen.getByRole('tab', { name: 'Overview' })).toHaveAttribute('data-state', 'active');
+
+      // Simulate transition to requirements action-required
+      rerender(
+        <FeatureDrawerTabs
+          featureNode={{
+            ...defaultFeatureNode,
+            lifecycle: 'requirements',
+            state: 'action-required',
+          }}
+          featureId="#f1"
+          initialTab="prd-review"
+        />
+      );
+
+      expect(screen.getByRole('tab', { name: 'PRD Review' })).toHaveAttribute(
+        'data-state',
+        'active'
+      );
+    });
+
+    it('falls back to overview when active tab becomes invisible after lifecycle change', () => {
+      // Start with merge-review active
+      const { rerender } = renderTabs({
+        featureNode: {
+          ...defaultFeatureNode,
+          lifecycle: 'review',
+          state: 'action-required',
+        },
+        initialTab: 'merge-review',
+      });
+
+      expect(screen.getByRole('tab', { name: 'Merge Review' })).toHaveAttribute(
+        'data-state',
+        'active'
+      );
+
+      // Lifecycle transitions to maintain (done) — merge-review is no longer visible
+      rerender(
+        <FeatureDrawerTabs
+          featureNode={{
+            ...defaultFeatureNode,
+            lifecycle: 'maintain',
+            state: 'done',
+          }}
+          featureId="#f1"
+          initialTab="overview"
+        />
+      );
+
+      expect(screen.getByRole('tab', { name: 'Overview' })).toHaveAttribute('data-state', 'active');
     });
   });
 
