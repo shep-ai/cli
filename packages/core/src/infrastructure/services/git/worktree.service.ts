@@ -223,17 +223,19 @@ export class WorktreeService implements IWorktreeService {
   }
 
   private normalizeWorktreePath(input: string): string {
-    let normalized = path.normalize(input).replace(/\/+$/, '');
-
-    // On Windows, resolve 8.3 short paths and make case-insensitive
+    // On Windows, git outputs forward slashes but path.normalize uses backslashes.
+    // Normalize to forward slashes before comparing, case-insensitive.
     if (process.platform === 'win32') {
+      let normalized = path.normalize(input).replace(/\\/g, '/').replace(/\/+$/, '');
       try {
-        normalized = realpathSync(normalized);
+        normalized = realpathSync(normalized).replace(/\\/g, '/');
       } catch {
         // Path may not exist yet — use as-is
       }
       return normalized.toLowerCase();
     }
+
+    const normalized = path.normalize(input).replace(/\/+$/, '');
 
     // On macOS, git can report /private/var/... while callers use /var/...
     if (process.platform === 'darwin' && normalized.startsWith('/private/var/')) {
