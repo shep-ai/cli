@@ -1,3 +1,9 @@
+## [1.101.2](https://github.com/shep-ai/cli/compare/v1.101.1...v1.101.2) (2026-03-11)
+
+### Bug Fixes
+
+- **web:** track pr status in sse cache for merge detection ([#302](https://github.com/shep-ai/cli/issues/302)) ([1f502e9](https://github.com/shep-ai/cli/commit/1f502e946acd9385bcb07e1034cd246cf305060b))
+
 ## [1.101.1](https://github.com/shep-ai/cli/compare/v1.101.0...v1.101.1) (2026-03-11)
 
 ### Bug Fixes
