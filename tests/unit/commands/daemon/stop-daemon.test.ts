@@ -3,12 +3,15 @@
  *
  * Tests for the shared daemon-stop helper.
  * Covers: SIGTERM path, SIGKILL fallback, not-running path, invalid PID path.
- *
- * TDD Phase: RED (stopDaemon file does not exist yet)
+ * Uses tree-kill for cross-platform process tree termination.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { IDaemonService } from '@/application/ports/output/services/daemon-service.interface.js';
+
+// Mock tree-kill wrapper (must use vi.hoisted for factory reference)
+const { mockTreeKill } = vi.hoisted(() => ({ mockTreeKill: vi.fn() }));
+vi.mock('@/infrastructure/services/process/tree-kill', () => ({ treeKill: mockTreeKill }));
 
 // Mock messages to prevent stdout noise
 vi.mock('../../../../src/presentation/cli/ui/index.js', () => ({
@@ -36,17 +39,13 @@ function makeDaemonService(overrides: Partial<IDaemonService> = {}): IDaemonServ
 }
 
 describe('stopDaemon()', () => {
-  let killSpy: ReturnType<typeof vi.spyOn>;
-
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
-    killSpy = vi.spyOn(process, 'kill').mockImplementation(() => true);
   });
 
   afterEach(() => {
     vi.useRealTimers();
-    killSpy.mockRestore();
   });
 
   describe('no daemon running (null state)', () => {
@@ -57,7 +56,7 @@ describe('stopDaemon()', () => {
       await vi.runAllTimersAsync();
       await p;
 
-      expect(killSpy).not.toHaveBeenCalled();
+      expect(mockTreeKill).not.toHaveBeenCalled();
     });
 
     it('calls delete() silently when read() returns null', async () => {
@@ -92,7 +91,7 @@ describe('stopDaemon()', () => {
       await vi.runAllTimersAsync();
       await p;
 
-      expect(killSpy).not.toHaveBeenCalled();
+      expect(mockTreeKill).not.toHaveBeenCalled();
     });
 
     it('calls delete() silently when isAlive returns false', async () => {
@@ -127,7 +126,7 @@ describe('stopDaemon()', () => {
       await vi.runAllTimersAsync();
       await p;
 
-      expect(killSpy).not.toHaveBeenCalled();
+      expect(mockTreeKill).not.toHaveBeenCalled();
     });
 
     it('calls delete() for invalid PID to clean up stale daemon.json', async () => {
@@ -147,7 +146,7 @@ describe('stopDaemon()', () => {
   });
 
   describe('SIGTERM success path (process dies within grace window)', () => {
-    it('sends SIGTERM to the daemon PID', async () => {
+    it('sends SIGTERM to the daemon PID via tree-kill', async () => {
       const pid = 12345;
       const isAlive = vi
         .fn()
@@ -163,7 +162,7 @@ describe('stopDaemon()', () => {
       await vi.runAllTimersAsync();
       await p;
 
-      expect(killSpy).toHaveBeenCalledWith(pid, 'SIGTERM');
+      expect(mockTreeKill).toHaveBeenCalledWith(pid, 'SIGTERM');
     });
 
     it('does NOT send SIGKILL when process dies before grace window expires', async () => {
@@ -179,8 +178,8 @@ describe('stopDaemon()', () => {
       await vi.runAllTimersAsync();
       await p;
 
-      const sigkillCalls = killSpy.mock.calls.filter(
-        ([, sig]: [number, NodeJS.Signals | number]) => sig === 'SIGKILL'
+      const sigkillCalls = mockTreeKill.mock.calls.filter(
+        (call: unknown[]) => call[1] === 'SIGKILL'
       );
       expect(sigkillCalls).toHaveLength(0);
     });
@@ -203,7 +202,7 @@ describe('stopDaemon()', () => {
   });
 
   describe('SIGKILL fallback path (grace window expires)', () => {
-    it('sends SIGKILL after 5s when process does not respond to SIGTERM', async () => {
+    it('sends SIGKILL via tree-kill after 5s when process does not respond to SIGTERM', async () => {
       const pid = 12345;
       // Always alive — never responds to SIGTERM
       const daemonService = makeDaemonService({
@@ -215,8 +214,8 @@ describe('stopDaemon()', () => {
       await vi.advanceTimersByTimeAsync(6000);
       await p;
 
-      const sigkillCalls = killSpy.mock.calls.filter(
-        ([, sig]: [number, NodeJS.Signals | number]) => sig === 'SIGKILL'
+      const sigkillCalls = mockTreeKill.mock.calls.filter(
+        (call: unknown[]) => call[1] === 'SIGKILL'
       );
       expect(sigkillCalls.length).toBeGreaterThan(0);
       expect(sigkillCalls[0][0]).toBe(pid);
@@ -243,10 +242,9 @@ describe('stopDaemon()', () => {
         isAlive: vi.fn().mockReturnValue(true),
       });
 
-      // Make SIGKILL throw (process already gone between check and kill)
-      killSpy.mockImplementation((_pid: number, sig: NodeJS.Signals | number) => {
+      // Make tree-kill throw on SIGKILL (process already gone between check and kill)
+      mockTreeKill.mockImplementation((_pid: number, sig: string) => {
         if (sig === 'SIGKILL') throw new Error('ESRCH: no such process');
-        return true;
       });
 
       const p = stopDaemon(daemonService);

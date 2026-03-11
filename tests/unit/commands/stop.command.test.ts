@@ -8,6 +8,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Command } from 'commander';
 
+// Mock tree-kill wrapper (must use vi.hoisted for factory reference)
+const { mockTreeKill } = vi.hoisted(() => ({ mockTreeKill: vi.fn() }));
+vi.mock('@/infrastructure/services/process/tree-kill', () => ({ treeKill: mockTreeKill }));
+
 // Mock IDaemonService via the DI container
 const mockDaemonService = {
   read: vi.fn(),
@@ -41,17 +45,13 @@ vi.mock('../../../src/presentation/cli/ui/index.js', () => ({
 import { createStopCommand } from '../../../src/presentation/cli/commands/stop.command.js';
 
 describe('stop command', () => {
-  let killSpy: ReturnType<typeof vi.spyOn>;
-
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
-    killSpy = vi.spyOn(process, 'kill').mockImplementation(() => true);
   });
 
   afterEach(() => {
     vi.useRealTimers();
-    killSpy.mockRestore();
   });
 
   describe('command structure', () => {
@@ -67,13 +67,13 @@ describe('stop command', () => {
   });
 
   describe('no daemon running', () => {
-    it('prints a clear message and does not call process.kill when read() returns null', async () => {
+    it('prints a clear message and does not call tree-kill when read() returns null', async () => {
       mockDaemonService.read.mockResolvedValue(null);
 
       const cmd = createStopCommand();
       await cmd.parseAsync([], { from: 'user' });
 
-      expect(killSpy).not.toHaveBeenCalled();
+      expect(mockTreeKill).not.toHaveBeenCalled();
     });
 
     it('calls delete() even when read() returns null to clean up stale state', async () => {
@@ -86,7 +86,7 @@ describe('stop command', () => {
       expect(mockDaemonService.delete).toHaveBeenCalled();
     });
 
-    it('does not call process.kill when PID is not alive', async () => {
+    it('does not call tree-kill when PID is not alive', async () => {
       mockDaemonService.read.mockResolvedValue({
         pid: 99999,
         port: 4050,
@@ -97,7 +97,7 @@ describe('stop command', () => {
       const cmd = createStopCommand();
       await cmd.parseAsync([], { from: 'user' });
 
-      expect(killSpy).not.toHaveBeenCalled();
+      expect(mockTreeKill).not.toHaveBeenCalled();
     });
   });
 
@@ -125,7 +125,7 @@ describe('stop command', () => {
       await vi.runAllTimersAsync();
       await parsePromise;
 
-      expect(killSpy).toHaveBeenCalledWith(pid, 'SIGTERM');
+      expect(mockTreeKill).toHaveBeenCalledWith(pid, 'SIGTERM');
     });
 
     it('does NOT send SIGKILL when process dies before 5s timeout', async () => {
@@ -144,8 +144,8 @@ describe('stop command', () => {
       await vi.runAllTimersAsync();
       await parsePromise;
 
-      const sigkillCalls = killSpy.mock.calls.filter(
-        ([_pid, sig]: [number, string]) => sig === 'SIGKILL'
+      const sigkillCalls = mockTreeKill.mock.calls.filter(
+        (call: unknown[]) => call[1] === 'SIGKILL'
       );
       expect(sigkillCalls).toHaveLength(0);
     });
@@ -186,8 +186,8 @@ describe('stop command', () => {
       await vi.advanceTimersByTimeAsync(6000);
       await parsePromise;
 
-      const sigkillCalls = killSpy.mock.calls.filter(
-        ([_pid, sig]: [number, string]) => sig === 'SIGKILL'
+      const sigkillCalls = mockTreeKill.mock.calls.filter(
+        (call: unknown[]) => call[1] === 'SIGKILL'
       );
       expect(sigkillCalls.length).toBeGreaterThan(0);
       expect(sigkillCalls[0][0]).toBe(pid);
@@ -212,7 +212,7 @@ describe('stop command', () => {
   });
 
   describe('PID validation', () => {
-    it('does not call process.kill for a NaN PID', async () => {
+    it('does not call tree-kill for a NaN PID', async () => {
       mockDaemonService.read.mockResolvedValue({
         pid: NaN,
         port: 4050,
@@ -223,7 +223,7 @@ describe('stop command', () => {
       const cmd = createStopCommand();
       await cmd.parseAsync([], { from: 'user' });
 
-      expect(killSpy).not.toHaveBeenCalled();
+      expect(mockTreeKill).not.toHaveBeenCalled();
     });
   });
 });

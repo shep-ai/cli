@@ -105,8 +105,8 @@ describe('DeploymentService', () => {
       // Start second deployment for same target — should stop first
       service.start('feature-1', '/project/path');
 
-      // The first process should have been killed
-      expect(deps.kill).toHaveBeenCalledWith(-12345, 'SIGKILL');
+      // The first process should have been killed (tree-kill uses positive PID)
+      expect(deps.kill).toHaveBeenCalledWith(12345, 'SIGKILL');
 
       // Status should reflect the new deployment
       const status = service.getStatus('feature-1');
@@ -219,7 +219,7 @@ describe('DeploymentService', () => {
   });
 
   describe('stop', () => {
-    it('should send SIGTERM to negative pid (process group)', async () => {
+    it('should send SIGTERM to process tree via tree-kill (positive PID)', async () => {
       service.start('feature-1', '/project/path');
 
       const stopPromise = service.stop('feature-1');
@@ -232,7 +232,7 @@ describe('DeploymentService', () => {
 
       await stopPromise;
 
-      expect(deps.kill).toHaveBeenCalledWith(-12345, 'SIGTERM');
+      expect(deps.kill).toHaveBeenCalledWith(12345, 'SIGTERM');
     });
 
     it('should send SIGKILL after timeout if process still alive', async () => {
@@ -252,8 +252,8 @@ describe('DeploymentService', () => {
 
       await stopPromise;
 
-      expect(deps.kill).toHaveBeenCalledWith(-12345, 'SIGTERM');
-      expect(deps.kill).toHaveBeenCalledWith(-12345, 'SIGKILL');
+      expect(deps.kill).toHaveBeenCalledWith(12345, 'SIGTERM');
+      expect(deps.kill).toHaveBeenCalledWith(12345, 'SIGKILL');
     });
 
     it('should resolve immediately for unknown targetId', async () => {
@@ -302,9 +302,9 @@ describe('DeploymentService', () => {
 
       service.stopAll();
 
-      // Both process groups should have been killed
-      expect(deps.kill).toHaveBeenCalledWith(-12345, 'SIGKILL');
-      expect(deps.kill).toHaveBeenCalledWith(-99999, 'SIGKILL');
+      // Both process trees should have been killed (positive PIDs for tree-kill)
+      expect(deps.kill).toHaveBeenCalledWith(12345, 'SIGKILL');
+      expect(deps.kill).toHaveBeenCalledWith(99999, 'SIGKILL');
     });
 
     it('should clear the deployment map', () => {
@@ -331,6 +331,33 @@ describe('DeploymentService', () => {
 
       const status = service.getStatus('feature-1');
       expect(status?.state).toBe(DeploymentState.Booting);
+    });
+  });
+
+  describe('tree-kill integration', () => {
+    it('should call kill with positive PID (not negative process group)', async () => {
+      service.start('feature-1', '/project/path');
+
+      const stopPromise = service.stop('feature-1');
+      await vi.advanceTimersByTimeAsync(300);
+      mockChild.emit('exit', 0, null);
+      await stopPromise;
+
+      // Verify positive PID is used (tree-kill handles process tree internally)
+      for (const call of (deps.kill as ReturnType<typeof vi.fn>).mock.calls) {
+        expect(call[0]).toBeGreaterThan(0);
+      }
+    });
+
+    it('should pass signal string to kill function', async () => {
+      service.start('feature-1', '/project/path');
+
+      const stopPromise = service.stop('feature-1');
+      await vi.advanceTimersByTimeAsync(300);
+      mockChild.emit('exit', 0, null);
+      await stopPromise;
+
+      expect(deps.kill).toHaveBeenCalledWith(expect.any(Number), 'SIGTERM');
     });
   });
 });
