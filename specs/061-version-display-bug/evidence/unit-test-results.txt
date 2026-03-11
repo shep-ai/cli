@@ -1,0 +1,36 @@
+=== Version Display Bug Fix — Unit Test Results ===
+Date: 2026-03-11
+Runner: vitest v4.0.18
+
+--- Target Test Files ---
+
+✓ tests/unit/presentation/web/api/version.test.ts (3 tests)
+  GET /api/version
+    ✓ returns version from runtime environment
+    ✓ returns all version fields
+    ✓ returns defaults when env vars are not set
+
+✓ tests/unit/presentation/web/hooks/use-version.test.ts (4 tests)
+  useVersion
+    ✓ fetches version data from /api/version
+    ✓ returns defaults before fetch completes
+    ✓ handles fetch failure gracefully
+    ✓ handles non-ok response gracefully
+
+✓ tests/unit/presentation/web/layouts/app-sidebar.test.tsx (10 tests)
+  AppSidebar
+    ✓ renders Control Center nav item in header
+    ✓ renders Tools nav item in header
+    ✓ renders Features label in content
+    ✓ groups features by status into Action Needed, In Progress, and Done sections
+    ✓ hides New feature button by default
+    ✓ renders New feature button when showNewFeature is true
+    ✓ fires onFeatureClick with featureId when a feature is clicked
+    ✓ fires onNewFeature callback when button is clicked
+    ✓ renders Settings nav item with gear icon
+    ✓ renders Settings nav item linking to /settings
+
+--- Full Suite ---
+Test Files: 300 passed (300)
+Tests:      3690 passed (3690)
+Duration:   ~26s
