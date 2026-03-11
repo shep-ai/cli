@@ -24,7 +24,7 @@ export interface AgentAuthStatus {
 
 const AGENT_LABELS: Record<string, string> = {
   'claude-code': 'Claude Code',
-  cursor: 'Cursor CLI',
+  cursor: 'Cursor Agent',
   'gemini-cli': 'Gemini CLI',
   aider: 'Aider',
   continue: 'Continue',
@@ -39,7 +39,7 @@ const AGENT_TOOL_MAP: Record<string, string> = {
 
 const AGENT_BINARY_MAP: Record<string, string> = {
   'claude-code': 'claude',
-  cursor: 'cursor',
+  cursor: 'agent',
   'gemini-cli': 'gemini',
 };
 
@@ -61,7 +61,7 @@ function tier1AuthCheck(agentType: string): boolean {
     }
     case 'cursor': {
       if (process.env['CURSOR_API_KEY']) return true;
-      // Cursor stores creds after `agent login` — check common locations
+      // Cursor Agent stores creds after `agent login` — check common locations
       const cursorDir = join(home, '.cursor');
       return existsSync(cursorDir);
     }
@@ -137,7 +137,14 @@ export async function checkAgentAuth(): Promise<AgentAuthStatus> {
 
   // Dev/demo agents — always good
   if (!toolId) {
-    return { agentType, installed: true, authenticated: true, label, binaryName: null, authCommand: null };
+    return {
+      agentType,
+      installed: true,
+      authenticated: true,
+      label,
+      binaryName: null,
+      authCommand: null,
+    };
   }
 
   // Check if tool is installed

@@ -1,7 +1,14 @@
 'use client';
 
 import { useCallback, useMemo } from 'react';
-import { ReactFlow, Background, BackgroundVariant, Controls, ControlButton, useReactFlow } from '@xyflow/react';
+import {
+  ReactFlow,
+  Background,
+  BackgroundVariant,
+  Controls,
+  ControlButton,
+  useReactFlow,
+} from '@xyflow/react';
 import type { Connection, Edge, NodeChange, OnMoveEnd, Viewport } from '@xyflow/react';
 import { Plus, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -96,24 +103,25 @@ export function FeaturesCanvas({
 
   const isEmpty = nodes.length === 0;
 
-  const fallbackEmptyState = isEmpty && !emptyState ? (
-    <EmptyState
-      title="No features yet"
-      description="Get started by creating your first feature."
-      action={
-        <Button onClick={onAddFeature}>
-          <Plus className="mr-2 h-4 w-4" />
-          New Feature
-        </Button>
-      }
-    />
-  ) : null;
+  const fallbackEmptyState =
+    isEmpty && !emptyState ? (
+      <EmptyState
+        title="No features yet"
+        description="Get started by creating your first feature."
+        action={
+          <Button onClick={onAddFeature}>
+            <Plus className="mr-2 h-4 w-4" />
+            New Feature
+          </Button>
+        }
+      />
+    ) : null;
 
   return (
     <div
       data-testid={isEmpty ? 'features-canvas-empty' : 'features-canvas'}
       data-no-drawer-close
-      className="pointer-events-auto relative h-full w-full bg-[#f6f7f8] dark:bg-background"
+      className="dark:bg-background pointer-events-auto relative h-full w-full bg-[#f6f7f8]"
     >
       <ReactFlow
         nodes={enrichedNodes}
@@ -146,13 +154,11 @@ export function FeaturesCanvas({
         )}
         {toolbar}
       </ReactFlow>
-      {isEmpty && (emptyState || fallbackEmptyState) && (
+      {isEmpty && (emptyState || fallbackEmptyState) ? (
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
-          <div className="pointer-events-auto">
-            {emptyState ?? fallbackEmptyState}
-          </div>
+          <div className="pointer-events-auto">{emptyState ?? fallbackEmptyState}</div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
