@@ -502,6 +502,17 @@ WHERE repository_path NOT IN (SELECT path FROM repositories WHERE path IS NOT NU
       }
     },
   },
+  {
+    version: 31,
+    // Migration 031: Add pr_mergeable column to features table for merge conflict tracking.
+    sql: '',
+    handler: (db: Database.Database) => {
+      const columns = db.pragma('table_info(features)') as { name: string }[];
+      if (!columns.some((c) => c.name === 'pr_mergeable')) {
+        db.exec('ALTER TABLE features ADD COLUMN pr_mergeable INTEGER');
+      }
+    },
+  },
 ];
 
 /**

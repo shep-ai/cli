@@ -38,6 +38,10 @@ properties:
     type: boolean
     default: true
     description: Notify when pull request CI checks fail
+  prBlocked:
+    type: boolean
+    default: true
+    description: Notify when pull request has merge conflicts
 required:
   - agentStarted
   - phaseCompleted
@@ -48,4 +52,5 @@ required:
   - prClosed
   - prChecksPassed
   - prChecksFailed
+  - prBlocked
 description: Notification event type filters

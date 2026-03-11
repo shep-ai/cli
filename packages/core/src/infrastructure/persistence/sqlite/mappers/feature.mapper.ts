@@ -55,6 +55,7 @@ export interface FeatureRow {
   ci_status: string | null;
   ci_fix_attempts: number | null;
   ci_fix_history: string | null;
+  pr_mergeable: number | null;
   // Feature dependency
   parent_id: string | null;
   // User attachments (JSON array)
@@ -107,6 +108,7 @@ export function toDatabase(feature: Feature): FeatureRow {
     ci_status: feature.pr?.ciStatus ?? null,
     ci_fix_attempts: feature.pr?.ciFixAttempts ?? null,
     ci_fix_history: feature.pr?.ciFixHistory ? JSON.stringify(feature.pr.ciFixHistory) : null,
+    pr_mergeable: feature.pr?.mergeable !== undefined ? (feature.pr.mergeable ? 1 : 0) : null,
     // Feature dependency
     parent_id: feature.parentId ?? null,
     // User attachments
@@ -168,6 +170,7 @@ export function fromDatabase(row: FeatureRow): Feature {
         ...(row.ci_status != null && { ciStatus: row.ci_status as CiStatus }),
         ...(row.ci_fix_attempts != null && { ciFixAttempts: row.ci_fix_attempts }),
         ...(row.ci_fix_history != null && { ciFixHistory: JSON.parse(row.ci_fix_history) }),
+        ...(row.pr_mergeable != null && { mergeable: row.pr_mergeable === 1 }),
       },
     }),
     // Feature dependency
