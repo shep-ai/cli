@@ -1,0 +1,24 @@
+ ✓  web  tests/unit/presentation/web/lib/compare-versions.test.ts > compareVersions > returns 0 for equal versions 1ms
+ ✓  web  tests/unit/presentation/web/lib/compare-versions.test.ts > compareVersions > returns 1 when a is greater (major) 0ms
+ ✓  web  tests/unit/presentation/web/lib/compare-versions.test.ts > compareVersions > returns -1 when a is less (major) 0ms
+ ✓  web  tests/unit/presentation/web/lib/compare-versions.test.ts > compareVersions > compares minor versions 1ms
+ ✓  web  tests/unit/presentation/web/lib/compare-versions.test.ts > compareVersions > compares patch versions 0ms
+ ✓  web  tests/unit/presentation/web/lib/compare-versions.test.ts > compareVersions > ignores pre-release suffix 0ms
+ ✓  web  tests/unit/presentation/web/lib/compare-versions.test.ts > compareVersions > handles missing patch segment 0ms
+ ✓  web  tests/unit/presentation/web/hooks/use-npm-version-check.test.ts > useNpmVersionCheck > returns updateAvailable=true when latest > current 62ms
+ ✓  web  tests/unit/presentation/web/hooks/use-npm-version-check.test.ts > useNpmVersionCheck > returns updateAvailable=false when latest === current 53ms
+ ✓  web  tests/unit/presentation/web/hooks/use-npm-version-check.test.ts > useNpmVersionCheck > returns updateAvailable=false when latest < current 55ms
+ ✓  web  tests/unit/presentation/web/common/version-badge.test.tsx > VersionBadge > renders the version in production mode 26ms
+ ✓  web  tests/unit/presentation/web/common/version-badge.test.tsx > VersionBadge > shows version-dev in dev mode 4ms
+ ✓  web  tests/unit/presentation/web/common/version-badge.test.tsx > VersionBadge > shows version-dev without hash when no commit provided 3ms
+ ✓  web  tests/unit/presentation/web/common/version-badge.test.tsx > VersionBadge > does not show branch inline in production mode 2ms
+ ✓  web  tests/unit/presentation/web/common/version-badge.test.tsx > VersionBadge > version label is the tooltip trigger 3ms
+ ✓  web  tests/unit/presentation/web/common/version-badge.test.tsx > VersionBadge > shows update dot when a newer version is available 6ms
+ ✓  web  tests/unit/presentation/web/common/version-badge.test.tsx > VersionBadge > does not show update dot when on latest version 3ms
+ ✓  web  tests/unit/presentation/web/hooks/use-npm-version-check.test.ts > useNpmVersionCheck > handles fetch failure gracefully 53ms
+ ✓  web  tests/unit/presentation/web/hooks/use-npm-version-check.test.ts > useNpmVersionCheck > handles non-ok response gracefully 55ms
+ ✓  web  tests/unit/presentation/web/hooks/use-npm-version-check.test.ts > useNpmVersionCheck > starts in loading state 1ms
+ ✓  web  tests/unit/presentation/web/common/version-badge.test.tsx > VersionBadge > shows upgrade link in tooltip when update is available 302ms
+ Test Files  3 passed (3)
+      Tests  21 passed (21)
+   Duration  1.05s (transform 141ms, setup 418ms, import 226ms, tests 633ms, environment 948ms)
