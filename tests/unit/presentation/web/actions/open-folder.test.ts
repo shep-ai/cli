@@ -19,6 +19,12 @@ vi.mock('node:os', () => ({
   platform: () => mockPlatform(),
 }));
 
+const mockIsAbsolute = vi.fn<(p: string) => boolean>();
+vi.mock('node:path', async () => {
+  const actual = await vi.importActual('node:path');
+  return { ...actual, isAbsolute: (p: string) => mockIsAbsolute(p) };
+});
+
 const { openFolder } = await import(
   '../../../../../src/presentation/web/app/actions/open-folder.js'
 );
@@ -29,6 +35,7 @@ describe('openFolder server action', () => {
     mockExistsSync.mockReturnValue(true);
     mockSpawn.mockReturnValue({ unref: mockUnref, on: mockOn });
     mockPlatform.mockReturnValue('darwin');
+    mockIsAbsolute.mockImplementation((p: string) => /^\//.test(p));
   });
 
   it('returns error for empty repositoryPath', async () => {
@@ -47,6 +54,15 @@ describe('openFolder server action', () => {
       success: false,
       error: 'repositoryPath must be an absolute path',
     });
+  });
+
+  it('accepts Windows-style absolute paths when path.isAbsolute recognizes them', async () => {
+    mockPlatform.mockReturnValue('darwin');
+    mockIsAbsolute.mockReturnValue(true);
+
+    const result = await openFolder('C:\\Users\\test\\project');
+
+    expect(result.success).toBe(true);
   });
 
   it('returns error when directory does not exist', async () => {

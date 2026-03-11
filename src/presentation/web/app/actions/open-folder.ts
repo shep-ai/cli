@@ -2,6 +2,7 @@
 
 import { existsSync } from 'node:fs';
 import { platform } from 'node:os';
+import { isAbsolute } from 'node:path';
 import { spawn } from 'node:child_process';
 
 // Use a record lookup instead of if/else to prevent the bundler from
@@ -16,7 +17,7 @@ const FOLDER_COMMANDS: Record<string, { cmd: string; args: (path: string) => str
 export async function openFolder(
   repositoryPath: string
 ): Promise<{ success: boolean; error?: string; path?: string }> {
-  if (!repositoryPath?.startsWith('/')) {
+  if (!repositoryPath || !isAbsolute(repositoryPath)) {
     return { success: false, error: 'repositoryPath must be an absolute path' };
   }
 

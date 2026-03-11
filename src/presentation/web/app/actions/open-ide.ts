@@ -1,5 +1,6 @@
 'use server';
 
+import { isAbsolute } from 'node:path';
 import { getSettings } from '@shepai/core/infrastructure/services/settings.service';
 import type { LaunchIdeUseCase } from '@shepai/core/application/use-cases/ide/launch-ide.use-case';
 import { resolve } from '@/lib/server-container';
@@ -14,7 +15,7 @@ export async function openIde(
 ): Promise<{ success: boolean; error?: string; editor?: string; path?: string }> {
   const { repositoryPath, branch } = input;
 
-  if (!repositoryPath?.startsWith('/')) {
+  if (!repositoryPath || !isAbsolute(repositoryPath)) {
     return { success: false, error: 'repositoryPath must be an absolute path' };
   }
 

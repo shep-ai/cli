@@ -2,6 +2,7 @@
 
 import { existsSync } from 'node:fs';
 import { platform } from 'node:os';
+import { isAbsolute } from 'node:path';
 import { spawn } from 'node:child_process';
 import { getSettings } from '@shepai/core/infrastructure/services/settings.service';
 import { computeWorktreePath } from '@shepai/core/infrastructure/services/ide-launchers/compute-worktree-path';
@@ -25,7 +26,7 @@ export async function openShell(
 ): Promise<{ success: boolean; error?: string; path?: string; shell?: string }> {
   const { repositoryPath, branch } = input;
 
-  if (!repositoryPath?.startsWith('/')) {
+  if (!repositoryPath || !isAbsolute(repositoryPath)) {
     return { success: false, error: 'repositoryPath must be an absolute path' };
   }
 
