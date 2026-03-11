@@ -54,7 +54,7 @@ function applyTemplate(
 }
 
 // ─── YAML Templates ────────────────────────────────────────────────
-// These match .claude/skills/shep-kit:new-feature/templates/ exactly.
+// These match .claude/skills/shep-kit-new-feature/templates/ exactly.
 
 const SPEC_YAML = `# Feature Specification (YAML)
 # This is the source of truth. Markdown is auto-generated from this file.

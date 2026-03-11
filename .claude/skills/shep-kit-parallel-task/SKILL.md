@@ -72,7 +72,7 @@ Use the appropriate prefix: `feat/`, `fix/`, `refactor/`, `chore/`, `docs/` etc.
 ### 3. Create Worktree
 
 ```bash
-.claude/skills/shep-kit:parallel-task/scripts/create-worktree.sh "<dir-name>" "<branch-name>"
+.claude/skills/shep-kit-parallel-task/scripts/create-worktree.sh "<dir-name>" "<branch-name>"
 ```
 
 The script fetches latest main and creates the worktree at `.worktrees/<dir-name>` with branch `<branch-name>` based on `origin/main`.
@@ -95,7 +95,7 @@ NEXT_NUM=$(ls -d specs/[0-9][0-9][0-9]-* 2>/dev/null | wc -l | xargs -I{} printf
 [ -z "$NEXT_NUM" ] && NEXT_NUM="001"
 
 # Run init-feature.sh (reuses shep-kit:new-feature templates)
-.claude/skills/shep-kit:new-feature/scripts/init-feature.sh "$NEXT_NUM" "<feature-name>"
+.claude/skills/shep-kit-new-feature/scripts/init-feature.sh "$NEXT_NUM" "<feature-name>"
 ```
 
 ### 6. Patch feature.yaml

@@ -142,8 +142,8 @@ Inform the user:
 
 ## Template Location
 
-YAML template (source of truth): `.claude/skills/shep-kit:new-feature/templates/research.yaml`
+YAML template (source of truth): `.claude/skills/shep-kit-new-feature/templates/research.yaml`
 
 ## Example
 
-See: `.claude/skills/shep-kit:research/examples/sample-research.md`
+See: `.claude/skills/shep-kit-research/examples/sample-research.md`

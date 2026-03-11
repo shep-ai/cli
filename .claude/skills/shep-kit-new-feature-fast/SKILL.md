@@ -60,7 +60,7 @@ git checkout main && git pull
 git checkout -b "feat/${NEXT_NUM}-${FEATURE_NAME}"
 
 # Run scaffolding (creates all template files)
-.claude/skills/shep-kit:new-feature/scripts/init-feature.sh "$NEXT_NUM" "$FEATURE_NAME"
+.claude/skills/shep-kit-new-feature/scripts/init-feature.sh "$NEXT_NUM" "$FEATURE_NAME"
 ```
 
 This reuses the existing init script — same templates, same directory structure.
@@ -287,6 +287,6 @@ Even though this is "fast", the output MUST meet these standards:
 
 This skill reuses assets from `shep-kit:new-feature`:
 
-- **Init script**: `.claude/skills/shep-kit:new-feature/scripts/init-feature.sh`
-- **Templates**: `.claude/skills/shep-kit:new-feature/templates/`
+- **Init script**: `.claude/skills/shep-kit-new-feature/scripts/init-feature.sh`
+- **Templates**: `.claude/skills/shep-kit-new-feature/templates/`
   No additional templates or scripts needed.

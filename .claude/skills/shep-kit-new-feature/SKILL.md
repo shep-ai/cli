@@ -50,7 +50,7 @@ git checkout -b "feat/${NEXT_NUM}-${FEATURE_NAME}"
 Execute the scaffolding script:
 
 ```bash
-.claude/skills/shep-kit:new-feature/scripts/init-feature.sh <NNN> <feature-name>
+.claude/skills/shep-kit-new-feature/scripts/init-feature.sh <NNN> <feature-name>
 ```
 
 This creates `specs/NNN-feature-name/` with all template files using a **YAML-first** approach:
@@ -133,7 +133,7 @@ Inform the user:
 
 ## Template Location
 
-Templates are in: `.claude/skills/shep-kit:new-feature/templates/`
+Templates are in: `.claude/skills/shep-kit-new-feature/templates/`
 
 ### YAML Templates (Source of Truth)
 
@@ -162,4 +162,4 @@ All shep-kit skills update `feature.yaml` as work progresses.
 
 ## Example
 
-See: `.claude/skills/shep-kit:new-feature/examples/001-sample-feature/`
+See: `.claude/skills/shep-kit-new-feature/examples/001-sample-feature/`
