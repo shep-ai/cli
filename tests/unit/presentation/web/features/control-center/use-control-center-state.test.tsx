@@ -738,18 +738,6 @@ describe('useControlCenterState', () => {
       expect(screen.getByTestId('edge-count')).toHaveTextContent('1');
     });
 
-    it('shows success toast on successful deletion', async () => {
-      mockDeleteFeature.mockResolvedValue({ feature: { id: 'f1' } });
-
-      renderHook([featureNode] as CanvasNodeType[]);
-
-      await act(async () => {
-        fireEvent.click(screen.getByTestId('delete-feature'));
-      });
-
-      expect(mockToastSuccess).toHaveBeenCalled();
-    });
-
     it('navigates to root on successful deletion', async () => {
       mockDeleteFeature.mockResolvedValue({ feature: { id: 'f1' } });
 

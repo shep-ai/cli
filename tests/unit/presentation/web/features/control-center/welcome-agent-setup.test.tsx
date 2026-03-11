@@ -22,43 +22,8 @@ vi.mock('@/app/actions/get-all-agent-models', () => ({
   getAllAgentModels: vi.fn(() => Promise.resolve(mockGroups)),
 }));
 
-vi.mock('@/app/actions/check-agent-tool', () => ({
-  checkAgentTool: vi.fn((agentType: string) => {
-    if (agentType === 'dev') {
-      return Promise.resolve({
-        agentType,
-        toolId: null,
-        tool: null,
-        installed: true,
-        binaryName: null,
-      });
-    }
-    return Promise.resolve({
-      agentType,
-      toolId: 'claude-code',
-      tool: {
-        id: 'claude-code',
-        name: 'Claude Code',
-        status: { status: 'available', toolName: 'claude-code' },
-        autoInstall: true,
-      },
-      installed: true,
-      binaryName: 'claude',
-    });
-  }),
-}));
-
 vi.mock('@/app/actions/update-agent-and-model', () => ({
   updateAgentAndModel: vi.fn(() => Promise.resolve({ ok: true })),
-}));
-
-vi.mock('@/hooks/use-tool-install-stream', () => ({
-  useToolInstallStream: () => ({
-    logs: [],
-    status: 'idle',
-    result: null,
-    startInstall: vi.fn(),
-  }),
 }));
 
 vi.mock('@/components/common/feature-node/agent-type-icons', () => ({
@@ -118,7 +83,7 @@ describe('WelcomeAgentSetup', () => {
     });
   });
 
-  it('skips model selection and tool check for agents without models/tools', async () => {
+  it('auto-completes for agents without models', async () => {
     const user = userEvent.setup();
     render(<WelcomeAgentSetup onComplete={onComplete} />);
 
@@ -128,13 +93,13 @@ describe('WelcomeAgentSetup', () => {
 
     await user.click(screen.getByTestId('agent-option-dev'));
 
-    // Auto-skips check-tool and lands on authenticate step
+    // Saves immediately and calls onComplete (no tool check step)
     await waitFor(() => {
-      expect(screen.getByText('No authentication required')).toBeInTheDocument();
+      expect(onComplete).toHaveBeenCalled();
     });
   });
 
-  it('shows authenticate step after selecting agent and model (auto-skips tool check)', async () => {
+  it('completes after selecting agent and model', async () => {
     const user = userEvent.setup();
     render(<WelcomeAgentSetup onComplete={onComplete} />);
 
@@ -150,30 +115,7 @@ describe('WelcomeAgentSetup', () => {
 
     await user.click(screen.getByTestId('model-option-opus-4'));
 
-    // Auto-skips check-tool (tool installed) and shows authenticate step
-    await waitFor(() => {
-      expect(screen.getByTestId('agent-setup-launch')).toBeInTheDocument();
-    });
-  });
-
-  it('calls onComplete after confirming setup on authenticate step', async () => {
-    const user = userEvent.setup();
-    render(<WelcomeAgentSetup onComplete={onComplete} />);
-
-    // Select dev agent (no models, no tool needed)
-    await waitFor(() => {
-      expect(screen.getByTestId('agent-option-dev')).toBeInTheDocument();
-    });
-
-    await user.click(screen.getByTestId('agent-option-dev'));
-
-    // Wait for authenticate step (auto-skips check-tool)
-    await waitFor(() => {
-      expect(screen.getByText('No authentication required')).toBeInTheDocument();
-    });
-
-    await user.click(screen.getByTestId('agent-setup-confirm'));
-
+    // Saves immediately and calls onComplete (no tool check step)
     await waitFor(() => {
       expect(onComplete).toHaveBeenCalled();
     });

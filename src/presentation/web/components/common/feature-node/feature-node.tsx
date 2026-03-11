@@ -92,7 +92,7 @@ export function FeatureNode({
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   return (
-    <div className="group relative">
+    <div className="animate-in fade-in group relative duration-300">
       {data.showHandles ? (
         <Handle
           type="target"

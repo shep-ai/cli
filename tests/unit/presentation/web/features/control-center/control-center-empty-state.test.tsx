@@ -13,28 +13,21 @@ vi.mock('@/app/actions/get-all-agent-models', () => ({
   ),
 }));
 
-vi.mock('@/app/actions/check-agent-tool', () => ({
-  checkAgentTool: vi.fn(() =>
-    Promise.resolve({
-      agentType: 'claude-code',
-      toolId: 'claude-code',
-      tool: null,
-      installed: true,
-    })
-  ),
-}));
-
 vi.mock('@/app/actions/update-agent-and-model', () => ({
   updateAgentAndModel: vi.fn(() => Promise.resolve({ ok: true })),
 }));
 
-vi.mock('@/hooks/use-tool-install-stream', () => ({
-  useToolInstallStream: () => ({
-    logs: [],
-    status: 'idle',
-    result: null,
-    startInstall: vi.fn(),
-  }),
+vi.mock('@/app/actions/check-agent-auth', () => ({
+  checkAgentAuth: vi.fn(() =>
+    Promise.resolve({
+      agentType: 'claude-code',
+      installed: true,
+      authenticated: true,
+      label: 'Claude Code',
+      binaryName: 'claude',
+      authCommand: null,
+    })
+  ),
 }));
 
 vi.mock('@/components/common/feature-node/agent-type-icons', () => ({
@@ -59,6 +52,10 @@ vi.mock('next/image', () => ({
   },
 }));
 
+vi.mock('@/app/actions/agent-setup-flag', () => ({
+  isAgentSetupComplete: vi.fn(() => Promise.resolve(false)),
+}));
+
 vi.mock('@/components/common/add-repository-button/pick-folder', () => ({
   pickFolder: vi.fn(() => Promise.resolve(null)),
 }));
@@ -80,14 +77,18 @@ describe('ControlCenterEmptyState', () => {
   it('renders page header', async () => {
     render(<ControlCenterEmptyState />);
 
-    expect(screen.getByText('Features')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('Features')).toBeInTheDocument();
+    });
     expect(screen.getByText('Control Center')).toBeInTheDocument();
   });
 
-  it('applies custom className', () => {
+  it('applies custom className', async () => {
     render(<ControlCenterEmptyState className="custom-class" />);
 
-    const container = screen.getByTestId('control-center-empty-state');
-    expect(container).toHaveClass('custom-class');
+    await waitFor(() => {
+      expect(screen.getByTestId('control-center-empty-state')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('control-center-empty-state')).toHaveClass('custom-class');
   });
 });

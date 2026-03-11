@@ -30,13 +30,14 @@ _Describe a feature in plain English — Shep researches, plans, codes, tests, a
 ## Quick Start
 
 ```bash
-# 1. Install
-npm i -g @shepai/cli
+# Try it instantly — no install needed
+npx @shepai/cli
 
-# 2. Run Shep — completes setup on first run, then opens the web UI
+# Or install globally
+npm i -g @shepai/cli
 shep
 
-# 3. Browser opens at http://localhost:4050 — you're in
+# Browser opens at http://localhost:4050 — you're in
 ```
 
 ---
