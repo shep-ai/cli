@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect, useRef } from 'react';
 import { AlertTriangle, ExternalLink, GitBranch, GitCommitHorizontal, Zap } from 'lucide-react';
 import { InlineAttachments } from '@/components/common/inline-attachments';
 import { PrStatus } from '@shepai/core/domain/generated/output';
@@ -14,6 +15,7 @@ import {
   getAgentTypeIcon,
   agentTypeLabels,
 } from '@/components/common/feature-node/agent-type-icons';
+import { formatDuration } from '@/lib/format-duration';
 
 export interface OverviewTabProps {
   data: FeatureNodeData;
@@ -214,9 +216,43 @@ function FeaturePrInfo({ pr }: { pr: NonNullable<FeatureNodeData['pr']> }) {
 
 // ── Details section ──────────────────────────────────────────────────
 
+/** Hook that returns a live-updating elapsed time string for running features. */
+function useElapsedTime(startedAt?: number): string | null {
+  const [elapsed, setElapsed] = useState<string | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (!startedAt) {
+      setElapsed(null);
+      return;
+    }
+    // Compute immediately
+    setElapsed(formatDuration(Math.max(0, Date.now() - startedAt)));
+    // Tick every second
+    intervalRef.current = setInterval(() => {
+      setElapsed(formatDuration(Math.max(0, Date.now() - startedAt)));
+    }, 1000);
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [startedAt]);
+
+  return elapsed;
+}
+
 function FeatureDetails({ data }: { data: FeatureNodeData }) {
+  const isRunning = data.state === 'running' || data.state === 'action-required';
+  const elapsedTime = useElapsedTime(isRunning ? data.startedAt : undefined);
   const hasAnyDetail =
-    data.fastMode ?? data.agentType ?? data.runtime ?? data.blockedBy ?? data.errorMessage;
+    data.fastMode ??
+    data.agentType ??
+    data.runtime ??
+    elapsedTime ??
+    data.blockedBy ??
+    data.errorMessage;
   if (!hasAnyDetail) return null;
   return (
     <>
@@ -233,6 +269,9 @@ function FeatureDetails({ data }: { data: FeatureNodeData }) {
         ) : null}
         {data.agentType ? <AgentDetailRow agentType={data.agentType} /> : null}
         {data.runtime ? <DetailRow label="Runtime" value={data.runtime} /> : null}
+        {!data.runtime && elapsedTime ? (
+          <DetailRow label="Running for" value={elapsedTime} />
+        ) : null}
         {data.blockedBy ? <DetailRow label="Blocked by" value={data.blockedBy} /> : null}
         {data.errorMessage ? <DetailRow label="Error" value={data.errorMessage} /> : null}
       </div>

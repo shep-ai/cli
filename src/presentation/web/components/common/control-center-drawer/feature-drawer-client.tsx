@@ -567,6 +567,7 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
         featureId={featureNode.featureId}
         initialTab={view.initialTab}
         urlTab={urlTab}
+        sseEvents={events}
         prdData={prdData}
         prdSelections={prdSelections}
         onPrdSelect={(qId, oId) => setPrdSelections((prev) => ({ ...prev, [qId]: oId }))}
