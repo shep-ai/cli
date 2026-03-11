@@ -1,3 +1,9 @@
+# [1.102.0](https://github.com/shep-ai/cli/compare/v1.101.4...v1.102.0) (2026-03-11)
+
+### Features
+
+- **web:** persist sidebar open/closed state in localstorage ([#303](https://github.com/shep-ai/cli/issues/303)) ([d613c1d](https://github.com/shep-ai/cli/commit/d613c1dcf297f348b6d30f33a17ec62e9f9d48aa))
+
 ## [1.101.4](https://github.com/shep-ai/cli/compare/v1.101.3...v1.101.4) (2026-03-11)
 
 ### Bug Fixes
