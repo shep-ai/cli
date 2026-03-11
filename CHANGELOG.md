@@ -1,3 +1,9 @@
+## [1.104.1](https://github.com/shep-ai/cli/compare/v1.104.0...v1.104.1) (2026-03-11)
+
+### Bug Fixes
+
+- **cli:** replace colons in skill directory names for windows compatibility ([#312](https://github.com/shep-ai/cli/issues/312)) ([0b88b28](https://github.com/shep-ai/cli/commit/0b88b28b633c99c78858284d14d60c89ce56edf2))
+
 # [1.104.0](https://github.com/shep-ai/cli/compare/v1.103.1...v1.104.0) (2026-03-11)
 
 ### Bug Fixes
