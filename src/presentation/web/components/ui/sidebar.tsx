@@ -65,32 +65,34 @@ function SidebarProvider({
   const isMobile = useIsMobile();
   const [openMobile, setOpenMobile] = React.useState(false);
 
-  // Read initial state from localStorage, falling back to defaultOpen.
-  const [_open, _setOpen] = React.useState(() => {
-    if (typeof window === 'undefined') return defaultOpen;
+  // Always initialise with defaultOpen to match SSR output and avoid hydration mismatches.
+  const [_open, _setOpen] = React.useState(defaultOpen);
+
+  // skipTransition suppresses CSS transitions when restoring from localStorage.
+  const [skipTransition, setSkipTransition] = React.useState(false);
+
+  // After mount, sync open state from localStorage (client-only).
+  // This avoids the server/client branch that causes hydration errors.
+  React.useEffect(() => {
     try {
       const stored = window.localStorage.getItem(SIDEBAR_STORAGE_KEY);
-      if (stored === 'true') return true;
-      if (stored === 'false') return false;
+      if (stored === 'true' && !_open) {
+        setSkipTransition(true);
+        _setOpen(true);
+      } else if (stored === 'false' && _open) {
+        setSkipTransition(true);
+        _setOpen(false);
+      }
     } catch {
-      // localStorage unavailable (e.g. private browsing quota exceeded)
+      // localStorage unavailable
     }
-    return defaultOpen;
-  });
+    // Only run once on mount — intentionally omitting _open from deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Skip transition on the very first render when sidebar was restored as open from storage.
-  const [skipTransition, setSkipTransition] = React.useState(() => {
-    if (typeof window === 'undefined') return false;
-    try {
-      return window.localStorage.getItem(SIDEBAR_STORAGE_KEY) === 'true';
-    } catch {
-      return false;
-    }
-  });
-
+  // After the DOM paints with the restored state, re-enable transitions.
   React.useEffect(() => {
     if (skipTransition) {
-      // Allow one frame for the DOM to render in the final position, then re-enable transitions.
       const raf = requestAnimationFrame(() => setSkipTransition(false));
       return () => cancelAnimationFrame(raf);
     }
