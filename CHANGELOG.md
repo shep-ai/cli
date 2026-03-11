@@ -1,3 +1,9 @@
+# [1.100.0](https://github.com/shep-ai/cli/compare/v1.99.0...v1.100.0) (2026-03-11)
+
+### Features
+
+- **web:** add npm version checker with upgrade prompt in version badge ([#295](https://github.com/shep-ai/cli/issues/295)) ([acd3fd5](https://github.com/shep-ai/cli/commit/acd3fd59553421ba34cdbcd9f7aa742678044cb9))
+
 # [1.99.0](https://github.com/shep-ai/cli/compare/v1.98.0...v1.99.0) (2026-03-10)
 
 ### Features
