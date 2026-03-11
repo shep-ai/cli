@@ -49,3 +49,20 @@ rejectionFeedback:
       it has conflicts and we dont see it
     phase: merge
     timestamp: '2026-03-11T12:17:28.096Z'
+  - iteration: 2
+    message: >-
+      the bug was not resolved, the pr has conflicts but there still no
+      indication for it
+
+      bring evidence it works from the actuall app and not storybook
+
+
+      you can use featureId
+      http://localhost:3000/feature/277a7337-4440-4e36-9fb2-de25b562d82c/merge-review
+
+      and pullrequest https://github.com/shep-ai/cli/pull/298
+    phase: merge
+    timestamp: '2026-03-11T12:33:18.746Z'
+    attachments:
+      - >-
+        /Users/arielshadkhan/.shep/attachments/pending-32bc947a-eda3-44bd-95d0-4bd13cf23a65/image-4bba91f6.png

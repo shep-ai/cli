@@ -31,12 +31,28 @@ export default async function FeatureDrawerPage({ params }: FeatureDrawerPagePro
 
     // Resolve repository name, base branch, and one-liner for the overview tab
     const getArtifact = resolve<GetFeatureArtifactUseCase>('GetFeatureArtifactUseCase');
-    const [repo, baseBranch, artifact, remoteUrl] = await Promise.all([
+    const [repo, baseBranch, artifact, remoteUrl, liveMergeable] = await Promise.all([
       repoRepo.findByPath(feature.repositoryPath).catch(() => null),
       gitPrService.getDefaultBranch(feature.repositoryPath).catch(() => 'main'),
       getArtifact.execute(featureId).catch(() => null),
       gitPrService.getRemoteUrl(feature.repositoryPath).catch(() => null),
+      feature.pr?.number
+        ? gitPrService
+            .getMergeableStatus(feature.repositoryPath, feature.pr.number)
+            .catch(() => undefined)
+        : Promise.resolve(undefined),
     ]);
+
+    // Merge live mergeable status into feature PR data so the UI always
+    // reflects the current GitHub state, even if the background watcher
+    // hasn't polled yet.
+    if (feature.pr && liveMergeable !== undefined) {
+      feature.pr = { ...feature.pr, mergeable: liveMergeable };
+      // Persist so subsequent loads don't need a live fetch
+      featureRepo.update(feature).catch(() => {
+        /* best-effort */
+      });
+    }
 
     const nodeData = buildFeatureNodeData(feature, run, {
       repositoryName: repo?.name,
