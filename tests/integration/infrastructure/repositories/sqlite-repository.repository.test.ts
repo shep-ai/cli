@@ -111,14 +111,29 @@ describe('SQLiteRepositoryRepository', () => {
   });
 
   describe('list()', () => {
-    it('should return all repositories ordered by name', async () => {
-      await repository.create(createTestRepo({ id: 'r1', name: 'beta', path: '/b' }));
-      await repository.create(createTestRepo({ id: 'r2', name: 'alpha', path: '/a' }));
+    it('should return all repositories ordered by created_at (insertion order)', async () => {
+      await repository.create(
+        createTestRepo({
+          id: 'r1',
+          name: 'beta',
+          path: '/b',
+          createdAt: new Date('2026-01-01T00:00:00Z'),
+        })
+      );
+      await repository.create(
+        createTestRepo({
+          id: 'r2',
+          name: 'alpha',
+          path: '/a',
+          createdAt: new Date('2026-01-02T00:00:00Z'),
+        })
+      );
 
       const repos = await repository.list();
       expect(repos).toHaveLength(2);
-      expect(repos[0].name).toBe('alpha');
-      expect(repos[1].name).toBe('beta');
+      // beta was added first (earlier createdAt), so it comes first
+      expect(repos[0].name).toBe('beta');
+      expect(repos[1].name).toBe('alpha');
     });
 
     it('should return empty array when no repositories exist', async () => {
