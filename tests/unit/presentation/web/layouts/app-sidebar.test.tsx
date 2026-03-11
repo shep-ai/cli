@@ -1,8 +1,42 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layouts/app-sidebar';
+
+const originalFetch = globalThis.fetch;
+
+beforeEach(() => {
+  // Mock fetch for /api/version and /api/npm-version (used by VersionBadge and useVersion)
+  globalThis.fetch = vi.fn().mockImplementation((url: string) => {
+    if (url.includes('/api/version')) {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            version: '1.101.0',
+            packageName: '@shepai/cli',
+            description: 'Test',
+            branch: '',
+            commitHash: '',
+            instancePath: '',
+            isDev: false,
+          }),
+      });
+    }
+    if (url.includes('/api/npm-version')) {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ latest: '1.101.0' }),
+      });
+    }
+    return Promise.resolve({ ok: false, status: 404 });
+  });
+});
+
+afterEach(() => {
+  globalThis.fetch = originalFetch;
+});
 
 const defaultFlags = { skills: true, envDeploy: false, debug: false };
 
