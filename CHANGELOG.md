@@ -1,3 +1,9 @@
+## [1.101.4](https://github.com/shep-ai/cli/compare/v1.101.3...v1.101.4) (2026-03-11)
+
+### Bug Fixes
+
+- **web:** fetch version at runtime via api route instead of build-time env vars ([#304](https://github.com/shep-ai/cli/issues/304)) ([a352577](https://github.com/shep-ai/cli/commit/a352577e65777345d3036362c7b2ffb408a5bf49))
+
 ## [1.101.3](https://github.com/shep-ai/cli/compare/v1.101.2...v1.101.3) (2026-03-11)
 
 ### Bug Fixes
