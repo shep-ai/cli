@@ -249,6 +249,84 @@ describe('useGraphState', () => {
       const realEdgeAfter = capturedState!.edges.find((e) => e.target === 'feat-real-1');
       expect(realEdgeAfter).toBeDefined();
     });
+
+    it('preserves optimistic temp repo when server data does not include it yet', () => {
+      let capturedState: UseGraphStateReturn | null = null;
+
+      renderHook([], [], (s) => {
+        capturedState = s;
+      });
+
+      // Optimistically add a repo with a temp ID
+      act(() => {
+        capturedState!.addRepository('repo-temp-1', {
+          name: 'my-repo',
+          repositoryPath: '/path/to/my-repo',
+          id: 'repo-temp-1',
+        });
+      });
+
+      expect(screen.getByTestId('node-count')).toHaveTextContent('1');
+
+      // Polling reconcile fires — server doesn't have this repo yet
+      act(() => {
+        capturedState!.reconcile([], []);
+      });
+
+      // Temp repo should still be visible (not wiped)
+      expect(screen.getByTestId('node-count')).toHaveTextContent('1');
+      const repoNode = capturedState!.nodes.find((n) => n.id === 'repo-temp-1');
+      expect(repoNode).toBeDefined();
+    });
+
+    it('drops temp repo once server data includes the same repositoryPath', () => {
+      let capturedState: UseGraphStateReturn | null = null;
+
+      renderHook([], [], (s) => {
+        capturedState = s;
+      });
+
+      // Optimistically add a repo with a temp ID
+      act(() => {
+        capturedState!.addRepository('repo-temp-1', {
+          name: 'my-repo',
+          repositoryPath: '/path/to/my-repo',
+          id: 'repo-temp-1',
+        });
+      });
+
+      // Server now returns the real repo for the same path
+      const serverRepo = makeRepoNode('repo-abc', '/path/to/my-repo');
+      act(() => {
+        capturedState!.reconcile([serverRepo], []);
+      });
+
+      // Only the real repo should remain, no duplicate
+      expect(screen.getByTestId('node-count')).toHaveTextContent('1');
+      const realNode = capturedState!.nodes.find((n) => n.id === 'repo-abc');
+      expect(realNode).toBeDefined();
+      const tempNode = capturedState!.nodes.find((n) => n.id === 'repo-temp-1');
+      expect(tempNode).toBeUndefined();
+    });
+
+    it('does not preserve non-temp repos that the server no longer returns', () => {
+      const repoNode = makeRepoNode('repo-1', '/repo');
+      let capturedState: UseGraphStateReturn | null = null;
+
+      renderHook([repoNode], [], (s) => {
+        capturedState = s;
+      });
+
+      expect(screen.getByTestId('node-count')).toHaveTextContent('1');
+
+      // Server no longer returns this repo (deleted on server)
+      act(() => {
+        capturedState!.reconcile([], []);
+      });
+
+      // Non-temp repo should be removed
+      expect(screen.getByTestId('node-count')).toHaveTextContent('0');
+    });
   });
 
   describe('updateFeature', () => {
