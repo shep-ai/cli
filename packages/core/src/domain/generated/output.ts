@@ -439,6 +439,10 @@ export type NotificationEventConfig = {
    * Notify when pull request CI checks fail
    */
   prChecksFailed: boolean;
+  /**
+   * Notify when pull request has merge conflicts
+   */
+  prBlocked: boolean;
 };
 
 /**
@@ -754,6 +758,10 @@ export type PullRequest = {
    * History of CI fix attempts
    */
   ciFixHistory?: CiFixRecord[];
+  /**
+   * Whether the PR can be merged (false = merge conflicts)
+   */
+  mergeable?: boolean;
 };
 
 /**
@@ -1384,6 +1392,7 @@ export enum NotificationEventType {
   PrClosed = 'pr_closed',
   PrChecksPassed = 'pr_checks_passed',
   PrChecksFailed = 'pr_checks_failed',
+  PrBlocked = 'pr_blocked',
 }
 export enum NotificationSeverity {
   Info = 'info',
