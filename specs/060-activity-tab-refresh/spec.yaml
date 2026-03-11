@@ -50,3 +50,7 @@ rejectionFeedback:
       go to the merge tab etc)
     phase: merge
     timestamp: '2026-03-11T12:31:08.640Z'
+  - iteration: 2
+    message: Resolve merge conflicts
+    phase: merge
+    timestamp: '2026-03-11T16:24:34.151Z'
