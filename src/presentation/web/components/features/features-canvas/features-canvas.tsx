@@ -1,7 +1,14 @@
 'use client';
 
 import { useCallback, useMemo } from 'react';
-import { ReactFlow, Background, Controls, ControlButton, useReactFlow } from '@xyflow/react';
+import {
+  ReactFlow,
+  Background,
+  BackgroundVariant,
+  Controls,
+  ControlButton,
+  useReactFlow,
+} from '@xyflow/react';
 import type { Connection, Edge, NodeChange, OnMoveEnd, Viewport } from '@xyflow/react';
 import { Plus, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -122,7 +129,7 @@ export function FeaturesCanvas({
     <div
       data-testid="features-canvas"
       data-no-drawer-close
-      className="pointer-events-auto h-full w-full"
+      className="pointer-events-auto h-full w-full bg-[#f6f7f8] dark:bg-[#0a0a0b]"
     >
       <ReactFlow
         nodes={enrichedNodes}
@@ -141,7 +148,22 @@ export function FeaturesCanvas({
         elementsSelectable={false}
         proOptions={{ hideAttribution: true }}
       >
-        <Background />
+        {/* Double grid: fine lines + coarse lines for depth */}
+        <Background
+          id="fine"
+          variant={BackgroundVariant.Lines}
+          gap={16}
+          color="#e8eaed"
+          className="dark:[&_path]:!stroke-white/[0.04]"
+        />
+        <Background
+          id="coarse"
+          variant={BackgroundVariant.Lines}
+          gap={128}
+          lineWidth={1.5}
+          color="#dcdfe3"
+          className="dark:[&_path]:!stroke-white/[0.08]"
+        />
         <Controls showInteractive={false}>
           {onResetViewport ? <ResetButton onResetViewport={onResetViewport} /> : null}
         </Controls>
