@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ReactFlow,
   Background,
@@ -11,6 +11,7 @@ import {
 } from '@xyflow/react';
 import type { Connection, Edge, NodeChange, OnMoveEnd, Viewport } from '@xyflow/react';
 import { Plus, RotateCcw } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/common/empty-state';
 import { FeatureNode } from '@/components/common/feature-node';
@@ -103,6 +104,30 @@ export function FeaturesCanvas({
 
   const isEmpty = nodes.length === 0;
 
+  // Track empty→populated transition for exit animation.
+  // When isEmpty flips from true to false, keep the overlay mounted
+  // and fade it out before removing it from the DOM.
+  const [showOverlay, setShowOverlay] = useState(isEmpty);
+  const [overlayExiting, setOverlayExiting] = useState(false);
+  const prevEmptyRef = useRef(isEmpty);
+
+  useEffect(() => {
+    if (prevEmptyRef.current && !isEmpty) {
+      // Was empty, now populated — start exit animation
+      setOverlayExiting(true);
+      const timer = setTimeout(() => {
+        setShowOverlay(false);
+        setOverlayExiting(false);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+    if (!prevEmptyRef.current && isEmpty) {
+      // Was populated, now empty — show overlay immediately
+      setShowOverlay(true);
+    }
+    prevEmptyRef.current = isEmpty;
+  }, [isEmpty]);
+
   const fallbackEmptyState =
     isEmpty && !emptyState ? (
       <EmptyState
@@ -116,6 +141,8 @@ export function FeaturesCanvas({
         }
       />
     ) : null;
+
+  const overlayContent = emptyState ?? fallbackEmptyState;
 
   return (
     <div
@@ -154,9 +181,14 @@ export function FeaturesCanvas({
         )}
         {toolbar}
       </ReactFlow>
-      {isEmpty && (emptyState || fallbackEmptyState) ? (
-        <div className="animate-in fade-in pointer-events-none absolute inset-0 z-10 flex items-center justify-center duration-200">
-          <div className="pointer-events-auto">{emptyState ?? fallbackEmptyState}</div>
+      {showOverlay && overlayContent ? (
+        <div
+          className={cn(
+            'pointer-events-none absolute inset-0 z-10 flex items-center justify-center transition-opacity duration-300',
+            overlayExiting ? 'opacity-0' : 'animate-in fade-in opacity-100 duration-200'
+          )}
+        >
+          <div className="pointer-events-auto">{overlayContent}</div>
         </div>
       ) : null}
     </div>
