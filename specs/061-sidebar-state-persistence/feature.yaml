@@ -1,0 +1,36 @@
+feature:
+  id: '061-sidebar-state-persistence'
+  name: 'sidebar-state-persistence'
+  number: 61
+  branch: 'feat/061-sidebar-state-persistence'
+  lifecycle: 'research'
+  createdAt: '2026-03-11T16:10:46Z'
+
+status:
+  phase: 'research'
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-03-11T16:10:46Z'
+  lastUpdatedBy: 'feature-agent'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-03-11T16:10:46Z'
+    completedBy: 'feature-agent'
+
+errors:
+  current: null
+  history: []
