@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock native/heavy dependencies that container.ts transitively imports
 vi.mock('node-notifier', () => ({ default: { notify: vi.fn() } }));
+vi.mock('which', () => ({ default: vi.fn().mockResolvedValue(null) }));
 vi.mock('better-sqlite3', () => ({
   default: vi.fn().mockReturnValue({
     pragma: vi.fn(),

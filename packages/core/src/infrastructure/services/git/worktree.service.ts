@@ -156,7 +156,7 @@ export class WorktreeService implements IWorktreeService {
   getWorktreePath(repoPath: string, branch: string): string {
     const repoHash = createHash('sha256').update(repoPath).digest('hex').slice(0, 16);
     const slug = branch.replace(/\//g, '-');
-    return path.join(getShepHomeDir(), 'repos', repoHash, 'wt', slug);
+    return path.join(getShepHomeDir(), 'repos', repoHash, 'wt', slug).replace(/\\/g, '/');
   }
 
   private parseWorktreeOutput(output: string): WorktreeInfo[] {

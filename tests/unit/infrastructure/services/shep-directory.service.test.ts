@@ -27,6 +27,6 @@ describe('getDaemonStatePath', () => {
 
   it('returns SHEP_HOME/daemon.json when SHEP_HOME is set', () => {
     process.env.SHEP_HOME = '/tmp/test-shep-home';
-    expect(getDaemonStatePath()).toBe('/tmp/test-shep-home/daemon.json');
+    expect(getDaemonStatePath()).toBe(join('/tmp/test-shep-home', 'daemon.json'));
   });
 });

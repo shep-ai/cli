@@ -10,9 +10,12 @@ import { describe, it, expect } from 'vitest';
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 
-// Resolve from packages/core where the dependencies are installed
+// Resolve from packages/core where the dependencies are installed.
+// Use a path ending in a dummy filename (not package.json) so that
+// createRequire resolves relative to the packages/core directory
+// reliably across platforms and vitest worker environments.
 const coreRequire = createRequire(
-  resolve(import.meta.dirname, '../../../../packages/core/package.json')
+  resolve(import.meta.dirname, '../../../../packages/core/index.js')
 );
 
 describe('cross-platform dependency smoke tests', () => {

@@ -16,7 +16,7 @@
  * await server.stop();
  */
 
-import { spawn, type ChildProcess } from 'node:child_process';
+import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { resolve } from 'node:path';
 
 /**
@@ -78,6 +78,8 @@ export async function startCliServer(
     ...args.split(/\s+/).filter(Boolean),
   ];
 
+  const isWindows = process.platform === 'win32';
+
   const child = spawn(command, commandArgs, {
     cwd: PROJECT_ROOT,
     env: {
@@ -87,8 +89,12 @@ export async function startCliServer(
       FORCE_COLOR: '0',
     },
     stdio: ['pipe', 'pipe', 'pipe'],
-    // Create a process group so we can kill npx → tsx → node tree together
-    detached: true,
+    // On Unix, create a process group so we can kill npx → tsx → node tree together.
+    // On Windows, detached creates a new console window; we use taskkill /T instead.
+    detached: !isWindows,
+    // On Windows, spawn('npx', ...) fails with ENOENT because npx is a .cmd script.
+    // shell: true lets the OS resolve npx.cmd automatically.
+    shell: isWindows,
   });
 
   let output = '';
@@ -166,9 +172,26 @@ export async function startCliServer(
 
 /**
  * Kill an entire process group by negating the PID.
+ * On Windows, uses taskkill /T to kill the process tree.
  * Falls back to child.kill() if process.kill fails.
  */
 function killProcessGroup(child: ChildProcess, signal: NodeJS.Signals): void {
+  if (process.platform === 'win32') {
+    // On Windows, kill the entire process tree using taskkill
+    try {
+      if (child.pid) {
+        spawnSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore' });
+      }
+    } catch {
+      try {
+        child.kill(signal);
+      } catch {
+        // Already dead
+      }
+    }
+    return;
+  }
+
   try {
     // Negative PID kills the entire process group (npx → tsx → node)
     if (child.pid) {

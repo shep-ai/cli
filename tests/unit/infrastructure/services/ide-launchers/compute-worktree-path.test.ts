@@ -25,7 +25,10 @@ describe('computeWorktreePath', () => {
     const branch = 'feat/my-feature';
 
     const expectedHash = createHash('sha256').update(repoPath).digest('hex').slice(0, 16);
-    const expected = join('/mock/.shep', 'repos', expectedHash, 'wt', 'feat-my-feature');
+    const expected = join('/mock/.shep', 'repos', expectedHash, 'wt', 'feat-my-feature').replace(
+      /\\/g,
+      '/'
+    );
 
     expect(computeWorktreePath(repoPath, branch)).toBe(expected);
   });

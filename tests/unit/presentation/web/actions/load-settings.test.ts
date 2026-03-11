@@ -18,14 +18,18 @@ vi.mock('@shepai/core/infrastructure/services/filesystem/shep-directory.service'
   getShepHomeDir: () => '/home/user/.shep',
 }));
 
-vi.mock('node:fs', () => ({
-  statSync: (path: string) => {
-    if (path === '/home/user/.shep/data') {
-      return { size: 2516582 }; // ~2.4 MB
-    }
-    throw new Error('ENOENT');
-  },
-}));
+vi.mock('node:fs', async () => {
+  const { join } = await import('node:path');
+  const expectedPath = join('/home/user/.shep', 'data');
+  return {
+    statSync: (path: string) => {
+      if (path === expectedPath) {
+        return { size: 2516582 }; // ~2.4 MB
+      }
+      throw new Error('ENOENT');
+    },
+  };
+});
 
 const { loadSettings } = await import(
   '../../../../../src/presentation/web/app/actions/load-settings.js'

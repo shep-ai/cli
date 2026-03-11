@@ -32,7 +32,7 @@ export function buildEvidencePrompt(
   // Worktree path is: ~/.shep/repos/<hash>/wt/<slug>
   // Evidence path is: ~/.shep/repos/<hash>/evidence/<featureId>/
   const repoHashDir = dirname(dirname(cwd)); // go up from wt/<slug>
-  const shepEvidenceDir = join(repoHashDir, 'evidence', state.featureId);
+  const shepEvidenceDir = join(repoHashDir, 'evidence', state.featureId).replaceAll('\\', '/');
 
   const specSection = specContent
     ? `## Feature Specification (spec.yaml)
@@ -56,9 +56,10 @@ ${tasksContent}
     : '';
 
   // Relative spec dir path from worktree root (e.g., "specs/057-sidenav-feature-toggle")
-  const relativeSpecDir = relative(cwd, state.specDir);
+  // Normalize to forward slashes so prompts always use POSIX paths (even on Windows)
+  const relativeSpecDir = relative(cwd, state.specDir).replaceAll('\\', '/');
   const specEvidenceRelPath = `${relativeSpecDir}/evidence`;
-  const specEvidenceAbsPath = join(state.specDir, 'evidence');
+  const specEvidenceAbsPath = join(state.specDir, 'evidence').replaceAll('\\', '/');
 
   const storageSection = options.commitEvidence
     ? `## Evidence Storage
