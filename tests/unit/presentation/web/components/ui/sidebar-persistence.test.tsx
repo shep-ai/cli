@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import {
@@ -52,20 +52,24 @@ describe('SidebarProvider — localStorage persistence', () => {
       expect(screen.getByTestId('sidebar-state')).toHaveTextContent('open');
     });
 
-    it('restores open state from localStorage', () => {
+    it('restores open state from localStorage after hydration', async () => {
       vi.mocked(localStorage.getItem).mockReturnValue('true');
 
       render(<TestHarness defaultOpen={false} />);
 
-      expect(screen.getByTestId('sidebar-state')).toHaveTextContent('open');
+      await waitFor(() => {
+        expect(screen.getByTestId('sidebar-state')).toHaveTextContent('open');
+      });
     });
 
-    it('restores closed state from localStorage', () => {
+    it('restores closed state from localStorage after hydration', async () => {
       vi.mocked(localStorage.getItem).mockReturnValue('false');
 
       render(<TestHarness defaultOpen={true} />);
 
-      expect(screen.getByTestId('sidebar-state')).toHaveTextContent('closed');
+      await waitFor(() => {
+        expect(screen.getByTestId('sidebar-state')).toHaveTextContent('closed');
+      });
     });
 
     it('falls back to defaultOpen when localStorage has unexpected value', () => {
@@ -90,7 +94,7 @@ describe('SidebarProvider — localStorage persistence', () => {
   describe('persisting state changes', () => {
     it('saves to localStorage when sidebar is toggled open', async () => {
       const user = userEvent.setup();
-      vi.mocked(localStorage.getItem).mockReturnValue('false');
+      vi.mocked(localStorage.getItem).mockReturnValue(null);
 
       render(<TestHarness defaultOpen={false} />);
 
@@ -101,7 +105,7 @@ describe('SidebarProvider — localStorage persistence', () => {
 
     it('saves to localStorage when sidebar is toggled closed', async () => {
       const user = userEvent.setup();
-      vi.mocked(localStorage.getItem).mockReturnValue('true');
+      vi.mocked(localStorage.getItem).mockReturnValue(null);
 
       render(<TestHarness defaultOpen={true} />);
 
@@ -112,7 +116,7 @@ describe('SidebarProvider — localStorage persistence', () => {
 
     it('does not throw when localStorage.setItem fails', async () => {
       const user = userEvent.setup();
-      vi.mocked(localStorage.getItem).mockReturnValue('false');
+      vi.mocked(localStorage.getItem).mockReturnValue(null);
       vi.mocked(localStorage.setItem).mockImplementation(() => {
         throw new Error('QuotaExceededError');
       });

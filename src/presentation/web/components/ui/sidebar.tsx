@@ -76,8 +76,19 @@ function SidebarProvider({
 
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
-  const [_open, _setOpen] = React.useState(() => readSidebarState(defaultOpen));
+  // Initialize with defaultOpen to match SSR — localStorage is read after hydration.
+  const [_open, _setOpen] = React.useState(defaultOpen);
   const open = openProp ?? _open;
+
+  // After hydration, sync state from localStorage to avoid SSR mismatch.
+  React.useEffect(() => {
+    if (openProp !== undefined) return; // controlled mode — skip
+    const stored = readSidebarState(defaultOpen);
+    if (stored !== defaultOpen) {
+      _setOpen(stored);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const setOpen = React.useCallback(
     (value: boolean | ((value: boolean) => boolean)) => {
       const openState = typeof value === 'function' ? value(open) : value;
