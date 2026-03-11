@@ -5,13 +5,14 @@
   "tags": ["ide"],
   "author": "Zed Industries",
   "website": "https://zed.dev",
-  "platforms": ["linux", "darwin"],
+  "platforms": ["linux", "darwin", "win32"],
   "iconUrl": "https://cdn.simpleicons.org/zedindustries",
   "binary": "zed",
   "packageManager": "curl",
   "commands": {
     "linux": "curl -f https://zed.dev/install.sh | sh",
-    "darwin": "curl -f https://zed.dev/install.sh | sh"
+    "darwin": "curl -f https://zed.dev/install.sh | sh",
+    "win32": "winget install --id ZedIndustries.Zed -e --source winget"
   },
   "timeout": 300000,
   "documentationUrl": "https://zed.dev/docs/installation",

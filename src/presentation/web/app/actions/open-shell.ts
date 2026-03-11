@@ -14,6 +14,7 @@ import { computeWorktreePath } from '@shepai/core/infrastructure/services/ide-la
 const SHELL_COMMANDS: Record<string, { cmd: string; args: (path: string) => string[] }> = {
   darwin: { cmd: 'open', args: (p) => ['-a', 'Terminal', p] },
   linux: { cmd: 'x-terminal-emulator', args: (p) => [`--working-directory=${p}`] },
+  win32: { cmd: 'powershell', args: (p) => ['-NoExit', '-Command', `Set-Location "${p}"`] },
 };
 
 interface OpenShellInput {
@@ -43,7 +44,7 @@ export async function openShell(
     if (!entry) {
       return {
         success: false,
-        error: `Unsupported platform: ${platform()}. Shell launch is supported on macOS and Linux only.`,
+        error: `Unsupported platform: ${platform()}`,
       };
     }
 

@@ -73,13 +73,26 @@ describe('openFolder server action', () => {
     expect(result).toEqual({ success: false, error: 'Directory not found' });
   });
 
-  it('returns error on unsupported platform', async () => {
+  it('spawns correct command on win32', async () => {
     mockPlatform.mockReturnValue('win32');
 
     const result = await openFolder('/home/user/project');
 
+    expect(result.success).toBe(true);
+    expect(mockSpawn).toHaveBeenCalledWith('explorer', ['/home/user/project'], {
+      detached: true,
+      stdio: 'ignore',
+    });
+    expect(mockUnref).toHaveBeenCalled();
+  });
+
+  it('returns error on unsupported platform', async () => {
+    mockPlatform.mockReturnValue('freebsd');
+
+    const result = await openFolder('/home/user/project');
+
     expect(result.success).toBe(false);
-    expect(result.error).toContain('win32');
+    expect(result.error).toContain('freebsd');
   });
 
   it('spawns correct command on darwin', async () => {

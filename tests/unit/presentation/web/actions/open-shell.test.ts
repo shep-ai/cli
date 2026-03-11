@@ -85,13 +85,27 @@ describe('openShell server action', () => {
     expect(result.error).toContain('does not exist');
   });
 
-  it('returns error on unsupported platform', async () => {
+  it('spawns correct command on win32', async () => {
     mockPlatform.mockReturnValue('win32');
+
+    const result = await openShell({ repositoryPath: '/home/user/project', branch: 'feat/test' });
+
+    expect(result.success).toBe(true);
+    expect(mockSpawn).toHaveBeenCalledWith(
+      'powershell',
+      ['-NoExit', '-Command', `Set-Location "${MOCK_WORKTREE_PATH}"`],
+      { detached: true, stdio: 'ignore' }
+    );
+    expect(mockUnref).toHaveBeenCalled();
+  });
+
+  it('returns error on unsupported platform', async () => {
+    mockPlatform.mockReturnValue('freebsd');
 
     const result = await openShell({ repositoryPath: '/home/user/project', branch: 'main' });
 
     expect(result.success).toBe(false);
-    expect(result.error).toContain('win32');
+    expect(result.error).toContain('freebsd');
   });
 
   it('spawns correct command on darwin', async () => {

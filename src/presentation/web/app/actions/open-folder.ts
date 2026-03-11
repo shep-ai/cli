@@ -12,6 +12,7 @@ import { spawn } from 'node:child_process';
 const FOLDER_COMMANDS: Record<string, { cmd: string; args: (path: string) => string[] }> = {
   darwin: { cmd: 'open', args: (p) => [p] },
   linux: { cmd: 'xdg-open', args: (p) => [p] },
+  win32: { cmd: 'explorer', args: (p) => [p] },
 };
 
 export async function openFolder(
@@ -30,7 +31,7 @@ export async function openFolder(
     if (!entry) {
       return {
         success: false,
-        error: `Unsupported platform: ${platform()}. Folder open is supported on macOS and Linux only.`,
+        error: `Unsupported platform: ${platform()}`,
       };
     }
 
