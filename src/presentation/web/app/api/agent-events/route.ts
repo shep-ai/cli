@@ -38,6 +38,7 @@ interface CachedFeatureState {
   lifecycle: string;
   completedPhases: Set<string>;
   featureName: string;
+  prStatus: string | undefined;
   prMergeable: boolean | undefined;
   prCiStatus: string | undefined;
 }
@@ -171,6 +172,7 @@ export function GET(request: Request): Response {
                   lifecycle: feature.lifecycle,
                   completedPhases,
                   featureName: feature.name,
+                  prStatus: feature.pr?.status,
                   prMergeable: feature.pr?.mergeable,
                   prCiStatus: feature.pr?.ciStatus,
                 });
@@ -231,10 +233,16 @@ export function GET(request: Request): Response {
                 }
               }
 
-              // Check for PR data changes (mergeable / CI status)
+              // Check for PR data changes (status / mergeable / CI status)
+              const curPrStatus = feature.pr?.status;
               const curMergeable = feature.pr?.mergeable;
               const curCiStatus = feature.pr?.ciStatus;
-              if (curMergeable !== prev.prMergeable || curCiStatus !== prev.prCiStatus) {
+              if (
+                curPrStatus !== prev.prStatus ||
+                curMergeable !== prev.prMergeable ||
+                curCiStatus !== prev.prCiStatus
+              ) {
+                prev.prStatus = curPrStatus;
                 prev.prMergeable = curMergeable;
                 prev.prCiStatus = curCiStatus;
                 const nodeName = LIFECYCLE_TO_NODE[feature.lifecycle as SdlcLifecycle] ?? 'merge';
