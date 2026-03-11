@@ -204,10 +204,10 @@ Inform the user:
 
 ## Template Locations
 
-- Plan: `.claude/skills/shep-kit:new-feature/templates/plan.yaml`
-- Tasks: `.claude/skills/shep-kit:new-feature/templates/tasks.yaml`
-- Data Model: `.claude/skills/shep-kit:new-feature/templates/data-model.md`
+- Plan: `.claude/skills/shep-kit-new-feature/templates/plan.yaml`
+- Tasks: `.claude/skills/shep-kit-new-feature/templates/tasks.yaml`
+- Data Model: `.claude/skills/shep-kit-new-feature/templates/data-model.md`
 
 ## Example
 
-See: `.claude/skills/shep-kit:plan/examples/sample-plan.md`
+See: `.claude/skills/shep-kit-plan/examples/sample-plan.md`
