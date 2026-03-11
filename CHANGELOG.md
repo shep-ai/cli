@@ -1,3 +1,10 @@
+## [1.101.1](https://github.com/shep-ai/cli/compare/v1.101.0...v1.101.1) (2026-03-11)
+
+### Bug Fixes
+
+- **domain:** persist pr mergeable status for merge conflict display ([#298](https://github.com/shep-ai/cli/issues/298)) ([1f03fa4](https://github.com/shep-ai/cli/commit/1f03fa45d847ca3dabc8dafa71c21c8b1585565d))
+- **web:** prevent drawer flash when deleting feature from canvas ([#290](https://github.com/shep-ai/cli/issues/290)) ([388f50d](https://github.com/shep-ai/cli/commit/388f50dd752abd3768afe521ff118701a5d56368))
+
 # [1.101.0](https://github.com/shep-ai/cli/compare/v1.100.0...v1.101.0) (2026-03-11)
 
 ### Features
