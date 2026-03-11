@@ -129,7 +129,7 @@ export function DiffView({ fileDiffs }: DiffViewProps) {
       </div>
       <div className="border-border border-t">
         {fileDiffs.map((file) => (
-          <FileDiffItem key={file.path} file={file} />
+          <FileDiffItem key={`${file.status}-${file.path}`} file={file} />
         ))}
       </div>
     </div>
