@@ -1,0 +1,475 @@
+name: windows-support
+summary: >
+  15 tasks across 5 phases implementing Windows (win32) runtime support.
+  Covers dependency installation, path handling, shell/binary detection,
+  process management, Web UI actions, and tool metadata.
+
+relatedFeatures: []
+technologies: []
+relatedLinks: []
+
+tasks:
+  # ──────────────────────────────────────────────────────────────────────
+  # Phase 1: Dependencies & Foundation
+  # ──────────────────────────────────────────────────────────────────────
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Install tree-kill and which packages'
+    description: >
+      Add tree-kill@^1.2.2 and which@^5.0.0 as runtime dependencies to
+      packages/core/package.json. Run pnpm install to update the lockfile.
+      Verify both packages resolve correctly and their types are available.
+      tree-kill provides cross-platform process tree termination; which
+      provides cross-platform binary detection.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'tree-kill@>=1.2.2 appears in packages/core/package.json dependencies'
+      - 'which@>=5.0.0 appears in packages/core/package.json dependencies'
+      - 'pnpm install succeeds without errors'
+      - 'TypeScript can import both packages without type errors'
+      - 'pnpm build compiles successfully with the new dependencies'
+    tdd:
+      red:
+        - 'Write a smoke test that imports tree-kill and which, verifying they export functions'
+      green:
+        - 'Run pnpm add tree-kill which in packages/core'
+        - 'Verify the smoke test passes'
+      refactor:
+        - 'Ensure @types/which is added if needed for TypeScript support'
+        - 'Verify tree-kill version is >=1.2.2 (RCE fix) in lockfile'
+    estimatedEffort: '15min'
+
+  # ──────────────────────────────────────────────────────────────────────
+  # Phase 2: Cross-Platform Path Handling
+  # ──────────────────────────────────────────────────────────────────────
+
+  - id: task-2
+    phaseId: phase-2
+    title: 'Replace startsWith("/") with path.isAbsolute() in open-shell.ts'
+    description: >
+      Replace the repositoryPath?.startsWith("/") check on line 28 of
+      open-shell.ts with path.isAbsolute(repositoryPath). Import path from
+      "node:path". This makes the path validation accept Windows paths like
+      C:\Users\... in addition to Unix paths.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'open-shell.ts uses path.isAbsolute() instead of startsWith("/")'
+      - 'Tests pass for Unix paths (/home/user/repo)'
+      - 'Tests pass for Windows paths (C:\Users\user\repo)'
+      - 'Empty/relative paths still return error'
+    tdd:
+      red:
+        - 'In open-shell.test.ts, add a test that calls openShell with repositoryPath="C:\\Users\\test" and asserts success (not the current "must be an absolute path" error)'
+        - 'The test should fail because the current startsWith("/") rejects Windows paths'
+      green:
+        - 'Replace repositoryPath?.startsWith("/") with repositoryPath && path.isAbsolute(repositoryPath) in open-shell.ts'
+        - 'Add import path from "node:path"'
+      refactor:
+        - 'Verify no other path validation logic needs updating in this file'
+    estimatedEffort: '20min'
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Replace startsWith("/") with path.isAbsolute() in open-folder.ts'
+    description: >
+      Replace the repositoryPath?.startsWith("/") check on line 19 of
+      open-folder.ts with path.isAbsolute(repositoryPath). Import path from
+      "node:path".
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'open-folder.ts uses path.isAbsolute() instead of startsWith("/")'
+      - 'Tests pass for Unix paths'
+      - 'Tests pass for Windows paths'
+      - 'Empty/relative paths still return error'
+    tdd:
+      red:
+        - 'In open-folder.test.ts, add a test that calls openFolder with repositoryPath="C:\\Users\\test" and asserts success (not error)'
+      green:
+        - 'Replace repositoryPath?.startsWith("/") with repositoryPath && path.isAbsolute(repositoryPath)'
+        - 'Add import path from "node:path"'
+      refactor:
+        - 'Verify consistency with the open-shell.ts change'
+    estimatedEffort: '15min'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Replace startsWith("/") with path.isAbsolute() in open-ide.ts'
+    description: >
+      Replace the repositoryPath?.startsWith("/") check on line 17 of
+      open-ide.ts with path.isAbsolute(repositoryPath). Import path from
+      "node:path".
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'open-ide.ts uses path.isAbsolute() instead of startsWith("/")'
+      - 'Tests pass for Unix and Windows paths'
+    tdd:
+      red:
+        - 'In open-ide.test.ts, add a test with repositoryPath="D:\\Projects\\myapp" that asserts the use case is called (not rejected at validation)'
+      green:
+        - 'Replace repositoryPath?.startsWith("/") with repositoryPath && path.isAbsolute(repositoryPath)'
+        - 'Add import { isAbsolute } from "node:path" or import path from "node:path"'
+      refactor:
+        - 'Verify the use case still receives the correct repositoryPath'
+    estimatedEffort: '15min'
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Replace startsWith("/") with path.isAbsolute() in deploy-repository.ts'
+    description: >
+      Replace the repositoryPath?.startsWith("/") check on line 16 of
+      deploy-repository.ts with path.isAbsolute(repositoryPath). Import path
+      from "node:path".
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'deploy-repository.ts uses path.isAbsolute() instead of startsWith("/")'
+      - 'Tests pass for Unix and Windows paths'
+    tdd:
+      red:
+        - 'In deploy-repository.test.ts, add a test with repositoryPath="C:\\Projects\\repo" that asserts the deployment service is called (not rejected at path validation)'
+      green:
+        - 'Replace repositoryPath?.startsWith("/") with repositoryPath && path.isAbsolute(repositoryPath)'
+        - 'Add import { isAbsolute } from "node:path"'
+      refactor:
+        - 'Verify the deployment service receives the correct path'
+    estimatedEffort: '15min'
+
+  - id: task-6
+    phaseId: phase-2
+    title: 'Replace startsWith("/") with path.isAbsolute() in dev-executor.service.ts'
+    description: >
+      Replace the startsWith("/") check in validateSpecDir() on line 137 of
+      dev-executor.service.ts with path.isAbsolute(). The extractSpecDir()
+      regexes (lines 125, 129) also hardcode "/" for Unix paths — update
+      them to handle Windows paths (backslash paths starting with drive
+      letter) as well.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'validateSpecDir() uses path.isAbsolute() instead of startsWith("/")'
+      - 'extractSpecDir() regexes handle both / and \\ path separators'
+      - 'Existing tests continue to pass'
+      - 'Windows-style paths (C:\specs\060-windows) are correctly extracted and validated'
+    tdd:
+      red:
+        - 'In dev-executor.service.test.ts, add a test that exercises validateSpecDir with a Windows path like "C:\\Users\\dev\\specs" and asserts it does not throw'
+      green:
+        - 'Replace startsWith("/") with path.isAbsolute() in validateSpecDir()'
+        - 'Update extractSpecDir() regexes to optionally match Windows drive-letter paths (e.g., [A-Za-z]:\\)'
+      refactor:
+        - 'Consider extracting the path regex patterns into named constants for clarity'
+    estimatedEffort: '30min'
+
+  - id: task-7
+    phaseId: phase-2
+    title: 'Replace hardcoded "/" with path.sep in claude-code-session.repository.ts'
+    description: >
+      Replace the hardcoded "/" in the abbreviatePath() method on line 393 of
+      claude-code-session.repository.ts. Change filePath.startsWith(home + "/")
+      to filePath.startsWith(home + path.sep). Import path from "node:path"
+      if not already imported.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'abbreviatePath() uses path.sep instead of hardcoded "/"'
+      - 'Home directory abbreviation works with both / and \\ separators'
+      - 'Existing tests continue to pass'
+    tdd:
+      red:
+        - 'In claude-code-session.repository.test.ts (or a new unit test), test that abbreviatePath correctly abbreviates a path using the current platform separator'
+      green:
+        - 'Replace home + "/" with home + path.sep in the startsWith check'
+        - 'Ensure path is imported from "node:path"'
+      refactor:
+        - 'Verify the slice operation correctly handles the replacement character length'
+    estimatedEffort: '15min'
+
+  # ──────────────────────────────────────────────────────────────────────
+  # Phase 3: Shell Execution & Binary Detection
+  # ──────────────────────────────────────────────────────────────────────
+
+  - id: task-8
+    phaseId: phase-3
+    title: 'Replace execFile("which") with npm which in tool-installer.service.ts'
+    description: >
+      Replace the checkBinaryExists() function in tool-installer.service.ts
+      that uses execFile("which", [binary]) (line 52) with the npm which
+      package. Use which(binary, { nothrow: true }) which returns the resolved
+      path or null. This eliminates the Unix-only which command dependency.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'checkBinaryExists() uses npm which package instead of execFile("which")'
+      - 'Returns found: true when binary exists'
+      - 'Returns found: false, notInPath: true when binary not found'
+      - 'Returns found: false, error: Error for genuine errors'
+      - 'Existing tool-installer tests pass'
+      - 'No import of execFile for "which" remains'
+    tdd:
+      red:
+        - 'Write a test that mocks the which package (not execFile) and asserts checkBinaryExists resolves correctly for found, not-found, and error cases'
+      green:
+        - 'Import which from the which package'
+        - 'Replace execFile("which", [binary]) with which(binary, { nothrow: true })'
+        - 'Map null result to { found: false, notInPath: true }'
+        - 'Map resolved path to { found: true }'
+        - 'Catch errors and map to { found: false, error }'
+      refactor:
+        - 'Remove the execFile import if no longer used elsewhere in the file'
+        - 'Simplify the error handling now that which provides cleaner semantics'
+    estimatedEffort: '30min'
+
+  - id: task-9
+    phaseId: phase-3
+    title: 'Replace spawn("sh") with spawn({ shell: true }) in tool-installer.service.ts'
+    description: >
+      Replace spawn("sh", ["-c", installCommand.command]) on line 160 of
+      tool-installer.service.ts with spawn(installCommand.command, { shell: true }).
+      This makes tool installation work on Windows where sh is not available.
+      The { shell: true } option makes Node.js use the platform-appropriate
+      shell (sh on Unix, cmd.exe on Windows).
+    state: Todo
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - 'executeInstall() uses spawn(cmd, { shell: true }) instead of spawn("sh", ["-c", cmd])'
+      - 'The shell: false option is removed (it was redundant with the explicit sh invocation)'
+      - 'Existing installation tests pass'
+      - 'Environment variables (DEBIAN_FRONTEND, etc.) are still passed through'
+    tdd:
+      red:
+        - 'Write a test that verifies spawn is called with the command string as first arg and { shell: true } in options, not spawn("sh", ["-c", cmd])'
+      green:
+        - 'Change spawn("sh", ["-c", installCommand.command], { shell: false, ... }) to spawn(installCommand.command, [], { shell: true, ... })'
+        - 'Keep the environment variables and stdio configuration'
+      refactor:
+        - 'Verify the spawn call signature is correct (command as string, empty args array, options with shell: true)'
+    estimatedEffort: '20min'
+
+  - id: task-10
+    phaseId: phase-3
+    title: 'Replace execFile("which") with npm which in json-driven-ide-launcher.service.ts'
+    description: >
+      Replace the execFile("which", [binary]) call in the checkAvailability()
+      method on line 133 of json-driven-ide-launcher.service.ts with the npm
+      which package. Use which(binary, { nothrow: true }) and check if the
+      result is non-null.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'checkAvailability() uses npm which instead of execFile("which")'
+      - 'Returns true when the editor binary is found'
+      - 'Returns false when the editor binary is not found'
+      - 'Existing IDE launcher tests pass'
+    tdd:
+      red:
+        - 'Write a test that mocks the which package and asserts checkAvailability returns true for an available editor and false for a missing one'
+      green:
+        - 'Import which from the which package'
+        - 'Replace execFile("which", [binary], callback) with an async call using which(binary, { nothrow: true })'
+        - 'Return result !== null'
+      refactor:
+        - 'Remove the execFile import if no longer used in the file'
+        - 'Convert checkAvailability to async if not already'
+    estimatedEffort: '20min'
+
+  # ──────────────────────────────────────────────────────────────────────
+  # Phase 4: Process Management
+  # ──────────────────────────────────────────────────────────────────────
+
+  - id: task-11
+    phaseId: phase-4
+    title: 'Replace negative-PID kill with tree-kill in deployment.service.ts'
+    description: >
+      Replace the three calls to this.deps.kill(-entry.pid, signal) in
+      deployment.service.ts (lines 183, 199, 249) with tree-kill. Update the
+      DeploymentServiceDeps interface: change the kill function signature to
+      accept a callback (tree-kill is callback-based) or wrap tree-kill in a
+      promisified helper. The defaultDeps.kill should use tree-kill instead
+      of process.kill(-pid, signal).
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'DeploymentServiceDeps.kill no longer uses negative PID'
+      - 'stop() uses tree-kill to terminate the process tree'
+      - 'killProcess() uses tree-kill to force-kill the process tree'
+      - 'stopAll() uses tree-kill for each tracked deployment'
+      - 'Existing deployment service tests pass (kill function is injected via deps)'
+      - 'New test verifies tree-kill is called with correct PID and signal'
+    tdd:
+      red:
+        - 'Write a test that creates a DeploymentService with default deps, starts a deployment, and verifies that stop() calls tree-kill (not process.kill with negative PID)'
+        - 'Write a test that verifies killProcess sends SIGKILL via tree-kill'
+      green:
+        - 'Import treeKill from tree-kill'
+        - 'Update DeploymentServiceDeps.kill signature to (pid: number, signal?: string) => void (remove negative-PID semantics)'
+        - 'Replace defaultDeps.kill implementation with a tree-kill wrapper'
+        - 'Update all call sites: change kill(-entry.pid, signal) to kill(entry.pid, signal)'
+      refactor:
+        - 'Create a promisified treeKillAsync helper if needed for the stop() flow'
+        - 'Ensure the callback error is handled (process may already be dead)'
+    estimatedEffort: '45min'
+
+  - id: task-12
+    phaseId: phase-4
+    title: 'Replace process.kill signals with tree-kill in stop-daemon.ts'
+    description: >
+      Replace process.kill(pid, "SIGTERM") on line 73 and
+      process.kill(pid, "SIGKILL") on line 82 of stop-daemon.ts with
+      tree-kill calls. The SIGTERM step should use treeKill(pid, "SIGTERM")
+      and the SIGKILL fallback should use treeKill(pid, "SIGKILL"). On
+      Windows, tree-kill translates these to taskkill /T /F.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'stop-daemon.ts uses tree-kill for both SIGTERM and SIGKILL'
+      - 'No direct process.kill(pid, signal) calls remain for termination'
+      - 'The pollUntilDead logic and daemonService.isAlive checks remain unchanged'
+      - 'Existing stop-daemon tests pass'
+      - 'New test verifies tree-kill is called with correct arguments'
+    tdd:
+      red:
+        - 'Write a test that mocks tree-kill and verifies stopDaemon calls treeKill(pid, "SIGTERM") first'
+        - 'Write a test that verifies SIGKILL fallback uses treeKill(pid, "SIGKILL") when the process survives SIGTERM'
+      green:
+        - 'Import treeKill from tree-kill'
+        - 'Replace process.kill(pid, "SIGTERM") with treeKill(pid, "SIGTERM")'
+        - 'Replace process.kill(pid, "SIGKILL") with treeKill(pid, "SIGKILL")'
+      refactor:
+        - 'Consider wrapping tree-kill callback in a promise for cleaner async flow'
+        - 'Ensure error handling covers the "process already dead" case'
+    estimatedEffort: '30min'
+
+  - id: task-13
+    phaseId: phase-4
+    title: 'Add windowsHide: true to daemon spawn in start-daemon.ts'
+    description: >
+      Add windowsHide: true to the spawn options object on line 83 of
+      start-daemon.ts. On Windows, detached: true creates a visible console
+      window; windowsHide suppresses it. This option is ignored on non-Windows
+      platforms, so it's safe to add unconditionally.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'spawn() options include windowsHide: true'
+      - 'Existing start-daemon tests pass'
+      - 'No visible behavior change on Unix platforms'
+    tdd:
+      red:
+        - 'In start-daemon.test.ts, add a test that verifies spawn is called with windowsHide: true in the options object'
+      green:
+        - 'Add windowsHide: true to the spawn options alongside detached: true and stdio'
+      refactor:
+        - 'No refactoring needed — single-line change'
+    estimatedEffort: '10min'
+
+  # ──────────────────────────────────────────────────────────────────────
+  # Phase 5: Web UI Actions & Tool Metadata
+  # ──────────────────────────────────────────────────────────────────────
+
+  - id: task-14
+    phaseId: phase-5
+    title: 'Add win32 entries to SHELL_COMMANDS and FOLDER_COMMANDS'
+    description: >
+      Add a win32 entry to the SHELL_COMMANDS Record in open-shell.ts that
+      opens PowerShell with -NoExit and Set-Location to the target path.
+      Add a win32 entry to the FOLDER_COMMANDS Record in open-folder.ts that
+      opens explorer.exe at the target path. Update the error messages to
+      remove "macOS and Linux only" since Windows is now supported. Update
+      existing tests that assert win32 returns an error — they should now
+      assert the correct win32 command is spawned.
+    state: Todo
+    dependencies:
+      - task-2
+      - task-3
+    acceptanceCriteria:
+      - 'SHELL_COMMANDS has a win32 entry with cmd "powershell"'
+      - 'win32 shell args include -NoExit and Set-Location with the target path'
+      - 'FOLDER_COMMANDS has a win32 entry with cmd "explorer"'
+      - 'win32 folder args pass the repository path directly'
+      - 'open-shell.test.ts win32 test asserts powershell spawn (not error)'
+      - 'open-folder.test.ts win32 test asserts explorer spawn (not error)'
+      - 'Unix platform tests continue to pass'
+    tdd:
+      red:
+        - 'Update open-shell.test.ts: change the win32 test from asserting error to asserting spawn("powershell", [...]) is called'
+        - 'Update open-folder.test.ts: change the win32 test from asserting error to asserting spawn("explorer", [path]) is called'
+      green:
+        - 'Add win32: { cmd: "powershell", args: (p) => ["-NoExit", "-Command", "Set-Location " + "\"" + p + "\""] } to SHELL_COMMANDS'
+        - 'Add win32: { cmd: "explorer", args: (p) => [p] } to FOLDER_COMMANDS'
+      refactor:
+        - 'Update error messages to say "Unsupported platform" without listing specific supported platforms'
+    estimatedEffort: '30min'
+
+  - id: task-15
+    phaseId: phase-5
+    title: 'Add winget install commands to tool JSON files'
+    description: >
+      Add win32 entries to the commands Record in 10 tool JSON files that have
+      Windows-available packages via winget. Add "win32" to the platforms
+      array for tools that don't already include it. Tools with no Windows
+      equivalent (iterm2, kitty, tmux) are left unchanged. Tools with npm-based
+      install (gemini-cli) or no winget ID (antigravity) are left unchanged.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'git.json has win32 command: "winget install --id Git.Git -e --source winget"'
+      - 'gh.json has win32 command: "winget install --id GitHub.cli -e --source winget"'
+      - 'vscode.json has win32 command: "winget install --id Microsoft.VisualStudioCode -e --source winget"'
+      - 'cursor.json has win32 command: "winget install --id Anysphere.Cursor -e --source winget"'
+      - 'cursor-cli.json has win32 command (same winget ID as cursor)'
+      - 'alacritty.json has win32 command and "win32" added to platforms'
+      - 'windsurf.json has win32 command and "win32" added to platforms'
+      - 'zed.json has win32 command and "win32" added to platforms'
+      - 'warp.json has win32 command and "win32" added to platforms'
+      - 'claude-code.json has win32 command via npm (npm install -g @anthropic-ai/claude-code)'
+      - 'iterm2.json, kitty.json, tmux.json are unchanged (macOS/Linux only)'
+      - 'antigravity.json, gemini-cli.json are unchanged'
+    tdd: null
+    estimatedEffort: '30min'
+
+totalEstimate: '5h 30min'
+openQuestions: []
+
+content: |
+  ## Summary
+
+  This task breakdown implements Windows runtime support across 15 tasks in
+  5 phases. The work follows a bottom-up dependency order:
+
+  First, we install the two new runtime dependencies (tree-kill, which) that
+  subsequent phases require. Then we fix the path handling foundation by
+  replacing Unix-only startsWith("/") checks with Node.js path.isAbsolute()
+  across six files — these are the simplest, lowest-risk changes.
+
+  Next, we tackle shell execution and binary detection by replacing
+  spawn("sh", ...) with spawn({ shell: true }) and execFile("which") with
+  the npm which package in the two infrastructure services that need them.
+
+  The highest-complexity work comes in Phase 4: replacing negative-PID process
+  group kills with tree-kill in the deployment service and daemon stop command,
+  and adding windowsHide to daemon spawn options.
+
+  Finally, we add the win32 platform entries to the Web UI action Records
+  (PowerShell for terminal, explorer.exe for file manager) and winget install
+  commands to the 10 tool JSON files with Windows-available packages.
+
+  Each code task has explicit TDD cycles. Existing tests already mock
+  os.platform() and process.kill() — the win32 test cases that currently
+  assert errors will be updated to assert the correct Windows behavior. The
+  tool JSON metadata task is a declarative data change with no TDD cycle.
