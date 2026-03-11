@@ -4,9 +4,9 @@
 # All jobs run in parallel. Release only runs on push to main.
 #
 # Pipeline Structure:
-#   ┌──────┬───────────┬───────┬─────────┬─────────┬─────────┬───────────┐
-#   │ Lint │ Typecheck │ Unit  │ E2E CLI │ E2E TUI │ E2E Web │ Storybook │
-#   └──────┴───────────┴───────┴─────────┴─────────┴─────────┴───────────┘
+#   ┌──────┬───────────┬─────────────────┬─────────────────┬─────────┬─────────┬───────────┐
+#   │ Lint │ Typecheck │ Unit (lin+win)  │ E2E CLI (l+w)   │ E2E TUI │ E2E Web │ Storybook │
+#   └──────┴───────────┴─────────────────┴─────────────────┴─────────┴─────────┴───────────┘
 #   ┌───────────────┬──────────┬─────────┐
 #   │ Trivy (deps)  │ Gitleaks │ Semgrep │
 #   └───────────────┴──────────┴─────────┘
@@ -76,8 +76,12 @@ jobs:
   # Tests
   # ===========================================================================
   test-unit:
-    name: Unit Tests
-    runs-on: ubuntu-latest
+    name: Unit Tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -91,8 +95,12 @@ jobs:
       - run: pnpm run test:int --passWithNoTests
 
   test-e2e-cli:
-    name: E2E (CLI)
-    runs-on: ubuntu-latest
+    name: E2E CLI (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
