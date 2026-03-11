@@ -119,6 +119,17 @@ export const Default: Story = {
   },
 };
 
+/** Merge conflicts — shows red conflict banner. */
+export const MergeConflicts: Story = {
+  args: {
+    data: {
+      ...fullData,
+      pr: { ...fullPr, mergeable: false },
+    },
+    ...defaultActions,
+  },
+};
+
 /** CI status is Pending — shows yellow badge with spinner. */
 export const CIPending: Story = {
   args: {

@@ -200,6 +200,10 @@ export function MergeReview({
   onChatInputChange,
 }: MergeReviewProps) {
   const { pr, diffSummary, fileDiffs, branch, warning, evidence, evidenceBasePath } = data;
+  const hasConflicts = pr?.mergeable === false;
+
+  const handleApproveOrResolve =
+    hasConflicts && onReject ? () => onReject('Resolve merge conflicts', []) : onApprove;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -252,6 +256,17 @@ export function MergeReview({
                   {pr.status}
                 </Badge>
               </div>
+
+              {/* Merge status */}
+              {pr.mergeable === false ? (
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground text-xs font-medium">Merge Status</span>
+                  <Badge className="border-transparent bg-orange-50 text-orange-700 hover:bg-orange-50">
+                    <AlertTriangle className="mr-1 h-3.5 w-3.5" />
+                    Conflicts
+                  </Badge>
+                </div>
+              ) : null}
 
               {/* CI status */}
               {pr.ciStatus ? (
@@ -327,8 +342,9 @@ export function MergeReview({
 
       <DrawerActionBar
         onReject={onReject}
-        onApprove={onApprove}
-        approveLabel="Approve Merge"
+        onApprove={handleApproveOrResolve}
+        approveLabel={hasConflicts ? 'Resolve Conflicts' : 'Approve Merge'}
+        approveVariant={hasConflicts ? 'warning' : 'default'}
         revisionPlaceholder="Ask AI to revise before merging..."
         isProcessing={isProcessing}
         isRejecting={isRejecting}

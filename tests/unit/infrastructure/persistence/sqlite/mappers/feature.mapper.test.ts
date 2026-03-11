@@ -4,7 +4,7 @@ import {
   fromDatabase,
   type FeatureRow,
 } from '@/infrastructure/persistence/sqlite/mappers/feature.mapper.js';
-import type { Feature, Attachment } from '@/domain/generated/output.js';
+import { PrStatus, type Feature, type Attachment } from '@/domain/generated/output.js';
 
 const sampleAttachment: Attachment = {
   id: 'att-001',
@@ -67,6 +67,7 @@ function createTestRow(overrides: Partial<FeatureRow> = {}): FeatureRow {
     ci_status: null,
     ci_fix_attempts: null,
     ci_fix_history: null,
+    pr_mergeable: null,
     parent_id: null,
     fast: 0,
     attachments: '[]',
@@ -160,6 +161,85 @@ describe('Feature Mapper — soft delete', () => {
       const row = createTestRow({ deleted_at: null });
       const feature = fromDatabase(row);
       expect(feature.deletedAt).toBeUndefined();
+    });
+  });
+});
+
+describe('Feature Mapper — pr mergeable', () => {
+  describe('toDatabase()', () => {
+    it('maps mergeable true to 1', () => {
+      const feature = createTestFeature({
+        pr: {
+          url: 'https://github.com/org/repo/pull/1',
+          number: 1,
+          status: PrStatus.Open,
+          mergeable: true,
+        },
+      });
+      const row = toDatabase(feature);
+      expect(row.pr_mergeable).toBe(1);
+    });
+
+    it('maps mergeable false to 0', () => {
+      const feature = createTestFeature({
+        pr: {
+          url: 'https://github.com/org/repo/pull/1',
+          number: 1,
+          status: PrStatus.Open,
+          mergeable: false,
+        },
+      });
+      const row = toDatabase(feature);
+      expect(row.pr_mergeable).toBe(0);
+    });
+
+    it('maps undefined mergeable to null', () => {
+      const feature = createTestFeature({
+        pr: { url: 'https://github.com/org/repo/pull/1', number: 1, status: PrStatus.Open },
+      });
+      const row = toDatabase(feature);
+      expect(row.pr_mergeable).toBeNull();
+    });
+
+    it('maps null when no pr exists', () => {
+      const feature = createTestFeature();
+      const row = toDatabase(feature);
+      expect(row.pr_mergeable).toBeNull();
+    });
+  });
+
+  describe('fromDatabase()', () => {
+    it('maps pr_mergeable 1 to true', () => {
+      const row = createTestRow({
+        pr_url: 'https://github.com/org/repo/pull/1',
+        pr_number: 1,
+        pr_status: 'Open',
+        pr_mergeable: 1,
+      });
+      const feature = fromDatabase(row);
+      expect(feature.pr?.mergeable).toBe(true);
+    });
+
+    it('maps pr_mergeable 0 to false', () => {
+      const row = createTestRow({
+        pr_url: 'https://github.com/org/repo/pull/1',
+        pr_number: 1,
+        pr_status: 'Open',
+        pr_mergeable: 0,
+      });
+      const feature = fromDatabase(row);
+      expect(feature.pr?.mergeable).toBe(false);
+    });
+
+    it('omits mergeable when pr_mergeable is null', () => {
+      const row = createTestRow({
+        pr_url: 'https://github.com/org/repo/pull/1',
+        pr_number: 1,
+        pr_status: 'Open',
+        pr_mergeable: null,
+      });
+      const feature = fromDatabase(row);
+      expect(feature.pr?.mergeable).toBeUndefined();
     });
   });
 });

@@ -175,6 +175,7 @@ function createMockGitPrService(overrides: Partial<IGitPrService> = {}): IGitPrS
     verifyMerge: vi.fn().mockResolvedValue(true),
     getRemoteUrl: vi.fn().mockResolvedValue('https://github.com/test-owner/test-repo'),
     listPrStatuses: vi.fn().mockResolvedValue([]),
+    getMergeableStatus: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   } as IGitPrService;
 }
@@ -274,6 +275,42 @@ describe('createMergeNode — CI watch/fix loop', () => {
 
       expect(deps.gitPrService.getCiStatus).toHaveBeenCalled();
       expect(deps.gitPrService.watchCi).not.toHaveBeenCalled();
+    });
+
+    it('should return Failure ciStatus when no CI run and PR has merge conflicts', async () => {
+      deps.gitPrService.getCiStatus = vi.fn().mockResolvedValue({ status: 'pending' });
+      deps.gitPrService.getMergeableStatus = vi.fn().mockResolvedValue(false);
+      const node = createMergeNode(deps);
+      const state = baseState({ push: true, openPr: true });
+      // Set prNumber so the merge conflict check runs
+      state.prNumber = 42;
+      const result = await node(state);
+
+      expect(deps.gitPrService.getMergeableStatus).toHaveBeenCalled();
+      expect(result.ciStatus).toBe('Failure');
+    });
+
+    it('should return Success ciStatus when no CI run and PR is mergeable', async () => {
+      deps.gitPrService.getCiStatus = vi.fn().mockResolvedValue({ status: 'pending' });
+      deps.gitPrService.getMergeableStatus = vi.fn().mockResolvedValue(true);
+      const node = createMergeNode(deps);
+      const state = baseState({ push: true, openPr: true });
+      state.prNumber = 42;
+      const result = await node(state);
+
+      expect(deps.gitPrService.getMergeableStatus).toHaveBeenCalled();
+      expect(result.ciStatus).toBe('Success');
+    });
+
+    it('should return Success ciStatus when no CI run and getMergeableStatus fails', async () => {
+      deps.gitPrService.getCiStatus = vi.fn().mockResolvedValue({ status: 'pending' });
+      deps.gitPrService.getMergeableStatus = vi.fn().mockRejectedValue(new Error('API error'));
+      const node = createMergeNode(deps);
+      const state = baseState({ push: true, openPr: true });
+      state.prNumber = 42;
+      const result = await node(state);
+
+      expect(result.ciStatus).toBe('Success');
     });
   });
 

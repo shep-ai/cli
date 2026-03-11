@@ -33,6 +33,7 @@ export async function getMergeReviewData(featureId: string): Promise<GetMergeRev
           status: feature.pr.status,
           commitHash: feature.pr.commitHash,
           ciStatus: feature.pr.ciStatus,
+          mergeable: feature.pr.mergeable,
         }
       : undefined;
 

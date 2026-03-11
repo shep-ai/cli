@@ -212,6 +212,23 @@ export const MaintainPhase: Story = {
   args: { data: { ...noPrData, lifecycle: 'maintain' as const } },
 };
 
+/** PR with merge conflicts — shows orange "Conflicts" badge. */
+export const PrWithMergeConflicts: Story = {
+  args: {
+    data: {
+      ...fullData,
+      pr: {
+        url: 'https://github.com/org/repo/pull/42',
+        number: 42,
+        status: PrStatus.Open,
+        ciStatus: CiStatus.Failure,
+        commitHash: 'abc1234567890def',
+        mergeable: false,
+      },
+    },
+  },
+};
+
 /** Completed feature with PR — progress hidden, PR shown in status section without borders. */
 export const CompletedWithPr: Story = {
   args: {

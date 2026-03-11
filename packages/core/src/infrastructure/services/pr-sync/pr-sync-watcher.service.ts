@@ -34,6 +34,7 @@ const TAG = '[PrSyncWatcher]';
 interface PrWatcherState {
   prStatus: PrStatus;
   ciStatus: CiStatus | undefined;
+  mergeable: boolean | undefined;
   featureName: string;
 }
 
@@ -205,6 +206,7 @@ export class PrSyncWatcherService {
       this.trackedFeatures.set(feature.id, {
         prStatus: PrStatus.Open,
         ciStatus: undefined,
+        mergeable: undefined,
         featureName: feature.name,
       });
 
@@ -224,6 +226,7 @@ export class PrSyncWatcherService {
       this.trackedFeatures.set(feature.id, {
         prStatus: pr.status,
         ciStatus: pr.ciStatus,
+        mergeable: pr.mergeable,
         featureName: feature.name,
       });
     }
@@ -266,6 +269,33 @@ export class PrSyncWatcherService {
 
       tracked.prStatus = newPrStatus;
       needsUpdate = true;
+    }
+
+    // Check mergeable status transition (from batch query data)
+    if (prStatusInfo?.mergeable !== undefined) {
+      const newMergeable = prStatusInfo.mergeable;
+      if (newMergeable !== tracked.mergeable) {
+        // eslint-disable-next-line no-console
+        console.log(
+          `${TAG} Mergeable status changed: ${tracked.mergeable ?? 'unknown'} -> ${newMergeable} for "${feature.name}"`
+        );
+
+        feature.pr = { ...(feature.pr ?? pr), mergeable: newMergeable };
+
+        if (newMergeable === false) {
+          this.emitNotification(
+            NotificationEventType.PrBlocked,
+            feature.id,
+            feature.agentRunId ?? '',
+            feature.name,
+            `PR #${pr.number} has merge conflicts for ${feature.name}`,
+            NotificationSeverity.Warning
+          );
+        }
+
+        tracked.mergeable = newMergeable;
+        needsUpdate = true;
+      }
     }
 
     // Check CI status transition

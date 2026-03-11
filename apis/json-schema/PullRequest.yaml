@@ -29,6 +29,9 @@ properties:
     items:
       $ref: CiFixRecord.yaml
     description: History of CI fix attempts
+  mergeable:
+    type: boolean
+    description: Whether the PR can be merged (false = merge conflicts)
 required:
   - url
   - number

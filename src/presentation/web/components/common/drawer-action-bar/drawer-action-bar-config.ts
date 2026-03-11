@@ -17,6 +17,8 @@ export interface DrawerActionBarProps {
   onApprove: () => void;
   /** Label for the approve button (used in both the split button and dropdown) */
   approveLabel: string;
+  /** Visual variant for the approve action: 'default' (blue) or 'warning' (orange) */
+  approveVariant?: 'default' | 'warning';
   /** Placeholder for the inline revision textarea */
   revisionPlaceholder?: string;
   /** Whether an approval/processing operation is in flight */

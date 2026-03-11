@@ -149,6 +149,7 @@ function appendFeatureNodes(
           status: feature.pr.status,
           ciStatus: feature.pr.ciStatus,
           commitHash: feature.pr.commitHash,
+          mergeable: feature.pr.mergeable,
         },
       }),
     };

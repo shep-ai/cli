@@ -121,6 +121,7 @@ export function createDefaultSettings(): Settings {
       prClosed: true,
       prChecksPassed: true,
       prChecksFailed: true,
+      prBlocked: true,
     },
   };
 
