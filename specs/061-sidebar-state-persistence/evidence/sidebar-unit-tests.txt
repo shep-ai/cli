@@ -1,0 +1,18 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-sidebar-state-persistence
+
+ ✓  web  tests/unit/presentation/web/components/ui/sidebar-provider.test.tsx > SidebarProvider localStorage persistence > falls back to defaultOpen when localStorage has no sidebar state 16ms
+ ✓  web  tests/unit/presentation/web/components/ui/sidebar-provider.test.tsx > SidebarProvider localStorage persistence > reads initial open state from localStorage when set to true 3ms
+ ✓  web  tests/unit/presentation/web/components/ui/sidebar-provider.test.tsx > SidebarProvider localStorage persistence > reads initial open state from localStorage when set to false 2ms
+ ✓  web  tests/unit/presentation/web/components/ui/sidebar-provider.test.tsx > SidebarProvider localStorage persistence > persists state to localStorage when toggled open 56ms
+ ✓  web  tests/unit/presentation/web/components/ui/sidebar-provider.test.tsx > SidebarProvider localStorage persistence > persists state to localStorage when toggled closed 11ms
+ ✓  web  tests/unit/presentation/web/components/ui/sidebar-provider.test.tsx > SidebarProvider skipTransition > sets skipTransition to true when localStorage has sidebar_state=true 1ms
+ ✓  web  tests/unit/presentation/web/components/ui/sidebar-provider.test.tsx > SidebarProvider skipTransition > sets skipTransition to false when localStorage has no sidebar state 1ms
+ ✓  web  tests/unit/presentation/web/components/ui/sidebar-provider.test.tsx > SidebarProvider skipTransition > sets skipTransition to false when localStorage has sidebar_state=false 1ms
+ ✓  web  tests/unit/presentation/web/components/ui/sidebar-provider.test.tsx > SidebarProvider skipTransition > clears skipTransition after first animation frame 17ms
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  18:18:18
+   Duration  686ms (transform 61ms, setup 75ms, import 182ms, tests 107ms, environment 267ms)
+
