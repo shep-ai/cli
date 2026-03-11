@@ -119,6 +119,7 @@ export function FeaturesCanvas({
         setShowOverlay(false);
         setOverlayExiting(false);
       }, 300);
+      prevEmptyRef.current = isEmpty;
       return () => clearTimeout(timer);
     }
     if (!prevEmptyRef.current && isEmpty) {

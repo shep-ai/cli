@@ -40,12 +40,7 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
   const isDeploymentActive = deployAction.status === 'Booting' || deployAction.status === 'Ready';
 
   return (
-    <div
-      className={cn(
-        'animate-in fade-in zoom-in-95 group relative duration-300',
-        data.onDelete && data.id && 'pl-10'
-      )}
-    >
+    <div className={cn('group relative', data.onDelete && data.id && 'pl-10')}>
       {data.showHandles ? (
         <Handle
           type="target"
