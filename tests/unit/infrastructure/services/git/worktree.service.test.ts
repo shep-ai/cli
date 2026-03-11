@@ -364,7 +364,7 @@ describe('WorktreeService', () => {
       });
       expect(mockExecFile).toHaveBeenCalledWith(
         'git',
-        ['commit', '--allow-empty', '-m', 'Initial commit'],
+        ['commit', '--allow-empty', '--no-gpg-sign', '-m', 'Initial commit'],
         { cwd: '/plain/dir' }
       );
     });
@@ -389,7 +389,7 @@ describe('WorktreeService', () => {
       });
       expect(mockExecFile).toHaveBeenCalledWith(
         'git',
-        ['commit', '--allow-empty', '-m', 'Initial commit'],
+        ['commit', '--allow-empty', '--no-gpg-sign', '-m', 'Initial commit'],
         { cwd: '/empty/repo' }
       );
     });
