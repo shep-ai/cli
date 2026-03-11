@@ -1,3 +1,9 @@
+## [1.103.1](https://github.com/shep-ai/cli/compare/v1.103.0...v1.103.1) (2026-03-11)
+
+### Bug Fixes
+
+- **agents:** skip gpg signing for auto-init worktree commits ([#306](https://github.com/shep-ai/cli/issues/306)) ([f32b904](https://github.com/shep-ai/cli/commit/f32b90487380c129ad0729a4649c0fda34f7c9b0))
+
 # [1.103.0](https://github.com/shep-ai/cli/compare/v1.102.0...v1.103.0) (2026-03-11)
 
 ### Bug Fixes
