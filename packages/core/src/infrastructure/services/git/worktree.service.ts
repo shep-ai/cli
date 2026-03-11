@@ -55,8 +55,12 @@ export class WorktreeService implements IWorktreeService {
     const worktrees = await this.list(repoPath);
     const created = worktrees.find((w) => this.arePathsEquivalent(w.path, worktreePath));
     if (!created) {
+      const normalized = this.normalizeWorktreePath(worktreePath);
+      const available = worktrees.map(
+        (w) => `"${w.path}" → "${this.normalizeWorktreePath(w.path)}"`
+      );
       throw new WorktreeError(
-        'Worktree created but not found in list',
+        `Worktree created but not found in list. Expected: "${normalized}", Available: [${available.join(', ')}]`,
         WorktreeErrorCode.GIT_ERROR
       );
     }
