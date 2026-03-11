@@ -1,3 +1,9 @@
+## [1.101.3](https://github.com/shep-ai/cli/compare/v1.101.2...v1.101.3) (2026-03-11)
+
+### Bug Fixes
+
+- **web:** fix repo list flicker and preserve insertion order ([#296](https://github.com/shep-ai/cli/issues/296)) ([2a21954](https://github.com/shep-ai/cli/commit/2a219544606604f2e56afa530bc577c0184ba01a))
+
 ## [1.101.2](https://github.com/shep-ai/cli/compare/v1.101.1...v1.101.2) (2026-03-11)
 
 ### Bug Fixes
