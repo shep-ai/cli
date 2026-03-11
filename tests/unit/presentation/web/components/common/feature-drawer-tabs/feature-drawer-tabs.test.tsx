@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { NotificationEventType } from '@shepai/core/domain/generated/output';
+import type { NotificationEvent } from '@shepai/core/domain/generated/output';
 import { FeatureDrawerTabs } from '@/components/common/feature-drawer-tabs/feature-drawer-tabs';
 import type { FeatureNodeData } from '@/components/common/feature-node';
 import type { FeatureDrawerTabsProps } from '@/components/common/feature-drawer-tabs/feature-drawer-tabs';
@@ -87,6 +89,18 @@ const samplePlan: PlanData = {
   overview: 'Implementation plan',
   tasks: [{ title: 'Task 1', description: 'Do something', state: 'Todo', actionItems: [] }],
 };
+
+function makeSseEvent(
+  featureId: string,
+  eventType: NotificationEventType = NotificationEventType.PhaseCompleted
+): NotificationEvent {
+  return {
+    featureId,
+    eventType,
+    agentRunId: 'run-001',
+    featureName: 'Test Feature',
+  } as NotificationEvent;
+}
 
 function renderTabs(props: Partial<FeatureDrawerTabsProps> = {}) {
   const defaultProps: FeatureDrawerTabsProps = {
@@ -193,30 +207,86 @@ describe('FeatureDrawerTabs', () => {
   });
 
   describe('SSE refresh', () => {
-    it('re-fetches active tab data when featureNode prop changes', async () => {
+    it('re-fetches active tab data when SSE events arrive for this feature', async () => {
       const user = userEvent.setup();
-      const { rerender } = renderTabs();
+      const { rerender } = renderTabs({ sseEvents: [] });
 
       // Switch to Activity tab and wait for initial fetch
       await user.click(screen.getByRole('tab', { name: 'Activity' }));
       expect(mockGetPhaseTimings).toHaveBeenCalledTimes(1);
 
-      // Simulate SSE refresh by changing featureNode reference
-      rerender(<FeatureDrawerTabs featureNode={{ ...defaultFeatureNode }} featureId="#f1" />);
+      // Simulate SSE event arriving for this feature
+      rerender(
+        <FeatureDrawerTabs
+          featureNode={defaultFeatureNode}
+          featureId="#f1"
+          sseEvents={[makeSseEvent('#f1')]}
+        />
+      );
 
       // Should refresh the active tab
       expect(mockGetPhaseTimings).toHaveBeenCalledTimes(2);
     });
 
-    it('does not re-fetch when overview tab is active and featureNode changes', () => {
-      const { rerender } = renderTabs();
+    it('does not re-fetch when overview tab is active and SSE events arrive', () => {
+      const { rerender } = renderTabs({ sseEvents: [] });
 
-      // Simulate SSE refresh while on Overview
-      rerender(<FeatureDrawerTabs featureNode={{ ...defaultFeatureNode }} featureId="#f1" />);
+      // Simulate SSE event while on Overview
+      rerender(
+        <FeatureDrawerTabs
+          featureNode={defaultFeatureNode}
+          featureId="#f1"
+          sseEvents={[makeSseEvent('#f1')]}
+        />
+      );
 
       // No fetches should happen — Overview uses prop data directly
       expect(mockGetPhaseTimings).not.toHaveBeenCalled();
       expect(mockGetPlan).not.toHaveBeenCalled();
+    });
+
+    it('ignores SSE events for a different feature', async () => {
+      const user = userEvent.setup();
+      const { rerender } = renderTabs({ sseEvents: [] });
+
+      // Switch to Activity tab and wait for initial fetch
+      await user.click(screen.getByRole('tab', { name: 'Activity' }));
+      expect(mockGetPhaseTimings).toHaveBeenCalledTimes(1);
+
+      // Simulate SSE event for a DIFFERENT feature
+      rerender(
+        <FeatureDrawerTabs
+          featureNode={defaultFeatureNode}
+          featureId="#f1"
+          sseEvents={[makeSseEvent('#other-feature')]}
+        />
+      );
+
+      // Should NOT refresh — event is for a different feature
+      expect(mockGetPhaseTimings).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not re-process already-seen SSE events', async () => {
+      const user = userEvent.setup();
+      const events = [makeSseEvent('#f1')];
+      const { rerender } = renderTabs({ sseEvents: [] });
+
+      // Switch to Activity tab
+      await user.click(screen.getByRole('tab', { name: 'Activity' }));
+      expect(mockGetPhaseTimings).toHaveBeenCalledTimes(1);
+
+      // First SSE event batch
+      rerender(
+        <FeatureDrawerTabs featureNode={defaultFeatureNode} featureId="#f1" sseEvents={events} />
+      );
+      expect(mockGetPhaseTimings).toHaveBeenCalledTimes(2);
+
+      // Re-render with same events array (no new events)
+      rerender(
+        <FeatureDrawerTabs featureNode={defaultFeatureNode} featureId="#f1" sseEvents={events} />
+      );
+      // Should NOT re-fetch — no new events
+      expect(mockGetPhaseTimings).toHaveBeenCalledTimes(2);
     });
   });
 

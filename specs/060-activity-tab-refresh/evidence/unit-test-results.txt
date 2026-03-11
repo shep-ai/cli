@@ -1,0 +1,31 @@
+Feature: activity-tab-refresh (060)
+Test File: tests/unit/presentation/web/components/common/feature-drawer-tabs/feature-drawer-tabs.test.tsx
+Runner: vitest v4.0.18
+Date: 2026-03-11
+
+All 20 tests PASSED (0 failed)
+
+ ✓ FeatureDrawerTabs > tab triggers > renders four tab triggers (360ms)
+ ✓ FeatureDrawerTabs > default tab > overview tab is active by default (64ms)
+ ✓ FeatureDrawerTabs > default tab > renders overview content by default (32ms)
+ ✓ FeatureDrawerTabs > lazy data fetching > does not fetch any data on initial render (28ms)
+ ✓ FeatureDrawerTabs > lazy data fetching > clicking Activity tab triggers phase timings fetch (107ms)
+ ✓ FeatureDrawerTabs > lazy data fetching > clicking Plan tab triggers plan fetch (76ms)
+ ✓ FeatureDrawerTabs > lazy data fetching > clicking Activity tab again does not trigger another fetch (cache hit) (138ms)
+ ✓ FeatureDrawerTabs > feature id change > resets to Overview tab when featureId changes (112ms)
+ ✓ FeatureDrawerTabs > SSE refresh > re-fetches active tab data when SSE events arrive for this feature (83ms)
+ ✓ FeatureDrawerTabs > SSE refresh > does not re-fetch when overview tab is active and SSE events arrive (36ms)
+ ✓ FeatureDrawerTabs > SSE refresh > ignores SSE events for a different feature (76ms)
+ ✓ FeatureDrawerTabs > SSE refresh > does not re-process already-seen SSE events (86ms)
+ ✓ FeatureDrawerTabs > URL tab routing > activates the tab specified in urlTab prop (32ms)
+ ✓ FeatureDrawerTabs > URL tab routing > defaults to overview when no urlTab is provided (36ms)
+ ✓ FeatureDrawerTabs > URL tab routing > ignores urlTab for a tab not visible in current lifecycle (35ms)
+ ✓ FeatureDrawerTabs > URL tab routing > updates URL via pushState when user clicks a different tab (58ms)
+ ✓ FeatureDrawerTabs > URL tab routing > updates URL to base path via pushState when switching back to overview (76ms)
+ ✓ FeatureDrawerTabs > URL tab routing > fetches lazy tab data when opened via URL (20ms)
+ ✓ FeatureDrawerTabs > URL tab routing > fetches plan tab data when opened via URL (21ms)
+ ✓ FeatureDrawerTabs > URL tab routing > URL tab takes priority over initialTab prop (27ms)
+
+Test Files: 1 passed (1)
+Tests: 20 passed (20)
+Duration: 5.33s

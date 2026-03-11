@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { usePathname } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
+import type { NotificationEvent } from '@shepai/core/domain/generated/output';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { getFeaturePhaseTimings } from '@/app/actions/get-feature-phase-timings';
 import type {
@@ -84,6 +85,8 @@ export interface FeatureDrawerTabsProps {
   initialTab?: FeatureTabKey;
   /** Tab key from URL path segment (e.g. /feature/[id]/activity → 'activity'). */
   urlTab?: FeatureTabKey;
+  /** SSE events from the agent events provider, used to trigger tab data refresh. */
+  sseEvents?: readonly NotificationEvent[];
 
   // PRD review
   prdData?: PrdQuestionnaireData | null;
@@ -159,6 +162,7 @@ export function FeatureDrawerTabs({
   isRejecting,
   chatInput,
   onChatInputChange,
+  sseEvents,
 }: FeatureDrawerTabsProps) {
   const pathname = usePathname();
   const featureLogs = useFeatureLogs(featureId);
@@ -289,20 +293,31 @@ export function FeatureDrawerTabs({
     }
   }, [visibleTabs, activeTab, basePath]);
 
-  // SSE refresh: re-fetch active lazy tab when featureNode reference changes
-  const featureNodeRef = useRef(featureNode);
+  // SSE refresh: re-fetch active lazy tab when relevant SSE events arrive
+  // for this feature (e.g. PhaseCompleted, AgentStarted, AgentCompleted).
   const activeTabRef = useRef(activeTab);
   activeTabRef.current = activeTab;
+  const sseProcessedRef = useRef(0);
 
   useEffect(() => {
-    if (featureNodeRef.current !== featureNode) {
-      featureNodeRef.current = featureNode;
-      const current = activeTabRef.current;
-      if (current === 'activity' || current === 'plan') {
-        refreshTab(current);
-      }
+    if (!sseEvents || sseEvents.length === 0) return;
+    // Clamp cursor if events were pruned
+    if (sseProcessedRef.current > sseEvents.length) {
+      sseProcessedRef.current = 0;
     }
-  }, [featureNode, refreshTab]);
+    if (sseEvents.length <= sseProcessedRef.current) return;
+
+    const newEvents = sseEvents.slice(sseProcessedRef.current);
+    sseProcessedRef.current = sseEvents.length;
+
+    const hasRelevantEvent = newEvents.some((e) => e.featureId === featureId);
+    if (!hasRelevantEvent) return;
+
+    const current = activeTabRef.current;
+    if (current === 'activity' || current === 'plan') {
+      refreshTab(current);
+    }
+  }, [sseEvents, featureId, refreshTab]);
 
   const handleTabChange = useCallback(
     (value: string) => {
