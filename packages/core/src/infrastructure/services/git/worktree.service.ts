@@ -7,7 +7,7 @@
  */
 
 import { createHash } from 'node:crypto';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import { injectable, inject } from 'tsyringe';
 
@@ -223,16 +223,21 @@ export class WorktreeService implements IWorktreeService {
   }
 
   private normalizeWorktreePath(input: string): string {
-    const normalized = path.normalize(input).replace(/\/+$/, '');
+    let normalized = path.normalize(input).replace(/\/+$/, '');
+
+    // On Windows, resolve 8.3 short paths and make case-insensitive
+    if (process.platform === 'win32') {
+      try {
+        normalized = realpathSync(normalized);
+      } catch {
+        // Path may not exist yet — use as-is
+      }
+      return normalized.toLowerCase();
+    }
 
     // On macOS, git can report /private/var/... while callers use /var/...
     if (process.platform === 'darwin' && normalized.startsWith('/private/var/')) {
       return normalized.slice('/private'.length);
-    }
-
-    // On Windows, paths are case-insensitive (e.g., D:\ vs d:\)
-    if (process.platform === 'win32') {
-      return normalized.toLowerCase();
     }
 
     return normalized;
