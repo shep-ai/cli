@@ -232,8 +232,8 @@ export function WelcomeAgentSetup({ onComplete, className }: WelcomeAgentSetupPr
         </div>
       </div>
 
-      {/* Step indicator — fixed width */}
-      <div className="flex w-32 items-center gap-1">
+      {/* Step indicator */}
+      <div className="flex w-full items-center gap-1">
         {STEPS.map((s, i) => (
           <div
             key={s}

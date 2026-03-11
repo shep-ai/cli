@@ -20,11 +20,11 @@ export function ControlCenterEmptyState({
 }: ControlCenterEmptyStateProps) {
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [agentReady, setAgentReady] = useState(false);
+  const [agentReady, setAgentReady] = useState<boolean | null>(null);
 
   useEffect(() => {
     isAgentSetupComplete().then((done) => {
-      if (done) setAgentReady(true);
+      setAgentReady(done);
     });
   }, []);
 
@@ -51,26 +51,25 @@ export function ControlCenterEmptyState({
     setAgentReady(true);
   }, []);
 
+  if (agentReady === null) return null;
+
   return (
     <div
       data-testid="control-center-empty-state"
-      className={cn('relative h-full w-full', className)}
+      className={cn('flex flex-col items-center justify-center', className)}
     >
-      {/* Dotted grid background */}
-      <div className="absolute inset-0 [background-image:radial-gradient(circle,_var(--color-border)_1px,_transparent_1px)] [background-size:24px_24px]" />
+      {/* Glassy container */}
+      <div className="w-96 animate-in fade-in slide-in-from-bottom-2 duration-300 rounded-2xl border border-white/30 bg-white/50 px-8 py-8 shadow-lg backdrop-blur-xl dark:border-white/10 dark:bg-white/5">
+        <div className="flex flex-col items-center gap-4">
+          {/* Page header — inside card */}
+          <div className="mb-2 text-center">
+            <h1 className="text-xl font-bold tracking-tight">Features</h1>
+            <p className="text-muted-foreground text-sm font-light">Control Center</p>
+          </div>
 
-      {/* Page header */}
-      <div className="absolute top-8 left-8 z-10">
-        <h1 className="text-4xl font-bold tracking-tight">Features</h1>
-        <p className="text-muted-foreground text-3xl font-light">Control Center</p>
-      </div>
-
-      {/* Centered content */}
-      <div className="relative z-10 flex h-full items-center justify-center">
-        <div className="flex w-72 flex-col items-center gap-4">
           {!agentReady ? (
             /* Step 1: Agent setup */
-            <WelcomeAgentSetup onComplete={handleAgentSetupComplete} />
+            <WelcomeAgentSetup onComplete={handleAgentSetupComplete} className="w-full" />
           ) : (
             /* Step 2: Add repository (shown after agent is configured) */
             <>

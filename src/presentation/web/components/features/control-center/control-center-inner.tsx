@@ -298,14 +298,10 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     );
   }, [nodes, isCreateDrawerOpen]);
 
-  if (!hasRepositories) {
-    return <ControlCenterEmptyState onRepositorySelect={handleAddRepository} />;
-  }
-
   return (
     <FeaturesCanvas
-      nodes={displayNodes}
-      edges={edges}
+      nodes={hasRepositories ? displayNodes : []}
+      edges={hasRepositories ? edges : []}
       selectedFeatureId={selectedFeatureId}
       defaultViewport={defaultViewport}
       onNodesChange={onNodesChange}

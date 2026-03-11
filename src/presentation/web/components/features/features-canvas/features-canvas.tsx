@@ -1,14 +1,7 @@
 'use client';
 
 import { useCallback, useMemo } from 'react';
-import {
-  ReactFlow,
-  Background,
-  BackgroundVariant,
-  Controls,
-  ControlButton,
-  useReactFlow,
-} from '@xyflow/react';
+import { ReactFlow, Background, BackgroundVariant, Controls, ControlButton, useReactFlow } from '@xyflow/react';
 import type { Connection, Edge, NodeChange, OnMoveEnd, Viewport } from '@xyflow/react';
 import { Plus, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -101,35 +94,26 @@ export function FeaturesCanvas({
     [nodes, selectedFeatureId]
   );
 
-  if (nodes.length === 0) {
-    if (emptyState) {
-      return (
-        <div data-testid="features-canvas-empty" className="h-full w-full">
-          {emptyState}
-        </div>
-      );
-    }
-    return (
-      <div data-testid="features-canvas-empty">
-        <EmptyState
-          title="No features yet"
-          description="Get started by creating your first feature."
-          action={
-            <Button onClick={onAddFeature}>
-              <Plus className="mr-2 h-4 w-4" />
-              New Feature
-            </Button>
-          }
-        />
-      </div>
-    );
-  }
+  const isEmpty = nodes.length === 0;
+
+  const fallbackEmptyState = isEmpty && !emptyState ? (
+    <EmptyState
+      title="No features yet"
+      description="Get started by creating your first feature."
+      action={
+        <Button onClick={onAddFeature}>
+          <Plus className="mr-2 h-4 w-4" />
+          New Feature
+        </Button>
+      }
+    />
+  ) : null;
 
   return (
     <div
-      data-testid="features-canvas"
+      data-testid={isEmpty ? 'features-canvas-empty' : 'features-canvas'}
       data-no-drawer-close
-      className="pointer-events-auto h-full w-full bg-[#f6f7f8] dark:bg-[#0a0a0b]"
+      className="pointer-events-auto relative h-full w-full bg-[#f6f7f8] dark:bg-background"
     >
       <ReactFlow
         nodes={enrichedNodes}
@@ -148,27 +132,27 @@ export function FeaturesCanvas({
         elementsSelectable={false}
         proOptions={{ hideAttribution: true }}
       >
-        {/* Double grid: fine lines + coarse lines for depth */}
         <Background
-          id="fine"
-          variant={BackgroundVariant.Lines}
-          gap={16}
-          color="#e8eaed"
-          className="dark:[&_path]:!stroke-white/[0.04]"
+          variant={BackgroundVariant.Dots}
+          gap={24}
+          size={1}
+          color="#b8bcc4"
+          className="dark:[&_circle]:!fill-white/[0.1]"
         />
-        <Background
-          id="coarse"
-          variant={BackgroundVariant.Lines}
-          gap={128}
-          lineWidth={1.5}
-          color="#dcdfe3"
-          className="dark:[&_path]:!stroke-white/[0.08]"
-        />
-        <Controls showInteractive={false}>
-          {onResetViewport ? <ResetButton onResetViewport={onResetViewport} /> : null}
-        </Controls>
+        {!isEmpty && (
+          <Controls showInteractive={false}>
+            {onResetViewport ? <ResetButton onResetViewport={onResetViewport} /> : null}
+          </Controls>
+        )}
         {toolbar}
       </ReactFlow>
+      {isEmpty && (emptyState || fallbackEmptyState) && (
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+          <div className="pointer-events-auto">
+            {emptyState ?? fallbackEmptyState}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
