@@ -436,7 +436,7 @@ export class GitPrService implements IGitPrService {
           'pr',
           'list',
           '--json',
-          'number,state,url,headRefName',
+          'number,state,url,headRefName,mergeable',
           '--state',
           'all',
           '--limit',
@@ -450,13 +450,29 @@ export class GitPrService implements IGitPrService {
         state: string;
         url: string;
         headRefName: string;
+        mergeable?: string;
       }[];
       return prs.map((pr) => ({
         number: pr.number,
         state: this.normalizeGhState(pr.state),
         url: pr.url,
         headRefName: pr.headRefName,
+        mergeable: this.parseMergeable(pr.mergeable),
       }));
+    } catch (error) {
+      throw this.parseGhError(error);
+    }
+  }
+
+  async getMergeableStatus(cwd: string, prNumber: number): Promise<boolean | undefined> {
+    try {
+      const { stdout } = await this.execFile(
+        'gh',
+        ['pr', 'view', String(prNumber), '--json', 'mergeable'],
+        { cwd }
+      );
+      const result = JSON.parse(stdout) as { mergeable?: string };
+      return this.parseMergeable(result.mergeable);
     } catch (error) {
       throw this.parseGhError(error);
     }
@@ -531,6 +547,12 @@ export class GitPrService implements IGitPrService {
       0,
       maxChars
     )}\n[Log truncated at ${maxChars} chars — full log available via gh run view ${runId}]`;
+  }
+
+  private parseMergeable(value: string | undefined): boolean | undefined {
+    if (value === 'MERGEABLE') return true;
+    if (value === 'CONFLICTING') return false;
+    return undefined; // UNKNOWN or missing
   }
 
   private normalizeGhState(state: string): PrStatus {

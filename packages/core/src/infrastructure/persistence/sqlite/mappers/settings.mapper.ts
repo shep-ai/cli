@@ -67,6 +67,7 @@ export interface SettingsRow {
   notif_evt_pr_closed: number;
   notif_evt_pr_checks_passed: number;
   notif_evt_pr_checks_failed: number;
+  notif_evt_pr_blocked: number;
 
   // WorkflowConfig (workflow.*)
   workflow_open_pr_on_impl_complete: number;
@@ -149,6 +150,7 @@ export function toDatabase(settings: Settings): SettingsRow {
     notif_evt_pr_closed: settings.notifications.events.prClosed ? 1 : 0,
     notif_evt_pr_checks_passed: settings.notifications.events.prChecksPassed ? 1 : 0,
     notif_evt_pr_checks_failed: settings.notifications.events.prChecksFailed ? 1 : 0,
+    notif_evt_pr_blocked: settings.notifications.events.prBlocked ? 1 : 0,
 
     // WorkflowConfig (boolean → INTEGER)
     workflow_open_pr_on_impl_complete: settings.workflow.openPrOnImplementationComplete ? 1 : 0,
@@ -241,6 +243,7 @@ export function fromDatabase(row: SettingsRow): Settings {
         prClosed: row.notif_evt_pr_closed === 1,
         prChecksPassed: row.notif_evt_pr_checks_passed === 1,
         prChecksFailed: row.notif_evt_pr_checks_failed === 1,
+        prBlocked: row.notif_evt_pr_blocked === 1,
       },
     },
 

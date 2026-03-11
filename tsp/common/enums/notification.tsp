@@ -25,6 +25,7 @@
  * | PR Closed          | warning  |
  * | PR Checks Passed   | success  |
  * | PR Checks Failed   | error    |
+ * | PR Blocked         | warning  |
  */
 /**
  * Types of agent lifecycle events that trigger notifications.
@@ -63,6 +64,9 @@ enum NotificationEventType {
 
   @doc("Pull request CI checks failed")
   PrChecksFailed: "pr_checks_failed",
+
+  @doc("Pull request has merge conflicts and cannot be merged")
+  PrBlocked: "pr_blocked",
 }
 
 /**

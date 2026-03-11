@@ -801,7 +801,7 @@ describe('GitPrService', () => {
           'pr',
           'list',
           '--json',
-          'number,state,url,headRefName',
+          'number,state,url,headRefName,mergeable',
           '--state',
           'all',
           '--limit',

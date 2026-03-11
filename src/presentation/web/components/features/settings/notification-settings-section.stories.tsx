@@ -23,6 +23,7 @@ const allEvents = {
   prClosed: true,
   prChecksPassed: true,
   prChecksFailed: true,
+  prBlocked: true,
 };
 
 const noEvents = {
@@ -35,6 +36,7 @@ const noEvents = {
   prClosed: false,
   prChecksPassed: false,
   prChecksFailed: false,
+  prBlocked: false,
 };
 
 export const Default: Story = {

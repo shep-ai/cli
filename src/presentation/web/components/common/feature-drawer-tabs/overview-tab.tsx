@@ -1,6 +1,6 @@
 'use client';
 
-import { ExternalLink, GitBranch, GitCommitHorizontal, Zap } from 'lucide-react';
+import { AlertTriangle, ExternalLink, GitBranch, GitCommitHorizontal, Zap } from 'lucide-react';
 import { InlineAttachments } from '@/components/common/inline-attachments';
 import { PrStatus } from '@shepai/core/domain/generated/output';
 import { cn } from '@/lib/utils';
@@ -185,6 +185,15 @@ function FeaturePrInfo({ pr }: { pr: NonNullable<FeatureNodeData['pr']> }) {
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground text-xs font-medium">CI Status</span>
             <CiStatusBadge status={pr.ciStatus} />
+          </div>
+        ) : null}
+        {pr.mergeable === false ? (
+          <div data-testid="pr-merge-conflict" className="flex items-center justify-between">
+            <span className="text-muted-foreground text-xs font-medium">Merge Status</span>
+            <Badge className="border-transparent bg-orange-50 text-orange-700 hover:bg-orange-50">
+              <AlertTriangle className="mr-1 h-3.5 w-3.5" />
+              Conflicts
+            </Badge>
           </div>
         ) : null}
         {pr.commitHash ? (

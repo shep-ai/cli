@@ -1,0 +1,36 @@
+feature:
+  id: '060-repo-list-flicker'
+  name: 'repo-list-flicker'
+  number: 60
+  branch: 'feat/060-repo-list-flicker'
+  lifecycle: 'research'
+  createdAt: '2026-03-11T11:04:44Z'
+
+status:
+  phase: 'research'
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-03-11T11:04:44Z'
+  lastUpdatedBy: 'feature-agent'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-03-11T11:04:44Z'
+    completedBy: 'feature-agent'
+
+errors:
+  current: null
+  history: []

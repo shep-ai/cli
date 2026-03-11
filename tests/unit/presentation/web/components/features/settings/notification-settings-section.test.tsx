@@ -26,6 +26,7 @@ const defaultNotifications = {
     prClosed: true,
     prChecksPassed: true,
     prChecksFailed: true,
+    prBlocked: true,
   },
 };
 
@@ -45,7 +46,7 @@ describe('NotificationSettingsSection', () => {
     expect(screen.getByText('Desktop')).toBeDefined();
   });
 
-  it('renders 9 event type toggles', () => {
+  it('renders 10 event type toggles', () => {
     render(<NotificationSettingsSection notifications={defaultNotifications} />);
     expect(screen.getByTestId('switch-event-agentStarted')).toBeDefined();
     expect(screen.getByTestId('switch-event-phaseCompleted')).toBeDefined();
@@ -56,6 +57,7 @@ describe('NotificationSettingsSection', () => {
     expect(screen.getByTestId('switch-event-prClosed')).toBeDefined();
     expect(screen.getByTestId('switch-event-prChecksPassed')).toBeDefined();
     expect(screen.getByTestId('switch-event-prChecksFailed')).toBeDefined();
+    expect(screen.getByTestId('switch-event-prBlocked')).toBeDefined();
   });
 
   it('renders event type labels', () => {
@@ -69,6 +71,7 @@ describe('NotificationSettingsSection', () => {
     expect(screen.getByText('PR Closed')).toBeDefined();
     expect(screen.getByText('PR Checks Passed')).toBeDefined();
     expect(screen.getByText('PR Checks Failed')).toBeDefined();
+    expect(screen.getByText('PR Blocked')).toBeDefined();
   });
 
   it('groups events under agent events and pr events headings', () => {

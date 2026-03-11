@@ -114,6 +114,8 @@ export function mapEventTypeToState(eventType: NotificationEventType): FeatureNo
       return 'done';
     case NotificationEventType.PrClosed:
       return 'action-required';
+    case NotificationEventType.PrBlocked:
+      return 'blocked';
   }
 }
 

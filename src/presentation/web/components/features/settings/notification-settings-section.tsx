@@ -23,6 +23,7 @@ const PR_EVENT_TOGGLES = [
   { key: 'prClosed', label: 'PR Closed' },
   { key: 'prChecksPassed', label: 'PR Checks Passed' },
   { key: 'prChecksFailed', label: 'PR Checks Failed' },
+  { key: 'prBlocked', label: 'PR Blocked' },
 ] as const;
 
 export interface NotificationSettingsSectionProps {

@@ -166,6 +166,7 @@ describe('CreateFeatureUseCase', () => {
       getDefaultBranch: vi.fn().mockResolvedValue('main'),
       createPr: vi.fn().mockResolvedValue(undefined),
       getPr: vi.fn().mockResolvedValue(null),
+      getMergeableStatus: vi.fn().mockResolvedValue(undefined),
     } as unknown as IGitPrService;
 
     const mockAttachmentStorage = {

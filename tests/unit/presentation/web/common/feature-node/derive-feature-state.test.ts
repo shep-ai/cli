@@ -307,6 +307,22 @@ describe('mapEventTypeToState', () => {
   it('maps agent_failed to error', () => {
     expect(mapEventTypeToState(NotificationEventType.AgentFailed)).toBe('error');
   });
+
+  it('maps pr_blocked to blocked', () => {
+    expect(mapEventTypeToState(NotificationEventType.PrBlocked)).toBe('blocked');
+  });
+
+  it('maps pr_checks_failed to error', () => {
+    expect(mapEventTypeToState(NotificationEventType.PrChecksFailed)).toBe('error');
+  });
+
+  it('maps pr_merged to done', () => {
+    expect(mapEventTypeToState(NotificationEventType.PrMerged)).toBe('done');
+  });
+
+  it('maps pr_closed to action-required', () => {
+    expect(mapEventTypeToState(NotificationEventType.PrClosed)).toBe('action-required');
+  });
 });
 
 describe('mapPhaseNameToLifecycle', () => {
