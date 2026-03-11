@@ -414,7 +414,7 @@ WHERE repository_path NOT IN (SELECT path FROM repositories WHERE path IS NOT NU
         }
       };
       addNotNull('feature_flag_skills', '0');
-      addNotNull('feature_flag_env_deploy', '0');
+      addNotNull('feature_flag_env_deploy', '1');
       addNotNull('feature_flag_debug', '0');
       addNullable('ci_max_fix_attempts');
       addNullable('ci_watch_timeout_ms');
@@ -512,6 +512,11 @@ WHERE repository_path NOT IN (SELECT path FROM repositories WHERE path IS NOT NU
         db.exec('ALTER TABLE features ADD COLUMN pr_mergeable INTEGER');
       }
     },
+  },
+  {
+    version: 32,
+    // Migration 032: Change envDeploy feature flag default to enabled (1).
+    sql: `UPDATE settings SET feature_flag_env_deploy = 1 WHERE feature_flag_env_deploy = 0;`,
   },
 ];
 

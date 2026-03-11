@@ -112,7 +112,7 @@ describe('updateSettingsAction server action', () => {
 
     const persisted = mockUpdateExecute.mock.calls[0][0];
     expect(persisted.featureFlags.skills).toBe(true);
-    expect(persisted.featureFlags.envDeploy).toBe(false);
+    expect(persisted.featureFlags.envDeploy).toBe(true);
     expect(persisted.featureFlags.debug).toBe(false);
   });
 });

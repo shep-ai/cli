@@ -298,11 +298,11 @@ describe('createDefaultSettings', () => {
       expect(settings.featureFlags).toBeDefined();
     });
 
-    it('should default all feature flags to false', () => {
+    it('should default feature flags with envDeploy enabled', () => {
       const settings = createDefaultSettings();
       expect(settings.featureFlags).toEqual({
         skills: false,
-        envDeploy: false,
+        envDeploy: true,
         debug: false,
       });
     });

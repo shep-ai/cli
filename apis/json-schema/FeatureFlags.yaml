@@ -8,7 +8,7 @@ properties:
     description: Enable Skills navigation and functionality in the web UI
   envDeploy:
     type: boolean
-    default: false
+    default: true
     description: Enable environment deployment features in the web UI
   debug:
     type: boolean

@@ -54,7 +54,7 @@ describe('getFeatureFlags', () => {
     const flags = getFeatureFlags();
 
     expect(flags.skills).toBe(true);
-    expect(flags.envDeploy).toBe(false);
+    expect(flags.envDeploy).toBe(true);
     expect(flags.debug).toBe(false);
   });
 
@@ -70,7 +70,7 @@ describe('getFeatureFlags', () => {
     expect(flags.debug).toBe(false);
   });
 
-  it('returns all false when no settings and no env vars', () => {
+  it('defaults envDeploy to true when no settings and no env vars', () => {
     mockHasSettings.mockReturnValue(false);
     delete process.env.NEXT_PUBLIC_FLAG_SKILLS;
     delete process.env.NEXT_PUBLIC_FLAG_ENV_DEPLOY;
@@ -78,7 +78,7 @@ describe('getFeatureFlags', () => {
     const flags = getFeatureFlags();
 
     expect(flags.skills).toBe(false);
-    expect(flags.envDeploy).toBe(false);
+    expect(flags.envDeploy).toBe(true);
     expect(flags.debug).toBe(false);
   });
 
