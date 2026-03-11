@@ -51,16 +51,14 @@ export class WorktreeService implements IWorktreeService {
       throw this.parseGitError(error);
     }
 
-    // Get info about the created worktree
+    // Get info about the created worktree — match by branch (reliable) then path
     const worktrees = await this.list(repoPath);
-    const created = worktrees.find((w) => this.arePathsEquivalent(w.path, worktreePath));
+    const created =
+      worktrees.find((w) => w.branch === branch) ??
+      worktrees.find((w) => this.arePathsEquivalent(w.path, worktreePath));
     if (!created) {
-      const normalized = this.normalizeWorktreePath(worktreePath);
-      const available = worktrees.map(
-        (w) => `"${w.path}" → "${this.normalizeWorktreePath(w.path)}"`
-      );
       throw new WorktreeError(
-        `Worktree created but not found in list. Expected: "${normalized}", Available: [${available.join(', ')}]`,
+        'Worktree created but not found in list',
         WorktreeErrorCode.GIT_ERROR
       );
     }
