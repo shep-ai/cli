@@ -1,3 +1,28 @@
+## [1.101.2](https://github.com/shep-ai/cli/compare/v1.101.1...v1.101.2) (2026-03-11)
+
+### Bug Fixes
+
+- **web:** track pr status in sse cache for merge detection ([#302](https://github.com/shep-ai/cli/issues/302)) ([1f502e9](https://github.com/shep-ai/cli/commit/1f502e946acd9385bcb07e1034cd246cf305060b))
+
+## [1.101.1](https://github.com/shep-ai/cli/compare/v1.101.0...v1.101.1) (2026-03-11)
+
+### Bug Fixes
+
+- **domain:** persist pr mergeable status for merge conflict display ([#298](https://github.com/shep-ai/cli/issues/298)) ([1f03fa4](https://github.com/shep-ai/cli/commit/1f03fa45d847ca3dabc8dafa71c21c8b1585565d))
+- **web:** prevent drawer flash when deleting feature from canvas ([#290](https://github.com/shep-ai/cli/issues/290)) ([388f50d](https://github.com/shep-ai/cli/commit/388f50dd752abd3768afe521ff118701a5d56368))
+
+# [1.101.0](https://github.com/shep-ai/cli/compare/v1.100.0...v1.101.0) (2026-03-11)
+
+### Features
+
+- **web:** default to approve action when chat input is empty ([#300](https://github.com/shep-ai/cli/issues/300)) ([232532f](https://github.com/shep-ai/cli/commit/232532fe17cb225f569d05e1dda16edc36d4df06))
+
+# [1.100.0](https://github.com/shep-ai/cli/compare/v1.99.0...v1.100.0) (2026-03-11)
+
+### Features
+
+- **web:** add npm version checker with upgrade prompt in version badge ([#295](https://github.com/shep-ai/cli/issues/295)) ([acd3fd5](https://github.com/shep-ai/cli/commit/acd3fd59553421ba34cdbcd9f7aa742678044cb9))
+
 # [1.99.0](https://github.com/shep-ai/cli/compare/v1.98.0...v1.99.0) (2026-03-10)
 
 ### Features

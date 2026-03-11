@@ -97,6 +97,7 @@ export interface FeatureNodeData {
     status: PrStatus;
     ciStatus?: CiStatus;
     commitHash?: string;
+    mergeable?: boolean;
   };
   /** Deployment status for features with an active deployment */
   deployment?: {

@@ -23,4 +23,7 @@ model PullRequest {
 
   @doc("History of CI fix attempts")
   ciFixHistory?: CiFixRecord[];
+
+  @doc("Whether the PR can be merged (false = merge conflicts)")
+  mergeable?: boolean;
 }

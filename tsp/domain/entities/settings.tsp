@@ -340,6 +340,9 @@ model NotificationEventConfig {
 
   @doc("Notify when pull request CI checks fail")
   prChecksFailed: boolean = true;
+
+  @doc("Notify when pull request has merge conflicts")
+  prBlocked: boolean = true;
 }
 
 /**

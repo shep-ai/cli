@@ -113,6 +113,7 @@ describe('DeleteFeatureUseCase', () => {
       createPr: vi.fn(),
       getPrDiff: vi.fn(),
       getPrComments: vi.fn().mockResolvedValue([]),
+      getMergeableStatus: vi.fn().mockResolvedValue(undefined),
     } as unknown as IGitPrService;
 
     useCase = new DeleteFeatureUseCase(

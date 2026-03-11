@@ -186,6 +186,7 @@ export function createStubMergeNodeDeps(featureId?: string): Omit<MergeNodeDeps,
       getFileDiffs: vi.fn().mockResolvedValue([]),
       listPrStatuses: vi.fn().mockResolvedValue([]),
       verifyMerge: vi.fn().mockResolvedValue(true),
+      getMergeableStatus: vi.fn().mockResolvedValue(true),
     },
     cleanupFeatureWorktreeUseCase: { execute: vi.fn().mockResolvedValue(undefined) } as any,
   };

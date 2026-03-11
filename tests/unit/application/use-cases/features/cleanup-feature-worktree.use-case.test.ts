@@ -90,6 +90,7 @@ describe('CleanupFeatureWorktreeUseCase', () => {
       getFailureLogs: vi.fn(),
       getRemoteUrl: vi.fn(),
       getFileDiffs: vi.fn(),
+      getMergeableStatus: vi.fn().mockResolvedValue(undefined),
     };
 
     useCase = new CleanupFeatureWorktreeUseCase(

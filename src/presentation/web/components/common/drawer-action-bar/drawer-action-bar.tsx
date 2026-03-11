@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { PaperclipIcon, Send, ChevronLeft, Check } from 'lucide-react';
+import { PaperclipIcon, Send, ChevronLeft, Check, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -80,6 +80,7 @@ export function DrawerActionBar({
   onReject,
   onApprove,
   approveLabel,
+  approveVariant = 'default',
   revisionPlaceholder,
   isProcessing = false,
   isRejecting = false,
@@ -87,6 +88,10 @@ export function DrawerActionBar({
   chatInput: controlledChatInput,
   onChatInputChange,
 }: DrawerActionBarProps) {
+  const isWarning = approveVariant === 'warning';
+  const ApproveIcon = isWarning ? AlertTriangle : Check;
+  const accentBg = isWarning ? 'bg-orange-500/85' : 'bg-blue-500/85';
+  const accentBorder = isWarning ? 'border-orange-400/60' : 'border-blue-400/60';
   const [internalChatInput, setInternalChatInput] = useState('');
   const chatInput = controlledChatInput ?? internalChatInput;
   const setChatInput = onChatInputChange ?? setInternalChatInput;
@@ -99,8 +104,9 @@ export function DrawerActionBar({
   const [hoverExpanded, setHoverExpanded] = useState(false);
   const [ctrlHeld, setCtrlHeld] = useState(false);
   const [shiftHeld, setShiftHeld] = useState(false);
-  const approveExpanded = hoverExpanded || (ctrlHeld && shiftHeld);
-  const rejectHighlighted = ctrlHeld && !shiftHeld;
+  const hasText = chatInput.trim().length > 0;
+  const approveExpanded = hasText ? hoverExpanded || (ctrlHeld && shiftHeld) : !hoverExpanded;
+  const rejectHighlighted = hasText ? ctrlHeld && !shiftHeld : false;
   const dragCounterRef = useRef(0);
   const sessionIdRef = useRef(crypto.randomUUID());
   const formRef = useRef<HTMLFormElement>(null);
@@ -280,8 +286,8 @@ export function DrawerActionBar({
     e.preventDefault();
     const text = chatInput.trim();
 
-    if (hoverExpanded || (ctrlHeld && shiftHeld)) {
-      // Approve mode (hovering arrow or Shift held)
+    if (approveExpanded) {
+      // Approve mode
       approveSound.play();
       onApprove();
       clearForm();
@@ -363,12 +369,7 @@ export function DrawerActionBar({
                     <kbd className="bg-muted rounded px-1 py-0.5 font-mono text-[10px]">
                       {modKey}+Enter
                     </kbd>{' '}
-                    reject
-                    <span className="mx-1 opacity-40">|</span>
-                    <kbd className="bg-muted rounded px-1 py-0.5 font-mono text-[10px]">
-                      {modKey}+Shift+Enter
-                    </kbd>{' '}
-                    approve
+                    {hasText ? 'reject' : 'approve'}
                   </span>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -385,7 +386,7 @@ export function DrawerActionBar({
                     <TooltipContent side="top">Attach files</TooltipContent>
                   </Tooltip>
 
-                  {/* Single action button: Reject by default, Approve on hover of arrow / CTRL */}
+                  {/* Single action button: Approve when empty, Reject when text present */}
                   <div onMouseLeave={() => setHoverExpanded(false)}>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -397,15 +398,18 @@ export function DrawerActionBar({
                             'relative flex h-8 min-w-[10rem] cursor-pointer items-center overflow-hidden rounded-md border pr-10 pl-4 text-sm font-medium whitespace-nowrap transition-colors',
                             'disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50',
                             approveExpanded
-                              ? 'border-blue-400/60 text-white'
+                              ? `${accentBorder} text-white`
                               : rejectHighlighted
                                 ? 'border-primary bg-muted ring-primary/30 shadow-sm ring-1'
                                 : 'border-border bg-muted/50 hover:bg-muted shadow-sm'
                           )}
                         >
-                          {/* Blue fill — slides in from right */}
+                          {/* Accent fill — slides in from right */}
                           <div
-                            className="pointer-events-none absolute inset-0 bg-blue-500/85 transition-transform duration-300 ease-in-out"
+                            className={cn(
+                              'pointer-events-none absolute inset-0 transition-transform duration-300 ease-in-out',
+                              accentBg
+                            )}
                             style={{
                               transform: approveExpanded ? 'translateX(0)' : 'translateX(100%)',
                             }}
@@ -427,14 +431,14 @@ export function DrawerActionBar({
                               approveExpanded ? 'opacity-100' : 'opacity-0'
                             )}
                           >
-                            <Check className="h-3.5 w-3.5 shrink-0" />
+                            <ApproveIcon className="h-3.5 w-3.5 shrink-0" />
                             {approveLabel}
                           </span>
-                          {/* Arrow indicator — hover trigger */}
+                          {/* Arrow indicator — hover trigger to toggle between modes */}
                           <span
                             className={cn(
-                              'border-input/60 absolute inset-y-0 right-0 z-20 flex w-8 cursor-pointer items-center justify-center rounded-r-[5px] border-l bg-blue-500/85 transition-opacity duration-300',
-                              approveExpanded && 'pointer-events-none opacity-0'
+                              `border-input/60 absolute inset-y-0 right-0 z-20 flex w-8 cursor-pointer items-center justify-center rounded-r-[5px] border-l ${accentBg} transition-opacity duration-300`,
+                              !hasText && !hoverExpanded && 'pointer-events-none opacity-0'
                             )}
                             onMouseEnter={() => setHoverExpanded(true)}
                           >
@@ -442,9 +446,11 @@ export function DrawerActionBar({
                           </span>
                         </button>
                       </TooltipTrigger>
-                      <TooltipContent side="top">
-                        {approveExpanded ? 'Approve' : 'Send revision feedback'}
-                      </TooltipContent>
+                      {!isWarning ? (
+                        <TooltipContent side="top">
+                          {approveExpanded ? approveLabel : 'Send revision feedback'}
+                        </TooltipContent>
+                      ) : null}
                     </Tooltip>
                   </div>
                 </div>

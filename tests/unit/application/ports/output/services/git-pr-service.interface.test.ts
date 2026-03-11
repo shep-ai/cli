@@ -161,6 +161,7 @@ describe('IGitPrService', () => {
       listPrStatuses: async () => [],
       verifyMerge: async () => true,
       getFailureLogs: async () => '',
+      getMergeableStatus: async () => undefined,
     };
 
     // Verify all methods exist
@@ -182,9 +183,10 @@ describe('IGitPrService', () => {
       'listPrStatuses',
       'verifyMerge',
       'getFailureLogs',
+      'getMergeableStatus',
     ];
 
-    expect(methodNames).toHaveLength(17);
+    expect(methodNames).toHaveLength(18);
     for (const name of methodNames) {
       expect(typeof mock[name]).toBe('function');
     }

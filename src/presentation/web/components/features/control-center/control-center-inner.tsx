@@ -106,10 +106,14 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
   // ── URL-based navigation handlers ────────────────────────────────────
 
   const handleNodeClick = useCallback(
-    (_event: React.MouseEvent, node: CanvasNodeType) => {
+    (event: React.MouseEvent, node: CanvasNodeType) => {
       if (node.type === 'featureNode') {
         const data = node.data as FeatureNodeData;
-        if (data.state === 'creating') return;
+        if (data.state === 'creating' || data.state === 'deleting') return;
+        // Only navigate when the click lands on the card itself, not on
+        // overlay buttons (delete, add) or pointer events leaking from dialogs.
+        const target = event.target as HTMLElement;
+        if (!target.closest('[data-testid="feature-node-card"]')) return;
         guardedNavigate(() => {
           clickSound.play();
           router.push(`/feature/${data.featureId}`);

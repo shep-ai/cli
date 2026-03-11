@@ -61,6 +61,7 @@ function createTestSettings(overrides: Partial<Settings> = {}): Settings {
         prClosed: true,
         prChecksPassed: true,
         prChecksFailed: true,
+        prBlocked: true,
       },
     },
     workflow: {
@@ -115,6 +116,7 @@ function createTestRow(overrides: Partial<SettingsRow> = {}): SettingsRow {
     notif_evt_pr_closed: 1,
     notif_evt_pr_checks_passed: 1,
     notif_evt_pr_checks_failed: 1,
+    notif_evt_pr_blocked: 1,
     workflow_open_pr_on_impl_complete: 0,
     workflow_enable_evidence: 0,
     workflow_commit_evidence: 0,
@@ -151,6 +153,7 @@ describe('Settings Mapper', () => {
             prClosed: true,
             prChecksPassed: true,
             prChecksFailed: true,
+            prBlocked: true,
           },
         },
       });
@@ -176,6 +179,7 @@ describe('Settings Mapper', () => {
             prClosed: true,
             prChecksPassed: true,
             prChecksFailed: true,
+            prBlocked: true,
           },
         },
       });
@@ -201,6 +205,7 @@ describe('Settings Mapper', () => {
             prClosed: true,
             prChecksPassed: true,
             prChecksFailed: true,
+            prBlocked: true,
           },
         },
       });
@@ -228,6 +233,7 @@ describe('Settings Mapper', () => {
             prClosed: false,
             prChecksPassed: true,
             prChecksFailed: false,
+            prBlocked: false,
           },
         },
       });
@@ -309,6 +315,7 @@ describe('Settings Mapper', () => {
             prClosed: false,
             prChecksPassed: true,
             prChecksFailed: false,
+            prBlocked: false,
           },
         },
       });
@@ -339,6 +346,7 @@ describe('Settings Mapper', () => {
           prClosed: true,
           prChecksPassed: true,
           prChecksFailed: true,
+          prBlocked: true,
         },
       });
     });

@@ -131,6 +131,8 @@ export interface PrStatusInfo {
   url: string;
   /** Head branch name of the PR */
   headRefName: string;
+  /** Whether the PR can be merged (undefined if unknown, false = merge conflicts) */
+  mergeable?: boolean;
 }
 
 /**
@@ -301,6 +303,16 @@ export interface IGitPrService {
    * @returns True if featureBranch is an ancestor of baseBranch
    */
   verifyMerge(cwd: string, featureBranch: string, baseBranch: string): Promise<boolean>;
+
+  /**
+   * Check if a PR has merge conflicts via `gh pr view --json mergeable`.
+   *
+   * @param cwd - Working directory path
+   * @param prNumber - PR number to check
+   * @returns True if the PR is mergeable, false if it has conflicts, undefined if unknown
+   * @throws GitPrError with GH_NOT_FOUND or GIT_ERROR code
+   */
+  getMergeableStatus(cwd: string, prNumber: number): Promise<boolean | undefined>;
 
   /**
    * Retrieve failure logs for a CI run via `gh run view --log-failed`.

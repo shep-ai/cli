@@ -38,6 +38,9 @@ interface CachedFeatureState {
   lifecycle: string;
   completedPhases: Set<string>;
   featureName: string;
+  prStatus: string | undefined;
+  prMergeable: boolean | undefined;
+  prCiStatus: string | undefined;
 }
 
 /**
@@ -169,6 +172,9 @@ export function GET(request: Request): Response {
                   lifecycle: feature.lifecycle,
                   completedPhases,
                   featureName: feature.name,
+                  prStatus: feature.pr?.status,
+                  prMergeable: feature.pr?.mergeable,
+                  prCiStatus: feature.pr?.ciStatus,
                 });
                 continue;
               }
@@ -225,6 +231,37 @@ export function GET(request: Request): Response {
                     timestamp: new Date().toISOString(),
                   });
                 }
+              }
+
+              // Check for PR data changes (status / mergeable / CI status)
+              const curPrStatus = feature.pr?.status;
+              const curMergeable = feature.pr?.mergeable;
+              const curCiStatus = feature.pr?.ciStatus;
+              if (
+                curPrStatus !== prev.prStatus ||
+                curMergeable !== prev.prMergeable ||
+                curCiStatus !== prev.prCiStatus
+              ) {
+                prev.prStatus = curPrStatus;
+                prev.prMergeable = curMergeable;
+                prev.prCiStatus = curCiStatus;
+                const nodeName = LIFECYCLE_TO_NODE[feature.lifecycle as SdlcLifecycle] ?? 'merge';
+                emitEvent({
+                  eventType: NotificationEventType.PhaseCompleted,
+                  agentRunId: run.id,
+                  featureId: feature.id,
+                  featureName: feature.name,
+                  phaseName: nodeName,
+                  message:
+                    curMergeable === false
+                      ? `PR #${feature.pr?.number} has merge conflicts`
+                      : `PR status updated`,
+                  severity:
+                    curMergeable === false
+                      ? NotificationSeverity.Warning
+                      : NotificationSeverity.Info,
+                  timestamp: new Date().toISOString(),
+                });
               }
 
               // Check for new phase completions

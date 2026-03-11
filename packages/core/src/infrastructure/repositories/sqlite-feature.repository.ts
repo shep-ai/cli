@@ -38,7 +38,7 @@ export class SQLiteFeatureRepository implements IFeatureRepository {
         fast,
         push, open_pr, auto_merge, allow_prd, allow_plan, allow_merge,
         pr_url, pr_number, pr_status, commit_hash, ci_status,
-        ci_fix_attempts, ci_fix_history,
+        ci_fix_attempts, ci_fix_history, pr_mergeable,
         parent_id,
         created_at, updated_at
       ) VALUES (
@@ -48,7 +48,7 @@ export class SQLiteFeatureRepository implements IFeatureRepository {
         @fast,
         @push, @open_pr, @auto_merge, @allow_prd, @allow_plan, @allow_merge,
         @pr_url, @pr_number, @pr_status, @commit_hash, @ci_status,
-        @ci_fix_attempts, @ci_fix_history,
+        @ci_fix_attempts, @ci_fix_history, @pr_mergeable,
         @parent_id,
         @created_at, @updated_at
       )
@@ -159,6 +159,7 @@ export class SQLiteFeatureRepository implements IFeatureRepository {
         ci_status = @ci_status,
         ci_fix_attempts = @ci_fix_attempts,
         ci_fix_history = @ci_fix_history,
+        pr_mergeable = @pr_mergeable,
         parent_id = @parent_id,
         deleted_at = @deleted_at,
         updated_at = @updated_at

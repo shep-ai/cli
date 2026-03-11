@@ -90,6 +90,7 @@ function createMockGitPrService(): IGitPrService {
     getFailureLogs: vi.fn().mockResolvedValue(''),
     getFileDiffs: vi.fn().mockResolvedValue([]),
     verifyMerge: vi.fn().mockResolvedValue(false),
+    getMergeableStatus: vi.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -880,6 +881,156 @@ describe('PrSyncWatcherService', () => {
       expect(featureRepo.list).toHaveBeenCalledTimes(2);
 
       consoleSpy.mockRestore();
+    });
+  });
+
+  describe('mergeable status tracking', () => {
+    it('should detect PR becoming unmergeable (conflicts) and emit PrBlocked notification', async () => {
+      const feature = createMockFeature({
+        id: 'feat-1',
+        name: 'Conflict Feature',
+        agentRunId: 'run-1',
+        repositoryPath: '/repo/path',
+        branch: 'feat/test',
+        pr: {
+          url: 'https://github.com/org/repo/pull/1',
+          number: 1,
+          status: PrStatus.Open,
+          ciStatus: CiStatus.Pending,
+        },
+      });
+
+      vi.mocked(featureRepo.list).mockResolvedValue([feature]);
+      vi.mocked(gitPrService.listPrStatuses).mockResolvedValue([
+        {
+          number: 1,
+          state: PrStatus.Open,
+          url: 'https://github.com/org/repo/pull/1',
+          headRefName: 'feat/test',
+          mergeable: false,
+        },
+      ]);
+      vi.mocked(gitPrService.getCiStatus).mockResolvedValue({ status: 'pending' });
+
+      watcher.start();
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(featureRepo.update).toHaveBeenCalledTimes(1);
+      const updatedFeature = vi.mocked(featureRepo.update).mock.calls[0][0];
+      expect(updatedFeature.pr!.mergeable).toBe(false);
+
+      const blockedEvents = notificationService.receivedEvents.filter(
+        (e) => e.eventType === NotificationEventType.PrBlocked
+      );
+      expect(blockedEvents).toHaveLength(1);
+      expect(blockedEvents[0]!.featureName).toBe('Conflict Feature');
+      expect(blockedEvents[0]!.severity).toBe(NotificationSeverity.Warning);
+      expect(blockedEvents[0]!.message).toContain('merge conflicts');
+    });
+
+    it('should not emit PrBlocked notification when mergeable is true', async () => {
+      const feature = createMockFeature({
+        id: 'feat-1',
+        name: 'Good Feature',
+        repositoryPath: '/repo/path',
+        branch: 'feat/test',
+        pr: {
+          url: 'https://github.com/org/repo/pull/1',
+          number: 1,
+          status: PrStatus.Open,
+          ciStatus: CiStatus.Pending,
+        },
+      });
+
+      vi.mocked(featureRepo.list).mockResolvedValue([feature]);
+      vi.mocked(gitPrService.listPrStatuses).mockResolvedValue([
+        {
+          number: 1,
+          state: PrStatus.Open,
+          url: 'https://github.com/org/repo/pull/1',
+          headRefName: 'feat/test',
+          mergeable: true,
+        },
+      ]);
+      vi.mocked(gitPrService.getCiStatus).mockResolvedValue({ status: 'pending' });
+
+      watcher.start();
+      await vi.advanceTimersByTimeAsync(0);
+
+      // Update should happen (mergeable changed from undefined to true) but no PrBlocked event
+      expect(featureRepo.update).toHaveBeenCalledTimes(1);
+      const blockedEvents = notificationService.receivedEvents.filter(
+        (e) => e.eventType === NotificationEventType.PrBlocked
+      );
+      expect(blockedEvents).toHaveLength(0);
+    });
+
+    it('should not re-emit PrBlocked when mergeable status is unchanged', async () => {
+      const feature = createMockFeature({
+        id: 'feat-1',
+        name: 'Conflict Feature',
+        repositoryPath: '/repo/path',
+        branch: 'feat/test',
+        pr: {
+          url: 'https://github.com/org/repo/pull/1',
+          number: 1,
+          status: PrStatus.Open,
+          ciStatus: CiStatus.Pending,
+          mergeable: false,
+        },
+      });
+
+      vi.mocked(featureRepo.list).mockResolvedValue([feature]);
+      vi.mocked(gitPrService.listPrStatuses).mockResolvedValue([
+        {
+          number: 1,
+          state: PrStatus.Open,
+          url: 'https://github.com/org/repo/pull/1',
+          headRefName: 'feat/test',
+          mergeable: false,
+        },
+      ]);
+      vi.mocked(gitPrService.getCiStatus).mockResolvedValue({ status: 'pending' });
+
+      watcher.start();
+      await vi.advanceTimersByTimeAsync(0);
+
+      // No update since mergeable is already false
+      expect(featureRepo.update).not.toHaveBeenCalled();
+      expect(notificationService.receivedEvents).toHaveLength(0);
+    });
+
+    it('should update feature when mergeable status is undefined (unknown)', async () => {
+      const feature = createMockFeature({
+        id: 'feat-1',
+        name: 'Unknown Feature',
+        repositoryPath: '/repo/path',
+        branch: 'feat/test',
+        pr: {
+          url: 'https://github.com/org/repo/pull/1',
+          number: 1,
+          status: PrStatus.Open,
+          ciStatus: CiStatus.Pending,
+        },
+      });
+
+      vi.mocked(featureRepo.list).mockResolvedValue([feature]);
+      vi.mocked(gitPrService.listPrStatuses).mockResolvedValue([
+        {
+          number: 1,
+          state: PrStatus.Open,
+          url: 'https://github.com/org/repo/pull/1',
+          headRefName: 'feat/test',
+          mergeable: undefined,
+        },
+      ]);
+      vi.mocked(gitPrService.getCiStatus).mockResolvedValue({ status: 'pending' });
+
+      watcher.start();
+      await vi.advanceTimersByTimeAsync(0);
+
+      // mergeable is undefined in both tracked state and prStatusInfo — no update
+      expect(featureRepo.update).not.toHaveBeenCalled();
     });
   });
 

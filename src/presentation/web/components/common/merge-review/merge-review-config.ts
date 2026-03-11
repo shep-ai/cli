@@ -40,6 +40,8 @@ export interface MergeReviewPr {
   status: PrStatus;
   commitHash?: string;
   ciStatus?: CiStatus;
+  /** false = merge conflicts, true = mergeable, undefined = unknown */
+  mergeable?: boolean;
 }
 
 /** Branch merge direction info */

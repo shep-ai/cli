@@ -123,8 +123,13 @@ describe('ControlCenterInner URL-based navigation', () => {
     it('navigates to /feature/<id> when a feature node is clicked', () => {
       renderControlCenter();
 
+      const cardEl = document.createElement('div');
+      cardEl.dataset.testid = 'feature-node-card';
       act(() => {
-        capturedCanvasProps.onNodeClick?.({} as React.MouseEvent, featureNodeA);
+        capturedCanvasProps.onNodeClick?.(
+          { target: cardEl } as unknown as React.MouseEvent,
+          featureNodeA
+        );
       });
 
       expect(mockPush).toHaveBeenCalledWith('/feature/#fa01');
@@ -133,8 +138,13 @@ describe('ControlCenterInner URL-based navigation', () => {
     it('navigates to a different feature route when clicking another node', () => {
       renderControlCenter();
 
+      const cardEl = document.createElement('div');
+      cardEl.dataset.testid = 'feature-node-card';
       act(() => {
-        capturedCanvasProps.onNodeClick?.({} as React.MouseEvent, featureNodeB);
+        capturedCanvasProps.onNodeClick?.(
+          { target: cardEl } as unknown as React.MouseEvent,
+          featureNodeB
+        );
       });
 
       expect(mockPush).toHaveBeenCalledWith('/feature/#fb02');

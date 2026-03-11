@@ -162,6 +162,32 @@ describe('OverviewTab', () => {
       const prInfo = screen.getByTestId('feature-drawer-pr');
       expect(statusSection.contains(prInfo)).toBe(false);
     });
+
+    it('renders merge conflict badge when mergeable is false', () => {
+      renderOverviewTab({
+        ...defaultData,
+        pr: { ...prData, mergeable: false },
+      });
+      const conflictBadge = screen.getByTestId('pr-merge-conflict');
+      expect(conflictBadge).toBeInTheDocument();
+      expect(screen.getByText('Conflicts')).toBeInTheDocument();
+    });
+
+    it('does not render merge conflict badge when mergeable is true', () => {
+      renderOverviewTab({
+        ...defaultData,
+        pr: { ...prData, mergeable: true },
+      });
+      expect(screen.queryByTestId('pr-merge-conflict')).not.toBeInTheDocument();
+    });
+
+    it('does not render merge conflict badge when mergeable is undefined', () => {
+      renderOverviewTab({
+        ...defaultData,
+        pr: { ...prData, mergeable: undefined },
+      });
+      expect(screen.queryByTestId('pr-merge-conflict')).not.toBeInTheDocument();
+    });
   });
 
   describe('inline attachments in user query', () => {

@@ -74,6 +74,23 @@ export async function runCiWatchFixLoop(
   // Check if any CI run exists for this branch
   const initialCiStatus = await gitPrService.getCiStatus(cwd, branch);
   if (!initialCiStatus.runUrl) {
+    // No CI run detected — check if PR has merge conflicts which would prevent CI from running
+    if (params.prNumber != null) {
+      try {
+        const mergeable = await gitPrService.getMergeableStatus(cwd, params.prNumber);
+        if (mergeable === false) {
+          log.info('No CI run detected — PR has merge conflicts');
+          return {
+            ciStatus: CiStatus.Failure,
+            ciFixAttempts,
+            ciFixHistory,
+            ciFixStatus: 'idle',
+          };
+        }
+      } catch {
+        // getMergeableStatus failed — fall through to idle/success
+      }
+    }
     log.info('No CI run detected after push — skipping CI watch');
     return { ciStatus: CiStatus.Success, ciFixAttempts, ciFixHistory, ciFixStatus: 'idle' };
   }

@@ -11,4 +11,5 @@ enum:
   - pr_closed
   - pr_checks_passed
   - pr_checks_failed
+  - pr_blocked
 description: Types of agent lifecycle notification events
