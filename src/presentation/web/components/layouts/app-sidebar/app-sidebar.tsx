@@ -24,6 +24,7 @@ import { SidebarSectionHeader } from '@/components/common/sidebar-section-header
 import { featureStatusConfig, featureStatusOrder } from '@/components/common/feature-status-config';
 import type { FeatureStatus } from '@/components/common/feature-status-config';
 import { useDeferredMount } from '@/hooks/use-deferred-mount';
+import { useVersion } from '@/hooks/use-version';
 import type { FeatureFlagsState } from '@/lib/feature-flags';
 
 export interface FeatureItem {
@@ -56,6 +57,7 @@ export function AppSidebar({
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
   const { mounted: showExpanded, visible: expandedVisible } = useDeferredMount(collapsed, 200);
+  const versionData = useVersion();
 
   const grouped = featureStatusOrder.map((key) => {
     const { label } = featureStatusConfig[key];
@@ -81,17 +83,17 @@ export function AppSidebar({
                   <ShepLogo
                     className="shrink-0"
                     size={20}
-                    variant={process.env.NODE_ENV === 'development' ? 'dev' : 'default'}
+                    variant={versionData.isDev ? 'dev' : 'default'}
                   />
                   <span className="truncate text-sm font-semibold tracking-tight">Shep</span>
                   <VersionBadge
-                    version={process.env.NEXT_PUBLIC_SHEP_VERSION ?? 'unknown'}
-                    branch={process.env.NEXT_PUBLIC_SHEP_BRANCH}
-                    commitHash={process.env.NEXT_PUBLIC_SHEP_COMMIT}
-                    isDev={process.env.NODE_ENV === 'development'}
-                    packageName={process.env.NEXT_PUBLIC_SHEP_PACKAGE_NAME}
-                    description={process.env.NEXT_PUBLIC_SHEP_DESCRIPTION}
-                    instancePath={process.env.NEXT_PUBLIC_SHEP_INSTANCE_PATH}
+                    version={versionData.version}
+                    branch={versionData.branch || undefined}
+                    commitHash={versionData.commitHash || undefined}
+                    isDev={versionData.isDev}
+                    packageName={versionData.packageName}
+                    description={versionData.description}
+                    instancePath={versionData.instancePath || undefined}
                   />
                 </div>
               ) : null}

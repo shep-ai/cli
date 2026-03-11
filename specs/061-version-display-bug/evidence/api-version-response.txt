@@ -1,0 +1,17 @@
+=== GET /api/version — Runtime Version Response ===
+Date: 2026-03-11
+
+$ curl -s http://localhost:3000/api/version | python3 -m json.tool
+{
+    "version": "1.101.0",
+    "packageName": "@shepai/cli",
+    "description": "Autonomous AI Native SDLC Platform - Automate the development cycle from idea to deploy",
+    "branch": "",
+    "commitHash": "",
+    "instancePath": "[REDACTED]",
+    "isDev": true
+}
+
+This confirms the server-side API route reads the version from runtime
+environment variables (process.env.NEXT_PUBLIC_SHEP_VERSION) rather than
+relying on build-time inlined NEXT_PUBLIC_* values that could be stale.
