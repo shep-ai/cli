@@ -34,7 +34,7 @@ export function DeleteFeatureDialog({
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
+      <AlertDialogContent onCloseAutoFocus={(e) => e.preventDefault()}>
         <AlertDialogHeader>
           <AlertDialogTitle>Delete feature?</AlertDialogTitle>
           <AlertDialogDescription>

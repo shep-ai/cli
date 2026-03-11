@@ -105,7 +105,10 @@ export function FeatureNode({
       {/* Delete button — visible on hover, positioned to the left (hidden when deleting) */}
       {data.onDelete && data.featureId && data.state !== 'deleting' ? (
         <>
-          <div className="absolute top-1/2 -left-10 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100">
+          <div
+            className="absolute top-1/2 -left-10 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100"
+            onPointerDown={(e) => e.stopPropagation()}
+          >
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
