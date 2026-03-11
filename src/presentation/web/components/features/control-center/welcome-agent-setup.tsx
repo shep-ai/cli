@@ -1,27 +1,12 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import {
-  Check,
-  ChevronRight,
-  ChevronLeft,
-  Download,
-  Loader2,
-  CheckCircle2,
-  Circle,
-  AlertCircle,
-  Bot,
-  Terminal,
-  ExternalLink,
-} from 'lucide-react';
+import { ChevronRight, ChevronLeft, Loader2, Bot } from 'lucide-react';
 import { getAllAgentModels } from '@/app/actions/get-all-agent-models';
 import type { AgentModelGroup } from '@/app/actions/get-all-agent-models';
-import { checkAgentTool } from '@/app/actions/check-agent-tool';
-import type { AgentToolStatus } from '@/app/actions/check-agent-tool';
 import { updateAgentAndModel } from '@/app/actions/update-agent-and-model';
 import { getAgentTypeIcon } from '@/components/common/feature-node/agent-type-icons';
 import { getModelMeta } from '@/lib/model-metadata';
-import { useToolInstallStream } from '@/hooks/use-tool-install-stream';
 import { cn } from '@/lib/utils';
 
 export interface WelcomeAgentSetupProps {
@@ -29,9 +14,9 @@ export interface WelcomeAgentSetupProps {
   className?: string;
 }
 
-type SetupStep = 'select-agent' | 'select-model' | 'check-tool' | 'authenticate';
+type SetupStep = 'select-agent' | 'select-model';
 
-const STEPS: SetupStep[] = ['select-agent', 'select-model', 'check-tool', 'authenticate'];
+const STEPS: SetupStep[] = ['select-agent', 'select-model'];
 
 /** Fixed width for the wizard content area to prevent layout jumps */
 const WIZARD_WIDTH = 'w-72';
@@ -41,9 +26,6 @@ export function WelcomeAgentSetup({ onComplete, className }: WelcomeAgentSetupPr
   const [loading, setLoading] = useState(true);
   const [step, setStep] = useState<SetupStep>('select-agent');
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
-  const [selectedModel, setSelectedModel] = useState<string | null>(null);
-  const [toolStatus, setToolStatus] = useState<AgentToolStatus | null>(null);
-  const [checkingTool, setCheckingTool] = useState(false);
   const [saving, setSaving] = useState(false);
   const [transitioning, setTransitioning] = useState(false);
   const [visible, setVisible] = useState(true);
@@ -65,7 +47,6 @@ export function WelcomeAgentSetup({ onComplete, className }: WelcomeAgentSetupPr
     timeoutRef.current = setTimeout(() => {
       setup?.();
       setStep(nextStep);
-      // Small delay to let React render the new content before fading in
       requestAnimationFrame(() => {
         setVisible(true);
         setTransitioning(false);
@@ -79,6 +60,20 @@ export function WelcomeAgentSetup({ onComplete, className }: WelcomeAgentSetupPr
     };
   }, []);
 
+  /** Save agent+model selection and complete the wizard */
+  const saveAndComplete = useCallback(
+    async (agentType: string, model: string | null) => {
+      setSaving(true);
+      try {
+        await updateAgentAndModel(agentType, model);
+        onComplete();
+      } finally {
+        setSaving(false);
+      }
+    },
+    [onComplete]
+  );
+
   const handleAgentSelect = useCallback(
     (agentType: string) => {
       const group = groups.find((g) => g.agentType === agentType);
@@ -87,83 +82,28 @@ export function WelcomeAgentSetup({ onComplete, className }: WelcomeAgentSetupPr
           setSelectedAgent(agentType);
         });
       } else {
-        transitionTo('check-tool', () => {
-          setSelectedAgent(agentType);
-          setSelectedModel('');
-        });
+        // No models — save immediately
+        saveAndComplete(agentType, null);
       }
     },
-    [groups, transitionTo]
+    [groups, transitionTo, saveAndComplete]
   );
 
   const handleModelSelect = useCallback(
     (model: string) => {
-      transitionTo('check-tool', () => {
-        setSelectedModel(model);
-      });
+      if (!selectedAgent) return;
+      saveAndComplete(selectedAgent, model);
     },
-    [transitionTo]
+    [selectedAgent, saveAndComplete]
   );
-
-  const handleProceedToAuth = useCallback(() => {
-    transitionTo('authenticate');
-  }, [transitionTo]);
 
   const handleBack = useCallback(() => {
     if (step === 'select-model') {
       transitionTo('select-agent', () => {
         setSelectedAgent(null);
       });
-    } else if (step === 'check-tool') {
-      if (activeGroup && activeGroup.models.length > 0) {
-        transitionTo('select-model', () => {
-          setSelectedModel(null);
-        });
-      } else {
-        transitionTo('select-agent', () => {
-          setSelectedAgent(null);
-        });
-      }
-    } else if (step === 'authenticate') {
-      // If tool needed install, go back to check-tool; otherwise skip to model/agent
-      if (toolStatus && !toolStatus.installed && toolStatus.toolId) {
-        transitionTo('check-tool');
-      } else if (activeGroup && activeGroup.models.length > 0) {
-        transitionTo('select-model', () => {
-          setSelectedModel(null);
-        });
-      } else {
-        transitionTo('select-agent', () => {
-          setSelectedAgent(null);
-        });
-      }
     }
-  }, [step, activeGroup, toolStatus, transitionTo]);
-
-  useEffect(() => {
-    if (step !== 'check-tool' || !selectedAgent) return;
-    setCheckingTool(true);
-    checkAgentTool(selectedAgent)
-      .then((status) => {
-        setToolStatus(status);
-        // Auto-skip to authenticate when tool is already available or not required
-        if (status.installed || !status.toolId) {
-          transitionTo('authenticate');
-        }
-      })
-      .finally(() => setCheckingTool(false));
-  }, [step, selectedAgent, transitionTo]);
-
-  const handleConfirm = useCallback(async () => {
-    if (!selectedAgent) return;
-    setSaving(true);
-    try {
-      await updateAgentAndModel(selectedAgent, selectedModel ?? null);
-      onComplete();
-    } finally {
-      setSaving(false);
-    }
-  }, [selectedAgent, selectedModel, onComplete]);
+  }, [step, transitionTo]);
 
   if (loading) {
     return (
@@ -208,32 +148,11 @@ export function WelcomeAgentSetup({ onComplete, className }: WelcomeAgentSetupPr
                 );
               })()
             : null}
-          {step === 'check-tool' && (
-            <>
-              <Bot className="h-3.5 w-3.5" />
-              <span className="text-[10px] font-semibold tracking-widest uppercase">
-                Verifying setup
-              </span>
-            </>
-          )}
-          {step === 'authenticate' && activeGroup
-            ? (() => {
-                const AgentIcon = getAgentTypeIcon(activeGroup.agentType);
-                return (
-                  <>
-                    <AgentIcon className="h-3.5 w-3.5" />
-                    <span className="text-[10px] font-semibold tracking-widest uppercase">
-                      Authenticate
-                    </span>
-                  </>
-                );
-              })()
-            : null}
         </div>
       </div>
 
-      {/* Step indicator — fixed width */}
-      <div className="flex w-32 items-center gap-1">
+      {/* Step indicator */}
+      <div className="flex w-full items-center gap-1">
         {STEPS.map((s, i) => (
           <div
             key={s}
@@ -261,8 +180,9 @@ export function WelcomeAgentSetup({ onComplete, className }: WelcomeAgentSetupPr
                 <button
                   key={group.agentType}
                   type="button"
+                  disabled={saving}
                   data-testid={`agent-option-${group.agentType}`}
-                  className="border-border hover:border-foreground/40 flex w-full cursor-pointer items-center gap-2.5 rounded-md border border-dashed px-4 py-2.5 transition-colors"
+                  className="border-border hover:border-foreground/40 flex w-full cursor-pointer items-center gap-2.5 rounded-md border border-dashed px-4 py-2.5 transition-colors disabled:opacity-50"
                   onClick={() => handleAgentSelect(group.agentType)}
                 >
                   <GroupIcon className="text-muted-foreground h-4 w-4 shrink-0" />
@@ -279,6 +199,7 @@ export function WelcomeAgentSetup({ onComplete, className }: WelcomeAgentSetupPr
           <div data-testid="model-list" className="flex w-full flex-col gap-1.5">
             <button
               type="button"
+              disabled={saving}
               className="text-muted-foreground hover:text-foreground mb-0.5 flex cursor-pointer items-center gap-1 self-start text-[10px] font-medium transition-colors"
               onClick={handleBack}
             >
@@ -292,8 +213,9 @@ export function WelcomeAgentSetup({ onComplete, className }: WelcomeAgentSetupPr
                   <button
                     key={m.id}
                     type="button"
+                    disabled={saving}
                     data-testid={`model-option-${m.id}`}
-                    className="border-border hover:border-foreground/40 flex w-full cursor-pointer items-center gap-2.5 rounded-md border border-dashed px-4 py-2.5 text-left transition-colors"
+                    className="border-border hover:border-foreground/40 flex w-full cursor-pointer items-center gap-2.5 rounded-md border border-dashed px-4 py-2.5 text-left transition-colors disabled:opacity-50"
                     onClick={() => handleModelSelect(m.id)}
                   >
                     <div className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -310,347 +232,6 @@ export function WelcomeAgentSetup({ onComplete, className }: WelcomeAgentSetupPr
               })}
             </div>
           </div>
-        ) : null}
-
-        {/* Step 3: Tool check */}
-        {step === 'check-tool' && (
-          <ToolCheckStep
-            toolStatus={toolStatus}
-            checking={checkingTool}
-            saving={false}
-            onConfirm={handleProceedToAuth}
-            onBack={handleBack}
-            onToolInstalled={() => {
-              if (selectedAgent) {
-                setCheckingTool(true);
-                checkAgentTool(selectedAgent)
-                  .then(setToolStatus)
-                  .finally(() => setCheckingTool(false));
-              }
-            }}
-          />
-        )}
-
-        {/* Step 4: Authenticate */}
-        {step === 'authenticate' && toolStatus ? (
-          <AuthenticateStep
-            toolStatus={toolStatus}
-            agentLabel={activeGroup?.label ?? selectedAgent ?? 'Agent'}
-            saving={saving}
-            onConfirm={handleConfirm}
-            onBack={handleBack}
-          />
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-/** Sub-component for the tool verification step */
-function ToolCheckStep({
-  toolStatus,
-  checking,
-  saving,
-  onConfirm,
-  onBack,
-  onToolInstalled,
-}: {
-  toolStatus: AgentToolStatus | null;
-  checking: boolean;
-  saving: boolean;
-  onConfirm: () => void;
-  onBack: () => void;
-  onToolInstalled: () => void;
-}) {
-  if (checking || !toolStatus) {
-    return (
-      <div className="flex flex-col items-center gap-2 py-4">
-        <Loader2 className="text-muted-foreground h-4 w-4 animate-spin" />
-        <p className="text-muted-foreground text-[10px]">Checking tool availability…</p>
-      </div>
-    );
-  }
-
-  // Agent doesn't require a tool (e.g., dev/demo)
-  if (!toolStatus.toolId) {
-    return (
-      <div className="flex w-full flex-col items-center gap-3">
-        <div className="text-muted-foreground flex items-center gap-1.5">
-          <CheckCircle2 className="h-3.5 w-3.5" />
-          <span className="text-xs">No additional tools required</span>
-        </div>
-        <ConfirmRow saving={saving} onConfirm={onConfirm} onBack={onBack} />
-      </div>
-    );
-  }
-
-  if (toolStatus.installed) {
-    return (
-      <div className="flex w-full flex-col items-center gap-3">
-        <div className="text-muted-foreground flex items-center gap-1.5">
-          <CheckCircle2 className="h-3.5 w-3.5" />
-          <span className="text-xs">{toolStatus.tool?.name ?? toolStatus.toolId} is installed</span>
-        </div>
-        <ConfirmRow saving={saving} onConfirm={onConfirm} onBack={onBack} />
-      </div>
-    );
-  }
-
-  return (
-    <ToolInstallInline
-      toolStatus={toolStatus}
-      saving={saving}
-      onConfirm={onConfirm}
-      onBack={onBack}
-      onInstalled={onToolInstalled}
-    />
-  );
-}
-
-/** Shared back + continue row */
-function ConfirmRow({
-  saving,
-  onConfirm,
-  onBack,
-  label = 'Continue',
-}: {
-  saving: boolean;
-  onConfirm: () => void;
-  onBack: () => void;
-  label?: string;
-}) {
-  return (
-    <div className="flex items-center gap-3">
-      <button
-        type="button"
-        className="text-muted-foreground hover:text-foreground cursor-pointer text-[10px] transition-colors"
-        onClick={onBack}
-      >
-        <ChevronLeft className="mr-0.5 inline h-3 w-3" />
-        Back
-      </button>
-      <button
-        type="button"
-        data-testid="agent-setup-confirm"
-        disabled={saving}
-        className="border-border hover:border-foreground/40 flex cursor-pointer items-center gap-1.5 rounded-md border border-dashed px-4 py-2 text-xs font-medium transition-colors disabled:opacity-50"
-        onClick={onConfirm}
-      >
-        {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-        {label}
-      </button>
-    </div>
-  );
-}
-
-/** Authenticate step — optional agent launch for auth */
-function AuthenticateStep({
-  toolStatus,
-  agentLabel,
-  saving,
-  onConfirm,
-  onBack,
-}: {
-  toolStatus: AgentToolStatus;
-  agentLabel: string;
-  saving: boolean;
-  onConfirm: () => void;
-  onBack: () => void;
-}) {
-  const [launching, setLaunching] = useState(false);
-  const [launched, setLaunched] = useState(false);
-
-  const handleLaunch = useCallback(async () => {
-    if (!toolStatus.toolId) return;
-    setLaunching(true);
-    try {
-      const res = await fetch(`/api/tools/${toolStatus.toolId}/launch`, { method: 'POST' });
-      if (res.ok) setLaunched(true);
-    } finally {
-      setLaunching(false);
-    }
-  }, [toolStatus.toolId]);
-
-  // No tool = no auth needed, skip straight to confirm
-  if (!toolStatus.toolId) {
-    return (
-      <div className="flex w-full flex-col items-center gap-3">
-        <p className="text-muted-foreground text-[10px]">No authentication required</p>
-        <ConfirmRow saving={saving} onConfirm={onConfirm} onBack={onBack} label="Done" />
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex w-full flex-col items-center gap-3">
-      <p className="text-muted-foreground text-center text-[10px] leading-relaxed">
-        Open {agentLabel} in a terminal to sign in.
-        <br />
-        Follow the prompts, then come back here.
-      </p>
-
-      <button
-        type="button"
-        data-testid="agent-setup-launch"
-        disabled={launching}
-        onClick={handleLaunch}
-        className="border-border hover:border-foreground/40 flex w-full cursor-pointer items-center gap-2.5 rounded-md border border-dashed px-4 py-2.5 transition-colors disabled:opacity-50"
-      >
-        {launching ? (
-          <Loader2 className="text-muted-foreground h-4 w-4 animate-spin" />
-        ) : (
-          <Terminal className="text-muted-foreground h-4 w-4" />
-        )}
-        <span className="flex-1 text-left text-xs font-medium">
-          {launched ? 'Open again' : `Open ${agentLabel}`}
-        </span>
-        <ExternalLink className="text-muted-foreground h-3 w-3" />
-      </button>
-
-      {launched ? (
-        <p className="text-muted-foreground text-[10px]">
-          Terminal opened — complete sign-in there
-        </p>
-      ) : null}
-
-      {toolStatus.binaryName ? (
-        <div className="flex w-full flex-col gap-1">
-          <p className="text-muted-foreground text-[10px]">Or run manually in any terminal:</p>
-          <div className="w-full rounded-md bg-zinc-900 px-3 py-1.5 font-mono text-[11px] text-zinc-300">
-            <span className="text-zinc-500 select-none">$ </span>
-            {toolStatus.binaryName}
-          </div>
-        </div>
-      ) : null}
-
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          className="text-muted-foreground hover:text-foreground cursor-pointer text-[10px] transition-colors"
-          onClick={onBack}
-        >
-          <ChevronLeft className="mr-0.5 inline h-3 w-3" />
-          Back
-        </button>
-        <button
-          type="button"
-          data-testid="agent-setup-confirm"
-          disabled={saving}
-          className="border-border hover:border-foreground/40 flex cursor-pointer items-center gap-1.5 rounded-md border border-dashed px-4 py-2 text-xs font-medium transition-colors disabled:opacity-50"
-          onClick={onConfirm}
-        >
-          {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-          {launched ? 'Done' : 'Skip'}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-/** Inline tool installer for the welcome wizard */
-function ToolInstallInline({
-  toolStatus,
-  saving,
-  onConfirm,
-  onBack,
-  onInstalled,
-}: {
-  toolStatus: AgentToolStatus;
-  saving: boolean;
-  onConfirm: () => void;
-  onBack: () => void;
-  onInstalled: () => void;
-}) {
-  const toolId = toolStatus.toolId ?? '';
-  const { logs, status, startInstall } = useToolInstallStream(toolId);
-
-  const isInstallDone = status === 'done';
-  const isInstallError = status === 'error';
-
-  useEffect(() => {
-    if (isInstallDone) {
-      onInstalled();
-    }
-  }, [isInstallDone, onInstalled]);
-
-  return (
-    <div className="flex w-full flex-col items-center gap-3">
-      <div className="flex items-center gap-1.5">
-        {isInstallDone ? (
-          <CheckCircle2 className="text-muted-foreground h-3.5 w-3.5" />
-        ) : isInstallError ? (
-          <AlertCircle className="text-destructive h-3.5 w-3.5" />
-        ) : (
-          <Circle className="text-muted-foreground h-3.5 w-3.5" />
-        )}
-        <span className="text-xs">
-          {toolStatus.tool?.name ?? toolId}{' '}
-          {isInstallDone ? 'installed' : isInstallError ? 'install failed' : 'is not installed'}
-        </span>
-      </div>
-
-      {/* Install command info */}
-      {toolStatus.tool?.installCommand && status === 'idle' ? (
-        <div className="w-full rounded-md bg-zinc-900 px-3 py-2 font-mono text-[11px] text-zinc-300">
-          <span className="text-zinc-500 select-none">$ </span>
-          {toolStatus.tool.installCommand}
-        </div>
-      ) : null}
-
-      {/* Install log */}
-      {(status === 'streaming' || isInstallDone || isInstallError) && logs.length > 0 ? (
-        <div className="max-h-28 w-full overflow-auto rounded-md bg-zinc-900 px-3 py-2 font-mono text-[10px] leading-relaxed text-zinc-400">
-          {logs.map((line, idx) => (
-            // eslint-disable-next-line react/no-array-index-key -- logs are append-only, never reorder
-            <div key={idx} className="break-all whitespace-pre-wrap">
-              {line}
-            </div>
-          ))}
-          {isInstallDone ? (
-            <div className="text-muted-foreground mt-1">Installation complete</div>
-          ) : null}
-          {isInstallError ? (
-            <div className="text-destructive mt-1">Installation failed — try manually</div>
-          ) : null}
-        </div>
-      ) : null}
-
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          className="text-muted-foreground hover:text-foreground cursor-pointer text-[10px] transition-colors"
-          onClick={onBack}
-        >
-          <ChevronLeft className="mr-0.5 inline h-3 w-3" />
-          Back
-        </button>
-        {!isInstallDone && toolStatus.tool?.autoInstall ? (
-          <button
-            type="button"
-            data-testid="agent-setup-install"
-            disabled={status === 'streaming'}
-            className="border-border hover:border-foreground/40 flex cursor-pointer items-center gap-1.5 rounded-md border border-dashed px-4 py-2 text-xs font-medium transition-colors disabled:opacity-50"
-            onClick={startInstall}
-          >
-            {status === 'streaming' ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            ) : (
-              <Download className="h-3 w-3" />
-            )}
-            {status === 'streaming' ? 'Installing…' : 'Install'}
-          </button>
-        ) : null}
-        {isInstallDone ? (
-          <button
-            type="button"
-            data-testid="agent-setup-confirm"
-            disabled={saving}
-            className="border-border hover:border-foreground/40 flex cursor-pointer items-center gap-1.5 rounded-md border border-dashed px-4 py-2 text-xs font-medium transition-colors disabled:opacity-50"
-            onClick={onConfirm}
-          >
-            {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-            Continue
-          </button>
         ) : null}
       </div>
     </div>

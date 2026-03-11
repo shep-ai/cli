@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect, useRef } from 'react';
 import { Loader2, AlertCircle, Clock } from 'lucide-react';
 import type {
   PhaseTimingData,
@@ -7,6 +8,48 @@ import type {
 } from '@/app/actions/get-feature-phase-timings';
 import { InlineAttachments } from '@/components/common/inline-attachments';
 import { formatDuration } from '@/lib/format-duration';
+
+/**
+ * Computes the effective duration for a phase timing entry.
+ * For completed phases, uses the server-provided durationMs.
+ * For in-progress phases (has startedAt but no completedAt), computes
+ * elapsed time client-side so the UI shows a live-updating timer.
+ */
+function getEffectiveDuration(timing: PhaseTimingData, now: number): number {
+  if (timing.durationMs != null && timing.durationMs > 0) return timing.durationMs;
+  if (!timing.completedAt && timing.startedAt) {
+    const started = new Date(timing.startedAt).getTime();
+    if (!Number.isNaN(started)) return Math.max(0, now - started);
+  }
+  return 0;
+}
+
+/** Returns true if any non-lifecycle phase is still in progress. */
+function hasRunningPhase(timings: PhaseTimingData[]): boolean {
+  return timings.some((t) => !t.phase.startsWith('run:') && !t.completedAt && t.startedAt);
+}
+
+/** Hook that ticks every second while there are running phases. */
+function useTickingNow(timings: PhaseTimingData[] | null): number {
+  const [now, setNow] = useState(Date.now);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    const running = timings ? hasRunningPhase(timings) : false;
+    if (running) {
+      // Tick every second
+      intervalRef.current = setInterval(() => setNow(Date.now()), 1000);
+    }
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [timings]);
+
+  return now;
+}
 
 export interface ActivityTabProps {
   timings: PhaseTimingData[] | null;
@@ -145,6 +188,8 @@ export function buildLifecycleTimeline(
  * ------------------------------------------------------------------------- */
 
 export function ActivityTab({ timings, loading, error, rejectionFeedback }: ActivityTabProps) {
+  const now = useTickingNow(timings);
+
   if (loading) {
     return (
       <div data-testid="activity-tab-loading" className="flex items-center justify-center p-8">
@@ -173,7 +218,7 @@ export function ActivityTab({ timings, loading, error, rejectionFeedback }: Acti
 
   const nodeTimings = timings.filter((t) => !isLifecycleEvent(t.phase));
   const maxDurationMs = Math.max(
-    ...nodeTimings.map((t) => t.durationMs ?? 0),
+    ...nodeTimings.map((t) => getEffectiveDuration(t, now)),
     ...nodeTimings.map((t) => t.approvalWaitMs ?? 0),
     0
   );
@@ -181,7 +226,7 @@ export function ActivityTab({ timings, loading, error, rejectionFeedback }: Acti
   const iterations = buildLifecycleTimeline(timings, rejectionFeedback);
   const hasMultipleIterations = iterations.length > 1;
 
-  const totalExecMs = nodeTimings.reduce((sum, t) => sum + (t.durationMs ?? 0), 0);
+  const totalExecMs = nodeTimings.reduce((sum, t) => sum + getEffectiveDuration(t, now), 0);
   const totalWaitMs = nodeTimings.reduce((sum, t) => sum + (t.approvalWaitMs ?? 0), 0);
 
   return (
@@ -193,6 +238,7 @@ export function ActivityTab({ timings, loading, error, rejectionFeedback }: Acti
             iteration={iteration}
             showHeader={hasMultipleIterations}
             maxDurationMs={maxDurationMs}
+            now={now}
           />
         ))}
       </div>
@@ -211,10 +257,12 @@ function IterationGroup({
   iteration,
   showHeader,
   maxDurationMs,
+  now,
 }: {
   iteration: TimelineIteration;
   showHeader: boolean;
   maxDurationMs: number;
+  now: number;
 }) {
   return (
     <div data-testid={`iteration-${iteration.number}`} className="flex flex-col gap-1.5">
@@ -241,6 +289,7 @@ function IterationGroup({
             key={`${t.agentRunId}-${t.phase}-${t.startedAt}`}
             timing={t}
             maxDurationMs={maxDurationMs}
+            now={now}
           />
         );
       })}
@@ -289,16 +338,19 @@ function LifecycleEventRow({
 function NodeTimingRow({
   timing,
   maxDurationMs,
+  now,
 }: {
   timing: PhaseTimingData;
   maxDurationMs: number;
+  now: number;
 }) {
   const label = timing.phase.includes(':')
     ? `rev ${timing.phase.split(':')[1]}`
     : (NODE_TO_PHASE[timing.phase] ?? timing.phase);
 
-  const durationMs = timing.durationMs ?? 0;
+  const durationMs = getEffectiveDuration(timing, now);
   const barPercent = maxDurationMs > 0 ? Math.max(2, (durationMs / maxDurationMs) * 100) : 2;
+  const isRunning = !timing.completedAt && !!timing.startedAt;
   const barColorClass = timing.completedAt ? 'bg-emerald-500' : 'bg-blue-500';
 
   return (
@@ -307,7 +359,7 @@ function NodeTimingRow({
         <span className="text-muted-foreground w-24 shrink-0 text-xs">{label}</span>
         <div className="bg-muted h-3 flex-1 overflow-hidden rounded-full">
           <div
-            className={`h-full rounded-full ${barColorClass}`}
+            className={`h-full rounded-full ${barColorClass}${isRunning ? 'animate-pulse' : ''}`}
             style={{ width: `${Math.min(barPercent, 100)}%` }}
           />
         </div>

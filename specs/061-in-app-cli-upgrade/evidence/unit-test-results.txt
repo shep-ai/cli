@@ -1,0 +1,33 @@
+
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-in-app-cli-upgrade[39m
+
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/application/use-cases/upgrade/upgrade-cli.use-case.test.ts[2m > [22mUpgradeCliUseCase[2m > [22malready up to date[2m > [22mshould return up-to-date when latest equals current[32m 1[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/application/use-cases/upgrade/upgrade-cli.use-case.test.ts[2m > [22mUpgradeCliUseCase[2m > [22malready up to date[2m > [22mshould not spawn npm install when already up to date[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/application/use-cases/upgrade/upgrade-cli.use-case.test.ts[2m > [22mUpgradeCliUseCase[2m > [22msuccessful upgrade[2m > [22mshould return upgraded status on successful install[32m 52[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/application/use-cases/upgrade/upgrade-cli.use-case.test.ts[2m > [22mUpgradeCliUseCase[2m > [22msuccessful upgrade[2m > [22mshould stream output via onOutput callback[32m 51[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/application/use-cases/upgrade/upgrade-cli.use-case.test.ts[2m > [22mUpgradeCliUseCase[2m > [22msuccessful upgrade[2m > [22mshould call npm install with correct arguments[32m 52[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/application/use-cases/upgrade/upgrade-cli.use-case.test.ts[2m > [22mUpgradeCliUseCase[2m > [22merror handling[2m > [22mshould return error status on non-zero exit[32m 50[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/application/use-cases/upgrade/upgrade-cli.use-case.test.ts[2m > [22mUpgradeCliUseCase[2m > [22merror handling[2m > [22mshould return error status when npm install spawn fails[32m 51[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/application/use-cases/upgrade/upgrade-cli.use-case.test.ts[2m > [22mUpgradeCliUseCase[2m > [22merror handling[2m > [22mshould proceed with upgrade when version check fails[32m 50[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/application/use-cases/upgrade/upgrade-cli.use-case.test.ts[2m > [22mUpgradeCliUseCase[2m > [22merror handling[2m > [22mshould proceed with upgrade when version check times out[32m 52[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/hooks/use-cli-upgrade.test.ts[2m > [22museCliUpgrade[2m > [22mstarts in idle state[32m 6[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/hooks/use-cli-upgrade.test.ts[2m > [22museCliUpgrade[2m > [22mtransitions to upgrading state when startUpgrade is called[32m 2[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/hooks/use-cli-upgrade.test.ts[2m > [22museCliUpgrade[2m > [22mtransitions to upgraded state on successful upgrade[32m 54[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/hooks/use-cli-upgrade.test.ts[2m > [22museCliUpgrade[2m > [22mtransitions to up-to-date state when already current[32m 53[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/hooks/use-cli-upgrade.test.ts[2m > [22museCliUpgrade[2m > [22mtransitions to error state on server error[32m 53[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/hooks/use-cli-upgrade.test.ts[2m > [22museCliUpgrade[2m > [22mtransitions to error state on network error[32m 53[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/hooks/use-cli-upgrade.test.ts[2m > [22museCliUpgrade[2m > [22mcalls POST /api/cli-upgrade[32m 1[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/common/version-badge.test.tsx[2m > [22mVersionBadge[2m > [22mrenders the version in production mode[32m 18[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/common/version-badge.test.tsx[2m > [22mVersionBadge[2m > [22mshows version-dev in dev mode[32m 2[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/common/version-badge.test.tsx[2m > [22mVersionBadge[2m > [22mshows version-dev without hash when no commit provided[32m 2[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/common/version-badge.test.tsx[2m > [22mVersionBadge[2m > [22mdoes not show branch inline in production mode[32m 2[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/common/version-badge.test.tsx[2m > [22mVersionBadge[2m > [22mversion label is the tooltip trigger[32m 2[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/common/version-badge.test.tsx[2m > [22mVersionBadge[2m > [22mshows update dot when a newer version is available[32m 5[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/common/version-badge.test.tsx[2m > [22mVersionBadge[2m > [22mdoes not show update dot when on latest version[32m 3[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/common/version-badge.test.tsx[2m > [22mVersionBadge[2m > [22mshows upgrade button in tooltip when update is available[32m 274[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m3 passed[39m[22m[90m (3)[39m
+[2m      Tests [22m [1m[32m24 passed[39m[22m[90m (24)[39m
+[2m   Start at [22m 18:19:18
+[2m   Duration [22m 1.10s[2m (transform 106ms, setup 253ms, import 240ms, tests 893ms, environment 894ms)[22m
+

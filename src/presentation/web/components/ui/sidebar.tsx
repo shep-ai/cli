@@ -20,7 +20,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
-const SIDEBAR_STORAGE_KEY = 'sidebar_state';
+const SIDEBAR_STORAGE_KEY = 'shep-sidebar-open';
 const SIDEBAR_WIDTH = '16rem';
 const SIDEBAR_WIDTH_MOBILE = '18rem';
 const SIDEBAR_WIDTH_ICON = '3rem';
@@ -49,6 +49,17 @@ function useSidebar() {
   return context;
 }
 
+function readSidebarState(fallback: boolean): boolean {
+  try {
+    const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY);
+    if (stored === 'true') return true;
+    if (stored === 'false') return false;
+    return fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 function SidebarProvider({
   defaultOpen = true,
   open: openProp,
@@ -65,28 +76,21 @@ function SidebarProvider({
   const isMobile = useIsMobile();
   const [openMobile, setOpenMobile] = React.useState(false);
 
-  // Always initialise with defaultOpen to match SSR output and avoid hydration mismatches.
+  // Initialize with defaultOpen to match SSR — localStorage is read after hydration.
   const [_open, _setOpen] = React.useState(defaultOpen);
 
   // skipTransition suppresses CSS transitions when restoring from localStorage.
   const [skipTransition, setSkipTransition] = React.useState(false);
 
-  // After mount, sync open state from localStorage (client-only).
-  // This avoids the server/client branch that causes hydration errors.
+  // After hydration, sync state from localStorage and suppress transition animation.
   React.useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem(SIDEBAR_STORAGE_KEY);
-      if (stored === 'true' && !_open) {
-        setSkipTransition(true);
-        _setOpen(true);
-      } else if (stored === 'false' && _open) {
-        setSkipTransition(true);
-        _setOpen(false);
-      }
-    } catch {
-      // localStorage unavailable
+    if (openProp !== undefined) return; // controlled mode — skip
+    const stored = readSidebarState(defaultOpen);
+    if (stored !== defaultOpen) {
+      setSkipTransition(true);
+      _setOpen(stored);
     }
-    // Only run once on mount — intentionally omitting _open from deps.
+    // Only run once on mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -99,6 +103,7 @@ function SidebarProvider({
   }, [skipTransition]);
 
   const open = openProp ?? _open;
+
   const setOpen = React.useCallback(
     (value: boolean | ((value: boolean) => boolean)) => {
       const openState = typeof value === 'function' ? value(open) : value;
@@ -108,11 +113,11 @@ function SidebarProvider({
         _setOpen(openState);
       }
 
-      // Persist sidebar state in localStorage.
+      // Persist sidebar state to localStorage.
       try {
-        window.localStorage.setItem(SIDEBAR_STORAGE_KEY, String(openState));
+        localStorage.setItem(SIDEBAR_STORAGE_KEY, String(openState));
       } catch {
-        // localStorage unavailable
+        // Silently ignore storage errors (e.g. quota exceeded, private browsing).
       }
     },
     [setOpenProp, open]
@@ -707,6 +712,7 @@ function SidebarMenuSubButton({
 }
 
 export {
+  SIDEBAR_STORAGE_KEY,
   Sidebar,
   SidebarContent,
   SidebarFooter,

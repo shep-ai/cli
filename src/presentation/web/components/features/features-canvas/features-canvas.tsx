@@ -1,9 +1,17 @@
 'use client';
 
-import { useCallback, useMemo } from 'react';
-import { ReactFlow, Background, Controls, ControlButton, useReactFlow } from '@xyflow/react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ReactFlow,
+  Background,
+  BackgroundVariant,
+  Controls,
+  ControlButton,
+  useReactFlow,
+} from '@xyflow/react';
 import type { Connection, Edge, NodeChange, OnMoveEnd, Viewport } from '@xyflow/react';
 import { Plus, RotateCcw } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/common/empty-state';
 import { FeatureNode } from '@/components/common/feature-node';
@@ -94,35 +102,54 @@ export function FeaturesCanvas({
     [nodes, selectedFeatureId]
   );
 
-  if (nodes.length === 0) {
-    if (emptyState) {
-      return (
-        <div data-testid="features-canvas-empty" className="h-full w-full">
-          {emptyState}
-        </div>
-      );
+  const isEmpty = nodes.length === 0;
+
+  // Track empty→populated transition for exit animation.
+  // When isEmpty flips from true to false, keep the overlay mounted
+  // and fade it out before removing it from the DOM.
+  const [showOverlay, setShowOverlay] = useState(isEmpty);
+  const [overlayExiting, setOverlayExiting] = useState(false);
+  const prevEmptyRef = useRef(isEmpty);
+
+  useEffect(() => {
+    if (prevEmptyRef.current && !isEmpty) {
+      // Was empty, now populated — start exit animation
+      setOverlayExiting(true);
+      const timer = setTimeout(() => {
+        setShowOverlay(false);
+        setOverlayExiting(false);
+      }, 300);
+      prevEmptyRef.current = isEmpty;
+      return () => clearTimeout(timer);
     }
-    return (
-      <div data-testid="features-canvas-empty">
-        <EmptyState
-          title="No features yet"
-          description="Get started by creating your first feature."
-          action={
-            <Button onClick={onAddFeature}>
-              <Plus className="mr-2 h-4 w-4" />
-              New Feature
-            </Button>
-          }
-        />
-      </div>
-    );
-  }
+    if (!prevEmptyRef.current && isEmpty) {
+      // Was populated, now empty — show overlay immediately
+      setShowOverlay(true);
+    }
+    prevEmptyRef.current = isEmpty;
+  }, [isEmpty]);
+
+  const fallbackEmptyState =
+    isEmpty && !emptyState ? (
+      <EmptyState
+        title="No features yet"
+        description="Get started by creating your first feature."
+        action={
+          <Button onClick={onAddFeature}>
+            <Plus className="mr-2 h-4 w-4" />
+            New Feature
+          </Button>
+        }
+      />
+    ) : null;
+
+  const overlayContent = emptyState ?? fallbackEmptyState;
 
   return (
     <div
-      data-testid="features-canvas"
+      data-testid={isEmpty ? 'features-canvas-empty' : 'features-canvas'}
       data-no-drawer-close
-      className="pointer-events-auto h-full w-full"
+      className="dark:bg-background pointer-events-auto relative h-full w-full bg-[#f6f7f8]"
     >
       <ReactFlow
         nodes={enrichedNodes}
@@ -141,12 +168,30 @@ export function FeaturesCanvas({
         elementsSelectable={false}
         proOptions={{ hideAttribution: true }}
       >
-        <Background />
-        <Controls showInteractive={false}>
-          {onResetViewport ? <ResetButton onResetViewport={onResetViewport} /> : null}
-        </Controls>
+        <Background
+          variant={BackgroundVariant.Dots}
+          gap={24}
+          size={1}
+          color="#b8bcc4"
+          className="dark:[&_circle]:!fill-white/[0.1]"
+        />
+        {!isEmpty && (
+          <Controls showInteractive={false}>
+            {onResetViewport ? <ResetButton onResetViewport={onResetViewport} /> : null}
+          </Controls>
+        )}
         {toolbar}
       </ReactFlow>
+      {showOverlay && overlayContent ? (
+        <div
+          className={cn(
+            'pointer-events-none absolute inset-0 z-10 flex items-center justify-center transition-opacity duration-300',
+            overlayExiting ? 'opacity-0' : 'animate-in fade-in opacity-100 duration-200'
+          )}
+        >
+          <div className="pointer-events-auto">{overlayContent}</div>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -322,7 +322,6 @@ export function useControlCenterState(
         updateFeature(childId, { state: 'deleting' });
       }
       deleteSound.play();
-      toast.success('Deleting feature…');
       router.push('/');
 
       deleteFeature(featureId, cleanup)
@@ -393,7 +392,6 @@ export function useControlCenterState(
           return;
         }
         deleteSound.play();
-        toast.success('Repository removed');
       } catch {
         toast.error('Failed to remove repository');
         rollback();

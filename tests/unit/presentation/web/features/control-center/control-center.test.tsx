@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
@@ -14,15 +14,13 @@ vi.mock('@/hooks/agent-events-provider', () => ({
   }),
 }));
 
+vi.mock('@/app/actions/agent-setup-flag', () => ({
+  isAgentSetupComplete: vi.fn(() => Promise.resolve(false)),
+}));
+
 vi.mock('@/app/actions/get-all-agent-models', () => ({
   getAllAgentModels: vi.fn(() =>
     Promise.resolve([{ agentType: 'dev', label: 'Demo', models: [] }])
-  ),
-}));
-
-vi.mock('@/app/actions/check-agent-tool', () => ({
-  checkAgentTool: vi.fn(() =>
-    Promise.resolve({ agentType: 'dev', toolId: null, tool: null, installed: true })
   ),
 }));
 
@@ -30,13 +28,17 @@ vi.mock('@/app/actions/update-agent-and-model', () => ({
   updateAgentAndModel: vi.fn(() => Promise.resolve({ ok: true })),
 }));
 
-vi.mock('@/hooks/use-tool-install-stream', () => ({
-  useToolInstallStream: () => ({
-    logs: [],
-    status: 'idle',
-    result: null,
-    startInstall: vi.fn(),
-  }),
+vi.mock('@/app/actions/check-agent-auth', () => ({
+  checkAgentAuth: vi.fn(() =>
+    Promise.resolve({
+      agentType: 'dev',
+      installed: true,
+      authenticated: true,
+      label: 'Demo',
+      binaryName: null,
+      authCommand: null,
+    })
+  ),
 }));
 
 vi.mock('@/components/common/feature-node/agent-type-icons', () => ({
@@ -111,7 +113,7 @@ describe('ControlCenter', () => {
     expect(screen.getByTestId('control-center')).toBeInTheDocument();
   });
 
-  it('shows empty state with agent setup when no nodes provided', () => {
+  it('shows empty state with agent setup when no nodes provided', async () => {
     render(
       <DrawerCloseGuardProvider>
         <SidebarFeaturesProvider>
@@ -119,7 +121,9 @@ describe('ControlCenter', () => {
         </SidebarFeaturesProvider>
       </DrawerCloseGuardProvider>
     );
-    expect(screen.getByTestId('control-center-empty-state')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId('control-center-empty-state')).toBeInTheDocument();
+    });
     // Agent setup wizard is shown first — repo section is gated behind it
     expect(screen.getByTestId('welcome-agent-setup')).toBeInTheDocument();
   });

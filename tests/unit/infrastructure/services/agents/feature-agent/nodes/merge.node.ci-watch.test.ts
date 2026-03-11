@@ -416,6 +416,7 @@ describe('createMergeNode — CI watch/fix loop', () => {
       await node(baseState({ push: true }));
 
       expect(deps.gitPrService.getFailureLogs).toHaveBeenCalledWith(
+        '/tmp/worktree',
         '99999',
         expect.any(String),
         expect.any(Number)
@@ -740,6 +741,7 @@ describe('createMergeNode — CI watch/fix loop', () => {
       await node(baseState({ push: true }));
 
       expect(deps.gitPrService.getFailureLogs).toHaveBeenCalledWith(
+        '/tmp/worktree',
         expect.any(String),
         expect.any(String),
         25_000

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import type { Edge, Viewport } from '@xyflow/react';
 import { useReactFlow } from '@xyflow/react';
@@ -283,6 +283,32 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
 
   const hasRepositories = nodes.some((n) => n.type === 'repositoryNode');
 
+  // Debounced latch: prevent empty-state flicker during brief reconcile gaps
+  // (e.g. stale poll momentarily drops repos), but allow the empty state to
+  // return after a real delete once repos stay gone past the debounce window.
+  const [showCanvas, setShowCanvas] = useState(hasRepositories);
+  const latchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (hasRepositories) {
+      // Repos exist — show canvas immediately, cancel any pending unlatch
+      if (latchTimerRef.current) {
+        clearTimeout(latchTimerRef.current);
+        latchTimerRef.current = null;
+      }
+      setShowCanvas(true);
+    } else if (showCanvas) {
+      // Repos gone — wait before showing empty state (debounce stale polls)
+      latchTimerRef.current = setTimeout(() => {
+        setShowCanvas(false);
+        latchTimerRef.current = null;
+      }, 500);
+    }
+    return () => {
+      if (latchTimerRef.current) clearTimeout(latchTimerRef.current);
+    };
+  }, [hasRepositories, showCanvas]);
+
   // Pulse the "+" button when there's a single repo with no features and the
   // create-feature drawer is not open — draws attention to the next action.
   const isCreateDrawerOpen = pathname.startsWith('/create');
@@ -298,14 +324,10 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     );
   }, [nodes, isCreateDrawerOpen]);
 
-  if (!hasRepositories) {
-    return <ControlCenterEmptyState onRepositorySelect={handleAddRepository} />;
-  }
-
   return (
     <FeaturesCanvas
-      nodes={displayNodes}
-      edges={edges}
+      nodes={showCanvas ? displayNodes : []}
+      edges={showCanvas ? edges : []}
       selectedFeatureId={selectedFeatureId}
       defaultViewport={defaultViewport}
       onNodesChange={onNodesChange}

@@ -219,6 +219,11 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+/* React Flow — smooth position transitions when dagre relayouts nodes */
+.react-flow__node {
+  transition: transform 300ms ease;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

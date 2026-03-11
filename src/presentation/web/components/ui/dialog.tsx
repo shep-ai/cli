@@ -20,7 +20,10 @@ const DialogOverlay = React.forwardRef<
 >(({ className, onClick, ...props }, ref) => (
   <DialogPrimitive.Overlay
     ref={ref}
-    className={cn('fixed inset-0 z-50 bg-black/80', className)}
+    className={cn(
+      'data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 fixed inset-0 z-50 bg-black/80 duration-150',
+      className
+    )}
     onClick={(e) => {
       // Prevent overlay clicks from propagating to document-level handlers
       // (e.g. BaseDrawer outside-click) — only the dialog should dismiss.
@@ -41,7 +44,7 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        'bg-background fixed top-[50%] left-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border p-6 shadow-lg sm:rounded-lg',
+        'bg-background data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border p-6 shadow-lg duration-150 sm:rounded-lg',
         className
       )}
       {...props}

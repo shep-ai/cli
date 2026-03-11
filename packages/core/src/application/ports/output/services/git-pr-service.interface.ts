@@ -319,11 +319,12 @@ export interface IGitPrService {
    * Output is truncated to the first `logMaxChars` characters (head truncation).
    * A notice is appended when truncation occurs.
    *
+   * @param cwd - Working directory (must be inside a git repo so gh can resolve the remote)
    * @param runId - GitHub Actions run ID (numeric string)
    * @param branch - Branch name (informational, used in truncation notice)
    * @param logMaxChars - Maximum characters to return (default 50_000)
    * @returns Truncated failure log output
    * @throws GitPrError with GH_NOT_FOUND or GIT_ERROR code on failure
    */
-  getFailureLogs(runId: string, branch: string, logMaxChars?: number): Promise<string>;
+  getFailureLogs(cwd: string, runId: string, branch: string, logMaxChars?: number): Promise<string>;
 }

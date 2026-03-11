@@ -1,0 +1,18 @@
+
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-sidenav-state-persistence[39m
+
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/ui/sidebar-persistence.test.tsx[2m > [22mSidebarProvider — localStorage persistence[2m > [22minitialization from localStorage[2m > [22mdefaults to closed when localStorage is empty and defaultOpen is false[32m 16[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/ui/sidebar-persistence.test.tsx[2m > [22mSidebarProvider — localStorage persistence[2m > [22minitialization from localStorage[2m > [22mdefaults to open when localStorage is empty and defaultOpen is true[32m 2[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/ui/sidebar-persistence.test.tsx[2m > [22mSidebarProvider — localStorage persistence[2m > [22minitialization from localStorage[2m > [22mrestores open state from localStorage[32m 2[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/ui/sidebar-persistence.test.tsx[2m > [22mSidebarProvider — localStorage persistence[2m > [22minitialization from localStorage[2m > [22mrestores closed state from localStorage[32m 1[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/ui/sidebar-persistence.test.tsx[2m > [22mSidebarProvider — localStorage persistence[2m > [22minitialization from localStorage[2m > [22mfalls back to defaultOpen when localStorage has unexpected value[32m 1[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/ui/sidebar-persistence.test.tsx[2m > [22mSidebarProvider — localStorage persistence[2m > [22minitialization from localStorage[2m > [22mfalls back to defaultOpen when localStorage.getItem throws[32m 1[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/ui/sidebar-persistence.test.tsx[2m > [22mSidebarProvider — localStorage persistence[2m > [22mpersisting state changes[2m > [22msaves to localStorage when sidebar is toggled open[32m 53[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/ui/sidebar-persistence.test.tsx[2m > [22mSidebarProvider — localStorage persistence[2m > [22mpersisting state changes[2m > [22msaves to localStorage when sidebar is toggled closed[32m 11[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/ui/sidebar-persistence.test.tsx[2m > [22mSidebarProvider — localStorage persistence[2m > [22mpersisting state changes[2m > [22mdoes not throw when localStorage.setItem fails[32m 10[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m9 passed[39m[22m[90m (9)[39m
+[2m   Start at [22m 16:45:47
+[2m   Duration [22m 646ms[2m (transform 68ms, setup 75ms, import 177ms, tests 98ms, environment 240ms)[22m
+

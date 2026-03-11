@@ -51,6 +51,9 @@ let capturedCanvasProps: FeaturesCanvasProps;
 vi.mock('@/components/features/features-canvas', () => ({
   FeaturesCanvas: (props: FeaturesCanvasProps) => {
     capturedCanvasProps = props;
+    if (props.nodes.length === 0 && props.emptyState) {
+      return <>{props.emptyState}</>;
+    }
     return <div data-testid="mock-features-canvas" />;
   },
 }));

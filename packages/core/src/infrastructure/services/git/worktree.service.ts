@@ -143,9 +143,11 @@ export class WorktreeService implements IWorktreeService {
       }
       await this.execFile('git', ['config', 'user.name', GIT_AUTO_INIT_USER], { cwd: repoPath });
       await this.execFile('git', ['config', 'user.email', GIT_AUTO_INIT_EMAIL], { cwd: repoPath });
-      await this.execFile('git', ['commit', '--allow-empty', '-m', 'Initial commit'], {
-        cwd: repoPath,
-      });
+      await this.execFile(
+        'git',
+        ['commit', '--allow-empty', '--no-gpg-sign', '-m', 'Initial commit'],
+        { cwd: repoPath }
+      );
     } catch (error) {
       throw this.parseGitError(error);
     }

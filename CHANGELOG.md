@@ -1,3 +1,31 @@
+## [1.103.1](https://github.com/shep-ai/cli/compare/v1.103.0...v1.103.1) (2026-03-11)
+
+### Bug Fixes
+
+- **agents:** skip gpg signing for auto-init worktree commits ([#306](https://github.com/shep-ai/cli/issues/306)) ([f32b904](https://github.com/shep-ai/cli/commit/f32b90487380c129ad0729a4649c0fda34f7c9b0))
+
+# [1.103.0](https://github.com/shep-ai/cli/compare/v1.102.0...v1.103.0) (2026-03-11)
+
+### Bug Fixes
+
+- **agents:** pass cwd to getFailureLogs to prevent ci watch failure in worktrees ([#305](https://github.com/shep-ai/cli/issues/305)) ([74360e6](https://github.com/shep-ai/cli/commit/74360e6d53359788ea1aeab336fb5d0f8569b66d))
+
+### Features
+
+- **web:** canvas animations, dialog transitions, and onboarding polish ([#301](https://github.com/shep-ai/cli/issues/301)) ([15beef3](https://github.com/shep-ai/cli/commit/15beef36f830b8cc7897f64b4661ff59bdf05035))
+
+# [1.102.0](https://github.com/shep-ai/cli/compare/v1.101.4...v1.102.0) (2026-03-11)
+
+### Features
+
+- **web:** persist sidebar open/closed state in localstorage ([#303](https://github.com/shep-ai/cli/issues/303)) ([d613c1d](https://github.com/shep-ai/cli/commit/d613c1dcf297f348b6d30f33a17ec62e9f9d48aa))
+
+## [1.101.4](https://github.com/shep-ai/cli/compare/v1.101.3...v1.101.4) (2026-03-11)
+
+### Bug Fixes
+
+- **web:** fetch version at runtime via api route instead of build-time env vars ([#304](https://github.com/shep-ai/cli/issues/304)) ([a352577](https://github.com/shep-ai/cli/commit/a352577e65777345d3036362c7b2ffb408a5bf49))
+
 ## [1.101.3](https://github.com/shep-ai/cli/compare/v1.101.2...v1.101.3) (2026-03-11)
 
 ### Bug Fixes

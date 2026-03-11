@@ -120,6 +120,13 @@ export function useGraphState(
     Map<string, Partial<Pick<FeatureNodeData, 'state' | 'lifecycle' | 'name' | 'description'>>>
   >(new Map());
 
+  // Protect recently-added/replaced repos from stale-poll reconcile.
+  // After addRepository or replaceRepository, the repo ID is marked as protected.
+  // Once reconcile sees the repo in server data, the protection is cleared.
+  // This prevents a stale poll (that fetched data before the server action completed)
+  // from wiping a repo that the client has already added.
+  const protectedRepoIdsRef = useRef<Set<string>>(new Set());
+
   // Track 'deleting' features that the server no longer returns.
   // Retained for one extra reconcile cycle so the user sees the deleting state
   // before the node disappears from the canvas.
@@ -301,10 +308,10 @@ export function useGraphState(
       return changed ? next : currentPendingMap;
     });
 
-    // Merge repoMap: preserve optimistic (temp) repos that the server doesn't
-    // know about yet.  Temp repos use IDs like "repo-temp-*".  Without this,
-    // a polling reconcile that fires before the server action returns would
-    // wipe the optimistic entry, causing the repo to disappear and reappear.
+    // Merge repoMap: preserve optimistic (temp) repos AND recently-added/replaced
+    // repos that the server doesn't know about yet.  Without this, a polling
+    // reconcile that fires before the server action returns (or uses stale data
+    // from an in-flight fetch) would wipe the repo, causing a canvas→empty flicker.
     setRepoMap((currentRepoMap) => {
       // Start with everything the server returned
       const merged = new Map(newRepoMap);
@@ -312,9 +319,19 @@ export function useGraphState(
       // Build a set of repositoryPaths present in server data for dedup
       const serverPaths = new Set([...newRepoMap.values()].map((e) => e.data.repositoryPath));
 
-      // Keep optimistic entries whose path isn't in server data yet
       for (const [id, entry] of currentRepoMap) {
-        if (id.startsWith('repo-temp-') && !serverPaths.has(entry.data.repositoryPath)) {
+        if (merged.has(id)) {
+          // Server confirmed this repo — no longer needs protection
+          protectedRepoIdsRef.current.delete(id);
+          continue;
+        }
+        if (serverPaths.has(entry.data.repositoryPath)) {
+          // Server has a repo with same path — clear protection
+          protectedRepoIdsRef.current.delete(id);
+          continue;
+        }
+        // Keep temp repos or protected (recently added/replaced) repos
+        if (id.startsWith('repo-temp-') || protectedRepoIdsRef.current.has(id)) {
           merged.set(id, entry);
         }
       }
@@ -391,6 +408,7 @@ export function useGraphState(
   }, []);
 
   const addRepository = useCallback((nodeId: string, data: RepositoryNodeData) => {
+    protectedRepoIdsRef.current.add(nodeId);
     setRepoMap((prev) => {
       const next = new Map(prev);
       next.set(nodeId, { nodeId, data });
@@ -399,6 +417,7 @@ export function useGraphState(
   }, []);
 
   const removeRepository = useCallback((nodeId: string) => {
+    protectedRepoIdsRef.current.delete(nodeId);
     setRepoMap((prev) => {
       if (!prev.has(nodeId)) return prev;
       const next = new Map(prev);
@@ -409,6 +428,8 @@ export function useGraphState(
 
   const replaceRepository = useCallback(
     (tempId: string, realId: string, data: RepositoryNodeData) => {
+      protectedRepoIdsRef.current.delete(tempId);
+      protectedRepoIdsRef.current.add(realId);
       setRepoMap((prev) => {
         if (!prev.has(tempId)) return prev;
         const next = new Map(prev);
