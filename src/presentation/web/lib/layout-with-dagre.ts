@@ -57,8 +57,8 @@ function getHandlePositions(direction: LayoutDirection) {
  * Compute an automatic hierarchical layout for React Flow nodes and edges
  * using Dagre. Returns new node/edge arrays — never mutates the originals.
  *
- * Disconnected nodes (no edges) are placed below the laid-out graph
- * so they remain visible without overlapping.
+ * Disconnected nodes (no edges) are interleaved with connected root trees
+ * in their original input order, preserving the caller's sort (e.g. createdAt).
  */
 export function layoutWithDagre<N extends Node>(
   nodes: N[],
@@ -115,6 +115,24 @@ export function layoutWithDagre<N extends Node>(
     centerMap.set(node.id, { cx: dagreNode.x, cy: dagreNode.y, w: size.width, h: size.height });
   }
 
+  // Add disconnected nodes to centerMap so they participate in root positioning.
+  // Use the same primary-axis position as connected roots (rank 0) so they align
+  // visually with repos that have features attached.
+  let rootPrimaryAxis = 0;
+  for (const c of centerMap.values()) {
+    rootPrimaryAxis = isHorizontal ? c.cx : c.cy;
+    break; // Use the first connected node's primary position
+  }
+  for (const node of disconnectedNodes) {
+    const size = getNodeSize(node, nodeSize);
+    centerMap.set(node.id, {
+      cx: isHorizontal ? rootPrimaryAxis : 0,
+      cy: isHorizontal ? 0 : rootPrimaryAxis,
+      w: size.width,
+      h: size.height,
+    });
+  }
+
   // ── Proper tree layout for the secondary axis ──
   // Dagre gives us correct primary-axis (rank/X) positions but its secondary-
   // axis (Y) positioning doesn't respect our tree structure well. Replace it
@@ -134,21 +152,24 @@ export function layoutWithDagre<N extends Node>(
 
   // Sort children by input order (preserves caller's ordering, e.g. createdAt)
   const inputIndex = new Map<string, number>();
-  for (let i = 0; i < graphNodes.length; i++) {
-    inputIndex.set(graphNodes[i].id, i);
+  for (let i = 0; i < nodes.length; i++) {
+    inputIndex.set(nodes[i].id, i);
   }
   for (const [, kids] of childrenOf) {
     kids.sort((a, b) => (inputIndex.get(a) ?? 0) - (inputIndex.get(b) ?? 0));
   }
 
-  // Find tree roots (nodes that are parents but not children)
+  // Find tree roots: connected nodes that are not children of another node
   const childSet = new Set<string>();
   for (const ids of childrenOf.values()) {
     for (const id of ids) childSet.add(id);
   }
-  // Include leaf nodes that have no children and are not in childrenOf keys
-  const allConnected = new Set(centerMap.keys());
-  const roots = [...allConnected].filter((id) => !childSet.has(id));
+  const connectedRoots = [...connectedIds].filter((id) => centerMap.has(id) && !childSet.has(id));
+  // Merge connected roots and disconnected nodes, sorted by input order
+  // so repos maintain their original creation-time ordering regardless of
+  // whether they have features attached.
+  const allRoots = [...connectedRoots, ...disconnectedNodes.map((n) => n.id)];
+  allRoots.sort((a, b) => (inputIndex.get(a) ?? 0) - (inputIndex.get(b) ?? 0));
 
   // Bottom-up: compute the total secondary-axis span each subtree needs
   const subtreeSpan = new Map<string, number>();
@@ -171,7 +192,7 @@ export function layoutWithDagre<N extends Node>(
     return span;
   }
 
-  for (const root of roots) computeSpan(root);
+  for (const root of allRoots) computeSpan(root);
 
   // Top-down: position each node on the secondary axis, centering parent
   // on its children block. For 1-to-1 edges the child gets the same
@@ -202,9 +223,9 @@ export function layoutWithDagre<N extends Node>(
     }
   }
 
-  // Position each root tree. Stack root trees vertically with nodesep gap.
+  // Position all root trees (connected and disconnected) in input order.
   let rootCursor = 0;
-  for (const root of roots) {
+  for (const root of allRoots) {
     const span = subtreeSpan.get(root) ?? 0;
     positionTree(root, rootCursor + span / 2);
     rootCursor += span + nodesep;
@@ -212,40 +233,15 @@ export function layoutWithDagre<N extends Node>(
 
   // Build result array converting center-coords to React Flow top-left
   const result: N[] = [];
-  for (const node of graphNodes) {
-    const c = centerMap.get(node.id)!;
+  for (const node of nodes) {
+    const c = centerMap.get(node.id);
+    if (!c) continue;
     result.push({
       ...node,
       targetPosition,
       sourcePosition,
       position: { x: c.cx - c.w / 2, y: c.cy - c.h / 2 },
     } as N);
-  }
-
-  // Place disconnected nodes after the laid-out graph so they don't overlap
-  if (disconnectedNodes.length > 0) {
-    let maxY = 0;
-    let minX = Infinity;
-
-    for (const n of result) {
-      const size = getNodeSize(n, nodeSize);
-      maxY = Math.max(maxY, n.position.y + size.height);
-      minX = Math.min(minX, n.position.x);
-    }
-
-    // When no graph nodes exist (all disconnected), default to origin
-    if (minX === Infinity) minX = 0;
-
-    for (let i = 0; i < disconnectedNodes.length; i++) {
-      const node = disconnectedNodes[i];
-      const size = getNodeSize(node, nodeSize);
-      result.push({
-        ...node,
-        targetPosition,
-        sourcePosition,
-        position: { x: minX, y: maxY + 30 + i * (size.height + 20) },
-      } as N);
-    }
   }
 
   return { nodes: result, edges: [...edges] };
