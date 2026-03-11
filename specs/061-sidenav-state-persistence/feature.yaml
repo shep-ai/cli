@@ -1,0 +1,36 @@
+feature:
+  id: '061-sidenav-state-persistence'
+  name: 'sidenav-state-persistence'
+  number: 61
+  branch: 'feat/061-sidenav-state-persistence'
+  lifecycle: 'research'
+  createdAt: '2026-03-11T14:39:01Z'
+
+status:
+  phase: 'research'
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-03-11T14:39:01Z'
+  lastUpdatedBy: 'feature-agent'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-03-11T14:39:01Z'
+    completedBy: 'feature-agent'
+
+errors:
+  current: null
+  history: []
