@@ -186,6 +186,32 @@ export function useGraphState(
           sourcePosition: (node as Record<string, unknown>).sourcePosition as Position,
         });
       }
+
+      // Anchor new layout to previous positions so the graph doesn't drift.
+      // Find the first surviving node (exists in both old and new layouts) and
+      // shift the entire new layout by the delta between its old and new position.
+      const prevPositions = layoutCacheRef.current.positions;
+      if (prevPositions.size > 0) {
+        let dx = 0;
+        let dy = 0;
+        for (const [id, newPos] of positions) {
+          const oldPos = prevPositions.get(id);
+          if (oldPos) {
+            dx = oldPos.position.x - newPos.position.x;
+            dy = oldPos.position.y - newPos.position.y;
+            break;
+          }
+        }
+        if (dx !== 0 || dy !== 0) {
+          for (const pos of positions.values()) {
+            pos.position = { x: pos.position.x + dx, y: pos.position.y + dy };
+          }
+          for (const node of result.nodes) {
+            node.position = { x: node.position.x + dx, y: node.position.y + dy };
+          }
+        }
+      }
+
       layoutCacheRef.current = { key: topologyKey, positions };
       return result;
     }

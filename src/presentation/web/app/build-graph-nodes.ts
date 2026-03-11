@@ -49,7 +49,13 @@ export function buildGraphNodes(
       id: repoNodeId,
       type: 'repositoryNode',
       position: { x: 0, y: 0 },
-      data: { name: repo.name, repositoryPath: repo.path, id: repo.id },
+      data: {
+        name: repo.name,
+        repositoryPath: repo.path,
+        id: repo.id,
+        createdAt:
+          repo.createdAt instanceof Date ? repo.createdAt.getTime() : Number(repo.createdAt),
+      },
     });
 
     const repoFeatures = featuresByRepo[repo.path] ?? [];

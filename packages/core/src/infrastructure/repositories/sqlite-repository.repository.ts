@@ -46,7 +46,7 @@ export class SQLiteRepositoryRepository implements IRepositoryRepository {
 
   async list(): Promise<Repository[]> {
     const stmt = this.db.prepare(
-      'SELECT * FROM repositories WHERE deleted_at IS NULL ORDER BY name'
+      'SELECT * FROM repositories WHERE deleted_at IS NULL ORDER BY created_at ASC'
     );
     const rows = stmt.all() as RepositoryRow[];
     return rows.map(fromDatabase);

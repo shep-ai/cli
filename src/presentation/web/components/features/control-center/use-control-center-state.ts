@@ -432,7 +432,12 @@ export function useControlCenterState(
           .split(/[\\/]/)
           .pop() ?? path;
 
-      addRepositoryToMap(tempId, { name: repoName, repositoryPath: path, id: tempId });
+      addRepositoryToMap(tempId, {
+        name: repoName,
+        repositoryPath: path,
+        id: tempId,
+        createdAt: Date.now(),
+      });
 
       addRepository({ path, name: repoName })
         .then((result) => {
@@ -447,6 +452,8 @@ export function useControlCenterState(
             name: repo.name,
             repositoryPath: repo.path,
             id: repo.id,
+            createdAt:
+              repo.createdAt instanceof Date ? repo.createdAt.getTime() : Number(repo.createdAt),
           });
           createSound.play();
         })

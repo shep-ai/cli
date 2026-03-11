@@ -85,8 +85,15 @@ export function deriveGraph(
     return virtualId;
   }
 
-  // Add repo nodes (real ones)
-  for (const [nodeId, entry] of repoMap) {
+  // Add repo nodes (real ones) — sorted by createdAt for stable vertical order.
+  // The server-side layoutWithDagre may reorder the node array (connected vs
+  // disconnected split), so we cannot rely on Map insertion order alone.
+  const sortedRepoEntries = [...repoMap.entries()].sort((a, b) => {
+    const aTime = (a[1].data.createdAt as number | undefined) ?? 0;
+    const bTime = (b[1].data.createdAt as number | undefined) ?? 0;
+    return aTime - bTime;
+  });
+  for (const [nodeId, entry] of sortedRepoEntries) {
     const data: RepositoryNodeData = {
       ...entry.data,
       ...(callbacks?.onRepositoryAdd && {
