@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Hoist mocks before imports
 const mockSpawn = vi.hoisted(() => vi.fn());
-const mockExecFile = vi.hoisted(() => vi.fn());
+const mockCheckBinaryExists = vi.hoisted(() => vi.fn());
 const mockPlatform = vi.hoisted(() => vi.fn<() => string>());
 
 vi.mock('node:child_process', async (importOriginal) => {
@@ -12,9 +12,12 @@ vi.mock('node:child_process', async (importOriginal) => {
   return {
     ...actual,
     spawn: mockSpawn,
-    execFile: mockExecFile,
   };
 });
+
+vi.mock('@/infrastructure/services/tool-installer/binary-exists', () => ({
+  checkBinaryExists: mockCheckBinaryExists,
+}));
 
 vi.mock('node:os', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
@@ -279,25 +282,17 @@ describe('JsonDrivenIdeLauncherService', () => {
   });
 
   describe('checkAvailability', () => {
-    it('returns true when "which" succeeds', async () => {
-      mockExecFile.mockImplementation(
-        (_cmd: string, _args: string[], cb: (err: Error | null) => void) => {
-          cb(null);
-        }
-      );
+    it('returns true when binary is found', async () => {
+      mockCheckBinaryExists.mockResolvedValue({ found: true });
 
       const result = await service.checkAvailability('vscode');
 
       expect(result).toBe(true);
-      expect(mockExecFile).toHaveBeenCalledWith('which', ['code'], expect.any(Function));
+      expect(mockCheckBinaryExists).toHaveBeenCalledWith('code');
     });
 
-    it('returns false when "which" fails', async () => {
-      mockExecFile.mockImplementation(
-        (_cmd: string, _args: string[], cb: (err: Error | null) => void) => {
-          cb(new Error('not found'));
-        }
-      );
+    it('returns false when binary is not found', async () => {
+      mockCheckBinaryExists.mockResolvedValue({ found: false, notInPath: true });
 
       const result = await service.checkAvailability('vscode');
 
@@ -314,16 +309,12 @@ describe('JsonDrivenIdeLauncherService', () => {
       mockPlatform.mockReturnValue('darwin');
       const svc = new JsonDrivenIdeLauncherService();
 
-      mockExecFile.mockImplementation(
-        (_cmd: string, _args: string[], cb: (err: Error | null) => void) => {
-          cb(null);
-        }
-      );
+      mockCheckBinaryExists.mockResolvedValue({ found: true });
 
       const result = await svc.checkAvailability('antigravity');
 
       expect(result).toBe(true);
-      expect(mockExecFile).toHaveBeenCalledWith('which', ['agy'], expect.any(Function));
+      expect(mockCheckBinaryExists).toHaveBeenCalledWith('agy');
     });
   });
 });

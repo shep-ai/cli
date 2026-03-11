@@ -13,7 +13,7 @@
  */
 
 import { injectable } from 'tsyringe';
-import { exec, execFile, spawn } from 'node:child_process';
+import { exec, spawn } from 'node:child_process';
 import { platform } from 'node:os';
 import type { IToolInstallerService } from '../../../application/ports/output/services/tool-installer.service.js';
 import type {
@@ -27,6 +27,7 @@ import {
   createErrorStatus,
 } from '../../../domain/value-objects/tool-installation-status.js';
 import { TOOL_METADATA, type ToolMetadata } from './tool-metadata.js';
+import { checkBinaryExists } from './binary-exists.js';
 
 /**
  * Resolve binary name for the current platform.
@@ -36,34 +37,6 @@ function resolveBinary(metadata: ToolMetadata): string {
   if (typeof metadata.binary === 'string') return metadata.binary;
   return metadata.binary[platform()] ?? Object.values(metadata.binary)[0];
 }
-
-/**
- * Check if a binary exists in the system PATH using 'which' command.
- *
- * `which` exits with code 1 when the binary is simply not in PATH.
- * Node's execFile wraps that as an Error, but it's a normal "not found"
- * result. Only truly unexpected failures (ENOENT for `which` itself,
- * EACCES, signals, etc.) are surfaced via the `error` field.
- */
-const checkBinaryExists = (
-  binary: string
-): Promise<{ found: boolean; notInPath?: boolean; error?: Error }> => {
-  return new Promise((resolve) => {
-    execFile('which', [binary], (err) => {
-      if (!err) return resolve({ found: true });
-
-      // execFile errors from a non-zero exit code have a numeric `code` property.
-      // That's the normal "binary not found in PATH" case.
-      const code = (err as NodeJS.ErrnoException).code;
-      if (code === undefined || typeof code === 'number') {
-        return resolve({ found: false, notInPath: true });
-      }
-
-      // Anything else (ENOENT for `which` itself, EACCES, etc.) is a real error.
-      resolve({ found: false, error: err });
-    });
-  });
-};
 
 /**
  * Run a shell command and resolve true when it exits 0, false otherwise.
@@ -157,8 +130,8 @@ export class ToolInstallerServiceImpl implements IToolInstallerService {
     return new Promise((resolve) => {
       let output = '';
 
-      const child = spawn('sh', ['-c', installCommand.command], {
-        shell: false,
+      const child = spawn(installCommand.command, [], {
+        shell: true,
         stdio: ['pipe', 'pipe', 'pipe'],
         env: {
           ...process.env,

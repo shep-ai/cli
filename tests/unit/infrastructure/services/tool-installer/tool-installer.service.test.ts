@@ -4,18 +4,21 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { EventEmitter } from 'node:events';
 
 const mockSpawn = vi.hoisted(() => vi.fn());
-const mockExecFile = vi.hoisted(() => vi.fn());
 const mockExec = vi.hoisted(() => vi.fn());
+const mockCheckBinaryExists = vi.hoisted(() => vi.fn());
 
 vi.mock('node:child_process', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
   return {
     ...actual,
     spawn: mockSpawn,
-    execFile: mockExecFile,
     exec: mockExec,
   };
 });
+
+vi.mock('@/infrastructure/services/tool-installer/binary-exists', () => ({
+  checkBinaryExists: mockCheckBinaryExists,
+}));
 
 import { ToolInstallerServiceImpl } from '@/infrastructure/services/tool-installer/tool-installer.service';
 
@@ -49,27 +52,18 @@ describe('ToolInstallerServiceImpl', () => {
   });
 
   describe('checkAvailability', () => {
-    it('should return "available" status when binary is found via which', async () => {
-      mockExecFile.mockImplementation(
-        (_cmd: string, _args: string[], cb: (err: Error | null) => void) => {
-          cb(null);
-        }
-      );
+    it('should return "available" status when binary is found', async () => {
+      mockCheckBinaryExists.mockResolvedValue({ found: true });
 
       const result = await service.checkAvailability('vscode');
 
       expect(result.status).toBe('available');
       expect(result.toolName).toBe('vscode');
-      expect(mockExecFile).toHaveBeenCalledWith('which', ['code'], expect.any(Function));
+      expect(mockCheckBinaryExists).toHaveBeenCalledWith('code');
     });
 
     it('should return "missing" status with suggestions when binary is not found', async () => {
-      mockExecFile.mockImplementation(
-        (_cmd: string, _args: string[], cb: (err: Error | null) => void) => {
-          // `which` exits with code 1 when binary is not in PATH — no `.code` string property
-          cb(new Error('Command failed: which code'));
-        }
-      );
+      mockCheckBinaryExists.mockResolvedValue({ found: false, notInPath: true });
       // verifyCommand fallback should also fail when the tool is truly missing
       mockExec.mockImplementation((_cmd: string, cb: (err: Error | null) => void) => {
         cb(new Error('Command failed'));
@@ -87,13 +81,10 @@ describe('ToolInstallerServiceImpl', () => {
     });
 
     it('should return "error" status on unexpected failure', async () => {
-      mockExecFile.mockImplementation(
-        (_cmd: string, _args: string[], cb: (err: Error | null) => void) => {
-          // Genuine OS error — has a string `.code` like EACCES
-          const err = Object.assign(new Error('Permission denied'), { code: 'EACCES' });
-          cb(err);
-        }
-      );
+      mockCheckBinaryExists.mockResolvedValue({
+        found: false,
+        error: new Error('Permission denied'),
+      });
 
       const result = await service.checkAvailability('vscode');
 
@@ -132,7 +123,7 @@ describe('ToolInstallerServiceImpl', () => {
   });
 
   describe('executeInstall', () => {
-    it('should call spawn with correct command args', async () => {
+    it('should call spawn with shell: true instead of sh -c', async () => {
       const mockProc = createMockProcess(0);
       mockSpawn.mockReturnValue(mockProc);
 
@@ -142,20 +133,19 @@ describe('ToolInstallerServiceImpl', () => {
       await installPromise;
 
       expect(mockSpawn).toHaveBeenCalled();
-      const [cmd, args] = mockSpawn.mock.calls[0];
+      const [cmd, args, opts] = mockSpawn.mock.calls[0];
+      // Should NOT use spawn('sh', ['-c', ...]) — should use spawn(command, [], { shell: true })
+      expect(cmd).not.toBe('sh');
       expect(cmd).toBeDefined();
-      expect(Array.isArray(args)).toBe(true);
+      expect(args).toEqual([]);
+      expect(opts.shell).toBe(true);
     });
 
     it('should return "available" status on exit code 0', async () => {
       const mockProc = createMockProcess(0);
       mockSpawn.mockReturnValue(mockProc);
       // Mock binary check to return success after installation
-      mockExecFile.mockImplementation(
-        (_cmd: string, _args: string[], cb: (err: Error | null) => void) => {
-          cb(null);
-        }
-      );
+      mockCheckBinaryExists.mockResolvedValue({ found: true });
 
       const result = await service.executeInstall('vscode');
 
