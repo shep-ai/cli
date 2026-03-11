@@ -110,6 +110,7 @@ import { DeleteRepositoryUseCase } from '../../application/use-cases/repositorie
 import { CheckAndUnblockFeaturesUseCase } from '../../application/use-cases/features/check-and-unblock-features.use-case.js';
 import { UpdateFeatureLifecycleUseCase } from '../../application/use-cases/features/update/update-feature-lifecycle.use-case.js';
 import { CleanupFeatureWorktreeUseCase } from '../../application/use-cases/features/cleanup-feature-worktree.use-case.js';
+import { UpgradeCliUseCase } from '../../application/use-cases/upgrade/upgrade-cli.use-case.js';
 
 // Session listing
 import { ClaudeCodeSessionRepository } from '../services/agents/sessions/claude-code-session.repository.js';
@@ -343,6 +344,7 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton(CheckAndUnblockFeaturesUseCase);
   container.registerSingleton(UpdateFeatureLifecycleUseCase);
   container.registerSingleton(CleanupFeatureWorktreeUseCase);
+  container.registerSingleton(UpgradeCliUseCase);
 
   // Session repositories (per-AgentType string tokens)
   container.register(`IAgentSessionRepository:${AgentType.ClaudeCode}`, {
@@ -426,6 +428,9 @@ export async function initializeContainer(): Promise<typeof container> {
   });
   container.register('CleanupFeatureWorktreeUseCase', {
     useFactory: (c) => c.resolve(CleanupFeatureWorktreeUseCase),
+  });
+  container.register('UpgradeCliUseCase', {
+    useFactory: (c) => c.resolve(UpgradeCliUseCase),
   });
 
   _initialized = true;

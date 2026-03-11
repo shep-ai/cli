@@ -2,7 +2,8 @@ import type { Meta, StoryObj, Decorator } from '@storybook/react';
 import { VersionBadge } from './version-badge';
 
 /**
- * Decorator that mocks the /api/npm-version endpoint to return a specific latest version.
+ * Decorator that mocks the /api/npm-version endpoint to return a specific latest version
+ * and the /api/cli-upgrade endpoint to simulate an upgrade.
  */
 function withNpmVersion(latest: string): Decorator {
   return (Story: React.FC) => {
@@ -13,6 +14,26 @@ function withNpmVersion(latest: string): Decorator {
         return new Response(JSON.stringify({ latest }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      if (url.includes('/api/cli-upgrade')) {
+        const encoder = new TextEncoder();
+        const stream = new ReadableStream({
+          start(controller) {
+            controller.enqueue(encoder.encode(`data: Upgrading to v${latest}...\n\n`));
+            setTimeout(() => {
+              controller.enqueue(
+                encoder.encode(
+                  `event: done\ndata: ${JSON.stringify({ status: 'upgraded', currentVersion: '1.90.0', latestVersion: latest })}\n\n`
+                )
+              );
+              controller.close();
+            }, 1000);
+          },
+        });
+        return new Response(stream, {
+          status: 200,
+          headers: { 'Content-Type': 'text/event-stream' },
         });
       }
       return originalFetch(input, init);
@@ -92,7 +113,7 @@ export const Minimal: Story = {
   },
 };
 
-/** Update available — green dot appears, tooltip shows "Upgrade to v2.0.0" link. */
+/** Update available — green dot appears, tooltip shows "Upgrade to v2.0.0" button. */
 export const UpdateAvailable: Story = {
   decorators: [withNpmVersion('2.0.0')],
   args: {
@@ -102,7 +123,7 @@ export const UpdateAvailable: Story = {
   },
 };
 
-/** Update available in dev mode — green dot + upgrade link alongside dev info. */
+/** Update available in dev mode — green dot + upgrade button alongside dev info. */
 export const UpdateAvailableDev: Story = {
   decorators: [withNpmVersion('2.0.0')],
   args: {

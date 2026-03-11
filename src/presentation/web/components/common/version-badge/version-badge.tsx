@@ -2,6 +2,7 @@
 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useNpmVersionCheck } from '@/hooks/use-npm-version-check';
+import { useCliUpgrade } from '@/hooks/use-cli-upgrade';
 
 export interface VersionBadgeProps {
   version: string;
@@ -24,11 +25,14 @@ export function VersionBadge({
 }: VersionBadgeProps) {
   const shortHash = commitHash?.slice(0, 7);
   const { latest, updateAvailable } = useNpmVersionCheck(version);
+  const { status: upgradeStatus, startUpgrade } = useCliUpgrade();
 
   // In dev mode show "1.92.2-dev", in production show "v1.92.2"
   const displayVersion = isDev ? `${version}-dev` : `v${version}`;
 
-  const npmUrl = `https://www.npmjs.com/package/${packageName}`;
+  const isUpgrading = upgradeStatus === 'upgrading';
+  const didUpgrade = upgradeStatus === 'upgraded';
+  const upgradeError = upgradeStatus === 'error';
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -39,7 +43,7 @@ export function VersionBadge({
             data-testid="version-label"
           >
             {displayVersion}
-            {updateAvailable ? (
+            {updateAvailable && !didUpgrade ? (
               <span
                 className="absolute -top-0.5 -right-1.5 size-1.5 rounded-full bg-emerald-400"
                 data-testid="update-dot"
@@ -61,17 +65,32 @@ export function VersionBadge({
               <Row label="Latest" value={`v${latest}`} highlight={updateAvailable} />
             ) : null}
           </div>
-          {updateAvailable ? (
+          {didUpgrade ? (
             <div className="border-t border-white/10 pt-1.5">
-              <a
-                href={npmUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-400 transition-colors hover:text-emerald-300"
-                data-testid="upgrade-link"
+              <span
+                className="text-[10px] font-medium text-emerald-400"
+                data-testid="upgrade-success"
               >
-                Upgrade to v{latest} →
-              </a>
+                Upgraded successfully — restart to apply
+              </span>
+            </div>
+          ) : upgradeError ? (
+            <div className="border-t border-white/10 pt-1.5">
+              <span className="text-[10px] font-medium text-red-400" data-testid="upgrade-error">
+                Upgrade failed
+              </span>
+            </div>
+          ) : updateAvailable ? (
+            <div className="border-t border-white/10 pt-1.5">
+              <button
+                type="button"
+                onClick={startUpgrade}
+                disabled={isUpgrading}
+                className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-400 transition-colors hover:text-emerald-300 disabled:opacity-50"
+                data-testid="upgrade-button"
+              >
+                {isUpgrading ? 'Upgrading...' : `Upgrade to v${latest}`}
+              </button>
             </div>
           ) : null}
         </TooltipContent>

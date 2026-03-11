@@ -74,7 +74,7 @@ describe('VersionBadge', () => {
     expect(screen.queryByTestId('update-dot')).not.toBeInTheDocument();
   });
 
-  it('shows upgrade link in tooltip when update is available', async () => {
+  it('shows upgrade button in tooltip when update is available', async () => {
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({ latest: '2.0.0' }),
@@ -91,12 +91,11 @@ describe('VersionBadge', () => {
     await user.hover(screen.getByTestId('version-label'));
 
     await waitFor(() => {
-      const links = screen.getAllByTestId('upgrade-link');
-      expect(links.length).toBeGreaterThan(0);
-      const link = links[0];
-      expect(link).toHaveTextContent('Upgrade to v2.0.0');
-      expect(link).toHaveAttribute('href', 'https://www.npmjs.com/package/@shepai/cli');
-      expect(link).toHaveAttribute('target', '_blank');
+      const buttons = screen.getAllByTestId('upgrade-button');
+      expect(buttons.length).toBeGreaterThan(0);
+      const button = buttons[0];
+      expect(button).toHaveTextContent('Upgrade to v2.0.0');
+      expect(button.tagName.toLowerCase()).toBe('button');
     });
   });
 });
