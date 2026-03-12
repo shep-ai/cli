@@ -305,6 +305,17 @@ export class CursorExecutorService implements IAgentExecutor {
     const spawnOpts: Record<string, unknown> = {};
     if (options?.cwd) spawnOpts.cwd = options.cwd;
 
+    // Explicitly pipe stdio so streams are available even when parent disconnects
+    spawnOpts.stdio = ['pipe', 'pipe', 'pipe'];
+
+    // On Windows: shell=true so Node.js can resolve .cmd/.ps1 scripts
+    // (Cursor CLI ships as `agent.cmd` on Windows, not a native .exe).
+    // windowsHide=true prevents blank console windows from flashing.
+    if (process.platform === 'win32') {
+      spawnOpts.shell = true;
+      spawnOpts.windowsHide = true;
+    }
+
     // Strip CLAUDECODE env var to prevent "nested session" error when shep
     // is invoked from within a Claude Code session.
 

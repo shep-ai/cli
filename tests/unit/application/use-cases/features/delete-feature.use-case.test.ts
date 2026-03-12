@@ -145,6 +145,7 @@ describe('DeleteFeatureUseCase', () => {
     expect(result.id).toBe('feat-123-full-uuid');
     expect(mockWorktreeService.getWorktreePath).toHaveBeenCalledWith('/repo', 'feat/test-feature');
     expect(mockWorktreeService.remove).toHaveBeenCalledWith(
+      '/repo',
       '/repo/.worktrees/feat-test-feature',
       true
     );

@@ -244,13 +244,14 @@ export async function initializeContainer(): Promise<typeof container> {
   } else {
     container.register<IAgentExecutorFactory>('IAgentExecutorFactory', {
       useFactory: () => {
-        // Wrap spawn to ensure stdio is explicitly set to 'pipe'.
-        // On Windows, .cmd scripts (e.g. cursor's `agent.cmd`) need shell: true.
+        // Wrap spawn with sensible defaults: stdio piped and windowsHide on Win32.
+        // Each executor controls its own `shell` option — cursor needs shell: true
+        // for .cmd scripts, but claude-code must NOT use shell (DEP0190 / prompt mangling).
         const spawnWithPipe = (command: string, args: string[], options?: object) => {
           return spawn(command, args, {
-            ...options,
             stdio: 'pipe',
-            ...(process.platform === 'win32' ? { shell: true, windowsHide: true } : {}),
+            ...(process.platform === 'win32' ? { windowsHide: true } : {}),
+            ...options,
           });
         };
         return new AgentExecutorFactory(spawnWithPipe);

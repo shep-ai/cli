@@ -113,6 +113,7 @@ describe('CleanupFeatureWorktreeUseCase', () => {
     await useCase.execute('feat-123-full-uuid');
 
     expect(mockWorktreeService.remove).toHaveBeenCalledWith(
+      '/repo',
       '/repo/.worktrees/feat-test-feature',
       true
     );
@@ -209,6 +210,7 @@ describe('CleanupFeatureWorktreeUseCase', () => {
 
     expect(mockWorktreeService.getWorktreePath).toHaveBeenCalledWith('/repo', 'feat/test-feature');
     expect(mockWorktreeService.remove).toHaveBeenCalledWith(
+      '/repo',
       '/repo/.worktrees/feat-test-feature',
       true
     );

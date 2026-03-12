@@ -140,39 +140,43 @@ describe('WorktreeService', () => {
   describe('remove', () => {
     it('should remove worktree with correct git command', async () => {
       mockExecFile.mockResolvedValue({ stdout: '', stderr: '' });
-      await service.remove('/some/wt/path');
-      expect(mockExecFile).toHaveBeenCalledWith('git', ['worktree', 'remove', '/some/wt/path'], {});
+      await service.remove('/repo', '/some/wt/path');
+      expect(mockExecFile).toHaveBeenCalledWith('git', ['worktree', 'remove', '/some/wt/path'], {
+        cwd: '/repo',
+      });
     });
 
     it('should pass --force flag when force=true', async () => {
       mockExecFile.mockResolvedValue({ stdout: '', stderr: '' });
-      await service.remove('/some/wt/path', true);
+      await service.remove('/repo', '/some/wt/path', true);
       expect(mockExecFile).toHaveBeenCalledWith(
         'git',
         ['worktree', 'remove', '--force', '/some/wt/path'],
-        {}
+        { cwd: '/repo' }
       );
     });
 
     it('should not pass --force flag when force=false', async () => {
       mockExecFile.mockResolvedValue({ stdout: '', stderr: '' });
-      await service.remove('/some/wt/path', false);
-      expect(mockExecFile).toHaveBeenCalledWith('git', ['worktree', 'remove', '/some/wt/path'], {});
+      await service.remove('/repo', '/some/wt/path', false);
+      expect(mockExecFile).toHaveBeenCalledWith('git', ['worktree', 'remove', '/some/wt/path'], {
+        cwd: '/repo',
+      });
     });
 
     it('should not pass --force flag when force is omitted', async () => {
       mockExecFile.mockResolvedValue({ stdout: '', stderr: '' });
-      await service.remove('/some/wt/path');
+      await service.remove('/repo', '/some/wt/path');
       const call = mockExecFile.mock.calls[0];
       expect(call[1]).not.toContain('--force');
     });
 
     it('should throw WorktreeError on failure', async () => {
       mockExecFile.mockRejectedValue(new Error("fatal: '/path' is not a valid directory"));
-      await expect(service.remove('/path')).rejects.toThrow(WorktreeError);
+      await expect(service.remove('/repo', '/path')).rejects.toThrow(WorktreeError);
 
       try {
-        await service.remove('/path');
+        await service.remove('/repo', '/path');
       } catch (e) {
         expect(e).toBeInstanceOf(WorktreeError);
         expect((e as WorktreeError).code).toBe(WorktreeErrorCode.NOT_FOUND);

@@ -119,7 +119,7 @@ export class DeleteFeatureUseCase {
       feature.worktreePath ??
       this.worktreeService.getWorktreePath(feature.repositoryPath, feature.branch);
     try {
-      await this.worktreeService.remove(worktreePath, true);
+      await this.worktreeService.remove(feature.repositoryPath, worktreePath, true);
     } catch {
       // Worktree might already be removed - that's fine
     }

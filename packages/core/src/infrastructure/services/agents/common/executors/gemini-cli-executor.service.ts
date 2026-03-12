@@ -369,6 +369,15 @@ export class GeminiCliExecutorService implements IAgentExecutor {
     const spawnOpts: Record<string, unknown> = {};
     if (options?.cwd) spawnOpts.cwd = options.cwd;
 
+    // Explicitly pipe stdio so streams are available even when parent disconnects
+    spawnOpts.stdio = ['pipe', 'pipe', 'pipe'];
+
+    // On Windows: windowsHide=true to prevent blank console windows.
+    // Gemini CLI is a native binary, so shell=true is NOT needed.
+    if (process.platform === 'win32') {
+      spawnOpts.windowsHide = true;
+    }
+
     // Strip CLAUDECODE env var to prevent "nested session" error when shep
     // is invoked from within a Claude Code session.
     const { CLAUDECODE: _, ...cleanEnv } = process.env;

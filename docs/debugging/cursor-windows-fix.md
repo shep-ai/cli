@@ -108,6 +108,49 @@ Cursor CLI ships as `.cmd`/`.ps1` scripts on Windows (not `.exe`). Node.js `exec
 8. `351869da` — Use `json` format instead of `stream-json` + raw text fallback
 9. (current) — Exclude cursor/windows from matrix; add hourly schedule; restore full matrix
 
+### Attempt 10: Broad Windows compatibility fixes (SUCCESS — all non-cursor matrix combos)
+
+Comprehensive audit of the entire codebase for Windows failures. Fixes applied:
+
+- **DI container**: Removed blanket `shell: true` from `spawnWithPipe` wrapper — each executor now owns its own `shell` option. Cursor executor explicitly sets `shell: true`; claude-code and gemini do not.
+- **Worktree hash normalization**: `getWorktreePath()` and `computeWorktreePath()` now normalize `repoPath` to forward slashes before hashing, so `C:\foo` and `C:/foo` produce the same hash.
+- **Worktree `remove()` cwd**: Added `repoPath` parameter so `git worktree remove` runs from the correct directory instead of inheriting process cwd.
+- **IDE launcher path splitting**: Split template _before_ `{dir}` substitution so paths with spaces stay as a single argument.
+- **E2E test fixes**:
+  - `feat.test.ts`: Replaced Unix-only `pkill`/`sleep` with cross-platform equivalents (`wmic` on Windows, `Atomics.wait` for delays)
+  - `help.test.ts`: Replaced `process.kill(-pid)` (negative PID) with `taskkill` on Windows
+  - `build-integrity.test.ts`: Path stripping now uses `path.sep` instead of hardcoded `/`
+- **Executor spawn options**: Cursor and Gemini executors now explicitly set their own `stdio: 'pipe'` and `windowsHide: true` instead of relying on the DI wrapper.
+
+## Current Pipeline Status
+
+| Step                         | Status  | Notes                                                                            |
+| ---------------------------- | ------- | -------------------------------------------------------------------------------- |
+| Install Cursor CLI (Windows) | PASS    | `irm 'https://cursor.com/install?win32=true' \| iex`                             |
+| Configure shep agent         | PASS    | `shep settings agent --agent cursor --auth token`                                |
+| Create feature               | PASS    | Metadata fallback works when AI returns non-JSON                                 |
+| Verify feature listed        | PASS    | `shep feat ls` shows feature ID                                                  |
+| fast-implement phase         | PARTIAL | Cursor creates file but executor reports 0 chars (stream-json broken on Windows) |
+| Merge phase                  | FAIL    | Cursor gets garbled prompt → asks question instead of committing → hangs         |
+| Verify local changes         | BLOCKED | Depends on above                                                                 |
+| **dev / windows-latest**     | PASS    | No subprocess spawning — pure in-process                                         |
+| **claude-code / windows**    | PASS    | Executor uses `windowsHide: true` without `shell: true`                          |
+| **Unit tests / windows**     | PASS    | All Windows path issues fixed                                                    |
+| **CLI E2E / windows**        | PASS    | Process kill + path handling fixed                                               |
+
+## Fixes Applied (Committed)
+
+1. `37f1204b` — Native PowerShell installer for Windows
+2. `4ba500ef` — `shell: true` for `execFile` on Windows (DI container)
+3. `3a39f3fc` — `shell: true` for `spawn` on Windows (DI container)
+4. `44c3c80f` — `--yolo` flag for cursor CLI workspace trust
+5. `b1986348` — Move `--yolo` before `-p` in cursor args
+6. `c04491f4` — Local fallback for metadata generation when AI fails
+7. `71d8eccf` — Switch model to `claude-haiku-4-5` + add 5-min timeout
+8. `351869da` — Use `json` format instead of `stream-json` + raw text fallback
+9. Exclude cursor/windows from matrix; add hourly schedule; restore full matrix
+10. (current) — Broad Windows compat: path normalization, process kill, executor spawn options
+
 ## Key Learnings
 
 1. Cursor CLI installs as `.cmd` scripts on Windows, not native `.exe`
@@ -121,4 +164,9 @@ Cursor CLI ships as `.cmd`/`.ps1` scripts on Windows (not `.exe`). Node.js `exec
 9. Always add a timeout to agent executor calls to prevent infinite hangs
 10. `shell: true` with `spawn()` causes DEP0190 + argument escaping issues on Windows (packages/CLAUDE.md warns against this)
 11. `composer-1.5` model returns 0 chars with `--output-format stream-json` — use `claude-haiku-4-5` instead
-12. Always add a timeout to agent executor calls to prevent infinite hangs
+12. Each executor should own its own `shell` option — don't set it centrally in the DI wrapper
+13. `path.join()` produces backslashes on Windows — always normalize before hashing or comparing
+14. `process.kill(-pid)` (negative PID for process group kill) is POSIX-only — use `taskkill /T` on Windows
+15. `pkill` and `sleep` shell commands don't exist on Windows — use Node.js APIs instead
+16. IDE launcher: split template string before `{dir}` substitution to preserve paths with spaces
+17. `git worktree remove` needs an explicit `cwd` — without it, inherits process cwd which may not be a git repo
