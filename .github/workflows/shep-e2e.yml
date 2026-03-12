@@ -22,7 +22,7 @@ env:
 
 jobs:
   shep-e2e:
-    name: Shep E2E (${{ matrix.os }})
+    name: Shep E2E (${{ matrix.os }} / ${{ matrix.agent }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
 
@@ -30,6 +30,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
+        agent: [claude-code, cursor]
 
     permissions:
       contents: read
@@ -57,16 +58,16 @@ jobs:
         run: npm link
 
       # ---------------------------------------------------------------------
-      # 2. Install Claude Code CLI (required by shep agent executor)
+      # 2. Install agent CLI (claude-code or cursor)
       # ---------------------------------------------------------------------
       - name: Install Claude Code CLI (Linux/macOS)
-        if: runner.os != 'Windows'
+        if: matrix.agent == 'claude-code' && runner.os != 'Windows'
         run: |
           curl -fsSL https://claude.ai/install.sh | bash
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Install Claude Code CLI (Windows)
-        if: runner.os == 'Windows'
+        if: matrix.agent == 'claude-code' && runner.os == 'Windows'
         shell: pwsh
         run: |
           irm https://claude.ai/install.ps1 | iex
@@ -74,6 +75,19 @@ jobs:
           $claudePath = "$env:LOCALAPPDATA\Programs\claude-code"
           if (Test-Path "$env:USERPROFILE\.local\bin") { $claudePath = "$env:USERPROFILE\.local\bin" }
           echo $claudePath >> $env:GITHUB_PATH
+
+      - name: Install Cursor CLI (Linux/macOS)
+        if: matrix.agent == 'cursor' && runner.os != 'Windows'
+        run: |
+          curl -fsS https://cursor.com/install | bash
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Install Cursor CLI (Windows)
+        if: matrix.agent == 'cursor' && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          winget install --id Anysphere.Cursor -e --source winget --accept-package-agreements --accept-source-agreements
+          # cursor-agent should be on PATH after install
 
       # ---------------------------------------------------------------------
       # 3. Clone the target repo (shep-ai/sheep)
@@ -186,9 +200,22 @@ jobs:
           const fs = require('fs');
           fs.appendFileSync(process.env.GITHUB_ENV, `SHEP_PROMPT=${prompt}\n`);
 
+      - name: Configure shep agent
+        shell: bash
+        working-directory: ${{ env.SHEEP_DIR }}
+        run: |
+          if [ "${{ matrix.agent }}" = "cursor" ]; then
+            shep settings agent --agent cursor --auth token --token "$CURSOR_API_KEY"
+          else
+            shep settings agent --agent claude-code --auth session
+          fi
+        env:
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+
       - name: Create feature
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         shell: bash
@@ -218,6 +245,7 @@ jobs:
       - name: Wait for feature to complete
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         shell: node {0}
