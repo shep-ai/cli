@@ -5,13 +5,14 @@
   "tags": ["terminal"],
   "author": "Alacritty Contributors",
   "website": "https://alacritty.org",
-  "platforms": ["linux", "darwin"],
+  "platforms": ["linux", "darwin", "win32"],
   "iconUrl": "https://cdn.simpleicons.org/alacritty",
   "binary": "alacritty",
   "packageManager": "brew",
   "commands": {
     "darwin": "brew install --cask alacritty",
-    "linux": "sudo apt-get update && sudo apt-get install -y alacritty"
+    "linux": "sudo apt-get update && sudo apt-get install -y alacritty",
+    "win32": "winget install --id Alacritty.Alacritty -e --source winget"
   },
   "timeout": 300000,
   "documentationUrl": "https://alacritty.org/",

@@ -159,7 +159,7 @@ describe('CursorExecutorService', () => {
       expect(result.sessionId).toBe('sess-abc-123');
       expect(mockSpawn).toHaveBeenCalledWith(
         'agent',
-        expect.arrayContaining(['-p', 'Analyze this codebase', '--output-format', 'stream-json']),
+        expect.arrayContaining(['-p', 'Analyze this codebase', '--output-format', 'json']),
         expect.any(Object)
       );
     });
@@ -359,7 +359,7 @@ describe('CursorExecutorService', () => {
       );
     });
 
-    it('should pass --force flag', async () => {
+    it('should pass --yolo flag', async () => {
       const mockProc = createMockChildProcess();
       vi.mocked(mockSpawn).mockReturnValue(mockProc as any);
 
@@ -372,7 +372,7 @@ describe('CursorExecutorService', () => {
 
       expect(mockSpawn).toHaveBeenCalledWith(
         'agent',
-        expect.arrayContaining(['--force']),
+        expect.arrayContaining(['--yolo']),
         expect.any(Object)
       );
     });

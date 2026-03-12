@@ -64,6 +64,7 @@ export function buildExecutorOptions(state: FeatureAgentState): AgentExecutionOp
   return {
     cwd: state.worktreePath || state.repositoryPath,
     maxTurns: 5000,
+    timeout: 300_000, // 5 minutes per agent call — prevents infinite hangs
     ...(state.model ? { model: state.model } : {}),
   };
 }

@@ -5,12 +5,13 @@
   "tags": ["terminal"],
   "author": "Warp",
   "website": "https://www.warp.dev",
-  "platforms": ["darwin"],
+  "platforms": ["darwin", "win32"],
   "iconUrl": "https://cdn.simpleicons.org/warp",
   "binary": "warp",
   "packageManager": "brew",
   "commands": {
-    "darwin": "brew install --cask warp"
+    "darwin": "brew install --cask warp",
+    "win32": "winget install --id Warp.Warp -e --source winget"
   },
   "timeout": 300000,
   "documentationUrl": "https://docs.warp.dev/",

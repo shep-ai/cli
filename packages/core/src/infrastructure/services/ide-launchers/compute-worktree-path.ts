@@ -21,5 +21,5 @@ import { getShepHomeDir } from '../filesystem/shep-directory.service';
 export function computeWorktreePath(repoPath: string, branch: string): string {
   const repoHash = createHash('sha256').update(repoPath).digest('hex').slice(0, 16);
   const slug = branch.replace(/\//g, '-');
-  return join(getShepHomeDir(), 'repos', repoHash, 'wt', slug);
+  return join(getShepHomeDir(), 'repos', repoHash, 'wt', slug).replace(/\\/g, '/');
 }

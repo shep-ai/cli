@@ -330,6 +330,17 @@ export class ClaudeCodeExecutorService implements IAgentExecutor {
     const spawnOpts: Record<string, unknown> = {};
     if (options?.cwd) spawnOpts.cwd = options.cwd;
 
+    // Explicitly pipe stdio so streams are available even when parent disconnects
+    spawnOpts.stdio = ['pipe', 'pipe', 'pipe'];
+
+    // On Windows: windowsHide=true to prevent blank console windows.
+    // Do NOT use shell=true — it causes DEP0190 argument escaping issues
+    // and mangles prompts with special characters. The claude CLI is a
+    // native .exe, so spawn() finds it on PATH without shell.
+    if (process.platform === 'win32') {
+      spawnOpts.windowsHide = true;
+    }
+
     // Strip CLAUDECODE env var to prevent "nested session" error when shep
     // is invoked from within a Claude Code session. The claude CLI checks for
     // this variable and refuses to start if it's set.

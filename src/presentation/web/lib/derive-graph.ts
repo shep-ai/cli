@@ -60,11 +60,14 @@ export function deriveGraph(
   const nodes: CanvasNodeType[] = [];
   const edges: Edge[] = [];
 
+  // Normalize path separators so Windows backslash paths match forward-slash paths
+  const normalizePath = (p: string) => p.replace(/\\/g, '/');
+
   // Build a lookup: repositoryPath → repoNodeId
   const repoByPath = new Map<string, string>();
   for (const [nodeId, entry] of repoMap) {
     if (entry.data.repositoryPath) {
-      repoByPath.set(entry.data.repositoryPath, nodeId);
+      repoByPath.set(normalizePath(entry.data.repositoryPath), nodeId);
     }
   }
 
@@ -171,7 +174,7 @@ export function deriveGraph(
       });
     } else {
       // Repo→feature edge (matched by repositoryPath)
-      const repositoryPath = entry.data.repositoryPath;
+      const repositoryPath = normalizePath(entry.data.repositoryPath);
       const repoNodeId = repoByPath.get(repositoryPath) ?? getOrCreateVirtualRepo(repositoryPath);
       edges.push({
         id: `edge-${repoNodeId}-${nodeId}`,

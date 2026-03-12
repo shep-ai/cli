@@ -19,6 +19,12 @@ vi.mock('node:os', () => ({
   platform: () => mockPlatform(),
 }));
 
+const mockIsAbsolute = vi.fn<(p: string) => boolean>();
+vi.mock('node:path', async () => {
+  const actual = await vi.importActual('node:path');
+  return { ...actual, isAbsolute: (p: string) => mockIsAbsolute(p) };
+});
+
 const { openFolder } = await import(
   '../../../../../src/presentation/web/app/actions/open-folder.js'
 );
@@ -29,6 +35,7 @@ describe('openFolder server action', () => {
     mockExistsSync.mockReturnValue(true);
     mockSpawn.mockReturnValue({ unref: mockUnref, on: mockOn });
     mockPlatform.mockReturnValue('darwin');
+    mockIsAbsolute.mockImplementation((p: string) => /^\//.test(p));
   });
 
   it('returns error for empty repositoryPath', async () => {
@@ -49,6 +56,15 @@ describe('openFolder server action', () => {
     });
   });
 
+  it('accepts Windows-style absolute paths when path.isAbsolute recognizes them', async () => {
+    mockPlatform.mockReturnValue('darwin');
+    mockIsAbsolute.mockReturnValue(true);
+
+    const result = await openFolder('C:\\Users\\test\\project');
+
+    expect(result.success).toBe(true);
+  });
+
   it('returns error when directory does not exist', async () => {
     mockExistsSync.mockReturnValue(false);
 
@@ -57,13 +73,26 @@ describe('openFolder server action', () => {
     expect(result).toEqual({ success: false, error: 'Directory not found' });
   });
 
-  it('returns error on unsupported platform', async () => {
+  it('spawns correct command on win32', async () => {
     mockPlatform.mockReturnValue('win32');
 
     const result = await openFolder('/home/user/project');
 
+    expect(result.success).toBe(true);
+    expect(mockSpawn).toHaveBeenCalledWith('explorer', ['/home/user/project'], {
+      detached: true,
+      stdio: 'ignore',
+    });
+    expect(mockUnref).toHaveBeenCalled();
+  });
+
+  it('returns error on unsupported platform', async () => {
+    mockPlatform.mockReturnValue('freebsd');
+
+    const result = await openFolder('/home/user/project');
+
     expect(result.success).toBe(false);
-    expect(result.error).toContain('win32');
+    expect(result.error).toContain('freebsd');
   });
 
   it('spawns correct command on darwin', async () => {

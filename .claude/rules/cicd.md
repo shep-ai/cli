@@ -12,8 +12,9 @@
 
 1. After push, list ALL runs: `gh run list --branch <branch> --json databaseId,status,conclusion`
 2. Watch ALL in-progress runs (not just the first one)
-3. Only after every run shows `completed` + `success`, report CI as passed
-4. If any run fails, investigate — do not ignore it
+3. **NEVER trust `gh run watch` exit status alone** — it can exit 0 while jobs are still running or have failed. After `gh run watch` completes, ALWAYS verify with `gh run list --branch <branch> --json databaseId,status,conclusion` to confirm every run shows `completed` + `success`.
+4. Only after every run shows `completed` + `success`, report CI as passed
+5. If any run fails, investigate — do not ignore it
 
 ## ABSOLUTE OWNERSHIP OF CI FAILURES
 

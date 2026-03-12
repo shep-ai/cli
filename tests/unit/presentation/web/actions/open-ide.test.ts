@@ -12,6 +12,12 @@ vi.mock('@/lib/server-container', () => ({
   resolve: () => ({ execute: mockExecute }),
 }));
 
+const mockIsAbsolute = vi.fn<(p: string) => boolean>();
+vi.mock('node:path', async () => {
+  const actual = await vi.importActual('node:path');
+  return { ...actual, isAbsolute: (p: string) => mockIsAbsolute(p) };
+});
+
 const { openIde } = await import('../../../../../src/presentation/web/app/actions/open-ide.js');
 
 describe('openIde server action', () => {
@@ -25,6 +31,7 @@ describe('openIde server action', () => {
       editorName: 'VS Code',
       worktreePath: '/mock/.shep/repos/abc123/wt/feat-test',
     });
+    mockIsAbsolute.mockImplementation((p: string) => /^\//.test(p));
   });
 
   it('returns error for missing repositoryPath', async () => {
@@ -43,6 +50,20 @@ describe('openIde server action', () => {
       success: false,
       error: 'repositoryPath must be an absolute path',
     });
+  });
+
+  it('accepts Windows-style absolute paths when path.isAbsolute recognizes them', async () => {
+    mockIsAbsolute.mockReturnValue(true);
+
+    const result = await openIde({ repositoryPath: 'D:\\Projects\\myapp' });
+
+    expect(mockExecute).toHaveBeenCalledWith({
+      editorId: 'vscode',
+      repositoryPath: 'D:\\Projects\\myapp',
+      branch: undefined,
+      checkAvailability: true,
+    });
+    expect(result.success).toBe(true);
   });
 
   it('calls use case without branch when branch is not provided', async () => {

@@ -7,7 +7,7 @@
  */
 
 import { createHash } from 'node:crypto';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import { injectable, inject } from 'tsyringe';
 
@@ -51,9 +51,11 @@ export class WorktreeService implements IWorktreeService {
       throw this.parseGitError(error);
     }
 
-    // Get info about the created worktree
+    // Get info about the created worktree — match by branch (reliable) then path
     const worktrees = await this.list(repoPath);
-    const created = worktrees.find((w) => this.arePathsEquivalent(w.path, worktreePath));
+    const created =
+      worktrees.find((w) => w.branch === branch) ??
+      worktrees.find((w) => this.arePathsEquivalent(w.path, worktreePath));
     if (!created) {
       throw new WorktreeError(
         'Worktree created but not found in list',
@@ -139,7 +141,7 @@ export class WorktreeService implements IWorktreeService {
     try {
       if (!isExistingRepo) {
         mkdirSync(repoPath, { recursive: true });
-        await this.execFile('git', ['init'], { cwd: repoPath });
+        await this.execFile('git', ['init', '-b', 'main'], { cwd: repoPath });
       }
       await this.execFile('git', ['config', 'user.name', GIT_AUTO_INIT_USER], { cwd: repoPath });
       await this.execFile('git', ['config', 'user.email', GIT_AUTO_INIT_EMAIL], { cwd: repoPath });
@@ -156,7 +158,7 @@ export class WorktreeService implements IWorktreeService {
   getWorktreePath(repoPath: string, branch: string): string {
     const repoHash = createHash('sha256').update(repoPath).digest('hex').slice(0, 16);
     const slug = branch.replace(/\//g, '-');
-    return path.join(getShepHomeDir(), 'repos', repoHash, 'wt', slug);
+    return path.join(getShepHomeDir(), 'repos', repoHash, 'wt', slug).replace(/\\/g, '/');
   }
 
   private parseWorktreeOutput(output: string): WorktreeInfo[] {
@@ -223,6 +225,18 @@ export class WorktreeService implements IWorktreeService {
   }
 
   private normalizeWorktreePath(input: string): string {
+    // On Windows, git outputs forward slashes but path.normalize uses backslashes.
+    // Normalize to forward slashes before comparing, case-insensitive.
+    if (process.platform === 'win32') {
+      let normalized = path.normalize(input).replace(/\\/g, '/').replace(/\/+$/, '');
+      try {
+        normalized = realpathSync(normalized).replace(/\\/g, '/');
+      } catch {
+        // Path may not exist yet — use as-is
+      }
+      return normalized.toLowerCase();
+    }
+
     const normalized = path.normalize(input).replace(/\/+$/, '');
 
     // On macOS, git can report /private/var/... while callers use /var/...

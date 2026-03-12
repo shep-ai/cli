@@ -84,9 +84,9 @@ export class SQLiteFeatureRepository implements IFeatureRepository {
 
   async findBySlug(slug: string, repositoryPath: string): Promise<Feature | null> {
     const stmt = this.db.prepare(
-      'SELECT * FROM features WHERE slug = ? AND repository_path = ? AND deleted_at IS NULL'
+      "SELECT * FROM features WHERE slug = ? AND REPLACE(repository_path, '\\', '/') = ? AND deleted_at IS NULL"
     );
-    const row = stmt.get(slug, repositoryPath) as FeatureRow | undefined;
+    const row = stmt.get(slug, repositoryPath.replace(/\\/g, '/')) as FeatureRow | undefined;
 
     if (!row) {
       return null;
@@ -104,8 +104,8 @@ export class SQLiteFeatureRepository implements IFeatureRepository {
     }
 
     if (filters?.repositoryPath) {
-      conditions.push('repository_path = ?');
-      params.push(filters.repositoryPath);
+      conditions.push("REPLACE(repository_path, '\\', '/') = ?");
+      params.push(filters.repositoryPath.replace(/\\/g, '/'));
     }
 
     if (filters?.lifecycle) {

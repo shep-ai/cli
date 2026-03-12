@@ -59,22 +59,40 @@ Return a JSON object with these fields:
 - name: polished, professional title (improve upon user's wording)
 - description: refined 1-2 sentence description that captures the feature essence (not the request verbatim)`;
 
-    const parsed = await this.structuredCaller.call<FeatureMetadata>(prompt, METADATA_SCHEMA, {
-      maxTurns: 10,
-      allowedTools: [],
-      silent: true,
-      agentType,
-    });
+    try {
+      const parsed = await this.structuredCaller.call<FeatureMetadata>(prompt, METADATA_SCHEMA, {
+        maxTurns: 10,
+        allowedTools: [],
+        silent: true,
+        agentType,
+      });
 
-    if (!parsed.slug || !parsed.name || !parsed.description) {
-      throw new Error('Missing required fields in AI response');
+      if (parsed.slug && parsed.name && parsed.description) {
+        return {
+          slug: this.toSlug(parsed.slug),
+          name: parsed.name,
+          description: parsed.description,
+        };
+      }
+    } catch {
+      // AI-based metadata generation failed — fall through to local extraction
     }
 
-    return {
-      slug: this.toSlug(parsed.slug),
-      name: parsed.name,
-      description: parsed.description,
-    };
+    return this.extractMetadataLocally(userInput);
+  }
+
+  /**
+   * Extract metadata locally from user input without AI.
+   * Used as fallback when the AI call fails or returns invalid data.
+   */
+  private extractMetadataLocally(userInput: string): FeatureMetadata {
+    const slug = this.toSlug(userInput);
+    // Capitalize first letter of each word for the name
+    const name = userInput
+      .slice(0, 80)
+      .replace(/\b\w/g, (c) => c.toUpperCase())
+      .trim();
+    return { slug, name, description: userInput.slice(0, 200).trim() };
   }
 
   /**

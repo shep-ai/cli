@@ -16,11 +16,15 @@ export interface AddRepositoryInput {
 }
 
 /**
- * Normalizes a path by removing trailing slashes.
+ * Normalizes a path: backslashes → forward slashes, trailing slashes removed.
+ * On Windows, the folder picker returns backslashes (C:\Users\...) while
+ * the CLI uses forward slashes (C:/Users/...). Normalize to forward slashes
+ * so the same directory is never stored under two different path strings.
  */
 function normalizePath(p: string): string {
+  const forwardSlash = p.replace(/\\/g, '/');
   // Remove trailing slashes but keep root "/"
-  return p.length > 1 ? p.replace(/\/+$/, '') : p;
+  return forwardSlash.length > 1 ? forwardSlash.replace(/\/+$/, '') : forwardSlash;
 }
 
 @injectable()

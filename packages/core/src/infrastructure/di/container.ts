@@ -170,8 +170,15 @@ export async function initializeContainer(): Promise<typeof container> {
   });
 
   // Register external dependencies as tokens
+  // On Windows, agent CLIs ship as .cmd/.ps1 scripts (e.g. cursor's `agent.cmd`).
+  // execFile without shell: true cannot resolve .cmd extensions, causing ENOENT.
   const execFileAsync = promisify(execFile);
-  container.registerInstance('ExecFunction', execFileAsync);
+  const execFn =
+    process.platform === 'win32'
+      ? (file: string, args: string[], options?: object) =>
+          execFileAsync(file, args, { ...options, shell: true, windowsHide: true })
+      : execFileAsync;
+  container.registerInstance('ExecFunction', execFn);
 
   // Register services (singletons via @injectable + token)
   container.registerSingleton<IAgentValidator>('IAgentValidator', AgentValidatorService);
@@ -237,9 +244,14 @@ export async function initializeContainer(): Promise<typeof container> {
   } else {
     container.register<IAgentExecutorFactory>('IAgentExecutorFactory', {
       useFactory: () => {
-        // Wrap spawn to ensure stdio is explicitly set to 'pipe'
+        // Wrap spawn to ensure stdio is explicitly set to 'pipe'.
+        // On Windows, .cmd scripts (e.g. cursor's `agent.cmd`) need shell: true.
         const spawnWithPipe = (command: string, args: string[], options?: object) => {
-          return spawn(command, args, { ...options, stdio: 'pipe' });
+          return spawn(command, args, {
+            ...options,
+            stdio: 'pipe',
+            ...(process.platform === 'win32' ? { shell: true, windowsHide: true } : {}),
+          });
         };
         return new AgentExecutorFactory(spawnWithPipe);
       },

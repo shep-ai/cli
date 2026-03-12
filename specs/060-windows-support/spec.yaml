@@ -1,0 +1,436 @@
+name: windows-support
+number: 60
+branch: feat/060-windows-support
+oneLiner: >-
+  Add Windows (win32) runtime support so `npm i -g @shepai/cli` works
+  natively on Windows
+userQuery: |
+  Currently the project support linux and osx, add support to windows
+summary: >
+  The @shepai/cli platform currently runs on Linux and macOS. While some
+  runtime services already include win32 platform branches (browser opener,
+  file/folder dialogs, CLI symbol detection), many critical runtime subsystems
+  use Unix-only APIs: shell command execution uses `sh -c`, binary detection
+  uses `which` (not available on Windows), process management relies on Unix
+  signals (SIGTERM/SIGKILL) and negative-PID process groups, Web UI
+  open-shell/open-folder actions have no win32 entry, tool JSON files lack
+  win32 install commands, and path validation assumes Unix `/` prefix. This
+  feature adds win32 runtime support so that Windows users who install the
+  package via `npm i -g @shepai/cli` can run all CLI commands and Web UI
+  features natively without WSL or compatibility layers. This is NOT about
+  local development on Windows — build scripts, CI runners, and test fixtures
+  remain Unix-only.
+phase: Requirements
+sizeEstimate: M
+relatedFeatures: []
+technologies:
+  - Node.js (child_process, os, path, fs modules)
+  - TypeScript
+  - Commander.js (CLI)
+  - Next.js (web UI)
+  - better-sqlite3 (native binding)
+  - node-notifier (desktop notifications)
+  - PowerShell (Windows commands)
+  - cmd.exe (Windows shell fallback)
+  - winget (Windows Package Manager)
+relatedLinks: []
+openQuestions:
+  - question: Should we support native Windows (CMD/PowerShell) or only WSL/Git Bash?
+    resolved: true
+    options:
+      - option: Native Windows (CMD/PowerShell)
+        description: >
+          Full native support using PowerShell and cmd.exe. No dependency on WSL
+          or Git Bash. Maximizes Windows user reach and provides the most
+          seamless experience. Requires adapting runtime shell commands, process
+          management, and path handling for win32.
+        selected: true
+      - option: WSL/Git Bash only
+        description: >
+          Require Windows users to run through WSL or Git Bash. Simpler to
+          implement since Unix commands work in these environments, but limits
+          adoption and adds a hard prerequisite that many Windows developers may
+          not have configured.
+        selected: false
+      - option: Native + WSL fallback
+        description: >
+          Attempt native Windows support first, with WSL detection as a
+          fallback. Adds complexity with two code paths on the same platform and
+          makes debugging harder.
+        selected: false
+    selectionRationale: >
+      Native Windows support is recommended because the goal is to make shep
+      accessible to all Windows developers. Requiring WSL is a significant
+      barrier — many corporate environments restrict WSL, and casual users won't
+      install it just to try a CLI tool. Node.js already provides cross-platform
+      APIs (path, os, fs) that make native support feasible without excessive
+      complexity. The codebase already uses platform detection patterns
+      (os.platform() with Record lookups) that extend naturally to win32.
+    answer: Native Windows (CMD/PowerShell)
+  - question: Which Windows package manager to target for tool install commands?
+    resolved: true
+    options:
+      - option: winget only
+        description: >
+          Target only winget (Windows Package Manager). Built into Windows 10
+          1709+ and Windows 11. No third-party install required. Covers the
+          widest base of modern Windows users with zero prerequisites. Has the
+          largest and fastest-growing package repository among Windows package
+          managers.
+        selected: true
+      - option: Chocolatey only
+        description: >
+          Target only Chocolatey. The most established Windows package manager
+          with the largest package catalog. However, requires separate
+          installation and admin rights for many packages. Not built into
+          Windows.
+        selected: false
+      - option: All three (winget, choco, scoop)
+        description: >
+          Support winget, Chocolatey, and Scoop with a preference cascade.
+          Maximum compatibility but triples the maintenance burden for 16 tool
+          JSON files (48 new command entries). Adds complexity to the installer
+          logic for fallback detection.
+        selected: false
+    selectionRationale: >
+      winget is recommended as the sole Windows package manager because it ships
+      built-in with Windows 10 1709+ and all Windows 11 systems, requiring zero
+      additional setup. This aligns with the project's goal of minimal
+      prerequisites. The winget repository includes all tools the project needs
+      (git, gh, node, docker, etc.). Supporting multiple package managers would
+      triple the tool JSON maintenance burden without proportional user benefit,
+      since winget covers the vast majority of modern Windows installations.
+    answer: winget only
+  - question: How should process group termination be handled on Windows?
+    resolved: true
+    options:
+      - option: Use tree-kill package
+        description: >
+          Add the tree-kill npm package which provides cross-platform process
+          tree termination. On Windows it uses taskkill /T /F, on Unix it uses
+          process group signals. Well-maintained, small footprint (~3KB), widely
+          used (10M+ weekly downloads). Abstracts platform differences behind a
+          single API.
+        selected: true
+      - option: Custom taskkill implementation
+        description: >
+          Write custom code that uses taskkill.exe on Windows and negative-PID
+          kill on Unix. No new dependency but requires maintaining
+          platform-specific process management code and thorough testing of edge
+          cases (zombie processes, permission errors, already-exited processes).
+        selected: false
+      - option: Use process.kill with platform checks
+        description: >
+          Use Node.js built-in process.kill() with platform-conditional logic.
+          On Windows, kill individual processes without group semantics.
+          Simplest approach but may leave orphaned child processes on Windows
+          since there is no native process group concept.
+        selected: false
+    selectionRationale: >
+      tree-kill is recommended because it solves a genuinely complex
+      cross-platform problem (process tree termination) with a battle-tested,
+      minimal-footprint package. Writing custom taskkill logic risks edge cases
+      around permission errors, zombie processes, and process trees deeper than
+      one level. The package has 10M+ weekly downloads and is the standard
+      solution in the Node.js ecosystem. Using process.kill alone would leave
+      orphaned child processes on Windows, which is unacceptable for daemon and
+      agent management.
+    answer: Use tree-kill package
+  - question: >-
+      Should the tool installer use where.exe on Windows or a cross-platform
+      binary-exists check?
+    resolved: true
+    options:
+      - option: Cross-platform which check (Node.js)
+        description: >
+          Use a cross-platform approach: check if the binary exists by
+          attempting to resolve it via Node.js APIs or a small cross-platform
+          package like which (npm). This provides a single code path for all
+          platforms, uses which on Unix and where.exe under the hood on Windows.
+          Simpler maintenance, no platform branching needed.
+        selected: true
+      - option: Platform-conditional where.exe/which
+        description: >
+          Use os.platform() to choose between execFile("which") on Unix and
+          execFile("where.exe") on Windows. Follows the existing
+          platform-detection pattern in the codebase but adds another platform
+          branch to maintain. where.exe output format differs from which (may
+          return multiple lines).
+        selected: false
+    selectionRationale: >
+      A cross-platform approach is recommended because it eliminates platform
+      branching in the binary detection logic entirely. Node.js 16+ can resolve
+      binaries via child_process.execFile with the shell option, or a
+      lightweight package like the npm which package can abstract this. Since
+      the codebase already has platform branching in many places, reducing it
+      where possible improves maintainability. The which npm package handles
+      Windows where.exe semantics internally, including PATHEXT resolution.
+    answer: Cross-platform which check (Node.js)
+  - question: How should shell command execution (sh -c) be adapted for Windows?
+    resolved: true
+    options:
+      - option: 'Use spawn with shell: true option'
+        description: >
+          Replace spawn("sh", ["-c", cmd]) with spawn(cmd, { shell: true }).
+          Node.js shell option automatically uses cmd.exe on Windows and sh on
+          Unix. Single code path, no platform branching needed. The shell option
+          is designed exactly for this use case. Works with all child_process
+          methods (spawn, exec, execFile).
+        selected: true
+      - option: Platform-conditional shell selection
+        description: >
+          Use os.platform() to choose between spawn("sh", ["-c", cmd]) on Unix
+          and spawn("cmd.exe", ["/c", cmd]) on Windows. Explicit but adds
+          platform branching and requires testing both paths. PowerShell could
+          also be used instead of cmd.exe.
+        selected: false
+    selectionRationale: >
+      Using spawn with shell: true is recommended because it is the idiomatic
+      Node.js solution for cross-platform shell command execution. Node.js
+      internally handles platform detection, using /bin/sh on Unix and cmd.exe
+      on Windows. This eliminates the need for manual platform branching and is
+      the approach recommended by the Node.js documentation. It also handles
+      command quoting and escaping differences between platforms.
+    answer: 'Use spawn with shell: true option'
+  - question: Should build scripts and CI be made Windows-compatible?
+    resolved: true
+    options:
+      - option: No — runtime only
+        description: >
+          Keep build scripts (rm -rf, cp -r, mkdir -p in package.json) and CI
+          runners (ubuntu-latest only) as Unix-only. The project is developed on
+          Linux/macOS. Windows support means the published npm package works on
+          Windows, not that developers can build the project on Windows. This
+          dramatically reduces scope and avoids unnecessary changes to working
+          build infrastructure.
+        selected: true
+      - option: Yes — full development support
+        description: >
+          Make build scripts cross-platform (Node.js fs APIs) and add
+          windows-latest CI runner. Allows developers on Windows to contribute
+          and catches Windows-specific build issues. Significantly increases
+          scope and touches build infrastructure that already works.
+        selected: false
+    selectionRationale: >
+      Runtime-only is the correct scope per user feedback. The goal is that
+      `npm i -g @shepai/cli` works on Windows — not that developers build the
+      project on Windows. Build scripts already work on Linux/macOS where
+      development happens. Adding Windows CI and build portability would
+      increase scope significantly with little user-facing benefit. The npm
+      package ships precompiled artifacts (dist/, web/) so Windows users never
+      run build scripts.
+    answer: No — runtime only
+content: |
+  ## Problem Statement
+
+  The @shepai/cli platform currently supports Linux and macOS but lacks Windows
+  runtime compatibility. When a Windows user installs the package via
+  `npm i -g @shepai/cli`, many CLI commands and Web UI features fail because
+  the runtime code uses Unix-only APIs.
+
+  While some runtime services already include win32 platform branches (browser
+  opener, file/folder dialogs, CLI Unicode detection), many critical runtime
+  subsystems break on Windows:
+  - Shell command execution uses `spawn('sh', ['-c', cmd])` — `sh` is not available on Windows
+  - Binary detection uses `execFile('which', ...)` — `which` is not available on Windows
+  - Process management uses `process.kill(-pid, signal)` — negative PID (process groups) not supported on Windows
+  - Web UI open-shell and open-folder actions have no `win32` entry
+  - Tool JSON files lack `win32` install commands
+  - Path validation uses `startsWith('/')` — rejects Windows paths like `C:\Users\...`
+  - Path separator handling uses hardcoded `/` in some string operations
+
+  **Scope clarification**: This feature is about RUNTIME support only. The npm
+  package ships precompiled artifacts (`dist/`, `web/`). Windows users never run
+  build scripts or tests. Build tooling, CI runners, and test fixtures remain
+  Unix-only. Development continues on Linux/macOS.
+
+  ## Success Criteria
+
+  - [ ] `npm i -g @shepai/cli` installs successfully on Windows
+  - [ ] `shep init` works on Windows (project initialization)
+  - [ ] `shep start` works on Windows (daemon starts, Web UI launches)
+  - [ ] `shep stop` works on Windows (daemon terminates cleanly)
+  - [ ] `shep ui` works on Windows (opens browser to Web UI)
+  - [ ] Web UI open-shell action opens PowerShell/Windows Terminal on Windows
+  - [ ] Web UI open-folder action opens Explorer on Windows
+  - [ ] Web UI open-IDE action works with Windows paths (e.g., `C:\Users\...`)
+  - [ ] Web UI deploy action works with Windows paths
+  - [ ] Tool installer detects installed binaries on Windows (cross-platform check)
+  - [ ] Tool installer provides winget install commands on Windows for all tool definitions
+  - [ ] Daemon process lifecycle (start, liveness check, stop, force-kill) works on Windows
+  - [ ] Agent process management (fork, kill, liveness check) works on Windows
+  - [ ] Path validation accepts both Unix (`/home/user/repo`) and Windows (`C:\Users\user\repo`) absolute paths
+  - [ ] All existing Linux and macOS functionality remains unchanged (no regressions)
+
+  ## Functional Requirements
+
+  - **FR-1: Cross-platform shell execution** — Replace all `spawn('sh', ['-c', cmd])` calls
+    with `spawn(cmd, { shell: true })` or equivalent cross-platform pattern. Applies to
+    tool-installer.service.ts and any other runtime service using explicit `sh` invocation.
+
+  - **FR-2: Cross-platform binary detection** — Replace `execFile('which', [binary])` with
+    a cross-platform binary existence check (e.g., the npm `which` package or Node.js
+    `child_process` with `shell: true`). Applies to tool-installer.service.ts and
+    json-driven-ide-launcher.service.ts.
+
+  - **FR-3: Windows tool install commands** — Add `win32` entries to all tool JSON files
+    in `packages/core/src/infrastructure/services/tool-installer/tools/`. Use winget as the
+    package manager (e.g., `winget install --id Git.Git -e --source winget`). Each tool must
+    have a valid winget package ID.
+
+  - **FR-4: Web UI open-shell action** — Add a `win32` entry to the SHELL_COMMANDS record
+    in `open-shell.ts` that opens Windows Terminal (wt.exe) or PowerShell as a fallback,
+    with the working directory set to the repository path.
+
+  - **FR-5: Web UI open-folder action** — Add a `win32` entry to the FOLDER_COMMANDS record
+    in `open-folder.ts` that opens Windows Explorer (`explorer.exe`) at the repository path.
+
+  - **FR-6: Cross-platform path validation** — Replace all `startsWith('/')` absolute path
+    checks with `path.isAbsolute()` or a cross-platform validator that accepts both Unix
+    paths (`/home/...`) and Windows paths (`C:\...`, `D:/...`, UNC paths `\\server\share`).
+    Applies to open-shell.ts, open-folder.ts, open-ide.ts, deploy-repository.ts, and
+    dev-executor.service.ts.
+
+  - **FR-7: Cross-platform process tree termination** — Replace `process.kill(-pid, signal)`
+    negative-PID process group kills with tree-kill or equivalent cross-platform process tree
+    termination. Applies to deployment.service.ts and stop-daemon.ts.
+
+  - **FR-8: Cross-platform daemon lifecycle** — Ensure daemon start (detached spawn with
+    stdio redirection) and stop (signal then force-kill) works on Windows. The `detached`
+    option in Node.js spawn behaves differently on Windows (creates new console window vs
+    new process group on Unix). Adjust accordingly.
+
+  - **FR-9: Feature agent process management** — Ensure `fork()` with detached mode and
+    `process.kill(pid, 0)` liveness checks work correctly on Windows. The kill-with-zero
+    signal works on Windows in Node.js, but detached fork behavior differs.
+
+  - **FR-10: Cross-platform path separator handling** — Replace hardcoded `/` path separators
+    in runtime string operations (e.g., `filePath.startsWith(home + '/')` in
+    claude-code-session.repository.ts) with `path.sep` or `path.join()`.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1: No regressions on Linux/macOS** — All existing tests must continue to pass on
+    Linux and macOS. Windows support must be additive, not replacing platform-specific logic
+    that already works.
+
+  - **NFR-2: Minimal new dependencies** — Prefer Node.js built-in APIs over new npm packages.
+    Only add packages (tree-kill, which) where the built-in alternative is significantly more
+    complex or error-prone. Maximum 2 new runtime dependencies.
+
+  - **NFR-3: Consistent platform detection pattern** — Follow the existing codebase convention
+    of `os.platform()` with `Record<string, ...>` lookups for platform-specific logic. New
+    win32 branches should match the style of existing darwin/linux entries.
+
+  - **NFR-4: Graceful degradation** — If a Windows-specific feature is unavailable (e.g.,
+    Windows Terminal not installed for open-shell), fall back to a universally available
+    alternative (PowerShell) rather than returning an error.
+
+  - **NFR-5: Security** — Windows-specific commands must not introduce command injection
+    vulnerabilities. All paths passed to spawn/exec must be properly escaped or passed as
+    array arguments rather than interpolated into shell strings.
+
+  - **NFR-6: Path handling correctness** — All runtime path operations must use Node.js path
+    module (path.join, path.resolve, path.sep, path.isAbsolute) instead of string
+    concatenation or Unix-specific checks.
+
+  - **NFR-7: Maintainable tool metadata** — Each tool JSON file's win32 entry should use a
+    single, consistent package manager (winget). No fallback chains or detection logic in
+    tool metadata — keep tool JSON files simple and declarative.
+
+  - **NFR-8: Development workflow unchanged** — Build scripts, CI runners, test fixtures, and
+    pnpm workspace tooling remain Unix-only. No changes to developer experience on
+    Linux/macOS. Windows compatibility is strictly a runtime concern.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Native Windows vs WSL/Git Bash? | Native Windows (CMD/PowerShell) | Maximizes user reach; WSL is a barrier in corporate environments; Node.js APIs support native Windows |
+  | 2 | Which Windows package manager for tool installs? | winget only | Ships built-in on Windows 10 1709+/11; zero prerequisites; covers all needed tools |
+  | 3 | How to handle process group termination? | tree-kill package | Battle-tested (10M+ downloads), handles taskkill on Windows; custom code risks edge cases |
+  | 4 | Binary detection approach? | Cross-platform which check | Eliminates platform branching; npm which package handles PATHEXT on Windows |
+  | 5 | Shell command execution adaptation? | spawn with shell: true | Idiomatic Node.js; automatic platform detection; recommended by Node.js docs |
+  | 6 | Should build scripts and CI be made Windows-compatible? | No — runtime only | Users install precompiled npm package; build/CI stays Unix-only; dramatically reduces scope |
+
+  ## Affected Areas
+
+  ### Runtime — Must Fix (ships in npm package)
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `packages/core/src/infrastructure/services/tool-installer/tool-installer.service.ts` | High | Uses `execFile('which', ...)` and `spawn('sh', ['-c', ...])` — neither available on Windows |
+  | `packages/core/src/infrastructure/services/tool-installer/tools/*.json` (16 files) | High | Most tool JSON files lack `win32` install commands; only list `linux` and `darwin` |
+  | `src/presentation/web/app/actions/open-shell.ts` | High | SHELL_COMMANDS record has no `win32` entry — returns error on Windows |
+  | `src/presentation/web/app/actions/open-folder.ts` | High | FOLDER_COMMANDS record has no `win32` entry — returns error on Windows |
+  | `src/presentation/web/app/actions/open-ide.ts` | High | Path validation uses `startsWith('/')` — rejects Windows paths like `C:\...` |
+  | `src/presentation/web/app/actions/deploy-repository.ts` | High | Same `startsWith('/')` path validation issue |
+  | `packages/core/src/infrastructure/services/deployment/deployment.service.ts` | High | Uses `kill(-pid, 'SIGTERM')` and `kill(-pid, 'SIGKILL')` for process groups — negative PID not supported on Windows |
+  | `src/presentation/cli/commands/daemon/stop-daemon.ts` | High | Uses `process.kill(pid, 'SIGTERM')` then `process.kill(pid, 'SIGKILL')` |
+  | `src/presentation/cli/commands/daemon/start-daemon.ts` | Medium | Detached spawn with `stdio: ['ignore', logFd, logFd]` — may behave differently on Windows |
+  | `packages/core/src/infrastructure/services/agents/feature-agent/feature-agent-process.service.ts` | Medium | Uses `fork()` with detached mode and `process.kill(pid, 0)` for liveness check |
+  | `packages/core/src/infrastructure/services/ide-launchers/json-driven-ide-launcher.service.ts` | Medium | Uses `execFile('which', ...)` for availability check — not available on Windows |
+  | `packages/core/src/infrastructure/services/agents/common/executors/dev-executor.service.ts` | Medium | Uses `startsWith('/')` for absolute path validation |
+  | `packages/core/src/infrastructure/services/agents/sessions/claude-code-session.repository.ts` | Low | Uses `filePath.startsWith(home + '/')` — needs path.sep on Windows |
+  | `packages/core/src/infrastructure/services/git/worktree.service.ts` | Low | Path normalization only handles macOS `/private/var` — may need Windows-specific handling |
+
+  ### Runtime — Already Working (no changes needed)
+
+  | Area | Status | Reasoning |
+  | ---- | ------ | --------- |
+  | `src/presentation/cli/ui/symbols.ts` | OK | Already has Windows terminal detection |
+  | `packages/core/src/infrastructure/services/browser-opener.service.ts` | OK | Already has win32 entry |
+  | `packages/core/src/infrastructure/services/file-dialog.service.ts` | OK | Already has win32 PowerShell command |
+  | `packages/core/src/infrastructure/services/folder-dialog.service.ts` | OK | Already has win32 PowerShell command |
+  | `packages/core/src/infrastructure/services/notifications/desktop-notifier.ts` | OK | node-notifier supports Windows toast |
+  | `packages/core/src/infrastructure/services/filesystem/shep-directory.service.ts` | OK | `mode: 0o700` in mkdir is ignored on Windows but harmless |
+
+  ### Out of Scope — Build/Dev Only (not shipped in npm package)
+
+  | Area | Reason |
+  | ---- | ------ |
+  | `package.json` build scripts (`rm -rf`, `mkdir -p`, `cp -r`) | Build-only; npm package ships precompiled artifacts |
+  | `.github/workflows/ci.yml` | CI infrastructure; development stays on Linux/macOS |
+  | `tests/e2e/cli/daemon-lifecycle.test.ts` | Test fixture; not shipped to users |
+  | `tests/e2e/cli/feat.test.ts` | Test fixture; not shipped to users |
+  | `tests/helpers/cli/server.ts` | Test helper; not shipped to users |
+
+  ## Dependencies
+
+  ### Already Cross-Platform (no changes needed)
+  - `node-notifier` — Supports Windows toast notifications
+  - `better-sqlite3` — Native binding with Windows prebuilds (in `onlyBuiltDependencies`)
+  - `commander` — CLI framework, cross-platform
+  - `@inquirer/prompts` — Terminal prompts, cross-platform
+  - `picocolors` — Terminal colors, cross-platform
+  - `next` — Web framework, cross-platform
+  - `path.join()`, `path.normalize()`, `homedir()` — Already used correctly in most places
+
+  ### Needs Windows Adaptation
+  - `child_process` usage patterns — `sh -c`, `which`, negative-PID kill
+  - Tool JSON metadata — Need `win32` install commands
+
+  ### New Dependencies (recommended)
+  - `tree-kill` — Cross-platform process tree termination (replaces negative-PID kill)
+  - `which` (npm) — Cross-platform binary existence check (replaces `execFile('which')`)
+
+  ## Size Estimate
+
+  **M (days)** — Scope is significantly reduced from the original L estimate by
+  excluding build scripts, CI runners, and test fixtures. The remaining work is
+  focused on runtime code only:
+
+  Key work streams:
+  1. **Shell/binary detection** (FR-1, FR-2) — 3 files, moderate complexity
+  2. **Tool metadata** (FR-3) — 16 JSON files, low complexity per file
+  3. **Web UI actions** (FR-4, FR-5, FR-6) — 4 files, low-moderate complexity
+  4. **Process management** (FR-7, FR-8, FR-9) — 4 files, high complexity
+  5. **Path handling** (FR-10) — 2 files, low complexity
+rejectionFeedback:
+  - iteration: 1
+    message: >-
+      We dont want local development on windows, we just need to be able to
+      "run" on windows, meaning if someone instal the package with npm i -g
+      @shepai/cli everything will work
+    phase: requirements
+    timestamp: '2026-03-11T10:25:45.226Z'

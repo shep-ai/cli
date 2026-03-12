@@ -13,6 +13,12 @@ vi.mock('node:fs', () => ({
   existsSync: (path: string) => mockExistsSync(path),
 }));
 
+const mockIsAbsolute = vi.fn<(p: string) => boolean>();
+vi.mock('node:path', async () => {
+  const actual = await vi.importActual('node:path');
+  return { ...actual, isAbsolute: (p: string) => mockIsAbsolute(p) };
+});
+
 const { deployRepository } = await import(
   '../../../../../src/presentation/web/app/actions/deploy-repository.js'
 );
@@ -21,6 +27,7 @@ describe('deployRepository server action', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockExistsSync.mockReturnValue(true);
+    mockIsAbsolute.mockImplementation((p: string) => /^\//.test(p));
     mockResolve.mockImplementation((token: string) => {
       if (token === 'IDeploymentService') {
         return { start: mockStart };
@@ -47,6 +54,16 @@ describe('deployRepository server action', () => {
       error: 'repositoryPath must be an absolute path',
     });
     expect(mockStart).not.toHaveBeenCalled();
+  });
+
+  it('accepts Windows-style absolute paths when path.isAbsolute recognizes them', async () => {
+    mockIsAbsolute.mockReturnValue(true);
+
+    const result = await deployRepository('C:\\Projects\\repo');
+
+    expect(mockExistsSync).toHaveBeenCalledWith('C:\\Projects\\repo');
+    expect(mockStart).toHaveBeenCalledWith('C:\\Projects\\repo', 'C:\\Projects\\repo');
+    expect(result).toEqual({ success: true, state: 'Booting' });
   });
 
   it('returns error when directory does not exist', async () => {

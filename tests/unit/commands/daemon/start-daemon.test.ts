@@ -236,6 +236,12 @@ describe('startDaemon()', () => {
       expect(spawnOpts).toMatchObject({ detached: true });
     });
 
+    it('spawns with windowsHide: true to suppress console window on Windows', async () => {
+      await startDaemon();
+      const spawnOpts = mockSpawn.mock.calls[0][2];
+      expect(spawnOpts).toMatchObject({ windowsHide: true });
+    });
+
     it('spawns with stdout and stderr redirected to log file fd', async () => {
       mockOpenSync.mockReturnValue(42);
       await startDaemon();

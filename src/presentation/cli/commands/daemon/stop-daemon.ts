@@ -19,6 +19,7 @@
  * @param daemonService - IDaemonService instance (injected by caller for testability, NFR-4)
  */
 
+import { treeKill } from '@/infrastructure/services/process/tree-kill.js';
 import type { IDaemonService } from '@/application/ports/output/services/daemon-service.interface.js';
 import { messages } from '../../ui/index.js';
 
@@ -69,17 +70,17 @@ export async function stopDaemon(daemonService: IDaemonService): Promise<void> {
   try {
     messages.info(`Stopping Shep daemon (PID ${pid})...`);
 
-    // Send SIGTERM — request graceful shutdown
-    process.kill(pid, 'SIGTERM');
+    // Send SIGTERM to process tree — request graceful shutdown
+    treeKill(pid, 'SIGTERM');
 
     // Poll for up to 5s waiting for the process to exit
     const died = await pollUntilDead(daemonService, pid, MAX_WAIT_MS, POLL_INTERVAL_MS);
 
     if (!died) {
-      // Graceful shutdown timed out — force kill
+      // Graceful shutdown timed out — force kill process tree
       messages.info('Daemon did not stop gracefully, sending SIGKILL...');
       try {
-        process.kill(pid, 'SIGKILL');
+        treeKill(pid, 'SIGKILL');
       } catch {
         // Process may have exited between the check and the kill — ignore
       }

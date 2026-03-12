@@ -24,7 +24,11 @@ yarn.lock
 # IDE
 .idea/
 .vscode/
+.cursor
 *.code-workspace
+
+# Symlinks (prettier rejects them)
+CURSOR.md
 
 # OS
 .DS_Store

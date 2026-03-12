@@ -226,7 +226,7 @@ describe('getSkills', () => {
   });
 
   it('reads skills from both project and global directories', async () => {
-    const projSkill = join(projectRoot, '.claude', 'skills', 'shep-kit:plan');
+    const projSkill = join(projectRoot, '.claude', 'skills', 'shep-kit-plan');
     await mkdir(projSkill, { recursive: true });
     await writeFile(
       join(projSkill, 'SKILL.md'),
@@ -348,7 +348,7 @@ describe('getSkills', () => {
   });
 
   it('derives displayName and category correctly', async () => {
-    const skillDir = join(projectRoot, '.claude', 'skills', 'shep-kit:implement');
+    const skillDir = join(projectRoot, '.claude', 'skills', 'shep-kit-implement');
     await mkdir(skillDir, { recursive: true });
     await writeFile(
       join(skillDir, 'SKILL.md'),

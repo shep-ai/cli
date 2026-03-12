@@ -74,4 +74,32 @@ describe('AddRepositoryUseCase', () => {
 
     expect(mockRepo.create).toHaveBeenCalledWith(expect.objectContaining({ name: 'api-server' }));
   });
+
+  it('should normalize Windows backslashes to forward slashes', async () => {
+    await useCase.execute({ path: 'C:\\Users\\mk\\workspaces\\my-project' });
+
+    expect(mockRepo.findByPath).toHaveBeenCalledWith('C:/Users/mk/workspaces/my-project');
+    expect(mockRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        path: 'C:/Users/mk/workspaces/my-project',
+        name: 'my-project',
+      })
+    );
+  });
+
+  it('should deduplicate paths with different slash styles', async () => {
+    const existing: Repository = {
+      id: 'existing-id',
+      name: 'my-project',
+      path: 'C:/Users/mk/workspaces/my-project',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    vi.mocked(mockRepo.findByPath).mockResolvedValue(existing);
+
+    const result = await useCase.execute({ path: 'C:\\Users\\mk\\workspaces\\my-project' });
+
+    expect(result.id).toBe('existing-id');
+    expect(mockRepo.create).not.toHaveBeenCalled();
+  });
 });

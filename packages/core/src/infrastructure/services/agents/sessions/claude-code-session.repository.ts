@@ -390,7 +390,7 @@ export class ClaudeCodeSessionRepository implements IAgentSessionRepository {
   private abbreviatePath(filePath: string): string {
     const home = os.homedir();
     if (filePath === home) return '~';
-    if (filePath.startsWith(`${home}/`)) {
+    if (filePath.startsWith(`${home}${path.sep}`)) {
       return `~${filePath.slice(home.length)}`;
     }
     return filePath;

@@ -1,10 +1,10 @@
 feature:
-  id: '060-repo-list-flicker'
-  name: 'repo-list-flicker'
-  number: 60
-  branch: 'feat/060-repo-list-flicker'
+  id: '062-shep-cicd-pipeline'
+  name: 'shep-cicd-pipeline'
+  number: 62
+  branch: 'feat/062-shep-cicd-pipeline'
   lifecycle: 'research'
-  createdAt: '2026-03-11T11:04:44Z'
+  createdAt: '2026-03-12T09:25:45Z'
 
 status:
   phase: 'research'
@@ -13,7 +13,7 @@ status:
     total: 0
     percentage: 0
   currentTask: null
-  lastUpdated: '2026-03-11T11:04:44Z'
+  lastUpdated: '2026-03-12T09:25:45Z'
   lastUpdatedBy: 'feature-agent'
 
 validation:
@@ -28,7 +28,7 @@ tasks:
 
 checkpoints:
   - phase: 'feature-created'
-    completedAt: '2026-03-11T11:04:44Z'
+    completedAt: '2026-03-12T09:25:45Z'
     completedBy: 'feature-agent'
 
 errors:

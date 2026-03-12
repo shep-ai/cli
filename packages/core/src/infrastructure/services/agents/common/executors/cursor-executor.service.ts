@@ -63,7 +63,9 @@ export class CursorExecutorService implements IAgentExecutor {
 
   async execute(prompt: string, options?: AgentExecutionOptions): Promise<AgentExecutionResult> {
     this.silent = options?.silent ?? false;
-    const args = this.buildStreamArgs(prompt, options);
+    // Use json (not stream-json) for execute() — outputs a single JSON result line.
+    // stream-json is unreliable on Windows where shell: true can mangle args.
+    const args = this.buildArgs(prompt, options);
     const spawnOpts = this.buildSpawnOptions(options);
 
     this.log(
@@ -82,8 +84,9 @@ export class CursorExecutorService implements IAgentExecutor {
       let timedOut = false;
       let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
-      // Accumulated from assistant events
+      // Accumulated from JSON events or raw text fallback
       let resultText = '';
+      let rawText = '';
       let sessionId: string | undefined;
       let metadata: Record<string, unknown> | undefined;
 
@@ -103,14 +106,17 @@ export class CursorExecutorService implements IAgentExecutor {
               if (block.type === 'text' && block.text) resultText += block.text;
             }
           } else if (parsed.type === 'result') {
+            // json format puts the full result text in parsed.result
+            if (typeof parsed.result === 'string' && parsed.result) resultText = parsed.result;
             if (parsed.session_id) sessionId = parsed.session_id;
             if (parsed.duration_ms !== undefined) {
               metadata = { ...metadata, duration_ms: parsed.duration_ms };
             }
           }
-          // user events and tool_call events: logged but don't affect result
+          // user, system, thinking events: logged but don't affect result
         } catch {
-          /* malformed JSON — already logged */
+          // Non-JSON output — accumulate as raw text fallback
+          if (line.length > 0) rawText += `${line}\n`;
         }
       };
 
@@ -138,7 +144,9 @@ export class CursorExecutorService implements IAgentExecutor {
 
       proc.on('close', (code: number | null) => {
         if (lineBuffer.trim()) processLine(lineBuffer.trim());
-        this.log(`Process closed with code ${code}, result=${resultText.length} chars`);
+        // Use raw text as fallback when no JSON result was captured
+        const finalText = resultText || rawText.trim();
+        this.log(`Process closed with code ${code}, result=${finalText.length} chars`);
         if (timeoutId) clearTimeout(timeoutId);
 
         if (timedOut) {
@@ -151,7 +159,7 @@ export class CursorExecutorService implements IAgentExecutor {
           return;
         }
 
-        const result: AgentExecutionResult = { result: resultText };
+        const result: AgentExecutionResult = { result: finalText };
         if (sessionId) result.sessionId = sessionId;
         if (metadata) result.metadata = metadata;
         resolve(result);
@@ -278,7 +286,7 @@ export class CursorExecutorService implements IAgentExecutor {
   }
 
   private buildArgs(prompt: string, options?: AgentExecutionOptions): string[] {
-    const args = ['-p', prompt, '--output-format', 'json', '--force'];
+    const args = ['--yolo', '-p', prompt, '--output-format', 'json'];
     if (options?.resumeSession) args.push('--resume', options.resumeSession);
     if (options?.model) args.push('--model', toCursorModelName(options.model));
     // Unsupported options silently omitted: systemPrompt, allowedTools, maxTurns, outputSchema

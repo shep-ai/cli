@@ -468,9 +468,7 @@ describe('createNewCommand', () => {
       await cmd.parseAsync(['Add feature', '--attach', '/nonexistent/file.png'], { from: 'user' });
 
       expect(process.exitCode).toBe(1);
-      expect(mockMessages.error).toHaveBeenCalledWith(
-        expect.stringContaining('/nonexistent/file.png')
-      );
+      expect(mockMessages.error).toHaveBeenCalledWith(expect.stringContaining('nonexistent'));
       expect(mockCreateExecute).not.toHaveBeenCalled();
     });
 

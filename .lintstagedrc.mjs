@@ -1,3 +1,5 @@
+import { lstatSync } from 'node:fs';
+
 /**
  * lint-staged Configuration
  *
@@ -8,6 +10,9 @@
  *
  * @see https://github.com/lint-staged/lint-staged
  */
+
+/** Filter out symlinks — prettier rejects them and Windows handles them differently. */
+const skipSymlinks = (files) => files.filter((f) => !lstatSync(f).isSymbolicLink());
 
 export default {
   // TypeSpec files - format and compile
@@ -28,7 +33,10 @@ export default {
 
   // JSON, YAML, Markdown - format only
   '*.{json,yaml,yml}': ['prettier --write'],
-  '*.md': ['prettier --write'],
+  '*.md': (files) => {
+    const real = skipSymlinks(files);
+    return real.length ? [`prettier --write ${real.join(' ')}`] : [];
+  },
 
   // Package.json - sort and format
   'package.json': ['prettier --write'],

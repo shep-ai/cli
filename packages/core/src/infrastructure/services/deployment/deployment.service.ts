@@ -9,6 +9,7 @@
 
 import { spawn, type ChildProcess } from 'node:child_process';
 import { EventEmitter } from 'node:events';
+import treeKill from 'tree-kill';
 import { DeploymentState } from '@/domain/generated/output.js';
 import type {
   IDeploymentService,
@@ -45,7 +46,7 @@ export interface DeploymentServiceDeps {
 const defaultDeps: DeploymentServiceDeps = {
   spawn,
   detectDevScript,
-  kill: (pid, signal) => process.kill(pid, signal as NodeJS.Signals),
+  kill: (pid, signal) => treeKill(pid, signal),
   isAlive: (pid: number) => {
     try {
       process.kill(pid, 0);
@@ -174,13 +175,13 @@ export class DeploymentService implements IDeploymentService {
       return;
     }
 
-    log.info(`stop("${targetId}") — sending SIGTERM to process group (pid=${entry.pid})`);
+    log.info(`stop("${targetId}") — sending SIGTERM to process tree (pid=${entry.pid})`);
 
     entry.logs.clear();
 
-    // Send SIGTERM to process group
+    // Send SIGTERM to process tree (tree-kill handles child processes)
     try {
-      this.deps.kill(-entry.pid, 'SIGTERM');
+      this.deps.kill(entry.pid, 'SIGTERM');
     } catch {
       log.info(`stop("${targetId}") — process already dead on SIGTERM`);
       this.deployments.delete(targetId);
@@ -196,7 +197,7 @@ export class DeploymentService implements IDeploymentService {
       );
       // Escalate to SIGKILL
       try {
-        this.deps.kill(-entry.pid, 'SIGKILL');
+        this.deps.kill(entry.pid, 'SIGKILL');
       } catch {
         // Process may have exited between check and kill
       }
@@ -242,11 +243,11 @@ export class DeploymentService implements IDeploymentService {
   }
 
   /**
-   * Send SIGKILL to a process group.
+   * Send SIGKILL to a process tree.
    */
   private killProcess(entry: DeploymentEntry): void {
     try {
-      this.deps.kill(-entry.pid, 'SIGKILL');
+      this.deps.kill(entry.pid, 'SIGKILL');
     } catch {
       // Process may already be dead
     }
