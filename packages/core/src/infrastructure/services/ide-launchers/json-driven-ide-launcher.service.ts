@@ -106,7 +106,11 @@ export class JsonDrivenIdeLauncherService implements IIdeLauncherService {
       if (useShell) {
         child = spawn(resolved, [], opts);
       } else {
-        const [command, ...args] = resolved.split(/\s+/);
+        // Split the template BEFORE substituting {dir} so that directory
+        // paths containing spaces are kept as a single argument.
+        const parts = openCmd.split(/\s+/);
+        const command = parts[0].replace('{dir}', directoryPath);
+        const args = parts.slice(1).map((p) => p.replace('{dir}', directoryPath));
         child = spawn(command, args, opts);
       }
       if (opts.detached) child.unref();

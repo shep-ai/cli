@@ -68,11 +68,12 @@ export interface IWorktreeService {
   /**
    * Remove an existing worktree.
    *
+   * @param repoPath - Absolute path to the main repository (used as cwd for git)
    * @param worktreePath - Path to the worktree to remove
    * @param force - When true, passes --force to git worktree remove (handles dirty worktrees)
    * @throws WorktreeError if worktree not found or has uncommitted changes
    */
-  remove(worktreePath: string, force?: boolean): Promise<void>;
+  remove(repoPath: string, worktreePath: string, force?: boolean): Promise<void>;
 
   /**
    * List all worktrees in a repository.
