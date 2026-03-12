@@ -1,0 +1,146 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: gpt-chat-interface
+number: 062
+branch: feat/062-gpt-chat-interface
+oneLiner: Add a GPT-style chat interface to the Shep web UI using prompt-kit components
+userQuery: >
+  Add support to "gpt chat" experience in the shep app.
+  Use https://github.com/ibelick/prompt-kit for components.
+summary: >
+  Add a conversational GPT-style chat interface to the Shep web application using
+  the prompt-kit component library (https://github.com/ibelick/prompt-kit). This
+  feature introduces a new chat page/view where users can interact with the AI
+  assistant through a familiar chat UX, leveraging prompt-kit's pre-built components
+  (ChatContainer, Message, PromptInput, Markdown, CodeBlock) installed via the
+  shadcn CLI. The existing Message domain model already supports the required
+  role-based conversation structure.
+phase: Analysis
+sizeEstimate: M
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - Next.js 16 (App Router)
+  - React 19
+  - prompt-kit (chat UI components via shadcn CLI)
+  - shadcn/ui (new-york style, already configured)
+  - Tailwind CSS 4
+  - Radix UI (accessibility primitives)
+  - Lucide React (icons)
+  - TypeSpec (domain model generation)
+  - Server-Sent Events (real-time streaming)
+  - react-markdown (markdown rendering)
+
+relatedLinks:
+  - https://github.com/ibelick/prompt-kit
+  - https://www.prompt-kit.com/docs/installation
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - Where should the chat interface live in the navigation? As a new top-level sidebar route (e.g. /chat) or embedded within the existing feature drawer/dashboard?
+  - Should the chat interface connect to an existing agent backend or is this purely a UI scaffold at this stage?
+  - Should the chat support streaming responses via SSE (matching existing agent-events pattern) or simple request/response?
+  - Should chat history persist across sessions (requiring a new repository/use case) or be ephemeral in-memory state?
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  The Shep web UI currently has no dedicated conversational chat interface. Users
+  interact with the AI assistant primarily through structured questionnaires
+  (PrdQuestionnaire) and drawer-based action flows. There is no way for users to
+  have a freeform, GPT-style conversation with the AI — a UX pattern that has
+  become the standard expectation for AI-powered applications.
+
+  This feature adds a GPT-style chat experience using the prompt-kit library
+  (https://github.com/ibelick/prompt-kit), which provides pre-built, accessible
+  chat components that integrate seamlessly with the existing shadcn/ui setup.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The repository follows Clean Architecture with four layers:
+
+  - **domain/** — Core business logic, TypeSpec-generated models (includes `Message` entity with `role`, `content`, `options`, `answer`, `selectedOption`)
+  - **application/** — Use cases and output port interfaces
+  - **infrastructure/** — External concerns (DB, agents, services, DI container)
+  - **presentation/** — CLI, TUI, and Web UI
+
+  The web UI lives at `src/presentation/web/` and uses Next.js 16 App Router with:
+  - `app/` — Routes (dashboard with parallel `@drawer` route, settings, tools, skills)
+  - `components/ui/` — ~50 shadcn/ui primitive components
+  - `components/common/` — ~45 reusable feature components
+  - `components/features/` — Page-level feature components (control-center, settings, tools, skills)
+  - `components/layouts/` — App shell, sidebar, header, dashboard layout
+  - `hooks/` — 25+ React hooks (state management, SSE events, notifications)
+  - `lib/` — Utility functions (graph derivation, DI container, feature flags)
+
+  ### Architecture Patterns
+
+  - **shadcn/ui**: Already configured (`components.json` with new-york style, RSC enabled, Tailwind CSS vars, Lucide icons). Components installed to `components/ui/`.
+  - **Component structure**: Each component has its own directory with `ComponentName.tsx`, `ComponentName.stories.tsx` (mandatory), and `index.ts` barrel export.
+  - **Client components**: Use `'use client'` directive for interactive components.
+  - **Server actions**: Located in `app/actions/`, resolved via DI container.
+  - **SSE streaming**: Established pattern via `/api/agent-events` route with Service Worker multiplexing, consumed by `useAgentEvents` hook.
+  - **State management**: React hooks + context providers (no Redux). Graph state managed via domain Maps.
+  - **Routing**: App Router with route groups `(dashboard)`, parallel routes `@drawer`, dynamic segments `[featureId]`.
+  - **Feature flags**: DB-primary with env var fallback via `FeatureFlagsProvider`.
+
+  ### Relevant Technologies
+
+  - **prompt-kit**: MIT-licensed library providing chat UI components (ChatContainer, Message, PromptInput, Markdown, CodeBlock, Loader, ThinkingBar, etc.). Built on React 19 + shadcn/ui + Tailwind CSS. Installed via `npx shadcn@latest add "https://prompt-kit.com/c/[component].json"`. Components are copied into `components/ui/` — same pattern as existing shadcn components.
+  - **Existing Message model** (`tsp/domain/entities/message.tsp`): Already defines `Message` with `role` (user/assistant), `content`, `options`, `answer`, `selectedOption` — directly usable for chat message state.
+  - **react-markdown**: Already a dependency — can be used within prompt-kit Message components.
+  - **SSE infrastructure**: Existing Service Worker + polling pattern can be reused for streaming chat responses.
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `src/presentation/web/components/ui/` | High | New prompt-kit components installed here (chat-container, message, prompt-input, markdown, code-block, loader) |
+  | `src/presentation/web/app/` | High | New chat route/page (e.g., `app/chat/page.tsx` or integrated into dashboard) |
+  | `src/presentation/web/components/features/` | High | New chat feature component directory with main chat view |
+  | `src/presentation/web/components/common/` | Medium | Reusable chat-specific components (message bubble, suggestion chips, etc.) |
+  | `src/presentation/web/hooks/` | Medium | New hook(s) for chat state management (messages array, send/receive, streaming) |
+  | `src/presentation/web/components/layouts/app-sidebar/` | Low | Add chat navigation item to sidebar |
+  | `src/presentation/web/app/api/` | Medium | New API route for chat message submission and streaming response (if backend-connected) |
+  | `src/presentation/web/lib/feature-flags.ts` | Low | Potentially gate chat feature behind a feature flag during rollout |
+  | `src/presentation/web/package.json` | Low | No new npm dependencies needed — prompt-kit components are installed as source files via shadcn CLI |
+  | `tsp/domain/entities/message.tsp` | Low | Existing Message model may need minor extensions if chat requires additional fields |
+
+  ## Dependencies
+
+  ### Existing (already in codebase)
+  - shadcn/ui setup (`components.json`, Tailwind CSS, Radix UI)
+  - Message domain entity (TypeSpec-generated)
+  - SSE streaming infrastructure (Service Worker, agent-events pattern)
+  - react-markdown (already a dependency)
+  - Lucide React icons
+  - Sonner toast notifications
+
+  ### New (to be added)
+  - prompt-kit components (installed as source files via shadcn CLI, not as npm package)
+    - `chat-container` — Auto-scrolling chat wrapper
+    - `message` — Message display with avatar and content
+    - `prompt-input` — AI-optimized text input
+    - `markdown` — Markdown rendering for responses
+    - `code-block` — Syntax-highlighted code display
+    - `loader` — Loading/streaming state indicator
+
+  ## Size Estimate
+
+  **M** (days) — The prompt-kit library provides pre-built components that integrate
+  directly with the existing shadcn/ui setup, significantly reducing UI development
+  effort. The main work involves: (1) installing and configuring prompt-kit components,
+  (2) creating the chat page/route and feature component, (3) building chat state
+  management hook(s), (4) wiring up message send/receive (API route or server action),
+  (5) writing Storybook stories for all new components, and (6) writing tests. The
+  existing Message domain model and SSE infrastructure reduce backend complexity.
+
+  ---
+
+  _Generated by feature agent — proceed with research_
