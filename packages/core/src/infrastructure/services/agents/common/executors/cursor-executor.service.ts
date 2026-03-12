@@ -305,6 +305,13 @@ export class CursorExecutorService implements IAgentExecutor {
     const spawnOpts: Record<string, unknown> = {};
     if (options?.cwd) spawnOpts.cwd = options.cwd;
 
+    // On Windows, the cursor agent is a .cmd script which requires shell: true
+    // to resolve via PATH. Also hide the console window.
+    if (process.platform === 'win32') {
+      spawnOpts.shell = true;
+      spawnOpts.windowsHide = true;
+    }
+
     // Strip CLAUDECODE env var to prevent "nested session" error when shep
     // is invoked from within a Claude Code session.
 

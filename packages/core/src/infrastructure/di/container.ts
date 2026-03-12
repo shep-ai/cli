@@ -245,12 +245,15 @@ export async function initializeContainer(): Promise<typeof container> {
     container.register<IAgentExecutorFactory>('IAgentExecutorFactory', {
       useFactory: () => {
         // Wrap spawn to ensure stdio is explicitly set to 'pipe'.
-        // On Windows, .cmd scripts (e.g. cursor's `agent.cmd`) need shell: true.
+        // Do NOT force shell: true here — each executor controls its own spawn
+        // options via buildSpawnOptions(). Forcing shell: true globally causes
+        // DEP0190 argument escaping issues on Windows that mangle long prompts.
+        // Executors that need shell: true (e.g. cursor for .cmd scripts) set it
+        // themselves; native executables (claude, gemini) must NOT use shell: true.
         const spawnWithPipe = (command: string, args: string[], options?: object) => {
           return spawn(command, args, {
-            ...options,
             stdio: 'pipe',
-            ...(process.platform === 'win32' ? { shell: true, windowsHide: true } : {}),
+            ...options,
           });
         };
         return new AgentExecutorFactory(spawnWithPipe);

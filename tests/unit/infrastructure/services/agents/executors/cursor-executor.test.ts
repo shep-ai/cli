@@ -377,6 +377,52 @@ describe('CursorExecutorService', () => {
       );
     });
 
+    it('should set shell and windowsHide on Windows', async () => {
+      // Cursor agent is a .cmd script on Windows, needs shell: true
+      const originalPlatform = process.platform;
+      Object.defineProperty(process, 'platform', { value: 'win32' });
+
+      try {
+        const mockProc = createMockChildProcess();
+        vi.mocked(mockSpawn).mockReturnValue(mockProc as any);
+
+        const assistantLine = buildCursorAssistantEvent('Done');
+        const resultLine = buildCursorResultEvent('sess-1', 100);
+        const executePromise = executor.execute('Test', { silent: true });
+        emitStreamData(mockProc, [assistantLine, resultLine], null, 0);
+
+        await executePromise;
+
+        const spawnOpts = vi.mocked(mockSpawn).mock.calls[0][2] as Record<string, unknown>;
+        expect(spawnOpts).toHaveProperty('shell', true);
+        expect(spawnOpts).toHaveProperty('windowsHide', true);
+      } finally {
+        Object.defineProperty(process, 'platform', { value: originalPlatform });
+      }
+    });
+
+    it('should NOT set shell on non-Windows platforms', async () => {
+      const originalPlatform = process.platform;
+      Object.defineProperty(process, 'platform', { value: 'linux' });
+
+      try {
+        const mockProc = createMockChildProcess();
+        vi.mocked(mockSpawn).mockReturnValue(mockProc as any);
+
+        const assistantLine = buildCursorAssistantEvent('Done');
+        const resultLine = buildCursorResultEvent('sess-1', 100);
+        const executePromise = executor.execute('Test', { silent: true });
+        emitStreamData(mockProc, [assistantLine, resultLine], null, 0);
+
+        await executePromise;
+
+        const spawnOpts = vi.mocked(mockSpawn).mock.calls[0][2] as Record<string, unknown>;
+        expect(spawnOpts).not.toHaveProperty('shell');
+      } finally {
+        Object.defineProperty(process, 'platform', { value: originalPlatform });
+      }
+    });
+
     it('should pass cwd option to spawn', async () => {
       const mockProc = createMockChildProcess();
       vi.mocked(mockSpawn).mockReturnValue(mockProc as any);
