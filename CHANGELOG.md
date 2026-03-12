@@ -1,3 +1,9 @@
+## [1.106.4](https://github.com/shep-ai/cli/compare/v1.106.3...v1.106.4) (2026-03-12)
+
+### Bug Fixes
+
+- **agents:** prevent subprocess git stash during verification ([#323](https://github.com/shep-ai/cli/issues/323)) ([65cefd4](https://github.com/shep-ai/cli/commit/65cefd4b9ccc5bc90001d3ed73cdc6ea9c3114d3))
+
 ## [1.106.3](https://github.com/shep-ai/cli/compare/v1.106.2...v1.106.3) (2026-03-12)
 
 ### Bug Fixes
