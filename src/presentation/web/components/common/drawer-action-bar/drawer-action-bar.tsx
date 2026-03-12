@@ -395,7 +395,7 @@ export function DrawerActionBar({
                           disabled={disabled}
                           data-testid="drawer-action-submit"
                           className={cn(
-                            'relative flex h-8 min-w-[10rem] cursor-pointer items-center overflow-hidden rounded-md border pr-10 pl-4 text-sm font-medium whitespace-nowrap transition-colors',
+                            'relative flex h-9 min-w-[12rem] cursor-pointer items-center overflow-hidden rounded-md border pr-10 pl-4 text-sm font-medium whitespace-nowrap transition-colors',
                             'disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50',
                             approveExpanded
                               ? `${accentBorder} text-white`
@@ -417,21 +417,21 @@ export function DrawerActionBar({
                           {/* Reject content */}
                           <span
                             className={cn(
-                              'absolute inset-0 z-10 flex items-center justify-center gap-1.5 pr-8 transition-opacity duration-300',
+                              'absolute inset-0 z-10 flex items-center justify-center gap-2 pr-8 transition-opacity duration-300',
                               approveExpanded ? 'opacity-0' : 'opacity-100'
                             )}
                           >
-                            <Send className="h-3.5 w-3.5 shrink-0" />
+                            <Send className="h-4 w-4 shrink-0" />
                             Reject
                           </span>
                           {/* Approve content — overlaid, centered */}
                           <span
                             className={cn(
-                              'absolute inset-0 z-10 flex items-center justify-center gap-1.5 text-white transition-opacity duration-300',
+                              'absolute inset-0 z-10 flex items-center justify-center gap-2 text-white transition-opacity duration-300',
                               approveExpanded ? 'opacity-100' : 'opacity-0'
                             )}
                           >
-                            <ApproveIcon className="h-3.5 w-3.5 shrink-0" />
+                            <ApproveIcon className="h-4 w-4 shrink-0" />
                             {approveLabel}
                           </span>
                           {/* Arrow indicator — hover trigger to toggle between modes */}
@@ -442,7 +442,7 @@ export function DrawerActionBar({
                             )}
                             onMouseEnter={() => setHoverExpanded(true)}
                           >
-                            <ChevronLeft className="h-3.5 w-3.5 text-white" />
+                            <ChevronLeft className="h-4 w-4 text-white" />
                           </span>
                         </button>
                       </TooltipTrigger>
