@@ -158,7 +158,9 @@ jobs:
           )
           TOPIC=${TOPICS[$((RANDOM % ${#TOPICS[@]}))]}
           FORMAT=${FORMATS[$((RANDOM % ${#FORMATS[@]}))]}
-          PROMPT="create a single markdown file called TOPIC.md containing ${FORMAT} about ${TOPIC}. Keep it concise (under 80 lines)."
+          # Derive filename from topic: lowercase, replace spaces with hyphens
+          FILENAME=$(echo "$TOPIC" | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
+          PROMPT="create a single markdown file called ${FILENAME}.md containing ${FORMAT} about ${TOPIC}. Keep it concise (under 80 lines)."
           echo "Generated prompt: $PROMPT"
           echo "SHEP_PROMPT=$PROMPT" >> $GITHUB_ENV
 
