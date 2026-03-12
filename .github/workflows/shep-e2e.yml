@@ -6,6 +6,7 @@
 #
 # Uses the shep-ai/sheep repo as the test target.
 # Tests shep's own CLI commands: feat new, feat ls, feat show.
+# Runs on both Linux and Windows to validate cross-platform support.
 # =============================================================================
 
 name: Shep E2E
@@ -21,9 +22,14 @@ env:
 
 jobs:
   shep-e2e:
-    name: Shep E2E Feature
-    runs-on: ubuntu-latest
+    name: Shep E2E (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 30
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
 
     permissions:
       contents: read
@@ -53,10 +59,21 @@ jobs:
       # ---------------------------------------------------------------------
       # 2. Install Claude Code CLI (required by shep agent executor)
       # ---------------------------------------------------------------------
-      - name: Install Claude Code CLI
+      - name: Install Claude Code CLI (Linux)
+        if: runner.os == 'Linux'
         run: |
           curl -fsSL https://claude.ai/install.sh | bash
           echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Install Claude Code CLI (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          irm https://claude.ai/install.ps1 | iex
+          # Add Claude to PATH for subsequent steps
+          $claudePath = "$env:LOCALAPPDATA\Programs\claude-code"
+          if (Test-Path "$env:USERPROFILE\.local\bin") { $claudePath = "$env:USERPROFILE\.local\bin" }
+          echo $claudePath >> $env:GITHUB_PATH
 
       # ---------------------------------------------------------------------
       # 3. Clone the target repo (shep-ai/sheep)
@@ -64,113 +81,117 @@ jobs:
       - name: Clone target repo
         env:
           RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        shell: bash
         run: |
-          git clone "https://x-access-token:${RELEASE_TOKEN}@github.com/shep-ai/sheep.git" /tmp/sheep
-          cd /tmp/sheep
+          CLONE_DIR="${RUNNER_TEMP}/sheep"
+          git clone "https://x-access-token:${RELEASE_TOKEN}@github.com/shep-ai/sheep.git" "$CLONE_DIR"
+          cd "$CLONE_DIR"
           git config user.name "shep-bot"
           git config user.email "bot@shep.ai"
+          echo "SHEEP_DIR=$CLONE_DIR" >> $GITHUB_ENV
 
       # ---------------------------------------------------------------------
       # 4. Create feature with shep (returns immediately, agent runs in bg)
       # ---------------------------------------------------------------------
       - name: Generate random prompt
+        shell: node {0}
         run: |
-          TOPICS=(
-            "space exploration" "deep sea creatures" "ancient civilizations" "renewable energy"
-            "artificial intelligence" "mountain climbing" "bioluminescence" "cloud computing"
-            "jazz music history" "volcanic eruptions" "origami mathematics" "urban gardening"
-            "quantum physics" "migration patterns" "fermentation science" "coral reef ecosystems"
-            "typography design" "arctic wildlife" "board game strategy" "signal processing"
-            "cryptography basics" "beekeeping" "black holes" "cartography" "cheese making"
-            "dinosaur taxonomy" "earthquake engineering" "fiber optics" "game theory"
-            "holography" "ice age megafauna" "jet propulsion" "knot theory" "laser physics"
-            "mushroom foraging" "neural networks" "ocean currents" "permaculture"
-            "quasar discovery" "rocketry history" "sourdough baking" "tidal energy"
-            "undersea cables" "violin craftsmanship" "weather forecasting" "xenobiology"
-            "yoga philosophy" "zero waste living" "amber fossils" "bridge engineering"
-            "coffee cultivation" "drone technology" "eclipse mechanics" "folklore studies"
-            "glacier dynamics" "ham radio" "insect communication" "japanese joinery"
-            "kite aerodynamics" "lighthouse history" "meteor showers" "noise cancellation"
-            "optical illusions" "paper recycling" "radio astronomy" "silk production"
-            "tectonic plates" "urban beekeeping" "ventilation design" "whale songs"
-            "x-ray crystallography" "yeast biology" "zeppelin engineering" "avalanche science"
-            "bamboo architecture" "cave ecosystems" "desalination" "electric vehicles"
-            "fire ecology" "geothermal energy" "honey bee dance" "invisible ink"
-            "jellyfish biology" "kaleidoscope optics" "lichen ecosystems" "magnetic levitation"
-            "neon sign crafting" "owl adaptations" "pottery glazing" "quicksand physics"
-            "rainforest canopy" "salt mining" "tsunami warning" "ultraviolet light"
-            "venus flytrap mechanics" "wind tunnel testing" "xeriscaping" "yurt construction"
-            "zen garden design" "acoustic engineering" "balloon flight" "compass navigation"
-            "dye chemistry" "erosion patterns" "fog harvesting" "grain elevator design"
-            "horseshoe forging" "igloo thermodynamics" "jade carving" "kelp farming"
-            "lodestone magnetism" "moss cultivation" "nautical knots" "obsidian toolmaking"
-            "planetarium projection" "quilt geometry" "rope bridges" "sandstone formation"
-            "telescope mirrors" "umbrella mechanics" "viaduct construction" "waterwheel design"
-            "xylophone acoustics" "yarn spinning" "ziggurat architecture" "abacus arithmetic"
-            "barometer history" "candle chemistry" "dam engineering" "espresso extraction"
-            "flint knapping" "glass blowing" "sundial geometry" "weaving patterns"
-            "pigment chemistry" "sextant navigation" "terracotta sculpture" "compass rose design"
-            "pendulum clocks" "aqueduct engineering" "basket weaving" "charcoal production"
-            "dovecote architecture" "enamel art" "falconry traditions" "grain milling"
-            "herbarium curation" "indigo dyeing" "jigsaw puzzle design" "kiln construction"
-            "lantern making" "mosaic art" "needle felting" "olive oil pressing"
-            "parchment making" "quilting traditions" "roof thatching" "soap making"
-            "tapestry weaving" "urn pottery" "vellum preparation" "wax seal crafting"
-            "bell casting" "cooperage" "distillation" "embossing" "gilding techniques"
-            "hydraulic presses" "ivory alternatives" "lacquerware" "metallurgy basics"
-            "niello decoration" "pewter casting" "stained glass" "tintype photography"
-          )
-          FORMATS=(
-            "a fun facts list" "a beginner guide" "a glossary of key terms"
-            "a timeline of milestones" "a comparison table" "a myth-busting guide"
-            "an FAQ document" "a quick reference card" "a top-10 list"
-            "a lessons-learned summary" "a cheat sheet" "a did-you-know collection"
-            "a how-it-works explainer" "a pros-and-cons analysis" "a historical overview"
-            "a troubleshooting guide" "a recipe-style walkthrough" "a field guide"
-            "a dos-and-donts checklist" "a vocabulary builder" "a step-by-step tutorial"
-            "a common mistakes guide" "an evolution timeline" "a resource directory"
-            "a quick-start primer" "a comparison matrix" "a pattern catalog"
-            "a safety guidelines doc" "a best practices summary" "a curiosity cabinet list"
-            "a decision framework" "a principles overview" "a tools and equipment guide"
-            "a seasonal calendar" "a measurement reference" "a classification system"
-            "a problem-solution catalog" "a rules of thumb collection" "an anatomy diagram description"
-            "a cause and effect chart" "a daily routine guide" "an ingredient breakdown"
-            "a supply list with descriptions" "a scoring rubric" "a milestone tracker template"
-            "a visual inspection checklist" "a maintenance schedule" "a compatibility chart"
-            "a risk assessment matrix" "a workflow diagram description" "a grading scale"
-            "a conversion table" "a symptom checker" "a habitat description"
-            "a specimen catalog" "a care instructions sheet" "a assembly guide"
-            "a calibration procedure" "a taste profile chart" "a color palette guide"
-            "a sound classification table" "a texture atlas" "a durability ranking"
-            "a efficiency comparison" "a cost breakdown" "a origin story collection"
-            "a record holders list" "a scale comparison" "a prediction log template"
-            "a observation journal template" "a experiment protocol" "a discovery timeline"
-            "a innovation catalog" "a failure analysis report" "a success factors list"
-            "a stakeholder map" "a process flow description" "a quality checklist"
-            "a benchmark table" "a feature matrix" "a adoption roadmap"
-            "a readiness assessment" "a impact analysis" "a trend report"
-            "a case study outline" "a interview questions list" "a debate points summary"
-            "a reading list with annotations" "a project proposal template" "a evaluation criteria doc"
-            "a naming conventions guide" "a abbreviations dictionary" "a unit conversions reference"
-            "a periodic table style chart" "a family tree description" "a map legend guide"
-            "a archive catalog" "a specimen label guide" "a exhibition guide"
-            "a collection inventory" "a restoration guide" "a provenance record"
-          )
-          TOPIC=${TOPICS[$((RANDOM % ${#TOPICS[@]}))]}
-          FORMAT=${FORMATS[$((RANDOM % ${#FORMATS[@]}))]}
-          # Derive filename from topic: lowercase, replace spaces with hyphens
-          FILENAME=$(echo "$TOPIC" | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
-          PROMPT="create a single markdown file called ${FILENAME}.md containing ${FORMAT} about ${TOPIC}. Keep it concise (under 80 lines)."
-          echo "Generated prompt: $PROMPT"
-          echo "SHEP_PROMPT=$PROMPT" >> $GITHUB_ENV
+          const topics = [
+            "space exploration", "deep sea creatures", "ancient civilizations", "renewable energy",
+            "artificial intelligence", "mountain climbing", "bioluminescence", "cloud computing",
+            "jazz music history", "volcanic eruptions", "origami mathematics", "urban gardening",
+            "quantum physics", "migration patterns", "fermentation science", "coral reef ecosystems",
+            "typography design", "arctic wildlife", "board game strategy", "signal processing",
+            "cryptography basics", "beekeeping", "black holes", "cartography", "cheese making",
+            "dinosaur taxonomy", "earthquake engineering", "fiber optics", "game theory",
+            "holography", "ice age megafauna", "jet propulsion", "knot theory", "laser physics",
+            "mushroom foraging", "neural networks", "ocean currents", "permaculture",
+            "quasar discovery", "rocketry history", "sourdough baking", "tidal energy",
+            "undersea cables", "violin craftsmanship", "weather forecasting", "xenobiology",
+            "yoga philosophy", "zero waste living", "amber fossils", "bridge engineering",
+            "coffee cultivation", "drone technology", "eclipse mechanics", "folklore studies",
+            "glacier dynamics", "ham radio", "insect communication", "japanese joinery",
+            "kite aerodynamics", "lighthouse history", "meteor showers", "noise cancellation",
+            "optical illusions", "paper recycling", "radio astronomy", "silk production",
+            "tectonic plates", "urban beekeeping", "ventilation design", "whale songs",
+            "x-ray crystallography", "yeast biology", "zeppelin engineering", "avalanche science",
+            "bamboo architecture", "cave ecosystems", "desalination", "electric vehicles",
+            "fire ecology", "geothermal energy", "honey bee dance", "invisible ink",
+            "jellyfish biology", "kaleidoscope optics", "lichen ecosystems", "magnetic levitation",
+            "neon sign crafting", "owl adaptations", "pottery glazing", "quicksand physics",
+            "rainforest canopy", "salt mining", "tsunami warning", "ultraviolet light",
+            "venus flytrap mechanics", "wind tunnel testing", "xeriscaping", "yurt construction",
+            "zen garden design", "acoustic engineering", "balloon flight", "compass navigation",
+            "dye chemistry", "erosion patterns", "fog harvesting", "grain elevator design",
+            "horseshoe forging", "igloo thermodynamics", "jade carving", "kelp farming",
+            "lodestone magnetism", "moss cultivation", "nautical knots", "obsidian toolmaking",
+            "planetarium projection", "quilt geometry", "rope bridges", "sandstone formation",
+            "telescope mirrors", "umbrella mechanics", "viaduct construction", "waterwheel design",
+            "xylophone acoustics", "yarn spinning", "ziggurat architecture", "abacus arithmetic",
+            "barometer history", "candle chemistry", "dam engineering", "espresso extraction",
+            "flint knapping", "glass blowing", "sundial geometry", "weaving patterns",
+            "pigment chemistry", "sextant navigation", "terracotta sculpture", "compass rose design",
+            "pendulum clocks", "aqueduct engineering", "basket weaving", "charcoal production",
+            "dovecote architecture", "enamel art", "falconry traditions", "grain milling",
+            "herbarium curation", "indigo dyeing", "jigsaw puzzle design", "kiln construction",
+            "lantern making", "mosaic art", "needle felting", "olive oil pressing",
+            "parchment making", "quilting traditions", "roof thatching", "soap making",
+            "tapestry weaving", "urn pottery", "vellum preparation", "wax seal crafting",
+            "bell casting", "cooperage", "distillation", "embossing", "gilding techniques",
+            "hydraulic presses", "ivory alternatives", "lacquerware", "metallurgy basics",
+            "niello decoration", "pewter casting", "stained glass", "tintype photography",
+          ];
+          const formats = [
+            "a fun facts list", "a beginner guide", "a glossary of key terms",
+            "a timeline of milestones", "a comparison table", "a myth-busting guide",
+            "an FAQ document", "a quick reference card", "a top-10 list",
+            "a lessons-learned summary", "a cheat sheet", "a did-you-know collection",
+            "a how-it-works explainer", "a pros-and-cons analysis", "a historical overview",
+            "a troubleshooting guide", "a recipe-style walkthrough", "a field guide",
+            "a dos-and-donts checklist", "a vocabulary builder", "a step-by-step tutorial",
+            "a common mistakes guide", "an evolution timeline", "a resource directory",
+            "a quick-start primer", "a comparison matrix", "a pattern catalog",
+            "a safety guidelines doc", "a best practices summary", "a curiosity cabinet list",
+            "a decision framework", "a principles overview", "a tools and equipment guide",
+            "a seasonal calendar", "a measurement reference", "a classification system",
+            "a problem-solution catalog", "a rules of thumb collection", "an anatomy diagram description",
+            "a cause and effect chart", "a daily routine guide", "an ingredient breakdown",
+            "a supply list with descriptions", "a scoring rubric", "a milestone tracker template",
+            "a visual inspection checklist", "a maintenance schedule", "a compatibility chart",
+            "a risk assessment matrix", "a workflow diagram description", "a grading scale",
+            "a conversion table", "a symptom checker", "a habitat description",
+            "a specimen catalog", "a care instructions sheet", "an assembly guide",
+            "a calibration procedure", "a taste profile chart", "a color palette guide",
+            "a sound classification table", "a texture atlas", "a durability ranking",
+            "an efficiency comparison", "a cost breakdown", "an origin story collection",
+            "a record holders list", "a scale comparison", "a prediction log template",
+            "an observation journal template", "an experiment protocol", "a discovery timeline",
+            "an innovation catalog", "a failure analysis report", "a success factors list",
+            "a stakeholder map", "a process flow description", "a quality checklist",
+            "a benchmark table", "a feature matrix", "an adoption roadmap",
+            "a readiness assessment", "an impact analysis", "a trend report",
+            "a case study outline", "an interview questions list", "a debate points summary",
+            "a reading list with annotations", "a project proposal template", "an evaluation criteria doc",
+            "a naming conventions guide", "an abbreviations dictionary", "a unit conversions reference",
+            "a periodic table style chart", "a family tree description", "a map legend guide",
+            "an archive catalog", "a specimen label guide", "an exhibition guide",
+            "a collection inventory", "a restoration guide", "a provenance record",
+          ];
+          const topic = topics[Math.floor(Math.random() * topics.length)];
+          const format = formats[Math.floor(Math.random() * formats.length)];
+          const filename = topic.toLowerCase().replace(/ /g, '-');
+          const prompt = `create a single markdown file called ${filename}.md containing ${format} about ${topic}. Keep it concise (under 80 lines).`;
+          console.log(`Generated prompt: ${prompt}`);
+          const fs = require('fs');
+          fs.appendFileSync(process.env.GITHUB_ENV, `SHEP_PROMPT=${prompt}\n`);
 
       - name: Create feature
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-          SHEP_PROMPT: ${{ env.SHEP_PROMPT }}
-        working-directory: /tmp/sheep
+        shell: bash
+        working-directory: ${{ env.SHEEP_DIR }}
         run: |
           shep feat new "$SHEP_PROMPT" \
             --fast \
@@ -183,7 +204,8 @@ jobs:
       # 5. List features — verify the feature appears
       # ---------------------------------------------------------------------
       - name: Verify feature listed
-        working-directory: /tmp/sheep
+        shell: bash
+        working-directory: ${{ env.SHEEP_DIR }}
         run: |
           echo "=== shep feat ls ==="
           shep feat ls
@@ -196,56 +218,67 @@ jobs:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-        working-directory: /tmp/sheep
+        shell: node {0}
         run: |
-          # Get feature ID from shep feat ls output (first 8-char hex ID)
-          FEATURE_ID=$(shep feat ls 2>/dev/null | grep -oP '[0-9a-f]{8}' | head -1)
-          if [ -z "$FEATURE_ID" ]; then
-            echo "::error::Could not find feature ID from shep feat ls"
-            exit 1
-          fi
-          echo "Feature ID: $FEATURE_ID"
+          const { execSync } = require('child_process');
+          const cwd = process.env.SHEEP_DIR;
+          const fs = require('fs');
 
-          MAX_WAIT=600  # 10 minutes
-          ELAPSED=0
-          INTERVAL=15
+          // Get feature ID from shep feat ls output (first 8-char hex ID)
+          const lsOutput = execSync('shep feat ls', { cwd, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+          const idMatch = lsOutput.match(/[0-9a-f]{8}/);
+          if (!idMatch) {
+            console.error('::error::Could not find feature ID from shep feat ls');
+            process.exit(1);
+          }
+          const featureId = idMatch[0];
+          console.log(`Feature ID: ${featureId}`);
 
-          while [ $ELAPSED -lt $MAX_WAIT ]; do
-            echo ""
-            echo "=== Checking status (${ELAPSED}s elapsed) ==="
-            shep feat show "$FEATURE_ID" 2>&1 || true
+          const MAX_WAIT = 600000; // 10 minutes in ms
+          const INTERVAL = 15000;  // 15 seconds
+          const start = Date.now();
 
-            # Check for terminal states in feat show output
-            STATUS_OUTPUT=$(shep feat show "$FEATURE_ID" 2>&1 || true)
+          function checkStatus() {
+            try {
+              const output = execSync(`shep feat show ${featureId}`, { cwd, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+              console.log(output);
+              return output;
+            } catch (e) {
+              console.log(e.stdout || e.message);
+              return e.stdout || '';
+            }
+          }
 
-            if echo "$STATUS_OUTPUT" | grep -qi "completed"; then
-              echo ""
-              echo "Feature completed!"
-              echo "FEATURE_ID=$FEATURE_ID" >> $GITHUB_ENV
-              exit 0
-            fi
+          function poll() {
+            const elapsed = Math.round((Date.now() - start) / 1000);
+            console.log(`\n=== Checking status (${elapsed}s elapsed) ===`);
+            const output = checkStatus();
 
-            if echo "$STATUS_OUTPUT" | grep -qi "failed\|crashed\|interrupted"; then
-              echo ""
-              echo "::error::Feature reached terminal error state"
-              echo "$STATUS_OUTPUT"
-              exit 1
-            fi
+            if (/completed/i.test(output)) {
+              console.log('\nFeature completed!');
+              fs.appendFileSync(process.env.GITHUB_ENV, `FEATURE_ID=${featureId}\n`);
+              process.exit(0);
+            }
+            if (/failed|crashed|interrupted/i.test(output)) {
+              console.error('\n::error::Feature reached terminal error state');
+              process.exit(1);
+            }
+            if (Date.now() - start > MAX_WAIT) {
+              console.error(`::error::Feature did not complete within ${MAX_WAIT / 1000}s`);
+              process.exit(1);
+            }
+            console.log(`Still running, waiting ${INTERVAL / 1000}s...`);
+            setTimeout(poll, INTERVAL);
+          }
 
-            echo "Still running, waiting ${INTERVAL}s..."
-            sleep $INTERVAL
-            ELAPSED=$((ELAPSED + INTERVAL))
-          done
-
-          echo "::error::Feature did not complete within ${MAX_WAIT}s"
-          shep feat show "$FEATURE_ID" 2>&1 || true
-          exit 1
+          poll();
 
       # ---------------------------------------------------------------------
       # 7. Show final feature details — PR info must come from here
       # ---------------------------------------------------------------------
       - name: Show completed feature
-        working-directory: /tmp/sheep
+        shell: bash
+        working-directory: ${{ env.SHEEP_DIR }}
         run: |
           echo "=== Final feature details ==="
           shep feat show "$FEATURE_ID"
@@ -256,6 +289,7 @@ jobs:
       - name: Verify PR merged by shep
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        shell: bash
         run: |
           echo "Checking shep-ai/sheep for merged PRs..."
           MERGED=$(gh pr list --repo shep-ai/sheep --state merged --limit 1 --json url,mergedAt --jq '.[0].url')
