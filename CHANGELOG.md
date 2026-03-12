@@ -1,3 +1,9 @@
+## [1.107.1](https://github.com/shep-ai/cli/compare/v1.107.0...v1.107.1) (2026-03-12)
+
+### Bug Fixes
+
+- **web:** read version from DI container instead of build-time env vars ([#330](https://github.com/shep-ai/cli/issues/330)) ([e921d9e](https://github.com/shep-ai/cli/commit/e921d9e4aba57fbfc04bd63408a103585c78e21e))
+
 # [1.107.0](https://github.com/shep-ai/cli/compare/v1.106.5...v1.107.0) (2026-03-12)
 
 ### Bug Fixes
