@@ -163,6 +163,7 @@ function appendFeatureNodes(
       ...(run?.modelId && { modelId: run.modelId }),
       ...(run?.error && { errorMessage: run.error }),
       ...(blockedBy && { blockedBy }),
+      ...(feature.plan != null && { hasPlan: true }),
       ...(feature.pr && {
         pr: {
           url: feature.pr.url,

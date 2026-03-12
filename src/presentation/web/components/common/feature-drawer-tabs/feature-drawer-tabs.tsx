@@ -53,17 +53,11 @@ const ALL_TABS: TabDef[] = [
   { key: 'merge-review', label: 'Merge Review' },
 ];
 
-/** Phases where a plan exists (planning happens at start of implementation). */
-const PLAN_PHASES = new Set(['implementation', 'review', 'deploy', 'maintain']);
-
 /** Compute which tabs are visible based on feature lifecycle + state. */
 function computeVisibleTabs(node: FeatureNodeData): FeatureTabKey[] {
   const tabs: FeatureTabKey[] = ['overview', 'activity', 'log'];
 
-  if (
-    PLAN_PHASES.has(node.lifecycle) &&
-    !(node.lifecycle === 'implementation' && node.state === 'action-required')
-  ) {
+  if (node.hasPlan) {
     tabs.push('plan');
   }
   if (node.lifecycle === 'requirements' && node.state === 'action-required') {

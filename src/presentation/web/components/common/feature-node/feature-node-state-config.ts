@@ -99,6 +99,8 @@ export interface FeatureNodeData {
     commitHash?: string;
     mergeable?: boolean;
   };
+  /** Whether the feature has plan data available */
+  hasPlan?: boolean;
   /** Deployment status for features with an active deployment */
   deployment?: {
     status: DeploymentState;

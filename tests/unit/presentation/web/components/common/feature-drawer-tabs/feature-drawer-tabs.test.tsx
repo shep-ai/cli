@@ -72,6 +72,7 @@ const defaultFeatureNode: FeatureNodeData = {
   progress: 50,
   repositoryPath: '/home/user/repo',
   branch: 'feat/test',
+  hasPlan: true,
 };
 
 const sampleTimings: PhaseTimingData[] = [
@@ -122,11 +123,41 @@ beforeEach(() => {
 
 describe('FeatureDrawerTabs', () => {
   describe('tab triggers', () => {
-    it('renders four tab triggers', () => {
+    it('renders four tab triggers when hasPlan is true', () => {
       renderTabs();
       expect(screen.getByRole('tab', { name: 'Overview' })).toBeInTheDocument();
       expect(screen.getByRole('tab', { name: 'Activity' })).toBeInTheDocument();
       expect(screen.getByRole('tab', { name: 'Log' })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: 'Plan' })).toBeInTheDocument();
+    });
+
+    it('hides Plan tab when hasPlan is false', () => {
+      renderTabs({
+        featureNode: { ...defaultFeatureNode, hasPlan: false },
+      });
+      expect(screen.getByRole('tab', { name: 'Overview' })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: 'Activity' })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: 'Log' })).toBeInTheDocument();
+      expect(screen.queryByRole('tab', { name: 'Plan' })).not.toBeInTheDocument();
+    });
+
+    it('hides Plan tab when hasPlan is undefined', () => {
+      const { hasPlan: _, ...nodeWithoutPlan } = defaultFeatureNode;
+      renderTabs({
+        featureNode: nodeWithoutPlan as FeatureNodeData,
+      });
+      expect(screen.queryByRole('tab', { name: 'Plan' })).not.toBeInTheDocument();
+    });
+
+    it('shows Plan tab regardless of lifecycle when hasPlan is true', () => {
+      renderTabs({
+        featureNode: {
+          ...defaultFeatureNode,
+          lifecycle: 'requirements',
+          state: 'running',
+          hasPlan: true,
+        },
+      });
       expect(screen.getByRole('tab', { name: 'Plan' })).toBeInTheDocument();
     });
   });
