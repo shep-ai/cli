@@ -26,7 +26,7 @@ env:
 
 jobs:
   shep-e2e:
-    name: Shep E2E (${{ matrix.os }} / ${{ matrix.agent }})
+    name: ${{ matrix.agent }} / ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
 
@@ -339,3 +339,23 @@ jobs:
             exit 1
           fi
           echo "PR merged by shep: $MERGED"
+
+      # ---------------------------------------------------------------------
+      # 9. Upload shep logs as artifacts (always, even on failure)
+      # ---------------------------------------------------------------------
+      - name: Dump feature logs
+        if: always()
+        shell: bash
+        working-directory: ${{ env.SHEEP_DIR }}
+        run: |
+          echo "=== shep feat logs ==="
+          shep feat logs "$FEATURE_ID" || echo "(no logs available)"
+
+      - name: Upload shep logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: shep-logs-${{ matrix.os }}-${{ matrix.agent }}
+          path: ~/.shep/logs/
+          if-no-files-found: ignore
+          retention-days: 7
