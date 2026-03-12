@@ -9,9 +9,7 @@ This is the living debugging log for the `shep-e2e.yml` workflow and Windows sup
 | ----------- | ------------- | -------------- | ------------ |
 | dev         | PASS          | PASS           | PASS         |
 | claude-code | PASS          | PASS           | PASS         |
-| cursor      | PASS          | EXCLUDED       | PASS         |
-
-**Excluded**: `cursor / windows-latest` — `cmd.exe` mangles long `-p` prompt args via `shell: true`. See [Cursor on Windows](#cursor-on-windows) below.
+| cursor      | PASS          | TESTING        | PASS         |
 
 ## CI Pipelines
 
@@ -36,17 +34,17 @@ This is the living debugging log for the `shep-e2e.yml` workflow and Windows sup
 
 ### Shep E2E (`shep-e2e.yml`) — Full Matrix
 
-| Combo                 | Status   | Notes                                                      |
-| --------------------- | -------- | ---------------------------------------------------------- |
-| dev / ubuntu          | PASS     | Baseline — no subprocess spawning                          |
-| dev / windows         | PASS     | Same — pure in-process                                     |
-| dev / macos           | PASS     | Same                                                       |
-| claude-code / ubuntu  | PASS     | Full lifecycle                                             |
-| claude-code / windows | PASS     | `windowsHide: true`, no `shell: true` needed (.exe binary) |
-| claude-code / macos   | PASS     | Full lifecycle                                             |
-| cursor / ubuntu       | PASS     | Full lifecycle                                             |
-| cursor / windows      | EXCLUDED | `shell: true` + `cmd.exe` mangles long prompts             |
-| cursor / macos        | PASS     | Full lifecycle                                             |
+| Combo                 | Status  | Notes                                                      |
+| --------------------- | ------- | ---------------------------------------------------------- |
+| dev / ubuntu          | PASS    | Baseline — no subprocess spawning                          |
+| dev / windows         | PASS    | Same — pure in-process                                     |
+| dev / macos           | PASS    | Same                                                       |
+| claude-code / ubuntu  | PASS    | Full lifecycle                                             |
+| claude-code / windows | PASS    | `windowsHide: true`, no `shell: true` needed (.exe binary) |
+| claude-code / macos   | PASS    | Full lifecycle                                             |
+| cursor / ubuntu       | PASS    | Full lifecycle                                             |
+| cursor / windows      | TESTING | stdin-pipe prompt passing bypasses `cmd.exe` mangling      |
+| cursor / macos        | PASS    | Full lifecycle                                             |
 
 ---
 
@@ -109,11 +107,11 @@ Cursor CLI ships as `.cmd`/`.ps1` scripts on Windows. Node.js needs `shell: true
 - Long `-p` prompts → garbled by `cmd.exe` argument escaping
 - Merge phase → cursor gets corrupted prompt, asks "What would you like me to do?" instead of committing
 
-### Path forward
+### Fix Applied (Attempt 12)
 
-- **stdin-based prompt passing** would bypass `cmd.exe` arg length limits
-- Alternatively: write prompt to temp file, pass `--input-file` if cursor supports it
-- Until then: cursor/windows is excluded from the E2E matrix
+- **stdin-based prompt passing**: on Windows, `-p` is omitted from args; prompt is piped via `proc.stdin.write()` instead
+- This completely bypasses `cmd.exe` argument escaping — stdin is a binary pipe, not subject to shell interpretation
+- Cursor/windows is now **enabled** in the E2E matrix
 
 ---
 
