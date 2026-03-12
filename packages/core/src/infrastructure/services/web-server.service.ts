@@ -15,6 +15,7 @@ import http from 'node:http';
 import path from 'node:path';
 import fs from 'node:fs';
 import type { IWebServerService } from '../../application/ports/output/services/web-server-service.interface.js';
+import { IS_WINDOWS } from '../platform.js';
 
 type NextApp = ReturnType<typeof next>;
 
@@ -86,7 +87,7 @@ export class WebServerService implements IWebServerService {
     // the absolute path (can't compute relative across drives), and path.join
     // produces a mangled path like D:\project\C:\...\web\. Fix by ensuring
     // CWD is on the same drive as dir.
-    if (process.platform === 'win32') {
+    if (IS_WINDOWS) {
       const getDriveLetter = (p: string) => p.match(/^[a-zA-Z]:/)?.[0]?.toUpperCase();
       const cwdDrive = getDriveLetter(process.cwd());
       const dirDrive = getDriveLetter(dir);

@@ -9,6 +9,16 @@
 
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
+// Mock the platform module so we can control IS_WINDOWS per-test.
+// The getter re-evaluates each access, allowing Object.defineProperty
+// on process.platform to take effect within each test.
+vi.mock('@/infrastructure/platform.js', () => ({
+  get IS_WINDOWS() {
+    return process.platform === 'win32';
+  },
+}));
+
 import {
   WebServerService,
   type WebServerDeps,

@@ -28,6 +28,7 @@ import type { IAgentValidator } from '../../application/ports/output/agents/agen
 import { AgentValidatorService } from '../services/agents/common/agent-validator.service.js';
 import { promisify } from 'node:util';
 import { execFile } from 'node:child_process';
+import { IS_WINDOWS } from '../platform.js';
 
 // Service interfaces and implementations
 import type { IVersionService } from '../../application/ports/output/services/version-service.interface.js';
@@ -173,11 +174,10 @@ export async function initializeContainer(): Promise<typeof container> {
   // On Windows, agent CLIs ship as .cmd/.ps1 scripts (e.g. cursor's `agent.cmd`).
   // execFile without shell: true cannot resolve .cmd extensions, causing ENOENT.
   const execFileAsync = promisify(execFile);
-  const execFn =
-    process.platform === 'win32'
-      ? (file: string, args: string[], options?: object) =>
-          execFileAsync(file, args, { ...options, shell: true, windowsHide: true })
-      : execFileAsync;
+  const execFn = IS_WINDOWS
+    ? (file: string, args: string[], options?: object) =>
+        execFileAsync(file, args, { ...options, shell: true, windowsHide: true })
+    : execFileAsync;
   container.registerInstance('ExecFunction', execFn);
 
   // Register services (singletons via @injectable + token)

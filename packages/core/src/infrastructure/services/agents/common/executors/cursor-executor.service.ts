@@ -18,6 +18,7 @@ import type {
 } from '../../../../../application/ports/output/agents/agent-executor.interface.js';
 import type { SpawnFunction } from '../types.js';
 import { getCurrentPhase, getLogPrefix } from '../../feature-agent/log-context.js';
+import { IS_WINDOWS } from '../../../../platform.js';
 
 /**
  * Map canonical model IDs (used across shep) to Cursor CLI model names.
@@ -307,7 +308,7 @@ export class CursorExecutorService implements IAgentExecutor {
 
     // On Windows, the cursor agent is a .cmd script which requires shell: true
     // to resolve via PATH. Also hide the console window.
-    if (process.platform === 'win32') {
+    if (IS_WINDOWS) {
       spawnOpts.shell = true;
       spawnOpts.windowsHide = true;
     }

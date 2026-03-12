@@ -11,6 +11,15 @@ import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
+
+// Mock the platform module so IS_WINDOWS re-evaluates per-test
+// when process.platform is overridden via Object.defineProperty.
+vi.mock('@/infrastructure/platform.js', () => ({
+  get IS_WINDOWS() {
+    return process.platform === 'win32';
+  },
+}));
+
 import { CursorExecutorService } from '@/infrastructure/services/agents/common/executors/cursor-executor.service.js';
 import type { SpawnFunction } from '@/infrastructure/services/agents/common/types.js';
 import { AgentType, AgentFeature } from '@/domain/generated/output.js';

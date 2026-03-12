@@ -22,6 +22,7 @@ import {
   WorktreeErrorCode,
 } from '../../../application/ports/output/services/worktree-service.interface.js';
 import { getShepHomeDir } from '../filesystem/shep-directory.service.js';
+import { IS_WINDOWS } from '../../platform.js';
 
 /**
  * Type for the command executor dependency.
@@ -227,7 +228,7 @@ export class WorktreeService implements IWorktreeService {
   private normalizeWorktreePath(input: string): string {
     // On Windows, git outputs forward slashes but path.normalize uses backslashes.
     // Normalize to forward slashes before comparing, case-insensitive.
-    if (process.platform === 'win32') {
+    if (IS_WINDOWS) {
       let normalized = path.normalize(input).replace(/\\/g, '/').replace(/\/+$/, '');
       try {
         normalized = realpathSync(normalized).replace(/\\/g, '/');
