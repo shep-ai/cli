@@ -278,7 +278,7 @@ export class CursorExecutorService implements IAgentExecutor {
   }
 
   private buildArgs(prompt: string, options?: AgentExecutionOptions): string[] {
-    const args = ['-p', prompt, '--output-format', 'json', '--force'];
+    const args = ['-p', prompt, '--output-format', 'json', '--yolo'];
     if (options?.resumeSession) args.push('--resume', options.resumeSession);
     if (options?.model) args.push('--model', toCursorModelName(options.model));
     // Unsupported options silently omitted: systemPrompt, allowedTools, maxTurns, outputSchema
