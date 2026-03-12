@@ -55,6 +55,7 @@ export function buildFeatureNodeData(
     ...(run?.agentType && { agentType: run.agentType as FeatureNodeData['agentType'] }),
     ...(run?.modelId && { modelId: run.modelId }),
     ...(run?.error && { errorMessage: run.error }),
+    ...(feature.plan != null && { hasPlan: true }),
     ...(feature.pr && {
       pr: {
         url: feature.pr.url,

@@ -48,6 +48,7 @@ const runningFeature: FeatureNodeData = {
   createdAt: Date.now() - 2 * 60 * 60 * 1000, // 2 hours ago
   repositoryName: 'my-repo',
   baseBranch: 'main',
+  hasPlan: true,
   pr: {
     url: 'https://github.com/org/repo/pull/42',
     number: 42,
@@ -73,6 +74,7 @@ const doneFeature: FeatureNodeData = {
   createdAt: Date.now() - 3 * 24 * 60 * 60 * 1000, // 3 days ago
   repositoryName: 'my-repo',
   baseBranch: 'main',
+  hasPlan: true,
   pr: {
     url: 'https://github.com/org/repo/pull/55',
     number: 55,
@@ -131,6 +133,7 @@ const mergeReviewFeature: FeatureNodeData = {
   createdAt: Date.now() - 2 * 24 * 60 * 60 * 1000, // 2 days ago
   repositoryName: 'my-repo',
   baseBranch: 'main',
+  hasPlan: true,
   pr: {
     url: 'https://github.com/shep-ai/cli/pull/42',
     number: 42,
@@ -156,6 +159,7 @@ const errorFeature: FeatureNodeData = {
   createdAt: Date.now() - 7 * 24 * 60 * 60 * 1000, // 1 week ago
   repositoryName: 'my-repo',
   baseBranch: 'main',
+  hasPlan: true,
 };
 
 /* ---------------------------------------------------------------------------
