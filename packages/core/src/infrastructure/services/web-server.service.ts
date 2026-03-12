@@ -87,11 +87,9 @@ export class WebServerService implements IWebServerService {
     // produces a mangled path like D:\project\C:\...\web\. Fix by ensuring
     // CWD is on the same drive as dir.
     if (process.platform === 'win32') {
-      const cwdDrive = process
-        .cwd()
-        .match(/^[a-zA-Z]:/)?.[0]
-        ?.toUpperCase();
-      const dirDrive = dir.match(/^[a-zA-Z]:/)?.[0]?.toUpperCase();
+      const getDriveLetter = (p: string) => p.match(/^[a-zA-Z]:/)?.[0]?.toUpperCase();
+      const cwdDrive = getDriveLetter(process.cwd());
+      const dirDrive = getDriveLetter(dir);
       if (cwdDrive && dirDrive && cwdDrive !== dirDrive) {
         process.chdir(dir);
       }
