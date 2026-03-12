@@ -8,9 +8,13 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { GET } from '@/app/api/version/route';
+import { GET, dynamic } from '@/app/api/version/route';
 
 describe('GET /api/version', () => {
+  it('exports dynamic = force-dynamic to prevent static prerendering', () => {
+    expect(dynamic).toBe('force-dynamic');
+  });
+
   const originalEnv = { ...process.env };
 
   beforeEach(() => {
