@@ -360,6 +360,104 @@ describe('DeleteFeatureUseCase', () => {
     expect(mockFeatureRepo.softDelete).toHaveBeenCalledWith('child-001');
   });
 
+  it('should NOT cascade delete children when cascadeDelete=false', async () => {
+    const feature = createMockFeature();
+    const child = createMockFeature({
+      id: 'child-001',
+      name: 'Child One',
+      lifecycle: SdlcLifecycle.Blocked,
+      repositoryPath: '/repo',
+      branch: 'feat/child-one',
+    });
+    mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
+    mockFeatureRepo.findByParentId = vi.fn().mockImplementation(async (parentId: string) => {
+      if (parentId === 'feat-123-full-uuid') return [child];
+      return [];
+    });
+
+    const result = await useCase.execute('feat-123-full-uuid', { cascadeDelete: false });
+
+    expect(result.id).toBe('feat-123-full-uuid');
+    // Parent should be soft-deleted
+    expect(mockFeatureRepo.softDelete).toHaveBeenCalledWith('feat-123-full-uuid');
+    // Child should NOT be soft-deleted
+    expect(mockFeatureRepo.softDelete).not.toHaveBeenCalledWith('child-001');
+  });
+
+  it('should cascade delete children when cascadeDelete=true', async () => {
+    const feature = createMockFeature();
+    const child = createMockFeature({
+      id: 'child-001',
+      name: 'Child One',
+      lifecycle: SdlcLifecycle.Blocked,
+      repositoryPath: '/repo',
+      branch: 'feat/child-one',
+    });
+    mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
+    mockFeatureRepo.findByParentId = vi.fn().mockImplementation(async (parentId: string) => {
+      if (parentId === 'feat-123-full-uuid') return [child];
+      return [];
+    });
+
+    const result = await useCase.execute('feat-123-full-uuid', { cascadeDelete: true });
+
+    expect(result.id).toBe('feat-123-full-uuid');
+    expect(mockFeatureRepo.softDelete).toHaveBeenCalledWith('child-001');
+    expect(mockFeatureRepo.softDelete).toHaveBeenCalledWith('feat-123-full-uuid');
+  });
+
+  it('should default to cascadeDelete=true when no options provided', async () => {
+    const feature = createMockFeature();
+    const child = createMockFeature({
+      id: 'child-001',
+      name: 'Child One',
+      lifecycle: SdlcLifecycle.Blocked,
+      repositoryPath: '/repo',
+      branch: 'feat/child-one',
+    });
+    mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
+    mockFeatureRepo.findByParentId = vi.fn().mockImplementation(async (parentId: string) => {
+      if (parentId === 'feat-123-full-uuid') return [child];
+      return [];
+    });
+
+    const result = await useCase.execute('feat-123-full-uuid');
+
+    expect(result.id).toBe('feat-123-full-uuid');
+    // Both parent and child should be soft-deleted by default
+    expect(mockFeatureRepo.softDelete).toHaveBeenCalledWith('child-001');
+    expect(mockFeatureRepo.softDelete).toHaveBeenCalledWith('feat-123-full-uuid');
+  });
+
+  it('should NOT cleanup children when cascadeDelete=false', async () => {
+    const feature = createMockFeature();
+    const child = createMockFeature({
+      id: 'child-001',
+      name: 'Child One',
+      agentRunId: 'child-run-1',
+      lifecycle: SdlcLifecycle.Started,
+      repositoryPath: '/repo',
+      branch: 'feat/child-one',
+    });
+    const childRun = createMockAgentRun({ id: 'child-run-1', status: AgentRunStatus.running });
+    mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
+    mockFeatureRepo.findByParentId = vi.fn().mockImplementation(async (parentId: string) => {
+      if (parentId === 'feat-123-full-uuid') return [child];
+      return [];
+    });
+    mockRunRepo.findById = vi.fn().mockResolvedValue(childRun);
+
+    await useCase.execute('feat-123-full-uuid', { cascadeDelete: false });
+
+    // Should NOT cancel child agent runs when not cascading
+    expect(mockRunRepo.updateStatus).not.toHaveBeenCalledWith(
+      'child-run-1',
+      AgentRunStatus.cancelled
+    );
+    // Parent should still be cleaned up
+    expect(mockWorktreeService.remove).toHaveBeenCalledTimes(1);
+  });
+
   it('should succeed when there are no children at all', async () => {
     const feature = createMockFeature();
     mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);

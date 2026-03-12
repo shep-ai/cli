@@ -24,6 +24,7 @@ import type { IGitPrService } from '../../ports/output/services/git-pr-service.i
 
 export interface DeleteFeatureOptions {
   cleanup?: boolean;
+  cascadeDelete?: boolean;
 }
 
 @injectable()
@@ -46,13 +47,19 @@ export class DeleteFeatureUseCase {
       throw new Error(`Feature not found: "${featureId}"`);
     }
 
-    // 2. Immediately soft-delete the feature and all children
+    const cascadeDelete = options?.cascadeDelete !== false;
+
+    // 2. Immediately soft-delete the feature (and children if cascading)
     //    This makes them vanish from all queries right away (no reappear bug)
-    await this.cascadeSoftDelete(feature.id);
+    if (cascadeDelete) {
+      await this.cascadeSoftDelete(feature.id);
+    }
     await this.markDeletingAndSoftDelete(feature);
 
     // 3. Then perform cleanup (best-effort, feature is already hidden)
-    await this.cascadeCleanupChildren(feature.id, options);
+    if (cascadeDelete) {
+      await this.cascadeCleanupChildren(feature.id, options);
+    }
     await this.cleanupSingleFeature(feature, options);
 
     return feature;

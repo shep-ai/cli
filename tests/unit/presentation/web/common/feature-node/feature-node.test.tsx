@@ -67,15 +67,16 @@ vi.mock('@/components/common/delete-feature-dialog', () => ({
   }: {
     open: boolean;
     onOpenChange: (v: boolean) => void;
-    onConfirm: (cleanup: boolean) => void;
+    onConfirm: (cleanup: boolean, cascadeDelete: boolean) => void;
     isDeleting: boolean;
     featureName: string;
     featureId: string;
+    hasChildren?: boolean;
   }) =>
     open ? (
       <div role="dialog">
         <h2>Delete feature?</h2>
-        <button onClick={() => onConfirm(true)}>Delete</button>
+        <button onClick={() => onConfirm(true, true)}>Delete</button>
         <button onClick={() => onOpenChange(false)}>Cancel</button>
       </div>
     ) : null,
@@ -462,7 +463,7 @@ describe('FeatureNode', () => {
       expect(onDelete).not.toHaveBeenCalled();
 
       fireEvent.click(screen.getByText('Delete'));
-      expect(onDelete).toHaveBeenCalledWith('#f1', true);
+      expect(onDelete).toHaveBeenCalledWith('#f1', true, true);
     });
 
     it('does not call onDelete when cancel is clicked', () => {

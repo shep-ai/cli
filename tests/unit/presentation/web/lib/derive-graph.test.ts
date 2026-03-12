@@ -179,6 +179,47 @@ describe('deriveGraph', () => {
     });
   });
 
+  describe('hasChildren flag', () => {
+    it('sets hasChildren=true for parent feature nodes', () => {
+      const featureMap = new Map([
+        makeFeatureEntry('feat-parent', { repositoryPath: '/repo' }),
+        makeFeatureEntry('feat-child', { repositoryPath: '/repo' }, 'feat-parent'),
+      ]);
+      const repoMap = new Map([makeRepoEntry('repo-1', '/repo')]);
+      const pendingMap = new Map<string, FeatureEntry>();
+
+      const { nodes } = deriveGraph(featureMap, repoMap, pendingMap);
+
+      const parentNode = nodes.find((n) => n.id === 'feat-parent');
+      expect((parentNode?.data as FeatureNodeData).hasChildren).toBe(true);
+    });
+
+    it('sets hasChildren=false for leaf feature nodes', () => {
+      const featureMap = new Map([
+        makeFeatureEntry('feat-parent', { repositoryPath: '/repo' }),
+        makeFeatureEntry('feat-child', { repositoryPath: '/repo' }, 'feat-parent'),
+      ]);
+      const repoMap = new Map([makeRepoEntry('repo-1', '/repo')]);
+      const pendingMap = new Map<string, FeatureEntry>();
+
+      const { nodes } = deriveGraph(featureMap, repoMap, pendingMap);
+
+      const childNode = nodes.find((n) => n.id === 'feat-child');
+      expect((childNode?.data as FeatureNodeData).hasChildren).toBe(false);
+    });
+
+    it('sets hasChildren=false for standalone feature with no children', () => {
+      const featureMap = new Map([makeFeatureEntry('feat-abc', { repositoryPath: '/repo' })]);
+      const repoMap = new Map([makeRepoEntry('repo-1', '/repo')]);
+      const pendingMap = new Map<string, FeatureEntry>();
+
+      const { nodes } = deriveGraph(featureMap, repoMap, pendingMap);
+
+      const featureNode = nodes.find((n) => n.id === 'feat-abc');
+      expect((featureNode?.data as FeatureNodeData).hasChildren).toBe(false);
+    });
+  });
+
   describe('duplicate ID dedup (featureMap vs pendingMap)', () => {
     it('when same ID exists in both featureMap and pendingMap, featureMap wins', () => {
       const repoMap = new Map([makeRepoEntry('repo-1', '/repo')]);

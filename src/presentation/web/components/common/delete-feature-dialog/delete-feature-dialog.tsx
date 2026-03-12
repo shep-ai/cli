@@ -23,12 +23,15 @@ export function DeleteFeatureDialog({
   isDeleting,
   featureName,
   featureId,
+  hasChildren,
 }: DeleteFeatureDialogProps) {
   const [cleanup, setCleanup] = useState(true);
+  const [cascadeDelete, setCascadeDelete] = useState(true);
 
   useEffect(() => {
     if (open) {
       setCleanup(true);
+      setCascadeDelete(true);
     }
   }, [open]);
 
@@ -42,17 +45,33 @@ export function DeleteFeatureDialog({
             cannot be undone.
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <div className="flex items-center gap-2">
-          <Checkbox
-            id="cleanup-checkbox"
-            checked={cleanup}
-            onCheckedChange={(checked) => setCleanup(checked === true)}
-            disabled={isDeleting}
-            aria-label="Clean up worktree and branches"
-          />
-          <Label htmlFor="cleanup-checkbox" className="cursor-pointer text-sm">
-            Clean up worktree and branches
-          </Label>
+        <div className="flex flex-col gap-2">
+          {hasChildren ? (
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="cascade-delete-checkbox"
+                checked={cascadeDelete}
+                onCheckedChange={(checked) => setCascadeDelete(checked === true)}
+                disabled={isDeleting}
+                aria-label="Also delete sub-features"
+              />
+              <Label htmlFor="cascade-delete-checkbox" className="cursor-pointer text-sm">
+                Also delete sub-features
+              </Label>
+            </div>
+          ) : null}
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="cleanup-checkbox"
+              checked={cleanup}
+              onCheckedChange={(checked) => setCleanup(checked === true)}
+              disabled={isDeleting}
+              aria-label="Clean up worktree and branches"
+            />
+            <Label htmlFor="cleanup-checkbox" className="cursor-pointer text-sm">
+              Clean up worktree and branches
+            </Label>
+          </div>
         </div>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isDeleting} onClick={() => onOpenChange(false)}>
@@ -61,7 +80,7 @@ export function DeleteFeatureDialog({
           <AlertDialogAction
             variant="destructive"
             disabled={isDeleting}
-            onClick={() => onConfirm(cleanup)}
+            onClick={() => onConfirm(cleanup, cascadeDelete)}
           >
             {isDeleting ? (
               <>
