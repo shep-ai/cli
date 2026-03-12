@@ -89,11 +89,8 @@ jobs:
         shell: pwsh
         run: |
           irm 'https://cursor.com/install?win32=true' | iex
-          # Add common install locations to PATH
-          $paths = @("$env:USERPROFILE\.local\bin", "$env:LOCALAPPDATA\Programs\cursor")
-          foreach ($p in $paths) {
-            if (Test-Path $p) { echo $p >> $env:GITHUB_PATH }
-          }
+          # Installer adds $LOCALAPPDATA\cursor-agent to user PATH
+          echo "$env:LOCALAPPDATA\cursor-agent" >> $env:GITHUB_PATH
 
       # ─────────────────────────────────────────────────────────────────────
       # 3. Create target repo
