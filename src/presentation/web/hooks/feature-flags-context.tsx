@@ -3,7 +3,7 @@
 import { createContext, useContext, type ReactNode } from 'react';
 import type { FeatureFlagsState } from '@/lib/feature-flags';
 
-const defaultFlags: FeatureFlagsState = { skills: false, envDeploy: false, debug: false };
+const defaultFlags: FeatureFlagsState = { skills: false, envDeploy: true, debug: false };
 
 const FeatureFlagsContext = createContext<FeatureFlagsState>(defaultFlags);
 

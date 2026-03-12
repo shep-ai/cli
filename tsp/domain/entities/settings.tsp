@@ -393,7 +393,7 @@ model FeatureFlags {
   skills: boolean = false;
 
   @doc("Enable environment deployment features in the web UI")
-  envDeploy: boolean = false;
+  envDeploy: boolean = true;
 
   @doc("Enable debug UI elements and verbose client-side logging")
   debug: boolean = false;

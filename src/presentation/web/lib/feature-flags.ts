@@ -36,7 +36,10 @@ export function getFeatureFlags(): FeatureFlagsState {
 
   return {
     skills: isEnabled(process.env.NEXT_PUBLIC_FLAG_SKILLS),
-    envDeploy: isEnabled(process.env.NEXT_PUBLIC_FLAG_ENV_DEPLOY),
+    envDeploy:
+      process.env.NEXT_PUBLIC_FLAG_ENV_DEPLOY !== undefined
+        ? isEnabled(process.env.NEXT_PUBLIC_FLAG_ENV_DEPLOY)
+        : true,
     debug: false,
   };
 }

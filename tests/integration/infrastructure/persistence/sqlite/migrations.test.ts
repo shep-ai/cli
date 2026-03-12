@@ -672,7 +672,7 @@ describe('SQLite Migrations', () => {
     it('sets schema version to latest after migration', async () => {
       await runSQLiteMigrations(db);
       expect(getSchemaVersion(db)).toBe(LATEST_SCHEMA_VERSION);
-      expect(LATEST_SCHEMA_VERSION).toBe(31);
+      expect(LATEST_SCHEMA_VERSION).toBe(32);
     });
   });
 
@@ -691,14 +691,14 @@ describe('SQLite Migrations', () => {
       expect(col?.dflt_value).toBe('0');
     });
 
-    it('should add feature_flag_env_deploy column as INTEGER NOT NULL DEFAULT 0', () => {
+    it('should add feature_flag_env_deploy column as INTEGER NOT NULL DEFAULT 1', () => {
       const schema = getTableSchema(db, 'settings');
       const col = schema.find((c) => c.name === 'feature_flag_env_deploy');
 
       expect(col).toBeDefined();
       expect(col?.type).toBe('INTEGER');
       expect(col?.notnull).toBe(1);
-      expect(col?.dflt_value).toBe('0');
+      expect(col?.dflt_value).toBe('1');
     });
 
     it('should add feature_flag_debug column as INTEGER NOT NULL DEFAULT 0', () => {
@@ -741,7 +741,7 @@ describe('SQLite Migrations', () => {
       expect(col?.dflt_value).toBeNull();
     });
 
-    it('should default feature flag columns to 0 for existing rows', () => {
+    it('should default feature flag columns for existing rows (envDeploy=1, others=0)', () => {
       db.prepare(
         `INSERT INTO settings (id, created_at, updated_at, model_analyze, model_requirements, model_plan, model_implement,
           env_default_editor, env_shell_preference, sys_auto_update, sys_log_level, agent_type, agent_auth_method)
@@ -755,7 +755,7 @@ describe('SQLite Migrations', () => {
         .get('test') as Record<string, number>;
 
       expect(row.feature_flag_skills).toBe(0);
-      expect(row.feature_flag_env_deploy).toBe(0);
+      expect(row.feature_flag_env_deploy).toBe(1);
       expect(row.feature_flag_debug).toBe(0);
     });
 

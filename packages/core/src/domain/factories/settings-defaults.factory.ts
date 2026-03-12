@@ -141,7 +141,7 @@ export function createDefaultSettings(): Settings {
 
   const featureFlags: FeatureFlags = {
     skills: false,
-    envDeploy: false,
+    envDeploy: true,
     debug: false,
   };
 
