@@ -272,9 +272,9 @@ export function buildMergeSquashPrompt(
 
 ## Instructions
 
-1. Merge the PR using squash merge: \`gh pr merge ${state.prNumber} --squash --delete-branch\`
-2. If merge conflicts are encountered, resolve them and retry
-3. If the merge fails, report the error clearly
+1. Merge the PR using squash merge with auto-merge: \`gh pr merge ${state.prNumber} --squash --delete-branch --auto\`
+   - The --auto flag queues the merge to execute automatically once all branch protection requirements (CI checks, reviews, etc.) are satisfied
+2. If the merge command fails, report the error clearly
 
 ## Constraints
 
