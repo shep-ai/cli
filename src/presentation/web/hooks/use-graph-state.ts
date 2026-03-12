@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback, useRef } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import type { Edge, Position } from '@xyflow/react';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 import type { FeatureNodeData } from '@/components/common/feature-node';
@@ -23,6 +23,7 @@ export interface UseGraphStateReturn {
   /**
    * Reconcile domain Maps with fresh server data (new initialNodes/initialEdges).
    * Preserves pending (creating) nodes unless a matching real feature appears.
+   * No-ops when a mutation is in-flight (see beginMutation/endMutation).
    */
   reconcile: (newNodes: CanvasNodeType[], newEdges: Edge[]) => void;
   /** Update a feature's state/lifecycle/name (e.g., from SSE events). */
@@ -49,6 +50,19 @@ export interface UseGraphStateReturn {
   getRepoMapSize: () => number;
   /** Update callbacks injected into node data (does NOT trigger re-render). */
   setCallbacks: (callbacks: GraphCallbacks) => void;
+  /**
+   * Signal that an optimistic mutation has started. While any mutation is
+   * in-flight, `reconcile` becomes a no-op so stale poll data cannot
+   * overwrite optimistic state. Calls are ref-counted — nest freely.
+   */
+  beginMutation: () => void;
+  /**
+   * Signal that an optimistic mutation has resolved. Adds a one-poll-interval
+   * cooldown (default 3 s) so the next poll fetches post-mutation data.
+   */
+  endMutation: (cooldownMs?: number) => void;
+  /** Whether a mutation is currently in-flight (for polling skip logic). */
+  isMutating: () => boolean;
 }
 
 /** Parse initialNodes + initialEdges into domain Maps. */
@@ -145,6 +159,11 @@ export function useGraphState(
   // This prevents a stale poll (that fetched data before the server action completed)
   // from wiping a repo that the client has already added.
   const protectedRepoIdsRef = useRef<Set<string>>(new Set());
+
+  // Mutation guard: ref-counted counter. While > 0, reconcile is a no-op
+  // so stale poll data cannot overwrite optimistic state.
+  const mutationCountRef = useRef(0);
+  const mutationTimersRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
 
   // Track 'deleting' features that the server no longer returns.
   // Retained for one extra reconcile cycle so the user sees the deleting state
@@ -255,6 +274,11 @@ export function useGraphState(
   // --- Mutations ---
 
   const reconcile = useCallback((newNodes: CanvasNodeType[], newEdges: Edge[]) => {
+    // Skip reconciliation while an optimistic mutation is in-flight.
+    // Stale poll data fetched before the mutation completed would overwrite
+    // the optimistic state, causing flicker (nodes disappearing/reappearing).
+    if (mutationCountRef.current > 0) return;
+
     const { featureMap: newFeatureMap, repoMap: newRepoMap } = parseMaps(newNodes, newEdges);
 
     // Precompute match keys so we don't scan newFeatureMap.values() per pending entry
@@ -481,6 +505,31 @@ export function useGraphState(
     callbacksRef.current = callbacks;
   }, []);
 
+  const beginMutation = useCallback(() => {
+    mutationCountRef.current++;
+  }, []);
+
+  const endMutation = useCallback((cooldownMs = 3_000) => {
+    // Delay decrement by one poll interval so the next fetch after the
+    // mutation returns post-mutation data, not a stale in-flight response.
+    const timer = setTimeout(() => {
+      mutationCountRef.current = Math.max(0, mutationCountRef.current - 1);
+      mutationTimersRef.current.delete(timer);
+    }, cooldownMs);
+    mutationTimersRef.current.add(timer);
+  }, []);
+
+  const isMutating = useCallback(() => mutationCountRef.current > 0, []);
+
+  // Cleanup cooldown timers on unmount
+  useEffect(() => {
+    const timers = mutationTimersRef.current;
+    return () => {
+      for (const timer of timers) clearTimeout(timer);
+      timers.clear();
+    };
+  }, []);
+
   return {
     nodes,
     edges,
@@ -497,5 +546,8 @@ export function useGraphState(
     getRepositoryData,
     getRepoMapSize,
     setCallbacks,
+    beginMutation,
+    endMutation,
+    isMutating,
   };
 }

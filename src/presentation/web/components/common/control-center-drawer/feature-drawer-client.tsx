@@ -358,6 +358,10 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
   const handleDelete = useCallback(
     async (featureId: string, cleanup?: boolean) => {
       setIsDeleting(true);
+      // Close the drawer immediately so the user sees instant feedback.
+      // The canvas's handleDeleteFeature (wired via onFeatureDelete callback)
+      // handles optimistic state and the mutation guard separately.
+      router.push('/');
       try {
         const result = await deleteFeature(featureId, cleanup);
         if (result.error) {
@@ -366,7 +370,6 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
         }
         deleteSound.play();
         toast.success('Feature deleted successfully');
-        router.push('/');
         router.refresh();
       } catch {
         toast.error('Failed to delete feature');
