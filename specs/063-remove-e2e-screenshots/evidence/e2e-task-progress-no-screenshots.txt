@@ -1,0 +1,9 @@
+
+> @shepai/cli@1.106.2 test:e2e:web /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-remove-e2e-screenshots
+> playwright test -- --grep task-progress
+
+
+Running 1 test using 1 worker
+
+[1A[2K[1/1] [chromium] › tests/e2e/web/task-progress-view.spec.ts:262:3 › Task Progress View — control center integration › displays task progress view in feature drawer plan tab
+[1A[2K  1 passed (14.3s)
