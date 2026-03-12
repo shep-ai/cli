@@ -299,3 +299,148 @@ jobs:
             exit 1
           fi
           echo "PR merged by shep: $MERGED"
+
+  # ===========================================================================
+  # Arch Linux E2E (runs in Docker container on Ubuntu)
+  # ===========================================================================
+  shep-e2e-arch:
+    name: Shep E2E (arch-linux)
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+    timeout-minutes: 30
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Install system dependencies
+        run: |
+          pacman -Syu --noconfirm git nodejs npm curl jq
+
+      - name: Checkout shep CLI
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shep CLI
+        run: pnpm run build
+
+      - name: Link shep globally
+        run: npm link
+
+      - name: Install Claude Code CLI
+        run: |
+          curl -fsSL https://claude.ai/install.sh | bash
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Clone target repo
+        env:
+          RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        run: |
+          git clone "https://x-access-token:${RELEASE_TOKEN}@github.com/shep-ai/sheep.git" /tmp/sheep
+          cd /tmp/sheep
+          git config user.name "shep-bot"
+          git config user.email "bot@shep.ai"
+
+      - name: Generate random prompt
+        shell: node {0}
+        run: |
+          const topics = [
+            "space exploration", "deep sea creatures", "ancient civilizations", "renewable energy",
+            "artificial intelligence", "mountain climbing", "bioluminescence", "cloud computing",
+            "jazz music history", "volcanic eruptions", "origami mathematics", "urban gardening",
+            "quantum physics", "migration patterns", "fermentation science", "coral reef ecosystems",
+            "typography design", "arctic wildlife", "board game strategy", "signal processing",
+            "cryptography basics", "beekeeping", "black holes", "cartography", "cheese making",
+            "dinosaur taxonomy", "earthquake engineering", "fiber optics", "game theory",
+            "holography", "ice age megafauna", "jet propulsion", "knot theory", "laser physics",
+            "mushroom foraging", "neural networks", "ocean currents", "permaculture",
+            "quasar discovery", "rocketry history", "sourdough baking", "tidal energy",
+          ];
+          const formats = [
+            "a fun facts list", "a beginner guide", "a glossary of key terms",
+            "a timeline of milestones", "a comparison table", "a myth-busting guide",
+            "an FAQ document", "a quick reference card", "a top-10 list",
+            "a lessons-learned summary", "a cheat sheet", "a did-you-know collection",
+            "a how-it-works explainer", "a pros-and-cons analysis", "a historical overview",
+          ];
+          const topic = topics[Math.floor(Math.random() * topics.length)];
+          const format = formats[Math.floor(Math.random() * formats.length)];
+          const filename = topic.toLowerCase().replace(/ /g, '-');
+          const prompt = `create a single markdown file called ${filename}.md containing ${format} about ${topic}. Keep it concise (under 80 lines).`;
+          console.log(`Generated prompt: ${prompt}`);
+          const fs = require('fs');
+          fs.appendFileSync(process.env.GITHUB_ENV, `SHEP_PROMPT=${prompt}\n`);
+
+      - name: Create feature
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        working-directory: /tmp/sheep
+        run: |
+          shep feat new "$SHEP_PROMPT" \
+            --fast \
+            --allow-all \
+            --push \
+            --pr \
+            --allow-merge
+
+      - name: Verify feature listed
+        working-directory: /tmp/sheep
+        run: |
+          echo "=== shep feat ls ==="
+          shep feat ls
+
+      - name: Wait for feature to complete
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        shell: node {0}
+        run: |
+          const { execSync } = require('child_process');
+          const cwd = '/tmp/sheep';
+          const fs = require('fs');
+          const lsOutput = execSync('shep feat ls', { cwd, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+          const idMatch = lsOutput.match(/[0-9a-f]{8}/);
+          if (!idMatch) { console.error('::error::Could not find feature ID'); process.exit(1); }
+          const featureId = idMatch[0];
+          console.log(`Feature ID: ${featureId}`);
+          const MAX_WAIT = 600000;
+          const INTERVAL = 15000;
+          const start = Date.now();
+          function poll() {
+            const elapsed = Math.round((Date.now() - start) / 1000);
+            console.log(`\n=== Checking status (${elapsed}s elapsed) ===`);
+            let output = '';
+            try { output = execSync(`shep feat show ${featureId}`, { cwd, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }); console.log(output); } catch (e) { output = e.stdout || ''; console.log(output); }
+            if (/completed/i.test(output)) { console.log('\nFeature completed!'); fs.appendFileSync(process.env.GITHUB_ENV, `FEATURE_ID=${featureId}\n`); process.exit(0); }
+            if (/failed|crashed|interrupted/i.test(output)) { console.error('\n::error::Feature reached terminal error state'); process.exit(1); }
+            if (Date.now() - start > MAX_WAIT) { console.error('::error::Timed out'); process.exit(1); }
+            setTimeout(poll, INTERVAL);
+          }
+          poll();
+
+      - name: Show completed feature
+        working-directory: /tmp/sheep
+        run: |
+          echo "=== Final feature details ==="
+          shep feat show "$FEATURE_ID"
+
+      - name: Verify PR merged by shep
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        run: |
+          echo "Checking shep-ai/sheep for merged PRs..."
+          MERGED=$(gh pr list --repo shep-ai/sheep --state merged --limit 1 --json url,mergedAt --jq '.[0].url')
+          if [ -z "$MERGED" ]; then
+            echo "::error::No merged PR found — shep must create AND merge the PR"
+            exit 1
+          fi
+          echo "PR merged by shep: $MERGED"
