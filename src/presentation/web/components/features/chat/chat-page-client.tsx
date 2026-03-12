@@ -1,44 +1,35 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { ChatView, type ChatMessage } from './chat-view';
+import { useChat } from '@/hooks/use-chat';
+import { ChatView } from './chat-view';
 
 export function ChatPageClient() {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const { messages, status, error, sendMessage, retry, clearChat } = useChat();
   const [input, setInput] = useState('');
+
+  const isStreaming = status === 'sending' || status === 'streaming';
 
   const handleSubmit = useCallback(() => {
     const trimmed = input.trim();
-    if (!trimmed) return;
+    if (!trimmed || isStreaming) return;
 
-    const userMessage: ChatMessage = {
-      id: crypto.randomUUID(),
-      role: 'user',
-      content: trimmed,
-      timestamp: new Date(),
-      status: 'complete',
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
+    void sendMessage(trimmed);
     setInput('');
-  }, [input]);
+  }, [input, isStreaming, sendMessage]);
 
-  const handleSuggestionClick = useCallback((suggestion: string) => {
-    const userMessage: ChatMessage = {
-      id: crypto.randomUUID(),
-      role: 'user',
-      content: suggestion,
-      timestamp: new Date(),
-      status: 'complete',
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
-  }, []);
+  const handleSuggestionClick = useCallback(
+    (suggestion: string) => {
+      if (isStreaming) return;
+      void sendMessage(suggestion);
+    },
+    [isStreaming, sendMessage]
+  );
 
   const handleClear = useCallback(() => {
-    setMessages([]);
+    clearChat();
     setInput('');
-  }, []);
+  }, [clearChat]);
 
   return (
     <div className="flex h-full flex-col">
@@ -49,7 +40,14 @@ export function ChatPageClient() {
         onSubmit={handleSubmit}
         onSuggestionClick={handleSuggestionClick}
         onClear={handleClear}
+        onRetry={retry}
+        isStreaming={isStreaming}
       />
+      {error ? (
+        <div className="border-destructive bg-destructive/10 text-destructive mx-4 mb-2 rounded-md border px-3 py-2 text-sm">
+          {error}
+        </div>
+      ) : null}
     </div>
   );
 }
