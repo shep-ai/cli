@@ -53,7 +53,9 @@ jobs:
       # 1b. Install Claude Code CLI (required by shep agent executor)
       # ---------------------------------------------------------------------
       - name: Install Claude Code CLI
-        run: npm install -g @anthropic-ai/claude-code
+        run: |
+          curl -fsSL https://claude.ai/install.sh | bash
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       # ---------------------------------------------------------------------
       # 2. Clone the target repo (shep-ai/sheep)
