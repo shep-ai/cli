@@ -1,3 +1,9 @@
+## [1.106.1](https://github.com/shep-ai/cli/compare/v1.106.0...v1.106.1) (2026-03-12)
+
+### Bug Fixes
+
+- **web:** force dynamic rendering for version api route ([#315](https://github.com/shep-ai/cli/issues/315)) ([7b40e09](https://github.com/shep-ai/cli/commit/7b40e093b4850e6777e09e7983e6cbf458e4915c))
+
 # [1.106.0](https://github.com/shep-ai/cli/compare/v1.105.0...v1.106.0) (2026-03-12)
 
 ### Bug Fixes
