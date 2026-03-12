@@ -244,9 +244,14 @@ export async function initializeContainer(): Promise<typeof container> {
   } else {
     container.register<IAgentExecutorFactory>('IAgentExecutorFactory', {
       useFactory: () => {
-        // Wrap spawn to ensure stdio is explicitly set to 'pipe'
+        // Wrap spawn to ensure stdio is explicitly set to 'pipe'.
+        // On Windows, .cmd scripts (e.g. cursor's `agent.cmd`) need shell: true.
         const spawnWithPipe = (command: string, args: string[], options?: object) => {
-          return spawn(command, args, { ...options, stdio: 'pipe' });
+          return spawn(command, args, {
+            ...options,
+            stdio: 'pipe',
+            ...(process.platform === 'win32' ? { shell: true, windowsHide: true } : {}),
+          });
         };
         return new AgentExecutorFactory(spawnWithPipe);
       },
