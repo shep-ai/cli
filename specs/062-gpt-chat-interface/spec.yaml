@@ -10,13 +10,14 @@ userQuery: >
   Use https://github.com/ibelick/prompt-kit for components.
 summary: >
   Add a conversational GPT-style chat interface to the Shep web application using
-  the prompt-kit component library (https://github.com/ibelick/prompt-kit). This
-  feature introduces a new chat page/view where users can interact with the AI
-  assistant through a familiar chat UX, leveraging prompt-kit's pre-built components
-  (ChatContainer, Message, PromptInput, Markdown, CodeBlock) installed via the
-  shadcn CLI. The existing Message domain model already supports the required
-  role-based conversation structure.
-phase: Analysis
+  the prompt-kit component library. The chat lives at a new top-level /chat route
+  accessible from the sidebar. Users type freeform messages, the AI streams
+  responses via SSE, and markdown/code blocks render inline. Chat state is
+  ephemeral (in-memory per session). The implementation reuses the existing Message
+  domain model, SSE streaming infrastructure, and shadcn/ui component patterns.
+  prompt-kit components (chat-container, message, prompt-input, markdown,
+  code-block, loader) are installed as source files via the shadcn CLI.
+phase: Requirements
 sizeEstimate: M
 
 # Relationships
@@ -38,14 +39,181 @@ relatedLinks:
   - https://github.com/ibelick/prompt-kit
   - https://www.prompt-kit.com/docs/installation
 
-# Open questions (must be resolved before implementation)
 openQuestions:
-  - Where should the chat interface live in the navigation? As a new top-level sidebar route (e.g. /chat) or embedded within the existing feature drawer/dashboard?
-  - Should the chat interface connect to an existing agent backend or is this purely a UI scaffold at this stage?
-  - Should the chat support streaming responses via SSE (matching existing agent-events pattern) or simple request/response?
-  - Should chat history persist across sessions (requiring a new repository/use case) or be ephemeral in-memory state?
+  - question: >
+      Where should the chat interface live in the navigation? As a new top-level
+      sidebar route (e.g. /chat) or embedded within the existing feature
+      drawer/dashboard?
+    resolved: true
+    options:
+      - option: 'Top-level sidebar route (/chat)'
+        description: >
+          Adds a new /chat route with its own page, accessible from a sidebar nav
+          item alongside Home, Tools, Skills, and Settings. Keeps the chat
+          experience self-contained and discoverable. Follows the same pattern as
+          /tools, /skills, /settings. Clean separation from the dashboard graph
+          view.
+        selected: true
+      - option: 'Embedded in dashboard drawer'
+        description: >
+          Reuses the existing @drawer parallel route to show chat in a slide-over
+          panel. Keeps the dashboard visible while chatting. However, the drawer
+          is already used for feature detail views and mixing concerns may
+          confuse navigation. Limited screen real estate for a chat experience.
+        selected: false
+      - option: 'Floating chat widget'
+        description: >
+          A persistent floating button that opens a chat overlay on any page.
+          Always accessible but requires z-index management, feels less
+          integrated, and provides less screen space for conversation. Better
+          suited for support chat than primary AI interaction.
+        selected: false
+    selectionRationale: >
+      A top-level /chat route is the cleanest approach. It follows existing routing
+      patterns (/tools, /skills, /settings), gives the chat full page width for a
+      proper GPT-style experience, and avoids complicating the dashboard drawer which
+      is already used for feature detail views. The sidebar already supports
+      conditional nav items (skills behind feature flag), so adding a Chat item is
+      straightforward.
+    answer: 'Top-level sidebar route (/chat)'
 
-# Markdown content (the actual spec)
+  - question: >
+      Should the chat interface connect to an existing agent backend or is this
+      purely a UI scaffold at this stage?
+    resolved: true
+    options:
+      - option: 'Connected to agent backend via SSE'
+        description: >
+          Wire the chat to the existing IAgentExecutorProvider infrastructure so
+          messages are processed by the configured AI agent (OpenAI, Anthropic,
+          etc.). Responses stream back via SSE using the established
+          agent-events pattern. Requires a new use case and API route but
+          leverages existing infrastructure. Delivers a functional chat
+          experience immediately.
+        selected: true
+      - option: 'UI scaffold only (mock responses)'
+        description: >
+          Build the full chat UI with prompt-kit components but use hardcoded or
+          echo responses. Faster to build but delivers no real value to users.
+          Would require a second round of work to connect the backend. Results
+          in throwaway mock code.
+        selected: false
+    selectionRationale: >
+      Connecting to the agent backend delivers immediate user value and avoids
+      throwaway mock code. The existing SSE infrastructure (Service Worker, polling,
+      agent-events route) and IAgentExecutorProvider already handle the hard parts.
+      A new server action + API route for chat is a natural extension of existing
+      patterns. The incremental cost over a scaffold is small given the existing
+      infrastructure.
+    answer: 'Connected to agent backend via SSE'
+
+  - question: >
+      Should the chat support streaming responses via SSE (matching existing
+      agent-events pattern) or simple request/response?
+    resolved: true
+    options:
+      - option: 'Streaming via SSE'
+        description: >
+          Responses stream token-by-token to the client via Server-Sent Events.
+          Matches the GPT-style experience users expect — text appears
+          progressively. The codebase already has SSE infrastructure (Service
+          Worker, agent-events route, useAgentEvents hook). Provides better
+          perceived performance for long responses.
+        selected: true
+      - option: 'Simple request/response'
+        description: >
+          Send message, wait for complete response, render all at once. Simpler
+          to implement but feels sluggish for AI responses that take several
+          seconds. Does not match user expectations from ChatGPT, Claude, etc.
+          No progressive rendering.
+        selected: false
+    selectionRationale: >
+      Streaming is essential for a GPT-style chat experience. Users expect to see
+      tokens appear progressively — waiting for a complete response feels broken.
+      The codebase already has mature SSE infrastructure that can be extended for
+      chat streaming. A new dedicated SSE endpoint for chat responses (separate
+      from agent-events) keeps concerns clean.
+    answer: 'Streaming via SSE'
+
+  - question: >
+      Should chat history persist across sessions (requiring a new
+      repository/use case) or be ephemeral in-memory state?
+    resolved: true
+    options:
+      - option: 'Ephemeral in-memory state'
+        description: >
+          Chat messages live in React state (useState/useReducer) and are lost
+          on page refresh or navigation away. Simple to implement, no database
+          changes needed, no new repository or migration. Suitable for an MVP
+          chat experience. History can be added in a follow-up feature.
+        selected: true
+      - option: 'Persisted to database'
+        description: >
+          Chat conversations are saved to the database via a new
+          ChatConversation repository. Survives page refreshes and allows users
+          to resume conversations. Requires new TypeSpec models, repository
+          interface, migration, and use cases. Significantly increases scope
+          from M to L.
+        selected: false
+    selectionRationale: >
+      Ephemeral state keeps this feature at size M and delivers the core GPT-style
+      chat experience without database schema changes, migrations, or new
+      repositories. The existing Message domain model works for in-memory state. Chat
+      history persistence is a natural follow-up feature once the core UX is
+      validated.
+    answer: 'Ephemeral in-memory state'
+
+  - question: >
+      Should the chat feature be gated behind a feature flag during initial
+      rollout?
+    resolved: true
+    options:
+      - option: 'Yes, behind feature flag'
+        description: >
+          Add a new `chat` boolean to FeatureFlagsState. The /chat route and
+          sidebar nav item are only visible when enabled. Allows gradual rollout
+          and easy disable if issues arise. Follows the same pattern used for
+          the Skills feature. Small implementation cost (one flag + conditional
+          render).
+        selected: true
+      - option: 'No, always visible'
+        description: >
+          Ship the chat feature as always-on with no flag. Simpler code, one
+          less configuration point. But no ability to disable without a code
+          deploy if issues are found post-release.
+        selected: false
+    selectionRationale: >
+      Feature flags are cheap to implement (the infrastructure already exists with
+      FeatureFlagsProvider and the skills pattern) and provide a safety net for
+      rolling out a new major UI feature. The sidebar already conditionally renders
+      nav items based on flags. Defaulting the flag to true ensures it ships enabled
+      while remaining toggleable.
+    answer: 'Yes, behind feature flag'
+
+  - question: >
+      Should the chat input support file attachments or image uploads?
+    resolved: true
+    options:
+      - option: 'Text-only input (MVP)'
+        description: >
+          The prompt input accepts text messages only. Keeps scope focused on
+          the core chat experience. File/image support can be added later.
+          Matches the existing compose-user-input pattern which handles
+          attachments separately.
+        selected: true
+      - option: 'Text with file attachments'
+        description: >
+          Support dragging or selecting files to attach to messages. Requires
+          file upload infrastructure, multipart form handling, and UI for
+          attachment previews. Significantly increases scope.
+        selected: false
+    selectionRationale: >
+      Text-only input keeps the MVP focused. The core value is the conversational
+      chat UX, not file handling. File attachments can be added as a follow-up
+      feature. The existing compose-user-input server action already handles
+      attachments for other flows, so the pattern exists when needed.
+    answer: 'Text-only input (MVP)'
+
 content: |
   ## Problem Statement
 
@@ -58,89 +226,194 @@ content: |
   This feature adds a GPT-style chat experience using the prompt-kit library
   (https://github.com/ibelick/prompt-kit), which provides pre-built, accessible
   chat components that integrate seamlessly with the existing shadcn/ui setup.
+  The chat is accessible from a new top-level /chat route in the sidebar, streams
+  AI responses via SSE, and renders markdown and code blocks inline.
 
-  ## Codebase Analysis
+  ## Success Criteria
 
-  ### Project Structure
+  - [ ] A /chat route exists and renders a full-page GPT-style chat interface
+  - [ ] Chat nav item appears in the sidebar (gated by feature flag, default enabled)
+  - [ ] Users can type a message in the prompt input and submit via Enter or button click
+  - [ ] User messages appear immediately in the chat container with "user" role styling
+  - [ ] AI responses stream token-by-token via SSE and render progressively
+  - [ ] A loading/thinking indicator displays while waiting for the AI response
+  - [ ] Markdown content in AI responses renders correctly (headings, lists, bold, italic, links)
+  - [ ] Code blocks in AI responses render with syntax highlighting and copy button
+  - [ ] The chat container auto-scrolls to the latest message
+  - [ ] The prompt input is disabled while a response is streaming and re-enables when complete
+  - [ ] Error states display gracefully (network failure, agent error) with a retry option
+  - [ ] The chat interface is responsive and usable on mobile viewports
+  - [ ] All new components have colocated Storybook stories
+  - [ ] All new logic has unit test coverage
+  - [ ] The feature passes accessibility checks (keyboard navigation, screen reader labels)
 
-  The repository follows Clean Architecture with four layers:
+  ## Functional Requirements
 
-  - **domain/** — Core business logic, TypeSpec-generated models (includes `Message` entity with `role`, `content`, `options`, `answer`, `selectedOption`)
-  - **application/** — Use cases and output port interfaces
-  - **infrastructure/** — External concerns (DB, agents, services, DI container)
-  - **presentation/** — CLI, TUI, and Web UI
+  - **FR-1: Chat route and page** — A new `/chat` route under the App Router renders a
+    full-page chat interface. The route uses `'use client'` for interactive state. The
+    page fills the available content area within the existing AppShell layout.
 
-  The web UI lives at `src/presentation/web/` and uses Next.js 16 App Router with:
-  - `app/` — Routes (dashboard with parallel `@drawer` route, settings, tools, skills)
-  - `components/ui/` — ~50 shadcn/ui primitive components
-  - `components/common/` — ~45 reusable feature components
-  - `components/features/` — Page-level feature components (control-center, settings, tools, skills)
-  - `components/layouts/` — App shell, sidebar, header, dashboard layout
-  - `hooks/` — 25+ React hooks (state management, SSE events, notifications)
-  - `lib/` — Utility functions (graph derivation, DI container, feature flags)
+  - **FR-2: Sidebar navigation item** — A "Chat" nav item with a `MessageSquare` (or
+    similar Lucide) icon is added to the sidebar between "Control Center" and "Tools".
+    Visibility is gated by a `chat` feature flag (default: true). Active state
+    highlights when on the /chat route.
 
-  ### Architecture Patterns
+  - **FR-3: Chat container with auto-scroll** — The chat area uses prompt-kit's
+    `ChatContainer` component (or equivalent) to display messages in chronological
+    order. The container auto-scrolls to the bottom when new messages arrive. A
+    scroll-to-bottom button appears when the user scrolls up.
 
-  - **shadcn/ui**: Already configured (`components.json` with new-york style, RSC enabled, Tailwind CSS vars, Lucide icons). Components installed to `components/ui/`.
-  - **Component structure**: Each component has its own directory with `ComponentName.tsx`, `ComponentName.stories.tsx` (mandatory), and `index.ts` barrel export.
-  - **Client components**: Use `'use client'` directive for interactive components.
-  - **Server actions**: Located in `app/actions/`, resolved via DI container.
-  - **SSE streaming**: Established pattern via `/api/agent-events` route with Service Worker multiplexing, consumed by `useAgentEvents` hook.
-  - **State management**: React hooks + context providers (no Redux). Graph state managed via domain Maps.
-  - **Routing**: App Router with route groups `(dashboard)`, parallel routes `@drawer`, dynamic segments `[featureId]`.
-  - **Feature flags**: DB-primary with env var fallback via `FeatureFlagsProvider`.
+  - **FR-4: Message display** — Each message renders with role-appropriate styling:
+    user messages right-aligned (or distinct background), assistant messages
+    left-aligned with an AI avatar. Uses prompt-kit's `Message` component. Markdown
+    content renders via prompt-kit's `Markdown` component. Code blocks render via
+    prompt-kit's `CodeBlock` component with syntax highlighting and a copy-to-clipboard
+    button.
 
-  ### Relevant Technologies
+  - **FR-5: Prompt input** — A text input area at the bottom of the chat uses
+    prompt-kit's `PromptInput` component. Supports multiline input (Shift+Enter for
+    newline, Enter to submit). A send button is visible. The input is disabled while
+    a response is streaming. The input auto-focuses on page load and after each
+    response completes.
 
-  - **prompt-kit**: MIT-licensed library providing chat UI components (ChatContainer, Message, PromptInput, Markdown, CodeBlock, Loader, ThinkingBar, etc.). Built on React 19 + shadcn/ui + Tailwind CSS. Installed via `npx shadcn@latest add "https://prompt-kit.com/c/[component].json"`. Components are copied into `components/ui/` — same pattern as existing shadcn components.
-  - **Existing Message model** (`tsp/domain/entities/message.tsp`): Already defines `Message` with `role` (user/assistant), `content`, `options`, `answer`, `selectedOption` — directly usable for chat message state.
-  - **react-markdown**: Already a dependency — can be used within prompt-kit Message components.
-  - **SSE infrastructure**: Existing Service Worker + polling pattern can be reused for streaming chat responses.
+  - **FR-6: Message submission** — When the user submits a message: (a) the message
+    is immediately appended to the chat state with role "user", (b) the prompt input
+    clears and disables, (c) a loading indicator appears, (d) a server action or API
+    call sends the message (with conversation context) to the agent backend.
+
+  - **FR-7: Streaming AI response** — The server routes the user message to the
+    configured AI agent via IAgentExecutorProvider. The response streams back via a
+    dedicated SSE endpoint (e.g., `/api/chat/stream`). As tokens arrive, the
+    assistant message content is progressively appended and rendered in the chat. When
+    the stream completes, the input re-enables and the loading indicator disappears.
+
+  - **FR-8: Loading/thinking state** — While waiting for the AI response, a visual
+    indicator shows the assistant is "thinking" (using prompt-kit's `Loader` or
+    `ThinkingBar` component). The indicator appears as a new message row below the
+    user's message.
+
+  - **FR-9: Error handling** — If the agent call fails (network error, agent error,
+    timeout), an error message displays inline in the chat with a "Retry" button. The
+    input re-enables so the user can try again. Errors also trigger a sonner toast
+    notification for visibility.
+
+  - **FR-10: Chat state management** — A `useChat` hook manages the chat state:
+    messages array, sending status, streaming status, and error state. The hook
+    exposes `sendMessage(content: string)`, `retry()`, and `clearChat()` functions.
+    State is ephemeral (React state, not persisted).
+
+  - **FR-11: Empty state** — When no messages exist, the chat page shows a welcome
+    screen with the Shep logo/name, a brief description (e.g., "Ask me anything about
+    your project"), and optional suggestion chips for common prompts.
+
+  - **FR-12: Clear conversation** — A button in the chat header or toolbar allows
+    users to clear all messages and reset the conversation. Requires confirmation
+    before clearing.
+
+  - **FR-13: Feature flag** — A `chat` boolean is added to `FeatureFlagsState` in
+    `feature-flags.ts` with a default value of `true`. The sidebar nav item and /chat
+    route respect this flag.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1: Performance** — The chat container must handle at least 100 messages
+    without perceptible scroll jank. Token streaming must render at the rate they
+    arrive with no visible buffering delay. Initial page load of /chat must not add
+    more than 50KB gzipped to the JS bundle (prompt-kit components are source files,
+    not a large dependency).
+
+  - **NFR-2: Accessibility** — All interactive elements (input, buttons, messages)
+    must be keyboard-navigable. The prompt input must have an accessible label. The
+    send button must have an aria-label. Messages must use semantic HTML (article or
+    similar). Screen readers must announce new messages via an aria-live region. Focus
+    management must return to the input after sending.
+
+  - **NFR-3: Responsive design** — The chat interface must be usable on viewports
+    from 320px width (mobile) to full desktop. On mobile, the chat takes full width.
+    The prompt input remains fixed at the bottom of the viewport.
+
+  - **NFR-4: Consistency** — All new components must follow existing codebase
+    patterns: directory structure (ComponentName.tsx + stories + index.ts), 'use
+    client' directive for interactive components, shadcn/ui styling conventions
+    (Tailwind CSS vars, new-york style), and kebab-case hook file naming.
+
+  - **NFR-5: Storybook coverage** — Every new UI component must have a colocated
+    `.stories.tsx` file demonstrating: default state, loading state, error state,
+    long message content, code block rendering, and mobile viewport.
+
+  - **NFR-6: Test coverage** — The `useChat` hook must have unit tests covering:
+    message sending, streaming state transitions, error handling, retry logic, and
+    clear conversation. Feature components must have integration tests verifying
+    render and user interaction flows.
+
+  - **NFR-7: Security** — User input must be sanitized before rendering (XSS
+    prevention). The chat API endpoint must validate request format. Markdown
+    rendering must not execute arbitrary scripts (react-markdown is safe by default).
+
+  - **NFR-8: Error resilience** — SSE connection drops must be handled gracefully
+    with automatic reconnection. Partial streaming responses must be preserved (not
+    lost) on reconnection. Network errors must surface user-friendly messages, not
+    raw error objects.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Where should the chat interface live in the navigation? | Top-level sidebar route (/chat) | Follows existing routing patterns, gives full page width for GPT-style experience, avoids complicating the dashboard drawer |
+  | 2 | Should the chat connect to an agent backend? | Yes, connected via SSE | Delivers immediate user value, leverages existing SSE and agent infrastructure, avoids throwaway mock code |
+  | 3 | Should responses stream via SSE or use request/response? | Streaming via SSE | Essential for GPT-style UX, existing SSE infrastructure is mature, users expect progressive token rendering |
+  | 4 | Should chat history persist across sessions? | Ephemeral in-memory state | Keeps scope at size M, avoids DB schema changes, persistence is a natural follow-up feature |
+  | 5 | Should the feature be gated behind a feature flag? | Yes, behind feature flag (default: true) | Cheap to implement with existing FeatureFlagsProvider pattern, provides safety net for rollout |
+  | 6 | Should the input support file attachments? | Text-only (MVP) | Keeps focus on core chat UX, attachments can be added later using existing compose-user-input pattern |
 
   ## Affected Areas
 
   | Area | Impact | Reasoning |
   | ---- | ------ | --------- |
   | `src/presentation/web/components/ui/` | High | New prompt-kit components installed here (chat-container, message, prompt-input, markdown, code-block, loader) |
-  | `src/presentation/web/app/` | High | New chat route/page (e.g., `app/chat/page.tsx` or integrated into dashboard) |
-  | `src/presentation/web/components/features/` | High | New chat feature component directory with main chat view |
-  | `src/presentation/web/components/common/` | Medium | Reusable chat-specific components (message bubble, suggestion chips, etc.) |
-  | `src/presentation/web/hooks/` | Medium | New hook(s) for chat state management (messages array, send/receive, streaming) |
-  | `src/presentation/web/components/layouts/app-sidebar/` | Low | Add chat navigation item to sidebar |
-  | `src/presentation/web/app/api/` | Medium | New API route for chat message submission and streaming response (if backend-connected) |
-  | `src/presentation/web/lib/feature-flags.ts` | Low | Potentially gate chat feature behind a feature flag during rollout |
-  | `src/presentation/web/package.json` | Low | No new npm dependencies needed — prompt-kit components are installed as source files via shadcn CLI |
-  | `tsp/domain/entities/message.tsp` | Low | Existing Message model may need minor extensions if chat requires additional fields |
+  | `src/presentation/web/app/chat/` | High | New /chat route with page.tsx |
+  | `src/presentation/web/app/api/chat/` | High | New SSE streaming endpoint for chat responses |
+  | `src/presentation/web/components/features/chat/` | High | New chat feature component directory with main chat view, empty state, and message list |
+  | `src/presentation/web/hooks/` | Medium | New use-chat.ts hook for chat state management |
+  | `src/presentation/web/components/layouts/app-sidebar/` | Low | Add Chat navigation item to sidebar (conditional on feature flag) |
+  | `src/presentation/web/app/actions/` | Medium | New server action for sending chat messages to agent backend |
+  | `src/presentation/web/lib/feature-flags.ts` | Low | Add `chat` boolean to FeatureFlagsState (default: true) |
+  | `src/presentation/web/components/common/` | Medium | Reusable chat-specific components (suggestion chips, scroll-to-bottom button) |
+  | `src/presentation/web/package.json` | Low | No new npm dependencies — prompt-kit components are installed as source files via shadcn CLI |
 
   ## Dependencies
 
   ### Existing (already in codebase)
-  - shadcn/ui setup (`components.json`, Tailwind CSS, Radix UI)
-  - Message domain entity (TypeSpec-generated)
+  - shadcn/ui setup (components.json, Tailwind CSS, Radix UI)
+  - Message domain entity (TypeSpec-generated with role, content fields)
   - SSE streaming infrastructure (Service Worker, agent-events pattern)
+  - IAgentExecutorProvider (agent resolution without hardcoded types)
+  - DI container (tsyringe via server-container.ts)
   - react-markdown (already a dependency)
   - Lucide React icons
   - Sonner toast notifications
+  - FeatureFlagsProvider (DB-primary with env var fallback)
 
   ### New (to be added)
   - prompt-kit components (installed as source files via shadcn CLI, not as npm package)
     - `chat-container` — Auto-scrolling chat wrapper
     - `message` — Message display with avatar and content
-    - `prompt-input` — AI-optimized text input
-    - `markdown` — Markdown rendering for responses
-    - `code-block` — Syntax-highlighted code display
+    - `prompt-input` — AI-optimized text input with multiline support
+    - `markdown` — Markdown rendering for AI responses
+    - `code-block` — Syntax-highlighted code display with copy button
     - `loader` — Loading/streaming state indicator
 
   ## Size Estimate
 
-  **M** (days) — The prompt-kit library provides pre-built components that integrate
-  directly with the existing shadcn/ui setup, significantly reducing UI development
-  effort. The main work involves: (1) installing and configuring prompt-kit components,
-  (2) creating the chat page/route and feature component, (3) building chat state
-  management hook(s), (4) wiring up message send/receive (API route or server action),
-  (5) writing Storybook stories for all new components, and (6) writing tests. The
-  existing Message domain model and SSE infrastructure reduce backend complexity.
+  **M** (days) — prompt-kit provides pre-built components that integrate directly
+  with the existing shadcn/ui setup, significantly reducing UI development effort.
+  The existing Message domain model and SSE infrastructure handle the backend
+  complexity. Main work: (1) install prompt-kit components via shadcn CLI, (2) create
+  /chat route and feature components, (3) build useChat hook with streaming logic,
+  (4) create SSE chat endpoint and server action, (5) add feature flag and sidebar
+  nav item, (6) write Storybook stories for all components, (7) write unit and
+  integration tests.
 
   ---
 
-  _Generated by feature agent — proceed with research_
+  _Generated by feature agent — requirements phase complete_
