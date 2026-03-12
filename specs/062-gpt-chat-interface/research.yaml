@@ -1,0 +1,629 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: gpt-chat-interface
+summary: >
+  Technical research for the GPT chat interface feature. Key decisions: use
+  prompt-kit components installed via shadcn CLI as source files, create a
+  dedicated /api/chat/stream SSE endpoint that calls IAgentExecutor.executeStream()
+  directly (bypassing the SDLC agent graph), manage chat state with a custom
+  useChat hook using useReducer, add the /chat route as a top-level App Router
+  page within the existing AppShell layout, and gate visibility behind a new
+  `chat` feature flag defaulting to true.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - Next.js 16 (App Router)
+  - React 19
+  - prompt-kit (chat UI components via shadcn CLI)
+  - shadcn/ui (new-york style, already configured)
+  - Tailwind CSS 4
+  - Radix UI (accessibility primitives)
+  - Lucide React (icons)
+  - TypeSpec (domain model generation)
+  - Server-Sent Events (real-time streaming)
+  - react-markdown (already a dependency)
+  - use-stick-to-bottom (prompt-kit dependency for auto-scroll)
+  - sonner (toast notifications, already a dependency)
+  - vitest (unit testing)
+  - '@testing-library/react (component testing)'
+  - '@storybook/react (component stories)'
+
+relatedLinks:
+  - https://github.com/ibelick/prompt-kit
+  - https://www.prompt-kit.com/docs/installation
+  - https://www.prompt-kit.com/docs/components/chat-container
+  - https://www.prompt-kit.com/docs/components/prompt-input
+  - https://www.prompt-kit.com/docs/components/message
+  - https://www.prompt-kit.com/docs/components/markdown
+  - https://www.prompt-kit.com/docs/components/code-block
+  - https://www.prompt-kit.com/docs/components/loader
+
+# Structured technology decisions
+decisions:
+  - title: 'Chat UI component library'
+    chosen: 'prompt-kit components installed as source files via shadcn CLI'
+    rejected:
+      - >-
+        Build custom chat components from scratch — Would work but significantly
+        increases implementation time. prompt-kit provides production-ready,
+        accessible chat components (ChatContainer, Message, PromptInput,
+        Markdown, CodeBlock, Loader) that integrate directly with the existing
+        shadcn/ui setup. No reason to reinvent when a well-matched library
+        exists.
+      - >-
+        Use a full npm chat SDK (e.g., @chatscope/chat-ui-kit-react, stream-chat-react) —
+        These are heavy npm dependencies (100KB+) with opinionated styling that
+        conflicts with the existing shadcn/ui design system. They add bundle
+        weight and lock into their component API. prompt-kit installs as source
+        files, giving full customization control and zero runtime dependency.
+    rationale: >
+      prompt-kit is purpose-built for AI chat interfaces and integrates
+      seamlessly with the existing shadcn/ui setup (same CLI, same component
+      conventions, same Tailwind styling). Components are installed as source
+      files into components/ui/, giving full customization control. The
+      installation is via `npx shadcn@latest add "https://prompt-kit.com/c/<component>.json"`.
+      It requires React 19+ (which we have) and supports Tailwind CSS 4. The
+      only new npm dependency is `use-stick-to-bottom` for the ChatContainer
+      auto-scroll behavior. This keeps bundle impact minimal (< 50KB gzipped)
+      while delivering a polished GPT-style UX.
+
+  - title: 'Chat streaming architecture'
+    chosen: 'Dedicated /api/chat/stream SSE endpoint calling IAgentExecutor.executeStream() directly'
+    rejected:
+      - >-
+        Reuse existing /api/agent-events SSE endpoint — The agent-events endpoint
+        is designed for SDLC lifecycle notifications (polling DB for feature/run
+        status changes). It has no concept of chat message streaming, uses a
+        different event schema (NotificationEvent), and polls the database every
+        500ms. Chat requires real-time token streaming, not periodic state
+        diffing. A dedicated endpoint is cleaner.
+      - >-
+        Use Server Actions with streaming (React Server Components) — Server
+        Actions don't natively support streaming responses back to the client.
+        While React 19 has some streaming primitives, SSE is the established
+        pattern in this codebase for real-time data and provides better control
+        over connection lifecycle, error handling, and reconnection.
+      - >-
+        WebSocket connection — Adds infrastructure complexity (WS server, connection
+        management, protocol handling). The codebase has no WebSocket usage.
+        SSE is simpler, works with existing HTTP infrastructure, and is
+        sufficient for unidirectional streaming (server → client). The client
+        sends messages via POST, receives streamed tokens via SSE.
+    rationale: >
+      A dedicated POST /api/chat/stream endpoint receives the user message and
+      conversation history, resolves the agent executor via
+      IAgentExecutorProvider.getExecutor(), calls executeStream() with the
+      prompt and options (including resumeSession for multi-turn), and forwards
+      AgentExecutionStreamEvent objects as SSE events. This keeps chat streaming
+      completely separate from the SDLC agent-events infrastructure. The
+      existing IAgentExecutor.executeStream() returns
+      AsyncIterable<AgentExecutionStreamEvent> with type: 'progress' | 'result' | 'error',
+      which maps perfectly to SSE event types. The endpoint uses the same
+      ReadableStream + TextEncoder pattern as the existing /api/agent-events
+      and /api/feature-logs routes.
+
+  - title: 'Chat state management'
+    chosen: 'Custom useChat hook with useReducer for local state'
+    rejected:
+      - >-
+        Global state via React Context — Chat state is page-local, not shared
+        across the app. Adding a ChatProvider to AppShell would pollute the
+        global context tree for a feature only used on /chat. useReducer within
+        the hook keeps state scoped and testable.
+      - >-
+        External state library (Zustand, Jotai) — The codebase doesn't use any
+        external state library. All state management is via React hooks
+        (useState, useReducer, useContext). Adding Zustand for one feature
+        violates the existing conventions and adds an unnecessary dependency.
+      - >-
+        Vercel AI SDK useChat hook — While convenient, it's an opinionated
+        abstraction that assumes a specific API contract (/api/chat with
+        messages array). Our architecture uses IAgentExecutorProvider with
+        session-based resumption, not stateless message arrays. A custom hook
+        gives full control over the streaming protocol and integrates with the
+        existing DI and agent resolution patterns.
+    rationale: >
+      A custom useChat hook using useReducer manages the chat state: messages
+      array, sending/streaming status, error state, and sessionId for
+      conversation continuity. The hook exposes sendMessage(content),
+      retry(), and clearChat(). It connects to /api/chat/stream via fetch()
+      with ReadableStream consumption for SSE parsing. This follows the
+      existing hook patterns in the codebase (e.g., use-agent-events.ts,
+      use-graph-state.ts) and is straightforward to unit test with vitest.
+      State is ephemeral (lives in React state, lost on navigation/refresh)
+      per the spec decision.
+
+  - title: 'Chat routing and page structure'
+    chosen: 'Top-level /chat route as App Router page within existing AppShell'
+    rejected:
+      - >-
+        Floating chat widget overlay — While the spec answer says "Floating chat
+        widget", the rationale and all functional requirements describe a
+        full-page /chat route with sidebar navigation. A floating widget
+        provides less screen space, requires complex z-index management, and
+        conflicts with the FR-1 requirement for a "full-page chat interface".
+        The implementation will follow the detailed requirements (FR-1 through
+        FR-13) which consistently describe a /chat route.
+      - >-
+        Embed in dashboard drawer (@drawer parallel route) — The drawer is
+        already used for feature detail views. Chat needs full-page width for a
+        proper GPT-style experience. Mixing concerns in the drawer complicates
+        navigation. The drawer has limited width unsuitable for long AI
+        responses with code blocks.
+    rationale: >
+      A new app/chat/page.tsx follows the exact same pattern as existing routes
+      (/tools, /skills, /settings): server component page that renders a client
+      component. The page sits within the AppShell layout so the sidebar
+      remains visible. A new "Chat" nav item with MessageSquare icon is added
+      to the sidebar between "Control Center" and "Tools", gated by the chat
+      feature flag. This is the cleanest approach and follows all existing
+      routing conventions. The functional requirements (FR-1 through FR-13)
+      consistently describe this pattern.
+
+  - title: 'Agent backend integration pattern'
+    chosen: 'Direct IAgentExecutor.executeStream() via IAgentExecutorProvider in API route'
+    rejected:
+      - >-
+        Create a new ChatUseCase in the application layer — While this follows
+        clean architecture more strictly, chat is a thin pass-through to the
+        agent executor. A use case would add a file with minimal logic (resolve
+        executor, call executeStream, return result). The API route can resolve
+        the executor directly via the DI container, matching the pattern used
+        in existing API routes like /api/agent-events and /api/feature-logs
+        that resolve repositories directly.
+      - >-
+        Route through the existing RunAgentUseCase / IAgentRunner — This
+        infrastructure is designed for SDLC workflows with LangGraph graphs,
+        checkpointers, and agent definitions from IAgentRegistry. Chat is a
+        simple prompt-in/stream-out interaction, not a multi-phase workflow.
+        Using RunAgentUseCase would require registering a "chat" agent
+        definition and creating unnecessary LangGraph boilerplate.
+    rationale: >
+      The /api/chat/stream route resolves IAgentExecutorProvider from the DI
+      container via resolve(), calls getExecutor() to get the configured
+      executor (respecting user's agent type settings), then calls
+      executeStream(prompt, options). The AgentExecutionOptions interface
+      already supports resumeSession for multi-turn conversations, systemPrompt
+      for chat-specific instructions, and model override. This pattern is
+      consistent with how /api/agent-events and /api/feature-logs access the
+      DI container. The IAgentExecutor.executeStream() returns
+      AsyncIterable<AgentExecutionStreamEvent> which can be directly forwarded
+      as SSE events.
+
+  - title: 'Feature flag implementation'
+    chosen: 'Add `chat` boolean to FeatureFlagsState with default true'
+    rejected:
+      - >-
+        No feature flag (always visible) — Provides no ability to disable the
+        feature without a code deploy if issues arise post-release. Given this
+        is a new major UI feature, a safety net is worthwhile.
+      - >-
+        Server-side only flag (environment variable) — The existing pattern uses
+        DB-primary resolution with env var fallback. Adding only an env var
+        would break the established pattern. The FeatureFlagsState interface
+        and getFeatureFlags() function should be extended consistently.
+    rationale: >
+      The existing FeatureFlagsState interface in lib/feature-flags.ts has
+      { skills: boolean, envDeploy: boolean, debug: boolean }. Adding
+      chat: boolean follows the identical pattern. The getFeatureFlags()
+      function reads from Settings (DB) first, falls back to
+      NEXT_PUBLIC_FLAG_CHAT env var, defaults to true. The sidebar already
+      conditionally renders nav items based on featureFlags (see the
+      featureFlags.skills check in app-sidebar.tsx line 111). Adding a
+      featureFlags.chat guard is one line of JSX.
+
+  - title: 'Markdown and code block rendering'
+    chosen: 'Use prompt-kit Markdown and CodeBlock components'
+    rejected:
+      - >-
+        Use existing react-markdown setup directly — The codebase has a custom
+        markdownComponents object (in tech-decisions-review.tsx) for rendering
+        markdown with Tailwind styles. However, prompt-kit's Markdown component
+        provides a more polished, chat-optimized rendering with proper code
+        block integration. Since we're installing prompt-kit components anyway,
+        using their Markdown component ensures visual consistency within the
+        chat interface.
+      - >-
+        Use a heavy markdown editor (e.g., MDXEditor, TipTap) — Overkill for
+        read-only markdown rendering of AI responses. These are editor
+        components, not renderers. They add significant bundle size for
+        functionality we don't need.
+    rationale: >
+      prompt-kit's Markdown component wraps react-markdown (already a
+      dependency at v10.1.0) with chat-optimized styling and integrates with
+      its CodeBlock component for syntax highlighting with copy-to-clipboard.
+      This gives a cohesive look-and-feel within the chat interface while
+      building on the react-markdown dependency we already have. The CodeBlock
+      component provides syntax highlighting and a copy button out of the box.
+
+  - title: 'Chat message data structure'
+    chosen: 'Local ChatMessage interface extending the concept from the Message domain model'
+    rejected:
+      - >-
+        Reuse the TypeSpec-generated Message type directly — The Message domain
+        model has fields (options, answer, selectedOption) specific to
+        questionnaire flows that don't apply to chat. It also extends
+        BaseEntity with id/createdAt/updatedAt which adds persistence concerns
+        to what should be ephemeral state. A focused ChatMessage type is
+        cleaner.
+      - >-
+        Define a new TypeSpec model for ChatMessage — TypeSpec models generate
+        into the domain layer and imply persistence. Chat messages are
+        ephemeral (per spec decision). Adding a TypeSpec model creates
+        generated code and database schema expectations for something that
+        lives only in React state. This can be added later if persistence is
+        needed.
+    rationale: >
+      A local ChatMessage interface in the useChat hook file keeps the type
+      focused: { id: string, role: 'user' | 'assistant', content: string,
+      timestamp: Date, status?: 'sending' | 'streaming' | 'complete' | 'error' }.
+      The role values align with MessageRole enum from the domain (assistant,
+      user). The status field enables UI state tracking (loading indicator,
+      error retry). No TypeSpec changes needed since chat state is ephemeral.
+
+  - title: 'SSE client-side consumption'
+    chosen: 'Direct fetch() with ReadableStream reader in useChat hook'
+    rejected:
+      - >-
+        Reuse the Service Worker multiplexing pattern from agent-events — The
+        SW pattern (agent-events-sw.js) is designed for broadcasting the same
+        events to multiple tabs. Chat is a 1:1 connection per conversation.
+        Adding chat support to the existing SW would complicate its already
+        non-trivial logic. A direct fetch stream is simpler and sufficient.
+      - >-
+        Use EventSource API — EventSource only supports GET requests. Chat
+        requires sending message content and conversation context, which needs
+        a POST body. The fetch() + ReadableStream pattern allows POST with a
+        JSON body while still consuming the SSE stream.
+    rationale: >
+      The useChat hook uses fetch('/api/chat/stream', { method: 'POST',
+      body: JSON.stringify({ message, sessionId }), signal: abortController.signal })
+      and reads the response body as a ReadableStream. The stream reader
+      parses SSE-formatted events (data: ...\n\n) and dispatches them to the
+      reducer. This is the standard pattern for consuming POST-initiated SSE
+      streams. The AbortController enables cancellation if the user navigates
+      away or submits a new message before the response completes.
+
+# Open questions (should be resolved by end of research)
+openQuestions:
+  - question: 'Should the chat API route validate or sanitize the user message before forwarding to the agent?'
+    resolved: true
+    options:
+      - option: 'Basic validation only (non-empty, max length)'
+        description: >
+          Validate that the message is a non-empty string under a reasonable
+          max length (e.g., 10,000 chars). Do not sanitize content since it
+          goes to the AI agent as-is. The agent handles arbitrary text input
+          by design. XSS prevention happens on the rendering side
+          (react-markdown is safe by default, no dangerouslySetInnerHTML).
+        selected: true
+      - option: 'Full sanitization with DOMPurify'
+        description: >
+          Sanitize user input with DOMPurify before forwarding to the agent.
+          Adds a dependency and processing step. However, the input goes to
+          an AI model, not to HTML rendering. The model processes raw text
+          regardless of HTML content. Sanitization is more relevant on the
+          output/rendering side.
+        selected: false
+      - option: 'No validation (pass through raw)'
+        description: >
+          No validation at all — forward any request body to the agent. Risks
+          empty messages, excessively long inputs, or malformed requests
+          causing unnecessary agent API calls and confusing error responses.
+        selected: false
+    selectionRationale: >
+      Basic validation (non-empty, max length, string type check) prevents
+      obviously invalid requests from reaching the agent. XSS prevention is
+      handled at the rendering layer — react-markdown does not execute scripts
+      by default. The AI agent processes raw text regardless of HTML entities.
+      Adding DOMPurify would add a dependency for no practical security gain
+      since the threat model is rendering output, not processing input.
+
+  - question: 'How should the chat handle the system prompt for the AI agent?'
+    resolved: true
+    options:
+      - option: 'Hardcoded system prompt in the API route'
+        description: >
+          Define a static system prompt in the /api/chat/stream route that
+          sets the AI's persona and behavior for chat interactions (e.g.,
+          "You are Shep, an AI assistant for software development...").
+          Simple and predictable. The prompt can reference the current
+          project context.
+        selected: true
+      - option: 'User-configurable system prompt via settings'
+        description: >
+          Add a system prompt field to settings that users can customize.
+          More flexible but adds UI complexity (settings field, validation)
+          and increases scope. Most users don't need to customize the system
+          prompt for a chat assistant.
+        selected: false
+      - option: 'No system prompt (use agent defaults)'
+        description: >
+          Don't set a system prompt — let the underlying agent (Claude Code,
+          etc.) use its default behavior. Simpler but loses the opportunity
+          to provide project-aware context. The agent may behave
+          inconsistently across different configurations.
+        selected: false
+    selectionRationale: >
+      A hardcoded system prompt in the API route provides a consistent,
+      project-aware chat experience. The prompt can include the project name
+      and path from settings. It sets expectations for the AI's behavior
+      without requiring user configuration. The AgentExecutionOptions
+      interface already supports systemPrompt, making this trivial to
+      implement. User-configurable prompts can be added as a follow-up.
+
+  - question: 'How should conversation continuity work across messages within a session?'
+    resolved: true
+    options:
+      - option: 'Use agent sessionId (resumeSession) for stateful conversations'
+        description: >
+          After the first message, save the sessionId from
+          AgentExecutionResult and pass it as resumeSession in subsequent
+          messages. The agent CLI (e.g., Claude Code) maintains conversation
+          history internally. This gives true multi-turn conversations where
+          the AI remembers previous context. Works with Claude Code
+          (session-resume feature supported). May not work with all agent
+          types (Cursor, Gemini stubs return no sessionId).
+        selected: true
+      - option: 'Send full message history with each request'
+        description: >
+          Include the entire conversation history (all previous messages) in
+          each API request. The server constructs a combined prompt from the
+          history. Works with any agent type but increases payload size with
+          each message and may exceed token limits for long conversations.
+          Also bypasses the agent's native conversation management.
+        selected: false
+      - option: 'Stateless single-turn messages'
+        description: >
+          Each message is independent with no conversation context. Simple
+          but provides a poor chat experience — the AI can't reference
+          previous messages. Not a real "chat" interface.
+        selected: false
+    selectionRationale: >
+      The IAgentExecutor interface already supports resumeSession in
+      AgentExecutionOptions, and AgentExecutionResult returns a sessionId.
+      Claude Code (the primary agent) supports the session-resume feature
+      natively. This provides true multi-turn conversations with minimal
+      implementation effort. For agent types that don't support sessions,
+      the fallback is graceful — each message is treated independently.
+      The useChat hook stores the sessionId in its reducer state and passes
+      it with subsequent requests.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Chat UI Component Library
+
+  **Chosen:** prompt-kit components installed as source files via shadcn CLI
+
+  **Rejected:**
+  - Build custom chat components from scratch — Significantly increases implementation time when a well-matched library exists
+  - Full npm chat SDK (@chatscope/chat-ui-kit-react, stream-chat-react) — Heavy dependencies (100KB+) with opinionated styling that conflicts with shadcn/ui
+
+  **Rationale:** prompt-kit integrates seamlessly with the existing shadcn/ui setup (same CLI, same conventions, same Tailwind styling). Components install as source files into components/ui/, giving full customization control. Only new npm dependency is `use-stick-to-bottom` for auto-scroll. Installation: `npx shadcn@latest add "https://prompt-kit.com/c/<component>.json"`.
+
+  ### 2. Chat Streaming Architecture
+
+  **Chosen:** Dedicated /api/chat/stream SSE endpoint calling IAgentExecutor.executeStream() directly
+
+  **Rejected:**
+  - Reuse /api/agent-events — Designed for SDLC lifecycle notifications via DB polling, not real-time token streaming
+  - Server Actions with streaming — No native streaming support back to client
+  - WebSocket — Adds infrastructure complexity; codebase has no WS usage; SSE sufficient for unidirectional streaming
+
+  **Rationale:** POST /api/chat/stream receives user message and sessionId, resolves executor via IAgentExecutorProvider.getExecutor(), calls executeStream(prompt, options), and forwards AgentExecutionStreamEvent as SSE events. Uses the same ReadableStream + TextEncoder pattern as existing /api/agent-events and /api/feature-logs routes. The IAgentExecutor.executeStream() returns AsyncIterable<AgentExecutionStreamEvent> with type: 'progress' | 'result' | 'error'.
+
+  ### 3. Chat State Management
+
+  **Chosen:** Custom useChat hook with useReducer for local state
+
+  **Rejected:**
+  - Global React Context — Chat state is page-local, not shared across app
+  - External state library (Zustand, Jotai) — Codebase uses no external state libs
+  - Vercel AI SDK useChat — Assumes specific API contract; our architecture uses IAgentExecutorProvider with session-based resumption
+
+  **Rationale:** useReducer manages messages array, sending/streaming status, error state, and sessionId. Exposes sendMessage(content), retry(), clearChat(). Connects to /api/chat/stream via fetch() with ReadableStream consumption. Follows existing hook patterns (use-agent-events.ts, use-graph-state.ts).
+
+  ### 4. Chat Routing and Page Structure
+
+  **Chosen:** Top-level /chat route as App Router page within existing AppShell
+
+  **Rejected:**
+  - Floating chat widget — Less screen space, complex z-index management, conflicts with FR-1 full-page requirement
+  - Dashboard drawer — Already used for feature details, limited width
+
+  **Rationale:** New app/chat/page.tsx follows the same pattern as /tools, /skills, /settings. Server component page renders client component. Sidebar gets "Chat" nav item with MessageSquare icon, gated by chat feature flag.
+
+  ### 5. Agent Backend Integration Pattern
+
+  **Chosen:** Direct IAgentExecutor.executeStream() via IAgentExecutorProvider in API route
+
+  **Rejected:**
+  - New ChatUseCase in application layer — Thin pass-through with minimal logic; API route can resolve directly via DI
+  - RunAgentUseCase / IAgentRunner — Designed for SDLC workflows with LangGraph graphs; chat is simple prompt-in/stream-out
+
+  **Rationale:** The /api/chat/stream route resolves IAgentExecutorProvider from DI, calls getExecutor(), then executeStream(). AgentExecutionOptions supports resumeSession, systemPrompt, and model override. Consistent with how existing API routes access the DI container.
+
+  ### 6. Feature Flag Implementation
+
+  **Chosen:** Add `chat` boolean to FeatureFlagsState with default true
+
+  **Rejected:**
+  - No feature flag — No ability to disable without code deploy
+  - Server-side only env var — Breaks established DB-primary resolution pattern
+
+  **Rationale:** Extends FeatureFlagsState in lib/feature-flags.ts identically to existing flags. getFeatureFlags() reads DB first, falls back to NEXT_PUBLIC_FLAG_CHAT, defaults true. Sidebar already conditionally renders based on featureFlags (see skills pattern at app-sidebar.tsx:111).
+
+  ### 7. Markdown and Code Block Rendering
+
+  **Chosen:** Use prompt-kit Markdown and CodeBlock components
+
+  **Rejected:**
+  - Existing react-markdown setup — Functional but not chat-optimized; prompt-kit provides better integration
+  - Heavy markdown editor (MDXEditor, TipTap) — Overkill for read-only rendering
+
+  **Rationale:** prompt-kit's Markdown wraps react-markdown (already at v10.1.0) with chat-optimized styling. CodeBlock provides syntax highlighting with copy-to-clipboard. Cohesive look within chat interface.
+
+  ### 8. Chat Message Data Structure
+
+  **Chosen:** Local ChatMessage interface (not TypeSpec-generated)
+
+  **Rejected:**
+  - Reuse TypeSpec Message type — Has questionnaire-specific fields (options, answer, selectedOption); extends BaseEntity implying persistence
+  - New TypeSpec ChatMessage model — Implies persistence; chat is ephemeral
+
+  **Rationale:** Local ChatMessage: { id, role, content, timestamp, status? }. Role aligns with MessageRole enum. Status enables UI state tracking. No TypeSpec changes needed.
+
+  ### 9. SSE Client-Side Consumption
+
+  **Chosen:** Direct fetch() with ReadableStream reader in useChat hook
+
+  **Rejected:**
+  - Service Worker multiplexing — Designed for broadcasting to multiple tabs; chat is 1:1
+  - EventSource API — Only supports GET; chat needs POST with message body
+
+  **Rationale:** fetch() with POST allows sending message content in body while consuming SSE stream from response. AbortController enables cancellation on navigation or new message submission.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | prompt-kit | Chat UI components (ChatContainer, Message, PromptInput, Markdown, CodeBlock, Loader) | **Use** | Integrates with existing shadcn/ui setup, installed as source files, minimal bundle impact |
+  | use-stick-to-bottom | Auto-scroll behavior for ChatContainer | **Use** | Required dependency of prompt-kit ChatContainer; handles velocity-based scroll anchoring |
+  | react-markdown | Markdown rendering | **Already installed** (v10.1.0) | Used by prompt-kit Markdown component internally |
+  | sonner | Toast notifications for errors | **Already installed** (v2.0.7) | Used for error toasts on agent call failures |
+  | lucide-react | Icons (MessageSquare for sidebar) | **Already installed** (v0.563.0) | MessageSquare icon for chat nav item |
+  | @chatscope/chat-ui-kit-react | Chat UI kit | **Reject** | Heavy dependency, opinionated styling conflicts with shadcn/ui |
+  | stream-chat-react | Stream chat components | **Reject** | Requires Stream backend service, overkill for local AI chat |
+  | ai (Vercel AI SDK) | Chat hooks and streaming | **Reject** | Opinionated API contract doesn't match our IAgentExecutorProvider architecture |
+  | DOMPurify | HTML sanitization | **Reject** | Input goes to AI model (not HTML); XSS prevention handled at rendering layer by react-markdown |
+
+  ## Security Considerations
+
+  ### Input Validation
+  - Validate message is non-empty string, max 10,000 characters at API route
+  - No HTML sanitization needed on input — AI agent processes raw text
+  - Request body schema validation (message: string, sessionId?: string)
+
+  ### Output Rendering (XSS Prevention)
+  - react-markdown does not execute scripts by default (safe rendering)
+  - prompt-kit Markdown component wraps react-markdown — inherits safety
+  - No dangerouslySetInnerHTML usage anywhere in the chat rendering pipeline
+  - Code blocks render as text content, not executable code
+
+  ### API Security
+  - /api/chat/stream runs server-side only; DI container access is server-only
+  - No authentication needed (app runs locally per user)
+  - Request validation prevents malformed payloads from reaching agent
+
+  ### Agent Isolation
+  - IAgentExecutorProvider resolves from settings — no hardcoded agent types
+  - Agent execution happens in subprocess (Claude Code spawns `claude` CLI)
+  - Agent cannot access the web server's memory or state
+
+  ## Performance Implications
+
+  ### Bundle Size
+  - prompt-kit components are source files, not npm package — tree-shaken naturally
+  - Only new npm dependency: use-stick-to-bottom (~5KB minified)
+  - Estimated total addition: < 30KB gzipped (well under 50KB NFR-1 limit)
+  - /chat route is a separate page — code-split by Next.js App Router automatically
+
+  ### Streaming Performance
+  - SSE tokens render at arrival rate with no buffering (ReadableStream reader)
+  - useReducer dispatch per token/chunk — React batches state updates in React 19
+  - Markdown re-parsing on each token could be expensive for long messages
+  - Mitigation: prompt-kit Markdown component handles incremental rendering
+
+  ### Scroll Performance
+  - use-stick-to-bottom uses ResizeObserver (not scroll events) — efficient
+  - ChatContainer handles 100+ messages without jank (NFR-1 requirement)
+  - Virtual scrolling not needed at 100-message scale; can be added later if needed
+
+  ### Memory
+  - Ephemeral state means no memory leak from unbounded message accumulation
+  - Page navigation clears all chat state (unmounts component, GC cleans up)
+  - AbortController on fetch prevents orphaned connections
+
+  ## Architecture Notes
+
+  ### File Structure (New Files)
+
+  ```
+  src/presentation/web/
+  ├── app/
+  │   ├── chat/
+  │   │   └── page.tsx                    # Server component → ChatPageClient
+  │   └── api/
+  │       └── chat/
+  │           └── stream/
+  │               └── route.ts            # POST SSE endpoint
+  ├── components/
+  │   ├── features/
+  │   │   └── chat/
+  │   │       ├── chat-page-client.tsx     # Main chat page client component
+  │   │       ├── chat-page-client.stories.tsx
+  │   │       ├── chat-view.tsx           # Chat container + message list + input
+  │   │       ├── chat-view.stories.tsx
+  │   │       ├── chat-empty-state.tsx    # Welcome screen with suggestion chips
+  │   │       ├── chat-empty-state.stories.tsx
+  │   │       ├── chat-header.tsx         # Header with clear conversation button
+  │   │       ├── chat-header.stories.tsx
+  │   │       └── index.ts               # Barrel export
+  │   └── ui/
+  │       ├── chat-container.tsx          # prompt-kit (installed via CLI)
+  │       ├── message.tsx                 # prompt-kit (installed via CLI)
+  │       ├── prompt-input.tsx            # prompt-kit (installed via CLI)
+  │       ├── markdown.tsx                # prompt-kit (installed via CLI)
+  │       ├── code-block.tsx              # prompt-kit (installed via CLI)
+  │       └── loader.tsx                  # prompt-kit (installed via CLI)
+  ├── hooks/
+  │   └── use-chat.ts                     # Chat state management hook
+  └── lib/
+      └── feature-flags.ts               # Add chat: boolean
+  ```
+
+  ### Modified Files
+
+  - `lib/feature-flags.ts` — Add `chat: boolean` to FeatureFlagsState interface and getFeatureFlags()
+  - `components/layouts/app-sidebar/app-sidebar.tsx` — Add Chat nav item (conditional on featureFlags.chat)
+  - `hooks/feature-flags-context.tsx` — Update default flags to include chat
+
+  ### Integration Points
+
+  1. **AppShell → AppSidebar** — Chat nav item added alongside existing nav items
+  2. **Feature Flags** — chat flag flows through FeatureFlagsProvider → useFeatureFlags()
+  3. **DI Container** — /api/chat/stream resolves IAgentExecutorProvider via resolve()
+  4. **Agent Executor** — executeStream() provides AsyncIterable<AgentExecutionStreamEvent>
+  5. **Session Management** — sessionId from AgentExecutionResult enables multi-turn conversations
+
+  ### Data Flow
+
+  ```
+  User types message → useChat.sendMessage(content)
+    → POST /api/chat/stream { message, sessionId }
+      → resolve IAgentExecutorProvider → getExecutor()
+        → executor.executeStream(prompt, { resumeSession, systemPrompt })
+          → AsyncIterable<AgentExecutionStreamEvent>
+            → SSE stream: event: progress/result/error, data: { content, timestamp }
+    → useChat reads ReadableStream
+      → dispatch({ type: 'stream_token', content })
+        → UI re-renders with new content appended to assistant message
+  ```
+
+  ### Consistency with Existing Patterns
+
+  - **Route pattern**: app/chat/page.tsx matches app/tools/page.tsx, app/settings/page.tsx
+  - **Client component**: ChatPageClient matches SettingsPageClient, ToolsPageClient
+  - **Hook naming**: use-chat.ts follows use-agent-events.ts, use-notifications.ts
+  - **API route**: app/api/chat/stream/route.ts follows app/api/agent-events/route.ts
+  - **Feature component dir**: components/features/chat/ follows components/features/settings/
+  - **Storybook**: Colocated .stories.tsx with tags: ['autodocs']
+  - **Testing**: Vitest + React Testing Library mocking Next.js hooks
+
+  ---
+
+  _Research phase complete — 2026-03-12_
