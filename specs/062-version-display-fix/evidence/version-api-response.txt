@@ -1,0 +1,9 @@
+{
+    "version": "1.105.0",
+    "packageName": "@shepai/cli",
+    "description": "Autonomous AI Native SDLC Platform - Automate the development cycle from idea to deploy",
+    "branch": "",
+    "commitHash": "",
+    "instancePath": "/Users/arielshadkhan/Code/tmp",
+    "isDev": true
+}

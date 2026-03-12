@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
 
+/** Prevent Next.js from statically prerendering this route at build time. */
+export const dynamic = 'force-dynamic';
+
 /**
  * Returns runtime version info.
  *

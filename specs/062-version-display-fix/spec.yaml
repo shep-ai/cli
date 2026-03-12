@@ -1,0 +1,60 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: version-display-fix
+number: 062
+branch: feat/062-version-display-fix
+oneLiner: fix web ui showing stale version instead of current cli version
+userQuery: >
+  Im on the cli shep --version return 1.105.0
+  but the ui shows 1.104.1 fix it
+summary: >
+  The web UI was displaying a stale version (1.104.1) instead of the
+  current CLI version (1.105.0) because the /api/version route was
+  statically prerendered at build time. Fixed by adding
+  export const dynamic = 'force-dynamic' to force runtime rendering.
+phase: Complete
+sizeEstimate: S
+
+# Relationships
+relatedFeatures: []
+
+technologies: []
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  The web UI displays a stale version number because `NEXT_PUBLIC_*` env
+  vars are inlined at Next.js build time. When the CLI upgrades, the UI
+  still shows the old version from the build.
+
+  ## Solution
+
+  Add `export const dynamic = 'force-dynamic'` to the `/api/version`
+  route so Next.js reads env vars at request time on the server.
+
+  ## Success Criteria
+
+  - [x] `/api/version` returns current runtime version
+  - [x] Version page shows correct version
+  - [x] Unit tests pass for the version API route
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | Web API | Low | Single route change to force dynamic rendering |
+
+  ## Dependencies
+
+  None identified.
+
+  ## Size Estimate
+
+  **S** - Single-line fix with test update
