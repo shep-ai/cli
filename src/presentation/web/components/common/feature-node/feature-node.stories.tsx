@@ -393,6 +393,20 @@ export const ErrorWithMessage: Story = {
   render: (args) => <FeatureNodeCanvas data={args} />,
 };
 
+export const ErrorWithRetry: Story = {
+  args: {
+    name: 'Email Service',
+    description: 'Transactional email with SendGrid',
+    featureId: '#f5',
+    lifecycle: 'review',
+    state: 'error',
+    progress: 30,
+    errorMessage: 'Build failed: type mismatch',
+    onRetry: fn(),
+  },
+  render: (args) => <FeatureNodeCanvas data={args} />,
+};
+
 export const WithDeleteButton: Story = {
   args: {
     name: 'Auth Module',

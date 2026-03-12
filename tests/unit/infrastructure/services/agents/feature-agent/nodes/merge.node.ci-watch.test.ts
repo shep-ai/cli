@@ -190,6 +190,7 @@ function baseDeps(overrides?: Partial<MergeNodeDeps>): MergeNodeDeps {
     getDefaultBranch: vi.fn().mockResolvedValue('main'),
     featureRepository: createMockFeatureRepo(),
     verifyMerge: vi.fn().mockResolvedValue(true),
+    revParse: vi.fn().mockResolvedValue('premerge-sha-mock'),
     gitPrService: createMockGitPrService(),
     cleanupFeatureWorktreeUseCase: { execute: vi.fn().mockResolvedValue(undefined) } as any,
     ...overrides,

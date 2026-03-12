@@ -131,6 +131,7 @@ export class ResumeFeatureUseCase {
         push: feature.push,
         openPr: feature.openPr,
         agentType: lastRun.agentType,
+        ...(feature.fast ? { fast: true } : {}),
         ...(lastRun.modelId ? { model: lastRun.modelId } : {}),
       }
     );

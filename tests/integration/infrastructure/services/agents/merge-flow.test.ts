@@ -145,6 +145,7 @@ describe('Merge Flow (Graph-level)', () => {
         hasRemote: vi.fn().mockResolvedValue(overrides?.hasRemote ?? true),
         getDefaultBranch: vi.fn().mockResolvedValue('main'),
         verifyMerge: vi.fn().mockResolvedValue(overrides?.verifyMerge ?? true),
+        revParse: vi.fn().mockResolvedValue('premerge-sha-mock'),
         featureRepository: featureRepo,
         gitPrService: createMockGitPrService(),
         cleanupFeatureWorktreeUseCase: { execute: vi.fn().mockResolvedValue(undefined) } as any,

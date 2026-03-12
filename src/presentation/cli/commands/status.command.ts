@@ -7,7 +7,7 @@
  *   - PID, port, URL (from daemon.json)
  *   - Uptime (computed from startedAt)
  *   - CPU%, RSS memory (from ps shell-out via execFile — injection-safe)
- *   - Environment: paths, versions, agent executor versions
+ *   - Environment: paths, versions
  *
  * Flags:
  *   --logs [N]   Show last N lines of daemon.log (default 50)
@@ -28,7 +28,6 @@ import { watch } from 'node:fs';
 import { container } from '@/infrastructure/di/container.js';
 import type { IDaemonService } from '@/application/ports/output/services/daemon-service.interface.js';
 import type { IVersionService } from '@/application/ports/output/services/version-service.interface.js';
-import type { IAgentExecutorFactory } from '@/application/ports/output/agents/agent-executor-factory.interface.js';
 import {
   getShepHomeDir,
   getShepDbPath,
@@ -38,7 +37,6 @@ import {
 import { renderDetailView, messages, colors } from '../ui/index.js';
 
 const PS_TIMEOUT_MS = 2000;
-const VERSION_CMD_TIMEOUT_MS = 3000;
 const DEFAULT_LOG_LINES = 50;
 
 interface PsMetrics {
@@ -109,26 +107,6 @@ function fetchPsMetrics(pid: number): Promise<PsMetrics> {
         }
       }
     );
-  });
-}
-
-/**
- * Detect the version of an agent executor CLI.
- * Returns version string or 'not installed'.
- */
-function detectAgentVersion(cmd: string, args: string[]): Promise<string> {
-  return new Promise((resolve) => {
-    execFile(cmd, args, { timeout: VERSION_CMD_TIMEOUT_MS }, (err, stdout) => {
-      if (err) {
-        resolve('not installed');
-      } else {
-        // Extract first line, strip leading labels like "claude-code v1.2.3" → "v1.2.3"
-        const line = stdout.trim().split('\n')[0] ?? '';
-        // Try to extract version-like string
-        const match = line.match(/v?\d+\.\d+[\w.-]*/);
-        resolve(match ? match[0] : line || 'unknown');
-      }
-    });
   });
 }
 
@@ -265,17 +243,7 @@ export function createStatusCommand(): Command {
       const uptimeMs = Date.now() - Date.parse(startedAt);
       const uptime = humanizeUptime(uptimeMs);
 
-      // Get agent CLI info from the factory
-      const factory = container.resolve<IAgentExecutorFactory>('IAgentExecutorFactory');
-      const agentClis = factory.getCliInfo();
-
-      // Fetch ps metrics and agent versions in parallel
-      const [psMetrics, ...agentVersions] = await Promise.all([
-        fetchPsMetrics(pid),
-        ...agentClis.map((a) => detectAgentVersion(a.cmd, a.versionArgs)),
-      ]);
-
-      const { cpu, rssMb } = psMetrics;
+      const { cpu, rssMb } = await fetchPsMetrics(pid);
 
       // Get CLI version
       let cliVersion = 'unknown';
@@ -313,13 +281,6 @@ export function createStatusCommand(): Command {
               { label: 'Log File', value: logPath },
               { label: 'Daemon Config', value: getDaemonStatePath() },
             ],
-          },
-          {
-            title: 'Agent Executors',
-            fields: agentClis.map((agent, i) => ({
-              label: agent.agentType as string,
-              value: agentVersions[i],
-            })),
           },
         ],
       });

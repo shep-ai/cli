@@ -174,6 +174,15 @@ export interface IGitPrService {
   getDefaultBranch(cwd: string): Promise<string>;
 
   /**
+   * Resolve a git ref to its SHA hash.
+   *
+   * @param cwd - Working directory path
+   * @param ref - Git ref to resolve (branch name, tag, HEAD, etc.)
+   * @returns The resolved SHA hash
+   */
+  revParse(cwd: string, ref: string): Promise<string>;
+
+  /**
    * Check if the working directory has uncommitted changes.
    *
    * @param cwd - Working directory path
@@ -300,9 +309,17 @@ export interface IGitPrService {
    * @param cwd - Working directory path
    * @param featureBranch - The branch that should have been merged
    * @param baseBranch - The branch that should contain the merge
+   * @param premergeBaseSha - Optional SHA of baseBranch before merge; if provided and
+   *   baseBranch HEAD has advanced, the merge is considered verified even when the
+   *   trees differ (handles agents that clean up artifacts during squash merge)
    * @returns True if featureBranch is an ancestor of baseBranch
    */
-  verifyMerge(cwd: string, featureBranch: string, baseBranch: string): Promise<boolean>;
+  verifyMerge(
+    cwd: string,
+    featureBranch: string,
+    baseBranch: string,
+    premergeBaseSha?: string
+  ): Promise<boolean>;
 
   /**
    * Check if a PR has merge conflicts via `gh pr view --json mergeable`.

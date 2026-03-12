@@ -166,6 +166,7 @@ function baseDeps(overrides?: Partial<MergeNodeDeps>): MergeNodeDeps {
     getDefaultBranch: vi.fn().mockResolvedValue('main'),
     featureRepository: createMockFeatureRepo(),
     verifyMerge: vi.fn().mockResolvedValue(true),
+    revParse: vi.fn().mockResolvedValue('premerge-sha-abc'),
     gitPrService: {
       getCiStatus: vi.fn().mockResolvedValue({ status: 'success', runUrl: null }),
       watchCi: vi.fn().mockResolvedValue({ status: 'success' }),
@@ -561,7 +562,12 @@ describe('createMergeNode (agent-driven)', () => {
       mockParsePrUrl.mockReturnValueOnce(null);
       await node(state);
 
-      expect(deps.verifyMerge).toHaveBeenCalledWith('/tmp/repo', 'feat/test', 'main');
+      expect(deps.verifyMerge).toHaveBeenCalledWith(
+        '/tmp/repo',
+        'feat/test',
+        'main',
+        'premerge-sha-abc'
+      );
     });
 
     it('should throw when merge verification fails', async () => {

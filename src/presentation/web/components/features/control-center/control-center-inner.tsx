@@ -54,6 +54,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     handleConnect,
     handleAddRepository,
     handleDeleteFeature,
+    handleRetryFeature,
     handleDeleteRepository,
     createFeatureNode,
     setCallbacks,
@@ -261,6 +262,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     setCallbacks({
       onNodeAction: handleAddFeatureToFeature,
       onFeatureDelete: handleDeleteFeature,
+      onRetryFeature: handleRetryFeature,
       onRepositoryAdd: handleAddFeatureToRepo,
       onRepositoryClick: handleRepositoryClick,
       onRepositoryDelete: handleDeleteRepository,
@@ -269,6 +271,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     setCallbacks,
     handleAddFeatureToFeature,
     handleDeleteFeature,
+    handleRetryFeature,
     handleAddFeatureToRepo,
     handleRepositoryClick,
     handleDeleteRepository,

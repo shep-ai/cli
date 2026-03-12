@@ -3,15 +3,15 @@
  *
  * Tests for the `shep status` CLI command.
  * Covers: not-running path, running path with metrics parsing, ps timeout fallback,
- * environment section, agent executor versions, --logs flag.
+ * environment section, --logs flag.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Command } from 'commander';
 
 // Hoist mocks so factory closures can reference them
-const { mockExecFile, mockDaemonService, mockRenderDetailView, mockVersionService, mockFactory } =
-  vi.hoisted(() => {
+const { mockExecFile, mockDaemonService, mockRenderDetailView, mockVersionService } = vi.hoisted(
+  () => {
     const mockExecFile = vi.fn();
     const mockDaemonService = {
       read: vi.fn(),
@@ -27,30 +27,20 @@ const { mockExecFile, mockDaemonService, mockRenderDetailView, mockVersionServic
         description: 'Shep AI CLI',
       }),
     };
-    const mockFactory = {
-      getCliInfo: vi.fn().mockReturnValue([
-        { agentType: 'claude-code', cmd: 'claude', versionArgs: ['--version'] },
-        { agentType: 'gemini-cli', cmd: 'gemini', versionArgs: ['--version'] },
-        { agentType: 'cursor', cmd: 'cursor', versionArgs: ['--version'] },
-      ]),
-      getSupportedAgents: vi.fn(),
-      createExecutor: vi.fn(),
-    };
     return {
       mockExecFile,
       mockDaemonService,
       mockRenderDetailView,
       mockVersionService,
-      mockFactory,
     };
-  });
+  }
+);
 
 vi.mock('@/infrastructure/di/container.js', () => ({
   container: {
     resolve: vi.fn().mockImplementation((token: string) => {
       if (token === 'IDaemonService') return mockDaemonService;
       if (token === 'IVersionService') return mockVersionService;
-      if (token === 'IAgentExecutorFactory') return mockFactory;
       throw new Error(`Unknown token: ${token}`);
     }),
   },
@@ -95,20 +85,15 @@ describe('status command', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
-    // Default: execFile returns ps output or agent version "not installed" error
+    // Default: execFile returns ps output
     mockExecFile.mockImplementation(
       (
-        cmd: string,
+        _cmd: string,
         _args: string[],
         _opts: unknown,
         callback: (err: Error | null, stdout: string) => void
       ) => {
-        if (cmd === 'ps') {
-          callback(null, '12345  1.5  102400\n');
-        } else {
-          // Agent version commands — default to "not installed"
-          callback(new Error('not found'), '');
-        }
+        callback(null, '12345  1.5  102400\n');
         return { kill: vi.fn() };
       }
     );
@@ -298,78 +283,6 @@ describe('status command', () => {
     });
   });
 
-  describe('agent executor versions', () => {
-    const startedAt = '2026-02-25T00:00:00.000Z';
-
-    beforeEach(() => {
-      mockDaemonService.read.mockResolvedValue({ pid: 12345, port: 4050, startedAt });
-      mockDaemonService.isAlive.mockReturnValue(true);
-    });
-
-    it('includes agent executor section with claude-code, gemini-cli, cursor', async () => {
-      const cmd = createStatusCommand();
-      const parsePromise = cmd.parseAsync([], { from: 'user' });
-      await vi.runAllTimersAsync();
-      await parsePromise;
-
-      const callArgs = mockRenderDetailView.mock.calls[0][0];
-      const fields: { label: string; value: string }[] = callArgs.sections.flatMap(
-        (s: { fields: { label: string; value: string }[] }) => s.fields
-      );
-      const labels = fields.map((f) => f.label.toLowerCase());
-
-      expect(labels.some((l) => l.includes('claude-code'))).toBe(true);
-      expect(labels.some((l) => l.includes('gemini-cli'))).toBe(true);
-      expect(labels.some((l) => l.includes('cursor'))).toBe(true);
-    });
-
-    it('shows "not installed" when agent CLI is not found', async () => {
-      const cmd = createStatusCommand();
-      const parsePromise = cmd.parseAsync([], { from: 'user' });
-      await vi.runAllTimersAsync();
-      await parsePromise;
-
-      const callArgs = mockRenderDetailView.mock.calls[0][0];
-      const fields: { label: string; value: string }[] = callArgs.sections.flatMap(
-        (s: { fields: { label: string; value: string }[] }) => s.fields
-      );
-      const claudeField = fields.find((f) => f.label === 'claude-code');
-      expect(claudeField?.value).toBe('not installed');
-    });
-
-    it('shows version when agent CLI is available', async () => {
-      mockExecFile.mockImplementation(
-        (
-          cmd: string,
-          _args: string[],
-          _opts: unknown,
-          callback: (err: Error | null, stdout: string) => void
-        ) => {
-          if (cmd === 'ps') {
-            callback(null, '12345  1.5  102400\n');
-          } else if (cmd === 'claude') {
-            callback(null, '1.0.33\n');
-          } else {
-            callback(new Error('not found'), '');
-          }
-          return { kill: vi.fn() };
-        }
-      );
-
-      const cmd = createStatusCommand();
-      const parsePromise = cmd.parseAsync([], { from: 'user' });
-      await vi.runAllTimersAsync();
-      await parsePromise;
-
-      const callArgs = mockRenderDetailView.mock.calls[0][0];
-      const fields: { label: string; value: string }[] = callArgs.sections.flatMap(
-        (s: { fields: { label: string; value: string }[] }) => s.fields
-      );
-      const claudeField = fields.find((f) => f.label === 'claude-code');
-      expect(claudeField?.value).toBe('1.0.33');
-    });
-  });
-
   describe('ps timeout fallback', () => {
     beforeEach(() => {
       mockDaemonService.read.mockResolvedValue({
@@ -381,17 +294,14 @@ describe('status command', () => {
     });
 
     it('shows metrics unavailable gracefully when ps times out', async () => {
-      // Simulate ps timeout — never calls callback for ps, but resolve agent versions
+      // Simulate ps timeout — never calls callback
       mockExecFile.mockImplementation(
         (
-          cmd: string,
+          _cmd: string,
           _args: string[],
           _opts: unknown,
-          callback: (err: Error | null, stdout: string) => void
+          _callback: (err: Error | null, stdout: string) => void
         ) => {
-          if (cmd !== 'ps') {
-            callback(new Error('not found'), '');
-          }
           // ps never calls back — simulates timeout
           return { kill: vi.fn() };
         }

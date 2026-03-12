@@ -226,8 +226,13 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
         gitPrService.getPrDiffSummary(cwd, baseBranch),
       hasRemote: (cwd: string) => gitPrService.hasRemote(cwd),
       getDefaultBranch: (cwd: string) => gitPrService.getDefaultBranch(cwd),
-      verifyMerge: (cwd: string, featureBranch: string, baseBranch: string) =>
-        gitPrService.verifyMerge(cwd, featureBranch, baseBranch),
+      verifyMerge: (
+        cwd: string,
+        featureBranch: string,
+        baseBranch: string,
+        premergeBaseSha?: string
+      ) => gitPrService.verifyMerge(cwd, featureBranch, baseBranch, premergeBaseSha),
+      revParse: (cwd: string, ref: string) => gitPrService.revParse(cwd, ref),
       featureRepository,
       gitPrService,
       cleanupFeatureWorktreeUseCase,

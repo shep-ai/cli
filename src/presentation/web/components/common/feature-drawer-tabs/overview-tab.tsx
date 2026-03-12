@@ -1,7 +1,14 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { AlertTriangle, ExternalLink, GitBranch, GitCommitHorizontal, Zap } from 'lucide-react';
+import {
+  AlertTriangle,
+  ExternalLink,
+  GitBranch,
+  GitCommitHorizontal,
+  RotateCcw,
+  Zap,
+} from 'lucide-react';
 import { InlineAttachments } from '@/components/common/inline-attachments';
 import { PrStatus } from '@shepai/core/domain/generated/output';
 import { cn } from '@/lib/utils';
@@ -29,7 +36,19 @@ export function OverviewTab({ data }: OverviewTabProps) {
         <div className="text-muted-foreground text-xs font-semibold tracking-wider">
           {lifecycleDisplayLabels[data.lifecycle]}
         </div>
-        <FeatureStateBadge data={data} />
+        <div className="flex items-center gap-2">
+          <FeatureStateBadge data={data} />
+          {data.state === 'error' && data.onRetry ? (
+            <button
+              data-testid="feature-drawer-retry-button"
+              onClick={() => data.onRetry!(data.featureId)}
+              className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full bg-red-50 px-3 py-1.5 text-sm font-medium text-red-700 transition-colors hover:bg-red-100"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              Retry
+            </button>
+          ) : null}
+        </div>
         {!isCompleted && data.progress > 0 ? (
           <div data-testid="feature-drawer-progress" className="flex flex-col gap-1">
             <div className="text-muted-foreground flex items-center justify-between text-xs">

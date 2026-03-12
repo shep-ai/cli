@@ -375,6 +375,9 @@ export async function initializeContainer(): Promise<typeof container> {
   container.register('DeleteFeatureUseCase', {
     useFactory: (c) => c.resolve(DeleteFeatureUseCase),
   });
+  container.register('ResumeFeatureUseCase', {
+    useFactory: (c) => c.resolve(ResumeFeatureUseCase),
+  });
   container.register('ApproveAgentRunUseCase', {
     useFactory: (c) => c.resolve(ApproveAgentRunUseCase),
   });

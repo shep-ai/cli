@@ -20,7 +20,7 @@ import type { FeatureNodeState, FeatureLifecyclePhase } from './feature-node-sta
  * Priority (mirrors CLI formatStatus):
  * 1. Agent waiting_approval → action-required
  * 2. Agent failed → error
- * 3. Agent interrupted/cancelled → blocked
+ * 3. Agent interrupted/cancelled → error
  * 4. Agent completed + Maintain lifecycle → done
  * 5. Agent running/pending → running
  * 6. No agent run → fall back to plan tasks / lifecycle
@@ -44,7 +44,7 @@ export function deriveNodeState(feature: Feature, agentRun?: AgentRun | null): F
         return 'error';
       case AgentRunStatus.interrupted:
       case AgentRunStatus.cancelled:
-        return 'blocked';
+        return 'error';
       case AgentRunStatus.completed:
         return 'done';
       case AgentRunStatus.running:

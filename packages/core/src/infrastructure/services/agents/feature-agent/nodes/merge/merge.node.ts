@@ -50,7 +50,16 @@ export interface MergeNodeDeps {
    * Verify that featureBranch has been merged into baseBranch.
    * Returns true if baseBranch contains all commits from featureBranch.
    */
-  verifyMerge: (cwd: string, featureBranch: string, baseBranch: string) => Promise<boolean>;
+  verifyMerge: (
+    cwd: string,
+    featureBranch: string,
+    baseBranch: string,
+    premergeBaseSha?: string
+  ) => Promise<boolean>;
+  /**
+   * Resolve a branch ref to its current SHA.
+   */
+  revParse: (cwd: string, ref: string) => Promise<string>;
   gitPrService: IGitPrService;
   cleanupFeatureWorktreeUseCase: Pick<CleanupFeatureWorktreeUseCase, 'execute'>;
 }
@@ -259,6 +268,11 @@ export function createMergeNode(deps: MergeNodeDeps) {
           // No PR: local merge via agent in the ORIGINAL repo (not the worktree,
           // which IS the feature branch and must not be modified during merge).
           log.info('Agent call: merge/squash (local, no PR)');
+
+          // Record base branch HEAD before merge so verification can detect
+          // agents that modify the tree during squash (e.g. adding .gitignore).
+          const premergeBaseSha = await deps.revParse(state.repositoryPath, baseBranch);
+
           const mergePrompt = buildMergeSquashPrompt(
             { ...state, prUrl, prNumber, commitHash },
             branch,
@@ -269,7 +283,12 @@ export function createMergeNode(deps: MergeNodeDeps) {
           await retryExecute(executor, mergePrompt, mergeOptions, { logger: log });
 
           // Verify the merge actually succeeded (agent may report success without merging)
-          const mergeVerified = await deps.verifyMerge(state.repositoryPath, branch, baseBranch);
+          const mergeVerified = await deps.verifyMerge(
+            state.repositoryPath,
+            branch,
+            baseBranch,
+            premergeBaseSha
+          );
           if (!mergeVerified) {
             throw new Error(
               `Merge verification failed: ${branch} was not merged into ${baseBranch}. ` +

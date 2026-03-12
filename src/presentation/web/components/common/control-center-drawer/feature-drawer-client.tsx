@@ -9,6 +9,7 @@ import type {
   QuestionSelectionChange,
 } from '@shepai/core/domain/generated/output';
 import { approveFeature } from '@/app/actions/approve-feature';
+import { resumeFeature } from '@/app/actions/resume-feature';
 import { rejectFeature } from '@/app/actions/reject-feature';
 import type { RejectAttachment } from '@/components/common/drawer-action-bar';
 import { getFeatureArtifact } from '@/app/actions/get-feature-artifact';
@@ -376,6 +377,26 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
     [router, deleteSound]
   );
 
+  const handleRetry = useCallback(async (featureId: string) => {
+    const result = await resumeFeature(featureId);
+    if (result.error) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success('Feature resumed — agent restarting');
+    // Optimistically update canvas node
+    window.dispatchEvent(
+      new CustomEvent('shep:feature-approved', {
+        detail: { featureId },
+      })
+    );
+    // Optimistically update the drawer view
+    setView((prev) => {
+      if (prev.type !== 'feature') return prev;
+      return { ...prev, node: { ...prev.node, state: 'running' } };
+    });
+  }, []);
+
   // ── Hooks (always called unconditionally per Rules of Hooks) ──────────
 
   const featureActionsInput =
@@ -543,9 +564,11 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
   let body: React.ReactNode = null;
 
   if (view.type === 'feature' && featureNode) {
+    const enrichedNode =
+      featureNode.state === 'error' ? { ...featureNode, onRetry: handleRetry } : featureNode;
     body = (
       <FeatureDrawerTabs
-        featureNode={featureNode}
+        featureNode={enrichedNode}
         featureId={featureNode.featureId}
         initialTab={view.initialTab}
         urlTab={urlTab}

@@ -38,6 +38,8 @@ export interface GraphCallbacks {
   onRepositoryClick?: (repoNodeId: string) => void;
   /** Called when the user deletes a repository. */
   onRepositoryDelete?: (repositoryId: string) => void;
+  /** Called when the user retries a failed feature. */
+  onRetryFeature?: (featureId: string) => void;
 }
 
 /**
@@ -143,6 +145,11 @@ export function deriveGraph(
       ...(!isCreating &&
         callbacks?.onFeatureDelete && {
           onDelete: callbacks.onFeatureDelete,
+        }),
+      ...(!isCreating &&
+        entry.data.state === 'error' &&
+        callbacks?.onRetryFeature && {
+          onRetry: callbacks.onRetryFeature,
         }),
     };
 

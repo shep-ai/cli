@@ -76,16 +76,16 @@ describe('deriveNodeState', () => {
       expect(deriveNodeState(feature, run)).toBe('error');
     });
 
-    it('returns blocked when agent interrupted', () => {
+    it('returns error when agent interrupted', () => {
       const feature = createMinimalFeature();
       const run = createMinimalAgentRun({ status: AgentRunStatus.interrupted });
-      expect(deriveNodeState(feature, run)).toBe('blocked');
+      expect(deriveNodeState(feature, run)).toBe('error');
     });
 
-    it('returns blocked when agent cancelled', () => {
+    it('returns error when agent cancelled', () => {
       const feature = createMinimalFeature();
       const run = createMinimalAgentRun({ status: AgentRunStatus.cancelled });
-      expect(deriveNodeState(feature, run)).toBe('blocked');
+      expect(deriveNodeState(feature, run)).toBe('error');
     });
 
     it('returns done when agent completed', () => {

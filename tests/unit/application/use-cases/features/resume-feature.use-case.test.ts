@@ -268,6 +268,35 @@ describe('ResumeFeatureUseCase', () => {
     await expect(useCase.execute('feat-001')).rejects.toThrow(/missing specPath/i);
   });
 
+  it('should pass fast flag from feature entity to spawn for fast-mode features', async () => {
+    featureRepo.findById.mockResolvedValue(createTestFeature({ fast: true }));
+    runRepo.findById.mockResolvedValue(createTestRun({ status: AgentRunStatus.failed }));
+
+    await useCase.execute('feat-001');
+
+    expect(processService.spawn).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      expect.objectContaining({
+        resume: true,
+        fast: true,
+      })
+    );
+  });
+
+  it('should not pass fast flag for non-fast features', async () => {
+    featureRepo.findById.mockResolvedValue(createTestFeature({ fast: false }));
+    runRepo.findById.mockResolvedValue(createTestRun({ status: AgentRunStatus.failed }));
+
+    await useCase.execute('feat-001');
+
+    const spawnOptions = processService.spawn.mock.calls[0][5];
+    expect(spawnOptions.fast).toBeUndefined();
+  });
+
   it('should pass workflow flags from feature entity to spawn', async () => {
     featureRepo.findById.mockResolvedValue(createTestFeature({ openPr: true }));
     runRepo.findById.mockResolvedValue(createTestRun({ status: AgentRunStatus.failed }));

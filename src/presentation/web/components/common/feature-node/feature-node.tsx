@@ -11,6 +11,7 @@ import {
   Zap,
   Loader2,
   Globe,
+  RotateCcw,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -326,22 +327,39 @@ export function FeatureNode({
               </div>
 
               {/* State badge */}
-              <div
-                data-testid="feature-node-badge"
-                className={(() => {
-                  const override = getActionRequiredBadgeClasses(data);
-                  return cn(
-                    'mt-1.5 flex items-center justify-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium',
-                    override?.badgeBgClass ?? config.badgeBgClass,
-                    override?.badgeClass ?? config.badgeClass
-                  );
-                })()}
-              >
-                {(() => {
-                  const BadgeIcon = getBadgeIcon(data);
-                  return <BadgeIcon className="h-3.5 w-3.5 shrink-0" />;
-                })()}
-                <span className="truncate">{getBadgeText(data)}</span>
+              <div className="mt-1.5 flex items-center gap-1.5">
+                <div
+                  data-testid="feature-node-badge"
+                  className={(() => {
+                    const override = getActionRequiredBadgeClasses(data);
+                    return cn(
+                      'flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium',
+                      override?.badgeBgClass ?? config.badgeBgClass,
+                      override?.badgeClass ?? config.badgeClass
+                    );
+                  })()}
+                >
+                  {(() => {
+                    const BadgeIcon = getBadgeIcon(data);
+                    return <BadgeIcon className="h-3.5 w-3.5 shrink-0" />;
+                  })()}
+                  <span className="truncate">{getBadgeText(data)}</span>
+                </div>
+                {data.state === 'error' && data.onRetry ? (
+                  <button
+                    type="button"
+                    aria-label="Retry feature"
+                    data-testid="feature-node-retry-button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      data.onRetry!(data.featureId);
+                    }}
+                    className="nodrag flex shrink-0 cursor-pointer items-center gap-1 rounded-full bg-red-100 px-2.5 py-1 text-[11px] font-medium text-red-700 transition-colors hover:bg-red-200"
+                  >
+                    <RotateCcw className="h-3 w-3" />
+                    Retry
+                  </button>
+                ) : null}
               </div>
             </>
           )}

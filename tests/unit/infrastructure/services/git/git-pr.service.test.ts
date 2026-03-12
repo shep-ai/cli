@@ -954,5 +954,43 @@ describe('GitPrService', () => {
 
       expect(result).toBe(false);
     });
+
+    it('should return true when tree differs but base branch advanced from premergeBaseSha', async () => {
+      vi.mocked(mockExec)
+        .mockResolvedValueOnce({ stdout: 'abc123\n', stderr: '' }) // rev-parse --verify (resolveRef)
+        .mockRejectedValueOnce(new Error('exit code 1')) // merge-base --is-ancestor fails
+        .mockRejectedValueOnce(new Error('exit code 1')) // git diff --quiet fails (tree differs)
+        .mockResolvedValueOnce({ stdout: 'newsha456\n', stderr: '' }); // rev-parse baseBranch
+
+      const result = await service.verifyMerge('/repo', 'feat/test', 'main', 'oldsha123');
+
+      expect(result).toBe(true);
+      expect(mockExec).toHaveBeenCalledWith('git', ['rev-parse', 'main'], { cwd: '/repo' });
+    });
+
+    it('should return false when tree differs and base branch has not advanced', async () => {
+      vi.mocked(mockExec)
+        .mockResolvedValueOnce({ stdout: 'abc123\n', stderr: '' }) // rev-parse --verify (resolveRef)
+        .mockRejectedValueOnce(new Error('exit code 1')) // merge-base --is-ancestor fails
+        .mockRejectedValueOnce(new Error('exit code 1')) // git diff --quiet fails
+        .mockResolvedValueOnce({ stdout: 'oldsha123\n', stderr: '' }); // rev-parse baseBranch (same)
+
+      const result = await service.verifyMerge('/repo', 'feat/test', 'main', 'oldsha123');
+
+      expect(result).toBe(false);
+    });
+
+    it('should not check premergeBaseSha when not provided', async () => {
+      vi.mocked(mockExec)
+        .mockResolvedValueOnce({ stdout: 'abc123\n', stderr: '' }) // rev-parse --verify (resolveRef)
+        .mockRejectedValueOnce(new Error('exit code 1')) // merge-base --is-ancestor fails
+        .mockRejectedValueOnce(new Error('exit code 1')); // git diff --quiet fails
+
+      const result = await service.verifyMerge('/repo', 'feat/test', 'main');
+
+      expect(result).toBe(false);
+      // Should NOT have called rev-parse for base branch head check
+      expect(mockExec).toHaveBeenCalledTimes(3);
+    });
   });
 });

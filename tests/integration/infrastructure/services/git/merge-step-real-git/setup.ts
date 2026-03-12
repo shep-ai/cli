@@ -246,7 +246,8 @@ export function buildDeps(opts: BuildDepsOptions = {}): BuiltDeps {
     hasRemote: (cwd) => gitPrService.hasRemote(cwd),
     getDefaultBranch: (cwd) => gitPrService.getDefaultBranch(cwd),
     featureRepository,
-    verifyMerge: (cwd, fb, bb) => gitPrService.verifyMerge(cwd, fb, bb),
+    verifyMerge: (cwd, fb, bb, pre) => gitPrService.verifyMerge(cwd, fb, bb, pre),
+    revParse: (cwd, ref) => gitPrService.revParse(cwd, ref),
     gitPrService,
     cleanupFeatureWorktreeUseCase: { execute: vi.fn().mockResolvedValue(undefined) } as any,
   };

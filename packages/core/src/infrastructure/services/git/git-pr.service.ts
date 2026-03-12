@@ -131,6 +131,11 @@ export class GitPrService implements IGitPrService {
     );
   }
 
+  async revParse(cwd: string, ref: string): Promise<string> {
+    const { stdout } = await this.execFile('git', ['rev-parse', ref], { cwd });
+    return stdout.trim();
+  }
+
   async hasUncommittedChanges(cwd: string): Promise<boolean> {
     const { stdout } = await this.execFile('git', ['status', '--porcelain'], { cwd });
     return stdout.trim().length > 0;
@@ -478,7 +483,12 @@ export class GitPrService implements IGitPrService {
     }
   }
 
-  async verifyMerge(cwd: string, featureBranch: string, baseBranch: string): Promise<boolean> {
+  async verifyMerge(
+    cwd: string,
+    featureBranch: string,
+    baseBranch: string,
+    premergeBaseSha?: string
+  ): Promise<boolean> {
     // Resolve the feature branch ref — the local branch may have been deleted
     // after a squash merge (git branch -d succeeds when pushed to remote).
     // Fall back to the remote tracking branch if the local ref is gone.
@@ -502,9 +512,25 @@ export class GitPrService implements IGitPrService {
       // --quiet exits 0 when there's no diff → squash merge verified
       return true;
     } catch {
-      // Exit code 1 = diff exists (not merged), other errors also mean unverified
-      return false;
+      // Exit code 1 = diff exists (not merged), other errors also mean unverified.
+      // Fall through to premergeBaseSha check if available.
     }
+
+    // Third fallback: if the caller recorded the base branch HEAD before the merge
+    // agent ran, check whether it advanced. This handles agents that legitimately
+    // modify the tree during squash merge (e.g. adding .gitignore, removing
+    // node_modules). If baseBranch HEAD moved forward, the agent committed something.
+    if (premergeBaseSha) {
+      try {
+        const { stdout } = await this.execFile('git', ['rev-parse', baseBranch], { cwd });
+        const currentSha = stdout.trim();
+        return currentSha !== premergeBaseSha;
+      } catch {
+        return false;
+      }
+    }
+
+    return false;
   }
 
   /**

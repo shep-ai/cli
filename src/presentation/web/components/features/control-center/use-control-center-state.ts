@@ -13,6 +13,7 @@ import {
   type LayoutDirection,
 } from '@/lib/layout-with-dagre';
 import { deleteFeature } from '@/app/actions/delete-feature';
+import { resumeFeature } from '@/app/actions/resume-feature';
 import { addRepository } from '@/app/actions/add-repository';
 import { deleteRepository } from '@/app/actions/delete-repository';
 import { getFeatureMetadata } from '@/app/actions/get-feature-metadata';
@@ -38,6 +39,7 @@ export interface ControlCenterState {
   handleAddRepository: (path: string) => { wasEmpty: boolean; repoPath: string };
   handleLayout: (direction: LayoutDirection) => void;
   handleDeleteFeature: (featureId: string, cleanup?: boolean) => void;
+  handleRetryFeature: (featureId: string) => void;
   handleDeleteRepository: (repositoryId: string) => Promise<void>;
   createFeatureNode: (
     sourceNodeId: string | null,
@@ -293,6 +295,29 @@ export function useControlCenterState(
     [addPendingFeature]
   );
 
+  const handleRetryFeature = useCallback(
+    (featureId: string) => {
+      const nodeId = `feat-${featureId}`;
+      // Optimistic: switch to running state
+      updateFeature(nodeId, { state: 'running' });
+
+      resumeFeature(featureId)
+        .then((result) => {
+          if (result.error) {
+            updateFeature(nodeId, { state: 'error' });
+            toast.error(result.error);
+          } else {
+            toast.success('Feature resumed');
+          }
+        })
+        .catch(() => {
+          updateFeature(nodeId, { state: 'error' });
+          toast.error('Failed to resume feature');
+        });
+    },
+    [updateFeature]
+  );
+
   const handleDeleteFeature = useCallback(
     (featureId: string, cleanup?: boolean) => {
       const nodeId = `feat-${featureId}`;
@@ -476,6 +501,7 @@ export function useControlCenterState(
     handleAddRepository,
     handleLayout,
     handleDeleteFeature,
+    handleRetryFeature,
     handleDeleteRepository,
     createFeatureNode,
     getFeatureRepositoryPath,

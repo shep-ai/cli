@@ -67,6 +67,32 @@ describe('GitPrService.verifyMerge — real git', () => {
     expect(result).toBe(false);
   });
 
+  it('should return true after squash merge with modified tree when premergeBaseSha provided', async () => {
+    const { repoDir, featureBranch, runGit } = await createLocalOnlyHarness();
+    harnessToCleanup.push(repoDir);
+
+    // Record base SHA before merge
+    const premergeBaseSha = await service.revParse(repoDir, 'main');
+
+    // Squash merge the feature branch
+    await runGit(['merge', '--squash', featureBranch]);
+
+    // Simulate agent modifying the tree: add a .gitignore that wasn't on feature branch
+    const { writeFileSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    writeFileSync(join(repoDir, '.gitignore'), 'node_modules/\ndist/\n');
+    await runGit(['add', '.gitignore']);
+    await runGit(['commit', '-m', 'squash merge with cleanup']);
+
+    // Without premergeBaseSha: fails because trees differ
+    const resultWithout = await service.verifyMerge(repoDir, featureBranch, 'main');
+    expect(resultWithout).toBe(false);
+
+    // With premergeBaseSha: succeeds because base branch advanced
+    const resultWith = await service.verifyMerge(repoDir, featureBranch, 'main', premergeBaseSha);
+    expect(resultWith).toBe(true);
+  });
+
   it('should return true after squash merge even when local branch is deleted (remote fallback)', async () => {
     const harness = await createGitHarness();
     harnessToCleanup.push(harness.bareDir, harness.cloneDir);
