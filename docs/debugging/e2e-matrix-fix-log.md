@@ -107,10 +107,18 @@ Cursor CLI ships as `.cmd`/`.ps1` scripts on Windows. Node.js needs `shell: true
 - Long `-p` prompts → garbled by `cmd.exe` argument escaping
 - Merge phase → cursor gets corrupted prompt, asks "What would you like me to do?" instead of committing
 
-### Fix Applied (Attempt 12)
+### Fix Applied (Attempt 12 — stdin pipe)
 
 - **stdin-based prompt passing**: on Windows, `-p` is omitted from args; prompt is piped via `proc.stdin.write()` instead
-- This completely bypasses `cmd.exe` argument escaping — stdin is a binary pipe, not subject to shell interpretation
+- Result: **FAILED** — cursor CLI does not read prompts from stdin, hangs indefinitely waiting for `-p`
+
+### Fix Applied (Attempt 13 — PowerShell + temp file)
+
+- **PowerShell-based invocation**: on Windows, prompt is written to a temp file, then `powershell.exe` is spawned instead of `cmd.exe`
+- PowerShell reads the file with `Get-Content -Raw` and passes it as `-p $p` to agent
+- This bypasses cmd.exe entirely — PowerShell has a 32K char limit (vs cmd.exe's 8K) and doesn't mangle arguments
+- `shell: true` is no longer used; PowerShell resolves `agent.cmd` natively
+- Temp file is cleaned up in the `close` handler
 - Cursor/windows is now **enabled** in the E2E matrix
 
 ---
