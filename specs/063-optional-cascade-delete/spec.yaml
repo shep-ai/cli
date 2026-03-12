@@ -76,3 +76,12 @@ rejectionFeedback:
       should go to repo if its deeper it should just go one level up
     phase: merge
     timestamp: '2026-03-12T14:40:10.456Z'
+  - iteration: 3
+    message: >-
+      There are 2 issues: 1. after the delete the feature node should be connect
+      to the repo, its not connected to the repo and instead if gos to the
+      bootom after the page (after resatart it resolved)
+
+      2. the subfeature stays as blocked, it should be unblocked
+    phase: merge
+    timestamp: '2026-03-12T16:00:14.317Z'
