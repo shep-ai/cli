@@ -1,0 +1,128 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-conditional-plan-tab
+
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/use-tab-data-fetch.test.ts > useTabDataFetch > fetchTab > invokes the fetcher for the requested tab 86ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/use-tab-data-fetch.test.ts > useTabDataFetch > fetchTab > does NOT invoke the fetcher again on second call (cache hit) 39ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/use-tab-data-fetch.test.ts > useTabDataFetch > fetchTab > returns cached data on second call without re-fetching 29ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/use-tab-data-fetch.test.ts > useTabDataFetch > fetchTab > fetches different tabs independently 3ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/use-tab-data-fetch.test.ts > useTabDataFetch > loading state > is true while fetcher is in progress, false after completion 7ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/use-tab-data-fetch.test.ts > useTabDataFetch > loading state > is false initially for all tabs 2ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/use-tab-data-fetch.test.ts > useTabDataFetch > error state > is populated when fetcher throws 8ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/use-tab-data-fetch.test.ts > useTabDataFetch > error state > is null when fetcher succeeds 2ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/use-tab-data-fetch.test.ts > useTabDataFetch > error state > uses fallback message for non-Error throws 3ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/use-tab-data-fetch.test.ts > useTabDataFetch > featureId change > clears all cached data when featureId changes 4ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/use-tab-data-fetch.test.ts > useTabDataFetch > featureId change > allows re-fetching after featureId changes 4ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/use-tab-data-fetch.test.ts > useTabDataFetch > featureId change > clears data for all tabs, not just the one that was fetched 2ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/use-tab-data-fetch.test.ts > useTabDataFetch > refreshTab > re-invokes the fetcher for the specified tab, bypassing cache 3ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/use-tab-data-fetch.test.ts > useTabDataFetch > refreshTab > does not affect other tabs when refreshing one 2ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/use-tab-data-fetch.test.ts > useTabDataFetch > ref-based callback stability > uses updated fetcher without triggering re-fetch 2ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/use-tab-data-fetch.test.ts > useTabDataFetch > unmount safety > does not update state after unmount 1ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/plan-tab.test.tsx > PlanTab > loading state > renders loading spinner when loading is true 123ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/plan-tab.test.tsx > PlanTab > empty state > renders empty state when plan is undefined/null 12ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/plan-tab.test.tsx > PlanTab > error state > renders inline error message when error is provided 4ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/plan-tab.test.tsx > PlanTab > plan state badge > renders plan state as a badge 90ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/plan-tab.test.tsx > PlanTab > plan state badge > renders Requirements state badge 109ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/plan-tab.test.tsx > PlanTab > plan state badge > renders ClarificationRequired state badge 20ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/plan-tab.test.tsx > PlanTab > plan overview > renders plan overview text 16ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/plan-tab.test.tsx > PlanTab > task progress view > renders all tasks with their titles 133ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/plan-tab.test.tsx > PlanTab > task progress view > renders task descriptions 16ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/plan-tab.test.tsx > PlanTab > task progress view > renders the task progress list 91ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/plan-tab.test.tsx > PlanTab > task progress view > renders task cards with correct testids 38ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/plan-tab.test.tsx > PlanTab > task progress view > renders progress summary 54ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/plan-tab.test.tsx > PlanTab > task progress view > renders empty task list message when plan has no tasks 4ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/activity-tab.test.tsx > ActivityTab > loading state > renders loading spinner when loading=true 204ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/activity-tab.test.tsx > ActivityTab > loading state > does not render timings when loading 35ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/activity-tab.test.tsx > ActivityTab > empty state > renders empty state when timings array is empty 21ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/activity-tab.test.tsx > ActivityTab > empty state > renders empty state when timings is null and not loading 3ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/activity-tab.test.tsx > ActivityTab > error state > renders error message when error is provided 17ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/activity-tab.test.tsx > ActivityTab > error state > does not render timings when error is present 2ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/activity-tab.test.tsx > ActivityTab > phase timing rendering > renders phase name and duration for each node timing 9ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/activity-tab.test.tsx > ActivityTab > phase timing rendering > renders duration text next to each completed timing 73ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/activity-tab.test.tsx > ActivityTab > phase timing rendering > renders a duration bar for each node timing 6ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/activity-tab.test.tsx > ActivityTab > iteration grouping > does not show iteration headers for single-iteration timings 6ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/activity-tab.test.tsx > ActivityTab > iteration grouping > shows iteration headers when there are rejection cycles 54ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/activity-tab.test.tsx > ActivityTab > approval wait sub-row > renders approval wait sub-row when approvalWaitMs > 0 7ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/activity-tab.test.tsx > ActivityTab > approval wait sub-row > does not render approval wait for phases without approvalWaitMs 15ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/activity-tab.test.tsx > ActivityTab > summary totals > renders total execution time 9ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/activity-tab.test.tsx > ActivityTab > summary totals > renders total wait time when approval waits exist 3ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/activity-tab.test.tsx > ActivityTab > summary totals > renders total wall-clock time when waits exist 3ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/activity-tab.test.tsx > ActivityTab > summary totals > does not render summary when there are no node timings 1ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/activity-tab.test.tsx > ActivityTab > lifecycle events > renders lifecycle event markers 3ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/activity-tab.test.tsx > ActivityTab > lifecycle events > renders rejected lifecycle event 70ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/activity-tab.test.tsx > ActivityTab > lifecycle events > displays rejection feedback text when provided 3ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/activity-tab.test.tsx > ActivityTab > lifecycle events > displays rejection feedback attachments when provided 19ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/activity-tab.test.tsx > ActivityTab > lifecycle events > does not display rejection text when no feedback provided 47ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/activity-tab.test.tsx > ActivityTab > lifecycle events > displays all rejection feedback entries even when more feedback than run:rejected events 8ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/activity-tab.test.tsx > ActivityTab > lifecycle events > shows duplicate rejection messages as separate events 69ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/activity-tab.test.tsx > ActivityTab > lifecycle events > renders long rejection messages without data loss 12ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/activity-tab.test.tsx > ActivityTab > lifecycle iteration rendering > renders each rejection cycle as a separate iteration 16ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/activity-tab.test.tsx > ActivityTab > lifecycle iteration rendering > shows resumed events at the start of subsequent iterations 3ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/activity-tab.test.tsx > ActivityTab > lifecycle iteration rendering > creates synthetic iterations for unmatched feedback entries 61ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/activity-tab.test.tsx > ActivityTab > color coding > applies emerald color for completed phase bars 6ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/activity-tab.test.tsx > ActivityTab > color coding > applies amber color for approval wait bars 3ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/activity-tab.test.tsx > buildLifecycleTimeline > returns empty array for empty timings 0ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/activity-tab.test.tsx > buildLifecycleTimeline > produces a single iteration when no rejections 0ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/activity-tab.test.tsx > buildLifecycleTimeline > splits at run:rejected boundaries 0ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/activity-tab.test.tsx > buildLifecycleTimeline > synthesizes additional rejected events for unmatched feedback 0ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/activity-tab.test.tsx > buildLifecycleTimeline > matches feedback by position to iterations 0ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > lifecycle label > renders lifecycle phase label from FeatureNodeData 281ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > lifecycle label > renders all lifecycle phase labels correctly 265ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > state badge > renders FeatureStateBadge with correct label for running state 14ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > state badge > renders FeatureStateBadge with correct label for action-required state 78ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > state badge > renders FeatureStateBadge with correct label for done state 5ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > state badge > renders FeatureStateBadge with correct label for blocked state 44ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > state badge > renders FeatureStateBadge with correct label for error state 82ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > progress bar > renders progress bar when progress > 0 36ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/feature-drawer-tabs.test.tsx > FeatureDrawerTabs > tab triggers > renders four tab triggers when hasPlan is true 902ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/feature-drawer-tabs.test.tsx > FeatureDrawerTabs > tab triggers > hides Plan tab when hasPlan is false 302ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/feature-drawer-tabs.test.tsx > FeatureDrawerTabs > tab triggers > hides Plan tab when hasPlan is undefined 114ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/feature-drawer-tabs.test.tsx > FeatureDrawerTabs > tab triggers > shows Plan tab regardless of lifecycle when hasPlan is true 33ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > progress bar > does not render progress bar when progress is 0 90ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > progress bar > does not render progress bar when lifecycle is maintain (completed) 10ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > PR info > renders PR info when PR exists 13ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > PR info > does not render PR info when PR is undefined 5ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/feature-drawer-tabs.test.tsx > FeatureDrawerTabs > default tab > overview tab is active by default 82ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > PR info > displays PR number as link 416ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/feature-drawer-tabs.test.tsx > FeatureDrawerTabs > default tab > renders overview content by default 164ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/feature-drawer-tabs.test.tsx > FeatureDrawerTabs > lazy data fetching > does not fetch any data on initial render 48ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > PR info > renders PR info inside status section when lifecycle is maintain (completed) 125ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > PR info > renders PR info outside status section when lifecycle is not maintain 23ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > PR info > renders merge conflict badge when mergeable is false 42ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > PR info > does not render merge conflict badge when mergeable is true 17ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > PR info > does not render merge conflict badge when mergeable is undefined 6ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > inline attachments in user query > renders inline attachment image when userQuery contains @/path reference 76ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > inline attachments in user query > renders plain text when userQuery has no attachment references 34ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > duplicate summary hiding > hides summary when it matches userQuery exactly 47ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/feature-drawer-tabs.test.tsx > FeatureDrawerTabs > lazy data fetching > clicking Activity tab triggers phase timings fetch 219ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > duplicate summary hiding > hides summary when it matches userQuery after trimming whitespace 39ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > duplicate summary hiding > shows summary when it differs from userQuery 5ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > duplicate summary hiding > shows summary when userQuery is not present 42ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > details section > renders details section with agent type 35ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > details section > renders details section with runtime 12ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > details section > renders blocked by info 8ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > details section > renders error message 63ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > details section > hides details section when no optional detail fields are set 4ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/feature-drawer-tabs.test.tsx > FeatureDrawerTabs > lazy data fetching > clicking Plan tab triggers plan fetch 189ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/feature-drawer-tabs.test.tsx > FeatureDrawerTabs > lazy data fetching > clicking Activity tab again does not trigger another fetch (cache hit) 334ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/feature-drawer-tabs.test.tsx > FeatureDrawerTabs > feature id change > resets to Overview tab when featureId changes 228ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/feature-drawer-tabs.test.tsx > FeatureDrawerTabs > SSE refresh > re-fetches active tab data when SSE events arrive for this feature 148ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/feature-drawer-tabs.test.tsx > FeatureDrawerTabs > SSE refresh > refreshes activity data even when overview tab is active and SSE events arrive 17ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/feature-drawer-tabs.test.tsx > FeatureDrawerTabs > SSE refresh > ignores SSE events for a different feature 225ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/feature-drawer-tabs.test.tsx > FeatureDrawerTabs > SSE refresh > does not re-process already-seen SSE events 167ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/feature-drawer-tabs.test.tsx > FeatureDrawerTabs > phase transition tab switching > switches to merge-review tab when initialTab changes due to lifecycle transition 323ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/feature-drawer-tabs.test.tsx > FeatureDrawerTabs > phase transition tab switching > switches to prd-review tab when feature enters requirements action-required 169ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/feature-drawer-tabs.test.tsx > FeatureDrawerTabs > phase transition tab switching > falls back to overview when active tab becomes invisible after lifecycle change 172ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/feature-drawer-tabs.test.tsx > FeatureDrawerTabs > URL tab routing > activates the tab specified in urlTab prop 123ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/feature-drawer-tabs.test.tsx > FeatureDrawerTabs > URL tab routing > defaults to overview when no urlTab is provided 179ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/feature-drawer-tabs.test.tsx > FeatureDrawerTabs > URL tab routing > ignores urlTab for a tab not visible in current lifecycle 32ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/feature-drawer-tabs.test.tsx > FeatureDrawerTabs > URL tab routing > updates URL via pushState when user clicks a different tab 182ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/feature-drawer-tabs.test.tsx > FeatureDrawerTabs > URL tab routing > updates URL to base path via pushState when switching back to overview 236ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/feature-drawer-tabs.test.tsx > FeatureDrawerTabs > URL tab routing > fetches lazy tab data when opened via URL 16ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/feature-drawer-tabs.test.tsx > FeatureDrawerTabs > URL tab routing > fetches plan tab data when opened via URL 25ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/feature-drawer-tabs.test.tsx > FeatureDrawerTabs > URL tab routing > URL tab takes priority over initialTab prop 135ms
+
+ Test Files  5 passed (5)
+      Tests  119 passed (119)
+   Start at  16:53:00
+   Duration  9.59s (transform 1.67s, setup 3.46s, import 5.72s, tests 8.39s, environment 11.09s)
+
