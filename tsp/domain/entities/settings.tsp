@@ -343,6 +343,9 @@ model NotificationEventConfig {
 
   @doc("Notify when pull request has merge conflicts")
   prBlocked: boolean = true;
+
+  @doc("Notify when feature is ready for merge review")
+  mergeReviewReady: boolean = true;
 }
 
 /**

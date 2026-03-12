@@ -22,6 +22,7 @@ const defaultNotifications = {
     waitingApproval: true,
     agentCompleted: true,
     agentFailed: true,
+    mergeReviewReady: true,
     prMerged: true,
     prClosed: true,
     prChecksPassed: true,
@@ -46,13 +47,14 @@ describe('NotificationSettingsSection', () => {
     expect(screen.getByText('Desktop')).toBeDefined();
   });
 
-  it('renders 10 event type toggles', () => {
+  it('renders 11 event type toggles', () => {
     render(<NotificationSettingsSection notifications={defaultNotifications} />);
     expect(screen.getByTestId('switch-event-agentStarted')).toBeDefined();
     expect(screen.getByTestId('switch-event-phaseCompleted')).toBeDefined();
     expect(screen.getByTestId('switch-event-waitingApproval')).toBeDefined();
     expect(screen.getByTestId('switch-event-agentCompleted')).toBeDefined();
     expect(screen.getByTestId('switch-event-agentFailed')).toBeDefined();
+    expect(screen.getByTestId('switch-event-mergeReviewReady')).toBeDefined();
     expect(screen.getByTestId('switch-event-prMerged')).toBeDefined();
     expect(screen.getByTestId('switch-event-prClosed')).toBeDefined();
     expect(screen.getByTestId('switch-event-prChecksPassed')).toBeDefined();
@@ -67,6 +69,7 @@ describe('NotificationSettingsSection', () => {
     expect(screen.getByText('Waiting Approval')).toBeDefined();
     expect(screen.getByText('Agent Completed')).toBeDefined();
     expect(screen.getByText('Agent Failed')).toBeDefined();
+    expect(screen.getByText('Merge Review Ready')).toBeDefined();
     expect(screen.getByText('PR Merged')).toBeDefined();
     expect(screen.getByText('PR Closed')).toBeDefined();
     expect(screen.getByText('PR Checks Passed')).toBeDefined();

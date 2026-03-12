@@ -13,11 +13,12 @@
  * process is spawned detached with IPC disconnected.
  */
 
-import type { AgentRun, NotificationEvent } from '../../../domain/generated/output.js';
+import type { AgentRun, Feature, NotificationEvent } from '../../../domain/generated/output.js';
 import {
   AgentRunStatus,
   NotificationEventType,
   NotificationSeverity,
+  SdlcLifecycle,
 } from '../../../domain/generated/output.js';
 import type { IAgentRunRepository } from '../../../application/ports/output/agents/agent-run-repository.interface.js';
 import type { IPhaseTimingRepository } from '../../../application/ports/output/agents/phase-timing-repository.interface.js';
@@ -81,6 +82,7 @@ export class NotificationWatcherService {
   private readonly notificationService: INotificationService;
   private readonly pollIntervalMs: number;
   private readonly trackedRuns = new Map<string, WatcherState>();
+  private readonly trackedFeatureLifecycles = new Map<string, SdlcLifecycle>();
   private intervalId: ReturnType<typeof setInterval> | null = null;
   // Suppresses notifications on the first poll to avoid replaying historical state
   private isBootstrapped = false;
@@ -125,6 +127,13 @@ export class NotificationWatcherService {
     try {
       const runs = await this.runRepository.list();
       await this.processRuns(runs);
+    } catch {
+      // DB not ready or query failed — skip this poll cycle
+    }
+
+    try {
+      const features = await this.featureRepository.list();
+      this.checkFeatureLifecycles(features);
     } catch {
       // DB not ready or query failed — skip this poll cycle
     }
@@ -227,6 +236,38 @@ export class NotificationWatcherService {
 
           this.notificationService.notify(event);
         }
+      }
+    }
+  }
+
+  private checkFeatureLifecycles(features: Feature[]): void {
+    for (const feature of features) {
+      const prevLifecycle = this.trackedFeatureLifecycles.get(feature.id);
+      this.trackedFeatureLifecycles.set(feature.id, feature.lifecycle);
+
+      // Emit notification when a feature transitions TO Review from a known previous state.
+      // Skip when prevLifecycle is undefined (first observation / bootstrap seeding) or
+      // when the watcher hasn't completed its first poll yet.
+      if (
+        this.isBootstrapped &&
+        prevLifecycle !== undefined &&
+        feature.lifecycle === SdlcLifecycle.Review &&
+        prevLifecycle !== SdlcLifecycle.Review
+      ) {
+        const prUrl = feature.pr?.url;
+        const message = prUrl ? `Ready for merge review — PR: ${prUrl}` : 'Ready for merge review';
+
+        const event: NotificationEvent = {
+          eventType: NotificationEventType.MergeReviewReady,
+          agentRunId: feature.agentRunId ?? '',
+          featureId: feature.id,
+          featureName: feature.name,
+          message,
+          severity: NotificationSeverity.Info,
+          timestamp: new Date().toISOString(),
+        };
+
+        this.notificationService.notify(event);
       }
     }
   }

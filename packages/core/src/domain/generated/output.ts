@@ -443,6 +443,10 @@ export type NotificationEventConfig = {
    * Notify when pull request has merge conflicts
    */
   prBlocked: boolean;
+  /**
+   * Notify when feature is ready for merge review
+   */
+  mergeReviewReady: boolean;
 };
 
 /**
@@ -1393,6 +1397,7 @@ export enum NotificationEventType {
   PrChecksPassed = 'pr_checks_passed',
   PrChecksFailed = 'pr_checks_failed',
   PrBlocked = 'pr_blocked',
+  MergeReviewReady = 'merge_review_ready',
 }
 export enum NotificationSeverity {
   Info = 'info',

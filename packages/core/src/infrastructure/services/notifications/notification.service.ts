@@ -30,6 +30,7 @@ const EVENT_TYPE_TO_CONFIG_KEY: Record<NotificationEventType, keyof Notification
   [NotificationEventType.PrChecksPassed]: 'prChecksPassed',
   [NotificationEventType.PrChecksFailed]: 'prChecksFailed',
   [NotificationEventType.PrBlocked]: 'prBlocked',
+  [NotificationEventType.MergeReviewReady]: 'mergeReviewReady',
 };
 
 export class NotificationService implements INotificationService {

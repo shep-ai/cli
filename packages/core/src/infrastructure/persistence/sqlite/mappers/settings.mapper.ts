@@ -68,6 +68,7 @@ export interface SettingsRow {
   notif_evt_pr_checks_passed: number;
   notif_evt_pr_checks_failed: number;
   notif_evt_pr_blocked: number;
+  notif_evt_merge_review_ready: number;
 
   // WorkflowConfig (workflow.*)
   workflow_open_pr_on_impl_complete: number;
@@ -151,6 +152,7 @@ export function toDatabase(settings: Settings): SettingsRow {
     notif_evt_pr_checks_passed: settings.notifications.events.prChecksPassed ? 1 : 0,
     notif_evt_pr_checks_failed: settings.notifications.events.prChecksFailed ? 1 : 0,
     notif_evt_pr_blocked: settings.notifications.events.prBlocked ? 1 : 0,
+    notif_evt_merge_review_ready: settings.notifications.events.mergeReviewReady ? 1 : 0,
 
     // WorkflowConfig (boolean → INTEGER)
     workflow_open_pr_on_impl_complete: settings.workflow.openPrOnImplementationComplete ? 1 : 0,
@@ -244,6 +246,7 @@ export function fromDatabase(row: SettingsRow): Settings {
         prChecksPassed: row.notif_evt_pr_checks_passed === 1,
         prChecksFailed: row.notif_evt_pr_checks_failed === 1,
         prBlocked: row.notif_evt_pr_blocked === 1,
+        mergeReviewReady: row.notif_evt_merge_review_ready === 1,
       },
     },
 
