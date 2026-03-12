@@ -33,10 +33,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
         agent: [dev, claude-code, cursor]
-        exclude:
-          # cursor/windows: shell:true mangles args via cmd.exe (see docs/debugging/cursor-windows-fix.md)
-          - os: windows-latest
-            agent: cursor
+        # All combos enabled — cursor/windows fixed via temp-file prompt passing
 
     permissions:
       contents: read
