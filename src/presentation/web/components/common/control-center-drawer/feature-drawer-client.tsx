@@ -15,7 +15,6 @@ import type { RejectAttachment } from '@/components/common/drawer-action-bar';
 import { getFeatureArtifact } from '@/app/actions/get-feature-artifact';
 import { getResearchArtifact } from '@/app/actions/get-research-artifact';
 import { getMergeReviewData } from '@/app/actions/get-merge-review-data';
-import { deleteFeature } from '@/app/actions/delete-feature';
 import { useFeatureFlags } from '@/hooks/feature-flags-context';
 import { useSoundAction } from '@/hooks/use-sound-action';
 import { useGuardedDrawerClose } from '@/hooks/drawer-close-guard';
@@ -50,7 +49,6 @@ export interface FeatureDrawerClientProps {
 export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawerClientProps) {
   const featureFlags = useFeatureFlags();
   const router = useRouter();
-  const deleteSound = useSoundAction('delete');
   const rejectSound = useSoundAction('reject');
 
   // Track the view locally so SSE events can update the drawer type in real-time
@@ -358,23 +356,19 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
   const handleDelete = useCallback(
     async (featureId: string, cleanup?: boolean) => {
       setIsDeleting(true);
-      try {
-        const result = await deleteFeature(featureId, cleanup);
-        if (result.error) {
-          toast.error(result.error);
-          return;
-        }
-        deleteSound.play();
-        toast.success('Feature deleted successfully');
-        router.push('/');
-        router.refresh();
-      } catch {
-        toast.error('Failed to delete feature');
-      } finally {
-        setIsDeleting(false);
-      }
+      // Close the delete dialog and drawer before the server action so the
+      // user sees immediate feedback. We dispatch a DOM event so the canvas
+      // control center can run its own optimistic delete flow (deleting state,
+      // mutation guard, node removal) in parallel.
+      setDeleteDialogOpen(false);
+      window.dispatchEvent(
+        new CustomEvent('shep:feature-delete-requested', {
+          detail: { featureId, cleanup },
+        })
+      );
+      router.push('/');
     },
-    [router, deleteSound]
+    [router]
   );
 
   const handleRetry = useCallback(async (featureId: string) => {

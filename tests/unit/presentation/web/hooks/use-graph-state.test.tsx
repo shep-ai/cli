@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
 import React from 'react';
 import { useGraphState } from '@/hooks/use-graph-state';
@@ -598,6 +598,160 @@ describe('useGraphState', () => {
       const data = featureNodes[0].data as FeatureNodeData;
       expect(data.name).toBe('Quantum Flux Optimizer');
       expect(data.state).toBe('running');
+    });
+  });
+
+  describe('mutation guard', () => {
+    it('reconcile is a no-op while a mutation is in-flight', () => {
+      const repoNode = makeRepoNode('repo-1');
+      const featureNode = makeFeatureNode('feat-abc', '/repo');
+      let capturedState: UseGraphStateReturn | null = null;
+
+      renderHook([repoNode, featureNode], [], (s) => {
+        capturedState = s;
+      });
+
+      expect(screen.getByTestId('node-count')).toHaveTextContent('2');
+
+      // Begin mutation — reconcile should become a no-op
+      act(() => {
+        capturedState!.beginMutation();
+      });
+
+      // Stale poll tries to remove the feature — should be ignored
+      act(() => {
+        capturedState!.reconcile([repoNode], []);
+      });
+
+      // Feature should still be there
+      expect(screen.getByTestId('node-count')).toHaveTextContent('2');
+    });
+
+    it('reconcile works again after endMutation cooldown expires', () => {
+      vi.useFakeTimers();
+
+      const repoNode = makeRepoNode('repo-1');
+      const featureNode = makeFeatureNode('feat-abc', '/repo');
+      let capturedState: UseGraphStateReturn | null = null;
+
+      renderHook([repoNode, featureNode], [], (s) => {
+        capturedState = s;
+      });
+
+      // Begin and end mutation
+      act(() => {
+        capturedState!.beginMutation();
+      });
+      act(() => {
+        capturedState!.endMutation(1000);
+      });
+
+      // Still guarded during cooldown
+      act(() => {
+        capturedState!.reconcile([repoNode], []);
+      });
+      expect(screen.getByTestId('node-count')).toHaveTextContent('2');
+
+      // After cooldown expires, reconcile should work
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+
+      act(() => {
+        capturedState!.reconcile([repoNode], []);
+      });
+      expect(screen.getByTestId('node-count')).toHaveTextContent('1');
+
+      vi.useRealTimers();
+    });
+
+    it('isMutating returns correct state', () => {
+      const repoNode = makeRepoNode('repo-1');
+      let capturedState: UseGraphStateReturn | null = null;
+
+      renderHook([repoNode], [], (s) => {
+        capturedState = s;
+      });
+
+      expect(capturedState!.isMutating()).toBe(false);
+
+      act(() => {
+        capturedState!.beginMutation();
+      });
+      expect(capturedState!.isMutating()).toBe(true);
+    });
+
+    it('supports nested mutations (ref-counted)', () => {
+      vi.useFakeTimers();
+
+      const repoNode = makeRepoNode('repo-1');
+      const featureNode = makeFeatureNode('feat-abc', '/repo');
+      let capturedState: UseGraphStateReturn | null = null;
+
+      renderHook([repoNode, featureNode], [], (s) => {
+        capturedState = s;
+      });
+
+      // Two nested mutations
+      act(() => {
+        capturedState!.beginMutation();
+        capturedState!.beginMutation();
+      });
+
+      // End one — still guarded
+      act(() => {
+        capturedState!.endMutation(100);
+      });
+      act(() => {
+        vi.advanceTimersByTime(100);
+      });
+
+      // Still mutating (one outstanding)
+      expect(capturedState!.isMutating()).toBe(true);
+
+      act(() => {
+        capturedState!.reconcile([repoNode], []);
+      });
+      expect(screen.getByTestId('node-count')).toHaveTextContent('2');
+
+      // End second — now reconcile should work after cooldown
+      act(() => {
+        capturedState!.endMutation(100);
+      });
+      act(() => {
+        vi.advanceTimersByTime(100);
+      });
+
+      expect(capturedState!.isMutating()).toBe(false);
+
+      act(() => {
+        capturedState!.reconcile([repoNode], []);
+      });
+      expect(screen.getByTestId('node-count')).toHaveTextContent('1');
+
+      vi.useRealTimers();
+    });
+
+    it('updateFeature still works during mutation guard', () => {
+      const repoNode = makeRepoNode('repo-1');
+      const featureNode = makeFeatureNode('feat-abc', '/repo', { state: 'running' });
+      let capturedState: UseGraphStateReturn | null = null;
+
+      renderHook([repoNode, featureNode], [], (s) => {
+        capturedState = s;
+      });
+
+      act(() => {
+        capturedState!.beginMutation();
+      });
+
+      // SSE updates should still work during mutation guard
+      act(() => {
+        capturedState!.updateFeature('feat-abc', { state: 'done' });
+      });
+
+      const node = capturedState!.nodes.find((n) => n.id === 'feat-abc');
+      expect((node?.data as FeatureNodeData).state).toBe('done');
     });
   });
 

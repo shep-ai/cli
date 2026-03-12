@@ -83,6 +83,9 @@ export function useControlCenterState(
     getRepositoryData,
     getRepoMapSize,
     setCallbacks,
+    beginMutation,
+    endMutation,
+    isMutating,
   } = useGraphState(initialNodes, initialEdges);
 
   // Refs for stable access to latest nodes/edges without callback recreation
@@ -236,6 +239,10 @@ export function useControlCenterState(
     log.debug(`polling enabled (${POLL_INTERVAL_MS}ms interval)`);
 
     const timer = setInterval(async () => {
+      // Skip fetch entirely while a mutation is in-flight — the response
+      // would contain pre-mutation data that reconcile would discard anyway.
+      if (isMutating()) return;
+
       try {
         // Use a plain fetch instead of a server action so the poll
         // doesn't trigger the Next.js "Rendering…" indicator.
@@ -252,7 +259,7 @@ export function useControlCenterState(
       log.debug('polling disabled');
       clearInterval(timer);
     };
-  }, [reconcile]);
+  }, [reconcile, isMutating]);
 
   // onNodesChange is a no-op: nodes are derived from domain Maps.
   // Since nodesDraggable=false and elementsSelectable=false, only React Flow's
@@ -299,6 +306,7 @@ export function useControlCenterState(
     (featureId: string) => {
       const nodeId = `feat-${featureId}`;
       // Optimistic: switch to running state
+      beginMutation();
       updateFeature(nodeId, { state: 'running' });
 
       resumeFeature(featureId)
@@ -313,9 +321,10 @@ export function useControlCenterState(
         .catch(() => {
           updateFeature(nodeId, { state: 'error' });
           toast.error('Failed to resume feature');
-        });
+        })
+        .finally(() => endMutation());
     },
-    [updateFeature]
+    [updateFeature, beginMutation, endMutation]
   );
 
   const handleDeleteFeature = useCallback(
@@ -345,6 +354,7 @@ export function useControlCenterState(
       }
 
       // Optimistic: show "deleting" state on parent AND all descendants
+      beginMutation();
       updateFeature(nodeId, { state: 'deleting' });
       for (const childId of descendants) {
         updateFeature(childId, { state: 'deleting' });
@@ -375,9 +385,10 @@ export function useControlCenterState(
             if (prevState) updateFeature(nid, { state: prevState });
           }
           toast.error('Failed to delete feature');
-        });
+        })
+        .finally(() => endMutation());
     },
-    [router, deleteSound, updateFeature, removeFeature]
+    [router, deleteSound, updateFeature, removeFeature, beginMutation, endMutation]
   );
 
   const handleDeleteRepository = useCallback(
@@ -407,6 +418,7 @@ export function useControlCenterState(
       };
 
       // Optimistic: remove repo + children
+      beginMutation();
       removeRepository(repoNodeId);
       for (const childId of childFeatureIds) {
         removeFeature(childId);
@@ -423,6 +435,8 @@ export function useControlCenterState(
       } catch {
         toast.error('Failed to remove repository');
         rollback();
+      } finally {
+        endMutation();
       }
     },
     [
@@ -432,6 +446,8 @@ export function useControlCenterState(
       addRepositoryToMap,
       restoreFeature,
       getRepositoryData,
+      beginMutation,
+      endMutation,
     ]
   );
 
@@ -458,6 +474,7 @@ export function useControlCenterState(
           .split(/[\\/]/)
           .pop() ?? path;
 
+      beginMutation();
       addRepositoryToMap(tempId, {
         name: repoName,
         repositoryPath: path,
@@ -486,11 +503,20 @@ export function useControlCenterState(
         .catch(() => {
           removeRepository(tempId);
           toast.error('Failed to add repository');
-        });
+        })
+        .finally(() => endMutation());
 
       return { wasEmpty, repoPath: path };
     },
-    [addRepositoryToMap, removeRepository, replaceRepository, createSound, getRepoMapSize]
+    [
+      addRepositoryToMap,
+      removeRepository,
+      replaceRepository,
+      createSound,
+      getRepoMapSize,
+      beginMutation,
+      endMutation,
+    ]
   );
 
   return {
