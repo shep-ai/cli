@@ -1,3 +1,9 @@
+# [1.108.0](https://github.com/shep-ai/cli/compare/v1.107.2...v1.108.0) (2026-03-12)
+
+### Features
+
+- **web:** conditionally show plan tab based on hasplan data flag ([#331](https://github.com/shep-ai/cli/issues/331)) ([3516e55](https://github.com/shep-ai/cli/commit/3516e55143399e825d21b7ec3a3ac0b3c7e01701)), closes [#322](https://github.com/shep-ai/cli/issues/322)
+
 ## [1.107.2](https://github.com/shep-ai/cli/compare/v1.107.1...v1.107.2) (2026-03-12)
 
 ### Bug Fixes
