@@ -229,6 +229,40 @@ export const PrWithMergeConflicts: Story = {
   },
 };
 
+/* ---------------------------------------------------------------------------
+ * Duplicate summary stories
+ * ------------------------------------------------------------------------- */
+
+const duplicateSummaryData: FeatureNodeData = {
+  name: 'GPT Chat Support',
+  description: 'Add support for "gpt chat" experience',
+  featureId: '#ds1',
+  lifecycle: 'requirements',
+  state: 'running',
+  progress: 10,
+  agentType: 'claude-code',
+  repositoryPath: '/home/user/my-repo',
+  branch: 'feat/gpt-chat',
+  userQuery: 'Add support to "gpt chat" experience in the shep app',
+  summary: 'Add support to "gpt chat" experience in the shep app',
+  createdAt: Date.now() - 5000,
+};
+
+/** Summary hidden — userQuery and summary are identical. */
+export const DuplicateSummaryHidden: Story = {
+  args: { data: duplicateSummaryData },
+};
+
+/** Summary visible — userQuery and summary differ. */
+export const DifferentSummary: Story = {
+  args: {
+    data: {
+      ...duplicateSummaryData,
+      summary: 'Integrate GPT chat experience using prompt-kit components with streaming support',
+    },
+  },
+};
+
 /** Completed feature with PR — progress hidden, PR shown in status section without borders. */
 export const CompletedWithPr: Story = {
   args: {

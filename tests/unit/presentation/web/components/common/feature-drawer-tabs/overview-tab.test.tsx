@@ -209,6 +209,47 @@ describe('OverviewTab', () => {
     });
   });
 
+  describe('duplicate summary hiding', () => {
+    it('hides summary when it matches userQuery exactly', () => {
+      renderOverviewTab({
+        ...defaultData,
+        userQuery: 'fix the login bug',
+        summary: 'fix the login bug',
+      });
+      expect(screen.getByText('User Query')).toBeInTheDocument();
+      expect(screen.queryByText('Summary')).not.toBeInTheDocument();
+    });
+
+    it('hides summary when it matches userQuery after trimming whitespace', () => {
+      renderOverviewTab({
+        ...defaultData,
+        userQuery: '  fix the login bug  ',
+        summary: 'fix the login bug',
+      });
+      expect(screen.getByText('User Query')).toBeInTheDocument();
+      expect(screen.queryByText('Summary')).not.toBeInTheDocument();
+    });
+
+    it('shows summary when it differs from userQuery', () => {
+      renderOverviewTab({
+        ...defaultData,
+        userQuery: 'fix the login bug',
+        summary: 'Resolved authentication issue in login handler by fixing token validation',
+      });
+      expect(screen.getByText('User Query')).toBeInTheDocument();
+      expect(screen.getByText('Summary')).toBeInTheDocument();
+    });
+
+    it('shows summary when userQuery is not present', () => {
+      renderOverviewTab({
+        ...defaultData,
+        userQuery: undefined,
+        summary: 'Some summary text',
+      });
+      expect(screen.getByText('Summary')).toBeInTheDocument();
+    });
+  });
+
   describe('details section', () => {
     it('renders details section with agent type', () => {
       renderOverviewTab({ ...defaultData, agentType: 'cursor' });
