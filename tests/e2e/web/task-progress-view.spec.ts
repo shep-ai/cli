@@ -293,12 +293,6 @@ test.describe('Task Progress View — control center integration', () => {
     await expect(page.getByText('Add password reset flow')).toBeVisible();
     await expect(page.getByText('Implement OAuth2 social login')).toBeVisible();
 
-    // Screenshot 1: Default collapsed view with progress summary
-    await page.screenshot({
-      path: 'specs/053-task-progress-view/evidence/e2e-task-progress-default.png',
-      fullPage: false,
-    });
-
     // Expand a task with action items (WIP task has rich details)
     const wipTask = page.getByText('Build role-based access control');
     await wipTask.click();
@@ -307,23 +301,11 @@ test.describe('Task Progress View — control center integration', () => {
     await expect(page.getByText('Define role permissions matrix')).toBeVisible({ timeout: 5000 });
     await expect(page.getByText('Create authorization decorator')).toBeVisible();
 
-    // Screenshot 2: Expanded task with action items and acceptance criteria
-    await page.screenshot({
-      path: 'specs/053-task-progress-view/evidence/e2e-task-progress-expanded.png',
-      fullPage: false,
-    });
-
     // Expand the Done task too to show completed action items
     const doneTask = page.getByText('Set up authentication middleware');
     await doneTask.click();
 
     // Wait for done task's action items
     await expect(page.getByText('Create JWT validator')).toBeVisible({ timeout: 5000 });
-
-    // Screenshot 3: Multiple expanded tasks showing mixed states
-    await page.screenshot({
-      path: 'specs/053-task-progress-view/evidence/e2e-task-progress-multi-expanded.png',
-      fullPage: false,
-    });
   });
 });
