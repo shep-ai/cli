@@ -2,7 +2,18 @@
 
 import { useCallback, useRef, useState } from 'react';
 
-export type UpgradeStatus = 'idle' | 'upgrading' | 'upgraded' | 'up-to-date' | 'error';
+export type UpgradeStatus =
+  | 'idle'
+  | 'upgrading'
+  | 'restarting'
+  | 'upgraded'
+  | 'up-to-date'
+  | 'error';
+
+/** How often to poll the server during restart (ms). */
+const RESTART_POLL_MS = 500;
+/** Maximum time to wait for the server to come back after restart (ms). */
+const RESTART_TIMEOUT_MS = 30_000;
 
 export interface CliUpgradeState {
   status: UpgradeStatus;
@@ -14,18 +25,46 @@ export interface CliUpgradeActions {
   startUpgrade: () => void;
 }
 
+/**
+ * Poll the server until it responds, then reload the page.
+ */
+function waitForServerAndReload(timeoutMs: number, pollMs: number): void {
+  const deadline = Date.now() + timeoutMs;
+
+  const poll = () => {
+    if (Date.now() > deadline) return;
+
+    fetch('/api/version', { method: 'GET', cache: 'no-store' })
+      .then((res) => {
+        if (res.ok) {
+          window.location.reload();
+        } else {
+          setTimeout(poll, pollMs);
+        }
+      })
+      .catch(() => {
+        setTimeout(poll, pollMs);
+      });
+  };
+
+  // Brief initial delay to let the old server shut down
+  setTimeout(poll, pollMs);
+}
+
 export function useCliUpgrade(): CliUpgradeState & CliUpgradeActions {
   const [status, setStatus] = useState<UpgradeStatus>('idle');
   const [output, setOutput] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
   const abortRef = useRef<AbortController | null>(null);
+  const restartingRef = useRef(false);
 
   const startUpgrade = useCallback(() => {
-    if (status === 'upgrading') return;
+    if (status === 'upgrading' || status === 'restarting') return;
 
     setStatus('upgrading');
     setOutput('');
     setErrorMessage(undefined);
+    restartingRef.current = false;
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -51,6 +90,12 @@ export function useCliUpgrade(): CliUpgradeState & CliUpgradeActions {
           buffer = lines.pop() ?? '';
 
           for (const line of lines) {
+            if (line.startsWith('event: restarting')) {
+              restartingRef.current = true;
+              setStatus('restarting');
+              waitForServerAndReload(RESTART_TIMEOUT_MS, RESTART_POLL_MS);
+              continue;
+            }
             if (line.startsWith('event: done')) {
               // Next data line contains the final result
               continue;
@@ -80,6 +125,8 @@ export function useCliUpgrade(): CliUpgradeState & CliUpgradeActions {
         }
       })
       .catch((err: unknown) => {
+        // If we're in restarting state, the connection dropping is expected
+        if (restartingRef.current) return;
         if (err instanceof DOMException && err.name === 'AbortError') return;
         setStatus('error');
         setErrorMessage(err instanceof Error ? err.message : 'Upgrade failed');

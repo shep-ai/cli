@@ -15,6 +15,15 @@ export async function POST(): Promise<Response> {
           controller.enqueue(encoder.encode(`data: ${chunk.replace(/\n/g, '\ndata: ')}\n\n`));
         });
         controller.enqueue(encoder.encode(`event: done\ndata: ${JSON.stringify(result)}\n\n`));
+
+        // If the upgrade succeeded, schedule a daemon self-restart so the
+        // new version is loaded automatically — no manual restart needed.
+        if (result.status === 'upgraded') {
+          controller.enqueue(encoder.encode(`event: restarting\ndata: restarting\n\n`));
+          controller.close();
+          await useCase.scheduleDaemonRestart();
+          return;
+        }
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Upgrade failed';
         controller.enqueue(
@@ -23,7 +32,11 @@ export async function POST(): Promise<Response> {
           )
         );
       } finally {
-        controller.close();
+        try {
+          controller.close();
+        } catch {
+          // Already closed (e.g. after restart path)
+        }
       }
     },
   });
