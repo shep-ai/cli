@@ -42,6 +42,10 @@ properties:
     type: boolean
     default: true
     description: Notify when pull request has merge conflicts
+  mergeReviewReady:
+    type: boolean
+    default: true
+    description: Notify when feature is ready for merge review
 required:
   - agentStarted
   - phaseCompleted
@@ -53,4 +57,5 @@ required:
   - prChecksPassed
   - prChecksFailed
   - prBlocked
+  - mergeReviewReady
 description: Notification event type filters
