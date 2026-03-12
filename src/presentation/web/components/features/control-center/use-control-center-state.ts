@@ -16,7 +16,6 @@ import { deleteFeature } from '@/app/actions/delete-feature';
 import { addRepository } from '@/app/actions/add-repository';
 import { deleteRepository } from '@/app/actions/delete-repository';
 import { getFeatureMetadata } from '@/app/actions/get-feature-metadata';
-import { fetchGraphData } from '@/app/actions/get-graph-data';
 import { useAgentEventsContext } from '@/hooks/agent-events-provider';
 import { useSoundAction } from '@/hooks/use-sound-action';
 import { createLogger } from '@/lib/logger';
@@ -236,7 +235,11 @@ export function useControlCenterState(
 
     const timer = setInterval(async () => {
       try {
-        const { nodes: freshNodes, edges: freshEdges } = await fetchGraphData();
+        // Use a plain fetch instead of a server action so the poll
+        // doesn't trigger the Next.js "Rendering…" indicator.
+        const res = await fetch('/api/graph-data');
+        if (!res.ok) throw new Error(`status ${res.status}`);
+        const { nodes: freshNodes, edges: freshEdges } = await res.json();
         reconcile(freshNodes, freshEdges);
       } catch {
         log.warn('poll fetch failed — will retry next interval');

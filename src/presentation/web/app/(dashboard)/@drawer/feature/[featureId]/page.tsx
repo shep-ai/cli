@@ -1,19 +1,9 @@
 import { resolve } from '@/lib/server-container';
 import type { IFeatureRepository } from '@shepai/core/application/ports/output/repositories/feature-repository.interface';
 import type { IAgentRunRepository } from '@shepai/core/application/ports/output/agents/agent-run-repository.interface';
-import type { IRepositoryRepository } from '@shepai/core/application/ports/output/repositories/repository-repository.interface';
-import type { IGitPrService } from '@shepai/core/application/ports/output/services/git-pr-service.interface';
-import type { GetFeatureArtifactUseCase } from '@shepai/core/application/use-cases/features/get-feature-artifact.use-case';
-import { CiStatus } from '@shepai/core/domain/generated/output';
 import { buildFeatureNodeData } from '@/app/build-feature-node-data';
 import { computeDrawerView } from '@/components/common/control-center-drawer/drawer-view';
 import { FeatureDrawerClient } from '@/components/common/control-center-drawer/feature-drawer-client';
-
-const CI_STATUS_MAP: Record<string, CiStatus> = {
-  success: CiStatus.Success,
-  failure: CiStatus.Failure,
-  pending: CiStatus.Pending,
-};
 
 /** Skip static pre-rendering since we need runtime DI container. */
 export const dynamic = 'force-dynamic';
@@ -28,55 +18,17 @@ export default async function FeatureDrawerPage({ params }: FeatureDrawerPagePro
   try {
     const featureRepo = resolve<IFeatureRepository>('IFeatureRepository');
     const agentRunRepo = resolve<IAgentRunRepository>('IAgentRunRepository');
-    const repoRepo = resolve<IRepositoryRepository>('IRepositoryRepository');
-    const gitPrService = resolve<IGitPrService>('IGitPrService');
 
+    // Critical path only: feature + agent run (fast DB lookups).
+    // Expensive operations (git remote URL, GitHub CI/mergeable status,
+    // artifact, repo name, base branch) are deferred to useDrawerSync
+    // which runs client-side after the drawer is already visible.
     const feature = await featureRepo.findById(featureId);
     if (!feature) return null;
 
     const run = feature.agentRunId ? await agentRunRepo.findById(feature.agentRunId) : null;
 
-    // Resolve repository name, base branch, and one-liner for the overview tab
-    const getArtifact = resolve<GetFeatureArtifactUseCase>('GetFeatureArtifactUseCase');
-    const [repo, baseBranch, artifact, remoteUrl, liveMergeable, liveCiResult] = await Promise.all([
-      repoRepo.findByPath(feature.repositoryPath).catch(() => null),
-      gitPrService.getDefaultBranch(feature.repositoryPath).catch(() => 'main'),
-      getArtifact.execute(featureId).catch(() => null),
-      gitPrService.getRemoteUrl(feature.repositoryPath).catch(() => null),
-      feature.pr?.number
-        ? gitPrService
-            .getMergeableStatus(feature.repositoryPath, feature.pr.number)
-            .catch(() => undefined)
-        : Promise.resolve(undefined),
-      feature.branch
-        ? gitPrService.getCiStatus(feature.repositoryPath, feature.branch).catch(() => undefined)
-        : Promise.resolve(undefined),
-    ]);
-
-    // Merge live PR status into feature data so the UI always reflects
-    // the current GitHub state, even if the background watcher hasn't polled yet.
-    if (feature.pr) {
-      const liveCiStatus = liveCiResult
-        ? (CI_STATUS_MAP[liveCiResult.status] ?? CiStatus.Pending)
-        : undefined;
-      const updates: Record<string, unknown> = {};
-      if (liveMergeable !== undefined) updates.mergeable = liveMergeable;
-      if (liveCiStatus !== undefined) updates.ciStatus = liveCiStatus;
-
-      if (Object.keys(updates).length > 0) {
-        feature.pr = { ...feature.pr, ...updates };
-        featureRepo.update(feature).catch(() => {
-          /* best-effort persist */
-        });
-      }
-    }
-
-    const nodeData = buildFeatureNodeData(feature, run, {
-      repositoryName: repo?.name,
-      baseBranch,
-      oneLiner: artifact?.oneLiner,
-      remoteUrl: remoteUrl ?? undefined,
-    });
+    const nodeData = buildFeatureNodeData(feature, run);
 
     const view = computeDrawerView({
       selectedNode: nodeData,

@@ -40,9 +40,13 @@ export function useDrawerSync(
     }
   }, [featureId, setView]);
 
-  // On drawer open: fetch fresh data (replaces router.refresh() on open)
+  // Fetch full data when drawer opens (either on mount or closed→open transition).
+  // The server component only provides minimal data (feature + agent run);
+  // expensive fields (repo name, remote URL, CI status, etc.) are loaded here.
+  const hasFetchedOnMountRef = useRef(false);
   useEffect(() => {
-    if (isOpen && !wasOpenRef.current) {
+    if (isOpen && (!wasOpenRef.current || !hasFetchedOnMountRef.current)) {
+      hasFetchedOnMountRef.current = true;
       void syncFromServer();
     }
     wasOpenRef.current = isOpen;
@@ -69,9 +73,15 @@ function mergeFeatureData(prev: DrawerView, freshData: FeatureNodeData): DrawerV
   if (prev.type !== 'feature') return prev;
 
   const merged: FeatureNodeData = { ...prev.node, ...freshData };
+
+  // Only re-derive initialTab when state or lifecycle actually changed.
+  // Re-deriving on every background sync would reset the chat input
+  // (which clears on initialTab change) even when nothing meaningful changed.
+  const tabChanged = merged.state !== prev.node.state || merged.lifecycle !== prev.node.lifecycle;
+
   return {
     ...prev,
     node: merged,
-    initialTab: deriveInitialTab(merged),
+    initialTab: tabChanged ? deriveInitialTab(merged) : prev.initialTab,
   };
 }

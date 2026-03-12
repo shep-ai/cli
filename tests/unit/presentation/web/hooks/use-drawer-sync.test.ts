@@ -67,16 +67,18 @@ describe('useDrawerSync', () => {
     expect(setView).toHaveBeenCalled();
   });
 
-  it('does not fetch when drawer is already open on mount', async () => {
+  it('fetches immediately when drawer is already open on mount', async () => {
     mockGetFeatureDrawerData.mockResolvedValue({ featureId: 'feat-123' });
 
     const setView = vi.fn();
 
-    // Drawer already open on first render — no "transition" from closed→open
-    renderHook(() => useDrawerSync(true, 'feat-123', setView));
+    // Drawer already open on first render — should still fetch to hydrate
+    // the minimal server-rendered data with full details
+    await act(async () => {
+      renderHook(() => useDrawerSync(true, 'feat-123', setView));
+    });
 
-    // The wasOpenRef starts as `isOpen` (true), so no open transition detected
-    expect(mockGetFeatureDrawerData).not.toHaveBeenCalled();
+    expect(mockGetFeatureDrawerData).toHaveBeenCalledWith('feat-123');
   });
 
   it('runs background sync every 15 seconds while drawer is open', async () => {
@@ -89,23 +91,26 @@ describe('useDrawerSync', () => {
 
     const setView = vi.fn();
 
-    renderHook(() => useDrawerSync(true, 'feat-123', setView));
+    await act(async () => {
+      renderHook(() => useDrawerSync(true, 'feat-123', setView));
+    });
 
-    expect(mockGetFeatureDrawerData).not.toHaveBeenCalled();
+    // 1 call from initial mount fetch
+    expect(mockGetFeatureDrawerData).toHaveBeenCalledTimes(1);
 
     // Advance 15 seconds — first background sync
     await act(async () => {
       vi.advanceTimersByTime(15_000);
     });
 
-    expect(mockGetFeatureDrawerData).toHaveBeenCalledTimes(1);
+    expect(mockGetFeatureDrawerData).toHaveBeenCalledTimes(2);
 
     // Advance another 15 seconds — second background sync
     await act(async () => {
       vi.advanceTimersByTime(15_000);
     });
 
-    expect(mockGetFeatureDrawerData).toHaveBeenCalledTimes(2);
+    expect(mockGetFeatureDrawerData).toHaveBeenCalledTimes(3);
   });
 
   it('stops background sync when drawer closes', async () => {
@@ -118,14 +123,22 @@ describe('useDrawerSync', () => {
 
     const setView = vi.fn();
 
-    const { rerender } = renderHook(({ isOpen }) => useDrawerSync(isOpen, 'feat-123', setView), {
-      initialProps: { isOpen: true },
+    let rerender: (props: { isOpen: boolean }) => void;
+    await act(async () => {
+      const result = renderHook(({ isOpen }) => useDrawerSync(isOpen, 'feat-123', setView), {
+        initialProps: { isOpen: true },
+      });
+      rerender = result.rerender;
     });
 
-    // Close the drawer
-    rerender({ isOpen: false });
+    // 1 call from initial mount
+    expect(mockGetFeatureDrawerData).toHaveBeenCalledTimes(1);
+    mockGetFeatureDrawerData.mockClear();
 
-    // Advance past interval — should NOT fetch
+    // Close the drawer
+    rerender!({ isOpen: false });
+
+    // Advance past interval — should NOT fetch after close
     await act(async () => {
       vi.advanceTimersByTime(30_000);
     });
@@ -145,7 +158,7 @@ describe('useDrawerSync', () => {
     expect(mockGetFeatureDrawerData).not.toHaveBeenCalled();
   });
 
-  it('merges fresh data into existing feature view', async () => {
+  it('re-derives initialTab when state changes', async () => {
     const freshData = {
       featureId: 'feat-123',
       name: 'Updated Name',
@@ -170,7 +183,7 @@ describe('useDrawerSync', () => {
 
     expect(setView).toHaveBeenCalled();
 
-    // Simulate React calling the updater function with prev state
+    // prev state is 'running', fresh is 'action-required' → tab should re-derive
     const prevView = makeFeatureView();
     const newView = capturedUpdater!(prevView);
 
@@ -178,8 +191,44 @@ describe('useDrawerSync', () => {
     if (newView.type === 'feature') {
       expect(newView.node.name).toBe('Updated Name');
       expect(newView.node.state).toBe('action-required');
-      // initialTab should be re-derived
       expect(newView.initialTab).toBe('prd-review');
+    }
+  });
+
+  it('preserves initialTab when state and lifecycle are unchanged', async () => {
+    // Fresh data has same state/lifecycle but different name
+    const freshData = {
+      featureId: 'feat-123',
+      name: 'Updated Name',
+      state: 'running',
+      lifecycle: 'requirements',
+      progress: 75,
+    };
+    mockGetFeatureDrawerData.mockResolvedValue(freshData);
+
+    let capturedUpdater: ((prev: DrawerView) => DrawerView) | undefined;
+    const setView: React.Dispatch<React.SetStateAction<DrawerView>> = vi.fn(
+      (updater: SetStateAction<DrawerView>) => {
+        if (typeof updater === 'function') capturedUpdater = updater;
+      }
+    );
+
+    renderHook(() => useDrawerSync(true, 'feat-123', setView));
+
+    await act(async () => {
+      vi.advanceTimersByTime(15_000);
+    });
+
+    // prev state is 'running', fresh is also 'running' → tab should NOT re-derive
+    const prevView = makeFeatureView();
+    const newView = capturedUpdater!(prevView);
+
+    expect(newView.type).toBe('feature');
+    if (newView.type === 'feature') {
+      expect(newView.node.name).toBe('Updated Name');
+      expect(newView.node.progress).toBe(75);
+      // initialTab preserved from prev, not re-derived
+      expect(newView.initialTab).toBe('overview');
     }
   });
 
@@ -250,14 +299,23 @@ describe('useDrawerSync', () => {
 
     const setView = vi.fn();
 
-    const { unmount } = renderHook(() => useDrawerSync(true, 'feat-123', setView));
+    let unmount: () => void;
+    await act(async () => {
+      const result = renderHook(() => useDrawerSync(true, 'feat-123', setView));
+      unmount = result.unmount;
+    });
 
-    unmount();
+    // 1 call from initial mount
+    expect(mockGetFeatureDrawerData).toHaveBeenCalledTimes(1);
+    mockGetFeatureDrawerData.mockClear();
+
+    unmount!();
 
     await act(async () => {
       vi.advanceTimersByTime(30_000);
     });
 
+    // No further calls after unmount
     expect(mockGetFeatureDrawerData).not.toHaveBeenCalled();
   });
 });
