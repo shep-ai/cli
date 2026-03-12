@@ -103,11 +103,12 @@ export const WithError: Story = {
       {
         id: '2',
         role: 'assistant',
-        content: 'An error occurred while processing your request.',
+        content: '',
         timestamp: new Date('2026-03-12T10:00:05'),
         status: 'error',
       },
     ],
+    error: 'Failed to connect to the AI agent. Please check your agent configuration.',
   },
 };
 
@@ -116,4 +117,56 @@ export const WithInput: Story = {
     messages: sampleMessages,
     input: 'How do I add a new feature?',
   },
+};
+
+export const LongConversation: Story = {
+  args: {
+    messages: Array.from({ length: 20 }, (_, i) => ({
+      id: String(i + 1),
+      role: (i % 2 === 0 ? 'user' : 'assistant') as 'user' | 'assistant',
+      content:
+        i % 2 === 0
+          ? `This is user message number ${Math.floor(i / 2) + 1}`
+          : `Here is a response to your question. This is a somewhat longer response that demonstrates how the chat interface handles multi-line content with **markdown formatting** and various text lengths.`,
+      timestamp: new Date(`2026-03-12T10:${String(i).padStart(2, '0')}:00`),
+      status: 'complete' as const,
+    })),
+  },
+};
+
+export const CodeBlockRendering: Story = {
+  args: {
+    messages: [
+      {
+        id: '1',
+        role: 'user',
+        content: 'Show me a React component example',
+        timestamp: new Date('2026-03-12T10:00:00'),
+        status: 'complete',
+      },
+      {
+        id: '2',
+        role: 'assistant',
+        content: `Here's a React component with TypeScript:\n\n\`\`\`tsx\nimport { useState } from 'react';\n\ninterface CounterProps {\n  initialCount?: number;\n}\n\nexport function Counter({ initialCount = 0 }: CounterProps) {\n  const [count, setCount] = useState(initialCount);\n\n  return (\n    <div className="flex items-center gap-2">\n      <button onClick={() => setCount(c => c - 1)}>-</button>\n      <span>{count}</span>\n      <button onClick={() => setCount(c => c + 1)}>+</button>\n    </div>\n  );\n}\n\`\`\`\n\nYou can also use inline code like \`useState\` or \`useEffect\`.`,
+        timestamp: new Date('2026-03-12T10:00:05'),
+        status: 'complete',
+      },
+    ],
+  },
+};
+
+export const Mobile: Story = {
+  args: {
+    messages: sampleMessages.slice(0, 2),
+  },
+  parameters: {
+    viewport: { defaultViewport: 'mobile1' },
+  },
+  decorators: [
+    (Story) => (
+      <div style={{ height: '568px', width: '320px' }}>
+        <Story />
+      </div>
+    ),
+  ],
 };

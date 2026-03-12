@@ -97,12 +97,14 @@ function PromptInput({
 
 export type PromptInputTextareaProps = {
   disableAutosize?: boolean;
-} & React.ComponentProps<typeof Textarea>;
+  ref?: React.Ref<HTMLTextAreaElement>;
+} & Omit<React.ComponentProps<typeof Textarea>, 'ref'>;
 
 function PromptInputTextarea({
   className,
   onKeyDown,
   disableAutosize = false,
+  ref: externalRef,
   ...props
 }: PromptInputTextareaProps) {
   const { value, setValue, maxHeight, onSubmit, disabled, textareaRef } = usePromptInput();
@@ -121,6 +123,11 @@ function PromptInputTextarea({
 
   const handleRef = (el: HTMLTextAreaElement | null) => {
     textareaRef.current = el;
+    if (typeof externalRef === 'function') {
+      externalRef(el);
+    } else if (externalRef && typeof externalRef === 'object') {
+      (externalRef as React.MutableRefObject<HTMLTextAreaElement | null>).current = el;
+    }
     adjustHeight(el);
   };
 

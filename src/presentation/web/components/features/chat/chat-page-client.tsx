@@ -1,14 +1,42 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { useChat } from '@/hooks/use-chat';
 import { ChatView } from './chat-view';
 
 export function ChatPageClient() {
   const { messages, status, error, sendMessage, retry, clearChat } = useChat();
   const [input, setInput] = useState('');
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const prevStatusRef = useRef(status);
 
   const isStreaming = status === 'sending' || status === 'streaming';
+
+  // Auto-focus input on mount
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  // Re-focus input after streaming completes or on error
+  useEffect(() => {
+    const prevStatus = prevStatusRef.current;
+    prevStatusRef.current = status;
+
+    if (
+      (prevStatus === 'streaming' || prevStatus === 'sending') &&
+      (status === 'idle' || status === 'error')
+    ) {
+      inputRef.current?.focus();
+    }
+  }, [status]);
+
+  // Show toast on error
+  useEffect(() => {
+    if (error) {
+      toast.error('Chat error', { description: error });
+    }
+  }, [error]);
 
   const handleSubmit = useCallback(() => {
     const trimmed = input.trim();
@@ -29,25 +57,21 @@ export function ChatPageClient() {
   const handleClear = useCallback(() => {
     clearChat();
     setInput('');
+    inputRef.current?.focus();
   }, [clearChat]);
 
   return (
-    <div className="flex h-full flex-col">
-      <ChatView
-        messages={messages}
-        input={input}
-        onInputChange={setInput}
-        onSubmit={handleSubmit}
-        onSuggestionClick={handleSuggestionClick}
-        onClear={handleClear}
-        onRetry={retry}
-        isStreaming={isStreaming}
-      />
-      {error ? (
-        <div className="border-destructive bg-destructive/10 text-destructive mx-4 mb-2 rounded-md border px-3 py-2 text-sm">
-          {error}
-        </div>
-      ) : null}
-    </div>
+    <ChatView
+      messages={messages}
+      input={input}
+      onInputChange={setInput}
+      onSubmit={handleSubmit}
+      onSuggestionClick={handleSuggestionClick}
+      onClear={handleClear}
+      onRetry={retry}
+      isStreaming={isStreaming}
+      error={error}
+      inputRef={inputRef}
+    />
   );
 }
