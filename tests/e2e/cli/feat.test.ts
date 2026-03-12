@@ -34,7 +34,7 @@ describe('CLI: feat', () => {
     // (git worktree requires at least one commit)
     tempRepo = mkdtempSync(join(tmpdir(), 'shep-feat-test-repo-'));
     // Security: all execSync inputs are hardcoded test constants, not user input
-    execSync('git init', { cwd: tempRepo, stdio: 'pipe' });
+    execSync('git init -b main', { cwd: tempRepo, stdio: 'pipe' });
     execSync('git config user.name "Test User"', { cwd: tempRepo, stdio: 'pipe' });
     execSync('git config user.email "test@example.com"', { cwd: tempRepo, stdio: 'pipe' });
     execSync('git commit --allow-empty -m "Initial commit"', { cwd: tempRepo, stdio: 'pipe' });

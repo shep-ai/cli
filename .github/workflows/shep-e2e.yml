@@ -14,9 +14,6 @@ on:
   schedule:
     - cron: '0 * * * *' # every hour
   workflow_dispatch:
-  pull_request:
-    paths:
-      - '.github/workflows/shep-e2e.yml'
 
 concurrency:
   group: shep-e2e-${{ github.ref }}
