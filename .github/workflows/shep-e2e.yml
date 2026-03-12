@@ -447,6 +447,7 @@ jobs:
 
   # ===========================================================================
   # Feature Test: Claude Code on Ubuntu — full SDLC + push + PR
+  # Uses the shep repo itself (already checked out) as the target.
   # ===========================================================================
   claude-ubuntu-full-sdlc-pr:
     name: claude-code / ubuntu / full-sdlc + push + pr
@@ -481,30 +482,11 @@ jobs:
           curl -fsSL https://claude.ai/install.sh | bash
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-      - name: Create target repo with GitHub remote
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          SUFFIX=$(node -e "console.log(Math.random().toString(36).slice(2,8))")
-          REPO_NAME="shep-e2e-test-${SUFFIX}"
-          gh repo create "shep-ai/${REPO_NAME}" --private --clone
-          cd "${REPO_NAME}"
-          git config user.name "shep-bot"
-          git config user.email "bot@shep.ai"
-          echo "# E2E Test Repo" > README.md
-          git add README.md
-          git commit -m "initial commit"
-          git push -u origin main
-          echo "TARGET_DIR=$(pwd)" >> $GITHUB_ENV
-          echo "REPO_NAME=${REPO_NAME}" >> $GITHUB_ENV
-
       - name: Configure shep agent
-        working-directory: ${{ env.TARGET_DIR }}
         run: shep settings agent --agent claude-code --auth session
 
       - name: Create feature (full SDLC + push + PR)
         timeout-minutes: 15
-        working-directory: ${{ env.TARGET_DIR }}
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -517,7 +499,6 @@ jobs:
             --model claude-haiku-4-5
 
       - name: Verify feature listed
-        working-directory: ${{ env.TARGET_DIR }}
         run: |
           OUTPUT=$(shep feat ls)
           echo "$OUTPUT"
@@ -531,7 +512,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           const { execSync } = require('child_process');
-          const cwd = process.env.TARGET_DIR;
+          const cwd = process.cwd();
           const fs = require('fs');
 
           const lsOutput = execSync('shep feat ls', { cwd, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
@@ -557,14 +538,11 @@ jobs:
           poll();
 
       - name: Show completed feature
-        working-directory: ${{ env.TARGET_DIR }}
         run: shep feat show "$FEATURE_ID"
 
       - name: Verify push and PR
-        working-directory: ${{ env.TARGET_DIR }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          E2E_REPO_NAME: ${{ env.REPO_NAME }}
         run: |
           echo "=== Remote branches ==="
           git fetch origin
@@ -572,8 +550,8 @@ jobs:
 
           echo ""
           echo "=== Open PRs ==="
-          gh pr list --repo "shep-ai/${E2E_REPO_NAME}" --state open
-          PR_COUNT=$(gh pr list --repo "shep-ai/${E2E_REPO_NAME}" --state open --json number -q 'length')
+          gh pr list --state open
+          PR_COUNT=$(gh pr list --state open --json number -q 'length')
           echo "Open PR count: $PR_COUNT"
           if [ "$PR_COUNT" -lt 1 ]; then
             echo "::warning::No PR was created"
@@ -581,18 +559,22 @@ jobs:
             echo "PR created successfully!"
           fi
 
-      - name: Delete temp GitHub repo
+      - name: Cleanup e2e branch and PR
         if: always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          E2E_REPO_NAME: ${{ env.REPO_NAME }}
         run: |
-          echo "Deleting temp repo: shep-ai/${E2E_REPO_NAME}"
-          gh repo delete "shep-ai/${E2E_REPO_NAME}" --yes || echo "(repo may not exist)"
+          # Close any PRs created by this e2e run and delete their branches
+          if [ -n "$FEATURE_ID" ]; then
+            # Find PRs with branches matching the feature
+            for pr_number in $(gh pr list --state open --json number,headRefName -q '.[] | select(.headRefName | test("e2e|test-")) | .number'); do
+              echo "Closing PR #${pr_number} and deleting branch..."
+              gh pr close "$pr_number" --delete-branch || true
+            done
+          fi
 
       - name: Dump feature logs
         if: always()
-        working-directory: ${{ env.TARGET_DIR }}
         run: shep feat logs "$FEATURE_ID" || echo "(no logs available)"
 
       - name: Upload shep logs
