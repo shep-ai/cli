@@ -6,6 +6,7 @@
 
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { join } from 'node:path';
 import { AgentRunStatus } from '@/domain/generated/output.js';
 import type { AgentRun } from '@/domain/generated/output.js';
 import { ReviewFeatureUseCase } from '@/application/use-cases/agents/review-feature.use-case.js';
@@ -254,7 +255,7 @@ describe('ReviewFeatureUseCase', () => {
     await useCase.execute('feat-001', '/test/repo');
 
     expect(mockReadFileSync).toHaveBeenCalledWith(
-      '/test/repo/.shep/wt/feat-branch/specs/my-feature/spec.yaml',
+      join('/test/repo/.shep/wt/feat-branch/specs/my-feature', 'spec.yaml'),
       'utf-8'
     );
   });

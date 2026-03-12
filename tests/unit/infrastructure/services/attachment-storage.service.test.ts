@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, existsSync, readFileSync, readdirSync } from 'fs';
 import { rmSync } from 'fs';
-import { join } from 'path';
+import { join, isAbsolute } from 'path';
 import { tmpdir } from 'os';
 import { createHash } from 'crypto';
 
@@ -47,7 +47,7 @@ describe('AttachmentStorageService', () => {
       expect(result.sha256).toBe(hash);
 
       // Path should be absolute
-      expect(result.path).toMatch(/^\//);
+      expect(isAbsolute(result.path)).toBe(true);
       expect(result.path).toContain('attachments/pending-session-1');
 
       // File should exist on disk
@@ -92,7 +92,7 @@ describe('AttachmentStorageService', () => {
       // Path should be absolute and contain slug dir
       expect(attachments[0].path).toContain('my-feature');
       expect(attachments[0].path).not.toContain('pending');
-      expect(attachments[0].path).toMatch(/^\//);
+      expect(isAbsolute(attachments[0].path)).toBe(true);
 
       // Pending dir should no longer exist
       const pendingDir = join(tmpDir, 'attachments', 'pending-session-1');

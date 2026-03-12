@@ -1,0 +1,255 @@
+name: windows-support
+summary: >
+  Add Windows (win32) runtime support by replacing Unix-only APIs with
+  cross-platform alternatives across 5 work streams: (1) install two new
+  dependencies (tree-kill, which), (2) replace execFile('which') and
+  spawn('sh') with cross-platform equivalents, (3) add win32 entries to Web
+  UI action Records and tool JSON files, (4) replace negative-PID process
+  group kills with tree-kill, and (5) fix path validation and separator
+  handling. All changes follow the existing codebase convention of
+  Record<string, ...> platform lookups and DeploymentServiceDeps-style
+  dependency injection. No build scripts, CI, or test fixtures are modified.
+
+relatedFeatures: []
+technologies:
+  - Node.js child_process (spawn, fork, execFile)
+  - Node.js path module (isAbsolute, sep, join)
+  - Node.js os module (platform, homedir)
+  - tree-kill (npm v1.2.2) — cross-platform process tree termination
+  - which (npm v6.x) — cross-platform binary existence check
+  - PowerShell — Windows terminal for open-shell action
+  - explorer.exe — Windows file manager for open-folder action
+  - winget — Windows Package Manager for tool install commands
+relatedLinks:
+  - https://nodejs.org/api/child_process.html#child_processspawncommand-args-options
+  - https://www.npmjs.com/package/tree-kill
+  - https://www.npmjs.com/package/which
+
+phases:
+  - id: phase-1
+    name: 'Dependencies & Foundation'
+    description: >
+      Install tree-kill and which as runtime dependencies in packages/core.
+      These are prerequisites for all subsequent phases — process management
+      and binary detection changes depend on them.
+    parallel: false
+
+  - id: phase-2
+    name: 'Cross-Platform Path Handling'
+    description: >
+      Replace all startsWith("/") absolute path checks with path.isAbsolute()
+      and replace hardcoded "/" path separators with path.sep. These are small,
+      low-risk, isolated changes that establish the cross-platform path
+      foundation needed by later phases. Six files affected: open-shell.ts,
+      open-folder.ts, open-ide.ts, deploy-repository.ts, dev-executor.service.ts,
+      and claude-code-session.repository.ts.
+    parallel: false
+
+  - id: phase-3
+    name: 'Shell Execution & Binary Detection'
+    description: >
+      Replace spawn("sh", ["-c", cmd]) with spawn(cmd, { shell: true }) in
+      tool-installer.service.ts. Replace execFile("which", [binary]) with the
+      npm which package in tool-installer.service.ts and
+      json-driven-ide-launcher.service.ts. These changes make the two core
+      infrastructure services work on Windows.
+    parallel: false
+
+  - id: phase-4
+    name: 'Process Management'
+    description: >
+      Replace negative-PID process.kill(-pid, signal) with tree-kill in
+      deployment.service.ts. Replace process.kill(pid, SIGTERM/SIGKILL) with
+      tree-kill in stop-daemon.ts. Add windowsHide: true to daemon spawn
+      options in start-daemon.ts. These are the highest-complexity changes,
+      affecting daemon lifecycle and dev server management.
+    parallel: false
+
+  - id: phase-5
+    name: 'Web UI Actions & Tool Metadata'
+    description: >
+      Add win32 entries to SHELL_COMMANDS in open-shell.ts (PowerShell) and
+      FOLDER_COMMANDS in open-folder.ts (explorer.exe). Add winget install
+      commands to the 10 tool JSON files that have Windows-available packages.
+      Update platform arrays for tools gaining win32 support.
+    parallel: false
+
+filesToCreate: []
+
+filesToModify:
+  # Phase 1 — Dependencies
+  - packages/core/package.json
+
+  # Phase 2 — Path handling
+  - src/presentation/web/app/actions/open-shell.ts
+  - src/presentation/web/app/actions/open-folder.ts
+  - src/presentation/web/app/actions/open-ide.ts
+  - src/presentation/web/app/actions/deploy-repository.ts
+  - packages/core/src/infrastructure/services/agents/common/executors/dev-executor.service.ts
+  - packages/core/src/infrastructure/services/agents/sessions/claude-code-session.repository.ts
+
+  # Phase 3 — Shell & binary detection
+  - packages/core/src/infrastructure/services/tool-installer/tool-installer.service.ts
+  - packages/core/src/infrastructure/services/ide-launchers/json-driven-ide-launcher.service.ts
+
+  # Phase 4 — Process management
+  - packages/core/src/infrastructure/services/deployment/deployment.service.ts
+  - src/presentation/cli/commands/daemon/stop-daemon.ts
+  - src/presentation/cli/commands/daemon/start-daemon.ts
+
+  # Phase 5 — Web UI actions & tool metadata
+  - packages/core/src/infrastructure/services/tool-installer/tools/git.json
+  - packages/core/src/infrastructure/services/tool-installer/tools/gh.json
+  - packages/core/src/infrastructure/services/tool-installer/tools/vscode.json
+  - packages/core/src/infrastructure/services/tool-installer/tools/cursor.json
+  - packages/core/src/infrastructure/services/tool-installer/tools/cursor-cli.json
+  - packages/core/src/infrastructure/services/tool-installer/tools/alacritty.json
+  - packages/core/src/infrastructure/services/tool-installer/tools/windsurf.json
+  - packages/core/src/infrastructure/services/tool-installer/tools/zed.json
+  - packages/core/src/infrastructure/services/tool-installer/tools/warp.json
+  - packages/core/src/infrastructure/services/tool-installer/tools/claude-code.json
+
+  # Test files (new/updated assertions for win32)
+  - tests/unit/presentation/web/actions/open-shell.test.ts
+  - tests/unit/presentation/web/actions/open-folder.test.ts
+  - tests/unit/presentation/web/actions/open-ide.test.ts
+  - tests/unit/presentation/web/actions/deploy-repository.test.ts
+  - tests/unit/infrastructure/services/deployment/deployment.service.test.ts
+  - tests/unit/commands/daemon/stop-daemon.test.ts
+  - tests/unit/commands/daemon/start-daemon.test.ts
+  - tests/unit/infrastructure/services/ide-launchers/json-driven-ide-launcher.service.test.ts
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  The @shepai/cli codebase follows Clean Architecture with four layers:
+  domain, application, infrastructure, and presentation. Windows support is
+  exclusively an infrastructure and presentation concern — no domain or
+  application layer changes are needed.
+
+  The codebase already has established patterns for platform-specific behavior:
+
+  1. **Record<string, ...> lookups** — Used in open-shell.ts, open-folder.ts,
+     browser-opener.service.ts, file-dialog.service.ts, folder-dialog.service.ts.
+     A `Record<string, { cmd, args }>` keyed by `os.platform()` return value
+     (`darwin`, `linux`, `win32`). Turbopack-safe — prevents dead-code elimination.
+
+  2. **DeploymentServiceDeps injection** — deployment.service.ts injects `kill`
+     and `isAlive` functions via a `Partial<DeploymentServiceDeps>` constructor
+     parameter. The gold standard for platform-abstracting process functions.
+
+  3. **resolvePlatformValue()** — json-driven-ide-launcher.service.ts uses a
+     helper that accepts `string | Record<string, string>` and falls back to
+     the first value when the current platform isn't in the Record.
+
+  4. **Tool JSON declarative metadata** — Each tool JSON file has a `commands`
+     Record keyed by platform and a `platforms` array listing supported platforms.
+     The service returns null when the current platform has no command entry.
+
+  All new win32 branches follow these exact patterns. No new patterns are
+  introduced.
+
+  ## Key Design Decisions
+
+  ### 1. npm `which` package for binary detection (replaces execFile("which"))
+
+  The codebase calls `execFile('which', [binary])` in two files:
+  tool-installer.service.ts:52 and json-driven-ide-launcher.service.ts:133.
+  The Unix `which` command doesn't exist on Windows. The npm `which` package
+  (v6.x, 189M+ downloads, maintained by npm/isaacs) provides `which(binary)`
+  with a `nothrow` option and handles Windows PATHEXT resolution internally.
+  This eliminates platform branching entirely.
+
+  **Alternative rejected:** Platform-conditional `which`/`where.exe` — adds
+  manual branching and `where.exe` output parsing.
+
+  ### 2. tree-kill for process tree termination (replaces negative-PID kill)
+
+  deployment.service.ts uses `process.kill(-pid, signal)` at lines 183, 199,
+  249 to send signals to entire process groups. Negative-PID semantics don't
+  exist on Windows. tree-kill (v1.2.2, 18M+ downloads, zero dependencies)
+  provides cross-platform process tree termination using `taskkill /T /F` on
+  Windows and `kill`/`ps`/`pgrep` on Unix.
+
+  The deployment.service.ts already injects `kill` via `DeploymentServiceDeps`,
+  making tree-kill integration clean — replace the `defaultDeps.kill`
+  implementation. For stop-daemon.ts, tree-kill replaces the direct
+  `process.kill(pid, signal)` calls.
+
+  **Alternative rejected:** Custom taskkill implementation — risks edge cases
+  around permissions, zombies, and deep process trees. tree-kill is battle-tested.
+
+  ### 3. spawn({ shell: true }) for cross-platform shell execution
+
+  tool-installer.service.ts:160 uses `spawn('sh', ['-c', cmd])` which hard-codes
+  the Unix shell. Node.js `spawn(cmd, { shell: true })` automatically selects
+  `/bin/sh` on Unix and `cmd.exe` on Windows. This is the idiomatic Node.js
+  solution, already used in deployment.service.ts:99.
+
+  ### 4. path.isAbsolute() for cross-platform path validation
+
+  Five files use `startsWith('/')` to validate absolute paths. `path.isAbsolute()`
+  handles Unix `/`, Windows `C:\`, `D:/`, and UNC `\\server\share` paths.
+  Zero-dependency change using Node.js built-ins.
+
+  ### 5. PowerShell for open-shell, explorer.exe for open-folder
+
+  PowerShell is universally available on all Windows versions. Using
+  `powershell -NoExit -Command "Set-Location '<path>'"` follows the existing
+  `{ cmd, args }` Record pattern. explorer.exe is the direct Windows equivalent
+  of macOS `open` and Linux `xdg-open` for opening file manager windows.
+
+  ### 6. winget as sole Windows package manager
+
+  winget ships with Windows 10 1709+ and all Windows 11, requiring zero
+  prerequisites. 10 of the 15 tool JSON files have Windows-available packages
+  via winget. The remaining 5 (iterm2, kitty, tmux, antigravity, gemini-cli)
+  are macOS/Linux-only or use npm — they correctly have no win32 entry.
+
+  ### 7. windowsHide: true for daemon spawn
+
+  On Windows, `detached: true` creates a visible console window.
+  `windowsHide: true` suppresses it. This option is harmlessly ignored on
+  Unix. Safe to add unconditionally to start-daemon.ts spawn options.
+
+  ## Implementation Strategy
+
+  The phases are ordered by dependency chain and risk:
+
+  **Phase 1 (Dependencies)** comes first because all subsequent phases depend
+  on tree-kill and/or which being available. This is a simple `pnpm add` with
+  no code changes.
+
+  **Phase 2 (Path Handling)** is second because it's the lowest-risk change
+  (replacing string checks with Node.js built-ins) and establishes the path
+  validation foundation that Web UI actions need. Tests already mock
+  `os.platform()` and test win32 error cases — these become success cases.
+
+  **Phase 3 (Shell & Binary Detection)** depends on the `which` package from
+  Phase 1. Changes to tool-installer.service.ts and
+  json-driven-ide-launcher.service.ts are isolated from each other and can
+  be tackled independently.
+
+  **Phase 4 (Process Management)** depends on tree-kill from Phase 1. This is
+  the highest-complexity phase — deployment.service.ts process group semantics
+  and stop-daemon.ts signal handling require careful testing. The existing
+  DeploymentServiceDeps injection pattern makes tree-kill integration clean.
+
+  **Phase 5 (Web UI Actions & Tool Metadata)** depends on Phase 2 (path
+  validation fixes) being complete. Adding win32 Record entries to
+  open-shell.ts and open-folder.ts, and winget commands to tool JSON files
+  are low-risk, declarative changes.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | tree-kill v1.2.1 has an RCE vulnerability | Pin to tree-kill@^1.2.2 which fixes CVE. Verify in lockfile. |
+  | spawn({ shell: true }) may have different quoting semantics on Windows | The install commands in tool JSON files are single shell commands. Test on both platforms by verifying the spawn call receives the correct command string. |
+  | Existing tests may assert Unix-specific behavior | Update test expectations: open-shell.test.ts and open-folder.test.ts currently assert win32 returns error — change to assert PowerShell/explorer.exe spawn. |
+  | which package may not find binaries with unusual PATHEXT | which v6.x handles .exe, .cmd, .bat, .ps1. The project's tools all use standard extensions. |
+  | Turbopack tree-shaking may eliminate win32 branches | The codebase uses Record lookups specifically to prevent this (see comments in open-shell.ts:9-12). New win32 entries in the same Record are safe. |
+  | Dev-executor regex patterns hardcode Unix paths | extractSpecDir() uses regex matching `/` paths from agent prompts. On Windows, paths would use `\`. Both the regex and validateSpecDir need updating — but dev-executor is a test mock that may never run on Windows. path.isAbsolute() covers the validation. |
+  | DEBIAN_FRONTEND env var in tool-installer is Unix-only | Harmless on Windows — unrecognized env vars are ignored. Keep it for Linux compatibility. |

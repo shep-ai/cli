@@ -5,13 +5,14 @@
   "tags": ["cli-agent"],
   "author": "Anthropic",
   "website": "https://claude.ai/code",
-  "platforms": ["linux", "darwin"],
+  "platforms": ["linux", "darwin", "win32"],
   "iconUrl": "https://cdn.simpleicons.org/claude",
   "binary": "claude",
   "packageManager": "curl",
   "commands": {
     "linux": "curl -fsSL https://claude.ai/install.sh | bash",
-    "darwin": "curl -fsSL https://claude.ai/install.sh | bash"
+    "darwin": "curl -fsSL https://claude.ai/install.sh | bash",
+    "win32": "npm install -g @anthropic-ai/claude-code"
   },
   "timeout": 300000,
   "documentationUrl": "https://code.claude.com/docs/en/overview",

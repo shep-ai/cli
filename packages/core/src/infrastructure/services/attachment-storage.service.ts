@@ -40,7 +40,7 @@ export class AttachmentStorageService {
       name: sanitized,
       size: BigInt(buffer.length),
       mimeType,
-      path: filePath,
+      path: filePath.replace(/\\/g, '/'),
       createdAt: new Date(),
       sha256: hash,
     };
@@ -82,7 +82,7 @@ export class AttachmentStorageService {
           name: stored.name,
           size: stored.size,
           mimeType: stored.mimeType,
-          path: newPath,
+          path: newPath.replace(/\\/g, '/'),
           createdAt: stored.createdAt,
         });
       }
@@ -97,7 +97,7 @@ export class AttachmentStorageService {
           name: file,
           size: BigInt(0),
           mimeType: 'application/octet-stream',
-          path: filePath,
+          path: filePath.replace(/\\/g, '/'),
           createdAt: new Date(),
         });
       }

@@ -8,8 +8,9 @@
  */
 
 import { injectable } from 'tsyringe';
-import { spawn, execFile } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { platform } from 'node:os';
+import { checkBinaryExists } from '../tool-installer/binary-exists.js';
 import type {
   IIdeLauncherService,
   LaunchIdeResult,
@@ -124,15 +125,12 @@ export class JsonDrivenIdeLauncherService implements IIdeLauncherService {
     }
   }
 
-  checkAvailability(editorId: string): Promise<boolean> {
+  async checkAvailability(editorId: string): Promise<boolean> {
     const entry = this.editors.get(editorId);
-    if (!entry) return Promise.resolve(false);
+    if (!entry) return false;
 
     const binary = resolvePlatformValue(entry.binary);
-    return new Promise((resolve) => {
-      execFile('which', [binary], (err) => {
-        resolve(!err);
-      });
-    });
+    const result = await checkBinaryExists(binary);
+    return result.found;
   }
 }

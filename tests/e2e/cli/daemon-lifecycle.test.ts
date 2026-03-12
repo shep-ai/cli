@@ -20,7 +20,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { createServer } from 'node:net';
 import { mkdtempSync, rmSync, writeFileSync, chmodSync } from 'node:fs';
 import { readFile, access } from 'node:fs/promises';
@@ -28,6 +28,8 @@ import { constants } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createCliRunner } from '../../helpers/cli/runner.js';
+
+const isWindows = process.platform === 'win32';
 
 // These tests involve process spawning and signal delivery — use a generous timeout
 const TEST_TIMEOUT = 30_000;
@@ -40,16 +42,25 @@ const TEST_TIMEOUT = 30_000;
  * installExitCode when running `npm i` (install).
  */
 function createFakeNpmBin(dir: string, viewVersion: string, installExitCode: number): void {
-  const scriptPath = join(dir, 'npm');
-  writeFileSync(
-    scriptPath,
-    `${[
-      '#!/bin/sh',
-      `if [ "$1" = "view" ]; then echo "${viewVersion}"; exit 0; fi`,
-      `exit ${installExitCode}`,
-    ].join('\n')}\n`
-  );
-  chmodSync(scriptPath, 0o755);
+  if (isWindows) {
+    // On Windows, create a .cmd batch file that shadows the real npm
+    const scriptPath = join(dir, 'npm.cmd');
+    writeFileSync(
+      scriptPath,
+      `@echo off\r\nif "%1"=="view" (\r\n  echo ${viewVersion}\r\n  exit /b 0\r\n)\r\nexit /b ${installExitCode}\r\n`
+    );
+  } else {
+    const scriptPath = join(dir, 'npm');
+    writeFileSync(
+      scriptPath,
+      `${[
+        '#!/bin/sh',
+        `if [ "$1" = "view" ]; then echo "${viewVersion}"; exit 0; fi`,
+        `exit ${installExitCode}`,
+      ].join('\n')}\n`
+    );
+    chmodSync(scriptPath, 0o755);
+  }
 }
 
 /**
@@ -121,6 +132,14 @@ function findFreePort(): Promise<number> {
  * Uses negative PID to kill the group, with fallback to direct kill.
  */
 function killPid(pid: number): void {
+  if (isWindows) {
+    try {
+      spawnSync('taskkill', ['/pid', String(pid), '/T', '/F'], { stdio: 'ignore' });
+    } catch {
+      // Already dead
+    }
+    return;
+  }
   try {
     process.kill(-pid, 'SIGKILL');
   } catch {
@@ -257,7 +276,9 @@ describe('CLI: daemon lifecycle', { timeout: TEST_TIMEOUT }, () => {
       }).run;
 
       // Spawn a harmless long-running process to act as our fake daemon
-      fakeProcess = spawn('sleep', ['60'], { detached: true, stdio: 'ignore' });
+      fakeProcess = isWindows
+        ? spawn('node', ['-e', 'setTimeout(()=>{},60000)'], { stdio: 'ignore' })
+        : spawn('sleep', ['60'], { detached: true, stdio: 'ignore' });
       fakeProcess.unref();
 
       // Populate daemon.json as if `shep start` had run
@@ -321,11 +342,15 @@ describe('CLI: daemon lifecycle', { timeout: TEST_TIMEOUT }, () => {
         const temp = makeTempShepHome();
         shepHome = temp.shepHome;
         cleanup = temp.cleanup;
+        // restart = stop (up to 5s poll) + start (0.5s settle) — needs longer timeout on Windows
         runCli = createCliRunner({
           env: { SHEP_HOME: shepHome, SHEP_SKIP_READINESS_CHECK: '1' },
+          timeout: 20_000,
         }).run;
 
-        fakeProcess = spawn('sleep', ['60'], { detached: true, stdio: 'ignore' });
+        fakeProcess = isWindows
+          ? spawn('node', ['-e', 'setTimeout(()=>{},60000)'], { stdio: 'ignore' })
+          : spawn('sleep', ['60'], { detached: true, stdio: 'ignore' });
         fakeProcess.unref();
         writeDaemonJson(shepHome, fakeProcess.pid!, fakePort);
       });
@@ -370,8 +395,10 @@ describe('CLI: daemon lifecycle', { timeout: TEST_TIMEOUT }, () => {
         const temp = makeTempShepHome();
         shepHome = temp.shepHome;
         cleanup = temp.cleanup;
+        // restart involves startDaemon which may take longer on Windows
         runCli = createCliRunner({
           env: { SHEP_HOME: shepHome, SHEP_SKIP_READINESS_CHECK: '1' },
+          timeout: 20_000,
         }).run;
       });
 
@@ -428,15 +455,19 @@ describe('CLI: daemon lifecycle', { timeout: TEST_TIMEOUT }, () => {
           }
         };
 
+        // upgrade = version check + stop (up to 5s poll) + install + start — needs longer timeout
         runCli = createCliRunner({
           env: {
             SHEP_HOME: shepHome,
             SHEP_SKIP_READINESS_CHECK: '1',
-            PATH: `${binDir}:${process.env.PATH ?? '/usr/local/bin:/usr/bin:/bin'}`,
+            PATH: `${binDir}${isWindows ? ';' : ':'}${process.env.PATH ?? '/usr/local/bin:/usr/bin:/bin'}`,
           },
+          timeout: 20_000,
         }).run;
 
-        fakeProcess = spawn('sleep', ['60'], { detached: true, stdio: 'ignore' });
+        fakeProcess = isWindows
+          ? spawn('node', ['-e', 'setTimeout(()=>{},60000)'], { stdio: 'ignore' })
+          : spawn('sleep', ['60'], { detached: true, stdio: 'ignore' });
         fakeProcess.unref();
         writeDaemonJson(shepHome, fakeProcess.pid!, fakePort);
       });
@@ -488,15 +519,19 @@ describe('CLI: daemon lifecycle', { timeout: TEST_TIMEOUT }, () => {
           }
         };
 
+        // upgrade = version check + stop (up to 5s poll) + install + start — needs longer timeout
         runCli = createCliRunner({
           env: {
             SHEP_HOME: shepHome,
             SHEP_SKIP_READINESS_CHECK: '1',
-            PATH: `${binDir}:${process.env.PATH ?? '/usr/local/bin:/usr/bin:/bin'}`,
+            PATH: `${binDir}${isWindows ? ';' : ':'}${process.env.PATH ?? '/usr/local/bin:/usr/bin:/bin'}`,
           },
+          timeout: 20_000,
         }).run;
 
-        fakeProcess = spawn('sleep', ['60'], { detached: true, stdio: 'ignore' });
+        fakeProcess = isWindows
+          ? spawn('node', ['-e', 'setTimeout(()=>{},60000)'], { stdio: 'ignore' })
+          : spawn('sleep', ['60'], { detached: true, stdio: 'ignore' });
         fakeProcess.unref();
         writeDaemonJson(shepHome, fakeProcess.pid!, fakePort);
       });
@@ -546,12 +581,14 @@ describe('CLI: daemon lifecycle', { timeout: TEST_TIMEOUT }, () => {
           }
         };
 
+        // upgrade = version check + install — needs longer timeout on Windows
         runCli = createCliRunner({
           env: {
             SHEP_HOME: shepHome,
             SHEP_SKIP_READINESS_CHECK: '1',
-            PATH: `${binDir}:${process.env.PATH ?? '/usr/local/bin:/usr/bin:/bin'}`,
+            PATH: `${binDir}${isWindows ? ';' : ':'}${process.env.PATH ?? '/usr/local/bin:/usr/bin:/bin'}`,
           },
+          timeout: 20_000,
         }).run;
         // No daemon.json written — daemon is not running
       });

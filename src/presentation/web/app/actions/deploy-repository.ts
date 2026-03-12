@@ -1,6 +1,7 @@
 'use server';
 
 import { existsSync } from 'node:fs';
+import { isAbsolute } from 'node:path';
 import { resolve } from '@/lib/server-container';
 import { createDeploymentLogger } from '@shepai/core/infrastructure/services/deployment/deployment-logger';
 import type { IDeploymentService } from '@shepai/core/application/ports/output/services/deployment-service.interface';
@@ -13,7 +14,7 @@ export async function deployRepository(
 ): Promise<{ success: boolean; error?: string; state?: DeploymentState }> {
   log.info(`called — repositoryPath="${repositoryPath}"`);
 
-  if (!repositoryPath?.startsWith('/')) {
+  if (!repositoryPath || !isAbsolute(repositoryPath)) {
     log.warn('rejected — not an absolute path');
     return { success: false, error: 'repositoryPath must be an absolute path' };
   }

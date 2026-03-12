@@ -20,6 +20,9 @@ type SpawnFn = typeof defaultSpawn;
 
 const VERSION_CHECK_TIMEOUT_MS = 10_000;
 
+/** On Windows, npm is a .cmd batch file — spawn() needs shell: true to resolve it. */
+const IS_WINDOWS = process.platform === 'win32';
+
 /**
  * Get the latest published version of @shepai/cli from npm registry.
  * Returns null if the check fails (fail-open).
@@ -31,6 +34,7 @@ function getLatestVersion(spawnFn: SpawnFn): Promise<string | null> {
 
     const child: ChildProcess = spawnFn('npm', ['view', '@shepai/cli', 'version'], {
       stdio: ['ignore', 'pipe', 'pipe'],
+      ...(IS_WINDOWS && { shell: true }),
     });
 
     const timeout = setTimeout(() => {
@@ -77,6 +81,7 @@ function runNpmInstall(spawnFn: SpawnFn): Promise<number> {
   return new Promise((resolve, reject) => {
     const child = spawnFn('npm', ['i', '-g', '@shepai/cli@latest'], {
       stdio: 'inherit',
+      ...(IS_WINDOWS && { shell: true }),
     });
 
     child.on('close', (code) => {

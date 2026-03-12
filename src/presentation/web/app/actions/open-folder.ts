@@ -2,6 +2,7 @@
 
 import { existsSync } from 'node:fs';
 import { platform } from 'node:os';
+import { isAbsolute } from 'node:path';
 import { spawn } from 'node:child_process';
 
 // Use a record lookup instead of if/else to prevent the bundler from
@@ -11,12 +12,13 @@ import { spawn } from 'node:child_process';
 const FOLDER_COMMANDS: Record<string, { cmd: string; args: (path: string) => string[] }> = {
   darwin: { cmd: 'open', args: (p) => [p] },
   linux: { cmd: 'xdg-open', args: (p) => [p] },
+  win32: { cmd: 'explorer', args: (p) => [p] },
 };
 
 export async function openFolder(
   repositoryPath: string
 ): Promise<{ success: boolean; error?: string; path?: string }> {
-  if (!repositoryPath?.startsWith('/')) {
+  if (!repositoryPath || !isAbsolute(repositoryPath)) {
     return { success: false, error: 'repositoryPath must be an absolute path' };
   }
 
@@ -29,7 +31,7 @@ export async function openFolder(
     if (!entry) {
       return {
         success: false,
-        error: `Unsupported platform: ${platform()}. Folder open is supported on macOS and Linux only.`,
+        error: `Unsupported platform: ${platform()}`,
       };
     }
 

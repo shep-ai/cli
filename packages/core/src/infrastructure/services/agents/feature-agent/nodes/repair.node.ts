@@ -22,7 +22,8 @@ export function buildRepairPrompt(
   specDir: string
 ): string {
   const filenames = Array.isArray(filename) ? filename : [filename];
-  const filePaths = filenames.map((f) => join(specDir, f));
+  // Normalize to forward slashes so prompts always use POSIX paths (even on Windows)
+  const filePaths = filenames.map((f) => join(specDir, f).replaceAll('\\', '/'));
 
   return [
     '## YAML Repair Task',

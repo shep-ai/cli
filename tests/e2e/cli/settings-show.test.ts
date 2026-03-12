@@ -16,7 +16,8 @@ describe('CLI: settings show', () => {
     expect(result.stdout).toContain('Agent');
     expect(result.stdout).toContain('Environment');
     expect(result.stdout).toContain('Database');
-    expect(result.stdout).toContain('/data');
+    // Database path ends with /data or \data depending on the platform
+    expect(result.stdout).toMatch(/[/\\]data/);
   });
 
   it('should output valid JSON with all settings sections', () => {

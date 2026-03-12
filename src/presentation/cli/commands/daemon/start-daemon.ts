@@ -83,6 +83,7 @@ export async function startDaemon(opts: StartDaemonOptions = {}): Promise<void> 
     {
       detached: true,
       stdio: ['ignore', logFd, logFd],
+      windowsHide: true,
     }
   );
 

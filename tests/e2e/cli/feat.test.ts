@@ -107,7 +107,10 @@ describe('CLI: feat', () => {
       runner.runOrThrow(`feat new "Worktree check" --repo ${tempRepo}`);
 
       // Worktrees are stored at $SHEP_HOME/repos/REPO_HASH/wt/FEATURE-SLUG
-      const repoHash = createHash('sha256').update(tempRepo).digest('hex').slice(0, 16);
+      const repoHash = createHash('sha256')
+        .update(tempRepo.replace(/\\/g, '/'))
+        .digest('hex')
+        .slice(0, 16);
       const worktreePath = join(shepHome, 'repos', repoHash, 'wt', 'feat-worktree-check');
       expect(existsSync(worktreePath)).toBe(true);
     }, 60_000);
@@ -120,7 +123,10 @@ describe('CLI: feat', () => {
 
       runner.runOrThrow(`feat new "Spec init check" --repo ${tempRepo}`);
 
-      const repoHash = createHash('sha256').update(tempRepo).digest('hex').slice(0, 16);
+      const repoHash = createHash('sha256')
+        .update(tempRepo.replace(/\\/g, '/'))
+        .digest('hex')
+        .slice(0, 16);
       const worktreePath = join(shepHome, 'repos', repoHash, 'wt', 'feat-spec-init-check');
       const specDir = join(worktreePath, 'specs', '001-spec-init-check');
 
@@ -221,7 +227,7 @@ describe('CLI: feat', () => {
       expect(result.stdout).toContain(featureId);
       expect(result.stdout).toContain('Show Detail Test');
       expect(result.stdout).toContain('feat/show-detail-test');
-      expect(result.stdout).toContain(tempRepo);
+      expect(result.stdout).toContain(tempRepo.replace(/\\/g, '/'));
     }, 60_000);
 
     it('should show error for nonexistent feature ID', () => {

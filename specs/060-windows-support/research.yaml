@@ -1,0 +1,564 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: windows-support
+summary: >
+  Technical research for adding Windows (win32) runtime support to @shepai/cli.
+  The codebase already uses Record<string, ...> platform lookup patterns and has
+  win32 branches in browser-opener, file-dialog, and folder-dialog services.
+  Key decisions: use npm `which` package for cross-platform binary detection,
+  `tree-kill` for process tree termination, Node.js `spawn({shell: true})` for
+  cross-platform shell execution, `path.isAbsolute()` for path validation, and
+  winget as the sole Windows package manager for tool install commands.
+
+relatedFeatures: []
+
+technologies:
+  - Node.js child_process (spawn, fork, execFile)
+  - Node.js path module (isAbsolute, sep, join, resolve)
+  - Node.js os module (platform, homedir)
+  - tree-kill (npm) — cross-platform process tree termination
+  - which (npm) — cross-platform binary existence check
+  - PowerShell — Windows shell for tool installs and terminal launch
+  - cmd.exe — Windows shell used by Node.js spawn({shell: true})
+  - winget — Windows Package Manager for tool install commands
+  - explorer.exe — Windows file manager for open-folder action
+  - Windows Terminal (wt.exe) — preferred terminal for open-shell action
+
+relatedLinks:
+  - https://nodejs.org/api/child_process.html#child_processspawncommand-args-options
+  - https://www.npmjs.com/package/tree-kill
+  - https://www.npmjs.com/package/which
+  - https://learn.microsoft.com/en-us/windows/package-manager/winget/
+
+decisions:
+  - title: 'Cross-platform binary detection strategy'
+    chosen: 'npm `which` package (v6.x)'
+    rejected:
+      - >
+        Platform-conditional execFile("which")/execFile("where.exe") — adds
+        manual platform branching that the codebase is trying to minimize.
+        `where.exe` output format differs from `which` (may return multiple
+        lines), requiring additional parsing. Each platform would need separate
+        error handling.
+      - >
+        Node.js child_process with shell: true (e.g., spawn("which foo", {shell: true})) —
+        works but conflates binary detection with shell invocation. On Windows
+        `which` doesn't exist in cmd.exe, so this would still need platform
+        branching for the command name.
+    rationale: >
+      The npm `which` package (v6.0.1, 189M+ weekly downloads, maintained by npm/isaacs)
+      provides a single cross-platform API for binary existence checks. It
+      handles Windows PATHEXT resolution internally (checking .exe, .cmd, .bat
+      extensions), eliminating all platform branching in detection logic. The
+      codebase currently uses `execFile('which', [binary])` in
+      tool-installer.service.ts (line 52) and json-driven-ide-launcher.service.ts
+      (line 133) — both can be replaced with a single `which(binary)` call that
+      works on all platforms. The package supports both async (`await which(binary)`)
+      and sync (`which.sync(binary)`) APIs with a `nothrow` option that returns
+      null instead of throwing, matching the existing error-handling pattern.
+
+  - title: 'Cross-platform process tree termination'
+    chosen: 'tree-kill package (v1.2.2)'
+    rejected:
+      - >
+        Custom taskkill implementation — writing custom code for
+        `taskkill /T /F /PID` on Windows and `kill(-pid, signal)` on Unix risks
+        edge cases around permission errors, zombie processes, nested process
+        trees, and already-exited processes. Maintaining and testing two
+        platform-specific code paths adds complexity with no benefit over a
+        battle-tested package.
+      - >
+        process.kill() with platform checks — using `process.kill(pid)` on
+        Windows only kills the individual process, not its children. Dev servers
+        (e.g., Next.js) spawn child processes that would be orphaned. The
+        deployment.service.ts stop() method (line 183) specifically uses negative
+        PID to kill process groups, which has no Windows equivalent in the
+        Node.js API.
+    rationale: >
+      tree-kill (v1.2.2, 18M+ weekly downloads, zero dependencies) provides
+      cross-platform process tree termination with a single API call:
+      `treeKill(pid, signal, callback)`. On Windows it uses `taskkill /pid PID /T /F`,
+      on Linux it uses `ps -o pid --ppid`, on macOS it uses `pgrep -P`. This
+      replaces the Unix-only `process.kill(-pid, signal)` pattern used in
+      deployment.service.ts (lines 183, 199, 249) and eliminates the need for
+      negative-PID process group semantics. The v1.2.2 release fixed a critical
+      RCE vulnerability (HackerOne #701183) present in v1.2.1, so pinning to
+      >=1.2.2 is essential. The package hasn't been updated in 6 years but
+      remains the standard solution — the problem space is stable and the
+      implementation is complete.
+
+  - title: 'Cross-platform shell command execution'
+    chosen: 'Node.js spawn() with shell: true option'
+    rejected:
+      - >
+        Platform-conditional shell selection (spawn("sh", ["-c", cmd]) on Unix,
+        spawn("cmd.exe", ["/c", cmd]) on Windows) — adds explicit platform
+        branching for something Node.js handles automatically. Requires testing
+        both paths and handling command quoting differences between sh and cmd.exe.
+      - >
+        execa package — full-featured process execution library with excellent
+        Windows support, but it's a heavy dependency (pulls in cross-spawn and
+        other packages) for a problem that Node.js built-in `shell: true`
+        already solves. The codebase doesn't need execa's Promise API or
+        advanced features like piping.
+    rationale: >
+      Node.js `spawn(cmd, { shell: true })` automatically uses `/bin/sh` on
+      Unix and `process.env.ComSpec` (cmd.exe) on Windows. This is the
+      idiomatic Node.js solution recommended by the official documentation. The
+      tool-installer.service.ts currently uses `spawn('sh', ['-c', cmd])` (line 160)
+      which hardcodes the Unix shell — replacing it with `spawn(cmd, { shell: true })`
+      eliminates the platform dependency with zero new dependencies. The
+      deployment.service.ts already uses `shell: true` (line 99), confirming
+      this pattern works in the codebase.
+
+  - title: 'Cross-platform path validation'
+    chosen: 'Node.js path.isAbsolute() built-in'
+    rejected:
+      - >
+        Custom regex for Windows paths (e.g., /^[A-Za-z]:\\/ || /^\\\\/) — fragile,
+        doesn't handle all valid Windows path formats (UNC paths, forward-slash
+        paths, device paths), and duplicates logic that Node.js path module
+        already provides.
+      - >
+        Keep startsWith("/") and add startsWith("C:") etc. — doesn't scale to
+        all drive letters, misses UNC paths (\\server\share), and requires
+        maintaining a growing list of Windows path prefixes.
+    rationale: >
+      Node.js `path.isAbsolute()` correctly handles all platform-specific
+      absolute path formats: Unix `/home/...`, Windows `C:\...`, `D:/...`, and
+      UNC `\\server\share`. Four web action files currently use
+      `startsWith('/')` for validation (open-shell.ts:28, open-folder.ts:19,
+      open-ide.ts:17, deploy-repository.ts:16) — all should be replaced with
+      `path.isAbsolute()`. The dev-executor.service.ts (line 137) also uses
+      `startsWith('/')` for specDir validation. This is a zero-dependency
+      change using Node.js built-ins.
+
+  - title: 'Windows package manager for tool install commands'
+    chosen: 'winget only'
+    rejected:
+      - >
+        Chocolatey — the most established Windows package manager with the
+        largest catalog, but requires separate installation and often admin
+        rights. Not built into Windows, adding a hard prerequisite.
+      - >
+        Multiple package managers (winget + choco + scoop) with fallback — would
+        triple the maintenance burden for 15 tool JSON files (45 new command
+        entries). Adds complexity to install logic for fallback detection.
+        Diminishing returns since winget covers modern Windows installations.
+    rationale: >
+      winget ships built-in with Windows 10 1709+ and all Windows 11 systems,
+      requiring zero additional setup. This aligns with the project's goal of
+      minimal prerequisites. The tool JSON metadata schema already supports
+      per-platform commands via the `commands` Record — adding a `win32` key
+      with the winget command for each tool is a straightforward, declarative
+      change. Available winget package IDs: Git.Git, GitHub.cli,
+      Microsoft.VisualStudioCode, Anysphere.Cursor, Alacritty.Alacritty,
+      Codeium.Windsurf, ZedIndustries.Zed, Warp.Warp. Tools not on winget
+      (kitty, iterm2 — macOS/Linux only) simply won't have a win32 command,
+      which the service handles gracefully by returning null.
+
+  - title: 'Windows open-shell terminal choice'
+    chosen: 'PowerShell with -NoExit flag (universal fallback)'
+    rejected:
+      - >
+        Windows Terminal (wt.exe) as primary — while preferred by developers,
+        it's not guaranteed on older Windows 10 installations. Using it as the
+        only option would fail for users without it installed.
+      - >
+        cmd.exe — functional but provides a poor developer experience. No tab
+        support, limited customization, and generally avoided by modern Windows
+        developers.
+    rationale: >
+      PowerShell is universally available on all supported Windows versions
+      (ships with Windows 7+). Using `powershell -NoExit -Command "Set-Location '<path>'"`
+      provides a working terminal with the correct working directory. The
+      existing codebase pattern in browser-opener.service.ts uses
+      `cmd /c start` for Windows — but for terminals, PowerShell provides a
+      better developer experience. The SHELL_COMMANDS record in open-shell.ts
+      already uses the `{ cmd, args }` pattern, so adding a win32 entry with
+      `{ cmd: 'powershell', args: (p) => ['-NoExit', '-Command', `Set-Location '${p}'`] }`
+      follows the exact same pattern as darwin and linux entries.
+
+  - title: 'Windows open-folder command'
+    chosen: 'explorer.exe via spawn'
+    rejected:
+      - >
+        cmd /c start — works for opening folders but adds an unnecessary
+        cmd.exe intermediary. The `start` command has special quoting rules
+        (first quoted argument is treated as window title) that can cause
+        issues with paths containing spaces.
+      - >
+        PowerShell Invoke-Item — adds overhead of starting PowerShell for a
+        simple file manager launch. explorer.exe is the native, direct approach.
+    rationale: >
+      `explorer.exe <path>` is the standard way to open Windows Explorer at a
+      specific directory. It handles spaces in paths correctly when passed as a
+      spawn argument (not interpolated into a shell string). The existing
+      darwin entry uses `open` and linux uses `xdg-open` — explorer.exe is the
+      direct Windows equivalent. Adding `{ cmd: 'explorer', args: (p) => [p] }`
+      follows the exact same `{ cmd, args }` Record pattern.
+
+  - title: 'Daemon detached process handling on Windows'
+    chosen: 'Keep existing detached spawn with windowsHide: true'
+    rejected:
+      - >
+        Platform-conditional spawn options — using different detached/stdio
+        settings on Windows vs Unix adds complexity. The existing pattern
+        (detached: true + child.unref()) already works cross-platform for the
+        daemon use case.
+      - >
+        Windows Service registration — using node-windows or similar to register
+        as a Windows Service. Massively overengineered for a dev tool that runs
+        temporarily. Adds a heavy dependency and requires admin rights.
+    rationale: >
+      On Windows, `detached: true` spawns the child in a new console window.
+      Adding `windowsHide: true` to the spawn options suppresses this console
+      window, making the daemon truly background. The start-daemon.ts already
+      uses `{ detached: true, stdio: ['ignore', logFd, logFd] }` (line 83) —
+      adding `windowsHide: true` is the only change needed. This option is
+      ignored on non-Windows platforms, so it's safe to set unconditionally.
+      The existing `child.unref()` pattern (line 109) works correctly on
+      Windows to allow the parent to exit.
+
+  - title: 'Daemon stop signal handling on Windows'
+    chosen: 'tree-kill for both daemon stop and deployment stop'
+    rejected:
+      - >
+        process.kill(pid, "SIGTERM") then process.kill(pid, "SIGKILL") — the
+        current approach in stop-daemon.ts. On Windows, SIGTERM is not
+        supported and process.kill(pid) sends SIGKILL (unconditional
+        termination). This means there's no graceful shutdown opportunity on
+        Windows with the current code.
+      - >
+        Custom Windows-specific stop using taskkill.exe — would require
+        platform branching and manual error handling for process-not-found,
+        access-denied, etc. tree-kill already handles all these cases.
+    rationale: >
+      tree-kill provides cross-platform process tree termination. For
+      stop-daemon.ts, we replace `process.kill(pid, 'SIGTERM')` (line 73) and
+      `process.kill(pid, 'SIGKILL')` (line 82) with tree-kill calls. On Unix,
+      tree-kill sends the specified signal to the process tree. On Windows, it
+      uses `taskkill /T /F /PID`. The `isAlive()` check via
+      `process.kill(pid, 0)` works correctly on Windows (confirmed in Node.js
+      docs) and doesn't need changes.
+
+  - title: 'Path separator in claude-code-session.repository.ts'
+    chosen: 'Use path.sep for home directory prefix matching'
+    rejected:
+      - >
+        Keep hardcoded "/" — would fail to abbreviate Windows paths like
+        "C:\Users\dev\.shep" since home + "/" doesn't match home + "\".
+      - >
+        Use regex for both separators (e.g., /[/\\]/) — overly complex for a
+        simple prefix check. path.sep provides the correct platform separator.
+    rationale: >
+      The abbreviatePath() method in claude-code-session.repository.ts (line 393)
+      uses `filePath.startsWith(home + '/')` to detect if a path is under the
+      home directory. On Windows, paths use `\` as separator, so this check
+      fails. Replacing the hardcoded `'/'` with `path.sep` makes it work on
+      both platforms: `filePath.startsWith(home + path.sep)`. This is a
+      minimal, targeted fix that follows the codebase's existing use of the
+      path module.
+
+openQuestions:
+  - question: >-
+      Should the dev-executor.service.ts path validation be made
+      cross-platform?
+    resolved: true
+    options:
+      - option: 'Yes — replace startsWith("/") with path.isAbsolute()'
+        description: >
+          The dev-executor.service.ts validateSpecDir() function (line 137) uses
+          startsWith('/') to check if the specDir is absolute. On Windows, this
+          would reject valid paths like 'C:\Users\dev\specs'. Changing to
+          path.isAbsolute() makes it cross-platform. This is the dev agent
+          executor (mock for development), so it runs on whatever platform the
+          developer uses.
+        selected: true
+      - option: 'No — dev executor is development-only, not runtime'
+        description: >
+          The dev-executor is only used when settings.agent.type = "dev" (local
+          development mock). Since development stays on Unix, this code never
+          runs on Windows. However, the feature spec says "runtime only" scope,
+          and the dev executor is technically in the runtime package.
+        selected: false
+      - option: 'Skip — it only validates agent prompts which always use Unix paths'
+        description: >
+          The extractSpecDir() function extracts paths from agent prompts, which
+          contain absolute paths from the filesystem. On Windows, these would be
+          Windows paths, so the validation would still fail. This option would
+          leave a latent bug.
+        selected: false
+    selectionRationale: >
+      Even though dev-executor is a development mock, it lives in the core
+      package which ships to all platforms. If a Windows user configures
+      agent.type = "dev" for testing, the startsWith('/') check would reject
+      valid Windows paths. path.isAbsolute() is a zero-risk change that works
+      on all platforms and follows the same fix applied to the web action files.
+
+  - question: >-
+      How should tool JSON files handle tools that are macOS/Linux-only
+      (iterm2, kitty)?
+    resolved: true
+    options:
+      - option: 'Keep platforms array as-is, no win32 entry in commands'
+        description: >
+          Tools like iterm2 (macOS-only) and kitty (Linux/macOS) are inherently
+          not available on Windows. Their platforms arrays already exclude
+          "win32", and the service returns null for missing platform commands.
+          No changes needed — the existing behavior is correct.
+        selected: true
+      - option: 'Add win32 to platforms with a "not available" message in commands'
+        description: >
+          Add "win32" to the platforms array and set the win32 command to a
+          message like "echo This tool is not available on Windows". This would
+          show the tool in Windows listings but with an unhelpful install
+          command. Misleading UX.
+        selected: false
+      - option: 'Add win32 to platforms with alternative tool suggestions'
+        description: >
+          For macOS-only terminals like iterm2, suggest the Windows equivalent
+          (Windows Terminal). Adds complexity to the simple declarative format
+          and conflates tool identity with cross-platform recommendations.
+        selected: false
+    selectionRationale: >
+      The tool-installer.service.ts already handles missing platforms gracefully
+      — getInstallCommand() returns null when the current platform isn't in the
+      commands Record, and the UI shows "No install command available". This is
+      the correct behavior for platform-specific tools. Adding 15 tools to the
+      tool JSON means only tools that actually exist on Windows get win32
+      entries. macOS/Linux-only tools (iterm2, kitty, tmux) are simply excluded.
+
+  - question: >-
+      Should tree-kill be added as a dependency or should we use a
+      lighter-weight approach?
+    resolved: true
+    options:
+      - option: 'Add tree-kill as a runtime dependency'
+        description: >
+          Add tree-kill@^1.2.2 to packages/core package.json. Zero transitive
+          dependencies, ~3KB, 18M+ weekly downloads. Solves process tree
+          termination on Windows using taskkill /T. Well-understood, battle-tested.
+        selected: true
+      - option: 'Write minimal custom implementation'
+        description: >
+          Implement a small crossPlatformKill() utility that uses
+          process.kill(-pid, signal) on Unix and
+          spawn("taskkill", ["/T", "/F", "/PID", pid]) on Windows. Avoids a new
+          dependency but requires handling edge cases: access denied, process not
+          found, deep trees, race conditions.
+        selected: false
+      - option: 'Use execa which includes process cleanup'
+        description: >
+          execa provides automatic cleanup of spawned processes when the parent
+          dies. However, it's a much larger dependency (pulls in cross-spawn,
+          strip-final-newline, etc.) and doesn't directly solve the "kill
+          existing process tree by PID" use case — it only handles processes
+          that execa itself spawned.
+        selected: false
+    selectionRationale: >
+      tree-kill is the right choice because the problem (cross-platform process
+      tree termination by PID) is exactly what it solves. The package has zero
+      dependencies and minimal footprint. Writing a custom implementation would
+      need to handle all the edge cases that tree-kill already handles
+      (recursive tree walking, race conditions, permission errors). The
+      deployment.service.ts uses dependency injection for the kill function
+      (DeploymentServiceDeps.kill), so tree-kill can be injected cleanly.
+
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-03-11
+
+  ## Technology Decisions
+
+  ### 1. Cross-Platform Binary Detection
+
+  **Chosen:** npm `which` package (v6.x)
+
+  **Rejected:**
+  - Platform-conditional execFile("which")/execFile("where.exe") — adds manual platform branching, different output formats
+  - spawn with shell: true — conflates binary detection with shell invocation, still needs platform branching
+
+  **Rationale:** The `which` package (189M+ weekly downloads, maintained by npm/isaacs) provides `which(binary)` and `which.sync(binary)` with `nothrow` option. Handles Windows PATHEXT (.exe, .cmd, .bat) internally. Replaces `execFile('which', [binary])` in tool-installer.service.ts:52 and json-driven-ide-launcher.service.ts:133.
+
+  ### 2. Cross-Platform Process Tree Termination
+
+  **Chosen:** tree-kill package (v1.2.2)
+
+  **Rejected:**
+  - Custom taskkill implementation — edge cases around permissions, zombie processes, nested trees
+  - process.kill() with platform checks — orphans child processes on Windows
+
+  **Rationale:** tree-kill (18M+ weekly downloads, zero dependencies) provides `treeKill(pid, signal, callback)`. Uses `taskkill /T /F` on Windows, `ps`/`pgrep` on Unix. Replaces `process.kill(-pid, signal)` in deployment.service.ts:183,199,249. v1.2.2 fixes RCE vulnerability in v1.2.1 — pin to >=1.2.2.
+
+  ### 3. Cross-Platform Shell Execution
+
+  **Chosen:** Node.js `spawn()` with `shell: true`
+
+  **Rejected:**
+  - Platform-conditional shell selection — unnecessary branching
+  - execa package — heavy dependency for a problem Node.js built-ins solve
+
+  **Rationale:** `spawn(cmd, { shell: true })` uses `/bin/sh` on Unix, `cmd.exe` on Windows. Idiomatic Node.js pattern. Replaces `spawn('sh', ['-c', cmd])` in tool-installer.service.ts:160. deployment.service.ts:99 already uses `shell: true`.
+
+  ### 4. Cross-Platform Path Validation
+
+  **Chosen:** Node.js `path.isAbsolute()` built-in
+
+  **Rejected:**
+  - Custom regex — fragile, doesn't handle all Windows formats
+  - Extending startsWith("/") with drive letter checks — doesn't scale
+
+  **Rationale:** `path.isAbsolute()` handles Unix `/`, Windows `C:\`, `D:/`, UNC `\\server\share`. Replaces `startsWith('/')` in open-shell.ts:28, open-folder.ts:19, open-ide.ts:17, deploy-repository.ts:16, dev-executor.service.ts:137.
+
+  ### 5. Windows Package Manager
+
+  **Chosen:** winget only
+
+  **Rejected:**
+  - Chocolatey — requires separate installation
+  - Multiple managers — triples maintenance burden
+
+  **Rationale:** winget ships with Windows 10 1709+ / Windows 11. Zero prerequisites. Tool JSON `commands` Record already supports per-platform keys — adding `win32` key is declarative.
+
+  ### 6. Windows Open-Shell Terminal
+
+  **Chosen:** PowerShell with -NoExit flag
+
+  **Rejected:**
+  - Windows Terminal (wt.exe) only — not guaranteed on older Windows 10
+  - cmd.exe — poor developer experience
+
+  **Rationale:** PowerShell ships with all Windows versions. `{ cmd: 'powershell', args: (p) => ['-NoExit', '-Command', "Set-Location '${p}'"] }` follows existing Record pattern.
+
+  ### 7. Windows Open-Folder Command
+
+  **Chosen:** explorer.exe via spawn
+
+  **Rejected:**
+  - cmd /c start — quoting issues with spaces in paths
+  - PowerShell Invoke-Item — unnecessary overhead
+
+  **Rationale:** `explorer.exe <path>` is the standard Windows approach. `{ cmd: 'explorer', args: (p) => [p] }` mirrors existing darwin/linux pattern.
+
+  ### 8. Daemon Detached Process on Windows
+
+  **Chosen:** Keep existing detached spawn + add windowsHide: true
+
+  **Rejected:**
+  - Platform-conditional spawn options — unnecessary complexity
+  - Windows Service registration — overengineered for a dev tool
+
+  **Rationale:** `windowsHide: true` suppresses the console window that `detached: true` creates on Windows. Ignored on non-Windows platforms. Safe to add unconditionally.
+
+  ### 9. Daemon Stop Signal Handling
+
+  **Chosen:** tree-kill for daemon and deployment stop
+
+  **Rejected:**
+  - Keep process.kill(pid, SIGTERM/SIGKILL) — SIGTERM not supported on Windows
+  - Custom taskkill — tree-kill already handles it
+
+  **Rationale:** tree-kill works for both stop-daemon.ts (single PID) and deployment.service.ts (process tree). Replaces SIGTERM → SIGKILL pattern with cross-platform tree kill.
+
+  ### 10. Path Separator in Session Repository
+
+  **Chosen:** Use path.sep for home directory prefix matching
+
+  **Rejected:**
+  - Keep hardcoded "/" — fails on Windows paths
+  - Regex for both separators — overly complex
+
+  **Rationale:** Replace `home + '/'` with `home + path.sep` in claude-code-session.repository.ts:393. Minimal change.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | `which` (npm, v6.x) | Cross-platform binary detection | **Use** | 189M+ downloads, maintained by npm/isaacs, handles PATHEXT, both sync/async APIs |
+  | `tree-kill` (v1.2.2) | Cross-platform process tree kill | **Use** | 18M+ downloads, zero deps, uses taskkill on Windows. Pin >=1.2.2 (RCE fix) |
+  | `execa` | Process execution | **Reject** | Heavy dependency, doesn't solve kill-by-PID use case. spawn({shell: true}) suffices |
+  | `cross-spawn` | Cross-platform spawn | **Reject** | Node.js built-in shell: true already handles platform differences |
+  | `cross-env` | Cross-platform env vars | **Reject** | Not needed — no cross-platform build scripts (runtime only scope) |
+
+  ## Security Considerations
+
+  ### Command Injection Prevention
+  - All paths passed to spawn/exec MUST use array arguments, NOT string interpolation
+  - The existing pattern `spawn(cmd, args)` with separate args array is safe
+  - For open-shell win32 entry, the path is passed as a spawn argument, not interpolated into a shell string
+  - tree-kill v1.2.2 sanitizes PID input (fixes RCE in v1.2.1)
+
+  ### Dependency Security
+  - tree-kill: zero dependencies, v1.2.2 is the latest secure version
+  - which: zero dependencies, actively maintained (v6.0.1, updated March 2026)
+  - Both packages are well-audited due to massive download counts
+
+  ### Windows-Specific Security
+  - winget install commands use `--id` flag with exact package IDs to prevent name confusion attacks
+  - PowerShell commands use `-NoProfile` where appropriate to avoid executing untrusted profile scripts
+  - Path validation via path.isAbsolute() prevents path traversal on all platforms
+
+  ## Performance Implications
+
+  ### No Performance Impact
+  - All changes are to platform-branching logic, not hot paths
+  - `which` package is only called during tool availability checks (infrequent, user-initiated)
+  - tree-kill is only called during process termination (infrequent)
+  - path.isAbsolute() is a synchronous string check — negligible overhead
+
+  ### Bundle Size
+  - `which` v6.x: ~5KB, zero dependencies
+  - `tree-kill` v1.2.2: ~3KB, zero dependencies
+  - Total new dependency footprint: ~8KB — negligible
+
+  ## Architecture Notes
+
+  ### Existing Patterns (follow these)
+  1. **Record<string, ...> lookup for platform commands** — used in browser-opener, file-dialog, folder-dialog, open-shell, open-folder. Prevents Turbopack tree-shaking issues.
+  2. **Dependency injection for platform functions** — DeploymentServiceDeps.kill, DeploymentServiceDeps.isAlive. Enables testing with mocked platform behavior.
+  3. **resolvePlatformValue() helper** — in json-driven-ide-launcher.service.ts. Falls back to first value if platform not in Record.
+  4. **Tool JSON declarative metadata** — platform-keyed commands Record. Service handles missing platforms by returning null.
+
+  ### Integration Points
+  1. **tool-installer.service.ts** — Replace `execFile('which')` with `which()`, replace `spawn('sh', ['-c', cmd])` with `spawn(cmd, { shell: true })`
+  2. **json-driven-ide-launcher.service.ts** — Replace `execFile('which')` with `which()`
+  3. **deployment.service.ts** — Replace `deps.kill(-pid, signal)` with tree-kill, update DeploymentServiceDeps interface
+  4. **stop-daemon.ts** — Replace `process.kill(pid, signal)` with tree-kill
+  5. **start-daemon.ts** — Add `windowsHide: true` to spawn options
+  6. **feature-agent-process.service.ts** — No changes needed (fork + kill(pid, 0) works on Windows)
+  7. **open-shell.ts, open-folder.ts** — Add win32 Record entries
+  8. **open-ide.ts, deploy-repository.ts, open-shell.ts, open-folder.ts** — Replace startsWith('/') with path.isAbsolute()
+  9. **dev-executor.service.ts** — Replace startsWith('/') with path.isAbsolute()
+  10. **claude-code-session.repository.ts** — Replace `home + '/'` with `home + path.sep`
+  11. **15 tool JSON files** — Add win32 commands with winget package IDs
+
+  ### Files NOT Needing Changes (confirmed working)
+  - browser-opener.service.ts — already has win32 entry
+  - file-dialog.service.ts — already has win32 PowerShell command
+  - folder-dialog.service.ts — already has win32 PowerShell command
+  - symbols.ts — already has Windows terminal detection
+  - shep-directory.service.ts — uses path.join() and homedir(), cross-platform
+  - desktop-notifier.ts — node-notifier supports Windows toast
+
+  ### Winget Package IDs for Tool JSON Files
+  | Tool | winget ID | Available |
+  | ---- | --------- | --------- |
+  | git | Git.Git | Yes |
+  | gh | GitHub.cli | Yes |
+  | vscode | Microsoft.VisualStudioCode | Yes |
+  | cursor | Anysphere.Cursor | Yes |
+  | cursor-cli | Anysphere.Cursor | Yes (same as cursor) |
+  | alacritty | Alacritty.Alacritty | Yes |
+  | windsurf | Codeium.Windsurf | Yes |
+  | zed | ZedIndustries.Zed | Yes |
+  | warp | Warp.Warp | Yes |
+  | claude-code | Anthropic.ClaudeCode | Yes |
+  | gemini-cli | N/A | No — use npm: `npm install -g @google/gemini-cli` |
+  | antigravity | N/A | No — proprietary, use download page |
+  | kitty | N/A | No — Linux/macOS only |
+  | iterm2 | N/A | No — macOS only |
+  | tmux | N/A | No — Linux/macOS only (Windows port is unofficial) |

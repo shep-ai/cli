@@ -11,7 +11,8 @@
   "packageManager": "manual",
   "commands": {
     "linux": "Download from https://cursor.com/download and install the AppImage manually",
-    "darwin": "Download from https://cursor.com/download or use: brew install --cask cursor"
+    "darwin": "Download from https://cursor.com/download or use: brew install --cask cursor",
+    "win32": "winget install --id Anysphere.Cursor -e --source winget"
   },
   "timeout": 600000,
   "documentationUrl": "https://cursor.com/download",

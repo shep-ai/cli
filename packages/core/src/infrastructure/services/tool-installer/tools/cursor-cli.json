@@ -5,13 +5,14 @@
   "tags": ["cli-agent"],
   "author": "Anysphere",
   "website": "https://cursor.com",
-  "platforms": ["linux", "darwin"],
+  "platforms": ["linux", "darwin", "win32"],
   "iconUrl": "https://cdn.simpleicons.org/cursor",
   "binary": "cursor-agent",
   "packageManager": "curl",
   "commands": {
     "linux": "curl https://cursor.com/install -fsS | bash",
-    "darwin": "curl https://cursor.com/install -fsS | bash"
+    "darwin": "curl https://cursor.com/install -fsS | bash",
+    "win32": "winget install --id Anysphere.Cursor -e --source winget"
   },
   "timeout": 300000,
   "documentationUrl": "https://www.codecademy.com/article/getting-started-with-cursor-cli",

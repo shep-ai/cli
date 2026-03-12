@@ -120,13 +120,18 @@ const CI_FIX_RESULT = 'Fixed CI failure: corrected import path. All checks now p
  * plan.prompt.ts:199.
  */
 function extractSpecDir(prompt: string): string | null {
+  // Match both Unix absolute paths (/...) and Windows absolute paths (C:\...)
+  const ABS_PATH = String.raw`(?:\/|[A-Za-z]:[/\\])[^\s\n]+`;
+
   // Analyze ("Write your analysis to:"), requirements ("Update the file at:"),
   // research ("Write your research to:")
-  const fileMatch = prompt.match(/(?:Write your \w+ to|Update the file at):\s+(\/[^\s\n]+)/);
+  const fileMatch = prompt.match(
+    new RegExp(`(?:Write your \\w+ to|Update the file at):\\s+(${ABS_PATH})`)
+  );
   if (fileMatch) return path.dirname(fileMatch[1]);
 
   // Plan: "Write to BOTH /path/plan.yaml AND /path/tasks.yaml"
-  const planMatch = prompt.match(/Write to BOTH\s+(\/[^\s\n]+)\/plan\.yaml/);
+  const planMatch = prompt.match(new RegExp(`Write to BOTH\\s+(${ABS_PATH})[/\\\\]plan\\.yaml`));
   if (planMatch) return planMatch[1];
 
   return null;
@@ -134,7 +139,7 @@ function extractSpecDir(prompt: string): string | null {
 
 /** Validate extracted specDir: must be absolute, no ".." traversal. */
 function validateSpecDir(specDir: string): void {
-  if (!specDir.startsWith('/'))
+  if (!path.isAbsolute(specDir))
     throw new Error(`DevAgentExecutorService: invalid specDir (not absolute): ${specDir}`);
   if (specDir.includes('..'))
     throw new Error(`DevAgentExecutorService: invalid specDir (contains ".."): ${specDir}`);

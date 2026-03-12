@@ -29,6 +29,12 @@ vi.mock('node:os', () => ({
   platform: () => mockPlatform(),
 }));
 
+const mockIsAbsolute = vi.fn<(p: string) => boolean>();
+vi.mock('node:path', async () => {
+  const actual = await vi.importActual('node:path');
+  return { ...actual, isAbsolute: (p: string) => mockIsAbsolute(p) };
+});
+
 const { openShell } = await import('../../../../../src/presentation/web/app/actions/open-shell.js');
 
 describe('openShell server action', () => {
@@ -40,15 +46,34 @@ describe('openShell server action', () => {
     mockExistsSync.mockReturnValue(true);
     mockSpawn.mockReturnValue({ unref: mockUnref, on: mockOn });
     mockPlatform.mockReturnValue('darwin');
+    mockIsAbsolute.mockImplementation((p: string) => /^\//.test(p));
   });
 
-  it('returns error for invalid repositoryPath', async () => {
+  it('returns error for empty repositoryPath', async () => {
     const result = await openShell({ repositoryPath: '', branch: 'main' });
 
     expect(result).toEqual({
       success: false,
       error: 'repositoryPath must be an absolute path',
     });
+  });
+
+  it('returns error for relative repositoryPath', async () => {
+    const result = await openShell({ repositoryPath: 'relative/path', branch: 'main' });
+
+    expect(result).toEqual({
+      success: false,
+      error: 'repositoryPath must be an absolute path',
+    });
+  });
+
+  it('accepts Windows-style absolute paths when path.isAbsolute recognizes them', async () => {
+    mockPlatform.mockReturnValue('darwin');
+    mockIsAbsolute.mockReturnValue(true);
+
+    const result = await openShell({ repositoryPath: 'C:\\Users\\test\\project' });
+
+    expect(result.success).toBe(true);
   });
 
   it('returns error when worktree path does not exist', async () => {
@@ -60,13 +85,27 @@ describe('openShell server action', () => {
     expect(result.error).toContain('does not exist');
   });
 
-  it('returns error on unsupported platform', async () => {
+  it('spawns correct command on win32', async () => {
     mockPlatform.mockReturnValue('win32');
+
+    const result = await openShell({ repositoryPath: '/home/user/project', branch: 'feat/test' });
+
+    expect(result.success).toBe(true);
+    expect(mockSpawn).toHaveBeenCalledWith(
+      'powershell',
+      ['-NoExit', '-Command', `Set-Location "${MOCK_WORKTREE_PATH}"`],
+      { detached: true, stdio: 'ignore' }
+    );
+    expect(mockUnref).toHaveBeenCalled();
+  });
+
+  it('returns error on unsupported platform', async () => {
+    mockPlatform.mockReturnValue('freebsd');
 
     const result = await openShell({ repositoryPath: '/home/user/project', branch: 'main' });
 
     expect(result.success).toBe(false);
-    expect(result.error).toContain('win32');
+    expect(result.error).toContain('freebsd');
   });
 
   it('spawns correct command on darwin', async () => {

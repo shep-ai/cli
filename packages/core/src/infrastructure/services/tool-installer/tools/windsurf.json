@@ -5,13 +5,14 @@
   "tags": ["ide"],
   "author": "Codeium",
   "website": "https://codeium.com/windsurf",
-  "platforms": ["linux", "darwin"],
+  "platforms": ["linux", "darwin", "win32"],
   "iconUrl": "https://cdn.simpleicons.org/windsurf",
   "binary": "windsurf",
   "packageManager": "apt",
   "commands": {
     "linux": "curl -fsSL \"https://windsurf-stable.codeiumdata.com/wVxQEIWkwPUEAGf3/windsurf.gpg\" | sudo gpg --yes --dearmor -o /usr/share/keyrings/windsurf-stable-archive-keyring.gpg && echo \"deb [signed-by=/usr/share/keyrings/windsurf-stable-archive-keyring.gpg arch=amd64] https://windsurf-stable.codeiumdata.com/wVxQEIWkwPUEAGf3/apt stable main\" | sudo tee /etc/apt/sources.list.d/windsurf.list > /dev/null && sudo apt-get update && sudo apt-get install -y windsurf",
-    "darwin": "brew install --cask windsurf"
+    "darwin": "brew install --cask windsurf",
+    "win32": "winget install --id Codeium.Windsurf -e --source winget"
   },
   "timeout": 300000,
   "documentationUrl": "https://docs.windsurf.com/windsurf/getting-started",
