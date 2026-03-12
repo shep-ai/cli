@@ -16,6 +16,7 @@ export interface FeatureFlagsState {
   skills: boolean;
   envDeploy: boolean;
   debug: boolean;
+  chat: boolean;
 }
 
 export function getFeatureFlags(): FeatureFlagsState {
@@ -27,6 +28,7 @@ export function getFeatureFlags(): FeatureFlagsState {
           skills: flags.skills,
           envDeploy: flags.envDeploy,
           debug: flags.debug,
+          chat: flags.chat,
         };
       }
     }
@@ -41,6 +43,10 @@ export function getFeatureFlags(): FeatureFlagsState {
         ? isEnabled(process.env.NEXT_PUBLIC_FLAG_ENV_DEPLOY)
         : true,
     debug: false,
+    chat:
+      process.env.NEXT_PUBLIC_FLAG_CHAT !== undefined
+        ? isEnabled(process.env.NEXT_PUBLIC_FLAG_CHAT)
+        : true,
   };
 }
 
@@ -57,5 +63,8 @@ export const featureFlags = {
   },
   get debug() {
     return getFeatureFlags().debug;
+  },
+  get chat() {
+    return getFeatureFlags().chat;
   },
 } as const;

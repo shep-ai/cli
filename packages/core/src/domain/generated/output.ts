@@ -483,6 +483,10 @@ export type FeatureFlags = {
    * Enable debug UI elements and verbose client-side logging
    */
   debug: boolean;
+  /**
+   * Enable GPT-style chat interface in the web UI
+   */
+  chat: boolean;
 };
 
 /**

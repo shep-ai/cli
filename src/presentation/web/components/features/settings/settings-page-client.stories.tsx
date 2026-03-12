@@ -38,6 +38,7 @@ export const AllSections: Story = {
         skills: true,
         envDeploy: true,
         debug: false,
+        chat: true,
       },
     },
     shepHome: '/opt/shep',

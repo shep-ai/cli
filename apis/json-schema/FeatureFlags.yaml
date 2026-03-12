@@ -14,8 +14,13 @@ properties:
     type: boolean
     default: false
     description: Enable debug UI elements and verbose client-side logging
+  chat:
+    type: boolean
+    default: true
+    description: Enable GPT-style chat interface in the web UI
 required:
   - skills
   - envDeploy
   - debug
+  - chat
 description: Feature flag toggles for runtime feature control

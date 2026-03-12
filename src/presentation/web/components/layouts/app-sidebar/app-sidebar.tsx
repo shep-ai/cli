@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { Home, Wrench, Puzzle, Plus, Settings } from 'lucide-react';
+import { Home, MessageSquare, Wrench, Puzzle, Plus, Settings } from 'lucide-react';
 import {
   Sidebar,
   SidebarHeader,
@@ -102,6 +102,14 @@ export function AppSidebar({
           </SidebarMenuItem>
 
           <SidebarNavItem icon={Home} label="Control Center" href="/" active={pathname === '/'} />
+          {featureFlags.chat ? (
+            <SidebarNavItem
+              icon={MessageSquare}
+              label="Chat"
+              href="/chat"
+              active={pathname === '/chat'}
+            />
+          ) : null}
           <SidebarNavItem
             icon={Wrench}
             label="Tools"

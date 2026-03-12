@@ -397,6 +397,9 @@ model FeatureFlags {
 
   @doc("Enable debug UI elements and verbose client-side logging")
   debug: boolean = false;
+
+  @doc("Enable GPT-style chat interface in the web UI")
+  chat: boolean = true;
 }
 
 /**

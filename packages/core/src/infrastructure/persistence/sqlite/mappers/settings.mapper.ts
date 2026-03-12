@@ -94,6 +94,7 @@ export interface SettingsRow {
   feature_flag_skills: number;
   feature_flag_env_deploy: number;
   feature_flag_debug: number;
+  feature_flag_chat: number;
 }
 
 /**
@@ -180,6 +181,7 @@ export function toDatabase(settings: Settings): SettingsRow {
     feature_flag_skills: settings.featureFlags?.skills ? 1 : 0,
     feature_flag_env_deploy: settings.featureFlags?.envDeploy ? 1 : 0,
     feature_flag_debug: settings.featureFlags?.debug ? 1 : 0,
+    feature_flag_chat: settings.featureFlags?.chat ? 1 : 0,
   };
 }
 
@@ -268,6 +270,7 @@ export function fromDatabase(row: SettingsRow): Settings {
       skills: row.feature_flag_skills === 1,
       envDeploy: row.feature_flag_env_deploy === 1,
       debug: row.feature_flag_debug === 1,
+      chat: row.feature_flag_chat === 1,
     },
 
     // Onboarding (INTEGER → boolean)

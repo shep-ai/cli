@@ -58,7 +58,7 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
         onboarding_complete,
         approval_gate_allow_prd, approval_gate_allow_plan,
         approval_gate_allow_merge, approval_gate_push_on_impl_complete,
-        feature_flag_skills, feature_flag_env_deploy, feature_flag_debug,
+        feature_flag_skills, feature_flag_env_deploy, feature_flag_debug, feature_flag_chat,
         workflow_enable_evidence, workflow_commit_evidence
       ) VALUES (
         @id, @created_at, @updated_at,
@@ -75,7 +75,7 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
         @onboarding_complete,
         @approval_gate_allow_prd, @approval_gate_allow_plan,
         @approval_gate_allow_merge, @approval_gate_push_on_impl_complete,
-        @feature_flag_skills, @feature_flag_env_deploy, @feature_flag_debug,
+        @feature_flag_skills, @feature_flag_env_deploy, @feature_flag_debug, @feature_flag_chat,
         @workflow_enable_evidence, @workflow_commit_evidence
       )
     `);
@@ -161,6 +161,7 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
         feature_flag_skills = @feature_flag_skills,
         feature_flag_env_deploy = @feature_flag_env_deploy,
         feature_flag_debug = @feature_flag_debug,
+        feature_flag_chat = @feature_flag_chat,
         workflow_enable_evidence = @workflow_enable_evidence,
         workflow_commit_evidence = @workflow_commit_evidence
       WHERE id = @id

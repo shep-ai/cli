@@ -13,7 +13,7 @@ import { AppShell } from '@/components/layouts/app-shell';
 import { FeatureFlagsProvider } from '@/hooks/feature-flags-context';
 import { useSidebarFeaturesContext } from '@/hooks/sidebar-features-context';
 
-const defaultFlags = { skills: false, envDeploy: false, debug: false };
+const defaultFlags = { skills: false, envDeploy: false, debug: false, chat: true };
 
 function renderShell(children: React.ReactNode) {
   return render(

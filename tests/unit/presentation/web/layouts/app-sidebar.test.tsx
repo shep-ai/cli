@@ -38,7 +38,7 @@ afterEach(() => {
   globalThis.fetch = originalFetch;
 });
 
-const defaultFlags = { skills: true, envDeploy: false, debug: false };
+const defaultFlags = { skills: true, envDeploy: false, debug: false, chat: true };
 
 function renderWithSidebar(ui: React.ReactElement) {
   return render(<SidebarProvider>{ui}</SidebarProvider>);
@@ -161,5 +161,20 @@ describe('AppSidebar', () => {
 
     const settingsLink = screen.getByText('Settings').closest('a');
     expect(settingsLink).toHaveAttribute('href', '/settings');
+  });
+
+  it('renders Chat nav item when chat flag is true', () => {
+    renderWithSidebar(<AppSidebar features={mockFeatures} featureFlags={defaultFlags} />);
+
+    expect(screen.getByText('Chat')).toBeInTheDocument();
+    const chatLink = screen.getByText('Chat').closest('a');
+    expect(chatLink).toHaveAttribute('href', '/chat');
+  });
+
+  it('hides Chat nav item when chat flag is false', () => {
+    const flagsWithoutChat = { ...defaultFlags, chat: false };
+    renderWithSidebar(<AppSidebar features={mockFeatures} featureFlags={flagsWithoutChat} />);
+
+    expect(screen.queryByText('Chat')).not.toBeInTheDocument();
   });
 });

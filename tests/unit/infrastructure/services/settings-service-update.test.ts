@@ -68,7 +68,7 @@ describe('updateSettings', () => {
     // Act
     const updated = {
       ...initial,
-      featureFlags: { skills: true, envDeploy: false, debug: true },
+      featureFlags: { skills: true, envDeploy: false, debug: true, chat: true },
     };
     updateSettings(updated);
 

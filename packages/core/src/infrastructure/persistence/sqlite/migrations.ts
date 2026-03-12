@@ -518,6 +518,17 @@ WHERE repository_path NOT IN (SELECT path FROM repositories WHERE path IS NOT NU
     // Migration 032: Change envDeploy feature flag default to enabled (1).
     sql: `UPDATE settings SET feature_flag_env_deploy = 1 WHERE feature_flag_env_deploy = 0;`,
   },
+  {
+    version: 33,
+    // Migration 033: Add feature_flag_chat column to settings (default enabled).
+    sql: '',
+    handler: (db: Database.Database) => {
+      const columns = db.pragma('table_info(settings)') as { name: string }[];
+      if (!columns.some((c) => c.name === 'feature_flag_chat')) {
+        db.exec('ALTER TABLE settings ADD COLUMN feature_flag_chat INTEGER NOT NULL DEFAULT 1');
+      }
+    },
+  },
 ];
 
 /**

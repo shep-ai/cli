@@ -12,7 +12,7 @@ vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }));
 
-const defaultFlags = { skills: false, envDeploy: false, debug: false };
+const defaultFlags = { skills: false, envDeploy: false, debug: false, chat: true };
 
 describe('FeatureFlagsSettingsSection', () => {
   beforeEach(() => {
@@ -20,14 +20,16 @@ describe('FeatureFlagsSettingsSection', () => {
     mockUpdateSettingsAction.mockResolvedValue({ success: true });
   });
 
-  it('renders 3 feature flag toggles with descriptions', () => {
+  it('renders 4 feature flag toggles with descriptions', () => {
     render(<FeatureFlagsSettingsSection featureFlags={defaultFlags} />);
     expect(screen.getByTestId('switch-flag-skills')).toBeDefined();
     expect(screen.getByTestId('switch-flag-envDeploy')).toBeDefined();
     expect(screen.getByTestId('switch-flag-debug')).toBeDefined();
+    expect(screen.getByTestId('switch-flag-chat')).toBeDefined();
     expect(screen.getByText('Skills')).toBeDefined();
     expect(screen.getByText('Deployments')).toBeDefined();
     expect(screen.getByText('Debug')).toBeDefined();
+    expect(screen.getByText('Chat')).toBeDefined();
   });
 
   it('renders description text for each flag', () => {
@@ -39,6 +41,7 @@ describe('FeatureFlagsSettingsSection', () => {
     expect(
       screen.getByText('Enable debug UI elements and verbose client-side logging')
     ).toBeDefined();
+    expect(screen.getByText('Enable GPT-style chat interface in the web UI')).toBeDefined();
   });
 
   it('does not render a save button (auto-saves on change)', () => {

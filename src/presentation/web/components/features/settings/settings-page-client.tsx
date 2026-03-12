@@ -339,7 +339,12 @@ function SectionHint({
 
 export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsPageClientProps) {
   const { showSaving, showSaved, save } = useSaveIndicator();
-  const featureFlags = settings.featureFlags ?? { skills: false, envDeploy: false, debug: false };
+  const featureFlags = settings.featureFlags ?? {
+    skills: false,
+    envDeploy: false,
+    debug: false,
+    chat: true,
+  };
 
   // Agent state
   const [agentType, setAgentType] = useState(settings.agent.type);
