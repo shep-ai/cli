@@ -1,3 +1,14 @@
+# [1.107.0](https://github.com/shep-ai/cli/compare/v1.106.5...v1.107.0) (2026-03-12)
+
+### Bug Fixes
+
+- **agents:** fix merge verification for squash merges with modified tree ([27320f6](https://github.com/shep-ai/cli/commit/27320f64483517c1f2dde4a7a6b926e5380e1d65))
+
+### Features
+
+- **agents:** add resume context and crash detection for feature agent ([a9a7e99](https://github.com/shep-ai/cli/commit/a9a7e99354661869a0875c15a622876ab7d4ee9a))
+- **web:** add retry button for failed and interrupted features ([de70fd7](https://github.com/shep-ai/cli/commit/de70fd78fb73cb29b919841674ea27deb4b1a696))
+
 ## [1.106.5](https://github.com/shep-ai/cli/compare/v1.106.4...v1.106.5) (2026-03-12)
 
 ### Bug Fixes
