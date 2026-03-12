@@ -1,3 +1,13 @@
+# [1.106.0](https://github.com/shep-ai/cli/compare/v1.105.0...v1.106.0) (2026-03-12)
+
+### Bug Fixes
+
+- **agents:** use --auto flag for gh pr merge to respect branch protection ([#316](https://github.com/shep-ai/cli/issues/316)) ([c22a392](https://github.com/shep-ai/cli/commit/c22a392ce0b6f3ee16c8c3f2402a5ff5745e5d28))
+
+### Features
+
+- **web:** hide duplicate summary when it matches user query ([#314](https://github.com/shep-ai/cli/issues/314)) ([087dbfd](https://github.com/shep-ai/cli/commit/087dbfd3e2e582cd734ab3b6ed8c66b3be5ffa1b))
+
 # [1.105.0](https://github.com/shep-ai/cli/compare/v1.104.1...v1.105.0) (2026-03-12)
 
 ### Features
