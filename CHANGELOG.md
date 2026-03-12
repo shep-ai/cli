@@ -1,3 +1,9 @@
+## [1.106.2](https://github.com/shep-ai/cli/compare/v1.106.1...v1.106.2) (2026-03-12)
+
+### Bug Fixes
+
+- **web:** increase approve button sizing to prevent icon clipping ([#317](https://github.com/shep-ai/cli/issues/317)) ([ca5d324](https://github.com/shep-ai/cli/commit/ca5d32444cc76d9ae1f220c94f6d2aa76ee85519))
+
 ## [1.106.1](https://github.com/shep-ai/cli/compare/v1.106.0...v1.106.1) (2026-03-12)
 
 ### Bug Fixes
