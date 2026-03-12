@@ -1,0 +1,125 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: app-evidence-capture-39be1a
+number: 063
+branch: feat/063-app-evidence-capture-39be1a
+oneLiner: Fine-tune evidence prompt to capture from the running app instead of Storybook and add video evidence for UI flows
+userQuery: >
+  Currently the evidence collection for cli bring evidences from the storybook its good but its not great. lets fine tune the prompt for the evidence collection so it would bring evidence from the actual main app itself. also when there are ui related flow we should create videos as evidence
+summary: >
+  Refine the evidence collection prompt in evidence-prompts.ts to direct the agent to capture
+  screenshots and videos from the actual running Next.js application (pnpm dev:web) rather than
+  Storybook. Add explicit video capture instructions using Playwright's page.video API for UI
+  flows that involve multi-step interactions, navigation, or animations.
+phase: Analysis
+sizeEstimate: S
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - TypeScript
+  - Playwright (browser automation for screenshots and video capture)
+  - Next.js (the actual app to capture evidence from)
+  - Vitest (unit tests for prompt generation)
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  The evidence collection phase (invoked after implementation completes) uses a prompt
+  (`buildEvidencePrompt` in `evidence-prompts.ts`) that gives the agent generic instructions
+  to "start the dev server" and capture screenshots. In practice, the agent often defaults to
+  capturing from Storybook (port 6006) because the prompt doesn't explicitly prioritize the
+  actual running application. This produces evidence showing isolated component stories rather
+  than the real integrated UI experience.
+
+  Additionally, the prompt mentions Video as a supported evidence type but provides no concrete
+  instructions on how to record videos. For UI flows involving multi-step interactions
+  (navigation, form submissions, drawer open/close), a static screenshot misses the full
+  picture — video evidence would be much more compelling.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The evidence system spans these layers:
+
+  - **TypeSpec definitions**: `tsp/domain/value-objects/evidence.tsp` and
+    `tsp/common/enums/evidence-type.tsp` — define Evidence model and EvidenceType enum
+    (Screenshot, Video, TestOutput, TerminalRecording). No changes needed here.
+  - **Domain generated types**: `packages/core/src/domain/generated/output.ts` — auto-generated,
+    already supports Video type. No changes needed.
+  - **Evidence prompt**: `packages/core/src/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.ts`
+    — the 215-line prompt builder. **Primary file to modify.**
+  - **Evidence node**: `packages/core/src/infrastructure/services/agents/feature-agent/nodes/evidence.node.ts`
+    — orchestrates evidence collection. No changes needed.
+  - **Evidence output parser**: `packages/core/src/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.ts`
+    — parses JSON from agent output. Already handles Video type. No changes needed.
+  - **Implement nodes**: `implement.node.ts` and `fast-implement.node.ts` — call
+    `collectEvidence()` sub-agent after implementation. No changes needed.
+  - **Tests**: Unit tests in `tests/unit/.../evidence-prompts.test.ts` — **must be updated**
+    to verify new prompt content.
+
+  ### Architecture Patterns
+
+  The evidence system follows the project's Clean Architecture:
+  - Domain layer defines the Evidence model and EvidenceType enum (TypeSpec-first)
+  - Infrastructure layer contains the prompt builder and node implementation
+  - The agent executor interface (`IAgentExecutor`) is injected via DI — no hardcoded agents
+  - Evidence collection is settings-gated (`workflow.enableEvidence`)
+  - Graceful degradation: parse failures return empty array, never block the workflow
+
+  ### Relevant Technologies
+
+  - **Playwright**: Already used for screenshot capture. The prompt includes a Playwright script
+    example. Playwright also supports `page.video()` for recording — we need to add this.
+  - **Next.js dev server**: `pnpm dev:web` starts the app on port 3000 (via `dev-server.ts`).
+    The `shep ui` command starts it on port 4050. The prompt should explicitly reference these.
+  - **Storybook**: `pnpm dev:storybook` on port 6006. The prompt should deprioritize this as
+    an evidence source.
+
+  ## Success Criteria
+
+  - [ ] Evidence prompt explicitly instructs agent to use `pnpm dev:web` (the actual app)
+        as the primary evidence source, not Storybook
+  - [ ] Evidence prompt includes concrete Playwright video recording instructions with
+        `page.video()` API for UI flow evidence
+  - [ ] Evidence prompt defines when to capture video vs screenshot (multi-step interactions
+        get video; static views get screenshots)
+  - [ ] Existing unit tests updated and passing with new prompt assertions
+  - [ ] No changes to domain models, parser, or node logic — prompt-only changes
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `packages/core/src/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.ts` | High | Primary file — refine screenshot instructions and add video capture instructions |
+  | `tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts` | Medium | Update test assertions to verify new prompt content (app-first, video instructions) |
+
+  ## Dependencies
+
+  - Playwright's `page.video()` API — already available as a Playwright built-in, no new
+    dependencies needed
+  - Next.js dev server (`pnpm dev:web`) — already exists, just needs to be referenced in prompt
+  - Evidence domain model already includes Video type — no TypeSpec changes needed
+
+  ## Size Estimate
+
+  **S** — This is a prompt-only change in a single file (`evidence-prompts.ts`) plus updating
+  its corresponding unit test file. No architectural changes, no new dependencies, no domain
+  model changes. The work is:
+  1. Refine the screenshot capture section to explicitly use `pnpm dev:web` / the running app
+  2. Add a new video capture section with Playwright `page.video()` instructions
+  3. Add guidance on when to use video vs screenshot
+  4. Update unit tests to assert the new prompt content
+
+  ---
+
+  _Generated by feature agent — proceed with research_
