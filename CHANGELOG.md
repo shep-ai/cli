@@ -1,3 +1,9 @@
+## [1.106.5](https://github.com/shep-ai/cli/compare/v1.106.4...v1.106.5) (2026-03-12)
+
+### Bug Fixes
+
+- **web:** replace router.refresh() with targeted state updates ([#326](https://github.com/shep-ai/cli/issues/326)) ([797dac2](https://github.com/shep-ai/cli/commit/797dac2d663cc88dbcd40ced67a9e0e2e6fd8542))
+
 ## [1.106.4](https://github.com/shep-ai/cli/compare/v1.106.3...v1.106.4) (2026-03-12)
 
 ### Bug Fixes
