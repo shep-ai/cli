@@ -26,12 +26,12 @@ export function DeleteFeatureDialog({
   hasChildren,
 }: DeleteFeatureDialogProps) {
   const [cleanup, setCleanup] = useState(true);
-  const [cascadeDelete, setCascadeDelete] = useState(true);
+  const [cascadeDelete, setCascadeDelete] = useState(false);
 
   useEffect(() => {
     if (open) {
       setCleanup(true);
-      setCascadeDelete(true);
+      setCascadeDelete(false);
     }
   }, [open]);
 
@@ -46,20 +46,6 @@ export function DeleteFeatureDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <div className="flex flex-col gap-2">
-          {hasChildren ? (
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="cascade-delete-checkbox"
-                checked={cascadeDelete}
-                onCheckedChange={(checked) => setCascadeDelete(checked === true)}
-                disabled={isDeleting}
-                aria-label="Also delete sub-features"
-              />
-              <Label htmlFor="cascade-delete-checkbox" className="cursor-pointer text-sm">
-                Also delete sub-features
-              </Label>
-            </div>
-          ) : null}
           <div className="flex items-center gap-2">
             <Checkbox
               id="cleanup-checkbox"
@@ -72,6 +58,20 @@ export function DeleteFeatureDialog({
               Clean up worktree and branches
             </Label>
           </div>
+          {hasChildren ? (
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="cascade-delete-checkbox"
+                checked={cascadeDelete}
+                onCheckedChange={(checked) => setCascadeDelete(checked === true)}
+                disabled={isDeleting}
+                aria-label="Delete sub-features"
+              />
+              <Label htmlFor="cascade-delete-checkbox" className="cursor-pointer text-sm">
+                Delete sub-features
+              </Label>
+            </div>
+          ) : null}
         </div>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isDeleting} onClick={() => onOpenChange(false)}>

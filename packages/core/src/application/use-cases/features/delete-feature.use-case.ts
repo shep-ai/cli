@@ -47,12 +47,15 @@ export class DeleteFeatureUseCase {
       throw new Error(`Feature not found: "${featureId}"`);
     }
 
-    const cascadeDelete = options?.cascadeDelete !== false;
+    const cascadeDelete = options?.cascadeDelete === true;
 
     // 2. Immediately soft-delete the feature (and children if cascading)
     //    This makes them vanish from all queries right away (no reappear bug)
     if (cascadeDelete) {
       await this.cascadeSoftDelete(feature.id);
+    } else {
+      // Relocate direct children one level up in the hierarchy
+      await this.relocateChildren(feature.id, feature.parentId);
     }
     await this.markDeletingAndSoftDelete(feature);
 
@@ -63,6 +66,18 @@ export class DeleteFeatureUseCase {
     await this.cleanupSingleFeature(feature, options);
 
     return feature;
+  }
+
+  /** Relocate direct children one level up (set their parentId to the deleted feature's parentId). */
+  private async relocateChildren(parentId: string, newParentId?: string): Promise<void> {
+    const children = await this.featureRepo.findByParentId(parentId);
+    for (const child of children) {
+      await this.featureRepo.update({
+        ...child,
+        parentId: newParentId,
+        updatedAt: new Date(),
+      });
+    }
   }
 
   /** Recursively soft-delete all children (depth-first). */

@@ -61,3 +61,18 @@ rejectionFeedback:
     message: Resolve merge conflicts
     phase: merge
     timestamp: '2026-03-12T14:23:38.979Z'
+  - iteration: 2
+    message: >-
+      1. change the text to "Delete sub-features" (by default should be no
+      selected)
+
+      2. the delete sub features should be second in the list
+
+      3. I've tested it and it dosn't work. I marked  the delete sub featurtes
+      false clicked on deleted and both feature nodes removed,
+
+      instead it should have "relocate" the sub feature to be 1 level higher in
+      the hihrecy meaning  if it a sub feature from a feature going from repo it
+      should go to repo if its deeper it should just go one level up
+    phase: merge
+    timestamp: '2026-03-12T14:40:10.456Z'

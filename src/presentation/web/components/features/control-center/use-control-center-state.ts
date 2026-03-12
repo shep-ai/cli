@@ -330,7 +330,7 @@ export function useControlCenterState(
   const handleDeleteFeature = useCallback(
     (featureId: string, cleanup?: boolean, cascadeDelete?: boolean) => {
       const nodeId = `feat-${featureId}`;
-      const shouldCascade = cascadeDelete !== false;
+      const shouldCascade = cascadeDelete === true;
 
       // Collect all descendant feature node IDs (children, grandchildren, etc.)
       const descendants: string[] = [];
