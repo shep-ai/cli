@@ -9,10 +9,11 @@ userQuery: >
   Currently the evidence collection for cli bring evidences from the storybook its good but its not great. lets fine tune the prompt for the evidence collection so it would bring evidence from the actual main app itself. also when there are ui related flow we should create videos as evidence
 summary: >
   Refine the evidence collection prompt in evidence-prompts.ts to direct the agent to capture
-  screenshots and videos from the actual running Next.js application (pnpm dev:web) rather than
-  Storybook. Add explicit video capture instructions using Playwright's page.video API for UI
-  flows that involve multi-step interactions, navigation, or animations.
-phase: Analysis
+  screenshots and videos from the actual running Next.js application (pnpm dev:web on port 3000)
+  rather than Storybook. Add explicit video capture instructions using Playwright's page.video()
+  and browser context videoDir API for UI flows that involve multi-step interactions, navigation,
+  or animations. Update unit tests to assert on the new prompt content.
+phase: Requirements
 sizeEstimate: S
 
 # Relationships
@@ -20,14 +21,100 @@ relatedFeatures: []
 
 technologies:
   - TypeScript
-  - Playwright (browser automation for screenshots and video capture)
-  - Next.js (the actual app to capture evidence from)
+  - Playwright (browser automation for screenshots and video capture via page.video API)
+  - Next.js (the actual app to capture evidence from, port 3000)
   - Vitest (unit tests for prompt generation)
 
 relatedLinks: []
 
 # Open questions (must be resolved before implementation)
-openQuestions: []
+openQuestions:
+  - question: 'Should the prompt completely forbid Storybook as an evidence source, or deprioritize it as a fallback?'
+    resolved: true
+    options:
+      - option: 'Deprioritize as fallback'
+        description: >
+          Make the running app (pnpm dev:web) the primary and strongly preferred source,
+          but allow Storybook as a last resort if the main app cannot render the relevant
+          component (e.g., deeply isolated component with no route). This is pragmatic and
+          avoids cases where the agent has no evidence source at all.
+        selected: true
+      - option: 'Completely forbid Storybook'
+        description: >
+          Hard ban on Storybook evidence. Simpler rule for the agent to follow but risks
+          no evidence being captured for components that only exist in isolation.
+        selected: false
+    selectionRationale: >
+      Deprioritizing Storybook while making the app the strong default covers 95% of cases
+      while avoiding edge cases where the agent cannot capture any evidence at all. The prompt
+      should make it crystal clear that the running app is the primary source and Storybook
+      should only be used as a documented exception.
+    answer: 'Deprioritize as fallback'
+
+  - question: 'How should video recording be implemented in the prompt — browser context videoDir or page.video() save-after?'
+    resolved: true
+    options:
+      - option: 'Browser context videoDir'
+        description: >
+          Launch browser context with recordVideo: { dir: outputDir, size: { width, height } }.
+          Playwright automatically saves the video when the page/context closes. Simpler API,
+          no manual save step. This is the pattern used in the existing e2e showcase tests
+          in the codebase (playwright.config.ts video: on).
+        selected: true
+      - option: 'page.video() manual save'
+        description: >
+          Access page.video() after recording, close page, then call video.saveAs(path).
+          More control over output location but requires explicit lifecycle management.
+          The codebase uses this in audio-recording.ts fixture but it's more complex.
+        selected: false
+    selectionRationale: >
+      The browser context videoDir approach is simpler, less error-prone, and aligns with
+      Playwright's recommended pattern. The agent just needs to set recordVideo when creating
+      the browser context and close the page when done — Playwright handles the rest. The
+      manual save pattern adds complexity with no benefit for evidence capture.
+    answer: 'Browser context videoDir'
+
+  - question: 'What video resolution and format should be specified in the prompt?'
+    resolved: true
+    options:
+      - option: 'Match screenshot resolution (1280x720, WebM)'
+        description: >
+          Use 1280x720 viewport matching the existing screenshot standard. WebM is Playwright's
+          default video format — lightweight, good quality, and supported by all modern browsers
+          for PR preview. Keeps file sizes manageable (typically under 2-5MB for short flows).
+        selected: true
+      - option: 'Higher resolution (1920x1080, WebM)'
+        description: >
+          Full HD resolution for crisper video. Larger files (5-15MB) but better visual quality.
+          May be excessive for evidence purposes and increases storage costs.
+        selected: false
+    selectionRationale: >
+      1280x720 matches the existing screenshot resolution standard already in the prompt,
+      keeps file sizes small, and provides sufficient visual quality for evidence purposes.
+      WebM is Playwright's native format and requires no transcoding.
+    answer: 'Match screenshot resolution (1280x720, WebM)'
+
+  - question: 'Should the prompt include a maximum video duration limit?'
+    resolved: true
+    options:
+      - option: 'Yes, 30-second limit'
+        description: >
+          Cap video recordings at 30 seconds. Most UI flows (navigation, form submit, drawer
+          toggle) complete well within this window. Prevents runaway recordings that produce
+          huge files. The agent should be instructed to keep interactions focused and concise.
+        selected: true
+      - option: 'No limit, rely on file size constraint'
+        description: >
+          Let the existing 500KB file size guideline implicitly constrain duration. However,
+          video files can easily exceed 500KB in seconds, making this constraint impractical
+          for video. Would need to raise the file size limit for video specifically.
+        selected: false
+    selectionRationale: >
+      A 30-second limit is practical — most UI interactions are well under this. It also
+      gives the agent a clear, actionable constraint rather than relying on file size math.
+      The file size constraint section should be updated to note that video files may exceed
+      500KB and that duration is the primary constraint for videos.
+    answer: 'Yes, 30-second limit'
 
 # Markdown content (the actual spec)
 content: |
@@ -37,88 +124,129 @@ content: |
   (`buildEvidencePrompt` in `evidence-prompts.ts`) that gives the agent generic instructions
   to "start the dev server" and capture screenshots. In practice, the agent often defaults to
   capturing from Storybook (port 6006) because the prompt doesn't explicitly prioritize the
-  actual running application. This produces evidence showing isolated component stories rather
-  than the real integrated UI experience.
+  actual running application on port 3000. This produces evidence showing isolated component
+  stories rather than the real integrated UI experience.
 
-  Additionally, the prompt mentions Video as a supported evidence type but provides no concrete
-  instructions on how to record videos. For UI flows involving multi-step interactions
-  (navigation, form submissions, drawer open/close), a static screenshot misses the full
-  picture — video evidence would be much more compelling.
+  Additionally, the prompt lists Video as a supported evidence type but provides no concrete
+  instructions on how to record videos using Playwright. For UI flows involving multi-step
+  interactions (navigation, form submissions, drawer open/close), a static screenshot misses
+  the full picture — video evidence would be much more compelling.
 
-  ## Codebase Analysis
+  The codebase already has all the infrastructure to support this:
+  - The domain model includes `EvidenceType.Video`
+  - The evidence output parser handles Video records
+  - Playwright's `recordVideo` API is available and used in existing e2e tests
+  - The Next.js dev server runs on port 3000 via `pnpm dev:web`
 
-  ### Project Structure
-
-  The evidence system spans these layers:
-
-  - **TypeSpec definitions**: `tsp/domain/value-objects/evidence.tsp` and
-    `tsp/common/enums/evidence-type.tsp` — define Evidence model and EvidenceType enum
-    (Screenshot, Video, TestOutput, TerminalRecording). No changes needed here.
-  - **Domain generated types**: `packages/core/src/domain/generated/output.ts` — auto-generated,
-    already supports Video type. No changes needed.
-  - **Evidence prompt**: `packages/core/src/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.ts`
-    — the 215-line prompt builder. **Primary file to modify.**
-  - **Evidence node**: `packages/core/src/infrastructure/services/agents/feature-agent/nodes/evidence.node.ts`
-    — orchestrates evidence collection. No changes needed.
-  - **Evidence output parser**: `packages/core/src/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.ts`
-    — parses JSON from agent output. Already handles Video type. No changes needed.
-  - **Implement nodes**: `implement.node.ts` and `fast-implement.node.ts` — call
-    `collectEvidence()` sub-agent after implementation. No changes needed.
-  - **Tests**: Unit tests in `tests/unit/.../evidence-prompts.test.ts` — **must be updated**
-    to verify new prompt content.
-
-  ### Architecture Patterns
-
-  The evidence system follows the project's Clean Architecture:
-  - Domain layer defines the Evidence model and EvidenceType enum (TypeSpec-first)
-  - Infrastructure layer contains the prompt builder and node implementation
-  - The agent executor interface (`IAgentExecutor`) is injected via DI — no hardcoded agents
-  - Evidence collection is settings-gated (`workflow.enableEvidence`)
-  - Graceful degradation: parse failures return empty array, never block the workflow
-
-  ### Relevant Technologies
-
-  - **Playwright**: Already used for screenshot capture. The prompt includes a Playwright script
-    example. Playwright also supports `page.video()` for recording — we need to add this.
-  - **Next.js dev server**: `pnpm dev:web` starts the app on port 3000 (via `dev-server.ts`).
-    The `shep ui` command starts it on port 4050. The prompt should explicitly reference these.
-  - **Storybook**: `pnpm dev:storybook` on port 6006. The prompt should deprioritize this as
-    an evidence source.
+  The only gap is the prompt itself — it needs explicit instructions for app-first capture
+  and concrete video recording guidance.
 
   ## Success Criteria
 
-  - [ ] Evidence prompt explicitly instructs agent to use `pnpm dev:web` (the actual app)
-        as the primary evidence source, not Storybook
-  - [ ] Evidence prompt includes concrete Playwright video recording instructions with
-        `page.video()` API for UI flow evidence
-  - [ ] Evidence prompt defines when to capture video vs screenshot (multi-step interactions
-        get video; static views get screenshots)
-  - [ ] Existing unit tests updated and passing with new prompt assertions
-  - [ ] No changes to domain models, parser, or node logic — prompt-only changes
+  - [ ] Evidence prompt explicitly instructs agent to start the app with `pnpm dev:web` on
+        port 3000 as the PRIMARY evidence source
+  - [ ] Evidence prompt explicitly deprioritizes Storybook (port 6006) — allowed only as a
+        documented fallback when the component has no app route
+  - [ ] Evidence prompt includes a concrete Playwright video recording script example using
+        the `recordVideo: { dir, size }` browser context option
+  - [ ] Evidence prompt defines clear decision criteria for when to capture video vs screenshot:
+        multi-step interactions, navigation flows, and animations get video; static views get
+        screenshots
+  - [ ] Evidence prompt specifies video constraints: 1280x720 resolution, WebM format,
+        maximum 30-second duration
+  - [ ] File size constraints section updated to accommodate video files (duration-based
+        limit for video, existing size limit for other types)
+  - [ ] Existing unit tests updated with new assertions verifying app-first instructions,
+        video recording instructions, and decision criteria
+  - [ ] All existing unit tests continue to pass (no regressions)
+  - [ ] No changes to domain models, parser, evidence node, or any file outside of
+        evidence-prompts.ts and its test file
+
+  ## Functional Requirements
+
+  - **FR-1**: The evidence prompt MUST instruct the agent to start the Next.js dev server
+    using `pnpm dev:web` (port 3000) as the primary evidence capture source. The prompt
+    must reference port 3000 explicitly in the Playwright script example.
+
+  - **FR-2**: The evidence prompt MUST explicitly deprioritize Storybook (port 6006) as an
+    evidence source. The prompt should state that Storybook should only be used if the
+    component being captured has no route in the running application, and that the agent
+    must document why Storybook was chosen in the evidence description.
+
+  - **FR-3**: The evidence prompt MUST include a concrete Playwright video recording script
+    example using the `browserContext.recordVideo` option with `{ dir: outputDir, size:
+    { width: 1280, height: 720 } }`. The example must show launching the browser, performing
+    a multi-step interaction, and closing the context to finalize the video file.
+
+  - **FR-4**: The evidence prompt MUST define clear decision criteria for video vs screenshot:
+    - **Video**: Multi-step UI flows (form fill + submit, navigation between pages, drawer/modal
+      open/close, drag-and-drop, any interaction sequence with 2+ steps)
+    - **Screenshot**: Static views, single-state UI elements, layout verification, API responses
+
+  - **FR-5**: The evidence prompt MUST specify video recording constraints: 1280x720 viewport
+    resolution, WebM format (Playwright default), maximum 30-second recording duration.
+
+  - **FR-6**: The file size constraints section MUST be updated to note that video files may
+    exceed the 500KB guideline and that duration (30 seconds max) is the primary constraint
+    for video evidence. The 500KB limit continues to apply to screenshots and text output.
+
+  - **FR-7**: The Playwright script example for screenshots MUST be updated to use port 3000
+    instead of the generic `PORT` placeholder, and must use `pnpm dev:web` as the server
+    start command instead of the generic `npm run dev` or `pnpm dev`.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1**: Prompt changes must not alter the function signature, parameters, or return
+    type of `buildEvidencePrompt`. All changes are internal to the returned string.
+
+  - **NFR-2**: The prompt must remain deterministic — same input state produces identical
+    output (existing test asserts this).
+
+  - **NFR-3**: Changes must be confined to exactly two files: `evidence-prompts.ts` and
+    `evidence-prompts.test.ts`. No other source files may be modified.
+
+  - **NFR-4**: The video recording instructions must be copy-pasteable by the agent — the
+    Playwright script example must be syntactically valid and runnable.
+
+  - **NFR-5**: The prompt must maintain backward compatibility with the evidence output
+    parser — the JSON output format section must remain unchanged.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Should Storybook be completely forbidden or deprioritized? | Deprioritize as fallback | Covers 95% of cases while avoiding edge cases where no evidence can be captured |
+  | 2 | Which Playwright video API to use in the prompt example? | Browser context videoDir | Simpler API, aligns with existing codebase patterns, less error-prone |
+  | 3 | What video resolution and format? | 1280x720, WebM | Matches screenshot standard, keeps files small, Playwright native format |
+  | 4 | Should there be a max video duration? | Yes, 30 seconds | Practical limit for UI flows, prevents huge files, clear agent constraint |
 
   ## Affected Areas
 
   | Area | Impact | Reasoning |
   | ---- | ------ | --------- |
-  | `packages/core/src/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.ts` | High | Primary file — refine screenshot instructions and add video capture instructions |
+  | `packages/core/src/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.ts` | High | Primary file — add app-first instructions, video capture script, decision criteria |
   | `tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts` | Medium | Update test assertions to verify new prompt content (app-first, video instructions) |
 
   ## Dependencies
 
-  - Playwright's `page.video()` API — already available as a Playwright built-in, no new
-    dependencies needed
-  - Next.js dev server (`pnpm dev:web`) — already exists, just needs to be referenced in prompt
+  - Playwright's `recordVideo` browser context option — already available as a Playwright
+    built-in, no new dependencies needed
+  - Next.js dev server (`pnpm dev:web`) on port 3000 — already exists, just needs explicit
+    reference in prompt
   - Evidence domain model already includes Video type — no TypeSpec changes needed
+  - Evidence output parser already handles Video records — no parser changes needed
 
   ## Size Estimate
 
   **S** — This is a prompt-only change in a single file (`evidence-prompts.ts`) plus updating
   its corresponding unit test file. No architectural changes, no new dependencies, no domain
   model changes. The work is:
-  1. Refine the screenshot capture section to explicitly use `pnpm dev:web` / the running app
-  2. Add a new video capture section with Playwright `page.video()` instructions
-  3. Add guidance on when to use video vs screenshot
-  4. Update unit tests to assert the new prompt content
+  1. Update the screenshot section to explicitly use `pnpm dev:web` on port 3000
+  2. Add Storybook deprioritization language
+  3. Add a new video capture section with Playwright `recordVideo` instructions and script
+  4. Add video vs screenshot decision criteria
+  5. Update file size constraints for video
+  6. Update unit tests to assert all new prompt content
 
   ---
 
