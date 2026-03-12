@@ -1,3 +1,9 @@
+# [1.105.0](https://github.com/shep-ai/cli/compare/v1.104.1...v1.105.0) (2026-03-12)
+
+### Features
+
+- **deployment:** enable env deployment feature flag by default ([#310](https://github.com/shep-ai/cli/issues/310)) ([bd3dea5](https://github.com/shep-ai/cli/commit/bd3dea5d3acb64a3a23529b2ffff55c973de6d36))
+
 ## [1.104.1](https://github.com/shep-ai/cli/compare/v1.104.0...v1.104.1) (2026-03-11)
 
 ### Bug Fixes
