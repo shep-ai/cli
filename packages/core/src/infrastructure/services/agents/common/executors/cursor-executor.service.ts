@@ -306,6 +306,9 @@ export class CursorExecutorService implements IAgentExecutor {
     const spawnOpts: Record<string, unknown> = {};
     if (options?.cwd) spawnOpts.cwd = options.cwd;
 
+    // Explicitly pipe stdio so streams are available even when parent disconnects
+    spawnOpts.stdio = ['pipe', 'pipe', 'pipe'];
+
     // On Windows, the cursor agent is a .cmd script which requires shell: true
     // to resolve via PATH. Also hide the console window.
     if (IS_WINDOWS) {

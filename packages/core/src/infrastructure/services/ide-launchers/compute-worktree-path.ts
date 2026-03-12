@@ -19,7 +19,9 @@ import { getShepHomeDir } from '../filesystem/shep-directory.service';
  * @returns Absolute path to the worktree directory under ~/.shep/repos/
  */
 export function computeWorktreePath(repoPath: string, branch: string): string {
-  const repoHash = createHash('sha256').update(repoPath).digest('hex').slice(0, 16);
+  // Normalize separators before hashing so C:\foo and C:/foo produce the same hash
+  const normalizedRepoPath = repoPath.replace(/\\/g, '/');
+  const repoHash = createHash('sha256').update(normalizedRepoPath).digest('hex').slice(0, 16);
   const slug = branch.replace(/\//g, '-');
   return join(getShepHomeDir(), 'repos', repoHash, 'wt', slug).replace(/\\/g, '/');
 }

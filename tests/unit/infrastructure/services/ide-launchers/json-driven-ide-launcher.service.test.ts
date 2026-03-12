@@ -264,6 +264,19 @@ describe('JsonDrivenIdeLauncherService', () => {
       expect(mockChild.unref).not.toHaveBeenCalled();
     });
 
+    it('keeps directory paths with spaces as a single argument', async () => {
+      const mockChild = { unref: vi.fn() };
+      mockSpawn.mockReturnValue(mockChild);
+
+      await service.launch('vscode', 'C:/Users/My User/project');
+
+      expect(mockSpawn).toHaveBeenCalledWith('code', ['C:/Users/My User/project'], {
+        detached: true,
+        stdio: 'ignore',
+        shell: false,
+      });
+    });
+
     it('resolves per-platform openDirectory for antigravity on linux', async () => {
       mockPlatform.mockReturnValue('linux');
       const svc = new JsonDrivenIdeLauncherService();
