@@ -62,3 +62,11 @@ export const WithRevisionInput: Story = {
     revisionPlaceholder: 'Ask AI to revise the plan...',
   },
 };
+
+/** Long approve label — e.g. "Approve Requirements" from PRD review. */
+export const LongApproveLabel: Story = {
+  args: {
+    onReject: fn().mockName('onReject'),
+    approveLabel: 'Approve Requirements',
+  },
+};
