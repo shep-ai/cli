@@ -35,6 +35,10 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
         agent: [claude-code, cursor]
+        exclude:
+          # cursor-agent CLI not available on Windows (winget installs IDE only)
+          - os: windows-latest
+            agent: cursor
 
     permissions:
       contents: read
@@ -85,13 +89,6 @@ jobs:
         run: |
           curl -fsS https://cursor.com/install | bash
           echo "$HOME/.local/bin" >> $GITHUB_PATH
-
-      - name: Install Cursor CLI (Windows)
-        if: matrix.agent == 'cursor' && runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          winget install --id Anysphere.Cursor -e --source winget --accept-package-agreements --accept-source-agreements
-          # cursor-agent should be on PATH after install
 
       # ---------------------------------------------------------------------
       # 3. Clone the target repo (shep-ai/sheep)
