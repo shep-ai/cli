@@ -34,10 +34,6 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
         agent: [dev, claude-code, cursor]
-        exclude:
-          # cursor-agent CLI not available on Windows
-          - os: windows-latest
-            agent: cursor
 
     permissions:
       contents: read
@@ -87,6 +83,32 @@ jobs:
         run: |
           curl -fsS https://cursor.com/install | bash
           echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Install Cursor CLI (Windows)
+        if: matrix.agent == 'cursor' && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          winget install --id Anysphere.Cursor -e --source winget --accept-source-agreements --accept-package-agreements
+          # Refresh PATH to pick up cursor-agent
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+          # Find and add cursor-agent location to GITHUB_PATH
+          $cursorPath = (Get-Command cursor-agent -ErrorAction SilentlyContinue).Source
+          if ($cursorPath) {
+            echo (Split-Path $cursorPath) >> $env:GITHUB_PATH
+          } else {
+            # Common install locations
+            $paths = @(
+              "$env:LOCALAPPDATA\Programs\cursor",
+              "$env:LOCALAPPDATA\cursor",
+              "$env:ProgramFiles\Cursor"
+            )
+            foreach ($p in $paths) {
+              if (Test-Path "$p\cursor-agent.exe") {
+                echo $p >> $env:GITHUB_PATH
+                break
+              }
+            }
+          }
 
       # ─────────────────────────────────────────────────────────────────────
       # 3. Create target repo
@@ -244,14 +266,19 @@ jobs:
         run: |
           echo "=== Checking for worktree branches ==="
           git worktree list
-          # The feature should have created commits beyond the initial one
-          COMMIT_COUNT=$(git log --oneline --all | wc -l)
-          echo "Total commits across all branches: $COMMIT_COUNT"
-          if [ "$COMMIT_COUNT" -le 1 ]; then
-            echo "::error::No new commits found — agent did not produce changes"
-            exit 1
+          if [ "${{ matrix.agent }}" = "dev" ]; then
+            echo "Dev agent — skipping commit check (dev executor simulates work without real commits)"
+            echo "Feature completed successfully — that's the verification for dev."
+          else
+            # Real agents should have created commits beyond the initial one
+            COMMIT_COUNT=$(git log --oneline --all | wc -l)
+            echo "Total commits across all branches: $COMMIT_COUNT"
+            if [ "$COMMIT_COUNT" -le 1 ]; then
+              echo "::error::No new commits found — agent did not produce changes"
+              exit 1
+            fi
+            echo "Local changes verified!"
           fi
-          echo "Local changes verified!"
 
       # ─────────────────────────────────────────────────────────────────────
       # 10. Upload shep logs (always, even on failure)
