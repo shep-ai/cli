@@ -59,8 +59,8 @@ jobs:
       # ---------------------------------------------------------------------
       # 2. Install Claude Code CLI (required by shep agent executor)
       # ---------------------------------------------------------------------
-      - name: Install Claude Code CLI (Linux)
-        if: runner.os == 'Linux'
+      - name: Install Claude Code CLI (Linux/macOS)
+        if: runner.os != 'Windows'
         run: |
           curl -fsSL https://claude.ai/install.sh | bash
           echo "$HOME/.local/bin" >> $GITHUB_PATH
