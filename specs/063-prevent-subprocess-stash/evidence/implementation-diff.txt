@@ -1,0 +1,242 @@
+diff --git a/packages/core/src/infrastructure/services/agents/feature-agent/nodes/node-helpers.ts b/packages/core/src/infrastructure/services/agents/feature-agent/nodes/node-helpers.ts
+index 67a568d7d..aa59b7e3a 100644
+--- a/packages/core/src/infrastructure/services/agents/feature-agent/nodes/node-helpers.ts
++++ b/packages/core/src/infrastructure/services/agents/feature-agent/nodes/node-helpers.ts
+@@ -325,6 +325,15 @@ export function buildCommitPushBlock(opts: {
+     lines.push(`   - \`pnpm test\` — all tests must pass`);
+     lines.push(`   - \`pnpm lint\` — no lint errors`);
+     lines.push(`   - Fix any issues found before proceeding to push`);
++    lines.push(``);
++    lines.push(`**CRITICAL — Never run destructive git commands during verification.**`);
++    lines.push(
++      `Do NOT run \`git stash\`, \`git reset\`, \`git checkout -- .\`, \`git restore\`, or \`git clean\` under any circumstances.`
++    );
++    lines.push(
++      `These commands can destroy uncommitted work. If a test fails and you believe it is unrelated to your changes, proceed with the commit and push anyway — do NOT attempt to prove the failure is pre-existing.`
++    );
++    lines.push(``);
+     lines.push(`4. Push to remote: \`git push -u origin HEAD\``);
+     lines.push(`   - Do NOT wait for or watch CI — just push and finish`);
+   }
+diff --git a/packages/core/src/infrastructure/services/agents/feature-agent/nodes/schemas/spec.schema.ts b/packages/core/src/infrastructure/services/agents/feature-agent/nodes/schemas/spec.schema.ts
+index b1dcb5780..f97610066 100644
+--- a/packages/core/src/infrastructure/services/agents/feature-agent/nodes/schemas/spec.schema.ts
++++ b/packages/core/src/infrastructure/services/agents/feature-agent/nodes/schemas/spec.schema.ts
+@@ -28,7 +28,15 @@ function validateBaseSpec(data: unknown, errors: string[]): data is Record<strin
+ 
+ export function validateSpecAnalyze(data: unknown): ValidationResult {
+   const errors: string[] = [];
+-  validateBaseSpec(data, errors);
++  if (!validateBaseSpec(data, errors)) return { valid: false, errors };
++
++  const d = data as Record<string, unknown>;
++  if ('openQuestions' in d && Array.isArray(d.openQuestions) && d.openQuestions.length > 0) {
++    errors.push(
++      "Field 'openQuestions' must be an empty array in the analysis phase (requirements phase fills it in)"
++    );
++  }
++
+   return { valid: errors.length === 0, errors };
+ }
+ 
+diff --git a/specs/053-task-progress-view/evidence/e2e-task-progress-default.png b/specs/053-task-progress-view/evidence/e2e-task-progress-default.png
+index 494c9ea12..3112ab5e7 100644
+Binary files a/specs/053-task-progress-view/evidence/e2e-task-progress-default.png and b/specs/053-task-progress-view/evidence/e2e-task-progress-default.png differ
+diff --git a/specs/053-task-progress-view/evidence/e2e-task-progress-expanded.png b/specs/053-task-progress-view/evidence/e2e-task-progress-expanded.png
+index e8954540d..d15199e1e 100644
+Binary files a/specs/053-task-progress-view/evidence/e2e-task-progress-expanded.png and b/specs/053-task-progress-view/evidence/e2e-task-progress-expanded.png differ
+diff --git a/specs/053-task-progress-view/evidence/e2e-task-progress-multi-expanded.png b/specs/053-task-progress-view/evidence/e2e-task-progress-multi-expanded.png
+index 4905e51d5..08ad6fa2d 100644
+Binary files a/specs/053-task-progress-view/evidence/e2e-task-progress-multi-expanded.png and b/specs/053-task-progress-view/evidence/e2e-task-progress-multi-expanded.png differ
+diff --git a/tests/integration/infrastructure/services/agents/graph-state-transitions/feedback-and-timing.test.ts b/tests/integration/infrastructure/services/agents/graph-state-transitions/feedback-and-timing.test.ts
+index 6c82bcf0c..1f0d7a59e 100644
+--- a/tests/integration/infrastructure/services/agents/graph-state-transitions/feedback-and-timing.test.ts
++++ b/tests/integration/infrastructure/services/agents/graph-state-transitions/feedback-and-timing.test.ts
+@@ -22,7 +22,11 @@ import {
+   readSpecYaml,
+   ALL_GATES_DISABLED,
+ } from './helpers.js';
+-import { SPEC_WITH_QUESTIONS_YAML } from './fixtures.js';
++import {
++  VALID_SPEC_YAML,
++  SPEC_WITH_QUESTIONS_YAML,
++  OPEN_QUESTIONS_FOR_REQUIREMENTS,
++} from './fixtures.js';
+ 
+ describe('Graph State Transitions › Feedback & Timing', () => {
+   let ctx: TestContext;
+@@ -36,6 +40,8 @@ describe('Graph State Transitions › Feedback & Timing', () => {
+ 
+   beforeEach(() => {
+     ctx.reset();
++    // Reset spec.yaml to a clean state (previous test may have written openQuestions)
++    writeFileSync(join(ctx.specDir, 'spec.yaml'), VALID_SPEC_YAML);
+   });
+ 
+   afterAll(() => {
+@@ -55,8 +61,9 @@ describe('Graph State Transitions › Feedback & Timing', () => {
+     expectInterruptAt(r1, 'requirements');
+ 
+     // Simulate what the caller does before resuming with rejection:
+-    // Append rejectionFeedback to spec.yaml so the prompt builder picks it up
++    // Add openQuestions (requirements phase fills these in) and rejectionFeedback
+     const specData = readSpecYaml(ctx.specDir);
++    specData.openQuestions = OPEN_QUESTIONS_FOR_REQUIREMENTS;
+     specData.rejectionFeedback = [
+       {
+         iteration: 1,
+diff --git a/tests/integration/infrastructure/services/agents/graph-state-transitions/fixtures.ts b/tests/integration/infrastructure/services/agents/graph-state-transitions/fixtures.ts
+index 130ad85ab..889c34d8d 100644
+--- a/tests/integration/infrastructure/services/agents/graph-state-transitions/fixtures.ts
++++ b/tests/integration/infrastructure/services/agents/graph-state-transitions/fixtures.ts
+@@ -54,6 +54,12 @@ export const VALID_TASKS_YAML = `tasks:
+ /**
+  * Spec YAML with open questions and rejection feedback support.
+  * Used by feedback-related tests.
++ *
++ * Note: openQuestions must be empty here because the graph starts at the
++ * analyze node and validateSpecAnalyze rejects non-empty openQuestions.
++ * Tests that need openQuestions should write them to spec.yaml after the
++ * analyze phase completes (i.e., after the first invoke interrupts at
++ * requirements).
+  */
+ export const SPEC_WITH_QUESTIONS_YAML = `name: Test Feature
+ oneLiner: A test feature with questions
+@@ -63,15 +69,21 @@ sizeEstimate: S
+ content: Full description with open questions
+ technologies:
+   - TypeScript
+-openQuestions:
+-  - question: Which database should we use?
+-    options:
+-      - option: PostgreSQL
+-        description: Relational DB
+-        selected: true
+-      - option: MongoDB
+-        description: Document DB
+-        selected: false
+-    selectionRationale: Better for structured data
+-    answer: PostgreSQL
++openQuestions: []
+ `;
++
++/**
++ * Open questions to write to spec.yaml after the analyze phase completes.
++ * Used in combination with SPEC_WITH_QUESTIONS_YAML by feedback tests.
++ */
++export const OPEN_QUESTIONS_FOR_REQUIREMENTS = [
++  {
++    question: 'Which database should we use?',
++    options: [
++      { option: 'PostgreSQL', description: 'Relational DB', selected: true },
++      { option: 'MongoDB', description: 'Document DB', selected: false },
++    ],
++    selectionRationale: 'Better for structured data',
++    answer: 'PostgreSQL',
++  },
++];
+diff --git a/tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts b/tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts
+index 8949cc633..bddb03908 100644
+--- a/tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts
++++ b/tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts
+@@ -197,6 +197,61 @@ describe('buildCommitPushBlock', () => {
+     expect(result).toContain('git add');
+     expect(result).toContain('docs(specs): update spec');
+   });
++
++  it('should prohibit git stash when push=true', () => {
++    const result = buildCommitPushBlock({
++      push: true,
++      files: ['spec.yaml'],
++      commitHint: 'docs(specs): update spec',
++    });
++    expect(result).toContain('git stash');
++    expect(result.toLowerCase()).toMatch(/never|do not|forbidden|prohibit/);
++  });
++
++  it('should prohibit git reset when push=true', () => {
++    const result = buildCommitPushBlock({
++      push: true,
++      files: ['spec.yaml'],
++      commitHint: 'docs(specs): update spec',
++    });
++    expect(result).toContain('git reset');
++  });
++
++  it('should prohibit git checkout -- when push=true', () => {
++    const result = buildCommitPushBlock({
++      push: true,
++      files: ['spec.yaml'],
++      commitHint: 'docs(specs): update spec',
++    });
++    expect(result).toContain('git checkout');
++  });
++
++  it('should prohibit git restore when push=true', () => {
++    const result = buildCommitPushBlock({
++      push: true,
++      files: ['spec.yaml'],
++      commitHint: 'docs(specs): update spec',
++    });
++    expect(result).toContain('git restore');
++  });
++
++  it('should prohibit git clean when push=true', () => {
++    const result = buildCommitPushBlock({
++      push: true,
++      files: ['spec.yaml'],
++      commitHint: 'docs(specs): update spec',
++    });
++    expect(result).toContain('git clean');
++  });
++
++  it('should instruct to proceed with commit+push if unrelated tests fail', () => {
++    const result = buildCommitPushBlock({
++      push: true,
++      files: ['spec.yaml'],
++      commitHint: 'docs(specs): update spec',
++    });
++    expect(result.toLowerCase()).toMatch(/proceed|commit.*anyway|push.*anyway/);
++  });
+ });
+ 
+ describe('isRejectionPayload', () => {
+diff --git a/tests/unit/infrastructure/services/agents/feature-agent/nodes/schemas/spec.schema.test.ts b/tests/unit/infrastructure/services/agents/feature-agent/nodes/schemas/spec.schema.test.ts
+index 10ce1e28d..8f4c2066f 100644
+--- a/tests/unit/infrastructure/services/agents/feature-agent/nodes/schemas/spec.schema.test.ts
++++ b/tests/unit/infrastructure/services/agents/feature-agent/nodes/schemas/spec.schema.test.ts
+@@ -46,6 +46,34 @@ describe('validateSpecAnalyze', () => {
+     expect(result.valid).toBe(false);
+     expect(result.errors).toContain('YAML parsed to null or non-object');
+   });
++
++  it('fails when openQuestions is a non-empty array', () => {
++    const data = { ...validAnalyzeSpec, openQuestions: ['What about X?'] };
++    const result = validateSpecAnalyze(data);
++    expect(result.valid).toBe(false);
++    expect(result.errors[0]).toContain('openQuestions');
++  });
++
++  it('passes when openQuestions is an empty array', () => {
++    const data = { ...validAnalyzeSpec, openQuestions: [] };
++    const result = validateSpecAnalyze(data);
++    expect(result.valid).toBe(true);
++  });
++
++  it('passes when openQuestions is not present', () => {
++    const result = validateSpecAnalyze(validAnalyzeSpec);
++    expect(result.valid).toBe(true);
++  });
++
++  it('fails when openQuestions contains structured objects', () => {
++    const data = {
++      ...validAnalyzeSpec,
++      openQuestions: [{ question: 'Should we use X?', resolved: false }],
++    };
++    const result = validateSpecAnalyze(data);
++    expect(result.valid).toBe(false);
++    expect(result.errors[0]).toContain('openQuestions');
++  });
+ });
+ 
+ const validRequirementsSpec = {
