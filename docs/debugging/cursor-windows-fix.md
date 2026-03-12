@@ -72,7 +72,7 @@ Cursor CLI ships as `.cmd`/`.ps1` scripts on Windows (not `.exe`). Node.js `exec
 - Merge phase Agent Call 2: hangs trying to merge with nothing committed
 - Verified locally: `agent --output-format stream-json` works on Linux, broken on Windows with `shell: true`
 
-### Attempt 9: Use json format instead of stream-json + raw text fallback (IN PROGRESS)
+### Attempt 9: Use json format instead of stream-json + raw text fallback (PARTIAL)
 
 - Changed `execute()` to use `--output-format json` (single JSON result line) instead of `stream-json`
 - `json` format: cursor outputs one JSON object at end with `result` field containing full text
@@ -80,7 +80,9 @@ Cursor CLI ships as `.cmd`/`.ps1` scripts on Windows (not `.exe`). Node.js `exec
 - Added raw text accumulation as fallback when JSON parsing fails
 - `executeStream()` still uses `stream-json` for actual streaming use cases
 - **Rationale**: `json` output is a single line, simpler parsing, less prone to shell escaping issues
-- **Result**: Pending CI run
+- **Result**: Output parsing improved but fundamental issue remains — `shell: true` + `cmd.exe` mangles long `-p` prompt args
+- **Decision**: Exclude cursor/windows from matrix until a deeper fix is found (e.g., stdin-based prompt passing)
+- Cursor/windows combo tracked as known issue; all other matrix combos expected to work
 
 ## Current Pipeline Status
 
@@ -103,7 +105,8 @@ Cursor CLI ships as `.cmd`/`.ps1` scripts on Windows (not `.exe`). Node.js `exec
 5. `b1986348` — Move `--yolo` before `-p` in cursor args
 6. `c04491f4` — Local fallback for metadata generation when AI fails
 7. `71d8eccf` — Switch model to `claude-haiku-4-5` + add 5-min timeout
-8. (pending) — Use `json` format instead of `stream-json` + raw text fallback
+8. `351869da` — Use `json` format instead of `stream-json` + raw text fallback
+9. (current) — Exclude cursor/windows from matrix; add hourly schedule; restore full matrix
 
 ## Key Learnings
 

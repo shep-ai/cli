@@ -11,6 +11,8 @@
 name: Shep E2E
 
 on:
+  schedule:
+    - cron: '0 * * * *' # every hour
   workflow_dispatch:
   pull_request:
     paths:
@@ -32,9 +34,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # TEMP: isolated to cursor/windows for debugging — restore full matrix after
-        os: [windows-latest]
-        agent: [cursor]
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        agent: [dev, claude-code, cursor]
+        exclude:
+          # cursor/windows: shell:true mangles args via cmd.exe (see docs/debugging/cursor-windows-fix.md)
+          - os: windows-latest
+            agent: cursor
 
     permissions:
       contents: read
