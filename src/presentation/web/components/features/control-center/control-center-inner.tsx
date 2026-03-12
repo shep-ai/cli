@@ -257,6 +257,19 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     return () => window.removeEventListener('shep:feature-created', handler);
   }, [nodes, createFeatureNode]);
 
+  // Listen for delete requests from the feature drawer (fires when the user
+  // confirms delete inside the drawer). Delegates to handleDeleteFeature so
+  // the canvas gets optimistic state, mutation guard, and node removal.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { featureId, cleanup } = (e as CustomEvent<{ featureId: string; cleanup?: boolean }>)
+        .detail;
+      handleDeleteFeature(featureId, cleanup);
+    };
+    window.addEventListener('shep:feature-delete-requested', handler);
+    return () => window.removeEventListener('shep:feature-delete-requested', handler);
+  }, [handleDeleteFeature]);
+
   // Wire callbacks into derived node data (via ref — no re-render).
   useEffect(() => {
     setCallbacks({
