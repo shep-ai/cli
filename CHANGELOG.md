@@ -1,3 +1,9 @@
+## [1.107.2](https://github.com/shep-ai/cli/compare/v1.107.1...v1.107.2) (2026-03-12)
+
+### Bug Fixes
+
+- **web:** prevent polling race condition with optimistic ui ([#334](https://github.com/shep-ai/cli/issues/334)) ([6eaa673](https://github.com/shep-ai/cli/commit/6eaa673730549519e3790f4c3146a6a065598aab))
+
 ## [1.107.1](https://github.com/shep-ai/cli/compare/v1.107.0...v1.107.1) (2026-03-12)
 
 ### Bug Fixes
