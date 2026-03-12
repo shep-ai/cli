@@ -1,0 +1,253 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: gpt-chat-interface
+summary: >
+  Implementation plan for a GPT-style chat interface in the Shep web UI. The
+  approach installs prompt-kit components as source files via shadcn CLI, builds
+  a custom useChat hook with useReducer for ephemeral state management, creates
+  a dedicated POST /api/chat/stream SSE endpoint that calls
+  IAgentExecutor.executeStream() directly, and wires a /chat route into the
+  existing AppShell with sidebar navigation gated by a chat feature flag. Work
+  proceeds in four phases: foundation (flag, route, sidebar), UI components
+  (prompt-kit install + feature components), state and streaming (useChat hook +
+  SSE endpoint), and integration (wiring everything together with error
+  handling, empty state, and clear conversation).
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - Next.js 16 (App Router)
+  - React 19
+  - prompt-kit (chat UI components via shadcn CLI)
+  - shadcn/ui (new-york style, already configured)
+  - Tailwind CSS 4
+  - Radix UI (accessibility primitives)
+  - Lucide React (icons)
+  - Server-Sent Events (real-time streaming)
+  - react-markdown (already a dependency)
+  - use-stick-to-bottom (prompt-kit dependency for auto-scroll)
+  - vitest (unit testing)
+  - '@testing-library/react (component testing)'
+  - '@storybook/react (component stories)'
+relatedLinks:
+  - https://github.com/ibelick/prompt-kit
+  - https://www.prompt-kit.com/docs/installation
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'Foundation — Feature Flag, Route, and Sidebar'
+    description: >
+      Establish the skeleton: add the chat feature flag to FeatureFlagsState,
+      create the /chat route with a minimal placeholder page, and add the Chat
+      nav item to the sidebar gated by the flag. This phase has zero external
+      dependencies and produces a navigable route that other phases build upon.
+      Everything is testable independently — flag logic, route rendering, and
+      sidebar conditional display.
+    parallel: false
+
+  - id: phase-2
+    name: 'UI Components — prompt-kit Installation and Feature Shell'
+    description: >
+      Install prompt-kit components (chat-container, message, prompt-input,
+      markdown, code-block, loader) as source files via the shadcn CLI. Create
+      the chat feature component directory with ChatView, ChatEmptyState, and
+      ChatHeader components. Write Storybook stories for every component. This
+      phase depends on phase-1 for the route to mount components into, but
+      the components themselves are self-contained and testable with mock data.
+    parallel: false
+
+  - id: phase-3
+    name: 'State and Streaming — useChat Hook and SSE Endpoint'
+    description: >
+      Build the useChat hook with useReducer managing messages, streaming state,
+      error state, and sessionId. Create the POST /api/chat/stream SSE endpoint
+      that resolves IAgentExecutorProvider from the DI container, calls
+      executeStream(), and forwards AgentExecutionStreamEvent as SSE events.
+      This is the core logic phase — heavily TDD-driven with unit tests for
+      every state transition in the hook and integration tests for the SSE
+      endpoint. Hook and endpoint are tested in isolation before UI wiring.
+    parallel: false
+
+  - id: phase-4
+    name: 'Integration — Wire UI, Hook, and Endpoint Together'
+    description: >
+      Connect the useChat hook to the ChatView component, wire the prompt input
+      submission to sendMessage(), display streaming tokens progressively,
+      implement error handling with retry, add the empty state with suggestion
+      chips, implement clear conversation with confirmation, ensure
+      accessibility (aria-live, focus management, keyboard navigation), and
+      verify responsive design. Final Storybook stories for integrated states.
+    parallel: false
+
+# File change tracking
+filesToCreate:
+  # Phase 1 — Route
+  - src/presentation/web/app/chat/page.tsx
+  # Phase 2 — prompt-kit components (installed via shadcn CLI)
+  - src/presentation/web/components/ui/chat-container.tsx
+  - src/presentation/web/components/ui/prompt-input.tsx
+  - src/presentation/web/components/ui/markdown.tsx
+  - src/presentation/web/components/ui/code-block.tsx
+  - src/presentation/web/components/ui/loader.tsx
+  # Phase 2 — Feature components
+  - src/presentation/web/components/features/chat/index.ts
+  - src/presentation/web/components/features/chat/chat-page-client.tsx
+  - src/presentation/web/components/features/chat/chat-page-client.stories.tsx
+  - src/presentation/web/components/features/chat/chat-view.tsx
+  - src/presentation/web/components/features/chat/chat-view.stories.tsx
+  - src/presentation/web/components/features/chat/chat-empty-state.tsx
+  - src/presentation/web/components/features/chat/chat-empty-state.stories.tsx
+  - src/presentation/web/components/features/chat/chat-header.tsx
+  - src/presentation/web/components/features/chat/chat-header.stories.tsx
+  # Phase 3 — Hook and SSE endpoint
+  - src/presentation/web/hooks/use-chat.ts
+  - src/presentation/web/hooks/use-chat.test.ts
+  - src/presentation/web/app/api/chat/stream/route.ts
+
+filesToModify:
+  - src/presentation/web/lib/feature-flags.ts
+  - src/presentation/web/hooks/feature-flags-context.tsx
+  - src/presentation/web/components/layouts/app-sidebar/app-sidebar.tsx
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Architecture Overview
+
+  The chat interface follows the established Clean Architecture patterns in the
+  Shep codebase. The feature is entirely within the presentation/web layer —
+  no domain or application layer changes are needed since chat state is
+  ephemeral and agent execution uses the existing IAgentExecutor interface.
+
+  **Routing**: `app/chat/page.tsx` (server component) checks the chat feature
+  flag and renders `ChatPageClient` (client component). This matches the
+  pattern used by /tools, /skills, and /settings routes — server component
+  does flag checking and data fetching, client component handles interactivity.
+
+  **State Management**: A custom `useChat` hook with `useReducer` manages all
+  chat state locally. No global context needed — chat state is page-scoped and
+  ephemeral. The reducer handles message append, streaming token updates,
+  error state, and clear conversation. A `sessionId` is stored in reducer
+  state to enable multi-turn conversations via `resumeSession`.
+
+  **Streaming**: A dedicated `POST /api/chat/stream` endpoint receives the
+  user message and optional sessionId, resolves `IAgentExecutorProvider` from
+  the DI container, calls `executeStream()` on the resolved executor, and
+  forwards `AgentExecutionStreamEvent` objects as SSE events. The client
+  consumes the stream via `fetch()` with `ReadableStream` reader (not
+  EventSource, since we need POST with a JSON body).
+
+  **Components**: prompt-kit components install as source files into
+  `components/ui/` via the shadcn CLI, matching the existing shadcn/ui
+  component pattern. Feature-level components live in
+  `components/features/chat/` following the settings/tools pattern.
+
+  **Data Flow**:
+  ```
+  User types message → useChat.sendMessage(content)
+    → POST /api/chat/stream { message, sessionId }
+      → resolve IAgentExecutorProvider → getExecutor()
+        → executor.executeStream(prompt, { resumeSession, systemPrompt })
+          → AsyncIterable<AgentExecutionStreamEvent>
+            → SSE stream: data: { type, content, timestamp }
+    → useChat reads ReadableStream
+      → dispatch({ type: 'stream_token', content })
+        → UI re-renders with new content appended to assistant message
+  ```
+
+  ## Key Design Decisions
+
+  ### 1. Ephemeral State over Persistence
+  Chat messages live in React state (useReducer) and are lost on page
+  refresh. This keeps scope at size M by avoiding TypeSpec model changes, DB
+  migrations, new repositories, and new use cases. Persistence is a natural
+  follow-up feature. The agent's own session management (via sessionId /
+  resumeSession) handles conversation continuity within a session.
+
+  ### 2. Direct executeStream() over Use Case Layer
+  The API route resolves IAgentExecutorProvider directly from the DI container
+  rather than creating a new ChatUseCase. Chat is a thin pass-through — the
+  route validates input, resolves the executor, calls executeStream(), and
+  forwards events. A use case would add a file with minimal logic. This
+  matches how existing API routes (/api/agent-events, /api/feature-logs)
+  access the DI container directly.
+
+  ### 3. POST + ReadableStream over EventSource
+  The SSE stream is initiated via POST (to send message content and sessionId
+  in the request body) and consumed via fetch() ReadableStream. EventSource
+  only supports GET requests. The fetch pattern also gives us AbortController
+  for cancellation when the user navigates away or submits a new message.
+
+  ### 4. prompt-kit as Source Files over npm Package
+  prompt-kit components are installed as source files via `npx shadcn@latest
+  add "https://prompt-kit.com/c/<component>.json"`. This means zero runtime
+  dependency (other than use-stick-to-bottom for auto-scroll), full
+  customization control, and seamless integration with the existing shadcn/ui
+  setup. Bundle impact is minimal (< 30KB gzipped).
+
+  ### 5. Separate SSE Endpoint over Reusing agent-events
+  The existing /api/agent-events endpoint is designed for SDLC lifecycle
+  notifications via DB polling. It has no concept of chat streaming and uses
+  a different event schema. A dedicated /api/chat/stream endpoint keeps
+  concerns clean and allows a purpose-built streaming protocol.
+
+  ### 6. Local ChatMessage Type over TypeSpec Model
+  A local ChatMessage interface ({ id, role, content, timestamp, status })
+  avoids TypeSpec changes for ephemeral state. The role values align with
+  MessageRole enum (user, assistant). The status field (sending | streaming |
+  complete | error) drives UI state.
+
+  ### 7. Hardcoded System Prompt
+  A static system prompt in the API route sets the AI persona for chat
+  interactions. It can reference the project name and path from settings.
+  AgentExecutionOptions.systemPrompt is already supported. User-configurable
+  prompts can be added as a follow-up.
+
+  ### 8. Session-Based Conversation Continuity
+  After the first message, the sessionId from AgentExecutionResult is stored
+  in the useChat reducer state and passed as resumeSession in subsequent
+  messages. Claude Code (the primary agent) supports session-resume natively.
+  For agents that don't support sessions, each message is independent.
+
+  ## Implementation Strategy
+
+  Work proceeds in four phases, each building on the previous:
+
+  **Phase 1 (Foundation)** comes first because it establishes the navigable
+  route skeleton and feature flag that all other phases depend on. The flag
+  must exist before the sidebar can conditionally render the nav item, and
+  the route must exist before components can mount into it.
+
+  **Phase 2 (UI Components)** installs prompt-kit and creates the feature
+  component shell. This is done before the hook/endpoint because components
+  can be developed and storied with mock data, validating the UI design
+  independently of backend integration.
+
+  **Phase 3 (State & Streaming)** builds the core logic — the useChat hook
+  and SSE endpoint. This is heavily TDD-driven. The hook is tested in
+  isolation with mock fetch responses. The endpoint is tested with mock DI
+  container and agent executor.
+
+  **Phase 4 (Integration)** wires everything together. The hook connects to
+  real components, the prompt input triggers sendMessage(), streaming tokens
+  render progressively, error handling and retry work end-to-end, and
+  accessibility is verified.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | prompt-kit components may not install cleanly with current shadcn/ui config | Install components in phase-2 early; verify each renders; fall back to manual copy from prompt-kit source if CLI fails |
+  | use-stick-to-bottom dependency may conflict with existing packages | Check for version conflicts during install; the package is small with no transitive dependencies |
+  | Agent executor may not support streaming for all agent types | Check executor.supportsFeature(AgentFeature.streaming) before calling executeStream(); fall back to execute() and simulate streaming for non-streaming agents |
+  | Long streaming responses may cause scroll performance issues | use-stick-to-bottom uses ResizeObserver (not scroll events) for efficient auto-scroll; test with 100+ messages per NFR-1 |
+  | Markdown re-parsing on each streaming token may be expensive | prompt-kit Markdown component handles incremental rendering; profile if jank is observed |
+  | SSE connection drops during long responses | Implement reconnection in useChat hook; preserve partial content on reconnection |
+
+  ---
+
+  _Planning phase complete — 2026-03-12_

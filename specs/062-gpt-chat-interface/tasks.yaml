@@ -1,0 +1,583 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: gpt-chat-interface
+summary: >
+  14 tasks across 4 phases implementing a GPT-style chat interface. Phase 1
+  establishes the feature flag, route, and sidebar nav item. Phase 2 installs
+  prompt-kit components and creates the feature component shell with stories.
+  Phase 3 builds the useChat hook and SSE streaming endpoint with full TDD
+  coverage. Phase 4 wires everything together with error handling, empty state,
+  clear conversation, and accessibility.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - Next.js 16 (App Router)
+  - React 19
+  - prompt-kit (chat UI components via shadcn CLI)
+  - shadcn/ui (new-york style, already configured)
+  - Tailwind CSS 4
+  - vitest
+  - '@testing-library/react'
+  - '@storybook/react'
+relatedLinks: []
+
+# Structured task list
+tasks:
+  # ==========================================================================
+  # Phase 1 — Foundation: Feature Flag, Route, and Sidebar
+  # ==========================================================================
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Add chat feature flag to FeatureFlagsState'
+    description: >
+      Add a `chat` boolean to the FeatureFlagsState interface in
+      lib/feature-flags.ts with a default value of true. Update
+      getFeatureFlags() to read from Settings first, fall back to
+      NEXT_PUBLIC_FLAG_CHAT env var, and default to true. Update the
+      feature-flags-context.tsx defaults to include chat.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'FeatureFlagsState interface includes chat: boolean'
+      - 'getFeatureFlags() returns chat: true by default'
+      - 'getFeatureFlags() respects NEXT_PUBLIC_FLAG_CHAT env var override'
+      - 'getFeatureFlags() respects Settings DB value when available'
+      - 'FeatureFlagsProvider default state includes chat: true'
+      - 'TypeScript compiles without errors'
+    tdd:
+      red:
+        - 'Write test asserting getFeatureFlags() returns { chat: true } by default'
+        - 'Write test asserting NEXT_PUBLIC_FLAG_CHAT=false overrides default'
+      green:
+        - 'Add chat: boolean to FeatureFlagsState interface'
+        - 'Add chat resolution logic to getFeatureFlags() matching existing pattern'
+        - 'Update feature-flags-context.tsx default state to include chat: true'
+      refactor:
+        - 'Verify consistency with existing flags (skills, envDeploy, debug)'
+    estimatedEffort: '30min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Create /chat route with placeholder page'
+    description: >
+      Create app/chat/page.tsx as a server component that checks the chat
+      feature flag and renders a ChatPageClient placeholder. The page follows
+      the same pattern as app/tools/page.tsx and app/settings/page.tsx:
+      export dynamic = 'force-dynamic', check flag with notFound(), render
+      client component. The ChatPageClient is a minimal 'use client' component
+      with a placeholder heading for now.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'app/chat/page.tsx exists as a server component with dynamic = force-dynamic'
+      - 'Page calls notFound() when chat feature flag is false'
+      - 'Page renders ChatPageClient when flag is true'
+      - 'ChatPageClient is a use client component with placeholder content'
+      - 'Route is accessible at /chat in the browser'
+    tdd:
+      red:
+        - 'Write test asserting /chat route renders ChatPageClient when flag is true'
+        - 'Write test asserting /chat route returns 404 when chat flag is false'
+      green:
+        - 'Create app/chat/page.tsx with feature flag check and ChatPageClient render'
+        - 'Create minimal ChatPageClient with use client directive and placeholder'
+      refactor:
+        - 'Ensure page structure matches existing route patterns exactly'
+    estimatedEffort: '30min'
+
+  - id: task-3
+    phaseId: phase-1
+    title: 'Add Chat nav item to sidebar'
+    description: >
+      Add a "Chat" navigation item to the AppSidebar component, gated by
+      featureFlags.chat. Use the MessageSquare icon from lucide-react. Position
+      between "Control Center" and "Tools" in the sidebar. Active state
+      highlights when pathname is /chat.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Chat nav item renders in sidebar when featureFlags.chat is true'
+      - 'Chat nav item is hidden when featureFlags.chat is false'
+      - 'Uses MessageSquare icon from lucide-react'
+      - 'Links to /chat route'
+      - 'Active state highlights when on /chat path'
+      - 'Positioned between Control Center and Tools'
+    tdd:
+      red:
+        - 'Write test asserting Chat nav item renders when chat flag is true'
+        - 'Write test asserting Chat nav item is absent when chat flag is false'
+        - 'Write test asserting Chat nav item has active state on /chat path'
+      green:
+        - 'Add conditional SidebarNavItem with MessageSquare icon and /chat href'
+        - 'Add featureFlags.chat guard matching existing skills pattern'
+      refactor:
+        - 'Verify nav item order matches spec (between Control Center and Tools)'
+    estimatedEffort: '30min'
+
+  # ==========================================================================
+  # Phase 2 — UI Components: prompt-kit Installation and Feature Shell
+  # ==========================================================================
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Install prompt-kit components via shadcn CLI'
+    description: >
+      Install the six prompt-kit components as source files using the shadcn
+      CLI: chat-container, message, prompt-input, markdown, code-block, and
+      loader. Each installs into components/ui/. Verify each component renders
+      without errors. The use-stick-to-bottom npm dependency will be added
+      automatically by the chat-container component installation.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'components/ui/chat-container.tsx exists and exports ChatContainer'
+      - 'components/ui/prompt-input.tsx exists and exports PromptInput'
+      - 'components/ui/markdown.tsx exists and exports Markdown'
+      - 'components/ui/code-block.tsx exists and exports CodeBlock'
+      - 'components/ui/loader.tsx exists and exports Loader'
+      - 'use-stick-to-bottom is in package.json dependencies'
+      - 'pnpm build completes without errors'
+      - 'All prompt-kit components compile with TypeScript'
+    tdd: null
+    estimatedEffort: '45min'
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Create ChatEmptyState component with stories'
+    description: >
+      Create the ChatEmptyState component that displays when no messages exist.
+      Shows a welcome message with the Shep name, a brief description
+      ("Ask me anything about your project"), and suggestion chips for common
+      prompts. The component accepts an onSuggestionClick callback prop.
+      Write colocated Storybook stories demonstrating default state.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'ChatEmptyState component renders welcome message and description'
+      - 'Suggestion chips render and are clickable'
+      - 'onSuggestionClick callback fires with suggestion text'
+      - 'Component is accessible (keyboard navigable chips)'
+      - 'Colocated .stories.tsx file exists with Default story'
+      - 'Story renders without errors in Storybook'
+    tdd:
+      red:
+        - 'Write test asserting ChatEmptyState renders welcome message'
+        - 'Write test asserting suggestion chips render and fire callback on click'
+      green:
+        - 'Create ChatEmptyState component with welcome text and suggestion chips'
+        - 'Accept onSuggestionClick prop and wire to chip click handlers'
+      refactor:
+        - 'Extract suggestion list to a constant for easy modification'
+        - 'Ensure styling follows shadcn/ui conventions (Tailwind CSS vars)'
+    estimatedEffort: '45min'
+
+  - id: task-6
+    phaseId: phase-2
+    title: 'Create ChatHeader component with stories'
+    description: >
+      Create the ChatHeader component with a title ("Chat") and a clear
+      conversation button. The clear button triggers a confirmation dialog
+      before calling onClear. The header also shows a connection/streaming
+      status indicator. Write colocated Storybook stories for default and
+      streaming states.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'ChatHeader renders title and clear conversation button'
+      - 'Clear button triggers confirmation before calling onClear'
+      - 'Streaming status indicator shows when isStreaming is true'
+      - 'Component is accessible (button has aria-label)'
+      - 'Colocated .stories.tsx file exists with Default and Streaming stories'
+    tdd:
+      red:
+        - 'Write test asserting ChatHeader renders title and clear button'
+        - 'Write test asserting clear button shows confirmation before calling onClear'
+        - 'Write test asserting streaming indicator shows when isStreaming is true'
+      green:
+        - 'Create ChatHeader with title, clear button, and status indicator'
+        - 'Add AlertDialog for clear confirmation using existing shadcn/ui component'
+      refactor:
+        - 'Ensure consistent spacing and styling with other feature headers'
+    estimatedEffort: '45min'
+
+  - id: task-7
+    phaseId: phase-2
+    title: 'Create ChatView component shell with stories'
+    description: >
+      Create the ChatView component that composes ChatContainer (prompt-kit),
+      message list rendering, prompt-kit PromptInput, ChatEmptyState, and
+      ChatHeader into a full chat interface. At this stage, the component
+      accepts messages and callbacks as props (not yet wired to useChat).
+      Messages render with role-appropriate styling using prompt-kit Message
+      component. Markdown content renders via prompt-kit Markdown. Write
+      Storybook stories for empty state, with messages, and with a streaming
+      message.
+    state: Todo
+    dependencies:
+      - task-4
+      - task-5
+      - task-6
+    acceptanceCriteria:
+      - 'ChatView composes ChatContainer, message list, PromptInput, header, and empty state'
+      - 'Messages render with user/assistant role styling via prompt-kit Message'
+      - 'Markdown content in messages renders via prompt-kit Markdown'
+      - 'Code blocks render via prompt-kit CodeBlock with copy button'
+      - 'PromptInput renders at the bottom with send button'
+      - 'Empty state shows when messages array is empty'
+      - 'Colocated .stories.tsx with Empty, WithMessages, and Streaming stories'
+    tdd:
+      red:
+        - 'Write test asserting ChatView renders empty state when messages is empty'
+        - 'Write test asserting ChatView renders message list when messages provided'
+        - 'Write test asserting user messages render with user role styling'
+        - 'Write test asserting assistant messages render markdown content'
+      green:
+        - 'Create ChatView composing prompt-kit components with props interface'
+        - 'Render messages with role-based styling and markdown support'
+        - 'Conditionally show empty state vs message list'
+      refactor:
+        - 'Extract message rendering logic if complex'
+        - 'Ensure responsive layout (full-width on mobile, contained on desktop)'
+    estimatedEffort: '1h'
+
+  - id: task-8
+    phaseId: phase-2
+    title: 'Create ChatPageClient component with stories'
+    description: >
+      Create the ChatPageClient component that will be the top-level client
+      component for the /chat route. At this stage it renders ChatView with
+      mock data. This is the component rendered by app/chat/page.tsx. Update
+      the page.tsx to import and render this component instead of the
+      placeholder. Create barrel export in index.ts. Write Storybook stories.
+    state: Todo
+    dependencies:
+      - task-2
+      - task-7
+    acceptanceCriteria:
+      - 'ChatPageClient is a use client component rendering ChatView'
+      - 'app/chat/page.tsx imports and renders ChatPageClient'
+      - 'index.ts barrel exports ChatPageClient'
+      - 'Colocated .stories.tsx file exists'
+      - '/chat route renders the full chat component shell in browser'
+    tdd:
+      red:
+        - 'Write test asserting ChatPageClient renders ChatView'
+        - 'Write test asserting ChatPageClient has use client directive'
+      green:
+        - 'Create ChatPageClient wrapping ChatView'
+        - 'Update page.tsx to use ChatPageClient'
+        - 'Create index.ts with barrel export'
+      refactor:
+        - 'Ensure component structure matches ToolsPageClient pattern'
+    estimatedEffort: '30min'
+
+  # ==========================================================================
+  # Phase 3 — State and Streaming: useChat Hook and SSE Endpoint
+  # ==========================================================================
+
+  - id: task-9
+    phaseId: phase-3
+    title: 'Build useChat hook — core state management with useReducer'
+    description: >
+      Create the useChat hook with useReducer managing ChatMessage array,
+      ChatStatus (idle | sending | streaming | error), error state, and
+      sessionId. Define the ChatMessage interface (id, role, content, timestamp,
+      status). Define reducer actions: add_user_message, start_streaming,
+      stream_token, complete_streaming, set_error, clear_messages. Expose
+      sendMessage(content), retry(), clearChat(), messages, status, and error.
+      This task covers the reducer logic and state management — sendMessage
+      dispatches actions but does NOT yet make the fetch call (that is task-10).
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'useChat hook exports sendMessage, retry, clearChat, messages, status, error'
+      - 'ChatMessage interface has id, role, content, timestamp, status fields'
+      - 'add_user_message action appends a user message and sets status to sending'
+      - 'start_streaming action adds an empty assistant message with status streaming'
+      - 'stream_token action appends content to the last assistant message'
+      - 'complete_streaming action sets assistant message status to complete and updates sessionId'
+      - 'set_error action sets error state and updates assistant message status to error'
+      - 'clear_messages action resets messages, error, and sessionId'
+      - 'All state transitions are covered by unit tests'
+    tdd:
+      red:
+        - 'Write test asserting initial state has empty messages, idle status, no error'
+        - 'Write test asserting sendMessage adds user message and sets status to sending'
+        - 'Write test asserting stream_token appends content to assistant message'
+        - 'Write test asserting complete_streaming sets status to idle and stores sessionId'
+        - 'Write test asserting set_error sets error state and re-enables input'
+        - 'Write test asserting clearChat resets all state'
+        - 'Write test asserting retry resends the last user message'
+      green:
+        - 'Define ChatMessage interface and ChatAction union type'
+        - 'Implement chatReducer with all action handlers'
+        - 'Create useChat hook returning state and action dispatchers'
+      refactor:
+        - 'Extract ChatMessage interface and ChatAction types to separate types section'
+        - 'Ensure action creators are memoized with useCallback'
+    estimatedEffort: '1.5h'
+
+  - id: task-10
+    phaseId: phase-3
+    title: 'Build useChat hook — fetch streaming integration'
+    description: >
+      Add the fetch call to useChat.sendMessage() that POSTs to
+      /api/chat/stream with the message content and sessionId. Read the
+      response body as a ReadableStream, parse SSE events (data: ...\n\n
+      format), and dispatch stream_token/complete_streaming/set_error actions
+      based on event type. Use AbortController for cancellation. Handle
+      network errors gracefully. This task wires the reducer from task-9 to
+      actual fetch calls.
+    state: Todo
+    dependencies:
+      - task-9
+    acceptanceCriteria:
+      - 'sendMessage POSTs to /api/chat/stream with { message, sessionId }'
+      - 'Response ReadableStream is consumed and SSE events are parsed'
+      - 'Progress events dispatch stream_token with content'
+      - 'Result event dispatches complete_streaming with sessionId'
+      - 'Error event dispatches set_error with error message'
+      - 'Network failures dispatch set_error with user-friendly message'
+      - 'AbortController cancels in-flight request on unmount or new message'
+      - 'All streaming scenarios are covered by unit tests with mock fetch'
+    tdd:
+      red:
+        - 'Write test asserting sendMessage calls fetch with correct URL, method, and body'
+        - 'Write test asserting progress SSE events dispatch stream_token actions'
+        - 'Write test asserting result SSE event dispatches complete_streaming'
+        - 'Write test asserting error SSE event dispatches set_error'
+        - 'Write test asserting network failure dispatches set_error'
+        - 'Write test asserting AbortController cancels on component unmount'
+        - 'Write test asserting retry resends the last message with same sessionId'
+      green:
+        - 'Implement fetch call in sendMessage with POST body'
+        - 'Implement ReadableStream SSE parser'
+        - 'Dispatch reducer actions based on parsed events'
+        - 'Add AbortController for cancellation on unmount'
+      refactor:
+        - 'Extract SSE parser into a helper function for reuse and testability'
+        - 'Ensure all fetch options match security requirements (credentials, headers)'
+    estimatedEffort: '1.5h'
+
+  - id: task-11
+    phaseId: phase-3
+    title: 'Create POST /api/chat/stream SSE endpoint'
+    description: >
+      Create the SSE streaming endpoint at app/api/chat/stream/route.ts. The
+      route handles POST requests: validates the request body (message is
+      non-empty string, max 10000 chars, optional sessionId), resolves
+      IAgentExecutorProvider from the DI container, calls getExecutor(), checks
+      streaming support, calls executeStream() with a hardcoded system prompt
+      and optional resumeSession, and forwards AgentExecutionStreamEvent
+      objects as SSE events. Falls back to execute() for non-streaming agents.
+      Uses ReadableStream + TextEncoder pattern matching existing API routes.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'POST /api/chat/stream accepts { message: string, sessionId?: string }'
+      - 'Validates message is non-empty and <= 10000 characters'
+      - 'Returns 400 for invalid request body'
+      - 'Resolves IAgentExecutorProvider from DI container'
+      - 'Calls executeStream() with system prompt and resumeSession'
+      - 'Forwards AgentExecutionStreamEvent as SSE events (data: JSON\n\n format)'
+      - 'Falls back to execute() + simulated streaming for non-streaming agents'
+      - 'Returns Content-Type: text/event-stream headers'
+      - 'Sends heartbeat comments to keep connection alive'
+      - 'Handles agent errors and returns error SSE event'
+      - 'Cleans up on request abort signal'
+    tdd:
+      red:
+        - 'Write test asserting endpoint returns 400 for empty message'
+        - 'Write test asserting endpoint returns 400 for message > 10000 chars'
+        - 'Write test asserting endpoint returns 400 for missing message field'
+        - 'Write test asserting endpoint resolves IAgentExecutorProvider and calls executeStream'
+        - 'Write test asserting progress events are forwarded as SSE data'
+        - 'Write test asserting result event is forwarded with sessionId'
+        - 'Write test asserting agent errors produce error SSE event'
+        - 'Write test asserting non-streaming agents use execute() fallback'
+      green:
+        - 'Create route.ts with POST handler and request body validation'
+        - 'Resolve IAgentExecutorProvider and call getExecutor()'
+        - 'Check supportsFeature(AgentFeature.streaming) for streaming vs fallback'
+        - 'Iterate AsyncIterable and encode events as SSE'
+        - 'Return ReadableStream Response with SSE headers'
+      refactor:
+        - 'Extract system prompt to a named constant'
+        - 'Extract SSE encoding helper for consistency with other SSE routes'
+    estimatedEffort: '1.5h'
+
+  # ==========================================================================
+  # Phase 4 — Integration: Wire UI, Hook, and Endpoint Together
+  # ==========================================================================
+
+  - id: task-12
+    phaseId: phase-4
+    title: 'Wire useChat hook into ChatPageClient and ChatView'
+    description: >
+      Connect the useChat hook to ChatPageClient. Pass messages, status, error,
+      sendMessage, retry, and clearChat to ChatView as props. Wire PromptInput
+      onSubmit to sendMessage. Disable input when status is sending/streaming.
+      Display streaming tokens progressively in the assistant message. Show
+      loading indicator (prompt-kit Loader) during sending state. Wire empty
+      state suggestion chips to sendMessage. Wire ChatHeader clear button to
+      clearChat. Auto-focus input on mount and after response completes.
+    state: Todo
+    dependencies:
+      - task-8
+      - task-10
+      - task-11
+    acceptanceCriteria:
+      - 'ChatPageClient initializes useChat and passes state/actions to ChatView'
+      - 'Typing a message and pressing Enter calls sendMessage'
+      - 'User message appears immediately in the chat'
+      - 'Loading indicator shows while waiting for response'
+      - 'Streaming tokens render progressively in assistant message'
+      - 'Input disables during sending/streaming and re-enables after'
+      - 'Input auto-focuses on mount and after response'
+      - 'Suggestion chips trigger sendMessage'
+      - 'Clear button triggers clearChat after confirmation'
+      - 'Full send/receive cycle works end-to-end in browser'
+    tdd:
+      red:
+        - 'Write integration test asserting submitting message calls sendMessage'
+        - 'Write integration test asserting input disables during streaming'
+        - 'Write integration test asserting input re-enables after streaming completes'
+        - 'Write integration test asserting suggestion chip click calls sendMessage'
+        - 'Write integration test asserting clear button resets messages'
+      green:
+        - 'Initialize useChat in ChatPageClient and pass props to ChatView'
+        - 'Wire PromptInput onSubmit to sendMessage'
+        - 'Wire input disabled state to status !== idle'
+        - 'Wire ChatEmptyState onSuggestionClick to sendMessage'
+        - 'Wire ChatHeader onClear to clearChat'
+        - 'Add auto-focus logic with useEffect and inputRef'
+      refactor:
+        - 'Ensure all callbacks are stable (useCallback) to avoid unnecessary re-renders'
+        - 'Verify streaming performance with long messages'
+    estimatedEffort: '1.5h'
+
+  - id: task-13
+    phaseId: phase-4
+    title: 'Implement error handling with retry and toast notifications'
+    description: >
+      Wire error states from useChat into the ChatView UI. When an error
+      occurs, display an inline error message in the chat with a "Retry"
+      button. Fire a sonner toast notification for visibility. Wire the retry
+      button to useChat.retry(). Ensure the input re-enables on error so the
+      user can try again. Handle specific error types: network failure, agent
+      error, timeout.
+    state: Todo
+    dependencies:
+      - task-12
+    acceptanceCriteria:
+      - 'Agent errors display inline in the chat as an error message'
+      - 'Error message includes a "Retry" button'
+      - 'Retry button calls useChat.retry() and resends the last message'
+      - 'Sonner toast fires on error for additional visibility'
+      - 'Input re-enables on error state'
+      - 'Network errors display user-friendly message (not raw error object)'
+      - 'Error state clears when user sends a new message or retries'
+    tdd:
+      red:
+        - 'Write test asserting error state renders inline error message'
+        - 'Write test asserting retry button calls retry() and resends message'
+        - 'Write test asserting toast notification fires on error'
+        - 'Write test asserting input re-enables on error'
+        - 'Write test asserting new message clears error state'
+      green:
+        - 'Add error message rendering in ChatView when error state is set'
+        - 'Add retry button that calls retry()'
+        - 'Add toast.error() call in useChat when error is dispatched'
+        - 'Ensure reducer clears error on new send_message action'
+      refactor:
+        - 'Extract error message component for reuse'
+        - 'Ensure error messages are user-friendly and actionable'
+    estimatedEffort: '45min'
+
+  - id: task-14
+    phaseId: phase-4
+    title: 'Accessibility, responsive design, and final stories'
+    description: >
+      Ensure the chat interface meets all accessibility requirements: aria-live
+      region for new messages, accessible labels on input and buttons, keyboard
+      navigation for all interactive elements, focus management returning to
+      input after send. Verify responsive design from 320px to full desktop.
+      Add final Storybook stories for integrated states: loading, error, long
+      conversation, code block rendering, and mobile viewport. Run
+      accessibility checks.
+    state: Todo
+    dependencies:
+      - task-13
+    acceptanceCriteria:
+      - 'aria-live region announces new messages to screen readers'
+      - 'Prompt input has accessible label (aria-label or label element)'
+      - 'Send button has aria-label'
+      - 'All interactive elements are keyboard navigable (Tab, Enter, Escape)'
+      - 'Focus returns to input after message send completes'
+      - 'Chat is usable at 320px viewport width'
+      - 'Prompt input is fixed at bottom on mobile'
+      - 'Storybook stories exist for: loading, error, long conversation, code block, mobile'
+      - 'No accessibility violations in automated checks'
+    tdd:
+      red:
+        - 'Write test asserting aria-live region exists in chat container'
+        - 'Write test asserting input has accessible label'
+        - 'Write test asserting send button has aria-label'
+        - 'Write test asserting focus returns to input after send'
+        - 'Write test asserting keyboard Enter submits message'
+        - 'Write test asserting keyboard Shift+Enter inserts newline'
+      green:
+        - 'Add aria-live="polite" region wrapping message list'
+        - 'Add aria-label to prompt input and send button'
+        - 'Add focus management with useRef and useEffect'
+        - 'Ensure responsive layout with Tailwind responsive utilities'
+        - 'Add final Storybook stories for all states and viewports'
+      refactor:
+        - 'Run accessibility audit and fix any violations'
+        - 'Verify mobile layout at 320px, 375px, and 768px breakpoints'
+    estimatedEffort: '1h'
+
+# Total effort estimate
+totalEstimate: '11.5h'
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Summary
+
+  The implementation is broken into 14 tasks across 4 phases. Phase 1
+  (Foundation) lays the groundwork with the feature flag, route skeleton, and
+  sidebar nav item — these have no external dependencies and unblock all
+  subsequent work. Phase 2 (UI Components) installs the 6 prompt-kit
+  components via shadcn CLI and creates the feature component shell (ChatView,
+  ChatEmptyState, ChatHeader, ChatPageClient) with Storybook stories for
+  each, all testable with mock data. Phase 3 (State & Streaming) builds the
+  core logic — the useChat hook with useReducer for state management and
+  fetch/ReadableStream for SSE consumption, plus the POST /api/chat/stream
+  endpoint that calls IAgentExecutor.executeStream(). This phase is heavily
+  TDD-driven with unit tests for every reducer action and streaming scenario.
+  Phase 4 (Integration) wires the hook into the components, implements error
+  handling with retry and toast notifications, adds accessibility (aria-live,
+  focus management, keyboard nav), and verifies responsive design with final
+  Storybook stories.
+
+  Tasks within each phase are ordered by dependency. Phase 1 tasks 2 and 3
+  depend on task 1 (feature flag) but are independent of each other. Phase 2
+  tasks 5-7 depend on task 4 (prompt-kit install) but the component tasks can
+  proceed in parallel. Phase 3 tasks 9-10 (hook) are sequential, but task 11
+  (endpoint) is independent and can proceed in parallel. Phase 4 is strictly
+  sequential since each task builds on the previous integration step.
+
+  ---
+
+  _Task breakdown complete — 2026-03-12_
