@@ -73,11 +73,22 @@ export class CursorExecutorService implements IAgentExecutor {
       `Spawning: agent ${args.map((a) => (a.length > 80 ? `${a.slice(0, 77)}...` : a)).join(' ')}`
     );
     this.log(`Spawn cwd: ${(spawnOpts.cwd as string) ?? '(inherited)'}`);
+    this.log(
+      `Spawn opts: shell=${String(spawnOpts.shell ?? false)}, platform=${process.platform}, prompt=${prompt.length} chars`
+    );
 
     const proc = this.spawn('agent', args, spawnOpts);
     this.log(`Subprocess PID: ${proc.pid ?? 'undefined (spawn may have failed)'}`);
 
-    if (proc.stdin) proc.stdin.end();
+    // On Windows, pipe the prompt via stdin to bypass cmd.exe argument mangling.
+    // The -p flag is omitted from args (see buildArgs).
+    if (process.platform === 'win32' && proc.stdin) {
+      this.log(`Writing ${prompt.length} chars to stdin (Windows stdin-pipe mode)`);
+      proc.stdin.write(prompt);
+      proc.stdin.end();
+    } else {
+      if (proc.stdin) proc.stdin.end();
+    }
 
     return new Promise<AgentExecutionResult>((resolve, reject) => {
       let lineBuffer = '';
@@ -135,6 +146,13 @@ export class CursorExecutorService implements IAgentExecutor {
         const data = chunk.toString();
         stderr += data;
         this.log(`stderr: ${data.trimEnd()}`);
+
+        // Detect fatal errors early so callers don't waste time retrying
+        if (data.includes('Cannot use this model')) {
+          if (timeoutId) clearTimeout(timeoutId);
+          proc.kill();
+          reject(new Error(data.trim()));
+        }
       });
 
       proc.on('error', (error: Error) => {
@@ -176,7 +194,13 @@ export class CursorExecutorService implements IAgentExecutor {
     const spawnOpts = this.buildSpawnOptions(options);
     const proc = this.spawn('agent', args, spawnOpts);
 
-    if (proc.stdin) proc.stdin.end();
+    // On Windows, pipe prompt via stdin (same as execute — see buildArgs)
+    if (process.platform === 'win32' && proc.stdin) {
+      proc.stdin.write(prompt);
+      proc.stdin.end();
+    } else {
+      if (proc.stdin) proc.stdin.end();
+    }
 
     let lineBuffer = '';
     let stderr = '';
@@ -287,7 +311,15 @@ export class CursorExecutorService implements IAgentExecutor {
   }
 
   private buildArgs(prompt: string, options?: AgentExecutionOptions): string[] {
-    const args = ['--yolo', '-p', prompt, '--output-format', 'json'];
+    const args = ['--yolo'];
+
+    // On Windows, skip -p to avoid cmd.exe arg mangling with shell: true.
+    // The prompt is piped via stdin instead (see execute/executeStream).
+    if (process.platform !== 'win32') {
+      args.push('-p', prompt);
+    }
+
+    args.push('--output-format', 'json');
     if (options?.resumeSession) args.push('--resume', options.resumeSession);
     if (options?.model) args.push('--model', toCursorModelName(options.model));
     // Unsupported options silently omitted: systemPrompt, allowedTools, maxTurns, outputSchema

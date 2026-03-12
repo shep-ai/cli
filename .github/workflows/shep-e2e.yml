@@ -33,7 +33,26 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
         agent: [dev, claude-code, cursor]
-        # All combos enabled — cursor/windows fixed via temp-file prompt passing
+        # All 9 combos enabled. To exclude a combo, uncomment:
+        # exclude:
+        #   - os: ubuntu-latest
+        #     agent: dev
+        #   - os: ubuntu-latest
+        #     agent: claude-code
+        #   - os: ubuntu-latest
+        #     agent: cursor
+        #   - os: windows-latest
+        #     agent: dev
+        #   - os: windows-latest
+        #     agent: claude-code
+        #   - os: windows-latest
+        #     agent: cursor
+        #   - os: macos-latest
+        #     agent: dev
+        #   - os: macos-latest
+        #     agent: claude-code
+        #   - os: macos-latest
+        #     agent: cursor
 
     permissions:
       contents: read
