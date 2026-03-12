@@ -32,8 +32,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        agent: [dev, claude-code, cursor]
+        # TEMP: isolated to cursor/windows for debugging — restore full matrix after
+        os: [windows-latest]
+        agent: [cursor]
 
     permissions:
       contents: read
