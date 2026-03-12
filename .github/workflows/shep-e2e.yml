@@ -70,7 +70,8 @@ jobs:
           git config user.email "bot@shep.ai"
 
       # ---------------------------------------------------------------------
-      # 3. Run shep feat new (fast mode, allow-all, push + PR)
+      # 3. Run shep feat new (fast mode, allow-all, push + PR + merge)
+      #    Shep handles the full lifecycle: implement → push → PR → merge
       # ---------------------------------------------------------------------
       - name: Run shep feat new
         env:
@@ -82,52 +83,24 @@ jobs:
           shep feat new "add a hello-world script that prints hello world to the console" \
             --fast \
             --allow-all \
-            --pr
+            --push \
+            --pr \
+            --allow-merge
 
       # ---------------------------------------------------------------------
-      # 4. Verify PR was created on shep-ai/sheep
+      # 4. Verify PR was created AND merged by shep on shep-ai/sheep
       # ---------------------------------------------------------------------
-      - name: Verify PR created
+      - name: Verify PR merged
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         working-directory: /tmp/sheep
         run: |
-          echo "Checking for open PRs created by shep..."
-          PR_URL=$(gh pr list --repo shep-ai/sheep --state open --json url --jq '.[0].url')
+          echo "Checking for merged PRs created by shep..."
+          PR_URL=$(gh pr list --repo shep-ai/sheep --state merged --json url --jq '.[0].url')
           if [ -z "$PR_URL" ]; then
-            echo "::error::No open PR found on shep-ai/sheep"
+            echo "::error::No merged PR found on shep-ai/sheep — shep should have merged it"
+            echo "Open PRs (should be none):"
+            gh pr list --repo shep-ai/sheep --state open
             exit 1
           fi
-          echo "PR created: $PR_URL"
-          echo "PR_URL=$PR_URL" >> $GITHUB_ENV
-
-      # ---------------------------------------------------------------------
-      # 5. Merge the PR
-      # ---------------------------------------------------------------------
-      - name: Merge PR
-        env:
-          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-        working-directory: /tmp/sheep
-        run: |
-          echo "Merging PR: $PR_URL"
-          gh pr merge "$PR_URL" --squash --delete-branch
-          echo "PR merged successfully"
-
-      # ---------------------------------------------------------------------
-      # 6. Verify feature is marked as completed in shep
-      # ---------------------------------------------------------------------
-      - name: Verify feature completed
-        env:
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-        working-directory: /tmp/sheep
-        run: |
-          echo "Checking feature status in shep..."
-          FEATURE_STATUS=$(shep feat ls --json 2>/dev/null | jq -r '.[0].status // empty')
-          if [ "$FEATURE_STATUS" = "completed" ] || [ "$FEATURE_STATUS" = "Completed" ]; then
-            echo "Feature is marked as completed"
-          else
-            echo "::warning::Feature status is '$FEATURE_STATUS' (expected 'completed')"
-            echo "Listing all features for debugging:"
-            shep feat ls 2>/dev/null || true
-          fi
+          echo "PR merged by shep: $PR_URL"
