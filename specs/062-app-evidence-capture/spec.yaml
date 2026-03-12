@@ -1,0 +1,145 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: app-evidence-capture
+number: 062
+branch: feat/062-app-evidence-capture
+oneLiner: >
+  Fine-tune evidence collection prompts to capture from the main Next.js app instead of Storybook, and add video recording for UI workflows
+summary: >
+  The evidence collection prompt (buildEvidencePrompt) currently provides generic dev server instructions
+  (e.g., `npm run dev &` or `pnpm dev &`) without explicitly directing the agent to use the main Next.js
+  application. In practice, the agent sometimes defaults to capturing screenshots from Storybook (port 6006)
+  rather than the actual running app. This feature refines the evidence prompt to explicitly instruct the
+  agent to start and capture from the main app (pnpm dev:web on port 3000), and adds concrete Playwright
+  video recording instructions for UI-related workflows.
+phase: Analysis
+sizeEstimate: S
+
+# Relationships
+relatedFeatures:
+  - "053-pr-evidence-agent"
+
+technologies:
+  - TypeScript
+  - Playwright (browser automation for screenshots and video)
+  - Next.js (main app dev server)
+  - LangGraph (feature agent graph)
+  - Vitest (unit testing)
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - "Should the prompt explicitly forbid Storybook as an evidence source, or just deprioritize it?"
+  - "What port does the main app run on in all environments (default is 3000 via dev:web)?"
+  - "Should video recording be opt-in via a setting or always captured for UI flows?"
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  The evidence collection sub-agent captures visual proof that implemented features work correctly.
+  Currently, the `buildEvidencePrompt()` function in `evidence-prompts.ts` provides generic instructions
+  like "Start the dev server in the background (e.g., `npm run dev &` or `pnpm dev &`)" and uses
+  `http://localhost:PORT` as a placeholder. This ambiguity causes the agent to sometimes:
+
+  1. **Capture from Storybook** (port 6006) instead of the actual running Next.js application — Storybook
+     shows isolated component stories, not the real app experience with routing, data, and layout.
+  2. **Skip video evidence** for UI workflows — the prompt mentions Video as an evidence type but provides
+     no concrete instructions on how to record videos with Playwright.
+
+  The prompt needs to be refined to:
+  - Explicitly instruct the agent to start the **main Next.js app** (`pnpm dev:web`) and capture from
+    `http://localhost:3000` (or the correct port).
+  - Explicitly state that Storybook (`pnpm dev:storybook` on port 6006) should NOT be used as the
+    primary evidence source for app-level features.
+  - Add concrete Playwright video recording instructions (using `recordVideo` context option) for
+    UI-related flows, with proper file management and cleanup.
+
+  ## Success Criteria
+
+  - [ ] Evidence prompt explicitly directs agent to use `pnpm dev:web` and `http://localhost:3000`
+  - [ ] Evidence prompt explicitly deprioritizes or excludes Storybook as evidence source
+  - [ ] Evidence prompt includes concrete Playwright video recording instructions for UI flows
+  - [ ] Video recording instructions include proper viewport, format, and file size guidance
+  - [ ] All existing evidence prompt tests pass with updated assertions
+  - [ ] New tests validate the app-specific and video recording prompt content
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The evidence collection system lives within the feature agent infrastructure:
+
+  ```
+  packages/core/src/infrastructure/services/agents/feature-agent/
+  ├── nodes/
+  │   ├── evidence.node.ts              # Standalone evidence graph node
+  │   ├── evidence-output-parser.ts     # Parses JSON evidence from agent output
+  │   ├── implement.node.ts             # Contains collectEvidence() sub-agent call
+  │   ├── fast-implement.node.ts        # Contains collectEvidence() sub-agent call
+  │   └── prompts/
+  │       ├── evidence-prompts.ts       # *** PRIMARY TARGET: buildEvidencePrompt() ***
+  │       └── merge-prompts.ts          # formatEvidenceSection() for PR body
+  ├── feature-agent-graph.ts            # Full graph (evidence node not in graph edges)
+  ├── fast-feature-agent-graph.ts       # Fast graph (evidence as sub-agent in fast-implement)
+  └── state.ts                          # FeatureAgentAnnotation with evidence channel
+  ```
+
+  Supporting files:
+  ```
+  tsp/common/enums/evidence-type.tsp    # EvidenceType enum (Screenshot, Video, TestOutput, TerminalRecording)
+  tsp/domain/value-objects/evidence.tsp # Evidence model definition
+  packages/core/src/domain/generated/output.ts  # Generated types
+  packages/core/src/domain/factories/settings-defaults.factory.ts  # enableEvidence/commitEvidence defaults
+  ```
+
+  ### Architecture Patterns
+
+  - **Clean Architecture**: Evidence is a domain value object defined in TypeSpec, generated to TypeScript
+  - **Sub-agent pattern**: Evidence collection runs as a sub-agent within implement/fast-implement nodes,
+    not as a separate graph node in the standard flow
+  - **Prompt engineering**: `buildEvidencePrompt()` constructs a detailed prompt that instructs the agent
+    on what to capture, how to capture it, and how to format the output
+  - **Graceful degradation**: Evidence failures never block the workflow (FR-8 pattern)
+  - **Settings-gated**: `enableEvidence` and `commitEvidence` settings control behavior
+
+  ### Relevant Technologies
+
+  - **Playwright**: Used for browser automation (screenshot capture). Already referenced in the prompt
+    with installation instructions and a sample script.
+  - **Next.js**: The main app runs via `pnpm dev:web` (custom dev server at `src/presentation/web/dev-server.ts`)
+  - **Storybook**: Component development tool running on port 6006 via `pnpm dev:storybook`
+  - **LangGraph**: State graph framework orchestrating the feature agent workflow
+  - **Vitest**: Test framework for unit and integration tests
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `packages/core/src/.../prompts/evidence-prompts.ts` | High | Primary file — prompt text needs updating to specify main app and add video instructions |
+  | `tests/unit/.../prompts/evidence-prompts.test.ts` | High | Tests must be updated to validate new prompt content (app-specific, video recording) |
+  | `tests/unit/.../evidence.node.test.ts` | Low | May need minor updates if evidence node behavior changes |
+  | `tests/integration/.../evidence-flow.test.ts` | Low | Integration test — should still pass with prompt changes only |
+
+  ## Dependencies
+
+  - **Playwright**: Already a dev dependency — video recording (`recordVideo` option) is built-in
+  - **Next.js dev server**: Already configured as `pnpm dev:web` in package.json
+  - **TypeSpec models**: No changes needed — `EvidenceType.Video` already exists in the enum
+  - **Settings service**: No changes needed — `enableEvidence`/`commitEvidence` gates remain the same
+
+  ## Size Estimate
+
+  **S** — This is primarily a prompt engineering change in a single file (`evidence-prompts.ts`) plus
+  test updates. No domain model changes, no new TypeSpec types, no infrastructure changes. The
+  `EvidenceType.Video` enum value already exists. The main work is:
+  1. Update `buildEvidencePrompt()` to specify `pnpm dev:web` / `localhost:3000` explicitly (~20 lines)
+  2. Add Playwright video recording instructions to the prompt (~30 lines)
+  3. Add/update deprioritization of Storybook as evidence source (~5 lines)
+  4. Update unit tests for the new prompt content (~50 lines)
+
+  ---
+
+  _Generated by feature agent — proceed with research_
