@@ -17,6 +17,10 @@ on:
     paths:
       - '.github/workflows/shep-e2e.yml'
 
+concurrency:
+  group: shep-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   NODE_VERSION: '22'
 
@@ -221,13 +225,19 @@ jobs:
         shell: bash
         working-directory: ${{ env.SHEEP_DIR }}
         run: |
+          # Use cheapest model per agent: haiku for claude-code, composer for cursor
+          if [ "${{ matrix.agent }}" = "cursor" ]; then
+            MODEL="composer-1.5"
+          else
+            MODEL="claude-haiku-4-5"
+          fi
           shep feat new "$SHEP_PROMPT" \
             --fast \
             --allow-all \
             --push \
             --pr \
             --allow-merge \
-            --model claude-haiku-4-5
+            --model "$MODEL"
 
       # ---------------------------------------------------------------------
       # 5. List features — verify the feature appears
