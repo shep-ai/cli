@@ -1,3 +1,9 @@
+## [1.106.3](https://github.com/shep-ai/cli/compare/v1.106.2...v1.106.3) (2026-03-12)
+
+### Bug Fixes
+
+- **web:** move cmd+enter handler to form level for reliable submission ([#318](https://github.com/shep-ai/cli/issues/318)) ([d36f48c](https://github.com/shep-ai/cli/commit/d36f48c55bc10aa9761d1f0513ba2094c2e4bda3))
+
 ## [1.106.2](https://github.com/shep-ai/cli/compare/v1.106.1...v1.106.2) (2026-03-12)
 
 ### Bug Fixes
