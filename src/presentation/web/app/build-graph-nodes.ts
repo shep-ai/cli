@@ -1,9 +1,11 @@
 import type { Feature, Repository, AgentRun } from '@shepai/core/domain/generated/output';
+import { AgentRunStatus } from '@shepai/core/domain/generated/output';
 import {
   deriveNodeState,
   deriveProgress,
   deriveLifecycle,
 } from '@/components/common/feature-node/derive-feature-state';
+import { isProcessAlive } from '@shepai/core/infrastructure/services/process/is-process-alive';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 import type { Edge } from '@xyflow/react';
 import type { FeatureNodeData } from '@/components/common/feature-node';
@@ -128,6 +130,11 @@ function appendFeatureNodes(
       }
     }
 
+    // Detect crashed agents: DB says running/pending but PID is dead
+    const isActive =
+      run?.status === AgentRunStatus.running || run?.status === AgentRunStatus.pending;
+    const pidAlive = isActive && run?.pid ? isProcessAlive(run.pid) : undefined;
+
     const nodeData: FeatureNodeData = {
       name: feature.name,
       description: feature.description ?? feature.slug,
@@ -136,7 +143,11 @@ function appendFeatureNodes(
       repositoryPath: feature.repositoryPath,
       branch: feature.branch,
       specPath: feature.specPath,
-      state: deriveNodeState(feature, run),
+      state: deriveNodeState(
+        feature,
+        run,
+        pidAlive !== undefined ? { isPidAlive: pidAlive } : undefined
+      ),
       progress: deriveProgress(feature),
       summary: feature.description,
       userQuery: feature.userQuery,

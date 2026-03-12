@@ -105,6 +105,30 @@ describe('deriveNodeState', () => {
       const run = createMinimalAgentRun({ status: AgentRunStatus.pending });
       expect(deriveNodeState(feature, run)).toBe('running');
     });
+
+    it('returns error when agent is running but PID is dead (crashed)', () => {
+      const feature = createMinimalFeature();
+      const run = createMinimalAgentRun({ status: AgentRunStatus.running, pid: 99999 });
+      expect(deriveNodeState(feature, run, { isPidAlive: false })).toBe('error');
+    });
+
+    it('returns error when agent is pending but PID is dead (crashed)', () => {
+      const feature = createMinimalFeature();
+      const run = createMinimalAgentRun({ status: AgentRunStatus.pending, pid: 99999 });
+      expect(deriveNodeState(feature, run, { isPidAlive: false })).toBe('error');
+    });
+
+    it('returns running when agent is running and PID is alive', () => {
+      const feature = createMinimalFeature();
+      const run = createMinimalAgentRun({ status: AgentRunStatus.running, pid: 12345 });
+      expect(deriveNodeState(feature, run, { isPidAlive: true })).toBe('running');
+    });
+
+    it('returns running when no pidAlive info provided (backwards compat)', () => {
+      const feature = createMinimalFeature();
+      const run = createMinimalAgentRun({ status: AgentRunStatus.running });
+      expect(deriveNodeState(feature, run)).toBe('running');
+    });
   });
 
   describe('without agent run (fallback to plan tasks)', () => {

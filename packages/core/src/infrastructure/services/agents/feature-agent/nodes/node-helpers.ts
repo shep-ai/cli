@@ -341,6 +341,27 @@ export function buildCommitPushBlock(opts: {
 }
 
 /**
+ * Build a resume context prefix for the agent prompt.
+ *
+ * When a run is resumed after being stopped/failed/crashed, this provides
+ * context so the agent knows to check existing work before proceeding.
+ */
+export function buildResumeContext(resumeReason: string | undefined): string {
+  if (!resumeReason) return '';
+  return `## ⚠️ Resume Context
+
+This is a **RESUMED** run. The previous execution was **${resumeReason}**.
+
+Before proceeding with this phase:
+1. Check what work was already completed — look at existing files, git status, and any partial output
+2. Do NOT redo work that was already successfully completed
+3. If there is partial work, evaluate whether to continue from it or start fresh
+4. If the previous run failed due to an error, investigate whether the root cause still exists
+
+`;
+}
+
+/**
  * Execute a node with consistent logging and error handling.
  *
  * Wraps the node's core logic with:
@@ -409,7 +430,8 @@ export function executeNode(
     const timingId = await recordPhaseStart(nodeName);
 
     try {
-      const prompt = buildPrompt(state, log);
+      const resumePrefix = buildResumeContext(state.resumeReason);
+      const prompt = resumePrefix + buildPrompt(state, log);
       const options = buildExecutorOptions(state);
 
       log.info(`Executing agent at cwd=${options.cwd}`);

@@ -53,6 +53,7 @@ export interface WorkerArgs {
   agentType?: AgentType;
   fast?: boolean;
   model?: string;
+  resumeReason?: string;
 }
 
 /**
@@ -107,6 +108,12 @@ export function parseWorkerArgs(args: string[]): WorkerArgs {
   const modelIdx = args.indexOf('--model');
   const model = modelIdx !== -1 && modelIdx + 1 < args.length ? args[modelIdx + 1] : undefined;
 
+  const resumeReasonIdx = args.indexOf('--resume-reason');
+  const resumeReason =
+    resumeReasonIdx !== -1 && resumeReasonIdx + 1 < args.length
+      ? args[resumeReasonIdx + 1]
+      : undefined;
+
   return {
     featureId: getArg('feature-id'),
     runId: getArg('run-id'),
@@ -123,6 +130,7 @@ export function parseWorkerArgs(args: string[]): WorkerArgs {
     agentType,
     fast,
     model,
+    resumeReason,
   };
 }
 
@@ -339,6 +347,7 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
           error: undefined, // Clear previous error state
           ...(args.approvalGates ? { approvalGates: args.approvalGates } : {}),
           ...(args.model ? { model: args.model } : {}),
+          ...(args.resumeReason ? { resumeReason: args.resumeReason } : {}),
           push: args.push ?? false,
           openPr: args.openPr ?? false,
         },

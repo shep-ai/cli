@@ -133,6 +133,7 @@ export class ResumeFeatureUseCase {
         agentType: lastRun.agentType,
         ...(feature.fast ? { fast: true } : {}),
         ...(lastRun.modelId ? { model: lastRun.modelId } : {}),
+        resumeReason: lastRun.status,
       }
     );
 

@@ -126,6 +126,48 @@ describe('parseWorkerArgs - model', () => {
   });
 });
 
+describe('parseWorkerArgs - resumeReason', () => {
+  const baseArgs = [
+    '--feature-id',
+    'feat-001',
+    '--run-id',
+    'run-001',
+    '--repo',
+    '/tmp/repo',
+    '--spec-dir',
+    '/tmp/spec',
+  ];
+
+  it('should parse --resume-reason when present', () => {
+    const args = parseWorkerArgs([...baseArgs, '--resume-reason', 'interrupted']);
+    expect(args.resumeReason).toBe('interrupted');
+  });
+
+  it('should set resumeReason to undefined when not present', () => {
+    const args = parseWorkerArgs(baseArgs);
+    expect(args.resumeReason).toBeUndefined();
+  });
+
+  it('should parse failed reason', () => {
+    const args = parseWorkerArgs([...baseArgs, '--resume-reason', 'failed']);
+    expect(args.resumeReason).toBe('failed');
+  });
+
+  it('should coexist with --resume and other flags', () => {
+    const args = parseWorkerArgs([
+      ...baseArgs,
+      '--resume',
+      '--resume-reason',
+      'interrupted',
+      '--thread-id',
+      'thread-001',
+    ]);
+    expect(args.resumeReason).toBe('interrupted');
+    expect(args.resume).toBe(true);
+    expect(args.threadId).toBe('thread-001');
+  });
+});
+
 describe('parseWorkerArgs - resumePayload', () => {
   const baseArgs = [
     '--feature-id',

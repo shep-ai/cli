@@ -25,7 +25,11 @@ import type { FeatureNodeState, FeatureLifecyclePhase } from './feature-node-sta
  * 5. Agent running/pending → running
  * 6. No agent run → fall back to plan tasks / lifecycle
  */
-export function deriveNodeState(feature: Feature, agentRun?: AgentRun | null): FeatureNodeState {
+export function deriveNodeState(
+  feature: Feature,
+  agentRun?: AgentRun | null,
+  options?: { isPidAlive?: boolean }
+): FeatureNodeState {
   // Deleting lifecycle takes top priority — feature is being removed
   if (feature.lifecycle === SdlcLifecycle.Deleting) {
     return 'deleting';
@@ -49,6 +53,7 @@ export function deriveNodeState(feature: Feature, agentRun?: AgentRun | null): F
         return 'done';
       case AgentRunStatus.running:
       case AgentRunStatus.pending:
+        if (options?.isPidAlive === false) return 'error';
         return 'running';
     }
   }

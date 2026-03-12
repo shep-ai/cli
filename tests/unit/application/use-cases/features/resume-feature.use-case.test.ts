@@ -297,6 +297,42 @@ describe('ResumeFeatureUseCase', () => {
     expect(spawnOptions.fast).toBeUndefined();
   });
 
+  it('should pass resumeReason from lastRun status to spawn', async () => {
+    featureRepo.findById.mockResolvedValue(createTestFeature());
+    runRepo.findById.mockResolvedValue(createTestRun({ status: AgentRunStatus.interrupted }));
+
+    await useCase.execute('feat-001');
+
+    expect(processService.spawn).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      expect.objectContaining({
+        resumeReason: AgentRunStatus.interrupted,
+      })
+    );
+  });
+
+  it('should pass failed as resumeReason when last run failed', async () => {
+    featureRepo.findById.mockResolvedValue(createTestFeature());
+    runRepo.findById.mockResolvedValue(createTestRun({ status: AgentRunStatus.failed }));
+
+    await useCase.execute('feat-001');
+
+    expect(processService.spawn).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      expect.objectContaining({
+        resumeReason: AgentRunStatus.failed,
+      })
+    );
+  });
+
   it('should pass workflow flags from feature entity to spawn', async () => {
     featureRepo.findById.mockResolvedValue(createTestFeature({ openPr: true }));
     runRepo.findById.mockResolvedValue(createTestRun({ status: AgentRunStatus.failed }));

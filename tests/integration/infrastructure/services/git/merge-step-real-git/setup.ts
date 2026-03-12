@@ -290,6 +290,7 @@ export function makeState(overrides: Partial<FeatureAgentState>): FeatureAgentSt
     ciFixStatus: 'idle',
     evidence: [],
     model: undefined,
+    resumeReason: undefined,
     ...overrides,
   };
 }

@@ -50,7 +50,8 @@ describe('FeatureAgentAnnotation', () => {
       expect(channelNames).toContain('ciFixStatus');
       expect(channelNames).toContain('model');
       expect(channelNames).toContain('evidence');
-      expect(channelNames.length).toBe(25);
+      expect(channelNames).toContain('resumeReason');
+      expect(channelNames.length).toBe(26);
     });
   });
 

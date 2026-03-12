@@ -20,6 +20,7 @@ import {
   buildExecutorOptions,
   getCompletedPhases,
   markPhaseComplete,
+  buildResumeContext,
 } from '@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js';
 import type { FeatureAgentState } from '@/infrastructure/services/agents/feature-agent/state.js';
 import type {
@@ -536,5 +537,39 @@ describe('markPhaseComplete', () => {
 
   it('should not throw when feature.yaml does not exist', () => {
     expect(() => markPhaseComplete(tempDir, 'phase-1')).not.toThrow();
+  });
+});
+
+describe('buildResumeContext', () => {
+  it('should return empty string when resumeReason is undefined', () => {
+    expect(buildResumeContext(undefined)).toBe('');
+  });
+
+  it('should return empty string when resumeReason is empty string', () => {
+    expect(buildResumeContext('')).toBe('');
+  });
+
+  it('should return resume context block for interrupted reason', () => {
+    const result = buildResumeContext('interrupted');
+    expect(result).toContain('Resume Context');
+    expect(result).toContain('interrupted');
+    expect(result).toContain('Check');
+  });
+
+  it('should return resume context block for failed reason', () => {
+    const result = buildResumeContext('failed');
+    expect(result).toContain('Resume Context');
+    expect(result).toContain('failed');
+  });
+
+  it('should return resume context block for crashed reason', () => {
+    const result = buildResumeContext('crashed');
+    expect(result).toContain('Resume Context');
+    expect(result).toContain('crashed');
+  });
+
+  it('should end with double newline for clean prompt concatenation', () => {
+    const result = buildResumeContext('failed');
+    expect(result).toMatch(/\n\n$/);
   });
 });

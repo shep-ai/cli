@@ -24,6 +24,7 @@ import {
   NotificationEventType,
   NotificationSeverity,
 } from '@shepai/core/domain/generated/output';
+import { isProcessAlive } from '@shepai/core/infrastructure/services/process/is-process-alive';
 import type { NotificationEvent } from '@shepai/core/domain/generated/output';
 import type { ListFeaturesUseCase } from '@shepai/core/application/use-cases/features/list-features.use-case';
 
@@ -41,6 +42,8 @@ interface CachedFeatureState {
   prStatus: string | undefined;
   prMergeable: boolean | undefined;
   prCiStatus: string | undefined;
+  /** Set to true once we've detected and emitted a crash event for this feature */
+  crashEmitted?: boolean;
 }
 
 /**
@@ -196,6 +199,24 @@ export function GET(request: Request): Response {
                     timestamp: new Date().toISOString(),
                   });
                 }
+              }
+
+              // Check for crashed agent: status is running/pending but PID is dead
+              const isActive =
+                run.status === AgentRunStatus.running || run.status === AgentRunStatus.pending;
+              if (isActive && run.pid && !prev.crashEmitted && !isProcessAlive(run.pid)) {
+                prev.crashEmitted = true;
+                const phase = resultToPhase(run.result);
+                emitEvent({
+                  eventType: NotificationEventType.AgentFailed,
+                  agentRunId: run.id,
+                  featureId: feature.id,
+                  featureName: feature.name,
+                  ...(phase && { phaseName: phase }),
+                  message: `Agent crashed (PID ${run.pid} dead)`,
+                  severity: NotificationSeverity.Error,
+                  timestamp: new Date().toISOString(),
+                });
               }
 
               // Check for feature name change (AI metadata generation updates name)
