@@ -5,6 +5,7 @@
 # a feature end-to-end: from prompt to merged PR.
 #
 # Uses the shep-ai/sheep repo as the test target.
+# Tests shep's own CLI commands: feat new, feat ls, feat show.
 # =============================================================================
 
 name: Shep E2E
@@ -50,7 +51,7 @@ jobs:
         run: npm link
 
       # ---------------------------------------------------------------------
-      # 1b. Install Claude Code CLI (required by shep agent executor)
+      # 2. Install Claude Code CLI (required by shep agent executor)
       # ---------------------------------------------------------------------
       - name: Install Claude Code CLI
         run: |
@@ -58,7 +59,7 @@ jobs:
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       # ---------------------------------------------------------------------
-      # 2. Clone the target repo (shep-ai/sheep)
+      # 3. Clone the target repo (shep-ai/sheep)
       # ---------------------------------------------------------------------
       - name: Clone target repo
         env:
@@ -70,10 +71,9 @@ jobs:
           git config user.email "bot@shep.ai"
 
       # ---------------------------------------------------------------------
-      # 3. Run shep feat new (fast mode, allow-all, push + PR + merge)
-      #    Shep handles the full lifecycle: implement → push → PR → merge
+      # 4. Create feature with shep (returns immediately, agent runs in bg)
       # ---------------------------------------------------------------------
-      - name: Run shep feat new
+      - name: Create feature
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
@@ -88,19 +88,88 @@ jobs:
             --allow-merge
 
       # ---------------------------------------------------------------------
-      # 4. Verify PR was created AND merged by shep on shep-ai/sheep
+      # 5. List features — verify the feature appears
       # ---------------------------------------------------------------------
-      - name: Verify PR merged
+      - name: Verify feature listed
+        working-directory: /tmp/sheep
+        run: |
+          echo "=== shep feat ls ==="
+          shep feat ls
+
+      # ---------------------------------------------------------------------
+      # 6. Poll feature status until terminal (completed/failed/crashed)
+      # ---------------------------------------------------------------------
+      - name: Wait for feature to complete
         env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         working-directory: /tmp/sheep
         run: |
-          echo "Checking for merged PRs created by shep..."
-          PR_URL=$(gh pr list --repo shep-ai/sheep --state merged --json url --jq '.[0].url')
-          if [ -z "$PR_URL" ]; then
-            echo "::error::No merged PR found on shep-ai/sheep — shep should have merged it"
-            echo "Open PRs (should be none):"
+          # Get feature ID from shep feat ls output (first 8-char hex ID)
+          FEATURE_ID=$(shep feat ls 2>/dev/null | grep -oP '[0-9a-f]{8}' | head -1)
+          if [ -z "$FEATURE_ID" ]; then
+            echo "::error::Could not find feature ID from shep feat ls"
+            exit 1
+          fi
+          echo "Feature ID: $FEATURE_ID"
+
+          MAX_WAIT=600  # 10 minutes
+          ELAPSED=0
+          INTERVAL=15
+
+          while [ $ELAPSED -lt $MAX_WAIT ]; do
+            echo ""
+            echo "=== Checking status (${ELAPSED}s elapsed) ==="
+            shep feat show "$FEATURE_ID" 2>&1 || true
+
+            # Check for terminal states in feat show output
+            STATUS_OUTPUT=$(shep feat show "$FEATURE_ID" 2>&1 || true)
+
+            if echo "$STATUS_OUTPUT" | grep -qi "completed"; then
+              echo ""
+              echo "Feature completed!"
+              echo "FEATURE_ID=$FEATURE_ID" >> $GITHUB_ENV
+              exit 0
+            fi
+
+            if echo "$STATUS_OUTPUT" | grep -qi "failed\|crashed\|interrupted"; then
+              echo ""
+              echo "::error::Feature reached terminal error state"
+              echo "$STATUS_OUTPUT"
+              exit 1
+            fi
+
+            echo "Still running, waiting ${INTERVAL}s..."
+            sleep $INTERVAL
+            ELAPSED=$((ELAPSED + INTERVAL))
+          done
+
+          echo "::error::Feature did not complete within ${MAX_WAIT}s"
+          shep feat show "$FEATURE_ID" 2>&1 || true
+          exit 1
+
+      # ---------------------------------------------------------------------
+      # 7. Show final feature details — PR info must come from here
+      # ---------------------------------------------------------------------
+      - name: Show completed feature
+        working-directory: /tmp/sheep
+        run: |
+          echo "=== Final feature details ==="
+          shep feat show "$FEATURE_ID"
+
+      # ---------------------------------------------------------------------
+      # 8. Verify PR was merged BY SHEP (not by us)
+      # ---------------------------------------------------------------------
+      - name: Verify PR merged by shep
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        run: |
+          echo "Checking shep-ai/sheep for merged PRs..."
+          MERGED=$(gh pr list --repo shep-ai/sheep --state merged --limit 1 --json url,mergedAt --jq '.[0].url')
+          if [ -z "$MERGED" ]; then
+            echo "::error::No merged PR found — shep must create AND merge the PR"
             gh pr list --repo shep-ai/sheep --state open
             exit 1
           fi
-          echo "PR merged by shep: $PR_URL"
+          echo "PR merged by shep: $MERGED"
