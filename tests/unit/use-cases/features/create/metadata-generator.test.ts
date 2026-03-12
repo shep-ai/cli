@@ -54,20 +54,23 @@ describe('MetadataGenerator', () => {
       expect(callArgs).not.toContain('a'.repeat(600));
     });
 
-    it('should propagate error when AI executor fails', async () => {
+    it('should fall back to local extraction when AI executor fails', async () => {
       (mockCaller.call as any).mockRejectedValue(new Error('API error'));
 
-      await expect(generator.generateMetadata('Add GitHub OAuth login')).rejects.toThrow(
-        'API error'
-      );
+      const result = await generator.generateMetadata('Add GitHub OAuth login');
+
+      expect(result.slug).toBe('add-github-oauth-login');
+      expect(result.name).toBeTruthy();
+      expect(result.description).toBe('Add GitHub OAuth login');
     });
 
-    it('should throw when AI response missing required fields', async () => {
+    it('should fall back to local extraction when AI response missing required fields', async () => {
       (mockCaller.call as any).mockResolvedValue({ slug: 'test' });
 
-      await expect(generator.generateMetadata('Add GitHub OAuth login')).rejects.toThrow(
-        'Missing required fields in AI response'
-      );
+      const result = await generator.generateMetadata('Add GitHub OAuth login');
+
+      expect(result.slug).toBe('add-github-oauth-login');
+      expect(result.description).toBe('Add GitHub OAuth login');
     });
   });
 
