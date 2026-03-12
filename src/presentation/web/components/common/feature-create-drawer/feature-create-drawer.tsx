@@ -363,7 +363,7 @@ export function FeatureCreateDrawer({
   );
 
   const handleSubmit = useCallback(
-    (e: React.FormEvent) => {
+    (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
       if (!description.trim()) return;
       createSound.play();
@@ -465,7 +465,7 @@ export function FeatureCreateDrawer({
 
   const formRef = useRef<HTMLFormElement>(null);
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       e.preventDefault();
       formRef.current?.requestSubmit();
@@ -537,6 +537,7 @@ export function FeatureCreateDrawer({
             ref={formRef}
             id="create-feature-form"
             onSubmit={handleSubmit}
+            onKeyDown={handleKeyDown}
             className="flex flex-col gap-4"
           >
             {/* Description + inline controls with drop zone */}
@@ -573,7 +574,6 @@ export function FeatureCreateDrawer({
                   placeholder="e.g. Add GitHub OAuth login with callback handling and token refresh..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  onKeyDown={handleKeyDown}
                   onPaste={handlePaste}
                   required
                   disabled={isSubmitting}
