@@ -325,6 +325,15 @@ export function buildCommitPushBlock(opts: {
     lines.push(`   - \`pnpm test\` — all tests must pass`);
     lines.push(`   - \`pnpm lint\` — no lint errors`);
     lines.push(`   - Fix any issues found before proceeding to push`);
+    lines.push(``);
+    lines.push(`**CRITICAL — Never run destructive git commands during verification.**`);
+    lines.push(
+      `Do NOT run \`git stash\`, \`git reset\`, \`git checkout -- .\`, \`git restore\`, or \`git clean\` under any circumstances.`
+    );
+    lines.push(
+      `These commands can destroy uncommitted work. If a test fails and you believe it is unrelated to your changes, proceed with the commit and push anyway — do NOT attempt to prove the failure is pre-existing.`
+    );
+    lines.push(``);
     lines.push(`4. Push to remote: \`git push -u origin HEAD\``);
     lines.push(`   - Do NOT wait for or watch CI — just push and finish`);
   }

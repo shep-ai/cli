@@ -22,7 +22,11 @@ import {
   readSpecYaml,
   ALL_GATES_DISABLED,
 } from './helpers.js';
-import { SPEC_WITH_QUESTIONS_YAML } from './fixtures.js';
+import {
+  VALID_SPEC_YAML,
+  SPEC_WITH_QUESTIONS_YAML,
+  OPEN_QUESTIONS_FOR_REQUIREMENTS,
+} from './fixtures.js';
 
 describe('Graph State Transitions › Feedback & Timing', () => {
   let ctx: TestContext;
@@ -36,6 +40,8 @@ describe('Graph State Transitions › Feedback & Timing', () => {
 
   beforeEach(() => {
     ctx.reset();
+    // Reset spec.yaml to a clean state (previous test may have written openQuestions)
+    writeFileSync(join(ctx.specDir, 'spec.yaml'), VALID_SPEC_YAML);
   });
 
   afterAll(() => {
@@ -55,8 +61,9 @@ describe('Graph State Transitions › Feedback & Timing', () => {
     expectInterruptAt(r1, 'requirements');
 
     // Simulate what the caller does before resuming with rejection:
-    // Append rejectionFeedback to spec.yaml so the prompt builder picks it up
+    // Add openQuestions (requirements phase fills these in) and rejectionFeedback
     const specData = readSpecYaml(ctx.specDir);
+    specData.openQuestions = OPEN_QUESTIONS_FOR_REQUIREMENTS;
     specData.rejectionFeedback = [
       {
         iteration: 1,

@@ -46,6 +46,34 @@ describe('validateSpecAnalyze', () => {
     expect(result.valid).toBe(false);
     expect(result.errors).toContain('YAML parsed to null or non-object');
   });
+
+  it('fails when openQuestions is a non-empty array', () => {
+    const data = { ...validAnalyzeSpec, openQuestions: ['What about X?'] };
+    const result = validateSpecAnalyze(data);
+    expect(result.valid).toBe(false);
+    expect(result.errors[0]).toContain('openQuestions');
+  });
+
+  it('passes when openQuestions is an empty array', () => {
+    const data = { ...validAnalyzeSpec, openQuestions: [] };
+    const result = validateSpecAnalyze(data);
+    expect(result.valid).toBe(true);
+  });
+
+  it('passes when openQuestions is not present', () => {
+    const result = validateSpecAnalyze(validAnalyzeSpec);
+    expect(result.valid).toBe(true);
+  });
+
+  it('fails when openQuestions contains structured objects', () => {
+    const data = {
+      ...validAnalyzeSpec,
+      openQuestions: [{ question: 'Should we use X?', resolved: false }],
+    };
+    const result = validateSpecAnalyze(data);
+    expect(result.valid).toBe(false);
+    expect(result.errors[0]).toContain('openQuestions');
+  });
 });
 
 const validRequirementsSpec = {

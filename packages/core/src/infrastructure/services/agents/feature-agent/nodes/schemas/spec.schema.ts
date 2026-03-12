@@ -28,7 +28,15 @@ function validateBaseSpec(data: unknown, errors: string[]): data is Record<strin
 
 export function validateSpecAnalyze(data: unknown): ValidationResult {
   const errors: string[] = [];
-  validateBaseSpec(data, errors);
+  if (!validateBaseSpec(data, errors)) return { valid: false, errors };
+
+  const d = data as Record<string, unknown>;
+  if ('openQuestions' in d && Array.isArray(d.openQuestions) && d.openQuestions.length > 0) {
+    errors.push(
+      "Field 'openQuestions' must be an empty array in the analysis phase (requirements phase fills it in)"
+    );
+  }
+
   return { valid: errors.length === 0, errors };
 }
 

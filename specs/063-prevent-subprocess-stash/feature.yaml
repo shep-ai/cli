@@ -1,0 +1,36 @@
+feature:
+  id: '063-prevent-subprocess-stash'
+  name: 'prevent-subprocess-stash'
+  number: 63
+  branch: 'feat/063-prevent-subprocess-stash'
+  lifecycle: 'research'
+  createdAt: '2026-03-12T11:49:52Z'
+
+status:
+  phase: 'research'
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-03-12T11:49:52Z'
+  lastUpdatedBy: 'feature-agent'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-03-12T11:49:52Z'
+    completedBy: 'feature-agent'
+
+errors:
+  current: null
+  history: []

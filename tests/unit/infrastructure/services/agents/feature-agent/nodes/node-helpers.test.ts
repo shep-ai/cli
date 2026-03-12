@@ -197,6 +197,61 @@ describe('buildCommitPushBlock', () => {
     expect(result).toContain('git add');
     expect(result).toContain('docs(specs): update spec');
   });
+
+  it('should prohibit git stash when push=true', () => {
+    const result = buildCommitPushBlock({
+      push: true,
+      files: ['spec.yaml'],
+      commitHint: 'docs(specs): update spec',
+    });
+    expect(result).toContain('git stash');
+    expect(result.toLowerCase()).toMatch(/never|do not|forbidden|prohibit/);
+  });
+
+  it('should prohibit git reset when push=true', () => {
+    const result = buildCommitPushBlock({
+      push: true,
+      files: ['spec.yaml'],
+      commitHint: 'docs(specs): update spec',
+    });
+    expect(result).toContain('git reset');
+  });
+
+  it('should prohibit git checkout -- when push=true', () => {
+    const result = buildCommitPushBlock({
+      push: true,
+      files: ['spec.yaml'],
+      commitHint: 'docs(specs): update spec',
+    });
+    expect(result).toContain('git checkout');
+  });
+
+  it('should prohibit git restore when push=true', () => {
+    const result = buildCommitPushBlock({
+      push: true,
+      files: ['spec.yaml'],
+      commitHint: 'docs(specs): update spec',
+    });
+    expect(result).toContain('git restore');
+  });
+
+  it('should prohibit git clean when push=true', () => {
+    const result = buildCommitPushBlock({
+      push: true,
+      files: ['spec.yaml'],
+      commitHint: 'docs(specs): update spec',
+    });
+    expect(result).toContain('git clean');
+  });
+
+  it('should instruct to proceed with commit+push if unrelated tests fail', () => {
+    const result = buildCommitPushBlock({
+      push: true,
+      files: ['spec.yaml'],
+      commitHint: 'docs(specs): update spec',
+    });
+    expect(result.toLowerCase()).toMatch(/proceed|commit.*anyway|push.*anyway/);
+  });
 });
 
 describe('isRejectionPayload', () => {

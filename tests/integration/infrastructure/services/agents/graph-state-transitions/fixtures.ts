@@ -54,6 +54,12 @@ export const VALID_TASKS_YAML = `tasks:
 /**
  * Spec YAML with open questions and rejection feedback support.
  * Used by feedback-related tests.
+ *
+ * Note: openQuestions must be empty here because the graph starts at the
+ * analyze node and validateSpecAnalyze rejects non-empty openQuestions.
+ * Tests that need openQuestions should write them to spec.yaml after the
+ * analyze phase completes (i.e., after the first invoke interrupts at
+ * requirements).
  */
 export const SPEC_WITH_QUESTIONS_YAML = `name: Test Feature
 oneLiner: A test feature with questions
@@ -63,15 +69,21 @@ sizeEstimate: S
 content: Full description with open questions
 technologies:
   - TypeScript
-openQuestions:
-  - question: Which database should we use?
-    options:
-      - option: PostgreSQL
-        description: Relational DB
-        selected: true
-      - option: MongoDB
-        description: Document DB
-        selected: false
-    selectionRationale: Better for structured data
-    answer: PostgreSQL
+openQuestions: []
 `;
+
+/**
+ * Open questions to write to spec.yaml after the analyze phase completes.
+ * Used in combination with SPEC_WITH_QUESTIONS_YAML by feedback tests.
+ */
+export const OPEN_QUESTIONS_FOR_REQUIREMENTS = [
+  {
+    question: 'Which database should we use?',
+    options: [
+      { option: 'PostgreSQL', description: 'Relational DB', selected: true },
+      { option: 'MongoDB', description: 'Document DB', selected: false },
+    ],
+    selectionRationale: 'Better for structured data',
+    answer: 'PostgreSQL',
+  },
+];
