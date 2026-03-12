@@ -159,7 +159,7 @@ describe('CursorExecutorService', () => {
       expect(result.sessionId).toBe('sess-abc-123');
       expect(mockSpawn).toHaveBeenCalledWith(
         'agent',
-        expect.arrayContaining(['-p', 'Analyze this codebase', '--output-format', 'stream-json']),
+        expect.arrayContaining(['-p', 'Analyze this codebase', '--output-format', 'json']),
         expect.any(Object)
       );
     });
