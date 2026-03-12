@@ -1,12 +1,14 @@
 # =============================================================================
 # Shep E2E Pipeline
 # =============================================================================
-# Manually triggered workflow that runs shep on a real repository to create
-# a feature end-to-end: from prompt to merged PR.
+# Validates shep's full feature lifecycle (feat new → feat ls → feat show)
+# using the dev executor across all supported platforms.
 #
-# Uses the shep-ai/sheep repo as the test target.
-# Tests shep's own CLI commands: feat new, feat ls, feat show.
-# Runs on both Linux and Windows to validate cross-platform support.
+# The dev executor creates real worktrees, writes spec YAML files, and
+# simulates commit/push/PR steps — no real agent CLI or API keys needed.
+#
+# A separate workflow_dispatch job tests real agents (claude-code, cursor)
+# against shep-ai/sheep when triggered manually.
 # =============================================================================
 
 name: Shep E2E
@@ -25,28 +27,25 @@ env:
   NODE_VERSION: '22'
 
 jobs:
-  shep-e2e:
+  # ───────────────────────────────────────────────────────────────────────────
+  # Dev executor smoke test — runs on all 3 platforms, no secrets needed
+  # ───────────────────────────────────────────────────────────────────────────
+  shep-e2e-dev:
     name: ${{ matrix.agent }} / ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    timeout-minutes: 15
 
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        agent: [claude-code, cursor]
-        exclude:
-          # cursor-agent CLI not available on Windows (winget installs IDE only)
-          - os: windows-latest
-            agent: cursor
+        agent: [dev]
 
     permissions:
       contents: read
 
     steps:
-      # ---------------------------------------------------------------------
-      # 1. Checkout this repo (shep CLI source) and build it
-      # ---------------------------------------------------------------------
+      # 1. Checkout, build, link
       - name: Checkout shep CLI
         uses: actions/checkout@v4
 
@@ -65,200 +64,60 @@ jobs:
       - name: Link shep globally
         run: npm link
 
-      # ---------------------------------------------------------------------
-      # 2. Install agent CLI (claude-code or cursor)
-      # ---------------------------------------------------------------------
-      - name: Install Claude Code CLI (Linux/macOS)
-        if: matrix.agent == 'claude-code' && runner.os != 'Windows'
-        run: |
-          curl -fsSL https://claude.ai/install.sh | bash
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
-
-      - name: Install Claude Code CLI (Windows)
-        if: matrix.agent == 'claude-code' && runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          irm https://claude.ai/install.ps1 | iex
-          # Add Claude to PATH for subsequent steps
-          $claudePath = "$env:LOCALAPPDATA\Programs\claude-code"
-          if (Test-Path "$env:USERPROFILE\.local\bin") { $claudePath = "$env:USERPROFILE\.local\bin" }
-          echo $claudePath >> $env:GITHUB_PATH
-
-      - name: Install Cursor CLI (Linux/macOS)
-        if: matrix.agent == 'cursor' && runner.os != 'Windows'
-        run: |
-          curl -fsS https://cursor.com/install | bash
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
-
-      # ---------------------------------------------------------------------
-      # 3. Clone the target repo (shep-ai/sheep)
-      # ---------------------------------------------------------------------
-      - name: Clone target repo
-        env:
-          RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+      # 2. Create a temp git repo as the target
+      - name: Create target repo
         shell: bash
         run: |
-          CLONE_DIR="${RUNNER_TEMP}/sheep"
-          git clone "https://x-access-token:${RELEASE_TOKEN}@github.com/shep-ai/sheep.git" "$CLONE_DIR"
-          cd "$CLONE_DIR"
+          TARGET_DIR="${RUNNER_TEMP}/test-repo"
+          mkdir -p "$TARGET_DIR"
+          cd "$TARGET_DIR"
+          git init
           git config user.name "shep-bot"
           git config user.email "bot@shep.ai"
-          echo "SHEEP_DIR=$CLONE_DIR" >> $GITHUB_ENV
+          echo "# Test Repo" > README.md
+          git add README.md
+          git commit -m "initial commit"
+          echo "TARGET_DIR=$TARGET_DIR" >> $GITHUB_ENV
 
-      # ---------------------------------------------------------------------
-      # 4. Create feature with shep (returns immediately, agent runs in bg)
-      # ---------------------------------------------------------------------
-      - name: Generate random prompt
-        shell: node {0}
-        run: |
-          const topics = [
-            "space exploration", "deep sea creatures", "ancient civilizations", "renewable energy",
-            "artificial intelligence", "mountain climbing", "bioluminescence", "cloud computing",
-            "jazz music history", "volcanic eruptions", "origami mathematics", "urban gardening",
-            "quantum physics", "migration patterns", "fermentation science", "coral reef ecosystems",
-            "typography design", "arctic wildlife", "board game strategy", "signal processing",
-            "cryptography basics", "beekeeping", "black holes", "cartography", "cheese making",
-            "dinosaur taxonomy", "earthquake engineering", "fiber optics", "game theory",
-            "holography", "ice age megafauna", "jet propulsion", "knot theory", "laser physics",
-            "mushroom foraging", "neural networks", "ocean currents", "permaculture",
-            "quasar discovery", "rocketry history", "sourdough baking", "tidal energy",
-            "undersea cables", "violin craftsmanship", "weather forecasting", "xenobiology",
-            "yoga philosophy", "zero waste living", "amber fossils", "bridge engineering",
-            "coffee cultivation", "drone technology", "eclipse mechanics", "folklore studies",
-            "glacier dynamics", "ham radio", "insect communication", "japanese joinery",
-            "kite aerodynamics", "lighthouse history", "meteor showers", "noise cancellation",
-            "optical illusions", "paper recycling", "radio astronomy", "silk production",
-            "tectonic plates", "urban beekeeping", "ventilation design", "whale songs",
-            "x-ray crystallography", "yeast biology", "zeppelin engineering", "avalanche science",
-            "bamboo architecture", "cave ecosystems", "desalination", "electric vehicles",
-            "fire ecology", "geothermal energy", "honey bee dance", "invisible ink",
-            "jellyfish biology", "kaleidoscope optics", "lichen ecosystems", "magnetic levitation",
-            "neon sign crafting", "owl adaptations", "pottery glazing", "quicksand physics",
-            "rainforest canopy", "salt mining", "tsunami warning", "ultraviolet light",
-            "venus flytrap mechanics", "wind tunnel testing", "xeriscaping", "yurt construction",
-            "zen garden design", "acoustic engineering", "balloon flight", "compass navigation",
-            "dye chemistry", "erosion patterns", "fog harvesting", "grain elevator design",
-            "horseshoe forging", "igloo thermodynamics", "jade carving", "kelp farming",
-            "lodestone magnetism", "moss cultivation", "nautical knots", "obsidian toolmaking",
-            "planetarium projection", "quilt geometry", "rope bridges", "sandstone formation",
-            "telescope mirrors", "umbrella mechanics", "viaduct construction", "waterwheel design",
-            "xylophone acoustics", "yarn spinning", "ziggurat architecture", "abacus arithmetic",
-            "barometer history", "candle chemistry", "dam engineering", "espresso extraction",
-            "flint knapping", "glass blowing", "sundial geometry", "weaving patterns",
-            "pigment chemistry", "sextant navigation", "terracotta sculpture", "compass rose design",
-            "pendulum clocks", "aqueduct engineering", "basket weaving", "charcoal production",
-            "dovecote architecture", "enamel art", "falconry traditions", "grain milling",
-            "herbarium curation", "indigo dyeing", "jigsaw puzzle design", "kiln construction",
-            "lantern making", "mosaic art", "needle felting", "olive oil pressing",
-            "parchment making", "quilting traditions", "roof thatching", "soap making",
-            "tapestry weaving", "urn pottery", "vellum preparation", "wax seal crafting",
-            "bell casting", "cooperage", "distillation", "embossing", "gilding techniques",
-            "hydraulic presses", "ivory alternatives", "lacquerware", "metallurgy basics",
-            "niello decoration", "pewter casting", "stained glass", "tintype photography",
-          ];
-          const formats = [
-            "a fun facts list", "a beginner guide", "a glossary of key terms",
-            "a timeline of milestones", "a comparison table", "a myth-busting guide",
-            "an FAQ document", "a quick reference card", "a top-10 list",
-            "a lessons-learned summary", "a cheat sheet", "a did-you-know collection",
-            "a how-it-works explainer", "a pros-and-cons analysis", "a historical overview",
-            "a troubleshooting guide", "a recipe-style walkthrough", "a field guide",
-            "a dos-and-donts checklist", "a vocabulary builder", "a step-by-step tutorial",
-            "a common mistakes guide", "an evolution timeline", "a resource directory",
-            "a quick-start primer", "a comparison matrix", "a pattern catalog",
-            "a safety guidelines doc", "a best practices summary", "a curiosity cabinet list",
-            "a decision framework", "a principles overview", "a tools and equipment guide",
-            "a seasonal calendar", "a measurement reference", "a classification system",
-            "a problem-solution catalog", "a rules of thumb collection", "an anatomy diagram description",
-            "a cause and effect chart", "a daily routine guide", "an ingredient breakdown",
-            "a supply list with descriptions", "a scoring rubric", "a milestone tracker template",
-            "a visual inspection checklist", "a maintenance schedule", "a compatibility chart",
-            "a risk assessment matrix", "a workflow diagram description", "a grading scale",
-            "a conversion table", "a symptom checker", "a habitat description",
-            "a specimen catalog", "a care instructions sheet", "an assembly guide",
-            "a calibration procedure", "a taste profile chart", "a color palette guide",
-            "a sound classification table", "a texture atlas", "a durability ranking",
-            "an efficiency comparison", "a cost breakdown", "an origin story collection",
-            "a record holders list", "a scale comparison", "a prediction log template",
-            "an observation journal template", "an experiment protocol", "a discovery timeline",
-            "an innovation catalog", "a failure analysis report", "a success factors list",
-            "a stakeholder map", "a process flow description", "a quality checklist",
-            "a benchmark table", "a feature matrix", "an adoption roadmap",
-            "a readiness assessment", "an impact analysis", "a trend report",
-            "a case study outline", "an interview questions list", "a debate points summary",
-            "a reading list with annotations", "a project proposal template", "an evaluation criteria doc",
-            "a naming conventions guide", "an abbreviations dictionary", "a unit conversions reference",
-            "a periodic table style chart", "a family tree description", "a map legend guide",
-            "an archive catalog", "a specimen label guide", "an exhibition guide",
-            "a collection inventory", "a restoration guide", "a provenance record",
-          ];
-          const topic = topics[Math.floor(Math.random() * topics.length)];
-          const format = formats[Math.floor(Math.random() * formats.length)];
-          const suffix = Math.random().toString(36).slice(2, 8);
-          const filename = topic.toLowerCase().replace(/ /g, '-') + `-${suffix}`;
-          const prompt = `create a single markdown file called ${filename}.md containing ${format} about ${topic}. Keep it very short — just a title and 2-3 sentences.`;
-          console.log(`Generated prompt: ${prompt}`);
-          const fs = require('fs');
-          fs.appendFileSync(process.env.GITHUB_ENV, `SHEP_PROMPT=${prompt}\n`);
-
+      # 3. Configure dev executor (no auth needed, instant responses)
       - name: Configure shep agent
         shell: bash
-        working-directory: ${{ env.SHEEP_DIR }}
+        working-directory: ${{ env.TARGET_DIR }}
         run: |
-          if [ "${{ matrix.agent }}" = "cursor" ]; then
-            shep settings agent --agent cursor --auth token --token "$CURSOR_API_KEY"
-          else
-            shep settings agent --agent claude-code --auth session
-          fi
+          shep settings agent --agent dev
         env:
-          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+          DEV_EXECUTOR_DELAY_MS: '0'
 
+      # 4. Create feature
       - name: Create feature
-        env:
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         shell: bash
-        working-directory: ${{ env.SHEEP_DIR }}
+        working-directory: ${{ env.TARGET_DIR }}
+        env:
+          DEV_EXECUTOR_DELAY_MS: '0'
         run: |
-          # Use cheapest model per agent: haiku for claude-code, composer for cursor
-          if [ "${{ matrix.agent }}" = "cursor" ]; then
-            MODEL="composer-1.5"
-          else
-            MODEL="claude-haiku-4-5"
-          fi
-          shep feat new "$SHEP_PROMPT" \
+          SUFFIX=$(node -e "console.log(Math.random().toString(36).slice(2,8))")
+          shep feat new "create a test file called test-${SUFFIX}.md with hello world content" \
             --fast \
-            --allow-all \
-            --push \
-            --pr \
-            --allow-merge \
-            --model "$MODEL"
+            --allow-all
 
-      # ---------------------------------------------------------------------
-      # 5. List features — verify the feature appears
-      # ---------------------------------------------------------------------
+      # 5. Verify feature appears in list
       - name: Verify feature listed
         shell: bash
-        working-directory: ${{ env.SHEEP_DIR }}
+        working-directory: ${{ env.TARGET_DIR }}
         run: |
           echo "=== shep feat ls ==="
-          shep feat ls
+          OUTPUT=$(shep feat ls)
+          echo "$OUTPUT"
+          echo "$OUTPUT" | grep -q "[0-9a-f]" || { echo "::error::No feature ID found in feat ls output"; exit 1; }
 
-      # ---------------------------------------------------------------------
-      # 6. Poll feature status until terminal (completed/failed/crashed)
-      # ---------------------------------------------------------------------
+      # 6. Wait for feature to complete (dev executor is fast)
       - name: Wait for feature to complete
-        env:
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         shell: node {0}
+        env:
+          DEV_EXECUTOR_DELAY_MS: '0'
         run: |
           const { execSync } = require('child_process');
-          const cwd = process.env.SHEEP_DIR;
+          const cwd = process.env.TARGET_DIR;
           const fs = require('fs');
 
           // Get feature ID from shep feat ls output (first 8-char hex ID)
@@ -271,8 +130,8 @@ jobs:
           const featureId = idMatch[0];
           console.log(`Feature ID: ${featureId}`);
 
-          const MAX_WAIT = 600000; // 10 minutes in ms
-          const INTERVAL = 15000;  // 15 seconds
+          const MAX_WAIT = 120000; // 2 minutes (dev executor is fast)
+          const INTERVAL = 5000;   // 5 seconds
           const start = Date.now();
 
           function checkStatus() {
@@ -310,9 +169,222 @@ jobs:
 
           poll();
 
-      # ---------------------------------------------------------------------
-      # 7. Show final feature details — PR info must come from here
-      # ---------------------------------------------------------------------
+      # 7. Show final feature details
+      - name: Show completed feature
+        shell: bash
+        working-directory: ${{ env.TARGET_DIR }}
+        run: |
+          echo "=== Final feature details ==="
+          shep feat show "$FEATURE_ID"
+
+      # 8. Upload shep logs (always, even on failure)
+      - name: Dump feature logs
+        if: always()
+        shell: bash
+        working-directory: ${{ env.TARGET_DIR }}
+        run: |
+          echo "=== shep feat logs ==="
+          shep feat logs "$FEATURE_ID" || echo "(no logs available)"
+
+      - name: Upload shep logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: shep-logs-${{ matrix.agent }}-${{ matrix.os }}
+          path: ~/.shep/logs/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Real agent test — manual trigger only, tests against shep-ai/sheep
+  # ───────────────────────────────────────────────────────────────────────────
+  shep-e2e-agents:
+    name: ${{ matrix.agent }} / ${{ matrix.os }}
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        agent: [claude-code, cursor]
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout shep CLI
+        uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shep CLI
+        run: pnpm run build
+
+      - name: Link shep globally
+        run: npm link
+
+      # Install agent CLI
+      - name: Install Claude Code CLI
+        if: matrix.agent == 'claude-code'
+        run: |
+          curl -fsSL https://claude.ai/install.sh | bash
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Install Cursor CLI
+        if: matrix.agent == 'cursor'
+        run: |
+          curl -fsS https://cursor.com/install | bash
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      # Clone target repo
+      - name: Clone target repo
+        env:
+          RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        shell: bash
+        run: |
+          CLONE_DIR="${RUNNER_TEMP}/sheep"
+          git clone "https://x-access-token:${RELEASE_TOKEN}@github.com/shep-ai/sheep.git" "$CLONE_DIR"
+          cd "$CLONE_DIR"
+          git config user.name "shep-bot"
+          git config user.email "bot@shep.ai"
+          echo "SHEEP_DIR=$CLONE_DIR" >> $GITHUB_ENV
+
+      # Generate random prompt
+      - name: Generate random prompt
+        shell: node {0}
+        run: |
+          const topics = [
+            "space exploration", "deep sea creatures", "ancient civilizations", "renewable energy",
+            "artificial intelligence", "mountain climbing", "bioluminescence", "cloud computing",
+            "jazz music history", "volcanic eruptions", "origami mathematics", "urban gardening",
+            "quantum physics", "migration patterns", "fermentation science", "coral reef ecosystems",
+            "typography design", "arctic wildlife", "board game strategy", "signal processing",
+          ];
+          const formats = [
+            "a fun facts list", "a beginner guide", "a glossary of key terms",
+            "a timeline of milestones", "a comparison table", "a myth-busting guide",
+            "an FAQ document", "a quick reference card", "a top-10 list",
+            "a cheat sheet", "a how-it-works explainer", "a field guide",
+          ];
+          const topic = topics[Math.floor(Math.random() * topics.length)];
+          const format = formats[Math.floor(Math.random() * formats.length)];
+          const suffix = Math.random().toString(36).slice(2, 8);
+          const filename = topic.toLowerCase().replace(/ /g, '-') + `-${suffix}`;
+          const prompt = `create a single markdown file called ${filename}.md containing ${format} about ${topic}. Keep it very short — just a title and 2-3 sentences.`;
+          console.log(`Generated prompt: ${prompt}`);
+          const fs = require('fs');
+          fs.appendFileSync(process.env.GITHUB_ENV, `SHEP_PROMPT=${prompt}\n`);
+
+      - name: Configure shep agent
+        shell: bash
+        working-directory: ${{ env.SHEEP_DIR }}
+        run: |
+          if [ "${{ matrix.agent }}" = "cursor" ]; then
+            shep settings agent --agent cursor --auth token --token "$CURSOR_API_KEY"
+          else
+            shep settings agent --agent claude-code --auth session
+          fi
+        env:
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+
+      - name: Create feature
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        shell: bash
+        working-directory: ${{ env.SHEEP_DIR }}
+        run: |
+          if [ "${{ matrix.agent }}" = "cursor" ]; then
+            MODEL="composer-1.5"
+          else
+            MODEL="claude-haiku-4-5"
+          fi
+          shep feat new "$SHEP_PROMPT" \
+            --fast \
+            --allow-all \
+            --push \
+            --pr \
+            --allow-merge \
+            --model "$MODEL"
+
+      - name: Verify feature listed
+        shell: bash
+        working-directory: ${{ env.SHEEP_DIR }}
+        run: |
+          echo "=== shep feat ls ==="
+          shep feat ls
+
+      - name: Wait for feature to complete
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        shell: node {0}
+        run: |
+          const { execSync } = require('child_process');
+          const cwd = process.env.SHEEP_DIR;
+          const fs = require('fs');
+
+          const lsOutput = execSync('shep feat ls', { cwd, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+          const idMatch = lsOutput.match(/[0-9a-f]{8}/);
+          if (!idMatch) {
+            console.error('::error::Could not find feature ID from shep feat ls');
+            process.exit(1);
+          }
+          const featureId = idMatch[0];
+          console.log(`Feature ID: ${featureId}`);
+
+          const MAX_WAIT = 600000;
+          const INTERVAL = 15000;
+          const start = Date.now();
+
+          function checkStatus() {
+            try {
+              const output = execSync(`shep feat show ${featureId}`, { cwd, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+              console.log(output);
+              return output;
+            } catch (e) {
+              console.log(e.stdout || e.message);
+              return e.stdout || '';
+            }
+          }
+
+          function poll() {
+            const elapsed = Math.round((Date.now() - start) / 1000);
+            console.log(`\n=== Checking status (${elapsed}s elapsed) ===`);
+            const output = checkStatus();
+
+            if (/completed/i.test(output)) {
+              console.log('\nFeature completed!');
+              fs.appendFileSync(process.env.GITHUB_ENV, `FEATURE_ID=${featureId}\n`);
+              process.exit(0);
+            }
+            if (/failed|crashed|interrupted/i.test(output)) {
+              console.error('\n::error::Feature reached terminal error state');
+              process.exit(1);
+            }
+            if (Date.now() - start > MAX_WAIT) {
+              console.error(`::error::Feature did not complete within ${MAX_WAIT / 1000}s`);
+              process.exit(1);
+            }
+            console.log(`Still running, waiting ${INTERVAL / 1000}s...`);
+            setTimeout(poll, INTERVAL);
+          }
+
+          poll();
+
       - name: Show completed feature
         shell: bash
         working-directory: ${{ env.SHEEP_DIR }}
@@ -320,9 +392,6 @@ jobs:
           echo "=== Final feature details ==="
           shep feat show "$FEATURE_ID"
 
-      # ---------------------------------------------------------------------
-      # 8. Verify PR was merged BY SHEP (not by us)
-      # ---------------------------------------------------------------------
       - name: Verify PR merged by shep
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
@@ -337,9 +406,6 @@ jobs:
           fi
           echo "PR merged by shep: $MERGED"
 
-      # ---------------------------------------------------------------------
-      # 9. Upload shep logs as artifacts (always, even on failure)
-      # ---------------------------------------------------------------------
       - name: Dump feature logs
         if: always()
         shell: bash
@@ -352,7 +418,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: shep-logs-${{ matrix.os }}-${{ matrix.agent }}
+          name: shep-logs-${{ matrix.agent }}-${{ matrix.os }}
           path: ~/.shep/logs/
           if-no-files-found: ignore
           retention-days: 7
