@@ -80,6 +80,23 @@ export class WebServerService implements IWebServerService {
    * @param dev - Whether to run in development mode (default: auto-detect)
    */
   async start(port: number, dir: string, dev = true): Promise<void> {
+    // On Windows, Next.js uses path.relative(CWD, dir) internally then
+    // reconstructs with path.join(CWD, relative). When CWD and dir are on
+    // different drives (e.g. D:\project vs C:\...\web), path.relative returns
+    // the absolute path (can't compute relative across drives), and path.join
+    // produces a mangled path like D:\project\C:\...\web\. Fix by ensuring
+    // CWD is on the same drive as dir.
+    if (process.platform === 'win32') {
+      const cwdDrive = process
+        .cwd()
+        .match(/^[a-zA-Z]:/)?.[0]
+        ?.toUpperCase();
+      const dirDrive = dir.match(/^[a-zA-Z]:/)?.[0]?.toUpperCase();
+      if (cwdDrive && dirDrive && cwdDrive !== dirDrive) {
+        process.chdir(dir);
+      }
+    }
+
     const app = this.deps.createNextApp({
       dev,
       dir,

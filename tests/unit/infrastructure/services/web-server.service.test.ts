@@ -8,7 +8,7 @@
  */
 
 import 'reflect-metadata';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   WebServerService,
   type WebServerDeps,
@@ -124,6 +124,50 @@ describe('WebServerService', () => {
       mocks.mockApp.prepare.mockRejectedValueOnce(new Error('Prepare failed'));
 
       await expect(service.start(4050, '/path/to/web')).rejects.toThrow('Prepare failed');
+    });
+  });
+
+  describe('Windows cross-drive path fix', () => {
+    const originalPlatform = process.platform;
+    const originalCwd = process.cwd;
+
+    afterEach(() => {
+      Object.defineProperty(process, 'platform', { value: originalPlatform });
+      process.cwd = originalCwd;
+    });
+
+    it('should chdir to web dir on Windows when drives differ', async () => {
+      Object.defineProperty(process, 'platform', { value: 'win32' });
+      process.cwd = vi.fn().mockReturnValue('D:\\cursor_ml_bot');
+      const chdirSpy = vi.spyOn(process, 'chdir').mockImplementation(() => undefined);
+
+      await service.start(4050, 'C:\\Users\\User\\web');
+
+      // Should chdir to web dir before app.prepare()
+      expect(chdirSpy).toHaveBeenCalledWith('C:\\Users\\User\\web');
+      chdirSpy.mockRestore();
+    });
+
+    it('should NOT chdir on Windows when same drive', async () => {
+      Object.defineProperty(process, 'platform', { value: 'win32' });
+      process.cwd = vi.fn().mockReturnValue('C:\\Projects\\myapp');
+      const chdirSpy = vi.spyOn(process, 'chdir').mockImplementation(() => undefined);
+
+      await service.start(4050, 'C:\\Users\\User\\web');
+
+      expect(chdirSpy).not.toHaveBeenCalled();
+      chdirSpy.mockRestore();
+    });
+
+    it('should NOT chdir on non-Windows platforms', async () => {
+      Object.defineProperty(process, 'platform', { value: 'darwin' });
+      process.cwd = vi.fn().mockReturnValue('/Users/dev/project');
+      const chdirSpy = vi.spyOn(process, 'chdir').mockImplementation(() => undefined);
+
+      await service.start(4050, '/opt/shep/web');
+
+      expect(chdirSpy).not.toHaveBeenCalled();
+      chdirSpy.mockRestore();
     });
   });
 });

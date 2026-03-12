@@ -169,7 +169,7 @@ async function getSkillsFromDirectory(dirPath: string, source: SkillSource): Pro
 }
 
 export async function getSkills(projectRoot?: string, homeDir?: string): Promise<SkillData[]> {
-  const root = projectRoot ?? process.cwd();
+  const root = projectRoot ?? process.env.NEXT_PUBLIC_SHEP_INSTANCE_PATH ?? process.cwd();
   const home = homeDir ?? homedir();
 
   const projectDir = join(root, '.claude', 'skills');
