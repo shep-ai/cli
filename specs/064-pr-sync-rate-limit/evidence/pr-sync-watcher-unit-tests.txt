@@ -1,0 +1,57 @@
+PR Sync Watcher Service — Unit Test Results
+============================================
+Test file: tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts
+Run date: 2026-03-12
+
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > start/stop lifecycle > should set isRunning to true when started 2ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > start/stop lifecycle > should set isRunning to false when stopped 1ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > start/stop lifecycle > should be no-op when start() is called while already running 1ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > start/stop lifecycle > should poll at configured interval 1ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > start/stop lifecycle > should stop polling when stop() is called 1ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > start/stop lifecycle > should support custom poll interval 1ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > PR status polling and transition detection > should detect Open→Merged transition and update feature and agent run 3ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > PR status polling and transition detection > should skip agent run update when feature has no agentRunId 0ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > PR status polling and transition detection > should detect Open→Closed transition and update feature without lifecycle change 1ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > PR status polling and transition detection > should not call update when PR status has not changed 0ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > PR status polling and transition detection > should group features by repositoryPath for batch PR queries 0ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > PR status polling and transition detection > should prune features that left Review from tracking map 0ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > PR status polling and transition detection > should emit PrMerged notification with correct fields including featureId and agentRunId 1ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > PR status polling and transition detection > should emit PrClosed notification with correct fields including featureId 0ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > PR status polling and transition detection > should skip already-merged PRs during branch discovery (likely stale) 0ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > PR status polling and transition detection > should discover open PR by branch name and populate feature PR data 0ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > PR status polling and transition detection > should not update feature when no matching PR found by branch 0ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > PR status polling and transition detection > should not emit duplicate notification on subsequent polls with same status 1ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > CI status polling and transition detection > should detect CI Pending→Success and update feature 0ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > CI status polling and transition detection > should detect CI Pending→Failure and update feature 0ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > CI status polling and transition detection > should emit PrChecksPassed notification on CI success 0ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > CI status polling and transition detection > should emit PrChecksFailed notification on CI failure 0ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > CI status polling and transition detection > should not trigger update when CI status is unchanged 0ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > CI status polling and transition detection > should handle getCiStatus errors gracefully and continue 0ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > error handling and edge cases > should not make API calls when no features are in Review 0ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > error handling and edge cases > should still poll GitHub for features without PR data (for branch-based discovery) 0ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > error handling and edge cases > should skip features with missing repositoryPath 0ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > error handling and edge cases > should skip feature when PR number is not found in listPrStatuses response 0ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > error handling and edge cases > should isolate listPrStatuses errors per repository 0ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > error handling and edge cases > should catch and log top-level poll errors 0ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > mergeable status tracking > should detect PR becoming unmergeable (conflicts) and emit PrBlocked notification 0ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > mergeable status tracking > should not emit PrBlocked notification when mergeable is true 0ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > mergeable status tracking > should not re-emit PrBlocked when mergeable status is unchanged 0ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > mergeable status tracking > should update feature when mergeable status is undefined (unknown) 0ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > SQLite poll lock > should acquire lock and proceed with poll when no lock exists 0ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > SQLite poll lock > should skip poll when lock is held by another process 1ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > SQLite poll lock > should acquire lock when existing lock has expired 0ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > SQLite poll lock > should proceed without lock when no DB is provided 0ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > rate limit backoff > should skip repository when rate limit error is detected from listPrStatuses 0ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > rate limit backoff > should skip repository when rate limit error is detected from getCiStatus 0ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > rate limit backoff > should not trigger rate limit backoff for non-rate-limit errors 0ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > exponential backoff for stable features > should poll feature every cycle when status changes 0ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > exponential backoff for stable features > should skip polling stable feature after 3+ unchanged cycles 0ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > exponential backoff for stable features > should reset unchanged cycles when feature status changes 0ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > singleton accessors > should initialize and return watcher via get 0ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > singleton accessors > should throw when initializing twice 0ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > singleton accessors > should throw when getting without initialization 0ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > singleton accessors > should report false for hasPrSyncWatcher when not initialized 0ms
+ ✓  node  tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts > PrSyncWatcherService > singleton accessors > should stop and clear instance on reset 0ms
+
+ Test Files  1 passed (1)
+      Tests  49 passed (49)
