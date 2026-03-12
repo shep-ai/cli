@@ -342,29 +342,13 @@ jobs:
           if (Test-Path "$env:USERPROFILE\.local\bin") { $claudePath = "$env:USERPROFILE\.local\bin" }
           echo $claudePath >> $env:GITHUB_PATH
 
-      - name: Create target repo
-        shell: bash
-        run: |
-          TARGET_DIR="${RUNNER_TEMP}/test-repo"
-          mkdir -p "$TARGET_DIR"
-          cd "$TARGET_DIR"
-          git init
-          git config user.name "shep-bot"
-          git config user.email "bot@shep.ai"
-          echo "# Test Repo" > README.md
-          git add README.md
-          git commit -m "initial commit"
-          echo "TARGET_DIR=$TARGET_DIR" >> $GITHUB_ENV
-
       - name: Configure shep agent
         shell: bash
-        working-directory: ${{ env.TARGET_DIR }}
         run: shep settings agent --agent claude-code --auth session
 
       - name: Create feature (full SDLC)
         timeout-minutes: 15
         shell: bash
-        working-directory: ${{ env.TARGET_DIR }}
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         run: |
@@ -375,7 +359,6 @@ jobs:
 
       - name: Verify feature listed
         shell: bash
-        working-directory: ${{ env.TARGET_DIR }}
         run: |
           OUTPUT=$(shep feat ls)
           echo "$OUTPUT"
@@ -388,7 +371,7 @@ jobs:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         run: |
           const { execSync } = require('child_process');
-          const cwd = process.env.TARGET_DIR;
+          const cwd = process.cwd();
           const fs = require('fs');
 
           const lsOutput = execSync('shep feat ls', { cwd, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
@@ -415,12 +398,10 @@ jobs:
 
       - name: Show completed feature
         shell: bash
-        working-directory: ${{ env.TARGET_DIR }}
         run: shep feat show "$FEATURE_ID"
 
       - name: Verify local changes
         shell: bash
-        working-directory: ${{ env.TARGET_DIR }}
         run: |
           COMMIT_COUNT=$(git log --oneline --all | wc -l)
           echo "Total commits: $COMMIT_COUNT"
@@ -433,7 +414,6 @@ jobs:
       - name: Dump feature logs
         if: always()
         shell: bash
-        working-directory: ${{ env.TARGET_DIR }}
         run: shep feat logs "$FEATURE_ID" || echo "(no logs available)"
 
       - name: Upload shep logs
