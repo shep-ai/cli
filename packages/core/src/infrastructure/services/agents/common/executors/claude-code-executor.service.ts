@@ -18,6 +18,7 @@ import type {
 } from '../../../../../application/ports/output/agents/agent-executor.interface.js';
 import type { SpawnFunction } from '../types.js';
 import { getCurrentPhase, getLogPrefix } from '../../feature-agent/log-context.js';
+import { IS_WINDOWS } from '../../../../platform.js';
 
 /** Features supported by Claude Code CLI */
 const SUPPORTED_FEATURES = new Set<string>([
@@ -337,7 +338,7 @@ export class ClaudeCodeExecutorService implements IAgentExecutor {
     // Do NOT use shell=true — it causes DEP0190 argument escaping issues
     // and mangles prompts with special characters. The claude CLI is a
     // native .exe, so spawn() finds it on PATH without shell.
-    if (process.platform === 'win32') {
+    if (IS_WINDOWS) {
       spawnOpts.windowsHide = true;
     }
 

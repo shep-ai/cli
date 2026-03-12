@@ -15,7 +15,7 @@ export async function POST(
     const useCase = resolve<LaunchToolUseCase>('LaunchToolUseCase');
     const result: LaunchToolResult = await useCase.execute({
       toolId: id,
-      directoryPath: process.cwd(),
+      directoryPath: process.env.NEXT_PUBLIC_SHEP_INSTANCE_PATH ?? process.cwd(),
       headless: true,
     });
 

@@ -337,6 +337,21 @@ describe('ClaudeCodeExecutorService', () => {
       );
     });
 
+    it('should NOT set shell option in spawn options', async () => {
+      // shell: true on Windows causes DEP0190 and mangles long prompts
+      const mockProc = createMockChildProcess();
+      vi.mocked(mockSpawn).mockReturnValue(mockProc as any);
+
+      const resultLine = buildStreamResult({ result: 'Done' });
+      const executePromise = executor.execute('Test');
+      emitStreamData(mockProc, [resultLine], null, 0);
+
+      await executePromise;
+
+      const spawnOpts = vi.mocked(mockSpawn).mock.calls[0][2] as Record<string, unknown>;
+      expect(spawnOpts).not.toHaveProperty('shell');
+    });
+
     it('should pass cwd option to spawn', async () => {
       // Arrange
       const mockProc = createMockChildProcess();
