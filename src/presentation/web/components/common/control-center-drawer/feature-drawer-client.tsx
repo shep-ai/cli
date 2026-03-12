@@ -38,6 +38,7 @@ import { resolveSseEventUpdates } from '@/components/common/feature-node/derive-
 import { deriveInitialTab } from './drawer-view';
 import type { DrawerView, FeatureTabKey } from './drawer-view';
 import { useArtifactFetch } from './use-artifact-fetch';
+import { useDrawerSync } from './use-drawer-sync';
 
 export interface FeatureDrawerClientProps {
   view: DrawerView;
@@ -54,7 +55,7 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
   // Track the view locally so SSE events can update the drawer type in real-time
   const [view, setView] = useState(initialView);
 
-  // Sync when server re-renders with new props (e.g. after router.refresh())
+  // Sync when server re-renders with new props (e.g. after navigation)
   useEffect(() => {
     setView(initialView);
   }, [initialView]);
@@ -83,15 +84,9 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
       // fetches (which would fail with "not found" for soft-deleted features).
       if (featureNode.state === 'deleting') continue;
 
-      // Trigger a server refresh to get the latest drawer view,
-      // but skip when the drawer is closed, the user has unsaved changes,
-      // or a rejection is in-flight to avoid unnecessary refreshes.
-      if (isOpenRef.current && !isDirtyRef.current && !isRejectingRef.current) router.refresh();
-
       if (update.state !== undefined || update.lifecycle !== undefined) {
-        // Optimistically update the node data AND re-derive the initial tab so the
-        // drawer switches immediately (e.g. prd-review → overview when agent resumes)
-        // without waiting for the router.refresh() round-trip.
+        // Update the node data AND re-derive the initial tab so the drawer
+        // switches immediately (e.g. prd-review → overview when agent resumes).
         setView((prev) => {
           if (prev.type !== 'feature') return prev;
           const updatedNode = {
@@ -103,7 +98,7 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
         });
       }
     }
-  }, [events, featureNode, router]);
+  }, [events, featureNode]);
 
   // Derive open state from the URL. Next.js parallel routes preserve slot
   // content during soft navigation, so this component is NOT unmounted when
@@ -111,19 +106,11 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
   // the close animation when the path no longer matches a feature route.
   const pathname = usePathname();
   const isOpen = pathname.startsWith('/feature/');
-  const isOpenRef = useRef(isOpen);
-  const wasOpenRef = useRef(isOpen);
 
-  // When the drawer re-opens, force a server refresh so the view is always fresh.
-  // SSE skips router.refresh() while the drawer is closed, so data can go stale.
-  useEffect(() => {
-    if (isOpen && !wasOpenRef.current) {
-      router.refresh();
-    }
-    wasOpenRef.current = isOpen;
-  }, [isOpen, router]);
-
-  isOpenRef.current = isOpen;
+  // Targeted data sync: fetches fresh FeatureNodeData on drawer open and
+  // periodically while open. Replaces router.refresh() to avoid full-page
+  // re-renders that cause visible flashing and can reset form state.
+  useDrawerSync(isOpen, featureNode?.featureId ?? null, setView);
 
   const onClose = useCallback(() => {
     router.push('/');
@@ -248,11 +235,6 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
     featureNode?.state === 'action-required' &&
     Object.keys(prdDefaultSelections).some((k) => prdDefaultSelections[k] !== prdSelections[k]);
   const isDirty = isChatDirty || isPrdDirty;
-
-  // Keep dirty state in a ref so the SSE handler can read the latest value
-  // without re-running the effect on every keystroke.
-  const isDirtyRef = useRef(isDirty);
-  isDirtyRef.current = isDirty;
 
   const onReset = useCallback(() => {
     setChatInput('');

@@ -101,6 +101,25 @@ function isFeatureDataUnchanged(data: FeatureNodeData, updates: FeatureDataUpdat
   );
 }
 
+/**
+ * Shallow-compare two Maps by key set and entry data (JSON equality).
+ * Returns true if they are structurally identical, avoiding unnecessary re-renders.
+ */
+function mapsEqual<T extends { data: unknown; parentNodeId?: string }>(
+  a: Map<string, T>,
+  b: Map<string, T>
+): boolean {
+  if (a.size !== b.size) return false;
+  for (const [key, aEntry] of a) {
+    const bEntry = b.get(key);
+    if (!bEntry) return false;
+    if (aEntry.parentNodeId !== bEntry.parentNodeId) return false;
+    if (aEntry.data === bEntry.data) continue;
+    if (JSON.stringify(aEntry.data) !== JSON.stringify(bEntry.data)) return false;
+  }
+  return true;
+}
+
 export function useGraphState(
   initialNodes: CanvasNodeType[],
   initialEdges: Edge[]
@@ -290,6 +309,8 @@ export function useGraphState(
         }
       }
 
+      // Avoid re-render when polling returns identical data
+      if (mapsEqual(currentFeatureMap, merged)) return currentFeatureMap;
       return merged;
     });
 
@@ -336,6 +357,8 @@ export function useGraphState(
         }
       }
 
+      // Avoid re-render when polling returns identical data
+      if (mapsEqual(currentRepoMap, merged)) return currentRepoMap;
       return merged;
     });
   }, []);

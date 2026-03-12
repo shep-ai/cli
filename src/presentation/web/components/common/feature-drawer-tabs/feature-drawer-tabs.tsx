@@ -165,7 +165,6 @@ export function FeatureDrawerTabs({
   sseEvents,
 }: FeatureDrawerTabsProps) {
   const pathname = usePathname();
-  const featureLogs = useFeatureLogs(featureId);
 
   const visibleTabs = useMemo(() => computeVisibleTabs(featureNode), [featureNode]);
   const visibleTabDefs = useMemo(
@@ -189,6 +188,10 @@ export function FeatureDrawerTabs({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [activeTab, setActiveTab] = useState<FeatureTabKey>(effectiveInitial);
+
+  // Only subscribe to log SSE when the log tab is active to avoid
+  // opening an EventSource connection on every drawer open.
+  const featureLogs = useFeatureLogs(activeTab === 'log' ? featureId : null);
 
   const { tabs, fetchTab, refreshTab } = useTabDataFetch<LazyTabKey>(featureId, TAB_FETCHERS);
 

@@ -47,6 +47,20 @@ export interface UseSoundResult {
   isPlaying: boolean;
 }
 
+// Module-level cache: Audio objects are created once per sound name and reused
+// across component mounts to avoid re-downloading WAV files on every drawer open.
+const audioCache = new Map<SoundName, HTMLAudioElement>();
+
+function getOrCreateAudio(name: SoundName): HTMLAudioElement {
+  let audio = audioCache.get(name);
+  if (!audio) {
+    audio = new Audio(`/sounds/${name}.wav`);
+    audio.preload = 'auto';
+    audioCache.set(name, audio);
+  }
+  return audio;
+}
+
 export function useSound(name: SoundName, options: UseSoundOptions = {}): UseSoundResult {
   const { volume = 1, loop = false } = options;
   const { enabled } = useSoundEnabled();
@@ -55,8 +69,7 @@ export function useSound(name: SoundName, options: UseSoundOptions = {}): UseSou
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const audio = new Audio(`/sounds/${name}.wav`);
-    audio.preload = 'auto';
+    const audio = getOrCreateAudio(name);
     audio.loop = loop;
     audio.volume = Math.max(0, Math.min(1, volume));
     audio.addEventListener('ended', () => {
@@ -66,7 +79,6 @@ export function useSound(name: SoundName, options: UseSoundOptions = {}): UseSou
 
     return () => {
       audio.pause();
-      audio.removeAttribute('src');
       audioRef.current = null;
       isPlayingRef.current = false;
     };
