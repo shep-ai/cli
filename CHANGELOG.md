@@ -1,3 +1,9 @@
+## [1.108.1](https://github.com/shep-ai/cli/compare/v1.108.0...v1.108.1) (2026-03-12)
+
+### Bug Fixes
+
+- shell option handling for windows agent executors ([#336](https://github.com/shep-ai/cli/issues/336)) ([8d6178e](https://github.com/shep-ai/cli/commit/8d6178e63c03381a1af5255935cd58e26ff40566))
+
 # [1.108.0](https://github.com/shep-ai/cli/compare/v1.107.2...v1.108.0) (2026-03-12)
 
 ### Features
