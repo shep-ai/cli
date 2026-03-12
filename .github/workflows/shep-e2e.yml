@@ -149,7 +149,7 @@ jobs:
       # 5. Generate prompt and create feature (no push/pr/merge)
       # ─────────────────────────────────────────────────────────────────────
       - name: Create feature
-        timeout-minutes: 2
+        timeout-minutes: 5
         shell: bash
         working-directory: ${{ env.TARGET_DIR }}
         env:
@@ -192,7 +192,7 @@ jobs:
       # 7. Wait for feature to complete
       # ─────────────────────────────────────────────────────────────────────
       - name: Wait for feature to complete
-        timeout-minutes: 2
+        timeout-minutes: 5
         shell: node {0}
         env:
           DEV_EXECUTOR_DELAY_MS: '0'
