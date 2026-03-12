@@ -177,11 +177,11 @@ export function toDatabase(settings: Settings): SettingsRow {
       ? 1
       : 0,
 
-    // FeatureFlags (boolean → 0/1, defaults to 0 when featureFlags undefined)
+    // FeatureFlags (boolean → 0/1, defaults to 0 when featureFlags undefined, except chat defaults to 1)
     feature_flag_skills: settings.featureFlags?.skills ? 1 : 0,
     feature_flag_env_deploy: settings.featureFlags?.envDeploy ? 1 : 0,
     feature_flag_debug: settings.featureFlags?.debug ? 1 : 0,
-    feature_flag_chat: settings.featureFlags?.chat ? 1 : 0,
+    feature_flag_chat: settings.featureFlags ? (settings.featureFlags.chat ? 1 : 0) : 1,
   };
 }
 

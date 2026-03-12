@@ -1,0 +1,10 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-gpt-chat-interface
+
+ ✓  web  tests/unit/presentation/web/api/chat-stream.test.ts (14 tests) 28ms
+
+ Test Files  1 passed (1)
+      Tests  14 passed (14)
+   Start at  14:55:35
+   Duration  173ms (transform 35ms, setup 76ms, import 16ms, tests 28ms, environment 0ms)
+

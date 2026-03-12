@@ -1,0 +1,15 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-gpt-chat-interface
+
+ ✓  web  tests/unit/presentation/web/lib/feature-flags.test.ts (12 tests) 4ms
+ ✓  web  tests/unit/presentation/web/api/chat-stream.test.ts (14 tests) 50ms
+ ✓  web  tests/unit/presentation/web/hooks/use-chat.test.ts (25 tests) 33ms
+ ✓  web  tests/unit/presentation/web/features/chat/chat-page-client.test.tsx (11 tests) 224ms
+ ✓  web  tests/unit/presentation/web/features/chat/chat-view.test.tsx (20 tests) 260ms
+ ✓  web  tests/unit/presentation/web/layouts/app-sidebar.test.tsx (12 tests) 363ms
+
+ Test Files  6 passed (6)
+      Tests  94 passed (94)
+   Start at  15:10:39
+   Duration  1.09s (transform 360ms, setup 621ms, import 883ms, tests 934ms, environment 1.24s)
+
