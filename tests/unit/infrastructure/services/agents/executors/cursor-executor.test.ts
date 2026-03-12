@@ -11,6 +11,15 @@ import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
+
+// Mock the platform module so IS_WINDOWS re-evaluates per-test
+// when process.platform is overridden via Object.defineProperty.
+vi.mock('@/infrastructure/platform.js', () => ({
+  get IS_WINDOWS() {
+    return process.platform === 'win32';
+  },
+}));
+
 import { CursorExecutorService } from '@/infrastructure/services/agents/common/executors/cursor-executor.service.js';
 import type { SpawnFunction } from '@/infrastructure/services/agents/common/types.js';
 import { AgentType, AgentFeature } from '@/domain/generated/output.js';
@@ -375,6 +384,52 @@ describe('CursorExecutorService', () => {
         expect.arrayContaining(['--yolo']),
         expect.any(Object)
       );
+    });
+
+    it('should set shell and windowsHide on Windows', async () => {
+      // Cursor agent is a .cmd script on Windows, needs shell: true
+      const originalPlatform = process.platform;
+      Object.defineProperty(process, 'platform', { value: 'win32' });
+
+      try {
+        const mockProc = createMockChildProcess();
+        vi.mocked(mockSpawn).mockReturnValue(mockProc as any);
+
+        const assistantLine = buildCursorAssistantEvent('Done');
+        const resultLine = buildCursorResultEvent('sess-1', 100);
+        const executePromise = executor.execute('Test', { silent: true });
+        emitStreamData(mockProc, [assistantLine, resultLine], null, 0);
+
+        await executePromise;
+
+        const spawnOpts = vi.mocked(mockSpawn).mock.calls[0][2] as Record<string, unknown>;
+        expect(spawnOpts).toHaveProperty('shell', true);
+        expect(spawnOpts).toHaveProperty('windowsHide', true);
+      } finally {
+        Object.defineProperty(process, 'platform', { value: originalPlatform });
+      }
+    });
+
+    it('should NOT set shell on non-Windows platforms', async () => {
+      const originalPlatform = process.platform;
+      Object.defineProperty(process, 'platform', { value: 'linux' });
+
+      try {
+        const mockProc = createMockChildProcess();
+        vi.mocked(mockSpawn).mockReturnValue(mockProc as any);
+
+        const assistantLine = buildCursorAssistantEvent('Done');
+        const resultLine = buildCursorResultEvent('sess-1', 100);
+        const executePromise = executor.execute('Test', { silent: true });
+        emitStreamData(mockProc, [assistantLine, resultLine], null, 0);
+
+        await executePromise;
+
+        const spawnOpts = vi.mocked(mockSpawn).mock.calls[0][2] as Record<string, unknown>;
+        expect(spawnOpts).not.toHaveProperty('shell');
+      } finally {
+        Object.defineProperty(process, 'platform', { value: originalPlatform });
+      }
     });
 
     it('should pass cwd option to spawn', async () => {
