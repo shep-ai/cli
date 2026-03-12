@@ -141,7 +141,7 @@ jobs:
           SUFFIX=$(node -e "console.log(Math.random().toString(36).slice(2,8))")
           # Use cheapest model per agent
           if [ "${{ matrix.agent }}" = "cursor" ]; then
-            MODEL="composer-1.5"
+            MODEL="claude-haiku-4-5"
           elif [ "${{ matrix.agent }}" = "claude-code" ]; then
             MODEL="claude-haiku-4-5"
           else
