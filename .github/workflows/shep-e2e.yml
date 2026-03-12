@@ -181,7 +181,7 @@ jobs:
           const format = formats[Math.floor(Math.random() * formats.length)];
           const suffix = Math.random().toString(36).slice(2, 8);
           const filename = topic.toLowerCase().replace(/ /g, '-') + `-${suffix}`;
-          const prompt = `create a single markdown file called ${filename}.md containing ${format} about ${topic}. Keep it concise (under 80 lines).`;
+          const prompt = `create a single markdown file called ${filename}.md containing ${format} about ${topic}. Keep it very short — just a title and 2-3 sentences.`;
           console.log(`Generated prompt: ${prompt}`);
           const fs = require('fs');
           fs.appendFileSync(process.env.GITHUB_ENV, `SHEP_PROMPT=${prompt}\n`);
@@ -199,7 +199,8 @@ jobs:
             --allow-all \
             --push \
             --pr \
-            --allow-merge
+            --allow-merge \
+            --model claude-haiku-4-5-20251001
 
       # ---------------------------------------------------------------------
       # 5. List features — verify the feature appears
