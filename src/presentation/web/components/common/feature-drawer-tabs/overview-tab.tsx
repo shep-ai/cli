@@ -109,10 +109,13 @@ function formatRelativeTime(timestamp: string | number): string {
 }
 
 function FeatureInfo({ data }: { data: FeatureNodeData }) {
+  const showSummary =
+    Boolean(data.summary) && !(data.userQuery && data.summary?.trim() === data.userQuery.trim());
+
   const hasInfo =
     Boolean(data.branch) ||
     Boolean(data.oneLiner) ||
-    Boolean(data.summary) ||
+    showSummary ||
     Boolean(data.userQuery) ||
     Boolean(data.createdAt);
   if (!hasInfo) return null;
@@ -145,7 +148,7 @@ function FeatureInfo({ data }: { data: FeatureNodeData }) {
             <InlineAttachments text={data.userQuery} />
           </div>
         ) : null}
-        {data.summary ? (
+        {showSummary ? (
           <div className="flex flex-col gap-0.5">
             <span className="text-muted-foreground text-xs font-medium">Summary</span>
             <span className="text-sm leading-relaxed">{data.summary}</span>

@@ -1,0 +1,36 @@
+feature:
+  id: '062-hide-duplicate-summary'
+  name: 'hide-duplicate-summary'
+  number: 62
+  branch: 'feat/062-hide-duplicate-summary'
+  lifecycle: 'research'
+  createdAt: '2026-03-12T10:22:32Z'
+
+status:
+  phase: 'research'
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-03-12T10:22:32Z'
+  lastUpdatedBy: 'feature-agent'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-03-12T10:22:32Z'
+    completedBy: 'feature-agent'
+
+errors:
+  current: null
+  history: []
