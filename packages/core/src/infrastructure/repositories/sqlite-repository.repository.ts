@@ -38,9 +38,9 @@ export class SQLiteRepositoryRepository implements IRepositoryRepository {
 
   async findByPath(path: string): Promise<Repository | null> {
     const stmt = this.db.prepare(
-      'SELECT * FROM repositories WHERE path = ? AND deleted_at IS NULL'
+      "SELECT * FROM repositories WHERE REPLACE(path, '\\', '/') = ? AND deleted_at IS NULL"
     );
-    const row = stmt.get(path) as RepositoryRow | undefined;
+    const row = stmt.get(path.replace(/\\/g, '/')) as RepositoryRow | undefined;
     return row ? fromDatabase(row) : null;
   }
 
@@ -58,8 +58,8 @@ export class SQLiteRepositoryRepository implements IRepositoryRepository {
   }
 
   async findByPathIncludingDeleted(path: string): Promise<Repository | null> {
-    const stmt = this.db.prepare('SELECT * FROM repositories WHERE path = ?');
-    const row = stmt.get(path) as RepositoryRow | undefined;
+    const stmt = this.db.prepare("SELECT * FROM repositories WHERE REPLACE(path, '\\', '/') = ?");
+    const row = stmt.get(path.replace(/\\/g, '/')) as RepositoryRow | undefined;
     return row ? fromDatabase(row) : null;
   }
 

@@ -83,7 +83,7 @@ export class CreateFeatureUseCase {
       ? SdlcLifecycle.Implementation
       : SdlcLifecycle.Requirements;
     let shouldSpawn = true;
-    let effectiveRepoPath = input.repositoryPath;
+    let effectiveRepoPath = input.repositoryPath.replace(/\\/g, '/');
 
     if (input.parentId) {
       const parent = await this.featureRepo.findById(input.parentId);
@@ -118,7 +118,8 @@ export class CreateFeatureUseCase {
     }
 
     // Resolve or create repository entity for this path
-    const normalizedPath = effectiveRepoPath.replace(/\/+$/, '') || effectiveRepoPath;
+    const normalizedPath =
+      effectiveRepoPath.replace(/\\/g, '/').replace(/\/+$/, '') || effectiveRepoPath;
     let repository = await this.repositoryRepo.findByPath(normalizedPath);
     const now = new Date();
     if (!repository) {

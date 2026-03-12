@@ -25,10 +25,13 @@ export function buildGraphNodes(
   repositories: Repository[],
   featuresWithRuns: FeatureWithRun[]
 ): { nodes: CanvasNodeType[]; edges: Edge[] } {
-  // Group features by repository path
+  // Normalize path separators so Windows backslash paths match forward-slash paths
+  const normalizePath = (p: string) => p.replace(/\\/g, '/');
+
+  // Group features by normalized repository path
   const featuresByRepo: Record<string, FeatureWithRun[]> = {};
   featuresWithRuns.forEach((entry) => {
-    const repoKey = entry.feature.repositoryPath;
+    const repoKey = normalizePath(entry.feature.repositoryPath);
     if (!featuresByRepo[repoKey]) {
       featuresByRepo[repoKey] = [];
     }
@@ -43,7 +46,8 @@ export function buildGraphNodes(
 
   // First, add nodes for all persisted repositories (including those without features)
   for (const repo of repositories) {
-    coveredPaths.add(repo.path);
+    const normalizedRepoPath = normalizePath(repo.path);
+    coveredPaths.add(normalizedRepoPath);
     const repoNodeId = `repo-${repo.id}`;
     nodes.push({
       id: repoNodeId,
@@ -51,14 +55,14 @@ export function buildGraphNodes(
       position: { x: 0, y: 0 },
       data: {
         name: repo.name,
-        repositoryPath: repo.path,
+        repositoryPath: normalizedRepoPath,
         id: repo.id,
         createdAt:
           repo.createdAt instanceof Date ? repo.createdAt.getTime() : Number(repo.createdAt),
       },
     });
 
-    const repoFeatures = featuresByRepo[repo.path] ?? [];
+    const repoFeatures = featuresByRepo[normalizedRepoPath] ?? [];
     appendFeatureNodes(repoFeatures, repoNodeId, featuresWithRuns, nodes, edges, repo.name);
   }
 
