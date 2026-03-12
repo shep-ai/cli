@@ -142,8 +142,9 @@ jobs:
         run: |
           SUFFIX=$(node -e "console.log(Math.random().toString(36).slice(2,8))")
           # Use cheapest model per agent
+          # Cursor CLI only supports its own model list — use "auto" (its default)
           if [ "${{ matrix.agent }}" = "cursor" ]; then
-            MODEL="claude-haiku-4-5"
+            MODEL="auto"
           elif [ "${{ matrix.agent }}" = "claude-code" ]; then
             MODEL="claude-haiku-4-5"
           else

@@ -66,7 +66,15 @@ This is the living debugging log for the `shep-e2e.yml` workflow and Windows sup
 | 8   | `351869da` | Use `json` format instead of `stream-json` + raw text fallback | PARTIAL |
 | 9   | —          | Exclude cursor/windows from matrix; add hourly schedule        | PASS    |
 
-### Round 2: Broad Windows Compatibility (Attempt 10)
+### Round 1b: Cursor Model Compatibility (Attempt 10)
+
+| #   | Commit | Fix                                                                             | Result |
+| --- | ------ | ------------------------------------------------------------------------------- | ------ |
+| 10  | —      | Use `auto` model for cursor in E2E workflow — cursor CLI has its own model list | PASS   |
+
+**Root cause**: Cursor CLI doesn't support `claude-haiku-4-5`. Its available models are agent-specific (e.g., `auto`, `composer-1.5`, `gpt-5.x` variants, `sonnet-4.x`, `opus-4.x`). Passing `--model haiku-4.5` causes immediate failure on ubuntu and macOS (not just Windows).
+
+### Round 2: Broad Windows Compatibility (Attempt 11)
 
 | Area                 | Fix                                                                        |
 | -------------------- | -------------------------------------------------------------------------- |
@@ -137,3 +145,4 @@ Cursor CLI ships as `.cmd`/`.ps1` scripts on Windows. Node.js needs `shell: true
 13. Cursor CLI uses `--yolo` (not `--force`) to skip workspace trust; must appear BEFORE `-p`
 14. `--output-format stream-json` is broken on Windows with `shell: true` — use `json` format instead
 15. `composer-1.5` model returns 0 chars with `--output-format stream-json` — use `claude-haiku-4-5`
+16. Cursor CLI has its own model list (not Anthropic model IDs) — use `auto` instead of `claude-haiku-4-5` in E2E tests
