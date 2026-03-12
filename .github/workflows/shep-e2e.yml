@@ -303,3 +303,303 @@ jobs:
           path: ~/.shep/logs/
           if-no-files-found: ignore
           retention-days: 7
+
+  # ===========================================================================
+  # Feature Test: Claude Code on Windows — full SDLC, local only
+  # ===========================================================================
+  claude-windows-full-sdlc:
+    name: claude-code / windows / full-sdlc
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout shep CLI
+        uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shep CLI
+        run: pnpm run build
+
+      - name: Link shep globally
+        run: npm link
+
+      - name: Install Claude Code CLI
+        shell: pwsh
+        run: |
+          irm https://claude.ai/install.ps1 | iex
+          $claudePath = "$env:LOCALAPPDATA\Programs\claude-code"
+          if (Test-Path "$env:USERPROFILE\.local\bin") { $claudePath = "$env:USERPROFILE\.local\bin" }
+          echo $claudePath >> $env:GITHUB_PATH
+
+      - name: Create target repo
+        shell: bash
+        run: |
+          TARGET_DIR="${RUNNER_TEMP}/test-repo"
+          mkdir -p "$TARGET_DIR"
+          cd "$TARGET_DIR"
+          git init
+          git config user.name "shep-bot"
+          git config user.email "bot@shep.ai"
+          echo "# Test Repo" > README.md
+          git add README.md
+          git commit -m "initial commit"
+          echo "TARGET_DIR=$TARGET_DIR" >> $GITHUB_ENV
+
+      - name: Configure shep agent
+        shell: bash
+        working-directory: ${{ env.TARGET_DIR }}
+        run: shep settings agent --agent claude-code --auth session
+
+      - name: Create feature (full SDLC)
+        timeout-minutes: 15
+        shell: bash
+        working-directory: ${{ env.TARGET_DIR }}
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          SUFFIX=$(node -e "console.log(Math.random().toString(36).slice(2,8))")
+          shep feat new "create a single markdown file called test-${SUFFIX}.md with a title and 2-3 sentences about anything" \
+            --allow-all \
+            --model claude-haiku-4-5
+
+      - name: Verify feature listed
+        shell: bash
+        working-directory: ${{ env.TARGET_DIR }}
+        run: |
+          OUTPUT=$(shep feat ls)
+          echo "$OUTPUT"
+          echo "$OUTPUT" | grep -q "[0-9a-f]" || { echo "::error::No feature ID found"; exit 1; }
+
+      - name: Wait for feature to complete
+        timeout-minutes: 15
+        shell: node {0}
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          const { execSync } = require('child_process');
+          const cwd = process.env.TARGET_DIR;
+          const fs = require('fs');
+
+          const lsOutput = execSync('shep feat ls', { cwd, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+          const idMatch = lsOutput.match(/[0-9a-f]{8}/);
+          if (!idMatch) { console.error('::error::No feature ID'); process.exit(1); }
+          const featureId = idMatch[0];
+          console.log(`Feature ID: ${featureId}`);
+
+          const MAX_WAIT = 600000, INTERVAL = 10000, start = Date.now();
+          function checkStatus() {
+            try { const o = execSync(`shep feat show ${featureId}`, { cwd, encoding: 'utf8', stdio: ['pipe','pipe','pipe'] }); console.log(o); return o; }
+            catch (e) { console.log(e.stdout || e.message); return e.stdout || ''; }
+          }
+          function poll() {
+            const elapsed = Math.round((Date.now() - start) / 1000);
+            console.log(`\n=== Checking status (${elapsed}s elapsed) ===`);
+            const output = checkStatus();
+            if (/completed/i.test(output)) { fs.appendFileSync(process.env.GITHUB_ENV, `FEATURE_ID=${featureId}\n`); process.exit(0); }
+            if (/failed|crashed|interrupted/i.test(output)) { console.error('::error::Terminal error state'); process.exit(1); }
+            if (Date.now() - start > MAX_WAIT) { console.error('::error::Timeout'); process.exit(1); }
+            setTimeout(poll, INTERVAL);
+          }
+          poll();
+
+      - name: Show completed feature
+        shell: bash
+        working-directory: ${{ env.TARGET_DIR }}
+        run: shep feat show "$FEATURE_ID"
+
+      - name: Verify local changes
+        shell: bash
+        working-directory: ${{ env.TARGET_DIR }}
+        run: |
+          COMMIT_COUNT=$(git log --oneline --all | wc -l)
+          echo "Total commits: $COMMIT_COUNT"
+          if [ "$COMMIT_COUNT" -le 1 ]; then
+            echo "::error::No new commits found"
+            exit 1
+          fi
+          echo "Local changes verified!"
+
+      - name: Dump feature logs
+        if: always()
+        shell: bash
+        working-directory: ${{ env.TARGET_DIR }}
+        run: shep feat logs "$FEATURE_ID" || echo "(no logs available)"
+
+      - name: Upload shep logs
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: shep-logs-claude-windows-full-sdlc
+          path: ~/.shep/logs/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # ===========================================================================
+  # Feature Test: Claude Code on Ubuntu — full SDLC + push + PR
+  # ===========================================================================
+  claude-ubuntu-full-sdlc-pr:
+    name: claude-code / ubuntu / full-sdlc + push + pr
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout shep CLI
+        uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shep CLI
+        run: pnpm run build
+
+      - name: Link shep globally
+        run: npm link
+
+      - name: Install Claude Code CLI
+        run: |
+          curl -fsSL https://claude.ai/install.sh | bash
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Create target repo with GitHub remote
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SUFFIX=$(node -e "console.log(Math.random().toString(36).slice(2,8))")
+          REPO_NAME="shep-e2e-test-${SUFFIX}"
+          gh repo create "shep-ai/${REPO_NAME}" --private --clone
+          cd "${REPO_NAME}"
+          git config user.name "shep-bot"
+          git config user.email "bot@shep.ai"
+          echo "# E2E Test Repo" > README.md
+          git add README.md
+          git commit -m "initial commit"
+          git push -u origin main
+          echo "TARGET_DIR=$(pwd)" >> $GITHUB_ENV
+          echo "REPO_NAME=${REPO_NAME}" >> $GITHUB_ENV
+
+      - name: Configure shep agent
+        working-directory: ${{ env.TARGET_DIR }}
+        run: shep settings agent --agent claude-code --auth session
+
+      - name: Create feature (full SDLC + push + PR)
+        timeout-minutes: 15
+        working-directory: ${{ env.TARGET_DIR }}
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SUFFIX=$(node -e "console.log(Math.random().toString(36).slice(2,8))")
+          shep feat new "create a single markdown file called test-${SUFFIX}.md with a title and 2-3 sentences about anything" \
+            --allow-all \
+            --push \
+            --pr \
+            --model claude-haiku-4-5
+
+      - name: Verify feature listed
+        working-directory: ${{ env.TARGET_DIR }}
+        run: |
+          OUTPUT=$(shep feat ls)
+          echo "$OUTPUT"
+          echo "$OUTPUT" | grep -q "[0-9a-f]" || { echo "::error::No feature ID found"; exit 1; }
+
+      - name: Wait for feature to complete
+        timeout-minutes: 15
+        shell: node {0}
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          const { execSync } = require('child_process');
+          const cwd = process.env.TARGET_DIR;
+          const fs = require('fs');
+
+          const lsOutput = execSync('shep feat ls', { cwd, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+          const idMatch = lsOutput.match(/[0-9a-f]{8}/);
+          if (!idMatch) { console.error('::error::No feature ID'); process.exit(1); }
+          const featureId = idMatch[0];
+          console.log(`Feature ID: ${featureId}`);
+
+          const MAX_WAIT = 600000, INTERVAL = 10000, start = Date.now();
+          function checkStatus() {
+            try { const o = execSync(`shep feat show ${featureId}`, { cwd, encoding: 'utf8', stdio: ['pipe','pipe','pipe'] }); console.log(o); return o; }
+            catch (e) { console.log(e.stdout || e.message); return e.stdout || ''; }
+          }
+          function poll() {
+            const elapsed = Math.round((Date.now() - start) / 1000);
+            console.log(`\n=== Checking status (${elapsed}s elapsed) ===`);
+            const output = checkStatus();
+            if (/completed/i.test(output)) { fs.appendFileSync(process.env.GITHUB_ENV, `FEATURE_ID=${featureId}\n`); process.exit(0); }
+            if (/failed|crashed|interrupted/i.test(output)) { console.error('::error::Terminal error state'); process.exit(1); }
+            if (Date.now() - start > MAX_WAIT) { console.error('::error::Timeout'); process.exit(1); }
+            setTimeout(poll, INTERVAL);
+          }
+          poll();
+
+      - name: Show completed feature
+        working-directory: ${{ env.TARGET_DIR }}
+        run: shep feat show "$FEATURE_ID"
+
+      - name: Verify push and PR
+        working-directory: ${{ env.TARGET_DIR }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          E2E_REPO_NAME: ${{ env.REPO_NAME }}
+        run: |
+          echo "=== Remote branches ==="
+          git fetch origin
+          git branch -r
+
+          echo ""
+          echo "=== Open PRs ==="
+          gh pr list --repo "shep-ai/${E2E_REPO_NAME}" --state open
+          PR_COUNT=$(gh pr list --repo "shep-ai/${E2E_REPO_NAME}" --state open --json number -q 'length')
+          echo "Open PR count: $PR_COUNT"
+          if [ "$PR_COUNT" -lt 1 ]; then
+            echo "::warning::No PR was created"
+          else
+            echo "PR created successfully!"
+          fi
+
+      - name: Delete temp GitHub repo
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          E2E_REPO_NAME: ${{ env.REPO_NAME }}
+        run: |
+          echo "Deleting temp repo: shep-ai/${E2E_REPO_NAME}"
+          gh repo delete "shep-ai/${E2E_REPO_NAME}" --yes || echo "(repo may not exist)"
+
+      - name: Dump feature logs
+        if: always()
+        working-directory: ${{ env.TARGET_DIR }}
+        run: shep feat logs "$FEATURE_ID" || echo "(no logs available)"
+
+      - name: Upload shep logs
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: shep-logs-claude-ubuntu-full-sdlc-pr
+          path: ~/.shep/logs/
+          if-no-files-found: ignore
+          retention-days: 7
