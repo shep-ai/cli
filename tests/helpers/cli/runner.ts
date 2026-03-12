@@ -118,7 +118,7 @@ const DEFAULT_OPTIONS: Required<CliRunnerOptions> = {
     // Use deterministic mock executor for E2E tests (no real AI calls)
     SHEP_MOCK_EXECUTOR: '1',
   },
-  timeout: 10000,
+  timeout: process.platform === 'win32' ? 20000 : 10000,
 };
 
 /** Creates a unique temp directory for SHEP_HOME isolation */
