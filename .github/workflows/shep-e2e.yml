@@ -73,14 +73,25 @@ jobs:
       # ---------------------------------------------------------------------
       # 4. Create feature with shep (returns immediately, agent runs in bg)
       # ---------------------------------------------------------------------
+      - name: Generate random prompt
+        run: |
+          TOPICS=("space exploration" "deep sea creatures" "ancient civilizations" "renewable energy" "artificial intelligence" "mountain climbing" "bioluminescence" "cloud computing" "jazz music history" "volcanic eruptions" "origami mathematics" "urban gardening" "quantum physics" "migration patterns" "fermentation science" "coral reef ecosystems" "typography design" "arctic wildlife" "board game strategy" "signal processing")
+          FORMATS=("a fun facts list" "a beginner guide" "a glossary of key terms" "a timeline of milestones" "a comparison table" "a myth-busting guide" "an FAQ document" "a quick reference card" "a top-10 list" "a lessons-learned summary")
+          TOPIC=${TOPICS[$((RANDOM % ${#TOPICS[@]}))]}
+          FORMAT=${FORMATS[$((RANDOM % ${#FORMATS[@]}))]}
+          PROMPT="create a single markdown file called TOPIC.md containing ${FORMAT} about ${TOPIC}. Keep it concise (under 80 lines)."
+          echo "Generated prompt: $PROMPT"
+          echo "SHEP_PROMPT=$PROMPT" >> $GITHUB_ENV
+
       - name: Create feature
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          SHEP_PROMPT: ${{ env.SHEP_PROMPT }}
         working-directory: /tmp/sheep
         run: |
-          shep feat new "add a hello-world script that prints hello world to the console" \
+          shep feat new "$SHEP_PROMPT" \
             --fast \
             --allow-all \
             --push \
