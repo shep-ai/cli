@@ -12,7 +12,7 @@
   "commands": {
     "linux": "curl https://cursor.com/install -fsS | bash",
     "darwin": "curl https://cursor.com/install -fsS | bash",
-    "win32": "winget install --id Anysphere.Cursor -e --source winget"
+    "win32": "powershell -Command \"irm 'https://cursor.com/install?win32=true' | iex\""
   },
   "timeout": 300000,
   "documentationUrl": "https://www.codecademy.com/article/getting-started-with-cursor-cli",

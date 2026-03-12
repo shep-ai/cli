@@ -88,26 +88,11 @@ jobs:
         if: matrix.agent == 'cursor' && runner.os == 'Windows'
         shell: pwsh
         run: |
-          winget install --id Anysphere.Cursor -e --source winget --accept-source-agreements --accept-package-agreements
-          # Refresh PATH to pick up cursor-agent
-          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
-          # Find and add cursor-agent location to GITHUB_PATH
-          $cursorPath = (Get-Command cursor-agent -ErrorAction SilentlyContinue).Source
-          if ($cursorPath) {
-            echo (Split-Path $cursorPath) >> $env:GITHUB_PATH
-          } else {
-            # Common install locations
-            $paths = @(
-              "$env:LOCALAPPDATA\Programs\cursor",
-              "$env:LOCALAPPDATA\cursor",
-              "$env:ProgramFiles\Cursor"
-            )
-            foreach ($p in $paths) {
-              if (Test-Path "$p\cursor-agent.exe") {
-                echo $p >> $env:GITHUB_PATH
-                break
-              }
-            }
+          irm 'https://cursor.com/install?win32=true' | iex
+          # Add common install locations to PATH
+          $paths = @("$env:USERPROFILE\.local\bin", "$env:LOCALAPPDATA\Programs\cursor")
+          foreach ($p in $paths) {
+            if (Test-Path $p) { echo $p >> $env:GITHUB_PATH }
           }
 
       # ─────────────────────────────────────────────────────────────────────
