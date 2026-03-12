@@ -27,8 +27,11 @@ import type {
   PrStatusInfo,
 } from '../../../application/ports/output/services/git-pr-service.interface.js';
 import type { INotificationService } from '../../../application/ports/output/services/notification-service.interface.js';
+import type Database from 'better-sqlite3';
 
 const DEFAULT_POLL_INTERVAL_MS = 30_000;
+const LOCK_TTL_MS = 60_000;
+const RATE_LIMIT_BACKOFF_MS = 5 * 60_000;
 const TAG = '[PrSyncWatcher]';
 
 interface PrWatcherState {
@@ -36,6 +39,7 @@ interface PrWatcherState {
   ciStatus: CiStatus | undefined;
   mergeable: boolean | undefined;
   featureName: string;
+  unchangedCycles: number;
 }
 
 const CI_STATUS_MAP: Record<string, CiStatus> = {
@@ -52,20 +56,27 @@ export class PrSyncWatcherService {
   private readonly pollIntervalMs: number;
   private readonly trackedFeatures = new Map<string, PrWatcherState>();
   private readonly skippedRepos = new Set<string>();
+  private readonly rateLimitedUntil = new Map<string, number>();
+  private readonly db: Database.Database | null;
+  private readonly processId: string;
   private intervalId: ReturnType<typeof setInterval> | null = null;
+  private pollCycle = 0;
 
   constructor(
     featureRepo: IFeatureRepository,
     agentRunRepo: IAgentRunRepository,
     gitPrService: IGitPrService,
     notificationService: INotificationService,
-    pollIntervalMs: number = DEFAULT_POLL_INTERVAL_MS
+    pollIntervalMs: number = DEFAULT_POLL_INTERVAL_MS,
+    db: Database.Database | null = null
   ) {
     this.featureRepo = featureRepo;
     this.agentRunRepo = agentRunRepo;
     this.gitPrService = gitPrService;
     this.notificationService = notificationService;
     this.pollIntervalMs = pollIntervalMs;
+    this.db = db;
+    this.processId = `${process.pid}-${Date.now()}`;
   }
 
   isRunning(): boolean {
@@ -95,8 +106,43 @@ export class PrSyncWatcherService {
     }
   }
 
+  /** Attempt to acquire the cross-process poll lock. Returns true if acquired. */
+  private tryAcquireLock(): boolean {
+    if (!this.db) return true; // no DB → single-process mode, always proceed
+
+    const now = Date.now();
+    const expiresAt = now + LOCK_TTL_MS;
+
+    const stmt = this.db.prepare(`
+      INSERT OR REPLACE INTO pr_sync_lock (id, locked_by, locked_at, expires_at)
+      SELECT 1, ?, ?, ?
+      WHERE NOT EXISTS (
+        SELECT 1 FROM pr_sync_lock WHERE id = 1 AND locked_by != ? AND expires_at > ?
+      )
+    `);
+    const result = stmt.run(this.processId, now, expiresAt, this.processId, now);
+    return result.changes > 0;
+  }
+
+  /** Check if a feature should be polled this cycle based on its unchanged cycles count. */
+  private shouldPollFeature(featureId: string): boolean {
+    const tracked = this.trackedFeatures.get(featureId);
+    if (!tracked) return true; // new feature, always poll
+
+    const uc = tracked.unchangedCycles;
+    if (uc <= 2) return true; // poll every cycle
+    if (uc <= 5) return this.pollCycle % 2 === 0; // poll every 2nd cycle
+    return this.pollCycle % 4 === 0; // poll every 4th cycle
+  }
+
   private async poll(): Promise<void> {
     try {
+      if (!this.tryAcquireLock()) {
+        return; // another process holds the lock — skip this cycle
+      }
+
+      this.pollCycle++;
+
       const allFeatures = await this.featureRepo.list({ lifecycle: SdlcLifecycle.Review });
 
       // Include features with a valid repositoryPath (with or without PR data)
@@ -134,8 +180,33 @@ export class PrSyncWatcherService {
     }
   }
 
+  private isRateLimited(repoPath: string): boolean {
+    const until = this.rateLimitedUntil.get(repoPath);
+    if (until === undefined) return false;
+    if (Date.now() >= until) {
+      this.rateLimitedUntil.delete(repoPath);
+      // eslint-disable-next-line no-console
+      console.log(`${TAG} Rate limit backoff expired for ${repoPath}`);
+      return false;
+    }
+    return true;
+  }
+
+  private handleRateLimitError(repoPath: string, error: Error): void {
+    const msg = error.message;
+    if (msg.includes('API rate limit exceeded') || msg.includes('rate limit')) {
+      const backoffUntil = Date.now() + RATE_LIMIT_BACKOFF_MS;
+      this.rateLimitedUntil.set(repoPath, backoffUntil);
+      // eslint-disable-next-line no-console
+      console.warn(
+        `${TAG} Rate limited for ${repoPath}, backing off until ${new Date(backoffUntil).toISOString()}`
+      );
+    }
+  }
+
   private async processRepository(repoPath: string, features: Feature[]): Promise<void> {
     if (this.skippedRepos.has(repoPath)) return;
+    if (this.isRateLimited(repoPath)) return;
 
     // Skip repos without a git remote — gh pr list will always fail
     try {
@@ -154,6 +225,7 @@ export class PrSyncWatcherService {
       prStatuses = await this.gitPrService.listPrStatuses(repoPath);
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
+      if (error instanceof Error) this.handleRateLimitError(repoPath, error);
       // eslint-disable-next-line no-console
       console.warn(`${TAG} listPrStatuses failed for ${repoPath}: ${msg}`);
       return;
@@ -208,9 +280,15 @@ export class PrSyncWatcherService {
         ciStatus: undefined,
         mergeable: undefined,
         featureName: feature.name,
+        unchangedCycles: 0,
       });
 
       await this.featureRepo.update(feature);
+      return;
+    }
+
+    // Check exponential backoff — skip features that haven't changed recently
+    if (!this.shouldPollFeature(feature.id)) {
       return;
     }
 
@@ -228,6 +306,7 @@ export class PrSyncWatcherService {
         ciStatus: pr.ciStatus,
         mergeable: pr.mergeable,
         featureName: feature.name,
+        unchangedCycles: 0,
       });
     }
 
@@ -339,12 +418,16 @@ export class PrSyncWatcherService {
       }
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
+      if (error instanceof Error) this.handleRateLimitError(feature.repositoryPath, error);
       // eslint-disable-next-line no-console
       console.warn(`${TAG} getCiStatus failed for "${feature.name}": ${msg}`);
     }
 
     if (needsUpdate) {
+      tracked.unchangedCycles = 0;
       await this.featureRepo.update(feature);
+    } else {
+      tracked.unchangedCycles++;
     }
   }
 
@@ -397,7 +480,8 @@ export function initializePrSyncWatcher(
   agentRunRepo: IAgentRunRepository,
   gitPrService: IGitPrService,
   notificationService: INotificationService,
-  pollIntervalMs?: number
+  pollIntervalMs?: number,
+  db?: Database.Database | null
 ): void {
   if (watcherInstance !== null) {
     throw new Error('PR sync watcher already initialized. Cannot re-initialize.');
@@ -408,7 +492,8 @@ export function initializePrSyncWatcher(
     agentRunRepo,
     gitPrService,
     notificationService,
-    pollIntervalMs
+    pollIntervalMs,
+    db ?? null
   );
 }
 

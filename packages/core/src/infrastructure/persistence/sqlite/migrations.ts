@@ -518,6 +518,18 @@ WHERE repository_path NOT IN (SELECT path FROM repositories WHERE path IS NOT NU
     // Migration 032: Change envDeploy feature flag default to enabled (1).
     sql: `UPDATE settings SET feature_flag_env_deploy = 1 WHERE feature_flag_env_deploy = 0;`,
   },
+  {
+    version: 33,
+    sql: `
+-- Migration 033: Create pr_sync_lock table for cross-process poll coordination
+CREATE TABLE IF NOT EXISTS pr_sync_lock (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  locked_by TEXT NOT NULL,
+  locked_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL
+);
+`,
+  },
 ];
 
 /**

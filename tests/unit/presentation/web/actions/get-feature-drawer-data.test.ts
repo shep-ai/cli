@@ -105,6 +105,25 @@ describe('getFeatureDrawerData server action', () => {
     expect(mockGetRemoteUrl).toHaveBeenCalledWith('/home/user/repo');
   });
 
+  it('does not call getCiStatus or getMergeableStatus (reads from DB instead)', async () => {
+    mockFindById.mockResolvedValue({
+      ...baseFeature,
+      pr: {
+        url: 'https://github.com/org/repo/pull/1',
+        number: 1,
+        status: 'Open',
+        ciStatus: 'Success',
+        mergeable: true,
+      },
+    });
+
+    await getFeatureDrawerData('feat-123');
+
+    expect(mockGetCiStatus).not.toHaveBeenCalled();
+    expect(mockGetMergeableStatus).not.toHaveBeenCalled();
+    expect(mockFeatureUpdate).not.toHaveBeenCalled();
+  });
+
   it('returns null on unexpected errors', async () => {
     mockFindById.mockRejectedValue(new Error('DB connection failed'));
 
