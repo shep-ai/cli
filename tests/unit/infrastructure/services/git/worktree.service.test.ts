@@ -355,7 +355,9 @@ describe('WorktreeService', () => {
       expect(mockExecFile).toHaveBeenCalledWith('git', ['rev-parse', '--is-inside-work-tree'], {
         cwd: '/plain/dir',
       });
-      expect(mockExecFile).toHaveBeenCalledWith('git', ['init'], { cwd: '/plain/dir' });
+      expect(mockExecFile).toHaveBeenCalledWith('git', ['init', '-b', 'main'], {
+        cwd: '/plain/dir',
+      });
       expect(mockExecFile).toHaveBeenCalledWith('git', ['config', 'user.name', 'shep-ai[bot]'], {
         cwd: '/plain/dir',
       });

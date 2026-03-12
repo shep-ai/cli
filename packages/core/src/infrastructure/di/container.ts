@@ -175,8 +175,8 @@ export async function initializeContainer(): Promise<typeof container> {
   const execFileAsync = promisify(execFile);
   const execFn =
     process.platform === 'win32'
-      ? (file: string, args: string[]) =>
-          execFileAsync(file, args, { shell: true, windowsHide: true })
+      ? (file: string, args: string[], options?: object) =>
+          execFileAsync(file, args, { ...options, shell: true, windowsHide: true })
       : execFileAsync;
   container.registerInstance('ExecFunction', execFn);
 

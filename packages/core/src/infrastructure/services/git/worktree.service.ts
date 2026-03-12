@@ -141,7 +141,7 @@ export class WorktreeService implements IWorktreeService {
     try {
       if (!isExistingRepo) {
         mkdirSync(repoPath, { recursive: true });
-        await this.execFile('git', ['init'], { cwd: repoPath });
+        await this.execFile('git', ['init', '-b', 'main'], { cwd: repoPath });
       }
       await this.execFile('git', ['config', 'user.name', GIT_AUTO_INIT_USER], { cwd: repoPath });
       await this.execFile('git', ['config', 'user.email', GIT_AUTO_INIT_EMAIL], { cwd: repoPath });
