@@ -112,20 +112,18 @@ jobs:
           echo "$env:LOCALAPPDATA\cursor-agent" >> $env:GITHUB_PATH
 
       # ─────────────────────────────────────────────────────────────────────
-      # 3. Create target repo
+      # 3. Clone sheep repo (target for feature creation)
       # ─────────────────────────────────────────────────────────────────────
-      - name: Create target repo
+      - name: Clone sheep repo
         shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: |
-          TARGET_DIR="${RUNNER_TEMP}/test-repo"
-          mkdir -p "$TARGET_DIR"
+          TARGET_DIR="${RUNNER_TEMP}/sheep"
+          git clone https://x-access-token:${GH_TOKEN}@github.com/shep-ai/sheep.git "$TARGET_DIR"
           cd "$TARGET_DIR"
-          git init
           git config user.name "shep-bot"
           git config user.email "bot@shep.ai"
-          echo "# Test Repo" > README.md
-          git add README.md
-          git commit -m "initial commit"
           echo "TARGET_DIR=$TARGET_DIR" >> $GITHUB_ENV
 
       # ─────────────────────────────────────────────────────────────────────
@@ -346,7 +344,7 @@ jobs:
       - name: Clone sheep repo
         shell: bash
         env:
-          GH_TOKEN: ${{ secrets.SHEEP_GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: |
           TARGET_DIR="${RUNNER_TEMP}/sheep"
           git clone https://x-access-token:${GH_TOKEN}@github.com/shep-ai/sheep.git "$TARGET_DIR"
@@ -482,7 +480,7 @@ jobs:
 
       - name: Clone sheep repo
         env:
-          GH_TOKEN: ${{ secrets.SHEEP_GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: |
           TARGET_DIR="${RUNNER_TEMP}/sheep"
           git clone https://x-access-token:${GH_TOKEN}@github.com/shep-ai/sheep.git "$TARGET_DIR"
@@ -500,7 +498,7 @@ jobs:
         working-directory: ${{ env.TARGET_DIR }}
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          GH_TOKEN: ${{ secrets.SHEEP_GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: |
           SUFFIX=$(node -e "console.log(Math.random().toString(36).slice(2,8))")
           shep feat new "create a single markdown file called test-${SUFFIX}.md with a title and 2-3 sentences about anything" \
@@ -521,7 +519,7 @@ jobs:
         shell: node {0}
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          GH_TOKEN: ${{ secrets.SHEEP_GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: |
           const { execSync } = require('child_process');
           const cwd = process.env.TARGET_DIR;
@@ -556,7 +554,7 @@ jobs:
       - name: Verify push and PR
         working-directory: ${{ env.TARGET_DIR }}
         env:
-          GH_TOKEN: ${{ secrets.SHEEP_GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: |
           echo "=== Remote branches ==="
           git fetch origin
@@ -576,7 +574,7 @@ jobs:
       - name: Cleanup e2e branch and PR
         if: always()
         env:
-          GH_TOKEN: ${{ secrets.SHEEP_GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: |
           # Close any PRs created by this e2e run and delete their branches
           for pr_number in $(gh pr list --repo shep-ai/sheep --state open --json number,headRefName -q '.[] | select(.headRefName | test("test-")) | .number'); do
