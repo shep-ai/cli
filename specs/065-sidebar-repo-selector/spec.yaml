@@ -12,7 +12,7 @@ summary: >
   Re-enable the "New feature" button in the sidebar footer (currently hidden via showNewFeature=false default)
   and add a repository selector to the FeatureCreateDrawer so users can pick which repository a feature
   belongs to when creating from the sidebar (which lacks the repo context that the canvas (+) button provides).
-phase: Analysis
+phase: Requirements
 sizeEstimate: M
 
 # Relationships
@@ -31,11 +31,95 @@ relatedLinks: []
 
 # Open questions (must be resolved before implementation)
 openQuestions:
-  - Should the sidebar always show the "New feature" button, or should it still be conditionally controlled?
-  - When only one repository exists, should it auto-select or still show the selector?
-  - Should the repo selector be a dropdown inside the FeatureCreateDrawer or an intermediate step before opening the drawer?
+  - question: 'Should the repository selector always be visible in the create drawer, or only when no repo context is provided via URL?'
+    resolved: true
+    options:
+      - option: 'Conditional — only when no repo context'
+        description: >
+          Show the repository selector only when repositoryPath is empty (sidebar flow).
+          When repo context is provided via URL (canvas flow), hide the selector and show the
+          repo name as a read-only label. Keeps the canvas flow unchanged and uncluttered.
+        selected: true
+      - option: 'Always visible — allow changing repo'
+        description: >
+          Always show the repository selector pre-filled with the current repo, allowing users
+          to change the target repo even when opened from the canvas. More flexible but adds
+          complexity and risk of accidental repo changes.
+        selected: false
+    selectionRationale: >
+      Conditional display is recommended because it preserves the existing canvas flow behavior,
+      reduces UI clutter for the common case (canvas-initiated creation), and limits the scope
+      of changes. Users who open from the canvas already have explicit repo context.
+    answer: 'Conditional — only when no repo context'
 
-# Markdown content (the actual spec)
+  - question: 'How should the sidebar button behave when there are zero tracked repositories?'
+    resolved: true
+    options:
+      - option: 'Show button but disable it'
+        description: >
+          Always show the "New feature" button but disable it with a tooltip explaining
+          that repositories must be added first. Provides discoverability of the feature.
+        selected: true
+      - option: 'Hide button when no repos'
+        description: >
+          Only show the "New feature" button when at least one repository is tracked.
+          Cleaner sidebar when empty but less discoverable.
+        selected: false
+      - option: 'Show button and let drawer handle it'
+        description: >
+          Always show the button enabled; when clicked with no repos, the drawer opens
+          with an empty state message directing users to add a repo first. Simplest
+          sidebar logic but worse UX (extra click leading to dead end).
+        selected: false
+    selectionRationale: >
+      Showing the button but disabling it is recommended because it provides feature
+      discoverability while preventing a dead-end flow. A disabled state with a tooltip
+      is a standard UX pattern that communicates "this exists but you need to do something
+      first."
+    answer: 'Show button but disable it'
+
+  - question: 'Should the showNewFeature prop be removed entirely or kept as an opt-out?'
+    resolved: true
+    options:
+      - option: 'Remove prop — always show button'
+        description: >
+          Delete the showNewFeature prop and always render the footer button.
+          Simplifies the API and removes dead code. The button was only hidden
+          temporarily while the repo selector was missing.
+        selected: true
+      - option: 'Keep prop — default to true'
+        description: >
+          Keep the showNewFeature prop but change the default to true.
+          Allows future opt-out scenarios but adds unnecessary prop surface area.
+        selected: false
+    selectionRationale: >
+      Removing the prop entirely is recommended because it was added as a temporary
+      workaround (commit bfcc60c9) specifically because the drawer could not handle
+      missing repo context. Once the repo selector is implemented, the workaround is
+      no longer needed. Keeping dead escape-hatch props violates YAGNI.
+    answer: 'Remove prop — always show button'
+
+  - question: 'What should the repository selector look like — combobox or simple dropdown?'
+    resolved: true
+    options:
+      - option: 'Searchable combobox (Popover pattern)'
+        description: >
+          Use the same Popover + search input pattern as ParentFeatureCombobox.
+          Supports search/filtering which is useful when many repos are tracked.
+          Consistent with existing UI patterns in the drawer.
+        selected: true
+      - option: 'Simple select dropdown'
+        description: >
+          Use a basic HTML select or shadcn Select component. Simpler to implement
+          but does not support search. Inconsistent with the parent feature selector
+          in the same drawer.
+        selected: false
+    selectionRationale: >
+      The searchable combobox is recommended because the ParentFeatureCombobox already
+      establishes this pattern within the same drawer. Consistency in UI patterns reduces
+      cognitive load. The combobox also scales better when users track many repositories.
+    answer: 'Searchable combobox (Popover pattern)'
+
 content: |
   ## Problem Statement
 
@@ -53,9 +137,61 @@ content: |
   receives repository context.
 
   The fix requires two changes:
-  1. Re-enable the sidebar "New feature" button (pass `showNewFeature={true}` or always show it)
+  1. Re-enable the sidebar "New feature" button (remove the `showNewFeature` prop workaround)
   2. Add a repository selector to the feature create flow so users can pick a repo when one
      isn't provided via the URL
+
+  ## Success Criteria
+
+  - [ ] The "New feature" button is visible in the sidebar footer by default
+  - [ ] Clicking the sidebar "New feature" button opens the create drawer
+  - [ ] When the create drawer opens without repo context, a searchable repository selector is displayed
+  - [ ] The user can search/filter repositories in the selector by name or path
+  - [ ] Selecting a repository enables the form submit button
+  - [ ] The form cannot be submitted without a repository selected
+  - [ ] When the create drawer opens WITH repo context (canvas flow), the repository selector is hidden and the repo name is shown as a read-only label
+  - [ ] The canvas (+) button flow continues to work identically to current behavior
+  - [ ] When zero repositories are tracked, the sidebar button is visible but disabled with a tooltip
+  - [ ] The `showNewFeature` prop is removed from `AppSidebar` (no longer needed)
+  - [ ] A `RepositoryCombobox` component exists following the same pattern as `ParentFeatureCombobox`
+  - [ ] All new components have colocated Storybook stories
+  - [ ] All new logic has unit tests written TDD-style (red-green-refactor)
+  - [ ] `pnpm validate` passes with zero errors
+
+  ## Functional Requirements
+
+  - **FR-1**: Remove the `showNewFeature` prop from `AppSidebar` and always render the "New feature" button in the sidebar footer
+  - **FR-2**: The sidebar "New feature" button must navigate to `/create` (without `?repo=` param) when clicked
+  - **FR-3**: The `CreateDrawerPage` server component must fetch the list of tracked repositories via `ListRepositoriesUseCase` and pass them to the client component
+  - **FR-4**: The `FeatureCreateDrawer` must accept an optional `repositories` prop containing the list of tracked repositories
+  - **FR-5**: When `repositoryPath` is empty and `repositories` is provided, the drawer must display a searchable repository combobox at the top of the form (before the description field)
+  - **FR-6**: The repository combobox must allow the user to search/filter repositories by name or path (case-insensitive)
+  - **FR-7**: Selecting a repository in the combobox must set the `repositoryPath` value used in the form payload
+  - **FR-8**: The form submit button must be disabled until a repository is selected (when in repo-selector mode)
+  - **FR-9**: When `repositoryPath` is provided (non-empty, i.e., canvas flow), the repository selector must not be shown; instead, display the repository name as informational context
+  - **FR-10**: When zero repositories are tracked, the sidebar "New feature" button must be rendered in a disabled state with a tooltip reading "Add a repository first"
+  - **FR-11**: The `CreateDrawerClient` must thread the `repositories` list from server props to `FeatureCreateDrawer`
+  - **FR-12**: The repository combobox must follow the exact same UI pattern as the existing `ParentFeatureCombobox` (Popover + search input + check icons + keyboard navigation)
+
+  ## Non-Functional Requirements
+
+  - **NFR-1**: The repository combobox must render and be interactive within 100ms of the drawer opening (no layout shift or loading spinner for repos — they are fetched server-side)
+  - **NFR-2**: The repository selector must be fully keyboard-accessible (Tab, Enter, Escape, Arrow keys)
+  - **NFR-3**: The repository combobox must include appropriate ARIA attributes (`role="combobox"`, `aria-expanded`, `aria-label`) for screen reader compatibility
+  - **NFR-4**: All new components must have colocated `.stories.tsx` files with at least two variants (with repos, empty repos)
+  - **NFR-5**: All new logic must be covered by unit tests (minimum 80% branch coverage for new code)
+  - **NFR-6**: The feature must not introduce any new client-side data fetching — all repository data flows from server component to client via props
+  - **NFR-7**: The create drawer must remain under 50KB gzipped total bundle contribution (no new heavy dependencies)
+  - **NFR-8**: The existing canvas (+) button flow must not be affected by these changes (zero behavioral regression)
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Should the repo selector always be visible or only when no repo context? | Conditional — only when no repo context | Preserves canvas flow, reduces clutter, limits scope |
+  | 2 | How should the button behave with zero repositories? | Show button but disable it | Discoverable but prevents dead-end flow |
+  | 3 | Should the showNewFeature prop be removed or kept? | Remove prop entirely | It was a temporary workaround; YAGNI principle |
+  | 4 | Combobox or simple dropdown for repo selection? | Searchable combobox | Matches existing ParentFeatureCombobox pattern, scales better |
 
   ## Codebase Analysis
 
@@ -91,30 +227,32 @@ content: |
 
   | Area | Impact | Reasoning |
   | ---- | ------ | --------- |
-  | `components/layouts/app-shell/app-shell.tsx` | Medium | Must pass `showNewFeature={true}` to `AppSidebar` and potentially pass repo context to the `/create` route |
-  | `components/layouts/app-sidebar/app-sidebar.tsx` | Low | May need to accept repositories list or selected repo for the button callback |
-  | `components/common/feature-create-drawer/feature-create-drawer.tsx` | High | Must add repository selector dropdown when `repositoryPath` is empty; needs list of repos as prop |
-  | `components/common/control-center-drawer/create-drawer-client.tsx` | Medium | Must handle selected repo state and pass to FeatureCreateDrawer |
-  | `app/(dashboard)/@drawer/create/page.tsx` | Medium | Must fetch repositories list (via `ListRepositoriesUseCase`) when no `?repo=` param provided |
-  | `app/actions/create-feature.ts` | Low | No changes needed — already validates repositoryPath |
-  | `tests/unit/presentation/web/layouts/app-sidebar.test.tsx` | Medium | Must update tests for new button visibility behavior |
-  | Storybook stories (app-sidebar, feature-create-drawer) | Medium | Must add stories showing repo selector variant |
+  | `components/layouts/app-shell/app-shell.tsx` | Medium | Remove `showNewFeature` prop usage, keep `onNewFeature` callback |
+  | `components/layouts/app-sidebar/app-sidebar.tsx` | Medium | Remove `showNewFeature` prop, always show button, add disabled state for zero repos |
+  | `components/common/feature-create-drawer/feature-create-drawer.tsx` | High | Add repository combobox (new `RepositoryCombobox` subcomponent), conditional rendering based on `repositoryPath` |
+  | `components/common/control-center-drawer/create-drawer-client.tsx` | Medium | Accept and thread `repositories` prop, manage selected repo state |
+  | `app/(dashboard)/@drawer/create/page.tsx` | Medium | Fetch repositories list via `ListRepositoriesUseCase`, pass to client |
+  | `app/actions/create-feature.ts` | None | No changes needed — already validates repositoryPath |
+  | `tests/unit/presentation/web/layouts/app-sidebar.test.tsx` | Medium | Update tests: remove showNewFeature tests, add disabled state tests |
+  | Storybook stories (app-sidebar, feature-create-drawer) | Medium | Add stories for repo selector variant and disabled button state |
 
   ## Dependencies
 
   - **ListRepositoriesUseCase** (`packages/core/src/application/use-cases/repositories/list-repositories.use-case.ts`): Already exists, returns all tracked repos
   - **Repository domain entity** (`packages/core/src/domain/generated/output.ts`): Defines repo shape (id, name, repositoryPath, createdAt)
-  - **ParentFeatureCombobox pattern**: Existing searchable combobox in the create drawer — can be reused/adapted for repository selection
+  - **ParentFeatureCombobox pattern**: Existing searchable combobox in the create drawer — serves as template for `RepositoryCombobox`
   - **server-container resolve()**: DI resolution for server-side use case access
   - **shadcn/ui Popover + Input components**: Already available for combobox UI
+  - **Tooltip component**: shadcn/ui Tooltip for disabled button state messaging
 
   ## Size Estimate
 
-  **M** — This feature touches 5-7 files across the presentation layer. The main complexity is adding
-  a repository selector combobox to the create drawer (can follow the existing ParentFeatureCombobox
-  pattern), threading the repositories list from server to client, and re-enabling the sidebar button.
-  No domain or infrastructure changes required. Estimated 1-2 days with TDD.
+  **M** — This feature touches 6-8 files across the presentation layer. The main work items are:
+  (1) removing the `showNewFeature` prop and always rendering the button, (2) adding a
+  `RepositoryCombobox` component following the existing `ParentFeatureCombobox` pattern,
+  (3) threading the repositories list from server to client, and (4) conditional rendering
+  in the create drawer. No domain or infrastructure changes required. Estimated 1-2 days with TDD.
 
   ---
 
-  _Analysis complete — proceed with research_
+  _Requirements complete — proceed with research_
