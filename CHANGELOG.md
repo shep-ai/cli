@@ -1,3 +1,9 @@
+## [1.110.2](https://github.com/shep-ai/cli/compare/v1.110.1...v1.110.2) (2026-03-13)
+
+### Bug Fixes
+
+- **agents:** increase agent execution timeout from 300s to 600s ([#342](https://github.com/shep-ai/cli/issues/342)) ([3789d13](https://github.com/shep-ai/cli/commit/3789d13a64e4280d3e3d0a681e616f6489114637)), closes [#341](https://github.com/shep-ai/cli/issues/341)
+
 ## [1.110.1](https://github.com/shep-ai/cli/compare/v1.110.0...v1.110.1) (2026-03-13)
 
 ### Bug Fixes
