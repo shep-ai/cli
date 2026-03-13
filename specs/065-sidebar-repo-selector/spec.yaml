@@ -34,90 +34,56 @@ openQuestions:
   - question: 'Should the repo selector always be visible or only when no repo context is provided?'
     resolved: true
     options:
-      - option: 'Conditional — only when no repo context'
-        description: >
-          Show the repository combobox only when the drawer opens without a ?repo= param (sidebar flow).
-          When repo context exists (canvas flow), hide the selector and show the repo name as a read-only label.
-          Preserves existing canvas UX, reduces visual clutter, and limits implementation scope.
-        selected: true
-      - option: 'Always visible — editable repo selector'
-        description: >
-          Always show the repository selector, pre-filled when repo context exists but still editable.
-          Gives users flexibility to change the target repo even from the canvas flow.
-          Adds complexity and changes existing canvas behavior.
+      - option: 'Always visible'
+        description: 'Show the repo selector in all cases, pre-populated when context exists. Allows changing the repo even when opened from canvas. More flexible but adds clutter to the common canvas flow.'
         selected: false
-    selectionRationale: >
-      Conditional display preserves the existing canvas (+) button flow without behavioral changes,
-      reduces visual clutter in the common case, and limits implementation scope. Users who start
-      from the canvas already have clear repo context — an editable selector would add confusion.
+      - option: 'Conditional — only when no repo context'
+        description: 'Show the repo selector only when the drawer opens without a ?repo= param (sidebar flow). When repo context exists (canvas flow), show a read-only label instead. Preserves the existing canvas UX, reduces clutter, and limits implementation scope.'
+        selected: true
+    selectionRationale: 'Conditional rendering preserves the existing canvas flow without modification, reduces visual clutter for the most common path, and keeps the implementation scope minimal. Users who need to change the repo can close and re-open from the sidebar.'
     answer: 'Conditional — only when no repo context'
 
-  - question: 'How should the sidebar button behave when zero repositories are tracked?'
+  - question: 'How should the sidebar New Feature button behave when zero repositories are tracked?'
     resolved: true
     options:
       - option: 'Show button but disable it'
-        description: >
-          Render the button visually but in a disabled state with a tooltip reading "Add a repository first".
-          The button is discoverable so new users know the feature exists, but clicking does nothing.
-          Prevents a dead-end flow where the drawer opens with nothing to select.
+        description: 'Render the button in a disabled state with a tooltip explaining "Add a repository first". The button is discoverable so users know the feature exists, but prevents a dead-end flow where the create drawer opens with nothing to select.'
         selected: true
       - option: 'Hide the button entirely'
-        description: >
-          Do not render the button at all when no repositories exist. Simplest implementation but
-          reduces discoverability — new users may not know the feature exists until they add a repo.
+        description: 'Do not render the button at all when no repos exist. Reduces UI noise but makes the feature less discoverable and repeats the pattern of hiding UI that was already problematic.'
         selected: false
       - option: 'Show button and open drawer with empty state'
-        description: >
-          Allow the drawer to open even with zero repos, showing an empty state message like
-          "No repositories tracked. Add a repository from the canvas first." More complex UX
-          but gives users a clear call to action.
+        description: 'Allow opening the drawer even with no repos, showing an empty state message with a link to add a repository. More forgiving UX but adds complexity for an uncommon edge case.'
         selected: false
-    selectionRationale: >
-      Showing the button disabled with a tooltip is the best balance of discoverability and UX.
-      Users can see the feature exists and understand what's needed (add a repo), without being
-      led into a dead-end drawer with no actionable options.
+    selectionRationale: 'Showing the button in a disabled state with a tooltip is the most user-friendly approach — it maintains discoverability while preventing a dead-end experience. Hiding the button repeats the exact pattern we are undoing with this feature.'
     answer: 'Show button but disable it'
 
-  - question: 'Should the showNewFeature prop be removed or kept for future use?'
+  - question: 'Should the showNewFeature prop be removed from AppSidebar or kept for future use?'
     resolved: true
     options:
       - option: 'Remove prop entirely'
-        description: >
-          Delete the showNewFeature prop from AppSidebar and always render the button.
-          The prop was a temporary workaround added in feature 057 when the button lacked repo context.
-          With the repo selector, the workaround is no longer needed. Follows YAGNI principle.
+        description: 'Delete the showNewFeature prop and always render the button. Follows YAGNI principle — the prop was a temporary workaround introduced in feature 057. Simplifies the component API and removes dead code paths.'
         selected: true
-      - option: 'Keep prop with default true'
-        description: >
-          Keep the prop but change its default to true. Provides a future escape hatch to hide
-          the button again if needed. Adds minor code complexity but preserves flexibility.
+      - option: 'Keep prop but default to true'
+        description: 'Change the default from false to true so the button shows by default, but retain the prop for future flexibility. Adds unnecessary API surface for a prop nobody uses.'
         selected: false
-    selectionRationale: >
-      The prop was a temporary workaround for the missing repo context problem. With the repository
-      selector solving that problem, the prop serves no purpose. Removing it follows YAGNI and
-      reduces code surface area. If needed in the future, it can be re-added trivially.
+    selectionRationale: 'The prop was explicitly introduced as a temporary workaround. Keeping it violates YAGNI and leaves dead code. Removing it simplifies the component and makes the intent clear.'
     answer: 'Remove prop entirely'
 
-  - question: 'Should the repo selector use a searchable combobox or a simple dropdown?'
+  - question: 'What UI pattern should be used for repository selection in the create drawer?'
     resolved: true
     options:
-      - option: 'Searchable combobox'
-        description: >
-          Popover-based combobox with a search input, filterable list, check icons, and keyboard
-          navigation. Matches the existing ParentFeatureCombobox pattern in the same drawer.
-          Scales well for users with many repositories. Slightly more complex to implement.
+      - option: 'Searchable combobox (Popover + input)'
+        description: 'A combobox with inline search, matching the existing ParentFeatureCombobox pattern. Supports keyboard navigation, filtering by name/path, and check-mark selection. Scales well for users with many repositories and provides a consistent UX within the drawer.'
         selected: true
       - option: 'Simple select dropdown'
-        description: >
-          Native or shadcn/ui Select component with a flat list of repos. Simpler to implement
-          but doesn't scale well with many repositories and breaks pattern consistency with
-          the existing ParentFeatureCombobox in the same form.
+        description: 'A native-style select dropdown with all repositories listed. Simpler to implement but does not support search/filtering, inconsistent with the existing combobox pattern in the same drawer, and does not scale well for many repos.'
         selected: false
-    selectionRationale: >
-      A searchable combobox matches the existing ParentFeatureCombobox pattern already present in the
-      same create drawer form. This ensures UI consistency and scales better for users tracking many
-      repositories. The implementation is well-understood since we can follow the existing pattern.
-    answer: 'Searchable combobox'
+      - option: 'Radio button list'
+        description: 'A list of radio buttons showing all repositories. Good for small lists (3-5 repos) but does not scale, takes more vertical space, and is inconsistent with the existing combobox pattern in the drawer.'
+        selected: false
+    selectionRationale: 'The searchable combobox matches the existing ParentFeatureCombobox pattern already used in the same drawer, providing visual and interaction consistency. It scales well for users with many repositories and supports the expected keyboard navigation and search behavior.'
+    answer: 'Searchable combobox (Popover + input)'
 
 content: |
   ## Problem Statement
