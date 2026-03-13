@@ -1,3 +1,9 @@
+## [1.110.3](https://github.com/shep-ai/cli/compare/v1.110.2...v1.110.3) (2026-03-13)
+
+### Bug Fixes
+
+- **agents:** skip git hooks in spec-only phases ([#344](https://github.com/shep-ai/cli/issues/344)) ([d0e83eb](https://github.com/shep-ai/cli/commit/d0e83eb82dea8e7fbed32f5a450c7e996d53e0a1))
+
 ## [1.110.2](https://github.com/shep-ai/cli/compare/v1.110.1...v1.110.2) (2026-03-13)
 
 ### Bug Fixes
