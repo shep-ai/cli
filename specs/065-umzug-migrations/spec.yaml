@@ -1,0 +1,155 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: umzug-migrations
+number: 065
+branch: feat/065-umzug-migrations
+oneLiner: Replace manual PRAGMA user_version migration system with umzug for robust migration tracking and management
+userQuery: >
+  The current app is using dumb migrations, let introduce state of the art migration with umzug
+summary: >
+  Replace the current hand-rolled migration system (inline SQL strings tracked via PRAGMA user_version)
+  with umzug, the battle-tested Node.js migration framework. This provides proper migration history
+  tracking, up/down support, better error handling, and a clean per-file migration structure while
+  preserving backward compatibility with the existing 32 migrations already applied to user databases.
+phase: Analysis
+sizeEstimate: M
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - umzug (migration framework for Node.js)
+  - better-sqlite3 (existing SQLite driver)
+  - tsyringe (DI container — migration initialization point)
+  - vitest (test framework for migration tests)
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - How to handle the transition from PRAGMA user_version to umzug's migration tracking table for existing user databases that already have migrations 1-32 applied?
+  - Should we keep inline SQL strings (to survive tsc compilation) or move to .ts migration files that export up/down functions?
+  - Should we implement down/rollback migrations for all 32 existing migrations or only for new migrations going forward?
+  - Can we remove the @blackglory/better-sqlite3-migrations dependency that is in package.json but unused?
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  The current migration system in `packages/core/src/infrastructure/persistence/sqlite/migrations.ts`
+  uses a manual approach with significant limitations:
+
+  1. **No migration history**: Only `PRAGMA user_version` tracks the current version number — there is
+     no record of which specific migrations ran, when they ran, or how long they took.
+  2. **Monolithic file**: All 32 migrations (566 lines) are inlined in a single TypeScript file, making
+     it increasingly difficult to navigate and maintain.
+  3. **No rollback support**: There are no down/undo migrations — schema changes are one-way only.
+  4. **No validation or logging**: No metadata about migration success/failure, no timing, no audit trail.
+  5. **Repetitive handler logic**: Migrations 20-31 contain nearly identical boilerplate for conditional
+     DDL (checking if columns exist before adding them).
+  6. **Fragile versioning**: The linear `user_version` approach has already caused issues during rebasing,
+     requiring compensating migrations (e.g., migrations 19-23 with backfill logic).
+
+  The goal is to replace this with **umzug**, a mature migration framework that provides proper tracking,
+  up/down support, better error handling, and a clean migration file structure.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  This is a Clean Architecture monorepo (`@shepai/cli`) with:
+
+  - `packages/core/src/domain/` — Domain layer (TypeSpec-generated models, no external deps)
+  - `packages/core/src/application/` — Use cases and output port interfaces
+  - `packages/core/src/infrastructure/` — External concerns: DB, agents, services
+  - `src/presentation/` — CLI (Commander), TUI (Inquirer), Web UI (Next.js 16)
+
+  The migration system lives entirely in the **infrastructure layer**:
+
+  - `packages/core/src/infrastructure/persistence/sqlite/migrations.ts` — Migration definitions + runner
+  - `packages/core/src/infrastructure/persistence/sqlite/connection.ts` — Singleton DB connection
+  - `packages/core/src/infrastructure/di/container.ts` — Calls `runSQLiteMigrations(db)` during init
+
+  ### Architecture Patterns
+
+  - **Clean Architecture** with strict inward dependency flow
+  - **Dependency Injection** via tsyringe — container initialized in `initializeContainer()`
+  - **Singleton DB connection** — `getSQLiteConnection()` returns cached instance
+  - **Inline SQL migrations** — SQL embedded in TypeScript to survive `tsc` compilation
+  - **Migration interface**: `{ version: number; sql: string; handler?: (db) => void }`
+  - **Version tracking**: `PRAGMA user_version` (integer, no history)
+
+  ### Relevant Technologies
+
+  - **better-sqlite3 v12.6** — Synchronous SQLite driver (stays as-is)
+  - **tsyringe** — DI container (migration runs during container init)
+  - **TypeScript 5.3** — Compiled with `tsc` + `tsc-alias` (no .sql file support)
+  - **Vitest 4.0** — Test framework (existing migration test suite)
+  - **@blackglory/better-sqlite3-migrations** — Listed in package.json but UNUSED (can be removed)
+
+  ### Current Migration System Details
+
+  **32 migrations** (versions 1-32) managing 5 tables:
+
+  | Table | Created In | Purpose |
+  | --- | --- | --- |
+  | `settings` | V1 | User configuration, model preferences |
+  | `agent_runs` | V3 | AI agent execution tracking |
+  | `features` | V4 | Features being developed |
+  | `repositories` | V15 | Git repository metadata |
+  | `phase_timings` | V8 | Phase duration tracking |
+
+  **Execution flow**: `initializeContainer() → getSQLiteConnection() → runSQLiteMigrations(db)`
+
+  **Test coverage**:
+  - `tests/integration/infrastructure/persistence/sqlite/migrations.test.ts` (824 lines)
+  - `tests/integration/infrastructure/persistence/sqlite/migration-015.test.ts` (116 lines)
+  - `tests/helpers/database.helper.ts` — Utilities: `createInMemoryDatabase()`, `tableExists()`, etc.
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `packages/core/src/infrastructure/persistence/sqlite/migrations.ts` | High | Core file being replaced — umzug replaces the manual migration runner |
+  | `packages/core/src/infrastructure/di/container.ts` | Medium | Migration initialization call changes from `runSQLiteMigrations(db)` to umzug instance |
+  | `tests/integration/infrastructure/persistence/sqlite/migrations.test.ts` | High | Test suite must be updated to work with umzug's API |
+  | `tests/integration/infrastructure/persistence/sqlite/migration-015.test.ts` | Medium | Specific migration test may need adaptation |
+  | `tests/helpers/database.helper.ts` | Medium | `createDatabaseWithMigrations()` helper signature may change |
+  | `packages/core/src/infrastructure/persistence/sqlite/connection.ts` | Low | May need minor adjustments for umzug storage configuration |
+  | `package.json` | Low | Add umzug dependency, remove unused @blackglory/better-sqlite3-migrations |
+
+  ## Dependencies
+
+  - **umzug** — New dependency (migration framework)
+  - **better-sqlite3** — Existing dependency (umzug storage adapter will use this)
+  - **tsyringe** — Existing DI container (initialization point)
+  - All **repository implementations** depend on migrations running first (no change in contract)
+  - All **integration tests** use `createInMemoryDatabase()` + `runSQLiteMigrations()` pattern
+
+  ## Success Criteria
+
+  - [ ] umzug is installed and configured with better-sqlite3 storage
+  - [ ] All 32 existing migrations are converted to umzug-compatible format
+  - [ ] Existing user databases (with PRAGMA user_version up to 32) are seamlessly migrated to umzug tracking
+  - [ ] New migrations can be added as individual .ts files with up/down functions
+  - [ ] Migration history is tracked in a dedicated table (which migrations ran, when)
+  - [ ] All existing migration tests pass with the new system
+  - [ ] DI container initialization works with umzug
+  - [ ] @blackglory/better-sqlite3-migrations dependency is removed
+  - [ ] No data loss or schema corruption during transition
+
+  ## Size Estimate
+
+  **M** — This is a medium-sized refactoring effort. The core work involves:
+  (1) installing and configuring umzug with a better-sqlite3 storage adapter,
+  (2) converting 32 existing inline migrations to umzug format while preserving backward compatibility,
+  (3) implementing a bootstrap mechanism for existing databases,
+  (4) updating the DI container initialization,
+  (5) updating the comprehensive test suite (824+ lines of migration tests).
+  The scope is well-defined and contained within the infrastructure layer, but requires careful
+  handling of the transition for existing user databases.
+
+  ---
+
+  _Generated by feature agent — proceed with research_
