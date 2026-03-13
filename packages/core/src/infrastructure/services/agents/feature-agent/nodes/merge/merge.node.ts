@@ -166,6 +166,21 @@ export function createMergeNode(deps: MergeNodeDeps) {
           if (prResult) {
             prUrl = prResult.url;
             prNumber = prResult.number;
+
+            // Cross-validate agent-parsed PR URL against authoritative source.
+            // The agent may hallucinate the repo URL or PR number, so we look up
+            // the real PR for this branch via the GitHub API.
+            try {
+              const prStatuses = await deps.gitPrService.listPrStatuses(cwd);
+              const matchingPr = prStatuses.find((pr) => pr.headRefName === branch);
+              if (matchingPr) {
+                prUrl = matchingPr.url;
+                prNumber = matchingPr.number;
+              }
+            } catch {
+              // gh CLI unavailable or API failure — fall back to agent-parsed URL
+            }
+
             messages.push(`[merge] PR created: ${prUrl}`);
           }
         }
