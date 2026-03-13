@@ -1,3 +1,9 @@
+## [1.110.1](https://github.com/shep-ai/cli/compare/v1.110.0...v1.110.1) (2026-03-13)
+
+### Bug Fixes
+
+- **agents:** skip verification in spec-only phases to prevent timeouts ([#341](https://github.com/shep-ai/cli/issues/341)) ([0861503](https://github.com/shep-ai/cli/commit/086150322e8fb2425c70d3e238058ef778748049))
+
 # [1.110.0](https://github.com/shep-ai/cli/compare/v1.109.0...v1.110.0) (2026-03-13)
 
 ### Features
