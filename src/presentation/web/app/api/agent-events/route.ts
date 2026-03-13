@@ -238,9 +238,30 @@ export function GET(request: Request): Response {
 
               // Check for lifecycle change (agent stays "running" but moves through phases)
               if (prev.lifecycle !== feature.lifecycle) {
+                const prevLifecycle = prev.lifecycle;
                 prev.lifecycle = feature.lifecycle;
                 const nodeName = LIFECYCLE_TO_NODE[feature.lifecycle as SdlcLifecycle];
-                if (nodeName) {
+
+                // Emit MergeReviewReady when lifecycle transitions TO Review
+                if (
+                  feature.lifecycle === SdlcLifecycle.Review &&
+                  prevLifecycle !== SdlcLifecycle.Review
+                ) {
+                  const prUrl = feature.pr?.url;
+                  const message = prUrl
+                    ? `Ready for merge review — PR: ${prUrl}`
+                    : 'Ready for merge review';
+                  emitEvent({
+                    eventType: NotificationEventType.MergeReviewReady,
+                    agentRunId: run.id,
+                    featureId: feature.id,
+                    featureName: feature.name,
+                    phaseName: 'merge',
+                    message,
+                    severity: NotificationSeverity.Info,
+                    timestamp: new Date().toISOString(),
+                  });
+                } else if (nodeName) {
                   emitEvent({
                     eventType: NotificationEventType.PhaseCompleted,
                     agentRunId: run.id,

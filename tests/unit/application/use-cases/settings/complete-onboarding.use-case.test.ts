@@ -38,6 +38,7 @@ function createTestSettings(overrides: Partial<Settings> = {}): Settings {
         prChecksPassed: true,
         prChecksFailed: true,
         prBlocked: true,
+        mergeReviewReady: true,
       },
     },
     workflow: {

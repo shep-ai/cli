@@ -121,6 +121,8 @@ export function mapEventTypeToState(eventType: NotificationEventType): FeatureNo
       return 'action-required';
     case NotificationEventType.PrBlocked:
       return 'blocked';
+    case NotificationEventType.MergeReviewReady:
+      return 'action-required';
   }
 }
 

@@ -1,0 +1,36 @@
+feature:
+  id: '064-mr-review-notification'
+  name: 'mr-review-notification'
+  number: 64
+  branch: 'feat/064-mr-review-notification'
+  lifecycle: 'research'
+  createdAt: '2026-03-12T14:42:36Z'
+
+status:
+  phase: 'research'
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-03-12T14:42:36Z'
+  lastUpdatedBy: 'feature-agent'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-03-12T14:42:36Z'
+    completedBy: 'feature-agent'
+
+errors:
+  current: null
+  history: []
