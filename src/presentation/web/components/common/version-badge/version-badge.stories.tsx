@@ -27,6 +27,7 @@ function withNpmVersion(latest: string): Decorator {
                   `event: done\ndata: ${JSON.stringify({ status: 'upgraded', currentVersion: '1.90.0', latestVersion: latest })}\n\n`
                 )
               );
+              controller.enqueue(encoder.encode(`event: restarting\ndata: restarting\n\n`));
               controller.close();
             }, 1000);
           },
@@ -34,6 +35,12 @@ function withNpmVersion(latest: string): Decorator {
         return new Response(stream, {
           status: 200,
           headers: { 'Content-Type': 'text/event-stream' },
+        });
+      }
+      if (url.includes('/api/version')) {
+        return new Response(JSON.stringify({ version: latest }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
         });
       }
       return originalFetch(input, init);

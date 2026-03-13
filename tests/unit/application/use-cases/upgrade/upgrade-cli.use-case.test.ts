@@ -19,12 +19,14 @@ vi.mock('node:child_process', () => ({
 
 import { UpgradeCliUseCase } from '@/application/use-cases/upgrade/upgrade-cli.use-case.js';
 import type { IVersionService } from '@/application/ports/output/services/version-service.interface.js';
+import type { IDaemonService } from '@/application/ports/output/services/daemon-service.interface.js';
 
 function createMockProcess() {
   const proc = new EventEmitter() as ChildProcess & EventEmitter;
   (proc as any).stdout = new EventEmitter();
   (proc as any).stderr = new EventEmitter();
   (proc as any).kill = vi.fn();
+  (proc as any).unref = vi.fn();
   return proc;
 }
 
@@ -38,8 +40,18 @@ function createVersionService(version = '1.20.0'): IVersionService {
   };
 }
 
+function createMockDaemonService(port = 4050): IDaemonService {
+  return {
+    read: vi.fn().mockResolvedValue({ pid: 1234, port, startedAt: new Date().toISOString() }),
+    write: vi.fn().mockResolvedValue(undefined),
+    delete: vi.fn().mockResolvedValue(undefined),
+    isAlive: vi.fn().mockReturnValue(true),
+  };
+}
+
 describe('UpgradeCliUseCase', () => {
   let useCase: UpgradeCliUseCase;
+  let daemonService: IDaemonService;
   const processes: { proc: ReturnType<typeof createMockProcess>; cmd: string; args: string[] }[] =
     [];
 
@@ -53,7 +65,8 @@ describe('UpgradeCliUseCase', () => {
       return proc;
     });
 
-    useCase = new UpgradeCliUseCase(createVersionService());
+    daemonService = createMockDaemonService();
+    useCase = new UpgradeCliUseCase(createVersionService(), daemonService);
   });
 
   afterEach(() => {
@@ -211,6 +224,78 @@ describe('UpgradeCliUseCase', () => {
       expect(result.latestVersion).toBeNull();
 
       vi.useRealTimers();
+    });
+  });
+
+  describe('scheduleDaemonRestart', () => {
+    let originalExecPath: string;
+    let originalExecArgv: string[];
+    let originalArgv: string[];
+    let exitSpy: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+      vi.useFakeTimers();
+      originalExecPath = process.execPath;
+      originalExecArgv = process.execArgv;
+      originalArgv = process.argv;
+
+      process.execPath = '/usr/local/bin/node';
+      process.execArgv = [];
+      process.argv = ['node', '/usr/local/bin/shep'];
+
+      exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+      process.execPath = originalExecPath;
+      process.execArgv = originalExecArgv;
+      process.argv = originalArgv;
+      exitSpy.mockRestore();
+    });
+
+    it('should delete daemon state before spawning new process', async () => {
+      await useCase.scheduleDaemonRestart();
+
+      expect(daemonService.delete).toHaveBeenCalled();
+    });
+
+    it('should spawn new daemon process with correct arguments and port', async () => {
+      await useCase.scheduleDaemonRestart();
+
+      expect(mockSpawn).toHaveBeenCalledWith(
+        '/usr/local/bin/node',
+        ['/usr/local/bin/shep', '_serve', '--port', '4050'],
+        expect.objectContaining({
+          detached: true,
+          stdio: 'ignore',
+        })
+      );
+    });
+
+    it('should spawn without --port when daemon state has no port', async () => {
+      (daemonService.read as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+      await useCase.scheduleDaemonRestart();
+
+      expect(mockSpawn).toHaveBeenCalledWith(
+        '/usr/local/bin/node',
+        ['/usr/local/bin/shep', '_serve'],
+        expect.objectContaining({
+          detached: true,
+          stdio: 'ignore',
+        })
+      );
+    });
+
+    it('should exit the current process after a delay', async () => {
+      await useCase.scheduleDaemonRestart();
+
+      expect(exitSpy).not.toHaveBeenCalled();
+
+      vi.advanceTimersByTime(1_000);
+
+      expect(exitSpy).toHaveBeenCalledWith(0);
     });
   });
 });
