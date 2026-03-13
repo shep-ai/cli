@@ -60,12 +60,16 @@ export function readSpecFile(specDir: string, filename: string): string {
 /**
  * Build executor options with cwd. Each node gets a clean agent context.
  */
-export function buildExecutorOptions(state: FeatureAgentState): AgentExecutionOptions {
+export function buildExecutorOptions(
+  state: FeatureAgentState,
+  overrides?: Partial<Pick<AgentExecutionOptions, 'timeout'>>
+): AgentExecutionOptions {
   return {
     cwd: state.worktreePath || state.repositoryPath,
     maxTurns: 5000,
-    timeout: 300_000, // 5 minutes per agent call — prevents infinite hangs
+    timeout: 600_000, // 10 minutes per agent call — prevents infinite hangs
     ...(state.model ? { model: state.model } : {}),
+    ...overrides,
   };
 }
 
