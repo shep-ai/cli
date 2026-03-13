@@ -1,3 +1,9 @@
+# [1.110.0](https://github.com/shep-ai/cli/compare/v1.109.0...v1.110.0) (2026-03-13)
+
+### Features
+
+- **domain:** add merge review ready notification event ([#333](https://github.com/shep-ai/cli/issues/333)) ([9fe9148](https://github.com/shep-ai/cli/commit/9fe9148a5390d016afec1cd564b788029413f545)), closes [#324](https://github.com/shep-ai/cli/issues/324)
+
 # [1.109.0](https://github.com/shep-ai/cli/compare/v1.108.1...v1.109.0) (2026-03-13)
 
 ### Features
