@@ -1,3 +1,10 @@
+# [1.109.0](https://github.com/shep-ai/cli/compare/v1.108.1...v1.109.0) (2026-03-13)
+
+### Features
+
+- **api:** add rate limiting and cross-process poll lock to pr sync watcher ([#332](https://github.com/shep-ai/cli/issues/332)) ([e3e9af8](https://github.com/shep-ai/cli/commit/e3e9af84288490fb23192e6dc87cca9f9698b22b)), closes [#325](https://github.com/shep-ai/cli/issues/325)
+- **web:** auto-restart daemon after cli upgrade from web ui ([#340](https://github.com/shep-ai/cli/issues/340)) ([251189c](https://github.com/shep-ai/cli/commit/251189c980f229918be2f337668925255b2a4f86))
+
 ## [1.108.1](https://github.com/shep-ai/cli/compare/v1.108.0...v1.108.1) (2026-03-12)
 
 ### Bug Fixes
