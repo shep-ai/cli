@@ -42,187 +42,203 @@ relatedLinks: []
 
 # Open questions (must be resolved before implementation)
 openQuestions:
-  - question: 'Should the deploy agent analyze the repo on every start or only when no cached DeploySkill exists?'
+  - question: 'What cache strategy should be used for DeploySkill persistence?'
     resolved: true
     options:
       - option: 'Cache-first with manual invalidation'
         description: >
-          Use cached DeploySkill if one exists for the repo path. Only re-analyze
-          when the user explicitly requests it (e.g., a "re-analyze" button) or when
-          the cached skill fails to start. Fastest repeat starts, minimal LLM cost.
+          Check for a cached DeploySkill before every deploy. Skip the LLM analyze step
+          if a cached skill exists. Users can manually invalidate via a server action.
+          Failed deployments auto-invalidate the cache on the next start attempt.
+          Build configs change rarely, so cache hits will dominate. Auto-retry on failure
+          provides a safety net without requiring user intervention.
         selected: true
-      - option: 'Cache with TTL-based expiration'
+      - option: 'Always analyze (no cache)'
         description: >
-          Cache the DeploySkill but expire it after a configurable duration (e.g., 24h).
-          Balances freshness with speed but adds complexity and may trigger unnecessary
-          re-analysis on repos that rarely change their build setup.
+          Run the LLM analyze step on every deployment start. Guarantees freshness
+          but adds 10-60 seconds of latency to every start. Wasteful for repos
+          that rarely change their build configuration.
         selected: false
-      - option: 'Always re-analyze'
+      - option: 'TTL-based cache expiry'
         description: >
-          Run the agent analysis on every start. Always up-to-date but slow and expensive
-          in LLM tokens. Defeats the purpose of caching.
+          Cache DeploySkill with a time-to-live (e.g., 24 hours). Automatically
+          re-analyzes after expiry. Adds complexity with TTL management and may
+          re-analyze unnecessarily when configs have not changed.
         selected: false
     selectionRationale: >
-      Cache-first with manual invalidation is the simplest approach that satisfies the
-      user's requirement for "fast" subsequent starts. Build configurations change
-      rarely, so time-based expiration adds complexity without proportional benefit.
-      Automatic re-analysis on failure provides a safety net without manual intervention.
+      Cache-first with manual invalidation is recommended because build configurations
+      (package.json scripts, Dockerfiles, docker-compose.yml) change infrequently.
+      The auto-retry on failure mechanism ensures stale caches self-heal when deployments
+      break. Manual invalidation gives users explicit control. This avoids unnecessary
+      LLM calls while keeping the system responsive to actual config changes.
     answer: 'Cache-first with manual invalidation'
 
-  - question: 'What deployment methods should the agent support in the initial release?'
+  - question: 'Which deployment methods should be supported in the initial release?'
     resolved: true
     options:
       - option: 'Script + Docker Compose + Docker'
         description: >
-          Support the three most common local dev patterns: custom scripts (npm/pnpm/yarn
-          dev, python manage.py, go run, make dev, etc.), Docker Compose for multi-service
-          projects, and standalone Docker for single-container apps. Covers the vast
-          majority of real-world repos without Kubernetes complexity.
+          Support spawning shell commands (npm/pnpm/yarn dev, python scripts, make targets),
+          Docker Compose projects, and standalone Dockerfiles. Covers ~90% of local dev
+          scenarios. Kubernetes and Manual methods exist in the TypeSpec enum but are
+          deferred to a future iteration.
         selected: true
       - option: 'Script only'
         description: >
-          Only support script-based deployment (shell commands). Simplest to implement
-          but misses Docker-based repos entirely, which are increasingly common.
+          Only support spawning shell commands from detected dev scripts. Simplest to
+          implement but does not meaningfully improve over the current system for
+          non-Node.js projects that use Docker.
         selected: false
-      - option: 'All five methods (including Kubernetes + Manual)'
+      - option: 'All five methods (Script, Docker, DockerCompose, Kubernetes, Manual)'
         description: >
-          Support all DeployMethod enum values including Kubernetes and Manual. Full
-          coverage but Kubernetes local dev (minikube/kind) is complex and Manual
-          defeats the purpose of automation. Significantly increases scope.
+          Full coverage of all DeployMethod enum values. Kubernetes adds significant
+          complexity (kubectl, helm, minikube detection). Manual requires a completely
+          different UX flow. Over-scopes the initial release.
         selected: false
     selectionRationale: >
-      Script + Docker Compose + Docker covers 90%+ of local development scenarios.
-      Kubernetes adds substantial complexity (minikube/kind setup, manifest generation)
-      for a niche use case in local dev. Manual is a no-op. Keeping the enum values
-      available means we can add Kubernetes support later without model changes.
+      Script + Docker Compose + Docker covers the vast majority of local development
+      scenarios. Script handles all package-manager-based projects (Node.js, Python,
+      Go, Rust via Makefile). Docker Compose handles multi-service setups. Docker handles
+      single-container projects. Kubernetes and Manual are niche for local dev and can
+      be added later without architectural changes since the DeployMethod enum already
+      includes them.
     answer: 'Script + Docker Compose + Docker'
 
-  - question: 'Should the agent use structured output (zod schema) or free-text for the DeploySkill result?'
+  - question: 'How should the agent produce the DeploySkill output — structured or free-text?'
     resolved: true
     options:
       - option: 'Structured output via zod schema'
         description: >
-          Define a zod schema matching the DeploySkill TypeSpec model and use the
-          agent executor outputSchema option to enforce structured JSON output. Guarantees
-          parseable results, eliminates regex/parsing fragility, and maps directly to
-          the domain model. Requires the agent executor to support outputSchema (already
-          supported in the IAgentExecutor interface).
+          Use IAgentExecutor's outputSchema option with a zod schema that enforces
+          the DeploySkill shape (method, instructions, ports). Guarantees type-safe
+          output that can be directly persisted. Eliminates fragile regex/JSON parsing
+          of free-text responses. Already supported by the IAgentExecutor interface.
         selected: true
       - option: 'Free-text with post-processing'
         description: >
-          Let the agent output free-text instructions and parse them with regex or a
-          second LLM call. More flexible but fragile, error-prone, and requires
-          additional parsing logic.
+          Let the agent return natural language, then parse it into a DeploySkill.
+          More flexible for complex reasoning but introduces parsing fragility,
+          requires retry logic for malformed output, and adds code complexity.
         selected: false
     selectionRationale: >
-      The IAgentExecutor interface already supports outputSchema in AgentExecutionOptions.
-      Using structured output guarantees the DeploySkill fields (method, instructions,
-      ports) are always present and correctly typed, eliminating parsing failures.
+      Structured output via zod is recommended because IAgentExecutor already supports
+      the outputSchema parameter. This guarantees the agent output conforms to the
+      DeploySkill schema without any post-processing. It eliminates an entire class
+      of parsing bugs and makes the analyze node deterministically typed.
     answer: 'Structured output via zod schema'
 
-  - question: 'How should the deploy agent graph be structured (number of nodes)?'
+  - question: 'What should the deploy agent graph structure look like?'
     resolved: true
     options:
       - option: 'Two nodes: analyze and deploy'
         description: >
-          A minimal graph with an analyze node (produces DeploySkill) and a deploy node
-          (executes the skill). The analyze node is skipped when a cached skill exists.
-          Simple, testable, follows the analyze-repo agent pattern. Monitoring (port
-          detection, readiness) stays in the existing DeploymentService infrastructure.
+          A minimal graph with an analyze node (produces DeploySkill via LLM) and a
+          deploy node (executes the skill to start the environment). Clean separation
+          of the cacheable analysis from stateful execution. The cache-check happens
+          before entering the graph — if a cached skill exists, only the deploy node
+          runs. Simple to test, debug, and extend.
         selected: true
-      - option: 'Three nodes: analyze, deploy, and monitor'
+      - option: 'Three nodes: analyze, validate, deploy'
         description: >
-          Adds a dedicated monitor node that watches process output for readiness
-          signals. Moves port detection into the graph. More self-contained but
-          duplicates existing DeploymentService monitoring, increasing complexity
-          and migration risk.
+          Adds a validation node between analyze and deploy that verifies the
+          DeploySkill is executable (e.g., checks Docker is installed, ports are
+          available). Adds safety but increases graph complexity. Validation can
+          alternatively happen at the start of the deploy node.
         selected: false
-      - option: 'Single node: analyze-and-deploy combined'
+      - option: 'Single monolithic node'
         description: >
-          Combines analysis and execution into one node. Simpler graph but breaks
-          the caching model (cannot skip analysis independently of execution) and
-          reduces testability.
+          One node does everything — analysis, caching, and deployment. Simpler
+          graph structure but mixes concerns, making caching harder and reducing
+          testability. Cannot skip analysis when a cache hit occurs.
         selected: false
     selectionRationale: >
-      Two nodes provides clean separation between the cacheable analysis step and
-      the stateful execution step. The analyze node output (DeploySkill) is the
-      natural cache boundary. Monitoring stays in the existing DeploymentService
-      which already handles port detection, log buffering, and SSE emission well.
+      Two nodes (analyze + deploy) provides a clean separation of concerns. The analyze
+      node is the expensive, cacheable step (LLM call). The deploy node is the stateful
+      execution step. This makes cache-skip trivial — just enter the graph at the deploy
+      node. Validation checks (Docker installed, port availability) can be handled at
+      the start of the deploy node without a separate graph node. Follows the simplicity
+      principle while remaining easy to extend.
     answer: 'Two nodes: analyze and deploy'
 
-  - question: 'Where should the DeploySkill cache be stored?'
+  - question: 'Where should cached DeploySkills be stored?'
     resolved: true
     options:
       - option: 'Main SQLite database with new migration'
         description: >
-          Add a deploy_skills table to the existing SQLite database using the
-          established migration pattern. Follows the same pattern as features,
-          repositories, and other persisted entities. Single source of truth,
-          transactional consistency, existing tooling (mappers, repositories).
+          Add a deploy_skills table to the existing SQLite database used for features,
+          repositories, and other persistent data. Follows the established migration,
+          mapper, and repository patterns. Single source of truth. No additional
+          infrastructure or connection management needed.
         selected: true
-      - option: 'Separate JSON file per repo'
+      - option: 'Separate JSON files per repository'
         description: >
-          Store each DeploySkill as a JSON file alongside the repository (e.g.,
-          .shep/deploy-skill.json). Simpler to inspect and debug but scattered
-          across the filesystem, no transactional guarantees, pollutes repo
-          directories, and diverges from the established persistence pattern.
+          Store DeploySkill as JSON files in the repository directory (e.g.,
+          .shep/deploy-skill.json). Simpler to inspect manually but pollutes
+          user repos, requires file I/O, and does not follow established patterns.
         selected: false
-      - option: 'In-memory LRU cache only'
+      - option: 'In-memory cache only'
         description: >
-          Cache DeploySkills in memory with no persistence. Fast but lost on daemon
-          restart, defeating the user's requirement for fast subsequent starts across
-          sessions.
+          Keep DeploySkills in a Map in the daemon process. Lost on restart,
+          requiring re-analysis. Does not satisfy the user requirement for
+          persistent caching.
         selected: false
     selectionRationale: >
-      The main SQLite database is the established persistence mechanism for all
-      domain entities. Using it for DeploySkills maintains consistency, leverages
-      existing infrastructure (migrations, mappers, repositories), and ensures
-      cache survives daemon restarts.
+      The main SQLite database is recommended because the project already has a
+      well-established persistence layer with migrations, mappers, and repositories.
+      Adding a deploy_skills table follows the exact same pattern used for features
+      and repositories. It provides durable caching across daemon restarts without
+      any new infrastructure.
     answer: 'Main SQLite database with new migration'
 
-  - question: 'What should be used as the cache key for DeploySkills?'
+  - question: 'What should be used as the cache key for DeploySkill lookups?'
     resolved: true
     options:
       - option: 'Absolute repository path'
         description: >
-          Use the absolute filesystem path of the repository as the unique key.
-          Already used as targetId in the deployment flow. Deterministic, requires
-          zero computation, and naturally unique on the local filesystem.
+          Use the absolute filesystem path of the repository as the unique cache key.
+          Already used as targetId in the deployment service. Deterministic, requires
+          zero computation, and naturally deduplicates. Works correctly for worktrees
+          (each worktree has a distinct path).
         selected: true
-      - option: 'Repository path hash (SHA-256)'
+      - option: 'Repository path + content hash'
         description: >
-          Hash the absolute path to produce a fixed-length key. Avoids long path
-          strings in the database but adds unnecessary computation and makes
-          debugging harder (cannot visually identify the repo from the key).
+          Combine the path with a hash of key config files (package.json, Dockerfile,
+          etc.) for automatic invalidation when configs change. Adds complexity —
+          must determine which files to hash, and hashing adds latency to every
+          cache lookup. Over-engineered for the cache-first strategy.
         selected: false
     selectionRationale: >
-      Absolute repository path is already the natural identifier used throughout
-      the deployment flow (targetId). It is deterministic, human-readable in the
-      database for debugging, and uniquely identifies a repo on the local filesystem.
+      Absolute repository path is recommended because it is already the natural
+      identifier used throughout the deployment system (targetId). It requires no
+      computation, is deterministic, and pairs naturally with the cache-first strategy
+      where manual invalidation and auto-retry-on-failure handle staleness. A content
+      hash would add complexity and latency without meaningful benefit.
     answer: 'Absolute repository path'
 
-  - question: 'Should we extend the existing IDeploymentService interface or create a new interface for agent-driven deployments?'
+  - question: 'Should the deployment interface be extended or should a new interface be created?'
     resolved: true
     options:
       - option: 'Extend IDeploymentService'
         description: >
           Add analyzeRepository() and getSkill() methods to the existing
-          IDeploymentService interface. Keeps deployment as a cohesive lifecycle
-          concern. Consumers (server actions, hooks) continue using one interface.
-          Avoids additional DI complexity.
+          IDeploymentService interface. Deployment is a cohesive lifecycle —
+          analysis, execution, and monitoring belong together. Avoids splitting
+          a single concern across multiple interfaces and keeps DI registration simple.
         selected: true
-      - option: 'Create separate IDeployAgentService'
+      - option: 'Create separate IDeployAnalysisService'
         description: >
-          Create a new interface for agent-specific operations (analyze, cache
-          management). Cleaner separation of concerns but fragments the deployment
-          API across two interfaces, requiring consumers to inject both. Adds DI
-          wiring complexity.
+          Create a new interface for repository analysis, keeping IDeploymentService
+          focused on execution. Follows Interface Segregation Principle more strictly
+          but adds DI complexity and forces consumers to coordinate two services
+          for a single deployment workflow.
         selected: false
     selectionRationale: >
-      Deployment analysis and execution are tightly coupled lifecycle steps.
-      Splitting them across interfaces forces consumers to coordinate two services
-      and complicates DI registration. Extending the existing interface keeps the
-      deployment API cohesive while adding the new capabilities.
+      Extending IDeploymentService is recommended because deployment analysis and
+      execution are parts of a single cohesive workflow. The existing interface
+      already manages the full deployment lifecycle (start, stop, status, logs).
+      Adding analysis methods keeps the workflow unified. A separate interface
+      would force consumers to coordinate two services, adding unnecessary
+      complexity to the DI container and server actions.
     answer: 'Extend IDeploymentService'
 
   - question: 'How should the DeploySkill be surfaced in the web UI?'
@@ -230,29 +246,30 @@ openQuestions:
     options:
       - option: 'Show deploy method in status badge'
         description: >
-          Display the deploy method (Script, Docker Compose, Docker) alongside the
-          deployment state in the existing DeploymentStatusBadge component. Minimal
-          UI change, provides transparency about what the agent chose, no new
-          components needed.
+          Display the deploy method (e.g., "Script", "Docker Compose", "Docker")
+          alongside the deployment state in the existing DeploymentStatusBadge
+          component. Minimal UI change that provides agent transparency — users
+          see what strategy the agent chose. No new components needed.
         selected: true
       - option: 'Dedicated DeploySkill detail panel'
         description: >
-          Create a new panel/drawer showing full DeploySkill details (method,
-          instructions, ports, timestamps). More informative but requires new
-          components, routing, and significantly expands UI scope beyond the
-          core agent feature.
+          Create a new panel or modal showing the full DeploySkill (method,
+          instructions, ports). Provides deep visibility but requires significant
+          UI work and may overwhelm users who just want their dev server running.
         selected: false
       - option: 'No UI changes'
         description: >
-          Keep the UI unchanged. The agent works behind the scenes with no user
-          visibility. Simplest but users cannot see what deployment strategy was
-          chosen or trigger re-analysis.
+          Keep the current badge as-is. Users have no visibility into what
+          deployment strategy the agent chose. Misses the opportunity to build
+          trust in the agent system.
         selected: false
     selectionRationale: >
-      Showing the deploy method in the status badge provides meaningful agent
-      transparency with minimal UI effort. Users can see what the agent chose
-      at a glance. A full detail panel can be added later if users want more
-      visibility. The re-analyze action is exposed via a server action button.
+      Showing the deploy method in the status badge is recommended because it
+      provides meaningful transparency with minimal UI effort. Users can see at
+      a glance whether their project is being deployed via Script, Docker, or
+      Docker Compose. The existing badge already has visual states for Booting
+      and Ready — adding the method label is a small enhancement. A full detail
+      panel can be added later if users want deeper inspection.
     answer: 'Show deploy method in status badge'
 
 content: |
@@ -356,7 +373,7 @@ content: |
   | `packages/core/src/infrastructure/services/agents/deploy-agent/` (new) | High | New LangGraph graph: state annotation, analyze node, deploy node, prompts |
   | `packages/core/src/infrastructure/services/deployment/deployment.service.ts` | High | Refactored to delegate to deploy agent graph for analysis; execution logic updated to handle Script/DockerCompose/Docker methods |
   | `packages/core/src/application/ports/output/services/deployment-service.interface.ts` | Medium | Extended with analyzeRepository() and getSkill() methods |
-  | `packages/core/src/infrastructure/persistence/sqlite/migrations.ts` | Medium | New migration (#35) for deploy_skills table |
+  | `packages/core/src/infrastructure/persistence/sqlite/migrations.ts` | Medium | New migration for deploy_skills table |
   | `packages/core/src/infrastructure/persistence/sqlite/mappers/deploy-skill.mapper.ts` (new) | Medium | toDatabase/fromDatabase mapper for DeploySkill |
   | `packages/core/src/infrastructure/persistence/sqlite/repositories/deploy-skill.repository.ts` (new) | Medium | CRUD repository for deploy_skills table |
   | `packages/core/src/infrastructure/di/container.ts` | Medium | Register deploy agent graph, deploy skill repository, updated deployment service |
