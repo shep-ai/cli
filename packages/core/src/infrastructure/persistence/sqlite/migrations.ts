@@ -530,6 +530,22 @@ CREATE TABLE IF NOT EXISTS pr_sync_lock (
 );
 `,
   },
+  {
+    version: 34,
+    // Migration 034: Add merge review ready and pr_blocked notification event filter columns.
+    // Uses handler because notif_evt_pr_blocked may already exist from earlier manual fixes.
+    sql: '',
+    handler: (db: Database.Database) => {
+      const columns = db.pragma('table_info(settings)') as { name: string }[];
+      const add = (col: string) => {
+        if (!columns.some((c) => c.name === col)) {
+          db.exec(`ALTER TABLE settings ADD COLUMN ${col} INTEGER NOT NULL DEFAULT 1`);
+        }
+      };
+      add('notif_evt_pr_blocked');
+      add('notif_evt_merge_review_ready');
+    },
+  },
 ];
 
 /**

@@ -12,4 +12,5 @@ enum:
   - pr_checks_passed
   - pr_checks_failed
   - pr_blocked
+  - merge_review_ready
 description: Types of agent lifecycle notification events

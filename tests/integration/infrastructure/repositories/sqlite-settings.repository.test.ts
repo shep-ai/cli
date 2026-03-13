@@ -62,6 +62,7 @@ describe('SQLiteSettingsRepository', () => {
         prChecksPassed: true,
         prChecksFailed: true,
         prBlocked: true,
+        mergeReviewReady: true,
       },
     },
     workflow: {

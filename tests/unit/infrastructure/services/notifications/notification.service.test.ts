@@ -123,6 +123,7 @@ describe('NotificationService', () => {
           prChecksPassed: true,
           prChecksFailed: true,
           prBlocked: true,
+          mergeReviewReady: true,
         },
       });
       service = new NotificationService(getNotificationBus(), desktopNotifier);
@@ -148,6 +149,7 @@ describe('NotificationService', () => {
           prChecksPassed: true,
           prChecksFailed: true,
           prBlocked: true,
+          mergeReviewReady: true,
         },
       });
       service = new NotificationService(getNotificationBus(), desktopNotifier);

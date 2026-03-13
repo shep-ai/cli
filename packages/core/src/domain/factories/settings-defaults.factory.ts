@@ -122,6 +122,7 @@ export function createDefaultSettings(): Settings {
       prChecksPassed: true,
       prChecksFailed: true,
       prBlocked: true,
+      mergeReviewReady: true,
     },
   };
 

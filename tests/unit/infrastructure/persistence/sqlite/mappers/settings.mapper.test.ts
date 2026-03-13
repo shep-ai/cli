@@ -62,6 +62,7 @@ function createTestSettings(overrides: Partial<Settings> = {}): Settings {
         prChecksPassed: true,
         prChecksFailed: true,
         prBlocked: true,
+        mergeReviewReady: true,
       },
     },
     workflow: {
@@ -117,6 +118,7 @@ function createTestRow(overrides: Partial<SettingsRow> = {}): SettingsRow {
     notif_evt_pr_checks_passed: 1,
     notif_evt_pr_checks_failed: 1,
     notif_evt_pr_blocked: 1,
+    notif_evt_merge_review_ready: 1,
     workflow_open_pr_on_impl_complete: 0,
     workflow_enable_evidence: 0,
     workflow_commit_evidence: 0,
@@ -154,6 +156,7 @@ describe('Settings Mapper', () => {
             prChecksPassed: true,
             prChecksFailed: true,
             prBlocked: true,
+            mergeReviewReady: true,
           },
         },
       });
@@ -180,6 +183,7 @@ describe('Settings Mapper', () => {
             prChecksPassed: true,
             prChecksFailed: true,
             prBlocked: true,
+            mergeReviewReady: true,
           },
         },
       });
@@ -206,6 +210,7 @@ describe('Settings Mapper', () => {
             prChecksPassed: true,
             prChecksFailed: true,
             prBlocked: true,
+            mergeReviewReady: true,
           },
         },
       });
@@ -234,6 +239,7 @@ describe('Settings Mapper', () => {
             prChecksPassed: true,
             prChecksFailed: false,
             prBlocked: false,
+            mergeReviewReady: false,
           },
         },
       });
@@ -316,6 +322,7 @@ describe('Settings Mapper', () => {
             prChecksPassed: true,
             prChecksFailed: false,
             prBlocked: false,
+            mergeReviewReady: false,
           },
         },
       });
@@ -347,6 +354,7 @@ describe('Settings Mapper', () => {
           prChecksPassed: true,
           prChecksFailed: true,
           prBlocked: true,
+          mergeReviewReady: true,
         },
       });
     });

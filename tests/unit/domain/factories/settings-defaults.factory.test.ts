@@ -287,6 +287,7 @@ describe('createDefaultSettings', () => {
           prChecksPassed: true,
           prChecksFailed: true,
           prBlocked: true,
+          mergeReviewReady: true,
         },
       });
     });
@@ -345,6 +346,7 @@ describe('createDefaultSettings', () => {
           prChecksPassed: true,
           prChecksFailed: true,
           prBlocked: true,
+          mergeReviewReady: true,
         },
       });
     });

@@ -173,6 +173,14 @@ function baseDeps(overrides?: Partial<MergeNodeDeps>): MergeNodeDeps {
       getFailureLogs: vi.fn().mockResolvedValue(''),
       mergePr: vi.fn().mockResolvedValue(undefined),
       getRemoteUrl: vi.fn().mockResolvedValue('https://github.com/test-owner/test-repo'),
+      listPrStatuses: vi.fn().mockResolvedValue([
+        {
+          number: 42,
+          state: 'Open',
+          url: 'https://github.com/test/repo/pull/42',
+          headRefName: 'feat/test',
+        },
+      ]),
     } as any,
     cleanupFeatureWorktreeUseCase: { execute: mockCleanupExecute } as any,
     ...overrides,
@@ -244,6 +252,80 @@ describe('createMergeNode (agent-driven)', () => {
       const result = await node(state);
 
       expect(mockParsePrUrl).toHaveBeenCalled();
+      expect(result.prUrl).toBe('https://github.com/test/repo/pull/42');
+      expect(result.prNumber).toBe(42);
+    });
+
+    it('should cross-validate agent-parsed PR URL against listPrStatuses and use authoritative data', async () => {
+      // Agent outputs a hallucinated/wrong PR URL
+      mockParsePrUrl.mockReturnValueOnce({
+        url: 'https://github.com/wrong-org/wrong-repo/pull/699',
+        number: 699,
+      });
+
+      // gitPrService.listPrStatuses returns the real PR for this branch
+      const depsWithPrList = baseDeps({
+        gitPrService: {
+          ...deps.gitPrService,
+          listPrStatuses: vi.fn().mockResolvedValue([
+            {
+              number: 333,
+              state: 'Open',
+              url: 'https://github.com/test-owner/test-repo/pull/333',
+              headRefName: 'feat/test',
+            },
+          ]),
+        } as any,
+      });
+
+      const node = createMergeNode(depsWithPrList);
+      const state = baseState({ openPr: true });
+      const result = await node(state);
+
+      // Should use the authoritative PR data, NOT the agent-parsed URL
+      expect(result.prUrl).toBe('https://github.com/test-owner/test-repo/pull/333');
+      expect(result.prNumber).toBe(333);
+    });
+
+    it('should fall back to agent-parsed PR URL when listPrStatuses finds no matching PR', async () => {
+      // gitPrService.listPrStatuses returns PRs but none match the branch
+      const depsWithEmptyPrList = baseDeps({
+        gitPrService: {
+          ...deps.gitPrService,
+          listPrStatuses: vi.fn().mockResolvedValue([
+            {
+              number: 100,
+              state: 'Open',
+              url: 'https://github.com/test-owner/test-repo/pull/100',
+              headRefName: 'feat/other-branch',
+            },
+          ]),
+        } as any,
+      });
+
+      const node = createMergeNode(depsWithEmptyPrList);
+      const state = baseState({ openPr: true });
+      const result = await node(state);
+
+      // No matching PR found — fall back to agent-parsed URL
+      expect(result.prUrl).toBe('https://github.com/test/repo/pull/42');
+      expect(result.prNumber).toBe(42);
+    });
+
+    it('should fall back to agent-parsed PR URL when listPrStatuses throws', async () => {
+      // gitPrService.listPrStatuses fails (e.g., gh not installed)
+      const depsWithFailingPrList = baseDeps({
+        gitPrService: {
+          ...deps.gitPrService,
+          listPrStatuses: vi.fn().mockRejectedValue(new Error('gh: command not found')),
+        } as any,
+      });
+
+      const node = createMergeNode(depsWithFailingPrList);
+      const state = baseState({ openPr: true });
+      const result = await node(state);
+
+      // Should gracefully fall back to agent-parsed URL
       expect(result.prUrl).toBe('https://github.com/test/repo/pull/42');
       expect(result.prNumber).toBe(42);
     });

@@ -8,11 +8,17 @@
 
 import 'reflect-metadata';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import type { AgentRun, PhaseTiming, NotificationEvent } from '@/domain/generated/output.js';
+import type {
+  AgentRun,
+  Feature,
+  PhaseTiming,
+  NotificationEvent,
+} from '@/domain/generated/output.js';
 import {
   AgentRunStatus,
   NotificationEventType,
   NotificationSeverity,
+  SdlcLifecycle,
 } from '@/domain/generated/output.js';
 import { NotificationWatcherService } from '@/infrastructure/services/notifications/notification-watcher.service.js';
 import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
@@ -69,13 +75,28 @@ function createMockPhaseTimingRepository(timings: PhaseTiming[] = []): IPhaseTim
   };
 }
 
+function createMockFeature(overrides: Partial<Feature> = {}): Feature {
+  return {
+    id: 'feat-1',
+    name: 'Test Feature',
+    slug: 'test-feature',
+    repositoryPath: '/test/repo',
+    branch: 'feat/test',
+    lifecycle: SdlcLifecycle.Implementation,
+    messages: [],
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
+  } as Feature;
+}
+
 function createMockFeatureRepository(): IFeatureRepository {
   return {
     create: vi.fn(),
     findById: vi.fn().mockResolvedValue({ name: 'Quick Markdown File Creation' }),
     findByIdPrefix: vi.fn(),
     findBySlug: vi.fn(),
-    list: vi.fn(),
+    list: vi.fn().mockResolvedValue([]),
     update: vi.fn(),
     delete: vi.fn(),
     softDelete: vi.fn(),
@@ -563,6 +584,171 @@ describe('NotificationWatcherService', () => {
       vi.mocked(runRepo.list).mockResolvedValue([]);
       await vi.advanceTimersByTimeAsync(3000);
       expect(runRepo.list).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('feature lifecycle detection (merge review ready)', () => {
+    it('should emit MergeReviewReady when feature transitions to Review', async () => {
+      await bootstrapWithEmptyRuns();
+
+      const feature = createMockFeature({
+        id: 'feat-1',
+        name: 'Dark Mode Toggle',
+        lifecycle: SdlcLifecycle.Implementation,
+      });
+
+      // Poll 2: feature is in Implementation — seed it
+      vi.mocked(featureRepo.list).mockResolvedValueOnce([feature]);
+      await vi.advanceTimersByTimeAsync(3000);
+      notificationService.receivedEvents.length = 0;
+      vi.mocked(notificationService.notify).mockClear();
+
+      // Poll 3: feature transitions to Review
+      const reviewFeature = createMockFeature({
+        id: 'feat-1',
+        name: 'Dark Mode Toggle',
+        lifecycle: SdlcLifecycle.Review,
+        pr: { url: 'https://github.com/org/repo/pull/42', number: 42, status: 'open' as any },
+      });
+      vi.mocked(featureRepo.list).mockResolvedValueOnce([reviewFeature]);
+      await vi.advanceTimersByTimeAsync(3000);
+
+      const reviewEvents = notificationService.receivedEvents.filter(
+        (e) => e.eventType === NotificationEventType.MergeReviewReady
+      );
+      expect(reviewEvents).toHaveLength(1);
+      expect(reviewEvents[0]!.featureId).toBe('feat-1');
+      expect(reviewEvents[0]!.featureName).toBe('Dark Mode Toggle');
+      expect(reviewEvents[0]!.severity).toBe(NotificationSeverity.Info);
+      expect(reviewEvents[0]!.message).toContain('https://github.com/org/repo/pull/42');
+    });
+
+    it('should include PR URL in message when available', async () => {
+      await bootstrapWithEmptyRuns();
+
+      const feature = createMockFeature({
+        id: 'feat-1',
+        lifecycle: SdlcLifecycle.Implementation,
+      });
+
+      vi.mocked(featureRepo.list).mockResolvedValueOnce([feature]);
+      await vi.advanceTimersByTimeAsync(3000);
+      notificationService.receivedEvents.length = 0;
+      vi.mocked(notificationService.notify).mockClear();
+
+      const reviewFeature = createMockFeature({
+        id: 'feat-1',
+        lifecycle: SdlcLifecycle.Review,
+        pr: { url: 'https://github.com/org/repo/pull/99', number: 99, status: 'open' as any },
+      });
+      vi.mocked(featureRepo.list).mockResolvedValueOnce([reviewFeature]);
+      await vi.advanceTimersByTimeAsync(3000);
+
+      const reviewEvents = notificationService.receivedEvents.filter(
+        (e) => e.eventType === NotificationEventType.MergeReviewReady
+      );
+      expect(reviewEvents[0]!.message).toBe(
+        'Ready for merge review — PR: https://github.com/org/repo/pull/99'
+      );
+    });
+
+    it('should use generic message when no PR URL available', async () => {
+      await bootstrapWithEmptyRuns();
+
+      const feature = createMockFeature({
+        id: 'feat-1',
+        lifecycle: SdlcLifecycle.Implementation,
+      });
+
+      vi.mocked(featureRepo.list).mockResolvedValueOnce([feature]);
+      await vi.advanceTimersByTimeAsync(3000);
+      notificationService.receivedEvents.length = 0;
+      vi.mocked(notificationService.notify).mockClear();
+
+      const reviewFeature = createMockFeature({
+        id: 'feat-1',
+        lifecycle: SdlcLifecycle.Review,
+      });
+      vi.mocked(featureRepo.list).mockResolvedValueOnce([reviewFeature]);
+      await vi.advanceTimersByTimeAsync(3000);
+
+      const reviewEvents = notificationService.receivedEvents.filter(
+        (e) => e.eventType === NotificationEventType.MergeReviewReady
+      );
+      expect(reviewEvents[0]!.message).toBe('Ready for merge review');
+    });
+
+    it('should not emit MergeReviewReady for features already in Review on bootstrap', async () => {
+      const feature = createMockFeature({
+        id: 'feat-1',
+        lifecycle: SdlcLifecycle.Review,
+      });
+
+      vi.mocked(runRepo.list).mockResolvedValue([]);
+      vi.mocked(phaseRepo.findByRunId).mockResolvedValue([]);
+      vi.mocked(featureRepo.list).mockResolvedValue([feature]);
+
+      watcher.start();
+      await vi.advanceTimersByTimeAsync(0); // bootstrap poll
+
+      expect(notificationService.notify).not.toHaveBeenCalled();
+    });
+
+    it('should not re-emit MergeReviewReady for feature that stays in Review', async () => {
+      await bootstrapWithEmptyRuns();
+
+      const feature = createMockFeature({
+        id: 'feat-1',
+        lifecycle: SdlcLifecycle.Implementation,
+      });
+
+      vi.mocked(featureRepo.list).mockResolvedValueOnce([feature]);
+      await vi.advanceTimersByTimeAsync(3000);
+      notificationService.receivedEvents.length = 0;
+      vi.mocked(notificationService.notify).mockClear();
+
+      // Transition to Review
+      const reviewFeature = createMockFeature({
+        id: 'feat-1',
+        lifecycle: SdlcLifecycle.Review,
+      });
+      vi.mocked(featureRepo.list).mockResolvedValue([reviewFeature]);
+      await vi.advanceTimersByTimeAsync(3000); // emits MergeReviewReady
+      expect(notificationService.receivedEvents).toHaveLength(1);
+
+      notificationService.receivedEvents.length = 0;
+      vi.mocked(notificationService.notify).mockClear();
+
+      // Still in Review on next poll — should NOT re-emit
+      await vi.advanceTimersByTimeAsync(3000);
+      expect(notificationService.notify).not.toHaveBeenCalled();
+    });
+
+    it('should not emit MergeReviewReady for non-Review lifecycle transitions', async () => {
+      await bootstrapWithEmptyRuns();
+
+      const feature = createMockFeature({
+        id: 'feat-1',
+        lifecycle: SdlcLifecycle.Started,
+      });
+
+      vi.mocked(featureRepo.list).mockResolvedValueOnce([feature]);
+      await vi.advanceTimersByTimeAsync(3000);
+      notificationService.receivedEvents.length = 0;
+      vi.mocked(notificationService.notify).mockClear();
+
+      // Transition to Implementation (not Review)
+      const implFeature = createMockFeature({
+        id: 'feat-1',
+        lifecycle: SdlcLifecycle.Implementation,
+      });
+      vi.mocked(featureRepo.list).mockResolvedValueOnce([implFeature]);
+      await vi.advanceTimersByTimeAsync(3000);
+
+      const reviewEvents = notificationService.receivedEvents.filter(
+        (e) => e.eventType === NotificationEventType.MergeReviewReady
+      );
+      expect(reviewEvents).toHaveLength(0);
     });
   });
 });

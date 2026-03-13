@@ -19,6 +19,7 @@ const AGENT_EVENT_TOGGLES = [
 ] as const;
 
 const PR_EVENT_TOGGLES = [
+  { key: 'mergeReviewReady', label: 'Merge Review Ready' },
   { key: 'prMerged', label: 'PR Merged' },
   { key: 'prClosed', label: 'PR Closed' },
   { key: 'prChecksPassed', label: 'PR Checks Passed' },

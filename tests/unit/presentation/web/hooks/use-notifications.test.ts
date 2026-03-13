@@ -115,6 +115,50 @@ describe('useNotifications', () => {
     });
   });
 
+  it('mergeReviewReady (Info) event triggers toast.info with Review action', () => {
+    const event = createEvent({
+      eventType: NotificationEventType.MergeReviewReady,
+      severity: NotificationSeverity.Info,
+      featureName: 'Checkout Feature',
+      featureId: 'feat-789',
+      message: 'Ready for merge review — PR: https://github.com/org/repo/pull/42',
+    });
+    mockLastEvent = event;
+    mockEvents = [event];
+
+    renderHook(() => useNotifications());
+
+    expect(mockToast.info).toHaveBeenCalledWith('Checkout Feature', {
+      description: 'Ready for merge review — PR: https://github.com/org/repo/pull/42',
+      action: {
+        label: 'Review',
+        onClick: expect.any(Function),
+      },
+    });
+  });
+
+  it('mergeReviewReady without PR URL triggers toast.info with Review action', () => {
+    const event = createEvent({
+      eventType: NotificationEventType.MergeReviewReady,
+      severity: NotificationSeverity.Info,
+      featureName: 'Settings Feature',
+      featureId: 'feat-999',
+      message: 'Ready for merge review',
+    });
+    mockLastEvent = event;
+    mockEvents = [event];
+
+    renderHook(() => useNotifications());
+
+    expect(mockToast.info).toHaveBeenCalledWith('Settings Feature', {
+      description: 'Ready for merge review',
+      action: {
+        label: 'Review',
+        onClick: expect.any(Function),
+      },
+    });
+  });
+
   it('agentStarted (Info) event does not trigger toast', () => {
     const event = createEvent({
       eventType: NotificationEventType.AgentStarted,
