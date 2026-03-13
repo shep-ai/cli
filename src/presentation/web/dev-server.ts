@@ -33,6 +33,7 @@ import {
   initializePrSyncWatcher,
   getPrSyncWatcher,
 } from '@/infrastructure/services/pr-sync/pr-sync-watcher.service.js';
+import { getExistingConnection } from '@/infrastructure/persistence/sqlite/connection.js';
 
 const DEFAULT_PORT = 3000;
 
@@ -86,7 +87,8 @@ async function main() {
 
     // Start PR sync watcher to detect PR/CI status transitions on GitHub
     const gitPrService = container.resolve<IGitPrService>('IGitPrService');
-    initializePrSyncWatcher(featureRepo, runRepo, gitPrService, notificationService);
+    const db = getExistingConnection();
+    initializePrSyncWatcher(featureRepo, runRepo, gitPrService, notificationService, undefined, db);
     getPrSyncWatcher().start();
   } catch (error) {
     console.warn('[dev-server] DI initialization failed — features will be empty:', error);

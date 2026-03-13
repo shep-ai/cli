@@ -1,0 +1,15 @@
+Get Feature Drawer Data — Unit Test Results
+============================================
+Test file: tests/unit/presentation/web/actions/get-feature-drawer-data.test.ts
+Run date: 2026-03-12
+
+ ✓  web  tests/unit/presentation/web/actions/get-feature-drawer-data.test.ts > getFeatureDrawerData server action > returns null when feature not found 2ms
+ ✓  web  tests/unit/presentation/web/actions/get-feature-drawer-data.test.ts > getFeatureDrawerData server action > returns FeatureNodeData for a valid feature 3ms
+ ✓  web  tests/unit/presentation/web/actions/get-feature-drawer-data.test.ts > getFeatureDrawerData server action > handles feature without agentRunId 2ms
+ ✓  web  tests/unit/presentation/web/actions/get-feature-drawer-data.test.ts > getFeatureDrawerData server action > fetches repository, branch, artifact, and remote URL in parallel 1ms
+ ✓  web  tests/unit/presentation/web/actions/get-feature-drawer-data.test.ts > getFeatureDrawerData server action > does not call getCiStatus or getMergeableStatus (reads from DB instead) 1ms
+ ✓  web  tests/unit/presentation/web/actions/get-feature-drawer-data.test.ts > getFeatureDrawerData server action > returns null on unexpected errors 0ms
+ ✓  web  tests/unit/presentation/web/actions/get-feature-drawer-data.test.ts > getFeatureDrawerData server action > handles graceful failures in parallel fetches 0ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
