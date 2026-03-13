@@ -100,5 +100,6 @@ ${buildCommitPushBlock({
   push: state.push,
   files: [`${state.specDir}/spec.yaml`],
   commitHint: 'docs(specs): analyze repository and define spec',
+  skipVerification: true,
 })}`;
 }

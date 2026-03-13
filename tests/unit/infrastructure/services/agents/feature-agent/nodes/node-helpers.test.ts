@@ -252,6 +252,32 @@ describe('buildCommitPushBlock', () => {
     });
     expect(result.toLowerCase()).toMatch(/proceed|commit.*anyway|push.*anyway/);
   });
+
+  it('should skip verification but still push when skipVerification=true and push=true', () => {
+    const result = buildCommitPushBlock({
+      push: true,
+      files: ['spec.yaml'],
+      commitHint: 'docs(specs): update spec',
+      skipVerification: true,
+    });
+    expect(result).not.toContain('pnpm build');
+    expect(result).not.toContain('pnpm test');
+    expect(result).not.toContain('pnpm lint');
+    expect(result).toContain('git push');
+  });
+
+  it('should not include push when skipVerification=true but push=false', () => {
+    const result = buildCommitPushBlock({
+      push: false,
+      files: ['spec.yaml'],
+      commitHint: 'docs(specs): update spec',
+      skipVerification: true,
+    });
+    expect(result).not.toContain('pnpm build');
+    expect(result).not.toContain('pnpm test');
+    expect(result).not.toContain('pnpm lint');
+    expect(result).not.toContain('git push');
+  });
 });
 
 describe('isRejectionPayload', () => {
