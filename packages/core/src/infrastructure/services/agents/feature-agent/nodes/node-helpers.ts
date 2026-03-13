@@ -323,7 +323,7 @@ export function buildCommitPushBlock(opts: {
     ``,
     `After completing all tasks above:`,
     `1. Stage the changed files: ${fileList} (use \`git add\` with the specific paths)`,
-    `2. Commit with a conventional commit message — e.g. \`${opts.commitHint}\``,
+    `2. Commit with a conventional commit message${opts.skipVerification ? ' using `--no-verify` to skip hooks' : ''} — e.g. \`git commit${opts.skipVerification ? ' --no-verify' : ''} -m "${opts.commitHint}"\``,
     `   - The message should accurately describe what changed`,
   ];
   if (opts.push && !opts.skipVerification) {
