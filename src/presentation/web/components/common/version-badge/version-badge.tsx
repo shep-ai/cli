@@ -31,6 +31,7 @@ export function VersionBadge({
   const displayVersion = isDev ? `${version}-dev` : `v${version}`;
 
   const isUpgrading = upgradeStatus === 'upgrading';
+  const isRestarting = upgradeStatus === 'restarting';
   const didUpgrade = upgradeStatus === 'upgraded';
   const upgradeError = upgradeStatus === 'error';
 
@@ -43,7 +44,7 @@ export function VersionBadge({
             data-testid="version-label"
           >
             {displayVersion}
-            {updateAvailable && !didUpgrade ? (
+            {updateAvailable && !didUpgrade && !isRestarting ? (
               <span
                 className="absolute -top-0.5 -right-1.5 size-1.5 rounded-full bg-emerald-400"
                 data-testid="update-dot"
@@ -65,13 +66,22 @@ export function VersionBadge({
               <Row label="Latest" value={`v${latest}`} highlight={updateAvailable} />
             ) : null}
           </div>
-          {didUpgrade ? (
+          {isRestarting ? (
+            <div className="border-t border-white/10 pt-1.5">
+              <span
+                className="text-[10px] font-medium text-emerald-400"
+                data-testid="upgrade-restarting"
+              >
+                Restarting...
+              </span>
+            </div>
+          ) : didUpgrade ? (
             <div className="border-t border-white/10 pt-1.5">
               <span
                 className="text-[10px] font-medium text-emerald-400"
                 data-testid="upgrade-success"
               >
-                Upgraded successfully — restart to apply
+                Upgraded successfully
               </span>
             </div>
           ) : upgradeError ? (
@@ -85,11 +95,15 @@ export function VersionBadge({
               <button
                 type="button"
                 onClick={startUpgrade}
-                disabled={isUpgrading}
+                disabled={isUpgrading || isRestarting}
                 className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-400 transition-colors hover:text-emerald-300 disabled:opacity-50"
                 data-testid="upgrade-button"
               >
-                {isUpgrading ? 'Upgrading...' : `Upgrade to v${latest}`}
+                {isUpgrading
+                  ? 'Upgrading...'
+                  : isRestarting
+                    ? 'Restarting...'
+                    : `Upgrade to v${latest}`}
               </button>
             </div>
           ) : null}

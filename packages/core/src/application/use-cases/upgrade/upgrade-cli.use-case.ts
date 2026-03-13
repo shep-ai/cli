@@ -14,6 +14,7 @@
 import { injectable, inject } from 'tsyringe';
 import { spawn, type ChildProcess } from 'node:child_process';
 import type { IVersionService } from '../../ports/output/services/version-service.interface.js';
+import type { IDaemonService } from '../../ports/output/services/daemon-service.interface.js';
 
 export interface UpgradeResult {
   status: 'up-to-date' | 'upgraded' | 'error';
@@ -24,11 +25,16 @@ export interface UpgradeResult {
 
 const VERSION_CHECK_TIMEOUT_MS = 10_000;
 
+/** Delay (ms) before the current process exits to allow the SSE response to flush. */
+const SELF_RESTART_DELAY_MS = 1_000;
+
 @injectable()
 export class UpgradeCliUseCase {
   constructor(
     @inject('IVersionService')
-    private readonly versionService: IVersionService
+    private readonly versionService: IVersionService,
+    @inject('IDaemonService')
+    private readonly daemonService: IDaemonService
   ) {}
 
   async execute(onOutput?: (data: string) => void): Promise<UpgradeResult> {
@@ -108,6 +114,38 @@ export class UpgradeCliUseCase {
         }
       });
     });
+  }
+
+  /**
+   * Schedule a daemon self-restart after upgrade.
+   * Reads the current daemon port, spawns a new daemon process with the
+   * upgraded code, then exits the current process after a brief delay.
+   */
+  async scheduleDaemonRestart(): Promise<void> {
+    const state = await this.daemonService.read();
+    const port = state?.port;
+
+    // Delete daemon.json so the new process can write a fresh one
+    await this.daemonService.delete();
+
+    // Spawn new daemon process using the upgraded CLI binary.
+    // Use process.argv[1] which points to the shep CLI entry point —
+    // after npm install this resolves to the upgraded version on disk.
+    const child = spawn(
+      process.execPath,
+      [...process.execArgv, process.argv[1], '_serve', ...(port ? ['--port', String(port)] : [])],
+      {
+        detached: true,
+        stdio: 'ignore',
+        windowsHide: true,
+      }
+    );
+    child.unref();
+
+    // Give the response stream time to flush, then exit the current process
+    setTimeout(() => {
+      process.exit(0);
+    }, SELF_RESTART_DELAY_MS);
   }
 
   private runNpmInstall(onOutput?: (data: string) => void): Promise<number> {
