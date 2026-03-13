@@ -278,6 +278,25 @@ describe('buildCommitPushBlock', () => {
     expect(result).not.toContain('pnpm lint');
     expect(result).not.toContain('git push');
   });
+
+  it('should include --no-verify in commit command when skipVerification=true', () => {
+    const result = buildCommitPushBlock({
+      push: true,
+      files: ['spec.yaml'],
+      commitHint: 'docs(specs): update spec',
+      skipVerification: true,
+    });
+    expect(result).toContain('--no-verify');
+  });
+
+  it('should NOT include --no-verify when skipVerification is false', () => {
+    const result = buildCommitPushBlock({
+      push: true,
+      files: ['spec.yaml'],
+      commitHint: 'docs(specs): update spec',
+    });
+    expect(result).not.toContain('--no-verify');
+  });
 });
 
 describe('isRejectionPayload', () => {
