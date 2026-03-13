@@ -1,373 +1,426 @@
-# Feature Specification (YAML)
-# This is the source of truth. Markdown is auto-generated from this file.
-
 name: umzug-migrations
-number: 065
+number: 65
 branch: feat/umzug-migrations
-oneLiner: Replace manual PRAGMA user_version migration system with umzug for robust migration tracking and management
+oneLiner: >-
+  Replace manual PRAGMA user_version migration system with umzug for robust
+  migration tracking and management
 userQuery: >
-  The current app is using dumb migrations, let introduce state of the art migration with umzug
+  The current app is using dumb migrations, let introduce state of the art
+  migration with umzug
 summary: >
-  Replace the current hand-rolled migration system (inline SQL strings tracked via PRAGMA user_version)
-  with umzug, the battle-tested Node.js migration framework. This provides proper migration history
-  tracking, up/down support, better error handling, and a clean per-file migration structure while
-  preserving backward compatibility with the existing 34 migrations already applied to user databases.
+  Replace the current hand-rolled migration system (inline SQL strings tracked
+  via PRAGMA user_version) with umzug, the battle-tested Node.js migration
+  framework. This provides proper migration history tracking, up/down support,
+  better error handling, and a clean per-file migration structure while
+  preserving backward compatibility with the existing 34 migrations already
+  applied to user databases.
 phase: Requirements
 sizeEstimate: M
-
-# Relationships
 relatedFeatures: []
-
 technologies:
   - umzug (migration framework for Node.js)
   - better-sqlite3 v12.6 (existing synchronous SQLite driver)
   - tsyringe (DI container — migration initialization point)
   - vitest v4.0 (test framework for migration tests)
   - TypeScript 5.3 (compiled with tsc + tsc-alias)
-
 relatedLinks: []
-
-# Open questions (must be resolved before implementation)
-openQuestions:
-  - question: 'Should existing 34 migrations remain inline in TypeScript or be split into individual files?'
-    resolved: true
-    options:
-      - option: 'Keep inline in single module'
-        description: >
-          Keep all 34 legacy migrations as an array in a single TypeScript module (e.g. legacy-migrations.ts)
-          registered programmatically with umzug. Avoids tsc .sql file issues, keeps backward compatibility
-          simple, and avoids creating 34 new files. New migrations (35+) use individual .ts files.
-        selected: true
-      - option: 'Split into 34 individual .ts files'
-        description: >
-          Create one .ts file per migration (e.g. 001-create-settings.ts through 034-notification-events.ts).
-          Cleaner per-file structure from day one, but creates significant churn with 34 new files and
-          requires careful naming to preserve execution order.
-        selected: false
-      - option: 'Split into individual .sql files'
-        description: >
-          Create .sql files for each migration. Clearest separation of SQL from TypeScript, but tsc does not
-          copy .sql files to dist — would require a custom build step or bundler plugin. Also breaks the 7
-          handler-based migrations that use programmatic logic.
-        selected: false
-    selectionRationale: >
-      Keeping legacy migrations inline avoids 34-file churn, sidesteps tsc compilation issues with non-TS
-      files, and preserves the 7 handler-based migrations that require programmatic logic. New migrations
-      (35+) get the clean per-file structure going forward. This is the pragmatic hybrid approach.
-    answer: 'Keep inline in single module'
-
-  - question: 'How should umzug handle the sync/async mismatch with better-sqlite3?'
-    resolved: true
-    options:
-      - option: 'Wrap sync calls in async adapter'
-        description: >
-          Write a thin async wrapper around better-sqlite3 synchronous API calls. umzug expects async
-          storage and migration functions — the wrapper returns Promise.resolve() around sync results.
-          This is the standard approach used by umzug community with synchronous drivers.
-        selected: true
-      - option: 'Use umzug syncResolver option'
-        description: >
-          umzug v3 has some sync support via configuration. However, this is less documented and may not
-          cover all storage adapter hooks. Risk of hitting undocumented edge cases.
-        selected: false
-    selectionRationale: >
-      Wrapping sync calls in async is the established pattern for using umzug with synchronous drivers
-      like better-sqlite3. It is well-documented in umzug examples and community usage, and keeps the
-      umzug API surface fully functional.
-    answer: 'Wrap sync calls in async adapter'
-
-  - question: 'What should the migration tracking table be named?'
-    resolved: true
-    options:
-      - option: 'umzug_migrations'
-        description: >
-          Descriptive name that clearly identifies the table as umzug-managed. Avoids collisions with
-          application tables. Follows common convention in umzug documentation and examples.
-        selected: true
-      - option: 'schema_migrations'
-        description: >
-          Framework-agnostic name (used by Rails, etc.). More portable if ever switching away from umzug,
-          but this project is unlikely to switch migration frameworks again.
-        selected: false
-      - option: '_migrations'
-        description: >
-          Underscore-prefixed to signal internal/system table. Less discoverable but keeps the namespace clean.
-        selected: false
-    selectionRationale: >
-      umzug_migrations is the most explicit and self-documenting name. It immediately signals what manages
-      this table, which helps with debugging and maintenance. The umzug docs use similar naming.
-    answer: 'umzug_migrations'
-
-  - question: 'How should the bootstrap/transition work for existing databases with PRAGMA user_version already set?'
-    resolved: true
-    options:
-      - option: 'Bootstrap seeder that reads PRAGMA user_version'
-        description: >
-          On first run with umzug, detect if PRAGMA user_version > 0 but umzug_migrations table does not
-          exist. If so, create the tracking table and insert records for all migrations up to the current
-          user_version, marking them as already executed. This is a one-time transition that happens
-          automatically — no user intervention needed.
-        selected: true
-      - option: 'Require manual migration command'
-        description: >
-          Provide a CLI command (e.g. shep db:migrate) that users must run manually to transition from
-          the old system. Gives users control but adds friction and risk of forgetting.
-        selected: false
-    selectionRationale: >
-      Automatic bootstrap is the only reasonable choice for a CLI tool where users should not need to
-      know about internal schema tracking changes. The detection logic (user_version > 0, no umzug table)
-      is deterministic and safe. This preserves the seamless migration experience.
-    answer: 'Bootstrap seeder that reads PRAGMA user_version'
-
-  - question: 'Should down/rollback migrations be implemented for existing 34 migrations?'
-    resolved: true
-    options:
-      - option: 'No rollbacks for legacy, only for new migrations'
-        description: >
-          The 34 existing migrations have never had rollback support. Writing down migrations retroactively
-          for all of them (especially the data-migration ones like V8, V15, V17) is error-prone and
-          provides little value. Only require down migrations for new migrations (35+) going forward.
-        selected: true
-      - option: 'Write rollbacks for all 34 migrations'
-        description: >
-          Full rollback coverage from day one. Maximizes umzug capabilities but requires significant
-          effort to write and test 34 down migrations, some of which involve irreversible data transforms.
-        selected: false
-    selectionRationale: >
-      Retroactively writing down migrations for 34 existing migrations is high effort with low ROI.
-      Several migrations involve data transformations (V8 approval_gates, V15 repository backfill, V17 name fix)
-      that cannot be cleanly reversed. Requiring down migrations only for new work (35+) is pragmatic and
-      follows the principle of not over-engineering.
-    answer: 'No rollbacks for legacy, only for new migrations'
-
-  - question: 'Should PRAGMA user_version continue to be set alongside umzug tracking?'
-    resolved: true
-    options:
-      - option: 'Keep setting user_version for backward safety'
-        description: >
-          Continue setting PRAGMA user_version during migrations as a secondary marker. Provides a safety
-          net if umzug tracking is ever corrupted, and maintains compatibility with any code that reads
-          user_version. Minimal overhead (one PRAGMA per migration).
-        selected: true
-      - option: 'Drop user_version, rely solely on umzug'
-        description: >
-          Clean break from the old system. Simpler code with single source of truth. But if umzug table
-          is lost/corrupted, there is no fallback to determine which migrations have run.
-        selected: false
-    selectionRationale: >
-      Continuing to set PRAGMA user_version is nearly free (one statement per migration) and provides a
-      valuable safety net. It also means the bootstrap seeder can always detect the state of legacy
-      databases. The dual-tracking adds negligible complexity.
-    answer: 'Keep setting user_version for backward safety'
-
-content: |
+openQuestions: []
+content: >
   ## Problem Statement
 
-  The current migration system in `packages/core/src/infrastructure/persistence/sqlite/migrations.ts`
+
+  The current migration system in
+  `packages/core/src/infrastructure/persistence/sqlite/migrations.ts`
+
   uses a manual approach with significant limitations:
 
-  1. **No migration history**: Only `PRAGMA user_version` tracks the current version number — there is
+
+  1. **No migration history**: Only `PRAGMA user_version` tracks the current
+  version number — there is
      no record of which specific migrations ran, when they ran, or how long they took.
-  2. **Monolithic file**: All 34 migrations (593 lines) are inlined in a single TypeScript file, making
+  2. **Monolithic file**: All 34 migrations (593 lines) are inlined in a single
+  TypeScript file, making
      it increasingly difficult to navigate and maintain.
-  3. **No rollback support**: There are no down/undo migrations — schema changes are one-way only.
-  4. **No validation or logging**: No metadata about migration success/failure, no timing, no audit trail.
-  5. **Repetitive handler logic**: Migrations 20-31 contain nearly identical boilerplate for conditional
+  3. **No rollback support**: There are no down/undo migrations — schema changes
+  are one-way only.
+
+  4. **No validation or logging**: No metadata about migration success/failure,
+  no timing, no audit trail.
+
+  5. **Repetitive handler logic**: Migrations 20-31 contain nearly identical
+  boilerplate for conditional
      DDL (checking if columns exist before adding them).
-  6. **Fragile versioning**: The linear `user_version` approach has already caused issues during rebasing,
+  6. **Fragile versioning**: The linear `user_version` approach has already
+  caused issues during rebasing,
      requiring compensating migrations (e.g., migrations 19-23 with backfill logic).
 
-  The goal is to replace this with **umzug**, a mature migration framework that provides proper tracking,
+  The goal is to replace this with **umzug**, a mature migration framework that
+  provides proper tracking,
+
   up/down support, better error handling, and a clean migration file structure.
+
 
   ## Success Criteria
 
-  - [ ] umzug is installed and configured with a custom better-sqlite3 storage adapter
-  - [ ] All 34 existing migrations are preserved and execute identically under umzug
-  - [ ] Existing user databases (PRAGMA user_version 1-34) transition seamlessly to umzug tracking with zero user intervention
-  - [ ] The umzug_migrations tracking table records migration name and execution timestamp for each applied migration
-  - [ ] PRAGMA user_version continues to be set as a secondary safety marker alongside umzug tracking
-  - [ ] New migrations (35+) can be added as individual .ts files with up() and optional down() functions
+
+  - [ ] umzug is installed and configured with a custom better-sqlite3 storage
+  adapter
+
+  - [ ] All 34 existing migrations are preserved and execute identically under
+  umzug
+
+  - [ ] Existing user databases (PRAGMA user_version 1-34) transition seamlessly
+  to umzug tracking with zero user intervention
+
+  - [ ] The umzug_migrations tracking table records migration name and execution
+  timestamp for each applied migration
+
+  - [ ] PRAGMA user_version continues to be set as a secondary safety marker
+  alongside umzug tracking
+
+  - [ ] New migrations (35+) can be added as individual .ts files with up() and
+  optional down() functions
+
   - [ ] New migrations (35+) must include a down() rollback function
-  - [ ] All existing migration integration tests pass with the new system (zero regressions)
-  - [ ] DI container initialization (initializeContainer) works with umzug without changing the external contract
-  - [ ] @blackglory/better-sqlite3-migrations unused dependency is removed from package.json
-  - [ ] No data loss, schema corruption, or behavioral change during or after transition
-  - [ ] The runSQLiteMigrations export signature remains compatible or test helpers are updated accordingly
-  - [ ] Migration execution order is deterministic and matches the existing version-number ordering
+
+  - [ ] All existing migration integration tests pass with the new system (zero
+  regressions)
+
+  - [ ] DI container initialization (initializeContainer) works with umzug
+  without changing the external contract
+
+  - [ ] @blackglory/better-sqlite3-migrations unused dependency is removed from
+  package.json
+
+  - [ ] No data loss, schema corruption, or behavioral change during or after
+  transition
+
+  - [ ] The runSQLiteMigrations export signature remains compatible or test
+  helpers are updated accordingly
+
+  - [ ] Migration execution order is deterministic and matches the existing
+  version-number ordering
+
 
   ## Functional Requirements
 
-  - **FR-1: Custom better-sqlite3 storage adapter** — Implement a custom umzug storage adapter that uses
+
+  - **FR-1: Custom better-sqlite3 storage adapter** — Implement a custom umzug
+  storage adapter that uses
     better-sqlite3 to read/write the `umzug_migrations` tracking table. The adapter must handle the
     sync-to-async wrapping since better-sqlite3 is synchronous and umzug expects async storage methods
     (`logMigration`, `unlogMigration`, `executed`).
 
-  - **FR-2: Legacy migration registration** — Register all 34 existing migrations programmatically with
+  - **FR-2: Legacy migration registration** — Register all 34 existing
+  migrations programmatically with
     umzug from a single TypeScript module. Each migration's `up()` function must execute the same SQL
     and/or handler logic as the current system. Legacy migrations do not require `down()` functions.
 
-  - **FR-3: Bootstrap seeder for existing databases** — On first umzug run, detect if `PRAGMA user_version > 0`
+  - **FR-3: Bootstrap seeder for existing databases** — On first umzug run,
+  detect if `PRAGMA user_version > 0`
     but the `umzug_migrations` table does not exist. If so, create the tracking table and insert records
     for migrations 1 through `user_version`, marking them as already applied. This must run before umzug's
     normal `up()` execution so umzug does not re-apply already-executed migrations.
 
-  - **FR-4: Dual version tracking** — Each migration's `up()` function must set `PRAGMA user_version = N`
+  - **FR-4: Dual version tracking** — Each migration's `up()` function must set
+  `PRAGMA user_version = N`
     (where N is the migration's version number) in addition to being tracked by umzug. This maintains
     backward safety and enables the bootstrap seeder to work reliably.
 
-  - **FR-5: New migration file convention** — Migrations 35+ must be individual `.ts` files in a dedicated
+  - **FR-5: New migration file convention** — Migrations 35+ must be individual
+  `.ts` files in a dedicated
     directory (e.g., `packages/core/src/infrastructure/persistence/sqlite/migrations/`). Each file exports
     `up(db)` and `down(db)` functions. umzug resolves them via glob pattern or explicit registration.
 
-  - **FR-6: Migration execution within transaction** — Each migration must execute within a SQLite
+  - **FR-6: Migration execution within transaction** — Each migration must
+  execute within a SQLite
     transaction, matching the current behavior where `db.transaction(() => { ... })()` wraps each
     migration. If a migration fails, the transaction rolls back and no partial state is committed.
 
-  - **FR-7: DI container integration** — Replace the `runSQLiteMigrations(db)` call in
+  - **FR-7: DI container integration** — Replace the `runSQLiteMigrations(db)`
+  call in
     `initializeContainer()` (container.ts line 146) with umzug's `up()` method. The external contract
     of `initializeContainer()` must not change — it still returns `Promise<typeof container>`.
 
-  - **FR-8: Deterministic execution order** — Migrations must execute in strict numerical order by version
+  - **FR-8: Deterministic execution order** — Migrations must execute in strict
+  numerical order by version
     number (1, 2, 3, ..., 34, 35, ...). umzug must be configured to sort migrations by their version
     number prefix, not alphabetically by filename.
 
-  - **FR-9: Remove unused dependency** — Remove `@blackglory/better-sqlite3-migrations` from
+  - **FR-9: Remove unused dependency** — Remove
+  `@blackglory/better-sqlite3-migrations` from
     `package.json` since it has zero imports in the codebase.
 
-  - **FR-10: Test helper compatibility** — Update `createDatabaseWithMigrations()` in
+  - **FR-10: Test helper compatibility** — Update
+  `createDatabaseWithMigrations()` in
     `tests/helpers/database.helper.ts` to work with the new umzug-based migration runner. The helper
     must continue to accept a database instance and apply all migrations to it.
 
   ## Non-Functional Requirements
 
-  - **NFR-1: Zero-downtime transition** — Existing databases must transition to umzug tracking
+
+  - **NFR-1: Zero-downtime transition** — Existing databases must transition to
+  umzug tracking
     transparently during normal application startup. No CLI commands, no manual steps, no data loss.
 
-  - **NFR-2: Migration performance** — The full migration suite (34 migrations on a fresh database) must
+  - **NFR-2: Migration performance** — The full migration suite (34 migrations
+  on a fresh database) must
     complete within 500ms on in-memory SQLite. The bootstrap seeder (inserting 34 tracking records) must
     complete within 100ms. These are well within current performance characteristics.
 
-  - **NFR-3: Error isolation** — A failed migration must not leave the database in a partially migrated
+  - **NFR-3: Error isolation** — A failed migration must not leave the database
+  in a partially migrated
     state. Transaction rollback must be guaranteed per-migration. Error messages must include the
     migration name/version and the underlying SQLite error.
 
-  - **NFR-4: Test isolation** — Each integration test must use its own in-memory database instance.
+  - **NFR-4: Test isolation** — Each integration test must use its own in-memory
+  database instance.
     Migration tests must not depend on shared state or execution order between test cases.
 
-  - **NFR-5: Build compatibility** — All migration code must be pure TypeScript that survives `tsc`
+  - **NFR-5: Build compatibility** — All migration code must be pure TypeScript
+  that survives `tsc`
     compilation. No `.sql` files, no dynamic `require()`, no `fs.readFile()` at runtime. Inline SQL
     strings in TypeScript modules are the required approach (matching current architecture).
 
-  - **NFR-6: Minimal dependency footprint** — Only `umzug` is added as a new dependency. No additional
+  - **NFR-6: Minimal dependency footprint** — Only `umzug` is added as a new
+  dependency. No additional
     migration-related packages. The net dependency count should decrease by 1 (add umzug, remove
     @blackglory/better-sqlite3-migrations).
 
-  - **NFR-7: Maintainability** — New developers must be able to add a migration by creating a single .ts
+  - **NFR-7: Maintainability** — New developers must be able to add a migration
+  by creating a single .ts
     file in the migrations directory with exported up/down functions. No registration in a central array
     or configuration file should be required for new migrations.
 
-  - **NFR-8: Logging and observability** — umzug should be configured with a logger that emits migration
+  - **NFR-8: Logging and observability** — umzug should be configured with a
+  logger that emits migration
     events (migrating, migrated, reverting, reverted) at debug level. This enables troubleshooting
     without cluttering normal CLI output.
 
   ## Product Questions & AI Recommendations
 
+
   | # | Question | AI Recommendation | Rationale |
+
   | - | -------- | ----------------- | --------- |
-  | 1 | Should existing 34 migrations remain inline or be split into individual files? | Keep inline in single module | Avoids 34-file churn, handles handler-based migrations, sidesteps tsc issues. New migrations (35+) get individual files. |
-  | 2 | How should umzug handle the sync/async mismatch with better-sqlite3? | Wrap sync calls in async adapter | Standard community pattern, well-documented, keeps full umzug API surface. |
-  | 3 | What should the migration tracking table be named? | umzug_migrations | Self-documenting, follows umzug conventions, avoids table name collisions. |
-  | 4 | How should the bootstrap/transition work for existing databases? | Auto-bootstrap by reading PRAGMA user_version | Zero user intervention, deterministic detection, seamless upgrade path. |
-  | 5 | Should down/rollback migrations be implemented for existing 34 migrations? | No — only require for new migrations (35+) | Retroactive rollbacks are error-prone for data migrations. Pragmatic forward-only approach. |
-  | 6 | Should PRAGMA user_version continue to be set alongside umzug tracking? | Yes — dual tracking for safety | Nearly free, provides fallback, enables bootstrap seeder. |
+
+  | 1 | Should existing 34 migrations remain inline or be split into individual
+  files? | Keep inline in single module | Avoids 34-file churn, handles
+  handler-based migrations, sidesteps tsc issues. New migrations (35+) get
+  individual files. |
+
+  | 2 | How should umzug handle the sync/async mismatch with better-sqlite3? |
+  Wrap sync calls in async adapter | Standard community pattern,
+  well-documented, keeps full umzug API surface. |
+
+  | 3 | What should the migration tracking table be named? | umzug_migrations |
+  Self-documenting, follows umzug conventions, avoids table name collisions. |
+
+  | 4 | How should the bootstrap/transition work for existing databases? |
+  Auto-bootstrap by reading PRAGMA user_version | Zero user intervention,
+  deterministic detection, seamless upgrade path. |
+
+  | 5 | Should down/rollback migrations be implemented for existing 34
+  migrations? | No — only require for new migrations (35+) | Retroactive
+  rollbacks are error-prone for data migrations. Pragmatic forward-only
+  approach. |
+
+  | 6 | Should PRAGMA user_version continue to be set alongside umzug tracking?
+  | Yes — dual tracking for safety | Nearly free, provides fallback, enables
+  bootstrap seeder. |
+
 
   ## Codebase Analysis
 
+
   ### Project Structure
+
 
   This is a Clean Architecture monorepo (`@shepai/cli`) with:
 
-  - `packages/core/src/domain/` — Domain layer (TypeSpec-generated models, no external deps)
+
+  - `packages/core/src/domain/` — Domain layer (TypeSpec-generated models, no
+  external deps)
+
   - `packages/core/src/application/` — Use cases and output port interfaces
-  - `packages/core/src/infrastructure/` — External concerns: DB, agents, services
+
+  - `packages/core/src/infrastructure/` — External concerns: DB, agents,
+  services
+
   - `src/presentation/` — CLI (Commander), TUI (Inquirer), Web UI (Next.js 16)
+
 
   The migration system lives entirely in the **infrastructure layer**:
 
-  - `packages/core/src/infrastructure/persistence/sqlite/migrations.ts` — Migration definitions + runner (593 lines, 34 migrations)
-  - `packages/core/src/infrastructure/persistence/sqlite/connection.ts` — Singleton DB connection via `getSQLiteConnection()`
-  - `packages/core/src/infrastructure/di/container.ts` — Calls `runSQLiteMigrations(db)` at line 146 during `initializeContainer()`
+
+  - `packages/core/src/infrastructure/persistence/sqlite/migrations.ts` —
+  Migration definitions + runner (593 lines, 34 migrations)
+
+  - `packages/core/src/infrastructure/persistence/sqlite/connection.ts` —
+  Singleton DB connection via `getSQLiteConnection()`
+
+  - `packages/core/src/infrastructure/di/container.ts` — Calls
+  `runSQLiteMigrations(db)` at line 146 during `initializeContainer()`
+
 
   ### Architecture Patterns
 
+
   - **Clean Architecture** with strict inward dependency flow
-  - **Dependency Injection** via tsyringe — container initialized in `initializeContainer()`
-  - **Singleton DB connection** — `getSQLiteConnection()` returns cached instance with WAL mode, NORMAL synchronous, foreign keys, defensive mode
-  - **Inline SQL migrations** — SQL embedded in TypeScript to survive `tsc` compilation
-  - **Migration interface**: `{ version: number; sql: string; handler?: (db) => void }` — 27 pure SQL + 7 handler-based
-  - **Version tracking**: `PRAGMA user_version` (integer, no history), dynamically computed via `LATEST_SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version`
+
+  - **Dependency Injection** via tsyringe — container initialized in
+  `initializeContainer()`
+
+  - **Singleton DB connection** — `getSQLiteConnection()` returns cached
+  instance with WAL mode, NORMAL synchronous, foreign keys, defensive mode
+
+  - **Inline SQL migrations** — SQL embedded in TypeScript to survive `tsc`
+  compilation
+
+  - **Migration interface**: `{ version: number; sql: string; handler?: (db) =>
+  void }` — 27 pure SQL + 7 handler-based
+
+  - **Version tracking**: `PRAGMA user_version` (integer, no history),
+  dynamically computed via `LATEST_SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length
+  - 1].version`
+
 
   ### Current Migration System Details
 
+
   **34 migrations** (versions 1-34) managing 6 tables:
 
+
   | Table | Created In | Purpose |
+
   | --- | --- | --- |
+
   | `settings` | V1 | User configuration, model preferences |
+
   | `agent_runs` | V3 | AI agent execution tracking |
+
   | `features` | V4 | Features being developed |
+
   | `phase_timings` | V8 | Phase duration tracking |
+
   | `repositories` | V15 | Git repository metadata |
+
   | `pr_sync_lock` | V33 | Cross-process PR poll coordination |
 
-  **Execution flow**: `initializeContainer() → getSQLiteConnection() → runSQLiteMigrations(db)`
+
+  **Execution flow**: `initializeContainer() → getSQLiteConnection() →
+  runSQLiteMigrations(db)`
+
 
   **Connection configuration** (connection.ts):
+
   - WAL journal mode for concurrent reads
+
   - NORMAL synchronous for write performance
+
   - Foreign keys enabled
+
   - Defensive mode enabled
+
   - ~8MB cache size
 
+
   **Test coverage**:
-  - `tests/integration/infrastructure/persistence/sqlite/migrations.test.ts` (872 lines) — comprehensive suite
-  - `tests/integration/infrastructure/persistence/sqlite/migration-015.test.ts` (116 lines) — focused test
-  - `tests/helpers/database.helper.ts` — Utilities: `createInMemoryDatabase()`, `createDatabaseWithMigrations()`, `tableExists()`, `getSchemaVersion()`, `getTableSchema()`, `getTableIndexes()`
+
+  - `tests/integration/infrastructure/persistence/sqlite/migrations.test.ts`
+  (872 lines) — comprehensive suite
+
+  - `tests/integration/infrastructure/persistence/sqlite/migration-015.test.ts`
+  (116 lines) — focused test
+
+  - `tests/helpers/database.helper.ts` — Utilities: `createInMemoryDatabase()`,
+  `createDatabaseWithMigrations()`, `tableExists()`, `getSchemaVersion()`,
+  `getTableSchema()`, `getTableIndexes()`
+
 
   ## Affected Areas
 
+
   | Area | Impact | Reasoning |
+
   | ---- | ------ | --------- |
-  | `packages/core/src/infrastructure/persistence/sqlite/migrations.ts` | High | Core file being refactored — umzug replaces the manual migration runner; legacy migration array stays but runner logic is replaced |
-  | `packages/core/src/infrastructure/persistence/sqlite/` (new files) | High | New directory for migration files (35+), custom storage adapter, and umzug configuration |
-  | `packages/core/src/infrastructure/di/container.ts` | Medium | Migration initialization call (line 146) changes from `runSQLiteMigrations(db)` to umzug-based runner |
-  | `tests/integration/infrastructure/persistence/sqlite/migrations.test.ts` | High | 872-line test suite must be updated to work with umzug's API |
-  | `tests/integration/infrastructure/persistence/sqlite/migration-015.test.ts` | Medium | Specific migration test (116 lines) may need adaptation for umzug format |
-  | `tests/helpers/database.helper.ts` | Medium | `createDatabaseWithMigrations()` helper signature may change to use umzug |
-  | `packages/core/src/infrastructure/persistence/sqlite/connection.ts` | Low | No changes expected — umzug receives the same db instance |
-  | `package.json` (root) | Low | Add umzug dependency, remove unused @blackglory/better-sqlite3-migrations |
+
+  | `packages/core/src/infrastructure/persistence/sqlite/migrations.ts` | High |
+  Core file being refactored — umzug replaces the manual migration runner;
+  legacy migration array stays but runner logic is replaced |
+
+  | `packages/core/src/infrastructure/persistence/sqlite/` (new files) | High |
+  New directory for migration files (35+), custom storage adapter, and umzug
+  configuration |
+
+  | `packages/core/src/infrastructure/di/container.ts` | Medium | Migration
+  initialization call (line 146) changes from `runSQLiteMigrations(db)` to
+  umzug-based runner |
+
+  | `tests/integration/infrastructure/persistence/sqlite/migrations.test.ts` |
+  High | 872-line test suite must be updated to work with umzug's API |
+
+  | `tests/integration/infrastructure/persistence/sqlite/migration-015.test.ts`
+  | Medium | Specific migration test (116 lines) may need adaptation for umzug
+  format |
+
+  | `tests/helpers/database.helper.ts` | Medium |
+  `createDatabaseWithMigrations()` helper signature may change to use umzug |
+
+  | `packages/core/src/infrastructure/persistence/sqlite/connection.ts` | Low |
+  No changes expected — umzug receives the same db instance |
+
+  | `package.json` (root) | Low | Add umzug dependency, remove unused
+  @blackglory/better-sqlite3-migrations |
+
 
   ## Dependencies
 
-  - **umzug** — New dependency (migration framework, provides Umzug class + storage adapters)
-  - **better-sqlite3 v12.6.2** — Existing dependency (umzug custom storage adapter will use this)
-  - **tsyringe** — Existing DI container (initialization point at `initializeContainer()`)
-  - All **repository implementations** depend on migrations running first (no change in contract)
-  - All **integration tests** use `createInMemoryDatabase()` + `runSQLiteMigrations()` pattern (callers must update)
+
+  - **umzug** — New dependency (migration framework, provides Umzug class +
+  storage adapters)
+
+  - **better-sqlite3 v12.6.2** — Existing dependency (umzug custom storage
+  adapter will use this)
+
+  - **tsyringe** — Existing DI container (initialization point at
+  `initializeContainer()`)
+
+  - All **repository implementations** depend on migrations running first (no
+  change in contract)
+
+  - All **integration tests** use `createInMemoryDatabase()` +
+  `runSQLiteMigrations()` pattern (callers must update)
+
 
   ## Size Estimate
 
+
   **M** — This is a medium-sized refactoring effort. The core work involves:
-  (1) installing and configuring umzug with a custom better-sqlite3 storage adapter (async wrapper around sync API),
-  (2) registering 34 existing inline migrations with umzug while preserving their exact behavior,
-  (3) implementing the bootstrap seeder to transition existing databases from PRAGMA user_version to umzug tracking,
+
+  (1) installing and configuring umzug with a custom better-sqlite3 storage
+  adapter (async wrapper around sync API),
+
+  (2) registering 34 existing inline migrations with umzug while preserving
+  their exact behavior,
+
+  (3) implementing the bootstrap seeder to transition existing databases from
+  PRAGMA user_version to umzug tracking,
+
   (4) updating the DI container initialization (container.ts line 146),
-  (5) updating the comprehensive test suite (872+ lines of migration tests plus helpers),
+
+  (5) updating the comprehensive test suite (872+ lines of migration tests plus
+  helpers),
+
   (6) removing the unused @blackglory/better-sqlite3-migrations dependency.
-  The scope is well-defined and contained within the infrastructure layer, but requires careful
+
+  The scope is well-defined and contained within the infrastructure layer, but
+  requires careful
+
   handling of the transition for existing user databases.
 
+
   ---
+
 
   _Generated by feature agent — requirements phase complete_
