@@ -1035,6 +1035,358 @@ describe('PrSyncWatcherService', () => {
     });
   });
 
+  describe('SQLite poll lock', () => {
+    function createMockDb() {
+      let lockRow: { locked_by: string; expires_at: number } | null = null;
+      const runFn = vi.fn((...args: unknown[]) => {
+        const processId = args[0] as string;
+        const _now = args[1] as number;
+        const expiresAt = args[2] as number;
+        const checkProcessId = args[3] as string;
+        const checkNow = args[4] as number;
+
+        // Simulate the SQL logic
+        if (lockRow && lockRow.locked_by !== checkProcessId && lockRow.expires_at > checkNow) {
+          return { changes: 0 }; // lock held by another process
+        }
+        lockRow = { locked_by: processId, expires_at: expiresAt };
+        return { changes: 1 };
+      });
+
+      return {
+        prepare: vi.fn().mockReturnValue({ run: runFn }),
+        _runFn: runFn,
+        _getLockRow: () => lockRow,
+        _setLockRow: (row: { locked_by: string; expires_at: number } | null) => {
+          lockRow = row;
+        },
+      };
+    }
+
+    it('should acquire lock and proceed with poll when no lock exists', async () => {
+      const mockDb = createMockDb();
+      vi.mocked(featureRepo.list).mockResolvedValue([]);
+
+      const dbWatcher = new PrSyncWatcherService(
+        featureRepo,
+        agentRunRepo,
+        gitPrService,
+        notificationService,
+        30_000,
+        mockDb as never
+      );
+
+      dbWatcher.start();
+      await vi.advanceTimersByTimeAsync(0);
+
+      // Lock acquired → poll proceeded (featureRepo.list called)
+      expect(featureRepo.list).toHaveBeenCalledTimes(1);
+      expect(mockDb.prepare).toHaveBeenCalled();
+
+      dbWatcher.stop();
+    });
+
+    it('should skip poll when lock is held by another process', async () => {
+      const mockDb = createMockDb();
+      // Simulate another process holding a valid lock
+      mockDb._setLockRow({ locked_by: 'other-process-999', expires_at: Date.now() + 60_000 });
+
+      const dbWatcher = new PrSyncWatcherService(
+        featureRepo,
+        agentRunRepo,
+        gitPrService,
+        notificationService,
+        30_000,
+        mockDb as never
+      );
+
+      dbWatcher.start();
+      await vi.advanceTimersByTimeAsync(0);
+
+      // Lock not acquired → poll skipped (featureRepo.list NOT called)
+      expect(featureRepo.list).not.toHaveBeenCalled();
+
+      dbWatcher.stop();
+    });
+
+    it('should acquire lock when existing lock has expired', async () => {
+      const mockDb = createMockDb();
+      // Simulate an expired lock from another process
+      mockDb._setLockRow({ locked_by: 'other-process-999', expires_at: Date.now() - 1000 });
+      vi.mocked(featureRepo.list).mockResolvedValue([]);
+
+      const dbWatcher = new PrSyncWatcherService(
+        featureRepo,
+        agentRunRepo,
+        gitPrService,
+        notificationService,
+        30_000,
+        mockDb as never
+      );
+
+      dbWatcher.start();
+      await vi.advanceTimersByTimeAsync(0);
+
+      // Expired lock → can acquire → poll proceeds
+      expect(featureRepo.list).toHaveBeenCalledTimes(1);
+
+      dbWatcher.stop();
+    });
+
+    it('should proceed without lock when no DB is provided', async () => {
+      // Default watcher has no DB — should always poll
+      vi.mocked(featureRepo.list).mockResolvedValue([]);
+
+      watcher.start();
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(featureRepo.list).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('rate limit backoff', () => {
+    it('should skip repository when rate limit error is detected from listPrStatuses', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-empty-function
+      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      // eslint-disable-next-line @typescript-eslint/no-empty-function
+      vi.spyOn(console, 'log').mockImplementation(() => {});
+
+      const feature = createMockFeature({
+        id: 'feat-1',
+        repositoryPath: '/repo/path',
+        branch: 'feat/test',
+        pr: { url: 'https://github.com/org/repo/pull/1', number: 1, status: PrStatus.Open },
+      });
+
+      vi.mocked(featureRepo.list).mockResolvedValue([feature]);
+      // First poll: rate limit error
+      vi.mocked(gitPrService.listPrStatuses).mockRejectedValueOnce(
+        new Error('API rate limit exceeded for user')
+      );
+
+      watcher.start();
+      await vi.advanceTimersByTimeAsync(0);
+
+      // Rate limit triggered — repo should be backed off
+      expect(consoleSpy).toHaveBeenCalled();
+
+      // Second poll: should skip the repository entirely
+      vi.mocked(gitPrService.listPrStatuses).mockResolvedValue([
+        { number: 1, state: PrStatus.Open, url: '', headRefName: '' },
+      ]);
+
+      await vi.advanceTimersByTimeAsync(30_000);
+
+      // listPrStatuses should only have been called once (from the first poll)
+      expect(gitPrService.listPrStatuses).toHaveBeenCalledTimes(1);
+
+      consoleSpy.mockRestore();
+    });
+
+    it('should skip repository when rate limit error is detected from getCiStatus', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-empty-function
+      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      const feature = createMockFeature({
+        id: 'feat-1',
+        repositoryPath: '/repo/path',
+        branch: 'feat/test',
+        pr: {
+          url: 'https://github.com/org/repo/pull/1',
+          number: 1,
+          status: PrStatus.Open,
+          ciStatus: CiStatus.Pending,
+        },
+      });
+
+      vi.mocked(featureRepo.list).mockResolvedValue([feature]);
+      vi.mocked(gitPrService.listPrStatuses).mockResolvedValue([
+        { number: 1, state: PrStatus.Open, url: '', headRefName: '' },
+      ]);
+      // First poll: getCiStatus triggers rate limit
+      vi.mocked(gitPrService.getCiStatus).mockRejectedValueOnce(
+        new Error('API rate limit exceeded')
+      );
+
+      watcher.start();
+      await vi.advanceTimersByTimeAsync(0);
+
+      // Rate limit from getCiStatus should back off the repo
+      expect(consoleSpy).toHaveBeenCalled();
+
+      // Second poll: the repo should be skipped
+      vi.mocked(gitPrService.listPrStatuses).mockClear();
+
+      await vi.advanceTimersByTimeAsync(30_000);
+
+      // Repo skipped, no call to listPrStatuses on second poll
+      expect(gitPrService.listPrStatuses).not.toHaveBeenCalled();
+
+      consoleSpy.mockRestore();
+    });
+
+    it('should not trigger rate limit backoff for non-rate-limit errors', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-empty-function
+      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      const feature = createMockFeature({
+        id: 'feat-1',
+        repositoryPath: '/repo/path',
+        branch: 'feat/test',
+        pr: { url: 'https://github.com/org/repo/pull/1', number: 1, status: PrStatus.Open },
+      });
+
+      vi.mocked(featureRepo.list).mockResolvedValue([feature]);
+      // First poll: generic error (not rate limit)
+      vi.mocked(gitPrService.listPrStatuses)
+        .mockRejectedValueOnce(new Error('Network timeout'))
+        .mockResolvedValue([{ number: 1, state: PrStatus.Open, url: '', headRefName: '' }]);
+      vi.mocked(gitPrService.getCiStatus).mockResolvedValue({ status: 'pending' });
+
+      watcher.start();
+      await vi.advanceTimersByTimeAsync(0);
+
+      // Second poll: should NOT be skipped (no rate limit backoff)
+      await vi.advanceTimersByTimeAsync(30_000);
+
+      // listPrStatuses called on second poll (not backed off)
+      expect(gitPrService.listPrStatuses).toHaveBeenCalledTimes(2);
+
+      consoleSpy.mockRestore();
+    });
+  });
+
+  describe('exponential backoff for stable features', () => {
+    it('should poll feature every cycle when status changes', async () => {
+      const feature = createMockFeature({
+        id: 'feat-1',
+        repositoryPath: '/repo/path',
+        branch: 'feat/test',
+        pr: {
+          url: 'https://github.com/org/repo/pull/1',
+          number: 1,
+          status: PrStatus.Open,
+          ciStatus: CiStatus.Pending,
+        },
+      });
+
+      vi.mocked(featureRepo.list).mockResolvedValue([feature]);
+      vi.mocked(gitPrService.listPrStatuses).mockResolvedValue([
+        { number: 1, state: PrStatus.Open, url: '', headRefName: '' },
+      ]);
+      // CI status changes every poll
+      vi.mocked(gitPrService.getCiStatus)
+        .mockResolvedValueOnce({ status: 'success' })
+        .mockResolvedValueOnce({ status: 'failure' })
+        .mockResolvedValueOnce({ status: 'success' });
+
+      watcher.start();
+
+      // Poll 1: Pending→Success (change)
+      await vi.advanceTimersByTimeAsync(0);
+      expect(featureRepo.update).toHaveBeenCalledTimes(1);
+
+      // Poll 2: Success→Failure (change)
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(featureRepo.update).toHaveBeenCalledTimes(2);
+
+      // Poll 3: Failure→Success (change)
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(featureRepo.update).toHaveBeenCalledTimes(3);
+
+      // getCiStatus called every poll because unchangedCycles resets
+      expect(gitPrService.getCiStatus).toHaveBeenCalledTimes(3);
+    });
+
+    it('should skip polling stable feature after 3+ unchanged cycles', async () => {
+      const feature = createMockFeature({
+        id: 'feat-1',
+        repositoryPath: '/repo/path',
+        branch: 'feat/test',
+        pr: {
+          url: 'https://github.com/org/repo/pull/1',
+          number: 1,
+          status: PrStatus.Open,
+          ciStatus: CiStatus.Success,
+        },
+      });
+
+      vi.mocked(featureRepo.list).mockResolvedValue([feature]);
+      vi.mocked(gitPrService.listPrStatuses).mockResolvedValue([
+        { number: 1, state: PrStatus.Open, url: '', headRefName: '' },
+      ]);
+      // CI status stays the same
+      vi.mocked(gitPrService.getCiStatus).mockResolvedValue({ status: 'success' });
+
+      watcher.start();
+
+      // Polls 1-3: unchangedCycles 0,1,2 → always polled (poll every cycle)
+      await vi.advanceTimersByTimeAsync(0); // poll 1 (cycle 1)
+      await vi.advanceTimersByTimeAsync(30_000); // poll 2 (cycle 2)
+      await vi.advanceTimersByTimeAsync(30_000); // poll 3 (cycle 3)
+
+      expect(gitPrService.getCiStatus).toHaveBeenCalledTimes(3);
+
+      // Polls 4-5: unchangedCycles 3,4 → poll every 2nd cycle
+      // Cycle 4 is even → polled
+      await vi.advanceTimersByTimeAsync(30_000); // poll 4 (cycle 4, even → polled)
+      expect(gitPrService.getCiStatus).toHaveBeenCalledTimes(4);
+
+      // Cycle 5 is odd → skipped
+      await vi.advanceTimersByTimeAsync(30_000); // poll 5 (cycle 5, odd → skipped)
+      expect(gitPrService.getCiStatus).toHaveBeenCalledTimes(4); // still 4
+
+      // Cycle 6 is even → polled
+      await vi.advanceTimersByTimeAsync(30_000); // poll 6 (cycle 6, even → polled)
+      expect(gitPrService.getCiStatus).toHaveBeenCalledTimes(5);
+    });
+
+    it('should reset unchanged cycles when feature status changes', async () => {
+      const feature = createMockFeature({
+        id: 'feat-1',
+        repositoryPath: '/repo/path',
+        branch: 'feat/test',
+        pr: {
+          url: 'https://github.com/org/repo/pull/1',
+          number: 1,
+          status: PrStatus.Open,
+          ciStatus: CiStatus.Pending,
+        },
+      });
+
+      vi.mocked(featureRepo.list).mockResolvedValue([feature]);
+      vi.mocked(gitPrService.listPrStatuses).mockResolvedValue([
+        { number: 1, state: PrStatus.Open, url: '', headRefName: '' },
+      ]);
+
+      // First 4 polls: no change (pending → pending)
+      vi.mocked(gitPrService.getCiStatus)
+        .mockResolvedValueOnce({ status: 'pending' }) // poll 1
+        .mockResolvedValueOnce({ status: 'pending' }) // poll 2
+        .mockResolvedValueOnce({ status: 'pending' }) // poll 3
+        .mockResolvedValueOnce({ status: 'success' }) // poll 4: change!
+        .mockResolvedValue({ status: 'success' }); // subsequent: no change
+
+      watcher.start();
+
+      await vi.advanceTimersByTimeAsync(0); // poll 1
+      await vi.advanceTimersByTimeAsync(30_000); // poll 2
+      await vi.advanceTimersByTimeAsync(30_000); // poll 3
+      await vi.advanceTimersByTimeAsync(30_000); // poll 4: status changes
+
+      expect(featureRepo.update).toHaveBeenCalledTimes(1); // only the change triggered update
+
+      // After the change, unchangedCycles resets to 0
+      // So the next polls should all proceed normally
+      await vi.advanceTimersByTimeAsync(30_000); // poll 5 (uc=0, always polled)
+      await vi.advanceTimersByTimeAsync(30_000); // poll 6 (uc=1, always polled)
+      await vi.advanceTimersByTimeAsync(30_000); // poll 7 (uc=2, always polled)
+
+      // All these should have been polled (getCiStatus called)
+      expect(gitPrService.getCiStatus).toHaveBeenCalledTimes(7);
+    });
+  });
+
   describe('singleton accessors', () => {
     beforeEach(() => {
       resetPrSyncWatcher();

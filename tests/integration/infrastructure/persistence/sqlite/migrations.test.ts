@@ -672,7 +672,7 @@ describe('SQLite Migrations', () => {
     it('sets schema version to latest after migration', async () => {
       await runSQLiteMigrations(db);
       expect(getSchemaVersion(db)).toBe(LATEST_SCHEMA_VERSION);
-      expect(LATEST_SCHEMA_VERSION).toBe(32);
+      expect(LATEST_SCHEMA_VERSION).toBe(33);
     });
   });
 
@@ -781,6 +781,54 @@ describe('SQLite Migrations', () => {
       db.pragma('user_version = 23');
       await expect(runSQLiteMigrations(db)).resolves.not.toThrow();
       expect(getSchemaVersion(db)).toBe(LATEST_SCHEMA_VERSION);
+    });
+  });
+
+  describe('migration v33: pr_sync_lock table', () => {
+    beforeEach(async () => {
+      await runSQLiteMigrations(db);
+    });
+
+    it('should create pr_sync_lock table', () => {
+      expect(tableExists(db, 'pr_sync_lock')).toBe(true);
+    });
+
+    it('should have correct pr_sync_lock schema', () => {
+      const schema = getTableSchema(db, 'pr_sync_lock');
+      const columnNames = schema.map((col) => col.name);
+
+      expect(columnNames).toContain('id');
+      expect(columnNames).toContain('locked_by');
+      expect(columnNames).toContain('locked_at');
+      expect(columnNames).toContain('expires_at');
+    });
+
+    it('should enforce single-row constraint via CHECK (id = 1)', () => {
+      db.prepare(
+        'INSERT INTO pr_sync_lock (id, locked_by, locked_at, expires_at) VALUES (1, ?, ?, ?)'
+      ).run('proc-1', Date.now(), Date.now() + 60000);
+
+      // Inserting with id != 1 should fail
+      expect(() => {
+        db.prepare(
+          'INSERT INTO pr_sync_lock (id, locked_by, locked_at, expires_at) VALUES (2, ?, ?, ?)'
+        ).run('proc-2', Date.now(), Date.now() + 60000);
+      }).toThrow();
+    });
+
+    it('should allow INSERT OR REPLACE to update the single lock row', () => {
+      db.prepare(
+        'INSERT INTO pr_sync_lock (id, locked_by, locked_at, expires_at) VALUES (1, ?, ?, ?)'
+      ).run('proc-1', Date.now(), Date.now() + 60000);
+
+      db.prepare(
+        'INSERT OR REPLACE INTO pr_sync_lock (id, locked_by, locked_at, expires_at) VALUES (1, ?, ?, ?)'
+      ).run('proc-2', Date.now(), Date.now() + 60000);
+
+      const row = db.prepare('SELECT locked_by FROM pr_sync_lock WHERE id = 1').get() as {
+        locked_by: string;
+      };
+      expect(row.locked_by).toBe('proc-2');
     });
   });
 
