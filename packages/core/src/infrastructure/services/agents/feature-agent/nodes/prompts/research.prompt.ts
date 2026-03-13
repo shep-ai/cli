@@ -140,5 +140,6 @@ ${buildCommitPushBlock({
   push: state.push,
   files: [`${state.specDir}/research.yaml`],
   commitHint: 'docs(specs): research technical decisions and library choices',
+  skipVerification: true,
 })}`;
 }

@@ -310,6 +310,8 @@ export function buildCommitPushBlock(opts: {
   push: boolean;
   files: string[];
   commitHint: string;
+  /** Skip build/test/lint verification (for spec-only phases that don't modify source code) */
+  skipVerification?: boolean;
 }): string {
   const fileList = opts.files.map((f) => `\`${f}\``).join(', ');
   const lines = [
@@ -320,7 +322,7 @@ export function buildCommitPushBlock(opts: {
     `2. Commit with a conventional commit message — e.g. \`${opts.commitHint}\``,
     `   - The message should accurately describe what changed`,
   ];
-  if (opts.push) {
+  if (opts.push && !opts.skipVerification) {
     lines.push(`3. Run local verification before pushing:`);
     lines.push(`   - \`pnpm build\` — must compile without errors`);
     lines.push(`   - \`pnpm test\` — all tests must pass`);
@@ -337,6 +339,10 @@ export function buildCommitPushBlock(opts: {
     lines.push(``);
     lines.push(`4. Push to remote: \`git push -u origin HEAD\``);
     lines.push(`   - Do NOT wait for or watch CI — just push and finish`);
+  } else if (opts.push && opts.skipVerification) {
+    lines.push(`3. Push to remote: \`git push -u origin HEAD\``);
+    lines.push(`   - Do NOT wait for or watch CI — just push and finish`);
+    lines.push(`   - Do NOT run build, test, or lint — this phase only modifies spec files`);
   }
   return lines.join('\n');
 }

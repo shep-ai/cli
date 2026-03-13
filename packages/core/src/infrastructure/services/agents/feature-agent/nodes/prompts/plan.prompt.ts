@@ -213,5 +213,6 @@ ${buildCommitPushBlock({
   push: state.push,
   files: [`${state.specDir}/plan.yaml`, `${state.specDir}/tasks.yaml`],
   commitHint: 'docs(specs): create implementation plan and task breakdown',
+  skipVerification: true,
 })}`;
 }

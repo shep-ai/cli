@@ -188,5 +188,6 @@ ${buildCommitPushBlock({
   push: state.push,
   files: [`${state.specDir}/spec.yaml`],
   commitHint: 'docs(specs): define requirements and product questions',
+  skipVerification: true,
 })}`;
 }
