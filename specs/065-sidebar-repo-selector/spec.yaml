@@ -1,0 +1,120 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: sidebar-repo-selector
+number: 065
+branch: feat/065-sidebar-repo-selector
+oneLiner: re-enable sidebar new feature button with repository selector for context-free feature creation
+userQuery: >
+  Lets add back the new feature in the side bar,
+  when opening a new feature from the side bar allow selecting repository because it doesn't have repo context
+summary: >
+  Re-enable the "New feature" button in the sidebar footer (currently hidden via showNewFeature=false default)
+  and add a repository selector to the FeatureCreateDrawer so users can pick which repository a feature
+  belongs to when creating from the sidebar (which lacks the repo context that the canvas (+) button provides).
+phase: Analysis
+sizeEstimate: M
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - Next.js 15 (App Router, parallel routes, server components)
+  - React 19 (client components, hooks, context)
+  - shadcn/ui (Sidebar, Popover, Combobox patterns)
+  - Tailwind CSS
+  - TypeScript
+  - Vitest + React Testing Library
+  - Storybook
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - Should the sidebar always show the "New feature" button, or should it still be conditionally controlled?
+  - When only one repository exists, should it auto-select or still show the selector?
+  - Should the repo selector be a dropdown inside the FeatureCreateDrawer or an intermediate step before opening the drawer?
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  The sidebar "New feature" button was hidden in commit bfcc60c9 (feature 057) via a `showNewFeature`
+  prop that defaults to `false`. The `AppShell` component does not pass `showNewFeature={true}` to
+  `AppSidebar`, so the button is currently invisible.
+
+  When the button was active, clicking it navigated to `/create` without a `?repo=` query parameter.
+  This means the `CreateDrawerPage` server component receives an empty `repo` param, and the
+  `FeatureCreateDrawer` opens with `repositoryPath=""`. Since `repositoryPath` is required by the
+  `createFeature` server action (returns error if empty), the user cannot submit the form.
+
+  In contrast, when creating a feature from the canvas (+) button on a repository node, the
+  `handleAddFeatureToRepo` callback passes `?repo=<encoded-path>`, so the drawer correctly
+  receives repository context.
+
+  The fix requires two changes:
+  1. Re-enable the sidebar "New feature" button (pass `showNewFeature={true}` or always show it)
+  2. Add a repository selector to the feature create flow so users can pick a repo when one
+     isn't provided via the URL
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The web UI follows Next.js App Router conventions under `src/presentation/web/`:
+
+  - `app/(dashboard)/layout.tsx` - Dashboard layout, calls `getGraphData()` for initial data
+  - `app/(dashboard)/@drawer/create/page.tsx` - Parallel route for create drawer, reads `?repo=` param
+  - `app/actions/create-feature.ts` - Server action, validates `repositoryPath` is non-empty
+  - `components/layouts/app-shell/app-shell.tsx` - Root shell, orchestrates sidebar + content
+  - `components/layouts/app-sidebar/app-sidebar.tsx` - Sidebar with feature list + footer button
+  - `components/common/feature-create-drawer/feature-create-drawer.tsx` - Create form (client)
+  - `components/common/control-center-drawer/create-drawer-client.tsx` - Wrapper with submit logic
+
+  ### Architecture Patterns
+
+  - **Clean Architecture**: domain -> application -> infrastructure -> presentation layers
+  - **URL-driven navigation**: drawers open via `router.push('/create?repo=...')` (parallel routes)
+  - **Server components + client boundary**: `CreateDrawerPage` (server) fetches data, `CreateDrawerClient` (client) handles interaction
+  - **Custom events**: `shep:add-repository` and `shep:feature-created` for cross-component communication
+  - **Optimistic UI**: features appear on canvas immediately with 'creating' state
+  - **DI container**: use cases resolved via `resolve<T>('Token')` in server components
+
+  ### Relevant Technologies
+
+  - **shadcn/ui**: Sidebar primitives (`SidebarFooter`, `SidebarMenuButton`), Popover, Switch, Label
+  - **Next.js parallel routes**: `@drawer` slot renders drawer alongside main content
+  - **React Flow (@xyflow/react)**: Canvas with repository and feature nodes
+  - **Combobox pattern**: Already implemented in `ParentFeatureCombobox` within the create drawer
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `components/layouts/app-shell/app-shell.tsx` | Medium | Must pass `showNewFeature={true}` to `AppSidebar` and potentially pass repo context to the `/create` route |
+  | `components/layouts/app-sidebar/app-sidebar.tsx` | Low | May need to accept repositories list or selected repo for the button callback |
+  | `components/common/feature-create-drawer/feature-create-drawer.tsx` | High | Must add repository selector dropdown when `repositoryPath` is empty; needs list of repos as prop |
+  | `components/common/control-center-drawer/create-drawer-client.tsx` | Medium | Must handle selected repo state and pass to FeatureCreateDrawer |
+  | `app/(dashboard)/@drawer/create/page.tsx` | Medium | Must fetch repositories list (via `ListRepositoriesUseCase`) when no `?repo=` param provided |
+  | `app/actions/create-feature.ts` | Low | No changes needed — already validates repositoryPath |
+  | `tests/unit/presentation/web/layouts/app-sidebar.test.tsx` | Medium | Must update tests for new button visibility behavior |
+  | Storybook stories (app-sidebar, feature-create-drawer) | Medium | Must add stories showing repo selector variant |
+
+  ## Dependencies
+
+  - **ListRepositoriesUseCase** (`packages/core/src/application/use-cases/repositories/list-repositories.use-case.ts`): Already exists, returns all tracked repos
+  - **Repository domain entity** (`packages/core/src/domain/generated/output.ts`): Defines repo shape (id, name, repositoryPath, createdAt)
+  - **ParentFeatureCombobox pattern**: Existing searchable combobox in the create drawer — can be reused/adapted for repository selection
+  - **server-container resolve()**: DI resolution for server-side use case access
+  - **shadcn/ui Popover + Input components**: Already available for combobox UI
+
+  ## Size Estimate
+
+  **M** — This feature touches 5-7 files across the presentation layer. The main complexity is adding
+  a repository selector combobox to the create drawer (can follow the existing ParentFeatureCombobox
+  pattern), threading the repositories list from server to client, and re-enabling the sidebar button.
+  No domain or infrastructure changes required. Estimated 1-2 days with TDD.
+
+  ---
+
+  _Analysis complete — proceed with research_
