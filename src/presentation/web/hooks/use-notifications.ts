@@ -18,7 +18,9 @@ const SEVERITY_TO_TOAST: Record<NotificationSeverity, 'success' | 'error' | 'war
 
 function dispatchToast(event: NotificationEvent, navigate?: (path: string) => void): void {
   const method = SEVERITY_TO_TOAST[event.severity] ?? 'info';
-  const isActionable = event.eventType === NotificationEventType.WaitingApproval;
+  const isActionable =
+    event.eventType === NotificationEventType.WaitingApproval ||
+    event.eventType === NotificationEventType.MergeReviewReady;
   toast[method](event.featureName, {
     description: event.message,
     ...(isActionable &&
@@ -71,8 +73,11 @@ export function useNotifications(): void {
     processedCountRef.current = events.length;
 
     for (const event of newEvents) {
-      // Only notify for actionable events and completion celebrations
+      // Only notify for actionable events and completion celebrations.
+      // MergeReviewReady is Info severity but always shown as it requires user action.
+      const isAlwaysShown = event.eventType === NotificationEventType.MergeReviewReady;
       if (
+        !isAlwaysShown &&
         event.severity !== NotificationSeverity.Error &&
         event.severity !== NotificationSeverity.Warning &&
         event.severity !== NotificationSeverity.Success

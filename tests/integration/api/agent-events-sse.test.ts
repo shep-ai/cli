@@ -10,7 +10,7 @@
 
 import 'reflect-metadata';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { AgentRunStatus, NotificationEventType } from '@/domain/generated/output.js';
+import { AgentRunStatus, NotificationEventType, PrStatus } from '@/domain/generated/output.js';
 import type { Feature, AgentRun, PhaseTiming } from '@/domain/generated/output.js';
 
 // --- Mock DI container via server-container ---
@@ -396,6 +396,141 @@ describe('SSE API Route: GET /api/agent-events (DB polling)', () => {
     // Both clients should receive the status change event
     expect(data1).toContain(NotificationEventType.AgentCompleted);
     expect(data2).toContain(NotificationEventType.AgentCompleted);
+  });
+
+  it('should emit MergeReviewReady when feature lifecycle transitions to Review', async () => {
+    const feature = makeFeature({
+      agentRunId: 'run-1',
+      lifecycle: 'Implementation' as Feature['lifecycle'],
+      pr: {
+        url: 'https://github.com/org/repo/pull/42',
+        number: 42,
+        status: PrStatus.Open,
+      } as Feature['pr'],
+    });
+    const run = makeRun({ status: AgentRunStatus.running });
+
+    mockFeatures.push(feature);
+    mockRuns.set('run-1', run);
+
+    const controller = new AbortController();
+    const request = new Request('http://localhost:3000/api/agent-events', {
+      signal: controller.signal,
+    });
+
+    const response = routeModule.GET(request);
+    const body = response.body!;
+    const chunksPromise = readSSEChunks(body, controller.signal, 5);
+
+    // Seed poll
+    await advancePollCycles(1);
+
+    // Transition feature lifecycle to Review
+    const updatedFeature = makeFeature({
+      agentRunId: 'run-1',
+      lifecycle: 'Review' as Feature['lifecycle'],
+      pr: {
+        url: 'https://github.com/org/repo/pull/42',
+        number: 42,
+        status: PrStatus.Open,
+      } as Feature['pr'],
+    });
+    mockFeatures[0] = updatedFeature;
+
+    // Delta poll — should detect lifecycle transition and emit MergeReviewReady
+    await advancePollCycles(1);
+
+    controller.abort();
+    const chunks = await chunksPromise;
+    const allData = chunks.join('');
+
+    expect(allData).toContain('event: notification');
+    expect(allData).toContain(NotificationEventType.MergeReviewReady);
+    expect(allData).toContain('Ready for merge review');
+    expect(allData).toContain('https://github.com/org/repo/pull/42');
+  });
+
+  it('should emit MergeReviewReady without PR URL when PR is not available', async () => {
+    const feature = makeFeature({
+      agentRunId: 'run-1',
+      lifecycle: 'Implementation' as Feature['lifecycle'],
+    });
+    const run = makeRun({ status: AgentRunStatus.running });
+
+    mockFeatures.push(feature);
+    mockRuns.set('run-1', run);
+
+    const controller = new AbortController();
+    const request = new Request('http://localhost:3000/api/agent-events', {
+      signal: controller.signal,
+    });
+
+    const response = routeModule.GET(request);
+    const body = response.body!;
+    const chunksPromise = readSSEChunks(body, controller.signal, 5);
+
+    // Seed poll
+    await advancePollCycles(1);
+
+    // Transition feature lifecycle to Review without PR data
+    const updatedFeature = makeFeature({
+      agentRunId: 'run-1',
+      lifecycle: 'Review' as Feature['lifecycle'],
+    });
+    mockFeatures[0] = updatedFeature;
+
+    // Delta poll
+    await advancePollCycles(1);
+
+    controller.abort();
+    const chunks = await chunksPromise;
+    const allData = chunks.join('');
+
+    expect(allData).toContain(NotificationEventType.MergeReviewReady);
+    expect(allData).toContain('Ready for merge review');
+    // Should NOT contain a PR URL
+    expect(allData).not.toContain('PR:');
+  });
+
+  it('should not emit MergeReviewReady for non-Review lifecycle transitions', async () => {
+    const feature = makeFeature({
+      agentRunId: 'run-1',
+      lifecycle: 'Implementation' as Feature['lifecycle'],
+    });
+    const run = makeRun({ status: AgentRunStatus.running });
+
+    mockFeatures.push(feature);
+    mockRuns.set('run-1', run);
+
+    const controller = new AbortController();
+    const request = new Request('http://localhost:3000/api/agent-events', {
+      signal: controller.signal,
+    });
+
+    const response = routeModule.GET(request);
+    const body = response.body!;
+    const chunksPromise = readSSEChunks(body, controller.signal, 5);
+
+    // Seed poll
+    await advancePollCycles(1);
+
+    // Transition lifecycle to Planning (not Review)
+    const updatedFeature = makeFeature({
+      agentRunId: 'run-1',
+      lifecycle: 'Planning' as Feature['lifecycle'],
+    });
+    mockFeatures[0] = updatedFeature;
+
+    // Delta poll
+    await advancePollCycles(1);
+
+    controller.abort();
+    const chunks = await chunksPromise;
+    const allData = chunks.join('');
+
+    // Should emit PhaseCompleted, NOT MergeReviewReady
+    expect(allData).not.toContain(NotificationEventType.MergeReviewReady);
+    expect(allData).toContain(NotificationEventType.PhaseCompleted);
   });
 
   it('should gracefully handle DI container errors during poll', async () => {
