@@ -1,31 +1,36 @@
- ✓  web  tests/unit/presentation/web/hooks/use-graph-state.test.tsx > useGraphState > initialization > initializes with features/repos and returns correct nodes/edges 15ms
- ✓  web  tests/unit/presentation/web/hooks/use-graph-state.test.tsx > useGraphState > initialization > derives edges from repositoryPath matching (repo→feature) 2ms
- ✓  web  tests/unit/presentation/web/hooks/use-graph-state.test.tsx > useGraphState > initialization > derives dependency edge from dep- prefixed initialEdge 3ms
- ✓  web  tests/unit/presentation/web/hooks/use-graph-state.test.tsx > useGraphState > reconcile > adds new server feature → new node appears 4ms
- ✓  web  tests/unit/presentation/web/hooks/use-graph-state.test.tsx > useGraphState > reconcile > removes server feature → node disappears 2ms
- ✓  web  tests/unit/presentation/web/hooks/use-graph-state.test.tsx > useGraphState > reconcile > replaces pending feature with real feature when reconcile arrives 3ms
- ✓  web  tests/unit/presentation/web/hooks/use-graph-state.test.tsx > useGraphState > reconcile > edges are correct after pending→real replacement 1ms
- ✓  web  tests/unit/presentation/web/hooks/use-graph-state.test.tsx > useGraphState > reconcile > preserves optimistic temp repo when server data does not include it yet 1ms
- ✓  web  tests/unit/presentation/web/hooks/use-graph-state.test.tsx > useGraphState > reconcile > drops temp repo once server data includes the same repositoryPath 1ms
- ✓  web  tests/unit/presentation/web/hooks/use-graph-state.test.tsx > useGraphState > reconcile > does not preserve non-temp repos that the server no longer returns 1ms
- ✓  web  tests/unit/presentation/web/hooks/use-graph-state.test.tsx > useGraphState > updateFeature > changes state → derived node state changes 1ms
- ✓  web  tests/unit/presentation/web/hooks/use-graph-state.test.tsx > useGraphState > updateFeature > changes lifecycle → derived node lifecycle changes 1ms
- ✓  web  tests/unit/presentation/web/hooks/use-graph-state.test.tsx > useGraphState > updateFeature > unknown featureId is silently ignored (no crash) 1ms
- ✓  web  tests/unit/presentation/web/hooks/use-graph-state.test.tsx > useGraphState > addPendingFeature / removePendingFeature > adds pending feature → creating node with edge to repo appears 1ms
- ✓  web  tests/unit/presentation/web/hooks/use-graph-state.test.tsx > useGraphState > addPendingFeature / removePendingFeature > removePendingFeature → creating node disappears 1ms
- ✓  web  tests/unit/presentation/web/hooks/use-graph-state.test.tsx > useGraphState > full lifecycle: addPending → SSE → reconcile with AI rename > BUG REPRO: SSE updates + reconcile with AI-changed name → exactly ONE node with correct state 1ms
- ✓  web  tests/unit/presentation/web/hooks/use-graph-state.test.tsx > useGraphState > full lifecycle: addPending → SSE → reconcile with AI rename > BUG REPRO: SSE arrives BEFORE reconcile for unknown feature → buffered updates applied on reconcile 1ms
- ✓  web  tests/unit/presentation/web/hooks/use-graph-state.test.tsx > useGraphState > full lifecycle: addPending → SSE → reconcile with AI rename > BUG REPRO: reconcile with name change does NOT leave stale pendingMap ghost node 2ms
- ✓  web  tests/unit/presentation/web/hooks/use-graph-state.test.tsx > useGraphState > mutation guard > reconcile is a no-op while a mutation is in-flight 2ms
- ✓  web  tests/unit/presentation/web/hooks/use-graph-state.test.tsx > useGraphState > mutation guard > reconcile works again after endMutation cooldown expires 2ms
- ✓  web  tests/unit/presentation/web/hooks/use-graph-state.test.tsx > useGraphState > mutation guard > isMutating returns correct state 1ms
- ✓  web  tests/unit/presentation/web/hooks/use-graph-state.test.tsx > useGraphState > mutation guard > supports nested mutations (ref-counted) 3ms
- ✓  web  tests/unit/presentation/web/hooks/use-graph-state.test.tsx > useGraphState > mutation guard > updateFeature still works during mutation guard 1ms
- ✓  web  tests/unit/presentation/web/hooks/use-graph-state.test.tsx > useGraphState > relocateChildren > reparents direct children to a new parent 2ms
- ✓  web  tests/unit/presentation/web/hooks/use-graph-state.test.tsx > useGraphState > relocateChildren > makes children root-level when new parent is undefined 1ms
- ✓  web  tests/unit/presentation/web/hooks/use-graph-state.test.tsx > useGraphState > relocateChildren > does not affect grandchildren (only direct children) 2ms
- ✓  web  tests/unit/presentation/web/hooks/use-graph-state.test.tsx > useGraphState > relocateChildren > no-ops when parent has no children 1ms
- ✓  web  tests/unit/presentation/web/hooks/use-graph-state.test.tsx > useGraphState > stable references > nodes/edges have stable references when Maps do not change 0ms
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
  ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > initializes with provided nodes and edges 18ms
  ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > createFeatureNode state override and return value > returns the generated node ID via createFeatureNode 7ms
  ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > createFeatureNode state override and return value > creates a node with state "creating" when dataOverride has state creating 3ms
@@ -44,13 +49,14 @@
  ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > fast-mode feature handling > creates optimistic feature node with real featureId when provided 1ms
  ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > fast-mode feature handling > feature starting at Implementation lifecycle renders correctly after reconcile 1ms
  ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > initialNodes/initialEdges prop sync > syncs local state when initialNodes prop changes (different node IDs) 2ms
- ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > initialNodes/initialEdges prop sync > syncs local edges when initialNodes add a feature with matching repositoryPath 2ms
+ ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > initialNodes/initialEdges prop sync > syncs local edges when initialNodes add a feature with matching repositoryPath 1ms
  ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > initialNodes/initialEdges prop sync > replaces optimistic node when initialNodes changes to include real feature 2ms
  ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > initialNodes/initialEdges prop sync > does not update when initialNodes have the same IDs (stable comparison) 1ms
  ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > handleDeleteFeature > calls deleteFeature server action with correct featureId 3ms
  ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > handleDeleteFeature > removes deleted node from canvas after successful delete 2ms
  ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > handleDeleteFeature > removes edges for deleted feature 2ms
- ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > handleDeleteFeature > navigates to root on successful deletion 2ms
+ ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > handleDeleteFeature > navigates to root on successful deletion when on a feature page 2ms
+ ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > handleDeleteFeature > skips navigation when already on root 1ms
  ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > handleDeleteFeature > shows error toast with server action error message 1ms
  ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > handleDeleteFeature > preserves nodes and edges on server action error 1ms
  ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > handleDeleteFeature > shows generic error toast on network failure 1ms
@@ -59,20 +65,20 @@
  ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > handleDeleteFeature > post-deletion relayout > removes deleted feature from canvas after successful delete 1ms
  ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > handleDeleteFeature > post-deletion relayout > restores all nodes and edges on server action error 1ms
  ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > handleDeleteFeature > post-deletion relayout > remaining nodes have valid positions after deletion 1ms
- ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > handleDeleteFeature > post-deletion relayout > removes deleted feature and its edges after successful delete 2ms
+ ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > handleDeleteFeature > post-deletion relayout > removes deleted feature and its edges after successful delete 1ms
  ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > handleDeleteFeature > cascade delete > removes all descendants when cascadeDelete=true 1ms
  ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > handleDeleteFeature > cascade delete > passes cascadeDelete=true to server action 1ms
  ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > handleDeleteFeature > cascade delete > rolls back all descendants on server action error 1ms
  ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > handleDeleteFeature > non-cascade delete (reparent children) > preserves children and reparents them when cascadeDelete=false 1ms
  ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > handleDeleteFeature > non-cascade delete (reparent children) > passes cascadeDelete=false to server action 2ms
  ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > handleDeleteFeature > non-cascade delete (reparent children) > reparents child to grandparent when deleting middle node 2ms
- ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > visibility > renders dialog content when open is true 82ms
+ ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > visibility > renders dialog content when open is true 83ms
  ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > visibility > does not render dialog content when open is false 1ms
  ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > content > renders feature name in description 14ms
  ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > content > renders feature id in description 12ms
  ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > content > renders cleanup checkbox checked by default 12ms
- ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > confirm action > calls onConfirm with cleanup=true and cascadeDelete=false by default 23ms
- ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > confirm action > calls onConfirm with cleanup=false when cleanup checkbox is unchecked 28ms
+ ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > confirm action > calls onConfirm with cleanup=true and cascadeDelete=false by default 24ms
+ ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > confirm action > calls onConfirm with cleanup=false when cleanup checkbox is unchecked 29ms
  ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > deleting state > disables delete button when isDeleting is true 10ms
  ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > deleting state > shows spinner when isDeleting is true 11ms
  ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > deleting state > disables cancel button when isDeleting is true 12ms
@@ -80,12 +86,15 @@
  ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > cascade delete checkbox > does not show cascade checkbox when hasChildren is false 10ms
  ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > cascade delete checkbox > does not show cascade checkbox when hasChildren is undefined 8ms
  ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > cascade delete checkbox > shows cascade checkbox when hasChildren is true 10ms
- ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > cascade delete checkbox > calls onConfirm with cascadeDelete=true when cascade checkbox is checked 27ms
- ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > cascade delete checkbox > calls onConfirm with cascadeDelete=false when cascade checkbox stays unchecked 16ms
+ ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > cascade delete checkbox > calls onConfirm with cascadeDelete=true when cascade checkbox is checked 26ms
+ ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > cascade delete checkbox > calls onConfirm with cascadeDelete=false when cascade checkbox stays unchecked 15ms
  ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > cascade delete checkbox > resets cascade checkbox to unchecked when dialog reopens 32ms
  ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > cascade delete checkbox > disables cascade checkbox when isDeleting is true 10ms
- ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > cancel action > calls onOpenChange(false) when cancel is clicked 15ms
+ ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > cancel action > calls onOpenChange(false) when cancel is clicked 14ms
  ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > cleanup reset > resets cleanup checkbox to checked when dialog reopens 28ms
+
  Test Files  3 passed (3)
-      Tests  88 passed (88)
-   Duration  1.18s (transform 334ms, setup 357ms, import 500ms, tests 518ms, environment 1.12s)
+      Tests  91 passed (91)
+   Start at  00:37:46
+   Duration  975ms (transform 269ms, setup 301ms, import 436ms, tests 516ms, environment 758ms)
+
