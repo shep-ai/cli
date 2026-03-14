@@ -24,8 +24,21 @@ type Story = StoryObj<typeof DeleteFeatureDialog>;
 
 export const Default: Story = {};
 
+export const WithChildren: Story = {
+  args: {
+    hasChildren: true,
+  },
+};
+
 export const Deleting: Story = {
   args: {
     isDeleting: true,
+  },
+};
+
+export const DeletingWithChildren: Story = {
+  args: {
+    isDeleting: true,
+    hasChildren: true,
   },
 };

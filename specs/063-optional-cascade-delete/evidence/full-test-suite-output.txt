@@ -1,0 +1,30 @@
+ ✓  web  tests/unit/presentation/web/actions/get-feature-drawer-data.test.ts (7 tests) 13ms
+ ✓  web  tests/unit/presentation/web/actions/update-settings.test.ts (6 tests) 7ms
+ ✓  web  tests/unit/presentation/web/actions/merge-review/get-merge-review-data.test.ts (15 tests) 19ms
+ ✓  web  tests/unit/presentation/web/actions/get-supported-models.test.ts (6 tests) 6ms
+ ✓  web  tests/unit/presentation/web/actions/load-settings.test.ts (3 tests) 4ms
+ ✓  web  tests/unit/presentation/web/actions/open-folder.test.ts (12 tests) 5ms
+ ✓  web  tests/unit/presentation/web/lib/derive-graph.test.ts (15 tests) 12ms
+ ✓  web  tests/unit/presentation/web/lib/feature-flags.test.ts (9 tests) 6ms
+ ✓  web  tests/unit/presentation/web/app/actions/get-feature-phase-timings.test.ts (8 tests) 7ms
+ ✓  web  tests/unit/presentation/web/actions/pick-files.test.ts (4 tests) 5ms
+ ✓  web  tests/unit/presentation/web/actions/get-deployment-status.test.ts (5 tests) 6ms
+ ✓  web  tests/unit/presentation/web/app/actions/get-feature-plan.test.ts (8 tests) 8ms
+ ✓  web  tests/unit/presentation/web/lib/format-duration.test.ts (9 tests) 5ms
+ ✓  web  tests/unit/presentation/web/actions/get-deployment-logs.test.ts (5 tests) 3ms
+ ✓  web  tests/unit/presentation/web/actions/approve-feature.test.ts (7 tests) 9ms
+ ✓  web  tests/unit/presentation/web/components/common/control-center-drawer/drawer-view.test.ts (10 tests) 5ms
+ ✓  web  tests/unit/presentation/web/components/common/merge-review/merge-review-config.test.ts (9 tests) 2ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts (38 tests) 9ms
+ ✓  web  tests/unit/presentation/web/actions/reject-feature.test.ts (11 tests) 8ms
+ ✓  web  tests/unit/presentation/web/actions/features/delete-feature.test.ts (8 tests) 9ms
+ ✓  web  tests/unit/presentation/web/features/control-center/derive-state.test.ts (6 tests) 2ms
+ ✓  web  tests/unit/presentation/web/actions/pick-folder.test.ts (4 tests) 3ms
+ ✓  web  tests/unit/presentation/web/lib/compare-versions.test.ts (7 tests) 2ms
+ ✓  web  tests/unit/presentation/web/actions/compose-user-input.test.ts (4 tests) 2ms
+
+ Test Files  306 passed (306)
+      Tests  3855 passed (3855)
+   Start at  20:23:41
+   Duration  25.34s (transform 9.03s, setup 25.44s, import 38.94s, tests 58.41s, environment 66.08s)
+

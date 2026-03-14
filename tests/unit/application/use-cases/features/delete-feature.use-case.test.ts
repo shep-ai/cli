@@ -254,7 +254,7 @@ describe('DeleteFeatureUseCase', () => {
   // Cascade delete — sub-features
   // -------------------------------------------------------------------------
 
-  it('should cascade delete blocked children instead of throwing', async () => {
+  it('should cascade delete blocked children when cascadeDelete=true', async () => {
     const feature = createMockFeature();
     const blockedChild1 = createMockFeature({
       id: 'child-001',
@@ -277,7 +277,7 @@ describe('DeleteFeatureUseCase', () => {
       return [];
     });
 
-    const result = await useCase.execute('feat-123-full-uuid');
+    const result = await useCase.execute('feat-123-full-uuid', { cascadeDelete: true });
 
     expect(result.id).toBe('feat-123-full-uuid');
     expect(mockFeatureRepo.softDelete).toHaveBeenCalledWith('child-001');
@@ -285,7 +285,7 @@ describe('DeleteFeatureUseCase', () => {
     expect(mockFeatureRepo.softDelete).toHaveBeenCalledWith('feat-123-full-uuid');
   });
 
-  it('should cascade delete children in any lifecycle state', async () => {
+  it('should cascade delete children in any lifecycle state when cascadeDelete=true', async () => {
     const feature = createMockFeature();
     const startedChild = createMockFeature({
       id: 'child-001',
@@ -299,14 +299,14 @@ describe('DeleteFeatureUseCase', () => {
       return [];
     });
 
-    const result = await useCase.execute('feat-123-full-uuid');
+    const result = await useCase.execute('feat-123-full-uuid', { cascadeDelete: true });
 
     expect(result.id).toBe('feat-123-full-uuid');
     expect(mockFeatureRepo.softDelete).toHaveBeenCalledWith('child-001');
     expect(mockFeatureRepo.softDelete).toHaveBeenCalledWith('feat-123-full-uuid');
   });
 
-  it('should recursively delete grandchildren', async () => {
+  it('should recursively delete grandchildren when cascadeDelete=true', async () => {
     const feature = createMockFeature();
     const child = createMockFeature({
       id: 'child-001',
@@ -329,7 +329,7 @@ describe('DeleteFeatureUseCase', () => {
       return [];
     });
 
-    const result = await useCase.execute('feat-123-full-uuid');
+    const result = await useCase.execute('feat-123-full-uuid', { cascadeDelete: true });
 
     expect(result.id).toBe('feat-123-full-uuid');
     expect(mockFeatureRepo.softDelete).toHaveBeenCalledWith('grandchild-001');
@@ -354,10 +354,133 @@ describe('DeleteFeatureUseCase', () => {
     });
     mockRunRepo.findById = vi.fn().mockResolvedValue(childRun);
 
-    await useCase.execute('feat-123-full-uuid');
+    await useCase.execute('feat-123-full-uuid', { cascadeDelete: true });
 
     expect(mockRunRepo.updateStatus).toHaveBeenCalledWith('child-run-1', AgentRunStatus.cancelled);
     expect(mockFeatureRepo.softDelete).toHaveBeenCalledWith('child-001');
+  });
+
+  it('should relocate children one level up when cascadeDelete=false', async () => {
+    const feature = createMockFeature({ parentId: 'repo-parent-id' });
+    const child = createMockFeature({
+      id: 'child-001',
+      name: 'Child One',
+      lifecycle: SdlcLifecycle.Blocked,
+      repositoryPath: '/repo',
+      branch: 'feat/child-one',
+      parentId: 'feat-123-full-uuid',
+    });
+    mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
+    mockFeatureRepo.findByParentId = vi.fn().mockImplementation(async (parentId: string) => {
+      if (parentId === 'feat-123-full-uuid') return [child];
+      return [];
+    });
+
+    const result = await useCase.execute('feat-123-full-uuid', { cascadeDelete: false });
+
+    expect(result.id).toBe('feat-123-full-uuid');
+    // Parent should be soft-deleted
+    expect(mockFeatureRepo.softDelete).toHaveBeenCalledWith('feat-123-full-uuid');
+    // Child should NOT be soft-deleted
+    expect(mockFeatureRepo.softDelete).not.toHaveBeenCalledWith('child-001');
+    // Child should be relocated to parent's parent
+    expect(mockFeatureRepo.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'child-001',
+        parentId: 'repo-parent-id',
+      })
+    );
+  });
+
+  it('should cascade delete children when cascadeDelete=true', async () => {
+    const feature = createMockFeature();
+    const child = createMockFeature({
+      id: 'child-001',
+      name: 'Child One',
+      lifecycle: SdlcLifecycle.Blocked,
+      repositoryPath: '/repo',
+      branch: 'feat/child-one',
+    });
+    mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
+    mockFeatureRepo.findByParentId = vi.fn().mockImplementation(async (parentId: string) => {
+      if (parentId === 'feat-123-full-uuid') return [child];
+      return [];
+    });
+
+    const result = await useCase.execute('feat-123-full-uuid', { cascadeDelete: true });
+
+    expect(result.id).toBe('feat-123-full-uuid');
+    expect(mockFeatureRepo.softDelete).toHaveBeenCalledWith('child-001');
+    expect(mockFeatureRepo.softDelete).toHaveBeenCalledWith('feat-123-full-uuid');
+  });
+
+  it('should default to cascadeDelete=false and relocate children when no options provided', async () => {
+    const feature = createMockFeature();
+    const child = createMockFeature({
+      id: 'child-001',
+      name: 'Child One',
+      lifecycle: SdlcLifecycle.Blocked,
+      repositoryPath: '/repo',
+      branch: 'feat/child-one',
+      parentId: 'feat-123-full-uuid',
+    });
+    mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
+    mockFeatureRepo.findByParentId = vi.fn().mockImplementation(async (parentId: string) => {
+      if (parentId === 'feat-123-full-uuid') return [child];
+      return [];
+    });
+
+    const result = await useCase.execute('feat-123-full-uuid');
+
+    expect(result.id).toBe('feat-123-full-uuid');
+    // Parent should be soft-deleted
+    expect(mockFeatureRepo.softDelete).toHaveBeenCalledWith('feat-123-full-uuid');
+    // Child should NOT be soft-deleted — it's relocated instead
+    expect(mockFeatureRepo.softDelete).not.toHaveBeenCalledWith('child-001');
+    // Child should be relocated (parentId set to parent's parentId, which is undefined)
+    expect(mockFeatureRepo.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'child-001',
+        parentId: undefined,
+      })
+    );
+  });
+
+  it('should relocate children and NOT cleanup them when cascadeDelete=false', async () => {
+    const feature = createMockFeature();
+    const child = createMockFeature({
+      id: 'child-001',
+      name: 'Child One',
+      agentRunId: 'child-run-1',
+      lifecycle: SdlcLifecycle.Started,
+      repositoryPath: '/repo',
+      branch: 'feat/child-one',
+      parentId: 'feat-123-full-uuid',
+    });
+    const childRun = createMockAgentRun({ id: 'child-run-1', status: AgentRunStatus.running });
+    mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
+    mockFeatureRepo.findByParentId = vi.fn().mockImplementation(async (parentId: string) => {
+      if (parentId === 'feat-123-full-uuid') return [child];
+      return [];
+    });
+    mockRunRepo.findById = vi.fn().mockResolvedValue(childRun);
+
+    await useCase.execute('feat-123-full-uuid', { cascadeDelete: false });
+
+    // Should NOT cancel child agent runs when not cascading
+    expect(mockRunRepo.updateStatus).not.toHaveBeenCalledWith(
+      'child-run-1',
+      AgentRunStatus.cancelled
+    );
+    // Parent should still be cleaned up
+    expect(mockWorktreeService.remove).toHaveBeenCalledTimes(1);
+    // Child should be relocated to parent's parent (undefined)
+    expect(mockFeatureRepo.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'child-001',
+        parentId: undefined,
+      })
+    );
   });
 
   it('should succeed when there are no children at all', async () => {

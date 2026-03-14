@@ -24,6 +24,7 @@ import type { IGitPrService } from '../../ports/output/services/git-pr-service.i
 
 export interface DeleteFeatureOptions {
   cleanup?: boolean;
+  cascadeDelete?: boolean;
 }
 
 @injectable()
@@ -46,16 +47,37 @@ export class DeleteFeatureUseCase {
       throw new Error(`Feature not found: "${featureId}"`);
     }
 
-    // 2. Immediately soft-delete the feature and all children
+    const cascadeDelete = options?.cascadeDelete === true;
+
+    // 2. Immediately soft-delete the feature (and children if cascading)
     //    This makes them vanish from all queries right away (no reappear bug)
-    await this.cascadeSoftDelete(feature.id);
+    if (cascadeDelete) {
+      await this.cascadeSoftDelete(feature.id);
+    } else {
+      // Relocate direct children one level up in the hierarchy
+      await this.relocateChildren(feature.id, feature.parentId);
+    }
     await this.markDeletingAndSoftDelete(feature);
 
     // 3. Then perform cleanup (best-effort, feature is already hidden)
-    await this.cascadeCleanupChildren(feature.id, options);
+    if (cascadeDelete) {
+      await this.cascadeCleanupChildren(feature.id, options);
+    }
     await this.cleanupSingleFeature(feature, options);
 
     return feature;
+  }
+
+  /** Relocate direct children one level up (set their parentId to the deleted feature's parentId). */
+  private async relocateChildren(parentId: string, newParentId?: string): Promise<void> {
+    const children = await this.featureRepo.findByParentId(parentId);
+    for (const child of children) {
+      await this.featureRepo.update({
+        ...child,
+        parentId: newParentId,
+        updatedAt: new Date(),
+      });
+    }
   }
 
   /** Recursively soft-delete all children (depth-first). */
