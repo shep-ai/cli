@@ -1,0 +1,50 @@
+stdout | tests/integration/api/agent-events-sse.test.ts > SSE API Route: GET /api/agent-events (DB polling) > should not emit MergeReviewReady for non-Review lifecycle transitions
+[SSE] emit: phase_completed for "Test Feature" (plan)
+
+stderr | tests/integration/api/agent-events-sse.test.ts > SSE API Route: GET /api/agent-events (DB polling) > should gracefully handle DI container errors during poll
+[SSE /api/agent-events] poll error #1: DI not ready
+
+stderr | tests/integration/api/agent-events-sse.test.ts > SSE API Route: GET /api/agent-events (DB polling) > should gracefully handle DI container errors during poll
+[SSE /api/agent-events] poll error #2: DI not ready
+
+stdout | tests/integration/api/agent-events-sse.test.ts > SSE API Route: GET /api/agent-events (DB polling) > should gracefully handle DI container errors during poll
+[SSE] emit: agent_completed for "Test Feature"
+
+ ✓  node  tests/integration/api/agent-events-sse.test.ts (12 tests) 89ms
+ ✓  node  tests/integration/application/use-cases/settings/workflow-command-flow.test.ts (11 tests) 138ms
+ ✓  node  tests/integration/application/use-cases/settings/onboarding-to-feature-flow.test.ts (12 tests) 148ms
+ ✓  node  tests/integration/infrastructure/services/agents/graph-state-transitions/approve-flow.test.ts (3 tests) 136ms
+ ✓  node  tests/integration/infrastructure/services/git/merge-step-real-git/smoke.test.ts (7 tests) 5608ms
+       ✓ should create a bare repo and clone with main + feature branch  2726ms
+       ✓ createLocalOnlyHarness: should create a local repo with no remote  2782ms
+ ✓  node  tests/integration/infrastructure/services/agents/sessions/claude-code-session.repository.test.ts (19 tests) 44ms
+ ✓  node  tests/integration/application/use-cases/agents/configure-agent-dev.test.ts (5 tests) 71ms
+ ✓  node  tests/integration/application/use-cases/settings/onboarding-flow.test.ts (4 tests) 55ms
+ ✓  node  tests/integration/infrastructure/services/agents/graph-state-transitions/feedback-and-timing.test.ts (2 tests) 126ms
+ ✓  node  tests/integration/infrastructure/persistence/sqlite/legacy-migrations.test.ts (17 tests) 133ms
+ ✓  node  tests/integration/infrastructure/persistence/sqlite/sqlite-migration-storage.test.ts (17 tests) 25ms
+ ✓  node  tests/integration/infrastructure/persistence/sqlite/migration-015.test.ts (4 tests) 75ms
+ ✓  node  tests/integration/application/use-cases/features/list-features.use-case.test.ts (2 tests) 15ms
+ ✓  node  tests/integration/services/git/git-pr.service.getFailureLogs.test.ts (11 tests) 11ms
+ ✓  node  tests/integration/infrastructure/services/git/git-pr-ci-watch.test.ts (5 tests) 5ms
+ ✓  node  tests/integration/prd-approval-iterations.test.ts (7 tests) 30ms
+ ✓  node  tests/integration/infrastructure/services/git/merge-step-real-git/gate-tests.test.ts (2 tests) 6377ms
+     ✓ commit-only-with-gate: should interrupt at merge gate when allowMerge=false  4320ms
+     ✓ push-pr-with-gate: should interrupt at merge gate when allowMerge=false (PR path)  2054ms
+ ✓  node  tests/integration/infrastructure/services/git/merge-step-real-git/local-merge.test.ts (3 tests) 8725ms
+     ✓ local-merge-no-push: feature branch should be merged into main after node completes  5809ms
+     ✓ no-remote-override-merge: should merge locally when remote unavailable (push+openPr overridden)  1821ms
+     ✓ no-remote-local-merge: should merge locally without any remote  1092ms
+ ✓  node  tests/integration/infrastructure/services/git/merge-step-real-git/verify-merge.test.ts (6 tests) 10476ms
+     ✓ should return true after a true merge (git merge)  2670ms
+     ✓ should return true after a squash merge (git merge --squash)  3720ms
+     ✓ should return false when branch has not been merged  1134ms
+     ✓ should return false when main has extra commits after squash but feature has diverged  1019ms
+     ✓ should return true after squash merge with modified tree when premergeBaseSha provided  1052ms
+     ✓ should return true after squash merge even when local branch is deleted (remote fallback)  880ms
+
+ Test Files  40 passed (40)
+      Tests  462 passed (462)
+   Start at  11:47:46
+   Duration  10.81s (transform 1.64s, setup 0ms, import 11.41s, tests 49.63s, environment 5ms)
+

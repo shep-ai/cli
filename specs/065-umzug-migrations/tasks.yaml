@@ -1,0 +1,345 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: umzug-migrations
+summary: >
+  11 tasks across 4 phases. Phase 1 builds the custom storage adapter and manages
+  dependencies. Phase 2 extracts legacy migrations into an umzug-compatible module.
+  Phase 3 wires the umzug runner into migrations.ts preserving exports. Phase 4
+  updates all tests and validates zero regressions.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - umzug v3.8.2
+  - better-sqlite3 v12.6.2
+  - vitest v4.0
+  - TypeScript 5.3
+relatedLinks: []
+
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Install umzug and remove unused dependency'
+    description: >
+      Add umzug v3.8.2 as a dependency and remove @blackglory/better-sqlite3-migrations
+      which has zero imports in the codebase. Verify the project builds after dependency changes.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'umzug is listed in package.json dependencies'
+      - '@blackglory/better-sqlite3-migrations is removed from package.json'
+      - 'pnpm install succeeds without errors'
+      - 'pnpm build succeeds without errors'
+    tdd: null
+    estimatedEffort: '15min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Implement SQLiteMigrationStorage adapter'
+    description: >
+      Create a custom umzug storage adapter at sqlite-migration-storage.ts that wraps
+      better-sqlite3's sync API. The adapter manages the umzug_migrations table with
+      columns (name TEXT PK, created_at TEXT NOT NULL) and implements executed(),
+      logMigration(), and unlogMigration() methods.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'SQLiteMigrationStorage class is exported from sqlite-migration-storage.ts'
+      - 'Constructor creates umzug_migrations table if not exists'
+      - 'executed() returns array of applied migration names from the table'
+      - 'logMigration() inserts a row with name and created_at timestamp'
+      - 'unlogMigration() deletes the row matching the migration name'
+      - 'All methods are async (wrapping sync better-sqlite3 calls)'
+    tdd:
+      red:
+        - 'Write test: executed() returns empty array on fresh database'
+        - 'Write test: logMigration() records a migration name and created_at'
+        - 'Write test: executed() returns logged migration names in order'
+        - 'Write test: unlogMigration() removes the specified migration record'
+        - 'Write test: constructor creates umzug_migrations table if not exists'
+        - 'Write test: constructor is idempotent (calling twice does not error)'
+      green:
+        - 'Implement SQLiteMigrationStorage class with CREATE TABLE IF NOT EXISTS in constructor'
+        - 'Implement executed() with SELECT name FROM umzug_migrations ORDER BY name'
+        - 'Implement logMigration() with INSERT INTO umzug_migrations'
+        - 'Implement unlogMigration() with DELETE FROM umzug_migrations WHERE name = ?'
+      refactor:
+        - 'Extract prepared statements to class properties for reuse'
+        - 'Add JSDoc comments to public methods'
+    estimatedEffort: '1h'
+
+  - id: task-3
+    phaseId: phase-1
+    title: 'Implement bootstrap seeder in storage adapter'
+    description: >
+      Add bootstrap logic to SQLiteMigrationStorage that detects existing databases
+      (PRAGMA user_version > 0 with empty umzug_migrations table) and seeds migration
+      records for versions 1 through user_version. This ensures existing databases
+      transition seamlessly to umzug tracking.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'Bootstrap runs during storage adapter initialization (ensureTable or constructor)'
+      - 'Detects condition: user_version > 0 AND umzug_migrations table is empty'
+      - 'Seeds records for migrations 001 through {user_version} with current timestamp'
+      - 'Does not run if umzug_migrations already has records'
+      - 'Does not run on fresh databases (user_version = 0)'
+      - 'Bootstrap is idempotent (safe to call multiple times)'
+    tdd:
+      red:
+        - 'Write test: bootstrap seeds records when user_version = 34 and table is empty'
+        - 'Write test: bootstrap does not seed when umzug_migrations already has records'
+        - 'Write test: bootstrap does not seed on fresh database (user_version = 0)'
+        - 'Write test: bootstrap seeds correct number of records matching user_version'
+        - 'Write test: seeded migration names match zero-padded format (001, 002, ..., 034)'
+      green:
+        - 'Add ensureTable() method that creates table and checks bootstrap condition'
+        - 'Implement bootstrap: read user_version, check if table is empty, INSERT records'
+        - 'Use legacy migration name list to generate correct names for seeded records'
+      refactor:
+        - 'Ensure bootstrap logic is clearly separated from table creation logic'
+    estimatedEffort: '1h'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Extract legacy migrations to separate module'
+    description: >
+      Move the 34 migration definitions from migrations.ts to a new legacy-migrations.ts
+      module. Transform each migration from the current {version, sql, handler} format to
+      umzug-compatible format with a descriptive name (e.g., 001-create-settings-table)
+      and an up() function that wraps the SQL/handler execution in a transaction and sets
+      PRAGMA user_version.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'legacy-migrations.ts exports an array of 34 migration objects'
+      - 'Each migration has a name with zero-padded version prefix (001-034)'
+      - 'Each migration has an up(params) function receiving MigrationParams<Database.Database>'
+      - 'up() wraps SQL/handler execution in db.transaction()'
+      - 'up() sets PRAGMA user_version = N inside the transaction'
+      - 'Handler-based migrations (V20-V31) work identically to current behavior'
+      - 'LATEST_SCHEMA_VERSION can be derived from the array (last migration version = 34)'
+    tdd:
+      red:
+        - 'Write test: legacy migrations array has exactly 34 entries'
+        - 'Write test: migration names are zero-padded and sorted (001 through 034)'
+        - 'Write test: each migration has a name and up function'
+        - 'Write test: running all legacy migrations on fresh db produces same schema as current system'
+        - 'Write test: handler-based migration (e.g., V20) correctly applies conditional DDL'
+      green:
+        - 'Create legacy-migrations.ts with LEGACY_MIGRATIONS array'
+        - 'Transform each Migration entry to umzug format with name and up()'
+        - 'Wrap each up() body in db.transaction() with PRAGMA user_version set'
+      refactor:
+        - 'Add descriptive suffixes to migration names (e.g., 001-create-settings-table)'
+        - 'Extract shared migration name generation to a helper if needed'
+    estimatedEffort: '2h'
+
+  - id: task-5
+    phaseId: phase-3
+    title: 'Create migrations directory for new migration files'
+    description: >
+      Create the migrations/ directory at packages/core/src/infrastructure/persistence/sqlite/migrations/
+      with a .gitkeep file. This is where migration files 035+ will be placed.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'Directory exists at packages/core/src/infrastructure/persistence/sqlite/migrations/'
+      - '.gitkeep file exists in the directory'
+    tdd: null
+    estimatedEffort: '5min'
+
+  - id: task-6
+    phaseId: phase-3
+    title: 'Refactor migrations.ts to use umzug runner'
+    description: >
+      Replace the manual migration loop in runSQLiteMigrations() with an Umzug instance
+      configured with the custom storage adapter, legacy migrations array, glob-based
+      new migration discovery, and debug-level logger. Preserve the runSQLiteMigrations(db)
+      and LATEST_SCHEMA_VERSION exports exactly as they are. Remove the old MIGRATIONS array
+      and Migration interface (now in legacy-migrations.ts).
+    state: Todo
+    dependencies:
+      - task-2
+      - task-3
+      - task-4
+      - task-5
+    acceptanceCriteria:
+      - 'runSQLiteMigrations(db) signature is unchanged'
+      - 'LATEST_SCHEMA_VERSION export is unchanged (still equals 34)'
+      - 'Internally creates Umzug instance with SQLiteMigrationStorage'
+      - 'Registers legacy migrations from legacy-migrations.ts'
+      - 'Configures glob pattern for migrations/*.js (compiled .ts files)'
+      - 'Configures debug-level logger for migration events'
+      - 'Calls umzug.up() to execute pending migrations'
+      - 'Old manual MIGRATIONS array and Migration interface are removed'
+      - 'Error handling wraps umzug errors with descriptive messages'
+    tdd:
+      red:
+        - 'Write test: runSQLiteMigrations on fresh db creates all tables (settings, agent_runs, features, phase_timings, repositories, pr_sync_lock)'
+        - 'Write test: runSQLiteMigrations sets PRAGMA user_version to LATEST_SCHEMA_VERSION'
+        - 'Write test: runSQLiteMigrations creates umzug_migrations table with 34 records'
+        - 'Write test: runSQLiteMigrations is idempotent (second call is no-op)'
+        - 'Write test: LATEST_SCHEMA_VERSION equals 34'
+      green:
+        - 'Import Umzug, SQLiteMigrationStorage, and LEGACY_MIGRATIONS'
+        - 'Create Umzug instance with storage, context, migrations, and logger'
+        - 'Call umzug.up() in runSQLiteMigrations'
+        - 'Derive LATEST_SCHEMA_VERSION from legacy migrations array'
+      refactor:
+        - 'Remove dead code (old Migration interface, MIGRATIONS array, manual loop)'
+        - 'Ensure error messages include migration name on failure'
+    estimatedEffort: '1.5h'
+
+  - id: task-7
+    phaseId: phase-4
+    title: 'Update database test helper'
+    description: >
+      Update createDatabaseWithMigrations() in database.helper.ts to work with the
+      umzug-based migration runner. The function signature stays the same — it already
+      accepts a migration function parameter. Add a helper to query umzug_migrations table
+      for test assertions.
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'createDatabaseWithMigrations() works with the new runSQLiteMigrations'
+      - 'New helper function getAppliedMigrations(db) returns migration names from umzug_migrations'
+      - 'Existing helpers (tableExists, getSchemaVersion, getTableSchema, getTableIndexes) unchanged'
+    tdd:
+      red:
+        - 'Write test: createDatabaseWithMigrations produces database with umzug_migrations table'
+        - 'Write test: getAppliedMigrations returns 34 migration names after full migration'
+      green:
+        - 'Add getAppliedMigrations() helper that queries umzug_migrations table'
+        - 'Verify createDatabaseWithMigrations still works (signature unchanged)'
+      refactor:
+        - 'Add JSDoc to new helper function'
+    estimatedEffort: '30min'
+
+  - id: task-8
+    phaseId: phase-4
+    title: 'Update main migration integration tests'
+    description: >
+      Update the 872-line migrations.test.ts to work with umzug. Tests that set
+      PRAGMA user_version to simulate partial migrations must now also manipulate
+      the umzug_migrations table. Add tests for umzug_migrations table presence
+      and bootstrap seeder behavior.
+    state: Todo
+    dependencies:
+      - task-7
+    acceptanceCriteria:
+      - 'All existing migration tests pass with the umzug-based runner'
+      - 'Tests that simulate partial migration state use umzug_migrations table manipulation'
+      - 'New test: umzug_migrations table exists after migration'
+      - 'New test: umzug_migrations contains correct number of records'
+      - 'New test: bootstrap seeder works for databases at various user_version levels'
+      - 'Zero test regressions'
+    tdd:
+      red:
+        - 'Write test: umzug_migrations table has 34 records after full migration run'
+        - 'Write test: bootstrap seeds correctly for database at user_version 20'
+        - 'Write test: partial migration re-run applies only pending migrations'
+      green:
+        - 'Update tests that use db.pragma("user_version = N") to also clear umzug_migrations records'
+        - 'Add assertions for umzug_migrations table state alongside existing schema assertions'
+      refactor:
+        - 'Extract common umzug_migrations manipulation into helper functions'
+    estimatedEffort: '2h'
+
+  - id: task-9
+    phaseId: phase-4
+    title: 'Update migration-015 focused test'
+    description: >
+      Update the 116-line migration-015.test.ts to work with the umzug-based runner.
+      This test specifically tests the repository backfill migration and may need
+      adjustments for how partial migration state is set up.
+    state: Todo
+    dependencies:
+      - task-7
+    acceptanceCriteria:
+      - 'All migration-015 tests pass with the umzug-based runner'
+      - 'Partial migration state setup uses umzug_migrations table'
+      - 'Zero test regressions'
+    tdd:
+      red:
+        - 'Write test: migration 015 creates repositories table and backfills data under umzug'
+      green:
+        - 'Update test setup to manipulate umzug_migrations for partial migration state'
+        - 'Adjust any assertions that depend on migration internals'
+      refactor:
+        - 'Ensure test isolation — each test uses fresh in-memory database'
+    estimatedEffort: '45min'
+
+  - id: task-10
+    phaseId: phase-4
+    title: 'Update remaining test files importing runSQLiteMigrations'
+    description: >
+      Verify and update the 14 test files that import runSQLiteMigrations. Since the
+      export signature is preserved, most files should work without changes. Any that
+      reference migration internals (MIGRATIONS array, Migration interface) need updating.
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'All 14 test files that import runSQLiteMigrations compile and pass'
+      - 'No test file imports removed internal types (Migration interface, MIGRATIONS array)'
+      - 'Full test suite passes: pnpm test'
+    tdd:
+      red:
+        - 'Run full test suite and identify any failures related to migration imports'
+      green:
+        - 'Fix any import errors for removed types'
+        - 'Update any tests that depend on migration internals'
+      refactor:
+        - 'Remove any unused imports from test files'
+    estimatedEffort: '1h'
+
+  - id: task-11
+    phaseId: phase-4
+    title: 'Full validation — build, lint, and test suite'
+    description: >
+      Run the complete validation suite (pnpm validate, pnpm test) to ensure zero
+      regressions. Fix any issues discovered. This is the final gate before the
+      feature is considered complete.
+    state: Todo
+    dependencies:
+      - task-8
+      - task-9
+      - task-10
+    acceptanceCriteria:
+      - 'pnpm build succeeds'
+      - 'pnpm lint:fix produces no errors'
+      - 'pnpm validate passes (lint + format + typecheck + tsp)'
+      - 'pnpm test passes with zero failures'
+      - 'pnpm test:unit passes'
+      - 'pnpm test:int passes'
+    tdd: null
+    estimatedEffort: '30min'
+
+totalEstimate: '10h 45min'
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation is organized into 11 tasks across 4 phases, estimated at ~10.75 hours total.
+
+  First, the foundation is laid by installing umzug and building the custom SQLiteMigrationStorage
+  adapter with bootstrap seeder logic (Phase 1, tasks 1-3). In parallel with task 2-3, the legacy
+  migrations are extracted into a separate module (Phase 2, task 4).
+
+  Next, the umzug runner is wired into the refactored migrations.ts, combining the storage adapter,
+  legacy migrations, and glob-based discovery for new migration files (Phase 3, tasks 5-6).
+
+  Finally, the comprehensive test suite is updated to work with umzug's tracking mechanism, all
+  remaining test files are verified, and the full validation suite confirms zero regressions
+  (Phase 4, tasks 7-11).
+
+  The key architectural constraint is preserving the `runSQLiteMigrations(db)` export signature,
+  which eliminates changes to 16 importing files and keeps the refactoring internal to the
+  migration modules.
