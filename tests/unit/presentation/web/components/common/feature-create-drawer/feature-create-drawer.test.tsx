@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { FeatureCreateDrawer } from '@/components/common/feature-create-drawer';
+import type { FeatureCreateDrawerProps } from '@/components/common/feature-create-drawer';
 import { DrawerCloseGuardProvider } from '@/hooks/drawer-close-guard';
 import type { FileAttachment } from '@shepai/core/infrastructure/services/file-dialog.service';
 
@@ -51,7 +52,7 @@ const defaultProps = {
   isSubmitting: false,
 };
 
-function renderDrawer(overrides: Partial<typeof defaultProps> = {}) {
+function renderDrawer(overrides: Partial<FeatureCreateDrawerProps> = {}) {
   const props = { ...defaultProps, ...overrides };
   return render(
     <DrawerCloseGuardProvider>
@@ -944,6 +945,146 @@ describe('FeatureCreateDrawer', () => {
       const payload = defaultProps.onSubmit.mock.calls[0]?.[0];
       expect(payload).toHaveProperty('sessionId');
       expect(typeof payload.sessionId).toBe('string');
+    });
+  });
+
+  describe('repository selector', () => {
+    const sampleRepos = [
+      { id: 'repo-001', name: 'my-app', path: '/Users/dev/projects/my-app' },
+      { id: 'repo-002', name: 'api-service', path: '/Users/dev/projects/api-service' },
+      { id: 'repo-003', name: 'shared-lib', path: '/Users/dev/libs/shared-lib' },
+    ];
+
+    it('shows repository combobox when repositoryPath is empty and repositories provided', () => {
+      renderDrawer({ repositoryPath: '', repositories: sampleRepos });
+      expect(screen.getByTestId('repo-selector-section')).toBeInTheDocument();
+      expect(screen.getByTestId('repository-combobox')).toBeInTheDocument();
+    });
+
+    it('does not show repository combobox when repositoryPath is provided', () => {
+      renderDrawer({ repositoryPath: '/Users/dev/my-repo', repositories: sampleRepos });
+      expect(screen.queryByTestId('repo-selector-section')).not.toBeInTheDocument();
+    });
+
+    it('shows read-only repo label when repositoryPath is provided', () => {
+      renderDrawer({ repositoryPath: '/Users/dev/projects/my-app', repositories: sampleRepos });
+      expect(screen.getByTestId('repo-readonly-section')).toBeInTheDocument();
+      expect(screen.getByTestId('repo-readonly-label')).toHaveTextContent('my-app');
+    });
+
+    it('submit button is disabled when no repo selected and repositoryPath is empty', async () => {
+      const user = userEvent.setup();
+      renderDrawer({ repositoryPath: '', repositories: sampleRepos });
+
+      await user.type(screen.getByPlaceholderText(descriptionPlaceholder), 'My feature');
+
+      expect(screen.getByRole('button', { name: '+ Create Feature' })).toBeDisabled();
+    });
+
+    it('submit button is enabled when repo is selected via combobox', async () => {
+      const user = userEvent.setup();
+      renderDrawer({ repositoryPath: '', repositories: sampleRepos });
+
+      await user.type(screen.getByPlaceholderText(descriptionPlaceholder), 'My feature');
+
+      // Open combobox and select a repo
+      await user.click(screen.getByTestId('repository-combobox'));
+      await user.click(screen.getByTestId('repository-option-repo-001'));
+
+      expect(screen.getByRole('button', { name: '+ Create Feature' })).toBeEnabled();
+    });
+
+    it('submit button is enabled when repositoryPath is provided (canvas flow)', async () => {
+      const user = userEvent.setup();
+      renderDrawer({ repositoryPath: '/Users/dev/my-repo' });
+
+      await user.type(screen.getByPlaceholderText(descriptionPlaceholder), 'My feature');
+
+      expect(screen.getByRole('button', { name: '+ Create Feature' })).toBeEnabled();
+    });
+
+    it('handleSubmit includes selectedRepoPath in payload', async () => {
+      const onSubmit = vi.fn();
+      const user = userEvent.setup();
+      renderDrawer({ repositoryPath: '', repositories: sampleRepos, onSubmit });
+
+      await user.type(screen.getByPlaceholderText(descriptionPlaceholder), 'My feature');
+
+      // Open combobox and select a repo
+      await user.click(screen.getByTestId('repository-combobox'));
+      await user.click(screen.getByTestId('repository-option-repo-002'));
+
+      await user.click(screen.getByRole('button', { name: '+ Create Feature' }));
+
+      expect(onSubmit).toHaveBeenCalledOnce();
+      expect(onSubmit.mock.calls[0][0].repositoryPath).toBe('/Users/dev/projects/api-service');
+    });
+
+    it('renders REPOSITORY label in combobox section', () => {
+      renderDrawer({ repositoryPath: '', repositories: sampleRepos });
+      expect(screen.getByText('REPOSITORY')).toBeInTheDocument();
+    });
+
+    it('filters repositories by name when typing in search input', async () => {
+      const user = userEvent.setup();
+      renderDrawer({ repositoryPath: '', repositories: sampleRepos });
+
+      await user.click(screen.getByTestId('repository-combobox'));
+
+      const searchInput = screen.getByTestId('repository-search');
+      await user.type(searchInput, 'api');
+
+      // Only api-service should match
+      expect(screen.getByTestId('repository-option-repo-002')).toBeInTheDocument();
+      expect(screen.queryByTestId('repository-option-repo-001')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('repository-option-repo-003')).not.toBeInTheDocument();
+    });
+
+    it('filters repositories by path when typing in search input', async () => {
+      const user = userEvent.setup();
+      renderDrawer({ repositoryPath: '', repositories: sampleRepos });
+
+      await user.click(screen.getByTestId('repository-combobox'));
+
+      const searchInput = screen.getByTestId('repository-search');
+      await user.type(searchInput, 'libs');
+
+      // Only shared-lib should match (path contains 'libs')
+      expect(screen.getByTestId('repository-option-repo-003')).toBeInTheDocument();
+      expect(screen.queryByTestId('repository-option-repo-001')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('repository-option-repo-002')).not.toBeInTheDocument();
+    });
+
+    it('shows empty state message when no repos match search', async () => {
+      const user = userEvent.setup();
+      renderDrawer({ repositoryPath: '', repositories: sampleRepos });
+
+      await user.click(screen.getByTestId('repository-combobox'));
+
+      const searchInput = screen.getByTestId('repository-search');
+      await user.type(searchInput, 'nonexistent');
+
+      expect(screen.getByTestId('repository-empty')).toBeInTheDocument();
+      expect(screen.getByText('No repositories found.')).toBeInTheDocument();
+    });
+
+    it('shows check icon for selected repository', async () => {
+      const user = userEvent.setup();
+      renderDrawer({ repositoryPath: '', repositories: sampleRepos });
+
+      // Select repo
+      await user.click(screen.getByTestId('repository-combobox'));
+      await user.click(screen.getByTestId('repository-option-repo-001'));
+
+      // Reopen and verify check icon via aria-selected
+      await user.click(screen.getByTestId('repository-combobox'));
+      const selected = screen.getByTestId('repository-option-repo-001');
+      expect(selected).toHaveAttribute('aria-selected', 'true');
+    });
+
+    it('does not show repo selector when repositoryPath is empty and repositories is empty', () => {
+      renderDrawer({ repositoryPath: '', repositories: [] });
+      expect(screen.queryByTestId('repo-selector-section')).not.toBeInTheDocument();
     });
   });
 });
