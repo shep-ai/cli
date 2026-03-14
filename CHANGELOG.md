@@ -1,3 +1,9 @@
+# [1.111.0](https://github.com/shep-ai/cli/compare/v1.110.3...v1.111.0) (2026-03-14)
+
+### Features
+
+- **web:** add optional cascade delete for sub-features ([#328](https://github.com/shep-ai/cli/issues/328)) ([a19e0ac](https://github.com/shep-ai/cli/commit/a19e0ac77164647beb8637d4cd0082d77bd8c165))
+
 ## [1.110.3](https://github.com/shep-ai/cli/compare/v1.110.2...v1.110.3) (2026-03-13)
 
 ### Bug Fixes
