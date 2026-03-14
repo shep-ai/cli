@@ -1,3 +1,9 @@
+# [1.112.0](https://github.com/shep-ai/cli/compare/v1.111.0...v1.112.0) (2026-03-14)
+
+### Features
+
+- **domain:** replace manual migration system with umzug ([#345](https://github.com/shep-ai/cli/issues/345)) ([cc8dab2](https://github.com/shep-ai/cli/commit/cc8dab28ec6819d0984564bda3b992173d1200cb))
+
 # [1.111.0](https://github.com/shep-ai/cli/compare/v1.110.3...v1.111.0) (2026-03-14)
 
 ### Features
