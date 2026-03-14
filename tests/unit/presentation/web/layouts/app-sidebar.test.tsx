@@ -100,16 +100,8 @@ describe('AppSidebar', () => {
     expect(screen.getByText('Settings Page')).toBeInTheDocument();
   });
 
-  it('hides New feature button by default', () => {
+  it('renders New feature button by default', () => {
     renderWithSidebar(<AppSidebar features={mockFeatures} featureFlags={defaultFlags} />);
-
-    expect(screen.queryByRole('button', { name: /new feature/i })).not.toBeInTheDocument();
-  });
-
-  it('renders New feature button when showNewFeature is true', () => {
-    renderWithSidebar(
-      <AppSidebar features={mockFeatures} featureFlags={defaultFlags} showNewFeature />
-    );
 
     expect(screen.getByRole('button', { name: /new feature/i })).toBeInTheDocument();
   });
@@ -140,7 +132,6 @@ describe('AppSidebar', () => {
       <AppSidebar
         features={mockFeatures}
         featureFlags={defaultFlags}
-        showNewFeature
         onNewFeature={handleNewFeature}
       />
     );
@@ -148,6 +139,49 @@ describe('AppSidebar', () => {
     await user.click(screen.getByRole('button', { name: /new feature/i }));
 
     expect(handleNewFeature).toHaveBeenCalledOnce();
+  });
+
+  it('disables New feature button when hasRepositories is false', () => {
+    renderWithSidebar(
+      <AppSidebar features={mockFeatures} featureFlags={defaultFlags} hasRepositories={false} />
+    );
+
+    const button = screen.getByRole('button', { name: /new feature/i });
+    expect(button).toBeDisabled();
+  });
+
+  it('enables New feature button when hasRepositories is true', () => {
+    renderWithSidebar(
+      <AppSidebar features={mockFeatures} featureFlags={defaultFlags} hasRepositories={true} />
+    );
+
+    const button = screen.getByRole('button', { name: /new feature/i });
+    expect(button).toBeEnabled();
+  });
+
+  it('enables New feature button when hasRepositories is omitted', () => {
+    renderWithSidebar(<AppSidebar features={mockFeatures} featureFlags={defaultFlags} />);
+
+    const button = screen.getByRole('button', { name: /new feature/i });
+    expect(button).toBeEnabled();
+  });
+
+  it('does not fire onNewFeature when button is disabled', async () => {
+    const handleNewFeature = vi.fn();
+    const user = userEvent.setup();
+
+    renderWithSidebar(
+      <AppSidebar
+        features={mockFeatures}
+        featureFlags={defaultFlags}
+        hasRepositories={false}
+        onNewFeature={handleNewFeature}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: /new feature/i }));
+
+    expect(handleNewFeature).not.toHaveBeenCalled();
   });
 
   it('renders Settings nav item with gear icon', () => {

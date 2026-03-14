@@ -13,6 +13,10 @@ import {
   SidebarFeaturesProvider,
   useSidebarFeaturesContext,
 } from '@/hooks/sidebar-features-context';
+import {
+  SidebarRepositoryCountProvider,
+  useSidebarRepositoryCount,
+} from '@/hooks/sidebar-repository-count-context';
 import { useNotifications } from '@/hooks/use-notifications';
 import { useFeatureFlags } from '@/hooks/feature-flags-context';
 
@@ -30,6 +34,7 @@ function AppShellInner({ children }: AppShellProps) {
   useNotifications();
 
   const { features } = useSidebarFeaturesContext();
+  const { repositoryCount } = useSidebarRepositoryCount();
 
   const handleNewFeature = useCallback(() => {
     guardedNavigate(() => router.push('/create'));
@@ -51,6 +56,7 @@ function AppShellInner({ children }: AppShellProps) {
       <AppSidebar
         features={features}
         featureFlags={featureFlags}
+        hasRepositories={repositoryCount > 0}
         onNewFeature={handleNewFeature}
         onFeatureClick={handleFeatureClick}
       />
@@ -73,7 +79,9 @@ export function AppShell({ children }: AppShellProps) {
     <AgentEventsProvider>
       <DrawerCloseGuardProvider>
         <SidebarFeaturesProvider>
-          <AppShellInner>{children}</AppShellInner>
+          <SidebarRepositoryCountProvider>
+            <AppShellInner>{children}</AppShellInner>
+          </SidebarRepositoryCountProvider>
         </SidebarFeaturesProvider>
       </DrawerCloseGuardProvider>
     </AgentEventsProvider>

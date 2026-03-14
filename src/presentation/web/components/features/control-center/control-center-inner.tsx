@@ -12,6 +12,7 @@ import {
   useSidebarFeaturesContext,
   mapNodeStateToSidebarStatus,
 } from '@/hooks/sidebar-features-context';
+import { useSidebarRepositoryCount } from '@/hooks/sidebar-repository-count-context';
 import { useSelectedFeatureId } from '@/hooks/use-selected-feature-id';
 import { useSoundAction } from '@/hooks/use-sound-action';
 import { useDrawerCloseGuard } from '@/hooks/drawer-close-guard';
@@ -62,6 +63,18 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
 
   // Publish sidebar features to context whenever feature node data changes
   const { setFeatures: setSidebarFeatures } = useSidebarFeaturesContext();
+
+  // Publish repository count to context for sidebar disabled state
+  const { setRepositoryCount } = useSidebarRepositoryCount();
+
+  const repositoryNodeCount = useMemo(
+    () => nodes.filter((n) => n.type === 'repositoryNode').length,
+    [nodes]
+  );
+
+  useEffect(() => {
+    setRepositoryCount(repositoryNodeCount);
+  }, [repositoryNodeCount, setRepositoryCount]);
 
   const featureNodes = useMemo(() => nodes.filter((n) => n.type === 'featureNode'), [nodes]);
 

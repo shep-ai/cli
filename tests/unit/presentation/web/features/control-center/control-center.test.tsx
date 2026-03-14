@@ -65,6 +65,7 @@ vi.mock('next/image', () => ({
 
 import { ControlCenter } from '@/components/features/control-center';
 import { SidebarFeaturesProvider } from '@/hooks/sidebar-features-context';
+import { SidebarRepositoryCountProvider } from '@/hooks/sidebar-repository-count-context';
 import { DrawerCloseGuardProvider } from '@/hooks/drawer-close-guard';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 import type { FeatureNodeType } from '@/components/common/feature-node';
@@ -106,7 +107,9 @@ describe('ControlCenter', () => {
     render(
       <DrawerCloseGuardProvider>
         <SidebarFeaturesProvider>
-          <ControlCenter initialNodes={[]} initialEdges={[]} />
+          <SidebarRepositoryCountProvider>
+            <ControlCenter initialNodes={[]} initialEdges={[]} />
+          </SidebarRepositoryCountProvider>
         </SidebarFeaturesProvider>
       </DrawerCloseGuardProvider>
     );
@@ -117,7 +120,9 @@ describe('ControlCenter', () => {
     render(
       <DrawerCloseGuardProvider>
         <SidebarFeaturesProvider>
-          <ControlCenter initialNodes={[]} initialEdges={[]} />
+          <SidebarRepositoryCountProvider>
+            <ControlCenter initialNodes={[]} initialEdges={[]} />
+          </SidebarRepositoryCountProvider>
         </SidebarFeaturesProvider>
       </DrawerCloseGuardProvider>
     );
@@ -139,14 +144,16 @@ describe('ControlCenter', () => {
     render(
       <DrawerCloseGuardProvider>
         <SidebarFeaturesProvider>
-          <ControlCenter
-            initialNodes={[
-              repoNode,
-              mockFeatureNode as CanvasNodeType,
-              mockFeatureNode2 as CanvasNodeType,
-            ]}
-            initialEdges={[]}
-          />
+          <SidebarRepositoryCountProvider>
+            <ControlCenter
+              initialNodes={[
+                repoNode,
+                mockFeatureNode as CanvasNodeType,
+                mockFeatureNode2 as CanvasNodeType,
+              ]}
+              initialEdges={[]}
+            />
+          </SidebarRepositoryCountProvider>
         </SidebarFeaturesProvider>
       </DrawerCloseGuardProvider>
     );

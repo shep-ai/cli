@@ -96,7 +96,6 @@ export const Default: Story = {
 export const WithNewFeatureButton: Story = {
   args: {
     features: mockFeatures,
-    showNewFeature: true,
   },
 };
 
@@ -141,5 +140,12 @@ export const AllDone: Story = {
       { featureId: 'feat-b-002', name: 'Feature B', status: 'done' as const, duration: '1h' },
       { featureId: 'feat-c-003', name: 'Feature C', status: 'done' as const, duration: '3h' },
     ],
+  },
+};
+
+export const DisabledNoRepos: Story = {
+  args: {
+    features: mockFeatures,
+    hasRepositories: false,
   },
 };
