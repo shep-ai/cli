@@ -1,0 +1,38 @@
+
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-merge-diff-viewer[39m
+
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/ui/file-tree.test.tsx[2m > [22mTree[2m > [22mrendering[2m > [22mrenders flat file list[32m 79[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/ui/file-tree.test.tsx[2m > [22mTree[2m > [22mrendering[2m > [22mrenders nested folders and files[32m 152[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/ui/file-tree.test.tsx[2m > [22mTree[2m > [22mrendering[2m > [22mexpands all folders by default[32m 45[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/ui/file-tree.test.tsx[2m > [22mTree[2m > [22mselection[2m > [22mcalls onSelectChange when a file is clicked[32m 12[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/ui/file-tree.test.tsx[2m > [22mTree[2m > [22mselection[2m > [22mhighlights the initially selected item[32m 3[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/ui/file-tree.test.tsx[2m > [22mTree[2m > [22mselection[2m > [22mupdates selection when different file is clicked[32m 5[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/ui/file-tree.test.tsx[2m > [22mTree[2m > [22mcustom icon and badge[2m > [22mrenders custom badge content[32m 3[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/ui/file-tree.test.tsx[2m > [22mTree[2m > [22mcustom icon and badge[2m > [22mrenders custom icon[32m 5[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/ui/file-tree.test.tsx[2m > [22mTree[2m > [22mindicator[2m > [22mrenders without indicator lines when indicator is false[32m 14[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/ui/code-block.test.tsx[2m > [22mCodeBlock[2m > [22msingle code mode[2m > [22mrenders the filename in the header[32m 52[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/ui/code-block.test.tsx[2m > [22mCodeBlock[2m > [22msingle code mode[2m > [22mrenders the code-block test id[32m 8[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/ui/code-block.test.tsx[2m > [22mCodeBlock[2m > [22msingle code mode[2m > [22mrenders the code content via syntax highlighter[32m 4[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/ui/code-block.test.tsx[2m > [22mCodeBlock[2m > [22msingle code mode[2m > [22mrenders copy button[32m 44[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/ui/code-block.test.tsx[2m > [22mCodeBlock[2m > [22msingle code mode[2m > [22mapplies additional className[32m 5[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/ui/code-block.test.tsx[2m > [22mCodeBlock[2m > [22mtabbed mode[2m > [22mrenders tab buttons[32m 11[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/ui/code-block.test.tsx[2m > [22mCodeBlock[2m > [22mtabbed mode[2m > [22mrenders first tab content by default[32m 3[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/ui/code-block.test.tsx[2m > [22mCodeBlock[2m > [22mtabbed mode[2m > [22mswitches to second tab when clicked[32m 16[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/ui/code-block.test.tsx[2m > [22mCodeBlock[2m > [22mcopy to clipboard[2m > [22mcopies code to clipboard when copy button is clicked[32m 7[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/merge-review/merge-diff-viewer.test.tsx[2m > [22mMergeDiffViewer[2m > [22mrendering[2m > [22mrenders nothing when fileDiffs is empty[32m 7[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/merge-review/merge-diff-viewer.test.tsx[2m > [22mMergeDiffViewer[2m > [22mrendering[2m > [22mrenders merge-diff-viewer container when files are provided[32m 109[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/merge-review/merge-diff-viewer.test.tsx[2m > [22mMergeDiffViewer[2m > [22mrendering[2m > [22mrenders file tree header with file count[32m 33[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/merge-review/merge-diff-viewer.test.tsx[2m > [22mMergeDiffViewer[2m > [22mrendering[2m > [22mrenders file names in the tree[32m 27[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/merge-review/merge-diff-viewer.test.tsx[2m > [22mMergeDiffViewer[2m > [22mrendering[2m > [22mrenders folder structure from file paths[32m 24[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/merge-review/merge-diff-viewer.test.tsx[2m > [22mMergeDiffViewer[2m > [22mrendering[2m > [22mapplies custom className[32m 19[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/merge-review/merge-diff-viewer.test.tsx[2m > [22mMergeDiffViewer[2m > [22mfile selection[2m > [22mselects first file by default and shows its diff[32m 20[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/merge-review/merge-diff-viewer.test.tsx[2m > [22mMergeDiffViewer[2m > [22mfile selection[2m > [22mshows "No diff content available" for file with empty hunks[32m 5[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/merge-review/merge-diff-viewer.test.tsx[2m > [22mMergeDiffViewer[2m > [22maddition/deletion badges[2m > [22mshows addition count for added files[32m 15[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/merge-review/merge-diff-viewer.test.tsx[2m > [22mMergeDiffViewer[2m > [22maddition/deletion badges[2m > [22mshows deletion count for deleted files[32m 9[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/merge-review/merge-diff-viewer.test.tsx[2m > [22mMergeDiffViewer[2m > [22maddition/deletion badges[2m > [22mshows both addition and deletion counts for modified files[32m 18[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m3 passed[39m[22m[90m (3)[39m
+[2m      Tests [22m [1m[32m29 passed[39m[22m[90m (29)[39m
+[2m   Start at [22m 23:57:46
+[2m   Duration [22m 1.78s[2m (transform 250ms, setup 391ms, import 1.94s, tests 761ms, environment 1.29s)[22m
+
