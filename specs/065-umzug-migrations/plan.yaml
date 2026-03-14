@@ -1,0 +1,202 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: umzug-migrations
+summary: >
+  Replace the manual PRAGMA user_version migration system with umzug v3.8.2. The implementation
+  creates a custom SQLiteMigrationStorage adapter wrapping better-sqlite3's sync API, registers
+  34 legacy migrations as an inline array, auto-bootstraps existing databases by reading PRAGMA
+  user_version, and preserves the runSQLiteMigrations export signature for zero-churn in 16+
+  importing files. Work is split into 4 phases: foundation (storage adapter), legacy migration
+  registration, integration (DI + bootstrap), and test suite updates.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - umzug v3.8.2 (migration framework for Node.js)
+  - better-sqlite3 v12.6.2 (existing synchronous SQLite driver)
+  - tsyringe (DI container — migration initialization point)
+  - vitest v4.0 (test framework)
+  - TypeScript 5.3
+relatedLinks:
+  - https://github.com/sequelize/umzug
+
+phases:
+  - id: phase-1
+    name: 'Foundation — Storage Adapter & Dependencies'
+    description: >
+      Install umzug, remove unused @blackglory/better-sqlite3-migrations, and build the custom
+      SQLiteMigrationStorage adapter that wraps better-sqlite3's synchronous API for umzug's
+      async interface. This is the lowest-level building block — everything else depends on it.
+      Includes bootstrap seeder logic for transitioning existing databases.
+    parallel: false
+
+  - id: phase-2
+    name: 'Legacy Migration Registration'
+    description: >
+      Extract the 34 existing migrations into a separate legacy-migrations module that registers
+      them as umzug-compatible migration objects with up() functions. This preserves exact
+      SQL/handler behavior while making them consumable by the umzug runner.
+    parallel: false
+
+  - id: phase-3
+    name: 'Umzug Runner & DI Integration'
+    description: >
+      Wire up the umzug instance in the refactored migrations.ts module — combining the storage
+      adapter, legacy migrations, glob-based new migration discovery, and debug-level logging.
+      Preserve the runSQLiteMigrations(db) and LATEST_SCHEMA_VERSION exports. Update the DI
+      container call site (container.ts line 146) — which requires no change since the signature
+      is preserved.
+    parallel: false
+
+  - id: phase-4
+    name: 'Test Suite Updates & Validation'
+    description: >
+      Update all integration tests and test helpers to work with umzug. Tests that manipulated
+      PRAGMA user_version directly must now also manipulate the umzug_migrations table. Add new
+      tests for the storage adapter, bootstrap seeder, and new migration file convention.
+      Validate zero regressions across the full test suite.
+    parallel: false
+
+# File change tracking
+filesToCreate:
+  - packages/core/src/infrastructure/persistence/sqlite/sqlite-migration-storage.ts
+  - packages/core/src/infrastructure/persistence/sqlite/legacy-migrations.ts
+  - packages/core/src/infrastructure/persistence/sqlite/migrations/.gitkeep
+  - tests/integration/infrastructure/persistence/sqlite/sqlite-migration-storage.test.ts
+
+filesToModify:
+  - package.json
+  - packages/core/src/infrastructure/persistence/sqlite/migrations.ts
+  - tests/integration/infrastructure/persistence/sqlite/migrations.test.ts
+  - tests/integration/infrastructure/persistence/sqlite/migration-015.test.ts
+  - tests/helpers/database.helper.ts
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Status
+
+  - **Phase:** Planning
+  - **Updated:** 2026-03-14
+
+  ## Architecture Overview
+
+  The migration system lives entirely in the **infrastructure layer** at
+  `packages/core/src/infrastructure/persistence/sqlite/`. It follows Clean Architecture —
+  no domain or application layer changes are needed. The migration runner is invoked during
+  DI container initialization (`container.ts:146`) via `runSQLiteMigrations(db)`.
+
+  The refactoring introduces three new modules alongside the existing `migrations.ts`:
+
+  1. **sqlite-migration-storage.ts** — Custom `UmzugStorage` adapter for better-sqlite3
+  2. **legacy-migrations.ts** — 34 legacy migration definitions as umzug-compatible objects
+  3. **migrations/** directory — Empty directory for future migration files (35+)
+
+  The existing `migrations.ts` is refactored to create and configure an `Umzug` instance
+  internally while preserving the same `runSQLiteMigrations(db)` and `LATEST_SCHEMA_VERSION`
+  exports. This means **zero changes** to `container.ts` or any of the 16 files that import
+  from `migrations.ts`.
+
+  ```
+  packages/core/src/infrastructure/persistence/sqlite/
+  ├── connection.ts                  (unchanged)
+  ├── migrations.ts                  (refactored — umzug runner, preserves exports)
+  ├── sqlite-migration-storage.ts    (new — custom UmzugStorage adapter)
+  ├── legacy-migrations.ts           (new — 34 legacy migration definitions)
+  └── migrations/                    (new — directory for migration 35+ files)
+      └── .gitkeep
+  ```
+
+  ### Execution Flow (After)
+
+  ```
+  initializeContainer()
+    → getSQLiteConnection()
+    → runSQLiteMigrations(db)        [same export signature]
+        → Create SQLiteMigrationStorage(db)
+            → CREATE TABLE IF NOT EXISTS umzug_migrations
+            → Check bootstrap: user_version > 0 && empty table?
+            → If yes: INSERT records for 001..{user_version}
+        → Create Umzug instance
+            → storage: SQLiteMigrationStorage
+            → context: db
+            → migrations: [...legacyMigrations, ...glob('migrations/*.js')]
+            → logger: debug-level logger
+        → umzug.up()
+            → For each pending:
+                → db.transaction(() => { SQL/handler; PRAGMA user_version = N })
+                → storage.logMigration({ name })
+  ```
+
+  ## Key Design Decisions
+
+  ### 1. Custom Storage Adapter (not built-in JSONStorage/SequelizeStorage)
+
+  A custom `SQLiteMigrationStorage` wraps better-sqlite3's synchronous API in async methods
+  (`executed()`, `logMigration()`, `unlogMigration()`). This is the standard community pattern
+  for sync drivers — declare methods as `async`, body is synchronous, returns resolved promise.
+  The adapter manages the `umzug_migrations` table (name TEXT PK, created_at TEXT NOT NULL).
+
+  ### 2. Legacy Migrations Stay Inline (not 34 separate files)
+
+  All 34 existing migrations are registered programmatically from a single `legacy-migrations.ts`
+  module. This avoids 34-file churn, handles the 7 handler-based migrations naturally (V20-V31
+  use `db.pragma('table_info(...)')` for conditional DDL), and survives tsc compilation. New
+  migrations (35+) get individual .ts files with glob-based auto-discovery.
+
+  ### 3. Auto-Bootstrap Seeder (not manual CLI command)
+
+  The storage adapter detects existing databases by checking `PRAGMA user_version > 0` with
+  an empty `umzug_migrations` table. When detected, it seeds records for migrations 1 through
+  `user_version`. This runs once during the first umzug-based startup — zero user intervention.
+
+  ### 4. Preserved Export API (not breaking change)
+
+  `runSQLiteMigrations(db: Database.Database): Promise<void>` and `LATEST_SCHEMA_VERSION`
+  remain unchanged. All 16 importing files (container.ts, database.helper.ts, 14 test files)
+  require zero changes to their import statements or call sites.
+
+  ### 5. Dual Version Tracking (PRAGMA user_version + umzug_migrations)
+
+  Each migration's `up()` sets `PRAGMA user_version = N` inside its transaction, in addition
+  to umzug's storage tracking. This costs one PRAGMA per migration (negligible) and provides
+  a safety net plus enables the bootstrap seeder.
+
+  ### 6. Per-Migration Transactions (matching current behavior)
+
+  Each migration wraps its work in `db.transaction(() => { ... })()`. If a migration fails,
+  only that migration rolls back. This matches the existing behavior exactly.
+
+  ## Implementation Strategy
+
+  The phases are ordered by dependency — each phase builds on the previous:
+
+  **Phase 1 (Foundation)** builds the storage adapter first because it's the core abstraction
+  that everything else depends on. The adapter is independently testable with in-memory SQLite.
+  Dependencies are also updated here (add umzug, remove @blackglory/better-sqlite3-migrations).
+
+  **Phase 2 (Legacy Migrations)** extracts the 34 migration definitions into a separate module.
+  This is a mechanical refactoring that moves the MIGRATIONS array and transforms each entry
+  into an umzug-compatible format with `name` and `up()`.
+
+  **Phase 3 (Runner Integration)** wires everything together — creates the Umzug instance,
+  configures it with the storage adapter and migrations, and replaces the manual runner loop
+  in `migrations.ts`. The preserved export signature means container.ts needs no changes.
+
+  **Phase 4 (Test Updates)** adapts the comprehensive test suite. Tests that set
+  `PRAGMA user_version = N` must now also manipulate the `umzug_migrations` table. New tests
+  cover the storage adapter, bootstrap seeder, and the new migration file convention.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Existing databases fail to transition | Bootstrap seeder auto-detects via PRAGMA user_version and seeds umzug_migrations table before umzug.up(). Tested with integration tests simulating pre-transition databases. |
+  | Migration execution order changes | Zero-padded names (001-034) ensure lexicographic order matches numerical order. umzug sorts by name. Verified in tests. |
+  | Handler-based migrations break under umzug | Legacy migrations pass the db instance via umzug's context parameter. Handler migrations receive the same db object and execute identically. |
+  | tsc compilation breaks migration discovery | All migration code is pure TypeScript with inline SQL. No .sql files, no dynamic require(). Glob for new migrations targets .js in dist/. |
+  | Test suite regressions | Phase 4 updates every test that references migration internals. Full test suite must pass before completion. |
+  | Performance regression at startup | umzug adds <10ms overhead (object instantiation + name resolution). Well within NFR-2 500ms target. |
