@@ -14,7 +14,7 @@ userQuery: >
 summary: >
   Replace the current script-only DeploymentService (which only detects package.json dev/start/serve scripts for Node.js projects) with an agent-based dev environment system.
   The agent analyzes any repository — regardless of language or framework — determines how to start a local dev server, caches its analysis per-repo for fast subsequent starts, and gracefully reports when a repo has nothing startable (e.g. a CLI tool, library, or script-only project).
-phase: Analysis
+phase: Requirements
 sizeEstimate: L
 
 # Relationships
@@ -36,12 +36,93 @@ relatedLinks: []
 
 # Open questions (must be resolved before implementation)
 openQuestions:
-  - "Should the agent cache be invalidated automatically when repo files change (e.g. lockfile hash), or only on manual request?"
-  - "Should the agent support Docker/Docker Compose detection in this iteration, or only language-native dev servers?"
-  - "How should the agent handle monorepos with multiple startable services?"
-  - "Should there be a timeout for the agent analysis phase before falling back to best-guess heuristics?"
+  - question: "Should the agent analysis run inline (blocking the deploy call) or asynchronously with a separate analysis phase visible to the user?"
+    resolved: true
+    options:
+      - option: "Inline blocking"
+        description: "Agent analysis runs inside the deploy call. The UI shows a single 'Booting' state. Simpler flow but the user sees a longer boot time on first deploy with no indication of what is happening. Subsequent cached deploys are instant."
+        selected: false
+      - option: "Two-phase with analysis state"
+        description: "Deploy flow has an explicit 'Analyzing' phase before 'Booting'. The UI shows analysis progress (e.g. 'Analyzing repository...') then transitions to 'Booting' once the start command is determined. More transparent but requires a new DeploymentState enum value and UI updates."
+        selected: true
+      - option: "Background pre-analysis"
+        description: "Analysis runs in the background automatically when a repo is first opened, before the user clicks deploy. Deploy is always fast because analysis is already cached. More complex — requires a trigger mechanism and background job orchestration."
+        selected: false
+    selectionRationale: "Two-phase with analysis state is recommended because it gives the user clear feedback about what is happening (analysis vs. startup) without the complexity of background orchestration. The user explicitly asked for agent-based deployment — showing the agent working is a feature, not a bug. Adding an 'Analyzing' state to DeploymentState is a small change."
+    answer: "Two-phase with analysis state"
 
-# Markdown content (the actual spec)
+  - question: "How should the cache invalidation strategy work for stored analysis results?"
+    resolved: true
+    options:
+      - option: "Manual invalidation only"
+        description: "Cache never expires automatically. Users must explicitly re-analyze via a UI action (e.g. 'Re-analyze' button). Simplest to implement, no false cache misses, but stale results if the project setup changes."
+        selected: false
+      - option: "Content-hash based"
+        description: "Hash key config files (package.json, Dockerfile, requirements.txt, go.mod, etc.) and invalidate when hashes change. Accurate but requires knowing which files to hash per language — the agent would need to output the list of sentinel files."
+        selected: true
+      - option: "Time-based TTL"
+        description: "Cache expires after a fixed duration (e.g. 24 hours). Simple but causes unnecessary re-analysis for stable projects and may serve stale results for actively changing projects."
+        selected: false
+    selectionRationale: "Content-hash based invalidation is recommended because it aligns with the agent's analysis — the agent already inspects config files to determine the start command, so it can also output which files it relied on (sentinel files). If those files change, the analysis is stale. This avoids both unnecessary re-analysis (time-based) and stale results (manual-only). The agent's structured output includes the sentinel file list as part of its response."
+    answer: "Content-hash based"
+
+  - question: "Should the existing detectDevScript heuristic be kept as a fast-path fallback for Node.js projects?"
+    resolved: true
+    options:
+      - option: "Keep as fast-path"
+        description: "For Node.js repos, run the existing detectDevScript first. If it succeeds, skip the agent entirely. Faster for the common case but creates two code paths to maintain and test. Agent analysis only runs for non-Node.js or when heuristic fails."
+        selected: false
+      - option: "Remove entirely, agent-only"
+        description: "Remove detectDevScript and always use the agent. Single code path, simpler to maintain. Slightly slower for Node.js first-deploy (agent call) but cached results make subsequent deploys instant. The agent handles Node.js just as well."
+        selected: true
+      - option: "Keep as offline fallback"
+        description: "Only use detectDevScript when the agent executor is unavailable (no API key, network error). Provides degraded offline functionality for Node.js projects at the cost of maintaining legacy code."
+        selected: false
+    selectionRationale: "Remove entirely is recommended because the whole point of this feature is to replace the limited heuristic with an agent. Keeping detectDevScript creates two code paths, doubles testing surface, and the agent handles Node.js projects just fine. The cache eliminates the performance concern — only the first deploy pays the agent cost. The user explicitly said 'it should be basically an agent for that', indicating the agent should be the single path."
+    answer: "Remove entirely, agent-only"
+
+  - question: "How should the agent handle monorepos with multiple startable services?"
+    resolved: true
+    options:
+      - option: "Detect primary service only"
+        description: "The agent picks the single most likely dev server entry point (e.g. root-level dev script, main app directory). Simpler output schema, matches current single-deployment model. User can specify subdirectory manually if needed."
+        selected: true
+      - option: "Return all services, let user pick"
+        description: "Agent returns a list of all startable services. UI shows a picker for the user to choose which one to deploy. Requires UI changes for service selection and a more complex output schema."
+        selected: false
+      - option: "Start all services"
+        description: "Agent detects and starts all services simultaneously. Requires managing multiple child processes per deployment, port conflict resolution, and significant changes to DeploymentService. High complexity."
+        selected: false
+    selectionRationale: "Detect primary service only is recommended for the initial implementation because it matches the current single-deployment model and avoids UI complexity. The deploy target already specifies a path — for monorepos, users can deploy from a subdirectory. Multi-service support can be added as a follow-up feature. The agent can mention other detected services in its analysis output for informational purposes."
+    answer: "Detect primary service only"
+
+  - question: "What should the agent's structured output schema include beyond the start command?"
+    resolved: true
+    options:
+      - option: "Minimal — command and port only"
+        description: "Output: { startCommand, expectedPort, isStartable }. Minimal surface area, fast to parse. Misses useful metadata like required prerequisites or environment variables."
+        selected: false
+      - option: "Standard — command, port, prerequisites, language, framework"
+        description: "Output: { startCommand, expectedPort, isStartable, notStartableReason, language, framework, prerequisites[], sentinelFiles[], envVars{} }. Covers the common cases, enables cache invalidation (sentinelFiles), and gives the UI useful context to display."
+        selected: true
+      - option: "Comprehensive — includes health check, multi-step setup, docker alternative"
+        description: "Adds: { healthCheckUrl, setupSteps[], dockerAlternative, estimatedStartTime }. Full-featured but increases agent prompt complexity and parsing surface. Many fields would be null for simple projects."
+        selected: false
+    selectionRationale: "Standard schema is recommended because it includes exactly what is needed: the start command for execution, sentinelFiles for cache invalidation, prerequisites for user guidance, and language/framework for UI display. The notStartableReason field is essential for the 'non-startable repo' requirement. envVars enables the agent to specify required environment variables. This maps cleanly to an extension of the existing DeploySkill TypeSpec model."
+    answer: "Standard — command, port, prerequisites, language, framework"
+
+  - question: "Should the agent graph use a single-node or multi-node design?"
+    resolved: true
+    options:
+      - option: "Single-node analysis"
+        description: "One LangGraph node calls the agent with a comprehensive prompt. The agent reads the repo, determines startability, and returns the full structured output in one call. Simpler graph, fewer API calls. May produce less reliable results for complex repos."
+        selected: true
+      - option: "Multi-node pipeline"
+        description: "Multiple nodes: detect-language → analyze-config → determine-command → validate. Each node is focused and composable. More reliable for complex repos but 3-4x more agent calls, higher latency and cost."
+        selected: false
+    selectionRationale: "Single-node analysis is recommended because the analyze-repo agent already demonstrates this pattern successfully — one focused agent call with a well-crafted prompt. The agent executor (Claude Code, etc.) is sophisticated enough to handle the full analysis in one pass. The structured output extraction via IStructuredAgentCaller handles parsing. Multi-node adds latency and cost without significant reliability improvement since the agent has full repo access in one call."
+    answer: "Single-node analysis"
+
 content: |
   ## Problem Statement
 
@@ -55,125 +136,164 @@ content: |
 
   The goal is to replace this with an **agent-based approach** where an AI agent analyzes the repository, determines the correct way to start a dev environment (or declares it non-startable), caches its analysis for fast re-use, and supports any language or framework.
 
-  ## Codebase Analysis
+  ## Success Criteria
 
-  ### Project Structure
+  - [ ] Agent can analyze a Node.js repo (Next.js, Vite, Express) and return correct start command, expected port, and package manager
+  - [ ] Agent can analyze a Python repo (Django, Flask, FastAPI) and return correct start command and expected port
+  - [ ] Agent can analyze Go, Rust, Java, Ruby, PHP repos and determine the correct dev start command
+  - [ ] Agent correctly identifies non-startable repos (libraries, CLI tools, scripts, data-only) and returns `isStartable: false` with a human-readable reason
+  - [ ] Analysis results are cached per-repo in SQLite with content-hash invalidation based on sentinel files
+  - [ ] Cached results are returned in <500ms (no agent call) on subsequent deploys
+  - [ ] Cache is invalidated when sentinel files (package.json, Dockerfile, requirements.txt, etc.) change on disk
+  - [ ] Deploy flow shows an explicit "Analyzing" phase in the UI before "Booting" on first deploy (uncached)
+  - [ ] Cached deploys skip the "Analyzing" phase entirely — straight to "Booting"
+  - [ ] Deployment works end-to-end through web UI: deploy, status polling, log streaming, stop
+  - [ ] No hardcoded agent types — resolution via `IAgentExecutorProvider` (MANDATORY)
+  - [ ] Agent structured output is extracted via `IStructuredAgentCaller` with JSON schema
+  - [ ] All new code has unit tests following TDD (RED → GREEN → REFACTOR)
+  - [ ] TypeSpec models defined for `DevEnvironmentAnalysis` (agent output cache target)
+  - [ ] `DeploymentState` enum extended with `Analyzing` value
+  - [ ] Existing deployment tests updated to reflect new agent-based flow
+  - [ ] The existing `detectDevScript.ts` is removed — agent is the single analysis path
 
-  The project follows Clean Architecture with four layers in `packages/core/src/`:
+  ## Functional Requirements
 
-  - **`domain/`** — Core business logic and TypeSpec-generated models (`domain/generated/output.ts`)
-  - **`application/`** — Use cases and output port interfaces (e.g. `IDeploymentService`, `IAgentExecutor`)
-  - **`infrastructure/`** — Implementations: `services/deployment/`, `services/agents/`, `repositories/`, `di/`
-  - **`presentation/`** — CLI (`src/presentation/cli/`), Web UI (`src/presentation/web/`), TUI
+  ### Agent Analysis (FR-1 through FR-6)
 
-  Key deployment files:
-  - `packages/core/src/infrastructure/services/deployment/deployment.service.ts` — Process spawning, lifecycle, logs
-  - `packages/core/src/infrastructure/services/deployment/detect-dev-script.ts` — Node.js-only script detection
-  - `packages/core/src/infrastructure/services/deployment/parse-port.ts` — Regex-based port extraction
-  - `packages/core/src/infrastructure/services/deployment/log-ring-buffer.ts` — Circular log buffer
-  - `packages/core/src/application/ports/output/services/deployment-service.interface.ts` — Service contract
+  - **FR-1: Repository Analysis Agent** — A new LangGraph agent graph (`dev-environment-agent`) SHALL analyze a repository at a given path and return a structured `DevEnvironmentAnalysis` result. The graph follows the single-node pattern (like `analyze-repo`), calling the agent executor once with a comprehensive prompt that instructs it to inspect the repo's files, config, and structure.
 
-  TypeSpec models:
-  - `tsp/deployment/deployment.tsp` — Deployment entity (state, url, ports)
-  - `tsp/deployment/deploy-skill.tsp` — DeploySkill entity (blueprint: method, ports, instructions)
-  - `tsp/common/enums/deployment.tsp` — DeploymentState, DeployMethod enums
-  - `tsp/agents/deploy-agent.tsp` — LocalDeployAgent with Deploy/Analyze/Ask operations
-  - `tsp/agents/deploy-target.tsp` — DeployTarget discriminated union
+  - **FR-2: Structured Output Schema** — The agent SHALL return a structured JSON output matching the `DevEnvironmentAnalysis` schema:
+    ```
+    {
+      isStartable: boolean,
+      notStartableReason?: string,
+      startCommand?: string,
+      expectedPort?: number,
+      language: string,
+      framework?: string,
+      prerequisites: string[],
+      sentinelFiles: string[],
+      envVars: Record<string, string>
+    }
+    ```
+    Extraction uses `IStructuredAgentCaller.call<DevEnvironmentAnalysis>(prompt, schema)` which handles both native structured output and prompt-based fallback.
 
-  Web UI integration:
-  - `src/presentation/web/app/actions/deploy-repository.ts` — Deploy repo action
-  - `src/presentation/web/app/actions/deploy-feature.ts` — Deploy feature worktree
-  - `src/presentation/web/app/actions/stop-deployment.ts` — Stop deployment
-  - `src/presentation/web/app/actions/get-deployment-status.ts` — Poll status
-  - `src/presentation/web/app/actions/get-deployment-logs.ts` — SSE log stream
-  - `src/presentation/web/hooks/use-deploy-action.ts` — Deploy action hook
-  - `src/presentation/web/hooks/use-deployment-logs.ts` — Log streaming hook
-  - `src/presentation/web/components/deployment-status-badge.tsx` — Status display
+  - **FR-3: Non-Startable Detection** — When the agent determines a repo has no startable dev server (library, CLI tool, script-only, data repo), it SHALL return `isStartable: false` with a `notStartableReason` explaining why (e.g. "This is an npm library with no dev server — it only exports modules"). The deployment service SHALL surface this reason to the UI without attempting to start a process.
 
-  ### Architecture Patterns
+  - **FR-4: Language-Agnostic Support** — The agent prompt SHALL instruct the agent to inspect common config files across all major ecosystems: `package.json` (Node.js), `requirements.txt`/`pyproject.toml`/`Pipfile` (Python), `go.mod` (Go), `Cargo.toml` (Rust), `pom.xml`/`build.gradle` (Java/Kotlin), `Gemfile` (Ruby), `composer.json` (PHP), `Dockerfile`/`docker-compose.yml` (containers), and any `Makefile` or `justfile` with `dev`/`serve`/`start` targets.
 
-  **Agent System**: Built on LangGraph StateGraphs. Key abstractions:
-  - `IAgentExecutor` — Execute prompts (supports Claude Code, Cursor, Gemini CLI, Dev mock)
-  - `IAgentExecutorProvider` — Resolve executor from settings (MANDATORY: no hardcoding agent types)
-  - `IAgentExecutorFactory` — Create typed executors
-  - `IStructuredAgentCaller` — JSON extraction with native and fallback paths
+  - **FR-5: Prerequisites Reporting** — The agent output SHALL include a `prerequisites` array listing system-level requirements the user may need to install (e.g. `["python3", "pip", "virtualenv"]`, `["docker", "docker-compose"]`). The deployment service logs these as informational messages before attempting to start.
 
-  **Existing Agent Graphs**:
-  - Feature Agent (`infrastructure/services/agents/feature-agent/`) — Full SDLC workflow (analyze, requirements, research, plan, implement, merge)
-  - Analyze Repo (`infrastructure/services/agents/analyze-repo/`) — Single-node repository analysis
+  - **FR-6: Sentinel Files** — The agent output SHALL include a `sentinelFiles` array listing the relative paths of files the agent relied on for its analysis (e.g. `["package.json", "pnpm-lock.yaml", "next.config.js"]`). These files are used for cache invalidation.
 
-  **Agent Execution Pattern**: Nodes are pure async functions receiving state, calling `executor.execute(prompt, options)`, and returning state updates. Prompts are built dynamically per-node with helpers.
+  ### Caching Layer (FR-7 through FR-11)
 
-  **DI Container**: All services registered in `infrastructure/di/container.ts`. Resolution via `resolve<Interface>('token')`.
+  - **FR-7: DeploySkill Repository** — A new `IDeploySkillRepository` interface and `SQLiteDeploySkillRepository` implementation SHALL persist `DevEnvironmentAnalysis` results keyed by normalized repository path. The repository follows the existing mapper pattern (`toDatabase`/`fromDatabase`).
 
-  **TypeSpec-First**: All domain models defined in `tsp/`, compiled to `packages/core/src/domain/generated/output.ts`. Never edit generated files.
+  - **FR-8: Content-Hash Cache Key** — Each cached entry SHALL store a content hash computed from the sentinel files listed in the analysis result. On subsequent deploys, the service computes the current hash and compares it to the stored hash. If they match, the cached analysis is returned without calling the agent.
 
-  ### Relevant Technologies
+  - **FR-9: Cache Hit Path** — When a cache hit occurs (matching repo path AND matching content hash), the deployment service SHALL skip the analysis phase entirely and proceed directly to "Booting" using the cached start command. No agent call is made.
 
-  - **LangGraph** — StateGraph-based agent workflows with conditional edges, interrupts, and checkpointing
-  - **TypeSpec** — Domain model definitions compiled to TypeScript
-  - **Node.js child_process** — `spawn()` for process management with `tree-kill` for cleanup
-  - **SQLite** — Persistence for agent runs, phase timings, and settings
-  - **Server-Sent Events** — Real-time log streaming to web UI
-  - **Next.js Server Actions** — Web UI deployment controls
+  - **FR-10: Cache Miss / Invalidation Path** — When no cache exists for the repo path, or the content hash has changed (sentinel files modified), the service SHALL run the agent analysis, store the new result (overwriting any previous entry for that repo path), and proceed to "Booting".
+
+  - **FR-11: Force Re-Analyze** — A `forceReanalyze` option SHALL be available on the deploy action that bypasses cache and always runs the agent. This is exposed as a UI action (e.g. "Re-analyze" button on the deployment panel).
+
+  ### Deployment Flow (FR-12 through FR-16)
+
+  - **FR-12: Two-Phase Deploy** — The deploy flow SHALL have two explicit phases: (1) **Analyzing** — agent examines the repo (or cache lookup), (2) **Booting** — process spawning using the determined start command. The `DeploymentState` enum is extended with an `Analyzing` value.
+
+  - **FR-13: Refactored DeploymentService** — The `DeploymentService.start()` method SHALL be refactored to: (a) check cache → if hit, proceed to spawn; (b) if miss, set state to `Analyzing`, call the agent, cache the result, then proceed to spawn; (c) if `isStartable: false`, set state to a new terminal state or emit an error event without spawning a process.
+
+  - **FR-14: Non-Startable Terminal State** — When analysis returns `isStartable: false`, the deployment SHALL NOT spawn a process. Instead, it sets a descriptive status with the `notStartableReason` and remains in a terminal state. The UI displays the reason.
+
+  - **FR-15: Remove detectDevScript** — The existing `detect-dev-script.ts` module SHALL be removed. All analysis flows through the agent. Existing tests for `detectDevScript` are replaced with tests for the agent-based flow.
+
+  - **FR-16: Environment Variables** — If the agent's analysis includes `envVars`, the deployment service SHALL merge them into the spawned process's environment (`{ ...process.env, ...analysis.envVars }`).
+
+  ### Web UI Integration (FR-17 through FR-19)
+
+  - **FR-17: Analysis Loading State** — The web UI deployment components SHALL show an "Analyzing..." state with a descriptive message when the deployment is in the `Analyzing` phase. This replaces the immediate "Booting" indicator on first deploy.
+
+  - **FR-18: Non-Startable Display** — When a deployment resolves to `isStartable: false`, the UI SHALL display the `notStartableReason` in a clear, non-error style (informational — this is expected behavior, not a failure).
+
+  - **FR-19: Re-Analyze Action** — The web UI SHALL expose a "Re-analyze" action (button or menu item) on the deployment panel that triggers a forced re-analysis (bypasses cache), useful when the user has changed their project setup.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1: Cache Lookup Performance** — Cache lookup (hash comparison + SQLite read) SHALL complete in <500ms for any repo. This is verified by unit tests with timing assertions.
+
+  - **NFR-2: Agent Analysis Timeout** — The agent analysis call SHALL have a configurable timeout (default: 120 seconds). If the agent exceeds this timeout, the deploy fails with a descriptive error rather than hanging indefinitely.
+
+  - **NFR-3: No Hardcoded Agent Types** — All agent resolution MUST flow through `IAgentExecutorProvider`. The dev environment agent graph receives an `IAgentExecutor` via dependency injection, never importing a specific agent type directly. This is the MANDATORY pattern per project rules.
+
+  - **NFR-4: TypeSpec-First Models** — The `DevEnvironmentAnalysis` result type and any new `DeploymentState` values SHALL be defined in TypeSpec (`tsp/deployment/`) and compiled to `packages/core/src/domain/generated/output.ts`. No hand-written domain model types.
+
+  - **NFR-5: TDD Compliance** — All implementation follows TDD: write failing test first (RED), implement minimally (GREEN), refactor. Every PR must demonstrate this pattern in commit history.
+
+  - **NFR-6: Error Resilience** — If the agent call fails (network error, timeout, malformed output), the deployment service SHALL report a clear error with actionable guidance (e.g. "Agent analysis failed — check your agent configuration and try again"). It SHALL NOT crash, hang, or leave orphaned state.
+
+  - **NFR-7: Cross-Platform Paths** — Cache keys for repository paths SHALL be normalized (forward slashes, no trailing slash) to avoid duplicate entries on Windows vs macOS/Linux. Follow the existing `REPLACE(column, '\\', '/')` pattern in SQLite queries.
+
+  - **NFR-8: Backward Compatibility** — Existing web UI server actions (`deployFeature`, `deployRepository`, `stopDeployment`, `getDeploymentStatus`, `getDeploymentLogs`) SHALL maintain their current function signatures. Internal behavior changes are transparent to callers.
+
+  - **NFR-9: Log Streaming Continuity** — The log ring buffer and SSE streaming infrastructure SHALL continue working unchanged. Agent analysis logs (if any) are streamed alongside process logs.
+
+  - **NFR-10: Singleton Lifecycle** — The refactored `DeploymentService` SHALL remain a singleton instance (registered via `registerInstance` in the DI container) to maintain the in-memory process registry pattern.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Should analysis run inline or as a visible two-phase flow? | Two-phase with analysis state | Shows the user what the agent is doing — transparency is a feature for agent-based systems. Small enum addition. |
+  | 2 | How should cache invalidation work? | Content-hash based on sentinel files | Agent already inspects config files, so it can report which ones matter. Avoids both unnecessary re-analysis (TTL) and stale results (manual-only). |
+  | 3 | Keep detectDevScript as fast-path fallback? | Remove entirely — agent-only | Single code path, simpler maintenance. Cache makes subsequent deploys fast. User asked for "basically an agent for that." |
+  | 4 | How to handle monorepos with multiple services? | Detect primary service only | Matches current single-deployment model. Users can target subdirectories. Multi-service is a follow-up. |
+  | 5 | What should the agent output schema include? | Standard — command, port, prerequisites, language, framework, sentinelFiles, envVars | Covers execution needs, cache invalidation, and UI context without over-engineering. |
+  | 6 | Single-node or multi-node agent graph? | Single-node analysis | Matches existing analyze-repo pattern. Agent is capable enough for one-pass analysis. Minimizes latency and cost. |
 
   ## Affected Areas
 
   | Area | Impact | Reasoning |
   | ---- | ------ | --------- |
-  | `packages/core/src/infrastructure/services/deployment/` | High | Core service must be refactored to delegate to agent for analysis instead of hardcoded `detectDevScript()` |
-  | `packages/core/src/infrastructure/services/agents/` | High | New agent graph (or extension of analyze-repo) for dev environment analysis |
-  | `tsp/deployment/` | Medium | May need new models for cached analysis results (DevEnvironmentConfig) |
-  | `tsp/agents/deploy-agent.tsp` | Medium | LocalDeployAgent.Analyze operation needs implementation backing |
-  | `packages/core/src/application/ports/output/` | Medium | New or extended interfaces for agent-based deployment and caching |
-  | `packages/core/src/infrastructure/di/container.ts` | Medium | Register new services, cache repository |
-  | `src/presentation/web/app/actions/deploy-*.ts` | Medium | Server actions may need to handle async agent analysis before deployment |
-  | `src/presentation/web/components/` | Low | May need loading states for agent analysis phase |
-  | `packages/core/src/infrastructure/repositories/` | Medium | New repository for caching agent analysis results per repo |
-  | `tests/unit/infrastructure/services/deployment/` | High | Existing tests must be updated, new tests for agent-based flow |
-  | `detect-dev-script.ts` | Medium | Becomes a fallback heuristic rather than the primary detection path |
-  | `parse-port.ts` | Low | Still needed — agent provides the start command, port parsing still needed for stdout |
+  | `packages/core/src/infrastructure/services/deployment/` | High | Core service refactored to delegate analysis to agent, add caching, handle two-phase flow |
+  | `packages/core/src/infrastructure/services/agents/` | High | New `dev-environment-agent/` graph directory with state, node, and prompt |
+  | `tsp/deployment/` | Medium | New `DevEnvironmentAnalysis` model, extended `DeploymentState` enum with `Analyzing` |
+  | `tsp/agents/deploy-agent.tsp` | Medium | `LocalDeployAgent.Analyze` operation backed by the new agent graph |
+  | `packages/core/src/application/ports/output/` | Medium | New `IDeploySkillRepository` interface for cache persistence |
+  | `packages/core/src/infrastructure/repositories/` | Medium | New `SQLiteDeploySkillRepository` with mapper and migration |
+  | `packages/core/src/infrastructure/di/container.ts` | Medium | Register new repository, agent graph factory |
+  | `src/presentation/web/app/actions/deploy-*.ts` | Medium | Server actions updated for async analysis phase and non-startable handling |
+  | `src/presentation/web/components/` | Medium | Analyzing loading state, non-startable display, re-analyze button |
+  | `tests/unit/infrastructure/services/deployment/` | High | Existing tests updated, new tests for agent flow, cache, and non-startable |
+  | `detect-dev-script.ts` | High | Removed entirely — replaced by agent |
+  | `parse-port.ts` | Low | Still needed for runtime port detection from stdout |
 
   ## Dependencies
 
   **Existing infrastructure this feature depends on:**
   - `IAgentExecutorProvider` / `IAgentExecutorFactory` — Agent resolution (MANDATORY pattern)
-  - `IStructuredAgentCaller` — For extracting structured JSON from agent responses (dev env config)
-  - `DeploymentService` — Process spawning and lifecycle management (reused, but analysis path changes)
+  - `IStructuredAgentCaller` — For extracting structured JSON from agent responses
+  - `DeploymentService` — Process spawning and lifecycle management (reused, analysis path changes)
   - `LogRingBuffer` and SSE log streaming — Unchanged, still needed for real-time logs
-  - SQLite database — For caching analysis results per repository
+  - SQLite database with `better-sqlite3` — For caching analysis results per repository
   - TypeSpec compiler — For new domain models
+  - LangGraph `StateGraph` / `Annotation` API — For agent graph construction
 
   **Existing TypeSpec models that align with this feature:**
-  - `DeploySkill` — Already models a deployment blueprint (method, ports, instructions) — this is essentially the agent analysis cache target
-  - `LocalDeployAgent.Analyze(repositoryPath)` — Already defined in TypeSpec as returning a DeploySkill
+  - `DeploySkill` — Already models a deployment blueprint (method, ports, instructions) — extended or replaced by `DevEnvironmentAnalysis`
+  - `LocalDeployAgent.Analyze(repositoryPath)` — Already defined as returning a `DeploySkill`
   - `DeployMethod` enum — Already includes Script, Docker, DockerCompose, Kubernetes, Manual
-
-  ## Success Criteria
-
-  - [ ] Agent can analyze a Node.js repo and determine correct dev start command
-  - [ ] Agent can analyze a Python repo (Django/Flask/FastAPI) and determine correct dev start command
-  - [ ] Agent can analyze a Go, Rust, or other language repo
-  - [ ] Agent correctly identifies repos with no startable dev server (libraries, CLI tools, scripts)
-  - [ ] Analysis results are cached per-repo so subsequent starts skip agent analysis
-  - [ ] Cached results are returned within <1 second
-  - [ ] Deployment still works end-to-end through web UI (deploy, status, logs, stop)
-  - [ ] No hardcoded agent types — resolution via IAgentExecutorProvider
-  - [ ] All new code has unit tests (TDD: RED-GREEN-REFACTOR)
-  - [ ] TypeSpec models defined for any new domain concepts
+  - `DeploymentState` enum — Extended with `Analyzing` value
 
   ## Size Estimate
 
   **L** — This is a week+ effort because it requires:
-  1. New LangGraph agent graph for dev environment analysis
-  2. Structured output schema for agent responses (dev env config)
-  3. New caching layer with SQLite repository
-  4. Refactoring DeploymentService to use agent analysis instead of detectDevScript
-  5. TypeSpec model additions for cached analysis
-  6. Updating web UI server actions for the async analysis step
-  7. Comprehensive tests for multi-language scenarios
-  8. Handling edge cases (non-startable repos, monorepos, complex setups)
-
-  ---
-
-  _Generated by feature agent — proceed with research_
+  1. New LangGraph agent graph for dev environment analysis (single-node, following analyze-repo pattern)
+  2. Structured output schema and TypeSpec model for `DevEnvironmentAnalysis`
+  3. SQLite repository with content-hash caching and migration
+  4. Refactoring `DeploymentService` to two-phase flow (Analyzing → Booting)
+  5. Removing `detectDevScript` and updating all callers
+  6. `DeploymentState` enum extension with `Analyzing`
+  7. Web UI updates: analysis loading state, non-startable display, re-analyze action
+  8. Comprehensive TDD test suite for multi-language scenarios, cache behavior, and error cases
+  9. DI container registration for new services
