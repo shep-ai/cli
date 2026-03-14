@@ -96,13 +96,21 @@ describe('Legacy Migrations', () => {
         await migration.up({ name: migration.name, context: db });
       }
 
-      // Compare tables
-      const refTables = refDb
-        .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
-        .all() as { name: string }[];
-      const testTables = db
-        .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
-        .all() as { name: string }[];
+      // Compare tables — exclude umzug_migrations (tracking table created by umzug runner,
+      // not by legacy migrations themselves)
+      const filterTracking = (tables: { name: string }[]) =>
+        tables.filter((t) => t.name !== 'umzug_migrations');
+
+      const refTables = filterTracking(
+        refDb.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").all() as {
+          name: string;
+        }[]
+      );
+      const testTables = filterTracking(
+        db.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").all() as {
+          name: string;
+        }[]
+      );
 
       expect(testTables.map((t) => t.name)).toEqual(refTables.map((t) => t.name));
 

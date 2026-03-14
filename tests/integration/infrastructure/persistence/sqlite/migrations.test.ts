@@ -17,6 +17,8 @@ import {
   getSchemaVersion,
   getTableSchema,
   getTableIndexes,
+  getAppliedMigrations,
+  clearMigrationsAfter,
 } from '../../../../helpers/database.helper.js';
 import {
   runSQLiteMigrations,
@@ -494,7 +496,7 @@ describe('SQLite Migrations', () => {
       expect(repoId?.notnull).toBe(0); // nullable
     });
 
-    it('should backfill repositories from existing features', () => {
+    it('should backfill repositories from existing features', async () => {
       // Insert features with same repo path before migration
       const freshDb = createInMemoryDatabase();
 
@@ -505,7 +507,7 @@ describe('SQLite Migrations', () => {
       // Run all migrations — features table created at v4
       // We need to insert features AFTER v4 but BEFORE v15
       // Since we can't pause migration, test the result after full migration
-      runSQLiteMigrations(freshDb);
+      await runSQLiteMigrations(freshDb);
 
       // After full migration, repositories table should exist (even if empty since no features existed pre-migration)
       expect(tableExists(freshDb, 'repositories')).toBe(true);
@@ -634,6 +636,7 @@ describe('SQLite Migrations', () => {
 
       // Act: reset version to 22 so migration 23 runs on the next call
       db.pragma('user_version = 22');
+      clearMigrationsAfter(db, '022');
       await runSQLiteMigrations(db);
 
       // Assert: repositories row now exists for the orphaned path
@@ -660,6 +663,7 @@ describe('SQLite Migrations', () => {
 
       // Act: reset and re-run migration 23
       db.pragma('user_version = 22');
+      clearMigrationsAfter(db, '022');
       await runSQLiteMigrations(db);
 
       // Assert: still only one row for this path
@@ -779,6 +783,7 @@ describe('SQLite Migrations', () => {
 
     it('should be idempotent (running twice does not error)', async () => {
       db.pragma('user_version = 23');
+      clearMigrationsAfter(db, '023');
       await expect(runSQLiteMigrations(db)).resolves.not.toThrow();
       expect(getSchemaVersion(db)).toBe(LATEST_SCHEMA_VERSION);
     });
@@ -867,6 +872,59 @@ describe('SQLite Migrations', () => {
     it('should create index on phase_timings agent_run_id', () => {
       const indexes = getTableIndexes(db, 'phase_timings');
       expect(indexes).toContain('idx_phase_timings_run');
+    });
+  });
+
+  describe('umzug migration tracking', () => {
+    it('should create umzug_migrations table after migration run', async () => {
+      await runSQLiteMigrations(db);
+      expect(tableExists(db, 'umzug_migrations')).toBe(true);
+    });
+
+    it('should record 34 migration entries in umzug_migrations', async () => {
+      await runSQLiteMigrations(db);
+      const applied = getAppliedMigrations(db);
+      expect(applied).toHaveLength(34);
+    });
+
+    it('should record migrations with zero-padded names from 001 to 034', async () => {
+      await runSQLiteMigrations(db);
+      const applied = getAppliedMigrations(db);
+      expect(applied[0]).toMatch(/^001-/);
+      expect(applied[33]).toMatch(/^034-/);
+    });
+
+    it('should bootstrap seeder for database at user_version 20', async () => {
+      // Simulate a database that was previously at version 20 under the old system.
+      // First run all migrations to get the full schema, then remove umzug tracking
+      // and reset user_version to 20 to simulate the pre-umzug state.
+      await runSQLiteMigrations(db);
+
+      // Remove the umzug_migrations table and reset user_version to simulate
+      // a database that was managed by the old PRAGMA-based system
+      db.exec('DROP TABLE umzug_migrations');
+      db.pragma('user_version = 20');
+
+      // Running migrations should bootstrap 20 records and re-run 21-34
+      await runSQLiteMigrations(db);
+
+      expect(getSchemaVersion(db)).toBe(LATEST_SCHEMA_VERSION);
+      const applied = getAppliedMigrations(db);
+      expect(applied).toHaveLength(34);
+    });
+
+    it('should apply only pending migrations when some are already tracked', async () => {
+      await runSQLiteMigrations(db);
+
+      // Remove the last 5 migrations from tracking
+      clearMigrationsAfter(db, '029');
+      db.pragma('user_version = 29');
+
+      // Re-run should apply only pending migrations (030-034)
+      await runSQLiteMigrations(db);
+
+      expect(getSchemaVersion(db)).toBe(LATEST_SCHEMA_VERSION);
+      expect(getAppliedMigrations(db)).toHaveLength(34);
     });
   });
 });
