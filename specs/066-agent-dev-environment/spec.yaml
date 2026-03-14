@@ -1,0 +1,179 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: agent-dev-environment
+number: 066
+branch: feat/066-agent-dev-environment
+oneLiner: >
+  Replace the script-only deployment service with an agent-based dev environment that analyzes any repo, caches results, and handles non-startable projects gracefully
+userQuery: >
+  The current deployment env feature is simple stupid. lets introduce agent based deployment. so it could start dev env for any repo.
+  It should have some level of cache per repo so it would be fast.
+  It should support all languages and be basically an agent for that.
+  There are some repos which are basically impossible to start local dev server as there is no server or UI maybe its just a script — in such case the agent should respond that there is nothing to start.
+summary: >
+  Replace the current script-only DeploymentService (which only detects package.json dev/start/serve scripts for Node.js projects) with an agent-based dev environment system.
+  The agent analyzes any repository — regardless of language or framework — determines how to start a local dev server, caches its analysis per-repo for fast subsequent starts, and gracefully reports when a repo has nothing startable (e.g. a CLI tool, library, or script-only project).
+phase: Analysis
+sizeEstimate: L
+
+# Relationships
+relatedFeatures:
+  - "045-feature-env-deploy"
+  - "055-deployment-status-indicator"
+  - "061-default-env-deployment"
+
+technologies:
+  - TypeScript
+  - LangGraph
+  - TypeSpec
+  - Node.js child_process (spawn)
+  - SQLite (caching)
+  - Server-Sent Events (log streaming)
+  - Next.js server actions
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - "Should the agent cache be invalidated automatically when repo files change (e.g. lockfile hash), or only on manual request?"
+  - "Should the agent support Docker/Docker Compose detection in this iteration, or only language-native dev servers?"
+  - "How should the agent handle monorepos with multiple startable services?"
+  - "Should there be a timeout for the agent analysis phase before falling back to best-guess heuristics?"
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  The current `DeploymentService` (`packages/core/src/infrastructure/services/deployment/`) is limited to Node.js projects only. It reads `package.json`, detects `dev`/`start`/`serve` scripts, picks a package manager from lockfiles (pnpm/yarn/npm), and spawns the script. Port detection relies on regex matching stdout patterns for Next.js, Vite, Express, and generic servers.
+
+  This approach fails for:
+  - **Non-Node.js projects**: Python (Django, Flask, FastAPI), Go, Rust, Ruby, Java/Kotlin, PHP, etc. have no `package.json`
+  - **Complex setups**: Projects requiring environment variables, database setup, Docker Compose, or multi-step build processes
+  - **Non-startable repos**: Libraries, CLI tools, scripts, and data-only repos have no dev server — the current service just errors out
+  - **Repeat analysis**: Every deployment re-detects the dev script from scratch with no caching
+
+  The goal is to replace this with an **agent-based approach** where an AI agent analyzes the repository, determines the correct way to start a dev environment (or declares it non-startable), caches its analysis for fast re-use, and supports any language or framework.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The project follows Clean Architecture with four layers in `packages/core/src/`:
+
+  - **`domain/`** — Core business logic and TypeSpec-generated models (`domain/generated/output.ts`)
+  - **`application/`** — Use cases and output port interfaces (e.g. `IDeploymentService`, `IAgentExecutor`)
+  - **`infrastructure/`** — Implementations: `services/deployment/`, `services/agents/`, `repositories/`, `di/`
+  - **`presentation/`** — CLI (`src/presentation/cli/`), Web UI (`src/presentation/web/`), TUI
+
+  Key deployment files:
+  - `packages/core/src/infrastructure/services/deployment/deployment.service.ts` — Process spawning, lifecycle, logs
+  - `packages/core/src/infrastructure/services/deployment/detect-dev-script.ts` — Node.js-only script detection
+  - `packages/core/src/infrastructure/services/deployment/parse-port.ts` — Regex-based port extraction
+  - `packages/core/src/infrastructure/services/deployment/log-ring-buffer.ts` — Circular log buffer
+  - `packages/core/src/application/ports/output/services/deployment-service.interface.ts` — Service contract
+
+  TypeSpec models:
+  - `tsp/deployment/deployment.tsp` — Deployment entity (state, url, ports)
+  - `tsp/deployment/deploy-skill.tsp` — DeploySkill entity (blueprint: method, ports, instructions)
+  - `tsp/common/enums/deployment.tsp` — DeploymentState, DeployMethod enums
+  - `tsp/agents/deploy-agent.tsp` — LocalDeployAgent with Deploy/Analyze/Ask operations
+  - `tsp/agents/deploy-target.tsp` — DeployTarget discriminated union
+
+  Web UI integration:
+  - `src/presentation/web/app/actions/deploy-repository.ts` — Deploy repo action
+  - `src/presentation/web/app/actions/deploy-feature.ts` — Deploy feature worktree
+  - `src/presentation/web/app/actions/stop-deployment.ts` — Stop deployment
+  - `src/presentation/web/app/actions/get-deployment-status.ts` — Poll status
+  - `src/presentation/web/app/actions/get-deployment-logs.ts` — SSE log stream
+  - `src/presentation/web/hooks/use-deploy-action.ts` — Deploy action hook
+  - `src/presentation/web/hooks/use-deployment-logs.ts` — Log streaming hook
+  - `src/presentation/web/components/deployment-status-badge.tsx` — Status display
+
+  ### Architecture Patterns
+
+  **Agent System**: Built on LangGraph StateGraphs. Key abstractions:
+  - `IAgentExecutor` — Execute prompts (supports Claude Code, Cursor, Gemini CLI, Dev mock)
+  - `IAgentExecutorProvider` — Resolve executor from settings (MANDATORY: no hardcoding agent types)
+  - `IAgentExecutorFactory` — Create typed executors
+  - `IStructuredAgentCaller` — JSON extraction with native and fallback paths
+
+  **Existing Agent Graphs**:
+  - Feature Agent (`infrastructure/services/agents/feature-agent/`) — Full SDLC workflow (analyze, requirements, research, plan, implement, merge)
+  - Analyze Repo (`infrastructure/services/agents/analyze-repo/`) — Single-node repository analysis
+
+  **Agent Execution Pattern**: Nodes are pure async functions receiving state, calling `executor.execute(prompt, options)`, and returning state updates. Prompts are built dynamically per-node with helpers.
+
+  **DI Container**: All services registered in `infrastructure/di/container.ts`. Resolution via `resolve<Interface>('token')`.
+
+  **TypeSpec-First**: All domain models defined in `tsp/`, compiled to `packages/core/src/domain/generated/output.ts`. Never edit generated files.
+
+  ### Relevant Technologies
+
+  - **LangGraph** — StateGraph-based agent workflows with conditional edges, interrupts, and checkpointing
+  - **TypeSpec** — Domain model definitions compiled to TypeScript
+  - **Node.js child_process** — `spawn()` for process management with `tree-kill` for cleanup
+  - **SQLite** — Persistence for agent runs, phase timings, and settings
+  - **Server-Sent Events** — Real-time log streaming to web UI
+  - **Next.js Server Actions** — Web UI deployment controls
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `packages/core/src/infrastructure/services/deployment/` | High | Core service must be refactored to delegate to agent for analysis instead of hardcoded `detectDevScript()` |
+  | `packages/core/src/infrastructure/services/agents/` | High | New agent graph (or extension of analyze-repo) for dev environment analysis |
+  | `tsp/deployment/` | Medium | May need new models for cached analysis results (DevEnvironmentConfig) |
+  | `tsp/agents/deploy-agent.tsp` | Medium | LocalDeployAgent.Analyze operation needs implementation backing |
+  | `packages/core/src/application/ports/output/` | Medium | New or extended interfaces for agent-based deployment and caching |
+  | `packages/core/src/infrastructure/di/container.ts` | Medium | Register new services, cache repository |
+  | `src/presentation/web/app/actions/deploy-*.ts` | Medium | Server actions may need to handle async agent analysis before deployment |
+  | `src/presentation/web/components/` | Low | May need loading states for agent analysis phase |
+  | `packages/core/src/infrastructure/repositories/` | Medium | New repository for caching agent analysis results per repo |
+  | `tests/unit/infrastructure/services/deployment/` | High | Existing tests must be updated, new tests for agent-based flow |
+  | `detect-dev-script.ts` | Medium | Becomes a fallback heuristic rather than the primary detection path |
+  | `parse-port.ts` | Low | Still needed — agent provides the start command, port parsing still needed for stdout |
+
+  ## Dependencies
+
+  **Existing infrastructure this feature depends on:**
+  - `IAgentExecutorProvider` / `IAgentExecutorFactory` — Agent resolution (MANDATORY pattern)
+  - `IStructuredAgentCaller` — For extracting structured JSON from agent responses (dev env config)
+  - `DeploymentService` — Process spawning and lifecycle management (reused, but analysis path changes)
+  - `LogRingBuffer` and SSE log streaming — Unchanged, still needed for real-time logs
+  - SQLite database — For caching analysis results per repository
+  - TypeSpec compiler — For new domain models
+
+  **Existing TypeSpec models that align with this feature:**
+  - `DeploySkill` — Already models a deployment blueprint (method, ports, instructions) — this is essentially the agent analysis cache target
+  - `LocalDeployAgent.Analyze(repositoryPath)` — Already defined in TypeSpec as returning a DeploySkill
+  - `DeployMethod` enum — Already includes Script, Docker, DockerCompose, Kubernetes, Manual
+
+  ## Success Criteria
+
+  - [ ] Agent can analyze a Node.js repo and determine correct dev start command
+  - [ ] Agent can analyze a Python repo (Django/Flask/FastAPI) and determine correct dev start command
+  - [ ] Agent can analyze a Go, Rust, or other language repo
+  - [ ] Agent correctly identifies repos with no startable dev server (libraries, CLI tools, scripts)
+  - [ ] Analysis results are cached per-repo so subsequent starts skip agent analysis
+  - [ ] Cached results are returned within <1 second
+  - [ ] Deployment still works end-to-end through web UI (deploy, status, logs, stop)
+  - [ ] No hardcoded agent types — resolution via IAgentExecutorProvider
+  - [ ] All new code has unit tests (TDD: RED-GREEN-REFACTOR)
+  - [ ] TypeSpec models defined for any new domain concepts
+
+  ## Size Estimate
+
+  **L** — This is a week+ effort because it requires:
+  1. New LangGraph agent graph for dev environment analysis
+  2. Structured output schema for agent responses (dev env config)
+  3. New caching layer with SQLite repository
+  4. Refactoring DeploymentService to use agent analysis instead of detectDevScript
+  5. TypeSpec model additions for cached analysis
+  6. Updating web UI server actions for the async analysis step
+  7. Comprehensive tests for multi-language scenarios
+  8. Handling edge cases (non-startable repos, monorepos, complex setups)
+
+  ---
+
+  _Generated by feature agent — proceed with research_
