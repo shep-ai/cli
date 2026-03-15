@@ -31,8 +31,11 @@ import { getLogPrefix, setCurrentPhase } from '../log-context.js';
  * Also sets the current phase so executor logs inherit the node context.
  */
 export function createNodeLogger(nodeName: string) {
-  setCurrentPhase(nodeName);
   return {
+    /** Activate this node's phase in the global log context. */
+    activate(): void {
+      setCurrentPhase(nodeName);
+    },
     info(message: string): void {
       const ts = new Date().toISOString();
       process.stdout.write(`[${ts}] [${nodeName}] ${getLogPrefix()}${message}\n`);
@@ -388,6 +391,7 @@ export function executeNode(
   const log = createNodeLogger(nodeName);
 
   return async (state: FeatureAgentState): Promise<Partial<FeatureAgentState>> => {
+    log.activate();
     log.info('Starting...');
     reportNodeStart(nodeName);
 

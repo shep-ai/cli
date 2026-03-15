@@ -213,6 +213,65 @@ export class GitPrService implements IGitPrService {
     }
   }
 
+  async localMergeSquash(
+    cwd: string,
+    featureBranch: string,
+    baseBranch: string,
+    commitMessage: string,
+    hasRemote = false
+  ): Promise<void> {
+    try {
+      // Fetch latest from remote if available
+      if (hasRemote) {
+        try {
+          await this.execFile('git', ['fetch', 'origin'], { cwd });
+        } catch {
+          // Fetch failure is non-fatal — proceed with local state
+        }
+      }
+
+      // Checkout base branch
+      await this.execFile('git', ['checkout', baseBranch], { cwd });
+
+      // Pull latest base if remote available
+      if (hasRemote) {
+        try {
+          await this.execFile('git', ['pull', 'origin', baseBranch], { cwd });
+        } catch {
+          // Pull failure is non-fatal — proceed with local state
+        }
+      }
+
+      // Squash merge the feature branch
+      await this.execFile('git', ['merge', '--squash', featureBranch], { cwd });
+
+      // Commit the squash merge
+      await this.execFile('git', ['commit', '-m', commitMessage], { cwd });
+
+      // Delete the feature branch after successful merge
+      try {
+        await this.execFile('git', ['branch', '-d', featureBranch], { cwd });
+      } catch {
+        // Branch deletion failure is non-fatal (branch may have already been deleted)
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const cause = error instanceof Error ? error : undefined;
+      if (message.includes('CONFLICT') || message.includes('conflict')) {
+        throw new GitPrError(
+          `Merge conflict while squash-merging ${featureBranch} into ${baseBranch}: ${message}`,
+          GitPrErrorCode.MERGE_CONFLICT,
+          cause
+        );
+      }
+      throw new GitPrError(
+        `Local squash merge failed: ${message}`,
+        GitPrErrorCode.GIT_ERROR,
+        cause
+      );
+    }
+  }
+
   async mergeBranch(cwd: string, sourceBranch: string, targetBranch: string): Promise<void> {
     try {
       await this.execFile('git', ['checkout', targetBranch], { cwd });
