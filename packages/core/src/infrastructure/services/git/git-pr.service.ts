@@ -256,7 +256,9 @@ export class GitPrService implements IGitPrService {
       // Commit the squash merge (skip if nothing to commit — branches may be equivalent)
       const { stdout: status } = await this.execFile('git', ['status', '--porcelain'], { cwd });
       if (status.trim().length > 0) {
-        await this.execFile('git', ['commit', '-m', commitMessage], { cwd });
+        // Use --message= form to pass commit message as a single arg (avoids shell
+        // splitting on Windows where execFile uses shell: true via DI)
+        await this.execFile('git', ['commit', `--message=${commitMessage}`], { cwd });
       }
 
       // Delete the feature branch after successful merge
