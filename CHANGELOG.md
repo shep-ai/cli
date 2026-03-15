@@ -1,3 +1,10 @@
+# [1.117.0](https://github.com/shep-ai/cli/compare/v1.116.3...v1.117.0) (2026-03-15)
+
+### Features
+
+- **domain:** add pending feature state with deferred agent execution ([#368](https://github.com/shep-ai/cli/issues/368)) ([276aa50](https://github.com/shep-ai/cli/commit/276aa5056e3a909328ce34594987c6befad64957))
+- **web:** add per-agent per-stage configurable timeouts to settings ([#363](https://github.com/shep-ai/cli/issues/363)) ([d491c7b](https://github.com/shep-ai/cli/commit/d491c7bb618b16096c5e5ad5c03ba7a6eac093cd))
+
 ## [1.116.3](https://github.com/shep-ai/cli/compare/v1.116.2...v1.116.3) (2026-03-15)
 
 ### Bug Fixes
