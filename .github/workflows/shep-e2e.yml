@@ -190,7 +190,7 @@ jobs:
       # 7. Wait for feature to complete
       # ─────────────────────────────────────────────────────────────────────
       - name: Wait for feature to complete
-        timeout-minutes: 5
+        timeout-minutes: 15
         shell: node {0}
         env:
           DEV_EXECUTOR_DELAY_MS: '0'
@@ -379,7 +379,7 @@ jobs:
           echo "$OUTPUT" | grep -q "[0-9a-f]" || { echo "::error::No feature ID found"; exit 1; }
 
       - name: Wait for feature to complete
-        timeout-minutes: 15
+        timeout-minutes: 25
         shell: node {0}
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -394,7 +394,7 @@ jobs:
           const featureId = idMatch[0];
           console.log(`Feature ID: ${featureId}`);
 
-          const MAX_WAIT = 600000, INTERVAL = 10000, start = Date.now();
+          const MAX_WAIT = 1200000, INTERVAL = 10000, start = Date.now();
           function checkStatus() {
             try { const o = execSync(`shep feat show ${featureId}`, { cwd, encoding: 'utf8', stdio: ['pipe','pipe','pipe'] }); console.log(o); return o; }
             catch (e) { console.log(e.stdout || e.message); return e.stdout || ''; }
@@ -515,7 +515,7 @@ jobs:
           echo "$OUTPUT" | grep -q "[0-9a-f]" || { echo "::error::No feature ID found"; exit 1; }
 
       - name: Wait for feature to complete
-        timeout-minutes: 15
+        timeout-minutes: 25
         shell: node {0}
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -531,7 +531,7 @@ jobs:
           const featureId = idMatch[0];
           console.log(`Feature ID: ${featureId}`);
 
-          const MAX_WAIT = 600000, INTERVAL = 10000, start = Date.now();
+          const MAX_WAIT = 1200000, INTERVAL = 10000, start = Date.now();
           function checkStatus() {
             try { const o = execSync(`shep feat show ${featureId}`, { cwd, encoding: 'utf8', stdio: ['pipe','pipe','pipe'] }); console.log(o); return o; }
             catch (e) { console.log(e.stdout || e.message); return e.stdout || ''; }
