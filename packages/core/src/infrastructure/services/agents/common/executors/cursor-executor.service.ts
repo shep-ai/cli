@@ -9,7 +9,7 @@
  * to enable testability without mocking node:child_process directly.
  */
 
-import { writeFileSync, unlinkSync } from 'node:fs';
+import { writeFileSync, unlinkSync, readdirSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -337,13 +337,51 @@ export class CursorExecutorService implements IAgentExecutor {
   }
 
   /**
-   * Spawn the agent process, handling Windows specially via PowerShell.
+   * Resolve the cursor CLI's bundled node.exe and index.js paths on Windows.
    *
-   * On Windows, cursor CLI ships as `agent.cmd` which requires `shell: true`,
-   * but cmd.exe mangles long `-p` arguments (8191-char limit + special chars).
-   * Solution: write prompt to a temp file, invoke agent via PowerShell which
-   * reads the file and passes the content as `-p`. PowerShell handles long
-   * strings natively (32K limit) and doesn't mangle arguments.
+   * The cursor CLI installs to `%LOCALAPPDATA%\cursor-agent\` with:
+   *   - `agent.cmd` / `cursor-agent.ps1` (shell wrappers)
+   *   - `versions/<YYYY.MM.DD-commit>/node.exe` + `index.js`
+   *
+   * Spawning via agent.cmd creates a problematic nesting chain:
+   *   PowerShell → agent.cmd → PowerShell → cursor-agent.ps1 → node.exe
+   * This chain hangs on Windows CI runners. Direct invocation bypasses it.
+   *
+   * @returns `{ nodePath, indexPath }` or `undefined` if not found
+   */
+  private resolveCursorBinary(): { nodePath: string; indexPath: string } | undefined {
+    const localAppData = process.env.LOCALAPPDATA;
+    if (!localAppData) return undefined;
+
+    const versionsDir = join(localAppData, 'cursor-agent', 'versions');
+    if (!existsSync(versionsDir)) return undefined;
+
+    // Find the latest version directory (format: YYYY.MM.DD-commit)
+    const versionPattern = /^\d{4}\.\d{1,2}\.\d{1,2}-[a-f0-9]+$/;
+    const versions = readdirSync(versionsDir)
+      .filter((d) => versionPattern.test(d))
+      .sort()
+      .reverse();
+
+    if (versions.length === 0) return undefined;
+
+    const versionDir = join(versionsDir, versions[0]);
+    const nodePath = join(versionDir, 'node.exe');
+    const indexPath = join(versionDir, 'index.js');
+
+    if (!existsSync(nodePath) || !existsSync(indexPath)) return undefined;
+
+    return { nodePath, indexPath };
+  }
+
+  /**
+   * Spawn the agent process, handling Windows specially.
+   *
+   * On Windows, the cursor CLI ships as `agent.cmd` which spawns PowerShell
+   * which runs `cursor-agent.ps1` which runs `node.exe index.js`. This triple
+   * nesting (PowerShell → cmd.exe → PowerShell → node.exe) hangs on Windows
+   * CI runners. Solution: resolve the cursor CLI's bundled `node.exe` and
+   * `index.js` directly, bypassing all shell wrappers.
    *
    * On Linux/macOS, spawn `agent` directly — no shell needed.
    */
@@ -356,20 +394,40 @@ export class CursorExecutorService implements IAgentExecutor {
     const cwd = options?.cwd;
 
     if (IS_WINDOWS) {
-      // Write prompt to temp file to bypass cmd.exe argument mangling
+      const resolved = this.resolveCursorBinary();
+      if (resolved) {
+        // Direct invocation: node.exe index.js <args>
+        // No shell wrappers, no nesting, no hangs.
+        const directArgs = [resolved.indexPath, ...args];
+
+        this.log(`Windows direct mode: ${resolved.nodePath}`);
+        this.log(
+          `Args: ${directArgs.map((a) => (a.length > 80 ? `${a.slice(0, 77)}...` : a)).join(' ')}`
+        );
+
+        const proc = this.spawn(resolved.nodePath, directArgs, {
+          cwd,
+          stdio: ['pipe', 'pipe', 'pipe'],
+          windowsHide: true,
+          env: { ...cleanEnv, CURSOR_INVOKED_AS: 'agent' },
+        });
+        this.log(`Direct PID: ${proc.pid ?? 'undefined (spawn may have failed)'}`);
+        if (proc.stdin) proc.stdin.end();
+
+        return { proc, tmpFile: undefined };
+      }
+
+      // Fallback: if direct resolution fails, use PowerShell + temp file
+      this.log('Windows fallback: cursor binary not resolved, using PowerShell');
       const tmpFile = join(
         tmpdir(),
         `shep-cursor-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.txt`
       );
       writeFileSync(tmpFile, prompt, 'utf8');
 
-      // Build the agent args WITHOUT -p and the prompt (they go via temp file)
       const agentFlags = args.filter((a) => a !== '-p' && a !== prompt).join(' ');
       const safePath = tmpFile.replace(/'/g, "''");
       const psCmd = `$p = Get-Content -Raw '${safePath}'; & agent ${agentFlags} -p $p`;
-
-      this.log(`Windows PowerShell mode: wrote ${prompt.length} chars to ${tmpFile}`);
-      this.log(`PS command: ${psCmd.replace(prompt, `<${prompt.length} chars>`)}`);
 
       const proc = this.spawn(
         'powershell.exe',
@@ -381,7 +439,6 @@ export class CursorExecutorService implements IAgentExecutor {
           env: cleanEnv,
         }
       );
-      this.log(`PowerShell PID: ${proc.pid ?? 'undefined (spawn may have failed)'}`);
       if (proc.stdin) proc.stdin.end();
 
       return { proc, tmpFile };
