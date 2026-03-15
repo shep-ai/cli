@@ -1,0 +1,303 @@
+
+> @shepai/cli@1.112.1 test:unit /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-pending-feature-state
+> vitest run tests/unit -- --grep -i 'pending\|start-feature\|StartFeature\|lifecycle.gate\|derive.*state\|feature-node'
+
+
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-pending-feature-state[39m
+
+[90mstdout[2m | tests/unit/commands/daemon/start-daemon.test.ts[2m > [22m[2mstartDaemon()[2m > [22m[2malready-running path (idempotent)[2m > [22m[2mdoes NOT spawn a new process when daemon is already alive
+[22m[39m
+ℹ Shep is already running at http://localhost:4050
+
+
+[90mstdout[2m | tests/unit/commands/daemon/start-daemon.test.ts[2m > [22m[2mstartDaemon()[2m > [22m[2malready-running path (idempotent)[2m > [22m[2mdoes NOT write daemon.json when daemon is already alive
+[22m[39m
+ℹ Shep is already running at http://localhost:4050
+
+
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/domain/factories/spec-yaml-parser.test.ts [2m([22m[2m80 tests[22m[2m)[22m[32m 131[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/agent-registry.service.test.ts [2m([22m[2m8 tests[22m[2m)[22m[33m 323[2mms[22m[39m
+       [33m[2m✓[22m[39m should pre-register the analyze-repository agent [33m 320[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/application/use-cases/upgrade/upgrade-cli.use-case.test.ts [2m([22m[2m13 tests[22m[2m)[22m[33m 375[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/executors/gemini-cli-executor.test.ts [2m([22m[2m43 tests[22m[2m)[22m[33m 349[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/executors/cursor-executor.test.ts [2m([22m[2m39 tests[22m[2m)[22m[32m 217[2mms[22m[39m
+[90mstdout[2m | tests/unit/commands/daemon/start-daemon.test.ts[2m > [22m[2mstartDaemon()[2m > [22m[2mfresh-start path (no existing daemon)[2m > [22m[2mcalls findAvailablePort with DEFAULT_PORT when no port option given
+[22m[39m
+Shep Web UI
+
+✓ Daemon spawned at http://localhost:4050
+
+
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/domain/factories/spec-yaml-artifact-parsing.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 106[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/tool-installer/tool-installer.service.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 186[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts [2m([22m[2m31 tests[22m[2m)[22m[32m 172[2mms[22m[39m
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mstart/stop lifecycle[2m > [22m[2mshould set isRunning to true when started
+[22m[39m[PrSyncWatcher] Starting (poll every 30000ms)
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mstart/stop lifecycle[2m > [22m[2mshould set isRunning to true when started
+[22m[39m[PrSyncWatcher] Stopped
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mstart/stop lifecycle[2m > [22m[2mshould set isRunning to false when stopped
+[22m[39m[PrSyncWatcher] Starting (poll every 30000ms)
+[PrSyncWatcher] Stopped
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mstart/stop lifecycle[2m > [22m[2mshould be no-op when start() is called while already running
+[22m[39m[PrSyncWatcher] Starting (poll every 30000ms)
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mstart/stop lifecycle[2m > [22m[2mshould be no-op when start() is called while already running
+[22m[39m[PrSyncWatcher] Stopped
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mstart/stop lifecycle[2m > [22m[2mshould poll at configured interval
+[22m[39m[PrSyncWatcher] Starting (poll every 30000ms)
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mstart/stop lifecycle[2m > [22m[2mshould poll at configured interval
+[22m[39m[PrSyncWatcher] Stopped
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mstart/stop lifecycle[2m > [22m[2mshould stop polling when stop() is called
+[22m[39m[PrSyncWatcher] Starting (poll every 30000ms)
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mstart/stop lifecycle[2m > [22m[2mshould stop polling when stop() is called
+[22m[39m[PrSyncWatcher] Stopped
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mstart/stop lifecycle[2m > [22m[2mshould support custom poll interval
+[22m[39m[PrSyncWatcher] Starting (poll every 1000ms)
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mstart/stop lifecycle[2m > [22m[2mshould support custom poll interval
+[22m[39m[PrSyncWatcher] Stopped
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mPR status polling and transition detection[2m > [22m[2mshould detect Open→Merged transition and update feature and agent run
+[22m[39m[PrSyncWatcher] Starting (poll every 30000ms)
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mPR status polling and transition detection[2m > [22m[2mshould detect Open→Merged transition and update feature and agent run
+[22m[39m[PrSyncWatcher] PR #1 status changed: Open -> Merged for "My Feature"
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mPR status polling and transition detection[2m > [22m[2mshould detect Open→Merged transition and update feature and agent run
+[22m[39m[PrSyncWatcher] CI status changed: none -> Pending for "My Feature"
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mPR status polling and transition detection[2m > [22m[2mshould detect Open→Merged transition and update feature and agent run
+[22m[39m[PrSyncWatcher] Stopped
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mPR status polling and transition detection[2m > [22m[2mshould skip agent run update when feature has no agentRunId
+[22m[39m[PrSyncWatcher] Starting (poll every 30000ms)
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mPR status polling and transition detection[2m > [22m[2mshould skip agent run update when feature has no agentRunId
+[22m[39m[PrSyncWatcher] PR #1 status changed: Open -> Merged for "My Feature"
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mPR status polling and transition detection[2m > [22m[2mshould skip agent run update when feature has no agentRunId
+[22m[39m[PrSyncWatcher] CI status changed: none -> Pending for "My Feature"
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mPR status polling and transition detection[2m > [22m[2mshould skip agent run update when feature has no agentRunId
+[22m[39m[PrSyncWatcher] Stopped
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mPR status polling and transition detection[2m > [22m[2mshould detect Open→Closed transition and update feature without lifecycle change
+[22m[39m[PrSyncWatcher] Starting (poll every 30000ms)
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mPR status polling and transition detection[2m > [22m[2mshould detect Open→Closed transition and update feature without lifecycle change
+[22m[39m[PrSyncWatcher] PR #2 status changed: Open -> Closed for "Closed Feature"
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mPR status polling and transition detection[2m > [22m[2mshould detect Open→Closed transition and update feature without lifecycle change
+[22m[39m[PrSyncWatcher] CI status changed: none -> Pending for "Closed Feature"
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mPR status polling and transition detection[2m > [22m[2mshould detect Open→Closed transition and update feature without lifecycle change
+[22m[39m[PrSyncWatcher] Stopped
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mPR status polling and transition detection[2m > [22m[2mshould not call update when PR status has not changed
+[22m[39m[PrSyncWatcher] Starting (poll every 30000ms)
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mPR status polling and transition detection[2m > [22m[2mshould not call update when PR status has not changed
+[22m[39m[PrSyncWatcher] Stopped
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mPR status polling and transition detection[2m > [22m[2mshould group features by repositoryPath for batch PR queries
+[22m[39m[PrSyncWatcher] Starting (poll every 30000ms)
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mPR status polling and transition detection[2m > [22m[2mshould group features by repositoryPath for batch PR queries
+[22m[39m[PrSyncWatcher] CI status changed: none -> Pending for "Test Feature"
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mPR status polling and transition detection[2m > [22m[2mshould group features by repositoryPath for batch PR queries
+[22m[39m[PrSyncWatcher] CI status changed: none -> Pending for "Test Feature"
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mPR status polling and transition detection[2m > [22m[2mshould group features by repositoryPath for batch PR queries
+[22m[39m[PrSyncWatcher] CI status changed: none -> Pending for "Test Feature"
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mPR status polling and transition detection[2m > [22m[2mshould group features by repositoryPath for batch PR queries
+[22m[39m[PrSyncWatcher] Stopped
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mPR status polling and transition detection[2m > [22m[2mshould prune features that left Review from tracking map
+[22m[39m[PrSyncWatcher] Starting (poll every 30000ms)
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mPR status polling and transition detection[2m > [22m[2mshould prune features that left Review from tracking map
+[22m[39m[PrSyncWatcher] CI status changed: none -> Pending for "Test Feature"
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mPR status polling and transition detection[2m > [22m[2mshould prune features that left Review from tracking map
+[22m[39m[PrSyncWatcher] Stopped
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mPR status polling and transition detection[2m > [22m[2mshould emit PrMerged notification with correct fields including featureId and agentRunId
+[22m[39m[PrSyncWatcher] Starting (poll every 30000ms)
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mPR status polling and transition detection[2m > [22m[2mshould emit PrMerged notification with correct fields including featureId and agentRunId
+[22m[39m[PrSyncWatcher] PR #1 status changed: Open -> Merged for "Merged Feature"
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mPR status polling and transition detection[2m > [22m[2mshould emit PrMerged notification with correct fields including featureId and agentRunId
+[22m[39m[PrSyncWatcher] CI status changed: none -> Pending for "Merged Feature"
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mPR status polling and transition detection[2m > [22m[2mshould emit PrMerged notification with correct fields including featureId and agentRunId
+[22m[39m[PrSyncWatcher] Stopped
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mPR status polling and transition detection[2m > [22m[2mshould emit PrClosed notification with correct fields including featureId
+[22m[39m[PrSyncWatcher] Starting (poll every 30000ms)
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mPR status polling and transition detection[2m > [22m[2mshould emit PrClosed notification with correct fields including featureId
+[22m[39m[PrSyncWatcher] PR #1 status changed: Open -> Closed for "Closed Feature"
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mPR status polling and transition detection[2m > [22m[2mshould emit PrClosed notification with correct fields including featureId
+[22m[39m[PrSyncWatcher] CI status changed: none -> Pending for "Closed Feature"
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mPR status polling and transition detection[2m > [22m[2mshould emit PrClosed notification with correct fields including featureId
+[22m[39m[PrSyncWatcher] Stopped
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mPR status polling and transition detection[2m > [22m[2mshould skip already-merged PRs during branch discovery (likely stale)
+[22m[39m[PrSyncWatcher] Starting (poll every 30000ms)
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mPR status polling and transition detection[2m > [22m[2mshould skip already-merged PRs during branch discovery (likely stale)
+[22m[39m[PrSyncWatcher] Stopped
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mPR status polling and transition detection[2m > [22m[2mshould discover open PR by branch name and populate feature PR data
+[22m[39m[PrSyncWatcher] Starting (poll every 30000ms)
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mPR status polling and transition detection[2m > [22m[2mshould discover open PR by branch name and populate feature PR data
+[22m[39m[PrSyncWatcher] Discovered PR #10 for "External PR" via branch "feat/external"
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mPR status polling and transition detection[2m > [22m[2mshould discover open PR by branch name and populate feature PR data
+[22m[39m[PrSyncWatcher] Stopped
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mPR status polling and transition detection[2m > [22m[2mshould not update feature when no matching PR found by branch
+[22m[39m[PrSyncWatcher] Starting (poll every 30000ms)
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mPR status polling and transition detection[2m > [22m[2mshould not update feature when no matching PR found by branch
+[22m[39m[PrSyncWatcher] Stopped
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mPR status polling and transition detection[2m > [22m[2mshould not emit duplicate notification on subsequent polls with same status
+[22m[39m[PrSyncWatcher] Starting (poll every 30000ms)
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mPR status polling and transition detection[2m > [22m[2mshould not emit duplicate notification on subsequent polls with same status
+[22m[39m[PrSyncWatcher] PR #1 status changed: Open -> Merged for "Test Feature"
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mPR status polling and transition detection[2m > [22m[2mshould not emit duplicate notification on subsequent polls with same status
+[22m[39m[PrSyncWatcher] CI status changed: none -> Pending for "Test Feature"
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mPR status polling and transition detection[2m > [22m[2mshould not emit duplicate notification on subsequent polls with same status
+[22m[39m[PrSyncWatcher] Stopped
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mCI status polling and transition detection[2m > [22m[2mshould detect CI Pending→Success and update feature
+[22m[39m[PrSyncWatcher] Starting (poll every 30000ms)
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mCI status polling and transition detection[2m > [22m[2mshould detect CI Pending→Success and update feature
+[22m[39m[PrSyncWatcher] CI status changed: Pending -> Success for "Test Feature"
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mCI status polling and transition detection[2m > [22m[2mshould detect CI Pending→Success and update feature
+[22m[39m[PrSyncWatcher] Stopped
+
+[90mstdout[2m | tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts[2m > [22m[2mPrSyncWatcherService[2m > [22m[2mCI status polling and transition detection[2m > [22m[2mshould detect CI Pending→Failure and update feature
+
+... [TRUNCATED — showing first 200 and last 100 lines of 2480 total] ...
+
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/hooks/use-notifications.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 85[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/feature-drawer-tabs/use-tab-data-fetch.test.ts [2m([22m[2m16 tests[22m[2m)[22m[32m 89[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/badge.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 112[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/hooks/sidebar-features-context.test.tsx [2m([22m[2m10 tests[22m[2m)[22m[32m 37[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/actions/get-supported-models.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/api/version.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/hooks/use-tool-install-stream.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 52[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/app/actions/get-feature-plan.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+[90mstderr[2m | tests/unit/presentation/web/actions/deploy-feature.test.ts[2m > [22m[2mdeployFeature server action[2m > [22m[2mreturns error when featureId is empty
+[22m[39m[deployFeature] rejected — featureId is empty
+
+[90mstderr[2m | tests/unit/presentation/web/actions/deploy-feature.test.ts[2m > [22m[2mdeployFeature server action[2m > [22m[2mreturns error when feature is not found
+[22m[39m[deployFeature] feature not found in repository: "nonexistent-id"
+
+[90mstderr[2m | tests/unit/presentation/web/actions/deploy-feature.test.ts[2m > [22m[2mdeployFeature server action[2m > [22m[2mreturns error when worktree directory does not exist
+[22m[39m[deployFeature] worktree path does not exist on disk: "/mock/.shep/repos/abc123/wt/feat-my-feature"
+
+[90mstderr[2m | tests/unit/presentation/web/actions/deploy-feature.test.ts[2m > [22m[2mdeployFeature server action[2m > [22m[2mreturns error when service.start throws
+[22m[39m[deployFeature] error: No dev script found in package.json Error: No dev script found in package.json
+    at Object.<anonymous> [90m(/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-pending-feature-state/[39mtests/unit/presentation/web/actions/deploy-feature.test.ts:97:13[90m)[39m
+    at Object.Mock [as start] [90m(file:///Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-pending-feature-state/[39mnode_modules/[4m.pnpm[24m/@vitest+spy@4.0.18/node_modules/[4m@vitest[24m/spy/dist/index.js:285:34[90m)[39m
+    at deployFeature [90m(/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-pending-feature-state/[39msrc/presentation/web/app/actions/deploy-feature.ts:46:23[90m)[39m
+[90m    at processTicksAndRejections (node:internal/process/task_queues:105:5)[39m
+    at [90m/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-pending-feature-state/[39mtests/unit/presentation/web/actions/deploy-feature.test.ts:100:20
+    at [90mfile:///Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-pending-feature-state/[39mnode_modules/[4m.pnpm[24m/@vitest+runner@4.0.18/node_modules/[4m@vitest[24m/runner/dist/index.js:915:20
+
+[90mstderr[2m | tests/unit/presentation/web/actions/deploy-feature.test.ts[2m > [22m[2mdeployFeature server action[2m > [22m[2mreturns generic error for non-Error throws
+[22m[39m[deployFeature] error: Failed to deploy feature unexpected
+
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/actions/deploy-feature.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/actions/open-folder.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 43[2mms[22m[39m
+[90mstderr[2m | tests/unit/presentation/web/actions/deploy-repository.test.ts[2m > [22m[2mdeployRepository server action[2m > [22m[2mvalidates repositoryPath is an absolute path
+[22m[39m[deployRepository] rejected — not an absolute path
+
+[90mstderr[2m | tests/unit/presentation/web/actions/deploy-repository.test.ts[2m > [22m[2mdeployRepository server action[2m > [22m[2mreturns error for empty repositoryPath
+[22m[39m[deployRepository] rejected — not an absolute path
+
+[90mstderr[2m | tests/unit/presentation/web/actions/deploy-repository.test.ts[2m > [22m[2mdeployRepository server action[2m > [22m[2mreturns error when directory does not exist
+[22m[39m[deployRepository] directory does not exist: "/nonexistent/path"
+
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/actions/update-model.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+[90mstderr[2m | tests/unit/presentation/web/actions/deploy-repository.test.ts[2m > [22m[2mdeployRepository server action[2m > [22m[2mreturns error when service.start throws
+[22m[39m[deployRepository] error: No dev script found in package.json Error: No dev script found in package.json
+    at Object.<anonymous> [90m(/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-pending-feature-state/[39mtests/unit/presentation/web/actions/deploy-repository.test.ts:90:13[90m)[39m
+    at Object.Mock [as start] [90m(file:///Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-pending-feature-state/[39mnode_modules/[4m.pnpm[24m/@vitest+spy@4.0.18/node_modules/[4m@vitest[24m/spy/dist/index.js:285:34[90m)[39m
+    at deployRepository [90m(/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-pending-feature-state/[39msrc/presentation/web/app/actions/deploy-repository.ts:30:23[90m)[39m
+    at [90m/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-pending-feature-state/[39mtests/unit/presentation/web/actions/deploy-repository.test.ts:93:26
+    at [90mfile:///Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-pending-feature-state/[39mnode_modules/[4m.pnpm[24m/@vitest+runner@4.0.18/node_modules/[4m@vitest[24m/runner/dist/index.js:145:11
+    at [90mfile:///Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-pending-feature-state/[39mnode_modules/[4m.pnpm[24m/@vitest+runner@4.0.18/node_modules/[4m@vitest[24m/runner/dist/index.js:915:26
+    at [90mfile:///Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-pending-feature-state/[39mnode_modules/[4m.pnpm[24m/@vitest+runner@4.0.18/node_modules/[4m@vitest[24m/runner/dist/index.js:1243:20
+    at new Promise (<anonymous>)
+    at runWithTimeout [90m(file:///Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-pending-feature-state/[39mnode_modules/[4m.pnpm[24m/@vitest+runner@4.0.18/node_modules/[4m@vitest[24m/runner/dist/index.js:1209:10[90m)[39m
+    at [90mfile:///Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-pending-feature-state/[39mnode_modules/[4m.pnpm[24m/@vitest+runner@4.0.18/node_modules/[4m@vitest[24m/runner/dist/index.js:1653:37
+
+[90mstderr[2m | tests/unit/presentation/web/actions/deploy-repository.test.ts[2m > [22m[2mdeployRepository server action[2m > [22m[2mreturns generic error for non-Error throws
+[22m[39m[deployRepository] error: Failed to deploy repository unexpected
+
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/actions/features/create-feature.test.ts [2m([22m[2m21 tests[22m[2m)[22m[32m 28[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/actions/deploy-repository.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 38[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/actions/merge-review/get-merge-review-data.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/actions/open-ide.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/actions/get-deployment-status.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/actions/get-feature-drawer-data.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/lib/derive-graph.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts [2m([22m[2m42 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/lib/feature-flags.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/actions/stop-deployment.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/actions/update-settings.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/actions/load-settings.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/actions/reject-feature.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/actions/pick-files.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/actions/get-workflow-defaults.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/actions/get-deployment-logs.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/actions/approve-feature.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/control-center-drawer/drawer-view.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/actions/features/delete-feature.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/app/actions/get-feature-phase-timings.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/merge-review/merge-review-config.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/lib/format-duration.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/actions/pick-folder.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/actions/compose-user-input.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/features/control-center/derive-state.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/lib/compare-versions.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m310 passed[39m[22m[90m (310)[39m
+[2m      Tests [22m [1m[32m3895 passed[39m[22m[90m (3895)[39m
+[2m   Start at [22m 17:23:03
+[2m   Duration [22m 33.88s[2m (transform 10.76s, setup 32.94s, import 52.28s, tests 78.67s, environment 91.53s)[22m
+

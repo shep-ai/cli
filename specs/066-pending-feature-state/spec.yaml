@@ -19,8 +19,8 @@ sizeEstimate: M
 
 # Relationships
 relatedFeatures:
-  - "041-feature-dependencies (Blocked state pattern — similar lifecycle gate concept)"
-  - "024-optimistic-feature-creation (two-phase create pattern)"
+  - '041-feature-dependencies (Blocked state pattern — similar lifecycle gate concept)'
+  - '024-optimistic-feature-creation (two-phase create pattern)'
 
 technologies:
   - TypeSpec (domain enum extension)
@@ -34,10 +34,10 @@ relatedLinks: []
 
 # Open questions (must be resolved before implementation)
 openQuestions:
-  - question: "Should pending features still run the slow Phase 2 (AI metadata, worktree, spec init), or should Phase 2 also be deferred until start?"
+  - question: 'Should pending features still run the slow Phase 2 (AI metadata, worktree, spec init), or should Phase 2 also be deferred until start?'
     resolved: true
     options:
-      - option: "Run Phase 2 on creation (Recommended)"
+      - option: 'Run Phase 2 on creation (Recommended)'
         description: >
           Pending features are fully initialized on creation — AI metadata is generated,
           worktree is created, spec directory is scaffolded — but the agent is not spawned.
@@ -45,7 +45,7 @@ openQuestions:
           It reuses the existing shouldSpawn=false pattern used by Blocked features.
           Trade-off: consumes AI + disk resources upfront even if the feature is never started.
         selected: true
-      - option: "Defer Phase 2 until start"
+      - option: 'Defer Phase 2 until start'
         description: >
           Pending features only create the DB record (Phase 1). Phase 2 (metadata, worktree,
           spec init) is deferred until the user runs start. This saves resources but means
@@ -57,19 +57,19 @@ openQuestions:
       pattern (shouldSpawn=false), keeps the StartFeatureUseCase simple (just spawn the agent),
       and provides instant start UX. The resource cost is minimal since users explicitly chose
       to create the feature — they just want to defer agent execution, not feature initialization.
-    answer: "Run Phase 2 on creation"
+    answer: 'Run Phase 2 on creation'
 
-  - question: "What initial lifecycle value should a pending feature receive when started?"
+  - question: 'What initial lifecycle value should a pending feature receive when started?'
     resolved: true
     options:
-      - option: "Requirements (or Implementation if fast mode)"
+      - option: 'Requirements (or Implementation if fast mode)'
         description: >
           When started, transition Pending to Requirements (standard flow) or Implementation
           (fast mode). This matches the normal creation lifecycle — the agent begins at the
           same phase it would have if the feature were created without --pending. The Pending
           state is purely a spawn gate, not a lifecycle phase.
         selected: true
-      - option: "Started"
+      - option: 'Started'
         description: >
           Transition Pending to Started, letting the agent handle the first lifecycle
           transition. This adds an extra state transition and the Started state is
@@ -80,19 +80,19 @@ openQuestions:
       what CreateFeatureUseCase already sets as initialLifecycle for non-parent features.
       The Started state is reserved for the parent-child unblocking flow and would create
       inconsistency in the lifecycle model.
-    answer: "Requirements (or Implementation if fast mode)"
+    answer: 'Requirements (or Implementation if fast mode)'
 
-  - question: "Should `shep feat start` accept multiple feature IDs for batch starting?"
+  - question: 'Should `shep feat start` accept multiple feature IDs for batch starting?'
     resolved: true
     options:
-      - option: "Single feature ID only (Recommended)"
+      - option: 'Single feature ID only (Recommended)'
         description: >
           shep feat start takes exactly one feature ID argument. Simple, predictable,
           matches the pattern of other feat subcommands (resume, approve, reject). Users
           can start multiple features by running the command multiple times. Batch starting
           can be added as a follow-up feature if demand emerges.
         selected: true
-      - option: "Accept multiple feature IDs"
+      - option: 'Accept multiple feature IDs'
         description: >
           shep feat start takes one or more feature IDs as variadic arguments. Adds
           convenience for batch workflows but increases complexity (partial failure handling,
@@ -103,19 +103,19 @@ openQuestions:
       Single ID is recommended for consistency with existing CLI patterns (resume, approve,
       reject all take a single feature ID). This keeps the implementation simple and follows
       the principle of minimal scope. Batch start can be a follow-up if users request it.
-    answer: "Single feature ID only"
+    answer: 'Single feature ID only'
 
-  - question: "Should pending features be included or filtered out in the default `shep feat ls` output?"
+  - question: 'Should pending features be included or filtered out in the default `shep feat ls` output?'
     resolved: true
     options:
-      - option: "Include pending features in default output (Recommended)"
+      - option: 'Include pending features in default output (Recommended)'
         description: >
           Pending features appear in the standard feat ls listing with a distinct
           status label (e.g. 'Pending' in gray/muted styling). Users see all their
           features regardless of state. This is consistent with how Blocked features
           are already shown in the list.
         selected: true
-      - option: "Filter out pending features by default"
+      - option: 'Filter out pending features by default'
         description: >
           Pending features are hidden from feat ls unless a --pending or --all flag is
           provided. Reduces clutter for users with many pending features, but risks
@@ -126,7 +126,7 @@ openQuestions:
       the existing behavior for Blocked features (always visible). Hiding features after
       creation would confuse users and violate the principle of least surprise. Pending is
       a user-chosen state, not an internal detail to hide.
-    answer: "Include pending features in default output"
+    answer: 'Include pending features in default output'
 
   - question: "How should the Web UI render the pending state — as a new FeatureNodeState or reuse 'blocked'?"
     resolved: true
@@ -154,13 +154,13 @@ openQuestions:
   - question: "Should the Web UI provide a 'Start' action button on pending feature nodes?"
     resolved: true
     options:
-      - option: "Yes, inline Start button on the feature node (Recommended)"
+      - option: 'Yes, inline Start button on the feature node (Recommended)'
         description: >
           The pending feature node renders a prominent 'Start' action button (similar to
           how error nodes have a 'Retry' button). Clicking it calls the start API endpoint
           and transitions the feature to running. This provides the most discoverable UX.
         selected: true
-      - option: "Start via sidebar/context menu only"
+      - option: 'Start via sidebar/context menu only'
         description: >
           No inline button on the node itself. Users must open the feature sidebar or
           right-click context menu to find the Start action. Less discoverable but keeps
@@ -171,19 +171,19 @@ openQuestions:
       pending state is that the user needs to take action to start the feature — making
       that action prominent and one-click is essential UX. This follows the pattern of
       the Retry button on error nodes and the Approve button on action-required nodes.
-    answer: "Yes, inline Start button on the feature node"
+    answer: 'Yes, inline Start button on the feature node'
 
   - question: "Should starting a pending feature with a --parent dependency validate the parent's lifecycle gate?"
     resolved: true
     options:
-      - option: "Yes, validate parent gate on start (Recommended)"
+      - option: 'Yes, validate parent gate on start (Recommended)'
         description: >
           When starting a pending feature that has a parentId, check if the parent is in
           POST_IMPLEMENTATION. If not, transition to Blocked instead of starting. This
           respects the existing dependency model — pending is about deferring agent start,
           not bypassing dependency gates.
         selected: true
-      - option: "No, start unconditionally"
+      - option: 'No, start unconditionally'
         description: >
           Starting always transitions to the active lifecycle regardless of parent state.
           The user explicitly chose to start, so honor their intent. Risk: could start a
@@ -196,7 +196,7 @@ openQuestions:
       reaches implementation. Pending defers the agent, but does not exempt a feature
       from dependency constraints. If the parent is not ready, the feature transitions
       to Blocked (with a clear message) rather than silently violating the contract.
-    answer: "Yes, validate parent gate on start"
+    answer: 'Yes, validate parent gate on start'
 
 # Markdown content (the actual spec)
 content: |
