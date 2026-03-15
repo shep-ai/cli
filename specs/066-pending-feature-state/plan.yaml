@@ -1,0 +1,221 @@
+name: pending-feature-state
+summary: >
+  Implementation plan for adding SdlcLifecycle.Pending state. The feature
+  reuses the proven shouldSpawn=false pattern from Blocked features, adds a
+  new StartFeatureUseCase following the ResumeFeatureUseCase blueprint, and
+  extends the CLI, Web UI, and SSE layers to support creating, displaying,
+  and starting pending features. Five phases: domain foundation, application
+  layer (create + start use cases), CLI commands, Web UI state + actions,
+  and integration testing with Storybook.
+
+relatedFeatures:
+  - '041-feature-dependencies (Blocked state — shouldSpawn=false pattern reused)'
+  - '024-optimistic-feature-creation (two-phase create pattern leveraged)'
+
+technologies:
+  - TypeSpec (add Pending enum value to SdlcLifecycle)
+  - SQLite (TEXT lifecycle column — no migration needed)
+  - Commander.js (--pending flag and new start subcommand)
+  - tsyringe (DI for StartFeatureUseCase)
+  - React / Next.js (server action + feature node state)
+  - lucide-react (Clock icon for pending state)
+  - Storybook (pending state story)
+
+relatedLinks: []
+
+phases:
+  - id: phase-1
+    name: 'Domain Foundation'
+    description: >
+      Add the Pending enum value to TypeSpec, compile to regenerated output,
+      verify lifecycle gates exclude Pending, and add the LIFECYCLE_TO_NODE
+      SSE mapping. This phase comes first because every subsequent layer
+      depends on the domain enum value existing in generated code.
+    parallel: false
+
+  - id: phase-2
+    name: 'Application Layer — CreateFeature + StartFeature Use Cases'
+    description: >
+      Extend CreateFeatureInput with pending flag, modify createRecord() to
+      handle pending state, and build the new StartFeatureUseCase following
+      the ResumeFeatureUseCase blueprint. Register both in the DI container
+      with string-token aliases. This phase is the core business logic and
+      must complete before presentation layers can consume the use cases.
+    parallel: false
+
+  - id: phase-3
+    name: 'CLI Presentation — --pending flag and start command'
+    description: >
+      Add --pending flag to feat new command, create the new feat start
+      subcommand, and update feat ls to display Pending features with
+      distinct formatting. CLI is implemented before Web UI because it
+      provides the fastest feedback loop for testing the use cases.
+    parallel: false
+
+  - id: phase-4
+    name: 'Web UI — State, Actions, and Components'
+    description: >
+      Add pending to FeatureNodeState and FeatureLifecyclePhase types, add
+      state config with Clock icon and slate colors, update deriveNodeState()
+      and deriveLifecycle(), add onStartFeature callback to GraphCallbacks and
+      derive-graph, render Start button on feature node, create start-feature
+      server action, wire handleStartFeature in control-center-state, add
+      pending checkbox to feature-create-drawer, and create Storybook stories.
+    parallel: false
+
+  - id: phase-5
+    name: 'Integration Testing and Validation'
+    description: >
+      Write integration tests verifying the full pending-to-running flow
+      (create with pending flag, verify Pending lifecycle, start, verify
+      transition and agent spawn). Run pnpm validate to confirm zero errors.
+      This phase is last because it exercises the entire vertical slice.
+    parallel: false
+
+filesToCreate:
+  - packages/core/src/application/use-cases/features/start-feature.use-case.ts
+  - packages/core/src/application/use-cases/features/__tests__/start-feature.use-case.test.ts
+  - src/presentation/cli/commands/feat/start.command.ts
+  - src/presentation/web/app/actions/start-feature.ts
+
+filesToModify:
+  - tsp/common/enums/lifecycle.tsp
+  - packages/core/src/domain/generated/output.ts
+  - packages/core/src/domain/lifecycle-gates.ts
+  - packages/core/src/application/use-cases/features/create/types.ts
+  - packages/core/src/application/use-cases/features/create/create-feature.use-case.ts
+  - packages/core/src/application/use-cases/features/create/__tests__/create-feature.use-case.test.ts
+  - packages/core/src/infrastructure/di/container.ts
+  - src/presentation/cli/commands/feat/index.ts
+  - src/presentation/cli/commands/feat/new.command.ts
+  - src/presentation/cli/commands/feat/ls.command.ts
+  - src/presentation/web/components/common/feature-node/feature-node-state-config.ts
+  - src/presentation/web/components/common/feature-node/derive-feature-state.ts
+  - src/presentation/web/components/common/feature-node/feature-node.tsx
+  - src/presentation/web/components/common/feature-node/feature-node.stories.tsx
+  - src/presentation/web/lib/derive-graph.ts
+  - src/presentation/web/hooks/use-graph-state.ts
+  - src/presentation/web/components/features/control-center/use-control-center-state.ts
+  - src/presentation/web/components/features/control-center/control-center-inner.tsx
+  - src/presentation/web/components/common/control-center-drawer/feature-drawer-client.tsx
+  - src/presentation/web/components/common/feature-create-drawer/feature-create-drawer.tsx
+  - src/presentation/web/app/api/agent-events/route.ts
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  The pending feature state extends the existing SDLC lifecycle model with a
+  new user-controlled deferral mechanism. It follows the same architectural
+  layering as the Blocked state (domain enum → application use case →
+  presentation) and reuses the proven `shouldSpawn = false` pattern from
+  `CreateFeatureUseCase.createRecord()`.
+
+  **Domain layer**: A single new `Pending` enum value added to
+  `SdlcLifecycle` in TypeSpec, placed after Blocked and before Deleting to
+  group non-active states together. No new domain logic or business rules —
+  Pending is a lifecycle state, not a domain invariant. It is explicitly
+  excluded from `POST_IMPLEMENTATION` gate set (already excluded by omission;
+  a clarifying comment will be added).
+
+  **Application layer**: Two changes:
+  1. `CreateFeatureUseCase.createRecord()` gains a `pending` flag check
+     that sets `initialLifecycle = SdlcLifecycle.Pending` and
+     `shouldSpawn = false`. This check runs before the parentId check —
+     when both `pending` and `parentId` are provided, Pending takes
+     precedence (parent gate is checked at start time, not creation time).
+  2. New `StartFeatureUseCase` follows the `ResumeFeatureUseCase` blueprint:
+     load feature by ID (with prefix matching via findById + findByIdPrefix),
+     validate lifecycle === Pending, check parent gate if parentId exists
+     (transition to Blocked if parent not in POST_IMPLEMENTATION), transition
+     to Requirements (or Implementation if fast), find existing AgentRun,
+     spawn via `IFeatureAgentProcessService.spawn()`.
+
+  **Infrastructure layer**: DI container registration of
+  `StartFeatureUseCase` as singleton + string-token alias (useFactory
+  pattern) for web layer compatibility, following the exact pattern used
+  for `ResumeFeatureUseCase` at container.ts lines 345 and 393-395.
+
+  **Presentation layer**:
+  - CLI: `--pending` flag on `feat new`, new `feat start <fid>` subcommand,
+    Pending status display in `feat ls` formatStatus()
+  - Web: New `'pending'` FeatureNodeState with Clock icon and slate colors,
+    `deriveNodeState()` returns `'pending'` for Pending lifecycle (after
+    Deleting, before Blocked in priority chain), new `onStartFeature`
+    callback in `GraphCallbacks` with inline Start button on feature node,
+    `start-feature` server action, pending checkbox in feature-create-drawer,
+    `LIFECYCLE_TO_NODE` SSE mapping for Pending → 'pending'
+
+  ## Key Design Decisions
+
+  ### 1. Phase 2 runs on creation (not deferred to start)
+  Pending features are fully initialized (AI metadata, worktree, spec dir)
+  on creation — only the agent spawn is deferred. This mirrors the Blocked
+  pattern where `shouldSpawn = false` skips only the final spawn step in
+  `initializeAndSpawn()` (line 288 of create-feature.use-case.ts). Keeps
+  StartFeatureUseCase simple (just spawn) and provides instant start UX.
+
+  ### 2. Target lifecycle on start: Requirements (or Implementation if fast)
+  Starting a pending feature produces the same initial state as creating a
+  non-pending feature. The `Started` state is reserved for parent-child
+  unblocking in `CheckAndUnblockFeaturesUseCase` and would create lifecycle
+  model inconsistency if reused here.
+
+  ### 3. Dedicated StartFeatureUseCase
+  A new use case following ResumeFeatureUseCase's pattern (load → validate →
+  spawn). Simpler than Resume: reuses existing AgentRun (no new run creation
+  at lines 86-102 of resume), no thread preservation, no crashed process
+  detection. Adds parent gate validation (if parentId → check POST_IMPLEMENTATION).
+
+  ### 4. --pending + --parent are allowed together
+  Pending = "I choose when to start." Parent gate = "Can I start?" These are
+  orthogonal concerns. At creation: lifecycle=Pending regardless of parent
+  status. At start time: if parentId exists and parent not in
+  POST_IMPLEMENTATION, transition to Blocked (with clear message). This
+  respects both user intent and dependency contracts.
+
+  ### 5. New 'pending' FeatureNodeState with distinct visual identity
+  Pending is semantically distinct from both Blocked (system-imposed via Ban
+  icon, gray) and action-required (agent approval via CircleAlert, amber).
+  Clock icon with slate/neutral colors conveys "awaiting user start" without
+  implying failure or dependency blocking.
+
+  ### 6. Server action pattern for Web API
+  All feature mutation operations (approve, resume, delete) use Next.js
+  server actions with 'use server' directive and DI resolution via
+  `resolve<T>('StringToken')`. Following resume-feature.ts pattern exactly.
+  No manual SSE event emission needed — the SSE route polls DB every 500ms
+  and will detect the lifecycle change automatically.
+
+  ## Implementation Strategy
+
+  Phase ordering follows the strict dependency chain: domain enum must exist
+  before application logic can reference it, application use cases must exist
+  before presentation layers can consume them, CLI validates use cases before
+  the more complex Web UI integration, and integration tests exercise the
+  full vertical slice last.
+
+  Within each phase, TDD drives implementation: write a failing test (RED),
+  implement minimal code (GREEN), clean up (REFACTOR). TypeSpec compilation
+  is a prerequisite step in Phase 1 that unblocks all subsequent phases.
+
+  The `pending` flag flows through the system as:
+  CLI `--pending` → CreateFeatureInput.pending → createRecord() sets
+  lifecycle=Pending + shouldSpawn=false → initializeAndSpawn() skips spawn
+  → feature sits in Pending → user runs `shep feat start <fid>` →
+  StartFeatureUseCase validates Pending, checks parent gate, transitions
+  lifecycle, spawns agent → feature enters normal SDLC flow.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | TypeSpec compile produces unexpected output | Run pnpm tsp:compile immediately after editing lifecycle.tsp; verify SdlcLifecycle.Pending appears in output.ts before proceeding |
+  | Exhaustive switch/map statements break with new enum value | Search all files referencing SdlcLifecycle for exhaustive handling (LIFECYCLE_TO_NODE, sdlcLifecycleMap, formatStatus); update each explicitly in Phase 1 |
+  | Parent gate check race at start time | Single-user CLI model eliminates concurrency; StartFeatureUseCase reads parent lifecycle atomically within execute() |
+  | SSE route emits undefined phaseName for Pending | Add LIFECYCLE_TO_NODE entry in Phase 1 before any Pending feature can be created |
+  | Feature node renders incorrectly for pending state | Storybook story created in Phase 4 validates visual appearance in isolation before integration |
+  | DI resolution fails in web layer | Register both class-token (registerSingleton) and string-token (register with useFactory) following ResumeFeatureUseCase pattern exactly |
+  | feat ls tree grouping breaks for Pending+parent features | Pending features with parentId are listed as roots (not grouped under parent) since grouping only applies to lifecycle === 'Blocked' (ls.command.ts line 224) |
+  | Stale pending features consume disk | Out of scope for this feature; could be addressed later with a cleanup/expiry mechanism |
