@@ -9,7 +9,7 @@ This is the living debugging log for the `shep-e2e.yml` workflow and Windows sup
 | ----------- | ------------- | -------------- | ------------ |
 | dev         | PASS          | PASS           | PASS         |
 | claude-code | PASS          | PASS           | PASS         |
-| cursor      | PASS          | TESTING        | PASS         |
+| cursor      | PASS          | EXCLUDED       | PASS         |
 
 ## CI Pipelines
 
@@ -41,17 +41,17 @@ This is the living debugging log for the `shep-e2e.yml` workflow and Windows sup
 
 ### Shep E2E (`shep-e2e.yml`) — Full Matrix
 
-| Combo                 | Status  | Notes                                                         |
-| --------------------- | ------- | ------------------------------------------------------------- |
-| dev / ubuntu          | PASS    | Baseline — no subprocess spawning                             |
-| dev / windows         | PASS    | Same — pure in-process                                        |
-| dev / macos           | PASS    | Same                                                          |
-| claude-code / ubuntu  | PASS    | Full lifecycle                                                |
-| claude-code / windows | PASS    | `windowsHide: true`, no `shell: true` needed (.exe binary)    |
-| claude-code / macos   | PASS    | Full lifecycle                                                |
-| cursor / ubuntu       | PASS    | Full lifecycle                                                |
-| cursor / windows      | TESTING | PowerShell agent hangs — taskkill tree kill added for timeout |
-| cursor / macos        | PASS    | Full lifecycle                                                |
+| Combo                 | Status   | Notes                                                        |
+| --------------------- | -------- | ------------------------------------------------------------ |
+| dev / ubuntu          | PASS     | Baseline — no subprocess spawning                            |
+| dev / windows         | PASS     | Same — pure in-process                                       |
+| dev / macos           | PASS     | Same                                                         |
+| claude-code / ubuntu  | PASS     | Full lifecycle                                               |
+| claude-code / windows | PASS     | `windowsHide: true`, no `shell: true` needed (.exe binary)   |
+| claude-code / macos   | PASS     | Full lifecycle                                               |
+| cursor / ubuntu       | PASS     | Full lifecycle                                               |
+| cursor / windows      | EXCLUDED | Cursor CLI hangs on Windows CI — excluded pending cursor fix |
+| cursor / macos        | PASS     | Full lifecycle                                               |
 
 ---
 
