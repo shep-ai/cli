@@ -14,6 +14,8 @@ export interface CreateFeatureInput {
   description?: string;
   /** When true, skip SDLC phases and implement directly from the user prompt. */
   fast?: boolean;
+  /** When true, create feature in Pending state — fully initialized but agent not spawned. */
+  pending?: boolean;
   /** Optional agent type override (overrides settings.agent.type). */
   agentType?: string;
   /** Optional model identifier forwarded to the agent executor for this invocation. */
