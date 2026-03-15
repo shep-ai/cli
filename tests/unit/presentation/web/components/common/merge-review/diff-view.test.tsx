@@ -80,9 +80,10 @@ describe('DiffView', () => {
     it('renders file names for each file diff', () => {
       render(<DiffView fileDiffs={[modifiedFile, addedFile, deletedFile]} />);
 
-      expect(screen.getByText('login.tsx')).toBeInTheDocument();
-      expect(screen.getByText('auth.ts')).toBeInTheDocument();
-      expect(screen.getByText('old-utils.ts')).toBeInTheDocument();
+      // File names appear in both tree and diff card, so use getAllByText
+      expect(screen.getAllByText('login.tsx').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('auth.ts').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('old-utils.ts').length).toBeGreaterThanOrEqual(1);
     });
 
     it('shows directory path in muted style before file name', () => {
@@ -94,69 +95,96 @@ describe('DiffView', () => {
     it('displays addition and deletion counts per file', () => {
       render(<DiffView fileDiffs={[modifiedFile]} />);
 
-      expect(screen.getByText('+5')).toBeInTheDocument();
-      expect(screen.getByText('-2')).toBeInTheDocument();
+      // Stats appear in both tree and diff card
+      expect(screen.getAllByText('+5').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('-2').length).toBeGreaterThanOrEqual(1);
     });
 
     it('shows only additions for added files', () => {
       render(<DiffView fileDiffs={[addedFile]} />);
 
-      expect(screen.getByText('+10')).toBeInTheDocument();
+      expect(screen.getAllByText('+10').length).toBeGreaterThanOrEqual(1);
       expect(screen.queryByText('-0')).not.toBeInTheDocument();
     });
 
     it('shows only deletions for deleted files', () => {
       render(<DiffView fileDiffs={[deletedFile]} />);
 
-      expect(screen.getByText('-5')).toBeInTheDocument();
+      expect(screen.getAllByText('-5').length).toBeGreaterThanOrEqual(1);
       expect(screen.queryByText('+0')).not.toBeInTheDocument();
     });
   });
 
   describe('expanding files', () => {
     it('does not show hunk content by default', () => {
-      render(<DiffView fileDiffs={[modifiedFile]} />);
+      const { container } = render(<DiffView fileDiffs={[modifiedFile]} />);
 
-      expect(screen.queryByText('@@ -1,4 +1,7 @@')).not.toBeInTheDocument();
+      expect(container.textContent).not.toContain('@@ -1,4 +1,7 @@');
     });
 
     it('shows hunk content when file row is clicked', () => {
-      render(<DiffView fileDiffs={[modifiedFile]} />);
+      const { container } = render(<DiffView fileDiffs={[modifiedFile]} />);
 
-      fireEvent.click(screen.getByText('login.tsx'));
+      // Click the diff card button (not the tree file), which is the one with
+      // directory path — find the button that has the directory path sibling
+      const diffCardButtons = screen.getAllByRole('button');
+      const expandButton = diffCardButtons.find(
+        (btn) =>
+          btn.textContent?.includes('src/components/') && btn.textContent?.includes('login.tsx')
+      )!;
+      fireEvent.click(expandButton);
 
-      expect(screen.getByText('@@ -1,4 +1,7 @@')).toBeInTheDocument();
-      expect(screen.getByText("import React from 'react';")).toBeInTheDocument();
-      expect(screen.getByText('function Login() {')).toBeInTheDocument();
-      expect(screen.getByText('function Login({ onSubmit }: Props) {')).toBeInTheDocument();
+      const text = container.textContent ?? '';
+      expect(text).toContain('@@ -1,4 +1,7 @@');
+      expect(text).toContain('import React');
+      expect(text).toContain('function Login()');
+      expect(text).toContain('function Login({ onSubmit }');
     });
 
     it('hides hunk content when file row is clicked again', () => {
-      render(<DiffView fileDiffs={[modifiedFile]} />);
+      const { container } = render(<DiffView fileDiffs={[modifiedFile]} />);
 
-      fireEvent.click(screen.getByText('login.tsx'));
-      expect(screen.getByText('@@ -1,4 +1,7 @@')).toBeInTheDocument();
+      const diffCardButtons = screen.getAllByRole('button');
+      const expandButton = diffCardButtons.find(
+        (btn) =>
+          btn.textContent?.includes('src/components/') && btn.textContent?.includes('login.tsx')
+      )!;
 
-      fireEvent.click(screen.getByText('login.tsx'));
-      expect(screen.queryByText('@@ -1,4 +1,7 @@')).not.toBeInTheDocument();
+      fireEvent.click(expandButton);
+      expect(container.textContent).toContain('@@ -1,4 +1,7 @@');
+
+      fireEvent.click(expandButton);
+      expect(container.textContent).not.toContain('@@ -1,4 +1,7 @@');
     });
 
     it('shows diff line content after expanding', () => {
-      render(<DiffView fileDiffs={[modifiedFile]} />);
-      fireEvent.click(screen.getByText('login.tsx'));
+      const { container } = render(<DiffView fileDiffs={[modifiedFile]} />);
 
-      // Added and removed lines are visible
-      expect(screen.getByText("import React from 'react';")).toBeInTheDocument();
-      expect(screen.getByText('function Login() {')).toBeInTheDocument();
-      expect(screen.getByText('function Login({ onSubmit }: Props) {')).toBeInTheDocument();
+      const diffCardButtons = screen.getAllByRole('button');
+      const expandButton = diffCardButtons.find(
+        (btn) =>
+          btn.textContent?.includes('src/components/') && btn.textContent?.includes('login.tsx')
+      )!;
+      fireEvent.click(expandButton);
+
+      const text = container.textContent ?? '';
+      expect(text).toContain('import React');
+      expect(text).toContain('function Login()');
+      expect(text).toContain('function Login({ onSubmit }');
     });
 
     it('does not expand file with no hunks', () => {
-      render(<DiffView fileDiffs={[renamedFile]} />);
+      const { container } = render(<DiffView fileDiffs={[renamedFile]} />);
 
-      fireEvent.click(screen.getByText('user-service.ts'));
+      const diffCardButtons = screen.getAllByRole('button');
+      const expandButton = diffCardButtons.find(
+        (btn) =>
+          btn.textContent?.includes('user-service.ts') && btn.textContent?.includes('src/services/')
+      )!;
+      fireEvent.click(expandButton);
+
       // No hunk header should appear since hunks are empty
-      expect(screen.queryByText(/@@ /)).not.toBeInTheDocument();
+      expect(container.textContent).not.toMatch(/@@ /);
     });
   });
 
@@ -164,7 +192,7 @@ describe('DiffView', () => {
     it('shows old file name indicator for renamed files', () => {
       render(<DiffView fileDiffs={[renamedFile]} />);
 
-      expect(screen.getByText('user-service.ts')).toBeInTheDocument();
+      expect(screen.getAllByText('user-service.ts').length).toBeGreaterThanOrEqual(1);
       // Shows the old filename with arrow indicator (← user.ts)
       expect(screen.getByText(/← user\.ts/)).toBeInTheDocument();
     });

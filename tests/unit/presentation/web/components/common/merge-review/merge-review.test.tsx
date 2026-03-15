@@ -244,7 +244,7 @@ describe('MergeReview', () => {
       render(<MergeReview {...props} />);
 
       expect(screen.getByText('Changed Files')).toBeInTheDocument();
-      expect(screen.getByText('app.ts')).toBeInTheDocument();
+      expect(screen.getAllByText('app.ts').length).toBeGreaterThanOrEqual(1);
     });
 
     it('does not render diff view when fileDiffs is undefined', () => {
