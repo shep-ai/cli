@@ -343,10 +343,10 @@ function SessionRow({
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                className="gap-2 text-xs font-medium"
+                className="gap-2 text-xs font-medium text-violet-700 focus:bg-violet-50 focus:text-violet-800"
                 onClick={() => onCreateFromSession(session, session.filePath!)}
               >
-                <Sparkles className="h-3.5 w-3.5" />
+                <Sparkles className="h-3.5 w-3.5 text-violet-500" />
                 Create feature from session
               </DropdownMenuItem>
             </>

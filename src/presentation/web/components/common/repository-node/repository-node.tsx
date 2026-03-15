@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { Handle, Position } from '@xyflow/react';
+import { useRouter } from 'next/navigation';
 import { Github, Plus, Code2, Terminal, FolderOpen, Trash2, Play, Square } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ActionButton } from '@/components/common/action-button';
@@ -19,8 +20,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { DeploymentStatusBadge } from '@/components/common/deployment-status-badge';
 import { useDeployAction } from '@/hooks/use-deploy-action';
 import { useFeatureFlags } from '@/hooks/feature-flags-context';
-import { toast } from 'sonner';
-import { createFeature } from '@/app/actions/create-feature';
 import type { RepositoryNodeData } from './repository-node-config';
 import { useRepositoryActions } from './use-repository-actions';
 import {
@@ -29,6 +28,7 @@ import {
 } from '@/components/common/feature-node/feature-sessions-dropdown';
 
 export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: string]: unknown }) {
+  const router = useRouter();
   const featureFlags = useFeatureFlags();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const actions = useRepositoryActions(
@@ -70,32 +70,13 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
         .filter(Boolean)
         .join('\n');
 
-      toast.promise(
-        createFeature({
-          description: prompt,
-          repositoryPath: data.repositoryPath,
-          fast: true,
-        }).then((result) => {
-          if (result.error) throw new Error(result.error);
-          window.dispatchEvent(
-            new CustomEvent('shep:feature-created', {
-              detail: {
-                featureId: result.feature!.id,
-                name: result.feature!.name,
-                description: result.feature!.description,
-                repositoryPath: result.feature!.repositoryPath,
-              },
-            })
-          );
-        }),
-        {
-          loading: 'Creating feature from session...',
-          success: 'Feature created from session',
-          error: (err: Error) => err.message,
-        }
-      );
+      const params = new URLSearchParams({
+        repo: data.repositoryPath,
+        prompt,
+      });
+      router.push(`/create?${params.toString()}`);
     },
-    [data.repositoryPath]
+    [data.repositoryPath, router]
   );
 
   return (

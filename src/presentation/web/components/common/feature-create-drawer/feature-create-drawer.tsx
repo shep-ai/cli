@@ -176,6 +176,8 @@ export interface FeatureCreateDrawerProps {
   currentAgentType?: string;
   /** Current global model from settings */
   currentModel?: string;
+  /** Pre-fill the description textarea (e.g. from session context) */
+  initialDescription?: string;
 }
 
 export function FeatureCreateDrawer({
@@ -190,6 +192,7 @@ export function FeatureCreateDrawer({
   initialParentId,
   currentAgentType,
   currentModel,
+  initialDescription,
 }: FeatureCreateDrawerProps) {
   const createSound = useSoundAction('create');
   const defaultGates = workflowDefaults?.approvalGates ?? EMPTY_GATES;
@@ -199,7 +202,7 @@ export function FeatureCreateDrawer({
   const defaultEnableEvidence = workflowDefaults?.enableEvidence ?? false;
   const defaultCommitEvidence = workflowDefaults?.commitEvidence ?? false;
 
-  const [description, setDescription] = useState('');
+  const [description, setDescription] = useState(initialDescription ?? '');
   const [attachments, setAttachments] = useState<FormAttachment[]>([]);
   const [approvalGates, setApprovalGates] = useState<Record<string, boolean>>({ ...defaultGates });
   const [push, setPush] = useState(defaultPush);

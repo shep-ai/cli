@@ -3,6 +3,12 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { RepositoryNode } from '@/components/common/repository-node/repository-node';
 import type { RepositoryNodeData } from '@/components/common/repository-node/repository-node-config';
 
+// Mock next/navigation
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn() }),
+  usePathname: () => '/',
+}));
+
 // Mock @xyflow/react — RepositoryNode uses Handle and Position
 vi.mock('@xyflow/react', () => ({
   Handle: ({ type, position }: { type: string; position: string }) => (
