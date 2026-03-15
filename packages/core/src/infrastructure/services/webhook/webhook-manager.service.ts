@@ -184,9 +184,23 @@ export class WebhookManagerService {
   }
 }
 
-// --- Singleton accessors (follows NotificationWatcherService pattern) ---
+// --- Singleton accessors ---
+//
+// The singleton is stored on globalThis so that it survives module duplication
+// across bundler contexts (e.g. Next.js Turbopack bundles API routes separately
+// from the dev-server entry point, giving each its own copy of module-level
+// variables). By using globalThis, the same manager instance is visible to both
+// the initializer (dev-server.ts / CLI) and the API route handlers.
 
-let managerInstance: WebhookManagerService | null = null;
+const GLOBAL_KEY = '__shepWebhookManager' as const;
+
+function getInstance(): WebhookManagerService | null {
+  return ((globalThis as Record<string, unknown>)[GLOBAL_KEY] as WebhookManagerService) ?? null;
+}
+
+function setInstance(instance: WebhookManagerService | null): void {
+  (globalThis as Record<string, unknown>)[GLOBAL_KEY] = instance;
+}
 
 /**
  * Initialize the webhook manager singleton.
@@ -198,11 +212,11 @@ export function initializeWebhookManager(
   tunnelService: ITunnelService,
   webhookService: IWebhookService
 ): void {
-  if (managerInstance !== null) {
+  if (getInstance() !== null) {
     throw new Error('Webhook manager already initialized. Cannot re-initialize.');
   }
 
-  managerInstance = new WebhookManagerService(tunnelService, webhookService);
+  setInstance(new WebhookManagerService(tunnelService, webhookService));
 }
 
 /**
@@ -212,20 +226,21 @@ export function initializeWebhookManager(
  * @throws Error if the manager hasn't been initialized yet
  */
 export function getWebhookManager(): WebhookManagerService {
-  if (managerInstance === null) {
+  const instance = getInstance();
+  if (instance === null) {
     throw new Error(
       'Webhook manager not initialized. Call initializeWebhookManager() during web server startup.'
     );
   }
 
-  return managerInstance;
+  return instance;
 }
 
 /**
  * Check if the webhook manager has been initialized.
  */
 export function hasWebhookManager(): boolean {
-  return managerInstance !== null;
+  return getInstance() !== null;
 }
 
 /**
@@ -235,8 +250,9 @@ export function hasWebhookManager(): boolean {
  * @internal
  */
 export function resetWebhookManager(): void {
-  if (managerInstance !== null) {
-    void managerInstance.stop();
+  const instance = getInstance();
+  if (instance !== null) {
+    void instance.stop();
   }
-  managerInstance = null;
+  setInstance(null);
 }

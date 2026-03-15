@@ -439,7 +439,7 @@ export class GitHubWebhookService implements IWebhookService {
           '-f',
           `config[secret]=${this.webhookSecret}`,
           ...WEBHOOK_EVENTS.flatMap((e) => ['-f', `events[]=${e}`]),
-          '-f',
+          '-F',
           'active=true',
         ],
         { cwd: repoPath }
