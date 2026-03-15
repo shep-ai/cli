@@ -34,7 +34,7 @@ export function EventLogViewer({ content }: EventLogViewerProps) {
   return (
     <div className="flex flex-col">
       {lines.map((line) => (
-        <LogLineRow key={line.raw} line={line} />
+        <LogLineRow key={line.id} line={line} />
       ))}
     </div>
   );

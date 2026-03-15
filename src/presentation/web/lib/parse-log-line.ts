@@ -23,6 +23,8 @@ export interface ParsedLogLine {
   message: string;
   /** Original raw line */
   raw: string;
+  /** Unique identifier for keying in lists */
+  id: string;
 }
 
 /**
@@ -39,7 +41,7 @@ const LOG_LINE_REGEX =
 
 const TAG_REGEX = /^\[(tool|text|result|tokens|raw|WORKER)\]\s*(.*)/;
 
-export function parseLogLine(raw: string): ParsedLogLine {
+export function parseLogLine(raw: string): Omit<ParsedLogLine, 'id'> {
   const match = raw.match(LOG_LINE_REGEX);
 
   if (!match) {
@@ -169,5 +171,5 @@ export function parseLogContent(content: string): ParsedLogLine[] {
   return content
     .split('\n')
     .filter((line) => line.trim().length > 0)
-    .map(parseLogLine);
+    .map((line, i) => ({ ...parseLogLine(line), id: `log-${i}` }));
 }
