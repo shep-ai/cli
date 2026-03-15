@@ -180,8 +180,8 @@ describe('Graph State Transitions › Evidence Flow (with merge)', () => {
     const result = await ctx.graph.invoke(state, config);
 
     expectNoInterrupts(result);
-    // All nodes + merge: analyze + requirements + research + plan + implement(1 phase + 1 evidence) + merge-commit + merge-squash = 8
-    expect(ctx.executor.callCount).toBe(8);
+    // All nodes + merge: analyze + requirements + research + plan + implement(1 phase + 1 evidence) + merge-commit = 7 (merge squash is now programmatic via localMergeSquash, no agent call)
+    expect(ctx.executor.callCount).toBe(7);
   });
 
   it('should not interrupt at evidence (no approval gate)', async () => {

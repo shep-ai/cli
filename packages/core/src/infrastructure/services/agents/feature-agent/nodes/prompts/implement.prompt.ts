@@ -48,12 +48,12 @@ function formatTaskSection(task: PhaseTask): string {
 
   if (task.tdd) {
     section += `\n**TDD Guidance:**\n`;
-    section += `- Write tests for: ${task.tdd.red.join('; ')}\n`;
-    section += `- Implement: ${task.tdd.green.join('; ')}\n`;
-    section += `- Then consider: ${task.tdd.refactor.join('; ')}\n`;
+    if (task.tdd.red?.length) section += `- Write tests for: ${task.tdd.red.join('; ')}\n`;
+    if (task.tdd.green?.length) section += `- Implement: ${task.tdd.green.join('; ')}\n`;
+    if (task.tdd.refactor?.length) section += `- Then consider: ${task.tdd.refactor.join('; ')}\n`;
   }
 
-  if (task.dependencies.length > 0) {
+  if (task.dependencies?.length) {
     section += `\nDepends on: ${task.dependencies.join(', ')}\n`;
   }
 

@@ -163,6 +163,9 @@ describe('IGitPrService', () => {
       revParse: async () => 'abc123',
       getFailureLogs: async () => '',
       getMergeableStatus: async () => undefined,
+      localMergeSquash: async () => {
+        /* noop */
+      },
     };
 
     // Verify all methods exist
@@ -186,9 +189,10 @@ describe('IGitPrService', () => {
       'revParse',
       'getFailureLogs',
       'getMergeableStatus',
+      'localMergeSquash',
     ];
 
-    expect(methodNames).toHaveLength(19);
+    expect(methodNames).toHaveLength(20);
     for (const name of methodNames) {
       expect(typeof mock[name]).toBe('function');
     }

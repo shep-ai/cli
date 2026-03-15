@@ -37,7 +37,7 @@ export class CleanupFeatureWorktreeUseCase {
       feature.worktreePath ??
       this.worktreeService.getWorktreePath(feature.repositoryPath, feature.branch);
     try {
-      await this.worktreeService.remove(worktreePath, true);
+      await this.worktreeService.remove(feature.repositoryPath, worktreePath, true);
     } catch (err) {
       // eslint-disable-next-line no-console
       console.warn('[CleanupFeatureWorktreeUseCase] worktree remove failed:', err);

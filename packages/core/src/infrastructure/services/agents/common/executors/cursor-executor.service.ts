@@ -9,6 +9,10 @@
  * to enable testability without mocking node:child_process directly.
  */
 
+import { writeFileSync, unlinkSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { AgentType, AgentFeature } from '../../../../../domain/generated/output.js';
 import type {
   IAgentExecutor,
@@ -67,17 +71,8 @@ export class CursorExecutorService implements IAgentExecutor {
     // Use json (not stream-json) for execute() — outputs a single JSON result line.
     // stream-json is unreliable on Windows where shell: true can mangle args.
     const args = this.buildArgs(prompt, options);
-    const spawnOpts = this.buildSpawnOptions(options);
 
-    this.log(
-      `Spawning: agent ${args.map((a) => (a.length > 80 ? `${a.slice(0, 77)}...` : a)).join(' ')}`
-    );
-    this.log(`Spawn cwd: ${(spawnOpts.cwd as string) ?? '(inherited)'}`);
-
-    const proc = this.spawn('agent', args, spawnOpts);
-    this.log(`Subprocess PID: ${proc.pid ?? 'undefined (spawn may have failed)'}`);
-
-    if (proc.stdin) proc.stdin.end();
+    const { proc, tmpFile } = this.spawnAgent(prompt, args, options);
 
     return new Promise<AgentExecutionResult>((resolve, reject) => {
       let lineBuffer = '';
@@ -94,7 +89,19 @@ export class CursorExecutorService implements IAgentExecutor {
       if (options?.timeout) {
         timeoutId = setTimeout(() => {
           timedOut = true;
-          proc.kill();
+          // On Windows, proc.kill() may not kill the entire process tree
+          // (PowerShell + child agent process). Use taskkill /T for tree kill.
+          if (process.platform === 'win32' && proc.pid) {
+            try {
+              execFileSync('taskkill', ['/F', '/T', '/PID', String(proc.pid)], {
+                stdio: 'ignore',
+              });
+            } catch {
+              proc.kill();
+            }
+          } else {
+            proc.kill();
+          }
         }, options.timeout);
       }
 
@@ -135,6 +142,13 @@ export class CursorExecutorService implements IAgentExecutor {
         const data = chunk.toString();
         stderr += data;
         this.log(`stderr: ${data.trimEnd()}`);
+
+        // Detect fatal errors early so callers don't waste time retrying
+        if (data.includes('Cannot use this model')) {
+          if (timeoutId) clearTimeout(timeoutId);
+          proc.kill();
+          reject(new Error(data.trim()));
+        }
       });
 
       proc.on('error', (error: Error & { code?: string }) => {
@@ -152,6 +166,14 @@ export class CursorExecutorService implements IAgentExecutor {
       });
 
       proc.on('close', (code: number | null) => {
+        // Clean up temp file on Windows
+        if (tmpFile) {
+          try {
+            unlinkSync(tmpFile);
+          } catch {
+            /* already removed or inaccessible */
+          }
+        }
         if (lineBuffer.trim()) processLine(lineBuffer.trim());
         // Use raw text as fallback when no JSON result was captured
         const finalText = resultText || rawText.trim();
@@ -181,10 +203,7 @@ export class CursorExecutorService implements IAgentExecutor {
     options?: AgentExecutionOptions
   ): AsyncIterable<AgentExecutionStreamEvent> {
     const args = this.buildStreamArgs(prompt, options);
-    const spawnOpts = this.buildSpawnOptions(options);
-    const proc = this.spawn('agent', args, spawnOpts);
-
-    if (proc.stdin) proc.stdin.end();
+    const { proc, tmpFile } = this.spawnAgent(prompt, args, options);
 
     let lineBuffer = '';
     let stderr = '';
@@ -230,6 +249,13 @@ export class CursorExecutorService implements IAgentExecutor {
     });
 
     proc.on('close', (code: number | null) => {
+      if (tmpFile) {
+        try {
+          unlinkSync(tmpFile);
+        } catch {
+          /* already removed */
+        }
+      }
       if (lineBuffer.trim()) {
         const event = this.parseStreamLine(lineBuffer.trim());
         if (event) enqueue(event);
@@ -310,24 +336,74 @@ export class CursorExecutorService implements IAgentExecutor {
     return args;
   }
 
-  private buildSpawnOptions(options?: AgentExecutionOptions): Record<string, unknown> {
-    const spawnOpts: Record<string, unknown> = {};
-    if (options?.cwd) spawnOpts.cwd = options.cwd;
+  /**
+   * Spawn the agent process, handling Windows specially via PowerShell.
+   *
+   * On Windows, cursor CLI ships as `agent.cmd` which requires `shell: true`,
+   * but cmd.exe mangles long `-p` arguments (8191-char limit + special chars).
+   * Solution: write prompt to a temp file, invoke agent via PowerShell which
+   * reads the file and passes the content as `-p`. PowerShell handles long
+   * strings natively (32K limit) and doesn't mangle arguments.
+   *
+   * On Linux/macOS, spawn `agent` directly — no shell needed.
+   */
+  private spawnAgent(
+    prompt: string,
+    args: string[],
+    options?: AgentExecutionOptions
+  ): { proc: ReturnType<SpawnFunction>; tmpFile: string | undefined } {
+    const { CLAUDECODE: _, ...cleanEnv } = process.env;
+    const cwd = options?.cwd;
 
-    // On Windows, the cursor agent is a .cmd script which requires shell: true
-    // to resolve via PATH. Also hide the console window.
     if (IS_WINDOWS) {
-      spawnOpts.shell = true;
-      spawnOpts.windowsHide = true;
+      // Write prompt to temp file to bypass cmd.exe argument mangling
+      const tmpFile = join(
+        tmpdir(),
+        `shep-cursor-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.txt`
+      );
+      writeFileSync(tmpFile, prompt, 'utf8');
+
+      // Build the agent args WITHOUT -p and the prompt (they go via temp file)
+      const agentFlags = args.filter((a) => a !== '-p' && a !== prompt).join(' ');
+      const safePath = tmpFile.replace(/'/g, "''");
+      const psCmd = `$p = Get-Content -Raw '${safePath}'; & agent ${agentFlags} -p $p`;
+
+      this.log(`Windows PowerShell mode: wrote ${prompt.length} chars to ${tmpFile}`);
+      this.log(`PS command: ${psCmd.replace(prompt, `<${prompt.length} chars>`)}`);
+
+      const proc = this.spawn(
+        'powershell.exe',
+        ['-NoProfile', '-NonInteractive', '-Command', psCmd],
+        {
+          cwd,
+          stdio: ['pipe', 'pipe', 'pipe'],
+          windowsHide: true,
+          env: cleanEnv,
+        }
+      );
+      this.log(`PowerShell PID: ${proc.pid ?? 'undefined (spawn may have failed)'}`);
+      if (proc.stdin) proc.stdin.end();
+
+      return { proc, tmpFile };
     }
 
-    // Strip CLAUDECODE env var to prevent "nested session" error when shep
-    // is invoked from within a Claude Code session.
+    // Linux/macOS: spawn agent directly, no shell needed
+    const spawnOpts: Record<string, unknown> = {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: cleanEnv,
+    };
+    if (cwd) spawnOpts.cwd = cwd;
 
-    const { CLAUDECODE: _, ...cleanEnv } = process.env;
-    spawnOpts.env = cleanEnv;
+    this.log(
+      `Spawning: agent ${args.map((a) => (a.length > 80 ? `${a.slice(0, 77)}...` : a)).join(' ')}`
+    );
+    this.log(`Spawn cwd: ${(cwd as string) ?? '(inherited)'}`);
 
-    return spawnOpts;
+    const proc = this.spawn('agent', args, spawnOpts);
+    this.log(`Subprocess PID: ${proc.pid ?? 'undefined (spawn may have failed)'}`);
+    if (proc.stdin) proc.stdin.end();
+
+    return { proc, tmpFile: undefined };
   }
 
   private parseStreamLine(line: string): AgentExecutionStreamEvent | null {

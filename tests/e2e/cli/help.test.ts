@@ -10,8 +10,11 @@
 
 import { describe, it, expect, afterAll } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 import { runCli, createIsolatedCliRunner } from '../../helpers/cli/index.js';
+
+const isWindows = process.platform === 'win32';
 
 describe('CLI: help', () => {
   it('should display help with --help flag', () => {
@@ -40,13 +43,21 @@ describe('CLI: help', () => {
       try {
         const daemonPath = join(shepHome, 'daemon.json');
         const state = JSON.parse(readFileSync(daemonPath, 'utf-8'));
-        try {
-          process.kill(-state.pid, 'SIGKILL');
-        } catch {
+        if (isWindows) {
           try {
-            process.kill(state.pid, 'SIGKILL');
+            spawnSync('taskkill', ['/pid', String(state.pid), '/T', '/F'], { stdio: 'ignore' });
           } catch {
             // Already dead
+          }
+        } else {
+          try {
+            process.kill(-state.pid, 'SIGKILL');
+          } catch {
+            try {
+              process.kill(state.pid, 'SIGKILL');
+            } catch {
+              // Already dead
+            }
           }
         }
       } catch {

@@ -8,7 +8,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
-import { dirname, resolve, join } from 'node:path';
+import { dirname, resolve, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createCliRunner, type CliResult } from '../../helpers/cli/index.js';
 
@@ -113,7 +113,7 @@ function scanDir(dir: string, ext: string, results: UnresolvedImport[]): void {
       for (let i = 0; i < lines.length; i++) {
         if (UNRESOLVED_ALIAS_PATTERN.test(lines[i])) {
           results.push({
-            file: fullPath.replace(`${DIST_DIR}/`, ''),
+            file: fullPath.replace(`${DIST_DIR}${sep}`, ''),
             line: i + 1,
             content: lines[i].trim(),
           });

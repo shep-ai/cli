@@ -92,6 +92,7 @@ describe('CleanupFeatureWorktreeUseCase', () => {
       getFileDiffs: vi.fn(),
       getMergeableStatus: vi.fn().mockResolvedValue(undefined),
       revParse: vi.fn(),
+      localMergeSquash: vi.fn().mockResolvedValue(undefined),
     };
 
     useCase = new CleanupFeatureWorktreeUseCase(
@@ -113,6 +114,7 @@ describe('CleanupFeatureWorktreeUseCase', () => {
     await useCase.execute('feat-123-full-uuid');
 
     expect(mockWorktreeService.remove).toHaveBeenCalledWith(
+      '/repo',
       '/repo/.worktrees/feat-test-feature',
       true
     );
@@ -209,6 +211,7 @@ describe('CleanupFeatureWorktreeUseCase', () => {
 
     expect(mockWorktreeService.getWorktreePath).toHaveBeenCalledWith('/repo', 'feat/test-feature');
     expect(mockWorktreeService.remove).toHaveBeenCalledWith(
+      '/repo',
       '/repo/.worktrees/feat-test-feature',
       true
     );
