@@ -23,9 +23,17 @@ export interface FeatureWithRun {
  * (id: `virtual-repo-${repositoryPath}`). This ensures the dashboard never
  * renders empty when features exist but their repository rows are missing.
  */
+export interface BuildGraphNodesOptions {
+  /** Whether evidence collection is enabled (global workflow setting) */
+  enableEvidence?: boolean;
+  /** Whether evidence is committed to the PR body (global workflow setting) */
+  commitEvidence?: boolean;
+}
+
 export function buildGraphNodes(
   repositories: Repository[],
-  featuresWithRuns: FeatureWithRun[]
+  featuresWithRuns: FeatureWithRun[],
+  options?: BuildGraphNodesOptions
 ): { nodes: CanvasNodeType[]; edges: Edge[] } {
   // Normalize path separators so Windows backslash paths match forward-slash paths
   const normalizePath = (p: string) => p.replace(/\\/g, '/');
@@ -65,7 +73,15 @@ export function buildGraphNodes(
     });
 
     const repoFeatures = featuresByRepo[normalizedRepoPath] ?? [];
-    appendFeatureNodes(repoFeatures, repoNodeId, featuresWithRuns, nodes, edges, repo.name);
+    appendFeatureNodes(
+      repoFeatures,
+      repoNodeId,
+      featuresWithRuns,
+      nodes,
+      edges,
+      repo.name,
+      options
+    );
   }
 
   // Second pass: group orphaned features under virtual repository nodes
@@ -81,7 +97,15 @@ export function buildGraphNodes(
       data: { name: repoName, repositoryPath: repoPath },
     });
 
-    appendFeatureNodes(orphanFeatures, virtualRepoNodeId, featuresWithRuns, nodes, edges, repoName);
+    appendFeatureNodes(
+      orphanFeatures,
+      virtualRepoNodeId,
+      featuresWithRuns,
+      nodes,
+      edges,
+      repoName,
+      options
+    );
   }
 
   // Add parent→child dependency edges
@@ -109,7 +133,8 @@ function appendFeatureNodes(
   allFeaturesWithRuns: FeatureWithRun[],
   nodes: CanvasNodeType[],
   edges: Edge[],
-  repoName?: string
+  repoName?: string,
+  options?: BuildGraphNodesOptions
 ): void {
   // Sort by createdAt so newest features appear last (bottom) in the layout
   const sorted = [...repoFeatures].sort((a, b) => {
@@ -158,6 +183,11 @@ function appendFeatureNodes(
       createdAt:
         feature.createdAt instanceof Date ? feature.createdAt.getTime() : feature.createdAt,
       ...(feature.fast && { fastMode: true }),
+      approvalGates: feature.approvalGates,
+      push: feature.push,
+      openPr: feature.openPr,
+      ...(options?.enableEvidence != null && { enableEvidence: options.enableEvidence }),
+      ...(options?.commitEvidence != null && { commitEvidence: options.commitEvidence }),
       ...(repoName && { repositoryName: repoName }),
       ...(run?.agentType && { agentType: run.agentType as FeatureNodeData['agentType'] }),
       ...(run?.modelId && { modelId: run.modelId }),

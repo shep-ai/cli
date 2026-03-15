@@ -36,8 +36,8 @@ test.describe('Feature Create Drawer — native file attachments', () => {
       })
     );
 
-    // Navigate directly to create drawer route
-    await page.goto('/create');
+    // Navigate directly to create drawer route (repo param required to enable submit)
+    await page.goto('/create?repo=/fake/repo');
 
     // Wait for the drawer to appear — use heading role to avoid matching sidebar text
     await expect(page.getByRole('heading', { name: 'NEW FEATURE' })).toBeVisible({
@@ -55,11 +55,12 @@ test.describe('Feature Create Drawer — native file attachments', () => {
     const attachFilesButton = page.getByRole('button', { name: /attach files/i });
     await attachFilesButton.click();
 
-    // Verify the attachment chip shows the file name
-    await expect(page.getByText('requirements.pdf')).toBeVisible();
+    // Verify the attachment chip shows the file name (scoped to form to avoid sidebar matches)
+    const form = page.locator('#create-feature-form');
+    await expect(form.getByText('requirements.pdf')).toBeVisible();
 
     // Verify the file size is displayed (42000 bytes = 41.0 KB)
-    await expect(page.getByText('41.0 KB')).toBeVisible();
+    await expect(form.getByText('41.0 KB')).toBeVisible();
 
     // Verify the submit button is enabled (description is filled)
     const submitButton = page.getByRole('button', { name: '+ Create Feature' });
@@ -79,7 +80,7 @@ test.describe('Feature Create Drawer — native file attachments', () => {
       })
     );
 
-    await page.goto('/create');
+    await page.goto('/create?repo=/fake/repo');
 
     await expect(page.getByRole('heading', { name: 'NEW FEATURE' })).toBeVisible({
       timeout: 15000,
@@ -89,9 +90,10 @@ test.describe('Feature Create Drawer — native file attachments', () => {
     const attachFilesButton = page.getByRole('button', { name: /attach files/i });
     await attachFilesButton.click();
 
-    // No attachment chip should appear — wait briefly and verify
+    // No attachment chip should appear within the form — scope to avoid sidebar matches
+    const form = page.locator('#create-feature-form');
     await page.waitForTimeout(500);
-    await expect(page.getByText('requirements.pdf')).not.toBeVisible();
+    await expect(form.getByText('requirements.pdf')).not.toBeVisible();
   });
 
   test('multiple files show chips for each', async ({ page }) => {
@@ -143,7 +145,7 @@ test.describe('Feature Create Drawer — native file attachments', () => {
       });
     });
 
-    await page.goto('/create');
+    await page.goto('/create?repo=/fake/repo');
 
     await expect(page.getByRole('heading', { name: 'NEW FEATURE' })).toBeVisible({
       timeout: 15000,
@@ -152,9 +154,10 @@ test.describe('Feature Create Drawer — native file attachments', () => {
     const attachFilesButton = page.getByRole('button', { name: /attach files/i });
     await attachFilesButton.click();
 
-    // Verify both file names are displayed in chips
+    // Verify both file names are displayed in chips (scoped to form to avoid sidebar matches)
     // Image files render as <img> thumbnails with title attribute, non-images show text
-    await expect(page.getByText('requirements.pdf')).toBeVisible();
-    await expect(page.locator('[title="screenshot.png"]')).toBeVisible();
+    const form = page.locator('#create-feature-form');
+    await expect(form.getByText('requirements.pdf')).toBeVisible();
+    await expect(form.locator('[title="screenshot.png"]')).toBeVisible();
   });
 });

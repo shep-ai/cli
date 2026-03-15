@@ -31,6 +31,7 @@ import type { IAgentRunRepository } from '../../../ports/output/agents/agent-run
 import type { ISpecInitializerService } from '../../../ports/output/services/spec-initializer.interface.js';
 import type { IRepositoryRepository } from '../../../ports/output/repositories/repository-repository.interface.js';
 import type { IGitPrService } from '../../../ports/output/services/git-pr-service.interface.js';
+import type { IAgentValidator } from '../../../ports/output/agents/agent-validator.interface.js';
 import { getSettings } from '../../../../infrastructure/services/settings.service.js';
 import { POST_IMPLEMENTATION } from '../../../../domain/lifecycle-gates.js';
 import { AttachmentStorageService } from '../../../../infrastructure/services/attachment-storage.service.js';
@@ -60,7 +61,9 @@ export class CreateFeatureUseCase {
     @inject('IGitPrService')
     private readonly gitPrService: IGitPrService,
     @inject(AttachmentStorageService)
-    private readonly attachmentStorage: AttachmentStorageService
+    private readonly attachmentStorage: AttachmentStorageService,
+    @inject('IAgentValidator')
+    private readonly agentValidator: IAgentValidator
   ) {}
 
   /**
@@ -286,6 +289,34 @@ export class CreateFeatureUseCase {
 
     // Spawn agent if not blocked
     if (shouldSpawn) {
+      // Validate that the configured agent is available before spawning
+      // a background worker — prevents the feature from getting stuck
+      // with a silent failure in the detached worker process.
+      // Skip validation when using mock executor (E2E tests, CI without real agents).
+      const settings = getSettings();
+      const effectiveAgentType = (input.agentType as AgentType) ?? settings.agent.type;
+      const isMockExecutor = process.env.SHEP_MOCK_EXECUTOR === '1';
+      const validation = isMockExecutor
+        ? { available: true as const }
+        : await this.agentValidator.isAvailable(effectiveAgentType);
+      if (!validation.available) {
+        // Mark the agent run as failed so the UI shows the error
+        await this.runRepository.updateStatus(feature.agentRunId!, AgentRunStatus.failed, {
+          error: `Agent "${effectiveAgentType}" is not available: ${validation.error}`,
+          completedAt: new Date(),
+          updatedAt: new Date(),
+        });
+        // Update feature lifecycle to Started so it doesn't appear as actively running
+        await this.featureRepo.update({
+          ...updatedFeature,
+          lifecycle: SdlcLifecycle.Started,
+          updatedAt: new Date(),
+        });
+        throw new Error(
+          `Agent "${effectiveAgentType}" is not available. ${validation.error ?? 'Please install it and try again.'}`
+        );
+      }
+
       const agentRun = await this.runRepository.findById(feature.agentRunId!);
       this.agentProcess.spawn(
         feature.id,

@@ -21,7 +21,9 @@ import {
   GitPrError,
   GitPrErrorCode,
 } from '../../../application/ports/output/services/git-pr-service.interface.js';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, unlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import yaml from 'js-yaml';
 import { PrStatus } from '../../../domain/generated/output.js';
 import type { ExecFunction } from './worktree.service.js';
@@ -210,6 +212,88 @@ export class GitPrService implements IGitPrService {
       const message = error instanceof Error ? error.message : String(error);
       const cause = error instanceof Error ? error : undefined;
       throw new GitPrError(message, GitPrErrorCode.MERGE_FAILED, cause);
+    }
+  }
+
+  async localMergeSquash(
+    cwd: string,
+    featureBranch: string,
+    baseBranch: string,
+    commitMessage: string,
+    hasRemote = false
+  ): Promise<void> {
+    try {
+      // Fetch latest from remote if available
+      if (hasRemote) {
+        try {
+          await this.execFile('git', ['fetch', 'origin'], { cwd });
+        } catch {
+          // Fetch failure is non-fatal — proceed with local state
+        }
+      }
+
+      // Checkout base branch
+      await this.execFile('git', ['checkout', baseBranch], { cwd });
+
+      // Pull latest base if remote available
+      if (hasRemote) {
+        try {
+          await this.execFile('git', ['pull', 'origin', baseBranch], { cwd });
+        } catch {
+          // Pull failure is non-fatal — proceed with local state
+        }
+      }
+
+      // Clean untracked files that may conflict with the merge (e.g. files created
+      // by a prior agent call that leaked into the original repo directory)
+      try {
+        await this.execFile('git', ['clean', '-fd'], { cwd });
+      } catch {
+        // Clean failure is non-fatal
+      }
+
+      // Squash merge the feature branch
+      await this.execFile('git', ['merge', '--squash', featureBranch], { cwd });
+
+      // Commit the squash merge (skip if nothing to commit — branches may be equivalent)
+      const { stdout: status } = await this.execFile('git', ['status', '--porcelain'], { cwd });
+      if (status.trim().length > 0) {
+        // Write commit message to a temp file to avoid shell splitting on Windows
+        // (DI-injected execFile uses shell: true on Windows, which splits on spaces)
+        const msgFile = join(tmpdir(), `shep-merge-msg-${Date.now()}.txt`);
+        try {
+          writeFileSync(msgFile, commitMessage, 'utf8');
+          await this.execFile('git', ['commit', '--file', msgFile], { cwd });
+        } finally {
+          try {
+            unlinkSync(msgFile);
+          } catch {
+            // Cleanup failure is non-fatal
+          }
+        }
+      }
+
+      // Delete the feature branch after successful merge
+      try {
+        await this.execFile('git', ['branch', '-d', featureBranch], { cwd });
+      } catch {
+        // Branch deletion failure is non-fatal (branch may have already been deleted)
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const cause = error instanceof Error ? error : undefined;
+      if (message.includes('CONFLICT') || message.includes('conflict')) {
+        throw new GitPrError(
+          `Merge conflict while squash-merging ${featureBranch} into ${baseBranch}: ${message}`,
+          GitPrErrorCode.MERGE_CONFLICT,
+          cause
+        );
+      }
+      throw new GitPrError(
+        `Local squash merge failed: ${message}`,
+        GitPrErrorCode.GIT_ERROR,
+        cause
+      );
     }
   }
 

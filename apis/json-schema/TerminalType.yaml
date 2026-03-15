@@ -1,0 +1,10 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: TerminalType.yaml
+type: string
+enum:
+  - system
+  - warp
+  - iterm2
+  - alacritty
+  - kitty
+description: Supported terminal emulator type

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { FeatureCreateDrawer } from '@/components/common/feature-create-drawer';
+import type { FeatureCreateDrawerProps } from '@/components/common/feature-create-drawer';
 import { DrawerCloseGuardProvider } from '@/hooks/drawer-close-guard';
 import type { FileAttachment } from '@shepai/core/infrastructure/services/file-dialog.service';
 
@@ -9,6 +10,24 @@ import type { FileAttachment } from '@shepai/core/infrastructure/services/file-d
 const mockPickFiles = vi.fn<() => Promise<FileAttachment[] | null>>();
 vi.mock('@/components/common/feature-create-drawer/pick-files', () => ({
   pickFiles: () => mockPickFiles(),
+}));
+
+// Mock pickFolder for repository combobox
+const mockPickFolder = vi.fn<() => Promise<string | null>>();
+vi.mock('@/components/common/add-repository-button/pick-folder', () => ({
+  pickFolder: () => mockPickFolder(),
+}));
+
+// Mock addRepository server action
+const mockAddRepository =
+  vi.fn<
+    (input: {
+      path: string;
+      name?: string;
+    }) => Promise<{ repository?: { id: string; name: string; path: string }; error?: string }>
+  >();
+vi.mock('@/app/actions/add-repository', () => ({
+  addRepository: (input: { path: string; name?: string }) => mockAddRepository(input),
 }));
 
 const mockCreatePlay = vi.fn();
@@ -38,6 +57,8 @@ beforeAll(() => {
 beforeEach(() => {
   vi.clearAllMocks();
   mockPickFiles.mockResolvedValue(null);
+  mockPickFolder.mockResolvedValue(null);
+  mockAddRepository.mockResolvedValue({ error: 'Not mocked' });
 });
 
 const descriptionPlaceholder =
@@ -51,7 +72,7 @@ const defaultProps = {
   isSubmitting: false,
 };
 
-function renderDrawer(overrides: Partial<typeof defaultProps> = {}) {
+function renderDrawer(overrides: Partial<FeatureCreateDrawerProps> = {}) {
   const props = { ...defaultProps, ...overrides };
   return render(
     <DrawerCloseGuardProvider>
@@ -944,6 +965,245 @@ describe('FeatureCreateDrawer', () => {
       const payload = defaultProps.onSubmit.mock.calls[0]?.[0];
       expect(payload).toHaveProperty('sessionId');
       expect(typeof payload.sessionId).toBe('string');
+    });
+  });
+
+  describe('repository selector', () => {
+    const sampleRepos = [
+      { id: 'repo-001', name: 'my-app', path: '/Users/dev/projects/my-app' },
+      { id: 'repo-002', name: 'api-service', path: '/Users/dev/projects/api-service' },
+      { id: 'repo-003', name: 'shared-lib', path: '/Users/dev/libs/shared-lib' },
+    ];
+
+    it('shows repository combobox when repositoryPath is empty and repositories provided', () => {
+      renderDrawer({ repositoryPath: '', repositories: sampleRepos });
+      expect(screen.getByTestId('repo-selector-section')).toBeInTheDocument();
+      expect(screen.getByTestId('repository-combobox')).toBeInTheDocument();
+    });
+
+    it('does not show repository combobox when repositoryPath is provided', () => {
+      renderDrawer({ repositoryPath: '/Users/dev/my-repo', repositories: sampleRepos });
+      expect(screen.queryByTestId('repo-selector-section')).not.toBeInTheDocument();
+    });
+
+    it('shows read-only repo label when repositoryPath is provided', () => {
+      renderDrawer({ repositoryPath: '/Users/dev/projects/my-app', repositories: sampleRepos });
+      expect(screen.getByTestId('repo-readonly-section')).toBeInTheDocument();
+      expect(screen.getByTestId('repo-readonly-label')).toHaveTextContent('my-app');
+    });
+
+    it('submit button is disabled when no repo selected and repositoryPath is empty', async () => {
+      const user = userEvent.setup();
+      renderDrawer({ repositoryPath: '', repositories: sampleRepos });
+
+      await user.type(screen.getByPlaceholderText(descriptionPlaceholder), 'My feature');
+
+      expect(screen.getByRole('button', { name: '+ Create Feature' })).toBeDisabled();
+    });
+
+    it('submit button is enabled when repo is selected via combobox', async () => {
+      const user = userEvent.setup();
+      renderDrawer({ repositoryPath: '', repositories: sampleRepos });
+
+      await user.type(screen.getByPlaceholderText(descriptionPlaceholder), 'My feature');
+
+      // Open combobox and select a repo
+      await user.click(screen.getByTestId('repository-combobox'));
+      await user.click(screen.getByTestId('repository-option-repo-001'));
+
+      expect(screen.getByRole('button', { name: '+ Create Feature' })).toBeEnabled();
+    });
+
+    it('submit button is enabled when repositoryPath is provided (canvas flow)', async () => {
+      const user = userEvent.setup();
+      renderDrawer({ repositoryPath: '/Users/dev/my-repo' });
+
+      await user.type(screen.getByPlaceholderText(descriptionPlaceholder), 'My feature');
+
+      expect(screen.getByRole('button', { name: '+ Create Feature' })).toBeEnabled();
+    });
+
+    it('handleSubmit includes selectedRepoPath in payload', async () => {
+      const onSubmit = vi.fn();
+      const user = userEvent.setup();
+      renderDrawer({ repositoryPath: '', repositories: sampleRepos, onSubmit });
+
+      await user.type(screen.getByPlaceholderText(descriptionPlaceholder), 'My feature');
+
+      // Open combobox and select a repo
+      await user.click(screen.getByTestId('repository-combobox'));
+      await user.click(screen.getByTestId('repository-option-repo-002'));
+
+      await user.click(screen.getByRole('button', { name: '+ Create Feature' }));
+
+      expect(onSubmit).toHaveBeenCalledOnce();
+      expect(onSubmit.mock.calls[0][0].repositoryPath).toBe('/Users/dev/projects/api-service');
+    });
+
+    it('renders REPOSITORY label in combobox section', () => {
+      renderDrawer({ repositoryPath: '', repositories: sampleRepos });
+      expect(screen.getByText('REPOSITORY')).toBeInTheDocument();
+    });
+
+    it('filters repositories by name when typing in search input', async () => {
+      const user = userEvent.setup();
+      renderDrawer({ repositoryPath: '', repositories: sampleRepos });
+
+      await user.click(screen.getByTestId('repository-combobox'));
+
+      const searchInput = screen.getByTestId('repository-search');
+      await user.type(searchInput, 'api');
+
+      // Only api-service should match
+      expect(screen.getByTestId('repository-option-repo-002')).toBeInTheDocument();
+      expect(screen.queryByTestId('repository-option-repo-001')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('repository-option-repo-003')).not.toBeInTheDocument();
+    });
+
+    it('filters repositories by path when typing in search input', async () => {
+      const user = userEvent.setup();
+      renderDrawer({ repositoryPath: '', repositories: sampleRepos });
+
+      await user.click(screen.getByTestId('repository-combobox'));
+
+      const searchInput = screen.getByTestId('repository-search');
+      await user.type(searchInput, 'libs');
+
+      // Only shared-lib should match (path contains 'libs')
+      expect(screen.getByTestId('repository-option-repo-003')).toBeInTheDocument();
+      expect(screen.queryByTestId('repository-option-repo-001')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('repository-option-repo-002')).not.toBeInTheDocument();
+    });
+
+    it('shows empty state message when no repos match search', async () => {
+      const user = userEvent.setup();
+      renderDrawer({ repositoryPath: '', repositories: sampleRepos });
+
+      await user.click(screen.getByTestId('repository-combobox'));
+
+      const searchInput = screen.getByTestId('repository-search');
+      await user.type(searchInput, 'nonexistent');
+
+      expect(screen.getByTestId('repository-empty')).toBeInTheDocument();
+      expect(screen.getByText('No repositories found.')).toBeInTheDocument();
+    });
+
+    it('shows check icon for selected repository', async () => {
+      const user = userEvent.setup();
+      renderDrawer({ repositoryPath: '', repositories: sampleRepos });
+
+      // Select repo
+      await user.click(screen.getByTestId('repository-combobox'));
+      await user.click(screen.getByTestId('repository-option-repo-001'));
+
+      // Reopen and verify check icon via aria-selected
+      await user.click(screen.getByTestId('repository-combobox'));
+      const selected = screen.getByTestId('repository-option-repo-001');
+      expect(selected).toHaveAttribute('aria-selected', 'true');
+    });
+
+    it('shows repo selector with add option when repositoryPath is empty and repositories is empty', () => {
+      renderDrawer({ repositoryPath: '', repositories: [] });
+      expect(screen.getByTestId('repo-selector-section')).toBeInTheDocument();
+      expect(screen.getByTestId('repository-combobox')).toBeInTheDocument();
+    });
+
+    it('renders "Add new repository..." item in the combobox dropdown', async () => {
+      const user = userEvent.setup();
+      renderDrawer({ repositoryPath: '', repositories: sampleRepos });
+
+      await user.click(screen.getByTestId('repository-combobox'));
+
+      expect(screen.getByTestId('add-repository-item')).toBeInTheDocument();
+      expect(screen.getByText('Add new repository...')).toBeInTheDocument();
+    });
+
+    it('renders "Add new repository..." item even with zero repos', async () => {
+      const user = userEvent.setup();
+      renderDrawer({ repositoryPath: '', repositories: [] });
+
+      await user.click(screen.getByTestId('repository-combobox'));
+
+      expect(screen.getByTestId('add-repository-item')).toBeInTheDocument();
+    });
+
+    it('clicking "Add new repository..." opens folder picker and adds repo', async () => {
+      mockPickFolder.mockResolvedValue('/Users/dev/new-project');
+      mockAddRepository.mockResolvedValue({
+        repository: { id: 'repo-new', name: 'new-project', path: '/Users/dev/new-project' },
+      });
+      const user = userEvent.setup();
+      renderDrawer({ repositoryPath: '', repositories: sampleRepos });
+
+      await user.click(screen.getByTestId('repository-combobox'));
+      await user.click(screen.getByTestId('add-repository-item'));
+
+      await waitFor(() => {
+        expect(mockPickFolder).toHaveBeenCalledOnce();
+        expect(mockAddRepository).toHaveBeenCalledWith({ path: '/Users/dev/new-project' });
+      });
+
+      // New repo should be auto-selected (combobox trigger shows the name)
+      await waitFor(() => {
+        expect(screen.getByTestId('repository-combobox')).toHaveTextContent('new-project');
+      });
+    });
+
+    it('does nothing when folder picker is cancelled', async () => {
+      mockPickFolder.mockResolvedValue(null);
+      const user = userEvent.setup();
+      renderDrawer({ repositoryPath: '', repositories: sampleRepos });
+
+      await user.click(screen.getByTestId('repository-combobox'));
+      await user.click(screen.getByTestId('add-repository-item'));
+
+      await waitFor(() => {
+        expect(mockPickFolder).toHaveBeenCalledOnce();
+      });
+      expect(mockAddRepository).not.toHaveBeenCalled();
+      // Combobox should still show placeholder
+      expect(screen.getByTestId('repository-combobox')).toHaveTextContent('Select repository...');
+    });
+
+    it('shows inline error when addRepository server action fails', async () => {
+      mockPickFolder.mockResolvedValue('/Users/dev/bad-folder');
+      mockAddRepository.mockResolvedValue({ error: 'Not a git repository' });
+      const user = userEvent.setup();
+      renderDrawer({ repositoryPath: '', repositories: sampleRepos });
+
+      await user.click(screen.getByTestId('repository-combobox'));
+      await user.click(screen.getByTestId('add-repository-item'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('add-repository-error')).toBeInTheDocument();
+        expect(screen.getByText('Not a git repository')).toBeInTheDocument();
+      });
+      // Combobox should still be open (popover stays open on error)
+      expect(screen.getByTestId('repository-combobox-content')).toBeInTheDocument();
+    });
+
+    it('can submit feature after adding new repo via combobox', async () => {
+      mockPickFolder.mockResolvedValue('/Users/dev/new-project');
+      mockAddRepository.mockResolvedValue({
+        repository: { id: 'repo-new', name: 'new-project', path: '/Users/dev/new-project' },
+      });
+      const onSubmit = vi.fn();
+      const user = userEvent.setup();
+      renderDrawer({ repositoryPath: '', repositories: [], onSubmit });
+
+      // Add repo via combobox
+      await user.click(screen.getByTestId('repository-combobox'));
+      await user.click(screen.getByTestId('add-repository-item'));
+      await waitFor(() => {
+        expect(screen.getByTestId('repository-combobox')).toHaveTextContent('new-project');
+      });
+
+      // Fill description and submit
+      await user.type(screen.getByPlaceholderText(descriptionPlaceholder), 'My feature');
+      await user.click(screen.getByRole('button', { name: '+ Create Feature' }));
+
+      expect(onSubmit).toHaveBeenCalledOnce();
+      expect(onSubmit.mock.calls[0][0].repositoryPath).toBe('/Users/dev/new-project');
     });
   });
 });

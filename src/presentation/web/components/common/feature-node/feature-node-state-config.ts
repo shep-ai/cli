@@ -99,6 +99,20 @@ export interface FeatureNodeData {
     commitHash?: string;
     mergeable?: boolean;
   };
+  /** Approval gates configuration for phase transitions */
+  approvalGates?: {
+    allowPrd: boolean;
+    allowPlan: boolean;
+    allowMerge: boolean;
+  };
+  /** Whether to push branch to remote after implementation */
+  push?: boolean;
+  /** Whether to open a PR after implementation */
+  openPr?: boolean;
+  /** Whether evidence collection is enabled for this feature */
+  enableEvidence?: boolean;
+  /** Whether evidence is committed to the PR body */
+  commitEvidence?: boolean;
   /** Whether the feature has plan data available */
   hasPlan?: boolean;
   /** Deployment status for features with an active deployment */

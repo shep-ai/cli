@@ -30,7 +30,7 @@ const {
   mockRecordPhaseEnd,
   mockRecordApprovalWaitStart,
   mockBuildCommitPushPrPrompt,
-  mockBuildMergeSquashPrompt,
+
   mockBuildCiWatchFixPrompt,
   mockParseCommitHash,
   mockParsePrUrl,
@@ -66,7 +66,7 @@ vi.mock('@langchain/langgraph', () => ({
 }));
 
 vi.mock('@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js', () => ({
-  createNodeLogger: () => ({ info: vi.fn(), error: vi.fn() }),
+  createNodeLogger: () => ({ activate: vi.fn(), info: vi.fn(), error: vi.fn() }),
   readSpecFile: vi.fn().mockReturnValue('name: Test Feature\n'),
   shouldInterrupt: mockShouldInterrupt,
   getCompletedPhases: mockGetCompletedPhases,
@@ -97,7 +97,6 @@ vi.mock('@/infrastructure/services/agents/feature-agent/lifecycle-context.js', (
 
 vi.mock('@/infrastructure/services/agents/feature-agent/nodes/prompts/merge-prompts.js', () => ({
   buildCommitPushPrPrompt: mockBuildCommitPushPrPrompt,
-  buildMergeSquashPrompt: mockBuildMergeSquashPrompt,
   buildCiWatchFixPrompt: mockBuildCiWatchFixPrompt,
 }));
 
@@ -191,6 +190,7 @@ function baseDeps(overrides?: Partial<MergeNodeDeps>): MergeNodeDeps {
     featureRepository: createMockFeatureRepo(),
     verifyMerge: vi.fn().mockResolvedValue(true),
     revParse: vi.fn().mockResolvedValue('premerge-sha-mock'),
+    localMergeSquash: vi.fn().mockResolvedValue(undefined),
     gitPrService: createMockGitPrService(),
     cleanupFeatureWorktreeUseCase: { execute: vi.fn().mockResolvedValue(undefined) } as any,
     ...overrides,

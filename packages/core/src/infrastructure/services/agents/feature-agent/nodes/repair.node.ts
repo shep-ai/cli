@@ -64,6 +64,7 @@ export function createRepairNode(
   const log = createNodeLogger(`repair:${label}`);
 
   return async (state: FeatureAgentState): Promise<Partial<FeatureAgentState>> => {
+    log.activate();
     log.info(`Repairing ${label} (attempt ${state.validationRetries})`);
 
     const filenames = Array.isArray(filename) ? filename : [filename];

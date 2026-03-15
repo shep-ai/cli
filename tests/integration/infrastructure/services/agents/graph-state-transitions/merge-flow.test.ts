@@ -62,8 +62,8 @@ describe('Graph State Transitions › Merge Flow', () => {
 
     expectNoInterrupts(result);
     expect(result.messages.length).toBeGreaterThanOrEqual(1);
-    // All producer nodes + evidence + merge commit + merge squash: 6 + 2 = 8
-    expect(ctx.executor.callCount).toBe(8);
+    // All producer nodes + evidence + merge commit: 6 + 1 = 7 (merge squash is now programmatic via localMergeSquash, no agent call)
+    expect(ctx.executor.callCount).toBe(7);
   });
 
   it('should walk through all gates: requirements → plan → merge → end', async () => {

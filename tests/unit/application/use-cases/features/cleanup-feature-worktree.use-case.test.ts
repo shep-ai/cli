@@ -92,6 +92,7 @@ describe('CleanupFeatureWorktreeUseCase', () => {
       getFileDiffs: vi.fn(),
       getMergeableStatus: vi.fn().mockResolvedValue(undefined),
       revParse: vi.fn(),
+      localMergeSquash: vi.fn().mockResolvedValue(undefined),
     };
 
     useCase = new CleanupFeatureWorktreeUseCase(
@@ -113,6 +114,7 @@ describe('CleanupFeatureWorktreeUseCase', () => {
     await useCase.execute('feat-123-full-uuid');
 
     expect(mockWorktreeService.remove).toHaveBeenCalledWith(
+      '/repo',
       '/repo/.worktrees/feat-test-feature',
       true
     );
@@ -209,6 +211,7 @@ describe('CleanupFeatureWorktreeUseCase', () => {
 
     expect(mockWorktreeService.getWorktreePath).toHaveBeenCalledWith('/repo', 'feat/test-feature');
     expect(mockWorktreeService.remove).toHaveBeenCalledWith(
+      '/repo',
       '/repo/.worktrees/feat-test-feature',
       true
     );
@@ -268,6 +271,21 @@ describe('CleanupFeatureWorktreeUseCase', () => {
       expect.anything()
     );
     warnSpy.mockRestore();
+  });
+
+  // ---------------------------------------------------------------------------
+  // Idempotency guard (#354 — double delete prevention)
+  // ---------------------------------------------------------------------------
+
+  it('should skip cleanup when feature lifecycle is Deleting (idempotency guard)', async () => {
+    const feature = createMockFeature({ lifecycle: SdlcLifecycle.Deleting });
+    mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
+
+    await useCase.execute('feat-123-full-uuid');
+
+    expect(mockWorktreeService.remove).not.toHaveBeenCalled();
+    expect(mockGitPrService.deleteBranch).not.toHaveBeenCalled();
+    expect(mockWorktreeService.remoteBranchExists).not.toHaveBeenCalled();
   });
 
   it('should not reject even when all three steps throw', async () => {

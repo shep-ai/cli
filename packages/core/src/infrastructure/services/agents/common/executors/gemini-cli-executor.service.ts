@@ -89,10 +89,18 @@ export class GeminiCliExecutorService implements IAgentExecutor {
         this.log(`stderr: ${data.trimEnd()}`);
       });
 
-      proc.on('error', (error: Error) => {
+      proc.on('error', (error: Error & { code?: string }) => {
         this.log(`Process error event: ${error.message}`);
         if (timeoutId) clearTimeout(timeoutId);
-        reject(error);
+        if (error.code === 'ENOENT') {
+          reject(
+            new Error(
+              'Gemini CLI ("gemini") not found. Please install it: https://github.com/google-gemini/gemini-cli'
+            )
+          );
+        } else {
+          reject(error);
+        }
       });
 
       proc.on('close', (code: number | null) => {
@@ -368,6 +376,15 @@ export class GeminiCliExecutorService implements IAgentExecutor {
   private buildSpawnOptions(options?: AgentExecutionOptions): Record<string, unknown> {
     const spawnOpts: Record<string, unknown> = {};
     if (options?.cwd) spawnOpts.cwd = options.cwd;
+
+    // Explicitly pipe stdio so streams are available even when parent disconnects
+    spawnOpts.stdio = ['pipe', 'pipe', 'pipe'];
+
+    // On Windows: windowsHide=true to prevent blank console windows.
+    // Gemini CLI is a native binary, so shell=true is NOT needed.
+    if (process.platform === 'win32') {
+      spawnOpts.windowsHide = true;
+    }
 
     // Strip CLAUDECODE env var to prevent "nested session" error when shep
     // is invoked from within a Claude Code session.

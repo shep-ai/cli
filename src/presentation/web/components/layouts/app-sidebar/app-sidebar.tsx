@@ -1,18 +1,17 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { Home, Wrench, Puzzle, Plus, Settings } from 'lucide-react';
+import { Home, Wrench, Puzzle, Settings } from 'lucide-react';
 import {
   Sidebar,
   SidebarHeader,
   SidebarContent,
-  SidebarFooter,
   SidebarMenu,
   SidebarMenuItem,
-  SidebarMenuButton,
   SidebarRail,
   useSidebar,
 } from '@/components/ui/sidebar';
+
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { SidebarNavItem } from '@/components/common/sidebar-nav-item';
 import { SidebarCollapseToggle } from '@/components/common/sidebar-collapse-toggle';
@@ -40,17 +39,14 @@ export interface FeatureItem {
 export interface AppSidebarProps {
   features: FeatureItem[];
   featureFlags: FeatureFlagsState;
-  /** Whether to show the "New feature" button in the sidebar footer. Defaults to `false`. */
-  showNewFeature?: boolean;
-  onNewFeature?: () => void;
+
   onFeatureClick?: (featureId: string) => void;
 }
 
 export function AppSidebar({
   features,
   featureFlags,
-  showNewFeature = false,
-  onNewFeature,
+
   onFeatureClick,
 }: AppSidebarProps) {
   const pathname = usePathname();
@@ -160,19 +156,6 @@ export function AppSidebar({
           </div>
         ) : null}
       </SidebarContent>
-
-      {showNewFeature ? (
-        <SidebarFooter>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton onClick={onNewFeature} tooltip="New feature">
-                <Plus />
-                <span>New feature</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarFooter>
-      ) : null}
 
       <SidebarRail />
     </Sidebar>

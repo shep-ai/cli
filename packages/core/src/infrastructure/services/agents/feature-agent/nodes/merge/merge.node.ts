@@ -35,7 +35,7 @@ import {
   recordApprovalWaitStart,
 } from '../../phase-timing-context.js';
 import { updateNodeLifecycle } from '../../lifecycle-context.js';
-import { buildCommitPushPrPrompt, buildMergeSquashPrompt } from '../prompts/merge-prompts.js';
+import { buildCommitPushPrPrompt } from '../prompts/merge-prompts.js';
 import { parseCommitHash, parsePrUrl } from './merge-output-parser.js';
 import { runCiWatchFixLoop } from './ci-watch-fix-loop.js';
 import type { CleanupFeatureWorktreeUseCase } from '@/application/use-cases/features/cleanup-feature-worktree.use-case.js';
@@ -46,6 +46,16 @@ export interface MergeNodeDeps {
   hasRemote: (cwd: string) => Promise<boolean>;
   getDefaultBranch: (cwd: string) => Promise<string>;
   featureRepository: Pick<IFeatureRepository, 'findById' | 'update'>;
+  /**
+   * Perform a local squash merge (deterministic git commands, no agent needed).
+   */
+  localMergeSquash: (
+    cwd: string,
+    featureBranch: string,
+    baseBranch: string,
+    commitMessage: string,
+    hasRemote?: boolean
+  ) => Promise<void>;
   /**
    * Verify that featureBranch has been merged into baseBranch.
    * Returns true if baseBranch contains all commits from featureBranch.
@@ -74,6 +84,7 @@ export function createMergeNode(deps: MergeNodeDeps) {
   const log = createNodeLogger('merge');
 
   return async (state: FeatureAgentState): Promise<Partial<FeatureAgentState>> => {
+    log.activate();
     log.info('Starting merge flow');
     reportNodeStart('merge');
     await updateNodeLifecycle('merge');
@@ -105,6 +116,7 @@ export function createMergeNode(deps: MergeNodeDeps) {
       return {
         currentNode: 'merge',
         messages: [`[merge] Rejected — will re-execute`],
+        error: null,
         _approvalAction: null,
         _rejectionFeedback: null,
         _needsReexecution: true,
@@ -280,38 +292,22 @@ export function createMergeNode(deps: MergeNodeDeps) {
           messages.push(`[merge] PR #${prNumber} merged via squash`);
           merged = true;
         } else {
-          // No PR: local merge via agent in the ORIGINAL repo (not the worktree,
+          // No PR: programmatic local squash merge in the ORIGINAL repo (not the worktree,
           // which IS the feature branch and must not be modified during merge).
-          log.info('Agent call: merge/squash (local, no PR)');
+          // Uses direct git commands instead of an agent for reliability.
+          log.info('Programmatic local squash merge (no agent needed)');
 
-          // Record base branch HEAD before merge so verification can detect
-          // agents that modify the tree during squash (e.g. adding .gitignore).
-          const premergeBaseSha = await deps.revParse(state.repositoryPath, baseBranch);
-
-          const mergePrompt = buildMergeSquashPrompt(
-            { ...state, prUrl, prNumber, commitHash },
-            branch,
-            baseBranch,
-            remoteAvailable
-          );
-          const mergeOptions = { ...options, cwd: state.repositoryPath };
-          await retryExecute(executor, mergePrompt, mergeOptions, { logger: log });
-
-          // Verify the merge actually succeeded (agent may report success without merging)
-          const mergeVerified = await deps.verifyMerge(
+          const commitMsg = `feat: squash merge ${branch} into ${baseBranch}`;
+          await deps.localMergeSquash(
             state.repositoryPath,
             branch,
             baseBranch,
-            premergeBaseSha
+            commitMsg,
+            remoteAvailable
           );
-          if (!mergeVerified) {
-            throw new Error(
-              `Merge verification failed: ${branch} was not merged into ${baseBranch}. ` +
-                `The agent may have encountered errors during the merge operation.`
-            );
-          }
-          log.info('Merge verified: feature branch is ancestor of base branch');
-          messages.push(`[merge] Agent completed local merge operation`);
+
+          log.info('Local squash merge completed successfully');
+          messages.push(`[merge] Local squash merge completed`);
           merged = true;
         }
       }

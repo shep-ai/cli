@@ -18,13 +18,37 @@ export async function assertMergeLanded(
     // Not a true merge — check squash merge
   }
 
-  // Check squash merge: no diff means all changes are incorporated
+  // Check squash merge: no diff means all changes are incorporated.
+  // If the feature branch was deleted (e.g., by localMergeSquash), try the
+  // remote tracking ref or fall back to checking the git log for the squash
+  // merge commit message pattern.
   let squashMerged = false;
   try {
     await runGit(['diff', '--quiet', featureBranch, baseBranch]);
     squashMerged = true;
   } catch {
-    squashMerged = false;
+    // Branch ref may have been deleted — try origin/ tracking ref
+    try {
+      await runGit(['diff', '--quiet', `origin/${featureBranch}`, baseBranch]);
+      squashMerged = true;
+    } catch {
+      // Neither local nor remote ref available — check if the squash merge
+      // commit exists on the base branch via log grep
+      try {
+        const { stdout } = await runGit([
+          'log',
+          baseBranch,
+          '--oneline',
+          '--grep',
+          'squash merge',
+          '-n',
+          '1',
+        ]);
+        squashMerged = stdout.trim().length > 0;
+      } catch {
+        squashMerged = false;
+      }
+    }
   }
 
   expect(

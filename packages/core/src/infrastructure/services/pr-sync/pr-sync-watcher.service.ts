@@ -324,6 +324,20 @@ export class PrSyncWatcherService {
       feature.pr = { ...pr, status: newPrStatus };
 
       if (newPrStatus === PrStatus.Merged) {
+        // Re-fetch to avoid racing with the merge node which may have already
+        // transitioned this feature to Maintain and performed cleanup.
+        const freshFeature = await this.featureRepo.findById(feature.id);
+        if (freshFeature?.lifecycle === SdlcLifecycle.Maintain) {
+          // eslint-disable-next-line no-console
+          console.log(
+            `${TAG} Feature "${feature.name}" already in Maintain — skipping duplicate transition`
+          );
+          tracked.prStatus = newPrStatus;
+          // Still update the PR status on the record so it reflects Merged
+          feature.pr = { ...(freshFeature.pr ?? pr), status: PrStatus.Merged };
+          await this.featureRepo.update({ ...freshFeature, pr: feature.pr, updatedAt: new Date() });
+          return;
+        }
         feature.lifecycle = SdlcLifecycle.Maintain;
         await this.completeAgentRun(feature);
 

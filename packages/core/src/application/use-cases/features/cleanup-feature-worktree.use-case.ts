@@ -11,6 +11,7 @@
  */
 
 import { injectable, inject } from 'tsyringe';
+import { SdlcLifecycle } from '../../../domain/generated/output.js';
 import type { IFeatureRepository } from '../../ports/output/repositories/feature-repository.interface.js';
 import type { IWorktreeService } from '../../ports/output/services/worktree-service.interface.js';
 import type { IGitPrService } from '../../ports/output/services/git-pr-service.interface.js';
@@ -27,12 +28,16 @@ export class CleanupFeatureWorktreeUseCase {
     const feature = await this.featureRepo.findById(featureId);
     if (!feature) return;
 
+    // Idempotency guard: skip cleanup if already in Deleting lifecycle
+    // (another code path — e.g. DeleteFeatureUseCase — already handles cleanup)
+    if (feature.lifecycle === SdlcLifecycle.Deleting) return;
+
     // Step 1: Unlink the git worktree (directory contents are preserved on disk)
     const worktreePath =
       feature.worktreePath ??
       this.worktreeService.getWorktreePath(feature.repositoryPath, feature.branch);
     try {
-      await this.worktreeService.remove(worktreePath, true);
+      await this.worktreeService.remove(feature.repositoryPath, worktreePath, true);
     } catch (err) {
       // eslint-disable-next-line no-console
       console.warn('[CleanupFeatureWorktreeUseCase] worktree remove failed:', err);

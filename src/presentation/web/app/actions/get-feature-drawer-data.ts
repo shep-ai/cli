@@ -7,6 +7,7 @@ import type { IRepositoryRepository } from '@shepai/core/application/ports/outpu
 import type { IGitPrService } from '@shepai/core/application/ports/output/services/git-pr-service.interface';
 import type { GetFeatureArtifactUseCase } from '@shepai/core/application/use-cases/features/get-feature-artifact.use-case';
 import { buildFeatureNodeData } from '@/app/build-feature-node-data';
+import { getSettings } from '@shepai/core/infrastructure/services/settings.service';
 import type { FeatureNodeData } from '@/components/common/feature-node';
 
 /**
@@ -40,11 +41,15 @@ export async function getFeatureDrawerData(featureId: string): Promise<FeatureNo
       gitPrService.getRemoteUrl(feature.repositoryPath).catch(() => null),
     ]);
 
+    const { workflow } = getSettings();
+
     return buildFeatureNodeData(feature, run, {
       repositoryName: repo?.name,
       baseBranch,
       oneLiner: artifact?.oneLiner,
       remoteUrl: remoteUrl ?? undefined,
+      enableEvidence: workflow.enableEvidence,
+      commitEvidence: workflow.commitEvidence,
     });
   } catch {
     return null;

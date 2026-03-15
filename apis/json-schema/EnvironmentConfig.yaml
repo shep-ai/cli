@@ -10,7 +10,12 @@ properties:
     type: string
     default: bash
     description: Preferred shell
+  terminalPreference:
+    $ref: TerminalType.yaml
+    default: system
+    description: Preferred terminal emulator
 required:
   - defaultEditor
   - shellPreference
+  - terminalPreference
 description: Environment and tooling preferences

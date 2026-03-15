@@ -52,6 +52,7 @@ vi.mock('@langchain/langgraph', () => ({
 // Mock node-helpers
 vi.mock('@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js', () => ({
   createNodeLogger: () => ({
+    activate: vi.fn(),
     info: vi.fn(),
     error: vi.fn(),
   }),
