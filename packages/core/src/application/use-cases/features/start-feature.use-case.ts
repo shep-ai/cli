@@ -59,17 +59,35 @@ export class StartFeatureUseCase {
       throw new Error(`No agent run found for feature "${feature.name}"`);
     }
 
-    // Validate specPath
-    if (!feature.specPath) {
-      throw new Error(`Feature "${feature.name}" is missing specPath — cannot start`);
+    // Wait for specPath — the web UI creates features in two phases: a fast
+    // DB record (specPath: '') followed by background initialization that
+    // populates specPath. If the user clicks "Start" before Phase 2 finishes,
+    // specPath will still be empty. Poll the DB briefly to let it complete.
+    let resolved = feature;
+    if (!resolved.specPath) {
+      const MAX_POLLS = 20;
+      const POLL_INTERVAL_MS = 500;
+      for (let i = 0; i < MAX_POLLS; i++) {
+        await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+        const refreshed = await this.featureRepo.findById(resolved.id);
+        if (refreshed?.specPath) {
+          resolved = refreshed;
+          break;
+        }
+      }
+      if (!resolved.specPath) {
+        throw new Error(
+          `Feature "${resolved.name}" is still being initialized — please try again shortly`
+        );
+      }
     }
 
     // Check parent gate if feature has a parent
-    let targetLifecycle = feature.fast ? SdlcLifecycle.Implementation : SdlcLifecycle.Requirements;
+    let targetLifecycle = resolved.fast ? SdlcLifecycle.Implementation : SdlcLifecycle.Requirements;
     let shouldSpawn = true;
 
-    if (feature.parentId) {
-      const parent = await this.featureRepo.findById(feature.parentId);
+    if (resolved.parentId) {
+      const parent = await this.featureRepo.findById(resolved.parentId);
       if (
         !parent ||
         parent.lifecycle === SdlcLifecycle.Blocked ||
@@ -82,7 +100,7 @@ export class StartFeatureUseCase {
 
     // Transition lifecycle
     const updatedFeature: Feature = {
-      ...feature,
+      ...resolved,
       lifecycle: targetLifecycle,
       updatedAt: new Date(),
     };
@@ -91,23 +109,23 @@ export class StartFeatureUseCase {
     // Spawn agent if not blocked
     if (shouldSpawn) {
       const worktreePath = this.worktreeService.getWorktreePath(
-        feature.repositoryPath,
-        feature.branch
+        resolved.repositoryPath,
+        resolved.branch
       );
 
       this.processService.spawn(
-        feature.id,
-        feature.agentRunId,
-        feature.repositoryPath,
-        feature.specPath,
+        resolved.id,
+        resolved.agentRunId!,
+        resolved.repositoryPath,
+        resolved.specPath!,
         worktreePath,
         {
-          approvalGates: feature.approvalGates,
+          approvalGates: resolved.approvalGates,
           threadId: agentRun.threadId,
-          push: feature.push,
-          openPr: feature.openPr,
+          push: resolved.push,
+          openPr: resolved.openPr,
           agentType: agentRun.agentType,
-          ...(feature.fast ? { fast: true } : {}),
+          ...(resolved.fast ? { fast: true } : {}),
           ...(agentRun.modelId ? { model: agentRun.modelId } : {}),
         }
       );

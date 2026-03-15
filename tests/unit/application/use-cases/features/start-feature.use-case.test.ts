@@ -280,14 +280,46 @@ describe('StartFeatureUseCase', () => {
   });
 
   // -------------------------------------------------------------------------
-  // Missing specPath
+  // Missing specPath — wait for initialization
   // -------------------------------------------------------------------------
 
-  it('should throw when feature is missing specPath', async () => {
+  it('should throw when feature is missing specPath after retries', async () => {
+    vi.useFakeTimers();
     featureRepo.findById.mockResolvedValue(createTestFeature({ specPath: undefined }));
     runRepo.findById.mockResolvedValue(createTestRun());
 
-    await expect(useCase.execute('feat-001')).rejects.toThrow(/missing specPath/i);
+    let caughtError: Error | undefined;
+    const promise = useCase.execute('feat-001').catch((e: Error) => {
+      caughtError = e;
+    });
+    // Advance past all 20 polling intervals (20 * 500ms = 10000ms)
+    await vi.advanceTimersByTimeAsync(10_000);
+    await promise;
+
+    expect(caughtError?.message).toMatch(/still being initialized/i);
+    vi.useRealTimers();
+  });
+
+  it('should wait and succeed when specPath becomes available after initialization', async () => {
+    vi.useFakeTimers();
+    const featureWithoutSpec = createTestFeature({ specPath: '' });
+    const featureWithSpec = createTestFeature({ specPath: '/wt/feat-test/specs/001-test-feature' });
+
+    // First call returns feature without specPath (from initial lookup),
+    // second poll finds specPath populated
+    featureRepo.findById
+      .mockResolvedValueOnce(featureWithoutSpec) // initial lookup
+      .mockResolvedValueOnce(featureWithSpec); // poll retry finds specPath populated
+    runRepo.findById.mockResolvedValue(createTestRun());
+
+    const promise = useCase.execute('feat-001');
+    await vi.advanceTimersByTimeAsync(500);
+
+    const result = await promise;
+
+    expect(result.feature.lifecycle).toBe(SdlcLifecycle.Requirements);
+    expect(processService.spawn).toHaveBeenCalledOnce();
+    vi.useRealTimers();
   });
 
   // -------------------------------------------------------------------------
