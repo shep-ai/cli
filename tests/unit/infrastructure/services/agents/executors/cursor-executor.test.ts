@@ -8,7 +8,7 @@
  */
 
 import 'reflect-metadata';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 
@@ -113,10 +113,18 @@ function emitStreamData(
 describe('CursorExecutorService', () => {
   let mockSpawn: SpawnFunction;
   let executor: CursorExecutorService;
+  const originalPlatform = process.platform;
 
   beforeEach(() => {
+    // Force Linux platform by default so tests use the direct-spawn path.
+    // Windows-specific tests override to 'win32' explicitly.
+    Object.defineProperty(process, 'platform', { value: 'linux', writable: true });
     mockSpawn = vi.fn();
     executor = new CursorExecutorService(mockSpawn);
+  });
+
+  afterEach(() => {
+    Object.defineProperty(process, 'platform', { value: originalPlatform, writable: true });
   });
 
   describe('agentType', () => {
