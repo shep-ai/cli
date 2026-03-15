@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { NotificationEventType } from '@shepai/core/domain/generated/output';
+import { NotificationEventType, PrStatus, CiStatus } from '@shepai/core/domain/generated/output';
 import type { NotificationEvent } from '@shepai/core/domain/generated/output';
 import { FeatureDrawerTabs } from '@/components/common/feature-drawer-tabs/feature-drawer-tabs';
 import type { FeatureNodeData } from '@/components/common/feature-node';
@@ -407,6 +407,71 @@ describe('FeatureDrawerTabs', () => {
       );
 
       expect(screen.getByRole('tab', { name: 'Overview' })).toHaveAttribute('data-state', 'active');
+    });
+  });
+
+  describe('merge-review tab visibility for maintain lifecycle', () => {
+    it('includes merge-review tab when lifecycle=maintain and pr exists', () => {
+      renderTabs({
+        featureNode: {
+          ...defaultFeatureNode,
+          lifecycle: 'maintain',
+          state: 'done',
+          pr: {
+            url: 'https://github.com/org/repo/pull/42',
+            number: 42,
+            status: PrStatus.Merged,
+            ciStatus: CiStatus.Success,
+            commitHash: 'abc123',
+          },
+        },
+      });
+
+      expect(screen.getByRole('tab', { name: 'Merge History' })).toBeInTheDocument();
+    });
+
+    it('excludes merge-review tab when lifecycle=maintain and pr is undefined', () => {
+      renderTabs({
+        featureNode: {
+          ...defaultFeatureNode,
+          lifecycle: 'maintain',
+          state: 'done',
+        },
+      });
+
+      expect(screen.queryByRole('tab', { name: 'Merge History' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('tab', { name: 'Merge Review' })).not.toBeInTheDocument();
+    });
+
+    it('renders Merge History label when lifecycle=maintain (not Merge Review)', () => {
+      renderTabs({
+        featureNode: {
+          ...defaultFeatureNode,
+          lifecycle: 'maintain',
+          state: 'done',
+          pr: {
+            url: 'https://github.com/org/repo/pull/42',
+            number: 42,
+            status: PrStatus.Merged,
+          },
+        },
+      });
+
+      expect(screen.getByRole('tab', { name: 'Merge History' })).toBeInTheDocument();
+      expect(screen.queryByRole('tab', { name: 'Merge Review' })).not.toBeInTheDocument();
+    });
+
+    it('renders Merge Review label when lifecycle=review', () => {
+      renderTabs({
+        featureNode: {
+          ...defaultFeatureNode,
+          lifecycle: 'review',
+          state: 'action-required',
+        },
+      });
+
+      expect(screen.getByRole('tab', { name: 'Merge Review' })).toBeInTheDocument();
+      expect(screen.queryByRole('tab', { name: 'Merge History' })).not.toBeInTheDocument();
     });
   });
 

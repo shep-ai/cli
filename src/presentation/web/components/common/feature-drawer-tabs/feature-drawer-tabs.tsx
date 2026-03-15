@@ -69,6 +69,9 @@ function computeVisibleTabs(node: FeatureNodeData): FeatureTabKey[] {
   if (node.lifecycle === 'review' && (node.state === 'action-required' || node.state === 'error')) {
     tabs.push('merge-review');
   }
+  if (node.lifecycle === 'maintain' && node.pr) {
+    tabs.push('merge-review');
+  }
 
   return tabs;
 }
@@ -162,8 +165,13 @@ export function FeatureDrawerTabs({
 
   const visibleTabs = useMemo(() => computeVisibleTabs(featureNode), [featureNode]);
   const visibleTabDefs = useMemo(
-    () => ALL_TABS.filter((t) => visibleTabs.includes(t.key)),
-    [visibleTabs]
+    () =>
+      ALL_TABS.filter((t) => visibleTabs.includes(t.key)).map((t) =>
+        t.key === 'merge-review' && featureNode.lifecycle === 'maintain'
+          ? { ...t, label: 'Merge History' }
+          : t
+      ),
+    [visibleTabs, featureNode.lifecycle]
   );
 
   // Derive the base path (without tab segment) from the current pathname.
