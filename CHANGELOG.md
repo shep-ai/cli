@@ -1,3 +1,31 @@
+# [1.116.0](https://github.com/shep-ai/cli/compare/v1.115.0...v1.116.0) (2026-03-15)
+
+### Features
+
+- **web:** display feature settings in overview tab ([#365](https://github.com/shep-ai/cli/issues/365)) ([b244df3](https://github.com/shep-ai/cli/commit/b244df3055135d40c21c2e5d8a1f2d736d77c577))
+
+# [1.115.0](https://github.com/shep-ai/cli/compare/v1.114.0...v1.115.0) (2026-03-15)
+
+### Features
+
+- **web:** display feature settings in overview tab ([#364](https://github.com/shep-ai/cli/issues/364)) ([b9931c5](https://github.com/shep-ai/cli/commit/b9931c55d1e29be26700ca9a4045e8dbb60ae4ee))
+
+# [1.114.0](https://github.com/shep-ai/cli/compare/v1.113.0...v1.114.0) (2026-03-15)
+
+### Features
+
+- **web:** add structured event log viewer for claude-code agent logs ([#309](https://github.com/shep-ai/cli/issues/309)) ([559e3e1](https://github.com/shep-ai/cli/commit/559e3e1e47c4c78cd7e5de6ae8f9606eaed5d3e5))
+
+# [1.113.0](https://github.com/shep-ai/cli/compare/v1.112.1...v1.113.0) (2026-03-15)
+
+### Bug Fixes
+
+- **agents:** pass fast flag on reject/approve resume ([#346](https://github.com/shep-ai/cli/issues/346)) ([67899f3](https://github.com/shep-ai/cli/commit/67899f3bb1e038baf6d02347206c19a39f3e743f))
+
+### Features
+
+- **web:** sidebar repo selector with floating action button ([#359](https://github.com/shep-ai/cli/issues/359)) ([0cb422d](https://github.com/shep-ai/cli/commit/0cb422df56782a4b114a3149961f440b73d33730))
+
 ## [1.112.1](https://github.com/shep-ai/cli/compare/v1.112.0...v1.112.1) (2026-03-15)
 
 ### Bug Fixes

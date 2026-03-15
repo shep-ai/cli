@@ -292,3 +292,78 @@ export const CompletedWithPr: Story = {
     },
   },
 };
+
+/* ---------------------------------------------------------------------------
+ * Settings section stories
+ * ------------------------------------------------------------------------- */
+
+/** Feature with all settings visible — approval gates, evidence, git, and model. */
+export const WithAllSettings: Story = {
+  args: {
+    data: {
+      ...noPrData,
+      modelId: 'claude-sonnet-4-6',
+      approvalGates: { allowPrd: true, allowPlan: true, allowMerge: false },
+      enableEvidence: true,
+      commitEvidence: true,
+      push: true,
+      openPr: true,
+    },
+  },
+};
+
+/** Feature with no auto-approve gates enabled. */
+export const WithSettingsAllDisabled: Story = {
+  args: {
+    data: {
+      ...noPrData,
+      modelId: 'gemini-2.5-pro',
+      approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
+      enableEvidence: false,
+      commitEvidence: false,
+      push: false,
+      openPr: false,
+    },
+  },
+};
+
+/** Feature with all auto-approve gates enabled. */
+export const WithSettingsAllApproved: Story = {
+  args: {
+    data: {
+      ...noPrData,
+      modelId: 'claude-opus-4-6',
+      approvalGates: { allowPrd: true, allowPlan: true, allowMerge: true },
+      enableEvidence: true,
+      commitEvidence: true,
+      push: true,
+      openPr: true,
+    },
+  },
+};
+
+/** Feature with settings and fast mode. */
+export const FastModeWithSettings: Story = {
+  args: {
+    data: {
+      ...fastModeData,
+      modelId: 'claude-sonnet-4-6',
+      approvalGates: { allowPrd: false, allowPlan: false, allowMerge: true },
+      enableEvidence: true,
+      commitEvidence: false,
+      push: true,
+      openPr: true,
+    },
+  },
+};
+
+/** Feature with evidence enabled but commit to PR disabled. */
+export const EvidenceCollectOnly: Story = {
+  args: {
+    data: {
+      ...noPrData,
+      enableEvidence: true,
+      commitEvidence: false,
+    },
+  },
+};

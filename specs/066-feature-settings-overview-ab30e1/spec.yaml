@@ -1,0 +1,84 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feature-settings-overview-ab30e1
+number: '066'
+branch: feat/feature-settings-overview-ab30e1
+oneLiner: display feature settings in the overview tab of the feature drawer
+
+overview: >
+  When creating a new feature, users select settings such as approval gates,
+  git push/PR behavior, evidence collection, and the AI model. Previously these
+  settings were not visible after feature creation. This feature adds a Settings
+  section to the feature drawer overview tab that displays all configured
+  settings using descriptive badges.
+
+tasks:
+  - id: t1
+    title: extend FeatureNodeData with settings fields
+    description: >
+      Add approvalGates, push, openPr, enableEvidence, and commitEvidence
+      fields to the FeatureNodeData interface.
+    status: done
+
+  - id: t2
+    title: update data flow to pass settings to overview
+    description: >
+      Update buildFeatureNodeData, buildGraphNodes, getGraphData, and
+      getFeatureDrawerData to map settings fields from the domain model
+      and workflow settings to FeatureNodeData.
+    status: done
+
+  - id: t3
+    title: add settings display to overview tab
+    description: >
+      Add FeatureSettings and SettingBadge components to overview-tab.tsx
+      that render Model, Auto-Approve, Evidence, and Git settings sections
+      with check/x badges.
+    status: done
+
+  - id: t4
+    title: add storybook stories for settings section
+    description: >
+      Add WithAllSettings, WithSettingsAllDisabled, WithSettingsAllApproved,
+      FastModeWithSettings, and EvidenceCollectOnly stories.
+    status: done
+
+  - id: t5
+    title: write unit tests for settings section
+    description: >
+      Add 8 unit tests covering approval gates, git settings, model display,
+      evidence settings, and hidden state when no settings are provided.
+    status: done
+
+successCriteria:
+  - Settings section appears in the feature drawer overview tab
+  - All approval gate badges render correctly (enabled/disabled)
+  - Git settings (Push, PR) render correctly
+  - Evidence settings (Collect, Add to PR) render correctly
+  - Model name displays correctly for known models
+  - Settings section is hidden when no settings fields are provided
+  - All 37 overview-tab tests pass
+  - All 3899 unit tests pass
+
+affectedAreas:
+  - area: overview-tab.tsx
+    impact: major
+    reasoning: core UI changes adding FeatureSettings and SettingBadge components
+  - area: feature-node-state-config.ts
+    impact: minor
+    reasoning: extended FeatureNodeData interface with new optional fields
+  - area: build-feature-node-data.ts
+    impact: minor
+    reasoning: map new settings fields from domain model
+  - area: build-graph-nodes.ts
+    impact: minor
+    reasoning: pass settings fields to graph node data
+  - area: get-graph-data.ts
+    impact: minor
+    reasoning: fetch workflow settings and pass to buildGraphNodes
+  - area: get-feature-drawer-data.ts
+    impact: minor
+    reasoning: fetch workflow settings and pass to buildFeatureNodeData
+
+sizeEstimate: M

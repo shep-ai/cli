@@ -58,8 +58,8 @@ export function readSpecFile(specDir: string, filename: string): string {
   }
 }
 
-/** Default timeout per agent call (10 minutes) — prevents infinite hangs. */
-const DEFAULT_STAGE_TIMEOUT_MS = 600_000;
+/** Default timeout per agent call (30 minutes) — prevents infinite hangs. */
+const DEFAULT_STAGE_TIMEOUT_MS = 1_800_000;
 
 /**
  * Map from node name to the corresponding StageTimeouts field.
@@ -171,8 +171,8 @@ export function shouldInterrupt(nodeName: string, gates: ApprovalGates | undefin
 export type ErrorCategory = 'retryable-api' | 'retryable-network' | 'non-retryable' | 'unknown';
 
 const API_ERROR_RE = /API Error: (400|429|5\d{2})/;
-const NETWORK_ERROR_RE = /ECONNREFUSED|ETIMEDOUT|ENOTFOUND|timed out/i;
-const NON_RETRYABLE_RE = /Process exited with code|ENOENT|SyntaxError/;
+const NETWORK_ERROR_RE = /ECONNREFUSED|ETIMEDOUT|ENOTFOUND|network timed out/i;
+const NON_RETRYABLE_RE = /Process exited with code|ENOENT|SyntaxError|Agent execution timed out/;
 
 /**
  * Classify an error message into a retry category.

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import { within, userEvent, fn } from '@storybook/test';
 import { FeatureCreateDrawer } from './feature-create-drawer';
-import type { FeatureCreatePayload } from './feature-create-drawer';
+import type { FeatureCreatePayload, RepositoryOption } from './feature-create-drawer';
 import type { WorkflowDefaults } from '@/app/actions/get-workflow-defaults';
 import { Button } from '@/components/ui/button';
 import { DrawerCloseGuardProvider } from '@/hooks/drawer-close-guard';
@@ -558,5 +558,94 @@ export const Interactive: Story = {
         />
       </div>
     );
+  },
+};
+
+/* ---------------------------------------------------------------------------
+ * Repository selector stories
+ * ------------------------------------------------------------------------- */
+
+const SAMPLE_REPOSITORIES: RepositoryOption[] = [
+  { id: 'repo-001', name: 'my-app', path: '/Users/dev/projects/my-app' },
+  { id: 'repo-002', name: 'api-service', path: '/Users/dev/projects/api-service' },
+  { id: 'repo-003', name: 'shared-lib', path: '/Users/dev/libs/shared-lib' },
+];
+
+function CreateDrawerWithRepoSelector() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="flex h-screen items-start p-4">
+      <Button variant="outline" onClick={() => setOpen(true)}>
+        Open (With Repo Selector)
+      </Button>
+      <FeatureCreateDrawer
+        open={open}
+        onClose={() => {
+          setOpen(false);
+          logClose();
+        }}
+        onSubmit={(data) => {
+          logSubmit(data);
+          setOpen(false);
+        }}
+        repositoryPath=""
+        repositories={SAMPLE_REPOSITORIES}
+        currentAgentType="claude-code"
+        currentModel="claude-sonnet-4-6"
+      />
+    </div>
+  );
+}
+
+/**
+ * With repository selector — opened from sidebar without repo context.
+ * Shows the searchable repository combobox at the top of the form.
+ */
+export const WithRepoSelector: Story = {
+  render: () => <CreateDrawerWithRepoSelector />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Open (With Repo Selector)' }));
+  },
+};
+
+function CreateDrawerWithRepoSelectorEmpty() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="flex h-screen items-start p-4">
+      <Button variant="outline" onClick={() => setOpen(true)}>
+        Open (No Repos)
+      </Button>
+      <FeatureCreateDrawer
+        open={open}
+        onClose={() => {
+          setOpen(false);
+          logClose();
+        }}
+        onSubmit={(data) => {
+          logSubmit(data);
+          setOpen(false);
+        }}
+        repositoryPath=""
+        repositories={[]}
+        currentAgentType="claude-code"
+        currentModel="claude-sonnet-4-6"
+      />
+    </div>
+  );
+}
+
+/**
+ * With empty repo selector — opened from sidebar but no repositories are tracked.
+ * Shows the combobox with only the "Add new repository..." option.
+ * The submit button remains disabled until a repository is added.
+ */
+export const WithRepoSelectorEmpty: Story = {
+  render: () => <CreateDrawerWithRepoSelectorEmpty />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Open (No Repos)' }));
   },
 };

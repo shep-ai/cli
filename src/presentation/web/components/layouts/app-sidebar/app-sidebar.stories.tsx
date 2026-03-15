@@ -96,7 +96,6 @@ export const Default: Story = {
 export const WithNewFeatureButton: Story = {
   args: {
     features: mockFeatures,
-    showNewFeature: true,
   },
 };
 

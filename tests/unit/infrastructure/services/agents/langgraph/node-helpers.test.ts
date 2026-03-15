@@ -174,8 +174,14 @@ describe('classifyError', () => {
       expect(classifyError('getaddrinfo ENOTFOUND api.anthropic.com')).toBe('retryable-network');
     });
 
-    it('should classify execution timeout as retryable-network', () => {
-      expect(classifyError('Agent execution timed out')).toBe('retryable-network');
+    it('should classify network timeout as retryable-network', () => {
+      expect(classifyError('connect network timed out')).toBe('retryable-network');
+    });
+  });
+
+  describe('non-retryable errors - timeouts', () => {
+    it('should classify agent execution timeout as non-retryable', () => {
+      expect(classifyError('Agent execution timed out')).toBe('non-retryable');
     });
   });
 

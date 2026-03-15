@@ -290,4 +290,104 @@ describe('OverviewTab', () => {
       expect(screen.queryByTestId('feature-drawer-details')).not.toBeInTheDocument();
     });
   });
+
+  describe('settings section', () => {
+    it('renders settings section when approval gates are provided', () => {
+      renderOverviewTab({
+        ...defaultData,
+        approvalGates: { allowPrd: true, allowPlan: false, allowMerge: true },
+      });
+      expect(screen.getByTestId('feature-drawer-settings')).toBeInTheDocument();
+      expect(screen.getByText('SETTINGS')).toBeInTheDocument();
+      expect(screen.getByText('Auto-Approve')).toBeInTheDocument();
+      expect(screen.getByText('PRD')).toBeInTheDocument();
+      expect(screen.getByText('Plan')).toBeInTheDocument();
+      expect(screen.getByText('Merge')).toBeInTheDocument();
+    });
+
+    it('renders git settings when push and openPr are provided', () => {
+      renderOverviewTab({
+        ...defaultData,
+        push: true,
+        openPr: false,
+      });
+      expect(screen.getByTestId('feature-drawer-settings')).toBeInTheDocument();
+      expect(screen.getByText('Git')).toBeInTheDocument();
+      expect(screen.getByText('Push')).toBeInTheDocument();
+      expect(screen.getByText('PR')).toBeInTheDocument();
+    });
+
+    it('renders model name when modelId is provided', () => {
+      renderOverviewTab({
+        ...defaultData,
+        modelId: 'claude-sonnet-4-6',
+      });
+      expect(screen.getByTestId('feature-drawer-settings')).toBeInTheDocument();
+      expect(screen.getByText('Model')).toBeInTheDocument();
+      expect(screen.getByText('Sonnet 4.6')).toBeInTheDocument();
+    });
+
+    it('renders all settings together', () => {
+      renderOverviewTab({
+        ...defaultData,
+        modelId: 'claude-opus-4-6',
+        approvalGates: { allowPrd: true, allowPlan: true, allowMerge: true },
+        push: true,
+        openPr: true,
+      });
+      const settings = screen.getByTestId('feature-drawer-settings');
+      expect(settings).toBeInTheDocument();
+      expect(screen.getByText('Opus 4.6')).toBeInTheDocument();
+      expect(screen.getByText('PRD')).toBeInTheDocument();
+      expect(screen.getByText('Plan')).toBeInTheDocument();
+      expect(screen.getByText('Merge')).toBeInTheDocument();
+      expect(screen.getByText('Push')).toBeInTheDocument();
+    });
+
+    it('renders evidence settings when enableEvidence is provided', () => {
+      renderOverviewTab({
+        ...defaultData,
+        enableEvidence: true,
+        commitEvidence: false,
+      });
+      expect(screen.getByTestId('feature-drawer-settings')).toBeInTheDocument();
+      expect(screen.getByText('Evidence')).toBeInTheDocument();
+      expect(screen.getByText('Collect')).toBeInTheDocument();
+      expect(screen.getByText('Add to PR')).toBeInTheDocument();
+    });
+
+    it('renders evidence with both badges enabled', () => {
+      renderOverviewTab({
+        ...defaultData,
+        enableEvidence: true,
+        commitEvidence: true,
+      });
+      expect(screen.getByText('Evidence')).toBeInTheDocument();
+      expect(screen.getByText('Collect')).toBeInTheDocument();
+      expect(screen.getByText('Add to PR')).toBeInTheDocument();
+    });
+
+    it('renders evidence with both badges disabled', () => {
+      renderOverviewTab({
+        ...defaultData,
+        enableEvidence: false,
+        commitEvidence: false,
+      });
+      expect(screen.getByText('Evidence')).toBeInTheDocument();
+      expect(screen.getByText('Collect')).toBeInTheDocument();
+      expect(screen.getByText('Add to PR')).toBeInTheDocument();
+    });
+
+    it('hides settings section when no settings fields are provided', () => {
+      renderOverviewTab({
+        ...defaultData,
+        approvalGates: undefined,
+        push: undefined,
+        openPr: undefined,
+        enableEvidence: undefined,
+        modelId: undefined,
+      });
+      expect(screen.queryByTestId('feature-drawer-settings')).not.toBeInTheDocument();
+    });
+  });
 });
