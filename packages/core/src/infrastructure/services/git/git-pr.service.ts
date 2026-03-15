@@ -21,7 +21,9 @@ import {
   GitPrError,
   GitPrErrorCode,
 } from '../../../application/ports/output/services/git-pr-service.interface.js';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, unlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import yaml from 'js-yaml';
 import { PrStatus } from '../../../domain/generated/output.js';
 import type { ExecFunction } from './worktree.service.js';
@@ -256,9 +258,19 @@ export class GitPrService implements IGitPrService {
       // Commit the squash merge (skip if nothing to commit — branches may be equivalent)
       const { stdout: status } = await this.execFile('git', ['status', '--porcelain'], { cwd });
       if (status.trim().length > 0) {
-        // Use --message= form to pass commit message as a single arg (avoids shell
-        // splitting on Windows where execFile uses shell: true via DI)
-        await this.execFile('git', ['commit', `--message=${commitMessage}`], { cwd });
+        // Write commit message to a temp file to avoid shell splitting on Windows
+        // (DI-injected execFile uses shell: true on Windows, which splits on spaces)
+        const msgFile = join(tmpdir(), `shep-merge-msg-${Date.now()}.txt`);
+        try {
+          writeFileSync(msgFile, commitMessage, 'utf8');
+          await this.execFile('git', ['commit', '--file', msgFile], { cwd });
+        } finally {
+          try {
+            unlinkSync(msgFile);
+          } catch {
+            // Cleanup failure is non-fatal
+          }
+        }
       }
 
       // Delete the feature branch after successful merge
