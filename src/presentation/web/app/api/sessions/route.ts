@@ -30,11 +30,12 @@ function claudeEncodePath(p: string): string {
 }
 
 /**
- * Cursor encodes paths by replacing '/' with '-' and stripping the leading dash.
- * e.g. /home/user/project → home-user-project
+ * Cursor encodes paths by stripping the leading '/', removing dots,
+ * and replacing '/' and '\' with '-'.
+ * e.g. /home/user/.shep/repos/abc → home-user-shep-repos-abc
  */
 function cursorEncodePath(p: string): string {
-  return p.replace(/^\//, '').replace(/[/\\]/g, '-');
+  return p.replace(/^\//, '').replace(/\./g, '').replace(/[/\\]/g, '-');
 }
 
 // ── Claude Code session scanner ───────────────────────────────────────
@@ -142,28 +143,57 @@ async function scanCursorSessions(repositoryPath: string, limit: number): Promis
   const dirName = cursorEncodePath(repositoryPath);
   const transcriptsDir = join(homedir(), '.cursor', 'projects', dirName, 'agent-transcripts');
 
-  let files: string[];
+  let entries: string[];
   try {
-    const entries = await readdir(transcriptsDir);
-    files = entries.filter((e) => e.endsWith('.jsonl'));
+    entries = await readdir(transcriptsDir);
   } catch {
     return [];
   }
 
+  // Cursor has two session structures:
+  // 1. Flat: agent-transcripts/<uuid>.jsonl
+  // 2. Nested: agent-transcripts/<uuid>/<uuid>.jsonl
   const fileInfos = await Promise.allSettled(
-    files.map(async (name) => {
-      const filePath = join(transcriptsDir, name);
-      const s = await stat(filePath);
-      return { name, filePath, mtime: s.mtime.getTime() };
+    entries.map(async (entry) => {
+      const entryPath = join(transcriptsDir, entry);
+      const s = await stat(entryPath);
+
+      if (s.isFile() && entry.endsWith('.jsonl')) {
+        // Flat structure
+        return { name: entry, filePath: entryPath, mtime: s.mtime.getTime() };
+      }
+
+      if (s.isDirectory()) {
+        // Nested structure — look for <uuid>.jsonl inside
+        const jsonlPath = join(entryPath, `${entry}.jsonl`);
+        try {
+          const jsonlStat = await stat(jsonlPath);
+          return {
+            name: `${entry}.jsonl`,
+            filePath: jsonlPath,
+            mtime: jsonlStat.mtime.getTime(),
+          };
+        } catch {
+          return null;
+        }
+      }
+
+      return null;
     })
   );
 
   const valid = fileInfos
     .filter(
-      (r): r is PromiseFulfilledResult<{ name: string; filePath: string; mtime: number }> =>
-        r.status === 'fulfilled'
+      (
+        r
+      ): r is PromiseFulfilledResult<{
+        name: string;
+        filePath: string;
+        mtime: number;
+      } | null> => r.status === 'fulfilled'
     )
     .map((r) => r.value)
+    .filter((v): v is { name: string; filePath: string; mtime: number } => v !== null)
     .sort((a, b) => b.mtime - a.mtime)
     .slice(0, limit);
 
