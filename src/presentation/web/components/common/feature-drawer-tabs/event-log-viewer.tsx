@@ -33,8 +33,9 @@ export function EventLogViewer({ content }: EventLogViewerProps) {
 
   return (
     <div className="flex flex-col">
-      {lines.map((line) => (
-        <LogLineRow key={line.raw} line={line} />
+      {lines.map((line, i) => (
+        // eslint-disable-next-line react/no-array-index-key -- append-only list, raw content not unique
+        <LogLineRow key={i} line={line} />
       ))}
     </div>
   );
