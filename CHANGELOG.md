@@ -1,3 +1,9 @@
+# [1.114.0](https://github.com/shep-ai/cli/compare/v1.113.0...v1.114.0) (2026-03-15)
+
+### Features
+
+- **web:** add structured event log viewer for claude-code agent logs ([#309](https://github.com/shep-ai/cli/issues/309)) ([559e3e1](https://github.com/shep-ai/cli/commit/559e3e1e47c4c78cd7e5de6ae8f9606eaed5d3e5))
+
 # [1.113.0](https://github.com/shep-ai/cli/compare/v1.112.1...v1.113.0) (2026-03-15)
 
 ### Bug Fixes
