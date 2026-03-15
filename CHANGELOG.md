@@ -1,3 +1,9 @@
+## [1.116.3](https://github.com/shep-ai/cli/compare/v1.116.2...v1.116.3) (2026-03-15)
+
+### Bug Fixes
+
+- **cli:** stage existing files on git init and fix windows terminal launch ([#358](https://github.com/shep-ai/cli/issues/358)) ([16572ba](https://github.com/shep-ai/cli/commit/16572ba3c742e9fa1fc862dff672ece4452a240e))
+
 ## [1.116.2](https://github.com/shep-ai/cli/compare/v1.116.1...v1.116.2) (2026-03-15)
 
 ### Bug Fixes
