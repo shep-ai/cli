@@ -7,12 +7,14 @@ import { createFeature } from '@/app/actions/create-feature';
 import { FeatureCreateDrawer } from '@/components/common/feature-create-drawer';
 import type { FeatureCreatePayload } from '@/components/common/feature-create-drawer';
 import type { ParentFeatureOption } from '@/components/common/feature-create-drawer/feature-create-drawer';
+import type { RepositoryOption } from '@/components/common/feature-create-drawer/feature-create-drawer';
 import type { WorkflowDefaults } from '@/app/actions/get-workflow-defaults';
 
 export interface CreateDrawerClientProps {
   repositoryPath: string;
   initialParentId?: string;
   features: ParentFeatureOption[];
+  repositories?: RepositoryOption[];
   workflowDefaults?: WorkflowDefaults;
   currentAgentType?: string;
   currentModel?: string;
@@ -22,6 +24,7 @@ export function CreateDrawerClient({
   repositoryPath,
   initialParentId,
   features,
+  repositories,
   workflowDefaults,
   currentAgentType,
   currentModel,
@@ -95,6 +98,7 @@ export function CreateDrawerClient({
       onSubmit={onSubmit}
       repositoryPath={repositoryPath}
       features={features}
+      repositories={repositories}
       workflowDefaults={workflowDefaults}
       initialParentId={initialParentId}
       isSubmitting={isSubmitting}

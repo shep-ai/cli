@@ -65,6 +65,7 @@ vi.mock('next/image', () => ({
 
 import { ControlCenter } from '@/components/features/control-center';
 import { SidebarFeaturesProvider } from '@/hooks/sidebar-features-context';
+
 import { DrawerCloseGuardProvider } from '@/hooks/drawer-close-guard';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 import type { FeatureNodeType } from '@/components/common/feature-node';

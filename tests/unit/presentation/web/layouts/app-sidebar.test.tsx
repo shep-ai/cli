@@ -100,20 +100,6 @@ describe('AppSidebar', () => {
     expect(screen.getByText('Settings Page')).toBeInTheDocument();
   });
 
-  it('hides New feature button by default', () => {
-    renderWithSidebar(<AppSidebar features={mockFeatures} featureFlags={defaultFlags} />);
-
-    expect(screen.queryByRole('button', { name: /new feature/i })).not.toBeInTheDocument();
-  });
-
-  it('renders New feature button when showNewFeature is true', () => {
-    renderWithSidebar(
-      <AppSidebar features={mockFeatures} featureFlags={defaultFlags} showNewFeature />
-    );
-
-    expect(screen.getByRole('button', { name: /new feature/i })).toBeInTheDocument();
-  });
-
   it('fires onFeatureClick with featureId when a feature is clicked', async () => {
     const handleFeatureClick = vi.fn();
     const user = userEvent.setup();
@@ -130,24 +116,6 @@ describe('AppSidebar', () => {
 
     expect(handleFeatureClick).toHaveBeenCalledOnce();
     expect(handleFeatureClick).toHaveBeenCalledWith('feat-auth-001');
-  });
-
-  it('fires onNewFeature callback when button is clicked', async () => {
-    const handleNewFeature = vi.fn();
-    const user = userEvent.setup();
-
-    renderWithSidebar(
-      <AppSidebar
-        features={mockFeatures}
-        featureFlags={defaultFlags}
-        showNewFeature
-        onNewFeature={handleNewFeature}
-      />
-    );
-
-    await user.click(screen.getByRole('button', { name: /new feature/i }));
-
-    expect(handleNewFeature).toHaveBeenCalledOnce();
   });
 
   it('renders Settings nav item with gear icon', () => {

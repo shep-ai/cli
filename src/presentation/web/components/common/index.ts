@@ -1,5 +1,10 @@
 export { computeDrawerView, type DrawerView } from './control-center-drawer';
 export { AddRepositoryButton } from './add-repository-button';
+export {
+  FloatingActionButton,
+  type FloatingActionButtonProps,
+  type FloatingActionButtonAction,
+} from './floating-action-button';
 export { ElapsedTime, formatElapsed } from './elapsed-time';
 export { EmptyState, type EmptyStateProps } from './empty-state';
 export {

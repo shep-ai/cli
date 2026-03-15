@@ -12,6 +12,7 @@ import {
   useSidebarFeaturesContext,
   mapNodeStateToSidebarStatus,
 } from '@/hooks/sidebar-features-context';
+
 import { useSelectedFeatureId } from '@/hooks/use-selected-feature-id';
 import { useSoundAction } from '@/hooks/use-sound-action';
 import { useDrawerCloseGuard } from '@/hooks/drawer-close-guard';
