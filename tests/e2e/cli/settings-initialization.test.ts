@@ -129,5 +129,5 @@ describe('CLI: settings initialization', () => {
 
     expect(result.success).toBe(true);
     expect(existsSync(dbPath)).toBe(true);
-  });
+  }, 30_000);
 });

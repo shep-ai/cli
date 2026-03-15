@@ -1,7 +1,8 @@
 'use client';
 
 import { useRef, useEffect, useState, useCallback } from 'react';
-import { AlertCircle, Terminal, ArrowDown } from 'lucide-react';
+import { AlertCircle, Terminal, ArrowDown, Code, FileText } from 'lucide-react';
+import { EventLogViewer } from './event-log-viewer';
 
 export interface LogTabProps {
   content: string;
@@ -9,9 +10,12 @@ export interface LogTabProps {
   error: string | null;
 }
 
+type ViewMode = 'structured' | 'raw';
+
 export function LogTab({ content, isConnected, error }: LogTabProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
+  const [viewMode, setViewMode] = useState<ViewMode>('structured');
 
   const handleScroll = useCallback(() => {
     const el = containerRef.current;
@@ -65,24 +69,58 @@ export function LogTab({ content, isConnected, error }: LogTabProps) {
         <span className="text-muted-foreground text-xs">
           {isConnected ? 'Live' : 'Disconnected'}
         </span>
-        {!autoScroll ? (
+
+        {/* View mode toggle */}
+        <div className="ml-auto flex items-center gap-1">
           <button
             type="button"
-            onClick={jumpToBottom}
-            className="text-muted-foreground hover:text-foreground ml-auto flex items-center gap-1 text-xs"
+            onClick={() => setViewMode('structured')}
+            className={`rounded p-1 transition-colors ${
+              viewMode === 'structured'
+                ? 'bg-muted text-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+            title="Structured view"
           >
-            <ArrowDown className="h-3 w-3" />
-            Jump to bottom
+            <FileText className="h-3.5 w-3.5" />
           </button>
-        ) : null}
+          <button
+            type="button"
+            onClick={() => setViewMode('raw')}
+            className={`rounded p-1 transition-colors ${
+              viewMode === 'raw'
+                ? 'bg-muted text-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+            title="Raw view"
+          >
+            <Code className="h-3.5 w-3.5" />
+          </button>
+
+          {!autoScroll ? (
+            <button
+              type="button"
+              onClick={jumpToBottom}
+              className="text-muted-foreground hover:text-foreground ml-1 flex items-center gap-1 text-xs"
+            >
+              <ArrowDown className="h-3 w-3" />
+              Jump to bottom
+            </button>
+          ) : null}
+        </div>
       </div>
+
       {/* Log content */}
       <div
         ref={containerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto bg-zinc-950 p-3 font-mono text-xs leading-relaxed break-all whitespace-pre-wrap text-zinc-300"
+        className={`flex-1 overflow-y-auto ${
+          viewMode === 'raw'
+            ? 'bg-zinc-950 p-3 font-mono text-xs leading-relaxed break-all whitespace-pre-wrap text-zinc-300'
+            : 'bg-background'
+        }`}
       >
-        {content}
+        {viewMode === 'structured' ? <EventLogViewer content={content} /> : content}
       </div>
     </div>
   );

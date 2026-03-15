@@ -1,0 +1,381 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: sidebar-repo-selector
+summary: >
+  11 tasks across 3 phases. Phase 1 restores the sidebar button (4 tasks), Phase 2 adds the
+  repository combobox and create drawer integration (6 tasks), and Phase 3 validates the full
+  suite (1 task).
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - Next.js 15 (App Router, parallel routes, server components)
+  - React 19 (client components, hooks, context)
+  - shadcn/ui (Sidebar, Popover, Input, Tooltip, Button)
+  - Tailwind CSS
+  - TypeScript
+  - Vitest + React Testing Library
+  - Storybook
+relatedLinks: []
+
+tasks:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Phase 1: Sidebar button restoration
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Remove showNewFeature prop and always render sidebar button'
+    description: >
+      Remove the showNewFeature prop from AppSidebarProps and its default value. Always render the
+      SidebarFooter with the "New feature" button. Update AppShell to stop passing showNewFeature
+      (it already does not pass it, but clean up any references). This makes the button permanently
+      visible in the sidebar.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'AppSidebarProps no longer includes showNewFeature'
+      - 'The SidebarFooter with "New feature" button renders unconditionally (no showNewFeature guard)'
+      - 'AppShell does not reference showNewFeature in any form'
+      - 'Clicking the button still calls onNewFeature callback'
+      - 'All existing tests updated to remove showNewFeature references'
+    tdd:
+      red:
+        - 'Update app-sidebar.test.tsx: write test "renders New feature button by default" — assert button is visible without passing showNewFeature prop'
+        - 'Update app-sidebar.test.tsx: remove or invert the test "hides New feature button by default" — it should now fail since the button is always visible'
+      green:
+        - 'Remove showNewFeature from AppSidebarProps interface and destructuring defaults'
+        - 'Remove the {showNewFeature ? ... : null} conditional around SidebarFooter — always render it'
+        - 'Verify AppShell has no showNewFeature references (it currently does not pass it)'
+      refactor:
+        - 'Remove the JSDoc comment about showNewFeature defaulting to false'
+        - 'Clean up any related comments in the codebase'
+    estimatedEffort: '30min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Create SidebarRepositoryCountContext'
+    description: >
+      Create a lightweight context (SidebarRepositoryCountContext) that holds a single integer
+      representing the number of tracked repositories. This follows the exact pattern of
+      SidebarFeaturesContext. The context will be provided in AppShell and consumed by AppSidebar
+      to determine whether to disable the "New feature" button.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'SidebarRepositoryCountProvider exists and provides {repositoryCount, setRepositoryCount}'
+      - 'useSidebarRepositoryCount hook returns the context value'
+      - 'Default value is 0 (no repos until populated)'
+      - 'Provider is wrapped in AppShell around AppShellInner'
+      - 'Unit tests verify context provides and consumes correctly'
+    tdd:
+      red:
+        - 'Write test: SidebarRepositoryCountProvider provides default value of 0'
+        - 'Write test: setRepositoryCount updates the count and consumers re-render'
+        - 'Write test: useSidebarRepositoryCount throws if used outside provider'
+      green:
+        - 'Create sidebar-repository-count-context.tsx in hooks/ following the SidebarFeaturesContext pattern'
+        - 'Export SidebarRepositoryCountProvider, useSidebarRepositoryCount'
+        - 'Add SidebarRepositoryCountProvider to AppShell component wrapper chain'
+      refactor:
+        - 'Ensure naming consistency with SidebarFeaturesContext pattern'
+    estimatedEffort: '30min'
+
+  - id: task-3
+    phaseId: phase-1
+    title: 'Publish repository count from ControlCenter to context'
+    description: >
+      In ControlCenterInner, count the repository nodes from initialNodes and publish the count
+      to SidebarRepositoryCountContext via setRepositoryCount. This mirrors how feature nodes are
+      published to SidebarFeaturesContext. The count updates whenever nodes change (e.g., after
+      adding a repository via the "Add repository" button).
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'ControlCenterInner calls useSidebarRepositoryCount and sets count from repository nodes'
+      - 'Count updates when nodes change (repo added/removed on canvas)'
+      - 'Only counts nodes with type === "repositoryNode"'
+    tdd:
+      red:
+        - 'Write test: ControlCenterInner sets repository count based on repository nodes in initialNodes'
+        - 'Write test: repository count updates when a new repository node is added to the canvas'
+      green:
+        - 'Import useSidebarRepositoryCount in control-center-inner.tsx'
+        - 'Add useMemo to count repository nodes, useEffect to publish count'
+        - 'Follow the same pattern as the existing feature sync (lines 63-64)'
+      refactor:
+        - 'Ensure the count derivation is memoized to prevent unnecessary re-renders'
+    estimatedEffort: '30min'
+
+  - id: task-4
+    phaseId: phase-1
+    title: 'Add disabled state with tooltip to sidebar button for zero repos'
+    description: >
+      When repositoryCount is 0, the "New feature" button should be disabled with a Tooltip
+      reading "Add a repository first". AppShellInner reads the repository count from context
+      and passes hasRepositories boolean to AppSidebar. The button uses the disabled prop and
+      wraps in a Tooltip when disabled.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'AppSidebarProps includes hasRepositories?: boolean (defaults to true)'
+      - 'When hasRepositories is false, the SidebarMenuButton is disabled'
+      - 'A Tooltip with "Add a repository first" appears on hover when disabled'
+      - 'When hasRepositories is true (or omitted), button is enabled and clickable'
+      - 'AppShellInner reads repositoryCount from context and passes hasRepositories={count > 0}'
+      - 'AppSidebar stories updated with disabled variant'
+      - 'Unit tests cover both enabled and disabled states'
+    tdd:
+      red:
+        - 'Write test: "disables New feature button when hasRepositories is false"'
+        - 'Write test: "shows tooltip Add a repository first when button is disabled"'
+        - 'Write test: "enables New feature button when hasRepositories is true or omitted"'
+      green:
+        - 'Add hasRepositories prop to AppSidebarProps with default true'
+        - 'Pass disabled={!hasRepositories} to SidebarMenuButton'
+        - 'Wrap button in Tooltip with content "Add a repository first" when disabled'
+        - 'In AppShellInner, read repositoryCount from context and pass hasRepositories={count > 0} to AppSidebar'
+      refactor:
+        - 'Update app-sidebar.stories.tsx: add "DisabledNoRepos" story variant'
+        - 'Verify tooltip is accessible (proper aria attributes)'
+    estimatedEffort: '45min'
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Phase 2: Repository combobox and create drawer integration
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Fetch repositories in CreateDrawerPage server component'
+    description: >
+      Resolve ListRepositoriesUseCase in CreateDrawerPage and pass the repository list to
+      CreateDrawerClient as a new repositories prop. This follows the existing pattern where
+      ListFeaturesUseCase is already resolved in the same file. The repositories provide
+      data for the combobox without client-side fetching.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'CreateDrawerPage resolves ListRepositoriesUseCase from DI container'
+      - 'Repositories are fetched in parallel with features via Promise.all'
+      - 'Repository list is mapped to {id, name, path} options and passed as repositories prop'
+      - 'CreateDrawerClient receives the repositories prop'
+    tdd:
+      red:
+        - 'Write test: CreateDrawerPage passes repositories to CreateDrawerClient (server component test or integration test verifying prop threading)'
+      green:
+        - 'Add resolve<ListRepositoriesUseCase> in CreateDrawerPage'
+        - 'Add listRepos.execute() to the Promise.all alongside listFeatures.execute()'
+        - 'Map repositories to options: {id, name, path}'
+        - 'Pass repositories prop to CreateDrawerClient'
+      refactor:
+        - 'Add RepositoryOption type export for reuse across components'
+    estimatedEffort: '20min'
+
+  - id: task-6
+    phaseId: phase-2
+    title: 'Thread repositories prop through CreateDrawerClient'
+    description: >
+      Add repositories to CreateDrawerClientProps and pass it through to FeatureCreateDrawer.
+      This is a simple prop-threading task — CreateDrawerClient does not consume the data itself,
+      just forwards it to the drawer.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'CreateDrawerClientProps includes repositories?: RepositoryOption[]'
+      - 'The repositories prop is forwarded to FeatureCreateDrawer'
+      - 'Existing behavior is unchanged when repositories is not provided'
+    tdd:
+      red:
+        - 'Write test: CreateDrawerClient passes repositories prop to FeatureCreateDrawer'
+      green:
+        - 'Add repositories to CreateDrawerClientProps interface'
+        - 'Pass repositories={repositories} to FeatureCreateDrawer'
+      refactor:
+        - 'Ensure prop is optional for backward compatibility'
+    estimatedEffort: '15min'
+
+  - id: task-7
+    phaseId: phase-2
+    title: 'Add selectedRepoPath state and conditional rendering logic to FeatureCreateDrawer'
+    description: >
+      Add repositories prop to FeatureCreateDrawerProps. Add selectedRepoPath state initialized
+      from repositoryPath prop. When repositoryPath is empty and repositories are available, render
+      a placeholder for the combobox (actual component in next task). When repositoryPath is
+      provided, show a read-only label with the repo name. Extend submit button disabled logic to
+      require a repo selection when in selector mode.
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'FeatureCreateDrawerProps includes optional repositories prop'
+      - 'selectedRepoPath state initializes from repositoryPath prop'
+      - 'When repositoryPath is empty: needsRepo flag is true until repo selected'
+      - 'When repositoryPath is provided: needsRepo flag is false, read-only label shows repo name'
+      - 'Submit button disabled condition extended: !description.trim() || isSubmitting || needsRepo'
+      - 'handleSubmit uses selectedRepoPath (not just repositoryPath prop) in payload'
+    tdd:
+      red:
+        - 'Write test: "submit button is disabled when no repo selected and repositoryPath is empty"'
+        - 'Write test: "submit button is enabled when repo is selected via combobox"'
+        - 'Write test: "submit button is enabled when repositoryPath is provided (canvas flow)"'
+        - 'Write test: "shows read-only repo label when repositoryPath is provided"'
+        - 'Write test: "handleSubmit includes selectedRepoPath in payload"'
+      green:
+        - 'Add repositories?: RepositoryOption[] to FeatureCreateDrawerProps'
+        - 'Add selectedRepoPath state: useState(repositoryPath || undefined)'
+        - 'Compute needsRepo = !repositoryPath && !selectedRepoPath'
+        - 'Extend submit button disabled: || needsRepo'
+        - 'Update handleSubmit to use selectedRepoPath for repositoryPath in payload'
+        - 'Add conditional rendering: when repositoryPath is empty, render combobox slot; when provided, render read-only label'
+      refactor:
+        - 'Extract the repo name derivation into a useMemo for the read-only label'
+    estimatedEffort: '45min'
+
+  - id: task-8
+    phaseId: phase-2
+    title: 'Create RepositoryCombobox component'
+    description: >
+      Implement the RepositoryCombobox as an exported function component inside
+      feature-create-drawer.tsx, following the exact ParentFeatureCombobox pattern. The combobox
+      uses Popover + Input + role="listbox" buttons with check icons. Filtering is case-insensitive
+      on both name and path. Includes ARIA attributes for accessibility.
+    state: Todo
+    dependencies:
+      - task-7
+    acceptanceCriteria:
+      - 'RepositoryCombobox renders a Popover with combobox trigger button'
+      - 'Search input filters repositories by name or path (case-insensitive)'
+      - 'Selected repository shows a check icon'
+      - 'Selecting a repo calls onChange with the repository path'
+      - 'Empty state shows "No repositories found." when search has no matches'
+      - 'Component has proper ARIA attributes (role=combobox, aria-expanded, aria-label)'
+      - 'Component has data-testid attributes for testing'
+      - 'Keyboard navigation works (Tab, Enter, Escape, Arrow keys via native browser behavior)'
+      - 'Component is exported (named export) for Storybook stories'
+    tdd:
+      red:
+        - 'Write test: "renders combobox trigger with placeholder text"'
+        - 'Write test: "opens popover and shows repository list on click"'
+        - 'Write test: "filters repositories by name when typing in search input"'
+        - 'Write test: "filters repositories by path when typing in search input"'
+        - 'Write test: "shows check icon for selected repository"'
+        - 'Write test: "calls onChange when a repository is selected"'
+        - 'Write test: "shows empty state message when no repos match search"'
+        - 'Write test: "closes popover after selection"'
+      green:
+        - 'Define RepositoryComboboxProps interface: {repositories, value, onChange, disabled}'
+        - 'Implement RepositoryCombobox following ParentFeatureCombobox pattern exactly'
+        - 'Popover trigger with role=combobox, ChevronsUpDown icon'
+        - 'Search Input inside PopoverContent with filtering logic'
+        - 'Repository list with role=option buttons, CheckIcon for selected'
+        - 'Export the component for Storybook access'
+      refactor:
+        - 'Ensure consistent class names with ParentFeatureCombobox'
+        - 'Verify the component displays repo name with path in muted text'
+    estimatedEffort: '1h'
+
+  - id: task-9
+    phaseId: phase-2
+    title: 'Wire RepositoryCombobox into FeatureCreateDrawer form'
+    description: >
+      Replace the placeholder rendering from task-7 with the actual RepositoryCombobox component.
+      Wire the onChange handler to update selectedRepoPath state. Position the combobox at the
+      top of the form (before the description field), matching the label styling of PARENT FEATURE.
+    state: Todo
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - 'RepositoryCombobox renders in the form when repositoryPath is empty and repositories exist'
+      - 'Combobox has a "REPOSITORY" label matching the PARENT FEATURE label style'
+      - 'Selecting a repo updates selectedRepoPath state'
+      - 'Combobox is positioned before the description textarea'
+      - 'When repositoryPath is provided, combobox is not rendered'
+      - 'Combobox is disabled when isSubmitting is true'
+    tdd:
+      red:
+        - 'Write test: "renders RepositoryCombobox when repositoryPath is empty and repositories provided"'
+        - 'Write test: "does not render RepositoryCombobox when repositoryPath is provided"'
+        - 'Write test: "selecting a repo enables submit button"'
+      green:
+        - 'Render RepositoryCombobox with repositories, selectedRepoPath, and setSelectedRepoPath'
+        - 'Add REPOSITORY label with matching styling'
+        - 'Position before description field in the form layout'
+        - 'Pass disabled={isSubmitting} to combobox'
+      refactor:
+        - 'Ensure visual spacing is consistent with other form sections'
+    estimatedEffort: '30min'
+
+  - id: task-10
+    phaseId: phase-2
+    title: 'Create Storybook stories for RepositoryCombobox and updated drawer'
+    description: >
+      Create repository-combobox.stories.tsx with isolated stories for RepositoryCombobox (with
+      repos, empty list, pre-selected, disabled). Update feature-create-drawer.stories.tsx with
+      new variants showing the repo selector mode (sidebar flow) vs read-only mode (canvas flow).
+    state: Todo
+    dependencies:
+      - task-9
+    acceptanceCriteria:
+      - 'repository-combobox.stories.tsx exists with at least 4 stories: WithRepositories, EmptyList, PreSelected, Disabled'
+      - 'feature-create-drawer.stories.tsx has new story: WithRepoSelector (repositoryPath empty, repositories provided)'
+      - 'feature-create-drawer.stories.tsx has new story: WithRepoSelectorEmpty (repositoryPath empty, no repositories)'
+      - 'All stories render without errors in Storybook'
+    tdd: null
+    estimatedEffort: '30min'
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Phase 3: Integration testing and validation
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  - id: task-11
+    phaseId: phase-3
+    title: 'Run full validation suite and verify zero regressions'
+    description: >
+      Run pnpm validate (lint + format + typecheck + tsp) and pnpm test to verify all existing
+      and new tests pass. Confirm the canvas flow is unaffected by manually reviewing that the
+      repositoryPath prop flow still works end-to-end. Fix any failures.
+    state: Todo
+    dependencies:
+      - task-4
+      - task-10
+    acceptanceCriteria:
+      - 'pnpm validate passes with zero errors'
+      - 'pnpm test passes with zero failures'
+      - 'No TypeScript type errors'
+      - 'No lint warnings or errors'
+      - 'Canvas (+) button flow unchanged (repositoryPath still threaded correctly)'
+    tdd: null
+    estimatedEffort: '30min'
+
+totalEstimate: '5.5h'
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation is organized into 11 tasks across 3 phases, totaling approximately 5.5 hours
+  of work.
+
+  **Phase 1 (Sidebar button restoration)** starts by removing the `showNewFeature` prop and always
+  rendering the button (task 1). Then a `SidebarRepositoryCountContext` is created (task 2) and
+  wired to the ControlCenter (task 3) so the sidebar can know whether repositories exist. Finally,
+  the disabled state with tooltip is added (task 4). This phase is self-contained and makes the
+  button visible immediately.
+
+  **Phase 2 (Repository combobox and create drawer integration)** begins by fetching repositories
+  in the CreateDrawerPage server component (task 5) and threading them through CreateDrawerClient
+  (task 6). The FeatureCreateDrawer gets state management and conditional rendering logic (task 7),
+  then the RepositoryCombobox component is built following the ParentFeatureCombobox pattern
+  (task 8). The combobox is wired into the form (task 9), and Storybook stories are created for
+  all new components (task 10). Task 5 has no dependencies and can start in parallel with Phase 1.
+
+  **Phase 3 (Validation)** runs the full validation suite and confirms zero regressions (task 11).
+
+  The implementation follows a strict server-to-client data flow with no new client-side fetching,
+  reuses existing shadcn/ui primitives with zero new dependencies, and mirrors established
+  codebase patterns (ParentFeatureCombobox, SidebarFeaturesContext) for consistency.

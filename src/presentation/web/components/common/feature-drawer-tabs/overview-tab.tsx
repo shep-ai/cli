@@ -3,10 +3,14 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   AlertTriangle,
+  Check,
   ExternalLink,
+  FileSearch,
   GitBranch,
   GitCommitHorizontal,
   RotateCcw,
+  ShieldCheck,
+  X,
   Zap,
 } from 'lucide-react';
 import { InlineAttachments } from '@/components/common/inline-attachments';
@@ -22,6 +26,7 @@ import {
   getAgentTypeIcon,
   agentTypeLabels,
 } from '@/components/common/feature-node/agent-type-icons';
+import { getModelMeta } from '@/lib/model-metadata';
 import { formatDuration } from '@/lib/format-duration';
 
 export interface OverviewTabProps {
@@ -78,6 +83,7 @@ export function OverviewTab({ data }: OverviewTabProps) {
         </>
       ) : null}
       <FeatureDetails data={data} />
+      <FeatureSettings data={data} />
     </>
   );
 }
@@ -312,6 +318,88 @@ function AgentDetailRow({ agentType }: { agentType: string }) {
         {label}
       </span>
     </div>
+  );
+}
+
+// ── Settings section ─────────────────────────────────────────────────
+
+function SettingBadge({ enabled, label }: { enabled: boolean; label: string }) {
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
+        enabled ? 'bg-emerald-50 text-emerald-700' : 'bg-muted text-muted-foreground'
+      )}
+    >
+      {enabled ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+      {label}
+    </span>
+  );
+}
+
+function FeatureSettings({ data }: { data: FeatureNodeData }) {
+  const hasSettings =
+    data.approvalGates != null ||
+    data.push != null ||
+    data.openPr != null ||
+    data.enableEvidence != null ||
+    data.modelId;
+  if (!hasSettings) return null;
+
+  return (
+    <>
+      <Separator />
+      <div data-testid="feature-drawer-settings" className="flex flex-col gap-3 p-4">
+        <span className="text-muted-foreground text-xs font-semibold tracking-wider">SETTINGS</span>
+        {data.modelId ? (
+          <div className="flex flex-col gap-0.5">
+            <span className="text-muted-foreground text-xs font-medium">Model</span>
+            <span className="text-sm">
+              {getModelMeta(data.modelId).displayName || data.modelId}
+            </span>
+          </div>
+        ) : null}
+        {data.approvalGates ? (
+          <div className="flex flex-col gap-1">
+            <span className="text-muted-foreground flex items-center gap-1 text-xs font-medium">
+              <ShieldCheck className="h-3 w-3" />
+              Auto-Approve
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              <SettingBadge enabled={data.approvalGates.allowPrd} label="PRD" />
+              <SettingBadge enabled={data.approvalGates.allowPlan} label="Plan" />
+              <SettingBadge enabled={data.approvalGates.allowMerge} label="Merge" />
+            </div>
+          </div>
+        ) : null}
+        {data.enableEvidence != null ? (
+          <div className="flex flex-col gap-1">
+            <span className="text-muted-foreground flex items-center gap-1 text-xs font-medium">
+              <FileSearch className="h-3 w-3" />
+              Evidence
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              <SettingBadge enabled={data.enableEvidence} label="Collect" />
+              {data.commitEvidence != null ? (
+                <SettingBadge enabled={data.commitEvidence} label="Add to PR" />
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+        {data.push != null || data.openPr != null ? (
+          <div className="flex flex-col gap-1">
+            <span className="text-muted-foreground flex items-center gap-1 text-xs font-medium">
+              <GitBranch className="h-3 w-3" />
+              Git
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              {data.push != null ? <SettingBadge enabled={data.push} label="Push" /> : null}
+              {data.openPr != null ? <SettingBadge enabled={data.openPr} label="PR" /> : null}
+            </div>
+          </div>
+        ) : null}
+      </div>
+    </>
   );
 }
 

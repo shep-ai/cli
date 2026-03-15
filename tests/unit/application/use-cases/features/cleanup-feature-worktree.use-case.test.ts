@@ -270,6 +270,21 @@ describe('CleanupFeatureWorktreeUseCase', () => {
     warnSpy.mockRestore();
   });
 
+  // ---------------------------------------------------------------------------
+  // Idempotency guard (#354 — double delete prevention)
+  // ---------------------------------------------------------------------------
+
+  it('should skip cleanup when feature lifecycle is Deleting (idempotency guard)', async () => {
+    const feature = createMockFeature({ lifecycle: SdlcLifecycle.Deleting });
+    mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
+
+    await useCase.execute('feat-123-full-uuid');
+
+    expect(mockWorktreeService.remove).not.toHaveBeenCalled();
+    expect(mockGitPrService.deleteBranch).not.toHaveBeenCalled();
+    expect(mockWorktreeService.remoteBranchExists).not.toHaveBeenCalled();
+  });
+
   it('should not reject even when all three steps throw', async () => {
     const feature = createMockFeature();
     mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);

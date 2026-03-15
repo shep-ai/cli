@@ -1,0 +1,15 @@
+ ✓  web  tests/unit/presentation/web/lib/derive-graph.test.ts (15 tests) 6ms
+ ✓  web  tests/unit/presentation/web/lib/compare-versions.test.ts (7 tests) 4ms
+ ✓  web  tests/unit/presentation/web/actions/get-deployment-logs.test.ts (5 tests) 5ms
+ ✓  web  tests/unit/presentation/web/actions/stop-deployment.test.ts (5 tests) 6ms
+ ✓  web  tests/unit/presentation/web/features/control-center/derive-state.test.ts (6 tests) 5ms
+ ✓  web  tests/unit/presentation/web/actions/compose-user-input.test.ts (4 tests) 3ms
+ ✓  web  tests/unit/presentation/web/lib/format-duration.test.ts (9 tests) 2ms
+ ✓  web  tests/unit/presentation/web/components/common/control-center-drawer/drawer-view.test.ts (10 tests) 2ms
+ ✓  web  tests/unit/presentation/web/components/common/merge-review/merge-review-config.test.ts (9 tests) 2ms
+
+ Test Files  308 passed (308)
+      Tests  3899 passed (3899)
+   Start at  16:28:09
+   Duration  24.35s (transform 10.11s, setup 22.81s, import 39.30s, tests 62.52s, environment 57.57s)
+

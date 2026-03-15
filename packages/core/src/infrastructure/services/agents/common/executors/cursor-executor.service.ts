@@ -137,10 +137,18 @@ export class CursorExecutorService implements IAgentExecutor {
         this.log(`stderr: ${data.trimEnd()}`);
       });
 
-      proc.on('error', (error: Error) => {
+      proc.on('error', (error: Error & { code?: string }) => {
         this.log(`Process error event: ${error.message}`);
         if (timeoutId) clearTimeout(timeoutId);
-        reject(error);
+        if (error.code === 'ENOENT') {
+          reject(
+            new Error(
+              'Cursor agent CLI not found. Please install Cursor and ensure the "cursor" command is available on PATH.'
+            )
+          );
+        } else {
+          reject(error);
+        }
       });
 
       proc.on('close', (code: number | null) => {

@@ -1,0 +1,193 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: sidebar-repo-selector
+summary: >
+  Re-enable the sidebar "New feature" button and add a repository selector to the create drawer.
+  The implementation removes the temporary showNewFeature prop (always rendering the button), creates
+  a RepositoryCombobox component following the existing ParentFeatureCombobox pattern, threads
+  repository data from server to client via props, and conditionally renders the selector only when
+  repo context is missing. Repository count for the sidebar disabled state is published via a new
+  SidebarRepositoryCountContext, populated by the ControlCenter (which already has repository nodes).
+  No new dependencies, no client-side fetching, no domain/infrastructure changes.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - Next.js 15 (App Router, parallel routes, server components)
+  - React 19 (client components, hooks, context)
+  - shadcn/ui (Sidebar, Popover, Input, Tooltip, Button primitives)
+  - Tailwind CSS
+  - TypeScript
+  - Vitest + React Testing Library
+  - Storybook
+relatedLinks: []
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'Sidebar button restoration'
+    description: >
+      Remove the showNewFeature prop from AppSidebar and AppShell, always render the "New feature"
+      button in the sidebar footer. Add a hasRepositories prop and disabled state with tooltip for
+      zero-repo scenarios. Create a SidebarRepositoryCountContext to publish repo count from
+      ControlCenter to AppShell. Update existing tests and stories.
+    parallel: false
+  - id: phase-2
+    name: 'Repository combobox and create drawer integration'
+    description: >
+      Add RepositoryCombobox as an inline component in feature-create-drawer.tsx (mirroring
+      ParentFeatureCombobox). Thread repositories from CreateDrawerPage server component through
+      CreateDrawerClient to FeatureCreateDrawer. Add conditional rendering: combobox when
+      repositoryPath is empty, read-only label when provided. Extend submit button disabled logic.
+      Create stories for the new component.
+    parallel: false
+  - id: phase-3
+    name: 'Integration testing and validation'
+    description: >
+      Run full validation suite (pnpm validate), verify all existing tests still pass, ensure the
+      canvas flow is unaffected, and confirm zero regressions.
+    parallel: false
+
+# File change tracking
+filesToCreate:
+  - src/presentation/web/hooks/sidebar-repository-count-context.tsx
+  - src/presentation/web/components/common/feature-create-drawer/repository-combobox.stories.tsx
+
+filesToModify:
+  - src/presentation/web/components/layouts/app-sidebar/app-sidebar.tsx
+  - src/presentation/web/components/layouts/app-sidebar/app-sidebar.stories.tsx
+  - src/presentation/web/components/layouts/app-shell/app-shell.tsx
+  - src/presentation/web/components/features/control-center/control-center-inner.tsx
+  - src/presentation/web/app/(dashboard)/@drawer/create/page.tsx
+  - src/presentation/web/components/common/control-center-drawer/create-drawer-client.tsx
+  - src/presentation/web/components/common/feature-create-drawer/feature-create-drawer.tsx
+  - src/presentation/web/components/common/feature-create-drawer/feature-create-drawer.stories.tsx
+  - tests/unit/presentation/web/layouts/app-sidebar.test.tsx
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Architecture Overview
+
+  This feature operates entirely within the presentation layer — no domain or infrastructure
+  changes are needed. The implementation follows established patterns in the codebase:
+
+  - **Server→Client data flow**: `CreateDrawerPage` (server component) resolves
+    `ListRepositoriesUseCase` from the DI container and passes repositories as props down through
+    `CreateDrawerClient` to `FeatureCreateDrawer`. This mirrors the existing pattern for features
+    (via `ListFeaturesUseCase`).
+
+  - **Context-based sidebar data**: The `SidebarFeaturesContext` pattern (ControlCenter publishes
+    feature data to context, AppShell consumes it for sidebar) is extended with a lightweight
+    `SidebarRepositoryCountContext` that publishes the count of repository nodes. This avoids
+    client-side fetching (NFR-6) and provides the count at render time.
+
+  - **Inline combobox pattern**: `RepositoryCombobox` is defined as a private function component
+    inside `feature-create-drawer.tsx`, following the exact pattern of `ParentFeatureCombobox`
+    (lines 877-1012): Popover + Input search + role="listbox" buttons with check icons.
+
+  ### Component Hierarchy (Modified)
+
+  ```
+  Root Layout (app/layout.tsx)
+    └── AppShell (client) — wraps SidebarRepositoryCountProvider
+        └── AppSidebar — showNewFeature REMOVED, new hasRepositories prop
+            └── SidebarFooter — always renders button (disabled if no repos)
+
+  Dashboard Layout (server)
+    └── ControlCenter (client) — publishes repo count to SidebarRepositoryCountContext
+        └── @drawer/create/page.tsx (server) — adds ListRepositoriesUseCase
+            └── CreateDrawerClient (client) — new repositories prop
+                └── FeatureCreateDrawer (client) — new repositories prop, selectedRepoPath state
+                    ├── RepositoryCombobox (when repositoryPath is empty)
+                    └── Read-only repo label (when repositoryPath is provided)
+  ```
+
+  ### Data Flow for Repository Count (Sidebar Disabled State)
+
+  ```
+  getGraphData() already fetches repositories
+    → ControlCenter receives initialNodes (includes repository nodes)
+    → ControlCenter counts repository nodes, sets count via SidebarRepositoryCountContext
+    → AppShellInner reads count via useSidebarRepositoryCount()
+    → AppSidebar receives hasRepositories prop
+    → Button disabled={!hasRepositories} with Tooltip
+  ```
+
+  ### Data Flow for Repository Selector (Create Drawer)
+
+  ```
+  CreateDrawerPage (server) resolves ListRepositoriesUseCase
+    → passes Repository[] as prop to CreateDrawerClient
+    → CreateDrawerClient threads to FeatureCreateDrawer
+    → FeatureCreateDrawer: if repositoryPath is empty → render RepositoryCombobox
+    → User selects repo → selectedRepoPath state updates
+    → Form submit uses selectedRepoPath
+  ```
+
+  ## Key Design Decisions
+
+  ### 1. Remove showNewFeature prop entirely (not just set to true)
+
+  The `showNewFeature` prop was a temporary workaround from feature 057. Since we're adding repo
+  selection capability, the button should always be visible. Removing the prop simplifies the
+  `AppSidebar` interface and eliminates dead code. The `AppShell` already passes `onNewFeature`
+  but not `showNewFeature`, so removing the prop makes the API consistent.
+
+  ### 2. SidebarRepositoryCountContext (not prop drilling through layout)
+
+  The dashboard layout fetches graph data (which includes repos) and passes it to ControlCenter.
+  AppShell lives in the root layout, not the dashboard layout, so we cannot directly prop-drill
+  from `getGraphData()` to `AppShell`. The existing pattern for cross-cutting sidebar data is
+  context (`SidebarFeaturesContext`), so we follow the same approach with a lightweight
+  `SidebarRepositoryCountContext` that holds a single integer.
+
+  The ControlCenter already has access to repository nodes via `initialNodes` — it can derive
+  the count and publish it to context. This avoids any new server calls or client-side fetching.
+
+  ### 3. RepositoryCombobox inline in feature-create-drawer.tsx
+
+  `ParentFeatureCombobox` is defined as a private component inline at lines 877-1012 of
+  `feature-create-drawer.tsx`. For consistency and co-location with its only consumer,
+  `RepositoryCombobox` follows the same pattern. It will be exported (named export) so it can
+  be rendered in isolation for Storybook stories.
+
+  ### 4. Server-side repository fetch in CreateDrawerPage
+
+  The `CreateDrawerPage` server component already resolves `ListFeaturesUseCase`. Adding
+  `ListRepositoriesUseCase` follows the identical pattern. Repos are available at render time,
+  so the combobox has data immediately when the drawer opens (NFR-1: no layout shift or
+  loading states). This approach requires no new API routes and no client-side fetching (NFR-6).
+
+  ### 5. selectedRepoPath state in FeatureCreateDrawer
+
+  The drawer already manages all form state internally (description, parentId, approvalGates).
+  Adding `selectedRepoPath` as another `useState` is the natural extension. When `repositoryPath`
+  prop is non-empty (canvas flow), `selectedRepoPath` initializes to that value and the combobox
+  is hidden. When empty (sidebar flow), the combobox sets the state on selection.
+
+  ## Implementation Strategy
+
+  **Phase 1 (Sidebar button restoration)** comes first because it's the simpler change and
+  unblocks the user-facing button immediately. The disabled state for zero repos requires the
+  `SidebarRepositoryCountContext`, which is also set up in this phase.
+
+  **Phase 2 (Repository combobox)** depends on Phase 1 conceptually (the button needs to work
+  before the drawer can be enhanced) but can be implemented independently. The main work is the
+  `RepositoryCombobox` component and the data threading from server to client.
+
+  **Phase 3 (Validation)** ensures all tests pass, the canvas flow is unaffected, and the full
+  validation suite (`pnpm validate`) completes without errors.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Canvas flow regression (canvas (+) button stops working) | Existing tests for canvas flow remain unchanged; add explicit test that repositoryPath prop bypasses combobox |
+  | SidebarRepositoryCountContext not populated before AppSidebar renders | Default to `hasRepositories=true` (show enabled button) until context value is set; this prevents a flash of disabled state |
+  | ParentFeatureCombobox pattern diverges during implementation | Copy the exact pattern first, then adapt minimally for repository data shape |
+  | Bundle size increase (NFR-7: 50KB limit) | No new dependencies; only reuse existing shadcn/ui primitives already in the bundle |
+  | CreateDrawerPage server component fails to resolve ListRepositoriesUseCase | ListRepositoriesUseCase is already registered in the DI container (used by getGraphData); wrap in try-catch with fallback to empty array |

@@ -5,6 +5,7 @@ import type { IRepositoryRepository } from '@shepai/core/application/ports/outpu
 import type { IGitPrService } from '@shepai/core/application/ports/output/services/git-pr-service.interface';
 import type { GetFeatureArtifactUseCase } from '@shepai/core/application/use-cases/features/get-feature-artifact.use-case';
 import { buildFeatureNodeData } from '@/app/build-feature-node-data';
+import { getSettings } from '@shepai/core/infrastructure/services/settings.service';
 import {
   computeDrawerView,
   parseTabKey,
@@ -41,11 +42,14 @@ export default async function FeatureDrawerTabPage({ params }: FeatureDrawerTabP
       gitPrService.getRemoteUrl(feature.repositoryPath).catch(() => null),
     ]);
 
+    const { workflow } = getSettings();
     const nodeData = buildFeatureNodeData(feature, run, {
       repositoryName: repo?.name,
       baseBranch,
       oneLiner: artifact?.oneLiner,
       remoteUrl: remoteUrl ?? undefined,
+      enableEvidence: workflow.enableEvidence,
+      commitEvidence: workflow.commitEvidence,
     });
 
     const view = computeDrawerView({

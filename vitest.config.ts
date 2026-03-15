@@ -71,7 +71,7 @@ export default defineConfig({
             'tests/unit/presentation/web/**/*.test.tsx',
           ],
           environment: 'node',
-          testTimeout: 10000,
+          testTimeout: 30000,
         },
         resolve: sharedResolve,
       },

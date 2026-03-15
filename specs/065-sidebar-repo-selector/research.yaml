@@ -1,0 +1,363 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: sidebar-repo-selector
+summary: >
+  Technical research for re-enabling the sidebar "New feature" button with a repository selector.
+  Key decisions: remove showNewFeature prop entirely (always render button), create a
+  RepositoryCombobox component following the existing ParentFeatureCombobox pattern (Popover + Input
+  + listbox, no new dependencies), thread repositories from server component via
+  ListRepositoriesUseCase, and conditionally render the selector only when repo context is missing.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - Next.js 15 (App Router, parallel routes, server components)
+  - React 19 (client components, hooks, context)
+  - shadcn/ui (Sidebar, Popover, Input, Tooltip, Button primitives)
+  - Tailwind CSS
+  - TypeScript
+  - Vitest + React Testing Library
+  - Storybook
+  - tsyringe (DI container)
+
+relatedLinks: []
+
+# Structured technology decisions
+decisions:
+  - title: 'Sidebar button visibility strategy'
+    chosen: 'Remove showNewFeature prop — always render the button'
+    rejected:
+      - 'Keep showNewFeature prop and set it to true in AppShell — adds unnecessary indirection; the prop was a temporary workaround introduced in feature 057 and violates YAGNI'
+      - 'Feature-flag the button via featureFlags context — over-engineered for a button that should always be visible; feature flags are for experimental features, not core navigation'
+    rationale: >
+      The showNewFeature prop was introduced as a temporary workaround to hide the button when it
+      could not function (no repo context). Since we are adding repo selection capability, the
+      button should always be visible. Removing the prop simplifies the AppSidebar interface,
+      eliminates dead code paths, and aligns with YAGNI. The AppShell already passes
+      onNewFeature but not showNewFeature — removing the prop makes the API consistent.
+
+  - title: 'Repository combobox component approach'
+    chosen: 'New RepositoryCombobox component following the existing ParentFeatureCombobox pattern (Popover + Input + role=listbox buttons)'
+    rejected:
+      - 'Use shadcn/ui Command primitives (Command + CommandInput + CommandItem) — the existing ParentFeatureCombobox deliberately avoids Command in favor of a simpler Popover + Input + listbox pattern; consistency with the existing combobox in the same form is more important than reusing Command'
+      - 'Use a third-party combobox library (e.g., cmdk, downshift) — adds bundle weight (NFR-7 constraint of 50KB gzipped), introduces a new dependency, and deviates from the established pattern in the codebase'
+    rationale: >
+      The ParentFeatureCombobox (defined at lines 877-1012 of feature-create-drawer.tsx) is the
+      only combobox in the create drawer form and uses a lightweight pattern: Popover from
+      @radix-ui + plain Input + native buttons with role="option" and aria-selected. This pattern
+      is proven, accessible, and requires zero new dependencies. The RepositoryCombobox should
+      mirror this exact pattern — Popover trigger button with role="combobox", a search Input,
+      and a scrollable list of repository options with check icons. Consumer-owned filtering
+      (case-insensitive on name and path) keeps the logic simple and testable.
+
+  - title: 'Repository data flow architecture'
+    chosen: 'Server-side fetch in CreateDrawerPage via ListRepositoriesUseCase, passed as props through CreateDrawerClient to FeatureCreateDrawer'
+    rejected:
+      - 'Client-side fetch via useEffect + fetch("/api/repositories") — violates NFR-6 (no new client-side data fetching) and introduces loading states, spinners, and layout shift that NFR-1 forbids'
+      - 'Fetch repositories in the dashboard layout and pass via context — over-couples the repository list to the entire dashboard; the data is only needed by the create drawer, and context adds unnecessary re-renders'
+    rationale: >
+      The existing CreateDrawerPage server component already resolves use cases from the DI
+      container (ListFeaturesUseCase) and passes data as props to CreateDrawerClient. Adding
+      ListRepositoriesUseCase follows the identical pattern. Repositories are fetched server-side
+      at page render time, meaning the combobox has data immediately when the drawer opens
+      (NFR-1: interactive within 100ms, no layout shift). This approach requires no new API
+      routes, no client-side fetching, and maintains the clean server-to-client data flow.
+
+  - title: 'Conditional rendering strategy for repository selector'
+    chosen: 'Show combobox when repositoryPath is empty; show read-only repo name label when repositoryPath is provided'
+    rejected:
+      - 'Always show the combobox with the current repo pre-selected — adds complexity for the canvas flow where repo context is already known; users from canvas should not be able to change the repo (it would disconnect from the node they clicked)'
+      - 'Show combobox always but disable it when repo is provided — confusing UX; a disabled combobox implies the user might want to change it but cannot'
+    rationale: >
+      The spec explicitly requires conditional rendering (FR-5, FR-9). When repo context exists
+      (canvas flow), showing the repo name as informational text is simpler and prevents
+      accidental changes. When repo context is missing (sidebar flow), the combobox enables
+      selection. This matches the existing conditional pattern used for ParentFeatureCombobox
+      (line 655: hasFeatures && initialParentId !== undefined). The FeatureCreateDrawer already
+      receives repositoryPath as a prop — an empty string signals "no repo context" and triggers
+      the combobox.
+
+  - title: 'Disabled button state for zero repositories'
+    chosen: 'Render the button always but disable it with a Tooltip reading "Add a repository first" when repositories list is empty'
+    rejected:
+      - 'Hide the button entirely when zero repos — makes the feature undiscoverable; new users would not know the button exists'
+      - 'Show the button enabled and display an error in the drawer — creates a dead-end UX flow where users open the drawer only to find they cannot proceed'
+    rationale: >
+      FR-10 explicitly requires the button to be visible but disabled with a tooltip. The
+      shadcn/ui Tooltip component is already imported and used extensively in the create drawer.
+      The AppSidebar will need a new optional prop (e.g., repositoryCount or
+      hasRepositories) to know whether to disable. The AppShell can derive this from
+      the SidebarFeaturesProvider context or from a new lightweight check. Since repositories are
+      fetched server-side for the create drawer page but the sidebar is rendered by AppShell
+      (which does not currently have repo data), the simplest approach is to add a
+      repositoryCount prop to AppSidebar, sourced from a new provider or a server-fetched value
+      threaded through the dashboard layout.
+
+  - title: 'Repository count data source for sidebar disabled state'
+    chosen: 'Fetch repository count in the dashboard layout server component and pass it to AppShell as a prop, which threads it to AppSidebar'
+    rejected:
+      - 'Add a new SidebarRepositoriesProvider context with client-side fetch — violates NFR-6 (no new client-side fetching) and adds complexity for a single integer'
+      - 'Use the existing SidebarFeaturesProvider to also fetch repos — mixes concerns; features and repositories are separate domain entities with different lifecycle and update patterns'
+    rationale: >
+      The dashboard layout (app/(dashboard)/layout.tsx) already calls getGraphData() which
+      fetches initial data server-side. Adding a ListRepositoriesUseCase.execute() call there
+      (or extracting the count from getGraphData if it already includes repos) provides the
+      repository count at render time with zero client-side cost. This count is passed through
+      AppShell to AppSidebar. If getGraphData already returns repository data (it likely does
+      since the canvas shows repo nodes), we may not need any additional server call.
+
+  - title: 'Form submit button disabled logic'
+    chosen: 'Extend existing disabled condition to include repository selection check: disabled when repositoryPath is empty AND no repository selected in combobox'
+    rejected:
+      - 'Validate on submit and show error toast — poor UX; users should see the button is disabled before attempting to submit'
+      - 'Use HTML5 required attribute on a hidden input — fragile, does not work well with custom combobox components'
+    rationale: >
+      The existing submit button is already disabled when description is empty
+      (line 527: disabled={!description.trim() || isSubmitting}). Adding a repository check
+      is a simple extension: disabled={!description.trim() || isSubmitting || needsRepo}.
+      The needsRepo condition is true when repositoryPath is empty and no repo has been selected
+      in the combobox. This provides clear visual feedback to the user and prevents invalid
+      submissions. The state for selected repo can be managed with a simple useState in
+      FeatureCreateDrawer, similar to parentId state.
+
+# Open questions (should be resolved by end of research)
+openQuestions:
+  - question: 'Where should the RepositoryCombobox component file live?'
+    resolved: true
+    options:
+      - option: Inline in feature-create-drawer.tsx
+        description: >
+          Define RepositoryCombobox as a private function component in the same file as
+          FeatureCreateDrawer, following the exact pattern of ParentFeatureCombobox which is
+          already defined inline at lines 877-1012.
+        selected: true
+      - option: Separate file in components/common/repository-combobox/
+        description: >
+          Create a new directory and component file. More modular but deviates from the existing
+          pattern where ParentFeatureCombobox lives inline.
+        selected: false
+      - option: Shared combobox in components/ui/
+        description: >
+          Create a generic EntityCombobox in the UI primitives layer. Over-abstraction for two
+          similar but distinct components with different data shapes.
+        selected: false
+    selectionRationale: >
+      The ParentFeatureCombobox is defined inline in feature-create-drawer.tsx as a private
+      component. Following the same pattern for RepositoryCombobox keeps the code co-located with
+      its only consumer, maintains consistency, and avoids premature abstraction. If the combobox
+      is needed elsewhere in the future, it can be extracted then.
+
+  - question: 'How should the selected repository state be managed in the form?'
+    resolved: true
+    options:
+      - option: New selectedRepositoryPath state in FeatureCreateDrawer
+        description: >
+          Add a useState for selectedRepoPath, initialized to repositoryPath. When repositoryPath
+          is empty, the combobox sets this state. The form submit uses selectedRepoPath instead of
+          the prop directly. Simple and follows the same pattern as parentId state.
+        selected: true
+      - option: Lift state to CreateDrawerClient
+        description: >
+          Manage selected repo in the client wrapper and pass it down. Adds prop drilling and
+          splits form state across two components unnecessarily.
+        selected: false
+      - option: Use URL query parameter for selected repo
+        description: >
+          Update the URL with ?repo=selected when user picks a repo in the combobox. This would
+          cause a server component re-render (since CreateDrawerPage reads searchParams),
+          introducing a round-trip for every selection change.
+        selected: false
+    selectionRationale: >
+      The FeatureCreateDrawer already manages all form state internally (description, parentId,
+      approvalGates, etc.). Adding selectedRepoPath as another piece of form state is the
+      natural extension. When repositoryPath prop is non-empty (canvas flow), selectedRepoPath
+      initializes to that value and the combobox is hidden. When empty (sidebar flow), the user
+      selects via combobox and the state updates. The handleSubmit function already reads
+      repositoryPath from the prop — it will instead read from this new state.
+
+  - question: 'Should the RepositoryCombobox stories be in a separate stories file or added to existing feature-create-drawer stories?'
+    resolved: true
+    options:
+      - option: Add stories to existing feature-create-drawer.stories.tsx
+        description: >
+          Add new story variants (e.g., "WithRepoSelector", "WithRepoSelectorEmpty") to the
+          existing stories file. Keeps stories co-located with the component.
+        selected: false
+      - option: Create a dedicated RepositoryCombobox.stories.tsx alongside feature-create-drawer
+        description: >
+          Even though RepositoryCombobox is inline, create a separate stories file that exports
+          the combobox for isolated testing. Requires exporting RepositoryCombobox from the module.
+        selected: true
+      - option: Only test via integration stories in the full drawer
+        description: >
+          No isolated combobox stories; only test through the drawer stories. Misses the
+          mandatory requirement for colocated stories for new components.
+        selected: false
+    selectionRationale: >
+      NFR-4 requires all new components to have colocated stories with at least two variants.
+      While RepositoryCombobox is defined inline, it should be exported (named export) so it can
+      be rendered in isolation in a stories file. The stories file should live alongside the
+      feature-create-drawer (e.g., repository-combobox.stories.tsx in the same directory). This
+      allows testing the combobox in isolation (empty list, populated list, pre-selected, disabled)
+      without the overhead of the full drawer form. Additionally, the feature-create-drawer
+      stories should get new variants showing the repo selector mode.
+
+# Markdown content (the full research document)
+content: |
+  ## Technology Decisions
+
+  ### 1. Sidebar Button Visibility Strategy
+
+  **Chosen:** Remove `showNewFeature` prop — always render the button
+
+  **Rejected:**
+  - Keep `showNewFeature` prop and set to `true` in AppShell — unnecessary indirection; the prop was a temporary workaround from feature 057
+  - Feature-flag the button via featureFlags context — over-engineered for core navigation
+
+  **Rationale:** The `showNewFeature` prop was a temporary workaround to hide a non-functional button. Now that we're adding repo selection capability, the button should always be visible. Removing the prop simplifies the `AppSidebar` interface. The `AppShell` already passes `onNewFeature` but not `showNewFeature`, so removing the prop makes the API consistent.
+
+  ### 2. Repository Combobox Component Approach
+
+  **Chosen:** New `RepositoryCombobox` component following the existing `ParentFeatureCombobox` pattern (Popover + Input + role=listbox buttons)
+
+  **Rejected:**
+  - Use shadcn/ui Command primitives — `ParentFeatureCombobox` deliberately avoids Command; consistency within the same form matters more
+  - Use third-party library (cmdk, downshift) — adds bundle weight (NFR-7: 50KB limit), new dependency, deviates from established patterns
+
+  **Rationale:** The `ParentFeatureCombobox` at lines 877-1012 of `feature-create-drawer.tsx` uses a proven, lightweight pattern: Popover trigger with `role="combobox"`, plain Input for search, native buttons with `role="option"` and `aria-selected`. Zero new dependencies, fully accessible, and testable. The `RepositoryCombobox` mirrors this pattern with consumer-owned filtering on name and path.
+
+  ### 3. Repository Data Flow Architecture
+
+  **Chosen:** Server-side fetch in `CreateDrawerPage` via `ListRepositoriesUseCase`, passed as props through `CreateDrawerClient` → `FeatureCreateDrawer`
+
+  **Rejected:**
+  - Client-side fetch via useEffect — violates NFR-6 (no new client-side fetching), introduces spinners and layout shift (NFR-1 violation)
+  - Fetch in dashboard layout via context — over-couples repos to entire dashboard, adds unnecessary re-renders
+
+  **Rationale:** `CreateDrawerPage` already resolves `ListFeaturesUseCase` from DI and passes data as props to `CreateDrawerClient`. Adding `ListRepositoriesUseCase` follows the identical pattern. Repos are available at render time = interactive within 100ms (NFR-1), no layout shift, no loading states.
+
+  ### 4. Conditional Rendering Strategy
+
+  **Chosen:** Show combobox when `repositoryPath` is empty; show read-only repo name when provided
+
+  **Rejected:**
+  - Always show combobox with pre-selected repo — adds complexity for canvas flow; users shouldn't change repo from canvas context
+  - Always show but disable when repo provided — confusing UX, implies change is possible
+
+  **Rationale:** Spec requires conditional rendering (FR-5, FR-9). Matches the existing conditional pattern for `ParentFeatureCombobox` (line 655). An empty `repositoryPath` string signals "no repo context" — the same sentinel value already used by the existing code.
+
+  ### 5. Disabled Button State for Zero Repositories
+
+  **Chosen:** Render button always, disable with Tooltip "Add a repository first" when no repos exist
+
+  **Rejected:**
+  - Hide button entirely — undiscoverable for new users
+  - Show enabled button, error in drawer — dead-end UX flow
+
+  **Rationale:** FR-10 explicitly requires visible-but-disabled with tooltip. The shadcn/ui Tooltip is already used extensively. `AppSidebar` needs a new `repositoryCount` prop (or `hasRepositories` boolean) to control disabled state.
+
+  ### 6. Repository Count Data Source for Sidebar
+
+  **Chosen:** Fetch repository count in dashboard layout server component, pass to `AppShell` → `AppSidebar`
+
+  **Rejected:**
+  - New SidebarRepositoriesProvider with client-side fetch — violates NFR-6, adds complexity for a single integer
+  - Extend SidebarFeaturesProvider to include repos — mixes concerns of different domain entities
+
+  **Rationale:** The dashboard layout already calls `getGraphData()` server-side. If this data includes repositories (likely, since the canvas shows repo nodes), the count can be derived without an additional call. If not, a simple `ListRepositoriesUseCase.execute()` call is added to the layout.
+
+  ### 7. Form Submit Button Disabled Logic
+
+  **Chosen:** Extend existing disabled condition: `disabled={!description.trim() || isSubmitting || needsRepo}`
+
+  **Rejected:**
+  - Validate on submit with error toast — poor UX; disabled state is more discoverable
+  - HTML5 required on hidden input — fragile with custom combobox
+
+  **Rationale:** The submit button already checks `!description.trim() || isSubmitting` (line 527). Adding a `needsRepo` check (true when `repositoryPath` is empty AND no repo selected in combobox) is a simple extension providing clear visual feedback.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | shadcn/ui Popover | Combobox container | Use (existing) | Already used by ParentFeatureCombobox — no new dependency |
+  | shadcn/ui Input | Search field | Use (existing) | Already imported in feature-create-drawer |
+  | shadcn/ui Tooltip | Disabled button tooltip | Use (existing) | Already used in AppSidebar and create drawer |
+  | shadcn/ui Button | Combobox trigger | Use (existing) | Already imported |
+  | lucide-react (ChevronsUpDown, CheckIcon) | Combobox icons | Use (existing) | Already imported in feature-create-drawer |
+  | cmdk | Alternative combobox | Reject | Adds ~5KB gzipped, not used by ParentFeatureCombobox pattern |
+  | downshift | Alternative combobox | Reject | ~14KB gzipped, heavy for this use case |
+  | @radix-ui/react-select | Alternative dropdown | Reject | Select is for static lists; we need search/filter capability |
+  | ListRepositoriesUseCase | Fetch tracked repos | Use (existing) | Already implemented in core, injectable via DI |
+  | tsyringe resolve() | DI resolution | Use (existing) | Standard pattern for server components in this codebase |
+
+  ## Security Considerations
+
+  - **No new attack surface**: The repository list flows from server to client via props, not user input. No user-supplied strings are used in queries or commands.
+  - **Path validation**: The `repositoryPath` used in `createFeature` server action is already validated server-side (returns error if empty). The combobox provides values from the server-fetched repository list, so the path is always a known-good value from the database.
+  - **No XSS risk**: Repository names and paths are rendered as text content, not dangerouslySetInnerHTML. React's default escaping handles this.
+  - **No CSRF concern**: The `createFeature` server action already uses Next.js server action security (automatic CSRF protection via action IDs).
+
+  ## Performance Implications
+
+  - **Zero new client-side fetches**: All repository data flows from server components via props (NFR-6 compliance).
+  - **No bundle size increase**: No new npm dependencies. The RepositoryCombobox reuses existing shadcn/ui primitives already in the bundle.
+  - **Minimal render overhead**: The combobox renders a flat list of repositories. With typical repo counts (<50), no virtualization is needed. If virtualization becomes necessary in the future, it can be added without API changes.
+  - **Server component overhead**: One additional `ListRepositoriesUseCase.execute()` call in the create drawer page. This is a simple database read with no joins — negligible latency (<10ms typical).
+  - **No layout shift**: Repositories are pre-fetched server-side, so the combobox renders with data immediately (NFR-1 compliance).
+
+  ## Architecture Notes
+
+  ### Component Hierarchy (Modified)
+
+  ```
+  Dashboard Layout (server)
+    ├── AppShell (client) — now receives repositoryCount prop
+    │   └── AppSidebar — showNewFeature prop REMOVED, new hasRepositories prop
+    │       └── SidebarFooter — always renders "New feature" button (disabled if no repos)
+    └── @drawer/create/page.tsx (server) — adds ListRepositoriesUseCase
+        └── CreateDrawerClient (client) — new repositories prop
+            └── FeatureCreateDrawer (client) — new repositories prop, new selectedRepoPath state
+                ├── RepositoryCombobox (when repositoryPath is empty)
+                └── Read-only repo label (when repositoryPath is provided)
+  ```
+
+  ### Data Flow
+
+  ```
+  Server: ListRepositoriesUseCase.execute()
+    → CreateDrawerPage passes repos as prop
+    → CreateDrawerClient threads repos to FeatureCreateDrawer
+    → FeatureCreateDrawer renders RepositoryCombobox with repos
+    → User selects repo → selectedRepoPath state updated
+    → Form submit includes selectedRepoPath in payload
+  ```
+
+  ### Files to Modify
+
+  | File | Change | Impact |
+  | ---- | ------ | ------ |
+  | `app-sidebar.tsx` | Remove `showNewFeature` prop, add `hasRepositories` prop, always render button, add disabled+tooltip state | Medium |
+  | `app-shell.tsx` | Remove `showNewFeature` usage, pass `hasRepositories` to AppSidebar | Low |
+  | `app/(dashboard)/layout.tsx` | Fetch repository count, pass to AppShell | Low |
+  | `app/(dashboard)/@drawer/create/page.tsx` | Resolve ListRepositoriesUseCase, pass repos to CreateDrawerClient | Low |
+  | `create-drawer-client.tsx` | Accept and thread `repositories` prop | Low |
+  | `feature-create-drawer.tsx` | Add RepositoryCombobox component, selectedRepoPath state, conditional rendering, extended submit disable logic | High |
+  | `app-sidebar.test.tsx` | Update tests: remove showNewFeature tests, add always-visible button tests, add disabled state tests | Medium |
+  | New: `repository-combobox.stories.tsx` | Storybook stories for isolated RepositoryCombobox | New file |
+  | Existing: `feature-create-drawer.stories.tsx` | Add story variants for repo selector mode | Medium |
+  | Existing: `app-sidebar.stories.tsx` (if exists) | Add story for disabled button state | Low |
+
+  ### Integration Points
+
+  - **ListRepositoriesUseCase**: Already exists at `packages/core/src/application/use-cases/repositories/list-repositories.use-case.ts`. Returns `Repository[]` with `id`, `name`, `path` fields. Registered in DI as `'ListRepositoriesUseCase'`.
+  - **Repository entity**: Defined in generated output as `SoftDeletableEntity & { name: string; path: string }`. The combobox needs `id`, `name`, and `path` — all available.
+  - **server-container resolve()**: Standard pattern at `@/lib/server-container`. Used in create page to resolve use cases.
+  - **createFeature server action**: Already validates `repositoryPath` is non-empty. No changes needed — the selected repo path flows through the existing payload.
+  - **Custom events**: `shep:feature-created` event already includes `repositoryPath` from the payload. No changes needed.
+
+  ---
+
+  _Research complete — proceed with planning phase_

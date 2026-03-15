@@ -89,10 +89,18 @@ export class GeminiCliExecutorService implements IAgentExecutor {
         this.log(`stderr: ${data.trimEnd()}`);
       });
 
-      proc.on('error', (error: Error) => {
+      proc.on('error', (error: Error & { code?: string }) => {
         this.log(`Process error event: ${error.message}`);
         if (timeoutId) clearTimeout(timeoutId);
-        reject(error);
+        if (error.code === 'ENOENT') {
+          reject(
+            new Error(
+              'Gemini CLI ("gemini") not found. Please install it: https://github.com/google-gemini/gemini-cli'
+            )
+          );
+        } else {
+          reject(error);
+        }
       });
 
       proc.on('close', (code: number | null) => {

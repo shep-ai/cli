@@ -1,0 +1,28 @@
+Feature: 066-feature-settings-overview
+Test Suite: overview-tab.test.tsx + get-feature-drawer-data.test.ts
+Date: 2026-03-15
+
+=== overview-tab.test.tsx (37 tests) ===
+
+PASS - All 37 tests passing
+
+Settings section tests:
+  ✓ renders settings section when approval gates are provided
+  ✓ renders git settings when push and openPr are provided
+  ✓ renders model name display
+  ✓ renders all settings together
+  ✓ renders evidence settings when enableEvidence is provided
+  ✓ renders evidence with commitEvidence disabled
+  ✓ hides settings section when no settings fields are provided
+
+=== get-feature-drawer-data.test.ts (7 tests) ===
+
+PASS - All 7 tests passing
+
+  ✓ includes enableEvidence and commitEvidence from settings
+
+=== Full Suite Summary ===
+
+ Test Files  306 passed (306)
+      Tests  3855 passed (3855)
+   Duration  ~25s

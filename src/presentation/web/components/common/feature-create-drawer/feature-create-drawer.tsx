@@ -1,7 +1,15 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { PaperclipIcon, ChevronsUpDown, CheckIcon, Zap, Clock } from 'lucide-react';
+import {
+  PaperclipIcon,
+  ChevronsUpDown,
+  CheckIcon,
+  Zap,
+  Clock,
+  FolderPlus,
+  Loader2,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSoundAction } from '@/hooks/use-sound-action';
 import { BaseDrawer } from '@/components/common/base-drawer';
@@ -18,6 +26,9 @@ import { useGuardedDrawerClose } from '@/hooks/drawer-close-guard';
 import { AttachmentChip } from '@/components/common/attachment-chip';
 import type { WorkflowDefaults } from '@/app/actions/get-workflow-defaults';
 import { AgentModelPicker } from '@/components/features/settings/AgentModelPicker';
+import { Separator } from '@/components/ui/separator';
+import { pickFolder } from '@/components/common/add-repository-button/pick-folder';
+import { addRepository } from '@/app/actions/add-repository';
 import { pickFiles } from './pick-files';
 
 export type { FileAttachment } from '@shepai/core/infrastructure/services/file-dialog.service';
@@ -36,6 +47,13 @@ export interface FormAttachment {
 export interface ParentFeatureOption {
   id: string;
   name: string;
+}
+
+/** Minimal repository descriptor for the repository selector. */
+export interface RepositoryOption {
+  id: string;
+  name: string;
+  path: string;
 }
 
 export interface FeatureCreatePayload {
@@ -149,6 +167,8 @@ export interface FeatureCreateDrawerProps {
   workflowDefaults?: WorkflowDefaults;
   /** List of existing features available for selection as a parent. */
   features?: ParentFeatureOption[];
+  /** List of tracked repositories for selection when repo context is missing. */
+  repositories?: RepositoryOption[];
   /** Pre-select a parent feature when the drawer opens (e.g. from (+) button on a feature node). */
   initialParentId?: string;
   /** Current global agent type from settings */
@@ -165,6 +185,7 @@ export function FeatureCreateDrawer({
   isSubmitting = false,
   workflowDefaults,
   features,
+  repositories,
   initialParentId,
   currentAgentType,
   currentModel,
@@ -188,6 +209,10 @@ export function FeatureCreateDrawer({
   const [pending, setPending] = useState(false);
   const [overrideAgent, setOverrideAgent] = useState<string | undefined>(undefined);
   const [overrideModel, setOverrideModel] = useState<string | undefined>(undefined);
+  const [selectedRepoPath, setSelectedRepoPath] = useState<string | undefined>(
+    repositoryPath || undefined
+  );
+  const [localRepos, setLocalRepos] = useState<RepositoryOption[]>(repositories ?? []);
   const [isDragOver, setIsDragOver] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isPromptFocused, setIsPromptFocused] = useState(false);
@@ -208,6 +233,11 @@ export function FeatureCreateDrawer({
     }
   }, [workflowDefaults]);
 
+  // Sync localRepos when repositories prop changes
+  useEffect(() => {
+    setLocalRepos(repositories ?? []);
+  }, [repositories]);
+
   // Pre-select parent when initialParentId changes (e.g. (+) button on feature node)
   useEffect(() => {
     if (open && initialParentId) {
@@ -224,6 +254,8 @@ export function FeatureCreateDrawer({
     setEnableEvidence(defaultEnableEvidence);
     setCommitEvidence(defaultCommitEvidence);
     setParentId(undefined);
+    setSelectedRepoPath(repositoryPath || undefined);
+    setLocalRepos(repositories ?? []);
     setFast(false);
     setPending(false);
     setOverrideAgent(undefined);
@@ -231,7 +263,15 @@ export function FeatureCreateDrawer({
     setUploadError(null);
     dragCounterRef.current = 0;
     setIsDragOver(false);
-  }, [defaultGates, defaultPush, defaultOpenPr, defaultEnableEvidence, defaultCommitEvidence]);
+  }, [
+    defaultGates,
+    defaultPush,
+    defaultOpenPr,
+    defaultEnableEvidence,
+    defaultCommitEvidence,
+    repositoryPath,
+    repositories,
+  ]);
 
   // Track whether the form has unsaved data
   const isDirty = description.trim() !== '' || attachments.length > 0;
@@ -370,11 +410,13 @@ export function FeatureCreateDrawer({
     (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
       if (!description.trim()) return;
+      const effectiveRepoPath = selectedRepoPath ?? repositoryPath;
+      if (!effectiveRepoPath) return;
       createSound.play();
       onSubmit({
         description: description.trim(),
         attachments: attachments.filter((a) => !a.loading),
-        repositoryPath,
+        repositoryPath: effectiveRepoPath,
         approvalGates: {
           allowPrd: approvalGates.allowPrd ?? false,
           allowPlan: approvalGates.allowPlan ?? false,
@@ -397,6 +439,7 @@ export function FeatureCreateDrawer({
       description,
       attachments,
       approvalGates,
+      selectedRepoPath,
       repositoryPath,
       onSubmit,
       push,
@@ -497,6 +540,8 @@ export function FeatureCreateDrawer({
   }, []);
 
   const hasFeatures = features && features.length > 0;
+  const needsRepo = !repositoryPath && !selectedRepoPath;
+  const showRepoSelector = !repositoryPath && repositories !== undefined;
 
   return (
     <BaseDrawer
@@ -529,7 +574,7 @@ export function FeatureCreateDrawer({
           <Button
             type="submit"
             form="create-feature-form"
-            disabled={!description.trim() || isSubmitting}
+            disabled={!description.trim() || isSubmitting || needsRepo}
           >
             {isSubmitting ? 'Creating...' : '+ Create Feature'}
           </Button>
@@ -546,6 +591,35 @@ export function FeatureCreateDrawer({
             onKeyDown={handleKeyDown}
             className="flex flex-col gap-4"
           >
+            {/* Repository selector (only when opened from sidebar without repo context) */}
+            {showRepoSelector ? (
+              <div className="flex flex-col gap-1.5" data-testid="repo-selector-section">
+                <Label className="text-muted-foreground text-xs font-semibold tracking-wider">
+                  REPOSITORY
+                </Label>
+                <RepositoryCombobox
+                  repositories={localRepos}
+                  value={selectedRepoPath}
+                  onChange={setSelectedRepoPath}
+                  onAddRepository={(repo) => {
+                    setLocalRepos((prev) => [...prev, repo]);
+                    setSelectedRepoPath(repo.path);
+                  }}
+                  disabled={isSubmitting}
+                />
+              </div>
+            ) : repositoryPath ? (
+              <div className="flex flex-col gap-1.5" data-testid="repo-readonly-section">
+                <Label className="text-muted-foreground text-xs font-semibold tracking-wider">
+                  REPOSITORY
+                </Label>
+                <p className="text-sm" data-testid="repo-readonly-label">
+                  {repositories?.find((r) => r.path === repositoryPath)?.name ??
+                    repositoryPath.split('/').pop()}
+                </p>
+              </div>
+            ) : null}
+
             {/* Description + inline controls with drop zone */}
             <div
               role="region"
@@ -1033,6 +1107,184 @@ function ParentFeatureCombobox({
               ))
             )}
           </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+ * RepositoryCombobox — searchable dropdown for repository selection
+ * ------------------------------------------------------------------------- */
+
+export interface RepositoryComboboxProps {
+  repositories: RepositoryOption[];
+  value: string | undefined;
+  onChange: (path: string | undefined) => void;
+  onAddRepository?: (repo: RepositoryOption) => void;
+  disabled?: boolean;
+}
+
+export function RepositoryCombobox({
+  repositories,
+  value,
+  onChange,
+  onAddRepository,
+  disabled,
+}: RepositoryComboboxProps) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [isAdding, setIsAdding] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const selectedRepo = repositories.find((r) => r.path === value);
+
+  const filtered = query.trim()
+    ? repositories.filter(
+        (r) =>
+          r.name.toLowerCase().includes(query.toLowerCase()) ||
+          r.path.toLowerCase().includes(query.toLowerCase())
+      )
+    : repositories;
+
+  const handleSelect = useCallback(
+    (path: string | undefined) => {
+      onChange(path);
+      setOpen(false);
+      setQuery('');
+    },
+    [onChange]
+  );
+
+  const handleAddRepository = useCallback(async () => {
+    if (isAdding) return;
+    setIsAdding(true);
+    setAddError(null);
+    try {
+      const folderPath = await pickFolder();
+      if (!folderPath) {
+        setIsAdding(false);
+        return;
+      }
+      const result = await addRepository({ path: folderPath });
+      if (result.error) {
+        setAddError(result.error);
+        setIsAdding(false);
+        return;
+      }
+      if (result.repository) {
+        const newRepo: RepositoryOption = {
+          id: result.repository.id,
+          name: result.repository.name,
+          path: result.repository.path,
+        };
+        onAddRepository?.(newRepo);
+        onChange(newRepo.path);
+        setOpen(false);
+        setQuery('');
+      }
+    } catch (err: unknown) {
+      setAddError(err instanceof Error ? err.message : 'Failed to add repository');
+    } finally {
+      setIsAdding(false);
+    }
+  }, [isAdding, onAddRepository, onChange]);
+
+  useEffect(() => {
+    if (open) {
+      setTimeout(() => inputRef.current?.focus(), 0);
+    } else {
+      setQuery('');
+    }
+  }, [open]);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          role="combobox"
+          aria-expanded={open}
+          aria-label="Repository"
+          disabled={disabled}
+          data-testid="repository-combobox"
+          className={cn(
+            'border-input bg-background ring-offset-background focus:ring-ring flex h-9 w-full items-center justify-between rounded-md border px-3 py-2 text-sm focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50',
+            !selectedRepo && 'text-muted-foreground'
+          )}
+        >
+          <span className="truncate">
+            {selectedRepo ? selectedRepo.name : 'Select repository...'}
+          </span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80 p-0" align="start" data-testid="repository-combobox-content">
+        <div className="flex flex-col">
+          {/* Search input */}
+          <div className="border-b p-2">
+            <Input
+              ref={inputRef}
+              placeholder="Search repositories..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="h-8 border-0 p-0 text-sm shadow-none focus-visible:ring-0"
+              data-testid="repository-search"
+            />
+          </div>
+
+          {/* Options list */}
+          <div className="max-h-48 overflow-y-auto py-1" role="listbox" aria-label="Repositories">
+            {filtered.length === 0 ? (
+              <p className="text-muted-foreground px-3 py-2 text-sm" data-testid="repository-empty">
+                No repositories found.
+              </p>
+            ) : (
+              filtered.map((r) => (
+                <button
+                  key={r.id}
+                  type="button"
+                  role="option"
+                  aria-selected={value === r.path}
+                  onClick={() => handleSelect(r.path)}
+                  className={cn(
+                    'hover:bg-accent hover:text-accent-foreground flex w-full items-center gap-2 px-3 py-2 text-sm',
+                    value === r.path && 'bg-accent/50'
+                  )}
+                  data-testid={`repository-option-${r.id}`}
+                >
+                  <CheckIcon className={cn('h-4 w-4 shrink-0', value !== r.path && 'invisible')} />
+                  <span className="flex flex-col items-start truncate">
+                    <span className="truncate">{r.name}</span>
+                    <span className="text-muted-foreground truncate text-xs">{r.path}</span>
+                  </span>
+                </button>
+              ))
+            )}
+          </div>
+
+          {/* Add new repository — pinned outside scroll area */}
+          <Separator />
+          <button
+            type="button"
+            onClick={handleAddRepository}
+            disabled={isAdding}
+            className="hover:bg-accent hover:text-accent-foreground flex w-full items-center gap-2 px-3 py-2 text-sm"
+            data-testid="add-repository-item"
+          >
+            {isAdding ? (
+              <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+            ) : (
+              <FolderPlus className="h-4 w-4 shrink-0" />
+            )}
+            <span>Add new repository...</span>
+          </button>
+          {addError ? (
+            <p className="px-3 pb-2 text-xs text-red-500" data-testid="add-repository-error">
+              {addError}
+            </p>
+          ) : null}
         </div>
       </PopoverContent>
     </Popover>
