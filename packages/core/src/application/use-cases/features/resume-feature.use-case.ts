@@ -38,7 +38,10 @@ export class ResumeFeatureUseCase {
     private readonly worktreeService: IWorktreeService
   ) {}
 
-  async execute(featureId: string): Promise<ResumeFeatureResult> {
+  async execute(
+    featureId: string,
+    options?: { promptPrefix?: string }
+  ): Promise<ResumeFeatureResult> {
     // Resolve feature by exact ID or prefix
     const feature =
       (await this.featureRepo.findById(featureId)) ??
@@ -90,7 +93,9 @@ export class ResumeFeatureUseCase {
       agentType: lastRun.agentType,
       agentName: lastRun.agentName,
       status: AgentRunStatus.pending,
-      prompt: lastRun.prompt,
+      prompt: options?.promptPrefix
+        ? `${options.promptPrefix}\n\n${lastRun.prompt}`
+        : lastRun.prompt,
       threadId: lastRun.threadId, // Same thread for checkpoint continuity
       featureId: feature.id,
       repositoryPath: feature.repositoryPath,
