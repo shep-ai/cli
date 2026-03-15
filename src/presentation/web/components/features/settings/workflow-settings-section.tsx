@@ -32,8 +32,30 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
   const [ciLogMax, setCiLogMax] = useState(
     workflow.ciLogMaxChars != null ? String(workflow.ciLogMaxChars) : ''
   );
-  const [stageTimeout, setStageTimeout] = useState(
-    workflow.stageTimeoutMs != null ? String(Math.round(workflow.stageTimeoutMs / 1000)) : ''
+  // Per-stage timeout states (seconds for display)
+  const st = workflow.stageTimeouts;
+  const [analyzeTimeout, setAnalyzeTimeout] = useState(
+    st?.analyzeMs != null ? String(Math.round(st.analyzeMs / 1000)) : ''
+  );
+  const [requirementsTimeout, setRequirementsTimeout] = useState(
+    st?.requirementsMs != null ? String(Math.round(st.requirementsMs / 1000)) : ''
+  );
+  const [researchTimeout, setResearchTimeout] = useState(
+    st?.researchMs != null ? String(Math.round(st.researchMs / 1000)) : ''
+  );
+  const [planTimeout, setPlanTimeout] = useState(
+    st?.planMs != null ? String(Math.round(st.planMs / 1000)) : ''
+  );
+  const [implementTimeout, setImplementTimeout] = useState(
+    st?.implementMs != null ? String(Math.round(st.implementMs / 1000)) : ''
+  );
+  const [mergeTimeout, setMergeTimeout] = useState(
+    st?.mergeMs != null ? String(Math.round(st.mergeMs / 1000)) : ''
+  );
+  // Analyze-repo agent timeout state
+  const art = workflow.analyzeRepoTimeouts;
+  const [analyzeRepoTimeout, setAnalyzeRepoTimeout] = useState(
+    art?.analyzeMs != null ? String(Math.round(art.analyzeMs / 1000)) : ''
   );
   const [isPending, startTransition] = useTransition();
   const [showSaved, setShowSaved] = useState(false);
@@ -54,6 +76,11 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
     return Number.isNaN(n) || n <= 0 ? undefined : n;
   }
 
+  function secondsToMs(val: string): number | undefined {
+    const n = parseOptionalInt(val);
+    return n != null ? n * 1000 : undefined;
+  }
+
   function buildPayload(
     overrides: {
       openPr?: boolean;
@@ -64,11 +91,16 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
       ciMaxFix?: string;
       ciTimeout?: string;
       ciLogMax?: string;
-      stageTimeout?: string;
+      analyzeTimeout?: string;
+      requirementsTimeout?: string;
+      researchTimeout?: string;
+      planTimeout?: string;
+      implementTimeout?: string;
+      mergeTimeout?: string;
+      analyzeRepoTimeout?: string;
     } = {}
   ) {
     const timeoutSeconds = parseOptionalInt(overrides.ciTimeout ?? ciTimeout);
-    const stageTimeoutSeconds = parseOptionalInt(overrides.stageTimeout ?? stageTimeout);
     return {
       workflow: {
         openPrOnImplementationComplete: overrides.openPr ?? openPr,
@@ -81,7 +113,17 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
         ciMaxFixAttempts: parseOptionalInt(overrides.ciMaxFix ?? ciMaxFix),
         ciWatchTimeoutMs: timeoutSeconds != null ? timeoutSeconds * 1000 : undefined,
         ciLogMaxChars: parseOptionalInt(overrides.ciLogMax ?? ciLogMax),
-        stageTimeoutMs: stageTimeoutSeconds != null ? stageTimeoutSeconds * 1000 : undefined,
+        stageTimeouts: {
+          analyzeMs: secondsToMs(overrides.analyzeTimeout ?? analyzeTimeout),
+          requirementsMs: secondsToMs(overrides.requirementsTimeout ?? requirementsTimeout),
+          researchMs: secondsToMs(overrides.researchTimeout ?? researchTimeout),
+          planMs: secondsToMs(overrides.planTimeout ?? planTimeout),
+          implementMs: secondsToMs(overrides.implementTimeout ?? implementTimeout),
+          mergeMs: secondsToMs(overrides.mergeTimeout ?? mergeTimeout),
+        },
+        analyzeRepoTimeouts: {
+          analyzeMs: secondsToMs(overrides.analyzeRepoTimeout ?? analyzeRepoTimeout),
+        },
       },
     };
   }
@@ -104,11 +146,19 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
     save({ [key]: value });
   }
 
-  function handleCiFieldBlur(
-    key: 'ciMaxFix' | 'ciTimeout' | 'ciLogMax' | 'stageTimeout',
-    currentValue: string,
-    originalValue: string
-  ) {
+  type BlurKey =
+    | 'ciMaxFix'
+    | 'ciTimeout'
+    | 'ciLogMax'
+    | 'analyzeTimeout'
+    | 'requirementsTimeout'
+    | 'researchTimeout'
+    | 'planTimeout'
+    | 'implementTimeout'
+    | 'mergeTimeout'
+    | 'analyzeRepoTimeout';
+
+  function handleFieldBlur(key: BlurKey, currentValue: string, originalValue: string) {
     if (currentValue !== originalValue) {
       save({ [key]: currentValue });
     }
@@ -119,8 +169,73 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
   const originalCiTimeout =
     workflow.ciWatchTimeoutMs != null ? String(Math.round(workflow.ciWatchTimeoutMs / 1000)) : '';
   const originalCiLogMax = workflow.ciLogMaxChars != null ? String(workflow.ciLogMaxChars) : '';
-  const originalStageTimeout =
-    workflow.stageTimeoutMs != null ? String(Math.round(workflow.stageTimeoutMs / 1000)) : '';
+  const originalAnalyzeTimeout =
+    st?.analyzeMs != null ? String(Math.round(st.analyzeMs / 1000)) : '';
+  const originalRequirementsTimeout =
+    st?.requirementsMs != null ? String(Math.round(st.requirementsMs / 1000)) : '';
+  const originalResearchTimeout =
+    st?.researchMs != null ? String(Math.round(st.researchMs / 1000)) : '';
+  const originalPlanTimeout = st?.planMs != null ? String(Math.round(st.planMs / 1000)) : '';
+  const originalImplementTimeout =
+    st?.implementMs != null ? String(Math.round(st.implementMs / 1000)) : '';
+  const originalMergeTimeout = st?.mergeMs != null ? String(Math.round(st.mergeMs / 1000)) : '';
+  const originalAnalyzeRepoTimeout =
+    art?.analyzeMs != null ? String(Math.round(art.analyzeMs / 1000)) : '';
+
+  const FEATURE_AGENT_FIELDS = [
+    {
+      key: 'analyzeTimeout' as const,
+      label: 'Analyze',
+      state: analyzeTimeout,
+      setter: setAnalyzeTimeout,
+      original: originalAnalyzeTimeout,
+    },
+    {
+      key: 'requirementsTimeout' as const,
+      label: 'Requirements',
+      state: requirementsTimeout,
+      setter: setRequirementsTimeout,
+      original: originalRequirementsTimeout,
+    },
+    {
+      key: 'researchTimeout' as const,
+      label: 'Research',
+      state: researchTimeout,
+      setter: setResearchTimeout,
+      original: originalResearchTimeout,
+    },
+    {
+      key: 'planTimeout' as const,
+      label: 'Plan',
+      state: planTimeout,
+      setter: setPlanTimeout,
+      original: originalPlanTimeout,
+    },
+    {
+      key: 'implementTimeout' as const,
+      label: 'Implement',
+      state: implementTimeout,
+      setter: setImplementTimeout,
+      original: originalImplementTimeout,
+    },
+    {
+      key: 'mergeTimeout' as const,
+      label: 'Merge',
+      state: mergeTimeout,
+      setter: setMergeTimeout,
+      original: originalMergeTimeout,
+    },
+  ];
+
+  const ANALYZE_REPO_FIELDS = [
+    {
+      key: 'analyzeRepoTimeout' as const,
+      label: 'Analyze',
+      state: analyzeRepoTimeout,
+      setter: setAnalyzeRepoTimeout,
+      original: originalAnalyzeRepoTimeout,
+    },
+  ];
 
   return (
     <Card id="workflow" className="scroll-mt-6" data-testid="workflow-settings-section">
@@ -235,7 +350,7 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
               placeholder="e.g., 3"
               value={ciMaxFix}
               onChange={(e) => setCiMaxFix(e.target.value)}
-              onBlur={() => handleCiFieldBlur('ciMaxFix', ciMaxFix, originalCiMaxFix)}
+              onBlur={() => handleFieldBlur('ciMaxFix', ciMaxFix, originalCiMaxFix)}
             />
             <p className="text-muted-foreground text-xs">
               How many times the agent retries fixing CI failures
@@ -252,7 +367,7 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
               placeholder="e.g., 300"
               value={ciTimeout}
               onChange={(e) => setCiTimeout(e.target.value)}
-              onBlur={() => handleCiFieldBlur('ciTimeout', ciTimeout, originalCiTimeout)}
+              onBlur={() => handleFieldBlur('ciTimeout', ciTimeout, originalCiTimeout)}
             />
             <p className="text-muted-foreground text-xs">
               How long to wait for CI to complete before timing out
@@ -269,29 +384,59 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
               placeholder="e.g., 50000"
               value={ciLogMax}
               onChange={(e) => setCiLogMax(e.target.value)}
-              onBlur={() => handleCiFieldBlur('ciLogMax', ciLogMax, originalCiLogMax)}
+              onBlur={() => handleFieldBlur('ciLogMax', ciLogMax, originalCiLogMax)}
             />
             <p className="text-muted-foreground text-xs">
               Maximum characters to capture from CI logs
             </p>
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="stage-timeout">Stage timeout (seconds)</Label>
-            <Input
-              id="stage-timeout"
-              data-testid="stage-timeout-input"
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              placeholder="e.g., 600"
-              value={stageTimeout}
-              onChange={(e) => setStageTimeout(e.target.value)}
-              onBlur={() => handleCiFieldBlur('stageTimeout', stageTimeout, originalStageTimeout)}
-            />
-            <p className="text-muted-foreground text-xs">
-              Maximum time per agent stage execution (default: 600 seconds)
-            </p>
-          </div>
+        </div>
+
+        <Separator />
+
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold">Stage Timeouts</h3>
+          <p className="text-muted-foreground text-xs">
+            Maximum execution time per agent stage (default: 600 seconds)
+          </p>
+          <h4 className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
+            Feature Agent
+          </h4>
+          {FEATURE_AGENT_FIELDS.map((field) => (
+            <div key={field.key} className="space-y-1.5">
+              <Label htmlFor={`stage-timeout-${field.key}`}>{field.label} (seconds)</Label>
+              <Input
+                id={`stage-timeout-${field.key}`}
+                data-testid={`stage-timeout-${field.key}-input`}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                placeholder="600"
+                value={field.state}
+                onChange={(e) => field.setter(e.target.value)}
+                onBlur={() => handleFieldBlur(field.key, field.state, field.original)}
+              />
+            </div>
+          ))}
+          <h4 className="text-muted-foreground pt-2 text-xs font-semibold tracking-wider uppercase">
+            Analyze Repository Agent
+          </h4>
+          {ANALYZE_REPO_FIELDS.map((field) => (
+            <div key={field.key} className="space-y-1.5">
+              <Label htmlFor={`stage-timeout-${field.key}`}>{field.label} (seconds)</Label>
+              <Input
+                id={`stage-timeout-${field.key}`}
+                data-testid={`stage-timeout-${field.key}-input`}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                placeholder="600"
+                value={field.state}
+                onChange={(e) => field.setter(e.target.value)}
+                onBlur={() => handleFieldBlur(field.key, field.state, field.original)}
+              />
+            </div>
+          ))}
         </div>
       </CardContent>
     </Card>

@@ -59,3 +59,27 @@ export const EvidenceEnabled: Story = {
     dbFileSize: '2.4 MB',
   },
 };
+
+export const CustomTimeouts: Story = {
+  args: {
+    settings: {
+      ...defaultSettings,
+      workflow: {
+        ...defaultSettings.workflow,
+        stageTimeouts: {
+          analyzeMs: 300000,
+          requirementsMs: 600000,
+          researchMs: 900000,
+          planMs: 600000,
+          implementMs: 1800000,
+          mergeMs: 600000,
+        },
+        analyzeRepoTimeouts: {
+          analyzeMs: 300000,
+        },
+      },
+    },
+    shepHome: '/home/user/.shep',
+    dbFileSize: '2.4 MB',
+  },
+};

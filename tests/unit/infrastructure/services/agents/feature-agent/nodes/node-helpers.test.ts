@@ -356,18 +356,28 @@ describe('buildExecutorOptions', () => {
     expect(options.timeout).toBe(600_000);
   });
 
-  it('uses stageTimeoutMs from settings when set', () => {
+  it('uses per-stage timeout from settings when set', () => {
     const settings = createDefaultSettings();
-    settings.workflow.stageTimeoutMs = 900_000;
+    settings.workflow.stageTimeouts = { implementMs: 900_000 };
     initializeSettings(settings);
 
     const options = buildExecutorOptions(baseState as any);
     expect(options.timeout).toBe(900_000);
   });
 
+  it('uses default timeout when per-stage timeout is not set for current node', () => {
+    const settings = createDefaultSettings();
+    settings.workflow.stageTimeouts = { analyzeMs: 900_000 };
+    initializeSettings(settings);
+
+    // baseState.currentNode is 'implement', not 'analyze'
+    const options = buildExecutorOptions(baseState as any);
+    expect(options.timeout).toBe(600_000);
+  });
+
   it('allows override to take precedence over settings', () => {
     const settings = createDefaultSettings();
-    settings.workflow.stageTimeoutMs = 900_000;
+    settings.workflow.stageTimeouts = { implementMs: 900_000 };
     initializeSettings(settings);
 
     const options = buildExecutorOptions(baseState as any, { timeout: 120_000 });

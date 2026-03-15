@@ -20,6 +20,8 @@ import {
   AnalyzeRepositoryState,
 } from '@/infrastructure/services/agents/analyze-repo/analyze-repository-graph.js';
 import { buildAnalyzePrompt } from '@/infrastructure/services/agents/analyze-repo/prompts/analyze-repository.prompt.js';
+import { initializeSettings, resetSettings } from '@/infrastructure/services/settings.service.js';
+import { createDefaultSettings } from '@/domain/factories/settings-defaults.factory.js';
 
 describe('analyzeRepositoryGraph', () => {
   let mockExecutor: IAgentExecutor;
@@ -104,7 +106,8 @@ describe('analyzeRepositoryGraph', () => {
     );
 
     const [, options] = (mockExecutor.execute as ReturnType<typeof vi.fn>).mock.calls[0];
-    expect(options).toEqual({ cwd: '/test/repo' });
+    expect(options.cwd).toBe('/test/repo');
+    expect(options.timeout).toBe(600_000);
     expect(options.resumeSession).toBeUndefined();
   });
 
@@ -114,6 +117,36 @@ describe('analyzeRepositoryGraph', () => {
     const result = await compiled.invoke({ repositoryPath: '/test/repo' });
 
     expect(result.analysisMarkdown).toBe('# Analysis\nTest analysis content');
+  });
+
+  it('should use default timeout when settings are not initialized', async () => {
+    const compiled = createAnalyzeRepositoryGraph(mockExecutor, checkpointer);
+
+    await compiled.invoke(
+      { repositoryPath: '/test/repo' },
+      { configurable: { thread_id: 'test-thread-default-timeout' } }
+    );
+
+    const [, options] = (mockExecutor.execute as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(options.timeout).toBe(600_000);
+  });
+
+  it('should use configurable timeout from settings', async () => {
+    const settings = createDefaultSettings();
+    settings.workflow.analyzeRepoTimeouts = { analyzeMs: 900_000 };
+    initializeSettings(settings);
+
+    const compiled = createAnalyzeRepositoryGraph(mockExecutor, checkpointer);
+
+    await compiled.invoke(
+      { repositoryPath: '/test/repo' },
+      { configurable: { thread_id: 'test-thread-custom-timeout' } }
+    );
+
+    const [, options] = (mockExecutor.execute as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(options.timeout).toBe(900_000);
+
+    resetSettings();
   });
 });
 
