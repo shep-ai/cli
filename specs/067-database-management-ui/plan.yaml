@@ -1,0 +1,155 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: database-management-ui
+summary: >
+  Build a phpMyAdmin-style database browser as a new /database route in the web UI.
+  Four server actions provide data access (list tables, get rows, get schema, execute query),
+  a client component tree manages tab/table/pagination state, and the sidebar gets a new
+  Database nav item. All database access goes through getSQLiteConnection() directly —
+  no domain layer changes needed. TDD throughout with colocated Storybook stories.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - Next.js App Router (server components, server actions)
+  - better-sqlite3 (existing synchronous SQLite driver)
+  - shadcn/ui (Table, Tabs, Card, Dialog, ScrollArea, Input, Button, Badge)
+  - Tailwind CSS
+  - lucide-react (Database icon)
+  - React (client components with useState/useCallback)
+
+relatedLinks: []
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'Foundation — shadcn Table component and server actions'
+    description: >
+      Install the shadcn/ui Table file component and implement all four server actions
+      (list-tables, get-table-rows, get-table-schema, execute-query) with full test
+      coverage. This phase establishes the data layer that all UI components depend on.
+      Server actions access getSQLiteConnection() directly since this is a presentation-layer
+      debugging tool, not a domain operation.
+    parallel: false
+
+  - id: phase-2
+    name: 'Feature components — table list, row browser, schema viewer, query runner'
+    description: >
+      Build the five client components that compose the database page: TableList (sidebar
+      with search/filter), RowBrowser (paginated data table), SchemaViewer (column metadata),
+      QueryRunner (SQL textarea with results), and CellValueDialog (expand truncated values).
+      Each component gets a colocated Storybook story with realistic mock data.
+    parallel: false
+
+  - id: phase-3
+    name: 'Page assembly and navigation integration'
+    description: >
+      Wire everything together: create the /database page route (server component fetching
+      initial table list), the DatabasePageClient wrapper managing selected table/tab/pagination
+      state, sidebar nav item addition, and Storybook mocks for all server actions. Final
+      integration testing.
+    parallel: false
+
+# File change tracking
+filesToCreate:
+  - src/presentation/web/components/ui/table.tsx
+  - src/presentation/web/app/actions/list-tables.ts
+  - src/presentation/web/app/actions/get-table-rows.ts
+  - src/presentation/web/app/actions/get-table-schema.ts
+  - src/presentation/web/app/actions/execute-query.ts
+  - src/presentation/web/components/features/database/table-list.tsx
+  - src/presentation/web/components/features/database/table-list.stories.tsx
+  - src/presentation/web/components/features/database/row-browser.tsx
+  - src/presentation/web/components/features/database/row-browser.stories.tsx
+  - src/presentation/web/components/features/database/schema-viewer.tsx
+  - src/presentation/web/components/features/database/schema-viewer.stories.tsx
+  - src/presentation/web/components/features/database/query-runner.tsx
+  - src/presentation/web/components/features/database/query-runner.stories.tsx
+  - src/presentation/web/components/features/database/cell-value-dialog.tsx
+  - src/presentation/web/components/features/database/cell-value-dialog.stories.tsx
+  - src/presentation/web/components/features/database/database-page-client.tsx
+  - src/presentation/web/components/features/database/database-page-client.stories.tsx
+  - src/presentation/web/app/database/page.tsx
+  - .storybook/mocks/app/actions/list-tables.ts
+  - .storybook/mocks/app/actions/get-table-rows.ts
+  - .storybook/mocks/app/actions/get-table-schema.ts
+  - .storybook/mocks/app/actions/execute-query.ts
+
+filesToModify:
+  - src/presentation/web/components/layouts/app-sidebar/app-sidebar.tsx
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Architecture Overview
+
+  The database browser is a **presentation-layer debugging tool** that sits entirely within
+  the web UI. It does not introduce domain models, repositories, or use cases — it accesses
+  the SQLite database directly via `getSQLiteConnection()` from the existing connection module.
+
+  This architectural decision follows the precedent set by `load-settings.ts` (which reads
+  file sizes directly) and `open-folder.ts` (which spawns OS processes). Utility/debugging
+  operations that don't map to domain concepts bypass Clean Architecture layers intentionally.
+
+  **Pattern:** Server component page → client wrapper → feature sub-components, matching
+  the settings page pattern (`SettingsPage` → `SettingsPageClient` → section components).
+
+  ## Key Design Decisions
+
+  ### 1. Direct DB Access in Server Actions
+  Server actions import `getSQLiteConnection()` directly rather than going through DI.
+  The database browser operates on raw SQL across arbitrary tables — the opposite of what
+  typed repositories are designed for. No domain layer pollution.
+
+  ### 2. Four Focused Server Actions
+  One action per operation (list-tables, get-table-rows, get-table-schema, execute-query).
+  Each has clean input/output types. Follows existing pattern of one-action-per-file.
+
+  ### 3. SQL Injection Prevention via Table Name Allowlisting
+  Before interpolating any table name, validate it exists in sqlite_master. Table names
+  cannot be parameterized in SQL, so allowlist validation is the only safe approach.
+  Double-quote escaping applied as additional defense.
+
+  ### 4. Two-Layer SQL Write Prevention
+  Client-side regex for instant UX feedback + server-side regex for security. Pattern
+  checks for disallowed keywords (INSERT, UPDATE, DELETE, DROP, ALTER, CREATE, ATTACH,
+  DETACH, REINDEX, VACUUM) after stripping comments and normalizing whitespace.
+
+  ### 5. Dialog for Expanded Cell Values
+  Truncated cells (>100 chars) open a Dialog showing full value. Preserves table layout,
+  supports copy-to-clipboard, works on touch devices. Uses existing shadcn/ui Dialog.
+
+  ### 6. shadcn/ui Table Component (File-Based, No NPM Dependency)
+  Added via `npx shadcn@latest add table` — generates a single .tsx file. Follows the
+  same process used for all 43 existing shadcn/ui components. Satisfies NFR-7.
+
+  ## Implementation Strategy
+
+  **Phase 1 (Foundation)** comes first because every UI component depends on the server
+  actions for data. Building and testing the data layer first means UI components can be
+  developed against known, tested contracts.
+
+  **Phase 2 (Components)** builds each UI piece independently with Storybook stories,
+  enabling visual development and review without needing the full page wired up.
+
+  **Phase 3 (Assembly)** wires components into the page, adds navigation, and creates
+  Storybook mocks. This is last because it depends on all prior phases being stable.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | SQL injection via table name interpolation | Allowlist validation against sqlite_master + double-quote escaping |
+  | Write queries corrupting data | Two-layer validation: client-side regex + server-side regex |
+  | Large BLOB values crashing browser | Display as "(N bytes)" string, never render raw binary |
+  | Performance on large tables (100K rows) | LIMIT/OFFSET pagination, row count cached per table selection |
+  | Storybook build breaks from missing mocks | Create mocks for all four server actions in phase 3 |
+  | Table component not available | Install shadcn/ui Table as first task before any table rendering |
+
+  ---
+
+  _Plan complete — proceed with task breakdown_

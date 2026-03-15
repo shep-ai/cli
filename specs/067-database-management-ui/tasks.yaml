@@ -1,0 +1,550 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: database-management-ui
+summary: >
+  18 tasks across 3 phases implementing a phpMyAdmin-style database browser.
+  Phase 1: shadcn Table install + 4 server actions with tests.
+  Phase 2: 5 feature components with colocated Storybook stories.
+  Phase 3: page assembly, sidebar nav, Storybook mocks, integration testing.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - Next.js App Router
+  - better-sqlite3
+  - shadcn/ui
+  - Tailwind CSS
+  - lucide-react
+relatedLinks: []
+
+# Structured task list
+tasks:
+  # ============================================================
+  # PHASE 1 — Foundation: shadcn Table + Server Actions
+  # ============================================================
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Install shadcn/ui Table component'
+    description: >
+      Run npx shadcn@latest add table to generate components/ui/table.tsx.
+      This is a prerequisite for all table rendering in subsequent tasks.
+      Verify the component exports Table, TableHeader, TableBody, TableRow,
+      TableHead, TableCell, TableCaption, TableFooter.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'components/ui/table.tsx exists with all expected exports'
+      - 'pnpm build succeeds with the new component'
+      - 'No new entries in package.json dependencies'
+    tdd: null
+    estimatedEffort: '10min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Implement list-tables server action'
+    description: >
+      Create app/actions/list-tables.ts that queries sqlite_master for table names
+      (excluding sqlite_ prefixed tables) and returns each table name with its row count.
+      Uses getSQLiteConnection() directly.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Server action returns array of {name: string, rowCount: number}'
+      - 'sqlite_ prefixed tables are excluded from results'
+      - 'Row counts are accurate for each table'
+      - 'Handles empty database (no tables) gracefully'
+    tdd:
+      red:
+        - 'Write test: listTables() returns array of {name, rowCount} objects'
+        - 'Write test: sqlite_ prefixed tables are excluded'
+        - 'Write test: empty database returns empty array'
+      green:
+        - 'Implement listTables() using SELECT name FROM sqlite_master WHERE type=table AND name NOT LIKE sqlite_%'
+        - 'For each table, execute SELECT COUNT(*) to get row count'
+        - 'Return typed result array'
+      refactor:
+        - 'Extract table name type/interface if reused by other actions'
+    estimatedEffort: '45min'
+
+  - id: task-3
+    phaseId: phase-1
+    title: 'Implement get-table-rows server action'
+    description: >
+      Create app/actions/get-table-rows.ts that fetches paginated rows from a specified
+      table. Validates table name against sqlite_master allowlist before interpolation.
+      Returns columns, rows, total row count, and pagination metadata.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'Returns {columns: string[], rows: Record<string, unknown>[], totalRows: number, page: number, pageSize: number}'
+      - 'Pagination works correctly with LIMIT 50 OFFSET calculation'
+      - 'Table name is validated against sqlite_master before query execution'
+      - 'Invalid table name returns an error, not a SQL injection'
+      - 'BLOB values are converted to "(N bytes)" string representation'
+    tdd:
+      red:
+        - 'Write test: getTableRows(table, 0) returns first 50 rows with columns'
+        - 'Write test: getTableRows(table, 1) returns rows 51-100'
+        - 'Write test: getTableRows(invalidTable) returns error'
+        - 'Write test: BLOB values are represented as byte length strings'
+      green:
+        - 'Implement table name validation against sqlite_master'
+        - 'Execute SELECT * FROM "table" LIMIT 50 OFFSET (page * 50)'
+        - 'Fetch total count with SELECT COUNT(*)'
+        - 'Process BLOB values in result rows'
+      refactor:
+        - 'Extract table name validation into shared helper used by task-4'
+        - 'Extract BLOB processing into reusable formatter'
+    estimatedEffort: '1h'
+
+  - id: task-4
+    phaseId: phase-1
+    title: 'Implement get-table-schema server action'
+    description: >
+      Create app/actions/get-table-schema.ts that executes PRAGMA table_info(<table>)
+      for a given table. Returns column definitions including name, type, notnull,
+      default value, and primary key status. Validates table name against sqlite_master.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'Returns array of {name, type, notnull, defaultValue, primaryKey} for each column'
+      - 'Table name is validated against sqlite_master before PRAGMA execution'
+      - 'Invalid table name returns an error'
+      - 'Handles tables with no columns gracefully (edge case)'
+    tdd:
+      red:
+        - 'Write test: getTableSchema(table) returns column metadata array'
+        - 'Write test: primary key columns are correctly identified'
+        - 'Write test: getTableSchema(invalidTable) returns error'
+      green:
+        - 'Implement using PRAGMA table_info with table name validation'
+        - 'Map PRAGMA results to typed schema objects'
+      refactor:
+        - 'Reuse table name validation helper from task-3'
+    estimatedEffort: '30min'
+
+  - id: task-5
+    phaseId: phase-1
+    title: 'Implement execute-query server action'
+    description: >
+      Create app/actions/execute-query.ts that executes read-only SQL queries.
+      Implements server-side validation to reject write operations (INSERT, UPDATE,
+      DELETE, DROP, ALTER, CREATE, ATTACH, DETACH, REINDEX, VACUUM).
+      Returns columns and rows on success, or error message on failure.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'SELECT queries execute and return {columns: string[], rows: Record<string, unknown>[]}'
+      - 'PRAGMA queries execute and return results'
+      - 'INSERT/UPDATE/DELETE/DROP/ALTER/CREATE are rejected with descriptive error'
+      - 'SQL syntax errors return the SQLite error message, not a stack trace'
+      - 'Empty query returns an error'
+      - 'BLOB values are converted to byte length strings'
+    tdd:
+      red:
+        - 'Write test: executeQuery(SELECT ...) returns columns and rows'
+        - 'Write test: executeQuery(PRAGMA ...) returns results'
+        - 'Write test: executeQuery(INSERT ...) is rejected'
+        - 'Write test: executeQuery(DROP ...) is rejected'
+        - 'Write test: executeQuery with syntax error returns error message'
+        - 'Write test: WITH ... INSERT is rejected (CTE edge case)'
+      green:
+        - 'Implement regex-based write detection: strip comments, normalize, check keywords'
+        - 'Execute allowed queries via db.prepare(query).all()'
+        - 'Catch errors and return message string'
+        - 'Process BLOB values in results'
+      refactor:
+        - 'Extract SQL validation regex into shared utility for client-side reuse'
+        - 'Extract BLOB processing (shared with task-3)'
+    estimatedEffort: '1h'
+
+  # ============================================================
+  # PHASE 2 — Feature Components with Storybook Stories
+  # ============================================================
+
+  - id: task-6
+    phaseId: phase-2
+    title: 'Build CellValueDialog component'
+    description: >
+      Create a dialog component that displays the full value of a truncated cell.
+      Used by RowBrowser and QueryRunner when cells contain text >100 chars.
+      Uses existing shadcn/ui Dialog component.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Dialog opens with full cell value when triggered'
+      - 'Value is displayed in a scrollable area'
+      - 'Dialog can be closed'
+      - 'Colocated .stories.tsx with stories for short text, long text, and BLOB value'
+    tdd:
+      red:
+        - 'Write test: dialog renders full value when open'
+        - 'Write test: dialog is hidden when closed'
+      green:
+        - 'Implement CellValueDialog using shadcn Dialog + ScrollArea'
+        - 'Accept value and open state as props'
+      refactor:
+        - 'Ensure consistent styling with existing dialogs in the codebase'
+    estimatedEffort: '30min'
+
+  - id: task-7
+    phaseId: phase-2
+    title: 'Build TableList component'
+    description: >
+      Create the table list sidebar component showing all database tables with row counts.
+      Includes a search filter input when more than 10 tables exist (FR-8).
+      Clicking a table triggers onSelectTable callback.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Renders list of table names with row counts as badges'
+      - 'Clicking a table calls onSelectTable with the table name'
+      - 'Selected table is visually highlighted'
+      - 'Search filter appears when >10 tables, filters by name'
+      - 'Empty state shown when no tables exist'
+      - 'Colocated .stories.tsx with stories for few tables, many tables, empty state'
+    tdd:
+      red:
+        - 'Write test: renders table names and row counts'
+        - 'Write test: clicking table calls onSelectTable'
+        - 'Write test: selected table has active styling'
+        - 'Write test: search filter appears when >10 tables'
+        - 'Write test: search filters table list by name'
+      green:
+        - 'Implement TableList with ScrollArea, Badge for counts, Input for search'
+        - 'Conditional search rendering based on table count threshold'
+      refactor:
+        - 'Extract filter logic if complex'
+    estimatedEffort: '45min'
+
+  - id: task-8
+    phaseId: phase-2
+    title: 'Build RowBrowser component'
+    description: >
+      Create the paginated row browser that displays table data in a shadcn Table.
+      Shows column headers from result set, supports pagination controls (previous/next/
+      page number), truncates long text at 100 chars with click-to-expand via CellValueDialog.
+    state: Todo
+    dependencies:
+      - task-1
+      - task-6
+    acceptanceCriteria:
+      - 'Renders rows in a shadcn Table with correct column headers'
+      - 'Pagination controls show current page, total pages, and prev/next buttons'
+      - 'Previous button disabled on first page, next disabled on last page'
+      - 'Text >100 chars is truncated with "..." and clickable to expand'
+      - 'BLOB values display as "(N bytes)"'
+      - 'Loading state shown while fetching'
+      - 'Empty state for tables with no rows'
+      - 'Colocated .stories.tsx with stories for populated table, empty table, loading, truncated values'
+    tdd:
+      red:
+        - 'Write test: renders column headers and row data'
+        - 'Write test: pagination shows correct page info'
+        - 'Write test: next/prev buttons trigger page change callback'
+        - 'Write test: long text is truncated at 100 chars'
+        - 'Write test: clicking truncated cell opens CellValueDialog'
+      green:
+        - 'Implement RowBrowser with Table, pagination controls, truncation logic'
+        - 'Integrate CellValueDialog for expanded values'
+      refactor:
+        - 'Extract pagination controls into sub-component if complex'
+    estimatedEffort: '1h'
+
+  - id: task-9
+    phaseId: phase-2
+    title: 'Build SchemaViewer component'
+    description: >
+      Create the schema viewer that displays column metadata from PRAGMA table_info.
+      Shows name, type, nullable, default value, and primary key indicator in a table.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Renders column metadata in a table with Name, Type, Nullable, Default, PK columns'
+      - 'Primary key columns are visually indicated (badge or icon)'
+      - 'Nullable columns show Yes/No clearly'
+      - 'Default values show actual value or "None"'
+      - 'Loading state shown while fetching'
+      - 'Colocated .stories.tsx with stories for typical schema, all-nullable, composite PK'
+    tdd:
+      red:
+        - 'Write test: renders column metadata with all fields'
+        - 'Write test: primary key badge shown for PK columns'
+        - 'Write test: nullable displays correctly'
+      green:
+        - 'Implement SchemaViewer with Table component'
+        - 'Add Badge for primary key indicator'
+      refactor:
+        - 'Ensure consistent table styling with RowBrowser'
+    estimatedEffort: '30min'
+
+  - id: task-10
+    phaseId: phase-2
+    title: 'Build QueryRunner component'
+    description: >
+      Create the SQL query runner with a textarea for input and a results table for output.
+      Implements client-side validation to reject write operations before submission.
+      Displays query results in a dynamic table or error message on failure.
+    state: Todo
+    dependencies:
+      - task-1
+      - task-5
+      - task-6
+    acceptanceCriteria:
+      - 'Textarea accepts SQL input with a visible label'
+      - 'Execute button submits the query'
+      - 'Client-side validation rejects write operations with inline error'
+      - 'Results display in a table with dynamic column headers'
+      - 'Error messages display in a styled error banner with aria-live'
+      - 'Long result values truncated with expand via CellValueDialog'
+      - 'Loading state during query execution'
+      - 'Colocated .stories.tsx with stories for empty, results, error, write-rejected'
+    tdd:
+      red:
+        - 'Write test: renders textarea and execute button'
+        - 'Write test: submitting SELECT calls onExecute callback'
+        - 'Write test: submitting INSERT shows client-side error without calling onExecute'
+        - 'Write test: error state displays error message in banner'
+        - 'Write test: results display in table'
+      green:
+        - 'Implement QueryRunner with textarea, client-side validation, results table'
+        - 'Use shared SQL validation regex from task-5'
+        - 'Integrate CellValueDialog for truncated results'
+      refactor:
+        - 'Extract results table into sub-component if shared with RowBrowser'
+    estimatedEffort: '1h'
+
+  # ============================================================
+  # PHASE 3 — Page Assembly & Navigation Integration
+  # ============================================================
+
+  - id: task-11
+    phaseId: phase-3
+    title: 'Build DatabasePageClient wrapper component'
+    description: >
+      Create the main client component that manages all database page state:
+      selected table, active tab (Data/Schema/Query), pagination page number.
+      Orchestrates server action calls and passes data to sub-components.
+    state: Todo
+    dependencies:
+      - task-7
+      - task-8
+      - task-9
+      - task-10
+    acceptanceCriteria:
+      - 'Manages selectedTable state, calls getTableRows and getTableSchema on selection'
+      - 'Tab navigation between Data, Schema, and Query tabs works'
+      - 'Pagination state resets when switching tables'
+      - 'Passes correct props to TableList, RowBrowser, SchemaViewer, QueryRunner'
+      - 'Loading states propagated to child components'
+      - 'Colocated .stories.tsx showing full page with mock data'
+    tdd:
+      red:
+        - 'Write test: selecting a table fetches rows and schema'
+        - 'Write test: switching tabs shows correct content'
+        - 'Write test: switching tables resets pagination to page 0'
+        - 'Write test: executing a query displays results'
+      green:
+        - 'Implement DatabasePageClient with Tabs, state management, server action calls'
+        - 'Layout: sidebar (TableList) + main area (tabbed content)'
+      refactor:
+        - 'Extract state management hooks if the component grows large'
+    estimatedEffort: '1h'
+
+  - id: task-12
+    phaseId: phase-3
+    title: 'Create /database page route'
+    description: >
+      Create app/database/page.tsx as a server component that fetches the initial
+      table list via listTables() and renders DatabasePageClient with the results.
+      Handles error state if database connection fails.
+    state: Todo
+    dependencies:
+      - task-2
+      - task-11
+    acceptanceCriteria:
+      - 'Page is accessible at /database route'
+      - 'Server component fetches initial table list'
+      - 'Error state shown if listTables() fails'
+      - 'Uses force-dynamic to skip static pre-render'
+      - 'Page renders DatabasePageClient with initial tables'
+    tdd:
+      red:
+        - 'Write test: page renders with table list data'
+        - 'Write test: page shows error state on fetch failure'
+      green:
+        - 'Implement page.tsx following settings page pattern'
+        - 'Export dynamic = force-dynamic'
+      refactor:
+        - 'Ensure consistent error handling with other pages'
+    estimatedEffort: '30min'
+
+  - id: task-13
+    phaseId: phase-3
+    title: 'Add Database nav item to sidebar'
+    description: >
+      Add a SidebarNavItem for "Database" with the Database lucide icon to
+      app-sidebar.tsx, positioned after the Settings nav item. Active state
+      derived from pathname matching /database.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'Database nav item appears after Settings in the sidebar'
+      - 'Uses Database icon from lucide-react'
+      - 'Links to /database'
+      - 'Active state highlights when on /database route'
+    tdd:
+      red:
+        - 'Write test: sidebar renders Database nav item after Settings'
+        - 'Write test: Database item has active state when pathname is /database'
+      green:
+        - 'Add SidebarNavItem with Database icon, label, href, and active check'
+      refactor:
+        - 'Verify icon import and positioning match existing items'
+    estimatedEffort: '15min'
+
+  - id: task-14
+    phaseId: phase-3
+    title: 'Create Storybook mocks for all server actions'
+    description: >
+      Create mock implementations of all four server actions in .storybook/mocks/app/actions/.
+      Each mock returns realistic sample data matching the real action signatures.
+      Required for Storybook builds to succeed.
+    state: Todo
+    dependencies:
+      - task-2
+      - task-3
+      - task-4
+      - task-5
+    acceptanceCriteria:
+      - 'Mock list-tables.ts returns 5+ sample tables with row counts'
+      - 'Mock get-table-rows.ts returns sample rows with columns and pagination metadata'
+      - 'Mock get-table-schema.ts returns sample column definitions'
+      - 'Mock execute-query.ts returns sample results for SELECT, error for writes'
+      - 'Storybook build succeeds with all mocks in place'
+    tdd: null
+    estimatedEffort: '30min'
+
+  - id: task-15
+    phaseId: phase-3
+    title: 'Verify Storybook stories render correctly'
+    description: >
+      Run Storybook build and verify all new stories render without errors.
+      Fix any import issues or mock mismatches. Ensure realistic data in all stories.
+    state: Todo
+    dependencies:
+      - task-14
+      - task-11
+    acceptanceCriteria:
+      - 'pnpm storybook:build completes without errors'
+      - 'All database component stories are listed in Storybook'
+      - 'Stories display realistic data and all interactive states'
+    tdd: null
+    estimatedEffort: '30min'
+
+  - id: task-16
+    phaseId: phase-3
+    title: 'Integration test — full page flow'
+    description: >
+      Write integration tests covering the full database page flow: loading tables,
+      selecting a table, browsing rows, switching tabs to schema, running a query,
+      and pagination. Tests use a real SQLite database with test data.
+    state: Todo
+    dependencies:
+      - task-12
+      - task-13
+    acceptanceCriteria:
+      - 'Test: page loads and displays table list'
+      - 'Test: selecting a table shows its rows'
+      - 'Test: pagination navigates between pages'
+      - 'Test: schema tab shows column metadata'
+      - 'Test: query runner executes SELECT and displays results'
+      - 'Test: query runner rejects write operations'
+      - 'All tests pass'
+    tdd:
+      red:
+        - 'Write integration tests for each acceptance criterion'
+      green:
+        - 'Ensure all components and server actions work together'
+        - 'Fix any integration issues discovered'
+      refactor:
+        - 'Extract test utilities if patterns repeat'
+    estimatedEffort: '1h'
+
+  - id: task-17
+    phaseId: phase-3
+    title: 'Build verification and lint fix'
+    description: >
+      Run pnpm validate (lint + format + typecheck + tsp) and pnpm build to ensure
+      everything compiles cleanly. Fix any lint errors, type errors, or build issues.
+    state: Todo
+    dependencies:
+      - task-16
+    acceptanceCriteria:
+      - 'pnpm validate passes with no errors'
+      - 'pnpm build succeeds'
+      - 'No TypeScript errors in new files'
+    tdd: null
+    estimatedEffort: '20min'
+
+  - id: task-18
+    phaseId: phase-3
+    title: 'Manual smoke test in dev and production modes'
+    description: >
+      Start the web UI in dev mode (port 3000) and production mode (port 4050) and
+      verify the database page works end-to-end: sidebar nav, table list, row browsing,
+      schema viewing, and query execution.
+    state: Todo
+    dependencies:
+      - task-17
+    acceptanceCriteria:
+      - 'Database page loads in dev mode (pnpm dev:web)'
+      - 'Database page loads in production mode (pnpm build && pnpm start)'
+      - 'All features functional: table list, row browser, schema, query runner'
+      - 'No console errors'
+    tdd: null
+    estimatedEffort: '15min'
+
+# Total effort estimate
+totalEstimate: '10h 30min'
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Summary
+
+  The implementation proceeds in three phases across 18 tasks.
+
+  **Phase 1 (Foundation)** installs the shadcn/ui Table file component, then builds all
+  four server actions (list-tables, get-table-rows, get-table-schema, execute-query) with
+  full TDD coverage. Each action is tested for correct results, error handling, and security
+  (SQL injection prevention, write operation rejection). A shared table name validation
+  helper and BLOB formatting utility emerge during refactoring.
+
+  **Phase 2 (Components)** builds five feature components in parallel where possible:
+  CellValueDialog (truncated value expansion), TableList (sidebar with search), RowBrowser
+  (paginated data table), SchemaViewer (column metadata), and QueryRunner (SQL textarea
+  with results). Each component gets colocated Storybook stories with realistic mock data.
+
+  **Phase 3 (Assembly)** wires everything together: DatabasePageClient manages state and
+  orchestrates server action calls, the /database page route provides the server component
+  entry point, and the sidebar gets a new Database nav item. Storybook mocks are created
+  for all server actions, integration tests verify the full flow, and build/lint verification
+  ensures everything is clean.
+
+  The total estimated effort is approximately 10.5 hours.
+
+  ---
+
+  _Task breakdown complete — ready for implementation_
