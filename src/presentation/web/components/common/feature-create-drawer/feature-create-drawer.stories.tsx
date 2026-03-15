@@ -639,7 +639,8 @@ function CreateDrawerWithRepoSelectorEmpty() {
 
 /**
  * With empty repo selector — opened from sidebar but no repositories are tracked.
- * The combobox is not shown (empty repos array), and the submit button remains disabled.
+ * Shows the combobox with only the "Add new repository..." option.
+ * The submit button remains disabled until a repository is added.
  */
 export const WithRepoSelectorEmpty: Story = {
   render: () => <CreateDrawerWithRepoSelectorEmpty />,

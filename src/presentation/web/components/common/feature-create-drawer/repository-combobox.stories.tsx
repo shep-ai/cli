@@ -23,7 +23,7 @@ export default meta;
 type Story = StoryObj<typeof RepositoryCombobox>;
 
 function RepositoryComboboxWrapper({
-  repositories,
+  repositories: initialRepos,
   initialValue,
   disabled,
 }: {
@@ -31,14 +31,19 @@ function RepositoryComboboxWrapper({
   initialValue?: string;
   disabled?: boolean;
 }) {
+  const [repos, setRepos] = useState<RepositoryOption[]>(initialRepos);
   const [value, setValue] = useState<string | undefined>(initialValue);
 
   return (
     <div className="w-80">
       <RepositoryCombobox
-        repositories={repositories}
+        repositories={repos}
         value={value}
         onChange={setValue}
+        onAddRepository={(repo) => {
+          setRepos((prev) => [...prev, repo]);
+          setValue(repo.path);
+        }}
         disabled={disabled}
       />
       {value ? <p className="text-muted-foreground mt-2 text-xs">Selected: {value}</p> : null}
@@ -51,7 +56,7 @@ export const WithRepositories: Story = {
   render: () => <RepositoryComboboxWrapper repositories={SAMPLE_REPOSITORIES} />,
 };
 
-/** Empty list — shows "No repositories found." message when opened. */
+/** Empty list — shows "No repositories found." message and "Add new repository..." option. */
 export const EmptyList: Story = {
   render: () => <RepositoryComboboxWrapper repositories={[]} />,
 };
