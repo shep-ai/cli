@@ -350,6 +350,10 @@ export type WorkflowConfig = {
    */
   ciLogMaxChars?: number;
   /**
+   * Timeout in milliseconds for each agent executor call per stage (default: 600000 = 10 minutes)
+   */
+  stageTimeoutMs?: number;
+  /**
    * Enable evidence collection after implementation (default: false)
    */
   enableEvidence: boolean;

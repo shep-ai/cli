@@ -24,6 +24,11 @@ properties:
     minimum: -2147483648
     maximum: 2147483647
     description: "Maximum characters of CI failure logs to pass to the executor (default: 50000)"
+  stageTimeoutMs:
+    type: integer
+    minimum: -2147483648
+    maximum: 2147483647
+    description: "Timeout in milliseconds for each agent executor call per stage (default: 600000 = 10 minutes)"
   enableEvidence:
     type: boolean
     default: false
