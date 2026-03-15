@@ -1,0 +1,46 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-feature-settings-overview-ab30e1
+
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > lifecycle label > renders lifecycle phase label from FeatureNodeData 25ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > lifecycle label > renders all lifecycle phase labels correctly 22ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > state badge > renders FeatureStateBadge with correct label for running state 3ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > state badge > renders FeatureStateBadge with correct label for action-required state 3ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > state badge > renders FeatureStateBadge with correct label for done state 2ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > state badge > renders FeatureStateBadge with correct label for blocked state 2ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > state badge > renders FeatureStateBadge with correct label for error state 3ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > progress bar > renders progress bar when progress > 0 4ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > progress bar > does not render progress bar when progress is 0 2ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > progress bar > does not render progress bar when lifecycle is maintain (completed) 1ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > PR info > renders PR info when PR exists 5ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > PR info > does not render PR info when PR is undefined 2ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > PR info > displays PR number as link 50ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > PR info > renders PR info inside status section when lifecycle is maintain (completed) 3ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > PR info > renders PR info outside status section when lifecycle is not maintain 5ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > PR info > renders merge conflict badge when mergeable is false 4ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > PR info > does not render merge conflict badge when mergeable is true 4ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > PR info > does not render merge conflict badge when mergeable is undefined 3ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > inline attachments in user query > renders inline attachment image when userQuery contains @/path reference 4ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > inline attachments in user query > renders plain text when userQuery has no attachment references 3ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > duplicate summary hiding > hides summary when it matches userQuery exactly 6ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > duplicate summary hiding > hides summary when it matches userQuery after trimming whitespace 3ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > duplicate summary hiding > shows summary when it differs from userQuery 3ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > duplicate summary hiding > shows summary when userQuery is not present 2ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > details section > renders details section with agent type 3ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > details section > renders details section with runtime 6ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > details section > renders blocked by info 2ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > details section > renders error message 2ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > details section > hides details section when no optional detail fields are set 2ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > settings section > renders settings section when approval gates are provided 4ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > settings section > renders git settings when push and openPr are provided 4ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > settings section > renders model name when modelId is provided 4ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > settings section > renders all settings together 5ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > settings section > renders evidence settings when enableEvidence is provided 3ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > settings section > renders evidence with both badges enabled 3ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > settings section > renders evidence with both badges disabled 5ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx > OverviewTab > settings section > hides settings section when no settings fields are provided 2ms
+
+ Test Files  1 passed (1)
+      Tests  37 passed (37)
+   Start at  16:28:05
+   Duration  754ms (transform 108ms, setup 69ms, import 223ms, tests 208ms, environment 198ms)
+
