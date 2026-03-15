@@ -242,6 +242,14 @@ export class GitPrService implements IGitPrService {
         }
       }
 
+      // Clean untracked files that may conflict with the merge (e.g. files created
+      // by a prior agent call that leaked into the original repo directory)
+      try {
+        await this.execFile('git', ['clean', '-fd'], { cwd });
+      } catch {
+        // Clean failure is non-fatal
+      }
+
       // Squash merge the feature branch
       await this.execFile('git', ['merge', '--squash', featureBranch], { cwd });
 
