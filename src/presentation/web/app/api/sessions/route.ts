@@ -41,6 +41,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       sessions: sessions.map((s) => ({
         id: s.id,
+        agentType: s.agentType,
         preview: s.preview,
         messageCount: s.messageCount,
         firstMessageAt: s.firstMessageAt?.toISOString() ?? null,

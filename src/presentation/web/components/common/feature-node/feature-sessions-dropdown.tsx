@@ -26,9 +26,11 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import { getAgentTypeIcon } from '@/components/common/feature-node/agent-type-icons';
 
 export interface SessionSummary {
   id: string;
+  agentType?: string;
   preview: string | null;
   messageCount: number;
   firstMessageAt: string | null;
@@ -69,7 +71,7 @@ function formatRelativeTime(dateStr: string): string {
   return date.toLocaleDateString();
 }
 
-function truncatePreview(preview: string | null, maxLength = 45): string {
+function truncatePreview(preview: string | null, maxLength = 40): string {
   if (!preview) return 'No preview';
   if (preview.length <= maxLength) return preview;
   return `${preview.slice(0, maxLength)}...`;
@@ -207,7 +209,7 @@ export function FeatureSessionsDropdown({
       <DropdownMenuContent
         align="start"
         side="bottom"
-        className="w-72"
+        className="w-80"
         onClick={stopNodeEvent}
         onPointerDown={stopNodeEvent}
       >
@@ -226,89 +228,14 @@ export function FeatureSessionsDropdown({
           <div className="text-muted-foreground py-4 text-center text-xs">No sessions found</div>
         ) : (
           <>
-            {visibleSessions.map((session) => {
-              const active = isSessionActive(session);
-              return (
-                <DropdownMenuSub key={session.id}>
-                  <DropdownMenuSubTrigger className="flex flex-col items-start gap-1 py-2">
-                    <div className="flex w-full items-center gap-1.5">
-                      {active ? (
-                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
-                      ) : null}
-                      <span className="min-w-0 flex-1 truncate text-xs">
-                        {truncatePreview(session.preview)}
-                      </span>
-                    </div>
-                    <div className="text-muted-foreground flex w-full items-center gap-3 text-[10px]">
-                      <span className="flex items-center gap-0.5">
-                        <MessageSquare className="h-2.5 w-2.5" />
-                        {session.messageCount}
-                      </span>
-                      {session.firstMessageAt ? (
-                        <span className="flex items-center gap-0.5">
-                          <Clock className="h-2.5 w-2.5" />
-                          {new Date(session.firstMessageAt).toLocaleDateString()}
-                        </span>
-                      ) : null}
-                      {session.lastMessageAt ? (
-                        <span
-                          className={cn(
-                            'ml-auto shrink-0',
-                            active ? 'font-medium text-emerald-600' : ''
-                          )}
-                        >
-                          {formatRelativeTime(session.lastMessageAt)}
-                        </span>
-                      ) : null}
-                    </div>
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuPortal>
-                    <DropdownMenuSubContent onClick={stopNodeEvent} onPointerDown={stopNodeEvent}>
-                      <DropdownMenuItem
-                        className="gap-2 text-xs"
-                        onClick={() =>
-                          void copyToClipboard(
-                            `claude --resume ${session.id} --project ${repositoryPath}`
-                          )
-                        }
-                      >
-                        <Terminal className="h-3 w-3" />
-                        Copy resume command
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className="gap-2 text-xs"
-                        onClick={() => void copyToClipboard(session.id)}
-                      >
-                        <Copy className="h-3 w-3" />
-                        Copy session ID
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className="gap-2 text-xs"
-                        onClick={() => {
-                          const vscodeUri = `vscode://file${repositoryPath}`;
-                          window.open(vscodeUri, '_blank');
-                        }}
-                      >
-                        <ExternalLink className="h-3 w-3" />
-                        Open in IDE
-                      </DropdownMenuItem>
-                      {onCreateFromSession && session.filePath ? (
-                        <>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className="gap-2 text-xs font-medium"
-                            onClick={() => onCreateFromSession(session, session.filePath!)}
-                          >
-                            <Sparkles className="h-3 w-3" />
-                            Create feature from session
-                          </DropdownMenuItem>
-                        </>
-                      ) : null}
-                    </DropdownMenuSubContent>
-                  </DropdownMenuPortal>
-                </DropdownMenuSub>
-              );
-            })}
+            {visibleSessions.map((session) => (
+              <SessionRow
+                key={session.id}
+                session={session}
+                repositoryPath={repositoryPath}
+                onCreateFromSession={onCreateFromSession}
+              />
+            ))}
 
             {hasMore ? (
               <DropdownMenuItem
@@ -328,5 +255,104 @@ export function FeatureSessionsDropdown({
         )}
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+// ── Session row component ─────────────────────────────────────────────
+
+function SessionRow({
+  session,
+  repositoryPath,
+  onCreateFromSession,
+}: {
+  session: SessionSummary;
+  repositoryPath: string;
+  onCreateFromSession?: (session: SessionSummary, sessionFilePath: string) => void;
+}) {
+  const active = isSessionActive(session);
+  const AgentIcon = getAgentTypeIcon(session.agentType);
+
+  return (
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger className="flex items-start gap-2 py-2 pr-2">
+        {/* Agent icon with optional active indicator */}
+        <div className="relative mt-0.5 shrink-0">
+          <AgentIcon className="h-4 w-4" />
+          {active ? (
+            <span className="border-background absolute -right-0.5 -bottom-0.5 h-2 w-2 rounded-full border bg-emerald-500" />
+          ) : null}
+        </div>
+
+        {/* Content area */}
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          {/* Preview text */}
+          <span className="truncate text-xs leading-tight">{truncatePreview(session.preview)}</span>
+
+          {/* Metadata row */}
+          <div className="text-muted-foreground flex items-center gap-2 text-[10px] leading-tight">
+            <span className="flex items-center gap-0.5">
+              <MessageSquare className="h-2.5 w-2.5" />
+              {session.messageCount}
+            </span>
+            {session.firstMessageAt ? (
+              <span className="flex items-center gap-0.5">
+                <Clock className="h-2.5 w-2.5" />
+                {new Date(session.firstMessageAt).toLocaleDateString()}
+              </span>
+            ) : null}
+            {session.lastMessageAt ? (
+              <span
+                className={cn('ml-auto shrink-0', active ? 'font-medium text-emerald-600' : '')}
+              >
+                {formatRelativeTime(session.lastMessageAt)}
+              </span>
+            ) : null}
+          </div>
+        </div>
+      </DropdownMenuSubTrigger>
+
+      <DropdownMenuPortal>
+        <DropdownMenuSubContent onClick={stopNodeEvent} onPointerDown={stopNodeEvent}>
+          <DropdownMenuItem
+            className="gap-2 text-xs"
+            onClick={() =>
+              void copyToClipboard(`claude --resume ${session.id} --project ${repositoryPath}`)
+            }
+          >
+            <Terminal className="h-3.5 w-3.5" />
+            Copy resume command
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            className="gap-2 text-xs"
+            onClick={() => void copyToClipboard(session.id)}
+          >
+            <Copy className="h-3.5 w-3.5" />
+            Copy session ID
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            className="gap-2 text-xs"
+            onClick={() => {
+              const vscodeUri = `vscode://file${repositoryPath}`;
+              window.open(vscodeUri, '_blank');
+            }}
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+            Open in IDE
+          </DropdownMenuItem>
+          {onCreateFromSession && session.filePath ? (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="gap-2 text-xs font-medium"
+                onClick={() => onCreateFromSession(session, session.filePath!)}
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                Create feature from session
+              </DropdownMenuItem>
+            </>
+          ) : null}
+        </DropdownMenuSubContent>
+      </DropdownMenuPortal>
+    </DropdownMenuSub>
   );
 }
