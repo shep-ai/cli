@@ -36,8 +36,8 @@ test.describe('Feature Create Drawer — native file attachments', () => {
       })
     );
 
-    // Navigate directly to create drawer route
-    await page.goto('/create');
+    // Navigate directly to create drawer route (repo param required to enable submit)
+    await page.goto('/create?repo=/fake/repo');
 
     // Wait for the drawer to appear — use heading role to avoid matching sidebar text
     await expect(page.getByRole('heading', { name: 'NEW FEATURE' })).toBeVisible({
@@ -79,7 +79,7 @@ test.describe('Feature Create Drawer — native file attachments', () => {
       })
     );
 
-    await page.goto('/create');
+    await page.goto('/create?repo=/fake/repo');
 
     await expect(page.getByRole('heading', { name: 'NEW FEATURE' })).toBeVisible({
       timeout: 15000,
@@ -143,7 +143,7 @@ test.describe('Feature Create Drawer — native file attachments', () => {
       });
     });
 
-    await page.goto('/create');
+    await page.goto('/create?repo=/fake/repo');
 
     await expect(page.getByRole('heading', { name: 'NEW FEATURE' })).toBeVisible({
       timeout: 15000,
