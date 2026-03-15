@@ -21,6 +21,13 @@ This is the living debugging log for the `shep-e2e.yml` workflow and Windows sup
 
 ---
 
+## Full-SDLC Jobs
+
+| Job                                   | Status | Notes                                                 |
+| ------------------------------------- | ------ | ----------------------------------------------------- |
+| claude-code / windows / full-sdlc     | PASS   | Local merge + null TDD guard + temp file commit       |
+| claude-code / ubuntu / full-sdlc + pr | PASS   | Rate limit handling + increased timeout (20 min poll) |
+
 ## Current Status
 
 ### Main CI (`ci.yml`) — Windows
@@ -34,17 +41,17 @@ This is the living debugging log for the `shep-e2e.yml` workflow and Windows sup
 
 ### Shep E2E (`shep-e2e.yml`) — Full Matrix
 
-| Combo                 | Status  | Notes                                                      |
-| --------------------- | ------- | ---------------------------------------------------------- |
-| dev / ubuntu          | PASS    | Baseline — no subprocess spawning                          |
-| dev / windows         | PASS    | Same — pure in-process                                     |
-| dev / macos           | PASS    | Same                                                       |
-| claude-code / ubuntu  | PASS    | Full lifecycle                                             |
-| claude-code / windows | PASS    | `windowsHide: true`, no `shell: true` needed (.exe binary) |
-| claude-code / macos   | PASS    | Full lifecycle                                             |
-| cursor / ubuntu       | PASS    | Full lifecycle                                             |
-| cursor / windows      | TESTING | stdin-pipe prompt passing bypasses `cmd.exe` mangling      |
-| cursor / macos        | PASS    | Full lifecycle                                             |
+| Combo                 | Status  | Notes                                                         |
+| --------------------- | ------- | ------------------------------------------------------------- |
+| dev / ubuntu          | PASS    | Baseline — no subprocess spawning                             |
+| dev / windows         | PASS    | Same — pure in-process                                        |
+| dev / macos           | PASS    | Same                                                          |
+| claude-code / ubuntu  | PASS    | Full lifecycle                                                |
+| claude-code / windows | PASS    | `windowsHide: true`, no `shell: true` needed (.exe binary)    |
+| claude-code / macos   | PASS    | Full lifecycle                                                |
+| cursor / ubuntu       | PASS    | Full lifecycle                                                |
+| cursor / windows      | TESTING | PowerShell agent hangs — taskkill tree kill added for timeout |
+| cursor / macos        | PASS    | Full lifecycle                                                |
 
 ---
 
@@ -143,6 +150,24 @@ Cursor CLI ships as `.cmd`/`.ps1` scripts on Windows. Node.js needs `shell: true
 8. Each executor should own its own `shell` option — don't set it centrally in the DI wrapper
 9. `shell: true` with `spawn()` causes DEP0190 + argument escaping issues (packages/CLAUDE.md warns against this)
 10. Always add a timeout to agent executor calls to prevent infinite hangs
+
+### Round 3: Programmatic Merge + CI Robustness (Attempts 14-19)
+
+| #   | Commit     | Fix                                                                   | Result                                                |
+| --- | ---------- | --------------------------------------------------------------------- | ----------------------------------------------------- |
+| 14  | `ccc027a7` | Replace agent-based local merge with programmatic `localMergeSquash`  | cursor/ubuntu+macos PASS, dev jobs FAIL (empty merge) |
+| 15  | `99de008`  | Handle empty squash merge (skip commit when nothing to commit)        | dev jobs PASS, claude/windows FAIL (untracked files)  |
+| 16  | `5bd85caf` | `git clean -fd` before merge + null TDD field guards in implement     | 9/11 PASS, claude/windows FAIL (shell splitting)      |
+| 17  | `1b98529d` | Use `--message=` form for commit message                              | Still fails — cmd.exe splits on `=` too               |
+| 18  | `0f262bf9` | Use temp file + `git commit --file` to avoid shell splitting entirely | 10/11 PASS — only cursor/windows hangs                |
+| 19  | `0b94794f` | Increase e2e wait timeouts (20 min poll, 25 min step for full-sdlc)   | 10/11 PASS — full-sdlc+pr now completes               |
+| 20  | `8cff192d` | Use `taskkill /F /T /PID` for cursor timeout on Windows (tree kill)   | TESTING                                               |
+
+**Root cause (merge)**: Cursor agent doesn't reliably execute `git merge --squash`. Replaced with deterministic `localMergeSquash` method that runs git commands directly. Also handles: empty merges (dev executor), untracked files (leaked agent files), and Windows `shell: true` commit message splitting.
+
+**Root cause (CI watch)**: GitHub API rate limits (HTTP 403) crash the CI watch loop. Added graceful catch-and-skip for rate limit errors.
+
+**Root cause (cursor/windows)**: Cursor CLI agent hangs indefinitely on Windows CI runners. PowerShell spawns `agent.cmd` but the process never produces output. `proc.kill()` doesn't terminate the process tree. Added `taskkill /F /T` for proper tree kill on timeout.
 
 ### Cursor-Specific
 
