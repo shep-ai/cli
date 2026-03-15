@@ -129,6 +129,42 @@ describe('WebhookManagerService', () => {
       expect(manager.getTunnelUrl()).toBe('https://test.trycloudflare.com');
     });
   });
+
+  describe('getStatus', () => {
+    it('should return inactive status when not started', () => {
+      const status = manager.getStatus();
+      expect(status.running).toBe(false);
+      expect(status.startedAt).toBeNull();
+    });
+
+    it('should return active status with tunnel info when running', async () => {
+      await manager.start(3000);
+      const status = manager.getStatus();
+
+      expect(status.running).toBe(true);
+      expect(status.startedAt).not.toBeNull();
+      expect(status.tunnel.connected).toBe(true);
+      expect(status.tunnel.publicUrl).toBe('https://test.trycloudflare.com');
+    });
+
+    it('should return delivery statistics', async () => {
+      await manager.start(3000);
+      const status = manager.getStatus();
+
+      expect(status.webhooks.totalDeliveries).toBe(0);
+      expect(status.webhooks.successCount).toBe(0);
+      expect(status.webhooks.errorCount).toBe(0);
+      expect(status.webhooks.ignoredCount).toBe(0);
+    });
+  });
+
+  describe('getDeliveryHistory', () => {
+    it('should return empty array when webhook service has no delivery tracking', async () => {
+      await manager.start(3000);
+      const history = manager.getDeliveryHistory();
+      expect(history).toEqual([]);
+    });
+  });
 });
 
 describe('Singleton accessors', () => {

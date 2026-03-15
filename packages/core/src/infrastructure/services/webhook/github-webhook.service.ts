@@ -26,6 +26,7 @@ import type { NotificationEvent, Feature } from '../../../domain/generated/outpu
 
 const TAG = '[GitHubWebhook]';
 const WEBHOOK_EVENTS = ['pull_request', 'check_suite', 'check_run'];
+const MAX_EVENT_HISTORY = 200;
 
 export type ExecFunction = (
   file: string,
@@ -33,10 +34,23 @@ export type ExecFunction = (
   options?: object
 ) => Promise<{ stdout: string; stderr: string }>;
 
-interface RegisteredWebhook {
+export interface RegisteredWebhook {
   repoFullName: string;
   webhookId: number;
   repositoryPath: string;
+}
+
+export type WebhookDeliveryStatus = 'success' | 'ignored' | 'error';
+
+export interface WebhookDeliveryRecord {
+  deliveryId: string;
+  eventType: string;
+  source: string;
+  receivedAt: string;
+  status: WebhookDeliveryStatus;
+  statusMessage: string;
+  durationMs: number;
+  payload: Record<string, unknown>;
 }
 
 export class GitHubWebhookService implements IWebhookService {
@@ -45,6 +59,7 @@ export class GitHubWebhookService implements IWebhookService {
   private readonly notificationService: INotificationService;
   private readonly execFn: ExecFunction;
   private readonly registeredWebhooks: RegisteredWebhook[] = [];
+  private readonly deliveryHistory: WebhookDeliveryRecord[] = [];
   private webhookSecret: string;
 
   constructor(
@@ -66,6 +81,20 @@ export class GitHubWebhookService implements IWebhookService {
    */
   getSecret(): string {
     return this.webhookSecret;
+  }
+
+  /**
+   * Get the list of registered webhooks (for dashboard display).
+   */
+  getRegisteredWebhooks(): readonly RegisteredWebhook[] {
+    return this.registeredWebhooks;
+  }
+
+  /**
+   * Get recent delivery history (newest first).
+   */
+  getDeliveryHistory(): readonly WebhookDeliveryRecord[] {
+    return this.deliveryHistory;
   }
 
   async registerWebhooks(publicUrl: string): Promise<void> {
@@ -183,24 +212,53 @@ export class GitHubWebhookService implements IWebhookService {
   }
 
   async handleEvent(event: WebhookEvent): Promise<void> {
+    const startTime = Date.now();
     // eslint-disable-next-line no-console
     console.log(
       `${TAG} Received ${event.source}/${event.eventType} (delivery: ${event.deliveryId})`
     );
 
-    switch (event.eventType) {
-      case 'pull_request':
-        await this.handlePullRequestEvent(event.payload);
-        break;
-      case 'check_suite':
-        await this.handleCheckSuiteEvent(event.payload);
-        break;
-      case 'check_run':
-        await this.handleCheckRunEvent(event.payload);
-        break;
-      default:
-        // eslint-disable-next-line no-console
-        console.log(`${TAG} Ignoring unhandled event type: ${event.eventType}`);
+    let status: WebhookDeliveryStatus = 'success';
+    let statusMessage = 'Processed successfully';
+
+    try {
+      switch (event.eventType) {
+        case 'pull_request':
+          await this.handlePullRequestEvent(event.payload);
+          break;
+        case 'check_suite':
+          await this.handleCheckSuiteEvent(event.payload);
+          break;
+        case 'check_run':
+          await this.handleCheckRunEvent(event.payload);
+          break;
+        default:
+          status = 'ignored';
+          statusMessage = `Unhandled event type: ${event.eventType}`;
+          // eslint-disable-next-line no-console
+          console.log(`${TAG} Ignoring unhandled event type: ${event.eventType}`);
+      }
+    } catch (error) {
+      status = 'error';
+      statusMessage = error instanceof Error ? error.message : String(error);
+    }
+
+    this.recordDelivery({
+      deliveryId: event.deliveryId,
+      eventType: event.eventType,
+      source: event.source,
+      receivedAt: new Date().toISOString(),
+      status,
+      statusMessage,
+      durationMs: Date.now() - startTime,
+      payload: event.payload,
+    });
+  }
+
+  private recordDelivery(record: WebhookDeliveryRecord): void {
+    this.deliveryHistory.unshift(record);
+    if (this.deliveryHistory.length > MAX_EVENT_HISTORY) {
+      this.deliveryHistory.length = MAX_EVENT_HISTORY;
     }
   }
 

@@ -334,4 +334,83 @@ describe('GitHubWebhookService', () => {
       );
     });
   });
+
+  describe('delivery history tracking', () => {
+    it('should record successful deliveries', async () => {
+      const feature = createMockFeature();
+      vi.mocked(mockFeatureRepo.list).mockResolvedValue([feature]);
+
+      await service.handleEvent({
+        source: 'github',
+        eventType: 'pull_request',
+        deliveryId: 'hist-1',
+        payload: {
+          action: 'closed',
+          pull_request: {
+            number: 42,
+            html_url: 'https://github.com/owner/repo/pull/42',
+            merged: true,
+            head: { ref: 'feat/test' },
+          },
+        },
+      });
+
+      const history = service.getDeliveryHistory();
+      expect(history).toHaveLength(1);
+      expect(history[0].deliveryId).toBe('hist-1');
+      expect(history[0].status).toBe('success');
+      expect(history[0].eventType).toBe('pull_request');
+      expect(history[0].durationMs).toBeGreaterThanOrEqual(0);
+    });
+
+    it('should record ignored events for unhandled types', async () => {
+      await service.handleEvent({
+        source: 'github',
+        eventType: 'ping',
+        deliveryId: 'hist-2',
+        payload: { zen: 'Keep it logically awesome.' },
+      });
+
+      const history = service.getDeliveryHistory();
+      expect(history).toHaveLength(1);
+      expect(history[0].status).toBe('ignored');
+      expect(history[0].statusMessage).toContain('Unhandled event type');
+    });
+
+    it('should return newest deliveries first', async () => {
+      vi.mocked(mockFeatureRepo.list).mockResolvedValue([]);
+
+      await service.handleEvent({
+        source: 'github',
+        eventType: 'ping',
+        deliveryId: 'first',
+        payload: {},
+      });
+      await service.handleEvent({
+        source: 'github',
+        eventType: 'ping',
+        deliveryId: 'second',
+        payload: {},
+      });
+
+      const history = service.getDeliveryHistory();
+      expect(history).toHaveLength(2);
+      expect(history[0].deliveryId).toBe('second');
+      expect(history[1].deliveryId).toBe('first');
+    });
+
+    it('should expose registered webhooks via getter', async () => {
+      const feature = createMockFeature();
+      vi.mocked(mockFeatureRepo.list).mockResolvedValue([feature]);
+      vi.mocked(mockGitPrService.getRemoteUrl).mockResolvedValue('https://github.com/owner/repo');
+      mockExecFn.mockResolvedValue({ stdout: JSON.stringify({ id: 555 }), stderr: '' });
+
+      await service.registerWebhooks('https://tunnel.trycloudflare.com');
+
+      const registered = service.getRegisteredWebhooks();
+      expect(registered).toHaveLength(1);
+      expect(registered[0].repoFullName).toBe('owner/repo');
+      expect(registered[0].webhookId).toBe(555);
+    });
+  });
 });

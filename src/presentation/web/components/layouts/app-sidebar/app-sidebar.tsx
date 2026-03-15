@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { Home, Wrench, Puzzle, Settings } from 'lucide-react';
+import { Home, Wrench, Puzzle, Settings, Webhook } from 'lucide-react';
 import {
   Sidebar,
   SidebarHeader,
@@ -112,6 +112,12 @@ export function AppSidebar({
               active={pathname === '/skills'}
             />
           ) : null}
+          <SidebarNavItem
+            icon={Webhook}
+            label="Webhooks"
+            href="/webhooks"
+            active={pathname === '/webhooks'}
+          />
           <SidebarNavItem
             icon={Settings}
             label="Settings"

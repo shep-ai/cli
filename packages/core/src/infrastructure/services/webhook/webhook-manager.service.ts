@@ -17,6 +17,27 @@
 
 import type { ITunnelService } from '../../../application/ports/output/services/tunnel-service.interface.js';
 import type { IWebhookService } from '../../../application/ports/output/services/webhook-service.interface.js';
+import type {
+  RegisteredWebhook,
+  WebhookDeliveryRecord,
+  GitHubWebhookService,
+} from './github-webhook.service.js';
+
+export interface WebhookSystemStatus {
+  running: boolean;
+  tunnel: {
+    connected: boolean;
+    publicUrl: string | null;
+  };
+  webhooks: {
+    registered: readonly RegisteredWebhook[];
+    totalDeliveries: number;
+    successCount: number;
+    errorCount: number;
+    ignoredCount: number;
+  };
+  startedAt: string | null;
+}
 
 const TAG = '[WebhookManager]';
 
@@ -24,6 +45,7 @@ export class WebhookManagerService {
   private readonly tunnelService: ITunnelService;
   private readonly webhookService: IWebhookService;
   private running = false;
+  private startedAt: string | null = null;
 
   constructor(tunnelService: ITunnelService, webhookService: IWebhookService) {
     this.tunnelService = tunnelService;
@@ -62,6 +84,7 @@ export class WebhookManagerService {
       await this.webhookService.registerWebhooks(publicUrl);
 
       this.running = true;
+      this.startedAt = new Date().toISOString();
       // eslint-disable-next-line no-console
       console.log(`${TAG} Webhook system ready (tunnel: ${publicUrl})`);
     } catch (error) {
@@ -114,6 +137,50 @@ export class WebhookManagerService {
 
   getTunnelUrl(): string | null {
     return this.tunnelService.getPublicUrl();
+  }
+
+  getStatus(): WebhookSystemStatus {
+    const ghService = this.webhookService as GitHubWebhookService;
+    const deliveries =
+      typeof ghService.getDeliveryHistory === 'function' ? ghService.getDeliveryHistory() : [];
+
+    const registered =
+      typeof ghService.getRegisteredWebhooks === 'function'
+        ? ghService.getRegisteredWebhooks()
+        : [];
+
+    let successCount = 0;
+    let errorCount = 0;
+    let ignoredCount = 0;
+    for (const d of deliveries) {
+      if (d.status === 'success') successCount++;
+      else if (d.status === 'error') errorCount++;
+      else ignoredCount++;
+    }
+
+    return {
+      running: this.running,
+      tunnel: {
+        connected: this.tunnelService.isRunning(),
+        publicUrl: this.tunnelService.getPublicUrl(),
+      },
+      webhooks: {
+        registered,
+        totalDeliveries: deliveries.length,
+        successCount,
+        errorCount,
+        ignoredCount,
+      },
+      startedAt: this.startedAt,
+    };
+  }
+
+  getDeliveryHistory(): readonly WebhookDeliveryRecord[] {
+    const ghService = this.webhookService as GitHubWebhookService;
+    if (typeof ghService.getDeliveryHistory === 'function') {
+      return ghService.getDeliveryHistory();
+    }
+    return [];
   }
 }
 
