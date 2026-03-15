@@ -141,7 +141,7 @@ describe('FeatureSessionsDropdown', () => {
     expect(screen.getByTestId('feature-node-sessions-button')).toBeDefined();
   });
 
-  it('probes for active sessions on mount and fetches full list on dropdown open', async () => {
+  it('fetches sessions on mount and shows count badge', async () => {
     const fetchSpy = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ sessions: mockSessions }),
@@ -150,16 +150,14 @@ describe('FeatureSessionsDropdown', () => {
 
     render(<FeatureSessionsDropdown repositoryPath="/home/user/project" />);
 
-    // Should probe with limit=1 on mount (lightweight active check)
-    await waitFor(() => {
-      expect(fetchSpy).toHaveBeenCalledWith(expect.stringContaining('limit=1'));
-    });
-
-    // Should fetch full list (limit=10) when dropdown opens
-    await userEvent.click(screen.getByTestId('feature-node-sessions-button'));
-
+    // Should fetch on mount with limit=10
     await waitFor(() => {
       expect(fetchSpy).toHaveBeenCalledWith(expect.stringContaining('limit=10'));
+    });
+
+    // Should show session count badge
+    await waitFor(() => {
+      expect(screen.getByTestId('feature-node-sessions-count').textContent).toBe('2');
     });
   });
 

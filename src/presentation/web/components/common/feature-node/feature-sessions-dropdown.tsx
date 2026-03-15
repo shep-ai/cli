@@ -112,16 +112,18 @@ export function FeatureSessionsDropdown({
     }
   }, [repositoryPath]);
 
-  // Lightweight probe on mount: fetch only the most recent session to check if active.
-  // This is fast (parses 1 file) and gives us the green indicator without loading all sessions.
+  // Fetch sessions on mount. Fast because we only scan the matching project directory.
+  // Populates count badge + active indicator, and pre-loads the dropdown.
   useEffect(() => {
     let cancelled = false;
-    const params = new URLSearchParams({ repositoryPath, limit: '1' });
+    const params = new URLSearchParams({ repositoryPath, limit: '10' });
     fetch(`/api/sessions?${params.toString()}`)
       .then((res) => (res.ok ? (res.json() as Promise<{ sessions: SessionSummary[] }>) : null))
       .then((data) => {
-        if (!cancelled && data?.sessions?.length) {
+        if (!cancelled && data?.sessions) {
+          setSessions(data.sessions);
           setHasActiveSessions(data.sessions.some(isSessionActive));
+          setFetched(true);
         }
       })
       .catch(() => undefined);
@@ -130,7 +132,7 @@ export function FeatureSessionsDropdown({
     };
   }, [repositoryPath]);
 
-  // Full fetch lazily on dropdown open — avoids N concurrent heavy requests on mount
+  // Re-fetch on dropdown open if not already loaded (e.g. path changed)
   const doFetch = useCallback(async () => {
     if (fetched) return;
     setLoading(true);
@@ -171,7 +173,7 @@ export function FeatureSessionsDropdown({
                 aria-label="View sessions"
                 data-testid="feature-node-sessions-button"
                 className={cn(
-                  'nodrag relative flex h-5 w-5 cursor-pointer items-center justify-center rounded text-xs transition-colors',
+                  'nodrag relative flex h-5 cursor-pointer items-center gap-0.5 rounded px-0.5 text-[10px] transition-colors',
                   hasActiveSessions
                     ? 'text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700'
                     : 'text-muted-foreground hover:text-foreground hover:bg-muted',
@@ -180,7 +182,10 @@ export function FeatureSessionsDropdown({
                 onClick={stopNodeEvent}
                 onPointerDown={stopNodeEvent}
               >
-                <History className="h-3 w-3" />
+                <History className="h-3 w-3 shrink-0" />
+                {sessions.length > 0 ? (
+                  <span data-testid="feature-node-sessions-count">{sessions.length}</span>
+                ) : null}
                 {hasActiveSessions ? (
                   <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-emerald-500" />
                 ) : null}

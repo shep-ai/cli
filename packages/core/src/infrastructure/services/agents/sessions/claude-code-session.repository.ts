@@ -125,8 +125,8 @@ export class ClaudeCodeSessionRepository implements IAgentSessionRepository {
 
   /**
    * Collect session files only from the directory matching the given project path.
-   * Claude Code encodes project paths as directory names by replacing '/' with '-'.
-   * e.g. /home/user/project → -home-user-project
+   * Claude Code encodes project paths as directory names by replacing '/', '\', and '.'
+   * with '-'. e.g. /home/user/.shep/repos/abc/wt/feat-x → -home-user--shep-repos-abc-wt-feat-x
    * This avoids scanning all 100+ project directories.
    */
   private async collectSessionFilesForPath(projectPath: string): Promise<SessionFileInfo[]> {
@@ -134,7 +134,8 @@ export class ClaudeCodeSessionRepository implements IAgentSessionRepository {
     const normalizedPath = projectPath.startsWith('~')
       ? path.join(os.homedir(), projectPath.slice(1))
       : projectPath;
-    const dirName = normalizedPath.replace(/\//g, '-').replace(/\\/g, '-');
+    // Claude Code replaces '/', '\', and '.' with '-' in directory names
+    const dirName = normalizedPath.replace(/[/\\.]/g, '-');
     const projectDir = path.join(this.basePath, dirName);
 
     try {
