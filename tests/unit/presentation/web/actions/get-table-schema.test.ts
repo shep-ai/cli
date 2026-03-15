@@ -14,7 +14,7 @@ const { getTableSchema } = await import(
 );
 
 function createMockDb() {
-  mockGetDb.mockResolvedValue({ prepare: mockPrepare });
+  mockGetDb.mockReturnValue({ prepare: mockPrepare });
 }
 
 describe('getTableSchema server action', () => {

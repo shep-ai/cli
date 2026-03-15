@@ -14,7 +14,7 @@ export interface ListTablesResult {
 
 export async function listTables(): Promise<ListTablesResult> {
   try {
-    const db = await getDb();
+    const db = getDb();
 
     const tables = db
       .prepare(

@@ -16,7 +16,7 @@ const { executeQuery } = await import(
 const { isWriteQuery } = await import('../../../../../src/presentation/web/lib/sql-validation.js');
 
 function createMockDb() {
-  mockGetDb.mockResolvedValue({ prepare: mockPrepare });
+  mockGetDb.mockReturnValue({ prepare: mockPrepare });
 }
 
 describe('executeQuery server action', () => {
