@@ -1,6 +1,14 @@
 import { NextResponse } from 'next/server';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 
 export const dynamic = 'force-dynamic';
+
+/** Compute the Claude Code session file path from repository path and session ID */
+function getSessionFilePath(repositoryPath: string, sessionId: string): string {
+  const encoded = repositoryPath.replace(/[/\\.]/g, '-');
+  return join(homedir(), '.claude', 'projects', encoded, `${sessionId}.jsonl`);
+}
 
 /**
  * GET /api/sessions?repositoryPath=<path>&limit=<n>
@@ -39,6 +47,7 @@ export async function GET(request: Request) {
         lastMessageAt: s.lastMessageAt?.toISOString() ?? null,
         createdAt: s.createdAt instanceof Date ? s.createdAt.toISOString() : s.createdAt,
         projectPath: s.projectPath,
+        filePath: getSessionFilePath(repositoryPath, s.id),
       })),
     });
   } catch (error) {

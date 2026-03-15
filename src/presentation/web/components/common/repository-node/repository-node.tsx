@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import { Github, Plus, Code2, Terminal, FolderOpen, Trash2, Play, Square } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -19,9 +19,14 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { DeploymentStatusBadge } from '@/components/common/deployment-status-badge';
 import { useDeployAction } from '@/hooks/use-deploy-action';
 import { useFeatureFlags } from '@/hooks/feature-flags-context';
+import { toast } from 'sonner';
+import { createFeature } from '@/app/actions/create-feature';
 import type { RepositoryNodeData } from './repository-node-config';
 import { useRepositoryActions } from './use-repository-actions';
-import { FeatureSessionsDropdown } from '@/components/common/feature-node/feature-sessions-dropdown';
+import {
+  FeatureSessionsDropdown,
+  type SessionSummary,
+} from '@/components/common/feature-node/feature-sessions-dropdown';
 
 export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: string]: unknown }) {
   const featureFlags = useFeatureFlags();
@@ -39,6 +44,59 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
       : null
   );
   const isDeploymentActive = deployAction.status === 'Booting' || deployAction.status === 'Ready';
+
+  const handleCreateFromSession = useCallback(
+    (session: SessionSummary, sessionFilePath: string) => {
+      if (!data.repositoryPath) return;
+      const preview = session.preview ? session.preview.slice(0, 200) : 'Unknown conversation';
+      const prompt = [
+        `Continue work from a previous agent session.`,
+        ``,
+        `## Session Context`,
+        `- Session ID: ${session.id}`,
+        `- Messages: ${session.messageCount}`,
+        session.lastMessageAt ? `- Last active: ${session.lastMessageAt}` : '',
+        `- Conversation file: ${sessionFilePath}`,
+        ``,
+        `## Session Preview`,
+        `> ${preview}`,
+        ``,
+        `## Instructions`,
+        `1. Read the full conversation history from the file above`,
+        `2. Analyze the current state of the repository — what was done, what remains`,
+        `3. Create or update spec files to accurately reflect the current state and remaining work`,
+        `4. Continue implementing any unfinished work from the conversation`,
+      ]
+        .filter(Boolean)
+        .join('\n');
+
+      toast.promise(
+        createFeature({
+          description: prompt,
+          repositoryPath: data.repositoryPath,
+          fast: true,
+        }).then((result) => {
+          if (result.error) throw new Error(result.error);
+          window.dispatchEvent(
+            new CustomEvent('shep:feature-created', {
+              detail: {
+                featureId: result.feature!.id,
+                name: result.feature!.name,
+                description: result.feature!.description,
+                repositoryPath: result.feature!.repositoryPath,
+              },
+            })
+          );
+        }),
+        {
+          loading: 'Creating feature from session...',
+          success: 'Feature created from session',
+          error: (err: Error) => err.message,
+        }
+      );
+    },
+    [data.repositoryPath]
+  );
 
   return (
     <div className={cn('group relative', data.onDelete && data.id && 'pl-10')}>
@@ -192,7 +250,10 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
                   <TooltipContent>Open Folder</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
-              <FeatureSessionsDropdown repositoryPath={data.repositoryPath} />
+              <FeatureSessionsDropdown
+                repositoryPath={data.repositoryPath}
+                onCreateFromSession={handleCreateFromSession}
+              />
               {featureFlags.envDeploy ? (
                 <>
                   <TooltipProvider>

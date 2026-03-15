@@ -10,6 +10,7 @@ import {
   Clock,
   Loader2,
   ChevronDown,
+  Sparkles,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -34,11 +35,15 @@ export interface SessionSummary {
   lastMessageAt: string | null;
   createdAt: string | null;
   projectPath: string;
+  /** Absolute path to the session conversation file (e.g. JSONL) */
+  filePath?: string;
 }
 
 interface FeatureSessionsDropdownProps {
   repositoryPath: string;
   className?: string;
+  /** Callback to create a feature from a session. Only shown on repo nodes. */
+  onCreateFromSession?: (session: SessionSummary, sessionFilePath: string) => void;
 }
 
 const ACTIVE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
@@ -93,6 +98,7 @@ function stopNodeEvent(e: React.SyntheticEvent) {
 export function FeatureSessionsDropdown({
   repositoryPath,
   className,
+  onCreateFromSession,
 }: FeatureSessionsDropdownProps) {
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [loading, setLoading] = useState(false);
@@ -286,6 +292,18 @@ export function FeatureSessionsDropdown({
                         <ExternalLink className="h-3 w-3" />
                         Open in IDE
                       </DropdownMenuItem>
+                      {onCreateFromSession && session.filePath ? (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="gap-2 text-xs font-medium"
+                            onClick={() => onCreateFromSession(session, session.filePath!)}
+                          >
+                            <Sparkles className="h-3 w-3" />
+                            Create feature from session
+                          </DropdownMenuItem>
+                        </>
+                      ) : null}
                     </DropdownMenuSubContent>
                   </DropdownMenuPortal>
                 </DropdownMenuSub>
