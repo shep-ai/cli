@@ -58,6 +58,16 @@ vi.mock('@/components/features/features-canvas', () => ({
   },
 }));
 
+// Pretend a saved viewport exists so the initial-fitView effect is suppressed
+vi.mock('@/hooks/use-viewport-persistence', () => ({
+  useViewportPersistence: () => ({
+    defaultViewport: { x: 30, y: 30, zoom: 0.85 },
+    hasSavedViewport: true,
+    onMoveEnd: vi.fn(),
+    resetViewport: vi.fn(() => ({ x: 30, y: 30, zoom: 0.85 })),
+  }),
+}));
+
 // Mock the ControlCenterEmptyState since it's irrelevant for these tests
 vi.mock('@/components/features/control-center/control-center-empty-state', () => ({
   ControlCenterEmptyState: () => <div data-testid="mock-empty-state" />,

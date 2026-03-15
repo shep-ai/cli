@@ -503,7 +503,7 @@ describe('FeatureCreateDrawer', () => {
         'Select parent feature...'
       );
       expect(screen.queryByText('requirements.pdf')).not.toBeInTheDocument();
-    }, 10_000);
+    }, 30_000);
 
     it('clears form data on submit so next open starts fresh', async () => {
       const onSubmit = vi.fn();

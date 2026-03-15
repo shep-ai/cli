@@ -24,6 +24,7 @@ describe('useViewportPersistence', () => {
       const { result } = renderHook(() => useViewportPersistence());
 
       expect(result.current.defaultViewport).toEqual(DEFAULT_VIEWPORT);
+      expect(result.current.hasSavedViewport).toBe(false);
       expect(localStorage.getItem).toHaveBeenCalledWith(STORAGE_KEY);
     });
 
@@ -34,6 +35,7 @@ describe('useViewportPersistence', () => {
       const { result } = renderHook(() => useViewportPersistence());
 
       expect(result.current.defaultViewport).toEqual(saved);
+      expect(result.current.hasSavedViewport).toBe(true);
     });
 
     it('returns default when localStorage has malformed JSON', () => {

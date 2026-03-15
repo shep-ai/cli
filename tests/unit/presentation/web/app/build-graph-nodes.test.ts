@@ -121,6 +121,15 @@ describe('buildGraphNodes', () => {
 
       expect(nodes.find((n) => n.id === 'repo-repo-1')).toBeDefined();
     });
+
+    it('positions a repo with no features at non-negative x coordinate', () => {
+      const repo = makeRepo({ path: '/empty/repo' });
+      const { nodes } = buildGraphNodes([repo], []);
+
+      const repoNode = nodes.find((n) => n.id === 'repo-repo-1');
+      expect(repoNode).toBeDefined();
+      expect(repoNode!.position.x).toBeGreaterThanOrEqual(0);
+    });
   });
 
   describe('mixed: some features covered, some orphaned', () => {

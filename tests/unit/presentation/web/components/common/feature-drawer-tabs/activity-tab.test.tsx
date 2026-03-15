@@ -615,6 +615,36 @@ describe('ActivityTab', () => {
       expect(bar.querySelector('.bg-emerald-500')).toBeInTheDocument();
     });
 
+    it('applies blue color with pulse animation for in-progress phase bars', () => {
+      const runningTimings: PhaseTimingData[] = [
+        {
+          agentRunId: run1Id,
+          phase: 'run:started',
+          startedAt: '2024-01-01T00:00:00.000Z',
+        },
+        {
+          agentRunId: run1Id,
+          phase: 'analyze',
+          startedAt: '2024-01-01T00:00:00.000Z',
+          completedAt: '2024-01-01T00:00:05.000Z',
+          durationMs: 5000,
+        },
+        {
+          agentRunId: run1Id,
+          phase: 'implement',
+          startedAt: '2024-01-01T00:00:05.000Z',
+          // no completedAt — in progress
+        },
+      ];
+      renderActivityTab({ timings: runningTimings });
+      const bar = screen.getByTestId('timing-bar-implement');
+      // The inner progress div has bg-blue-500 for in-progress and animate-pulse
+      const innerDiv = bar.querySelector('.bg-muted')?.firstElementChild;
+      expect(innerDiv).toBeTruthy();
+      expect(innerDiv!.className).toContain('bg-blue-500');
+      expect(innerDiv!.className).toContain('animate-pulse');
+    });
+
     it('applies amber color for approval wait bars', () => {
       renderActivityTab({ timings: singleRunTimings });
       const waitBar = screen.getByTestId('approval-wait-requirements');

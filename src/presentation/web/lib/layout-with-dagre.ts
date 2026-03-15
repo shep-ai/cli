@@ -118,6 +118,10 @@ export function layoutWithDagre<N extends Node>(
   // Add disconnected nodes to centerMap so they participate in root positioning.
   // Use the same primary-axis position as connected roots (rank 0) so they align
   // visually with repos that have features attached.
+  // When there are NO connected nodes (e.g. repos with no features), use half the
+  // node's own dimension so the leading edge sits at the canvas origin — preventing
+  // nodes from rendering off-screen with the default viewport.
+  const hasCenterMap = centerMap.size > 0;
   let rootPrimaryAxis = 0;
   for (const c of centerMap.values()) {
     rootPrimaryAxis = isHorizontal ? c.cx : c.cy;
@@ -125,9 +129,14 @@ export function layoutWithDagre<N extends Node>(
   }
   for (const node of disconnectedNodes) {
     const size = getNodeSize(node, nodeSize);
+    const primaryAxisCenter = hasCenterMap
+      ? rootPrimaryAxis
+      : isHorizontal
+        ? size.width / 2
+        : size.height / 2;
     centerMap.set(node.id, {
-      cx: isHorizontal ? rootPrimaryAxis : 0,
-      cy: isHorizontal ? 0 : rootPrimaryAxis,
+      cx: isHorizontal ? primaryAxisCenter : 0,
+      cy: isHorizontal ? 0 : primaryAxisCenter,
       w: size.width,
       h: size.height,
     });

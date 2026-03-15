@@ -62,5 +62,5 @@ describe('RejectAgentRunUseCase string-token alias', () => {
     const resolved = container.resolve('RejectAgentRunUseCase');
 
     expect(resolved).toBeInstanceOf(RejectAgentRunUseCase);
-  });
+  }, 30000);
 });

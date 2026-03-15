@@ -12,6 +12,8 @@ export const DEFAULT_VIEWPORT: Viewport = { x: 30, y: 30, zoom: 0.85 };
 
 export interface UseViewportPersistenceResult {
   defaultViewport: Viewport;
+  /** True when a valid viewport was restored from localStorage. */
+  hasSavedViewport: boolean;
   onMoveEnd: (viewport: Viewport) => void;
   resetViewport: () => Viewport;
 }
@@ -32,19 +34,22 @@ function isValidViewport(value: unknown): value is Viewport {
   );
 }
 
-function readViewport(): Viewport {
+function readViewport(): { viewport: Viewport; fromStorage: boolean } {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw == null) return DEFAULT_VIEWPORT;
+    if (raw == null) return { viewport: DEFAULT_VIEWPORT, fromStorage: false };
     const parsed: unknown = JSON.parse(raw);
-    return isValidViewport(parsed) ? parsed : DEFAULT_VIEWPORT;
+    if (isValidViewport(parsed)) return { viewport: parsed, fromStorage: true };
+    return { viewport: DEFAULT_VIEWPORT, fromStorage: false };
   } catch {
-    return DEFAULT_VIEWPORT;
+    return { viewport: DEFAULT_VIEWPORT, fromStorage: false };
   }
 }
 
 export function useViewportPersistence(): UseViewportPersistenceResult {
-  const defaultViewport = useRef<Viewport>(readViewport()).current;
+  const stored = useRef(readViewport()).current;
+  const defaultViewport = stored.viewport;
+  const hasSavedViewport = stored.fromStorage;
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -77,5 +82,5 @@ export function useViewportPersistence(): UseViewportPersistenceResult {
     return DEFAULT_VIEWPORT;
   }, []);
 
-  return { defaultViewport, onMoveEnd, resetViewport };
+  return { defaultViewport, hasSavedViewport, onMoveEnd, resetViewport };
 }

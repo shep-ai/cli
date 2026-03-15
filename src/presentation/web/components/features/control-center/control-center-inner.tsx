@@ -43,6 +43,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
 
   const {
     defaultViewport,
+    hasSavedViewport,
     onMoveEnd: handleViewportChange,
     resetViewport,
   } = useViewportPersistence();
@@ -290,6 +291,16 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     handleRepositoryClick,
     handleDeleteRepository,
   ]);
+
+  // Auto-center on initial load when there's no saved viewport and nodes exist.
+  // This ensures the first repo is visible instead of being stuck in the top-left corner.
+  const didInitialFitRef = useRef(false);
+  useEffect(() => {
+    if (didInitialFitRef.current || hasSavedViewport || nodes.length === 0) return;
+    didInitialFitRef.current = true;
+    // Yield to React so nodes are rendered in the DOM before fitView calculates bounds.
+    setTimeout(() => fitView(AUTO_FOCUS_OPTIONS), 0);
+  }, [hasSavedViewport, nodes.length, fitView]);
 
   const handleMoveEnd = useCallback(
     (_event: unknown, viewport: Viewport) => {

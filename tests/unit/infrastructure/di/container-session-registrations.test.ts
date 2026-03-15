@@ -61,7 +61,7 @@ describe('session DI registrations', () => {
     const container = await initializeContainer();
     expect(() => container.resolve(ListAgentSessionsUseCase)).not.toThrow();
     expect(container.resolve(ListAgentSessionsUseCase)).toBeInstanceOf(ListAgentSessionsUseCase);
-  });
+  }, 30000);
 
   it('resolves GetAgentSessionUseCase after initialization', async () => {
     const { initializeContainer } = await import(

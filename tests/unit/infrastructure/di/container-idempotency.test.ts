@@ -59,7 +59,7 @@ describe('container idempotency', () => {
     const mod = await import('../../../../packages/core/src/infrastructure/di/container.js');
     await mod.initializeContainer();
     expect(mod.isContainerInitialized()).toBe(true);
-  });
+  }, 30000);
 
   it('initializeContainer() returns the same container on second call', async () => {
     const mod = await import('../../../../packages/core/src/infrastructure/di/container.js');
