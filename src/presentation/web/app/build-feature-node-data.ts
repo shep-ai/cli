@@ -15,6 +15,10 @@ export interface BuildFeatureNodeDataOptions {
   oneLiner?: string;
   /** Remote URL for the repository (HTTPS) */
   remoteUrl?: string;
+  /** Whether evidence collection is enabled (global workflow setting) */
+  enableEvidence?: boolean;
+  /** Whether evidence is committed to the PR body (global workflow setting) */
+  commitEvidence?: boolean;
 }
 
 /**
@@ -48,6 +52,11 @@ export function buildFeatureNodeData(
     userQuery: feature.userQuery,
     createdAt: feature.createdAt instanceof Date ? feature.createdAt.getTime() : feature.createdAt,
     ...(feature.fast && { fastMode: true }),
+    approvalGates: feature.approvalGates,
+    push: feature.push,
+    openPr: feature.openPr,
+    ...(options?.enableEvidence != null && { enableEvidence: options.enableEvidence }),
+    ...(options?.commitEvidence != null && { commitEvidence: options.commitEvidence }),
     ...(options?.repositoryName && { repositoryName: options.repositoryName }),
     ...(options?.baseBranch && { baseBranch: options.baseBranch }),
     ...(options?.oneLiner && { oneLiner: options.oneLiner }),

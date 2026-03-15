@@ -6,6 +6,7 @@ import type { IGitPrService } from '@shepai/core/application/ports/output/servic
 import type { IFeatureRepository } from '@shepai/core/application/ports/output/repositories/feature-repository.interface';
 import type { IDeploymentService } from '@shepai/core/application/ports/output/services/deployment-service.interface';
 import { CiStatus } from '@shepai/core/domain/generated/output';
+import { getSettings } from '@shepai/core/infrastructure/services/settings.service';
 import { layoutWithDagre, CANVAS_LAYOUT_DEFAULTS } from '@/lib/layout-with-dagre';
 import { buildGraphNodes } from '@/app/build-graph-nodes';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
@@ -75,7 +76,11 @@ export async function getGraphData(): Promise<{ nodes: CanvasNodeType[]; edges: 
     })
   );
 
-  const { nodes, edges } = buildGraphNodes(repositories, featuresWithRuns);
+  const { workflow } = getSettings();
+  const { nodes, edges } = buildGraphNodes(repositories, featuresWithRuns, {
+    enableEvidence: workflow.enableEvidence,
+    commitEvidence: workflow.commitEvidence,
+  });
 
   // Enrich feature nodes with deployment status
   let deploymentService: IDeploymentService | null = null;
