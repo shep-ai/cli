@@ -1,0 +1,127 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: database-management-ui
+number: 067
+branch: feat/067-database-management-ui
+oneLiner: phpMyAdmin-style database browser page with navbar integration
+userQuery: >
+  add phpmyadmin style db management page - add "Database" to navbar for it
+summary: >
+  Add a new "Database" page to the web UI that provides phpMyAdmin-style browsing
+  of the SQLite database. Includes table listing, row browsing with pagination,
+  column metadata display, and raw SQL query execution. Adds a "Database" nav
+  item to the app sidebar.
+phase: Analysis
+sizeEstimate: M
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - Next.js (App Router, server components, server actions)
+  - better-sqlite3 (synchronous SQLite driver)
+  - shadcn/ui (Card, Table, Tabs, ScrollArea, Input, Button)
+  - Tailwind CSS
+  - lucide-react (Database icon)
+  - React (client components with useState/useEffect)
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - Should the UI allow write operations (INSERT/UPDATE/DELETE) or be read-only for safety?
+  - Should raw SQL execution be gated behind a feature flag or always available?
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  There is no way to inspect the Shep SQLite database from the web UI. Developers
+  and power users who want to understand or debug the data stored by Shep must
+  resort to external tools (sqlite3 CLI, DB Browser). A built-in phpMyAdmin-style
+  page would allow browsing tables, viewing rows, inspecting schema, and running
+  ad-hoc queries directly from the Shep web UI.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The repository follows Clean Architecture with four layers:
+
+  - `packages/core/src/domain/` — domain entities and generated TypeSpec types
+  - `packages/core/src/application/` — use cases, port interfaces
+  - `packages/core/src/infrastructure/` — SQLite repositories, persistence, services
+  - `src/presentation/web/` — Next.js App Router web UI
+
+  The web UI lives under `src/presentation/web/` with:
+  - `app/` — Next.js pages and route handlers (settings, tools, skills pages exist)
+  - `components/` — 4-tier component hierarchy (ui → common → layouts → features)
+  - `app/actions/` — server actions for data fetching via DI container
+  - `hooks/` — custom React hooks
+
+  ### Architecture Patterns
+
+  - **Server components** for pages (`app/settings/page.tsx` pattern): async page
+    calls server action, passes data to client component
+  - **Server actions** (`app/actions/load-settings.ts` pattern): use `resolve()`
+    from `@/lib/server-container` to get DI-resolved use cases
+  - **Sidebar navigation** (`components/layouts/app-sidebar/app-sidebar.tsx`):
+    `SidebarNavItem` components with icon, label, href, active state from
+    `usePathname()`. Currently: Home, Tools, Skills (feature-flagged), Settings
+  - **Database access**: singleton `better-sqlite3` connection via
+    `getSQLiteConnection()` with WAL mode, foreign keys, defensive mode
+  - **Migrations**: 34 legacy + file-based discovery (umzug v3)
+  - **Storybook**: every component must have colocated `.stories.tsx`
+
+  ### Relevant Technologies
+
+  - **better-sqlite3**: synchronous API, supports `db.prepare().all()`,
+    `db.pragma()`, `db.exec()` — ideal for table listing, row fetching, schema
+    introspection via `PRAGMA table_info()`, `PRAGMA table_list()`
+  - **shadcn/ui**: Table, Card, Tabs, ScrollArea, Input, Button components
+    already available in the component library
+  - **Next.js App Router**: server actions for DB queries, client components
+    for interactive table browsing
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `src/presentation/web/app/database/` | High | New page route for the database management UI |
+  | `src/presentation/web/components/features/database/` | High | New feature components: table list, row browser, query runner, schema viewer |
+  | `src/presentation/web/app/actions/` | High | New server actions for listing tables, fetching rows, running queries, getting schema |
+  | `src/presentation/web/components/layouts/app-sidebar/app-sidebar.tsx` | Low | Add Database nav item with Database icon |
+  | `packages/core/src/infrastructure/persistence/sqlite/connection.ts` | Low | May need to expose raw query capability or use existing connection |
+  | `.storybook/mocks/app/actions/` | Medium | Storybook mocks for new server actions |
+
+  ## Dependencies
+
+  - **better-sqlite3** (already installed) — for raw SQL execution and PRAGMA queries
+  - **shadcn/ui Table component** — for rendering query results
+  - **DI container** — server actions resolve database connection via existing patterns
+  - **Existing SQLite connection singleton** — `getSQLiteConnection()` provides the DB handle
+  - **lucide-react Database icon** — already available in the icon library
+
+  ## Success Criteria
+
+  - [ ] "Database" nav item appears in the sidebar between Settings and the feature list
+  - [ ] Database page lists all tables with row counts
+  - [ ] Clicking a table shows its rows with pagination (e.g., 50 rows per page)
+  - [ ] Column metadata (name, type, nullable, default, PK) is visible per table
+  - [ ] Raw SQL query input executes read queries and displays results in a table
+  - [ ] All new components have colocated Storybook stories
+  - [ ] Page works in both dev mode (port 3000) and production mode (port 4050)
+
+  ## Size Estimate
+
+  **M** — This is primarily a presentation-layer feature. The database access layer
+  (better-sqlite3) already exists with a singleton connection. The main work is:
+  (1) server actions for table/row/schema queries using SQLite PRAGMAs,
+  (2) client components for table browser, row viewer, and query runner,
+  (3) sidebar nav addition, (4) Storybook stories. No domain model changes or
+  migrations needed. Estimated 3-4 days of implementation.
+
+  ---
+
+  _Analysis complete — proceed with research_
