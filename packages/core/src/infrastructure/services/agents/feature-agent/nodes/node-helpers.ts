@@ -67,7 +67,7 @@ export function buildExecutorOptions(
   return {
     cwd: state.worktreePath || state.repositoryPath,
     maxTurns: 5000,
-    timeout: 600_000, // 10 minutes per agent call — prevents infinite hangs
+    timeout: 1_800_000, // 30 minutes per agent call — prevents infinite hangs
     ...(state.model ? { model: state.model } : {}),
     ...overrides,
   };
@@ -131,8 +131,8 @@ export function shouldInterrupt(nodeName: string, gates: ApprovalGates | undefin
 export type ErrorCategory = 'retryable-api' | 'retryable-network' | 'non-retryable' | 'unknown';
 
 const API_ERROR_RE = /API Error: (400|429|5\d{2})/;
-const NETWORK_ERROR_RE = /ECONNREFUSED|ETIMEDOUT|ENOTFOUND|timed out/i;
-const NON_RETRYABLE_RE = /Process exited with code|ENOENT|SyntaxError/;
+const NETWORK_ERROR_RE = /ECONNREFUSED|ETIMEDOUT|ENOTFOUND|network timed out/i;
+const NON_RETRYABLE_RE = /Process exited with code|ENOENT|SyntaxError|Agent execution timed out/;
 
 /**
  * Classify an error message into a retry category.
