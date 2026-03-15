@@ -192,7 +192,7 @@ describe('IGitPrService', () => {
       'localMergeSquash',
     ];
 
-    expect(methodNames).toHaveLength(19);
+    expect(methodNames).toHaveLength(20);
     for (const name of methodNames) {
       expect(typeof mock[name]).toBe('function');
     }

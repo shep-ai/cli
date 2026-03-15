@@ -386,8 +386,8 @@ describe('CursorExecutorService', () => {
       );
     });
 
-    it('should set shell and windowsHide on Windows', async () => {
-      // Cursor agent is a .cmd script on Windows, needs shell: true
+    it('should spawn PowerShell on Windows with temp file prompt', async () => {
+      // On Windows, cursor CLI is invoked via PowerShell to bypass cmd.exe arg mangling
       const originalPlatform = process.platform;
       Object.defineProperty(process, 'platform', { value: 'win32' });
 
@@ -402,9 +402,12 @@ describe('CursorExecutorService', () => {
 
         await executePromise;
 
-        const spawnOpts = vi.mocked(mockSpawn).mock.calls[0][2] as Record<string, unknown>;
-        expect(spawnOpts).toHaveProperty('shell', true);
-        expect(spawnOpts).toHaveProperty('windowsHide', true);
+        // Should spawn powershell.exe, not agent directly
+        expect(mockSpawn).toHaveBeenCalledWith(
+          'powershell.exe',
+          expect.arrayContaining(['-NoProfile', '-NonInteractive', '-Command']),
+          expect.objectContaining({ windowsHide: true })
+        );
       } finally {
         Object.defineProperty(process, 'platform', { value: originalPlatform });
       }
