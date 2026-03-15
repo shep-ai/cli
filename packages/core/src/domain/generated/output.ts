@@ -326,6 +326,46 @@ export type ApprovalGateDefaults = {
 };
 
 /**
+ * Per-stage timeout overrides for the feature agent workflow (all values in milliseconds)
+ */
+export type StageTimeouts = {
+  /**
+   * Timeout for the analyze stage (default: 600000)
+   */
+  analyzeMs?: number;
+  /**
+   * Timeout for the requirements stage (default: 600000)
+   */
+  requirementsMs?: number;
+  /**
+   * Timeout for the research stage (default: 600000)
+   */
+  researchMs?: number;
+  /**
+   * Timeout for the plan stage (default: 600000)
+   */
+  planMs?: number;
+  /**
+   * Timeout for the implement stage (default: 600000)
+   */
+  implementMs?: number;
+  /**
+   * Timeout for the merge stage (default: 600000)
+   */
+  mergeMs?: number;
+};
+
+/**
+ * Timeout overrides for the analyze-repository agent (all values in milliseconds)
+ */
+export type AnalyzeRepoTimeouts = {
+  /**
+   * Timeout for the repository analysis stage (default: 600000)
+   */
+  analyzeMs?: number;
+};
+
+/**
  * Global workflow configuration defaults
  */
 export type WorkflowConfig = {
@@ -349,6 +389,14 @@ export type WorkflowConfig = {
    * Maximum characters of CI failure logs to pass to the executor (default: 50000)
    */
   ciLogMaxChars?: number;
+  /**
+   * Per-stage timeout overrides for the feature agent (default: 600000 = 10 minutes per stage)
+   */
+  stageTimeouts?: StageTimeouts;
+  /**
+   * Timeout overrides for the analyze-repository agent (default: 600000 = 10 minutes)
+   */
+  analyzeRepoTimeouts?: AnalyzeRepoTimeouts;
   /**
    * Enable evidence collection after implementation (default: false)
    */

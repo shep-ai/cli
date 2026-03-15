@@ -1,0 +1,16 @@
+Full Unit Test Suite Results
+Date: 2026-03-15T15:31:00Z
+Command: pnpm test:unit
+
+Result: ALL PASSING
+
+Test Files  308 passed (308)
+Tests       3923 passed (3923)
+Start at    17:29:52
+Duration    26.87s
+
+Key timeout-related test files (all passing):
+- tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts (41 tests)
+- tests/unit/infrastructure/services/agents/langgraph/node-helpers.test.ts (59 tests)
+- tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts (in suite)
+- tests/unit/presentation/web/components/features/settings/* (in suite)

@@ -1,0 +1,63 @@
+Feature: Configurable Stage Timeouts — node-helpers.test.ts
+Test file: tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts
+Date: 2026-03-15T15:30:00Z
+Result: 41 tests passed
+
+=== buildExecutorOptions (Stage Timeout Resolution) ===
+
+✓ uses default timeout (1_800_000ms) when settings are not initialized
+✓ uses default timeout when stageTimeoutMs is not set in settings
+✓ uses per-stage timeout from settings when set (implementMs: 900_000 -> timeout: 900_000)
+✓ uses default timeout when per-stage timeout is not set for current node
+✓ allows override to take precedence over settings
+✓ uses worktreePath as cwd when available
+✓ uses repositoryPath as cwd when worktreePath is empty
+
+=== shouldInterrupt ===
+
+✓ returns false for any node when gates is undefined
+✓ returns false for any node when all gates are true (fully autonomous)
+✓ does NOT skip all interrupts when only 2 of 3 gates are true
+✓ requirements: interrupts when allowPrd is false
+✓ requirements: does not interrupt when allowPrd is true
+✓ plan: interrupts when allowPlan is false
+✓ plan: does not interrupt when allowPlan is true
+✓ implement: never interrupts
+✓ merge: interrupts when allowMerge is false
+✓ merge: does not interrupt when allowMerge is true
+✓ unknown nodes: returns false for nodes without gates
+
+=== clearCompletedPhase ===
+
+✓ removes the given phase from completedPhases
+✓ is a no-op when phase is not in completedPhases
+✓ handles missing feature.yaml gracefully
+✓ handles missing completedPhases array gracefully
+
+=== buildCommitPushBlock ===
+
+✓ includes local verification before push when push=true
+✓ does NOT include local verification when push=false
+✓ includes commit instructions
+✓ prohibits git stash when push=true
+✓ prohibits git reset when push=true
+✓ prohibits git checkout -- when push=true
+✓ prohibits git restore when push=true
+✓ prohibits git clean when push=true
+✓ instructs to proceed with commit+push if tests fail
+✓ skips verification but still push when skipVerification=true
+✓ not include push when skipVerification=true but push=false
+✓ includes --no-verify in commit when skipVerification=true
+✓ does NOT include --no-verify when skipVerification is false
+
+=== isRejectionPayload ===
+
+✓ returns true for valid rejection payload
+✓ returns false for approval payload
+✓ returns false for null
+✓ returns false for undefined
+✓ returns false for string
+✓ returns false when rejected is not true
+
+Test Files  1 passed (1)
+Tests       41 passed (41)

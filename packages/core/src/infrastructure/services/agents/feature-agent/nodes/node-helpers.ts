@@ -15,6 +15,7 @@ import type {
   AgentExecutionResult,
 } from '@/application/ports/output/agents/agent-executor.interface.js';
 import type { ApprovalGates } from '@/domain/generated/output.js';
+import { hasSettings, getSettings } from '@/infrastructure/services/settings.service.js';
 import type { FeatureAgentState } from '../state.js';
 import { reportNodeStart } from '../heartbeat.js';
 import {
@@ -60,17 +61,56 @@ export function readSpecFile(specDir: string, filename: string): string {
   }
 }
 
+/** Default timeout per agent call (30 minutes) — prevents infinite hangs. */
+const DEFAULT_STAGE_TIMEOUT_MS = 1_800_000;
+
+/**
+ * Map from node name to the corresponding StageTimeouts field.
+ * `fast-implement` reuses the implement timeout; `evidence` also reuses implement.
+ */
+const STAGE_TIMEOUT_KEY: Record<string, string> = {
+  analyze: 'analyzeMs',
+  requirements: 'requirementsMs',
+  research: 'researchMs',
+  plan: 'planMs',
+  implement: 'implementMs',
+  'fast-implement': 'implementMs',
+  evidence: 'implementMs',
+  merge: 'mergeMs',
+};
+
+/**
+ * Resolve the timeout for a specific stage.
+ * Reads per-stage timeout from settings (workflow.stageTimeouts.<stage>Ms),
+ * falling back to DEFAULT_STAGE_TIMEOUT_MS when not configured.
+ */
+export function getStageTimeoutMs(nodeName: string): number {
+  if (!hasSettings()) return DEFAULT_STAGE_TIMEOUT_MS;
+  const timeouts = getSettings().workflow?.stageTimeouts;
+  if (!timeouts) return DEFAULT_STAGE_TIMEOUT_MS;
+  const key = STAGE_TIMEOUT_KEY[nodeName];
+  if (!key) return DEFAULT_STAGE_TIMEOUT_MS;
+  return (timeouts as Record<string, number | undefined>)[key] ?? DEFAULT_STAGE_TIMEOUT_MS;
+}
+
 /**
  * Build executor options with cwd. Each node gets a clean agent context.
+ * The timeout is resolved per-stage from settings (workflow.stageTimeouts)
+ * with a fallback to DEFAULT_STAGE_TIMEOUT_MS (10 min).
+ *
+ * When no `nodeName` is provided, the current node from state is used.
  */
 export function buildExecutorOptions(
   state: FeatureAgentState,
-  overrides?: Partial<Pick<AgentExecutionOptions, 'timeout'>>
+  overrides?: Partial<Pick<AgentExecutionOptions, 'timeout'>>,
+  nodeName?: string
 ): AgentExecutionOptions {
+  const stage = nodeName ?? state.currentNode ?? '';
+  const stageTimeout = getStageTimeoutMs(stage);
   return {
     cwd: state.worktreePath || state.repositoryPath,
     maxTurns: 5000,
-    timeout: 1_800_000, // 30 minutes per agent call — prevents infinite hangs
+    timeout: stageTimeout,
     ...(state.model ? { model: state.model } : {}),
     ...overrides,
   };
@@ -447,7 +487,7 @@ export function executeNode(
     try {
       const resumePrefix = buildResumeContext(state.resumeReason);
       const prompt = resumePrefix + buildPrompt(state, log);
-      const options = buildExecutorOptions(state);
+      const options = buildExecutorOptions(state, undefined, nodeName);
 
       log.info(`Executing agent at cwd=${options.cwd}`);
       log.info(`Prompt length: ${prompt.length} chars`);

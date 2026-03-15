@@ -12,7 +12,7 @@
 
 import { readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Umzug } from 'umzug';
 import type { RunnableMigration, MigrationParams } from 'umzug';
 import type Database from 'better-sqlite3';
@@ -32,7 +32,7 @@ export const LATEST_SCHEMA_VERSION = 34;
 function getMigrationsDir(): string {
   // import.meta.url is available in ESM; fallback to __dirname for CJS
   // The migrations/ directory is a sibling of this file
-  return join(dirname(new URL(import.meta.url).pathname), 'migrations');
+  return join(dirname(fileURLToPath(import.meta.url)), 'migrations');
 }
 
 /**
@@ -49,9 +49,21 @@ async function discoverNewMigrations(
 ): Promise<RunnableMigration<Database.Database>[]> {
   let files: string[];
   try {
-    files = readdirSync(migrationsDir)
-      .filter((f) => f.endsWith('.js') && !f.endsWith('.d.js'))
-      .sort();
+    const allFiles = readdirSync(migrationsDir);
+    // Accept .js (compiled) and .ts (dev via tsx) but exclude .d.ts declaration files
+    const candidates = allFiles.filter(
+      (f) =>
+        (f.endsWith('.js') || f.endsWith('.ts')) && !f.endsWith('.d.ts') && !f.endsWith('.d.js')
+    );
+    // Deduplicate: if both .ts and .js exist for the same migration, prefer .js
+    const byName = new Map<string, string>();
+    for (const f of candidates) {
+      const base = f.replace(/\.(js|ts)$/, '');
+      if (!byName.has(base) || f.endsWith('.js')) {
+        byName.set(base, f);
+      }
+    }
+    files = [...byName.values()].sort();
   } catch {
     // Directory doesn't exist or is unreadable — no new migrations
     return [];
@@ -61,7 +73,7 @@ async function discoverNewMigrations(
 
   for (const file of files) {
     const filePath = join(migrationsDir, file);
-    const name = file.replace(/\.js$/, '');
+    const name = file.replace(/\.(js|ts)$/, '');
     const mod = (await import(pathToFileURL(filePath).href)) as {
       up: (params: MigrationParams<Database.Database>) => Promise<unknown>;
       down?: (params: MigrationParams<Database.Database>) => Promise<unknown>;

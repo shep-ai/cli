@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, writeFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -9,7 +9,10 @@ import {
   clearCompletedPhase,
   isRejectionPayload,
   buildCommitPushBlock,
+  buildExecutorOptions,
 } from '@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js';
+import { initializeSettings, resetSettings } from '@/infrastructure/services/settings.service.js';
+import { createDefaultSettings } from '@/domain/factories/settings-defaults.factory.js';
 
 /**
  * Helper to create ApprovalGates with defaults (all false).
@@ -322,5 +325,73 @@ describe('isRejectionPayload', () => {
 
   it('returns false when rejected is not true', () => {
     expect(isRejectionPayload({ rejected: false, feedback: 'test' })).toBe(false);
+  });
+});
+
+describe('buildExecutorOptions', () => {
+  afterEach(() => {
+    resetSettings();
+  });
+
+  const baseState = {
+    repositoryPath: '/tmp/repo',
+    worktreePath: '',
+    specDir: '/tmp/spec',
+    featureName: 'test',
+    currentNode: 'implement',
+    messages: [],
+    _needsReexecution: false,
+  };
+
+  it('uses default timeout (1_800_000ms) when settings are not initialized', () => {
+    const options = buildExecutorOptions(baseState as any);
+    expect(options.timeout).toBe(1_800_000);
+  });
+
+  it('uses default timeout when stageTimeoutMs is not set in settings', () => {
+    const settings = createDefaultSettings();
+    initializeSettings(settings);
+
+    const options = buildExecutorOptions(baseState as any);
+    expect(options.timeout).toBe(1_800_000);
+  });
+
+  it('uses per-stage timeout from settings when set', () => {
+    const settings = createDefaultSettings();
+    settings.workflow.stageTimeouts = { implementMs: 900_000 };
+    initializeSettings(settings);
+
+    const options = buildExecutorOptions(baseState as any);
+    expect(options.timeout).toBe(900_000);
+  });
+
+  it('uses default timeout when per-stage timeout is not set for current node', () => {
+    const settings = createDefaultSettings();
+    settings.workflow.stageTimeouts = { analyzeMs: 900_000 };
+    initializeSettings(settings);
+
+    // baseState.currentNode is 'implement', not 'analyze'
+    const options = buildExecutorOptions(baseState as any);
+    expect(options.timeout).toBe(1_800_000);
+  });
+
+  it('allows override to take precedence over settings', () => {
+    const settings = createDefaultSettings();
+    settings.workflow.stageTimeouts = { implementMs: 900_000 };
+    initializeSettings(settings);
+
+    const options = buildExecutorOptions(baseState as any, { timeout: 120_000 });
+    expect(options.timeout).toBe(120_000);
+  });
+
+  it('uses worktreePath as cwd when available', () => {
+    const state = { ...baseState, worktreePath: '/tmp/worktree' };
+    const options = buildExecutorOptions(state as any);
+    expect(options.cwd).toBe('/tmp/worktree');
+  });
+
+  it('uses repositoryPath as cwd when worktreePath is empty', () => {
+    const options = buildExecutorOptions(baseState as any);
+    expect(options.cwd).toBe('/tmp/repo');
   });
 });

@@ -39,11 +39,26 @@ describe('WorkflowSettingsSection', () => {
     expect(screen.getByTestId('switch-allow-merge')).toBeDefined();
   });
 
-  it('renders 3 numeric inputs for CI settings', () => {
+  it('renders CI numeric inputs', () => {
     render(<WorkflowSettingsSection workflow={defaultWorkflow} />);
     expect(screen.getByTestId('ci-max-fix-input')).toBeDefined();
     expect(screen.getByTestId('ci-timeout-input')).toBeDefined();
     expect(screen.getByTestId('ci-log-max-input')).toBeDefined();
+  });
+
+  it('renders per-stage timeout inputs for feature agent', () => {
+    render(<WorkflowSettingsSection workflow={defaultWorkflow} />);
+    expect(screen.getByTestId('stage-timeout-analyzeTimeout-input')).toBeDefined();
+    expect(screen.getByTestId('stage-timeout-requirementsTimeout-input')).toBeDefined();
+    expect(screen.getByTestId('stage-timeout-researchTimeout-input')).toBeDefined();
+    expect(screen.getByTestId('stage-timeout-planTimeout-input')).toBeDefined();
+    expect(screen.getByTestId('stage-timeout-implementTimeout-input')).toBeDefined();
+    expect(screen.getByTestId('stage-timeout-mergeTimeout-input')).toBeDefined();
+  });
+
+  it('renders analyze-repo agent timeout input', () => {
+    render(<WorkflowSettingsSection workflow={defaultWorkflow} />);
+    expect(screen.getByTestId('stage-timeout-analyzeRepoTimeout-input')).toBeDefined();
   });
 
   it('does not render a save button (auto-saves on change)', () => {
@@ -70,6 +85,13 @@ describe('WorkflowSettingsSection', () => {
   it('renders ci timeout label in seconds', () => {
     render(<WorkflowSettingsSection workflow={defaultWorkflow} />);
     expect(screen.getByText('Watch timeout (seconds)')).toBeDefined();
+  });
+
+  it('renders stage timeout section headers', () => {
+    render(<WorkflowSettingsSection workflow={defaultWorkflow} />);
+    expect(screen.getByText('Stage Timeouts')).toBeDefined();
+    expect(screen.getByText('Feature Agent')).toBeDefined();
+    expect(screen.getByText('Analyze Repository Agent')).toBeDefined();
   });
 
   it('renders approval gates section heading', () => {
