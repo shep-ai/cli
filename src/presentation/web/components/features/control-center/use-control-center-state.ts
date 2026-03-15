@@ -38,7 +38,7 @@ export interface ControlCenterState {
   handleConnect: (connection: Connection) => void;
   handleAddRepository: (path: string) => { wasEmpty: boolean; repoPath: string };
   handleLayout: (direction: LayoutDirection) => void;
-  handleDeleteFeature: (featureId: string, cleanup?: boolean) => void;
+  handleDeleteFeature: (featureId: string, cleanup?: boolean, cascadeDelete?: boolean) => void;
   handleRetryFeature: (featureId: string) => void;
   handleDeleteRepository: (repositoryId: string) => Promise<void>;
   createFeatureNode: (
@@ -328,18 +328,21 @@ export function useControlCenterState(
   );
 
   const handleDeleteFeature = useCallback(
-    (featureId: string, cleanup?: boolean) => {
+    (featureId: string, cleanup?: boolean, cascadeDelete?: boolean) => {
       const nodeId = `feat-${featureId}`;
+      const shouldCascade = cascadeDelete === true;
 
       // Collect all descendant feature node IDs (children, grandchildren, etc.)
       const descendants: string[] = [];
-      const queue = [nodeId];
-      while (queue.length > 0) {
-        const current = queue.shift()!;
-        for (const edge of edgesRef.current) {
-          if (edge.type === 'dependencyEdge' && edge.source === current) {
-            descendants.push(edge.target);
-            queue.push(edge.target);
+      if (shouldCascade) {
+        const queue = [nodeId];
+        while (queue.length > 0) {
+          const current = queue.shift()!;
+          for (const edge of edgesRef.current) {
+            if (edge.type === 'dependencyEdge' && edge.source === current) {
+              descendants.push(edge.target);
+              queue.push(edge.target);
+            }
           }
         }
       }
@@ -353,7 +356,7 @@ export function useControlCenterState(
         }
       }
 
-      // Optimistic: show "deleting" state on parent AND all descendants
+      // Optimistic: show "deleting" state on parent (and descendants if cascading)
       beginMutation();
       updateFeature(nodeId, { state: 'deleting' });
       for (const childId of descendants) {
@@ -362,7 +365,7 @@ export function useControlCenterState(
       deleteSound.play();
       router.push('/');
 
-      deleteFeature(featureId, cleanup)
+      deleteFeature(featureId, cleanup, cascadeDelete)
         .then((result) => {
           if (result.error) {
             // Rollback all to previous states

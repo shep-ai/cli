@@ -1,0 +1,50 @@
+    at Object.<anonymous> (/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-umzug-migrations/tests/unit/presentation/web/actions/deploy-repository.test.ts:90:13)
+    at Object.Mock [as start] (file:///Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-umzug-migrations/node_modules/.pnpm/@vitest+spy@4.0.18/node_modules/@vitest/spy/dist/index.js:285:34)
+    at deployRepository (/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-umzug-migrations/src/presentation/web/app/actions/deploy-repository.ts:30:23)
+    at /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-umzug-migrations/tests/unit/presentation/web/actions/deploy-repository.test.ts:93:26
+    at file:///Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-umzug-migrations/node_modules/.pnpm/@vitest+runner@4.0.18/node_modules/@vitest/runner/dist/index.js:145:11
+    at file:///Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-umzug-migrations/node_modules/.pnpm/@vitest+runner@4.0.18/node_modules/@vitest/runner/dist/index.js:915:26
+    at file:///Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-umzug-migrations/node_modules/.pnpm/@vitest+runner@4.0.18/node_modules/@vitest/runner/dist/index.js:1243:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-umzug-migrations/node_modules/.pnpm/@vitest+runner@4.0.18/node_modules/@vitest/runner/dist/index.js:1209:10)
+    at file:///Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-umzug-migrations/node_modules/.pnpm/@vitest+runner@4.0.18/node_modules/@vitest/runner/dist/index.js:1653:37
+
+stderr | tests/unit/presentation/web/actions/deploy-repository.test.ts > deployRepository server action > returns generic error for non-Error throws
+[deployRepository] error: Failed to deploy repository unexpected
+
+ ✓  web  tests/unit/presentation/web/actions/deploy-repository.test.ts (7 tests) 13ms
+ ✓  web  tests/unit/presentation/web/lib/feature-flags.test.ts (9 tests) 6ms
+ ✓  web  tests/unit/presentation/web/actions/features/create-feature.test.ts (21 tests) 22ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts (38 tests) 10ms
+ ✓  web  tests/unit/presentation/web/actions/update-model.test.ts (8 tests) 9ms
+ ✓  web  tests/unit/presentation/web/actions/update-settings.test.ts (6 tests) 7ms
+ ✓  web  tests/unit/presentation/web/api/version.test.ts (4 tests) 9ms
+ ✓  web  tests/unit/presentation/web/actions/open-ide.test.ts (9 tests) 9ms
+ ✓  web  tests/unit/presentation/web/actions/pick-files.test.ts (4 tests) 9ms
+ ✓  web  tests/unit/presentation/web/actions/merge-review/get-merge-review-data.test.ts (15 tests) 25ms
+ ✓  web  tests/unit/presentation/web/actions/get-workflow-defaults.test.ts (4 tests) 5ms
+ ✓  web  tests/unit/presentation/web/actions/get-feature-drawer-data.test.ts (7 tests) 8ms
+ ✓  web  tests/unit/presentation/web/actions/get-supported-models.test.ts (6 tests) 6ms
+ ✓  web  tests/unit/presentation/web/actions/get-deployment-status.test.ts (5 tests) 6ms
+ ✓  web  tests/unit/presentation/web/actions/get-deployment-logs.test.ts (5 tests) 5ms
+ ✓  web  tests/unit/presentation/web/actions/stop-deployment.test.ts (5 tests) 7ms
+ ✓  web  tests/unit/presentation/web/actions/features/delete-feature.test.ts (8 tests) 9ms
+ ✓  web  tests/unit/presentation/web/actions/reject-feature.test.ts (11 tests) 8ms
+ ✓  web  tests/unit/presentation/web/actions/load-settings.test.ts (3 tests) 7ms
+ ✓  web  tests/unit/presentation/web/lib/derive-graph.test.ts (12 tests) 17ms
+ ✓  web  tests/unit/presentation/web/app/actions/get-feature-phase-timings.test.ts (8 tests) 7ms
+ ✓  web  tests/unit/presentation/web/actions/approve-feature.test.ts (7 tests) 8ms
+ ✓  web  tests/unit/presentation/web/components/common/control-center-drawer/drawer-view.test.ts (10 tests) 6ms
+ ✓  web  tests/unit/presentation/web/app/actions/get-feature-plan.test.ts (8 tests) 6ms
+ ✓  web  tests/unit/presentation/web/lib/format-duration.test.ts (9 tests) 5ms
+ ✓  web  tests/unit/presentation/web/components/common/merge-review/merge-review-config.test.ts (9 tests) 5ms
+ ✓  web  tests/unit/presentation/web/features/control-center/derive-state.test.ts (6 tests) 5ms
+ ✓  web  tests/unit/presentation/web/actions/pick-folder.test.ts (4 tests) 3ms
+ ✓  web  tests/unit/presentation/web/lib/compare-versions.test.ts (7 tests) 3ms
+ ✓  web  tests/unit/presentation/web/actions/compose-user-input.test.ts (4 tests) 3ms
+
+ Test Files  306 passed (306)
+      Tests  3833 passed (3833)
+   Start at  11:47:11
+   Duration  33.92s (transform 11.32s, setup 33.24s, import 52.36s, tests 78.10s, environment 90.55s)
+

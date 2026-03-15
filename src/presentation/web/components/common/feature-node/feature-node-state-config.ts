@@ -108,7 +108,8 @@ export interface FeatureNodeData {
   };
   onAction?: () => void;
   onSettings?: () => void;
-  onDelete?: (featureId: string, cleanup?: boolean) => void;
+  hasChildren?: boolean;
+  onDelete?: (featureId: string, cleanup?: boolean, cascadeDelete?: boolean) => void;
   onRetry?: (featureId: string) => void;
   showHandles?: boolean;
 }

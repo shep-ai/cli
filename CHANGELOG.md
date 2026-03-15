@@ -1,3 +1,27 @@
+## [1.112.1](https://github.com/shep-ai/cli/compare/v1.112.0...v1.112.1) (2026-03-15)
+
+### Bug Fixes
+
+- **domain:** add post-bootstrap schema verification to repair missing tables ([#347](https://github.com/shep-ai/cli/issues/347)) ([d042b14](https://github.com/shep-ai/cli/commit/d042b1496fac8b3ace561ad7cc6e63b04cfe40dc))
+
+# [1.112.0](https://github.com/shep-ai/cli/compare/v1.111.0...v1.112.0) (2026-03-14)
+
+### Features
+
+- **domain:** replace manual migration system with umzug ([#345](https://github.com/shep-ai/cli/issues/345)) ([cc8dab2](https://github.com/shep-ai/cli/commit/cc8dab28ec6819d0984564bda3b992173d1200cb))
+
+# [1.111.0](https://github.com/shep-ai/cli/compare/v1.110.3...v1.111.0) (2026-03-14)
+
+### Features
+
+- **web:** add optional cascade delete for sub-features ([#328](https://github.com/shep-ai/cli/issues/328)) ([a19e0ac](https://github.com/shep-ai/cli/commit/a19e0ac77164647beb8637d4cd0082d77bd8c165))
+
+## [1.110.3](https://github.com/shep-ai/cli/compare/v1.110.2...v1.110.3) (2026-03-13)
+
+### Bug Fixes
+
+- **agents:** skip git hooks in spec-only phases ([#344](https://github.com/shep-ai/cli/issues/344)) ([d0e83eb](https://github.com/shep-ai/cli/commit/d0e83eb82dea8e7fbed32f5a450c7e996d53e0a1))
+
 ## [1.110.2](https://github.com/shep-ai/cli/compare/v1.110.1...v1.110.2) (2026-03-13)
 
 ### Bug Fixes

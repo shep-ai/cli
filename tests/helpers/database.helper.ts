@@ -128,3 +128,33 @@ export function getTableIndexes(db: Database.Database, tableName: string): strin
     .all(tableName) as { name: string }[];
   return results.map((r) => r.name);
 }
+
+/**
+ * Returns the names of all applied migrations from the umzug_migrations table.
+ *
+ * @param db - Database instance
+ * @returns Ordered array of migration names, or empty array if table doesn't exist
+ */
+export function getAppliedMigrations(db: Database.Database): string[] {
+  const tableCheck = db
+    .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='umzug_migrations'")
+    .get();
+  if (!tableCheck) {
+    return [];
+  }
+  const rows = db.prepare('SELECT name FROM umzug_migrations ORDER BY name').all() as {
+    name: string;
+  }[];
+  return rows.map((r) => r.name);
+}
+
+/**
+ * Removes umzug_migrations records for migrations after the specified version.
+ * Used in tests to simulate partial migration state under umzug.
+ *
+ * @param db - Database instance
+ * @param afterVersion - Remove records for migrations with version > afterVersion (zero-padded, e.g. '022')
+ */
+export function clearMigrationsAfter(db: Database.Database, afterVersion: string): void {
+  db.prepare('DELETE FROM umzug_migrations WHERE name > ?').run(afterVersion);
+}

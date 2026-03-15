@@ -49,21 +49,21 @@ describe('DeleteFeatureDialog', () => {
   });
 
   describe('confirm action', () => {
-    it('calls onConfirm with cleanup=true when checkbox is checked', async () => {
+    it('calls onConfirm with cleanup=true and cascadeDelete=false by default', async () => {
       const user = userEvent.setup();
       const onConfirm = vi.fn();
       render(<DeleteFeatureDialog {...defaultProps} onConfirm={onConfirm} />);
       await user.click(screen.getByRole('button', { name: /delete$/i }));
-      expect(onConfirm).toHaveBeenCalledWith(true);
+      expect(onConfirm).toHaveBeenCalledWith(true, false);
     });
 
-    it('calls onConfirm with cleanup=false when checkbox is unchecked', async () => {
+    it('calls onConfirm with cleanup=false when cleanup checkbox is unchecked', async () => {
       const user = userEvent.setup();
       const onConfirm = vi.fn();
       render(<DeleteFeatureDialog {...defaultProps} onConfirm={onConfirm} />);
       await user.click(screen.getByRole('checkbox', { name: /clean up worktree and branches/i }));
       await user.click(screen.getByRole('button', { name: /delete$/i }));
-      expect(onConfirm).toHaveBeenCalledWith(false);
+      expect(onConfirm).toHaveBeenCalledWith(false, false);
     });
   });
 
@@ -89,6 +89,75 @@ describe('DeleteFeatureDialog', () => {
       expect(
         screen.getByRole('checkbox', { name: /clean up worktree and branches/i })
       ).toBeDisabled();
+    });
+  });
+
+  describe('cascade delete checkbox', () => {
+    it('does not show cascade checkbox when hasChildren is false', () => {
+      render(<DeleteFeatureDialog {...defaultProps} hasChildren={false} />);
+      expect(
+        screen.queryByRole('checkbox', { name: /delete sub-features/i })
+      ).not.toBeInTheDocument();
+    });
+
+    it('does not show cascade checkbox when hasChildren is undefined', () => {
+      render(<DeleteFeatureDialog {...defaultProps} />);
+      expect(
+        screen.queryByRole('checkbox', { name: /delete sub-features/i })
+      ).not.toBeInTheDocument();
+    });
+
+    it('shows cascade checkbox when hasChildren is true', () => {
+      render(<DeleteFeatureDialog {...defaultProps} hasChildren={true} />);
+      const checkbox = screen.getByRole('checkbox', { name: /delete sub-features/i });
+      expect(checkbox).toBeInTheDocument();
+      expect(checkbox).toHaveAttribute('data-state', 'unchecked');
+    });
+
+    it('calls onConfirm with cascadeDelete=true when cascade checkbox is checked', async () => {
+      const user = userEvent.setup();
+      const onConfirm = vi.fn();
+      render(<DeleteFeatureDialog {...defaultProps} onConfirm={onConfirm} hasChildren={true} />);
+      await user.click(screen.getByRole('checkbox', { name: /delete sub-features/i }));
+      await user.click(screen.getByRole('button', { name: /delete$/i }));
+      expect(onConfirm).toHaveBeenCalledWith(true, true);
+    });
+
+    it('calls onConfirm with cascadeDelete=false when cascade checkbox stays unchecked', async () => {
+      const user = userEvent.setup();
+      const onConfirm = vi.fn();
+      render(<DeleteFeatureDialog {...defaultProps} onConfirm={onConfirm} hasChildren={true} />);
+      await user.click(screen.getByRole('button', { name: /delete$/i }));
+      expect(onConfirm).toHaveBeenCalledWith(true, false);
+    });
+
+    it('resets cascade checkbox to unchecked when dialog reopens', async () => {
+      const user = userEvent.setup();
+      const { rerender } = render(<DeleteFeatureDialog {...defaultProps} hasChildren={true} />);
+
+      // Check the cascade checkbox
+      await user.click(screen.getByRole('checkbox', { name: /delete sub-features/i }));
+      expect(screen.getByRole('checkbox', { name: /delete sub-features/i })).toHaveAttribute(
+        'data-state',
+        'checked'
+      );
+
+      // Close dialog
+      rerender(<DeleteFeatureDialog {...defaultProps} hasChildren={true} open={false} />);
+
+      // Reopen dialog
+      rerender(<DeleteFeatureDialog {...defaultProps} hasChildren={true} open={true} />);
+
+      // Checkbox should be unchecked again
+      expect(screen.getByRole('checkbox', { name: /delete sub-features/i })).toHaveAttribute(
+        'data-state',
+        'unchecked'
+      );
+    });
+
+    it('disables cascade checkbox when isDeleting is true', () => {
+      render(<DeleteFeatureDialog {...defaultProps} hasChildren={true} isDeleting />);
+      expect(screen.getByRole('checkbox', { name: /delete sub-features/i })).toBeDisabled();
     });
   });
 

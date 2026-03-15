@@ -1,0 +1,10 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-umzug-migrations
+
+ ✓  node  tests/integration/infrastructure/persistence/sqlite/migrations.test.ts (62 tests) 299ms
+
+ Test Files  1 passed (1)
+      Tests  62 passed (62)
+   Start at  11:47:05
+   Duration  504ms (transform 59ms, setup 0ms, import 133ms, tests 299ms, environment 0ms)
+

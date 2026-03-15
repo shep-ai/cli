@@ -1,0 +1,95 @@
+Feature: Optional Cascade Delete — Unit Test Results
+Date: 2026-03-14
+Test Runner: Vitest v4.0.18
+
+=== Feature-Specific Tests (3 files, 79 tests) ===
+
+--- tests/unit/presentation/web/actions/features/delete-feature.test.ts (8 tests) ---
+✓ deleteFeature server action > returns deleted feature on success
+✓ deleteFeature server action > passes cleanup option to use case execute
+✓ deleteFeature server action > passes cleanup=true when cleanup param is true
+✓ deleteFeature server action > calls execute without cleanup option when cleanup param is undefined
+✓ deleteFeature server action > returns error when id is empty string
+✓ deleteFeature server action > returns error when id is whitespace-only
+✓ deleteFeature server action > returns error when use case throws Error
+✓ deleteFeature server action > returns generic error when use case throws non-Error
+
+--- tests/unit/presentation/web/hooks/use-graph-state.test.tsx (32 tests) ---
+✓ useGraphState > initialization > initializes with features/repos and returns correct nodes/edges
+✓ useGraphState > initialization > derives edges from repositoryPath matching (repo→feature)
+✓ useGraphState > initialization > derives dependency edge from dep- prefixed initialEdge
+✓ useGraphState > reconcile > adds new server feature → new node appears
+✓ useGraphState > reconcile > removes server feature → node disappears
+✓ useGraphState > reconcile > replaces pending feature with real feature when reconcile arrives
+✓ useGraphState > reconcile > edges are correct after pending→real replacement
+✓ useGraphState > reconcile > preserves optimistic temp repo when server data does not include it yet
+✓ useGraphState > reconcile > drops temp repo once server data includes the same repositoryPath
+✓ useGraphState > reconcile > does not preserve non-temp repos that the server no longer returns
+✓ useGraphState > updateFeature > changes state → derived node state changes
+✓ useGraphState > updateFeature > changes lifecycle → derived node lifecycle changes
+✓ useGraphState > updateFeature > unknown featureId is silently ignored (no crash)
+✓ useGraphState > addPendingFeature / removePendingFeature > adds pending feature → creating node with edge to repo appears
+✓ useGraphState > addPendingFeature / removePendingFeature > removePendingFeature → creating node disappears
+✓ useGraphState > full lifecycle > BUG REPRO: SSE updates + reconcile with AI-changed name → exactly ONE node with correct state
+✓ useGraphState > full lifecycle > BUG REPRO: SSE arrives BEFORE reconcile for unknown feature → buffered updates applied on reconcile
+✓ useGraphState > full lifecycle > BUG REPRO: reconcile with name change does NOT leave stale pendingMap ghost node
+✓ useGraphState > mutation guard > reconcile is a no-op while a mutation is in-flight
+✓ useGraphState > mutation guard > reconcile works again after endMutation cooldown expires
+✓ useGraphState > mutation guard > isMutating returns correct state
+✓ useGraphState > mutation guard > supports nested mutations (ref-counted)
+✓ useGraphState > mutation guard > updateFeature still works during mutation guard
+✓ useGraphState > relocateChildren > reparents direct children to a new parent
+✓ useGraphState > relocateChildren > makes children root-level when new parent is undefined
+✓ useGraphState > relocateChildren > does not affect grandchildren (only direct children)
+✓ useGraphState > relocateChildren > removeFeatureAndRelocateChildren atomically removes parent and reparents children
+✓ useGraphState > relocateChildren > removeFeatureAndRelocateChildren reparents to a specific new parent
+✓ useGraphState > relocateChildren > no-ops when parent has no children
+✓ useGraphState > stable references > nodes/edges have stable references when Maps do not change
+
+--- tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx (39 tests) ---
+✓ useControlCenterState > initializes with provided nodes and edges
+✓ useControlCenterState > createFeatureNode state override and return value > returns the generated node ID via createFeatureNode
+✓ useControlCenterState > createFeatureNode state override and return value > creates a node with state "creating" when dataOverride has state creating
+✓ useControlCenterState > createFeatureNode positioning > places new child feature to the right of the parent via createFeatureNode
+✓ useControlCenterState > createFeatureNode positioning > places two children at distinct Y positions via dagre layout
+✓ useControlCenterState > handleAddRepository > adds a new repository node
+✓ useControlCenterState > handleAddRepository > creates repo node with selected path as name
+✓ useControlCenterState > handleAddRepository > places new repo via dagre layout
+✓ useControlCenterState > handleAddRepository > stacks multiple repos without overlap via dagre layout
+✓ useControlCenterState > handleAddRepository > rolls back repo node on server action error
+✓ useControlCenterState > handleAddRepository > rolls back repo node on network failure
+✓ useControlCenterState > handleAddRepository > first-repo metadata return value > returns wasEmpty true when repoMap is empty
+✓ useControlCenterState > handleAddRepository > first-repo metadata return value > returns wasEmpty false when repoMap has entries
+✓ useControlCenterState > handleAddRepository > first-repo metadata return value > returns the correct repoPath
+✓ useControlCenterState > handleAddRepository > first-repo metadata return value > returns wasEmpty false after a repo has already been added
+✓ useControlCenterState > fast-mode feature handling > creates optimistic feature node with real featureId when provided
+✓ useControlCenterState > fast-mode feature handling > feature starting at Implementation lifecycle renders correctly after reconcile
+✓ useControlCenterState > initialNodes/initialEdges prop sync > syncs local state when initialNodes prop changes (different node IDs)
+✓ useControlCenterState > initialNodes/initialEdges prop sync > syncs local edges when initialNodes add a feature with matching repositoryPath
+✓ useControlCenterState > initialNodes/initialEdges prop sync > replaces optimistic node when initialNodes changes to include real feature
+✓ useControlCenterState > initialNodes/initialEdges prop sync > does not update when initialNodes have the same IDs (stable comparison)
+✓ useControlCenterState > handleDeleteFeature > calls deleteFeature server action with correct featureId
+✓ useControlCenterState > handleDeleteFeature > removes deleted node from canvas after successful delete
+✓ useControlCenterState > handleDeleteFeature > removes edges for deleted feature
+✓ useControlCenterState > handleDeleteFeature > navigates to root on successful deletion when on a feature page
+✓ useControlCenterState > handleDeleteFeature > skips navigation when already on root
+✓ useControlCenterState > handleDeleteFeature > shows error toast with server action error message
+✓ useControlCenterState > handleDeleteFeature > preserves nodes and edges on server action error
+✓ useControlCenterState > handleDeleteFeature > shows generic error toast on network failure
+✓ useControlCenterState > handleDeleteFeature > preserves state on network failure
+✓ useControlCenterState > handleDeleteFeature > does not call router.refresh() on error
+✓ useControlCenterState > handleDeleteFeature > post-deletion relayout > removes deleted feature from canvas after successful delete
+✓ useControlCenterState > handleDeleteFeature > post-deletion relayout > restores all nodes and edges on server action error
+✓ useControlCenterState > handleDeleteFeature > post-deletion relayout > remaining nodes have valid positions after deletion
+✓ useControlCenterState > handleDeleteFeature > post-deletion relayout > removes deleted feature and its edges after successful delete
+✓ useControlCenterState > handleDeleteFeature > cascade delete > removes all descendants when cascadeDelete=true
+✓ useControlCenterState > handleDeleteFeature > cascade delete > passes cascadeDelete=true to server action
+✓ useControlCenterState > handleDeleteFeature > cascade delete > rolls back all descendants on server action error
+✓ useControlCenterState > handleDeleteFeature > non-cascade delete (reparent children) > preserves children and reparents them when cascadeDelete=false
+✓ useControlCenterState > handleDeleteFeature > non-cascade delete (reparent children) > passes cascadeDelete=false to server action
+✓ useControlCenterState > handleDeleteFeature > non-cascade delete (reparent children) > reparents child to grandparent when deleting middle node
+
+=== Full Test Suite ===
+Test Files: 306 passed (306)
+Tests:      3860 passed (3860)
+Duration:   19.40s

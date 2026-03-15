@@ -1,0 +1,10 @@
+=== Dependency Verification ===
+
+umzug version: ^3.8.2
+@blackglory/better-sqlite3-migrations: REMOVED (not in dependencies or devDependencies)
+
+=== Key Migration Files ===
+packages/core/src/infrastructure/persistence/sqlite/sqlite-migration-storage.ts (4072 bytes)
+packages/core/src/infrastructure/persistence/sqlite/legacy-migrations.ts (17963 bytes)
+packages/core/src/infrastructure/persistence/sqlite/migrations.ts (4707 bytes)
+packages/core/src/infrastructure/persistence/sqlite/migrations/.gitkeep (0 bytes)

@@ -31,7 +31,7 @@ export interface GraphCallbacks {
   /** Called when the user opens settings/details on a feature node. */
   onNodeSettings?: (nodeId: string) => void;
   /** Called when the user deletes a feature. */
-  onFeatureDelete?: (featureId: string, cleanup?: boolean) => void;
+  onFeatureDelete?: (featureId: string, cleanup?: boolean, cascadeDelete?: boolean) => void;
   /** Called when the user clicks the "+" add-feature button on a repo node. */
   onRepositoryAdd?: (repoNodeId: string) => void;
   /** Called when the user clicks a repo node to navigate to its detail page. */
@@ -185,10 +185,22 @@ export function deriveGraph(
     }
   }
 
-  // Inject showHandles based on whether there are any edges
+  // Build set of feature node IDs that have children (are dependency edge sources)
+  const parentNodeIds = new Set<string>();
+  for (const edge of edges) {
+    if (edge.type === 'dependencyEdge') {
+      parentNodeIds.add(edge.source);
+    }
+  }
+
+  // Inject showHandles and hasChildren based on edges
   const hasEdges = edges.length > 0;
   for (const node of nodes) {
-    (node.data as Record<string, unknown>).showHandles = hasEdges;
+    const data = node.data as Record<string, unknown>;
+    data.showHandles = hasEdges;
+    if (node.type === 'featureNode') {
+      data.hasChildren = parentNodeIds.has(node.id);
+    }
   }
 
   return { nodes, edges };
