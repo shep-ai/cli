@@ -53,7 +53,7 @@ export class AgentExecutorFactory implements IAgentExecutorFactory {
         executor = new ClaudeCodeExecutorService(this.spawn);
         break;
       case 'cursor':
-        executor = new CursorExecutorService(this.spawn);
+        executor = new CursorExecutorService(this.spawn, _authConfig);
         break;
       case 'dev':
         executor = new DevAgentExecutorService();

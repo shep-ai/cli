@@ -22,7 +22,12 @@ vi.mock('@/infrastructure/platform.js', () => ({
 
 import { CursorExecutorService } from '@/infrastructure/services/agents/common/executors/cursor-executor.service.js';
 import type { SpawnFunction } from '@/infrastructure/services/agents/common/types.js';
-import { AgentType, AgentFeature } from '@/domain/generated/output.js';
+import {
+  AgentType,
+  AgentFeature,
+  AgentAuthMethod,
+  type AgentConfig,
+} from '@/domain/generated/output.js';
 
 /**
  * Creates a mock ChildProcess-like object that can emit events and provide
@@ -585,6 +590,52 @@ describe('CursorExecutorService', () => {
       expect(spawnArgs).not.toContain('--api-key');
       expect(spawnArgs).not.toContain('--token');
       expect(spawnArgs).not.toContain('--auth');
+    });
+
+    it('should inject CURSOR_API_KEY env var when authConfig has token', async () => {
+      const authConfig: AgentConfig = {
+        type: AgentType.Cursor,
+        authMethod: AgentAuthMethod.Token,
+        token: 'test-cursor-api-key-123',
+      };
+      const executorWithAuth = new CursorExecutorService(mockSpawn, authConfig);
+
+      const mockProc = createMockChildProcess();
+      vi.mocked(mockSpawn).mockReturnValue(mockProc as any);
+
+      const assistantLine = buildCursorAssistantEvent('Done');
+      const resultLine = buildCursorResultEvent('sess-1', 100);
+      const executePromise = executorWithAuth.execute('Test', { silent: true });
+      emitStreamData(mockProc, [assistantLine, resultLine], null, 0);
+
+      await executePromise;
+
+      const spawnOpts = vi.mocked(mockSpawn).mock.calls[0][2] as Record<string, unknown>;
+      const env = spawnOpts.env as Record<string, string>;
+      expect(env.CURSOR_API_KEY).toBe('test-cursor-api-key-123');
+    });
+
+    it('should NOT inject CURSOR_API_KEY when authConfig has no token', async () => {
+      const authConfig: AgentConfig = {
+        type: AgentType.Cursor,
+        authMethod: AgentAuthMethod.Session,
+      };
+      const executorNoToken = new CursorExecutorService(mockSpawn, authConfig);
+
+      const mockProc = createMockChildProcess();
+      vi.mocked(mockSpawn).mockReturnValue(mockProc as any);
+
+      const assistantLine = buildCursorAssistantEvent('Done');
+      const resultLine = buildCursorResultEvent('sess-1', 100);
+      const executePromise = executorNoToken.execute('Test', { silent: true });
+      emitStreamData(mockProc, [assistantLine, resultLine], null, 0);
+
+      await executePromise;
+
+      const spawnOpts = vi.mocked(mockSpawn).mock.calls[0][2] as Record<string, unknown>;
+      const env = spawnOpts.env as Record<string, string>;
+      // Should not have been injected (may exist from process.env, but not from authConfig)
+      expect(env.CURSOR_API_KEY).toBeUndefined();
     });
   });
 

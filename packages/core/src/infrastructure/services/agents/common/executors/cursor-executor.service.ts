@@ -13,7 +13,11 @@ import { writeFileSync, unlinkSync, readdirSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { AgentType, AgentFeature } from '../../../../../domain/generated/output.js';
+import type {
+  AgentType,
+  AgentFeature,
+  AgentConfig,
+} from '../../../../../domain/generated/output.js';
 import type {
   IAgentExecutor,
   AgentExecutionOptions,
@@ -53,7 +57,10 @@ export class CursorExecutorService implements IAgentExecutor {
   /** When true, suppresses debug logging (set per-call via options.silent) */
   private silent = false;
 
-  constructor(private readonly spawn: SpawnFunction) {}
+  constructor(
+    private readonly spawn: SpawnFunction,
+    private readonly authConfig?: AgentConfig
+  ) {}
 
   /** Debug logging — writes to stdout so it appears in the worker log file */
   private log(message: string): void {
@@ -385,12 +392,27 @@ export class CursorExecutorService implements IAgentExecutor {
    *
    * On Linux/macOS, spawn `agent` directly — no shell needed.
    */
+  /**
+   * Build the subprocess environment: strip CLAUDECODE, inject CURSOR_API_KEY
+   * from authConfig when token auth is configured.
+   */
+  private buildEnv(extra?: Record<string, string>): Record<string, string | undefined> {
+    const { CLAUDECODE: _, ...cleanEnv } = process.env;
+
+    // Inject CURSOR_API_KEY from stored settings so the cursor CLI authenticates
+    // even when the env var isn't inherited (e.g. direct node.exe invocation on Windows).
+    if (this.authConfig?.authMethod === 'token' && this.authConfig.token) {
+      cleanEnv.CURSOR_API_KEY = this.authConfig.token;
+    }
+
+    return extra ? { ...cleanEnv, ...extra } : cleanEnv;
+  }
+
   private spawnAgent(
     prompt: string,
     args: string[],
     options?: AgentExecutionOptions
   ): { proc: ReturnType<SpawnFunction>; tmpFile: string | undefined } {
-    const { CLAUDECODE: _, ...cleanEnv } = process.env;
     const cwd = options?.cwd;
 
     if (IS_WINDOWS) {
@@ -409,7 +431,7 @@ export class CursorExecutorService implements IAgentExecutor {
           cwd,
           stdio: ['pipe', 'pipe', 'pipe'],
           windowsHide: true,
-          env: { ...cleanEnv, CURSOR_INVOKED_AS: 'agent' },
+          env: this.buildEnv({ CURSOR_INVOKED_AS: 'agent' }),
         });
         this.log(`Direct PID: ${proc.pid ?? 'undefined (spawn may have failed)'}`);
         if (proc.stdin) proc.stdin.end();
@@ -436,7 +458,7 @@ export class CursorExecutorService implements IAgentExecutor {
           cwd,
           stdio: ['pipe', 'pipe', 'pipe'],
           windowsHide: true,
-          env: cleanEnv,
+          env: this.buildEnv(),
         }
       );
       if (proc.stdin) proc.stdin.end();
@@ -447,7 +469,7 @@ export class CursorExecutorService implements IAgentExecutor {
     // Linux/macOS: spawn agent directly, no shell needed
     const spawnOpts: Record<string, unknown> = {
       stdio: ['pipe', 'pipe', 'pipe'],
-      env: cleanEnv,
+      env: this.buildEnv(),
     };
     if (cwd) spawnOpts.cwd = cwd;
 
