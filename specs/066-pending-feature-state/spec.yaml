@@ -1,0 +1,149 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: pending-feature-state
+number: 066
+branch: feat/pending-feature-state
+oneLiner: Allow creating features in a pending state that defers agent execution until explicitly started
+userQuery: >
+  Add support to "pending" feature — as a user I would want to write a feature
+  but to not let the agents start working on it yet
+summary: >
+  Add a new SdlcLifecycle.Pending state that lets users create fully-initialized
+  features (with worktree, spec directory, and metadata) without spawning the
+  agent. Users can then manually start the agent via a new CLI command
+  (shep feat start) or a Web UI action, transitioning the feature from Pending
+  to its normal SDLC flow.
+phase: Analysis
+sizeEstimate: M
+
+# Relationships
+relatedFeatures:
+  - "041-feature-dependencies (Blocked state pattern — similar lifecycle gate concept)"
+  - "024-optimistic-feature-creation (two-phase create pattern)"
+
+technologies:
+  - TypeSpec (domain enum extension)
+  - SQLite (lifecycle column — TEXT, no migration needed for new enum value)
+  - Commander.js (CLI flag and new subcommand)
+  - React / Next.js (Web UI state rendering)
+  - LangGraph (agent spawn gating)
+  - tsyringe (DI for new use case)
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - "Should pending features show up in the default `shep feat ls` output, or be filtered by default?"
+  - "Should the Web UI allow starting a pending feature via a button in the feature node, or only from the sidebar/drawer?"
+  - "Should `--pending` be a flag on `shep feat new`, or a separate command like `shep feat draft`?"
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  Currently, when a user runs `shep feat new "description"`, the system immediately
+  creates the feature record, initializes the git worktree and spec directory, and
+  spawns the agent to begin autonomous SDLC processing. There is no way to create
+  a feature and defer agent execution — the only exception is the `Blocked` state,
+  which requires a `--parent` dependency and is not user-controllable.
+
+  Users need the ability to draft features without triggering agent work. Use cases
+  include: writing feature specs ahead of time, batching feature creation for later
+  execution, reviewing the generated metadata/worktree before committing agent
+  resources, or simply staging work during planning sessions.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The project follows Clean Architecture with four layers:
+
+  - **Domain** (`packages/core/src/domain/`) — Core business logic, TypeSpec-generated
+    models. The `SdlcLifecycle` enum in `tsp/common/enums/lifecycle.tsp` defines all
+    feature states. Generated output lives at `domain/generated/output.ts`.
+
+  - **Application** (`packages/core/src/application/`) — Use cases that orchestrate
+    domain logic. Key files:
+    - `use-cases/features/create/create-feature.use-case.ts` — Two-phase creation
+      (fast `createRecord()` + slow `initializeAndSpawn()`) with `shouldSpawn` flag.
+    - `use-cases/features/resume-feature.use-case.ts` — Resumes interrupted/failed
+      agents by creating a new AgentRun and spawning a worker.
+    - `use-cases/features/check-and-unblock-features.use-case.ts` — Unblocks children
+      when parent reaches POST_IMPLEMENTATION.
+
+  - **Infrastructure** (`packages/core/src/infrastructure/`) — DB, agent process
+    management. Agent spawning is in
+    `services/agents/feature-agent/feature-agent-process.service.ts`.
+
+  - **Presentation** — CLI (`src/presentation/cli/`), TUI (`src/presentation/tui/`),
+    Web UI (`src/presentation/web/`).
+
+  ### Architecture Patterns
+
+  - **TypeSpec-first**: All domain models defined in `tsp/`, compiled to
+    `domain/generated/output.ts`. Never edit generated files.
+  - **Two-phase feature creation**: `createRecord()` is fast (DB only), then
+    `initializeAndSpawn()` does AI metadata, worktree, spec init, and agent spawn.
+    A `shouldSpawn` boolean controls whether the agent starts.
+  - **Lifecycle gates**: `lifecycle-gates.ts` defines `POST_IMPLEMENTATION` set.
+    The `Blocked` lifecycle already demonstrates the pattern of creating a feature
+    without spawning an agent — `shouldSpawn = false`.
+  - **State derivation**: UI node state is derived in
+    `derive-feature-state.ts` via `deriveNodeState()`. It maps lifecycle + agent
+    run status to one of 7 UI states: creating, running, action-required, done,
+    blocked, error, deleting.
+  - **DI via tsyringe**: All use cases are injectable with `@inject()` tokens.
+
+  ### Relevant Technologies
+
+  - **TypeSpec** — Enum extension for `SdlcLifecycle.Pending`
+  - **SQLite** — `lifecycle` column is TEXT with no CHECK constraint; new enum
+    values require no migration
+  - **Commander.js** — CLI commands in `src/presentation/cli/commands/feat/`
+  - **React + Next.js** — Web UI components, SSE real-time updates
+  - **LangGraph** — Agent graph execution, checkpoint-based resume
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `tsp/common/enums/lifecycle.tsp` | High | Add `Pending` enum value to SdlcLifecycle |
+  | `packages/core/src/domain/generated/output.ts` | High | Regenerated from TypeSpec — will include new enum value |
+  | `packages/core/src/domain/lifecycle-gates.ts` | Low | May need to document that Pending is not in any gate set |
+  | `packages/core/src/application/use-cases/features/create/create-feature.use-case.ts` | High | Add `pending` flag handling: set lifecycle to Pending, set shouldSpawn=false |
+  | `packages/core/src/application/use-cases/features/create/types.ts` | Medium | Add `pending?: boolean` to CreateFeatureInput |
+  | New: `packages/core/src/application/use-cases/features/start-feature.use-case.ts` | High | New use case to transition Pending→Started and spawn agent (similar to ResumeFeatureUseCase but for first-time spawn) |
+  | `src/presentation/cli/commands/feat/new.command.ts` | Medium | Add `--pending` flag |
+  | New: `src/presentation/cli/commands/feat/start.command.ts` | High | New CLI command `shep feat start <fid>` |
+  | `src/presentation/web/components/common/feature-node/feature-node-state-config.ts` | Medium | Add `pending` to FeatureNodeState type and config |
+  | `src/presentation/web/components/common/feature-node/derive-feature-state.ts` | Medium | Handle SdlcLifecycle.Pending → UI state 'pending' |
+  | `src/presentation/web/components/common/feature-node/feature-node.tsx` | Medium | Render pending state with appropriate icon/badge and "Start" action |
+  | `src/presentation/cli/commands/feat/ls.command.ts` | Low | Display pending features with appropriate formatting |
+  | Web API routes (feature creation, SSE) | Low | Pass through pending flag, emit correct events |
+  | Tests (unit + integration) | High | TDD for new use case, updated creation flow, UI state derivation |
+
+  ## Dependencies
+
+  - **Existing `Blocked` state pattern**: The `shouldSpawn = false` path in
+    `CreateFeatureUseCase` is the exact pattern to reuse for Pending.
+  - **ResumeFeatureUseCase**: The `StartFeatureUseCase` will follow a similar
+    pattern — find feature, validate state, create/reuse AgentRun, spawn worker.
+  - **TypeSpec compiler**: `pnpm tsp:compile` must be run after editing `.tsp` files.
+  - **No database migration required**: The `lifecycle` column is TEXT with no
+    constraints, so adding a new string value requires no schema change.
+
+  ## Size Estimate
+
+  **M** — This is a medium-sized feature because:
+  - The core domain change is small (one new enum value).
+  - The `shouldSpawn = false` pattern already exists for `Blocked` features.
+  - A new `StartFeatureUseCase` is needed but closely mirrors the existing
+    `ResumeFeatureUseCase`.
+  - CLI changes are straightforward (one new flag, one new command).
+  - UI changes require a new visual state but follow established patterns.
+  - The main effort is in thorough TDD coverage across all layers.
+
+  ---
+
+  _Analysis complete — proceed with research_
