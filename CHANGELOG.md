@@ -1,3 +1,9 @@
+# [1.116.0](https://github.com/shep-ai/cli/compare/v1.115.0...v1.116.0) (2026-03-15)
+
+### Features
+
+- **web:** display feature settings in overview tab ([#365](https://github.com/shep-ai/cli/issues/365)) ([b244df3](https://github.com/shep-ai/cli/commit/b244df3055135d40c21c2e5d8a1f2d736d77c577))
+
 # [1.115.0](https://github.com/shep-ai/cli/compare/v1.114.0...v1.115.0) (2026-03-15)
 
 ### Features
