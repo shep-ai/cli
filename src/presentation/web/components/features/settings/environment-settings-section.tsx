@@ -13,8 +13,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { updateSettingsAction } from '@/app/actions/update-settings';
-import { EditorType } from '@shepai/core/domain/generated/output';
+import { EditorType, TerminalType } from '@shepai/core/domain/generated/output';
 import type { EnvironmentConfig } from '@shepai/core/domain/generated/output';
+import type { AvailableTerminal } from '@/app/actions/get-available-terminals';
 
 const EDITOR_OPTIONS = [
   { value: EditorType.VsCode, label: 'VS Code' },
@@ -32,11 +33,16 @@ const SHELL_OPTIONS = [
 
 export interface EnvironmentSettingsSectionProps {
   environment: EnvironmentConfig;
+  availableTerminals?: AvailableTerminal[];
 }
 
-export function EnvironmentSettingsSection({ environment }: EnvironmentSettingsSectionProps) {
+export function EnvironmentSettingsSection({
+  environment,
+  availableTerminals,
+}: EnvironmentSettingsSectionProps) {
   const [editor, setEditor] = useState(environment.defaultEditor);
   const [shell, setShell] = useState(environment.shellPreference);
+  const [terminal, setTerminal] = useState(environment.terminalPreference ?? TerminalType.System);
   const [isPending, startTransition] = useTransition();
   const [showSaved, setShowSaved] = useState(false);
   const prevPendingRef = useRef(false);
@@ -61,13 +67,41 @@ export function EnvironmentSettingsSection({ environment }: EnvironmentSettingsS
 
   function handleEditorChange(value: string) {
     setEditor(value as EditorType);
-    save({ environment: { defaultEditor: value as EditorType, shellPreference: shell } });
+    save({
+      environment: {
+        defaultEditor: value as EditorType,
+        shellPreference: shell,
+        terminalPreference: terminal,
+      },
+    });
   }
 
   function handleShellChange(value: string) {
     setShell(value);
-    save({ environment: { defaultEditor: editor, shellPreference: value } });
+    save({
+      environment: {
+        defaultEditor: editor,
+        shellPreference: value,
+        terminalPreference: terminal,
+      },
+    });
   }
+
+  function handleTerminalChange(value: string) {
+    setTerminal(value as TerminalType);
+    save({
+      environment: {
+        defaultEditor: editor,
+        shellPreference: shell,
+        terminalPreference: value as TerminalType,
+      },
+    });
+  }
+
+  // Filter to only show installed terminals
+  const terminalOptions = availableTerminals
+    ? availableTerminals.filter((t) => t.available)
+    : [{ id: TerminalType.System, name: 'System Terminal', available: true }];
 
   return (
     <Card id="environment" className="scroll-mt-6" data-testid="environment-settings-section">
@@ -85,7 +119,9 @@ export function EnvironmentSettingsSection({ environment }: EnvironmentSettingsS
             </span>
           ) : null}
         </div>
-        <CardDescription>Configure your default editor and shell preferences</CardDescription>
+        <CardDescription>
+          Configure your default editor, shell, and terminal preferences
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
@@ -114,6 +150,22 @@ export function EnvironmentSettingsSection({ environment }: EnvironmentSettingsS
               {SHELL_OPTIONS.map((opt) => (
                 <SelectItem key={opt.value} value={opt.value}>
                   {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="terminal-preference">Terminal Emulator</Label>
+          <Select value={terminal} onValueChange={handleTerminalChange}>
+            <SelectTrigger id="terminal-preference" data-testid="terminal-select">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {terminalOptions.map((opt) => (
+                <SelectItem key={opt.id} value={opt.id}>
+                  {opt.name}
                 </SelectItem>
               ))}
             </SelectContent>

@@ -24,7 +24,7 @@ import type {
   ApprovalGateDefaults,
   FeatureFlags,
 } from '../generated/output';
-import { AgentType, AgentAuthMethod, EditorType } from '../generated/output';
+import { AgentType, AgentAuthMethod, EditorType, TerminalType } from '../generated/output';
 
 /**
  * Default AI model for all SDLC agents.
@@ -43,6 +43,12 @@ const DEFAULT_EDITOR = EditorType.VsCode;
  * Most common shell across Unix-like systems.
  */
 const DEFAULT_SHELL = 'bash' as const;
+
+/**
+ * Default terminal emulator preference.
+ * Uses the OS default terminal (Terminal.app on macOS, etc.).
+ */
+const DEFAULT_TERMINAL = TerminalType.System;
 
 /**
  * Default log level for CLI output.
@@ -95,6 +101,7 @@ export function createDefaultSettings(): Settings {
   const environment: EnvironmentConfig = {
     defaultEditor: DEFAULT_EDITOR,
     shellPreference: DEFAULT_SHELL,
+    terminalPreference: DEFAULT_TERMINAL,
   };
 
   const system: SystemConfig = {

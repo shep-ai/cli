@@ -1,11 +1,15 @@
 import { loadSettings } from '@/app/actions/load-settings';
+import { getAvailableTerminals } from '@/app/actions/get-available-terminals';
 import { SettingsPageClient } from '@/components/features/settings/settings-page-client';
 
 /** Skip static pre-rendering since we need runtime DI container and server context. */
 export const dynamic = 'force-dynamic';
 
 export default async function SettingsPage() {
-  const { settings, shepHome, dbFileSize, error } = await loadSettings();
+  const [{ settings, shepHome, dbFileSize, error }, availableTerminals] = await Promise.all([
+    loadSettings(),
+    getAvailableTerminals(),
+  ]);
 
   if (error || !settings) {
     return (
@@ -21,6 +25,7 @@ export default async function SettingsPage() {
         settings={settings}
         shepHome={shepHome ?? ''}
         dbFileSize={dbFileSize ?? 'Unknown'}
+        availableTerminals={availableTerminals}
       />
     </div>
   );

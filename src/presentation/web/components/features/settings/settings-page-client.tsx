@@ -32,7 +32,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { updateSettingsAction } from '@/app/actions/update-settings';
-import { type AgentType, AgentAuthMethod, EditorType } from '@shepai/core/domain/generated/output';
+import {
+  type AgentType,
+  AgentAuthMethod,
+  EditorType,
+  TerminalType,
+} from '@shepai/core/domain/generated/output';
 import { getEditorTypeIcon } from '@/components/common/editor-type-icons';
 import { AgentModelPicker } from '@/components/features/settings/AgentModelPicker';
 import type {
@@ -40,6 +45,7 @@ import type {
   FeatureFlags,
   NotificationPreferences,
 } from '@shepai/core/domain/generated/output';
+import type { AvailableTerminal } from '@/app/actions/get-available-terminals';
 
 const AUTH_METHOD_OPTIONS = [
   { value: AgentAuthMethod.Session, label: 'Session' },
@@ -52,6 +58,12 @@ const EDITOR_OPTIONS = [
   { value: EditorType.Windsurf, label: 'Windsurf' },
   { value: EditorType.Zed, label: 'Zed' },
   { value: EditorType.Antigravity, label: 'Antigravity' },
+];
+
+const SHELL_OPTIONS = [
+  { value: 'bash', label: 'Bash' },
+  { value: 'zsh', label: 'Zsh' },
+  { value: 'fish', label: 'Fish' },
 ];
 
 const SECTIONS = [
@@ -68,6 +80,7 @@ export interface SettingsPageClientProps {
   settings: Settings;
   shepHome: string;
   dbFileSize: string;
+  availableTerminals?: AvailableTerminal[];
 }
 
 function useSaveIndicator() {
@@ -337,7 +350,12 @@ function SectionHint({
 
 /* ── Main component ── */
 
-export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsPageClientProps) {
+export function SettingsPageClient({
+  settings,
+  shepHome,
+  dbFileSize,
+  availableTerminals,
+}: SettingsPageClientProps) {
   const { showSaving, showSaved, save } = useSaveIndicator();
   const featureFlags = settings.featureFlags ?? { skills: false, envDeploy: false, debug: false };
 
@@ -349,7 +367,15 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
 
   // Environment state
   const [editor, setEditor] = useState(settings.environment.defaultEditor);
-  const shell = settings.environment.shellPreference;
+  const [shell, setShell] = useState(settings.environment.shellPreference);
+  const [terminal, setTerminal] = useState(
+    settings.environment.terminalPreference ?? TerminalType.System
+  );
+
+  // Filter to only show installed terminals
+  const terminalOptions = availableTerminals
+    ? availableTerminals.filter((t) => t.available)
+    : [{ id: TerminalType.System, name: 'System Terminal', available: true as const }];
 
   // Workflow state
   const [openPr, setOpenPr] = useState(settings.workflow.openPrOnImplementationComplete);
@@ -664,7 +690,7 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
           <SettingsSection
             icon={Terminal}
             title="Environment"
-            description="Editor and shell preferences"
+            description="Editor, shell, and terminal preferences"
             testId="environment-settings-section"
           >
             <SettingsRow
@@ -677,7 +703,11 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
                 onValueChange={(v) => {
                   setEditor(v as EditorType);
                   save({
-                    environment: { defaultEditor: v as EditorType, shellPreference: shell },
+                    environment: {
+                      defaultEditor: v as EditorType,
+                      shellPreference: shell,
+                      terminalPreference: terminal,
+                    },
                   });
                 }}
               >
@@ -703,6 +733,74 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
                 </SelectContent>
               </Select>
             </SettingsRow>
+            <SettingsRow
+              label="Shell"
+              description="Default shell for generated scripts"
+              htmlFor="shell-preference"
+            >
+              <Select
+                value={shell}
+                onValueChange={(v) => {
+                  setShell(v);
+                  save({
+                    environment: {
+                      defaultEditor: editor,
+                      shellPreference: v,
+                      terminalPreference: terminal,
+                    },
+                  });
+                }}
+              >
+                <SelectTrigger
+                  id="shell-preference"
+                  data-testid="shell-select"
+                  className="w-55 cursor-pointer text-xs"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SHELL_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </SettingsRow>
+            <SettingsRow
+              label="Terminal"
+              description="Terminal emulator for shell sessions"
+              htmlFor="terminal-preference"
+            >
+              <Select
+                value={terminal}
+                onValueChange={(v) => {
+                  setTerminal(v as TerminalType);
+                  save({
+                    environment: {
+                      defaultEditor: editor,
+                      shellPreference: shell,
+                      terminalPreference: v as TerminalType,
+                    },
+                  });
+                }}
+              >
+                <SelectTrigger
+                  id="terminal-preference"
+                  data-testid="terminal-select"
+                  className="w-55 cursor-pointer text-xs"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {terminalOptions.map((opt) => (
+                    <SelectItem key={opt.id} value={opt.id}>
+                      {opt.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </SettingsRow>
           </SettingsSection>
           <SectionHint
             links={[
@@ -712,8 +810,8 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
               },
             ]}
           >
-            Your preferred editor is used when opening files for review or editing during the
-            development workflow.
+            Your preferred editor opens files for review. The shell setting controls generated
+            scripts. The terminal emulator is launched when opening shell sessions from the web UI.
           </SectionHint>
         </div>
 

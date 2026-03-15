@@ -16,6 +16,7 @@ import {
   type AgentType,
   type AgentAuthMethod,
   type EditorType,
+  type TerminalType,
 } from '../../../../domain/generated/output.js';
 
 /**
@@ -44,6 +45,7 @@ export interface SettingsRow {
   // EnvironmentConfig (environment.*)
   env_default_editor: string;
   env_shell_preference: string;
+  env_terminal_preference: string;
 
   // SystemConfig (system.*)
   sys_auto_update: number; // Boolean stored as INTEGER
@@ -128,6 +130,7 @@ export function toDatabase(settings: Settings): SettingsRow {
     // EnvironmentConfig
     env_default_editor: settings.environment.defaultEditor,
     env_shell_preference: settings.environment.shellPreference,
+    env_terminal_preference: settings.environment.terminalPreference,
 
     // SystemConfig
     sys_auto_update: settings.system.autoUpdate ? 1 : 0,
@@ -215,6 +218,7 @@ export function fromDatabase(row: SettingsRow): Settings {
     environment: {
       defaultEditor: row.env_default_editor as EditorType,
       shellPreference: row.env_shell_preference,
+      terminalPreference: (row.env_terminal_preference ?? 'system') as TerminalType,
     },
 
     // SystemConfig (INTEGER → boolean)

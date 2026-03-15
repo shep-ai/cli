@@ -881,17 +881,17 @@ describe('SQLite Migrations', () => {
       expect(tableExists(db, 'umzug_migrations')).toBe(true);
     });
 
-    it('should record 34 migration entries in umzug_migrations', async () => {
+    it('should record 35 migration entries in umzug_migrations', async () => {
       await runSQLiteMigrations(db);
       const applied = getAppliedMigrations(db);
-      expect(applied).toHaveLength(34);
+      expect(applied).toHaveLength(35);
     });
 
-    it('should record migrations with zero-padded names from 001 to 034', async () => {
+    it('should record migrations with zero-padded names from 001 to 035', async () => {
       await runSQLiteMigrations(db);
       const applied = getAppliedMigrations(db);
       expect(applied[0]).toMatch(/^001-/);
-      expect(applied[33]).toMatch(/^034-/);
+      expect(applied[34]).toMatch(/^035-/);
     });
 
     it('should bootstrap seeder for database at user_version 20', async () => {
@@ -905,12 +905,12 @@ describe('SQLite Migrations', () => {
       db.exec('DROP TABLE umzug_migrations');
       db.pragma('user_version = 20');
 
-      // Running migrations should bootstrap 20 records and re-run 21-34
+      // Running migrations should bootstrap 20 records and re-run 21-35
       await runSQLiteMigrations(db);
 
       expect(getSchemaVersion(db)).toBe(LATEST_SCHEMA_VERSION);
       const applied = getAppliedMigrations(db);
-      expect(applied).toHaveLength(34);
+      expect(applied).toHaveLength(35);
     });
 
     it('should apply only pending migrations when some are already tracked', async () => {
@@ -920,11 +920,11 @@ describe('SQLite Migrations', () => {
       clearMigrationsAfter(db, '029');
       db.pragma('user_version = 29');
 
-      // Re-run should apply only pending migrations (030-034)
+      // Re-run should apply only pending migrations (030-035)
       await runSQLiteMigrations(db);
 
       expect(getSchemaVersion(db)).toBe(LATEST_SCHEMA_VERSION);
-      expect(getAppliedMigrations(db)).toHaveLength(34);
+      expect(getAppliedMigrations(db)).toHaveLength(35);
     });
 
     it('should repair missing pr_sync_lock table after bootstrap gap', async () => {
@@ -948,8 +948,8 @@ describe('SQLite Migrations', () => {
 
       // pr_sync_lock should now exist
       expect(tableExists(db, 'pr_sync_lock')).toBe(true);
-      // All 34 migrations should be tracked
-      expect(getAppliedMigrations(db)).toHaveLength(34);
+      // All 35 migrations should be tracked
+      expect(getAppliedMigrations(db)).toHaveLength(35);
       // user_version may be 33 (set by re-run of 033) since 034 was already
       // tracked and didn't re-run. With umzug, user_version is a legacy artifact.
       expect(getSchemaVersion(db)).toBeGreaterThanOrEqual(33);

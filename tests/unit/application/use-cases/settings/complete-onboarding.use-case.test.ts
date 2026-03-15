@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { CompleteOnboardingUseCase } from '@/application/use-cases/settings/complete-onboarding.use-case.js';
 import type { ISettingsRepository } from '@/application/ports/output/repositories/settings.repository.interface.js';
 import type { Settings } from '@/domain/generated/output.js';
-import { AgentType, AgentAuthMethod, EditorType } from '@/domain/generated/output.js';
+import { AgentType, AgentAuthMethod, EditorType, TerminalType } from '@/domain/generated/output.js';
 
 function createTestSettings(overrides: Partial<Settings> = {}): Settings {
   return {
@@ -17,6 +17,7 @@ function createTestSettings(overrides: Partial<Settings> = {}): Settings {
     environment: {
       defaultEditor: EditorType.VsCode,
       shellPreference: 'bash',
+      terminalPreference: TerminalType.System,
     },
     system: { autoUpdate: true, logLevel: 'info' },
     agent: {

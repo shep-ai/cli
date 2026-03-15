@@ -16,7 +16,7 @@ import { createInMemoryDatabase, tableExists } from '../../../helpers/database.h
 import { runSQLiteMigrations } from '@/infrastructure/persistence/sqlite/migrations.js';
 import { SQLiteSettingsRepository } from '@/infrastructure/repositories/sqlite-settings.repository.js';
 import type { Settings } from '@/domain/generated/output.js';
-import { AgentType, AgentAuthMethod, EditorType } from '@/domain/generated/output.js';
+import { AgentType, AgentAuthMethod, EditorType, TerminalType } from '@/domain/generated/output.js';
 
 describe('SQLiteSettingsRepository', () => {
   let db: Database.Database;
@@ -38,6 +38,7 @@ describe('SQLiteSettingsRepository', () => {
     environment: {
       defaultEditor: EditorType.VsCode,
       shellPreference: 'zsh',
+      terminalPreference: TerminalType.System,
     },
     system: {
       autoUpdate: true,
@@ -304,6 +305,7 @@ describe('SQLiteSettingsRepository', () => {
       expect(loaded?.environment).toEqual({
         defaultEditor: 'vscode',
         shellPreference: 'zsh',
+        terminalPreference: 'system',
       });
     });
 
@@ -448,6 +450,7 @@ describe('SQLiteSettingsRepository', () => {
       settings.environment = {
         defaultEditor: EditorType.Cursor,
         shellPreference: 'bash',
+        terminalPreference: TerminalType.Warp,
       };
 
       // Act

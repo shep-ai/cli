@@ -152,6 +152,7 @@ describe('createDefaultSettings', () => {
       expect(settings.environment).toEqual({
         defaultEditor: 'vscode',
         shellPreference: 'bash',
+        terminalPreference: 'system',
       });
     });
   });
@@ -322,6 +323,7 @@ describe('createDefaultSettings', () => {
       expect(settings.environment).toEqual({
         defaultEditor: 'vscode',
         shellPreference: 'bash',
+        terminalPreference: 'system',
       });
       expect(settings.system).toEqual({
         autoUpdate: true,

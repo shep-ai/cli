@@ -35,6 +35,10 @@ vi.mock('node:path', async () => {
   return { ...actual, isAbsolute: (p: string) => mockIsAbsolute(p) };
 });
 
+vi.mock('@shepai/core/infrastructure/services/tool-installer/tool-metadata', () => ({
+  getTerminalEntries: () => [],
+}));
+
 const { openShell } = await import('../../../../../src/presentation/web/app/actions/open-shell.js');
 
 describe('openShell server action', () => {

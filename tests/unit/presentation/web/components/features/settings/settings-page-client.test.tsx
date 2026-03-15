@@ -60,4 +60,26 @@ describe('SettingsPageClient', () => {
     );
     expect(screen.getByTestId('feature-flags-settings-section')).toBeDefined();
   });
+
+  it('renders terminal select in environment section', () => {
+    render(
+      <SettingsPageClient
+        settings={settings}
+        shepHome="/home/user/.shep"
+        dbFileSize="2.4 MB"
+        availableTerminals={[
+          { id: 'system', name: 'System Terminal', available: true },
+          { id: 'warp', name: 'Warp', available: true },
+        ]}
+      />
+    );
+    expect(screen.getByTestId('terminal-select')).toBeDefined();
+  });
+
+  it('renders shell select in environment section', () => {
+    render(
+      <SettingsPageClient settings={settings} shepHome="/home/user/.shep" dbFileSize="2.4 MB" />
+    );
+    expect(screen.getByTestId('shell-select')).toBeDefined();
+  });
 });

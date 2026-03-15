@@ -50,18 +50,29 @@ async function discoverNewMigrations(
   let files: string[];
   try {
     files = readdirSync(migrationsDir)
-      .filter((f) => f.endsWith('.js') && !f.endsWith('.d.js'))
+      .filter(
+        (f) =>
+          (f.endsWith('.js') || f.endsWith('.ts')) && !f.endsWith('.d.ts') && !f.endsWith('.d.js')
+      )
       .sort();
   } catch {
     // Directory doesn't exist or is unreadable — no new migrations
     return [];
   }
 
+  // Deduplicate: if both .ts and .js exist for the same migration, prefer .js (compiled)
+  const migrationMap = new Map<string, string>();
+  for (const file of files) {
+    const name = file.replace(/\.(js|ts)$/, '');
+    if (!migrationMap.has(name) || file.endsWith('.js')) {
+      migrationMap.set(name, file);
+    }
+  }
+
   const migrations: RunnableMigration<Database.Database>[] = [];
 
-  for (const file of files) {
+  for (const [name, file] of migrationMap) {
     const filePath = join(migrationsDir, file);
-    const name = file.replace(/\.js$/, '');
     const mod = (await import(pathToFileURL(filePath).href)) as {
       up: (params: MigrationParams<Database.Database>) => Promise<unknown>;
       down?: (params: MigrationParams<Database.Database>) => Promise<unknown>;
