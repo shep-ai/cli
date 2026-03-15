@@ -141,7 +141,13 @@ function printInstallInstructions(metadata: (typeof TOOL_METADATA)[keyof typeof 
   // Print open directory command if available
   if (metadata.openDirectory) {
     console.log(fmt.heading('Open Directory'));
-    console.log(`${colors.muted('$')} ${metadata.openDirectory}`);
+    if (typeof metadata.openDirectory === 'string') {
+      console.log(`${colors.muted('$')} ${metadata.openDirectory}`);
+    } else {
+      for (const [platform, cmd] of Object.entries(metadata.openDirectory)) {
+        console.log(`${colors.muted(`[${platform}]`)} ${cmd}`);
+      }
+    }
     console.log();
   }
 
