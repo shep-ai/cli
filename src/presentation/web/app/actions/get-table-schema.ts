@@ -17,7 +17,7 @@ export interface GetTableSchemaResult {
 
 export async function getTableSchema(tableName: string): Promise<GetTableSchemaResult> {
   try {
-    const db = await getDb();
+    const db = getDb();
 
     // Validate table name against sqlite_master
     const tableExists = db

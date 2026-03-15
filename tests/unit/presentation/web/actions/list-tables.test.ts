@@ -27,7 +27,7 @@ describe('listTables server action', () => {
       .mockReturnValueOnce({ get: () => ({ count: 7 }) })
       .mockReturnValueOnce({ get: () => ({ count: 1 }) });
 
-    mockGetDb.mockResolvedValue({ prepare: mockPrepare });
+    mockGetDb.mockReturnValue({ prepare: mockPrepare });
 
     const result = await listTables();
 
@@ -46,7 +46,7 @@ describe('listTables server action', () => {
       })
       .mockReturnValueOnce({ get: () => ({ count: 10 }) });
 
-    mockGetDb.mockResolvedValue({ prepare: mockPrepare });
+    mockGetDb.mockReturnValue({ prepare: mockPrepare });
 
     const result = await listTables();
 
@@ -57,7 +57,7 @@ describe('listTables server action', () => {
 
   it('returns empty array for empty database', async () => {
     mockPrepare.mockReturnValueOnce({ all: () => [] });
-    mockGetDb.mockResolvedValue({ prepare: mockPrepare });
+    mockGetDb.mockReturnValue({ prepare: mockPrepare });
 
     const result = await listTables();
 
@@ -66,7 +66,9 @@ describe('listTables server action', () => {
   });
 
   it('returns error when connection fails', async () => {
-    mockGetDb.mockRejectedValue(new Error('Database not available'));
+    mockGetDb.mockImplementation(() => {
+      throw new Error('Database not available');
+    });
 
     const result = await listTables();
 

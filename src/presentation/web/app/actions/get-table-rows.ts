@@ -22,7 +22,7 @@ function formatCellValue(value: unknown): unknown {
 
 export async function getTableRows(tableName: string, page = 0): Promise<GetTableRowsResult> {
   try {
-    const db = await getDb();
+    const db = getDb();
 
     // Validate table name against sqlite_master (prevents SQL injection)
     const tableExists = db

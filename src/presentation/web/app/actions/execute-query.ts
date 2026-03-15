@@ -53,7 +53,7 @@ export async function executeQuery(sql: string): Promise<ExecuteQueryResult> {
   }
 
   try {
-    const db = await getDb();
+    const db = getDb();
     const rows = db.prepare(trimmed).all() as Record<string, unknown>[];
 
     const columns = rows.length > 0 ? Object.keys(rows[0]) : [];

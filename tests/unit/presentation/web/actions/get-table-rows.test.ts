@@ -14,7 +14,7 @@ const { getTableRows } = await import(
 );
 
 function createMockDb() {
-  mockGetDb.mockResolvedValue({ prepare: mockPrepare });
+  mockGetDb.mockReturnValue({ prepare: mockPrepare });
 }
 
 describe('getTableRows server action', () => {
