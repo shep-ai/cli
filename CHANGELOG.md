@@ -1,3 +1,13 @@
+# [1.113.0](https://github.com/shep-ai/cli/compare/v1.112.1...v1.113.0) (2026-03-15)
+
+### Bug Fixes
+
+- **agents:** pass fast flag on reject/approve resume ([#346](https://github.com/shep-ai/cli/issues/346)) ([67899f3](https://github.com/shep-ai/cli/commit/67899f3bb1e038baf6d02347206c19a39f3e743f))
+
+### Features
+
+- **web:** sidebar repo selector with floating action button ([#359](https://github.com/shep-ai/cli/issues/359)) ([0cb422d](https://github.com/shep-ai/cli/commit/0cb422df56782a4b114a3149961f440b73d33730))
+
 ## [1.112.1](https://github.com/shep-ai/cli/compare/v1.112.0...v1.112.1) (2026-03-15)
 
 ### Bug Fixes
