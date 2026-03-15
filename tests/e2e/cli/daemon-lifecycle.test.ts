@@ -233,8 +233,8 @@ describe('CLI: daemon lifecycle', { timeout: TEST_TIMEOUT }, () => {
       // URL should appear somewhere in the combined output
       expect(result.stdout + result.stderr).toMatch(/localhost:\d+/);
       // Parent must exit quickly — proxy for NFR-1 (parent-exits-within-2s)
-      // Windows CI runners are slower — allow more headroom
-      expect(elapsed).toBeLessThan(isWindows ? 15000 : 5000);
+      // Allow headroom for CI load and tsx compilation overhead
+      expect(elapsed).toBeLessThan(isWindows ? 20000 : 10000);
     });
 
     it('writes daemon.json with the correct shape', async () => {

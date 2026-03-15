@@ -19,8 +19,10 @@ import { mkdtempSync, rmSync, existsSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import { execSync } from 'node:child_process';
+import { execSync, spawnSync } from 'node:child_process';
 import { createCliRunner } from '../../helpers/cli/index.js';
+
+const isWindows = process.platform === 'win32';
 
 describe('CLI: feat', () => {
   let shepHome: string;
@@ -45,13 +47,21 @@ describe('CLI: feat', () => {
     // (feat new forks a detached background worker that holds file handles)
     // Security: shepHome is a controlled mkdtempSync path, not user input
     try {
-      execSync(`pkill -9 -f "${shepHome}"`, { stdio: 'pipe' });
+      if (isWindows) {
+        spawnSync(
+          'wmic',
+          ['process', 'where', `CommandLine like '%${shepHome.replace(/\\/g, '\\\\')}%'`, 'delete'],
+          { stdio: 'pipe' }
+        );
+      } else {
+        execSync(`pkill -9 -f "${shepHome}"`, { stdio: 'pipe' });
+      }
     } catch {
       // No matching processes — expected when no agent was spawned
     }
 
     // Brief pause for OS to release file handles after SIGKILL
-    execSync('sleep 0.2', { stdio: 'pipe' });
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 200);
 
     // Clean up temporary directories (wrapped in try/catch so test
     // results aren't masked by cleanup failures)

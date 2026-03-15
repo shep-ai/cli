@@ -87,6 +87,7 @@ function createMockGitPrService(): MergeNodeDeps['gitPrService'] {
     getPrDiffSummary: vi
       .fn()
       .mockResolvedValue({ filesChanged: 0, additions: 0, deletions: 0, commitCount: 0 }),
+    getMergeableStatus: vi.fn().mockResolvedValue(undefined),
   } as any;
 }
 
@@ -130,7 +131,6 @@ describe('Merge Flow (Graph-level)', () => {
     getDiffSummary?: MergeNodeDeps['getDiffSummary'];
     featureRepo?: MergeNodeDeps['featureRepository'];
     hasRemote?: boolean;
-    verifyMerge?: boolean;
   }): {
     deps: FeatureAgentGraphDeps;
     getDiffSummary: MergeNodeDeps['getDiffSummary'];
@@ -144,8 +144,9 @@ describe('Merge Flow (Graph-level)', () => {
         getDiffSummary,
         hasRemote: vi.fn().mockResolvedValue(overrides?.hasRemote ?? true),
         getDefaultBranch: vi.fn().mockResolvedValue('main'),
-        verifyMerge: vi.fn().mockResolvedValue(overrides?.verifyMerge ?? true),
+        verifyMerge: vi.fn().mockResolvedValue(true),
         revParse: vi.fn().mockResolvedValue('premerge-sha-mock'),
+        localMergeSquash: vi.fn().mockResolvedValue(undefined),
         featureRepository: featureRepo,
         gitPrService: createMockGitPrService(),
         cleanupFeatureWorktreeUseCase: { execute: vi.fn().mockResolvedValue(undefined) } as any,
@@ -401,12 +402,16 @@ describe('Merge Flow (Graph-level)', () => {
         expect.objectContaining({ lifecycle: 'Maintain' })
       );
 
-      // Verify merge was checked
-      expect(deps.mergeNodeDeps!.verifyMerge).toHaveBeenCalled();
+      // Verify localMergeSquash was called (programmatic merge, no agent)
+      expect(deps.mergeNodeDeps!.localMergeSquash).toHaveBeenCalled();
     });
 
-    it('should fail when merge verification detects merge did not happen', async () => {
-      const { deps } = buildGraphDeps({ hasRemote: false, verifyMerge: false });
+    it('should fail when localMergeSquash throws an error', async () => {
+      const { deps } = buildGraphDeps({ hasRemote: false });
+      // Make localMergeSquash throw to simulate merge failure
+      (deps.mergeNodeDeps!.localMergeSquash as ReturnType<typeof vi.fn>).mockRejectedValue(
+        new Error('Merge conflict detected')
+      );
       const checkpointer = createCheckpointer(':memory:');
       const graph = createFeatureAgentGraph(deps, checkpointer);
       const config = { configurable: { thread_id: 'no-remote-verify-fail' } };
@@ -420,7 +425,7 @@ describe('Merge Flow (Graph-level)', () => {
           }),
           config
         )
-      ).rejects.toThrow('Merge verification failed');
+      ).rejects.toThrow('Merge conflict detected');
     });
   });
 

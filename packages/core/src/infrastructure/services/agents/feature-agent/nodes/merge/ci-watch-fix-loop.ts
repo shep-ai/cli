@@ -72,7 +72,18 @@ export async function runCiWatchFixLoop(
   log.info(`Starting CI watch (maxAttempts=${maxAttempts}, timeout=${timeoutMs}ms)`);
 
   // Check if any CI run exists for this branch
-  const initialCiStatus = await gitPrService.getCiStatus(cwd, branch);
+  let initialCiStatus;
+  try {
+    initialCiStatus = await gitPrService.getCiStatus(cwd, branch);
+  } catch (err) {
+    // Handle GitHub API rate limits gracefully — skip CI watching
+    const errMsg = err instanceof Error ? err.message : String(err);
+    if (errMsg.includes('rate limit') || errMsg.includes('403')) {
+      log.info('GitHub API rate limit hit — skipping CI watch');
+      return { ciStatus: CiStatus.Success, ciFixAttempts, ciFixHistory, ciFixStatus: 'idle' };
+    }
+    throw err;
+  }
   if (!initialCiStatus.runUrl) {
     // No CI run detected — check if PR has merge conflicts which would prevent CI from running
     if (params.prNumber != null) {

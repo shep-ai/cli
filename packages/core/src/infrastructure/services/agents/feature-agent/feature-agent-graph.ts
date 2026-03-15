@@ -77,6 +77,7 @@ function createPlanTasksValidator(): (
   const log = createNodeLogger('validate:plan+tasks');
 
   return async (state: FeatureAgentState): Promise<Partial<FeatureAgentState>> => {
+    log.activate();
     log.info('Validating plan.yaml and tasks.yaml');
     const allErrors: string[] = [];
 

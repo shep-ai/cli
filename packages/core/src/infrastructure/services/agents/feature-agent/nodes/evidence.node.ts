@@ -45,6 +45,7 @@ export function createEvidenceNode(executor: IAgentExecutor) {
   const log = createNodeLogger('evidence');
 
   return async (state: FeatureAgentState): Promise<Partial<FeatureAgentState>> => {
+    log.activate();
     log.info('Starting evidence collection');
     reportNodeStart('evidence');
     await updateNodeLifecycle('evidence');

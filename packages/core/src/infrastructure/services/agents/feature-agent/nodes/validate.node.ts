@@ -17,6 +17,7 @@ export function createValidateNode(
   const log = createNodeLogger(`validate:${filename}`);
 
   return async (state: FeatureAgentState): Promise<Partial<FeatureAgentState>> => {
+    log.activate();
     log.info(`Validating ${filename}`);
 
     const content = readSpecFile(state.specDir, filename);

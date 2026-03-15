@@ -248,6 +248,8 @@ export function buildDeps(opts: BuildDepsOptions = {}): BuiltDeps {
     featureRepository,
     verifyMerge: (cwd, fb, bb, pre) => gitPrService.verifyMerge(cwd, fb, bb, pre),
     revParse: (cwd, ref) => gitPrService.revParse(cwd, ref),
+    localMergeSquash: (cwd, featureBranch, baseBranch, commitMessage, hasRemote) =>
+      gitPrService.localMergeSquash(cwd, featureBranch, baseBranch, commitMessage, hasRemote),
     gitPrService,
     cleanupFeatureWorktreeUseCase: { execute: vi.fn().mockResolvedValue(undefined) } as any,
   };

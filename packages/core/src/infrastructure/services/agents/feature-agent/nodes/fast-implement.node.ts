@@ -35,6 +35,7 @@ export function createFastImplementNode(executor: IAgentExecutor) {
   const log = createNodeLogger('fast-implement');
 
   return async (state: FeatureAgentState): Promise<Partial<FeatureAgentState>> => {
+    log.activate();
     log.info('Starting fast implementation');
     reportNodeStart('fast-implement');
     await updateNodeLifecycle('fast-implement');
