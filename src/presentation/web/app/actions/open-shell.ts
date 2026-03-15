@@ -14,7 +14,10 @@ import { computeWorktreePath } from '@shepai/core/infrastructure/services/ide-la
 const SHELL_COMMANDS: Record<string, { cmd: string; args: (path: string) => string[] }> = {
   darwin: { cmd: 'open', args: (p) => ['-a', 'Terminal', p] },
   linux: { cmd: 'x-terminal-emulator', args: (p) => [`--working-directory=${p}`] },
-  win32: { cmd: 'powershell', args: (p) => ['-NoExit', '-Command', `Set-Location "${p}"`] },
+  win32: {
+    cmd: 'cmd.exe',
+    args: (p) => ['/c', 'start', 'powershell', '-NoExit', '-Command', `Set-Location "${p}"`],
+  },
 };
 
 interface OpenShellInput {

@@ -347,6 +347,7 @@ describe('WorktreeService', () => {
         .mockResolvedValueOnce({ stdout: '', stderr: '' }) // git init
         .mockResolvedValueOnce({ stdout: '', stderr: '' }) // git config user.name
         .mockResolvedValueOnce({ stdout: '', stderr: '' }) // git config user.email
+        .mockResolvedValueOnce({ stdout: '', stderr: '' }) // git add .
         .mockResolvedValueOnce({ stdout: '', stderr: '' }); // git commit
 
       await service.ensureGitRepository('/plain/dir');
@@ -364,6 +365,7 @@ describe('WorktreeService', () => {
       expect(mockExecFile).toHaveBeenCalledWith('git', ['config', 'user.email', 'bot@shep.bot'], {
         cwd: '/plain/dir',
       });
+      expect(mockExecFile).toHaveBeenCalledWith('git', ['add', '.'], { cwd: '/plain/dir' });
       expect(mockExecFile).toHaveBeenCalledWith(
         'git',
         ['commit', '--allow-empty', '--no-gpg-sign', '-m', 'Initial commit'],
@@ -381,7 +383,9 @@ describe('WorktreeService', () => {
         .mockResolvedValueOnce({ stdout: '', stderr: '' })
         // 4. git config user.email
         .mockResolvedValueOnce({ stdout: '', stderr: '' })
-        // 5. git commit --allow-empty
+        // 5. git add .
+        .mockResolvedValueOnce({ stdout: '', stderr: '' })
+        // 6. git commit --allow-empty
         .mockResolvedValueOnce({ stdout: '', stderr: '' });
 
       await service.ensureGitRepository('/empty/repo');
@@ -389,6 +393,7 @@ describe('WorktreeService', () => {
       expect(mockExecFile).toHaveBeenCalledWith('git', ['rev-parse', 'HEAD'], {
         cwd: '/empty/repo',
       });
+      expect(mockExecFile).toHaveBeenCalledWith('git', ['add', '.'], { cwd: '/empty/repo' });
       expect(mockExecFile).toHaveBeenCalledWith(
         'git',
         ['commit', '--allow-empty', '--no-gpg-sign', '-m', 'Initial commit'],
