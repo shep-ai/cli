@@ -78,6 +78,9 @@ export interface SettingsRow {
   ci_watch_timeout_ms: number | null;
   ci_log_max_chars: number | null;
 
+  // WorkflowConfig stage timeout (workflow.stageTimeoutMs)
+  stage_timeout_ms: number | null;
+
   // Onboarding
   onboarding_complete: number;
 
@@ -161,6 +164,9 @@ export function toDatabase(settings: Settings): SettingsRow {
     ci_max_fix_attempts: settings.workflow.ciMaxFixAttempts ?? null,
     ci_watch_timeout_ms: settings.workflow.ciWatchTimeoutMs ?? null,
     ci_log_max_chars: settings.workflow.ciLogMaxChars ?? null,
+
+    // WorkflowConfig stage timeout (optional number → INTEGER | null)
+    stage_timeout_ms: settings.workflow.stageTimeoutMs ?? null,
 
     // WorkflowConfig evidence settings (boolean → INTEGER)
     workflow_enable_evidence: settings.workflow.enableEvidence ? 1 : 0,
@@ -262,6 +268,7 @@ export function fromDatabase(row: SettingsRow): Settings {
       ...(row.ci_max_fix_attempts !== null && { ciMaxFixAttempts: row.ci_max_fix_attempts }),
       ...(row.ci_watch_timeout_ms !== null && { ciWatchTimeoutMs: row.ci_watch_timeout_ms }),
       ...(row.ci_log_max_chars !== null && { ciLogMaxChars: row.ci_log_max_chars }),
+      ...(row.stage_timeout_ms !== null && { stageTimeoutMs: row.stage_timeout_ms }),
       enableEvidence: row.workflow_enable_evidence === 1,
       commitEvidence: row.workflow_commit_evidence === 1,
     },

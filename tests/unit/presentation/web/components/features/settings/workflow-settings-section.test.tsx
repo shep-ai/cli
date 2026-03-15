@@ -39,11 +39,12 @@ describe('WorkflowSettingsSection', () => {
     expect(screen.getByTestId('switch-allow-merge')).toBeDefined();
   });
 
-  it('renders 3 numeric inputs for CI settings', () => {
+  it('renders 4 numeric inputs for CI and stage settings', () => {
     render(<WorkflowSettingsSection workflow={defaultWorkflow} />);
     expect(screen.getByTestId('ci-max-fix-input')).toBeDefined();
     expect(screen.getByTestId('ci-timeout-input')).toBeDefined();
     expect(screen.getByTestId('ci-log-max-input')).toBeDefined();
+    expect(screen.getByTestId('stage-timeout-input')).toBeDefined();
   });
 
   it('does not render a save button (auto-saves on change)', () => {
@@ -70,6 +71,11 @@ describe('WorkflowSettingsSection', () => {
   it('renders ci timeout label in seconds', () => {
     render(<WorkflowSettingsSection workflow={defaultWorkflow} />);
     expect(screen.getByText('Watch timeout (seconds)')).toBeDefined();
+  });
+
+  it('renders stage timeout input with label', () => {
+    render(<WorkflowSettingsSection workflow={defaultWorkflow} />);
+    expect(screen.getByText('Stage timeout (seconds)')).toBeDefined();
   });
 
   it('renders approval gates section heading', () => {

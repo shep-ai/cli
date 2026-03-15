@@ -372,6 +372,11 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
   const [ciLogMax, setCiLogMax] = useState(
     settings.workflow.ciLogMaxChars != null ? String(settings.workflow.ciLogMaxChars) : ''
   );
+  const [stageTimeout, setStageTimeout] = useState(
+    settings.workflow.stageTimeoutMs != null
+      ? String(Math.round(settings.workflow.stageTimeoutMs / 1000))
+      : ''
+  );
 
   // Notification state
   const [inApp, setInApp] = useState(settings.notifications.inApp.enabled);
@@ -391,6 +396,10 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
       : '';
   const originalCiLogMax =
     settings.workflow.ciLogMaxChars != null ? String(settings.workflow.ciLogMaxChars) : '';
+  const originalStageTimeout =
+    settings.workflow.stageTimeoutMs != null
+      ? String(Math.round(settings.workflow.stageTimeoutMs / 1000))
+      : '';
 
   function parseOptionalInt(value: string): number | undefined {
     if (value === '') return undefined;
@@ -421,9 +430,11 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
       ciMaxFix?: string;
       ciTimeout?: string;
       ciLogMax?: string;
+      stageTimeout?: string;
     } = {}
   ) {
     const timeoutSeconds = parseOptionalInt(overrides.ciTimeout ?? ciTimeout);
+    const stageTimeoutSeconds = parseOptionalInt(overrides.stageTimeout ?? stageTimeout);
     return {
       workflow: {
         openPrOnImplementationComplete: overrides.openPr ?? openPr,
@@ -438,6 +449,7 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
         ciMaxFixAttempts: parseOptionalInt(overrides.ciMaxFix ?? ciMaxFix),
         ciWatchTimeoutMs: timeoutSeconds != null ? timeoutSeconds * 1000 : undefined,
         ciLogMaxChars: parseOptionalInt(overrides.ciLogMax ?? ciLogMax),
+        stageTimeoutMs: stageTimeoutSeconds != null ? stageTimeoutSeconds * 1000 : undefined,
       },
     };
   }
@@ -902,6 +914,26 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
                 min={1000}
                 step={5000}
                 suffix="chars"
+              />
+            </SettingsRow>
+            <SettingsRow
+              label="Stage timeout"
+              description="Max time per agent stage execution"
+              htmlFor="stage-timeout"
+            >
+              <NumberStepper
+                id="stage-timeout"
+                testId="stage-timeout-input"
+                placeholder="600"
+                value={stageTimeout}
+                onChange={setStageTimeout}
+                onBlur={() => {
+                  if (stageTimeout !== originalStageTimeout)
+                    save(buildWorkflowPayload({ stageTimeout }));
+                }}
+                min={60}
+                step={60}
+                suffix="sec"
               />
             </SettingsRow>
           </SettingsSection>

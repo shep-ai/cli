@@ -125,6 +125,7 @@ function createTestRow(overrides: Partial<SettingsRow> = {}): SettingsRow {
     ci_max_fix_attempts: null,
     ci_watch_timeout_ms: null,
     ci_log_max_chars: null,
+    stage_timeout_ms: null,
     onboarding_complete: 0,
     approval_gate_allow_prd: 0,
     approval_gate_allow_plan: 0,
@@ -476,6 +477,60 @@ describe('Settings Mapper', () => {
         allowMerge: true,
         pushOnImplementationComplete: true,
       });
+    });
+  });
+
+  describe('toDatabase() - stageTimeoutMs', () => {
+    it('should map stageTimeoutMs to stage_timeout_ms', () => {
+      const settings = createTestSettings({
+        workflow: {
+          ...createTestSettings().workflow,
+          stageTimeoutMs: 900_000,
+        },
+      });
+      const row = toDatabase(settings);
+      expect(row.stage_timeout_ms).toBe(900_000);
+    });
+
+    it('should map undefined stageTimeoutMs to null', () => {
+      const settings = createTestSettings();
+      const row = toDatabase(settings);
+      expect(row.stage_timeout_ms).toBeNull();
+    });
+  });
+
+  describe('fromDatabase() - stageTimeoutMs', () => {
+    it('should reconstruct stageTimeoutMs from stage_timeout_ms', () => {
+      const row = createTestRow({ stage_timeout_ms: 1_200_000 });
+      const settings = fromDatabase(row);
+      expect(settings.workflow.stageTimeoutMs).toBe(1_200_000);
+    });
+
+    it('should omit stageTimeoutMs when stage_timeout_ms is null', () => {
+      const row = createTestRow({ stage_timeout_ms: null });
+      const settings = fromDatabase(row);
+      expect(settings.workflow.stageTimeoutMs).toBeUndefined();
+    });
+  });
+
+  describe('round-trip - stageTimeoutMs', () => {
+    it('should preserve stageTimeoutMs through round-trip', () => {
+      const original = createTestSettings({
+        workflow: {
+          ...createTestSettings().workflow,
+          stageTimeoutMs: 300_000,
+        },
+      });
+      const row = toDatabase(original);
+      const restored = fromDatabase(row);
+      expect(restored.workflow.stageTimeoutMs).toBe(300_000);
+    });
+
+    it('should preserve undefined stageTimeoutMs through round-trip', () => {
+      const original = createTestSettings();
+      const row = toDatabase(original);
+      const restored = fromDatabase(row);
+      expect(restored.workflow.stageTimeoutMs).toBeUndefined();
     });
   });
 });

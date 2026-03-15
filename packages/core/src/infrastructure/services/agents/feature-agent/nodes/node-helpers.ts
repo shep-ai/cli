@@ -15,6 +15,7 @@ import type {
   AgentExecutionResult,
 } from '@/application/ports/output/agents/agent-executor.interface.js';
 import type { ApprovalGates } from '@/domain/generated/output.js';
+import { hasSettings, getSettings } from '@/infrastructure/services/settings.service.js';
 import type { FeatureAgentState } from '../state.js';
 import { reportNodeStart } from '../heartbeat.js';
 import {
@@ -57,17 +58,25 @@ export function readSpecFile(specDir: string, filename: string): string {
   }
 }
 
+/** Default timeout per agent call (10 minutes) — prevents infinite hangs. */
+const DEFAULT_STAGE_TIMEOUT_MS = 600_000;
+
 /**
  * Build executor options with cwd. Each node gets a clean agent context.
+ * The timeout is read from settings (workflow.stageTimeoutMs) with a
+ * fallback to the DEFAULT_STAGE_TIMEOUT_MS constant.
  */
 export function buildExecutorOptions(
   state: FeatureAgentState,
   overrides?: Partial<Pick<AgentExecutionOptions, 'timeout'>>
 ): AgentExecutionOptions {
+  const stageTimeout = hasSettings()
+    ? (getSettings().workflow?.stageTimeoutMs ?? DEFAULT_STAGE_TIMEOUT_MS)
+    : DEFAULT_STAGE_TIMEOUT_MS;
   return {
     cwd: state.worktreePath || state.repositoryPath,
     maxTurns: 5000,
-    timeout: 600_000, // 10 minutes per agent call — prevents infinite hangs
+    timeout: stageTimeout,
     ...(state.model ? { model: state.model } : {}),
     ...overrides,
   };

@@ -32,6 +32,9 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
   const [ciLogMax, setCiLogMax] = useState(
     workflow.ciLogMaxChars != null ? String(workflow.ciLogMaxChars) : ''
   );
+  const [stageTimeout, setStageTimeout] = useState(
+    workflow.stageTimeoutMs != null ? String(Math.round(workflow.stageTimeoutMs / 1000)) : ''
+  );
   const [isPending, startTransition] = useTransition();
   const [showSaved, setShowSaved] = useState(false);
   const prevPendingRef = useRef(false);
@@ -61,9 +64,11 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
       ciMaxFix?: string;
       ciTimeout?: string;
       ciLogMax?: string;
+      stageTimeout?: string;
     } = {}
   ) {
     const timeoutSeconds = parseOptionalInt(overrides.ciTimeout ?? ciTimeout);
+    const stageTimeoutSeconds = parseOptionalInt(overrides.stageTimeout ?? stageTimeout);
     return {
       workflow: {
         openPrOnImplementationComplete: overrides.openPr ?? openPr,
@@ -76,6 +81,7 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
         ciMaxFixAttempts: parseOptionalInt(overrides.ciMaxFix ?? ciMaxFix),
         ciWatchTimeoutMs: timeoutSeconds != null ? timeoutSeconds * 1000 : undefined,
         ciLogMaxChars: parseOptionalInt(overrides.ciLogMax ?? ciLogMax),
+        stageTimeoutMs: stageTimeoutSeconds != null ? stageTimeoutSeconds * 1000 : undefined,
       },
     };
   }
@@ -99,7 +105,7 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
   }
 
   function handleCiFieldBlur(
-    key: 'ciMaxFix' | 'ciTimeout' | 'ciLogMax',
+    key: 'ciMaxFix' | 'ciTimeout' | 'ciLogMax' | 'stageTimeout',
     currentValue: string,
     originalValue: string
   ) {
@@ -113,6 +119,8 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
   const originalCiTimeout =
     workflow.ciWatchTimeoutMs != null ? String(Math.round(workflow.ciWatchTimeoutMs / 1000)) : '';
   const originalCiLogMax = workflow.ciLogMaxChars != null ? String(workflow.ciLogMaxChars) : '';
+  const originalStageTimeout =
+    workflow.stageTimeoutMs != null ? String(Math.round(workflow.stageTimeoutMs / 1000)) : '';
 
   return (
     <Card id="workflow" className="scroll-mt-6" data-testid="workflow-settings-section">
@@ -265,6 +273,23 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
             />
             <p className="text-muted-foreground text-xs">
               Maximum characters to capture from CI logs
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="stage-timeout">Stage timeout (seconds)</Label>
+            <Input
+              id="stage-timeout"
+              data-testid="stage-timeout-input"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              placeholder="e.g., 600"
+              value={stageTimeout}
+              onChange={(e) => setStageTimeout(e.target.value)}
+              onBlur={() => handleCiFieldBlur('stageTimeout', stageTimeout, originalStageTimeout)}
+            />
+            <p className="text-muted-foreground text-xs">
+              Maximum time per agent stage execution (default: 600 seconds)
             </p>
           </div>
         </div>

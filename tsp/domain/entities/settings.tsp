@@ -242,6 +242,9 @@ model WorkflowConfig {
   @doc("Maximum characters of CI failure logs to pass to the executor (default: 50000)")
   ciLogMaxChars?: int32;
 
+  @doc("Timeout in milliseconds for each agent executor call per stage (default: 600000 = 10 minutes)")
+  stageTimeoutMs?: int32;
+
   /**
    * Whether evidence collection is enabled after implementation.
    * When enabled, the agent captures screenshots, test outputs, and other
