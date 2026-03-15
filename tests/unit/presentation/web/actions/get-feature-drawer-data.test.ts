@@ -42,6 +42,15 @@ vi.mock('@/app/build-feature-node-data', () => ({
   ),
 }));
 
+vi.mock('@shepai/core/infrastructure/services/settings.service', () => ({
+  getSettings: () => ({
+    workflow: {
+      enableEvidence: false,
+      commitEvidence: false,
+    },
+  }),
+}));
+
 const { getFeatureDrawerData } = await import(
   '../../../../../src/presentation/web/app/actions/get-feature-drawer-data.js'
 );

@@ -2,6 +2,7 @@ import { resolve } from '@/lib/server-container';
 import type { IFeatureRepository } from '@shepai/core/application/ports/output/repositories/feature-repository.interface';
 import type { IAgentRunRepository } from '@shepai/core/application/ports/output/agents/agent-run-repository.interface';
 import { buildFeatureNodeData } from '@/app/build-feature-node-data';
+import { getSettings } from '@shepai/core/infrastructure/services/settings.service';
 import { computeDrawerView } from '@/components/common/control-center-drawer/drawer-view';
 import { FeatureDrawerClient } from '@/components/common/control-center-drawer/feature-drawer-client';
 
@@ -28,7 +29,11 @@ export default async function FeatureDrawerPage({ params }: FeatureDrawerPagePro
 
     const run = feature.agentRunId ? await agentRunRepo.findById(feature.agentRunId) : null;
 
-    const nodeData = buildFeatureNodeData(feature, run);
+    const { workflow } = getSettings();
+    const nodeData = buildFeatureNodeData(feature, run, {
+      enableEvidence: workflow.enableEvidence,
+      commitEvidence: workflow.commitEvidence,
+    });
 
     const view = computeDrawerView({
       selectedNode: nodeData,
