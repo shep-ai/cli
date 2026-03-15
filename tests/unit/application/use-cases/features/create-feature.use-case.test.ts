@@ -597,6 +597,84 @@ describe('CreateFeatureUseCase', () => {
   });
 
   // -------------------------------------------------------------------------
+  // Pending flag
+  // -------------------------------------------------------------------------
+
+  describe('pending flag', () => {
+    it('should accept pending field in CreateFeatureInput without TypeScript errors', () => {
+      const input: CreateFeatureInput = {
+        userInput: 'test',
+        repositoryPath: '/repo',
+        pending: true,
+      };
+      expect(input.pending).toBe(true);
+    });
+
+    it('should create feature in Pending lifecycle when pending=true', async () => {
+      const result = await useCase.execute({ ...baseInput, pending: true });
+
+      expect(result.feature.lifecycle).toBe(SdlcLifecycle.Pending);
+    });
+
+    it('should not spawn agent when pending=true', async () => {
+      await useCase.execute({ ...baseInput, pending: true });
+
+      expect(mockAgentProcess.spawn).not.toHaveBeenCalled();
+    });
+
+    it('should create feature in Pending lifecycle when pending=true and parentId is set', async () => {
+      const parent = makeParentFeature({ lifecycle: SdlcLifecycle.Requirements });
+      mockFeatureRepo.findById = vi.fn().mockResolvedValue(parent);
+
+      const result = await useCase.execute({
+        ...baseInput,
+        pending: true,
+        parentId: 'parent-id',
+      });
+
+      // Pending takes precedence over parent gate logic
+      expect(result.feature.lifecycle).toBe(SdlcLifecycle.Pending);
+      expect(mockAgentProcess.spawn).not.toHaveBeenCalled();
+    });
+
+    it('should create feature in Pending lifecycle when pending=true, parentId set, and parent in POST_IMPLEMENTATION', async () => {
+      const parent = makeParentFeature({ lifecycle: SdlcLifecycle.Implementation });
+      mockFeatureRepo.findById = vi.fn().mockResolvedValue(parent);
+
+      const result = await useCase.execute({
+        ...baseInput,
+        pending: true,
+        parentId: 'parent-id',
+      });
+
+      // Pending takes precedence even when parent gate is satisfied
+      expect(result.feature.lifecycle).toBe(SdlcLifecycle.Pending);
+      expect(mockAgentProcess.spawn).not.toHaveBeenCalled();
+    });
+
+    it('should preserve existing behavior when pending is false', async () => {
+      const result = await useCase.execute({ ...baseInput, pending: false });
+
+      expect(result.feature.lifecycle).toBe(SdlcLifecycle.Requirements);
+      expect(mockAgentProcess.spawn).toHaveBeenCalledOnce();
+    });
+
+    it('should preserve existing behavior when pending is undefined', async () => {
+      const result = await useCase.execute(baseInput);
+
+      expect(result.feature.lifecycle).toBe(SdlcLifecycle.Requirements);
+      expect(mockAgentProcess.spawn).toHaveBeenCalledOnce();
+    });
+
+    it('should set fast feature to Pending lifecycle when pending=true and fast=true', async () => {
+      const result = await useCase.execute({ ...baseInput, pending: true, fast: true });
+
+      expect(result.feature.lifecycle).toBe(SdlcLifecycle.Pending);
+      expect(mockAgentProcess.spawn).not.toHaveBeenCalled();
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // task-8: optional model field wired to spawn options
   // -------------------------------------------------------------------------
 

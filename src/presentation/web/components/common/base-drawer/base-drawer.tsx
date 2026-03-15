@@ -24,7 +24,7 @@ const drawerVariants = cva('', {
   variants: {
     size: {
       sm: 'w-96',
-      md: 'w-xl',
+      md: 'w-2xl',
     },
   },
   defaultVariants: {

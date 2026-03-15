@@ -1,0 +1,602 @@
+name: pending-feature-state
+summary: >
+  20 tasks across 5 phases implementing SdlcLifecycle.Pending state. Covers
+  domain enum extension, CreateFeatureUseCase pending flag, new
+  StartFeatureUseCase, CLI commands (--pending flag + feat start), Web UI
+  state derivation + Start button + server action + Storybook, and
+  integration testing with full validation.
+
+relatedFeatures:
+  - '041-feature-dependencies (Blocked state — shouldSpawn=false pattern)'
+  - '024-optimistic-feature-creation (two-phase create pattern)'
+
+technologies:
+  - TypeSpec
+  - tsyringe
+  - Commander.js
+  - React / Next.js
+  - lucide-react
+  - Storybook
+
+relatedLinks: []
+
+tasks:
+  # ── Phase 1: Domain Foundation ────────────────────────────────────────
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Add SdlcLifecycle.Pending enum value to TypeSpec'
+    description: >
+      Add a Pending enum member to SdlcLifecycle in tsp/common/enums/lifecycle.tsp,
+      placed after Blocked and before Deleting. Run pnpm tsp:compile to regenerate
+      output.ts. Verify the new value appears in the generated SdlcLifecycle enum.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'Pending member exists in SdlcLifecycle enum in lifecycle.tsp with @doc annotation'
+      - 'pnpm tsp:compile succeeds without errors'
+      - 'SdlcLifecycle.Pending is available in packages/core/src/domain/generated/output.ts'
+    tdd:
+      red:
+        - 'Write a test that imports SdlcLifecycle and asserts SdlcLifecycle.Pending is defined'
+      green:
+        - 'Add Pending to lifecycle.tsp enum after Blocked, run pnpm tsp:compile'
+      refactor:
+        - 'Ensure @doc annotation is descriptive and consistent with other enum members'
+    estimatedEffort: '15min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Verify lifecycle gates exclude Pending'
+    description: >
+      Confirm that POST_IMPLEMENTATION in lifecycle-gates.ts does not include
+      SdlcLifecycle.Pending. Add a clarifying comment that Pending features
+      cannot unblock children. Add a unit test to guard this invariant.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'POST_IMPLEMENTATION does not contain SdlcLifecycle.Pending'
+      - 'A unit test asserts Pending is not in POST_IMPLEMENTATION'
+      - 'A clarifying comment documents why Pending is excluded'
+    tdd:
+      red:
+        - 'Write test: expect(POST_IMPLEMENTATION.has(SdlcLifecycle.Pending)).toBe(false)'
+      green:
+        - 'Verify the set already excludes Pending (no code change needed); add comment'
+      refactor:
+        - 'Ensure comment is concise and placed near the set definition'
+    estimatedEffort: '10min'
+
+  - id: task-3
+    phaseId: phase-1
+    title: 'Add Pending to LIFECYCLE_TO_NODE SSE mapping'
+    description: >
+      Add [SdlcLifecycle.Pending]: "pending" entry to the LIFECYCLE_TO_NODE
+      record in agent-events/route.ts. Also add "pending" entries to
+      sdlcLifecycleMap and phaseNameToLifecycle in derive-feature-state.ts
+      so the SSE event pipeline correctly handles pending features.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'LIFECYCLE_TO_NODE contains SdlcLifecycle.Pending mapped to "pending"'
+      - 'sdlcLifecycleMap contains Pending mapped to "pending" FeatureLifecyclePhase'
+      - 'phaseNameToLifecycle contains "pending" mapped to "pending" FeatureLifecyclePhase'
+      - 'No TypeScript errors from the new mappings'
+    tdd:
+      red:
+        - 'Write test: import LIFECYCLE_TO_NODE or sdlcLifecycleMap and assert Pending mapping exists'
+      green:
+        - 'Add the mapping entries to route.ts and derive-feature-state.ts'
+      refactor:
+        - 'Verify ordering consistency with other entries'
+    estimatedEffort: '15min'
+
+  # ── Phase 2: Application Layer ────────────────────────────────────────
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Add pending field to CreateFeatureInput'
+    description: >
+      Add "pending?: boolean" to CreateFeatureInput in types.ts. This is the
+      input contract for the pending flag flowing from CLI/Web to the use case.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'CreateFeatureInput has pending?: boolean field'
+      - 'TypeScript compiles without errors'
+    tdd:
+      red:
+        - 'Write test that constructs CreateFeatureInput with pending: true and asserts it compiles'
+      green:
+        - 'Add pending?: boolean field to the interface after fast field'
+      refactor:
+        - 'Add JSDoc comment explaining the field purpose'
+    estimatedEffort: '5min'
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Handle pending flag in CreateFeatureUseCase.createRecord()'
+    description: >
+      Modify createRecord() to check input.pending before the parentId check.
+      When pending is true, set initialLifecycle = SdlcLifecycle.Pending and
+      shouldSpawn = false. When both pending and parentId are provided, Pending
+      takes precedence — the parent gate is deferred to StartFeatureUseCase.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'createRecord({pending: true}) sets lifecycle to Pending and shouldSpawn to false'
+      - 'createRecord({pending: true, parentId: "x"}) sets lifecycle to Pending (not Blocked)'
+      - 'createRecord({pending: false}) or no flag preserves existing behavior'
+      - 'initializeAndSpawn skips agent spawn when shouldSpawn is false (already works via line 288)'
+    tdd:
+      red:
+        - 'Write test: call createRecord with pending:true, assert feature.lifecycle === Pending'
+        - 'Write test: call createRecord with pending:true + parentId, assert lifecycle === Pending (not Blocked)'
+        - 'Write test: call createRecord without pending, assert existing behavior unchanged'
+      green:
+        - 'Add pending check before parentId block in createRecord(): if (input.pending) { initialLifecycle = SdlcLifecycle.Pending; shouldSpawn = false; }'
+      refactor:
+        - 'Consider extracting initial lifecycle determination into a private method if the logic gets complex'
+    estimatedEffort: '30min'
+
+  - id: task-6
+    phaseId: phase-2
+    title: 'Create StartFeatureUseCase'
+    description: >
+      Create packages/core/src/application/use-cases/features/start-feature.use-case.ts
+      following the ResumeFeatureUseCase pattern. Injects IFeatureRepository,
+      IAgentRunRepository, IFeatureAgentProcessService, IWorktreeService.
+      execute() method: find feature by ID (with prefix matching), validate
+      lifecycle === Pending, check parent gate if parentId exists (transition
+      to Blocked if parent not in POST_IMPLEMENTATION), transition lifecycle
+      to Requirements (or Implementation if fast), find existing AgentRun,
+      derive worktree path, spawn agent. Returns StartFeatureResult with
+      feature and agentRun.
+    state: Todo
+    dependencies:
+      - task-1
+      - task-2
+    acceptanceCriteria:
+      - 'StartFeatureUseCase is @injectable() with proper @inject decorators'
+      - 'Throws "Feature not found" when feature does not exist'
+      - 'Throws "Feature is not in Pending state" when lifecycle !== Pending'
+      - 'Transitions to Blocked when parentId exists and parent not in POST_IMPLEMENTATION'
+      - 'Transitions to Requirements when no parent gate issue and feature is not fast'
+      - 'Transitions to Implementation when feature.fast is true'
+      - 'Spawns agent via IFeatureAgentProcessService.spawn() with correct args'
+      - 'Returns updated feature and agentRun'
+    tdd:
+      red:
+        - 'Write test: feature not found → throws'
+        - 'Write test: feature lifecycle !== Pending → throws with descriptive message'
+        - 'Write test: Pending feature with no parent → transitions to Requirements, spawns agent'
+        - 'Write test: Pending fast feature → transitions to Implementation, spawns agent'
+        - 'Write test: Pending feature with parent not in POST_IMPLEMENTATION → transitions to Blocked, no spawn'
+        - 'Write test: Pending feature with parent in POST_IMPLEMENTATION → transitions to Requirements, spawns agent'
+        - 'Write test: no agentRunId → throws'
+        - 'Write test: missing specPath → throws'
+      green:
+        - 'Implement execute() following ResumeFeatureUseCase pattern but simpler: no new run creation, no thread preservation, no crashed detection'
+      refactor:
+        - 'Extract parent gate check into private method for readability'
+        - 'Ensure error messages are human-readable per NFR-8'
+    estimatedEffort: '1h 30min'
+
+  - id: task-7
+    phaseId: phase-2
+    title: 'Register StartFeatureUseCase in DI container'
+    description: >
+      Add import, registerSingleton, and string-token alias (useFactory
+      pattern) for StartFeatureUseCase in container.ts. Follow the exact
+      pattern used for ResumeFeatureUseCase.
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'StartFeatureUseCase imported at top of container.ts'
+      - 'container.registerSingleton(StartFeatureUseCase) called near ResumeFeatureUseCase registration'
+      - 'String-token alias registered: container.register("StartFeatureUseCase", { useFactory: (c) => c.resolve(StartFeatureUseCase) })'
+      - 'DI resolution works for both class token and string token'
+    tdd:
+      red:
+        - 'Write test: resolve StartFeatureUseCase from container, assert it is an instance of StartFeatureUseCase'
+      green:
+        - 'Add registration lines to container.ts'
+      refactor:
+        - 'Verify import order is consistent with surrounding imports'
+    estimatedEffort: '10min'
+
+  # ── Phase 3: CLI Presentation ─────────────────────────────────────────
+
+  - id: task-8
+    phaseId: phase-3
+    title: 'Add --pending flag to feat new command'
+    description: >
+      Add .option("--pending", "Create feature without starting the agent")
+      to the new command in new.command.ts. Add pending to NewOptions interface.
+      Pass pending flag through to useCase.execute(). After creation, display
+      a "Feature created in Pending state" info message when lifecycle is Pending.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - '--pending flag is available on shep feat new'
+      - 'NewOptions interface includes pending?: boolean'
+      - 'Flag value is passed to CreateFeatureInput as pending: true'
+      - 'Output displays "Feature created in Pending state" info message when pending'
+      - 'Agent spawn line shows appropriate status for pending features'
+    tdd:
+      red:
+        - 'Write test: parse "feat new desc --pending", assert options.pending is true'
+        - 'Write test: verify pending flag is passed to use case input'
+      green:
+        - 'Add .option and interface field, pass through to execute(), add info message'
+      refactor:
+        - 'Ensure message is consistent with existing Blocked state message at line 171-175'
+    estimatedEffort: '20min'
+
+  - id: task-9
+    phaseId: phase-3
+    title: 'Create feat start CLI command'
+    description: >
+      Create src/presentation/cli/commands/feat/start.command.ts following the
+      resume.command.ts pattern. Accepts a single <id> argument. Resolves
+      StartFeatureUseCase from container. Shows spinner during execution. On
+      success prints feature name, branch, lifecycle, and "Agent started"
+      message. On error prints descriptive message and exits with code 1.
+    state: Todo
+    dependencies:
+      - task-7
+    acceptanceCriteria:
+      - 'shep feat start <fid> command exists and is registered in feat/index.ts'
+      - 'Resolves StartFeatureUseCase from DI container'
+      - 'Shows spinner with "Starting feature" text'
+      - 'On success: prints feature name, branch, new lifecycle, "Agent started"'
+      - 'On error: prints error message, exits with code 1'
+    tdd:
+      red:
+        - 'Write test: start command calls StartFeatureUseCase.execute with the provided ID'
+        - 'Write test: successful start displays success output'
+        - 'Write test: failed start displays error and sets exit code 1'
+      green:
+        - 'Create start.command.ts following resume.command.ts pattern'
+        - 'Register in feat/index.ts: import createStartCommand, add .addCommand(createStartCommand())'
+      refactor:
+        - 'Ensure output format is consistent with resume and new command output'
+    estimatedEffort: '30min'
+
+  - id: task-10
+    phaseId: phase-3
+    title: 'Display Pending status in feat ls'
+    description: >
+      Update formatStatus() in ls.command.ts to handle Pending lifecycle.
+      Display with muted styling similar to Blocked but with distinct text
+      (e.g. dotEmpty symbol + "Pending" in muted color). Pending features
+      with parentId should appear as root entries (not grouped under parent)
+      since tree grouping only applies to Blocked children.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'formatStatus returns "Pending" with appropriate muted styling for Pending lifecycle'
+      - 'Pending features appear in the standard listing'
+      - 'Pending features with parentId are not grouped under parent (they are roots)'
+    tdd:
+      red:
+        - 'Write test: formatStatus with feature.lifecycle === "Pending" returns expected styled string'
+      green:
+        - 'Add Pending check in formatStatus() after Blocked check'
+      refactor:
+        - 'Consider using a distinct symbol (e.g. dotEmpty or clock) to differentiate from Blocked'
+    estimatedEffort: '15min'
+
+  # ── Phase 4: Web UI — State, Actions, and Components ──────────────────
+
+  - id: task-11
+    phaseId: phase-4
+    title: 'Add pending to FeatureNodeState and FeatureLifecyclePhase types'
+    description: >
+      Add "pending" to the FeatureNodeState union type and "pending" to the
+      FeatureLifecyclePhase union type in feature-node-state-config.ts. Add
+      entries to lifecycleDisplayLabels ("PENDING") and lifecycleRunningVerbs
+      ("Waiting to start"). Add onStart callback to FeatureNodeData interface.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - '"pending" is a valid FeatureNodeState value'
+      - '"pending" is a valid FeatureLifecyclePhase value'
+      - 'lifecycleDisplayLabels.pending === "PENDING"'
+      - 'lifecycleRunningVerbs.pending === "Waiting to start"'
+      - 'FeatureNodeData includes onStart?: (featureId: string) => void'
+    tdd:
+      red:
+        - 'Write test: assert "pending" is assignable to FeatureNodeState type'
+        - 'Write test: assert lifecycleDisplayLabels.pending === "PENDING"'
+      green:
+        - 'Add "pending" to both union types, add entries to label/verb records, add onStart to interface'
+      refactor:
+        - 'Verify union type ordering is consistent (alphabetical or by lifecycle progression)'
+    estimatedEffort: '15min'
+
+  - id: task-12
+    phaseId: phase-4
+    title: 'Add pending FeatureNodeStateConfig with Clock icon and slate colors'
+    description: >
+      Add a "pending" entry to the featureNodeStateConfig record using Clock
+      icon from lucide-react, slate/neutral border and label colors, no
+      progress bar. Import Clock from lucide-react at top of file.
+    state: Todo
+    dependencies:
+      - task-11
+    acceptanceCriteria:
+      - 'featureNodeStateConfig.pending exists with Clock icon'
+      - 'Border class uses slate color (e.g. border-l-slate-400)'
+      - 'Label reads "Pending"'
+      - 'showProgressBar is false'
+      - 'Clock is imported from lucide-react'
+    tdd:
+      red:
+        - 'Write test: assert featureNodeStateConfig.pending.icon === Clock'
+        - 'Write test: assert featureNodeStateConfig.pending.showProgressBar === false'
+      green:
+        - 'Add Clock import and pending config entry'
+      refactor:
+        - 'Ensure color scheme is visually distinct from blocked (gray) and running (blue)'
+    estimatedEffort: '10min'
+
+  - id: task-13
+    phaseId: phase-4
+    title: 'Update deriveNodeState() to handle Pending lifecycle'
+    description: >
+      Add SdlcLifecycle.Pending check in deriveNodeState() after the Deleting
+      check and before the Blocked check (lines 34-41). Return "pending" state.
+      Also update deriveLifecycle() to handle sdlcLifecycleMap["Pending"] →
+      "pending" (already added in task-3).
+    state: Todo
+    dependencies:
+      - task-3
+      - task-11
+    acceptanceCriteria:
+      - 'deriveNodeState returns "pending" when feature.lifecycle === SdlcLifecycle.Pending'
+      - 'Pending check has higher priority than Blocked but lower than Deleting'
+      - 'deriveLifecycle returns "pending" phase for Pending features'
+    tdd:
+      red:
+        - 'Write test: deriveNodeState({lifecycle: SdlcLifecycle.Pending}, null) === "pending"'
+        - 'Write test: deriveNodeState with Pending lifecycle ignores agentRun status'
+      green:
+        - 'Add if (feature.lifecycle === SdlcLifecycle.Pending) return "pending" after Deleting check'
+      refactor:
+        - 'Add comment explaining priority ordering'
+    estimatedEffort: '15min'
+
+  - id: task-14
+    phaseId: phase-4
+    title: 'Add onStartFeature callback to GraphCallbacks and derive-graph'
+    description: >
+      Add onStartFeature?: (featureId: string) => void to GraphCallbacks
+      interface in derive-graph.ts. In the feature entry loop, inject
+      onStart callback when entry.data.state === "pending" (similar to how
+      onRetry is injected when state === "error" at lines 152-156).
+    state: Todo
+    dependencies:
+      - task-11
+      - task-13
+    acceptanceCriteria:
+      - 'GraphCallbacks has onStartFeature?: (featureId: string) => void'
+      - 'onStart is injected into FeatureNodeData when state is "pending"'
+      - 'onStart is not injected for other states'
+      - 'onStart is not injected for creating (isPending) nodes'
+    tdd:
+      red:
+        - 'Write test: deriveGraph with pending feature entry + onStartFeature callback → node data has onStart'
+        - 'Write test: deriveGraph with running feature entry → node data does not have onStart'
+      green:
+        - 'Add callback to interface and injection logic in deriveGraph loop'
+      refactor:
+        - 'Ensure injection follows same pattern as onRetry (spread conditional)'
+    estimatedEffort: '20min'
+
+  - id: task-15
+    phaseId: phase-4
+    title: 'Render Start button on pending feature node'
+    description: >
+      Update feature-node.tsx to render a Start button when
+      data.state === "pending" && data.onStart, following the Retry button
+      pattern (lines 349-363). Use Play icon from lucide-react with slate/blue
+      styling. Also update getBadgeIcon and getBadgeText for pending state.
+    state: Todo
+    dependencies:
+      - task-12
+      - task-14
+    acceptanceCriteria:
+      - 'Start button renders when state is "pending" and onStart callback exists'
+      - 'Clicking Start button calls data.onStart(data.featureId)'
+      - 'Start button has Play icon and appropriate slate/blue styling'
+      - 'getBadgeText returns "Pending" for pending state'
+      - 'getBadgeIcon returns Clock for pending state'
+      - 'Lifecycle label shows "PENDING" for pending state'
+    tdd:
+      red:
+        - 'Write test: render FeatureNode with state="pending" + onStart callback, assert Start button is present'
+        - 'Write test: click Start button, assert onStart is called with featureId'
+        - 'Write test: render FeatureNode with state="pending" without onStart, assert no Start button'
+      green:
+        - 'Add Start button rendering in the state badge section, import Play icon'
+        - 'Add pending case to getBadgeText, update lifecycle label logic'
+      refactor:
+        - 'Extract button styling into shared constants if duplicated with Retry button'
+    estimatedEffort: '30min'
+
+  - id: task-16
+    phaseId: phase-4
+    title: 'Create start-feature server action'
+    description: >
+      Create src/presentation/web/app/actions/start-feature.ts following the
+      resume-feature.ts pattern exactly. Use "use server" directive, resolve
+      StartFeatureUseCase via string token, return { started: boolean; error?: string }.
+    state: Todo
+    dependencies:
+      - task-7
+    acceptanceCriteria:
+      - 'start-feature.ts exports async function startFeature(featureId: string)'
+      - 'Uses "use server" directive'
+      - 'Resolves StartFeatureUseCase via resolve<StartFeatureUseCase>("StartFeatureUseCase")'
+      - 'Returns { started: true } on success'
+      - 'Returns { started: false, error: message } on failure'
+      - 'Validates featureId is non-empty'
+    tdd:
+      red:
+        - 'Write test: call startFeature with empty string → returns error'
+        - 'Write test: call startFeature with valid ID → returns started: true'
+      green:
+        - 'Create server action file following resume-feature.ts pattern'
+      refactor:
+        - 'Ensure error handling is consistent with other server actions'
+    estimatedEffort: '15min'
+
+  - id: task-17
+    phaseId: phase-4
+    title: 'Wire handleStartFeature in control-center-state and control-center-inner'
+    description: >
+      Add handleStartFeature callback to use-control-center-state.ts following
+      the handleRetryFeature pattern (lines 305-320). Import startFeature
+      server action. Optimistically set state to "running", call startFeature,
+      handle success/error. Add to ControlCenterState interface, pass through
+      control-center-inner.tsx to graphCallbacks as onStartFeature. Also update
+      use-graph-state.ts to pass through the callback. Update
+      feature-drawer-client.tsx to inject onStart for pending features (like
+      onRetry for error features at line 565).
+    state: Todo
+    dependencies:
+      - task-14
+      - task-16
+    acceptanceCriteria:
+      - 'handleStartFeature exists in use-control-center-state hook'
+      - 'Optimistically updates node to running state'
+      - 'Calls startFeature server action'
+      - 'Reverts to pending on error, shows toast'
+      - 'Shows success toast on success'
+      - 'Wired into graphCallbacks.onStartFeature in control-center-inner'
+      - 'Passed through use-graph-state.ts callbacksRef'
+      - 'feature-drawer-client injects onStart for pending features'
+    tdd:
+      red:
+        - 'Write test: handleStartFeature optimistically sets state to running'
+        - 'Write test: handleStartFeature reverts state on error'
+      green:
+        - 'Implement handleStartFeature following handleRetryFeature pattern'
+        - 'Wire through control-center-inner.tsx, use-graph-state.ts, feature-drawer-client.tsx'
+      refactor:
+        - 'Ensure callback is memoized with useCallback to prevent re-renders'
+    estimatedEffort: '30min'
+
+  - id: task-18
+    phaseId: phase-4
+    title: 'Add pending checkbox to feature-create-drawer and Storybook stories'
+    description: >
+      Add pending?: boolean to FeatureCreatePayload in feature-create-drawer.tsx.
+      Add a checkbox or toggle in the creation form. Pass pending flag through
+      to the create feature API call. Also create Storybook stories for the
+      pending feature node state showing the visual appearance and Start button.
+    state: Todo
+    dependencies:
+      - task-15
+    acceptanceCriteria:
+      - 'FeatureCreatePayload includes pending?: boolean'
+      - 'Create drawer has a "Create as pending" checkbox'
+      - 'Pending flag is passed to create feature API'
+      - 'Storybook has a "Pending" story showing the pending node state'
+      - 'Storybook has a "PendingWithStart" story showing the Start button interaction'
+    tdd:
+      red:
+        - 'Write Storybook story: Pending node state renders Clock icon and slate colors'
+        - 'Write Storybook story: PendingWithStart renders Start button'
+      green:
+        - 'Add pending to FeatureCreatePayload, add checkbox to form, pass to API'
+        - 'Create Storybook stories following existing story patterns'
+      refactor:
+        - 'Ensure checkbox placement is logical (near fast mode toggle)'
+    estimatedEffort: '30min'
+
+  # ── Phase 5: Integration Testing and Validation ───────────────────────
+
+  - id: task-19
+    phaseId: phase-5
+    title: 'Write integration tests for pending-to-running flow'
+    description: >
+      Write integration tests that exercise the full vertical slice: create a
+      feature with pending flag, verify lifecycle is Pending and agent is not
+      spawned, then start the feature, verify lifecycle transitions and agent
+      is spawned. Also test the parent gate validation on start.
+    state: Todo
+    dependencies:
+      - task-6
+      - task-5
+    acceptanceCriteria:
+      - 'Integration test: create with pending → lifecycle is Pending, no agent spawn'
+      - 'Integration test: start pending feature → lifecycle is Requirements, agent spawned'
+      - 'Integration test: start pending fast feature → lifecycle is Implementation'
+      - 'Integration test: start pending feature with unmet parent → transitions to Blocked'
+      - 'Integration test: start non-pending feature → throws clear error'
+      - 'All integration tests pass'
+    tdd:
+      red:
+        - 'Write integration test for full create-pending → start flow'
+        - 'Write integration test for parent gate validation on start'
+        - 'Write integration test for idempotency (start non-pending → error)'
+      green:
+        - 'Tests should pass once all use case changes are implemented'
+      refactor:
+        - 'Extract common setup into test fixtures if duplication is significant'
+    estimatedEffort: '1h'
+
+  - id: task-20
+    phaseId: phase-5
+    title: 'Run pnpm validate and fix any issues'
+    description: >
+      Run the full validation suite (lint + format + typecheck + tsp) and fix
+      any errors. Ensure zero errors before marking the feature complete.
+      Run unit and integration test suites to confirm all pass.
+    state: Todo
+    dependencies:
+      - task-19
+      - task-18
+      - task-10
+      - task-9
+    acceptanceCriteria:
+      - 'pnpm validate passes with zero errors'
+      - 'pnpm test:unit passes with zero failures'
+      - 'pnpm test:int passes with zero failures'
+      - 'No TypeScript errors in any modified file'
+    tdd: null
+    estimatedEffort: '30min'
+
+totalEstimate: '8h'
+
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation follows a bottom-up approach across 5 phases. First, the
+  domain foundation establishes the Pending enum value and updates all mapping
+  layers (lifecycle gates, SSE, state derivation). Next, the application layer
+  adds the pending flag to CreateFeatureInput and builds the new
+  StartFeatureUseCase with full TDD coverage. The CLI phase adds the --pending
+  flag to feat new, creates the feat start subcommand, and updates feat ls
+  formatting. The Web UI phase adds the pending visual state (Clock icon,
+  slate colors, Start button), server action, state wiring, create drawer
+  checkbox, and Storybook stories. Finally, integration tests verify the full
+  pending-to-running flow and pnpm validate confirms zero errors.
+
+  Each task follows RED-GREEN-REFACTOR: write a failing test first, implement
+  the minimal code to pass, then clean up. The total effort is estimated at
+  ~8 hours across 20 tasks. The critical path runs through Phase 1 (domain) →
+  Phase 2 (StartFeatureUseCase) → Phase 3 (CLI) → Phase 4 (Web UI) →
+  Phase 5 (integration + validation).

@@ -35,6 +35,7 @@ interface NewOptions {
   allowAll?: boolean;
   parent?: string;
   fast?: boolean;
+  pending?: boolean;
   model?: string;
   attach?: string[];
 }
@@ -86,6 +87,7 @@ export function createNewCommand(): Command {
     .option('--allow-merge', 'Auto-approve merge phase')
     .option('--allow-all', 'Run fully autonomous (no approval pauses)')
     .option('--parent <fid>', 'Parent feature ID (full or partial prefix)')
+    .option('--pending', 'Create feature without starting the agent')
     .option('--fast', 'Skip SDLC phases and implement directly from your prompt')
     .option('--model <model>', 'LLM model identifier for this run (e.g. claude-opus-4-6)')
     .option('--attach <path>', 'Attach a file (repeatable)', collect, [])
@@ -152,6 +154,7 @@ export function createNewCommand(): Command {
             push,
             openPr,
             ...(parentId !== undefined && { parentId }),
+            ...(options.pending && { pending: true }),
             ...(options.fast && { fast: true }),
             ...(options.model !== undefined && { model: options.model }),
             ...(attachmentPaths.length > 0 && { attachmentPaths }),
@@ -173,6 +176,11 @@ export function createNewCommand(): Command {
             `Feature created in Blocked state — waiting for parent to reach Implementation`
           );
         }
+        if (feature.lifecycle === SdlcLifecycle.Pending) {
+          messages.info(
+            `Feature created in Pending state — run ${colors.accent(`shep feat start ${feature.id.slice(0, 8)}`)} to begin`
+          );
+        }
         console.log(`  ${colors.muted('ID:')}       ${colors.accent(feature.id)}`);
         console.log(`  ${colors.muted('Name:')}     ${feature.name}`);
         console.log(`  ${colors.muted('Branch:')}   ${colors.accent(feature.branch)}`);
@@ -182,8 +190,12 @@ export function createNewCommand(): Command {
           console.log(`  ${colors.muted('Spec:')}     ${feature.specPath}`);
         }
         if (feature.agentRunId) {
+          const agentStatus =
+            feature.lifecycle === SdlcLifecycle.Pending
+              ? colors.muted('pending')
+              : colors.success('spawned');
           console.log(
-            `  ${colors.muted('Agent:')}    ${colors.success('spawned')} (run ${feature.agentRunId.slice(0, 8)})`
+            `  ${colors.muted('Agent:')}    ${agentStatus} (run ${feature.agentRunId.slice(0, 8)})`
           );
         }
         if (push || openPr) {

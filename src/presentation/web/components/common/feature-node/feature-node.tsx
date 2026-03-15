@@ -12,6 +12,7 @@ import {
   Loader2,
   Globe,
   RotateCcw,
+  Play,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -68,6 +69,8 @@ function getBadgeText(data: FeatureNodeData): string {
       return data.runtime ? `Completed in ${data.runtime}` : 'Completed';
     case 'blocked':
       return data.blockedBy ? `Waiting on ${data.blockedBy}` : 'Blocked';
+    case 'pending':
+      return 'Pending';
     case 'action-required':
       if (data.lifecycle === 'requirements') return 'Review Product Requirements';
       if (data.lifecycle === 'implementation') return 'Review Technical Planning';
@@ -160,7 +163,11 @@ export function FeatureNode({
             data-testid="feature-node-lifecycle-label"
             className={cn('text-[10px] font-semibold tracking-wider')}
           >
-            {data.state === 'blocked' ? 'BLOCKED' : lifecycleDisplayLabels[data.lifecycle]}
+            {data.state === 'blocked'
+              ? 'BLOCKED'
+              : data.state === 'pending'
+                ? 'PENDING'
+                : lifecycleDisplayLabels[data.lifecycle]}
           </span>
           <div className="flex items-center gap-0.5">
             {data.fastMode ? (
@@ -359,6 +366,21 @@ export function FeatureNode({
                   >
                     <RotateCcw className="h-3 w-3" />
                     Retry
+                  </button>
+                ) : null}
+                {data.state === 'pending' && data.onStart ? (
+                  <button
+                    type="button"
+                    aria-label="Start feature"
+                    data-testid="feature-node-start-button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      data.onStart!(data.featureId);
+                    }}
+                    className="nodrag flex shrink-0 cursor-pointer items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-700 transition-colors hover:bg-slate-200"
+                  >
+                    <Play className="h-3 w-3" />
+                    Start
                   </button>
                 ) : null}
               </div>

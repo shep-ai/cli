@@ -5,6 +5,7 @@ import {
   Ban,
   CircleX,
   Trash2,
+  Clock,
   type LucideIcon,
 } from 'lucide-react';
 import type { Node } from '@xyflow/react';
@@ -17,10 +18,12 @@ export type FeatureNodeState =
   | 'action-required'
   | 'done'
   | 'blocked'
+  | 'pending'
   | 'error'
   | 'deleting';
 
 export type FeatureLifecyclePhase =
+  | 'pending'
   | 'requirements'
   | 'research'
   | 'implementation'
@@ -30,6 +33,7 @@ export type FeatureLifecyclePhase =
 
 /** Human-readable display labels for lifecycle phases. */
 export const lifecycleDisplayLabels: Record<FeatureLifecyclePhase, string> = {
+  pending: 'PENDING',
   requirements: 'REQUIREMENTS',
   research: 'RESEARCH',
   implementation: 'IMPLEMENTATION',
@@ -40,6 +44,7 @@ export const lifecycleDisplayLabels: Record<FeatureLifecyclePhase, string> = {
 
 /** Present-participle verbs for the running badge, keyed by lifecycle phase. */
 export const lifecycleRunningVerbs: Record<FeatureLifecyclePhase, string> = {
+  pending: 'Waiting to start',
   requirements: 'Analyzing',
   research: 'Researching',
   implementation: 'Implementing',
@@ -125,6 +130,7 @@ export interface FeatureNodeData {
   hasChildren?: boolean;
   onDelete?: (featureId: string, cleanup?: boolean, cascadeDelete?: boolean) => void;
   onRetry?: (featureId: string) => void;
+  onStart?: (featureId: string) => void;
   showHandles?: boolean;
 }
 
@@ -190,6 +196,16 @@ export const featureNodeStateConfig: Record<FeatureNodeState, FeatureNodeStateCo
     badgeClass: 'text-gray-600',
     badgeBgClass: 'bg-gray-100',
     label: 'Blocked',
+    showProgressBar: false,
+  },
+  pending: {
+    icon: Clock,
+    borderClass: 'border-l-slate-400',
+    labelClass: 'text-slate-400',
+    progressClass: 'bg-slate-400',
+    badgeClass: 'text-slate-600',
+    badgeBgClass: 'bg-slate-100',
+    label: 'Pending',
     showProgressBar: false,
   },
   error: {

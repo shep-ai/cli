@@ -165,6 +165,16 @@ const allStatesData: FeatureNodeData[] = [
     branch: 'feat/email-service',
   },
   {
+    name: 'Notification Service',
+    description: 'Push notification integration',
+    featureId: '#f7',
+    lifecycle: 'pending' as FeatureLifecyclePhase,
+    state: 'pending',
+    progress: 0,
+    repositoryPath: '/home/user/my-repo',
+    branch: 'feat/notification-service',
+  },
+  {
     name: 'Legacy API Cleanup',
     description: 'Remove deprecated REST endpoints',
     featureId: '#f6',
@@ -187,6 +197,7 @@ export const AllStates: Story = {
 };
 
 const allLifecycles: FeatureLifecyclePhase[] = [
+  'pending',
   'requirements',
   'research',
   'implementation',
@@ -207,8 +218,8 @@ export const AllLifecycles: Story = {
             description: `Currently in ${lifecycle} phase`,
             featureId: `#f${i + 1}`,
             lifecycle,
-            state: 'running' as FeatureNodeState,
-            progress: [10, 25, 50, 70, 90, 100][i],
+            state: (lifecycle === 'pending' ? 'pending' : 'running') as FeatureNodeState,
+            progress: [0, 10, 25, 50, 70, 90, 100][i],
             repositoryPath: '/home/user/my-repo',
             branch: 'feat/feature-name',
           }}
@@ -575,4 +586,29 @@ export const Interactive: Story = {
     const nodeWrapper = canvasElement.querySelector('.react-flow__node') as HTMLElement;
     await waitFor(() => expect(nodeWrapper).toBeTruthy());
   },
+};
+
+export const Pending: Story = {
+  args: {
+    name: 'Notification Service',
+    description: 'Push notification integration',
+    featureId: '#p1',
+    lifecycle: 'pending',
+    state: 'pending',
+    progress: 0,
+  },
+  render: (args) => <FeatureNodeCanvas data={args} />,
+};
+
+export const PendingWithStart: Story = {
+  args: {
+    name: 'Notification Service',
+    description: 'Push notification integration — ready to start',
+    featureId: '#p2',
+    lifecycle: 'pending',
+    state: 'pending',
+    progress: 0,
+    onStart: fn(),
+  },
+  render: (args) => <FeatureNodeCanvas data={args} />,
 };

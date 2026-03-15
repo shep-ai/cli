@@ -13,6 +13,9 @@ import { SdlcLifecycle } from './generated/output';
  *
  * A parent whose lifecycle is a member of this set satisfies Gate 1:
  * directly-blocked children may transition from Blocked to Started.
+ *
+ * Note: Pending is intentionally excluded — pending features are
+ * user-deferred and cannot unblock child features.
  */
 export const POST_IMPLEMENTATION = new Set<SdlcLifecycle>([
   SdlcLifecycle.Implementation,

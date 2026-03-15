@@ -1,0 +1,41 @@
+feature:
+  id: 066-pending-feature-state
+  name: pending-feature-state
+  number: 66
+  branch: feat/066-pending-feature-state
+  lifecycle: research
+  createdAt: '2026-03-15T13:06:57Z'
+status:
+  phase: implementation-complete
+  progress:
+    completed: 20
+    total: 20
+    percentage: 100
+  currentTask: null
+  lastUpdated: '2026-03-15T15:19:59.823Z'
+  lastUpdatedBy: feature-agent:implement
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+    - plan
+    - phase-1
+    - phase-2
+    - phase-3
+    - phase-4
+    - phase-5
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-03-15T13:06:57Z'
+    completedBy: feature-agent
+errors:
+  current: null
+  history: []
