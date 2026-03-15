@@ -274,6 +274,13 @@ export enum EditorType {
   Zed = 'zed',
   Antigravity = 'antigravity',
 }
+export enum TerminalType {
+  System = 'system',
+  Warp = 'warp',
+  ITerm2 = 'iterm2',
+  Alacritty = 'alacritty',
+  Kitty = 'kitty',
+}
 
 /**
  * Environment and tooling preferences
@@ -287,6 +294,10 @@ export type EnvironmentConfig = {
    * Preferred shell
    */
   shellPreference: string;
+  /**
+   * Preferred terminal emulator
+   */
+  terminalPreference: TerminalType;
 };
 
 /**

@@ -1,0 +1,10 @@
+ ✓  web  tests/unit/presentation/web/lib/format-duration.test.ts (9 tests) 3ms
+ ✓  web  tests/unit/presentation/web/features/control-center/derive-state.test.ts (6 tests) 2ms
+ ✓  web  tests/unit/presentation/web/lib/compare-versions.test.ts (7 tests) 2ms
+ ✓  web  tests/unit/presentation/web/actions/compose-user-input.test.ts (4 tests) 1ms
+
+ Test Files  306 passed (306)
+      Tests  3857 passed (3857)
+   Start at  23:19:45
+   Duration  22.76s (transform 8.14s, setup 21.96s, import 34.35s, tests 55.63s, environment 57.45s)
+

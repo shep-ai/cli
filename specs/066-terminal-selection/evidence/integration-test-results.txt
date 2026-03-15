@@ -1,0 +1,10 @@
+     ✓ should return false when branch has not been merged  935ms
+     ✓ should return false when main has extra commits after squash but feature has diverged  951ms
+     ✓ should return true after squash merge with modified tree when premergeBaseSha provided  858ms
+     ✓ should return true after squash merge even when local branch is deleted (remote fallback)  812ms
+
+ Test Files  40 passed (40)
+      Tests  468 passed (468)
+   Start at  23:20:08
+   Duration  8.73s (transform 1.79s, setup 0ms, import 11.09s, tests 42.43s, environment 4ms)
+
