@@ -10,6 +10,7 @@
  */
 
 import { writeFileSync, unlinkSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { AgentType, AgentFeature } from '../../../../../domain/generated/output.js';
@@ -88,7 +89,19 @@ export class CursorExecutorService implements IAgentExecutor {
       if (options?.timeout) {
         timeoutId = setTimeout(() => {
           timedOut = true;
-          proc.kill();
+          // On Windows, proc.kill() may not kill the entire process tree
+          // (PowerShell + child agent process). Use taskkill /T for tree kill.
+          if (process.platform === 'win32' && proc.pid) {
+            try {
+              execFileSync('taskkill', ['/F', '/T', '/PID', String(proc.pid)], {
+                stdio: 'ignore',
+              });
+            } catch {
+              proc.kill();
+            }
+          } else {
+            proc.kill();
+          }
         }, options.timeout);
       }
 
