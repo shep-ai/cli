@@ -3,10 +3,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const mockPrepare = vi.fn();
-const mockGetSQLiteConnection = vi.fn();
+const mockGetDb = vi.fn();
 
-vi.mock('@shepai/core/infrastructure/persistence/sqlite/connection', () => ({
-  getSQLiteConnection: (...args: unknown[]) => mockGetSQLiteConnection(...args),
+vi.mock('../../../../../src/presentation/web/lib/server-db.js', () => ({
+  getDb: (...args: unknown[]) => mockGetDb(...args),
 }));
 
 const { getTableSchema } = await import(
@@ -14,7 +14,7 @@ const { getTableSchema } = await import(
 );
 
 function createMockDb() {
-  mockGetSQLiteConnection.mockResolvedValue({ prepare: mockPrepare });
+  mockGetDb.mockResolvedValue({ prepare: mockPrepare });
 }
 
 describe('getTableSchema server action', () => {

@@ -3,10 +3,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const mockPrepare = vi.fn();
-const mockGetSQLiteConnection = vi.fn();
+const mockGetDb = vi.fn();
 
-vi.mock('@shepai/core/infrastructure/persistence/sqlite/connection', () => ({
-  getSQLiteConnection: (...args: unknown[]) => mockGetSQLiteConnection(...args),
+vi.mock('../../../../../src/presentation/web/lib/server-db.js', () => ({
+  getDb: (...args: unknown[]) => mockGetDb(...args),
 }));
 
 const { listTables } = await import(
@@ -27,7 +27,7 @@ describe('listTables server action', () => {
       .mockReturnValueOnce({ get: () => ({ count: 7 }) })
       .mockReturnValueOnce({ get: () => ({ count: 1 }) });
 
-    mockGetSQLiteConnection.mockResolvedValue({ prepare: mockPrepare });
+    mockGetDb.mockResolvedValue({ prepare: mockPrepare });
 
     const result = await listTables();
 
@@ -46,19 +46,18 @@ describe('listTables server action', () => {
       })
       .mockReturnValueOnce({ get: () => ({ count: 10 }) });
 
-    mockGetSQLiteConnection.mockResolvedValue({ prepare: mockPrepare });
+    mockGetDb.mockResolvedValue({ prepare: mockPrepare });
 
     const result = await listTables();
 
-    // The SQL query itself filters sqlite_ tables, so we verify
-    // the prepare was called with the correct query
+    expect(result.error).toBeUndefined();
     expect(mockPrepare).toHaveBeenCalledWith(expect.stringContaining("NOT LIKE 'sqlite_%'"));
     expect(result.tables).toEqual([{ name: 'features', rowCount: 10 }]);
   });
 
   it('returns empty array for empty database', async () => {
     mockPrepare.mockReturnValueOnce({ all: () => [] });
-    mockGetSQLiteConnection.mockResolvedValue({ prepare: mockPrepare });
+    mockGetDb.mockResolvedValue({ prepare: mockPrepare });
 
     const result = await listTables();
 
@@ -67,7 +66,7 @@ describe('listTables server action', () => {
   });
 
   it('returns error when connection fails', async () => {
-    mockGetSQLiteConnection.mockRejectedValue(new Error('Database not available'));
+    mockGetDb.mockRejectedValue(new Error('Database not available'));
 
     const result = await listTables();
 

@@ -1,6 +1,6 @@
 'use server';
 
-import { getSQLiteConnection } from '@shepai/core/infrastructure/persistence/sqlite/connection';
+import { getDb } from '@/lib/server-db';
 
 export interface ColumnInfo {
   name: string;
@@ -17,7 +17,7 @@ export interface GetTableSchemaResult {
 
 export async function getTableSchema(tableName: string): Promise<GetTableSchemaResult> {
   try {
-    const db = await getSQLiteConnection();
+    const db = await getDb();
 
     // Validate table name against sqlite_master
     const tableExists = db
