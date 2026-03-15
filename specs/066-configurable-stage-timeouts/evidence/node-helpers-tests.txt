@@ -1,10 +1,63 @@
+Feature: Configurable Stage Timeouts — node-helpers.test.ts
+Test file: tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts
+Date: 2026-03-15T15:30:00Z
+Result: 41 tests passed
 
-[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-configurable-stage-timeouts[39m
+=== buildExecutorOptions (Stage Timeout Resolution) ===
 
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts [2m([22m[2m40 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+✓ uses default timeout (1_800_000ms) when settings are not initialized
+✓ uses default timeout when stageTimeoutMs is not set in settings
+✓ uses per-stage timeout from settings when set (implementMs: 900_000 -> timeout: 900_000)
+✓ uses default timeout when per-stage timeout is not set for current node
+✓ allows override to take precedence over settings
+✓ uses worktreePath as cwd when available
+✓ uses repositoryPath as cwd when worktreePath is empty
 
-[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
-[2m      Tests [22m [1m[32m40 passed[39m[22m[90m (40)[39m
-[2m   Start at [22m 15:22:14
-[2m   Duration [22m 224ms[2m (transform 44ms, setup 0ms, import 165ms, tests 6ms, environment 0ms)[22m
+=== shouldInterrupt ===
 
+✓ returns false for any node when gates is undefined
+✓ returns false for any node when all gates are true (fully autonomous)
+✓ does NOT skip all interrupts when only 2 of 3 gates are true
+✓ requirements: interrupts when allowPrd is false
+✓ requirements: does not interrupt when allowPrd is true
+✓ plan: interrupts when allowPlan is false
+✓ plan: does not interrupt when allowPlan is true
+✓ implement: never interrupts
+✓ merge: interrupts when allowMerge is false
+✓ merge: does not interrupt when allowMerge is true
+✓ unknown nodes: returns false for nodes without gates
+
+=== clearCompletedPhase ===
+
+✓ removes the given phase from completedPhases
+✓ is a no-op when phase is not in completedPhases
+✓ handles missing feature.yaml gracefully
+✓ handles missing completedPhases array gracefully
+
+=== buildCommitPushBlock ===
+
+✓ includes local verification before push when push=true
+✓ does NOT include local verification when push=false
+✓ includes commit instructions
+✓ prohibits git stash when push=true
+✓ prohibits git reset when push=true
+✓ prohibits git checkout -- when push=true
+✓ prohibits git restore when push=true
+✓ prohibits git clean when push=true
+✓ instructs to proceed with commit+push if tests fail
+✓ skips verification but still push when skipVerification=true
+✓ not include push when skipVerification=true but push=false
+✓ includes --no-verify in commit when skipVerification=true
+✓ does NOT include --no-verify when skipVerification is false
+
+=== isRejectionPayload ===
+
+✓ returns true for valid rejection payload
+✓ returns false for approval payload
+✓ returns false for null
+✓ returns false for undefined
+✓ returns false for string
+✓ returns false when rejected is not true
+
+Test Files  1 passed (1)
+Tests       41 passed (41)
