@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { PaperclipIcon, ChevronsUpDown, CheckIcon, Zap } from 'lucide-react';
+import { PaperclipIcon, ChevronsUpDown, CheckIcon, Zap, FolderPlus, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSoundAction } from '@/hooks/use-sound-action';
 import { BaseDrawer } from '@/components/common/base-drawer';
@@ -18,6 +18,9 @@ import { useGuardedDrawerClose } from '@/hooks/drawer-close-guard';
 import { AttachmentChip } from '@/components/common/attachment-chip';
 import type { WorkflowDefaults } from '@/app/actions/get-workflow-defaults';
 import { AgentModelPicker } from '@/components/features/settings/AgentModelPicker';
+import { Separator } from '@/components/ui/separator';
+import { pickFolder } from '@/components/common/add-repository-button/pick-folder';
+import { addRepository } from '@/app/actions/add-repository';
 import { pickFiles } from './pick-files';
 
 export type { FileAttachment } from '@shepai/core/infrastructure/services/file-dialog.service';
@@ -198,6 +201,7 @@ export function FeatureCreateDrawer({
   const [selectedRepoPath, setSelectedRepoPath] = useState<string | undefined>(
     repositoryPath || undefined
   );
+  const [localRepos, setLocalRepos] = useState<RepositoryOption[]>(repositories ?? []);
   const [isDragOver, setIsDragOver] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isPromptFocused, setIsPromptFocused] = useState(false);
@@ -218,6 +222,11 @@ export function FeatureCreateDrawer({
     }
   }, [workflowDefaults]);
 
+  // Sync localRepos when repositories prop changes
+  useEffect(() => {
+    setLocalRepos(repositories ?? []);
+  }, [repositories]);
+
   // Pre-select parent when initialParentId changes (e.g. (+) button on feature node)
   useEffect(() => {
     if (open && initialParentId) {
@@ -235,6 +244,7 @@ export function FeatureCreateDrawer({
     setCommitEvidence(defaultCommitEvidence);
     setParentId(undefined);
     setSelectedRepoPath(repositoryPath || undefined);
+    setLocalRepos(repositories ?? []);
     setFast(false);
     setOverrideAgent(undefined);
     setOverrideModel(undefined);
@@ -248,6 +258,7 @@ export function FeatureCreateDrawer({
     defaultEnableEvidence,
     defaultCommitEvidence,
     repositoryPath,
+    repositories,
   ]);
 
   // Track whether the form has unsaved data
@@ -516,7 +527,7 @@ export function FeatureCreateDrawer({
 
   const hasFeatures = features && features.length > 0;
   const needsRepo = !repositoryPath && !selectedRepoPath;
-  const showRepoSelector = !repositoryPath && repositories && repositories.length > 0;
+  const showRepoSelector = !repositoryPath && repositories !== undefined;
 
   return (
     <BaseDrawer
@@ -573,9 +584,13 @@ export function FeatureCreateDrawer({
                   REPOSITORY
                 </Label>
                 <RepositoryCombobox
-                  repositories={repositories}
+                  repositories={localRepos}
                   value={selectedRepoPath}
                   onChange={setSelectedRepoPath}
+                  onAddRepository={(repo) => {
+                    setLocalRepos((prev) => [...prev, repo]);
+                    setSelectedRepoPath(repo.path);
+                  }}
                   disabled={isSubmitting}
                 />
               </div>
@@ -1070,6 +1085,7 @@ export interface RepositoryComboboxProps {
   repositories: RepositoryOption[];
   value: string | undefined;
   onChange: (path: string | undefined) => void;
+  onAddRepository?: (repo: RepositoryOption) => void;
   disabled?: boolean;
 }
 
@@ -1077,10 +1093,13 @@ export function RepositoryCombobox({
   repositories,
   value,
   onChange,
+  onAddRepository,
   disabled,
 }: RepositoryComboboxProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const [isAdding, setIsAdding] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const selectedRepo = repositories.find((r) => r.path === value);
@@ -1101,6 +1120,40 @@ export function RepositoryCombobox({
     },
     [onChange]
   );
+
+  const handleAddRepository = useCallback(async () => {
+    if (isAdding) return;
+    setIsAdding(true);
+    setAddError(null);
+    try {
+      const folderPath = await pickFolder();
+      if (!folderPath) {
+        setIsAdding(false);
+        return;
+      }
+      const result = await addRepository({ path: folderPath });
+      if (result.error) {
+        setAddError(result.error);
+        setIsAdding(false);
+        return;
+      }
+      if (result.repository) {
+        const newRepo: RepositoryOption = {
+          id: result.repository.id,
+          name: result.repository.name,
+          path: result.repository.path,
+        };
+        onAddRepository?.(newRepo);
+        onChange(newRepo.path);
+        setOpen(false);
+        setQuery('');
+      }
+    } catch (err: unknown) {
+      setAddError(err instanceof Error ? err.message : 'Failed to add repository');
+    } finally {
+      setIsAdding(false);
+    }
+  }, [isAdding, onAddRepository, onChange]);
 
   useEffect(() => {
     if (open) {
@@ -1174,6 +1227,28 @@ export function RepositoryCombobox({
               ))
             )}
           </div>
+
+          {/* Add new repository — pinned outside scroll area */}
+          <Separator />
+          <button
+            type="button"
+            onClick={handleAddRepository}
+            disabled={isAdding}
+            className="hover:bg-accent hover:text-accent-foreground flex w-full items-center gap-2 px-3 py-2 text-sm"
+            data-testid="add-repository-item"
+          >
+            {isAdding ? (
+              <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+            ) : (
+              <FolderPlus className="h-4 w-4 shrink-0" />
+            )}
+            <span>Add new repository...</span>
+          </button>
+          {addError ? (
+            <p className="px-3 pb-2 text-xs text-red-500" data-testid="add-repository-error">
+              {addError}
+            </p>
+          ) : null}
         </div>
       </PopoverContent>
     </Popover>

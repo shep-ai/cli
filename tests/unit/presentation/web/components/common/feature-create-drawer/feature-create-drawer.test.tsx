@@ -12,6 +12,24 @@ vi.mock('@/components/common/feature-create-drawer/pick-files', () => ({
   pickFiles: () => mockPickFiles(),
 }));
 
+// Mock pickFolder for repository combobox
+const mockPickFolder = vi.fn<() => Promise<string | null>>();
+vi.mock('@/components/common/add-repository-button/pick-folder', () => ({
+  pickFolder: () => mockPickFolder(),
+}));
+
+// Mock addRepository server action
+const mockAddRepository =
+  vi.fn<
+    (input: {
+      path: string;
+      name?: string;
+    }) => Promise<{ repository?: { id: string; name: string; path: string }; error?: string }>
+  >();
+vi.mock('@/app/actions/add-repository', () => ({
+  addRepository: (input: { path: string; name?: string }) => mockAddRepository(input),
+}));
+
 const mockCreatePlay = vi.fn();
 
 vi.mock('@/hooks/use-sound-action', () => ({
@@ -39,6 +57,8 @@ beforeAll(() => {
 beforeEach(() => {
   vi.clearAllMocks();
   mockPickFiles.mockResolvedValue(null);
+  mockPickFolder.mockResolvedValue(null);
+  mockAddRepository.mockResolvedValue({ error: 'Not mocked' });
 });
 
 const descriptionPlaceholder =
@@ -1082,9 +1102,108 @@ describe('FeatureCreateDrawer', () => {
       expect(selected).toHaveAttribute('aria-selected', 'true');
     });
 
-    it('does not show repo selector when repositoryPath is empty and repositories is empty', () => {
+    it('shows repo selector with add option when repositoryPath is empty and repositories is empty', () => {
       renderDrawer({ repositoryPath: '', repositories: [] });
-      expect(screen.queryByTestId('repo-selector-section')).not.toBeInTheDocument();
+      expect(screen.getByTestId('repo-selector-section')).toBeInTheDocument();
+      expect(screen.getByTestId('repository-combobox')).toBeInTheDocument();
+    });
+
+    it('renders "Add new repository..." item in the combobox dropdown', async () => {
+      const user = userEvent.setup();
+      renderDrawer({ repositoryPath: '', repositories: sampleRepos });
+
+      await user.click(screen.getByTestId('repository-combobox'));
+
+      expect(screen.getByTestId('add-repository-item')).toBeInTheDocument();
+      expect(screen.getByText('Add new repository...')).toBeInTheDocument();
+    });
+
+    it('renders "Add new repository..." item even with zero repos', async () => {
+      const user = userEvent.setup();
+      renderDrawer({ repositoryPath: '', repositories: [] });
+
+      await user.click(screen.getByTestId('repository-combobox'));
+
+      expect(screen.getByTestId('add-repository-item')).toBeInTheDocument();
+    });
+
+    it('clicking "Add new repository..." opens folder picker and adds repo', async () => {
+      mockPickFolder.mockResolvedValue('/Users/dev/new-project');
+      mockAddRepository.mockResolvedValue({
+        repository: { id: 'repo-new', name: 'new-project', path: '/Users/dev/new-project' },
+      });
+      const user = userEvent.setup();
+      renderDrawer({ repositoryPath: '', repositories: sampleRepos });
+
+      await user.click(screen.getByTestId('repository-combobox'));
+      await user.click(screen.getByTestId('add-repository-item'));
+
+      await waitFor(() => {
+        expect(mockPickFolder).toHaveBeenCalledOnce();
+        expect(mockAddRepository).toHaveBeenCalledWith({ path: '/Users/dev/new-project' });
+      });
+
+      // New repo should be auto-selected (combobox trigger shows the name)
+      await waitFor(() => {
+        expect(screen.getByTestId('repository-combobox')).toHaveTextContent('new-project');
+      });
+    });
+
+    it('does nothing when folder picker is cancelled', async () => {
+      mockPickFolder.mockResolvedValue(null);
+      const user = userEvent.setup();
+      renderDrawer({ repositoryPath: '', repositories: sampleRepos });
+
+      await user.click(screen.getByTestId('repository-combobox'));
+      await user.click(screen.getByTestId('add-repository-item'));
+
+      await waitFor(() => {
+        expect(mockPickFolder).toHaveBeenCalledOnce();
+      });
+      expect(mockAddRepository).not.toHaveBeenCalled();
+      // Combobox should still show placeholder
+      expect(screen.getByTestId('repository-combobox')).toHaveTextContent('Select repository...');
+    });
+
+    it('shows inline error when addRepository server action fails', async () => {
+      mockPickFolder.mockResolvedValue('/Users/dev/bad-folder');
+      mockAddRepository.mockResolvedValue({ error: 'Not a git repository' });
+      const user = userEvent.setup();
+      renderDrawer({ repositoryPath: '', repositories: sampleRepos });
+
+      await user.click(screen.getByTestId('repository-combobox'));
+      await user.click(screen.getByTestId('add-repository-item'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('add-repository-error')).toBeInTheDocument();
+        expect(screen.getByText('Not a git repository')).toBeInTheDocument();
+      });
+      // Combobox should still be open (popover stays open on error)
+      expect(screen.getByTestId('repository-combobox-content')).toBeInTheDocument();
+    });
+
+    it('can submit feature after adding new repo via combobox', async () => {
+      mockPickFolder.mockResolvedValue('/Users/dev/new-project');
+      mockAddRepository.mockResolvedValue({
+        repository: { id: 'repo-new', name: 'new-project', path: '/Users/dev/new-project' },
+      });
+      const onSubmit = vi.fn();
+      const user = userEvent.setup();
+      renderDrawer({ repositoryPath: '', repositories: [], onSubmit });
+
+      // Add repo via combobox
+      await user.click(screen.getByTestId('repository-combobox'));
+      await user.click(screen.getByTestId('add-repository-item'));
+      await waitFor(() => {
+        expect(screen.getByTestId('repository-combobox')).toHaveTextContent('new-project');
+      });
+
+      // Fill description and submit
+      await user.type(screen.getByPlaceholderText(descriptionPlaceholder), 'My feature');
+      await user.click(screen.getByRole('button', { name: '+ Create Feature' }));
+
+      expect(onSubmit).toHaveBeenCalledOnce();
+      expect(onSubmit.mock.calls[0][0].repositoryPath).toBe('/Users/dev/new-project');
     });
   });
 });
