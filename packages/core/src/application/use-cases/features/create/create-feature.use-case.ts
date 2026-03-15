@@ -292,9 +292,13 @@ export class CreateFeatureUseCase {
       // Validate that the configured agent is available before spawning
       // a background worker — prevents the feature from getting stuck
       // with a silent failure in the detached worker process.
+      // Skip validation when using mock executor (E2E tests, CI without real agents).
       const settings = getSettings();
       const effectiveAgentType = (input.agentType as AgentType) ?? settings.agent.type;
-      const validation = await this.agentValidator.isAvailable(effectiveAgentType);
+      const isMockExecutor = process.env.SHEP_MOCK_EXECUTOR === '1';
+      const validation = isMockExecutor
+        ? { available: true as const }
+        : await this.agentValidator.isAvailable(effectiveAgentType);
       if (!validation.available) {
         // Mark the agent run as failed so the UI shows the error
         await this.runRepository.updateStatus(feature.agentRunId!, AgentRunStatus.failed, {
