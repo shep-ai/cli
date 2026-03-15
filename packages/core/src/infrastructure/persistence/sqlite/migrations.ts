@@ -12,7 +12,7 @@
 
 import { readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Umzug } from 'umzug';
 import type { RunnableMigration, MigrationParams } from 'umzug';
 import type Database from 'better-sqlite3';
@@ -32,7 +32,7 @@ export const LATEST_SCHEMA_VERSION = 34;
 function getMigrationsDir(): string {
   // import.meta.url is available in ESM; fallback to __dirname for CJS
   // The migrations/ directory is a sibling of this file
-  return join(dirname(new URL(import.meta.url).pathname), 'migrations');
+  return join(dirname(fileURLToPath(import.meta.url)), 'migrations');
 }
 
 /**
