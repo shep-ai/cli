@@ -9,6 +9,7 @@ import {
   Coins,
   Server,
   FileCode,
+  AlertCircle,
 } from 'lucide-react';
 import {
   parseLogContent,
@@ -54,6 +55,8 @@ function LogLineRow({ line }: { line: ParsedLogLine }) {
       return <ResultRow line={line} />;
     case 'tokens':
       return <TokensRow line={line} />;
+    case 'error':
+      return <ErrorRow line={line} />;
     case 'worker':
       return <WorkerRow line={line} />;
     case 'info':
@@ -186,6 +189,21 @@ function TokensRow({ line }: { line: ParsedLogLine }) {
             {outputTokens.toLocaleString()}
           </span>
           {' out'}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function ErrorRow({ line }: { line: ParsedLogLine }) {
+  return (
+    <div className="flex items-start gap-2 border-l-2 border-red-500 bg-red-50/50 px-3 py-1.5 transition-colors hover:bg-red-50 dark:bg-red-950/20 dark:hover:bg-red-950/30">
+      <Timestamp value={line.timestamp} />
+      <PhaseBadge phase={line.phase} />
+      <div className="flex min-w-0 flex-1 items-start gap-1.5">
+        <AlertCircle className="mt-0.5 h-3 w-3 shrink-0 text-red-500" />
+        <span className="min-w-0 text-xs font-medium text-red-600 dark:text-red-400">
+          {line.message}
         </span>
       </div>
     </div>

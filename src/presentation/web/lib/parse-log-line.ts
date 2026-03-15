@@ -6,7 +6,15 @@
  * Fallback: raw string lines
  */
 
-export type LogEventTag = 'tool' | 'text' | 'result' | 'tokens' | 'raw' | 'worker' | 'info';
+export type LogEventTag =
+  | 'tool'
+  | 'text'
+  | 'result'
+  | 'tokens'
+  | 'raw'
+  | 'worker'
+  | 'info'
+  | 'error';
 
 export interface ParsedLogLine {
   /** ISO timestamp */
@@ -102,6 +110,15 @@ export function parseLogLine(raw: string): Omit<ParsedLogLine, 'id'> {
   if (tagMatch) {
     tag = tagMatch[1].toLowerCase() as LogEventTag;
     message = tagMatch[2];
+  }
+
+  // Detect error lines by ERROR: prefix in message
+  if (
+    message.startsWith('ERROR:') ||
+    message.startsWith('UNCAUGHT EXCEPTION:') ||
+    message.startsWith('UNHANDLED REJECTION:')
+  ) {
+    tag = 'error';
   }
 
   return {
