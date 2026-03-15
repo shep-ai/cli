@@ -34,6 +34,12 @@ import {
   getPrSyncWatcher,
 } from '@/infrastructure/services/pr-sync/pr-sync-watcher.service.js';
 import { getExistingConnection } from '@/infrastructure/persistence/sqlite/connection.js';
+import {
+  GitHubWebhookRuntimeService,
+  isGitHubWebhookRuntimeEnabled,
+} from '@/infrastructure/services/webhooks/github-webhook-runtime.service.js';
+import { GitHubWebhookService } from '@/infrastructure/services/webhooks/github-webhook.service.js';
+import type { ExecFunction } from '@shepai/core/infrastructure/services/git/worktree.service';
 
 const DEFAULT_PORT = 3000;
 
@@ -90,6 +96,20 @@ async function main() {
     const db = getExistingConnection();
     initializePrSyncWatcher(featureRepo, runRepo, gitPrService, notificationService, undefined, db);
     getPrSyncWatcher().start();
+
+    let webhookRuntime: GitHubWebhookRuntimeService | null = null;
+    if (isGitHubWebhookRuntimeEnabled()) {
+      try {
+        const execFile = container.resolve<ExecFunction>('ExecFunction');
+        const webhookService = new GitHubWebhookService(execFile, gitPrService);
+        webhookRuntime = new GitHubWebhookRuntimeService(featureRepo, webhookService, port);
+        await webhookRuntime.start();
+      } catch (error) {
+        console.warn('[dev-server] GitHub webhook runtime disabled:', error);
+      }
+    }
+
+    (globalThis as Record<string, unknown>).__shepGithubWebhookRuntime = webhookRuntime;
   } catch (error) {
     console.warn('[dev-server] DI initialization failed — features will be empty:', error);
   }
@@ -132,6 +152,13 @@ async function main() {
     console.log('\n[dev-server] Shutting down...');
     const forceExit = setTimeout(() => process.exit(0), 2000);
     try {
+      try {
+        const webhookRuntime = (globalThis as Record<string, unknown>)
+          .__shepGithubWebhookRuntime as GitHubWebhookRuntimeService | undefined;
+        await webhookRuntime?.stop();
+      } catch {
+        /* runtime not initialized */
+      }
       try {
         getNotificationWatcher().stop();
       } catch {

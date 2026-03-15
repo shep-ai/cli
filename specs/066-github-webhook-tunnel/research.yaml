@@ -1,0 +1,98 @@
+name: github-webhook-tunnel
+summary: >
+  Technical research for adding GitHub webhooks to the existing PR sync poller using a webhook-only
+  local gateway plus a Cloudflare quick tunnel. The chosen design keeps the PR poller as fallback,
+  validates GitHub signatures with a persistent local secret, and uses repo webhook reconciliation to
+  handle ephemeral tunnel URLs.
+relatedFeatures:
+  - 039-github-pr-sync
+  - 064-pr-sync-rate-limit
+technologies:
+  - GitHub CLI (gh api)
+  - cloudflared quick tunnels
+  - Node.js http server and proxying
+  - Next.js route handlers
+  - HMAC SHA-256
+relatedLinks: []
+decisions:
+  - title: Webhook ingress boundary
+    chosen: Dedicated local webhook gateway server in front of the app
+    rejected:
+      - >
+        Expose the main Next.js server directly through the tunnel and depend on tunnel path routing.
+        This is simpler on paper, but it weakens the guarantee that only webhook endpoints are public.
+    rationale: >
+      A dedicated local gateway gives a hard boundary: only `/api/webhooks/*` is forwarded and all
+      other paths return 404. This directly satisfies the user request to avoid exposing the whole app.
+  - title: Tunnel URL volatility handling
+    chosen: Reconcile GitHub repo webhooks against the current tunnel URL on startup and on a periodic interval
+    rejected:
+      - >
+        Persist the last URL locally and skip remote inspection. This misses out-of-band edits and
+        does not help if GitHub webhook state drifts.
+    rationale: >
+      Quick tunnel URLs are ephemeral. The source of truth is GitHub's current webhook configuration,
+      so the implementation should inspect and update remote hooks instead of trusting local state.
+  - title: Event processing model
+    chosen: Treat webhook events as a targeted refresh signal for the existing PR sync watcher
+    rejected:
+      - >
+        Fully map webhook payloads to direct feature database updates. Faster in theory, but it
+        duplicates PR sync logic and creates two sources of truth for status transitions.
+    rationale: >
+      The existing watcher already knows how to resolve PR status, CI status, mergeability, lifecycle
+      transitions, agent run completion, deduplication, and notifications. Webhooks should wake it up,
+      not replace its logic.
+  - title: Secret management
+    chosen: Generate or reuse a persistent secret file under SHEP_HOME
+    rejected:
+      - >
+        Generate a new in-memory secret every run. That would require updating every webhook on every
+        startup and break delivery for any event arriving before reconciliation finishes.
+      - >
+        Require the user to provide a secret env var manually. Secure, but too much friction for the
+        first implementation.
+    rationale: >
+      A persistent local secret gives stable signature verification semantics and keeps setup automatic
+      once the feature is enabled.
+  - title: Enablement model
+    chosen: Opt-in via environment variable
+    rejected:
+      - >
+        Always-on startup whenever cloudflared exists. Public ingress should not happen implicitly.
+    rationale: >
+      This feature creates an internet-reachable endpoint. Opt-in is the safest default and does not
+      disrupt existing local UI usage.
+openQuestions: []
+content: |
+  ## Architecture Notes
+
+  The implementation layers cleanly on top of the existing PR sync architecture:
+
+  1. `PrSyncWatcherService` remains the authority for PR/CI reconciliation.
+  2. A new webhook route verifies GitHub signatures and extracts `repository.full_name`.
+  3. The route asks the watcher to perform an immediate refresh for the matching repository.
+  4. A new runtime service starts:
+     - a localhost-only webhook gateway
+     - a `cloudflared` quick tunnel to that gateway
+     - periodic GitHub webhook reconciliation for repositories currently in Review
+
+  ## GitHub webhook identification
+
+  Because quick tunnel URLs change, the code needs a deterministic way to find the Shep-managed
+  webhook in GitHub. The simplest robust marker is the callback URL itself:
+
+  - register `.../api/webhooks/github?source=shep`
+  - when listing repo webhooks, match hooks whose URL contains `source=shep`
+
+  This avoids storing GitHub hook IDs locally and still lets us patch the existing hook whenever
+  the public base URL changes.
+
+  ## Failure handling
+
+  Webhook runtime failures must never block the web UI:
+
+  - `cloudflared` missing: log warning, leave polling active
+  - `gh api` failure: log warning, retry on next reconcile interval
+  - invalid webhook signature: return 401, do not trigger sync
+  - watcher unavailable: return 202/503-safe behavior from the route without crashing the app

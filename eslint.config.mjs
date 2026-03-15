@@ -232,6 +232,9 @@ export default tseslint.config(
       },
     },
     settings: {
+      next: {
+        rootDir: 'src/presentation/web',
+      },
       react: {
         version: 'detect',
       },

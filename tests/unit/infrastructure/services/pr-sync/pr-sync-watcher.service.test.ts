@@ -1437,4 +1437,29 @@ describe('PrSyncWatcherService', () => {
       expect(hasPrSyncWatcher()).toBe(false);
     });
   });
+
+  describe('webhook-triggered refresh', () => {
+    it('refreshes the matching GitHub repository immediately', async () => {
+      const feature = createMockFeature();
+      vi.mocked(featureRepo.list).mockResolvedValue([feature]);
+      vi.mocked(gitPrService.getRemoteUrl).mockResolvedValue('https://github.com/org/repo');
+      vi.mocked(gitPrService.listPrStatuses).mockResolvedValue([]);
+
+      const refreshed = await watcher.syncRepositoryByGitHubFullName('org/repo');
+
+      expect(refreshed).toBe(true);
+      expect(gitPrService.listPrStatuses).toHaveBeenCalledWith('/repo/path');
+    });
+
+    it('returns false when no tracked repository matches the webhook repo name', async () => {
+      const feature = createMockFeature();
+      vi.mocked(featureRepo.list).mockResolvedValue([feature]);
+      vi.mocked(gitPrService.getRemoteUrl).mockResolvedValue('https://github.com/other/repo');
+
+      const refreshed = await watcher.syncRepositoryByGitHubFullName('org/repo');
+
+      expect(refreshed).toBe(false);
+      expect(gitPrService.listPrStatuses).not.toHaveBeenCalled();
+    });
+  });
 });

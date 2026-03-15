@@ -1,0 +1,147 @@
+name: github-webhook-tunnel
+summary: >
+  Task breakdown for GitHub webhook acceleration over PR sync polling. The work covers service
+  contracts, GitHub webhook reconciliation, webhook-triggered watcher refresh, local tunnel runtime,
+  verified route handling, and startup wiring.
+relatedFeatures:
+  - 039-github-pr-sync
+  - 064-pr-sync-rate-limit
+technologies:
+  - GitHub CLI (gh api)
+  - cloudflared
+  - Node.js http
+  - Next.js route handlers
+relatedLinks: []
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: Add GitHub webhook reconciliation types to the git PR service contract
+    description: >
+      Extend the git PR service interface with typed repo webhook reconcile inputs/results so the
+      implementation and tests can work against a stable contract.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - IGitPrService exposes a typed method for ensuring a Shep-managed GitHub webhook
+      - TypeScript typecheck passes after the contract update
+    tdd:
+      red:
+        - Add failing type-level/unit tests referencing the new contract
+      green:
+        - Add the new interface types and method signature
+      refactor:
+        - Keep naming aligned with existing GitHub service conventions
+    estimatedEffort: 20min
+
+  - id: task-2
+    phaseId: phase-2
+    title: Implement repository webhook create/update logic in GitPrService
+    description: >
+      Use `gh api` to list repo webhooks, identify the Shep-managed one via the callback marker,
+      and create or patch it when the URL or events differ.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - Existing Shep webhook is updated when the tunnel URL changes
+      - Missing Shep webhook is created
+      - Matching webhook configuration returns unchanged
+      - Non-GitHub remotes are skipped safely
+    tdd:
+      red:
+        - Add unit tests for create, update, unchanged, and skip paths
+      green:
+        - Implement the `gh api` calls and hook comparison logic
+      refactor:
+        - Extract helper(s) for comparison and remote parsing if helpful
+    estimatedEffort: 1h
+
+  - id: task-3
+    phaseId: phase-2
+    title: Add webhook-triggered targeted refresh to PrSyncWatcherService
+    description: >
+      Expose a watcher method that accepts a GitHub `owner/repo` name and immediately refreshes
+      the matching local repository using the existing PR sync processing path.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - Webhook route can trigger an immediate repository refresh without waiting for the poll interval
+      - The watcher reuses existing processing logic instead of duplicating transition handling
+    tdd:
+      red:
+        - Add failing watcher tests for matching and non-matching GitHub repositories
+      green:
+        - Implement the public targeted refresh method
+      refactor:
+        - Keep repository matching logic small and isolated
+    estimatedEffort: 45min
+
+  - id: task-4
+    phaseId: phase-3
+    title: Build the webhook runtime service
+    description: >
+      Implement persistent secret management, a local webhook-only gateway, cloudflared quick
+      tunnel startup, public URL parsing, and periodic repo webhook reconciliation.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - Runtime starts only when the opt-in env flag is enabled
+      - Gateway forwards only `/api/webhooks/*` and rejects other paths
+      - Tunnel output parsing extracts the public URL
+      - Repo webhook reconciliation runs on startup and interval
+    tdd:
+      red:
+        - Add failing tests for secret persistence, gateway restriction, tunnel URL parsing, and reconcile scheduling
+      green:
+        - Implement the runtime service
+      refactor:
+        - Keep cleanup/shutdown idempotent
+    estimatedEffort: 2h
+
+  - id: task-5
+    phaseId: phase-3
+    title: Add the verified GitHub webhook route
+    description: >
+      Create `/api/webhooks/github` that validates the GitHub HMAC signature, parses the repository
+      name from the payload, and triggers the targeted watcher refresh.
+    state: Todo
+    dependencies:
+      - task-3
+      - task-4
+    acceptanceCriteria:
+      - Invalid signatures return 401
+      - Valid webhook payloads trigger watcher refresh for the matching repo
+      - Route is force-dynamic and handles malformed payloads safely
+    tdd:
+      red:
+        - Add failing route tests for invalid signature, valid signature, and malformed payload
+      green:
+        - Implement the route handler
+      refactor:
+        - Extract signature verification helper if it improves clarity
+    estimatedEffort: 1h
+
+  - id: task-6
+    phaseId: phase-4
+    title: Wire webhook runtime into daemon and foreground startup
+    description: >
+      Start and stop the runtime from `_serve`, `ui`, and the web dev server so the feature works in
+      both real-user and development flows.
+    state: Todo
+    dependencies:
+      - task-4
+      - task-5
+    acceptanceCriteria:
+      - Runtime starts after the web server is ready
+      - Runtime stops cleanly on shutdown
+      - Existing startup paths still work when webhook mode is disabled
+    tdd:
+      red:
+        - Add failing startup tests for opt-in runtime activation
+      green:
+        - Wire runtime start/stop into the startup commands
+      refactor:
+        - Keep shutdown sequencing consistent across entry points
+    estimatedEffort: 45min

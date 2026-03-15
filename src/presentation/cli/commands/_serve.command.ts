@@ -33,6 +33,16 @@ import {
   initializeNotificationWatcher,
   getNotificationWatcher,
 } from '@/infrastructure/services/notifications/notification-watcher.service.js';
+import {
+  initializePrSyncWatcher,
+  getPrSyncWatcher,
+} from '@/infrastructure/services/pr-sync/pr-sync-watcher.service.js';
+import { getExistingConnection } from '@/infrastructure/persistence/sqlite/connection.js';
+import {
+  GitHubWebhookRuntimeService,
+  isGitHubWebhookRuntimeEnabled,
+} from '@/infrastructure/services/webhooks/github-webhook-runtime.service.js';
+import { GitHubWebhookService } from '@/infrastructure/services/webhooks/github-webhook.service.js';
 import type { IVersionService } from '@/application/ports/output/services/version-service.interface.js';
 import type { IWebServerService } from '@/application/ports/output/services/web-server-service.interface.js';
 import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
@@ -40,6 +50,8 @@ import type { IPhaseTimingRepository } from '@/application/ports/output/agents/p
 import type { INotificationService } from '@/application/ports/output/services/notification-service.interface.js';
 import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
 import type { IDeploymentService } from '@/application/ports/output/services/deployment-service.interface.js';
+import type { IGitPrService } from '@/application/ports/output/services/git-pr-service.interface.js';
+import type { ExecFunction } from '@shepai/core/infrastructure/services/git/worktree.service';
 
 function parsePort(value: string): number {
   const port = parseInt(value, 10);
@@ -79,6 +91,31 @@ export function createServeCommand(): Command {
         initializeNotificationWatcher(runRepo, phaseTimingRepo, featureRepo, notificationService);
         getNotificationWatcher().start();
 
+        const gitPrService = container.resolve<IGitPrService>('IGitPrService');
+        const db = getExistingConnection();
+        initializePrSyncWatcher(
+          featureRepo,
+          runRepo,
+          gitPrService,
+          notificationService,
+          undefined,
+          db
+        );
+        getPrSyncWatcher().start();
+
+        let webhookRuntime: GitHubWebhookRuntimeService | null = null;
+        if (isGitHubWebhookRuntimeEnabled()) {
+          try {
+            const execFile = container.resolve<ExecFunction>('ExecFunction');
+            const webhookService = new GitHubWebhookService(execFile, gitPrService);
+            webhookRuntime = new GitHubWebhookRuntimeService(featureRepo, webhookService, port);
+            await webhookRuntime.start();
+          } catch (error) {
+            const err = error instanceof Error ? error : new Error(String(error));
+            process.stderr.write(`[_serve] GitHub webhook runtime disabled: ${err.message}\n`);
+          }
+        }
+
         // Graceful shutdown handler — identical pattern to ui.command.ts
         let isShuttingDown = false;
         const shutdown = async () => {
@@ -89,6 +126,8 @@ export function createServeCommand(): Command {
           const forceExit = setTimeout(() => process.exit(0), 5000);
           forceExit.unref();
 
+          await webhookRuntime?.stop();
+          getPrSyncWatcher().stop();
           getNotificationWatcher().stop();
           const deploymentService = container.resolve<IDeploymentService>('IDeploymentService');
           deploymentService.stopAll();

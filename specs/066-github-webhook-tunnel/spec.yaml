@@ -1,0 +1,128 @@
+name: github-webhook-tunnel
+number: 66
+branch: feat/066-github-webhook-tunnel
+oneLiner: Add GitHub webhook acceleration for PR sync using a webhook-only Cloudflare tunnel alongside polling
+userQuery: >
+  I want to add support to webhooks together with polling but because we are running locally
+  we should use something like Cloudflare Tunnel client some nuance each time we would run
+  the cloudflare we can get different url, so we need to update the webhook if the url changes
+  also lets no expose the whole app but just the webhook endpoints
+summary: >
+  Extend the existing GitHub PR sync polling flow with opt-in webhook delivery. When enabled,
+  Shep starts a local webhook-only gateway, opens a Cloudflare quick tunnel to that gateway,
+  ensures repository webhooks point at the current public URL, and keeps polling as a fallback.
+  Incoming GitHub webhook events trigger an immediate targeted PR sync refresh for the matching
+  repository instead of waiting for the next poll interval.
+phase: Requirements
+sizeEstimate: M
+relatedFeatures:
+  - 039-github-pr-sync
+  - 064-pr-sync-rate-limit
+technologies:
+  - GitHub CLI (gh api) - repository webhook create/update
+  - Cloudflare Tunnel client (cloudflared) - public quick tunnel for localhost
+  - Node.js http/https - webhook gateway proxy and route handling
+  - HMAC SHA-256 - GitHub webhook signature verification
+  - Next.js Route Handlers - webhook ingress endpoint
+relatedLinks: []
+openQuestions:
+  - question: How should webhook exposure be enabled safely?
+    resolved: true
+    options:
+      - option: Opt-in via environment flag
+        description: >
+          Only start the tunnel and register repo webhooks when an explicit environment flag is set.
+          This avoids surprising users by exposing a public endpoint automatically.
+        selected: true
+      - option: Always enable when cloudflared exists
+        description: >
+          Automatically expose a public endpoint whenever the UI starts. Simpler UX, but risky and
+          surprising because it publishes a network entry point without explicit consent.
+        selected: false
+    selectionRationale: >
+      Public webhook exposure has non-obvious security and privacy consequences. An opt-in environment
+      flag keeps the initial implementation safe while still providing a complete working path.
+    answer: Opt-in via environment flag
+  - question: How should we avoid exposing the whole local app through the tunnel?
+    resolved: true
+    options:
+      - option: Tunnel the main Next.js server directly and rely on path-based routing
+        description: >
+          Simpler setup, but risks exposing the whole app if the tunnel configuration is wrong or
+          path filtering changes.
+        selected: false
+      - option: Start a dedicated local webhook gateway and tunnel only that gateway
+        description: >
+          The gateway only forwards /api/webhooks/* requests to the local app and returns 404 for
+          everything else, guaranteeing that the public tunnel cannot reach the rest of the UI.
+        selected: true
+    selectionRationale: >
+      A dedicated gateway gives us the strongest local boundary with minimal complexity and does not
+      depend on Cloudflare path-routing behavior.
+    answer: Start a dedicated local webhook gateway and tunnel only that gateway
+  - question: How should webhook events integrate with the existing poller?
+    resolved: true
+    options:
+      - option: Replace polling entirely
+        description: >
+          Lower steady-state API usage, but webhook delivery is not guaranteed and local tunnels can
+          disappear. Losing polling would make the system brittle.
+        selected: false
+      - option: Keep polling and use webhooks to trigger immediate repository refreshes
+        description: >
+          Webhooks reduce latency when available, while the existing poller remains the safety net
+          for missed events, tunnel downtime, and startup/bootstrap states.
+        selected: true
+    selectionRationale: >
+      The user explicitly asked for webhooks together with polling. Keeping the poller preserves the
+      reliability characteristics of the existing feature.
+    answer: Keep polling and use webhooks to trigger immediate repository refreshes
+content: |
+  ## Problem Statement
+
+  The current GitHub PR sync flow is polling-only. That works, but it introduces avoidable delay
+  between a GitHub change and Shep reflecting that change locally. Because Shep runs on localhost,
+  GitHub cannot send webhooks directly to the machine without a public ingress point.
+
+  We want to add webhook support without removing polling:
+
+  - use a local tunnel client such as `cloudflared`
+  - accept that the public URL may change every run
+  - update GitHub webhook configuration whenever the public URL changes
+  - expose only webhook endpoints, never the entire local web app
+
+  ## Success Criteria
+
+  - [ ] GitHub webhook support is available alongside the existing PR sync poller
+  - [ ] Webhook mode is opt-in and does not change default startup behavior
+  - [ ] When enabled, Shep starts a local webhook-only gateway and a Cloudflare quick tunnel
+  - [ ] The public tunnel only forwards `/api/webhooks/*` requests to the local app
+  - [ ] A stable local secret is generated/reused for GitHub webhook signature verification
+  - [ ] Repository webhooks are created or updated to the current tunnel URL when it changes
+  - [ ] Incoming GitHub webhook events trigger an immediate targeted PR sync for the matching repo
+  - [ ] Polling remains active as a fallback and source of eventual consistency
+  - [ ] Startup degrades gracefully if `cloudflared` or GitHub webhook setup fails
+  - [ ] Unit tests cover tunnel URL parsing, gateway path restriction, webhook signature validation,
+    webhook registration update logic, and webhook-triggered PR sync refresh
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `packages/core/src/infrastructure/services/git/` | High | Extend GitHub service with repo webhook create/update support |
+  | `packages/core/src/infrastructure/services/pr-sync/` | High | Add webhook-triggered targeted refresh entry point |
+  | `packages/core/src/infrastructure/services/webhooks/` | High | New tunnel runtime and gateway services |
+  | `src/presentation/web/app/api/webhooks/` | High | New verified GitHub webhook ingress route |
+  | `src/presentation/cli/commands/` | Medium | Start/stop webhook runtime alongside web server lifecycle |
+
+  ## Dependencies
+
+  - Existing PR sync watcher from `039-github-pr-sync`
+  - `cloudflared` available on PATH when webhook mode is enabled
+  - `gh` authenticated for repository webhook create/update
+
+  ## Non-Goals
+
+  - A UI for configuring webhook mode in this iteration
+  - Replacing polling entirely
+  - Supporting non-GitHub webhook providers in this iteration

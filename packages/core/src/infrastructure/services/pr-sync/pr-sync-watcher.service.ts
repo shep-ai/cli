@@ -10,7 +10,7 @@
  * repositoryPath for batch `gh pr list` queries.
  */
 
-import type { Feature, NotificationEvent } from '../../../domain/generated/output.js';
+import type { Feature, NotificationEvent } from '../../../domain/generated/output';
 import {
   SdlcLifecycle,
   PrStatus,
@@ -18,15 +18,15 @@ import {
   AgentRunStatus,
   NotificationEventType,
   NotificationSeverity,
-} from '../../../domain/generated/output.js';
-import type { IFeatureRepository } from '../../../application/ports/output/repositories/feature-repository.interface.js';
-import type { IAgentRunRepository } from '../../../application/ports/output/agents/agent-run-repository.interface.js';
-import type { IGitPrService } from '../../../application/ports/output/services/git-pr-service.interface.js';
+} from '../../../domain/generated/output';
+import type { IFeatureRepository } from '../../../application/ports/output/repositories/feature-repository.interface';
+import type { IAgentRunRepository } from '../../../application/ports/output/agents/agent-run-repository.interface';
+import type { IGitPrService } from '../../../application/ports/output/services/git-pr-service.interface';
 import type {
   CiStatusResult,
   PrStatusInfo,
-} from '../../../application/ports/output/services/git-pr-service.interface.js';
-import type { INotificationService } from '../../../application/ports/output/services/notification-service.interface.js';
+} from '../../../application/ports/output/services/git-pr-service.interface';
+import type { INotificationService } from '../../../application/ports/output/services/notification-service.interface';
 import type Database from 'better-sqlite3';
 
 const DEFAULT_POLL_INTERVAL_MS = 30_000;
@@ -47,6 +47,22 @@ const CI_STATUS_MAP: Record<string, CiStatus> = {
   failure: CiStatus.Failure,
   pending: CiStatus.Pending,
 };
+
+function parseGitHubFullName(remoteUrl: string | null): string | null {
+  if (!remoteUrl) return null;
+
+  const httpsMatch = remoteUrl.match(/^https:\/\/github\.com\/([^/]+)\/([^/]+?)(?:\.git)?$/);
+  if (httpsMatch) {
+    return `${httpsMatch[1]}/${httpsMatch[2]}`;
+  }
+
+  const sshMatch = remoteUrl.match(/^git@github\.com:([^/]+)\/([^/]+?)(?:\.git)?$/);
+  if (sshMatch) {
+    return `${sshMatch[1]}/${sshMatch[2]}`;
+  }
+
+  return null;
+}
 
 export class PrSyncWatcherService {
   private readonly featureRepo: IFeatureRepository;
@@ -104,6 +120,39 @@ export class PrSyncWatcherService {
       // eslint-disable-next-line no-console
       console.log(`${TAG} Stopped`);
     }
+  }
+
+  /**
+   * Immediately refresh a repository identified by GitHub owner/repo.
+   * Used by the webhook route to accelerate sync without waiting for the next poll.
+   */
+  async syncRepositoryByGitHubFullName(fullName: string): Promise<boolean> {
+    try {
+      const allFeatures = await this.featureRepo.list({ lifecycle: SdlcLifecycle.Review });
+      const features = allFeatures.filter((f) => f.repositoryPath);
+      if (features.length === 0) return false;
+
+      const byRepo = new Map<string, Feature[]>();
+      for (const feature of features) {
+        const group = byRepo.get(feature.repositoryPath) ?? [];
+        group.push(feature);
+        byRepo.set(feature.repositoryPath, group);
+      }
+
+      for (const [repoPath, repoFeatures] of byRepo) {
+        const remoteUrl = await this.gitPrService.getRemoteUrl(repoPath);
+        if (parseGitHubFullName(remoteUrl) !== fullName) continue;
+
+        await this.processRepository(repoPath, repoFeatures);
+        return true;
+      }
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      // eslint-disable-next-line no-console
+      console.warn(`${TAG} Webhook refresh failed for ${fullName}: ${msg}`);
+    }
+
+    return false;
   }
 
   /** Attempt to acquire the cross-process poll lock. Returns true if acquired. */

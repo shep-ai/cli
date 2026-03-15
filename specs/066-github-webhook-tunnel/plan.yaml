@@ -1,0 +1,106 @@
+name: github-webhook-tunnel
+summary: >
+  Implementation plan for opt-in GitHub webhook support with a webhook-only Cloudflare tunnel.
+  The work is split into four phases: (1) spec and contract updates, (2) GitHub service and PR
+  watcher extensions, (3) webhook runtime and route implementation, and (4) startup wiring and
+  verification. All feature behavior follows RED-GREEN-REFACTOR cycles.
+relatedFeatures:
+  - 039-github-pr-sync
+  - 064-pr-sync-rate-limit
+technologies:
+  - GitHub CLI (gh api)
+  - cloudflared
+  - Node.js http server
+  - Next.js route handlers
+relatedLinks: []
+phases:
+  - id: phase-1
+    name: Spec and contracts
+    description: >
+      Create the feature spec artifacts, then extend the GitHub service and PR sync watcher
+      contracts needed for webhook reconciliation and targeted refresh.
+    parallel: false
+  - id: phase-2
+    name: GitHub service and watcher behavior
+    description: >
+      Add repo webhook reconciliation to GitPrService and add a public targeted-refresh entry point
+      to PrSyncWatcherService that reuses the existing repository processing path.
+    parallel: false
+  - id: phase-3
+    name: Webhook runtime and route
+    description: >
+      Build the local gateway, Cloudflare quick tunnel manager, persistent secret handling, and the
+      GitHub route handler with signature verification.
+    parallel: false
+  - id: phase-4
+    name: Startup wiring and hardening
+    description: >
+      Wire the webhook runtime into foreground and daemon startup flows, keep shutdown clean, and
+      run targeted tests.
+    parallel: false
+filesToCreate:
+  - packages/core/src/infrastructure/services/webhooks/github-webhook-runtime.service.ts
+  - packages/core/src/infrastructure/services/webhooks/webhook-secret.service.ts
+  - src/presentation/web/app/api/webhooks/github/route.ts
+  - tests/unit/infrastructure/services/webhooks/github-webhook-runtime.service.test.ts
+  - tests/unit/presentation/web/api/github-webhook.test.ts
+filesToModify:
+  - packages/core/src/application/ports/output/services/git-pr-service.interface.ts
+  - packages/core/src/infrastructure/services/git/git-pr.service.ts
+  - packages/core/src/infrastructure/services/pr-sync/pr-sync-watcher.service.ts
+  - src/presentation/cli/commands/_serve.command.ts
+  - src/presentation/cli/commands/ui.command.ts
+  - src/presentation/web/dev-server.ts
+openQuestions: []
+content: |
+  ## TDD Strategy
+
+  Each phase follows RED → GREEN → REFACTOR.
+
+  ### Phase 1
+
+  RED:
+  - Add tests that fail because webhook reconciliation and targeted watcher refresh APIs do not exist.
+
+  GREEN:
+  - Add the new GitHub service interface types and watcher method signatures.
+
+  REFACTOR:
+  - Keep naming aligned with the existing PR sync terminology.
+
+  ### Phase 2
+
+  RED:
+  - Add unit tests for repo webhook reconciliation behavior in `GitPrService`.
+  - Add unit tests for webhook-triggered repository refresh in `PrSyncWatcherService`.
+
+  GREEN:
+  - Implement webhook list/create/update behavior through `gh api`.
+  - Implement `syncRepositoryByGitHubFullName()` on the watcher by reusing its existing
+    repository processing flow.
+
+  REFACTOR:
+  - Extract helper functions for GitHub remote parsing and hook comparison if needed.
+
+  ### Phase 3
+
+  RED:
+  - Add unit tests for gateway path restriction, tunnel URL parsing, secret persistence, and
+    webhook signature validation.
+
+  GREEN:
+  - Implement the runtime service and the GitHub route.
+
+  REFACTOR:
+  - Keep failure handling centralized and best-effort.
+
+  ### Phase 4
+
+  RED:
+  - Add startup tests for opt-in runtime activation.
+
+  GREEN:
+  - Start and stop the runtime from the daemon/foreground flows.
+
+  REFACTOR:
+  - Ensure shutdown order stays predictable: runtime stop, watchers stop, web server stop.

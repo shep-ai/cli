@@ -37,7 +37,8 @@ vi.mock('@/infrastructure/di/container.js', () => ({
         token === 'IAgentRunRepository' ||
         token === 'IPhaseTimingRepository' ||
         token === 'IFeatureRepository' ||
-        token === 'INotificationService'
+        token === 'INotificationService' ||
+        token === 'IGitPrService'
       ) {
         return {};
       }
@@ -63,6 +64,18 @@ vi.mock('@/infrastructure/services/notifications/notification-watcher.service.js
     start: vi.fn(),
     stop: vi.fn(),
   }),
+}));
+
+vi.mock('@/infrastructure/services/pr-sync/pr-sync-watcher.service.js', () => ({
+  initializePrSyncWatcher: vi.fn(),
+  getPrSyncWatcher: vi.fn().mockReturnValue({
+    start: vi.fn(),
+    stop: vi.fn(),
+  }),
+}));
+
+vi.mock('@/infrastructure/persistence/sqlite/connection.js', () => ({
+  getExistingConnection: vi.fn().mockReturnValue(null),
 }));
 
 const mockWebServerService = {

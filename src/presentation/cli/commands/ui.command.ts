@@ -37,6 +37,12 @@ import {
 } from '@/infrastructure/services/pr-sync/pr-sync-watcher.service.js';
 import { getExistingConnection } from '@/infrastructure/persistence/sqlite/connection.js';
 import { BrowserOpenerService } from '@/infrastructure/services/browser-opener.service.js';
+import {
+  GitHubWebhookRuntimeService,
+  isGitHubWebhookRuntimeEnabled,
+} from '@/infrastructure/services/webhooks/github-webhook-runtime.service.js';
+import { GitHubWebhookService } from '@/infrastructure/services/webhooks/github-webhook.service.js';
+import type { ExecFunction } from '@shepai/core/infrastructure/services/git/worktree.service';
 import { colors, fmt, messages } from '../ui/index.js';
 
 function parsePort(value: string): number {
@@ -102,6 +108,19 @@ Examples:
         );
         getPrSyncWatcher().start();
 
+        let webhookRuntime: GitHubWebhookRuntimeService | null = null;
+        if (isGitHubWebhookRuntimeEnabled()) {
+          try {
+            const execFile = container.resolve<ExecFunction>('ExecFunction');
+            const webhookService = new GitHubWebhookService(execFile, gitPrService);
+            webhookRuntime = new GitHubWebhookRuntimeService(featureRepo, webhookService, port);
+            await webhookRuntime.start();
+          } catch (error) {
+            const err = error instanceof Error ? error : new Error(String(error));
+            messages.warning(`GitHub webhook runtime disabled: ${err.message}`);
+          }
+        }
+
         const url = `http://localhost:${port}`;
         messages.success(`Server ready at ${fmt.code(url)}`);
         messages.info('Press Ctrl+C to stop');
@@ -126,6 +145,7 @@ Examples:
           const forceExit = setTimeout(() => process.exit(0), 5000);
           forceExit.unref();
 
+          await webhookRuntime?.stop();
           getPrSyncWatcher().stop();
           getNotificationWatcher().stop();
           await service.stop();
