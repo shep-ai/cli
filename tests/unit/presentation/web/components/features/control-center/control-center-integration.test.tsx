@@ -58,13 +58,14 @@ vi.mock('@/components/features/features-canvas', () => ({
   },
 }));
 
-// Pretend a saved viewport exists so the initial-fitView effect is suppressed
+const mockResetViewport = vi.fn(() => ({ x: 30, y: 30, zoom: 0.85 }));
+
 vi.mock('@/hooks/use-viewport-persistence', () => ({
   useViewportPersistence: () => ({
     defaultViewport: { x: 30, y: 30, zoom: 0.85 },
     hasSavedViewport: true,
     onMoveEnd: vi.fn(),
-    resetViewport: vi.fn(() => ({ x: 30, y: 30, zoom: 0.85 })),
+    resetViewport: mockResetViewport,
   }),
 }));
 
@@ -130,6 +131,7 @@ describe('ControlCenterInner URL-based navigation', () => {
     vi.clearAllMocks();
     currentPathname = '/';
     mockFitView.mockReset();
+    mockResetViewport.mockClear();
   });
 
   describe('node click navigates to feature route', () => {
@@ -304,15 +306,29 @@ describe('ControlCenterInner URL-based navigation', () => {
   });
 
   describe('first-repo auto-focus', () => {
+    let rafCallbacks: FrameRequestCallback[];
+
     beforeEach(() => {
       vi.useFakeTimers();
+      // Collect requestAnimationFrame callbacks so we can flush them manually
+      rafCallbacks = [];
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+        rafCallbacks.push(cb);
+        return rafCallbacks.length;
+      });
     });
 
     afterEach(() => {
       vi.useRealTimers();
+      vi.restoreAllMocks();
     });
 
-    it('calls fitView when first repo is added to empty canvas', async () => {
+    function flushRaf() {
+      const cbs = rafCallbacks.splice(0);
+      cbs.forEach((cb) => cb(performance.now()));
+    }
+
+    it('calls resetViewport and fitView when first repo is added to empty canvas', async () => {
       // Start with empty canvas — renders empty state
       renderControlCenter([]);
 
@@ -325,11 +341,17 @@ describe('ControlCenterInner URL-based navigation', () => {
         );
       });
 
-      // Flush setTimeout(0) that waits for next render
+      // Flush requestAnimationFrame that waits for next paint
+      await act(async () => {
+        flushRaf();
+      });
+
+      // Flush setTimeout(0) from the auto-center effect
       await act(async () => {
         vi.advanceTimersByTime(1);
       });
 
+      expect(mockResetViewport).toHaveBeenCalled();
       expect(mockFitView).toHaveBeenCalledWith({
         maxZoom: 1.0,
         padding: 0.5,
@@ -337,8 +359,15 @@ describe('ControlCenterInner URL-based navigation', () => {
       });
     });
 
-    it('does NOT call fitView when repo is added to non-empty canvas', async () => {
+    it('calls fitView when repo is added to non-empty canvas (always centers)', async () => {
       renderControlCenter();
+
+      // Flush the initial auto-center effect
+      await act(async () => {
+        vi.advanceTimersByTime(1);
+      });
+      mockFitView.mockClear();
+      mockResetViewport.mockClear();
 
       await act(async () => {
         window.dispatchEvent(
@@ -349,10 +378,14 @@ describe('ControlCenterInner URL-based navigation', () => {
       });
 
       await act(async () => {
-        vi.advanceTimersByTime(1);
+        flushRaf();
       });
 
-      expect(mockFitView).not.toHaveBeenCalled();
+      expect(mockFitView).toHaveBeenCalledWith({
+        maxZoom: 1.0,
+        padding: 0.5,
+        duration: 500,
+      });
     });
 
     it('opens drawer at /create?repo=<path> after 600ms delay following fitView', async () => {
@@ -366,12 +399,12 @@ describe('ControlCenterInner URL-based navigation', () => {
         );
       });
 
-      // Flush setTimeout(0) for fitView
+      // Flush requestAnimationFrame for fitView
       await act(async () => {
-        vi.advanceTimersByTime(1);
+        flushRaf();
       });
 
-      // Drawer should NOT have opened yet (only 1ms has passed, need 600ms)
+      // Drawer should NOT have opened yet (need 600ms)
       expect(mockPush).not.toHaveBeenCalledWith(expect.stringContaining('/create?repo='));
 
       // Advance past the 600ms delay
@@ -387,6 +420,12 @@ describe('ControlCenterInner URL-based navigation', () => {
     it('does NOT open drawer when wasEmpty is false', async () => {
       renderControlCenter();
 
+      // Flush initial effects
+      await act(async () => {
+        vi.advanceTimersByTime(1);
+      });
+      mockPush.mockClear();
+
       await act(async () => {
         window.dispatchEvent(
           new CustomEvent('shep:add-repository', {
@@ -396,7 +435,7 @@ describe('ControlCenterInner URL-based navigation', () => {
       });
 
       await act(async () => {
-        vi.advanceTimersByTime(1);
+        flushRaf();
       });
 
       await act(async () => {

@@ -263,4 +263,63 @@ describe('useViewportPersistence', () => {
       expect(result.current.onMoveEnd).toBe(firstOnMoveEnd);
     });
   });
+
+  describe('resetViewport cancels pending debounced save', () => {
+    it('cancels a pending onMoveEnd save so the old viewport is not re-written', () => {
+      vi.mocked(localStorage.getItem).mockReturnValue(null);
+
+      const { result } = renderHook(() => useViewportPersistence());
+
+      // Trigger a debounced save
+      act(() => {
+        result.current.onMoveEnd({ x: 999, y: 999, zoom: 2.0 });
+      });
+
+      // Reset before the debounce fires
+      act(() => {
+        result.current.resetViewport();
+      });
+
+      // Advance past the debounce window
+      vi.advanceTimersByTime(600);
+
+      // The debounced save should NOT have fired
+      expect(localStorage.setItem).not.toHaveBeenCalled();
+      // localStorage should have been cleared by resetViewport
+      expect(localStorage.removeItem).toHaveBeenCalledWith(STORAGE_KEY);
+    });
+  });
+
+  describe('resetViewport updates defaultViewport reactively', () => {
+    it('updates defaultViewport to DEFAULT_VIEWPORT after reset when a saved viewport was restored', () => {
+      const saved = { x: 5000, y: 5000, zoom: 0.1 };
+      vi.mocked(localStorage.getItem).mockReturnValue(JSON.stringify(saved));
+
+      const { result } = renderHook(() => useViewportPersistence());
+
+      // Initially returns the saved viewport
+      expect(result.current.defaultViewport).toEqual(saved);
+
+      // After reset, defaultViewport should be the default
+      act(() => {
+        result.current.resetViewport();
+      });
+
+      expect(result.current.defaultViewport).toEqual(DEFAULT_VIEWPORT);
+    });
+
+    it('returns DEFAULT_VIEWPORT from resetViewport call', () => {
+      const saved = { x: 100, y: 200, zoom: 1.5 };
+      vi.mocked(localStorage.getItem).mockReturnValue(JSON.stringify(saved));
+
+      const { result } = renderHook(() => useViewportPersistence());
+
+      let returnedViewport: unknown;
+      act(() => {
+        returnedViewport = result.current.resetViewport();
+      });
+
+      expect(returnedViewport).toEqual(DEFAULT_VIEWPORT);
+    });
+  });
 });

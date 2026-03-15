@@ -43,7 +43,6 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
 
   const {
     defaultViewport,
-    hasSavedViewport,
     onMoveEnd: handleViewportChange,
     resetViewport,
   } = useViewportPersistence();
@@ -187,17 +186,24 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
       const path = (e as CustomEvent<{ path: string }>).detail.path;
       const { wasEmpty, repoPath } = handleAddRepository(path);
 
-      if (wasEmpty) {
-        // Wait for next render so the repo node exists in the DOM, then auto-focus
-        setTimeout(() => {
-          fitView(AUTO_FOCUS_OPTIONS);
+      // Always center the viewport on the new repo, ignoring any stored
+      // pan/zoom position.  This guarantees the repo is visible after adding
+      // — even if the user previously panned far away or deleted everything.
+      resetViewport();
 
+      // Use a short delay to allow React to flush the state update and
+      // the showCanvas latch to transition, ensuring ReactFlow has the
+      // new nodes rendered before fitView calculates bounds.
+      requestAnimationFrame(() => {
+        fitView(AUTO_FOCUS_OPTIONS);
+
+        if (wasEmpty) {
           // Open the create-feature drawer after the fitView animation completes
           drawerTimerRef.current = setTimeout(() => {
             guardedNavigate(() => router.push(`/create?repo=${encodeURIComponent(repoPath)}`));
           }, AUTO_FOCUS_DRAWER_DELAY_MS);
-        }, 0);
-      }
+        }
+      });
     };
     window.addEventListener('shep:add-repository', handler);
     return () => {
@@ -206,7 +212,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
         clearTimeout(drawerTimerRef.current);
       }
     };
-  }, [handleAddRepository, fitView, guardedNavigate, router]);
+  }, [handleAddRepository, fitView, guardedNavigate, router, resetViewport]);
 
   // Listen for create events from the create drawer (with real feature ID from server)
   useEffect(() => {
@@ -292,15 +298,21 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     handleDeleteRepository,
   ]);
 
-  // Auto-center on initial load when there's no saved viewport and nodes exist.
-  // This ensures the first repo is visible instead of being stuck in the top-left corner.
-  const didInitialFitRef = useRef(false);
+  // Auto-center whenever the canvas transitions from empty to having nodes.
+  // This covers both initial page load AND re-adding repos after deleting
+  // everything — the view always centers so the repo is visible, ignoring
+  // any previously stored pan/zoom position.
+  const hadNodesRef = useRef(nodes.length > 0);
   useEffect(() => {
-    if (didInitialFitRef.current || hasSavedViewport || nodes.length === 0) return;
-    didInitialFitRef.current = true;
-    // Yield to React so nodes are rendered in the DOM before fitView calculates bounds.
-    setTimeout(() => fitView(AUTO_FOCUS_OPTIONS), 0);
-  }, [hasSavedViewport, nodes.length, fitView]);
+    const hasNodes = nodes.length > 0;
+    if (hasNodes && !hadNodesRef.current) {
+      // Went from empty → has nodes — center the view
+      resetViewport();
+      // Yield to React so nodes are rendered in the DOM before fitView calculates bounds.
+      setTimeout(() => fitView(AUTO_FOCUS_OPTIONS), 0);
+    }
+    hadNodesRef.current = hasNodes;
+  }, [nodes.length, fitView, resetViewport]);
 
   const handleMoveEnd = useCallback(
     (_event: unknown, viewport: Viewport) => {

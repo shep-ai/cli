@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Viewport } from '@xyflow/react';
 
 export type { Viewport } from '@xyflow/react';
@@ -48,7 +48,7 @@ function readViewport(): { viewport: Viewport; fromStorage: boolean } {
 
 export function useViewportPersistence(): UseViewportPersistenceResult {
   const stored = useRef(readViewport()).current;
-  const defaultViewport = stored.viewport;
+  const [defaultViewport, setDefaultViewport] = useState<Viewport>(stored.viewport);
   const hasSavedViewport = stored.fromStorage;
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -74,11 +74,20 @@ export function useViewportPersistence(): UseViewportPersistenceResult {
   }, []);
 
   const resetViewport = useCallback((): Viewport => {
+    // Cancel any pending debounced save so it cannot overwrite the reset
+    if (timerRef.current != null) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
     try {
       localStorage.removeItem(STORAGE_KEY);
     } catch {
       // Silently ignore localStorage errors
     }
+    // Update the defaultViewport so that if ReactFlow re-mounts (e.g. after
+    // showCanvas toggles), it initializes at the default position instead of
+    // the stale saved viewport.
+    setDefaultViewport(DEFAULT_VIEWPORT);
     return DEFAULT_VIEWPORT;
   }, []);
 
