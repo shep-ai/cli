@@ -5,6 +5,7 @@ import {
   Ban,
   CircleX,
   Trash2,
+  Clock,
   type LucideIcon,
 } from 'lucide-react';
 import type { Node } from '@xyflow/react';
@@ -17,6 +18,7 @@ export type FeatureNodeState =
   | 'action-required'
   | 'done'
   | 'blocked'
+  | 'pending'
   | 'error'
   | 'deleting';
 
@@ -176,6 +178,16 @@ export const featureNodeStateConfig: Record<FeatureNodeState, FeatureNodeStateCo
     badgeClass: 'text-gray-600',
     badgeBgClass: 'bg-gray-100',
     label: 'Blocked',
+    showProgressBar: false,
+  },
+  pending: {
+    icon: Clock,
+    borderClass: 'border-l-slate-400',
+    labelClass: 'text-slate-400',
+    progressClass: 'bg-slate-400',
+    badgeClass: 'text-slate-600',
+    badgeBgClass: 'bg-slate-100',
+    label: 'Pending',
     showProgressBar: false,
   },
   error: {

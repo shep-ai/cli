@@ -35,6 +35,11 @@ export function deriveNodeState(
     return 'deleting';
   }
 
+  // Pending lifecycle — user-deferred, agent not yet spawned
+  if (feature.lifecycle === SdlcLifecycle.Pending) {
+    return 'pending';
+  }
+
   // Blocked lifecycle takes priority — child waiting on parent regardless of agent run
   if (feature.lifecycle === SdlcLifecycle.Blocked) {
     return 'blocked';
@@ -134,6 +139,7 @@ export const sdlcLifecycleMap: Record<string, FeatureLifecyclePhase> = {
   Review: 'review',
   'Deploy & QA': 'deploy',
   Maintain: 'maintain',
+  Pending: 'requirements',
 };
 
 /** Map agent graph node names (from agent_run.result or SSE phaseName) to UI lifecycle phases. */
@@ -146,6 +152,7 @@ const phaseNameToLifecycle: Record<string, FeatureLifecyclePhase> = {
   merge: 'review',
   maintain: 'maintain',
   blocked: 'requirements',
+  pending: 'requirements',
 };
 
 /**

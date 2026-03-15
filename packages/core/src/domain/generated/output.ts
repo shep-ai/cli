@@ -677,6 +677,7 @@ export enum SdlcLifecycle {
   Review = 'Review',
   Maintain = 'Maintain',
   Blocked = 'Blocked',
+  Pending = 'Pending',
   Deleting = 'Deleting',
 }
 

@@ -11,5 +11,6 @@ enum:
   - Review
   - Maintain
   - Blocked
+  - Pending
   - Deleting
 description: Software Development Lifecycle stages for feature progression
