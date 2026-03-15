@@ -11,6 +11,7 @@
  */
 
 import { injectable, inject } from 'tsyringe';
+import { SdlcLifecycle } from '../../../domain/generated/output.js';
 import type { IFeatureRepository } from '../../ports/output/repositories/feature-repository.interface.js';
 import type { IWorktreeService } from '../../ports/output/services/worktree-service.interface.js';
 import type { IGitPrService } from '../../ports/output/services/git-pr-service.interface.js';
@@ -26,6 +27,10 @@ export class CleanupFeatureWorktreeUseCase {
   async execute(featureId: string): Promise<void> {
     const feature = await this.featureRepo.findById(featureId);
     if (!feature) return;
+
+    // Idempotency guard: skip cleanup if already in Deleting lifecycle
+    // (another code path — e.g. DeleteFeatureUseCase — already handles cleanup)
+    if (feature.lifecycle === SdlcLifecycle.Deleting) return;
 
     // Step 1: Unlink the git worktree (directory contents are preserved on disk)
     const worktreePath =

@@ -25,6 +25,7 @@ import type { IAgentRunRepository } from '@/application/ports/output/agents/agen
 import type { ISpecInitializerService } from '@/application/ports/output/services/spec-initializer.interface.js';
 import type { IRepositoryRepository } from '@/application/ports/output/repositories/repository-repository.interface.js';
 import type { IGitPrService } from '@/application/ports/output/services/git-pr-service.interface.js';
+import type { IAgentValidator } from '@/application/ports/output/agents/agent-validator.interface.js';
 import { SdlcLifecycle } from '@/domain/generated/output.js';
 import type { Feature } from '@/domain/generated/output.js';
 import type { MetadataGenerator } from '@/application/use-cases/features/create/metadata-generator.js';
@@ -81,6 +82,7 @@ describe('CreateFeatureUseCase', () => {
   let mockSlugResolver: SlugResolver;
   let mockRepositoryRepo: IRepositoryRepository;
   let mockGitPrService: IGitPrService;
+  let mockAgentValidator: IAgentValidator;
 
   const baseInput: CreateFeatureInput = {
     userInput: 'Add authentication',
@@ -175,6 +177,10 @@ describe('CreateFeatureUseCase', () => {
       delete: vi.fn(),
     };
 
+    mockAgentValidator = {
+      isAvailable: vi.fn().mockResolvedValue({ available: true, version: '1.0.0' }),
+    };
+
     useCase = new CreateFeatureUseCase(
       mockFeatureRepo,
       mockWorktreeService,
@@ -185,7 +191,8 @@ describe('CreateFeatureUseCase', () => {
       mockSlugResolver,
       mockRepositoryRepo,
       mockGitPrService,
-      mockAttachmentStorage as any
+      mockAttachmentStorage as any,
+      mockAgentValidator
     );
   });
 
@@ -622,6 +629,64 @@ describe('CreateFeatureUseCase', () => {
         model: 'claude-sonnet-4-6',
       };
       expect(input.model).toBe('claude-sonnet-4-6');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Agent validation before spawn (#355, #356)
+  // -------------------------------------------------------------------------
+
+  describe('agent validation before spawn', () => {
+    it('should throw with meaningful error when agent is not available', async () => {
+      mockAgentValidator.isAvailable = vi.fn().mockResolvedValue({
+        available: false,
+        error: 'Binary "claude" not found or not executable: ENOENT',
+      });
+
+      await expect(useCase.execute(baseInput)).rejects.toThrow(
+        /Agent "claude-code" is not available/
+      );
+      expect(mockAgentProcess.spawn).not.toHaveBeenCalled();
+    });
+
+    it('should mark agent run as failed when agent is not available', async () => {
+      mockAgentValidator.isAvailable = vi.fn().mockResolvedValue({
+        available: false,
+        error: 'Binary "claude" not found',
+      });
+
+      await expect(useCase.execute(baseInput)).rejects.toThrow();
+      expect(mockRunRepo.updateStatus).toHaveBeenCalledWith(
+        expect.any(String),
+        'failed',
+        expect.objectContaining({
+          error: expect.stringContaining('not available'),
+        })
+      );
+    });
+
+    it('should spawn agent when validation passes', async () => {
+      mockAgentValidator.isAvailable = vi.fn().mockResolvedValue({
+        available: true,
+        version: '1.0.0',
+      });
+
+      const result = await useCase.execute(baseInput);
+      expect(result.feature).toBeDefined();
+      expect(mockAgentProcess.spawn).toHaveBeenCalledOnce();
+    });
+
+    it('should validate the input agentType when provided', async () => {
+      mockAgentValidator.isAvailable = vi.fn().mockResolvedValue({
+        available: false,
+        error: 'Agent type "gemini-cli" is not supported yet',
+      });
+
+      await expect(useCase.execute({ ...baseInput, agentType: 'gemini-cli' })).rejects.toThrow(
+        /Agent "gemini-cli" is not available/
+      );
+
+      expect(mockAgentValidator.isAvailable).toHaveBeenCalledWith('gemini-cli');
     });
   });
 });

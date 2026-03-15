@@ -261,6 +261,49 @@ describe('PrSyncWatcherService', () => {
       expect(agentRunRepo.updateStatus).toHaveBeenCalledWith('run-1', AgentRunStatus.completed);
     });
 
+    it('should skip duplicate Maintain transition when merge node already handled it (#354)', async () => {
+      const feature = createMockFeature({
+        id: 'feat-1',
+        name: 'My Feature',
+        repositoryPath: '/repo/path',
+        branch: 'feat/test',
+        agentRunId: 'run-1',
+        pr: { url: 'https://github.com/org/repo/pull/1', number: 1, status: PrStatus.Open },
+      });
+
+      // The merge node already transitioned this feature to Maintain
+      const freshFeature = createMockFeature({
+        ...feature,
+        lifecycle: SdlcLifecycle.Maintain,
+        pr: { url: 'https://github.com/org/repo/pull/1', number: 1, status: PrStatus.Open },
+      });
+
+      vi.mocked(featureRepo.list).mockResolvedValue([feature]);
+      vi.mocked(featureRepo.findById).mockResolvedValue(freshFeature);
+      vi.mocked(gitPrService.listPrStatuses).mockResolvedValue([
+        {
+          number: 1,
+          state: PrStatus.Merged,
+          url: 'https://github.com/org/repo/pull/1',
+          headRefName: 'feat/test',
+        },
+      ]);
+      vi.mocked(gitPrService.getCiStatus).mockResolvedValue({ status: 'pending' });
+
+      watcher.start();
+      await vi.advanceTimersByTimeAsync(0);
+
+      // Should NOT call completeAgentRun (merge node already did)
+      expect(agentRunRepo.updateStatus).not.toHaveBeenCalled();
+
+      // Should still update the PR status to Merged on the feature record
+      expect(featureRepo.update).toHaveBeenCalledTimes(1);
+      const updatedFeature = vi.mocked(featureRepo.update).mock.calls[0][0];
+      expect(updatedFeature.pr!.status).toBe(PrStatus.Merged);
+      // Lifecycle should remain Maintain (not re-set)
+      expect(updatedFeature.lifecycle).toBe(SdlcLifecycle.Maintain);
+    });
+
     it('should skip agent run update when feature has no agentRunId', async () => {
       const feature = createMockFeature({
         id: 'feat-1',

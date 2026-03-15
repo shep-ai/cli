@@ -131,10 +131,18 @@ export class ClaudeCodeExecutorService implements IAgentExecutor {
         this.log(`stderr: ${data.trimEnd()}`);
       });
 
-      proc.on('error', (error: Error) => {
+      proc.on('error', (error: Error & { code?: string }) => {
         this.log(`Process error event: ${error.message}`);
         if (timeoutId) clearTimeout(timeoutId);
-        reject(error);
+        if (error.code === 'ENOENT') {
+          reject(
+            new Error(
+              'Claude Code CLI ("claude") not found. Please install it: https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview'
+            )
+          );
+        } else {
+          reject(error);
+        }
       });
 
       proc.on('close', (code: number | null) => {
