@@ -142,10 +142,3 @@ export const AllDone: Story = {
     ],
   },
 };
-
-export const DisabledNoRepos: Story = {
-  args: {
-    features: mockFeatures,
-    hasRepositories: false,
-  },
-};

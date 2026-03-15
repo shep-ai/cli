@@ -13,7 +13,7 @@ import {
   SidebarRail,
   useSidebar,
 } from '@/components/ui/sidebar';
-import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { SidebarNavItem } from '@/components/common/sidebar-nav-item';
 import { SidebarCollapseToggle } from '@/components/common/sidebar-collapse-toggle';
@@ -41,7 +41,7 @@ export interface FeatureItem {
 export interface AppSidebarProps {
   features: FeatureItem[];
   featureFlags: FeatureFlagsState;
-  hasRepositories?: boolean;
+
   onNewFeature?: () => void;
   onFeatureClick?: (featureId: string) => void;
 }
@@ -49,7 +49,7 @@ export interface AppSidebarProps {
 export function AppSidebar({
   features,
   featureFlags,
-  hasRepositories = true,
+
   onNewFeature,
   onFeatureClick,
 }: AppSidebarProps) {
@@ -164,22 +164,10 @@ export function AppSidebar({
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            {hasRepositories ? (
-              <SidebarMenuButton onClick={onNewFeature} tooltip="New feature">
-                <Plus />
-                <span>New feature</span>
-              </SidebarMenuButton>
-            ) : (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <SidebarMenuButton disabled tooltip="New feature">
-                    <Plus />
-                    <span>New feature</span>
-                  </SidebarMenuButton>
-                </TooltipTrigger>
-                <TooltipContent side="right">Add a repository first</TooltipContent>
-              </Tooltip>
-            )}
+            <SidebarMenuButton onClick={onNewFeature} tooltip="New feature">
+              <Plus />
+              <span>New feature</span>
+            </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
