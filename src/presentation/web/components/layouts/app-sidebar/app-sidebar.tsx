@@ -1,15 +1,13 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { Home, Wrench, Puzzle, Plus, Settings } from 'lucide-react';
+import { Home, Wrench, Puzzle, Settings } from 'lucide-react';
 import {
   Sidebar,
   SidebarHeader,
   SidebarContent,
-  SidebarFooter,
   SidebarMenu,
   SidebarMenuItem,
-  SidebarMenuButton,
   SidebarRail,
   useSidebar,
 } from '@/components/ui/sidebar';
@@ -42,7 +40,6 @@ export interface AppSidebarProps {
   features: FeatureItem[];
   featureFlags: FeatureFlagsState;
 
-  onNewFeature?: () => void;
   onFeatureClick?: (featureId: string) => void;
 }
 
@@ -50,7 +47,6 @@ export function AppSidebar({
   features,
   featureFlags,
 
-  onNewFeature,
   onFeatureClick,
 }: AppSidebarProps) {
   const pathname = usePathname();
@@ -160,17 +156,6 @@ export function AppSidebar({
           </div>
         ) : null}
       </SidebarContent>
-
-      <SidebarFooter>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton onClick={onNewFeature} tooltip="New feature">
-              <Plus />
-              <span>New feature</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarFooter>
 
       <SidebarRail />
     </Sidebar>

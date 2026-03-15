@@ -1,12 +1,17 @@
 'use client';
 
-import { useCallback, type ReactNode } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import { Plus, FolderPlus } from 'lucide-react';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layouts/app-sidebar';
-import { AddRepositoryButton } from '@/components/common/add-repository-button';
+import {
+  FloatingActionButton,
+  type FloatingActionButtonAction,
+} from '@/components/common/floating-action-button';
 import { ThemeToggle } from '@/components/common/theme-toggle';
 import { SoundToggle } from '@/components/common/sound-toggle';
+import { pickFolder } from '@/components/common/add-repository-button/pick-folder';
 import { AgentEventsProvider } from '@/hooks/agent-events-provider';
 import { DrawerCloseGuardProvider, useDrawerCloseGuard } from '@/hooks/drawer-close-guard';
 import {
@@ -42,26 +47,58 @@ function AppShellInner({ children }: AppShellProps) {
     [router, guardedNavigate]
   );
 
-  const handleRepositorySelect = useCallback((path: string) => {
-    window.dispatchEvent(new CustomEvent('shep:add-repository', { detail: { path } }));
-  }, []);
+  const [addingRepo, setAddingRepo] = useState(false);
+
+  const handleAddRepository = useCallback(async () => {
+    if (addingRepo) return;
+    setAddingRepo(true);
+    try {
+      const path = await pickFolder();
+      if (path) {
+        window.dispatchEvent(new CustomEvent('shep:add-repository', { detail: { path } }));
+      }
+    } finally {
+      setAddingRepo(false);
+    }
+  }, [addingRepo]);
+
+  const fabActions: FloatingActionButtonAction[] = useMemo(
+    () => [
+      {
+        id: 'new-feature',
+        label: 'New Feature',
+        icon: <Plus className="h-4 w-4" />,
+        onClick: handleNewFeature,
+      },
+      {
+        id: 'add-repository',
+        label: 'Add Repository',
+        icon: <FolderPlus className="h-4 w-4" />,
+        onClick: handleAddRepository,
+        loading: addingRepo,
+      },
+    ],
+    [handleNewFeature, handleAddRepository, addingRepo]
+  );
 
   return (
     <SidebarProvider defaultOpen={false}>
       <AppSidebar
         features={features}
         featureFlags={featureFlags}
-        onNewFeature={handleNewFeature}
         onFeatureClick={handleFeatureClick}
       />
       <SidebarInset>
         <div className="relative h-full">
-          <div className="absolute top-3 right-3 z-50 flex gap-1">
-            <AddRepositoryButton onSelect={handleRepositorySelect} />
+          <div
+            className="absolute top-3 right-3 z-50 flex gap-1"
+            data-test-id="canvas-actions-toolbar"
+          >
             <SoundToggle />
             <ThemeToggle />
           </div>
           <main className="h-full">{children}</main>
+          <FloatingActionButton actions={fabActions} />
         </div>
       </SidebarInset>
     </SidebarProvider>
