@@ -1,0 +1,135 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: post-merge-history
+number: 066
+branch: feat/066-post-merge-history
+oneLiner: persist merge review tab visibility for completed features so users can view evidence and changes post-merge
+userQuery: >
+  after feature is completed/merge
+  we should still need to be able the. "merge" tab to see the evidence and what was changed
+summary: >
+  After a feature is merged and transitions to the Maintain lifecycle, the Merge Review tab
+  disappears because `computeVisibleTabs()` only shows it when `lifecycle === 'review'`. The
+  underlying data (PR metadata in DB, evidence manifest on disk, diffs) already persists after
+  merge. This feature extends the tab visibility logic and adapts the MergeReview component to
+  render in a read-only "history" mode for completed features.
+phase: Analysis
+sizeEstimate: S
+
+# Relationships
+relatedFeatures:
+  - "047-post-feature-cleanup"
+
+technologies:
+  - React 19
+  - Next.js 16
+  - TypeScript
+  - shadcn/ui
+  - Tailwind CSS
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - "Should the tab label change from 'Merge Review' to 'Merge History' when viewing a completed feature?"
+  - "After worktree cleanup, diffs may be unavailable. Should we persist diff summary data in the DB during merge for reliable post-merge viewing?"
+  - "Should the deriveInitialTab() function auto-navigate to merge-review for recently-completed features?"
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  When a feature completes the merge flow and transitions to `SdlcLifecycle.Maintain`, the Merge
+  Review tab disappears from the feature drawer. Users lose access to evidence (screenshots, test
+  outputs, terminal recordings) and change summaries (PR metadata, diff statistics, file diffs)
+  that were captured during implementation and review.
+
+  The root cause is in `computeVisibleTabs()` at
+  `src/presentation/web/components/common/feature-drawer-tabs/feature-drawer-tabs.tsx:69-71`:
+
+  ```typescript
+  if (node.lifecycle === 'review' && (node.state === 'action-required' || node.state === 'error')) {
+    tabs.push('merge-review');
+  }
+  ```
+
+  This condition excludes `lifecycle === 'maintain'` entirely. Additionally, `deriveInitialTab()`
+  in `drawer-view.ts:54-61` has the same restrictive condition.
+
+  The data already persists after merge:
+  - PR metadata (url, number, status, commitHash, ciStatus) stored in `feature.pr` in SQLite
+  - Evidence manifest at `~/.shep/repos/<hash>/evidence/<featureId>/manifest.json`
+  - Worktree path computable via `computeWorktreePath()` for diff retrieval
+
+  The fix is primarily a UI visibility change with minor component adaptation.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  Key directories relevant to this feature:
+
+  - `src/presentation/web/components/common/feature-drawer-tabs/` — Tab visibility logic and tab container
+  - `src/presentation/web/components/common/merge-review/` — MergeReview component, config types, DiffView
+  - `src/presentation/web/components/common/control-center-drawer/` — DrawerView types, `deriveInitialTab()`
+  - `src/presentation/web/components/common/feature-node/` — FeatureNodeData interface, state derivation
+  - `src/presentation/web/app/actions/` — Server actions including `get-merge-review-data.ts`
+  - `packages/core/src/infrastructure/services/agents/feature-agent/nodes/merge/` — Merge node execution
+  - `packages/core/src/infrastructure/repositories/` — SQLite feature repository (persists PR data)
+
+  ### Architecture Patterns
+
+  - **Clean Architecture**: 4 layers (domain → application → infrastructure → presentation)
+  - **Server Actions**: Next.js server actions fetch data from DI-resolved repositories
+  - **Tab Visibility**: `computeVisibleTabs(node)` returns array of visible tab keys based on `FeatureNodeData.lifecycle` and `.state`
+  - **Data Loading**: `getMergeReviewData()` server action loads PR from DB, evidence from disk manifest, diffs from git
+  - **Evidence on Disk**: Evidence manifest persists independently at `~/.shep/repos/<hash>/evidence/<featureId>/manifest.json`
+
+  ### Relevant Technologies
+
+  - **React 19 + Next.js 16** — Web UI framework with server actions
+  - **shadcn/ui** — Component library (Tabs, Badge, etc.)
+  - **@xyflow/react** — Canvas graph for feature nodes
+  - **SQLite** — Feature persistence (PR metadata columns: pr_url, pr_number, pr_status, etc.)
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `src/presentation/web/components/common/feature-drawer-tabs/feature-drawer-tabs.tsx` | High | `computeVisibleTabs()` must include merge-review for `lifecycle === 'maintain'` when PR data exists |
+  | `src/presentation/web/components/common/control-center-drawer/drawer-view.ts` | Medium | `deriveInitialTab()` has same restrictive condition — may need update for maintain lifecycle |
+  | `src/presentation/web/components/common/merge-review/merge-review.tsx` | Medium | Must support read-only "history" mode — hide approve/reject action bar for completed features |
+  | `src/presentation/web/components/common/merge-review/merge-review-config.ts` | Low | May need `readOnly` prop on `MergeReviewProps` to control action bar visibility |
+  | `src/presentation/web/app/actions/get-merge-review-data.ts` | Low | Already handles post-merge case — gracefully falls back when worktree is unavailable |
+  | `src/presentation/web/components/common/feature-node/feature-node-state-config.ts` | None | `FeatureNodeData.pr` already exists — no schema changes needed |
+  | Tests (new) | Medium | Unit tests for updated `computeVisibleTabs()` and integration tests for merge-review in maintain lifecycle |
+  | Storybook stories | Medium | Stories for MergeReview in read-only/history mode |
+
+  ## Dependencies
+
+  - `FeatureNodeData.pr` field already exists on the node data interface (lines 94-101 of feature-node-state-config.ts)
+  - `getMergeReviewData()` server action already handles features without active worktrees (returns PR + evidence without diffs)
+  - Evidence manifest persistence is independent of worktree lifecycle (survives cleanup)
+  - PR metadata persisted in SQLite feature row during merge node execution
+
+  ## Success Criteria
+
+  - [ ] Merge Review tab is visible when `lifecycle === 'maintain'` and the feature has PR data (`node.pr` exists)
+  - [ ] MergeReview component renders in read-only mode for completed features (no approve/reject buttons)
+  - [ ] PR metadata (URL, number, status, CI status, commit hash) displays correctly for completed features
+  - [ ] Evidence (screenshots, test outputs, videos, terminal recordings) is accessible and viewable post-merge
+  - [ ] Diff summary and file diffs display when worktree is available, graceful fallback when not
+  - [ ] Tab label may optionally change to "Merge History" for completed features
+  - [ ] Unit tests cover updated `computeVisibleTabs()` logic
+  - [ ] Storybook stories exist for MergeReview in history/read-only mode
+
+  ## Size Estimate
+
+  **S** — The core change is a 2-line visibility condition update in `computeVisibleTabs()` plus
+  a read-only mode for the MergeReview component. All underlying data infrastructure already
+  exists. The effort is primarily UI logic, component prop threading, tests, and stories.
+
+  ---
+
+  _Generated by feature agent — proceed with research_
