@@ -1,3 +1,11 @@
+## [1.116.1](https://github.com/shep-ai/cli/compare/v1.116.0...v1.116.1) (2026-03-15)
+
+### Bug Fixes
+
+- distinguish network timeouts from agent execution timeouts ([#366](https://github.com/shep-ai/cli/issues/366)) ([67af505](https://github.com/shep-ai/cli/commit/67af50500c7fb6643b52f960f926b3b64bb19536))
+- **agents:** handle feature lifecycle errors and agent unavailability ([#362](https://github.com/shep-ai/cli/issues/362)) ([9befef2](https://github.com/shep-ai/cli/commit/9befef2387eefb3aedb82e4e569c6ddbe3e310d7)), closes [#354](https://github.com/shep-ai/cli/issues/354) [#355](https://github.com/shep-ai/cli/issues/355) [#356](https://github.com/shep-ai/cli/issues/356) [#354](https://github.com/shep-ai/cli/issues/354) [#355](https://github.com/shep-ai/cli/issues/355) [#356](https://github.com/shep-ai/cli/issues/356)
+- **ci:** windows e2e matrix compatibility ([#335](https://github.com/shep-ai/cli/issues/335)) ([d9a6f8d](https://github.com/shep-ai/cli/commit/d9a6f8dae5446c2bf7c3d47ce9778d0a95f9fb9f))
+
 # [1.116.0](https://github.com/shep-ai/cli/compare/v1.115.0...v1.116.0) (2026-03-15)
 
 ### Features
