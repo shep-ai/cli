@@ -1,0 +1,13 @@
+Feature-Specific Tests (3 files, 81 tests)
+=========================================
+
+       ✓ submit button is enabled when repositoryPath is provided (canvas flow)  925ms
+       ✓ handleSubmit includes selectedRepoPath in payload  1627ms
+       ✓ filters repositories by path when typing in search input  316ms
+       ✓ shows empty state message when no repos match search  429ms
+
+ Test Files  308 passed (308)
+      Tests  3923 passed (3923)
+   Start at  17:20:51
+   Duration  75.03s (transform 17.05s, setup 68.01s, import 123.80s, tests 183.06s, environment 204.67s)
+
