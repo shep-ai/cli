@@ -1,0 +1,36 @@
+feature:
+  id: '066-onboarding-setup-fixes'
+  name: 'onboarding-setup-fixes'
+  number: 66
+  branch: 'feat/066-onboarding-setup-fixes'
+  lifecycle: 'research'
+  createdAt: '2026-03-15T11:38:50Z'
+
+status:
+  phase: 'research'
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-03-15T11:38:50Z'
+  lastUpdatedBy: 'feature-agent'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-03-15T11:38:50Z'
+    completedBy: 'feature-agent'
+
+errors:
+  current: null
+  history: []

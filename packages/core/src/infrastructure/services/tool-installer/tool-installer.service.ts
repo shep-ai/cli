@@ -130,9 +130,15 @@ export class ToolInstallerServiceImpl implements IToolInstallerService {
     return new Promise((resolve) => {
       let output = '';
 
+      // Inherit stdin when running in an interactive terminal so that commands
+      // requiring sudo can prompt the user for a password. In non-interactive
+      // contexts (web UI, CI) stdin is piped and closed immediately to prevent
+      // the process from hanging waiting for input.
+      const isInteractive = process.stdin.isTTY === true;
+
       const child = spawn(installCommand.command, [], {
         shell: true,
-        stdio: ['pipe', 'pipe', 'pipe'],
+        stdio: [isInteractive ? 'inherit' : 'pipe', 'pipe', 'pipe'],
         env: {
           ...process.env,
           DEBIAN_FRONTEND: 'noninteractive',
@@ -141,8 +147,10 @@ export class ToolInstallerServiceImpl implements IToolInstallerService {
         },
       });
 
-      // Close stdin immediately to prevent interactive prompts
-      child.stdin?.end();
+      // Close stdin in non-interactive mode to prevent prompts from hanging
+      if (!isInteractive) {
+        child.stdin?.end();
+      }
 
       // Stream output from stdout and stderr
       const pipeOutput = (stream: NodeJS.ReadableStream | null) => {

@@ -51,8 +51,18 @@ vi.mock('@/infrastructure/services/tool-installer/tool-metadata', () => ({
       name: 'Claude Code',
       tags: ['cli-agent'],
       binary: 'claude',
-      openDirectory: 'cd {dir} && exec claude',
+      openDirectory: {
+        linux: 'cd {dir} && exec claude',
+        darwin: 'cd {dir} && exec claude',
+        win32: 'cd /d {dir} && claude',
+      },
       spawnOptions: { shell: true, stdio: 'inherit', detached: false },
+      terminalCommand: {
+        linux: "x-terminal-emulator -e bash -c 'cd {dir} && exec claude'",
+        darwin:
+          'osascript -e \'tell application "Terminal" to do script "cd {dir} && exec claude"\'',
+        win32: 'start cmd /k "cd /d {dir} && claude"',
+      },
     },
     'no-open-dir': {
       name: 'No Open Dir Tool',
@@ -275,6 +285,37 @@ describe('JsonDrivenIdeLauncherService', () => {
         stdio: 'ignore',
         shell: false,
       });
+    });
+
+    it('uses osascript terminalCommand to launch claude-code on darwin in headless mode', async () => {
+      mockPlatform.mockReturnValue('darwin');
+      const svc = new JsonDrivenIdeLauncherService();
+
+      const mockChild = { unref: vi.fn() };
+      mockSpawn.mockReturnValue(mockChild);
+
+      const result = await svc.launch('claude-code', '/home/user/project', { headless: true });
+
+      expect(result.ok).toBe(true);
+      const [cmd, , opts] = mockSpawn.mock.calls[0];
+      expect(cmd).toContain('osascript');
+      expect(cmd).toContain('/home/user/project');
+      expect(opts.shell).toBe(true);
+      expect(opts.detached).toBe(true);
+    });
+
+    it('uses per-platform openDirectory for claude-code on win32', async () => {
+      mockPlatform.mockReturnValue('win32');
+      const svc = new JsonDrivenIdeLauncherService();
+
+      const mockChild = { unref: vi.fn() };
+      mockSpawn.mockReturnValue(mockChild);
+
+      await svc.launch('claude-code', 'C:\\Users\\user\\project');
+
+      const [cmd] = mockSpawn.mock.calls[0];
+      expect(cmd).toContain('cd /d');
+      expect(cmd).toContain('C:\\Users\\user\\project');
     });
 
     it('resolves per-platform openDirectory for antigravity on linux', async () => {
