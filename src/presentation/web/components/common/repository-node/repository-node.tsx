@@ -21,6 +21,7 @@ import { useDeployAction } from '@/hooks/use-deploy-action';
 import { useFeatureFlags } from '@/hooks/feature-flags-context';
 import type { RepositoryNodeData } from './repository-node-config';
 import { useRepositoryActions } from './use-repository-actions';
+import { FeatureSessionsDropdown } from '@/components/common/feature-node/feature-sessions-dropdown';
 
 export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: string]: unknown }) {
   const featureFlags = useFeatureFlags();
@@ -191,6 +192,7 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
                   <TooltipContent>Open Folder</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
+              <FeatureSessionsDropdown repositoryPath={data.repositoryPath} />
               {featureFlags.envDeploy ? (
                 <>
                   <TooltipProvider>

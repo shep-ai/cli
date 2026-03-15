@@ -80,6 +80,7 @@ export async function getGraphData(): Promise<{ nodes: CanvasNodeType[]; edges: 
   const { nodes, edges } = buildGraphNodes(repositories, featuresWithRuns, {
     enableEvidence: workflow.enableEvidence,
     commitEvidence: workflow.commitEvidence,
+    ciWatchEnabled: workflow.ciWatchEnabled,
   });
 
   // Enrich feature nodes with deployment status

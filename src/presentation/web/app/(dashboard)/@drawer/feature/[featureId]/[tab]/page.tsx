@@ -50,6 +50,7 @@ export default async function FeatureDrawerTabPage({ params }: FeatureDrawerTabP
       remoteUrl: remoteUrl ?? undefined,
       enableEvidence: workflow.enableEvidence,
       commitEvidence: workflow.commitEvidence,
+      ciWatchEnabled: workflow.ciWatchEnabled,
     });
 
     const view = computeDrawerView({

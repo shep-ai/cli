@@ -33,6 +33,7 @@ export default async function FeatureDrawerPage({ params }: FeatureDrawerPagePro
     const nodeData = buildFeatureNodeData(feature, run, {
       enableEvidence: workflow.enableEvidence,
       commitEvidence: workflow.commitEvidence,
+      ciWatchEnabled: workflow.ciWatchEnabled,
     });
 
     const view = computeDrawerView({

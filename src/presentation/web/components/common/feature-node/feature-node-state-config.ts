@@ -65,6 +65,8 @@ export interface FeatureNodeData {
   repositoryPath: string;
   /** Git branch name for this feature */
   branch: string;
+  /** Absolute path to the git worktree for this feature (sessions use this path) */
+  worktreePath?: string;
   /** Absolute path to the specs folder on disk */
   specPath?: string;
   /** Epoch ms when the current agent run started (for elapsed-time in sidebar) */
@@ -114,6 +116,8 @@ export interface FeatureNodeData {
   push?: boolean;
   /** Whether to open a PR after implementation */
   openPr?: boolean;
+  /** Whether CI watch/fix loop is enabled after push */
+  ciWatchEnabled?: boolean;
   /** Whether evidence collection is enabled for this feature */
   enableEvidence?: boolean;
   /** Whether evidence is committed to the PR body */

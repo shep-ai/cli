@@ -82,6 +82,15 @@ vi.mock('@/components/common/delete-feature-dialog', () => ({
     ) : null,
 }));
 
+// Mock FeatureSessionsDropdown — renders a simple button placeholder
+vi.mock('@/components/common/feature-node/feature-sessions-dropdown', () => ({
+  FeatureSessionsDropdown: ({ repositoryPath }: { repositoryPath: string }) => (
+    <button data-testid="feature-node-sessions-button" aria-label="View sessions">
+      Sessions ({repositoryPath})
+    </button>
+  ),
+}));
+
 const nodeTypes = { featureNode: FeatureNode };
 
 const defaultData: FeatureNodeData = {

@@ -76,6 +76,7 @@ describe('SQLiteSettingsRepository', () => {
       },
       enableEvidence: false,
       commitEvidence: false,
+      ciWatchEnabled: true,
     },
     onboardingComplete: false,
   });

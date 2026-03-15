@@ -389,6 +389,10 @@ export type WorkflowConfig = {
    */
   approvalGateDefaults: ApprovalGateDefaults;
   /**
+   * Enable CI watch/fix loop after push (default: true)
+   */
+  ciWatchEnabled: boolean;
+  /**
    * Maximum number of CI fix/push/watch iterations before giving up (default: 3)
    */
   ciMaxFixAttempts?: number;

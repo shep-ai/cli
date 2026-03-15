@@ -9,6 +9,10 @@ properties:
   approvalGateDefaults:
     $ref: ApprovalGateDefaults.yaml
     description: Default approval gate preferences for new features
+  ciWatchEnabled:
+    type: boolean
+    default: true
+    description: "Enable CI watch/fix loop after push (default: true)"
   ciMaxFixAttempts:
     type: integer
     minimum: -2147483648
@@ -41,6 +45,7 @@ properties:
 required:
   - openPrOnImplementationComplete
   - approvalGateDefaults
+  - ciWatchEnabled
   - enableEvidence
   - commitEvidence
 description: Global workflow configuration defaults

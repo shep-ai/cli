@@ -38,6 +38,7 @@ import { updateNodeLifecycle } from '../../lifecycle-context.js';
 import { buildCommitPushPrPrompt } from '../prompts/merge-prompts.js';
 import { parseCommitHash, parsePrUrl } from './merge-output-parser.js';
 import { runCiWatchFixLoop } from './ci-watch-fix-loop.js';
+import { getSettings } from '@/infrastructure/services/settings.service.js';
 import type { CleanupFeatureWorktreeUseCase } from '@/application/use-cases/features/cleanup-feature-worktree.use-case.js';
 
 export interface MergeNodeDeps {
@@ -197,8 +198,9 @@ export function createMergeNode(deps: MergeNodeDeps) {
           }
         }
 
-        // --- CI watch/fix loop (when push or openPr is enabled) ---
-        if (effectiveState.push || effectiveState.openPr) {
+        // --- CI watch/fix loop (when push or openPr is enabled and CI watch is not disabled) ---
+        const ciWatchEnabled = getSettings().workflow?.ciWatchEnabled !== false;
+        if (ciWatchEnabled && (effectiveState.push || effectiveState.openPr)) {
           const ciResult = await runCiWatchFixLoop(
             {
               executor,

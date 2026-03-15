@@ -24,6 +24,7 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
   const [allowPrd, setAllowPrd] = useState(workflow.approvalGateDefaults.allowPrd);
   const [allowPlan, setAllowPlan] = useState(workflow.approvalGateDefaults.allowPlan);
   const [allowMerge, setAllowMerge] = useState(workflow.approvalGateDefaults.allowMerge);
+  const [ciWatchEnabled, setCiWatchEnabled] = useState(workflow.ciWatchEnabled !== false);
   const [ciMaxFix, setCiMaxFix] = useState(
     workflow.ciMaxFixAttempts != null ? String(workflow.ciMaxFixAttempts) : ''
   );
@@ -90,6 +91,7 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
       allowPrd?: boolean;
       allowPlan?: boolean;
       allowMerge?: boolean;
+      ciWatchEnabled?: boolean;
       ciMaxFix?: string;
       ciTimeout?: string;
       ciLogMax?: string;
@@ -112,6 +114,7 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
           allowPlan: overrides.allowPlan ?? allowPlan,
           allowMerge: overrides.allowMerge ?? allowMerge,
         },
+        ciWatchEnabled: overrides.ciWatchEnabled ?? ciWatchEnabled,
         ciMaxFixAttempts: parseOptionalInt(overrides.ciMaxFix ?? ciMaxFix),
         ciWatchTimeoutMs: timeoutSeconds != null ? timeoutSeconds * 1000 : undefined,
         ciLogMaxChars: parseOptionalInt(overrides.ciLogMax ?? ciLogMax),
@@ -140,7 +143,7 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
   }
 
   function handleSwitchChange(
-    key: 'openPr' | 'pushOnComplete' | 'allowPrd' | 'allowPlan' | 'allowMerge',
+    key: 'openPr' | 'pushOnComplete' | 'allowPrd' | 'allowPlan' | 'allowMerge' | 'ciWatchEnabled',
     setter: (v: boolean) => void,
     value: boolean
   ) {
@@ -346,6 +349,21 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
 
         <div className="space-y-3">
           <h3 className="text-sm font-semibold">CI Settings</h3>
+          <div className="flex items-center justify-between gap-4">
+            <div className="space-y-0.5">
+              <Label htmlFor="ci-watch-enabled">CI watch/fix loop</Label>
+              <p className="text-muted-foreground text-xs">
+                Watch CI status after push and auto-fix failures. Disable to avoid GitHub API rate
+                limits.
+              </p>
+            </div>
+            <Switch
+              id="ci-watch-enabled"
+              data-testid="switch-ci-watch-enabled"
+              checked={ciWatchEnabled}
+              onCheckedChange={(v) => handleSwitchChange('ciWatchEnabled', setCiWatchEnabled, v)}
+            />
+          </div>
           <div className="space-y-1.5">
             <Label htmlFor="ci-max-fix">Max fix attempts</Label>
             <Input
