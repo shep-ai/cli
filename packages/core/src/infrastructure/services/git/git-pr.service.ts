@@ -245,8 +245,11 @@ export class GitPrService implements IGitPrService {
       // Squash merge the feature branch
       await this.execFile('git', ['merge', '--squash', featureBranch], { cwd });
 
-      // Commit the squash merge
-      await this.execFile('git', ['commit', '-m', commitMessage], { cwd });
+      // Commit the squash merge (skip if nothing to commit — branches may be equivalent)
+      const { stdout: status } = await this.execFile('git', ['status', '--porcelain'], { cwd });
+      if (status.trim().length > 0) {
+        await this.execFile('git', ['commit', '-m', commitMessage], { cwd });
+      }
 
       // Delete the feature branch after successful merge
       try {
