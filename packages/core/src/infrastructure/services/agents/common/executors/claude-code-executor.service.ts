@@ -63,9 +63,11 @@ export class ClaudeCodeExecutorService implements IAgentExecutor {
     const proc = this.spawn('claude', args, spawnOpts);
 
     this.log(`Subprocess PID: ${proc.pid ?? 'undefined (spawn may have failed)'}`);
+    this.log(`Prompt length: ${prompt.length} chars (piped via stdin)`);
 
-    // Close stdin immediately — we pass the prompt via -p, not stdin.
+    // Pipe the prompt via stdin to avoid ENAMETOOLONG on Windows.
     if (proc.stdin) {
+      proc.stdin.write(prompt);
       proc.stdin.end();
     }
 
@@ -179,8 +181,9 @@ export class ClaudeCodeExecutorService implements IAgentExecutor {
     const spawnOpts = this.buildSpawnOptions(options);
     const proc = this.spawn('claude', args, spawnOpts);
 
-    // Close stdin immediately - we're not sending input in print mode
+    // Pipe the prompt via stdin to avoid ENAMETOOLONG on Windows.
     if (proc.stdin) {
+      proc.stdin.write(prompt);
       proc.stdin.end();
     }
 
@@ -312,8 +315,10 @@ export class ClaudeCodeExecutorService implements IAgentExecutor {
     return SUPPORTED_FEATURES.has(feature as string);
   }
 
-  private buildArgs(prompt: string, options?: AgentExecutionOptions): string[] {
-    const args = ['-p', prompt, '--output-format', 'json', '--dangerously-skip-permissions'];
+  private buildArgs(_prompt: string, options?: AgentExecutionOptions): string[] {
+    // Prompt is piped via stdin — not passed as a CLI argument — to avoid
+    // ENAMETOOLONG on Windows when prompts exceed the ~32 KB arg-length limit.
+    const args = ['-p', '--output-format', 'json', '--dangerously-skip-permissions'];
     if (options?.resumeSession) args.push('--resume', options.resumeSession);
     if (options?.model) args.push('--model', options.model);
     if (options?.systemPrompt) args.push('--append-system-prompt', options.systemPrompt);

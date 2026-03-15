@@ -69,6 +69,10 @@ function formatStatus(feature: Feature, run: AgentRun | null): string {
     return `${colors.warning(symbols.dotEmpty)} ${colors.warning('Blocked')}`;
   }
 
+  if (feature.lifecycle === 'Pending') {
+    return `${colors.muted(symbols.dotEmpty)} ${colors.muted('Pending')}`;
+  }
+
   if (!run) {
     return `${colors.muted(symbols.dotEmpty)} ${colors.muted(feature.lifecycle)}`;
   }

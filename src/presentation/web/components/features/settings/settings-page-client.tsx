@@ -16,6 +16,7 @@ import {
   Plus,
   ExternalLink,
   Settings2,
+  Timer,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -40,6 +41,7 @@ import {
 } from '@shepai/core/domain/generated/output';
 import { getEditorTypeIcon } from '@/components/common/editor-type-icons';
 import { AgentModelPicker } from '@/components/features/settings/AgentModelPicker';
+import { TimeoutSlider } from '@/components/features/settings/timeout-slider';
 import type {
   Settings,
   FeatureFlags,
@@ -71,6 +73,7 @@ const SECTIONS = [
   { id: 'environment', label: 'Environment', icon: Terminal },
   { id: 'workflow', label: 'Workflow', icon: GitBranch },
   { id: 'ci', label: 'CI', icon: Activity },
+  { id: 'stage-timeouts', label: 'Timeouts', icon: Timer },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'feature-flags', label: 'Flags', icon: Flag },
   { id: 'database', label: 'Database', icon: Database },
@@ -398,6 +401,32 @@ export function SettingsPageClient({
   const [ciLogMax, setCiLogMax] = useState(
     settings.workflow.ciLogMaxChars != null ? String(settings.workflow.ciLogMaxChars) : ''
   );
+  // Feature agent per-stage timeout states (stored in seconds for display, converted to ms on save)
+  // Defaults: feature agent stages = 1_800_000 ms (1800s), analyze-repo = 600_000 ms (600s)
+  const stageTimeoutsConfig = settings.workflow.stageTimeouts;
+  const [analyzeTimeout, setAnalyzeTimeout] = useState(
+    String(Math.round((stageTimeoutsConfig?.analyzeMs ?? 1_800_000) / 1000))
+  );
+  const [requirementsTimeout, setRequirementsTimeout] = useState(
+    String(Math.round((stageTimeoutsConfig?.requirementsMs ?? 1_800_000) / 1000))
+  );
+  const [researchTimeout, setResearchTimeout] = useState(
+    String(Math.round((stageTimeoutsConfig?.researchMs ?? 1_800_000) / 1000))
+  );
+  const [planTimeout, setPlanTimeout] = useState(
+    String(Math.round((stageTimeoutsConfig?.planMs ?? 1_800_000) / 1000))
+  );
+  const [implementTimeout, setImplementTimeout] = useState(
+    String(Math.round((stageTimeoutsConfig?.implementMs ?? 1_800_000) / 1000))
+  );
+  const [mergeTimeout, setMergeTimeout] = useState(
+    String(Math.round((stageTimeoutsConfig?.mergeMs ?? 1_800_000) / 1000))
+  );
+  // Analyze-repo agent timeout state
+  const analyzeRepoConfig = settings.workflow.analyzeRepoTimeouts;
+  const [analyzeRepoTimeout, setAnalyzeRepoTimeout] = useState(
+    String(Math.round((analyzeRepoConfig?.analyzeMs ?? 600_000) / 1000))
+  );
 
   // Notification state
   const [inApp, setInApp] = useState(settings.notifications.inApp.enabled);
@@ -417,6 +446,34 @@ export function SettingsPageClient({
       : '';
   const originalCiLogMax =
     settings.workflow.ciLogMaxChars != null ? String(settings.workflow.ciLogMaxChars) : '';
+  const originalAnalyzeTimeout =
+    stageTimeoutsConfig?.analyzeMs != null
+      ? String(Math.round(stageTimeoutsConfig.analyzeMs / 1000))
+      : '';
+  const originalRequirementsTimeout =
+    stageTimeoutsConfig?.requirementsMs != null
+      ? String(Math.round(stageTimeoutsConfig.requirementsMs / 1000))
+      : '';
+  const originalResearchTimeout =
+    stageTimeoutsConfig?.researchMs != null
+      ? String(Math.round(stageTimeoutsConfig.researchMs / 1000))
+      : '';
+  const originalPlanTimeout =
+    stageTimeoutsConfig?.planMs != null
+      ? String(Math.round(stageTimeoutsConfig.planMs / 1000))
+      : '';
+  const originalImplementTimeout =
+    stageTimeoutsConfig?.implementMs != null
+      ? String(Math.round(stageTimeoutsConfig.implementMs / 1000))
+      : '';
+  const originalMergeTimeout =
+    stageTimeoutsConfig?.mergeMs != null
+      ? String(Math.round(stageTimeoutsConfig.mergeMs / 1000))
+      : '';
+  const originalAnalyzeRepoTimeout =
+    analyzeRepoConfig?.analyzeMs != null
+      ? String(Math.round(analyzeRepoConfig.analyzeMs / 1000))
+      : '';
 
   function parseOptionalInt(value: string): number | undefined {
     if (value === '') return undefined;
@@ -434,6 +491,12 @@ export function SettingsPageClient({
     return { agent: result };
   }
 
+  function secondsToMs(val: string | undefined): number | undefined {
+    if (val === undefined) return undefined;
+    const n = parseOptionalInt(val);
+    return n != null ? n * 1000 : undefined;
+  }
+
   // Workflow helpers
   function buildWorkflowPayload(
     overrides: {
@@ -447,6 +510,13 @@ export function SettingsPageClient({
       ciMaxFix?: string;
       ciTimeout?: string;
       ciLogMax?: string;
+      analyzeTimeout?: string;
+      requirementsTimeout?: string;
+      researchTimeout?: string;
+      planTimeout?: string;
+      implementTimeout?: string;
+      mergeTimeout?: string;
+      analyzeRepoTimeout?: string;
     } = {}
   ) {
     const timeoutSeconds = parseOptionalInt(overrides.ciTimeout ?? ciTimeout);
@@ -464,6 +534,17 @@ export function SettingsPageClient({
         ciMaxFixAttempts: parseOptionalInt(overrides.ciMaxFix ?? ciMaxFix),
         ciWatchTimeoutMs: timeoutSeconds != null ? timeoutSeconds * 1000 : undefined,
         ciLogMaxChars: parseOptionalInt(overrides.ciLogMax ?? ciLogMax),
+        stageTimeouts: {
+          analyzeMs: secondsToMs(overrides.analyzeTimeout ?? analyzeTimeout),
+          requirementsMs: secondsToMs(overrides.requirementsTimeout ?? requirementsTimeout),
+          researchMs: secondsToMs(overrides.researchTimeout ?? researchTimeout),
+          planMs: secondsToMs(overrides.planTimeout ?? planTimeout),
+          implementMs: secondsToMs(overrides.implementTimeout ?? implementTimeout),
+          mergeMs: secondsToMs(overrides.mergeTimeout ?? mergeTimeout),
+        },
+        analyzeRepoTimeouts: {
+          analyzeMs: secondsToMs(overrides.analyzeRepoTimeout ?? analyzeRepoTimeout),
+        },
       },
     };
   }
@@ -1018,6 +1099,147 @@ export function SettingsPageClient({
             When a feature completes, the agent can watch CI and auto-fix failures. These limits
             prevent runaway retries and control how much log output is sent to the agent for
             analysis.
+          </SectionHint>
+        </div>
+
+        {/* ── Stage Timeouts ── */}
+        <div
+          id="section-stage-timeouts"
+          className="grid scroll-mt-18 grid-cols-1 gap-x-5 rounded-lg lg:grid-cols-[1fr_280px]"
+        >
+          <SettingsSection
+            icon={Timer}
+            title="Stage Timeouts"
+            description="Maximum execution time per agent stage"
+            testId="stage-timeouts-settings-section"
+          >
+            <SubsectionLabel>Feature Agent</SubsectionLabel>
+            <SettingsRow
+              label="Analyze"
+              description="Repository analysis timeout"
+              htmlFor="timeout-analyze"
+            >
+              <TimeoutSlider
+                id="timeout-analyze"
+                testId="timeout-analyze-input"
+                value={analyzeTimeout}
+                onChange={setAnalyzeTimeout}
+                onBlur={() => {
+                  if (analyzeTimeout !== originalAnalyzeTimeout)
+                    save(buildWorkflowPayload({ analyzeTimeout }));
+                }}
+                defaultSeconds={1800}
+              />
+            </SettingsRow>
+            <SettingsRow
+              label="Requirements"
+              description="Requirements gathering timeout"
+              htmlFor="timeout-requirements"
+            >
+              <TimeoutSlider
+                id="timeout-requirements"
+                testId="timeout-requirements-input"
+                value={requirementsTimeout}
+                onChange={setRequirementsTimeout}
+                onBlur={() => {
+                  if (requirementsTimeout !== originalRequirementsTimeout)
+                    save(buildWorkflowPayload({ requirementsTimeout }));
+                }}
+                defaultSeconds={1800}
+              />
+            </SettingsRow>
+            <SettingsRow
+              label="Research"
+              description="Technical research timeout"
+              htmlFor="timeout-research"
+            >
+              <TimeoutSlider
+                id="timeout-research"
+                testId="timeout-research-input"
+                value={researchTimeout}
+                onChange={setResearchTimeout}
+                onBlur={() => {
+                  if (researchTimeout !== originalResearchTimeout)
+                    save(buildWorkflowPayload({ researchTimeout }));
+                }}
+                defaultSeconds={1800}
+              />
+            </SettingsRow>
+            <SettingsRow
+              label="Plan"
+              description="Implementation planning timeout"
+              htmlFor="timeout-plan"
+            >
+              <TimeoutSlider
+                id="timeout-plan"
+                testId="timeout-plan-input"
+                value={planTimeout}
+                onChange={setPlanTimeout}
+                onBlur={() => {
+                  if (planTimeout !== originalPlanTimeout)
+                    save(buildWorkflowPayload({ planTimeout }));
+                }}
+                defaultSeconds={1800}
+              />
+            </SettingsRow>
+            <SettingsRow
+              label="Implement"
+              description="Code implementation timeout"
+              htmlFor="timeout-implement"
+            >
+              <TimeoutSlider
+                id="timeout-implement"
+                testId="timeout-implement-input"
+                value={implementTimeout}
+                onChange={setImplementTimeout}
+                onBlur={() => {
+                  if (implementTimeout !== originalImplementTimeout)
+                    save(buildWorkflowPayload({ implementTimeout }));
+                }}
+                defaultSeconds={1800}
+              />
+            </SettingsRow>
+            <SettingsRow
+              label="Merge"
+              description="PR creation and merge timeout"
+              htmlFor="timeout-merge"
+            >
+              <TimeoutSlider
+                id="timeout-merge"
+                testId="timeout-merge-input"
+                value={mergeTimeout}
+                onChange={setMergeTimeout}
+                onBlur={() => {
+                  if (mergeTimeout !== originalMergeTimeout)
+                    save(buildWorkflowPayload({ mergeTimeout }));
+                }}
+                defaultSeconds={1800}
+              />
+            </SettingsRow>
+            <SubsectionLabel>Analyze Repository Agent</SubsectionLabel>
+            <SettingsRow
+              label="Analyze"
+              description="Repository analysis timeout"
+              htmlFor="timeout-analyze-repo"
+            >
+              <TimeoutSlider
+                id="timeout-analyze-repo"
+                testId="timeout-analyze-repo-input"
+                value={analyzeRepoTimeout}
+                onChange={setAnalyzeRepoTimeout}
+                onBlur={() => {
+                  if (analyzeRepoTimeout !== originalAnalyzeRepoTimeout)
+                    save(buildWorkflowPayload({ analyzeRepoTimeout }));
+                }}
+                defaultSeconds={600}
+              />
+            </SettingsRow>
+          </SettingsSection>
+          <SectionHint>
+            Each agent has independently configurable stage timeouts. When a stage exceeds its
+            timeout, the agent is terminated. Longer timeouts are useful for complex
+            implementations. Feature agent defaults to 30 minutes per stage. Analyze repository
+            agent defaults to 10 minutes.
           </SectionHint>
         </div>
 

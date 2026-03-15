@@ -1,0 +1,77 @@
+================================================================================
+CLI Command Evidence: Pending Feature State
+Captured: 2026-03-15
+Command: pnpm dev:cli (shep CLI v1.112.1)
+================================================================================
+
+================================================================================
+SECTION 1: feat new --help (shows --pending flag)
+Command: pnpm dev:cli -- feat help new
+================================================================================
+
+Usage: shep feat new [options] <description>
+
+Create a new feature
+
+Arguments:
+  description        Feature description
+
+Options:
+  -r, --repo <path>  Repository path (defaults to current directory)
+  --push             Push branch to remote after implementation
+  --pr               Open PR on implementation complete (implies --push)
+  --no-pr            Do not open PR on implementation complete
+  --allow-prd        Auto-approve through requirements, pause after
+  --allow-plan       Auto-approve through planning, pause at implementation
+  --allow-merge      Auto-approve merge phase
+  --allow-all        Run fully autonomous (no approval pauses)
+  --parent <fid>     Parent feature ID (full or partial prefix)
+  --pending          Create feature without starting the agent
+  --fast             Skip SDLC phases and implement directly from your prompt
+  --model <model>    LLM model identifier for this run (e.g. claude-opus-4-6)
+  --attach <path>    Attach a file (repeatable) (default: [])
+  -h, --help         display help for command
+
+================================================================================
+SECTION 2: feat start --help (shows start command exists)
+Command: pnpm dev:cli -- feat help start
+================================================================================
+
+Usage: shep feat start [options] <id>
+
+Start a pending feature (spawn the agent)
+
+Arguments:
+  id          Feature ID (or prefix)
+
+Options:
+  -h, --help  display help for command
+
+================================================================================
+SECTION 3: feat ls --help (lists features including pending status)
+Command: pnpm dev:cli -- feat help ls
+================================================================================
+
+Usage: shep feat ls [options]
+
+List features
+
+Options:
+  -r, --repo <path>  Filter by repository path
+  --include-deleted  Include soft-deleted features
+  -h, --help         display help for command
+
+================================================================================
+SUMMARY
+================================================================================
+
+1. feat new: The --pending flag is present and described as
+   "Create feature without starting the agent"
+
+2. feat start: The command exists with description
+   "Start a pending feature (spawn the agent)"
+   It accepts a feature ID (or prefix) as a required argument.
+
+3. feat ls: The list command exists and handles pending features.
+   Source code confirms Pending lifecycle is rendered with a muted
+   dot-empty symbol and "Pending" label in the status column.

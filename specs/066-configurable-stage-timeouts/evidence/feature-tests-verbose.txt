@@ -1,0 +1,90 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-configurable-stage-timeouts
+
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > toDatabase() - notification preferences > should map notifications.inApp.enabled=true to notif_in_app_enabled=1 1ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > toDatabase() - notification preferences > should map notifications.inApp.enabled=false to notif_in_app_enabled=0 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > toDatabase() - notification preferences > should map all three channel enabled flags 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > toDatabase() - notification preferences > should map all event type flags 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > fromDatabase() - notification preferences > should reconstruct notifications.inApp.enabled=true from notif_in_app_enabled=1 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > fromDatabase() - notification preferences > should reconstruct notifications.desktop.enabled=true from notif_desktop_enabled=1 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > fromDatabase() - notification preferences > should reconstruct all channel configs from columns 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > fromDatabase() - notification preferences > should reconstruct all event type configs from columns 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > round-trip - notification preferences > should preserve all notification values through toDatabase → fromDatabase 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > round-trip - notification preferences > should preserve default notification values through round-trip 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > toDatabase() - preserves existing field mappings > should still map all pre-existing fields correctly 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > fromDatabase() - preserves existing field mappings > should still reconstruct all pre-existing fields correctly 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > toDatabase() - onboarding fields > should map onboardingComplete:true to onboarding_complete:1 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > toDatabase() - onboarding fields > should map onboardingComplete:false to onboarding_complete:0 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > toDatabase() - onboarding fields > should map approvalGateDefaults fields to integer columns 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > fromDatabase() - onboarding fields > should map onboarding_complete:1 to onboardingComplete:true 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > fromDatabase() - onboarding fields > should map onboarding_complete:0 to onboardingComplete:false 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > fromDatabase() - onboarding fields > should reconstruct approvalGateDefaults from columns 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > round-trip - onboarding fields > should preserve onboardingComplete and approvalGateDefaults through round-trip 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > toDatabase() - per-stage timeouts > should map stageTimeouts to individual stage_timeout columns 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > toDatabase() - per-stage timeouts > should map undefined stageTimeouts to nulls 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > toDatabase() - per-stage timeouts > should map analyzeRepoTimeouts to analyze_repo_timeout_analyze_ms 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > toDatabase() - per-stage timeouts > should map undefined analyzeRepoTimeouts to null 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > fromDatabase() - per-stage timeouts > should reconstruct stageTimeouts from individual columns 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > fromDatabase() - per-stage timeouts > should omit stageTimeouts when all columns are null 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > fromDatabase() - per-stage timeouts > should reconstruct analyzeRepoTimeouts from column 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > fromDatabase() - per-stage timeouts > should omit analyzeRepoTimeouts when column is null 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > round-trip - per-stage timeouts > should preserve stageTimeouts through round-trip 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > round-trip - per-stage timeouts > should preserve undefined stageTimeouts through round-trip 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > round-trip - per-stage timeouts > should preserve analyzeRepoTimeouts through round-trip 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts > shouldInterrupt > when gates is undefined > returns false for any node 1ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts > shouldInterrupt > fully autonomous (all 3 gates true) > returns false for any node when all gates are true 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts > shouldInterrupt > fully autonomous (all 3 gates true) > does NOT skip all interrupts when only 2 of 3 gates are true 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts > shouldInterrupt > requirements node > interrupts when allowPrd is false 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts > shouldInterrupt > requirements node > does not interrupt when allowPrd is true 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts > shouldInterrupt > plan node > interrupts when allowPlan is false 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts > shouldInterrupt > plan node > does not interrupt when allowPlan is true 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts > shouldInterrupt > implement node > never interrupts (implementation always proceeds to merge) 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts > shouldInterrupt > merge node > interrupts when allowMerge is false 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts > shouldInterrupt > merge node > does not interrupt when allowMerge is true 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts > shouldInterrupt > unknown nodes > returns false for nodes without gates (e.g. analyze, research) 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts > clearCompletedPhase > removes the given phase from completedPhases 3ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts > clearCompletedPhase > is a no-op when phase is not in completedPhases 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts > clearCompletedPhase > handles missing feature.yaml gracefully 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts > clearCompletedPhase > handles missing completedPhases array gracefully 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts > buildCommitPushBlock > should include local verification before push when push=true 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts > buildCommitPushBlock > should NOT include local verification when push=false 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts > buildCommitPushBlock > should include commit instructions 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts > buildCommitPushBlock > should prohibit git stash when push=true 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts > buildCommitPushBlock > should prohibit git reset when push=true 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts > buildCommitPushBlock > should prohibit git checkout -- when push=true 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts > buildCommitPushBlock > should prohibit git restore when push=true 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts > buildCommitPushBlock > should prohibit git clean when push=true 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts > buildCommitPushBlock > should instruct to proceed with commit+push if unrelated tests fail 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts > buildCommitPushBlock > should skip verification but still push when skipVerification=true and push=true 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts > buildCommitPushBlock > should not include push when skipVerification=true but push=false 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts > buildCommitPushBlock > should include --no-verify in commit command when skipVerification=true 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts > buildCommitPushBlock > should NOT include --no-verify when skipVerification is false 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts > isRejectionPayload > returns true for valid rejection payload 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts > isRejectionPayload > returns false for approval payload 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts > isRejectionPayload > returns false for null 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts > isRejectionPayload > returns false for undefined 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts > isRejectionPayload > returns false for string 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts > isRejectionPayload > returns false when rejected is not true 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts > buildExecutorOptions > uses default timeout (1_800_000ms) when settings are not initialized 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts > buildExecutorOptions > uses default timeout when stageTimeoutMs is not set in settings 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts > buildExecutorOptions > uses per-stage timeout from settings when set 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts > buildExecutorOptions > uses default timeout when per-stage timeout is not set for current node 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts > buildExecutorOptions > allows override to take precedence over settings 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts > buildExecutorOptions > uses worktreePath as cwd when available 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts > buildExecutorOptions > uses repositoryPath as cwd when worktreePath is empty 0ms
+ ✓  web  tests/unit/presentation/web/components/features/settings/workflow-settings-section.test.tsx > WorkflowSettingsSection > renders all 5 Switch toggles 31ms
+ ✓  web  tests/unit/presentation/web/components/features/settings/workflow-settings-section.test.tsx > WorkflowSettingsSection > renders CI numeric inputs 8ms
+ ✓  web  tests/unit/presentation/web/components/features/settings/workflow-settings-section.test.tsx > WorkflowSettingsSection > renders per-stage timeout inputs for feature agent 8ms
+ ✓  web  tests/unit/presentation/web/components/features/settings/workflow-settings-section.test.tsx > WorkflowSettingsSection > renders analyze-repo agent timeout input 5ms
+ ✓  web  tests/unit/presentation/web/components/features/settings/workflow-settings-section.test.tsx > WorkflowSettingsSection > does not render a save button (auto-saves on change) 9ms
+ ✓  web  tests/unit/presentation/web/components/features/settings/workflow-settings-section.test.tsx > WorkflowSettingsSection > renders title and description 8ms
+ ✓  web  tests/unit/presentation/web/components/features/settings/workflow-settings-section.test.tsx > WorkflowSettingsSection > renders switch descriptions 6ms
+ ✓  web  tests/unit/presentation/web/components/features/settings/workflow-settings-section.test.tsx > WorkflowSettingsSection > renders ci timeout label in seconds 5ms
+ ✓  web  tests/unit/presentation/web/components/features/settings/workflow-settings-section.test.tsx > WorkflowSettingsSection > renders stage timeout section headers 8ms
+ ✓  web  tests/unit/presentation/web/components/features/settings/workflow-settings-section.test.tsx > WorkflowSettingsSection > renders approval gates section heading 6ms
+
+ Test Files  3 passed (3)
+      Tests  81 passed (81)
+   Start at  17:20:50
+   Duration  585ms (transform 146ms, setup 65ms, import 394ms, tests 107ms, environment 221ms)
+

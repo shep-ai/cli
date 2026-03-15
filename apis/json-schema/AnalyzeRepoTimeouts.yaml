@@ -1,0 +1,10 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: AnalyzeRepoTimeouts.yaml
+type: object
+properties:
+  analyzeMs:
+    type: integer
+    minimum: -2147483648
+    maximum: 2147483647
+    description: "Timeout for the repository analysis stage (default: 600000)"
+description: Timeout overrides for the analyze-repository agent (all values in milliseconds)

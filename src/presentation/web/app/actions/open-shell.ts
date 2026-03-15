@@ -16,12 +16,17 @@ function resolvePlatformValue(value: string | Record<string, string>): string {
 
 // Fallback commands for the "system" terminal when no tool metadata entry exists.
 // Uses a record lookup instead of if/else to prevent the bundler from
-// tree-shaking platform branches at build time.
+// tree-shaking platform branches at build time. Turbopack evaluates
+// os.platform() during the build and dead-code-eliminates unused branches,
+// baking in the CI platform (linux) and breaking macOS/Windows installs.
 const SYSTEM_TERMINAL_COMMANDS: Record<string, { cmd: string; args: (path: string) => string[] }> =
   {
     darwin: { cmd: 'open', args: (p) => ['-a', 'Terminal', p] },
     linux: { cmd: 'x-terminal-emulator', args: (p) => [`--working-directory=${p}`] },
-    win32: { cmd: 'powershell', args: (p) => ['-NoExit', '-Command', `Set-Location "${p}"`] },
+    win32: {
+      cmd: 'cmd.exe',
+      args: (p) => ['/c', 'start', 'powershell', '-NoExit', '-Command', `Set-Location "${p}"`],
+    },
   };
 
 interface OpenShellInput {

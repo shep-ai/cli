@@ -96,8 +96,8 @@ describe('openShell server action', () => {
 
     expect(result.success).toBe(true);
     expect(mockSpawn).toHaveBeenCalledWith(
-      'powershell',
-      ['-NoExit', '-Command', `Set-Location "${MOCK_WORKTREE_PATH}"`],
+      'cmd.exe',
+      ['/c', 'start', 'powershell', '-NoExit', '-Command', `Set-Location "${MOCK_WORKTREE_PATH}"`],
       { detached: true, stdio: 'ignore' }
     );
     expect(mockUnref).toHaveBeenCalled();

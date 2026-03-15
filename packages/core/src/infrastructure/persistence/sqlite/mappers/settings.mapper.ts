@@ -80,6 +80,17 @@ export interface SettingsRow {
   ci_watch_timeout_ms: number | null;
   ci_log_max_chars: number | null;
 
+  // WorkflowConfig per-stage timeouts (workflow.stageTimeouts.*)
+  stage_timeout_analyze_ms: number | null;
+  stage_timeout_requirements_ms: number | null;
+  stage_timeout_research_ms: number | null;
+  stage_timeout_plan_ms: number | null;
+  stage_timeout_implement_ms: number | null;
+  stage_timeout_merge_ms: number | null;
+
+  // WorkflowConfig analyze-repo timeouts (workflow.analyzeRepoTimeouts.*)
+  analyze_repo_timeout_analyze_ms: number | null;
+
   // Onboarding
   onboarding_complete: number;
 
@@ -165,6 +176,17 @@ export function toDatabase(settings: Settings): SettingsRow {
     ci_watch_timeout_ms: settings.workflow.ciWatchTimeoutMs ?? null,
     ci_log_max_chars: settings.workflow.ciLogMaxChars ?? null,
 
+    // WorkflowConfig per-stage timeouts (optional number → INTEGER | null)
+    stage_timeout_analyze_ms: settings.workflow.stageTimeouts?.analyzeMs ?? null,
+    stage_timeout_requirements_ms: settings.workflow.stageTimeouts?.requirementsMs ?? null,
+    stage_timeout_research_ms: settings.workflow.stageTimeouts?.researchMs ?? null,
+    stage_timeout_plan_ms: settings.workflow.stageTimeouts?.planMs ?? null,
+    stage_timeout_implement_ms: settings.workflow.stageTimeouts?.implementMs ?? null,
+    stage_timeout_merge_ms: settings.workflow.stageTimeouts?.mergeMs ?? null,
+
+    // WorkflowConfig analyze-repo timeouts (optional number → INTEGER | null)
+    analyze_repo_timeout_analyze_ms: settings.workflow.analyzeRepoTimeouts?.analyzeMs ?? null,
+
     // WorkflowConfig evidence settings (boolean → INTEGER)
     workflow_enable_evidence: settings.workflow.enableEvidence ? 1 : 0,
     workflow_commit_evidence: settings.workflow.commitEvidence ? 1 : 0,
@@ -186,6 +208,42 @@ export function toDatabase(settings: Settings): SettingsRow {
     feature_flag_env_deploy: settings.featureFlags?.envDeploy ? 1 : 0,
     feature_flag_debug: settings.featureFlags?.debug ? 1 : 0,
   };
+}
+
+/**
+ * Build the stageTimeouts spread from DB row columns.
+ * Returns `{ stageTimeouts: { ... } }` when at least one column is non-null,
+ * or an empty object `{}` when all are null (so the field stays undefined).
+ */
+function buildStageTimeoutsFromRow(
+  row: SettingsRow
+): { stageTimeouts: Record<string, number> } | Record<string, never> {
+  const entries: [string, number][] = [];
+  if (row.stage_timeout_analyze_ms !== null)
+    entries.push(['analyzeMs', row.stage_timeout_analyze_ms]);
+  if (row.stage_timeout_requirements_ms !== null)
+    entries.push(['requirementsMs', row.stage_timeout_requirements_ms]);
+  if (row.stage_timeout_research_ms !== null)
+    entries.push(['researchMs', row.stage_timeout_research_ms]);
+  if (row.stage_timeout_plan_ms !== null) entries.push(['planMs', row.stage_timeout_plan_ms]);
+  if (row.stage_timeout_implement_ms !== null)
+    entries.push(['implementMs', row.stage_timeout_implement_ms]);
+  if (row.stage_timeout_merge_ms !== null) entries.push(['mergeMs', row.stage_timeout_merge_ms]);
+
+  if (entries.length === 0) return {};
+  return { stageTimeouts: Object.fromEntries(entries) };
+}
+
+/**
+ * Build the analyzeRepoTimeouts spread from DB row columns.
+ * Returns `{ analyzeRepoTimeouts: { ... } }` when the column is non-null,
+ * or an empty object `{}` when null (so the field stays undefined).
+ */
+function buildAnalyzeRepoTimeoutsFromRow(
+  row: SettingsRow
+): { analyzeRepoTimeouts: Record<string, number> } | Record<string, never> {
+  if (row.analyze_repo_timeout_analyze_ms === null) return {};
+  return { analyzeRepoTimeouts: { analyzeMs: row.analyze_repo_timeout_analyze_ms } };
 }
 
 /**
@@ -266,6 +324,8 @@ export function fromDatabase(row: SettingsRow): Settings {
       ...(row.ci_max_fix_attempts !== null && { ciMaxFixAttempts: row.ci_max_fix_attempts }),
       ...(row.ci_watch_timeout_ms !== null && { ciWatchTimeoutMs: row.ci_watch_timeout_ms }),
       ...(row.ci_log_max_chars !== null && { ciLogMaxChars: row.ci_log_max_chars }),
+      ...buildStageTimeoutsFromRow(row),
+      ...buildAnalyzeRepoTimeoutsFromRow(row),
       enableEvidence: row.workflow_enable_evidence === 1,
       commitEvidence: row.workflow_commit_evidence === 1,
     },

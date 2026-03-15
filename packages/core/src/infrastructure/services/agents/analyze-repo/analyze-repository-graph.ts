@@ -1,6 +1,21 @@
 import { Annotation, StateGraph, START, END, type BaseCheckpointSaver } from '@langchain/langgraph';
 import type { IAgentExecutor } from '@/application/ports/output/agents/agent-executor.interface.js';
 import { buildAnalyzePrompt } from './prompts/analyze-repository.prompt.js';
+import { hasSettings, getSettings } from '@/infrastructure/services/settings.service.js';
+
+/** Default timeout for analyze-repo agent (10 minutes) — prevents infinite hangs. */
+const DEFAULT_ANALYZE_REPO_TIMEOUT_MS = 600_000;
+
+/**
+ * Resolve the timeout for the analyze-repository agent.
+ * Reads from settings (workflow.analyzeRepoTimeouts.analyzeMs),
+ * falling back to DEFAULT_ANALYZE_REPO_TIMEOUT_MS when not configured.
+ */
+function getAnalyzeRepoTimeoutMs(): number {
+  if (!hasSettings()) return DEFAULT_ANALYZE_REPO_TIMEOUT_MS;
+  const timeouts = getSettings().workflow?.analyzeRepoTimeouts;
+  return timeouts?.analyzeMs ?? DEFAULT_ANALYZE_REPO_TIMEOUT_MS;
+}
 
 /**
  * State annotation for the analyze-repository graph.
@@ -31,6 +46,7 @@ function createAnalyzeNode(executor: IAgentExecutor) {
 
     const result = await executor.execute(prompt, {
       cwd: state.repositoryPath,
+      timeout: getAnalyzeRepoTimeoutMs(),
     });
 
     return {

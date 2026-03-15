@@ -88,6 +88,13 @@ export class CreateFeatureUseCase {
     let shouldSpawn = true;
     let effectiveRepoPath = input.repositoryPath.replace(/\\/g, '/');
 
+    // Pending flag takes precedence — user explicitly defers agent execution.
+    // Parent gate validation is deferred to StartFeatureUseCase.
+    if (input.pending) {
+      initialLifecycle = SdlcLifecycle.Pending;
+      shouldSpawn = false;
+    }
+
     if (input.parentId) {
       const parent = await this.featureRepo.findById(input.parentId);
       if (!parent) {
@@ -108,15 +115,18 @@ export class CreateFeatureUseCase {
         cursor = ancestor?.parentId ?? undefined;
       }
 
-      if (
-        parent.lifecycle === SdlcLifecycle.Blocked ||
-        !POST_IMPLEMENTATION.has(parent.lifecycle)
-      ) {
-        initialLifecycle = SdlcLifecycle.Blocked;
-        shouldSpawn = false;
-      } else {
-        initialLifecycle = SdlcLifecycle.Started;
-        shouldSpawn = true;
+      // Skip gate logic when pending — parent gate is deferred to start time
+      if (!input.pending) {
+        if (
+          parent.lifecycle === SdlcLifecycle.Blocked ||
+          !POST_IMPLEMENTATION.has(parent.lifecycle)
+        ) {
+          initialLifecycle = SdlcLifecycle.Blocked;
+          shouldSpawn = false;
+        } else {
+          initialLifecycle = SdlcLifecycle.Started;
+          shouldSpawn = true;
+        }
       }
     }
 

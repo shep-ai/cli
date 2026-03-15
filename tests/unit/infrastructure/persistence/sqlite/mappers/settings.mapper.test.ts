@@ -127,6 +127,13 @@ function createTestRow(overrides: Partial<SettingsRow> = {}): SettingsRow {
     ci_max_fix_attempts: null,
     ci_watch_timeout_ms: null,
     ci_log_max_chars: null,
+    stage_timeout_analyze_ms: null,
+    stage_timeout_requirements_ms: null,
+    stage_timeout_research_ms: null,
+    stage_timeout_plan_ms: null,
+    stage_timeout_implement_ms: null,
+    stage_timeout_merge_ms: null,
+    analyze_repo_timeout_analyze_ms: null,
     onboarding_complete: 0,
     approval_gate_allow_prd: 0,
     approval_gate_allow_plan: 0,
@@ -527,6 +534,131 @@ describe('Settings Mapper', () => {
       const row = toDatabase(original);
       const restored = fromDatabase(row);
       expect(restored.environment.terminalPreference).toBe(TerminalType.ITerm2);
+    });
+  });
+
+  describe('toDatabase() - per-stage timeouts', () => {
+    it('should map stageTimeouts to individual stage_timeout columns', () => {
+      const settings = createTestSettings({
+        workflow: {
+          ...createTestSettings().workflow,
+          stageTimeouts: {
+            analyzeMs: 300_000,
+            requirementsMs: 600_000,
+            researchMs: 900_000,
+            planMs: 600_000,
+            implementMs: 1_800_000,
+            mergeMs: 600_000,
+          },
+        },
+      });
+      const row = toDatabase(settings);
+      expect(row.stage_timeout_analyze_ms).toBe(300_000);
+      expect(row.stage_timeout_requirements_ms).toBe(600_000);
+      expect(row.stage_timeout_research_ms).toBe(900_000);
+      expect(row.stage_timeout_plan_ms).toBe(600_000);
+      expect(row.stage_timeout_implement_ms).toBe(1_800_000);
+      expect(row.stage_timeout_merge_ms).toBe(600_000);
+    });
+
+    it('should map undefined stageTimeouts to nulls', () => {
+      const settings = createTestSettings();
+      const row = toDatabase(settings);
+      expect(row.stage_timeout_analyze_ms).toBeNull();
+      expect(row.stage_timeout_requirements_ms).toBeNull();
+      expect(row.stage_timeout_research_ms).toBeNull();
+      expect(row.stage_timeout_plan_ms).toBeNull();
+      expect(row.stage_timeout_implement_ms).toBeNull();
+      expect(row.stage_timeout_merge_ms).toBeNull();
+    });
+
+    it('should map analyzeRepoTimeouts to analyze_repo_timeout_analyze_ms', () => {
+      const settings = createTestSettings({
+        workflow: {
+          ...createTestSettings().workflow,
+          analyzeRepoTimeouts: { analyzeMs: 900_000 },
+        },
+      });
+      const row = toDatabase(settings);
+      expect(row.analyze_repo_timeout_analyze_ms).toBe(900_000);
+    });
+
+    it('should map undefined analyzeRepoTimeouts to null', () => {
+      const settings = createTestSettings();
+      const row = toDatabase(settings);
+      expect(row.analyze_repo_timeout_analyze_ms).toBeNull();
+    });
+  });
+
+  describe('fromDatabase() - per-stage timeouts', () => {
+    it('should reconstruct stageTimeouts from individual columns', () => {
+      const row = createTestRow({
+        stage_timeout_analyze_ms: 300_000,
+        stage_timeout_implement_ms: 1_800_000,
+      });
+      const settings = fromDatabase(row);
+      expect(settings.workflow.stageTimeouts).toEqual({
+        analyzeMs: 300_000,
+        implementMs: 1_800_000,
+      });
+    });
+
+    it('should omit stageTimeouts when all columns are null', () => {
+      const row = createTestRow();
+      const settings = fromDatabase(row);
+      expect(settings.workflow.stageTimeouts).toBeUndefined();
+    });
+
+    it('should reconstruct analyzeRepoTimeouts from column', () => {
+      const row = createTestRow({ analyze_repo_timeout_analyze_ms: 900_000 });
+      const settings = fromDatabase(row);
+      expect(settings.workflow.analyzeRepoTimeouts).toEqual({ analyzeMs: 900_000 });
+    });
+
+    it('should omit analyzeRepoTimeouts when column is null', () => {
+      const row = createTestRow();
+      const settings = fromDatabase(row);
+      expect(settings.workflow.analyzeRepoTimeouts).toBeUndefined();
+    });
+  });
+
+  describe('round-trip - per-stage timeouts', () => {
+    it('should preserve stageTimeouts through round-trip', () => {
+      const original = createTestSettings({
+        workflow: {
+          ...createTestSettings().workflow,
+          stageTimeouts: {
+            analyzeMs: 300_000,
+            requirementsMs: 600_000,
+            researchMs: 900_000,
+            planMs: 600_000,
+            implementMs: 1_800_000,
+            mergeMs: 600_000,
+          },
+        },
+      });
+      const row = toDatabase(original);
+      const restored = fromDatabase(row);
+      expect(restored.workflow.stageTimeouts).toEqual(original.workflow.stageTimeouts);
+    });
+
+    it('should preserve undefined stageTimeouts through round-trip', () => {
+      const original = createTestSettings();
+      const row = toDatabase(original);
+      const restored = fromDatabase(row);
+      expect(restored.workflow.stageTimeouts).toBeUndefined();
+    });
+
+    it('should preserve analyzeRepoTimeouts through round-trip', () => {
+      const original = createTestSettings({
+        workflow: {
+          ...createTestSettings().workflow,
+          analyzeRepoTimeouts: { analyzeMs: 900_000 },
+        },
+      });
+      const row = toDatabase(original);
+      const restored = fromDatabase(row);
+      expect(restored.workflow.analyzeRepoTimeouts).toEqual(original.workflow.analyzeRepoTimeouts);
     });
   });
 });

@@ -1,3 +1,22 @@
+# [1.117.0](https://github.com/shep-ai/cli/compare/v1.116.3...v1.117.0) (2026-03-15)
+
+### Features
+
+- **domain:** add pending feature state with deferred agent execution ([#368](https://github.com/shep-ai/cli/issues/368)) ([276aa50](https://github.com/shep-ai/cli/commit/276aa5056e3a909328ce34594987c6befad64957))
+- **web:** add per-agent per-stage configurable timeouts to settings ([#363](https://github.com/shep-ai/cli/issues/363)) ([d491c7b](https://github.com/shep-ai/cli/commit/d491c7bb618b16096c5e5ad5c03ba7a6eac093cd))
+
+## [1.116.3](https://github.com/shep-ai/cli/compare/v1.116.2...v1.116.3) (2026-03-15)
+
+### Bug Fixes
+
+- **cli:** stage existing files on git init and fix windows terminal launch ([#358](https://github.com/shep-ai/cli/issues/358)) ([16572ba](https://github.com/shep-ai/cli/commit/16572ba3c742e9fa1fc862dff672ece4452a240e))
+
+## [1.116.2](https://github.com/shep-ai/cli/compare/v1.116.1...v1.116.2) (2026-03-15)
+
+### Bug Fixes
+
+- **agents:** pipe prompt via stdin to avoid enametoolong on windows ([#371](https://github.com/shep-ai/cli/issues/371)) ([628d88e](https://github.com/shep-ai/cli/commit/628d88e3f257f6234e6a6986f7ea745931dca159))
+
 ## [1.116.1](https://github.com/shep-ai/cli/compare/v1.116.0...v1.116.1) (2026-03-15)
 
 ### Bug Fixes

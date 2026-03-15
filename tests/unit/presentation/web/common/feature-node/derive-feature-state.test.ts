@@ -12,6 +12,7 @@ import {
   deriveProgress,
   mapEventTypeToState,
   mapPhaseNameToLifecycle,
+  sdlcLifecycleMap,
 } from '@/components/common/feature-node/derive-feature-state';
 
 function createMinimalFeature(overrides: Partial<Feature> = {}): Feature {
@@ -61,6 +62,17 @@ describe('deriveNodeState', () => {
   it('returns deleting for Deleting lifecycle without agent run', () => {
     const feature = createMinimalFeature({ lifecycle: SdlcLifecycle.Deleting });
     expect(deriveNodeState(feature)).toBe('deleting');
+  });
+
+  it('returns pending for Pending lifecycle (after Deleting, before Blocked)', () => {
+    const feature = createMinimalFeature({ lifecycle: SdlcLifecycle.Pending });
+    expect(deriveNodeState(feature)).toBe('pending');
+  });
+
+  it('returns pending for Pending lifecycle even with an agent run', () => {
+    const feature = createMinimalFeature({ lifecycle: SdlcLifecycle.Pending });
+    const run = createMinimalAgentRun({ status: AgentRunStatus.pending });
+    expect(deriveNodeState(feature, run)).toBe('pending');
   });
 
   describe('with agent run (primary signal)', () => {
@@ -370,11 +382,21 @@ describe('mapPhaseNameToLifecycle', () => {
     expect(mapPhaseNameToLifecycle('implement')).toBe('implementation');
   });
 
+  it('maps "pending" to pending', () => {
+    expect(mapPhaseNameToLifecycle('pending')).toBe('pending');
+  });
+
   it('returns undefined for undefined input', () => {
     expect(mapPhaseNameToLifecycle(undefined)).toBeUndefined();
   });
 
   it('returns undefined for unrecognized phaseName', () => {
     expect(mapPhaseNameToLifecycle('unknown_phase')).toBeUndefined();
+  });
+});
+
+describe('sdlcLifecycleMap', () => {
+  it('maps Pending to pending', () => {
+    expect(sdlcLifecycleMap['Pending']).toBe('pending');
   });
 });

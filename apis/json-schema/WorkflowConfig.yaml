@@ -24,6 +24,12 @@ properties:
     minimum: -2147483648
     maximum: 2147483647
     description: "Maximum characters of CI failure logs to pass to the executor (default: 50000)"
+  stageTimeouts:
+    $ref: StageTimeouts.yaml
+    description: "Per-stage timeout overrides for the feature agent (default: 600000 = 10 minutes per stage)"
+  analyzeRepoTimeouts:
+    $ref: AnalyzeRepoTimeouts.yaml
+    description: "Timeout overrides for the analyze-repository agent (default: 600000 = 10 minutes)"
   enableEvidence:
     type: boolean
     default: false

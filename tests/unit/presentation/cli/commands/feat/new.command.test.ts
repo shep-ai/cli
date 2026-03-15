@@ -430,6 +430,117 @@ describe('createNewCommand', () => {
     });
   });
 
+  describe('--pending flag', () => {
+    it('should expose --pending option in command help', () => {
+      const cmd = createNewCommand();
+      const pendingOption = cmd.options.find((o) => o.long === '--pending');
+      expect(pendingOption).toBeDefined();
+      expect(pendingOption?.description).toBeTruthy();
+    });
+
+    it('should pass pending=true to use case when --pending is provided', async () => {
+      mockCreateExecute.mockResolvedValue({
+        feature: {
+          id: 'feat-001',
+          name: 'Test Feature',
+          slug: 'test-feature',
+          branch: 'feat/test-feature',
+          lifecycle: 'Pending',
+          agentRunId: 'run-001',
+          specPath: '/specs/001-test-feature',
+        },
+      });
+
+      const cmd = createNewCommand();
+      await cmd.parseAsync(['Add feature', '--pending'], { from: 'user' });
+
+      expect(mockCreateExecute).toHaveBeenCalledWith(expect.objectContaining({ pending: true }));
+    });
+
+    it('should not set pending on input when --pending is not provided', async () => {
+      const cmd = createNewCommand();
+      await cmd.parseAsync(['Add feature'], { from: 'user' });
+
+      const callArg = mockCreateExecute.mock.calls[0][0];
+      expect(callArg.pending).toBeUndefined();
+    });
+
+    it('should show pending-state info message when created feature has Pending lifecycle', async () => {
+      mockCreateExecute.mockResolvedValue({
+        feature: {
+          id: 'feat-001',
+          name: 'Pending Feature',
+          slug: 'pending-feature',
+          branch: 'feat/pending-feature',
+          lifecycle: 'Pending',
+          agentRunId: 'run-001',
+          specPath: '/specs/001-pending-feature',
+        },
+      });
+      const { messages: mockMessages } = await import(
+        '../../../../../../src/presentation/cli/ui/index.js'
+      );
+
+      const cmd = createNewCommand();
+      await cmd.parseAsync(['Add feature', '--pending'], { from: 'user' });
+
+      expect(mockMessages.info).toHaveBeenCalledWith(expect.stringContaining('Pending'));
+    });
+
+    it('should show "pending" agent status when lifecycle is Pending', async () => {
+      mockCreateExecute.mockResolvedValue({
+        feature: {
+          id: 'feat-001',
+          name: 'Pending Feature',
+          slug: 'pending-feature',
+          branch: 'feat/pending-feature',
+          lifecycle: 'Pending',
+          agentRunId: 'run-001',
+          specPath: '/specs/001-pending-feature',
+        },
+      });
+
+      const cmd = createNewCommand();
+      await cmd.parseAsync(['Add feature', '--pending'], { from: 'user' });
+
+      const logCalls = (console.log as ReturnType<typeof vi.fn>).mock.calls
+        .map((args) => args.join(' '))
+        .join('\n');
+      expect(logCalls).toMatch(/pending/i);
+    });
+
+    it('should combine --pending with --parent flag', async () => {
+      mockFindByIdPrefix.mockResolvedValue({
+        id: 'parent-feature-uuid-001',
+        name: 'Parent Feature',
+        lifecycle: 'Implementation',
+      });
+      mockCreateExecute.mockResolvedValue({
+        feature: {
+          id: 'feat-002',
+          name: 'Child Pending',
+          slug: 'child-pending',
+          branch: 'feat/child-pending',
+          lifecycle: 'Pending',
+          agentRunId: 'run-002',
+          specPath: '/specs/002-child-pending',
+        },
+      });
+
+      const cmd = createNewCommand();
+      await cmd.parseAsync(['Child feature', '--pending', '--parent', 'parent-fe'], {
+        from: 'user',
+      });
+
+      expect(mockCreateExecute).toHaveBeenCalledWith(
+        expect.objectContaining({
+          pending: true,
+          parentId: 'parent-feature-uuid-001',
+        })
+      );
+    });
+  });
+
   describe('--attach flag', () => {
     it('should expose --attach option in command help', () => {
       const cmd = createNewCommand();

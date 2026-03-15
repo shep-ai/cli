@@ -104,7 +104,7 @@ describe('BaseDrawer', () => {
       expect(content.className).toContain('w-96');
     });
 
-    it('applies w-xl class when size="md"', () => {
+    it('applies w-2xl class when size="md"', () => {
       render(
         <BaseDrawer open onClose={vi.fn()} size="md" data-testid="drawer">
           <p>Content</p>
@@ -112,7 +112,7 @@ describe('BaseDrawer', () => {
       );
 
       const content = screen.getByTestId('drawer');
-      expect(content.className).toContain('w-xl');
+      expect(content.className).toContain('w-2xl');
     });
 
     it('defaults to sm (w-96) when no size prop is provided', () => {

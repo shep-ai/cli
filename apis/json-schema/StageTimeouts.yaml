@@ -1,0 +1,35 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: StageTimeouts.yaml
+type: object
+properties:
+  analyzeMs:
+    type: integer
+    minimum: -2147483648
+    maximum: 2147483647
+    description: "Timeout for the analyze stage (default: 600000)"
+  requirementsMs:
+    type: integer
+    minimum: -2147483648
+    maximum: 2147483647
+    description: "Timeout for the requirements stage (default: 600000)"
+  researchMs:
+    type: integer
+    minimum: -2147483648
+    maximum: 2147483647
+    description: "Timeout for the research stage (default: 600000)"
+  planMs:
+    type: integer
+    minimum: -2147483648
+    maximum: 2147483647
+    description: "Timeout for the plan stage (default: 600000)"
+  implementMs:
+    type: integer
+    minimum: -2147483648
+    maximum: 2147483647
+    description: "Timeout for the implement stage (default: 600000)"
+  mergeMs:
+    type: integer
+    minimum: -2147483648
+    maximum: 2147483647
+    description: "Timeout for the merge stage (default: 600000)"
+description: Per-stage timeout overrides for the feature agent workflow (all values in milliseconds)

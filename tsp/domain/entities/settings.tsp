@@ -227,6 +227,47 @@ model ApprovalGateDefaults {
   pushOnImplementationComplete: boolean = false;
 }
 
+/**
+ * Per-stage timeout configuration for the feature agent workflow.
+ *
+ * Each field controls the maximum execution time (in milliseconds) for
+ * a specific agent stage. When a field is omitted, the stage falls back
+ * to 600_000 ms (10 minutes).
+ */
+@doc("Per-stage timeout overrides for the feature agent workflow (all values in milliseconds)")
+model StageTimeouts {
+  @doc("Timeout for the analyze stage (default: 600000)")
+  analyzeMs?: int32;
+
+  @doc("Timeout for the requirements stage (default: 600000)")
+  requirementsMs?: int32;
+
+  @doc("Timeout for the research stage (default: 600000)")
+  researchMs?: int32;
+
+  @doc("Timeout for the plan stage (default: 600000)")
+  planMs?: int32;
+
+  @doc("Timeout for the implement stage (default: 600000)")
+  implementMs?: int32;
+
+  @doc("Timeout for the merge stage (default: 600000)")
+  mergeMs?: int32;
+}
+
+/**
+ * Timeout configuration for the analyze-repository agent.
+ *
+ * Controls the maximum execution time (in milliseconds) for the
+ * repository analysis stage. When omitted, falls back to 600_000 ms
+ * (10 minutes).
+ */
+@doc("Timeout overrides for the analyze-repository agent (all values in milliseconds)")
+model AnalyzeRepoTimeouts {
+  @doc("Timeout for the repository analysis stage (default: 600000)")
+  analyzeMs?: int32;
+}
+
 @doc("Global workflow configuration defaults")
 model WorkflowConfig {
   /**
@@ -251,6 +292,12 @@ model WorkflowConfig {
 
   @doc("Maximum characters of CI failure logs to pass to the executor (default: 50000)")
   ciLogMaxChars?: int32;
+
+  @doc("Per-stage timeout overrides for the feature agent (default: 600000 = 10 minutes per stage)")
+  stageTimeouts?: StageTimeouts;
+
+  @doc("Timeout overrides for the analyze-repository agent (default: 600000 = 10 minutes)")
+  analyzeRepoTimeouts?: AnalyzeRepoTimeouts;
 
   /**
    * Whether evidence collection is enabled after implementation.

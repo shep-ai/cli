@@ -90,6 +90,14 @@ enum SdlcLifecycle {
   Blocked,
 
   /**
+   * Pending state. The feature was created with --pending and is fully
+   * initialized (worktree, spec, metadata) but the agent has not been
+   * spawned. The user must explicitly start the feature via `shep feat start`.
+   */
+  @doc("User-deferred state — feature initialized but agent not yet spawned until manually started")
+  Pending,
+
+  /**
    * Deleting state. The feature is being deleted — cleanup of worktrees,
    * branches, and agent runs is in progress. The feature will be soft-deleted
    * (deletedAt set) once cleanup completes.

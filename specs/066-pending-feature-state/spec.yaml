@@ -1,0 +1,404 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: pending-feature-state
+number: 066
+branch: feat/pending-feature-state
+oneLiner: Allow creating features in a pending state that defers agent execution until explicitly started
+userQuery: >
+  Add support to "pending" feature — as a user I would want to write a feature
+  but to not let the agents start working on it yet
+summary: >
+  Add a new SdlcLifecycle.Pending state that lets users create fully-initialized
+  features (with worktree, spec directory, and metadata) without spawning the
+  agent. Users can then manually start the agent via a new CLI command
+  (shep feat start) or a Web UI action, transitioning the feature from Pending
+  to its normal SDLC flow.
+phase: Requirements
+sizeEstimate: M
+
+# Relationships
+relatedFeatures:
+  - '041-feature-dependencies (Blocked state pattern — similar lifecycle gate concept)'
+  - '024-optimistic-feature-creation (two-phase create pattern)'
+
+technologies:
+  - TypeSpec (domain enum extension)
+  - SQLite (lifecycle column — TEXT, no migration needed for new enum value)
+  - Commander.js (CLI flag and new subcommand)
+  - React / Next.js (Web UI state rendering)
+  - LangGraph (agent spawn gating)
+  - tsyringe (DI for new use case)
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - question: 'Should pending features still run the slow Phase 2 (AI metadata, worktree, spec init), or should Phase 2 also be deferred until start?'
+    resolved: true
+    options:
+      - option: 'Run Phase 2 on creation (Recommended)'
+        description: >
+          Pending features are fully initialized on creation — AI metadata is generated,
+          worktree is created, spec directory is scaffolded — but the agent is not spawned.
+          This means features are ready to start instantly when the user triggers start.
+          It reuses the existing shouldSpawn=false pattern used by Blocked features.
+          Trade-off: consumes AI + disk resources upfront even if the feature is never started.
+        selected: true
+      - option: 'Defer Phase 2 until start'
+        description: >
+          Pending features only create the DB record (Phase 1). Phase 2 (metadata, worktree,
+          spec init) is deferred until the user runs start. This saves resources but means
+          start is slower (seconds vs instant) and requires a new initializeAndSpawn call
+          path in StartFeatureUseCase. Trade-off: more complex start logic, slower start UX.
+        selected: false
+    selectionRationale: >
+      Running Phase 2 on creation is recommended because it mirrors the proven Blocked feature
+      pattern (shouldSpawn=false), keeps the StartFeatureUseCase simple (just spawn the agent),
+      and provides instant start UX. The resource cost is minimal since users explicitly chose
+      to create the feature — they just want to defer agent execution, not feature initialization.
+    answer: 'Run Phase 2 on creation'
+
+  - question: 'What initial lifecycle value should a pending feature receive when started?'
+    resolved: true
+    options:
+      - option: 'Requirements (or Implementation if fast mode)'
+        description: >
+          When started, transition Pending to Requirements (standard flow) or Implementation
+          (fast mode). This matches the normal creation lifecycle — the agent begins at the
+          same phase it would have if the feature were created without --pending. The Pending
+          state is purely a spawn gate, not a lifecycle phase.
+        selected: true
+      - option: 'Started'
+        description: >
+          Transition Pending to Started, letting the agent handle the first lifecycle
+          transition. This adds an extra state transition and the Started state is
+          typically only used for child features unblocked by parents.
+        selected: false
+    selectionRationale: >
+      Requirements (or Implementation for fast) is the correct target because it matches
+      what CreateFeatureUseCase already sets as initialLifecycle for non-parent features.
+      The Started state is reserved for the parent-child unblocking flow and would create
+      inconsistency in the lifecycle model.
+    answer: 'Requirements (or Implementation if fast mode)'
+
+  - question: 'Should `shep feat start` accept multiple feature IDs for batch starting?'
+    resolved: true
+    options:
+      - option: 'Single feature ID only (Recommended)'
+        description: >
+          shep feat start takes exactly one feature ID argument. Simple, predictable,
+          matches the pattern of other feat subcommands (resume, approve, reject). Users
+          can start multiple features by running the command multiple times. Batch starting
+          can be added as a follow-up feature if demand emerges.
+        selected: true
+      - option: 'Accept multiple feature IDs'
+        description: >
+          shep feat start takes one or more feature IDs as variadic arguments. Adds
+          convenience for batch workflows but increases complexity (partial failure handling,
+          output formatting for multiple results). Not consistent with existing single-ID
+          subcommands.
+        selected: false
+    selectionRationale: >
+      Single ID is recommended for consistency with existing CLI patterns (resume, approve,
+      reject all take a single feature ID). This keeps the implementation simple and follows
+      the principle of minimal scope. Batch start can be a follow-up if users request it.
+    answer: 'Single feature ID only'
+
+  - question: 'Should pending features be included or filtered out in the default `shep feat ls` output?'
+    resolved: true
+    options:
+      - option: 'Include pending features in default output (Recommended)'
+        description: >
+          Pending features appear in the standard feat ls listing with a distinct
+          status label (e.g. 'Pending' in gray/muted styling). Users see all their
+          features regardless of state. This is consistent with how Blocked features
+          are already shown in the list.
+        selected: true
+      - option: 'Filter out pending features by default'
+        description: >
+          Pending features are hidden from feat ls unless a --pending or --all flag is
+          provided. Reduces clutter for users with many pending features, but risks
+          confusion when features seem to disappear after creation.
+        selected: false
+    selectionRationale: >
+      Including pending features in the default listing is recommended because it matches
+      the existing behavior for Blocked features (always visible). Hiding features after
+      creation would confuse users and violate the principle of least surprise. Pending is
+      a user-chosen state, not an internal detail to hide.
+    answer: 'Include pending features in default output'
+
+  - question: "How should the Web UI render the pending state — as a new FeatureNodeState or reuse 'blocked'?"
+    resolved: true
+    options:
+      - option: "New 'pending' FeatureNodeState (Recommended)"
+        description: >
+          Add 'pending' as a new value to the FeatureNodeState union type with its own
+          icon (e.g. Clock/Pause), color scheme (e.g. slate/neutral), and label ('Pending').
+          The feature node shows a 'Start' action button. This clearly distinguishes
+          user-deferred features from parent-blocked features.
+        selected: true
+      - option: "Reuse 'blocked' state with different label"
+        description: >
+          Map Pending lifecycle to the existing 'blocked' FeatureNodeState but display a
+          different label. Saves adding a new state but conflates two distinct concepts:
+          user-deferred (pending) vs dependency-blocked. Users cannot visually distinguish them.
+        selected: false
+    selectionRationale: >
+      A new 'pending' state is recommended because Pending and Blocked are semantically
+      different — Pending is user-intentional while Blocked is system-imposed. Distinct
+      visual treatment helps users understand their feature board at a glance. The cost
+      of adding one more state to the union type and config is minimal.
+    answer: "New 'pending' FeatureNodeState"
+
+  - question: "Should the Web UI provide a 'Start' action button on pending feature nodes?"
+    resolved: true
+    options:
+      - option: 'Yes, inline Start button on the feature node (Recommended)'
+        description: >
+          The pending feature node renders a prominent 'Start' action button (similar to
+          how error nodes have a 'Retry' button). Clicking it calls the start API endpoint
+          and transitions the feature to running. This provides the most discoverable UX.
+        selected: true
+      - option: 'Start via sidebar/context menu only'
+        description: >
+          No inline button on the node itself. Users must open the feature sidebar or
+          right-click context menu to find the Start action. Less discoverable but keeps
+          the node card clean.
+        selected: false
+    selectionRationale: >
+      An inline Start button is recommended for discoverability. The whole point of the
+      pending state is that the user needs to take action to start the feature — making
+      that action prominent and one-click is essential UX. This follows the pattern of
+      the Retry button on error nodes and the Approve button on action-required nodes.
+    answer: 'Yes, inline Start button on the feature node'
+
+  - question: "Should starting a pending feature with a --parent dependency validate the parent's lifecycle gate?"
+    resolved: true
+    options:
+      - option: 'Yes, validate parent gate on start (Recommended)'
+        description: >
+          When starting a pending feature that has a parentId, check if the parent is in
+          POST_IMPLEMENTATION. If not, transition to Blocked instead of starting. This
+          respects the existing dependency model — pending is about deferring agent start,
+          not bypassing dependency gates.
+        selected: true
+      - option: 'No, start unconditionally'
+        description: >
+          Starting always transitions to the active lifecycle regardless of parent state.
+          The user explicitly chose to start, so honor their intent. Risk: could start a
+          child feature before its parent has reached the implementation gate, breaking
+          the dependency contract.
+        selected: false
+    selectionRationale: >
+      Validating the parent gate on start is recommended because the dependency model
+      exists for a reason — child features should not begin work before their parent
+      reaches implementation. Pending defers the agent, but does not exempt a feature
+      from dependency constraints. If the parent is not ready, the feature transitions
+      to Blocked (with a clear message) rather than silently violating the contract.
+    answer: 'Yes, validate parent gate on start'
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  Currently, when a user runs `shep feat new "description"`, the system immediately
+  creates the feature record, initializes the git worktree and spec directory, and
+  spawns the agent to begin autonomous SDLC processing. There is no way to create
+  a feature and defer agent execution — the only exception is the `Blocked` state,
+  which requires a `--parent` dependency and is not user-controllable.
+
+  Users need the ability to draft features without triggering agent work. Use cases
+  include: writing feature specs ahead of time, batching feature creation for later
+  execution, reviewing the generated metadata/worktree before committing agent
+  resources, or simply staging work during planning sessions.
+
+  ## Success Criteria
+
+  - [ ] `shep feat new "description" --pending` creates a fully-initialized feature (with worktree, spec dir, metadata) in SdlcLifecycle.Pending without spawning an agent
+  - [ ] `shep feat start <fid>` transitions a Pending feature to its active lifecycle (Requirements or Implementation) and spawns the agent
+  - [ ] `shep feat start` on a non-Pending feature returns a clear error message
+  - [ ] `shep feat start` on a Pending feature with unmet parent dependency transitions to Blocked instead of starting
+  - [ ] `shep feat ls` displays Pending features with a distinct 'Pending' status label
+  - [ ] Web UI renders Pending features with a unique visual state (icon, color, label) distinct from Blocked
+  - [ ] Web UI feature node for Pending features shows a clickable 'Start' action button
+  - [ ] Clicking 'Start' in the Web UI transitions the feature and spawns the agent via the API
+  - [ ] The SdlcLifecycle.Pending enum value exists in TypeSpec and the generated output
+  - [ ] The new StartFeatureUseCase is injectable via tsyringe and follows existing use case patterns
+  - [ ] All new code paths have unit test coverage (RED-GREEN-REFACTOR TDD)
+  - [ ] Integration tests verify the full pending-to-running flow (create with --pending, then start)
+  - [ ] `pnpm validate` passes with zero errors
+  - [ ] Feature node Storybook stories include the pending state
+
+  ## Functional Requirements
+
+  - **FR-1: Pending lifecycle enum value** — Add `SdlcLifecycle.Pending` to the TypeSpec
+    enum in `tsp/common/enums/lifecycle.tsp`. The value represents a user-deferred state
+    where the feature is fully initialized but the agent has not been spawned. Compile
+    with `pnpm tsp:compile` to regenerate `domain/generated/output.ts`.
+
+  - **FR-2: --pending flag on `shep feat new`** — Add an optional `--pending` boolean
+    flag to the `feat new` CLI command. When provided, the `CreateFeatureInput.pending`
+    field is set to `true`. The flag is mutually exclusive with `--parent` (a pending
+    feature with a parent uses the existing Blocked flow, not Pending).
+
+  - **FR-3: Pending flag in CreateFeatureInput** — Add `pending?: boolean` to the
+    `CreateFeatureInput` interface in `types.ts`. When `pending` is true and no `parentId`
+    is set, `createRecord()` sets `initialLifecycle = SdlcLifecycle.Pending` and
+    `shouldSpawn = false`.
+
+  - **FR-4: Pending creation flow** — When `pending` is true, the feature follows the
+    full two-phase creation (Phase 1: DB record, Phase 2: metadata + worktree + spec init)
+    but skips agent spawning (shouldSpawn = false). The feature record has lifecycle =
+    Pending, a valid worktree, spec directory, branch, and agentRunId (in pending status).
+
+  - **FR-5: StartFeatureUseCase** — Create a new use case at
+    `packages/core/src/application/use-cases/features/start-feature.use-case.ts` that:
+    (a) Finds the feature by ID (with prefix matching).
+    (b) Validates that `feature.lifecycle === SdlcLifecycle.Pending` — throws if not.
+    (c) If feature has a parentId, checks parent lifecycle against POST_IMPLEMENTATION gate.
+        If parent is not ready, transitions feature to Blocked and returns without spawning.
+    (d) Transitions lifecycle to Requirements (or Implementation if feature.fast is true).
+    (e) Finds the existing AgentRun record (feature.agentRunId).
+    (f) Spawns the agent process via IFeatureAgentProcessService.spawn() with the
+        feature's worktree path, spec path, and configuration.
+    (g) Returns the updated feature and agent run.
+
+  - **FR-6: `shep feat start <fid>` CLI command** — Create a new Commander.js subcommand
+    at `src/presentation/cli/commands/feat/start.command.ts` that accepts a single feature
+    ID argument, invokes StartFeatureUseCase, and displays the result. Show a spinner during
+    execution. On success, print the feature name, branch, and "Agent started" message.
+    On error, print a descriptive error message and exit with code 1.
+
+  - **FR-7: Web API endpoint for starting a feature** — Add an API route (or extend the
+    existing feature action API) that accepts a feature ID and invokes
+    StartFeatureUseCase. Return the updated feature as JSON. The endpoint should emit
+    the appropriate SSE notification event so the Web UI updates in real time.
+
+  - **FR-8: Pending UI state in Web UI** — Add `'pending'` to the `FeatureNodeState`
+    union type. Add a corresponding entry in `featureNodeStateConfig` with:
+    - Icon: a clock or pause icon (e.g. `Clock` or `Pause` from lucide-react)
+    - Border/color scheme: slate/neutral tones to indicate an inactive but intentional state
+    - Label: 'Pending'
+    - showProgressBar: false
+
+  - **FR-9: Pending state derivation** — Update `deriveNodeState()` in
+    `derive-feature-state.ts` to return `'pending'` when
+    `feature.lifecycle === SdlcLifecycle.Pending`. This check should be placed after
+    Deleting and before Blocked in the priority chain (Pending is user-intentional and
+    should be visually distinct from Blocked).
+
+  - **FR-10: Pending lifecycle phase mapping** — Add `Pending` to the
+    `sdlcLifecycleMap` and `phaseNameToLifecycle` in `derive-feature-state.ts`,
+    mapping to an appropriate UI phase (e.g. 'requirements' since no work has begun).
+
+  - **FR-11: Start action on feature node** — When the feature node is in the
+    `'pending'` state, render a prominent 'Start' action button on the node card.
+    Clicking the button calls the start API endpoint and optimistically transitions
+    the node to the 'running' state.
+
+  - **FR-12: Pending status in `shep feat ls`** — Display features with lifecycle
+    Pending using a distinct status label (e.g. 'Pending' with muted/gray styling).
+    The feature should appear in the standard listing alongside active and blocked features.
+
+  - **FR-13: Pending flag passthrough in Web UI creation flow** — The Web UI feature
+    creation form/dialog should support passing a `pending` flag to the create API
+    endpoint. This enables creating pending features from the Web UI, not just the CLI.
+
+  - **FR-14: Pending features excluded from lifecycle gate sets** — Ensure that
+    `Pending` is not included in `POST_IMPLEMENTATION` or any other lifecycle gate set
+    in `lifecycle-gates.ts`. Pending features should not unblock child features.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1: No database migration** — The `lifecycle` column in SQLite is TEXT with
+    no CHECK constraint. Adding `SdlcLifecycle.Pending` requires no schema migration.
+    Verify this assumption in implementation.
+
+  - **NFR-2: Start latency** — `shep feat start` should complete in under 2 seconds
+    for a pending feature (agent spawn is async — the command returns after initiating
+    the spawn, not after agent completion).
+
+  - **NFR-3: Backward compatibility** — Existing features and workflows must not be
+    affected. The `--pending` flag is opt-in. Omitting it preserves current behavior
+    (immediate agent spawn). No existing enum values, lifecycle transitions, or gate
+    sets are modified.
+
+  - **NFR-4: Idempotency** — Calling `shep feat start` on an already-started feature
+    (non-Pending lifecycle) must return a clear error, not silently re-spawn the agent
+    or corrupt state.
+
+  - **NFR-5: TDD compliance** — All new code paths must follow RED-GREEN-REFACTOR.
+    Unit tests for StartFeatureUseCase, updated tests for CreateFeatureUseCase with
+    pending flag, UI state derivation tests for the pending state, and integration
+    tests for the full pending-to-running flow.
+
+  - **NFR-6: Storybook coverage** — The pending FeatureNodeState must have a
+    colocated Storybook story demonstrating the visual appearance and Start button
+    interaction.
+
+  - **NFR-7: Clean Architecture compliance** — StartFeatureUseCase lives in the
+    application layer. It depends only on port interfaces (IFeatureRepository,
+    IAgentRunRepository, IFeatureAgentProcessService, IWorktreeService). No direct
+    infrastructure imports.
+
+  - **NFR-8: Consistent error messages** — All error cases (feature not found,
+    feature not in Pending state, missing spec path, missing agent run) must produce
+    human-readable error messages that help the user understand what went wrong and
+    what to do next.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Should pending features run Phase 2 (metadata, worktree, spec) on creation or defer until start? | Run Phase 2 on creation | Mirrors proven Blocked pattern, keeps StartFeatureUseCase simple, provides instant start UX |
+  | 2 | What lifecycle should a pending feature transition to when started? | Requirements (or Implementation if fast) | Matches normal creation flow; Started state is reserved for parent-child unblocking |
+  | 3 | Should `shep feat start` accept multiple feature IDs? | Single ID only | Matches existing single-ID patterns (resume, approve, reject); batch can be a follow-up |
+  | 4 | Should pending features appear in default `shep feat ls` output? | Yes, include them | Matches Blocked feature visibility; hiding would confuse users |
+  | 5 | How should Web UI render pending — new state or reuse blocked? | New 'pending' FeatureNodeState | Pending (user-deferred) and Blocked (system-imposed) are semantically different |
+  | 6 | Should the Web UI show an inline Start button on pending nodes? | Yes, inline Start button | Essential discoverability; follows Retry/Approve button patterns |
+  | 7 | Should starting a pending feature with a parent validate the parent gate? | Yes, validate parent gate | Pending defers the agent, not the dependency contract; transition to Blocked if parent not ready |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `tsp/common/enums/lifecycle.tsp` | High | Add `Pending` enum value to SdlcLifecycle |
+  | `packages/core/src/domain/generated/output.ts` | High | Regenerated from TypeSpec — will include new enum value |
+  | `packages/core/src/domain/lifecycle-gates.ts` | Low | Verify Pending is not in any gate set; add comment for clarity |
+  | `packages/core/src/application/use-cases/features/create/create-feature.use-case.ts` | High | Add `pending` flag handling: set lifecycle to Pending, set shouldSpawn=false |
+  | `packages/core/src/application/use-cases/features/create/types.ts` | Medium | Add `pending?: boolean` to CreateFeatureInput |
+  | New: `packages/core/src/application/use-cases/features/start-feature.use-case.ts` | High | New use case to transition Pending → active and spawn agent |
+  | `src/presentation/cli/commands/feat/new.command.ts` | Medium | Add `--pending` flag |
+  | New: `src/presentation/cli/commands/feat/start.command.ts` | High | New CLI command `shep feat start <fid>` |
+  | `src/presentation/web/components/common/feature-node/feature-node-state-config.ts` | Medium | Add `pending` to FeatureNodeState type and config |
+  | `src/presentation/web/components/common/feature-node/derive-feature-state.ts` | Medium | Handle SdlcLifecycle.Pending → UI state 'pending' |
+  | `src/presentation/web/components/common/feature-node/feature-node.tsx` | Medium | Render pending state with icon/badge and Start action button |
+  | `src/presentation/cli/commands/feat/ls.command.ts` | Low | Display pending features with appropriate formatting |
+  | Web API routes (feature creation, start action) | Medium | Pass through pending flag on create; new start endpoint |
+  | Tests (unit + integration) | High | TDD for new use case, updated creation flow, UI state derivation |
+  | Storybook stories | Medium | New story for pending feature node state |
+
+  ## Dependencies
+
+  - **Existing `Blocked` state pattern**: The `shouldSpawn = false` path in
+    `CreateFeatureUseCase` is the exact pattern to reuse for Pending.
+  - **ResumeFeatureUseCase**: The `StartFeatureUseCase` will follow a similar
+    pattern — find feature, validate state, spawn worker — but simpler since
+    it uses the existing AgentRun rather than creating a new one.
+  - **TypeSpec compiler**: `pnpm tsp:compile` must be run after editing `.tsp` files.
+  - **No database migration required**: The `lifecycle` column is TEXT with no
+    constraints, so adding a new string value requires no schema change.
+  - **FeatureNodeState union type**: Adding 'pending' requires updating all
+    exhaustive switch/map statements that handle FeatureNodeState.
+
+  ## Size Estimate
+
+  **M** — This is a medium-sized feature because:
+  - The core domain change is small (one new enum value).
+  - The `shouldSpawn = false` pattern already exists for `Blocked` features.
+  - A new `StartFeatureUseCase` is needed but closely mirrors the existing
+    `ResumeFeatureUseCase` (simpler, since it reuses the existing AgentRun).
+  - CLI changes are straightforward (one new flag, one new command).
+  - UI changes require a new visual state but follow established patterns.
+  - The main effort is in thorough TDD coverage across all layers.

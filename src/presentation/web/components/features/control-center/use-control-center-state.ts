@@ -14,6 +14,7 @@ import {
 } from '@/lib/layout-with-dagre';
 import { deleteFeature } from '@/app/actions/delete-feature';
 import { resumeFeature } from '@/app/actions/resume-feature';
+import { startFeature } from '@/app/actions/start-feature';
 import { addRepository } from '@/app/actions/add-repository';
 import { deleteRepository } from '@/app/actions/delete-repository';
 import { getFeatureMetadata } from '@/app/actions/get-feature-metadata';
@@ -40,6 +41,7 @@ export interface ControlCenterState {
   handleLayout: (direction: LayoutDirection) => void;
   handleDeleteFeature: (featureId: string, cleanup?: boolean, cascadeDelete?: boolean) => void;
   handleRetryFeature: (featureId: string) => void;
+  handleStartFeature: (featureId: string) => void;
   handleDeleteRepository: (repositoryId: string) => Promise<void>;
   createFeatureNode: (
     sourceNodeId: string | null,
@@ -327,6 +329,31 @@ export function useControlCenterState(
     [updateFeature, beginMutation, endMutation]
   );
 
+  const handleStartFeature = useCallback(
+    (featureId: string) => {
+      const nodeId = `feat-${featureId}`;
+      // Optimistic: switch to running state
+      beginMutation();
+      updateFeature(nodeId, { state: 'running' });
+
+      startFeature(featureId)
+        .then((result) => {
+          if (result.error) {
+            updateFeature(nodeId, { state: 'pending' });
+            toast.error(result.error);
+          } else {
+            toast.success('Feature started');
+          }
+        })
+        .catch(() => {
+          updateFeature(nodeId, { state: 'pending' });
+          toast.error('Failed to start feature');
+        })
+        .finally(() => endMutation());
+    },
+    [updateFeature, beginMutation, endMutation]
+  );
+
   const handleDeleteFeature = useCallback(
     (featureId: string, cleanup?: boolean, cascadeDelete?: boolean) => {
       const nodeId = `feat-${featureId}`;
@@ -531,6 +558,7 @@ export function useControlCenterState(
     handleLayout,
     handleDeleteFeature,
     handleRetryFeature,
+    handleStartFeature,
     handleDeleteRepository,
     createFeatureNode,
     getFeatureRepositoryPath,
