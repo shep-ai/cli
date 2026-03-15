@@ -38,6 +38,20 @@ export class SQLiteMigrationStorage implements UmzugStorage<Database.Database> {
   }
 
   /**
+   * Mapping of legacy migration names to the tables they create.
+   * Used by verifyBootstrappedMigrations to detect migrations that were
+   * marked as executed by the bootstrap seeder but never actually ran.
+   */
+  private static readonly MIGRATION_TABLE_MAP: Record<string, string> = {
+    '001-create-settings-table': 'settings',
+    '003-create-agent-runs': 'agent_runs',
+    '004-create-features': 'features',
+    '008-add-approval-gates-and-phase-timings': 'phase_timings',
+    '015-create-repositories-and-backfill': 'repositories',
+    '033-create-pr-sync-lock': 'pr_sync_lock',
+  };
+
+  /**
    * Returns the names of all executed migrations, sorted lexicographically.
    */
   async executed(_meta: Pick<MigrationParams<Database.Database>, 'context'>): Promise<string[]> {
@@ -116,5 +130,36 @@ export class SQLiteMigrationStorage implements UmzugStorage<Database.Database> {
     });
 
     seedAll();
+
+    // After seeding, verify that expected schema artifacts actually exist.
+    // If a migration was inserted into the legacy list after the DB was already
+    // at a higher user_version, its DDL never ran but the seeder marked it done.
+    const seededCount = Math.min(userVersion, legacyMigrationNames.length);
+    const seededNames = legacyMigrationNames.slice(0, seededCount);
+    this.verifyBootstrappedMigrations(seededNames);
+  }
+
+  /**
+   * Checks that each bootstrapped migration's expected table actually exists.
+   * Only checks migrations that were seeded (present in seededNames).
+   * If a table is missing, removes the migration record from umzug_migrations
+   * so that umzug will re-run it on the next up() call.
+   */
+  private verifyBootstrappedMigrations(seededNames: string[]): void {
+    const seededSet = new Set(seededNames);
+    const tableCheck = this.db.prepare(
+      "SELECT COUNT(*) as count FROM sqlite_master WHERE type='table' AND name=?"
+    );
+
+    for (const [migrationName, tableName] of Object.entries(
+      SQLiteMigrationStorage.MIGRATION_TABLE_MAP
+    )) {
+      if (!seededSet.has(migrationName)) continue;
+
+      const result = tableCheck.get(tableName) as { count: number };
+      if (result.count === 0) {
+        this.db.prepare('DELETE FROM umzug_migrations WHERE name = ?').run(migrationName);
+      }
+    }
   }
 }

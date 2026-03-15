@@ -926,5 +926,33 @@ describe('SQLite Migrations', () => {
       expect(getSchemaVersion(db)).toBe(LATEST_SCHEMA_VERSION);
       expect(getAppliedMigrations(db)).toHaveLength(34);
     });
+
+    it('should repair missing pr_sync_lock table after bootstrap gap', async () => {
+      // Simulate the exact production scenario:
+      // 1. DB was at user_version=34 with all tables except pr_sync_lock
+      //    (migration 033 was added after the DB was already at version 34)
+      // 2. umzug transition: bootstrap seeds all 34 as "done"
+      // 3. Verification detects pr_sync_lock is missing, unlogs 033
+      // 4. umzug.up() re-runs migration 033, creating the table
+
+      // Step 1: Run all migrations to get the full schema
+      await runSQLiteMigrations(db);
+
+      // Step 2: Drop pr_sync_lock and umzug_migrations to simulate the gap
+      db.exec('DROP TABLE pr_sync_lock');
+      db.exec('DROP TABLE umzug_migrations');
+      // user_version stays at 34 (simulating the pre-umzug state)
+
+      // Step 3 & 4: Re-run migrations — should bootstrap, verify, and repair
+      await runSQLiteMigrations(db);
+
+      // pr_sync_lock should now exist
+      expect(tableExists(db, 'pr_sync_lock')).toBe(true);
+      // All 34 migrations should be tracked
+      expect(getAppliedMigrations(db)).toHaveLength(34);
+      // user_version may be 33 (set by re-run of 033) since 034 was already
+      // tracked and didn't re-run. With umzug, user_version is a legacy artifact.
+      expect(getSchemaVersion(db)).toBeGreaterThanOrEqual(33);
+    });
   });
 });
