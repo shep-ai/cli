@@ -1,8 +1,8 @@
 'use server';
 
-import { getSQLiteConnection } from '@shepai/core/infrastructure/persistence/sqlite/connection';
+import { getDb } from '@/lib/server-db';
 
-export const PAGE_SIZE = 50;
+const PAGE_SIZE = 50;
 
 export interface GetTableRowsResult {
   columns?: string[];
@@ -22,7 +22,7 @@ function formatCellValue(value: unknown): unknown {
 
 export async function getTableRows(tableName: string, page = 0): Promise<GetTableRowsResult> {
   try {
-    const db = await getSQLiteConnection();
+    const db = await getDb();
 
     // Validate table name against sqlite_master (prevents SQL injection)
     const tableExists = db

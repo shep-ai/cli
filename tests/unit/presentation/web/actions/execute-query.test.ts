@@ -3,18 +3,20 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const mockPrepare = vi.fn();
-const mockGetSQLiteConnection = vi.fn();
+const mockGetDb = vi.fn();
 
-vi.mock('@shepai/core/infrastructure/persistence/sqlite/connection', () => ({
-  getSQLiteConnection: (...args: unknown[]) => mockGetSQLiteConnection(...args),
+vi.mock('../../../../../src/presentation/web/lib/server-db.js', () => ({
+  getDb: (...args: unknown[]) => mockGetDb(...args),
 }));
 
-const { executeQuery, isWriteQuery } = await import(
+const { executeQuery } = await import(
   '../../../../../src/presentation/web/app/actions/execute-query.js'
 );
 
+const { isWriteQuery } = await import('../../../../../src/presentation/web/lib/sql-validation.js');
+
 function createMockDb() {
-  mockGetSQLiteConnection.mockResolvedValue({ prepare: mockPrepare });
+  mockGetDb.mockResolvedValue({ prepare: mockPrepare });
 }
 
 describe('executeQuery server action', () => {
@@ -57,7 +59,7 @@ describe('executeQuery server action', () => {
 
     expect(result.error).toContain('Write operations are not allowed');
     expect(result.rows).toBeUndefined();
-    expect(mockGetSQLiteConnection).not.toHaveBeenCalled();
+    expect(mockGetDb).not.toHaveBeenCalled();
   });
 
   it('rejects DELETE statements', async () => {

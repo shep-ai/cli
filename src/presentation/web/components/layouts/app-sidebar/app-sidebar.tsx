@@ -3,7 +3,7 @@
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import type { Route } from 'next';
-import { Home, Moon, Sun, Volume2, VolumeOff, Wrench, Puzzle, Settings } from 'lucide-react';
+import { Home, Moon, Sun, Volume2, VolumeOff, Wrench, Puzzle, Settings, Database } from 'lucide-react';
 import {
   Sidebar,
   SidebarHeader,
@@ -123,6 +123,14 @@ export function AppSidebar({
               label="Skills"
               href="/skills"
               active={pathname === '/skills'}
+            />
+          ) : null}
+          {featureFlags.databaseBrowser ? (
+            <SidebarNavItem
+              icon={Database}
+              label="Database"
+              href="/database"
+              active={pathname === '/database'}
             />
           ) : null}
         </SidebarMenu>

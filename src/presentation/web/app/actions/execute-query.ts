@@ -1,6 +1,6 @@
 'use server';
 
-import { getSQLiteConnection } from '@shepai/core/infrastructure/persistence/sqlite/connection';
+import { getDb } from '@/lib/server-db';
 
 export interface ExecuteQueryResult {
   columns?: string[];
@@ -27,7 +27,7 @@ function stripSqlComments(sql: string): string {
     .trim();
 }
 
-export function isWriteQuery(sql: string): boolean {
+function isWriteQuery(sql: string): boolean {
   const normalized = stripSqlComments(sql);
   return WRITE_KEYWORDS_PATTERN.test(normalized) || CTE_WRITE_PATTERN.test(normalized);
 }
@@ -53,7 +53,7 @@ export async function executeQuery(sql: string): Promise<ExecuteQueryResult> {
   }
 
   try {
-    const db = await getSQLiteConnection();
+    const db = await getDb();
     const rows = db.prepare(trimmed).all() as Record<string, unknown>[];
 
     const columns = rows.length > 0 ? Object.keys(rows[0]) : [];

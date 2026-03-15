@@ -1,6 +1,6 @@
 'use server';
 
-import { getSQLiteConnection } from '@shepai/core/infrastructure/persistence/sqlite/connection';
+import { getDb } from '@/lib/server-db';
 
 export interface TableInfo {
   name: string;
@@ -14,7 +14,7 @@ export interface ListTablesResult {
 
 export async function listTables(): Promise<ListTablesResult> {
   try {
-    const db = await getSQLiteConnection();
+    const db = await getDb();
 
     const tables = db
       .prepare(
