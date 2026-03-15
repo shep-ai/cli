@@ -125,6 +125,21 @@ describe('CLI: install command', () => {
       },
       30000
     );
+
+    it.concurrent(
+      'should print installation instructions for gemini-cli with correct npm package',
+      async () => {
+        const result = await runCliAsync('install gemini-cli --how');
+        expect(result.success).toBe(true);
+        expect(result.stdout).toContain('Installation Instructions for Gemini CLI');
+        expect(result.stdout).toContain('Binary:');
+        expect(result.stdout).toContain('gemini');
+        expect(result.stdout).toContain('npm install -g @google/gemini-cli');
+        expect(result.stdout).toContain('Package Manager');
+        expect(result.stdout).toContain('--version');
+      },
+      15000
+    );
   });
 
   it('should show tool listing when no argument given', () => {
