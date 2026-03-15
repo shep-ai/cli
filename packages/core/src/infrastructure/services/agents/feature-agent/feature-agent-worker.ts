@@ -24,7 +24,7 @@ import type { IAgentExecutorProvider } from '@/application/ports/output/agents/a
 import type { IAgentExecutorFactory } from '@/application/ports/output/agents/agent-executor-factory.interface.js';
 import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
 import type { IGitPrService } from '@/application/ports/output/services/git-pr-service.interface.js';
-import { AgentRunStatus, type AgentType } from '@/domain/generated/output.js';
+import { AgentRunStatus, SdlcLifecycle, type AgentType } from '@/domain/generated/output.js';
 import { initializeSettings } from '@/infrastructure/services/settings.service.js';
 import { InitializeSettingsUseCase } from '@/application/use-cases/settings/initialize-settings.use-case.js';
 import { setHeartbeatContext } from './heartbeat.js';
@@ -415,6 +415,25 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
       completedAt: failedAt,
       updatedAt: failedAt,
     });
+
+    // Reset the feature lifecycle to Started so it doesn't appear stuck
+    // in a running phase (e.g., Requirements, Implementation) when the agent has failed.
+    try {
+      const feature = await featureRepository.findById(args.featureId);
+      if (feature && feature.lifecycle !== SdlcLifecycle.Maintain) {
+        await featureRepository.update({
+          ...feature,
+          lifecycle: SdlcLifecycle.Started,
+          updatedAt: failedAt,
+        });
+        log('Feature lifecycle reset to Started');
+      }
+    } catch (resetErr) {
+      log(
+        `Failed to reset feature lifecycle: ${resetErr instanceof Error ? resetErr.message : String(resetErr)}`
+      );
+    }
+
     await recordLifecycleEvent('run:failed');
     log('Run marked as failed');
   }

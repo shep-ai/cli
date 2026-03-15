@@ -644,4 +644,37 @@ describe('ClaudeCodeExecutorService', () => {
       }
     });
   });
+
+  // -------------------------------------------------------------------------
+  // ENOENT error handling (#356 — meaningful error when CLI not found)
+  // -------------------------------------------------------------------------
+
+  describe('ENOENT error handling', () => {
+    it('should reject with user-friendly error when claude CLI is not found', async () => {
+      const mockProc = createMockChildProcess();
+      const mockSpawn = vi.fn().mockReturnValue(mockProc) as unknown as SpawnFunction;
+      const executor = new ClaudeCodeExecutorService(mockSpawn);
+
+      const promise = executor.execute('test prompt');
+
+      // Simulate ENOENT error from spawn
+      const enoentError = new Error('spawn claude ENOENT') as Error & { code: string };
+      enoentError.code = 'ENOENT';
+      mockProc.emit('error', enoentError);
+
+      await expect(promise).rejects.toThrow(/Claude Code CLI.*not found/);
+    });
+
+    it('should pass through non-ENOENT errors unchanged', async () => {
+      const mockProc = createMockChildProcess();
+      const mockSpawn = vi.fn().mockReturnValue(mockProc) as unknown as SpawnFunction;
+      const executor = new ClaudeCodeExecutorService(mockSpawn);
+
+      const promise = executor.execute('test prompt');
+
+      mockProc.emit('error', new Error('some other error'));
+
+      await expect(promise).rejects.toThrow('some other error');
+    });
+  });
 });
