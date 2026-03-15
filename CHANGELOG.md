@@ -1,3 +1,9 @@
+## [1.112.1](https://github.com/shep-ai/cli/compare/v1.112.0...v1.112.1) (2026-03-15)
+
+### Bug Fixes
+
+- **domain:** add post-bootstrap schema verification to repair missing tables ([#347](https://github.com/shep-ai/cli/issues/347)) ([d042b14](https://github.com/shep-ai/cli/commit/d042b1496fac8b3ace561ad7cc6e63b04cfe40dc))
+
 # [1.112.0](https://github.com/shep-ai/cli/compare/v1.111.0...v1.112.0) (2026-03-14)
 
 ### Features
