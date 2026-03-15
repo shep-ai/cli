@@ -1,0 +1,406 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: database-management-ui
+summary: >
+  Technical research for a phpMyAdmin-style database browser in the Shep web UI.
+  Key decisions: use getSQLiteConnection() directly in server actions (bypassing
+  domain layer since this is a pure debugging tool), add shadcn/ui Table component
+  (no npm dependency needed), use regex-based SQL validation with server-side
+  defense-in-depth, and structure as four focused server actions with a single
+  client page component managing tab state.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - better-sqlite3 (existing - synchronous SQLite driver, singleton connection)
+  - Next.js App Router (existing - server actions, server components)
+  - shadcn/ui Table (to be added via CLI - no npm dependency, just file component)
+  - shadcn/ui Tabs, Card, ScrollArea, Input, Button, Badge (existing)
+  - lucide-react Database icon (existing)
+  - Tailwind CSS (existing)
+  - React useState/useCallback (existing)
+
+relatedLinks: []
+
+# Structured technology decisions
+decisions:
+  - title: 'Database Access Pattern'
+    chosen: 'Direct getSQLiteConnection() in server actions'
+    rejected:
+      - 'New domain use case + repository — Overkill for a debugging/inspection tool. The database browser operates on raw SQL and arbitrary tables, which does not fit the domain-model-driven repository pattern (typed entities, mappers, etc.). Adding use cases and repositories would create unnecessary abstraction for what is essentially a raw SQL pass-through.'
+      - 'New infrastructure service registered in DI — Adds DI registration complexity for something that only the web UI uses. The existing server actions already demonstrate direct infrastructure access for utility operations (e.g., load-settings.ts accesses file system directly).'
+    rationale: >
+      The database browser is a presentation-layer debugging tool, not a domain
+      operation. It operates on raw SQL across arbitrary tables — the exact opposite
+      of what the repository pattern is designed for. getSQLiteConnection() is already
+      the established pattern for raw DB access (used in repositories, migrations,
+      connection.ts). Server actions will import it directly, matching the pattern
+      used by load-settings.ts which also accesses infrastructure directly for
+      utility operations. This keeps the feature self-contained in the presentation
+      layer without polluting domain or application layers.
+
+  - title: 'Table Rendering Approach'
+    chosen: 'Add shadcn/ui Table component (file-based, no npm dependency)'
+    rejected:
+      - 'Raw HTML table with Tailwind — Works but inconsistent with the codebase convention of using shadcn/ui primitives for all UI elements. Would require manual styling that shadcn/ui already provides with proper dark mode, spacing, and accessibility.'
+      - 'Install @tanstack/react-table (TanStack Table) — Adds an external npm dependency, violating NFR-7. The database browser needs simple column/row rendering, not the advanced features TanStack provides (sorting, filtering, grouping, virtualization). Over-engineered for this use case.'
+    rationale: >
+      The shadcn/ui Table component is a thin wrapper around HTML table elements
+      with Tailwind styling — it adds no npm dependencies, just a file at
+      components/ui/table.tsx. This follows the codebase pattern where all 43
+      existing UI components are shadcn/ui primitives. The component provides
+      Table, TableHeader, TableBody, TableRow, TableHead, TableCell — exactly
+      what we need. Run `npx shadcn@latest add table` to install.
+
+  - title: 'SQL Query Validation Strategy'
+    chosen: 'Regex-based validation with server-side defense-in-depth'
+    rejected:
+      - 'Client-side only validation — Insufficient for security. Users could bypass client validation by calling server actions directly. NFR-2 explicitly requires defense in depth with both client and server validation.'
+      - 'SQL AST parser (e.g., sql-parser-cst, node-sql-parser) — Adds an external dependency (violates NFR-7) for something that can be adequately handled with regex. The validation requirement is simple: reject statements starting with INSERT, UPDATE, DELETE, DROP, ALTER, CREATE. A regex handles this reliably for SQLite SQL.'
+    rationale: >
+      Two-layer validation: (1) Client-side regex check before submission provides
+      instant feedback, (2) Server-side regex check in the server action provides
+      security. The regex strips comments and leading whitespace, then checks if the
+      normalized statement starts with a disallowed keyword. This is sufficient
+      because SQLite has a well-defined syntax where the first keyword determines
+      the statement type. Edge cases like CTEs (WITH ... INSERT) are also caught
+      by checking for write keywords anywhere after WITH. The pattern:
+      /^\s*(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|ATTACH|DETACH|REINDEX|VACUUM)\b/i
+
+  - title: 'Server Action Architecture'
+    chosen: 'Four focused server actions (listTables, getTableRows, getTableSchema, executeQuery)'
+    rejected:
+      - 'Single monolithic server action with operation type parameter — Violates single responsibility. Makes the action hard to test and type. Different operations have different input/output shapes that are better expressed as separate functions.'
+      - 'REST API routes instead of server actions — Breaks the codebase convention where all data fetching uses server actions (not API routes). The only API routes in the codebase are for SSE streaming (agent-events) and health checks.'
+    rationale: >
+      Four server actions match the four distinct database operations, each with
+      clean input/output types. This follows the existing pattern where each server
+      action in app/actions/ handles one operation (e.g., load-settings.ts,
+      add-repository.ts, get-feature-metadata.ts). Each action:
+      (1) list-tables.ts — returns {name, rowCount}[]
+      (2) get-table-rows.ts — takes (table, page) returns {columns, rows, totalRows}
+      (3) get-table-schema.ts — takes (table) returns PRAGMA table_info results
+      (4) execute-query.ts — takes (sql) returns {columns, rows} or {error}
+
+  - title: 'Page and Component Architecture'
+    chosen: 'Single route with client-side tab state, feature components folder'
+    rejected:
+      - 'Nested routes per table (/database/[tableName]) — Adds routing complexity for negligible benefit. Deep linking to specific tables is low value for a local debugging tool. Would cause full page re-renders on table switch instead of instant client-side state changes.'
+      - 'Flat component structure in page file — Violates the feature folder pattern used by settings, skills, and tools. Would create an unmaintainably large single file.'
+    rationale: >
+      Follows the established feature component pattern: page at app/database/page.tsx
+      (server component that fetches initial table list), client wrapper at
+      components/features/database/database-page-client.tsx (manages selected table,
+      active tab, pagination state). Sub-components: TableList, RowBrowser,
+      SchemaViewer, QueryRunner — each in their own file with colocated stories.
+      This mirrors the settings page pattern (settings-page-client.tsx with
+      sub-sections) and skills page pattern (skills-page-client.tsx with sub-components).
+
+  - title: 'Pagination Implementation'
+    chosen: 'LIMIT/OFFSET with ROWID-based queries and server-side page calculation'
+    rejected:
+      - 'Cursor-based pagination (keyset) — More efficient for large tables but adds complexity. Requires a stable sort column and breaks if rows are inserted/deleted between pages. Overkill for a read-only debugging tool where OFFSET performance is acceptable up to 100K rows (NFR-1).'
+      - 'Client-side pagination (fetch all, paginate in browser) — Catastrophic for large tables. A table with 100K rows would transfer all data to the client, consuming memory and bandwidth. Completely unacceptable.'
+    rationale: >
+      LIMIT/OFFSET is the simplest approach and meets the 200ms performance target
+      for tables up to 100K rows (NFR-1). SQLite OFFSET is efficient enough because
+      the database is local (no network latency) and SQLite uses ROWID internally
+      for fast row access. The query pattern: SELECT * FROM <table> LIMIT 50
+      OFFSET <page * 50>. Total row count is fetched once via SELECT COUNT(*).
+
+  - title: 'Table Name Sanitization in Dynamic SQL'
+    chosen: 'Allowlist validation against sqlite_master before interpolation'
+    rejected:
+      - 'Parameterized table names — Not possible in SQL. Table names cannot be bound as parameters in prepared statements. This is a fundamental SQL limitation, not a design choice.'
+      - 'Regex validation of table name format — Insufficient alone. A table name matching /^[a-zA-Z_]\w*$/ could still be a SQLite keyword or an injection vector in edge cases. Validating against the actual table list is more robust.'
+    rationale: >
+      Before executing any query that interpolates a table name (row fetching,
+      schema lookup, row count), first verify the table name exists in
+      sqlite_master. This prevents SQL injection because only actual table names
+      are allowed. The flow: (1) query sqlite_master for all table names,
+      (2) check requested table is in the list, (3) only then interpolate into
+      the query using double-quote escaping for safety. This is defense in depth
+      on top of the fact that the UI only sends table names from the fetched list.
+
+# Open questions (resolved during research)
+openQuestions:
+  - question: 'Should the database page access the DB connection directly or go through the DI container?'
+    resolved: true
+    options:
+      - option: 'Import getSQLiteConnection() directly in server actions'
+        description: >
+          Server actions import the connection singleton directly from
+          packages/core. Simple, no DI registration needed. The database browser
+          is a presentation-layer utility that doesn't fit domain patterns.
+        selected: true
+      - option: 'Register a DatabaseBrowserService in the DI container'
+        description: >
+          Create a new service class, register in container, resolve in server
+          actions. Follows DI pattern but adds unnecessary abstraction for raw
+          SQL operations that don't map to domain concepts.
+        selected: false
+      - option: 'Create a DatabaseBrowserRepository in the domain layer'
+        description: >
+          Full clean architecture approach with interface in domain, implementation
+          in infrastructure. Massively over-engineered for a debugging tool that
+          operates on arbitrary SQL and raw table data.
+        selected: false
+    selectionRationale: >
+      Direct import is appropriate because the database browser is fundamentally
+      different from domain operations. It operates on raw SQL across unknown tables
+      rather than typed domain entities. The existing codebase already has precedent
+      for server actions accessing infrastructure directly — load-settings.ts reads
+      file sizes from disk, open-folder.ts spawns OS processes. These utility
+      operations don't go through domain use cases because they're not domain logic.
+
+  - question: 'How should the shadcn/ui Table component be added without violating the no-new-dependencies rule?'
+    resolved: true
+    options:
+      - option: 'Run npx shadcn@latest add table to generate the file component'
+        description: >
+          Generates components/ui/table.tsx — a thin styled wrapper around HTML
+          table elements. No npm dependency added, just a new file. This is how
+          all 43 existing shadcn/ui components were added to the project.
+        selected: true
+      - option: 'Manually create a table component from scratch'
+        description: >
+          Write custom Table, TableRow, TableCell components with Tailwind.
+          Avoids shadcn CLI but produces non-standard components that don't
+          match the existing shadcn/ui convention.
+        selected: false
+      - option: 'Use raw HTML table elements without a component wrapper'
+        description: >
+          Use <table>, <thead>, <tbody>, <tr>, <th>, <td> directly with Tailwind
+          classes. Quick but inconsistent with the codebase convention of using
+          shadcn/ui primitives for all UI elements.
+        selected: false
+    selectionRationale: >
+      The shadcn/ui Table component is a file-based component, not an npm package.
+      Running the CLI adds a single .tsx file to components/ui/ — the same process
+      used for all 43 existing components. This satisfies NFR-7 (no new external
+      dependencies) while following the established pattern. The component provides
+      proper styling, dark mode support, and accessibility attributes.
+
+  - question: 'How should expandable cell values be implemented for truncated text?'
+    resolved: true
+    options:
+      - option: 'Inline expand with click toggle on the cell'
+        description: >
+          Clicking a truncated cell expands it inline within the table row.
+          Simple implementation using useState per row. May distort table layout
+          when expanded but keeps user context in the table.
+        selected: false
+      - option: 'Dialog/modal showing full value on click'
+        description: >
+          Clicking a truncated cell opens a Dialog with the full value in a
+          scrollable area. Preserves table layout, supports very large values,
+          and allows copy-to-clipboard. Uses existing shadcn/ui Dialog component.
+        selected: true
+      - option: 'Tooltip on hover showing full value'
+        description: >
+          Hovering over a truncated cell shows the full value in a tooltip.
+          Non-intrusive but tooltips are bad for large text values and don't
+          support text selection or copy. Also accessibility concern — hover
+          doesn't work on touch devices.
+        selected: false
+    selectionRationale: >
+      Dialog/modal is the best approach because: (1) it handles arbitrarily large
+      values without distorting the table layout, (2) the Dialog component already
+      exists in the codebase, (3) it supports text selection and copy-to-clipboard,
+      (4) it works on all devices including touch. phpMyAdmin uses a similar modal
+      approach for viewing full cell values.
+
+# Markdown content (the full research document)
+content: |
+  ## Technology Decisions
+
+  ### 1. Database Access Pattern
+
+  **Chosen:** Direct `getSQLiteConnection()` in server actions
+
+  **Rejected:**
+  - New domain use case + repository — Overkill. The database browser operates on raw SQL and arbitrary tables, which doesn't fit the typed repository pattern.
+  - New infrastructure service in DI — Adds registration complexity for a presentation-only utility.
+
+  **Rationale:** The database browser is a debugging tool, not a domain operation. It bypasses Clean Architecture layers intentionally because it operates on raw SQL across arbitrary tables. `getSQLiteConnection()` returns the existing singleton. Server actions import it directly, matching patterns used by other utility actions (load-settings, open-folder).
+
+  ### 2. Table Rendering Approach
+
+  **Chosen:** Add shadcn/ui Table component via CLI (`npx shadcn@latest add table`)
+
+  **Rejected:**
+  - Raw HTML table with Tailwind — Inconsistent with codebase convention of shadcn/ui primitives.
+  - @tanstack/react-table — Adds npm dependency (violates NFR-7), over-engineered for simple column/row rendering.
+
+  **Rationale:** shadcn/ui Table is a file-based component (no npm dependency). Provides Table, TableHeader, TableBody, TableRow, TableHead, TableCell with proper styling, dark mode, and accessibility. Follows the pattern of all 43 existing UI components.
+
+  ### 3. SQL Query Validation Strategy
+
+  **Chosen:** Regex-based validation with server-side defense-in-depth
+
+  **Rejected:**
+  - Client-side only validation — Insufficient security; server actions callable directly.
+  - SQL AST parser — Adds npm dependency (violates NFR-7) for a simple keyword check.
+
+  **Rationale:** Two-layer validation: client-side regex for instant UX feedback, server-side regex for security. Pattern strips comments/whitespace, checks for disallowed keywords (INSERT, UPDATE, DELETE, DROP, ALTER, CREATE, ATTACH, DETACH). SQLite's deterministic syntax makes first-keyword detection reliable. Edge case: CTEs with `WITH ... INSERT` caught by secondary scan.
+
+  ### 4. Server Action Architecture
+
+  **Chosen:** Four focused server actions
+
+  **Rejected:**
+  - Single monolithic action with operation parameter — Violates SRP, poor typing.
+  - REST API routes — Breaks convention; only SSE and health use API routes.
+
+  **Rationale:** Four actions matching four operations:
+  1. `list-tables.ts` — Returns `{name, rowCount}[]`
+  2. `get-table-rows.ts` — Takes `(table, page)`, returns `{columns, rows, totalRows}`
+  3. `get-table-schema.ts` — Takes `(table)`, returns PRAGMA table_info results
+  4. `execute-query.ts` — Takes `(sql)`, returns `{columns, rows}` or `{error}`
+
+  ### 5. Page and Component Architecture
+
+  **Chosen:** Single route `/database` with client-side tab state
+
+  **Rejected:**
+  - Nested routes per table — Complexity for negligible benefit; deep linking low value.
+  - Flat structure in page file — Violates feature folder pattern.
+
+  **Rationale:** Mirrors the settings/skills/tools page pattern:
+  - `app/database/page.tsx` — Server component, fetches initial table list
+  - `components/features/database/database-page-client.tsx` — Client wrapper managing state
+  - Sub-components: `TableList`, `RowBrowser`, `SchemaViewer`, `QueryRunner`
+  - Each sub-component has colocated `.stories.tsx`
+
+  ### 6. Pagination Implementation
+
+  **Chosen:** LIMIT/OFFSET with server-side page calculation
+
+  **Rejected:**
+  - Cursor-based (keyset) pagination — Over-complex for a debugging tool.
+  - Client-side pagination — Catastrophic memory usage on large tables.
+
+  **Rationale:** `SELECT * FROM <table> LIMIT 50 OFFSET <page * 50>` meets the 200ms target for 100K rows. SQLite's local access eliminates network latency concerns. Row count fetched once per table selection via `SELECT COUNT(*)`.
+
+  ### 7. Table Name Sanitization
+
+  **Chosen:** Allowlist validation against sqlite_master
+
+  **Rejected:**
+  - Parameterized table names — Not possible in SQL (language limitation).
+  - Regex format validation alone — Insufficient; must verify table actually exists.
+
+  **Rationale:** Before interpolating any table name into SQL, verify it exists in sqlite_master. This prevents injection because only real table names pass validation. Double-quote escaping applied as additional safety layer.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | better-sqlite3 | SQLite driver | Use (existing) | Already the project's DB driver; provides synchronous `.prepare().all()` API |
+  | shadcn/ui Table | Table rendering | Add (file component) | No npm dep; consistent with 43 existing shadcn/ui components |
+  | shadcn/ui Tabs | Tab navigation | Use (existing) | Already installed; used for Data/Schema/Query tabs per table |
+  | shadcn/ui Dialog | Cell value expansion | Use (existing) | Already installed; handles full value display for truncated cells |
+  | shadcn/ui Card | Layout containers | Use (existing) | Already installed; wraps table list and content areas |
+  | shadcn/ui Input | Search and SQL input | Use (existing) | Already installed; for table filter and SQL textarea |
+  | shadcn/ui Badge | Row count display | Use (existing) | Already installed; shows row counts next to table names |
+  | shadcn/ui ScrollArea | Scrollable regions | Use (existing) | Already installed; for table list and wide table scrolling |
+  | lucide-react Database | Nav icon | Use (existing) | Already installed; provides Database icon for sidebar |
+  | @tanstack/react-table | Advanced data table | Reject | Adds npm dependency (NFR-7 violation); features not needed |
+  | node-sql-parser | SQL AST parsing | Reject | Adds npm dependency (NFR-7 violation); regex sufficient |
+  | sql.js | WASM SQLite | Reject | Project uses better-sqlite3; no need for alternative driver |
+
+  ## Security Considerations
+
+  ### SQL Injection Prevention
+  - **Table names:** Validated against sqlite_master allowlist before interpolation. Double-quoted in queries as additional safety.
+  - **Pagination offsets:** Calculated server-side from page number (integer). Never interpolated from user input directly.
+  - **User queries:** Executed via `db.prepare(query).all()` — while this doesn't use parameter binding (the whole query IS user input), write operations are blocked by the validation layer.
+
+  ### Write Operation Prevention (NFR-2)
+  - **Layer 1 (client):** Regex check before form submission. Instant feedback, no server round-trip.
+  - **Layer 2 (server):** Same regex in server action, throws error if write keyword detected. Normalized query (stripped comments, lowercased) checked against: `INSERT, UPDATE, DELETE, DROP, ALTER, CREATE, ATTACH, DETACH, REINDEX, VACUUM`.
+  - **Layer 3 (SQLite pragmas):** The existing `defensive = ON` pragma provides additional SQLite-level protection against corruption.
+
+  ### Information Disclosure
+  - The database page exposes all table data. This is acceptable because:
+    - The web UI is a local development tool (localhost only)
+    - Users already have full file system access to the SQLite file
+    - No authentication is needed (same as all other Shep web UI pages)
+
+  ## Performance Implications
+
+  ### Query Performance (NFR-1: 200ms for 100K rows)
+  - **Table listing:** `SELECT name FROM sqlite_master` + N `COUNT(*)` queries. For typical Shep databases (5-10 tables), this completes in <10ms.
+  - **Row fetching:** `LIMIT 50 OFFSET N` is O(N) in SQLite but acceptable for the target range. At 100K rows with offset 99950, SQLite scans ~100K ROWIDs in <50ms (local disk, WAL mode).
+  - **Schema queries:** `PRAGMA table_info()` is instantaneous (<1ms).
+  - **User queries:** Performance depends on the query. No timeout needed for a local debugging tool.
+
+  ### Rendering Performance
+  - 50 rows × ~20 columns = ~1000 table cells — well within React's rendering budget.
+  - Cell truncation at 100 chars prevents DOM bloat from large text values.
+  - BLOBs displayed as byte count string, not raw data — prevents memory issues.
+
+  ## Architecture Notes
+
+  ### File Structure
+  ```
+  src/presentation/web/
+  ├── app/
+  │   ├── database/
+  │   │   └── page.tsx                    # Server component, fetches table list
+  │   └── actions/
+  │       ├── list-tables.ts              # Server action: table names + row counts
+  │       ├── get-table-rows.ts           # Server action: paginated rows
+  │       ├── get-table-schema.ts         # Server action: PRAGMA table_info
+  │       └── execute-query.ts            # Server action: read-only SQL execution
+  ├── components/
+  │   ├── features/
+  │   │   └── database/
+  │   │       ├── database-page-client.tsx # Main client wrapper (state management)
+  │   │       ├── table-list.tsx           # Sidebar: table names with row counts
+  │   │       ├── table-list.stories.tsx
+  │   │       ├── row-browser.tsx          # Paginated row table with column headers
+  │   │       ├── row-browser.stories.tsx
+  │   │       ├── schema-viewer.tsx        # Column metadata table
+  │   │       ├── schema-viewer.stories.tsx
+  │   │       ├── query-runner.tsx         # SQL textarea + results table
+  │   │       ├── query-runner.stories.tsx
+  │   │       ├── cell-value-dialog.tsx    # Full value display for truncated cells
+  │   │       └── cell-value-dialog.stories.tsx
+  │   └── ui/
+  │       └── table.tsx                    # shadcn/ui Table (to be added)
+  └── .storybook/
+      └── mocks/app/actions/
+          ├── list-tables.ts               # Mock: returns sample table data
+          ├── get-table-rows.ts            # Mock: returns sample rows
+          ├── get-table-schema.ts          # Mock: returns sample schema
+          └── execute-query.ts             # Mock: returns sample query results
+  ```
+
+  ### Data Flow
+  ```
+  1. Page load:
+     page.tsx (server) → listTables() → DatabasePageClient (client, initial tables)
+
+  2. Table selection:
+     TableList click → setState(selectedTable) → getTableRows(table, 0)
+                                                → getTableSchema(table)
+
+  3. Pagination:
+     RowBrowser page button → getTableRows(table, newPage)
+
+  4. SQL Query:
+     QueryRunner submit → client validation → executeQuery(sql) → display results
+  ```
+
+  ### Integration with Existing Systems
+  - **Sidebar:** Add one `SidebarNavItem` after Settings in app-sidebar.tsx. Import `Database` from lucide-react.
+  - **Connection:** Import `getSQLiteConnection` from `packages/core/src/infrastructure/persistence/sqlite/connection.ts`.
+  - **Storybook:** Add mocks to `.storybook/mocks/app/actions/` for all four server actions.
+  - **No domain changes:** No TypeSpec models, no repositories, no use cases, no migrations.
+
+  ---
+
+  _Research complete — proceed with planning phase_
