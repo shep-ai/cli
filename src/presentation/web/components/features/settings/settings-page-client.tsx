@@ -36,6 +36,7 @@ import { updateSettingsAction } from '@/app/actions/update-settings';
 import { type AgentType, AgentAuthMethod, EditorType } from '@shepai/core/domain/generated/output';
 import { getEditorTypeIcon } from '@/components/common/editor-type-icons';
 import { AgentModelPicker } from '@/components/features/settings/AgentModelPicker';
+import { TimeoutSlider } from '@/components/features/settings/timeout-slider';
 import type {
   Settings,
   FeatureFlags,
@@ -375,41 +376,30 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
     settings.workflow.ciLogMaxChars != null ? String(settings.workflow.ciLogMaxChars) : ''
   );
   // Feature agent per-stage timeout states (stored in seconds for display, converted to ms on save)
+  // Defaults: feature agent stages = 1_800_000 ms (1800s), analyze-repo = 600_000 ms (600s)
   const stageTimeoutsConfig = settings.workflow.stageTimeouts;
   const [analyzeTimeout, setAnalyzeTimeout] = useState(
-    stageTimeoutsConfig?.analyzeMs != null
-      ? String(Math.round(stageTimeoutsConfig.analyzeMs / 1000))
-      : ''
+    String(Math.round((stageTimeoutsConfig?.analyzeMs ?? 1_800_000) / 1000))
   );
   const [requirementsTimeout, setRequirementsTimeout] = useState(
-    stageTimeoutsConfig?.requirementsMs != null
-      ? String(Math.round(stageTimeoutsConfig.requirementsMs / 1000))
-      : ''
+    String(Math.round((stageTimeoutsConfig?.requirementsMs ?? 1_800_000) / 1000))
   );
   const [researchTimeout, setResearchTimeout] = useState(
-    stageTimeoutsConfig?.researchMs != null
-      ? String(Math.round(stageTimeoutsConfig.researchMs / 1000))
-      : ''
+    String(Math.round((stageTimeoutsConfig?.researchMs ?? 1_800_000) / 1000))
   );
   const [planTimeout, setPlanTimeout] = useState(
-    stageTimeoutsConfig?.planMs != null ? String(Math.round(stageTimeoutsConfig.planMs / 1000)) : ''
+    String(Math.round((stageTimeoutsConfig?.planMs ?? 1_800_000) / 1000))
   );
   const [implementTimeout, setImplementTimeout] = useState(
-    stageTimeoutsConfig?.implementMs != null
-      ? String(Math.round(stageTimeoutsConfig.implementMs / 1000))
-      : ''
+    String(Math.round((stageTimeoutsConfig?.implementMs ?? 1_800_000) / 1000))
   );
   const [mergeTimeout, setMergeTimeout] = useState(
-    stageTimeoutsConfig?.mergeMs != null
-      ? String(Math.round(stageTimeoutsConfig.mergeMs / 1000))
-      : ''
+    String(Math.round((stageTimeoutsConfig?.mergeMs ?? 1_800_000) / 1000))
   );
   // Analyze-repo agent timeout state
   const analyzeRepoConfig = settings.workflow.analyzeRepoTimeouts;
   const [analyzeRepoTimeout, setAnalyzeRepoTimeout] = useState(
-    analyzeRepoConfig?.analyzeMs != null
-      ? String(Math.round(analyzeRepoConfig.analyzeMs / 1000))
-      : ''
+    String(Math.round((analyzeRepoConfig?.analyzeMs ?? 600_000) / 1000))
   );
 
   // Notification state
@@ -1031,19 +1021,16 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
               description="Repository analysis timeout"
               htmlFor="timeout-analyze"
             >
-              <NumberStepper
+              <TimeoutSlider
                 id="timeout-analyze"
                 testId="timeout-analyze-input"
-                placeholder="600"
                 value={analyzeTimeout}
                 onChange={setAnalyzeTimeout}
                 onBlur={() => {
                   if (analyzeTimeout !== originalAnalyzeTimeout)
                     save(buildWorkflowPayload({ analyzeTimeout }));
                 }}
-                min={60}
-                step={60}
-                suffix="sec"
+                defaultSeconds={1800}
               />
             </SettingsRow>
             <SettingsRow
@@ -1051,19 +1038,16 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
               description="Requirements gathering timeout"
               htmlFor="timeout-requirements"
             >
-              <NumberStepper
+              <TimeoutSlider
                 id="timeout-requirements"
                 testId="timeout-requirements-input"
-                placeholder="600"
                 value={requirementsTimeout}
                 onChange={setRequirementsTimeout}
                 onBlur={() => {
                   if (requirementsTimeout !== originalRequirementsTimeout)
                     save(buildWorkflowPayload({ requirementsTimeout }));
                 }}
-                min={60}
-                step={60}
-                suffix="sec"
+                defaultSeconds={1800}
               />
             </SettingsRow>
             <SettingsRow
@@ -1071,19 +1055,16 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
               description="Technical research timeout"
               htmlFor="timeout-research"
             >
-              <NumberStepper
+              <TimeoutSlider
                 id="timeout-research"
                 testId="timeout-research-input"
-                placeholder="600"
                 value={researchTimeout}
                 onChange={setResearchTimeout}
                 onBlur={() => {
                   if (researchTimeout !== originalResearchTimeout)
                     save(buildWorkflowPayload({ researchTimeout }));
                 }}
-                min={60}
-                step={60}
-                suffix="sec"
+                defaultSeconds={1800}
               />
             </SettingsRow>
             <SettingsRow
@@ -1091,19 +1072,16 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
               description="Implementation planning timeout"
               htmlFor="timeout-plan"
             >
-              <NumberStepper
+              <TimeoutSlider
                 id="timeout-plan"
                 testId="timeout-plan-input"
-                placeholder="600"
                 value={planTimeout}
                 onChange={setPlanTimeout}
                 onBlur={() => {
                   if (planTimeout !== originalPlanTimeout)
                     save(buildWorkflowPayload({ planTimeout }));
                 }}
-                min={60}
-                step={60}
-                suffix="sec"
+                defaultSeconds={1800}
               />
             </SettingsRow>
             <SettingsRow
@@ -1111,19 +1089,16 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
               description="Code implementation timeout"
               htmlFor="timeout-implement"
             >
-              <NumberStepper
+              <TimeoutSlider
                 id="timeout-implement"
                 testId="timeout-implement-input"
-                placeholder="600"
                 value={implementTimeout}
                 onChange={setImplementTimeout}
                 onBlur={() => {
                   if (implementTimeout !== originalImplementTimeout)
                     save(buildWorkflowPayload({ implementTimeout }));
                 }}
-                min={60}
-                step={60}
-                suffix="sec"
+                defaultSeconds={1800}
               />
             </SettingsRow>
             <SettingsRow
@@ -1131,19 +1106,16 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
               description="PR creation and merge timeout"
               htmlFor="timeout-merge"
             >
-              <NumberStepper
+              <TimeoutSlider
                 id="timeout-merge"
                 testId="timeout-merge-input"
-                placeholder="600"
                 value={mergeTimeout}
                 onChange={setMergeTimeout}
                 onBlur={() => {
                   if (mergeTimeout !== originalMergeTimeout)
                     save(buildWorkflowPayload({ mergeTimeout }));
                 }}
-                min={60}
-                step={60}
-                suffix="sec"
+                defaultSeconds={1800}
               />
             </SettingsRow>
             <SubsectionLabel>Analyze Repository Agent</SubsectionLabel>
@@ -1152,26 +1124,24 @@ export function SettingsPageClient({ settings, shepHome, dbFileSize }: SettingsP
               description="Repository analysis timeout"
               htmlFor="timeout-analyze-repo"
             >
-              <NumberStepper
+              <TimeoutSlider
                 id="timeout-analyze-repo"
                 testId="timeout-analyze-repo-input"
-                placeholder="600"
                 value={analyzeRepoTimeout}
                 onChange={setAnalyzeRepoTimeout}
                 onBlur={() => {
                   if (analyzeRepoTimeout !== originalAnalyzeRepoTimeout)
                     save(buildWorkflowPayload({ analyzeRepoTimeout }));
                 }}
-                min={60}
-                step={60}
-                suffix="sec"
+                defaultSeconds={600}
               />
             </SettingsRow>
           </SettingsSection>
           <SectionHint>
             Each agent has independently configurable stage timeouts. When a stage exceeds its
             timeout, the agent is terminated. Longer timeouts are useful for complex
-            implementations. Default is 600 seconds (10 minutes) per stage.
+            implementations. Feature agent defaults to 30 minutes per stage. Analyze repository
+            agent defaults to 10 minutes.
           </SectionHint>
         </div>
 

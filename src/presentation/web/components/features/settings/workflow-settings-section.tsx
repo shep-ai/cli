@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { updateSettingsAction } from '@/app/actions/update-settings';
+import { TimeoutSlider } from '@/components/features/settings/timeout-slider';
 import type { WorkflowConfig } from '@shepai/core/domain/generated/output';
 
 export interface WorkflowSettingsSectionProps {
@@ -33,29 +34,30 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
     workflow.ciLogMaxChars != null ? String(workflow.ciLogMaxChars) : ''
   );
   // Per-stage timeout states (seconds for display)
+  // Defaults: feature agent stages = 1_800_000 ms (1800s), analyze-repo = 600_000 ms (600s)
   const st = workflow.stageTimeouts;
   const [analyzeTimeout, setAnalyzeTimeout] = useState(
-    st?.analyzeMs != null ? String(Math.round(st.analyzeMs / 1000)) : ''
+    String(Math.round((st?.analyzeMs ?? 1_800_000) / 1000))
   );
   const [requirementsTimeout, setRequirementsTimeout] = useState(
-    st?.requirementsMs != null ? String(Math.round(st.requirementsMs / 1000)) : ''
+    String(Math.round((st?.requirementsMs ?? 1_800_000) / 1000))
   );
   const [researchTimeout, setResearchTimeout] = useState(
-    st?.researchMs != null ? String(Math.round(st.researchMs / 1000)) : ''
+    String(Math.round((st?.researchMs ?? 1_800_000) / 1000))
   );
   const [planTimeout, setPlanTimeout] = useState(
-    st?.planMs != null ? String(Math.round(st.planMs / 1000)) : ''
+    String(Math.round((st?.planMs ?? 1_800_000) / 1000))
   );
   const [implementTimeout, setImplementTimeout] = useState(
-    st?.implementMs != null ? String(Math.round(st.implementMs / 1000)) : ''
+    String(Math.round((st?.implementMs ?? 1_800_000) / 1000))
   );
   const [mergeTimeout, setMergeTimeout] = useState(
-    st?.mergeMs != null ? String(Math.round(st.mergeMs / 1000)) : ''
+    String(Math.round((st?.mergeMs ?? 1_800_000) / 1000))
   );
   // Analyze-repo agent timeout state
   const art = workflow.analyzeRepoTimeouts;
   const [analyzeRepoTimeout, setAnalyzeRepoTimeout] = useState(
-    art?.analyzeMs != null ? String(Math.round(art.analyzeMs / 1000)) : ''
+    String(Math.round((art?.analyzeMs ?? 600_000) / 1000))
   );
   const [isPending, startTransition] = useTransition();
   const [showSaved, setShowSaved] = useState(false);
@@ -186,6 +188,7 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
     {
       key: 'analyzeTimeout' as const,
       label: 'Analyze',
+      defaultSeconds: 1800,
       state: analyzeTimeout,
       setter: setAnalyzeTimeout,
       original: originalAnalyzeTimeout,
@@ -193,6 +196,7 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
     {
       key: 'requirementsTimeout' as const,
       label: 'Requirements',
+      defaultSeconds: 1800,
       state: requirementsTimeout,
       setter: setRequirementsTimeout,
       original: originalRequirementsTimeout,
@@ -200,6 +204,7 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
     {
       key: 'researchTimeout' as const,
       label: 'Research',
+      defaultSeconds: 1800,
       state: researchTimeout,
       setter: setResearchTimeout,
       original: originalResearchTimeout,
@@ -207,6 +212,7 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
     {
       key: 'planTimeout' as const,
       label: 'Plan',
+      defaultSeconds: 1800,
       state: planTimeout,
       setter: setPlanTimeout,
       original: originalPlanTimeout,
@@ -214,6 +220,7 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
     {
       key: 'implementTimeout' as const,
       label: 'Implement',
+      defaultSeconds: 1800,
       state: implementTimeout,
       setter: setImplementTimeout,
       original: originalImplementTimeout,
@@ -221,6 +228,7 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
     {
       key: 'mergeTimeout' as const,
       label: 'Merge',
+      defaultSeconds: 1800,
       state: mergeTimeout,
       setter: setMergeTimeout,
       original: originalMergeTimeout,
@@ -231,6 +239,7 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
     {
       key: 'analyzeRepoTimeout' as const,
       label: 'Analyze',
+      defaultSeconds: 600,
       state: analyzeRepoTimeout,
       setter: setAnalyzeRepoTimeout,
       original: originalAnalyzeRepoTimeout,
@@ -396,25 +405,20 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
 
         <div className="space-y-3">
           <h3 className="text-sm font-semibold">Stage Timeouts</h3>
-          <p className="text-muted-foreground text-xs">
-            Maximum execution time per agent stage (default: 600 seconds)
-          </p>
+          <p className="text-muted-foreground text-xs">Maximum execution time per agent stage</p>
           <h4 className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
             Feature Agent
           </h4>
           {FEATURE_AGENT_FIELDS.map((field) => (
-            <div key={field.key} className="space-y-1.5">
-              <Label htmlFor={`stage-timeout-${field.key}`}>{field.label} (seconds)</Label>
-              <Input
+            <div key={field.key} className="flex items-center justify-between gap-4">
+              <Label htmlFor={`stage-timeout-${field.key}`}>{field.label}</Label>
+              <TimeoutSlider
                 id={`stage-timeout-${field.key}`}
-                data-testid={`stage-timeout-${field.key}-input`}
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                placeholder="600"
+                testId={`stage-timeout-${field.key}-input`}
                 value={field.state}
-                onChange={(e) => field.setter(e.target.value)}
+                onChange={field.setter}
                 onBlur={() => handleFieldBlur(field.key, field.state, field.original)}
+                defaultSeconds={field.defaultSeconds}
               />
             </div>
           ))}
@@ -422,18 +426,15 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
             Analyze Repository Agent
           </h4>
           {ANALYZE_REPO_FIELDS.map((field) => (
-            <div key={field.key} className="space-y-1.5">
-              <Label htmlFor={`stage-timeout-${field.key}`}>{field.label} (seconds)</Label>
-              <Input
+            <div key={field.key} className="flex items-center justify-between gap-4">
+              <Label htmlFor={`stage-timeout-${field.key}`}>{field.label}</Label>
+              <TimeoutSlider
                 id={`stage-timeout-${field.key}`}
-                data-testid={`stage-timeout-${field.key}-input`}
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                placeholder="600"
+                testId={`stage-timeout-${field.key}-input`}
                 value={field.state}
-                onChange={(e) => field.setter(e.target.value)}
+                onChange={field.setter}
                 onBlur={() => handleFieldBlur(field.key, field.state, field.original)}
+                defaultSeconds={field.defaultSeconds}
               />
             </div>
           ))}
