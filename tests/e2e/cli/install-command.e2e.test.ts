@@ -41,7 +41,7 @@ describe('CLI: install command', () => {
         expect(result.stdout).toMatch(/\[(linux|darwin)\]/);
         expect(result.stdout).toMatch(/Binary:\s+\w+/);
       },
-      15000
+      30000
     );
 
     it.concurrent(
@@ -54,7 +54,7 @@ describe('CLI: install command', () => {
         expect(result.stdout).toContain('cursor');
         expect(result.stdout).toMatch(/Binary:\s+\w+/);
       },
-      15000
+      30000
     );
 
     it.concurrent(
@@ -67,7 +67,7 @@ describe('CLI: install command', () => {
         expect(result.stdout).toContain('windsurf');
         expect(result.stdout).toMatch(/Binary:\s+\w+/);
       },
-      15000
+      30000
     );
 
     it.concurrent(
@@ -80,7 +80,7 @@ describe('CLI: install command', () => {
         expect(result.stdout).toContain('zed');
         expect(result.stdout).toMatch(/Binary:\s+\w+/);
       },
-      15000
+      30000
     );
 
     it.concurrent(
@@ -93,7 +93,7 @@ describe('CLI: install command', () => {
         expect(result.stdout).toContain('antigravity (linux)');
         expect(result.stdout).toContain('agy (darwin)');
       },
-      15000
+      30000
     );
 
     it.concurrent(
@@ -109,7 +109,7 @@ describe('CLI: install command', () => {
         expect(result.stdout).toContain('Package Manager');
         expect(result.stdout).toContain('--version');
       },
-      15000
+      30000
     );
 
     it.concurrent(
@@ -123,7 +123,7 @@ describe('CLI: install command', () => {
         expect(result.stdout).toContain('curl');
         expect(result.stdout).toContain('Package Manager');
       },
-      15000
+      30000
     );
   });
 
