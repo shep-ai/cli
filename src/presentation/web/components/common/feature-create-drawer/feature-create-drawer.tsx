@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { PaperclipIcon, ChevronsUpDown, CheckIcon, Zap } from 'lucide-react';
+import { PaperclipIcon, ChevronsUpDown, CheckIcon, Zap, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSoundAction } from '@/hooks/use-sound-action';
 import { BaseDrawer } from '@/components/common/base-drawer';
@@ -54,6 +54,8 @@ export interface FeatureCreatePayload {
   parentId?: string;
   /** When true, skip SDLC phases and implement directly from the prompt. */
   fast: boolean;
+  /** When true, create the feature in pending state (no agent spawned). */
+  pending?: boolean;
   /** Optional agent type override for this feature run */
   agentType?: string;
   /** Optional model override for this feature run */
@@ -183,6 +185,7 @@ export function FeatureCreateDrawer({
   const [commitEvidence, setCommitEvidence] = useState(defaultCommitEvidence);
   const [parentId, setParentId] = useState<string | undefined>(undefined);
   const [fast, setFast] = useState(false);
+  const [pending, setPending] = useState(false);
   const [overrideAgent, setOverrideAgent] = useState<string | undefined>(undefined);
   const [overrideModel, setOverrideModel] = useState<string | undefined>(undefined);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -222,6 +225,7 @@ export function FeatureCreateDrawer({
     setCommitEvidence(defaultCommitEvidence);
     setParentId(undefined);
     setFast(false);
+    setPending(false);
     setOverrideAgent(undefined);
     setOverrideModel(undefined);
     setUploadError(null);
@@ -381,6 +385,7 @@ export function FeatureCreateDrawer({
         enableEvidence,
         commitEvidence,
         fast,
+        ...(pending ? { pending } : {}),
         ...(overrideAgent ? { agentType: overrideAgent } : {}),
         ...(overrideModel ? { model: overrideModel } : {}),
         ...(parentId ? { parentId } : {}),
@@ -399,6 +404,7 @@ export function FeatureCreateDrawer({
       enableEvidence,
       commitEvidence,
       fast,
+      pending,
       overrideAgent,
       overrideModel,
       parentId,
@@ -614,6 +620,28 @@ export function FeatureCreateDrawer({
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div className="ml-auto flex cursor-pointer items-center gap-2">
+                        <Switch
+                          id="pending-mode"
+                          checked={pending}
+                          onCheckedChange={setPending}
+                          disabled={isSubmitting}
+                        />
+                        <Label
+                          htmlFor="pending-mode"
+                          className="flex cursor-pointer items-center gap-1 text-sm font-medium"
+                        >
+                          <Clock className="h-3.5 w-3.5" />
+                          Pending
+                        </Label>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      Create without starting — start manually later.
+                    </TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex cursor-pointer items-center gap-2">
                         <Switch
                           id="fast-mode"
                           checked={fast}

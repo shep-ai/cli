@@ -382,8 +382,8 @@ describe('mapPhaseNameToLifecycle', () => {
     expect(mapPhaseNameToLifecycle('implement')).toBe('implementation');
   });
 
-  it('maps "pending" to requirements', () => {
-    expect(mapPhaseNameToLifecycle('pending')).toBe('requirements');
+  it('maps "pending" to pending', () => {
+    expect(mapPhaseNameToLifecycle('pending')).toBe('pending');
   });
 
   it('returns undefined for undefined input', () => {
@@ -396,7 +396,7 @@ describe('mapPhaseNameToLifecycle', () => {
 });
 
 describe('sdlcLifecycleMap', () => {
-  it('maps Pending to requirements', () => {
-    expect(sdlcLifecycleMap['Pending']).toBe('requirements');
+  it('maps Pending to pending', () => {
+    expect(sdlcLifecycleMap['Pending']).toBe('pending');
   });
 });

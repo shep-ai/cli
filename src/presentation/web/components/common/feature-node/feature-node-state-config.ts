@@ -23,6 +23,7 @@ export type FeatureNodeState =
   | 'deleting';
 
 export type FeatureLifecyclePhase =
+  | 'pending'
   | 'requirements'
   | 'research'
   | 'implementation'
@@ -32,6 +33,7 @@ export type FeatureLifecyclePhase =
 
 /** Human-readable display labels for lifecycle phases. */
 export const lifecycleDisplayLabels: Record<FeatureLifecyclePhase, string> = {
+  pending: 'PENDING',
   requirements: 'REQUIREMENTS',
   research: 'RESEARCH',
   implementation: 'IMPLEMENTATION',
@@ -42,6 +44,7 @@ export const lifecycleDisplayLabels: Record<FeatureLifecyclePhase, string> = {
 
 /** Present-participle verbs for the running badge, keyed by lifecycle phase. */
 export const lifecycleRunningVerbs: Record<FeatureLifecyclePhase, string> = {
+  pending: 'Waiting to start',
   requirements: 'Analyzing',
   research: 'Researching',
   implementation: 'Implementing',
@@ -113,6 +116,7 @@ export interface FeatureNodeData {
   hasChildren?: boolean;
   onDelete?: (featureId: string, cleanup?: boolean, cascadeDelete?: boolean) => void;
   onRetry?: (featureId: string) => void;
+  onStart?: (featureId: string) => void;
   showHandles?: boolean;
 }
 

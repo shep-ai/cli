@@ -182,6 +182,7 @@ export function useGraphState(
       onRepositoryClick: (nodeId) => callbacksRef.current.onRepositoryClick?.(nodeId),
       onRepositoryDelete: (repositoryId) => callbacksRef.current.onRepositoryDelete?.(repositoryId),
       onRetryFeature: (featureId) => callbacksRef.current.onRetryFeature?.(featureId),
+      onStartFeature: (featureId) => callbacksRef.current.onStartFeature?.(featureId),
     }),
     []
   );

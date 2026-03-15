@@ -139,7 +139,7 @@ export const sdlcLifecycleMap: Record<string, FeatureLifecyclePhase> = {
   Review: 'review',
   'Deploy & QA': 'deploy',
   Maintain: 'maintain',
-  Pending: 'requirements',
+  Pending: 'pending',
 };
 
 /** Map agent graph node names (from agent_run.result or SSE phaseName) to UI lifecycle phases. */
@@ -152,7 +152,7 @@ const phaseNameToLifecycle: Record<string, FeatureLifecyclePhase> = {
   merge: 'review',
   maintain: 'maintain',
   blocked: 'requirements',
-  pending: 'requirements',
+  pending: 'pending',
 };
 
 /**

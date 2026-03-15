@@ -40,6 +40,8 @@ export interface GraphCallbacks {
   onRepositoryDelete?: (repositoryId: string) => void;
   /** Called when the user retries a failed feature. */
   onRetryFeature?: (featureId: string) => void;
+  /** Called when the user starts a pending feature. */
+  onStartFeature?: (featureId: string) => void;
 }
 
 /**
@@ -153,6 +155,11 @@ export function deriveGraph(
         entry.data.state === 'error' &&
         callbacks?.onRetryFeature && {
           onRetry: callbacks.onRetryFeature,
+        }),
+      ...(!isCreating &&
+        entry.data.state === 'pending' &&
+        callbacks?.onStartFeature && {
+          onStart: callbacks.onStartFeature,
         }),
     };
 

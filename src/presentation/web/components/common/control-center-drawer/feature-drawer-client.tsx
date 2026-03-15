@@ -10,6 +10,7 @@ import type {
 } from '@shepai/core/domain/generated/output';
 import { approveFeature } from '@/app/actions/approve-feature';
 import { resumeFeature } from '@/app/actions/resume-feature';
+import { startFeature } from '@/app/actions/start-feature';
 import { rejectFeature } from '@/app/actions/reject-feature';
 import type { RejectAttachment } from '@/components/common/drawer-action-bar';
 import { getFeatureArtifact } from '@/app/actions/get-feature-artifact';
@@ -391,6 +392,20 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
     });
   }, []);
 
+  const handleStart = useCallback(async (featureId: string) => {
+    const result = await startFeature(featureId);
+    if (result.error) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success('Feature started');
+    // Optimistically update the drawer view
+    setView((prev) => {
+      if (prev.type !== 'feature') return prev;
+      return { ...prev, node: { ...prev.node, state: 'running' } };
+    });
+  }, []);
+
   // ── Hooks (always called unconditionally per Rules of Hooks) ──────────
 
   const featureActionsInput =
@@ -561,8 +576,11 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
   let body: React.ReactNode = null;
 
   if (view.type === 'feature' && featureNode) {
-    const enrichedNode =
-      featureNode.state === 'error' ? { ...featureNode, onRetry: handleRetry } : featureNode;
+    const enrichedNode = {
+      ...featureNode,
+      ...(featureNode.state === 'error' && { onRetry: handleRetry }),
+      ...(featureNode.state === 'pending' && { onStart: handleStart }),
+    };
     body = (
       <FeatureDrawerTabs
         featureNode={enrichedNode}

@@ -31,6 +31,8 @@ interface CreateFeatureInput {
   parentId?: string;
   /** When true, skip SDLC phases and implement directly from the prompt. */
   fast?: boolean;
+  /** When true, create the feature in pending state (no agent spawned). */
+  pending?: boolean;
   /** Optional agent type override for this feature run */
   agentType?: string;
   /** Optional model identifier for this feature run */
@@ -50,6 +52,7 @@ export async function createFeature(
     openPr,
     parentId,
     fast,
+    pending,
     agentType,
     model,
   } = input;
@@ -82,6 +85,7 @@ export async function createFeature(
       ...(parentId ? { parentId } : {}),
       description,
       ...(fast ? { fast } : {}),
+      ...(pending ? { pending } : {}),
       ...(agentType ? { agentType } : {}),
       ...(model ? { model } : {}),
     });
@@ -99,6 +103,7 @@ export async function createFeature(
           openPr: openPr ?? false,
           ...(parentId ? { parentId } : {}),
           ...(fast ? { fast } : {}),
+          ...(pending ? { pending } : {}),
           ...(agentType ? { agentType } : {}),
           ...(model ? { model } : {}),
           ...(sessionId ? { sessionId } : {}),
