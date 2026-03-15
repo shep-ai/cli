@@ -1,7 +1,4 @@
 import { NextResponse } from 'next/server';
-import { resolve } from '@/lib/server-container';
-import { AgentSessionRepositoryRegistry } from '@shepai/core/application/services/agents/agent-session-repository.registry';
-import type { AgentType } from '@shepai/core/domain/generated/output';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,6 +7,9 @@ export const dynamic = 'force-dynamic';
  *
  * Returns agent sessions filtered by repository path.
  * Used by the feature node sessions dropdown.
+ *
+ * Uses dynamic import to avoid tsyringe/reflect-metadata being pulled
+ * into the Next.js production build at compile time.
  */
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -21,14 +21,11 @@ export async function GET(request: Request) {
   }
 
   try {
-    const registry = resolve(AgentSessionRepositoryRegistry);
-    const repo = registry.getRepository('claude-code' as AgentType);
-
-    if (!repo.isSupported()) {
-      return NextResponse.json({ sessions: [] });
-    }
-
-    const sessions = await repo.list({
+    const { ClaudeCodeSessionRepository } = await import(
+      '@shepai/core/infrastructure/services/agents/sessions/claude-code-session.repository'
+    );
+    const sessionRepo = new ClaudeCodeSessionRepository();
+    const sessions = await sessionRepo.list({
       limit: Math.min(limit, 50),
       projectPath: repositoryPath,
     });
