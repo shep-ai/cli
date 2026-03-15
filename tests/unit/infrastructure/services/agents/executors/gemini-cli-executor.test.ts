@@ -117,11 +117,14 @@ describe('GeminiCliExecutorService', () => {
       const result = await executePromise;
 
       expect(result.result).toBe('Analysis complete. Found 3 files.');
+      // Prompt is piped via stdin, not passed as a CLI argument
       expect(mockSpawn).toHaveBeenCalledWith(
         'gemini',
-        expect.arrayContaining(['-p', 'Analyze this codebase', '--output-format', 'json', '-y']),
+        expect.arrayContaining(['-p', '--output-format', 'json', '-y']),
         expect.any(Object)
       );
+      const spawnArgs = vi.mocked(mockSpawn).mock.calls[0][1] as string[];
+      expect(spawnArgs).not.toContain('Analyze this codebase');
     });
 
     it('should extract sessionId from session_id field', async () => {
@@ -282,7 +285,8 @@ describe('GeminiCliExecutorService', () => {
 
       const spawnArgs = vi.mocked(mockSpawn).mock.calls[0][1];
       expect(spawnArgs).toContain('-p');
-      expect(spawnArgs).toContain('My prompt');
+      // Prompt is piped via stdin, not in args
+      expect(spawnArgs).not.toContain('My prompt');
       expect(spawnArgs).toContain('--output-format');
       expect(spawnArgs).toContain('json');
       expect(spawnArgs).toContain('-y');

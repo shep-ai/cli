@@ -136,12 +136,14 @@ describe('ClaudeCodeExecutorService', () => {
       // Assert
       expect(result.result).toBe('Analysis complete. Found 3 files.');
       expect(result.sessionId).toBe('sess-abc-123');
-      // execute() now uses stream-json format internally
+      // execute() now uses stream-json format internally; prompt is piped via stdin
       expect(mockSpawn).toHaveBeenCalledWith(
         'claude',
-        expect.arrayContaining(['-p', 'Analyze this codebase', '--output-format', 'stream-json']),
+        expect.arrayContaining(['-p', '--output-format', 'stream-json']),
         expect.any(Object)
       );
+      const spawnArgs = vi.mocked(mockSpawn).mock.calls[0][1] as string[];
+      expect(spawnArgs).not.toContain('Analyze this codebase');
     });
 
     it('should parse session-id from stream result', async () => {

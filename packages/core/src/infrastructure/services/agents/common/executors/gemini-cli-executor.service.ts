@@ -63,8 +63,13 @@ export class GeminiCliExecutorService implements IAgentExecutor {
 
     const proc = this.spawn('gemini', args, spawnOpts);
     this.log(`Subprocess PID: ${proc.pid ?? 'undefined (spawn may have failed)'}`);
+    this.log(`Prompt length: ${prompt.length} chars (piped via stdin)`);
 
-    if (proc.stdin) proc.stdin.end();
+    // Pipe the prompt via stdin to avoid ENAMETOOLONG on Windows.
+    if (proc.stdin) {
+      proc.stdin.write(prompt);
+      proc.stdin.end();
+    }
 
     return new Promise<AgentExecutionResult>((resolve, reject) => {
       let stdout = '';
@@ -153,7 +158,12 @@ export class GeminiCliExecutorService implements IAgentExecutor {
     const args = this.buildArgs(prompt, options, 'stream-json');
     const spawnOpts = this.buildSpawnOptions(options);
     const proc = this.spawn('gemini', args, spawnOpts);
-    if (proc.stdin) proc.stdin.end();
+
+    // Pipe the prompt via stdin to avoid ENAMETOOLONG on Windows.
+    if (proc.stdin) {
+      proc.stdin.write(prompt);
+      proc.stdin.end();
+    }
 
     let lineBuffer = '';
     let stderr = '';
@@ -352,11 +362,13 @@ export class GeminiCliExecutorService implements IAgentExecutor {
   }
 
   private buildArgs(
-    prompt: string,
+    _prompt: string,
     options?: AgentExecutionOptions,
     outputFormat = 'json'
   ): string[] {
-    const args = ['-p', prompt, '--output-format', outputFormat, '-y'];
+    // Prompt is piped via stdin — not passed as a CLI argument — to avoid
+    // ENAMETOOLONG on Windows when prompts exceed the ~32 KB arg-length limit.
+    const args = ['-p', '--output-format', outputFormat, '-y'];
 
     if (options?.resumeSession) args.push('--resume', options.resumeSession);
     if (options?.model) args.push('-m', options.model);
