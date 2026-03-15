@@ -12,7 +12,7 @@ summary: >
   of the SQLite database. Includes table listing, row browsing with pagination,
   column metadata display, and raw SQL query execution. Adds a "Database" nav
   item to the app sidebar.
-phase: Analysis
+phase: Requirements
 sizeEstimate: M
 
 # Relationships
@@ -21,7 +21,7 @@ relatedFeatures: []
 technologies:
   - Next.js (App Router, server components, server actions)
   - better-sqlite3 (synchronous SQLite driver)
-  - shadcn/ui (Card, Table, Tabs, ScrollArea, Input, Button)
+  - shadcn/ui (Card, Table, Tabs, ScrollArea, Input, Button, Badge)
   - Tailwind CSS
   - lucide-react (Database icon)
   - React (client components with useState/useEffect)
@@ -30,8 +30,147 @@ relatedLinks: []
 
 # Open questions (must be resolved before implementation)
 openQuestions:
-  - Should the UI allow write operations (INSERT/UPDATE/DELETE) or be read-only for safety?
-  - Should raw SQL execution be gated behind a feature flag or always available?
+  - question: 'Should the SQL query runner allow write operations (INSERT, UPDATE, DELETE) or be read-only?'
+    resolved: true
+    options:
+      - option: 'Read-only queries'
+        description: >
+          Only allow SELECT and PRAGMA queries. Safest option — prevents accidental
+          data corruption. Users who need writes can use external tools. Simpler to
+          implement with a single db.prepare().all() path.
+        selected: true
+      - option: 'Full read-write access'
+        description: >
+          Allow all SQL statements including INSERT, UPDATE, DELETE, and DDL. Maximum
+          flexibility but risks accidental data loss. Requires confirmation dialogs
+          and transaction handling.
+        selected: false
+      - option: 'Read-write with confirmation'
+        description: >
+          Allow writes but require explicit confirmation before executing mutating
+          statements. Middle ground but adds UI complexity for a developer tool.
+        selected: false
+    selectionRationale: >
+      Read-only is recommended because this is a debugging/inspection tool, not a
+      database admin tool. Shep manages its own schema and data — ad-hoc writes
+      could corrupt application state. Read-only eliminates an entire class of
+      accidental damage while still serving the primary use case of data inspection.
+    answer: 'Read-only queries'
+
+  - question: 'How should table navigation be structured — single page with tabs or separate routes per table?'
+    resolved: true
+    options:
+      - option: 'Single page with client-side tabs'
+        description: >
+          One route (/database) with a table list sidebar and tab-style content area.
+          Table selection is client state. Faster navigation between tables, no route
+          changes. Simpler implementation with useState.
+        selected: true
+      - option: 'Nested routes per table'
+        description: >
+          Routes like /database/[tableName] with server-side data loading per table.
+          Enables deep linking and browser back/forward navigation. More complex
+          routing but better URL sharing.
+        selected: false
+    selectionRationale: >
+      Single page with client-side tabs is recommended because table switching should
+      feel instant. Deep linking to specific tables is low value for a local debugging
+      tool. The client-side approach matches phpMyAdmin's feel and avoids unnecessary
+      server round-trips on table selection.
+    answer: 'Single page with client-side tabs'
+
+  - question: 'What pagination size should be used for row browsing?'
+    resolved: true
+    options:
+      - option: '25 rows per page'
+        description: >
+          Compact view, less scrolling, faster load. May feel too small for tables
+          with many columns that need horizontal scrolling.
+        selected: false
+      - option: '50 rows per page'
+        description: >
+          Good balance between data visibility and performance. Standard for most
+          database browsers. Handles wide tables well.
+        selected: true
+      - option: '100 rows per page'
+        description: >
+          Shows more data at once but can cause rendering lag with many columns.
+          May feel sluggish on large tables with BLOB/TEXT columns.
+        selected: false
+    selectionRationale: >
+      50 rows is the standard pagination size for database browsers (phpMyAdmin
+      defaults to 25 but most users increase it). It balances visibility with
+      rendering performance for SQLite tables that typically have modest column counts.
+    answer: '50 rows per page'
+
+  - question: 'Should the database page be feature-flagged or always visible?'
+    resolved: true
+    options:
+      - option: 'Always visible'
+        description: >
+          Show the Database nav item unconditionally. Simpler implementation, no
+          feature flag plumbing. The page is useful for all users running the web UI.
+        selected: true
+      - option: 'Feature-flagged'
+        description: >
+          Hide behind a feature flag like the Skills page. Allows gradual rollout
+          and easy removal. Adds complexity for a developer-focused tool.
+        selected: false
+    selectionRationale: >
+      Always visible is recommended because this is a developer/power-user tool and
+      the web UI itself is already a power-user feature. Adding a feature flag adds
+      unnecessary complexity for a page that provides useful debugging capability
+      to every user.
+    answer: 'Always visible'
+
+  - question: 'Where should the Database nav item be positioned in the sidebar?'
+    resolved: true
+    options:
+      - option: 'After Settings (last nav item)'
+        description: >
+          Places Database at the bottom of the nav list, treating it as a secondary
+          tool. Least disruptive to existing nav order.
+        selected: true
+      - option: 'Between Tools and Settings'
+        description: >
+          Groups Database with other tool-like pages. More logical grouping but
+          changes the existing nav flow users are accustomed to.
+        selected: false
+      - option: 'Between Skills and Settings'
+        description: >
+          Places it near the end but before Settings. Settings typically anchors
+          the bottom of navigation in most apps.
+        selected: false
+    selectionRationale: >
+      After Settings is recommended because Database is a secondary developer tool,
+      not a primary workflow page. Placing it last keeps the existing nav order
+      stable and signals that it is an advanced/debugging feature.
+    answer: 'After Settings (last nav item)'
+
+  - question: 'How should long text and BLOB values be displayed in the row browser?'
+    resolved: true
+    options:
+      - option: 'Truncate with expandable cells'
+        description: >
+          Truncate values beyond 100 characters in the table view with a "..." indicator.
+          Clicking a cell shows the full value in a modal or expandable area.
+          Prevents table layout from breaking on large text values.
+        selected: true
+      - option: 'Always show full values'
+        description: >
+          Display complete cell contents inline. Simple but can destroy table layout
+          with large text or JSON blobs.
+        selected: false
+      - option: 'Fixed-width columns with horizontal scroll'
+        description: >
+          Set max column widths and use horizontal scrolling. Preserves layout but
+          makes it harder to read individual values.
+        selected: false
+    selectionRationale: >
+      Truncate with expandable cells is the standard approach in database browsers.
+      It keeps the table layout stable while still allowing inspection of full values.
+      BLOB values should show byte length rather than raw binary content.
+    answer: 'Truncate with expandable cells'
 
 # Markdown content (the actual spec)
 content: |
@@ -43,46 +182,96 @@ content: |
   page would allow browsing tables, viewing rows, inspecting schema, and running
   ad-hoc queries directly from the Shep web UI.
 
-  ## Codebase Analysis
+  ## Success Criteria
 
-  ### Project Structure
+  - [ ] "Database" nav item with Database icon appears in the sidebar after Settings
+  - [ ] Database page loads and lists all user tables (excluding sqlite_ internal tables)
+  - [ ] Each table entry shows its name and row count
+  - [ ] Selecting a table displays its rows in a paginated table (50 rows per page)
+  - [ ] Pagination controls (previous/next/page number) work correctly
+  - [ ] Column metadata tab shows name, type, nullable, default value, and primary key status
+  - [ ] Raw SQL query textarea accepts input and executes read-only queries on submit
+  - [ ] Query results display in a table with column headers matching result columns
+  - [ ] Query errors display a clear error message (not a crash)
+  - [ ] Long text values are truncated at 100 chars with expand capability
+  - [ ] BLOB values show byte length instead of raw binary
+  - [ ] All new components have colocated Storybook stories with realistic mock data
+  - [ ] Storybook mocks exist for all new server actions
+  - [ ] Page works in both dev mode (port 3000) and production mode (port 4050)
+  - [ ] No new external dependencies added (all libraries already available)
 
-  The repository follows Clean Architecture with four layers:
+  ## Functional Requirements
 
-  - `packages/core/src/domain/` — domain entities and generated TypeSpec types
-  - `packages/core/src/application/` — use cases, port interfaces
-  - `packages/core/src/infrastructure/` — SQLite repositories, persistence, services
-  - `src/presentation/web/` — Next.js App Router web UI
+  - **FR-1: Table Listing** — Server action queries `SELECT name FROM sqlite_master WHERE type='table'`
+    (excluding `sqlite_` prefixed tables) and returns table names with row counts via
+    `SELECT COUNT(*) FROM <table>`. Displayed as a clickable list/sidebar on the database page.
 
-  The web UI lives under `src/presentation/web/` with:
-  - `app/` — Next.js pages and route handlers (settings, tools, skills pages exist)
-  - `components/` — 4-tier component hierarchy (ui → common → layouts → features)
-  - `app/actions/` — server actions for data fetching via DI container
-  - `hooks/` — custom React hooks
+  - **FR-2: Row Browser** — When a table is selected, fetch rows with `LIMIT 50 OFFSET ?` pagination.
+    Display in a shadcn Table component with column headers from the result set. Support
+    previous/next page navigation and display current page number and total row count.
 
-  ### Architecture Patterns
+  - **FR-3: Column Metadata** — For the selected table, execute `PRAGMA table_info(<table>)` to
+    retrieve column definitions. Display name, type, notnull flag, default value, and primary
+    key indicator in a metadata table or tab.
 
-  - **Server components** for pages (`app/settings/page.tsx` pattern): async page
-    calls server action, passes data to client component
-  - **Server actions** (`app/actions/load-settings.ts` pattern): use `resolve()`
-    from `@/lib/server-container` to get DI-resolved use cases
-  - **Sidebar navigation** (`components/layouts/app-sidebar/app-sidebar.tsx`):
-    `SidebarNavItem` components with icon, label, href, active state from
-    `usePathname()`. Currently: Home, Tools, Skills (feature-flagged), Settings
-  - **Database access**: singleton `better-sqlite3` connection via
-    `getSQLiteConnection()` with WAL mode, foreign keys, defensive mode
-  - **Migrations**: 34 legacy + file-based discovery (umzug v3)
-  - **Storybook**: every component must have colocated `.stories.tsx`
+  - **FR-4: SQL Query Runner** — A textarea input where users can type arbitrary SQL. On submit,
+    execute via `db.prepare(query).all()` and display results in a dynamic table. Only SELECT
+    and PRAGMA statements are allowed — reject INSERT/UPDATE/DELETE/DROP/ALTER/CREATE with a
+    client-side validation message before execution.
 
-  ### Relevant Technologies
+  - **FR-5: Query Error Handling** — If a query fails (syntax error, table not found, etc.),
+    catch the error and display the SQLite error message in a styled error banner. Do not
+    crash the page or show a raw stack trace.
 
-  - **better-sqlite3**: synchronous API, supports `db.prepare().all()`,
-    `db.pragma()`, `db.exec()` — ideal for table listing, row fetching, schema
-    introspection via `PRAGMA table_info()`, `PRAGMA table_list()`
-  - **shadcn/ui**: Table, Card, Tabs, ScrollArea, Input, Button components
-    already available in the component library
-  - **Next.js App Router**: server actions for DB queries, client components
-    for interactive table browsing
+  - **FR-6: Sidebar Navigation** — Add a `SidebarNavItem` with the `Database` lucide icon,
+    label "Database", href "/database", positioned after the Settings nav item. Active state
+    derived from `usePathname()` matching `/database`.
+
+  - **FR-7: Value Display** — Text values longer than 100 characters are truncated with "..."
+    in the table cell. BLOB values display as "(N bytes)" where N is the buffer length.
+    Clicking a truncated cell expands to show the full value.
+
+  - **FR-8: Table Search/Filter** — If more than 10 tables exist, show a search input above
+    the table list to filter by name. This keeps the page usable for databases with many
+    migration-created tables.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1: Performance** — Table listing and row fetching must complete within 200ms for
+    tables up to 100,000 rows. Pagination queries use indexed ROWID for efficient offset.
+
+  - **NFR-2: Security** — SQL query runner must validate input server-side to reject write
+    operations (INSERT, UPDATE, DELETE, DROP, ALTER, CREATE TABLE). Defense in depth:
+    validate both client-side and server-side.
+
+  - **NFR-3: Architecture Compliance** — Follow existing patterns: server actions in
+    `app/actions/`, feature components in `components/features/database/`, page in
+    `app/database/page.tsx`. Use `getSQLiteConnection()` from the existing connection module.
+
+  - **NFR-4: Storybook Coverage** — Every new component must have a colocated `.stories.tsx`
+    file with at least one story showing realistic data. Server action mocks must be added
+    to `.storybook/mocks/app/actions/`.
+
+  - **NFR-5: Responsiveness** — The database page must be usable on viewport widths from
+    768px (tablet) and up. The table list should collapse or scroll on narrow viewports.
+
+  - **NFR-6: Accessibility** — Table components must use proper `<table>`, `<thead>`,
+    `<tbody>`, `<th>`, `<td>` semantics. Query input must have a visible label. Error
+    messages must be announced to screen readers (aria-live region).
+
+  - **NFR-7: No External Dependencies** — All required libraries (better-sqlite3, shadcn/ui,
+    lucide-react) are already installed. No new npm packages should be added.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Should SQL runner allow writes? | Read-only queries | Prevents accidental data corruption; this is a debugging tool |
+  | 2 | Single page or nested routes? | Single page with client tabs | Instant table switching, matches phpMyAdmin feel |
+  | 3 | Pagination size? | 50 rows per page | Standard DB browser default, good perf/visibility balance |
+  | 4 | Feature-flagged? | Always visible | Low complexity, useful for all web UI users |
+  | 5 | Nav item position? | After Settings | Least disruptive, signals secondary/debug tool |
+  | 6 | Long value display? | Truncate with expand | Preserves table layout, standard DB browser pattern |
 
   ## Affected Areas
 
@@ -103,16 +292,6 @@ content: |
   - **Existing SQLite connection singleton** — `getSQLiteConnection()` provides the DB handle
   - **lucide-react Database icon** — already available in the icon library
 
-  ## Success Criteria
-
-  - [ ] "Database" nav item appears in the sidebar between Settings and the feature list
-  - [ ] Database page lists all tables with row counts
-  - [ ] Clicking a table shows its rows with pagination (e.g., 50 rows per page)
-  - [ ] Column metadata (name, type, nullable, default, PK) is visible per table
-  - [ ] Raw SQL query input executes read queries and displays results in a table
-  - [ ] All new components have colocated Storybook stories
-  - [ ] Page works in both dev mode (port 3000) and production mode (port 4050)
-
   ## Size Estimate
 
   **M** — This is primarily a presentation-layer feature. The database access layer
@@ -120,8 +299,8 @@ content: |
   (1) server actions for table/row/schema queries using SQLite PRAGMAs,
   (2) client components for table browser, row viewer, and query runner,
   (3) sidebar nav addition, (4) Storybook stories. No domain model changes or
-  migrations needed. Estimated 3-4 days of implementation.
+  migrations needed.
 
   ---
 
-  _Analysis complete — proceed with research_
+  _Requirements complete — proceed with research_
