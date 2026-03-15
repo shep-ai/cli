@@ -7,7 +7,7 @@
 
 import 'reflect-metadata';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, existsSync } from 'node:fs';
+import { mkdtempSync, rmSync, existsSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFile as execFileCb } from 'node:child_process';
@@ -123,6 +123,23 @@ describe('WorktreeService.ensureGitRepository (integration)', () => {
     expect(existsSync(wtPath)).toBe(true);
 
     // Clean up worktree (use execFile directly since service.remove doesn't set cwd)
+    await execFile('git', ['worktree', 'remove', wtPath], { cwd: tempDir });
+  });
+
+  it('should include existing files in worktree when initializing a non-git directory (#353)', async () => {
+    // Place a file in the directory before git init
+    const existingFile = join(tempDir, 'existing.txt');
+    writeFileSync(existingFile, 'hello from existing file');
+
+    await service.ensureGitRepository(tempDir);
+
+    // Create a worktree from the initial commit
+    const wtPath = join(tempDir, '.worktrees', 'test-branch');
+    await service.create(tempDir, 'test-branch', wtPath);
+
+    // The worktree should contain the file that existed before git init
+    expect(existsSync(join(wtPath, 'existing.txt'))).toBe(true);
+
     await execFile('git', ['worktree', 'remove', wtPath], { cwd: tempDir });
   });
 });

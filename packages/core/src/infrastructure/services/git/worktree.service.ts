@@ -146,6 +146,9 @@ export class WorktreeService implements IWorktreeService {
       }
       await this.execFile('git', ['config', 'user.name', GIT_AUTO_INIT_USER], { cwd: repoPath });
       await this.execFile('git', ['config', 'user.email', GIT_AUTO_INIT_EMAIL], { cwd: repoPath });
+      // Stage any existing files so they appear in the worktree after creation.
+      // --allow-empty ensures the commit succeeds even if the directory is empty.
+      await this.execFile('git', ['add', '.'], { cwd: repoPath });
       await this.execFile(
         'git',
         ['commit', '--allow-empty', '--no-gpg-sign', '-m', 'Initial commit'],
