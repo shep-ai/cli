@@ -1,0 +1,336 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: post-merge-history
+summary: >
+  Pure UI-layer change requiring no new libraries, schema changes, or server action modifications.
+  Extends computeVisibleTabs() with a maintain+pr condition, adds a readOnly prop to MergeReview
+  to conditionally hide DrawerActionBar, and uses a dynamic tab label map for "Merge History" vs
+  "Merge Review". All underlying data (PR metadata, evidence, diffs) already persists post-merge.
+
+# Relationships
+relatedFeatures:
+  - 047-post-feature-cleanup
+technologies:
+  - React 19
+  - Next.js 16
+  - TypeScript
+  - shadcn/ui
+  - Tailwind CSS
+
+relatedLinks: []
+
+# Structured technology decisions
+decisions:
+  - title: 'Tab visibility extension strategy'
+    chosen: 'Add a second condition branch in computeVisibleTabs() for maintain+pr'
+    rejected:
+      - >-
+        Refactor computeVisibleTabs() into a config-driven tab visibility map — Over-engineering
+        for a single additional condition. The current imperative style with if-blocks is clear,
+        matches the existing pattern for prd-review, tech-decisions, and merge-review tabs, and
+        keeps the function easy to read at ~20 lines. A config-driven approach would add
+        abstraction for no benefit given the function's simplicity.
+      - >-
+        Add 'maintain' to the existing review condition (lifecycle === 'review' || lifecycle ===
+        'maintain') — This would show the merge-review tab for ALL maintain features, even those
+        that never had a PR (e.g., manually completed features). The spec explicitly requires
+        node.pr to be truthy (FR-2), so a separate condition branch is needed to check both
+        lifecycle and pr presence.
+    rationale: >
+      The existing computeVisibleTabs() function at feature-drawer-tabs.tsx:57-74 uses simple
+      if-blocks for each tab's visibility condition. Adding a new if-block for maintain+pr follows
+      this exact pattern. The condition is: if (node.lifecycle === 'maintain' && node.pr)
+      tabs.push('merge-review'). This is minimal, clear, and consistent with FR-1 and FR-2.
+
+  - title: 'Read-only mode implementation approach'
+    chosen: 'Add optional readOnly prop to MergeReviewProps, conditionally render DrawerActionBar'
+    rejected:
+      - >-
+        Create a separate MergeHistory component that duplicates the data display sections without
+        the action bar — Violates DRY. The MergeReview component already renders all the needed
+        sections (PR card, branch direction, diff summary, evidence, file diffs). Duplicating
+        ~200 lines of JSX to avoid one conditional would be maintenance-heavy and error-prone
+        when the display evolves.
+      - >-
+        Use a wrapper component that renders MergeReview inside a container that hides the action
+        bar via CSS (display:none) — CSS hiding is fragile (the action bar would still mount,
+        receive focus, and consume resources). The component would still require onApprove
+        callbacks, making the API confusing. Conditional rendering is the React-idiomatic approach
+        and matches how other components in the codebase handle mode-specific rendering.
+    rationale: >
+      The MergeReview component at merge-review.tsx:193-356 has a clean separation between its
+      data display section (lines 209-341, wrapped in a scrollable div) and the DrawerActionBar
+      (lines 343-353). Adding readOnly?: boolean to MergeReviewProps with a default of false
+      (NFR-3) and wrapping the DrawerActionBar in {!readOnly && <DrawerActionBar ... />} is a
+      one-line change that preserves all existing behavior. The header text and description can
+      also be adjusted based on readOnly to say "Merge History" instead of "Merge Review".
+
+  - title: 'Dynamic tab label strategy'
+    chosen: 'Compute label dynamically in visibleTabDefs derivation using node lifecycle'
+    rejected:
+      - >-
+        Store label overrides in computeVisibleTabs() return value by changing return type from
+        FeatureTabKey[] to {key, label}[] — This would change the function's contract and break
+        all consumers (visibleTabs.includes() calls, tests). The function's purpose is to compute
+        which tabs are visible, not their labels. Mixing concerns reduces clarity.
+      - >-
+        Add a separate getLabelOverrides() function that returns a Map<FeatureTabKey, string> —
+        Over-engineering for a single conditional label. A simple inline ternary in the
+        visibleTabDefs memo is clearer and requires no new abstraction. If more tabs need dynamic
+        labels in the future, this can be extracted then.
+    rationale: >
+      The tab labels are rendered via visibleTabDefs at feature-drawer-tabs.tsx:164-167 which
+      filters ALL_TABS by visibility. The cleanest approach is to map the label dynamically in
+      this derivation: for the merge-review tab, use "Merge History" when node.lifecycle ===
+      'maintain', otherwise keep "Merge Review". This keeps the ALL_TABS constant unchanged
+      (preserving its role as the canonical display-order definition) while allowing per-render
+      label customization. The featureNode is already available in scope.
+
+  - title: 'Props threading from FeatureDrawerTabs to MergeReview'
+    chosen: 'Pass readOnly prop directly based on featureNode.lifecycle check'
+    rejected:
+      - >-
+        Add readOnly to FeatureDrawerTabsProps and pass it through from the parent — Unnecessary
+        indirection. The FeatureDrawerTabs component already has access to featureNode.lifecycle,
+        so it can derive readOnly={featureNode.lifecycle === 'maintain'} directly without
+        requiring the parent to compute and pass it.
+      - >-
+        Use React Context to provide read-only mode to deeply nested components — Massive
+        over-engineering. MergeReview is a direct child of FeatureDrawerTabs; there is no deep
+        nesting that would justify a context. Props are the correct mechanism for one-level-deep
+        communication.
+    rationale: >
+      The merge-review tab content is rendered at feature-drawer-tabs.tsx:452-471. The component
+      already has featureNode in scope (line 136). Passing readOnly={featureNode.lifecycle ===
+      'maintain'} to MergeReview is a trivial addition. When readOnly is true, the callback
+      props (onApprove, onReject) become irrelevant — the component simply won't render the
+      action bar. No-op fallbacks already handle undefined callbacks.
+
+  - title: 'deriveInitialTab() behavior for maintain lifecycle'
+    chosen: 'No changes to deriveInitialTab() — maintain lifecycle defaults to overview'
+    rejected:
+      - >-
+        Return merge-review as the initial tab when lifecycle=maintain and pr exists — The spec
+        explicitly requires overview as the default for maintain (FR-8). Maintain is a terminal
+        state; users primarily want status information. Merge history is one click away. Auto-
+        navigating to a read-only archive tab would be unexpected and disorienting.
+      - >-
+        Add a special case to return merge-review only on the first visit after merge — Would
+        require tracking "first visit" state somewhere (localStorage, feature flag), adding
+        complexity far out of proportion to the marginal UX benefit. The overview tab already
+        shows merged status clearly.
+    rationale: >
+      deriveInitialTab() at drawer-view.ts:54-61 falls through to 'overview' for any lifecycle/
+      state combination not explicitly matched. The maintain lifecycle is intentionally not matched
+      because the spec (FR-8) requires overview as the default. Existing tests in drawer-view.
+      test.ts already verify this behavior. No changes needed.
+
+# Open questions (should be resolved by end of research)
+openQuestions:
+  - question: 'Should the MergeReview header text change in read-only mode?'
+    resolved: true
+    options:
+      - option: 'Change header to "Merge History" with archival description'
+        description: >
+          Update the h2 from "Merge Review" to "Merge History" and the description from
+          "Review the pull request..." to "This feature was merged. Review the pull request
+          details and evidence below." Signals the archival nature clearly. Consistent with
+          the tab label change (FR-3).
+        selected: true
+      - option: 'Keep header as "Merge Review" unchanged'
+        description: >
+          Only change the tab label to "Merge History" but leave the component header as
+          "Merge Review". Simpler change but creates inconsistency between tab label and
+          component header, which could confuse users.
+        selected: false
+      - option: 'Remove the header entirely in read-only mode'
+        description: >
+          Strip the header section to maximize content area. Reduces visual noise but
+          removes the contextual framing that helps users understand what they are looking at.
+          Inconsistent with how other tabs render their content (all have headers).
+        selected: false
+    selectionRationale: >
+      Consistency between the tab label ("Merge History") and the component header is important
+      for user orientation. The spec changes the tab label for maintain lifecycle (FR-3), so
+      the header should match. The archival description reinforces that this is a read-only
+      view of historical data, not an actionable review. This follows the existing pattern where
+      the header text ("Merge Review") matches the tab label ("Merge Review").
+
+  - question: 'How should onApprove/onReject be handled when readOnly is true?'
+    resolved: true
+    options:
+      - option: 'Pass no-op callbacks, rely on DrawerActionBar not rendering'
+        description: >
+          Keep the existing callback props as required in MergeReviewProps but pass no-ops
+          from the parent. The readOnly flag prevents the action bar from rendering, so the
+          callbacks are never invoked. Simple and requires no interface changes.
+        selected: true
+      - option: 'Make onApprove optional in MergeReviewProps'
+        description: >
+          Change onApprove from required to optional (onApprove?: () => void). This makes
+          the type system enforce that read-only mode doesn't need callbacks. However, it
+          changes the existing interface contract and requires all existing call sites to handle
+          the optional case, even though the action bar always needs onApprove when rendered.
+        selected: false
+      - option: 'Create a discriminated union type for MergeReviewProps'
+        description: >
+          Use { readOnly: true; data: MergeReviewData } | { readOnly?: false; data: ... ;
+          onApprove: () => void; ... } to enforce that read-only mode doesn't receive action
+          callbacks. Type-safe but adds significant complexity to the interface for no runtime
+          benefit. The component is simple enough that the readOnly conditional is sufficient.
+        selected: false
+    selectionRationale: >
+      The existing pattern in feature-drawer-tabs.tsx:458 already passes
+      onApprove={onMergeApprove ?? (() => undefined)} — a no-op fallback. The readOnly prop
+      prevents the DrawerActionBar from mounting, so callbacks are never invoked. Keeping
+      onApprove required maintains backward compatibility (NFR-3) and avoids changing the
+      interface for all existing consumers. The no-op pattern is already established.
+
+  - question: 'Should the green status dot color change in read-only mode?'
+    resolved: true
+    options:
+      - option: 'Change to a neutral/gray dot for historical context'
+        description: >
+          Use a muted gray dot (bg-muted-foreground) to visually distinguish the history
+          view from the active review. Reinforces the archival nature. However, adds a
+          minor visual inconsistency with other tabs that all use the same styling.
+        selected: false
+      - option: 'Keep the emerald-500 green dot unchanged'
+        description: >
+          Maintain the same green dot. It represents "merge complete" which is a positive
+          state. Keeping it green is consistent with the "done" state color used elsewhere
+          in the node state config (featureNodeStateConfig).
+        selected: true
+      - option: 'Remove the dot entirely in read-only mode'
+        description: >
+          Strip the decorative dot to reduce visual weight. However, this changes the layout
+          and creates an inconsistency with how the component renders in active mode.
+        selected: false
+    selectionRationale: >
+      The green dot at merge-review.tsx:213 is a status indicator that signals the merge
+      state. In the maintain lifecycle, the feature has successfully merged, so green is
+      semantically correct. The featureNodeStateConfig in feature-node-state-config.ts uses
+      emerald for the "done" state, so green is consistent with the broader design language.
+      Changing it for read-only mode adds complexity without meaningful UX improvement.
+
+# Markdown content (the full research document)
+content: |
+  ## Technology Decisions
+
+  ### 1. Tab Visibility Extension Strategy
+
+  **Chosen:** Add a second condition branch in `computeVisibleTabs()` for maintain+pr
+
+  **Rejected:**
+  - Config-driven tab visibility map — Over-engineering for a single additional condition. The current imperative if-block style is clear and matches existing patterns.
+  - Combining with existing review condition (`lifecycle === 'review' || lifecycle === 'maintain'`) — Would show merge-review for ALL maintain features, even those without PR data, violating FR-2.
+
+  **Rationale:** The existing function uses simple if-blocks. Adding `if (node.lifecycle === 'maintain' && node.pr) tabs.push('merge-review')` follows this exact pattern and satisfies FR-1 and FR-2.
+
+  ### 2. Read-Only Mode Implementation
+
+  **Chosen:** Add optional `readOnly` prop to `MergeReviewProps`, conditionally render `DrawerActionBar`
+
+  **Rejected:**
+  - Separate `MergeHistory` component — Violates DRY; duplicates ~200 lines of JSX.
+  - CSS-based hiding of action bar — Fragile; action bar still mounts, receives focus, and requires callbacks.
+
+  **Rationale:** MergeReview has clean separation between data display (lines 209-341) and DrawerActionBar (lines 343-353). A single `{!readOnly && <DrawerActionBar ... />}` conditional is the minimal, idiomatic change.
+
+  ### 3. Dynamic Tab Label Strategy
+
+  **Chosen:** Compute label dynamically in `visibleTabDefs` derivation using node lifecycle
+
+  **Rejected:**
+  - Changing `computeVisibleTabs()` return type to include labels — Breaks all consumers and mixes concerns.
+  - Separate `getLabelOverrides()` function — Over-engineering for a single conditional label.
+
+  **Rationale:** The `visibleTabDefs` memo at line 164-167 already maps ALL_TABS to visible tabs. Adding a ternary for merge-review label is minimal and keeps ALL_TABS as the canonical display-order source.
+
+  ### 4. Props Threading Strategy
+
+  **Chosen:** Derive `readOnly` directly from `featureNode.lifecycle === 'maintain'` in FeatureDrawerTabs
+
+  **Rejected:**
+  - Adding readOnly to FeatureDrawerTabsProps — Unnecessary indirection; lifecycle is already available.
+  - React Context for read-only mode — Massive over-engineering for single-level prop passing.
+
+  **Rationale:** The merge-review tab content at line 452-471 already has `featureNode` in scope. `readOnly={featureNode.lifecycle === 'maintain'}` is trivial to derive.
+
+  ### 5. deriveInitialTab() Behavior
+
+  **Chosen:** No changes — maintain lifecycle defaults to overview
+
+  **Rejected:**
+  - Auto-navigate to merge-review for maintain+pr — Spec requires overview (FR-8); would be disorienting.
+  - First-visit tracking — Adds state complexity for marginal UX benefit.
+
+  **Rationale:** The function's fall-through to 'overview' already handles maintain correctly. Existing tests verify this behavior.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | React 19 | Component framework | Use (existing) | Already in use; no new dependencies needed |
+  | shadcn/ui Tabs | Tab component | Use (existing) | Already powers FeatureDrawerTabs |
+  | shadcn/ui Badge | Status badges | Use (existing) | Already used in MergeReview |
+  | Tailwind CSS | Styling | Use (existing) | All styling via existing utility classes |
+  | lucide-react | Icons | Use (existing) | All needed icons already imported |
+
+  **No new libraries required.** This feature is entirely implemented with existing dependencies.
+
+  ## Security Considerations
+
+  - **No new attack surface:** No new server actions, API endpoints, or data fetching paths are introduced (NFR-1).
+  - **No data exposure changes:** The `getMergeReviewData()` server action already returns the same data regardless of lifecycle phase. The read-only mode is purely a UI presentation concern.
+  - **No authorization changes:** Tab visibility is computed client-side from node data already authorized by the server action layer. Adding maintain+pr visibility doesn't bypass any access controls.
+  - **Evidence file serving:** Evidence files are already served via the existing `/api/evidence` endpoint with path validation. No changes to this endpoint are needed.
+
+  ## Performance Implications
+
+  - **No additional data fetching:** The merge-review tab data loads lazily on activation via the existing `useTabDataFetch` pattern (NFR-6). No eager loading is introduced.
+  - **No additional renders:** The `readOnly` prop is derived from `featureNode.lifecycle` which is already in the render path. No new state, effects, or subscriptions.
+  - **Tab visibility computation:** Adding one more if-block to `computeVisibleTabs()` has negligible performance impact — the function runs once per featureNode change (memoized via `useMemo`).
+  - **Evidence persistence:** Evidence files are read from disk by the existing server action. Post-merge evidence access has the same performance characteristics as during review.
+
+  ## Architecture Notes
+
+  This feature is a **pure presentation-layer change**. It does not touch:
+  - Domain models or TypeSpec definitions (NFR-2)
+  - Database schema or migrations (NFR-2)
+  - Server actions or API endpoints (NFR-1)
+  - Application layer use cases
+  - Infrastructure layer
+
+  The changes are confined to three files in `src/presentation/web/components/common/`:
+  1. `feature-drawer-tabs/feature-drawer-tabs.tsx` — Visibility logic + label + readOnly threading
+  2. `merge-review/merge-review-config.ts` — Add `readOnly?: boolean` to `MergeReviewProps`
+  3. `merge-review/merge-review.tsx` — Conditional action bar + header text
+
+  Plus test and story files:
+  4. `tests/unit/.../feature-drawer-tabs.test.tsx` — New visibility tests for maintain+pr
+  5. `tests/unit/.../drawer-view.test.ts` — Verify existing maintain→overview behavior
+  6. `merge-review/merge-review.stories.tsx` — Read-only mode stories (NFR-4)
+
+  This adheres to Clean Architecture by keeping UI concerns in the presentation layer and avoiding changes to inner layers.
+
+  ## Implementation Summary
+
+  | Change | File | Lines of Code | Risk |
+  | ------ | ---- | ------------- | ---- |
+  | Visibility condition | feature-drawer-tabs.tsx | ~3 | Low |
+  | Dynamic tab label | feature-drawer-tabs.tsx | ~5 | Low |
+  | readOnly prop threading | feature-drawer-tabs.tsx | ~1 | Low |
+  | readOnly prop definition | merge-review-config.ts | ~2 | Low |
+  | Conditional action bar | merge-review.tsx | ~5 | Low |
+  | Header text adaptation | merge-review.tsx | ~8 | Low |
+  | Unit tests | feature-drawer-tabs.test.tsx | ~30 | Low |
+  | Existing test verification | drawer-view.test.ts | ~0 | None |
+  | Storybook stories | merge-review.stories.tsx | ~40 | Low |
+
+  **Total estimated change:** ~95 lines across 5 files (3 source + 1 test + 1 story)
+
+  ---
+
+  _Research completed 2026-03-15_
