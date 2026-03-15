@@ -89,6 +89,7 @@ export function createImplementNode(executor: IAgentExecutor) {
   const log = createNodeLogger('implement');
 
   return async (state: FeatureAgentState): Promise<Partial<FeatureAgentState>> => {
+    log.activate();
     log.info('Starting implementation phase orchestration');
     reportNodeStart('implement');
     await updateNodeLifecycle('implement');

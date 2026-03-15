@@ -322,6 +322,27 @@ export interface IGitPrService {
   ): Promise<boolean>;
 
   /**
+   * Perform a local squash merge: checkout baseBranch, merge --squash featureBranch,
+   * commit with the given message, and optionally delete the feature branch.
+   *
+   * This is a deterministic operation that does not require an AI agent.
+   *
+   * @param cwd - Working directory path (the original repository, NOT a worktree)
+   * @param featureBranch - Branch to merge from
+   * @param baseBranch - Branch to merge into
+   * @param commitMessage - Commit message for the squash merge
+   * @param hasRemote - Whether the repo has a remote (controls git fetch)
+   * @throws GitPrError with MERGE_CONFLICT or GIT_ERROR code
+   */
+  localMergeSquash(
+    cwd: string,
+    featureBranch: string,
+    baseBranch: string,
+    commitMessage: string,
+    hasRemote?: boolean
+  ): Promise<void>;
+
+  /**
    * Check if a PR has merge conflicts via `gh pr view --json mergeable`.
    *
    * @param cwd - Working directory path

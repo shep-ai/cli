@@ -92,6 +92,7 @@ describe('CleanupFeatureWorktreeUseCase', () => {
       getFileDiffs: vi.fn(),
       getMergeableStatus: vi.fn().mockResolvedValue(undefined),
       revParse: vi.fn(),
+      localMergeSquash: vi.fn().mockResolvedValue(undefined),
     };
 
     useCase = new CleanupFeatureWorktreeUseCase(

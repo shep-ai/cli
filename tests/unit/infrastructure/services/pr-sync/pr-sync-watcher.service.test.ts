@@ -92,6 +92,7 @@ function createMockGitPrService(): IGitPrService {
     verifyMerge: vi.fn().mockResolvedValue(false),
     getMergeableStatus: vi.fn().mockResolvedValue(undefined),
     revParse: vi.fn().mockResolvedValue('mock-sha'),
+    localMergeSquash: vi.fn().mockResolvedValue(undefined),
   };
 }
 

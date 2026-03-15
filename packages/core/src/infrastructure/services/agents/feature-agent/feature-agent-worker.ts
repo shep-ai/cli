@@ -241,6 +241,13 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
         premergeBaseSha?: string
       ) => gitPrService.verifyMerge(cwd, featureBranch, baseBranch, premergeBaseSha),
       revParse: (cwd: string, ref: string) => gitPrService.revParse(cwd, ref),
+      localMergeSquash: (
+        cwd: string,
+        featureBranch: string,
+        baseBranch: string,
+        commitMessage: string,
+        hasRemote?: boolean
+      ) => gitPrService.localMergeSquash(cwd, featureBranch, baseBranch, commitMessage, hasRemote),
       featureRepository,
       gitPrService,
       cleanupFeatureWorktreeUseCase,
