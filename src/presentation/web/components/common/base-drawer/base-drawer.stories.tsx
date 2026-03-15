@@ -76,7 +76,7 @@ export const MediumSize: Story = {
       <div className="flex flex-col gap-4 p-4">
         <h3 className="text-sm font-semibold">Review Content</h3>
         <p className="text-muted-foreground text-sm">
-          This drawer uses size=&quot;md&quot; (w-xl / 576px) for content-rich review panels that
+          This drawer uses size=&quot;md&quot; (w-2xl / 672px) for content-rich review panels that
           need more horizontal space for diff summaries, tables, and code blocks.
         </p>
         <div className="bg-muted rounded-md p-3">
