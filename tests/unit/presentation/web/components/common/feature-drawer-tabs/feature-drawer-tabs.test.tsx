@@ -475,6 +475,72 @@ describe('FeatureDrawerTabs', () => {
     });
   });
 
+  describe('merge-review readOnly prop threading', () => {
+    it('passes readOnly to MergeReview when lifecycle=maintain (no action bar)', async () => {
+      const user = userEvent.setup();
+      renderTabs({
+        featureNode: {
+          ...defaultFeatureNode,
+          lifecycle: 'maintain',
+          state: 'done',
+          pr: {
+            url: 'https://github.com/org/repo/pull/42',
+            number: 42,
+            status: PrStatus.Merged,
+            ciStatus: CiStatus.Success,
+            commitHash: 'abc123',
+          },
+        },
+        mergeData: {
+          pr: {
+            url: 'https://github.com/org/repo/pull/42',
+            number: 42,
+            status: PrStatus.Merged,
+            ciStatus: CiStatus.Success,
+            commitHash: 'abc123',
+          },
+          diffSummary: { filesChanged: 5, additions: 100, deletions: 20, commitCount: 3 },
+        },
+      });
+
+      await user.click(screen.getByRole('tab', { name: 'Merge History' }));
+
+      // readOnly=true means header says "Merge History"
+      expect(screen.getByRole('heading', { name: 'Merge History' })).toBeInTheDocument();
+      // But PR data still renders
+      expect(screen.getByRole('link', { name: /PR #42/i })).toBeInTheDocument();
+    });
+
+    it('does not pass readOnly when lifecycle=review (action bar present)', async () => {
+      const user = userEvent.setup();
+      renderTabs({
+        featureNode: {
+          ...defaultFeatureNode,
+          lifecycle: 'review',
+          state: 'action-required',
+        },
+        mergeData: {
+          pr: {
+            url: 'https://github.com/org/repo/pull/42',
+            number: 42,
+            status: PrStatus.Open,
+            ciStatus: CiStatus.Success,
+            commitHash: 'abc123',
+          },
+          diffSummary: { filesChanged: 5, additions: 100, deletions: 20, commitCount: 3 },
+        },
+      });
+
+      await user.click(screen.getByRole('tab', { name: 'Merge Review' }));
+
+      // readOnly=false means the MergeReview header says "Merge Review" (not "Merge History")
+      // Use heading role to distinguish from the tab trigger text
+      expect(screen.getByRole('heading', { name: 'Merge Review' })).toBeInTheDocument();
+      // PR data renders
+      expect(screen.getByRole('link', { name: /PR #42/i })).toBeInTheDocument();
+    });
+  });
+
   describe('URL tab routing', () => {
     it('activates the tab specified in urlTab prop', () => {
       renderTabs({ urlTab: 'activity' });

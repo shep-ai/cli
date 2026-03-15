@@ -83,6 +83,8 @@ export interface MergeReviewData {
 export interface MergeReviewProps {
   /** Merge review data from the server action */
   data: MergeReviewData;
+  /** When true, hides the action bar and shows archival header text (post-merge history mode) */
+  readOnly?: boolean;
   /** Approve merge callback */
   onApprove: () => void;
   /** Reject merge callback — opens feedback dialog when provided; also used for inline text rejection */

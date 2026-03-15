@@ -255,3 +255,83 @@ export const WithEvidence: Story = {
     ...defaultActions,
   },
 };
+
+/* ─── Read-Only / History Mode ─── */
+
+const mergedPr = {
+  ...fullPr,
+  status: PrStatus.Merged,
+} as const;
+
+const readOnlyActions = {
+  onApprove: fn().mockName('onApprove'),
+};
+
+/** Read-only mode with full data — PR, diff summary, evidence, and file diffs. No action bar. */
+export const ReadOnlyFullData: Story = {
+  args: {
+    data: {
+      pr: mergedPr,
+      branch: sampleBranch,
+      diffSummary: fullData.diffSummary,
+      fileDiffs: sampleFileDiffs,
+      evidence: [
+        {
+          type: 'Screenshot',
+          capturedAt: '2026-03-09T12:00:00Z',
+          description: 'Homepage showing new auth banner',
+          relativePath: '.shep/evidence/homepage-banner.png',
+          taskRef: 'task-1',
+        },
+        {
+          type: 'TestOutput',
+          capturedAt: '2026-03-09T12:01:00Z',
+          description: 'Unit tests — all 42 passing',
+          relativePath: '.shep/evidence/unit-test-results.txt',
+          taskRef: 'task-2',
+        },
+      ],
+    },
+    readOnly: true,
+    ...readOnlyActions,
+  },
+};
+
+/** Read-only mode with evidence but no diffs — warning message shown for unavailable diffs. */
+export const ReadOnlyEvidenceNoDiffs: Story = {
+  args: {
+    data: {
+      pr: mergedPr,
+      branch: sampleBranch,
+      warning: 'Diff statistics unavailable — worktree was removed after merge',
+      evidence: [
+        {
+          type: 'Screenshot',
+          capturedAt: '2026-03-09T12:00:00Z',
+          description: 'Final state of the feature',
+          relativePath: '.shep/evidence/final-state.png',
+        },
+        {
+          type: 'Video',
+          capturedAt: '2026-03-09T12:02:00Z',
+          description: 'Demo walkthrough recording',
+          relativePath: '.shep/evidence/demo.mp4',
+        },
+      ],
+    },
+    readOnly: true,
+    ...readOnlyActions,
+  },
+};
+
+/** Read-only mode with PR metadata only — no evidence, no diffs. */
+export const ReadOnlyPrOnly: Story = {
+  args: {
+    data: {
+      pr: mergedPr,
+      branch: sampleBranch,
+    },
+    readOnly: true,
+    ...readOnlyActions,
+  },
+};

@@ -463,6 +463,7 @@ export function FeatureDrawerTabs({
             {mergeData ? (
               <MergeReview
                 data={mergeData}
+                readOnly={featureNode.lifecycle === 'maintain'}
                 onApprove={onMergeApprove ?? (() => undefined)}
                 onReject={onMergeReject}
                 isProcessing={isMergeLoading}

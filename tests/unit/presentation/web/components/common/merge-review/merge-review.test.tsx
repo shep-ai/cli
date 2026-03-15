@@ -279,4 +279,119 @@ describe('MergeReview', () => {
       expect(screen.getByText('Review the changes and approve to merge.')).toBeInTheDocument();
     });
   });
+
+  describe('read-only mode', () => {
+    it('hides DrawerActionBar when readOnly is true', () => {
+      render(<MergeReview {...baseProps} readOnly />);
+
+      expect(screen.queryByTestId('drawer-action-submit')).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('textbox', { name: /ask ai to revise before merging/i })
+      ).not.toBeInTheDocument();
+    });
+
+    it('shows DrawerActionBar when readOnly is false', () => {
+      render(<MergeReview {...baseProps} readOnly={false} />);
+
+      expect(screen.getByTestId('drawer-action-submit')).toBeInTheDocument();
+    });
+
+    it('shows DrawerActionBar when readOnly is undefined (default)', () => {
+      render(<MergeReview {...baseProps} />);
+
+      expect(screen.getByTestId('drawer-action-submit')).toBeInTheDocument();
+    });
+
+    it('displays "Merge History" header when readOnly is true', () => {
+      render(<MergeReview {...baseProps} readOnly />);
+
+      expect(screen.getByText('Merge History')).toBeInTheDocument();
+      expect(screen.queryByText('Merge Review')).not.toBeInTheDocument();
+    });
+
+    it('displays "Merge Review" header when readOnly is false', () => {
+      render(<MergeReview {...baseProps} readOnly={false} />);
+
+      expect(screen.getByText('Merge Review')).toBeInTheDocument();
+      expect(screen.queryByText('Merge History')).not.toBeInTheDocument();
+    });
+
+    it('displays archival description when readOnly is true and pr exists', () => {
+      render(<MergeReview {...baseProps} readOnly />);
+
+      expect(
+        screen.getByText(
+          'This feature was merged. Review the pull request details and evidence below.'
+        )
+      ).toBeInTheDocument();
+    });
+
+    it('still renders PR card when readOnly is true', () => {
+      render(<MergeReview {...baseProps} readOnly />);
+
+      expect(screen.getByRole('link', { name: /PR #42/i })).toBeInTheDocument();
+    });
+
+    it('still renders diff summary when readOnly is true', () => {
+      render(<MergeReview {...baseProps} readOnly />);
+
+      expect(screen.getByText('+200')).toBeInTheDocument();
+      expect(screen.getByText('-50')).toBeInTheDocument();
+    });
+
+    it('still renders branch info when readOnly is true', () => {
+      const props: MergeReviewProps = {
+        ...baseProps,
+        data: {
+          ...baseProps.data,
+          branch: { source: 'feat/auth', target: 'main' },
+        },
+      };
+      render(<MergeReview {...props} readOnly />);
+
+      expect(screen.getByText('feat/auth')).toBeInTheDocument();
+      expect(screen.getByText('main')).toBeInTheDocument();
+    });
+
+    it('still renders evidence when readOnly is true', () => {
+      const props: MergeReviewProps = {
+        ...baseProps,
+        data: {
+          ...baseProps.data,
+          evidence: [
+            {
+              type: 'Screenshot',
+              capturedAt: '2026-03-09T12:00:00Z',
+              description: 'Homepage screenshot',
+              relativePath: '.shep/evidence/homepage.png',
+            },
+          ],
+        },
+      };
+      render(<MergeReview {...props} readOnly />);
+
+      expect(screen.getByText('Homepage screenshot')).toBeInTheDocument();
+    });
+
+    it('still renders file diffs when readOnly is true', () => {
+      const props: MergeReviewProps = {
+        ...baseProps,
+        data: {
+          ...baseProps.data,
+          fileDiffs: [
+            {
+              path: 'src/app.ts',
+              additions: 5,
+              deletions: 2,
+              status: 'modified',
+              hunks: [{ header: '@@ -1,3 +1,6 @@', lines: [] }],
+            },
+          ],
+        },
+      };
+      render(<MergeReview {...props} readOnly />);
+
+      expect(screen.getByText('Changed Files')).toBeInTheDocument();
+    });
+  });
 });
