@@ -44,6 +44,11 @@ vi.mock('@/hooks/use-deploy-action', () => ({
   useDeployAction: () => mockDeployHookReturn,
 }));
 
+// Mock FeatureSessionsDropdown — avoids pulling in radix-ui/dropdown-menu
+vi.mock('@/components/common/feature-node/feature-sessions-dropdown', () => ({
+  FeatureSessionsDropdown: () => <div data-testid="mock-sessions-dropdown" />,
+}));
+
 // Mock feature flags — enable envDeploy so deploy buttons render
 vi.mock('@/hooks/feature-flags-context', () => ({
   useFeatureFlags: () => ({ envDeploy: true, skills: false, debug: false }),
