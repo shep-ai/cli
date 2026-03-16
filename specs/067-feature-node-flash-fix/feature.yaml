@@ -1,0 +1,36 @@
+feature:
+  id: '067-feature-node-flash-fix'
+  name: 'feature-node-flash-fix'
+  number: 67
+  branch: 'feat/067-feature-node-flash-fix'
+  lifecycle: 'research'
+  createdAt: '2026-03-16T10:18:50Z'
+
+status:
+  phase: 'research'
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-03-16T10:18:50Z'
+  lastUpdatedBy: 'feature-agent'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-03-16T10:18:50Z'
+    completedBy: 'feature-agent'
+
+errors:
+  current: null
+  history: []

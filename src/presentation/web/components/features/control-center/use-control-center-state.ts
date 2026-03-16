@@ -193,15 +193,19 @@ export function useControlCenterState(
     }
   }, [events, updateFeature]);
 
-  // Listen for optimistic approval events from the drawer (fires before SSE arrives)
+  // Listen for optimistic approval/rejection events from the drawer (fires before SSE arrives).
+  // Uses beginMutation + endMutation to prevent stale poll/reconcile data from overwriting
+  // the optimistic 'running' state during the transition window (avoids brief "Something went wrong" flash).
   useEffect(() => {
     const handler = (e: Event) => {
       const { featureId } = (e as CustomEvent<{ featureId: string }>).detail;
+      beginMutation();
       updateFeature(`feat-${featureId}`, { state: 'running' });
+      endMutation();
     };
     window.addEventListener('shep:feature-approved', handler);
     return () => window.removeEventListener('shep:feature-approved', handler);
-  }, [updateFeature]);
+  }, [updateFeature, beginMutation, endMutation]);
 
   // Separate effect: fetch metadata (name + description) when SSE reports it changed
   const metadataFetchedRef = useRef<Set<string>>(new Set());
