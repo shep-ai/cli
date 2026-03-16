@@ -1,0 +1,25 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-sidebar-pending-status
+
+ ✓  web  tests/unit/presentation/web/hooks/sidebar-features-context.test.tsx > mapNodeStateToSidebarStatus > maps action-required → action-needed 1ms
+ ✓  web  tests/unit/presentation/web/hooks/sidebar-features-context.test.tsx > mapNodeStateToSidebarStatus > maps running → in-progress 0ms
+ ✓  web  tests/unit/presentation/web/hooks/sidebar-features-context.test.tsx > mapNodeStateToSidebarStatus > maps done → done 0ms
+ ✓  web  tests/unit/presentation/web/hooks/sidebar-features-context.test.tsx > mapNodeStateToSidebarStatus > maps blocked → blocked 0ms
+ ✓  web  tests/unit/presentation/web/hooks/sidebar-features-context.test.tsx > mapNodeStateToSidebarStatus > maps pending → pending 0ms
+ ✓  web  tests/unit/presentation/web/hooks/sidebar-features-context.test.tsx > mapNodeStateToSidebarStatus > maps error → error 0ms
+ ✓  web  tests/unit/presentation/web/hooks/sidebar-features-context.test.tsx > mapNodeStateToSidebarStatus > maps creating → null 0ms
+ ✓  web  tests/unit/presentation/web/hooks/sidebar-features-context.test.tsx > SidebarFeaturesContext > throws when useSidebarFeaturesContext is called outside provider 7ms
+ ✓  web  tests/unit/presentation/web/hooks/sidebar-features-context.test.tsx > SidebarFeaturesContext > provides an empty features array by default 2ms
+ ✓  web  tests/unit/presentation/web/hooks/sidebar-features-context.test.tsx > SidebarFeaturesContext > updates features when setFeatures is called 2ms
+ ✓  web  tests/unit/presentation/web/hooks/sidebar-features-context.test.tsx > SidebarFeaturesContext > re-renders consumers when features change 2ms
+ ✓  web  tests/unit/presentation/web/common/feature-status-badges.test.tsx > FeatureStatusBadges > renders badges for statuses with counts > 0 22ms
+ ✓  web  tests/unit/presentation/web/common/feature-status-badges.test.tsx > FeatureStatusBadges > displays correct count numbers 6ms
+ ✓  web  tests/unit/presentation/web/common/feature-status-badges.test.tsx > FeatureStatusBadges > hides statuses with zero count 2ms
+ ✓  web  tests/unit/presentation/web/common/feature-status-badges.test.tsx > FeatureStatusBadges > renders nothing when all counts are zero 4ms
+ ✓  web  tests/unit/presentation/web/common/feature-status-badges.test.tsx > FeatureStatusBadges > applies custom className 2ms
+
+ Test Files  2 passed (2)
+      Tests  16 passed (16)
+   Start at  13:42:25
+   Duration  559ms (transform 93ms, setup 157ms, import 196ms, tests 50ms, environment 447ms)
+
