@@ -6,9 +6,12 @@
  * by the CLI bootstrap (`shep ui`) or the dev-server (`pnpm dev:web`).
  */
 
-import type { DependencyContainer, InjectionToken } from 'tsyringe';
-
 const CONTAINER_KEY = '__shepContainer';
+
+/** Minimal DI container interface (avoids importing tsyringe types). */
+interface MinimalContainer {
+  resolve<T>(token: string | symbol | (new (...args: unknown[]) => T)): T;
+}
 
 /**
  * Resolve a dependency from the DI container.
@@ -21,9 +24,9 @@ const CONTAINER_KEY = '__shepContainer';
  * const features = await resolve(ListFeaturesUseCase).execute();
  * ```
  */
-export function resolve<T>(token: InjectionToken<T>): T {
+export function resolve<T>(token: string | symbol | (new (...args: unknown[]) => T)): T {
   const container = (globalThis as Record<string, unknown>)[CONTAINER_KEY] as
-    | DependencyContainer
+    | MinimalContainer
     | undefined;
 
   if (!container) {
@@ -32,5 +35,5 @@ export function resolve<T>(token: InjectionToken<T>): T {
     );
   }
 
-  return container.resolve(token);
+  return container.resolve<T>(token);
 }

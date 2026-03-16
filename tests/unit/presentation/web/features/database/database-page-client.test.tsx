@@ -79,7 +79,7 @@ describe('DatabasePageClient integration', () => {
     expect(screen.getByText('features')).toBeInTheDocument();
     expect(screen.getByText('repositories')).toBeInTheDocument();
     expect(screen.getByText('settings')).toBeInTheDocument();
-    expect(screen.getByText('Select a table from the list to browse its data')).toBeInTheDocument();
+    expect(screen.getByText('Select a table to browse its data')).toBeInTheDocument();
   });
 
   it('fetches rows and schema when a table is selected', async () => {

@@ -14,7 +14,7 @@ export interface GetTableRowsResult {
 }
 
 function formatCellValue(value: unknown): unknown {
-  if (Buffer.isBuffer(value)) {
+  if (value instanceof Uint8Array) {
     return `(${value.length} bytes)`;
   }
   return value;
