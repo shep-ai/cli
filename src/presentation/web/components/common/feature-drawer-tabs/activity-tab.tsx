@@ -401,11 +401,23 @@ function IterationGroup({
         {iteration.timings.map((t, idx) => {
           if (isLifecycleEvent(t.phase)) {
             const isRejection = t.phase === 'run:rejected';
+            const isFailure =
+              t.phase === 'run:failed' || t.phase === 'run:crashed' || t.phase === 'run:stopped';
+            // For failures, find the last phase with an error message in this iteration
+            let message: string | undefined;
+            if (isRejection) {
+              message = iteration.rejectionMessage;
+            } else if (isFailure) {
+              const lastErrorPhase = [...iteration.timings]
+                .reverse()
+                .find((p) => !isLifecycleEvent(p.phase) && p.errorMessage);
+              message = lastErrorPhase?.errorMessage ?? t.errorMessage;
+            }
             return (
               <LifecycleEventRow
                 key={`${t.agentRunId}-${t.phase}-${t.startedAt}`}
                 timing={t}
-                message={isRejection ? iteration.rejectionMessage : undefined}
+                message={message}
                 attachments={isRejection ? iteration.rejectionAttachments : undefined}
                 isFirst={idx === 0}
                 isLast={idx === iteration.timings.length - 1}
@@ -473,18 +485,36 @@ function LifecycleEventRow({
         ) : null}
       </div>
 
-      {/* Rejection feedback */}
-      {message ? (
-        <div className="ml-[26px] flex items-start gap-1.5 rounded-md bg-orange-50/50 px-2 py-1.5 dark:bg-orange-950/20">
-          <MessageSquare className="mt-0.5 h-3.5 w-3.5 shrink-0 text-orange-400" />
-          <span
-            data-testid="rejection-feedback-text"
-            className="text-muted-foreground text-xs leading-relaxed italic"
-          >
-            &mdash; {message}
-          </span>
-        </div>
-      ) : null}
+      {/* Feedback / error message */}
+      {message
+        ? (() => {
+            const isError =
+              timing.phase === 'run:failed' ||
+              timing.phase === 'run:crashed' ||
+              timing.phase === 'run:stopped';
+            return (
+              <div
+                className={`ml-[26px] flex items-start gap-1.5 rounded-md px-2 py-1.5 ${
+                  isError
+                    ? 'bg-red-50/50 dark:bg-red-950/20'
+                    : 'bg-orange-50/50 dark:bg-orange-950/20'
+                }`}
+              >
+                {isError ? (
+                  <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-400" />
+                ) : (
+                  <MessageSquare className="mt-0.5 h-3.5 w-3.5 shrink-0 text-orange-400" />
+                )}
+                <span
+                  data-testid={isError ? 'error-message-text' : 'rejection-feedback-text'}
+                  className="text-muted-foreground text-xs leading-relaxed italic"
+                >
+                  &mdash; {message}
+                </span>
+              </div>
+            );
+          })()
+        : null}
       {hasAttachments ? (
         <div data-testid="rejection-feedback-attachments" className="ml-[26px]">
           <InlineAttachments text="" attachmentPaths={attachments} />
