@@ -34,9 +34,11 @@ export interface PrdReviewWizardResult {
 export async function prdReviewWizard(questions: OpenQuestion[]): Promise<PrdReviewWizardResult> {
   const changedSelections: QuestionSelectionChange[] = [];
 
-  for (const q of questions) {
+  const total = questions.length;
+  for (let i = 0; i < total; i++) {
+    const q = questions[i];
     const selected = await select<string>(
-      createQuestionSelectConfig(q.question, q.options, q.selectedOption)
+      createQuestionSelectConfig(q.question, q.options, q.selectedOption, i + 1, total)
     );
 
     if (selected !== q.selectedOption) {

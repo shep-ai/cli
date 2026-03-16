@@ -83,11 +83,11 @@ describe('PrdQuestionnaire', () => {
   });
 
   describe('question rendering', () => {
-    it('renders the current question and step dots', () => {
+    it('renders the current question with number prefix and step dots', () => {
       render(<PrdQuestionnaire {...defaultProps} />);
 
-      // First question visible on step 1
-      expect(screen.getByText('What problem does this solve?')).toBeInTheDocument();
+      // First question visible on step 1, with number prefix
+      expect(screen.getByText('1. What problem does this solve?')).toBeInTheDocument();
       // Step dots (one per question)
       const stepDots = screen.getAllByRole('button', { name: /Go to question/ });
       expect(stepDots).toHaveLength(2);

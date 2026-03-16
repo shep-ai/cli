@@ -65,7 +65,7 @@ export function PrdQuestionnaire({
         <div className="space-y-3">
           <div className="flex items-start gap-3">
             <label className="text-foreground min-w-0 flex-1 text-sm font-semibold">
-              {currentQuestion.question}
+              {currentStep + 1}. {currentQuestion.question}
             </label>
             <div className="mt-1.5 flex shrink-0 gap-1">
               {questions.map((q, idx) => (
