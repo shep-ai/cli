@@ -1,0 +1,18 @@
+Settings Page Unit Test Results
+================================
+Run: 2026-03-16T19:46:07Z
+Command: pnpm vitest run tests/unit/presentation/web/components/features/settings/settings-page-client.test.tsx --reporter=verbose
+
+ ✓ tests/unit/presentation/web/components/features/settings/settings-page-client.test.tsx > SettingsPageClient > renders heading text "Settings" (797ms)
+ ✓ tests/unit/presentation/web/components/features/settings/settings-page-client.test.tsx > SettingsPageClient > renders all six section components (203ms)
+ ✓ tests/unit/presentation/web/components/features/settings/settings-page-client.test.tsx > SettingsPageClient > passes shepHome and dbFileSize to database section (141ms)
+ ✓ tests/unit/presentation/web/components/features/settings/settings-page-client.test.tsx > SettingsPageClient > handles missing featureFlags gracefully (180ms)
+ ✓ tests/unit/presentation/web/components/features/settings/settings-page-client.test.tsx > SettingsPageClient > renders terminal select in environment section (225ms)
+ ✓ tests/unit/presentation/web/components/features/settings/settings-page-client.test.tsx > SettingsPageClient > renders shell select in environment section (201ms)
+ ✓ tests/unit/presentation/web/components/features/settings/settings-page-client.test.tsx > SettingsPageClient > renders PR blocked notification toggle (232ms)
+ ✓ tests/unit/presentation/web/components/features/settings/settings-page-client.test.tsx > SettingsPageClient > renders Merge review ready notification toggle (128ms)
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  19:46:07
+   Duration  5.27s (transform 881ms, setup 366ms, import 1.83s, tests 2.11s, environment 793ms)
