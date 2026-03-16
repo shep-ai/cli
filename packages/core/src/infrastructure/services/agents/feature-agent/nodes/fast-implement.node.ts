@@ -17,7 +17,13 @@ import { isGraphBubbleUp } from '@langchain/langgraph';
 import type { IAgentExecutor } from '@/application/ports/output/agents/agent-executor.interface.js';
 import type { Evidence } from '@/domain/generated/output.js';
 import type { FeatureAgentState } from '../state.js';
-import { createNodeLogger, buildExecutorOptions, retryExecute } from './node-helpers.js';
+import {
+  createNodeLogger,
+  buildExecutorOptions,
+  retryExecute,
+  getCompletedPhases,
+  markPhaseComplete,
+} from './node-helpers.js';
 import { reportNodeStart } from '../heartbeat.js';
 import { recordPhaseStart, recordPhaseEnd } from '../phase-timing-context.js';
 import { updateNodeLifecycle } from '../lifecycle-context.js';
@@ -40,6 +46,17 @@ export function createFastImplementNode(executor: IAgentExecutor) {
     log.info('Starting fast implementation');
     reportNodeStart('fast-implement');
     await updateNodeLifecycle('fast-implement');
+
+    // Skip if already completed (resume from error path)
+    const completedPhases = getCompletedPhases(state.specDir);
+    if (completedPhases.includes('fast-implement')) {
+      log.info('Phase already completed, skipping execution');
+      return {
+        currentNode: 'fast-implement',
+        messages: ['[fast-implement] already completed — skipping'],
+        _needsReexecution: false,
+      };
+    }
 
     const startTime = Date.now();
     const timingId = await recordPhaseStart('fast-implement');
@@ -71,6 +88,9 @@ export function createFastImplementNode(executor: IAgentExecutor) {
       }
 
       await recordPhaseEnd(timingId, durationMs);
+
+      // Mark phase complete so resume from error skips re-execution
+      markPhaseComplete(state.specDir, 'fast-implement', log);
 
       return {
         currentNode: 'fast-implement',
