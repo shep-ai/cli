@@ -289,9 +289,11 @@ describe('GitPrService', () => {
 
       await service.mergePr('/repo', 42);
 
-      expect(mockExec).toHaveBeenCalledWith('gh', ['pr', 'merge', '42', '--squash'], {
-        cwd: '/repo',
-      });
+      expect(mockExec).toHaveBeenCalledWith(
+        'gh',
+        ['pr', 'merge', '42', '--squash', '--auto', '--delete-branch'],
+        { cwd: '/repo' }
+      );
     });
 
     it('should call gh pr merge with specified strategy', async () => {
@@ -299,9 +301,11 @@ describe('GitPrService', () => {
 
       await service.mergePr('/repo', 42, 'rebase');
 
-      expect(mockExec).toHaveBeenCalledWith('gh', ['pr', 'merge', '42', '--rebase'], {
-        cwd: '/repo',
-      });
+      expect(mockExec).toHaveBeenCalledWith(
+        'gh',
+        ['pr', 'merge', '42', '--rebase', '--auto', '--delete-branch'],
+        { cwd: '/repo' }
+      );
     });
 
     it('should throw GitPrError with MERGE_FAILED on merge failure', async () => {
@@ -448,7 +452,7 @@ describe('GitPrService', () => {
       expect(mockExec).toHaveBeenNthCalledWith(
         2,
         'gh',
-        ['run', 'watch', '789', '--exit-status'],
+        ['run', 'watch', '789', '--exit-status', '--compact', '--interval', '30'],
         expect.objectContaining({ cwd: '/repo' })
       );
       expect(result.status).toBe('success');
@@ -602,10 +606,15 @@ describe('GitPrService', () => {
 
       await service.watchCi('/repo', 'feat/branch', 30000);
 
-      expect(mockExec).toHaveBeenNthCalledWith(2, 'gh', ['run', 'watch', '789', '--exit-status'], {
-        cwd: '/repo',
-        timeout: 30000,
-      });
+      expect(mockExec).toHaveBeenNthCalledWith(
+        2,
+        'gh',
+        ['run', 'watch', '789', '--exit-status', '--compact', '--interval', '30'],
+        {
+          cwd: '/repo',
+          timeout: 30000,
+        }
+      );
     });
   });
 

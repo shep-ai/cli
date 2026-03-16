@@ -106,21 +106,21 @@ export type ActionItem = BaseEntity & {
   acceptanceCriteria: AcceptanceCriteria[];
 };
 export enum ArtifactCategory {
-  PRD = 'PRD',
-  API = 'API',
-  Design = 'Design',
-  Other = 'Other',
+  PRD = "PRD",
+  API = "API",
+  Design = "Design",
+  Other = "Other",
 }
 export enum ArtifactFormat {
-  Markdown = 'md',
-  Text = 'txt',
-  Yaml = 'yaml',
-  Other = 'Other',
+  Markdown = "md",
+  Text = "txt",
+  Yaml = "yaml",
+  Other = "Other",
 }
 export enum ArtifactState {
-  Todo = 'Todo',
-  Elaborating = 'Elaborating',
-  Done = 'Done',
+  Todo = "Todo",
+  Elaborating = "Elaborating",
+  Done = "Done",
 }
 
 /**
@@ -157,8 +157,8 @@ export type Artifact = BaseEntity & {
   state: ArtifactState;
 };
 export enum MessageRole {
-  Assistant = 'assistant',
-  User = 'user',
+  Assistant = "assistant",
+  User = "user",
 }
 
 /**
@@ -187,13 +187,13 @@ export type Message = BaseEntity & {
   selectedOption?: number;
 };
 export enum RequirementType {
-  Functional = 'Functional',
-  NonFunctional = 'NonFunctional',
+  Functional = "Functional",
+  NonFunctional = "NonFunctional",
 }
 export enum ResearchState {
-  NotStarted = 'NotStarted',
-  Running = 'Running',
-  Finished = 'Finished',
+  NotStarted = "NotStarted",
+  Running = "Running",
+  Finished = "Finished",
 }
 
 /**
@@ -268,18 +268,18 @@ export type UserProfile = {
   githubUsername?: string;
 };
 export enum EditorType {
-  VsCode = 'vscode',
-  Cursor = 'cursor',
-  Windsurf = 'windsurf',
-  Zed = 'zed',
-  Antigravity = 'antigravity',
+  VsCode = "vscode",
+  Cursor = "cursor",
+  Windsurf = "windsurf",
+  Zed = "zed",
+  Antigravity = "antigravity",
 }
 export enum TerminalType {
-  System = 'system',
-  Warp = 'warp',
-  ITerm2 = 'iterm2',
-  Alacritty = 'alacritty',
-  Kitty = 'kitty',
+  System = "system",
+  Warp = "warp",
+  ITerm2 = "iterm2",
+  Alacritty = "alacritty",
+  Kitty = "kitty",
 }
 
 /**
@@ -401,6 +401,10 @@ export type WorkflowConfig = {
    */
   ciLogMaxChars?: number;
   /**
+   * Poll interval in seconds for gh run watch (default: 30)
+   */
+  ciWatchPollIntervalSeconds?: number;
+  /**
    * Per-stage timeout overrides for the feature agent (default: 600000 = 10 minutes per stage)
    */
   stageTimeouts?: StageTimeouts;
@@ -418,16 +422,16 @@ export type WorkflowConfig = {
   commitEvidence: boolean;
 };
 export enum AgentType {
-  ClaudeCode = 'claude-code',
-  GeminiCli = 'gemini-cli',
-  Aider = 'aider',
-  Continue = 'continue',
-  Cursor = 'cursor',
-  Dev = 'dev',
+  ClaudeCode = "claude-code",
+  GeminiCli = "gemini-cli",
+  Aider = "aider",
+  Continue = "continue",
+  Cursor = "cursor",
+  Dev = "dev",
 }
 export enum AgentAuthMethod {
-  Session = 'session',
-  Token = 'token',
+  Session = "session",
+  Token = "token",
 }
 
 /**
@@ -590,10 +594,10 @@ export type Settings = BaseEntity & {
   onboardingComplete: boolean;
 };
 export enum TaskState {
-  Todo = 'Todo',
-  WIP = 'Work in Progress',
-  Done = 'Done',
-  Review = 'Review',
+  Todo = "Todo",
+  WIP = "Work in Progress",
+  Done = "Done",
+  Review = "Review",
 }
 
 /**
@@ -644,9 +648,9 @@ export type TimelineEvent = BaseEntity & {
   timestamp: any;
 };
 export enum PlanState {
-  Requirements = 'Requirements',
-  ClarificationRequired = 'ClarificationRequired',
-  Ready = 'Ready',
+  Requirements = "Requirements",
+  ClarificationRequired = "ClarificationRequired",
+  Ready = "Ready",
 }
 
 /**
@@ -727,17 +731,17 @@ export type Plan = BaseEntity & {
   workPlan?: GanttViewData;
 };
 export enum SdlcLifecycle {
-  Started = 'Started',
-  Analyze = 'Analyze',
-  Requirements = 'Requirements',
-  Research = 'Research',
-  Planning = 'Planning',
-  Implementation = 'Implementation',
-  Review = 'Review',
-  Maintain = 'Maintain',
-  Blocked = 'Blocked',
-  Pending = 'Pending',
-  Deleting = 'Deleting',
+  Started = "Started",
+  Analyze = "Analyze",
+  Requirements = "Requirements",
+  Research = "Research",
+  Planning = "Planning",
+  Implementation = "Implementation",
+  Review = "Review",
+  Maintain = "Maintain",
+  Blocked = "Blocked",
+  Pending = "Pending",
+  Deleting = "Deleting",
 }
 
 /**
@@ -758,14 +762,14 @@ export type ApprovalGates = {
   allowMerge: boolean;
 };
 export enum PrStatus {
-  Open = 'Open',
-  Merged = 'Merged',
-  Closed = 'Closed',
+  Open = "Open",
+  Merged = "Merged",
+  Closed = "Closed",
 }
 export enum CiStatus {
-  Pending = 'Pending',
-  Success = 'Success',
-  Failure = 'Failure',
+  Pending = "Pending",
+  Success = "Success",
+  Failure = "Failure",
 }
 
 /**
@@ -1416,13 +1420,13 @@ export type FeatureStatus = BaseEntity & {
   errors: FeatureErrors;
 };
 export enum ToolType {
-  VsCode = 'vscode',
-  Cursor = 'cursor',
-  Windsurf = 'windsurf',
-  Zed = 'zed',
-  Antigravity = 'antigravity',
-  CursorCli = 'cursor-cli',
-  ClaudeCode = 'claude-code',
+  VsCode = "vscode",
+  Cursor = "cursor",
+  Windsurf = "windsurf",
+  Zed = "zed",
+  Antigravity = "antigravity",
+  CursorCli = "cursor-cli",
+  ClaudeCode = "claude-code",
 }
 
 /**
@@ -1447,23 +1451,23 @@ export type Tool = BaseEntity & {
   installedAt?: any;
 };
 export enum NotificationEventType {
-  AgentStarted = 'agent_started',
-  PhaseCompleted = 'phase_completed',
-  WaitingApproval = 'waiting_approval',
-  AgentCompleted = 'agent_completed',
-  AgentFailed = 'agent_failed',
-  PrMerged = 'pr_merged',
-  PrClosed = 'pr_closed',
-  PrChecksPassed = 'pr_checks_passed',
-  PrChecksFailed = 'pr_checks_failed',
-  PrBlocked = 'pr_blocked',
-  MergeReviewReady = 'merge_review_ready',
+  AgentStarted = "agent_started",
+  PhaseCompleted = "phase_completed",
+  WaitingApproval = "waiting_approval",
+  AgentCompleted = "agent_completed",
+  AgentFailed = "agent_failed",
+  PrMerged = "pr_merged",
+  PrClosed = "pr_closed",
+  PrChecksPassed = "pr_checks_passed",
+  PrChecksFailed = "pr_checks_failed",
+  PrBlocked = "pr_blocked",
+  MergeReviewReady = "merge_review_ready",
 }
 export enum NotificationSeverity {
-  Info = 'info',
-  Warning = 'warning',
-  Success = 'success',
-  Error = 'error',
+  Info = "info",
+  Warning = "warning",
+  Success = "success",
+  Error = "error",
 }
 
 /**
@@ -1547,7 +1551,7 @@ export type ToolInstallationStatus = {
   /**
    * Current installation status
    */
-  status: 'available' | 'missing' | 'error';
+  status: "available" | "missing" | "error";
   /**
    * Tool name
    */
@@ -1588,10 +1592,10 @@ export type ToolInstallCommand = {
   packageManager: string;
 };
 export enum EvidenceType {
-  Screenshot = 'Screenshot',
-  Video = 'Video',
-  TestOutput = 'TestOutput',
-  TerminalRecording = 'TerminalRecording',
+  Screenshot = "Screenshot",
+  Video = "Video",
+  TestOutput = "TestOutput",
+  TerminalRecording = "TerminalRecording",
 }
 
 /**
@@ -1620,10 +1624,10 @@ export type Evidence = {
   taskRef?: string;
 };
 export enum AgentStatus {
-  Idle = 'Idle',
-  Running = 'Running',
-  Paused = 'Paused',
-  Stopped = 'Stopped',
+  Idle = "Idle",
+  Running = "Running",
+  Paused = "Paused",
+  Stopped = "Stopped",
 }
 
 /**
@@ -1655,7 +1659,7 @@ export type DeployTargetActionItem = {
   /**
    * Discriminator indicating this is an action item target
    */
-  kind: 'actionItem';
+  kind: "actionItem";
   /**
    * The action item to deploy - represents an atomic unit of work
    */
@@ -1669,7 +1673,7 @@ export type DeployTargetTask = {
   /**
    * Discriminator indicating this is a task target
    */
-  kind: 'task';
+  kind: "task";
   /**
    * The task to deploy - includes all action items within the task
    */
@@ -1683,19 +1687,19 @@ export type DeployTargetTasks = {
   /**
    * Discriminator indicating this is a multi-task target
    */
-  kind: 'tasks';
+  kind: "tasks";
   /**
    * The tasks to deploy - enables batch deployment of related work
    */
   tasks: Task[];
 };
 export enum FeatureAgentState {
-  GatheringRequirements = 'GatheringRequirements',
-  ClarificationsRequired = 'ClarificationsRequired',
-  DoingResearch = 'DoingResearch',
-  AwaitingReview = 'AwaitingReview',
-  ExecutingWorkPlan = 'ExecutingWorkPlan',
-  Ready = 'Ready',
+  GatheringRequirements = "GatheringRequirements",
+  ClarificationsRequired = "ClarificationsRequired",
+  DoingResearch = "DoingResearch",
+  AwaitingReview = "AwaitingReview",
+  ExecutingWorkPlan = "ExecutingWorkPlan",
+  Ready = "Ready",
 }
 
 /**
@@ -1742,8 +1746,8 @@ export type LocalDeployAgent = {
   createdAt: any;
 };
 export enum PortProtocol {
-  TCP = 'TCP',
-  UDP = 'UDP',
+  TCP = "TCP",
+  UDP = "UDP",
 }
 
 /**
@@ -1764,11 +1768,11 @@ export type PortMap = {
   protocol?: PortProtocol;
 };
 export enum DeployMethod {
-  DockerCompose = 'DockerCompose',
-  Docker = 'Docker',
-  Kubernetes = 'Kubernetes',
-  Script = 'Script',
-  Manual = 'Manual',
+  DockerCompose = "DockerCompose",
+  Docker = "Docker",
+  Kubernetes = "Kubernetes",
+  Script = "Script",
+  Manual = "Manual",
 }
 
 /**
@@ -1797,9 +1801,9 @@ export type DeploySkill = {
   createdAt: any;
 };
 export enum DeploymentState {
-  Booting = 'Booting',
-  Ready = 'Ready',
-  Stopped = 'Stopped',
+  Booting = "Booting",
+  Ready = "Ready",
+  Stopped = "Stopped",
 }
 
 /**
@@ -1832,13 +1836,13 @@ export type Deployment = {
   stoppedAt?: any;
 };
 export enum AgentRunStatus {
-  pending = 'pending',
-  running = 'running',
-  completed = 'completed',
-  failed = 'failed',
-  interrupted = 'interrupted',
-  cancelled = 'cancelled',
-  waitingApproval = 'waiting_approval',
+  pending = "pending",
+  running = "running",
+  completed = "completed",
+  failed = "failed",
+  interrupted = "interrupted",
+  cancelled = "cancelled",
+  waitingApproval = "waiting_approval",
 }
 
 /**
@@ -1918,7 +1922,7 @@ export type AgentRunEvent = {
   /**
    * Event type: progress, result, or error
    */
-  type: 'progress' | 'result' | 'error';
+  type: "progress" | "result" | "error";
   /**
    * Event content
    */
@@ -2078,7 +2082,7 @@ export type AgentSessionMessage = {
   /**
    * Message role — user turn or assistant turn
    */
-  role: 'user' | 'assistant';
+  role: "user" | "assistant";
   /**
    * Normalized message content as plain text (tool calls and thinking blocks excluded)
    */
@@ -2164,7 +2168,7 @@ export type PrdQuestion = {
   /**
    * Question interaction type (currently only single-select)
    */
-  type: 'select';
+  type: "select";
   /**
    * Available options for this question
    */
@@ -2211,14 +2215,17 @@ export type PrdQuestionnaireData = {
   finalAction: PrdFinalAction;
 };
 export enum AgentFeature {
-  sessionResume = 'session-resume',
-  streaming = 'streaming',
-  toolScoping = 'tool-scoping',
-  structuredOutput = 'structured-output',
-  systemPrompt = 'system-prompt',
-  sessionListing = 'session-listing',
+  sessionResume = "session-resume",
+  streaming = "streaming",
+  toolScoping = "tool-scoping",
+  structuredOutput = "structured-output",
+  systemPrompt = "system-prompt",
+  sessionListing = "session-listing",
 }
-export type DeployTarget = DeployTargetActionItem | DeployTargetTask | DeployTargetTasks;
+export type DeployTarget =
+  | DeployTargetActionItem
+  | DeployTargetTask
+  | DeployTargetTasks;
 
 export type Askable = {
   Ask(request: AskRequest): AskResponse;

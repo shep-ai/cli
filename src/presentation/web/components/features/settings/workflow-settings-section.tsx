@@ -33,6 +33,9 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
   const [ciLogMax, setCiLogMax] = useState(
     workflow.ciLogMaxChars != null ? String(workflow.ciLogMaxChars) : ''
   );
+  const [ciPollInterval, setCiPollInterval] = useState(
+    workflow.ciWatchPollIntervalSeconds != null ? String(workflow.ciWatchPollIntervalSeconds) : ''
+  );
   // Per-stage timeout states (seconds for display)
   // Defaults: feature agent stages = 1_800_000 ms (1800s), analyze-repo = 600_000 ms (600s)
   const st = workflow.stageTimeouts;
@@ -93,6 +96,7 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
       ciMaxFix?: string;
       ciTimeout?: string;
       ciLogMax?: string;
+      ciPollInterval?: string;
       analyzeTimeout?: string;
       requirementsTimeout?: string;
       researchTimeout?: string;
@@ -115,6 +119,7 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
         ciMaxFixAttempts: parseOptionalInt(overrides.ciMaxFix ?? ciMaxFix),
         ciWatchTimeoutMs: timeoutSeconds != null ? timeoutSeconds * 1000 : undefined,
         ciLogMaxChars: parseOptionalInt(overrides.ciLogMax ?? ciLogMax),
+        ciWatchPollIntervalSeconds: parseOptionalInt(overrides.ciPollInterval ?? ciPollInterval),
         stageTimeouts: {
           analyzeMs: secondsToMs(overrides.analyzeTimeout ?? analyzeTimeout),
           requirementsMs: secondsToMs(overrides.requirementsTimeout ?? requirementsTimeout),
@@ -152,6 +157,7 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
     | 'ciMaxFix'
     | 'ciTimeout'
     | 'ciLogMax'
+    | 'ciPollInterval'
     | 'analyzeTimeout'
     | 'requirementsTimeout'
     | 'researchTimeout'
@@ -171,6 +177,8 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
   const originalCiTimeout =
     workflow.ciWatchTimeoutMs != null ? String(Math.round(workflow.ciWatchTimeoutMs / 1000)) : '';
   const originalCiLogMax = workflow.ciLogMaxChars != null ? String(workflow.ciLogMaxChars) : '';
+  const originalCiPollInterval =
+    workflow.ciWatchPollIntervalSeconds != null ? String(workflow.ciWatchPollIntervalSeconds) : '';
   const originalAnalyzeTimeout =
     st?.analyzeMs != null ? String(Math.round(st.analyzeMs / 1000)) : '';
   const originalRequirementsTimeout =
@@ -397,6 +405,25 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
             />
             <p className="text-muted-foreground text-xs">
               Maximum characters to capture from CI logs
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="ci-poll-interval">Poll interval (seconds)</Label>
+            <Input
+              id="ci-poll-interval"
+              data-testid="ci-poll-interval-input"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              placeholder="e.g., 30"
+              value={ciPollInterval}
+              onChange={(e) => setCiPollInterval(e.target.value)}
+              onBlur={() =>
+                handleFieldBlur('ciPollInterval', ciPollInterval, originalCiPollInterval)
+              }
+            />
+            <p className="text-muted-foreground text-xs">
+              How often to poll GitHub for CI run status updates
             </p>
           </div>
         </div>

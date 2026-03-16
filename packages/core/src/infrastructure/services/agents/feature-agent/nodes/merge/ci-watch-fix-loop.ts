@@ -64,6 +64,7 @@ export async function runCiWatchFixLoop(
   const maxAttempts = settings.workflow?.ciMaxFixAttempts ?? 3;
   const timeoutMs = settings.workflow?.ciWatchTimeoutMs ?? 600_000;
   const logMaxChars = settings.workflow?.ciLogMaxChars ?? 50_000;
+  const pollInterval = settings.workflow?.ciWatchPollIntervalSeconds ?? 30;
 
   let ciFixAttempts = params.existingAttempts;
   const ciFixHistory: CiFixRecord[] = [];
@@ -111,7 +112,7 @@ export async function runCiWatchFixLoop(
   // Initial CI watch
   let watchResult;
   try {
-    watchResult = await gitPrService.watchCi(cwd, branch, timeoutMs);
+    watchResult = await gitPrService.watchCi(cwd, branch, timeoutMs, pollInterval);
   } catch (err) {
     if (err instanceof GitPrError && err.code === GitPrErrorCode.CI_TIMEOUT) {
       log.info('Initial CI watch timed out');
@@ -160,7 +161,7 @@ export async function runCiWatchFixLoop(
     // Watch CI after fix
     let fixWatchResult;
     try {
-      fixWatchResult = await gitPrService.watchCi(cwd, branch, timeoutMs);
+      fixWatchResult = await gitPrService.watchCi(cwd, branch, timeoutMs, pollInterval);
     } catch (err) {
       if (err instanceof GitPrError && err.code === GitPrErrorCode.CI_TIMEOUT) {
         log.info(`CI watch timed out during fix attempt ${ciFixAttempts}`);

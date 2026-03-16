@@ -257,10 +257,16 @@ export interface IGitPrService {
    * @param cwd - Working directory path
    * @param branch - Branch to watch CI for
    * @param timeoutMs - Maximum time to wait in milliseconds
+   * @param intervalSeconds - Poll interval in seconds for gh run watch (default: 30)
    * @returns CI status result when complete
    * @throws GitPrError with CI_TIMEOUT code on timeout
    */
-  watchCi(cwd: string, branch: string, timeoutMs?: number): Promise<CiStatusResult>;
+  watchCi(
+    cwd: string,
+    branch: string,
+    timeoutMs?: number,
+    intervalSeconds?: number
+  ): Promise<CiStatusResult>;
 
   /**
    * Delete a branch locally and optionally on the remote.
