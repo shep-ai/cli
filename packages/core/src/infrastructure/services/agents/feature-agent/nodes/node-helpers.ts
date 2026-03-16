@@ -174,8 +174,9 @@ export function shouldInterrupt(nodeName: string, gates: ApprovalGates | undefin
 export type ErrorCategory = 'retryable-api' | 'retryable-network' | 'non-retryable' | 'unknown';
 
 const API_ERROR_RE = /API Error: (400|429|5\d{2})/;
-const NETWORK_ERROR_RE = /ECONNREFUSED|ETIMEDOUT|ENOTFOUND|network timed out/i;
-const NON_RETRYABLE_RE = /Process exited with code|ENOENT|SyntaxError|Agent execution timed out/;
+const NETWORK_ERROR_RE =
+  /ECONNREFUSED|ETIMEDOUT|ENOTFOUND|network timed out|Agent execution timed out/i;
+const NON_RETRYABLE_RE = /Process exited with code|ENOENT|SyntaxError/;
 
 /**
  * Classify an error message into a retry category.
