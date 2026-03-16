@@ -2,15 +2,14 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import {
-  Github,
-  Plus,
-  TerminalSquare,
+  FolderOpen,
   Copy,
   Check,
   Loader2,
   CheckCircle2,
   AlertCircle,
   Terminal,
+  ChevronDown,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { pickFolder } from '@/components/common/add-repository-button/pick-folder';
@@ -34,6 +33,7 @@ export function ControlCenterEmptyState({
   const [loading, setLoading] = useState(false);
   const [agentReady, setAgentReady] = useState<boolean | null>(null);
   const [authStatus, setAuthStatus] = useState<AgentAuthStatus | null>(null);
+  const [cliExpanded, setCliExpanded] = useState(false);
 
   useEffect(() => {
     isAgentSetupComplete().then((done) => {
@@ -41,7 +41,6 @@ export function ControlCenterEmptyState({
     });
   }, []);
 
-  // Background auth check — runs after agent setup is complete
   useEffect(() => {
     if (!agentReady) return;
     checkAgentAuth().then(setAuthStatus);
@@ -80,101 +79,116 @@ export function ControlCenterEmptyState({
   return (
     <div
       data-testid="control-center-empty-state"
-      className={cn('flex flex-col items-center justify-center', className)}
+      className={cn(
+        'relative flex h-full w-full flex-col items-center justify-center px-8',
+        className
+      )}
     >
-      {/* Glassy container */}
-      <div className="animate-in fade-in slide-in-from-bottom-2 w-96 rounded-2xl border border-white/30 bg-white/50 px-8 py-8 shadow-lg backdrop-blur-xl duration-300 dark:border-white/10 dark:bg-white/5">
-        <div className="flex flex-col items-center gap-4">
-          {/* Page header — inside card */}
-          <div className="mb-2 text-center">
-            <h1 className="text-xl font-bold tracking-tight">Features</h1>
-            <p className="text-muted-foreground text-sm font-light">Control Center</p>
+      {/* Vertically centered content */}
+      {!agentReady ? (
+        /* Agent setup wizard — owns its own hero */
+        <WelcomeAgentSetup onComplete={handleAgentSetupComplete} />
+      ) : (
+        /* Repository step — fade in to match wizard transitions */
+        <div className="animate-in fade-in flex w-full max-w-md flex-col items-center duration-300">
+          <h1 className="text-foreground/90 text-center text-5xl font-extralight tracking-tight">
+            Add a project
+          </h1>
+          <p className="text-muted-foreground mt-3 text-center text-lg leading-relaxed font-light">
+            Add your project folder to unlock feature creation.
+            <br />
+            Describe what you need — Shep handles the rest.
+          </p>
+
+          {/* Auth status */}
+          <div className="mt-8">
+            <AgentAuthBanner status={authStatus} onRetry={handleRetryAuth} />
           </div>
+          {/* Primary CTA */}
+          <button
+            type="button"
+            data-testid="empty-state-add-repository"
+            onClick={handlePickerClick}
+            disabled={loading}
+            className="bg-foreground text-background hover:bg-foreground/90 mt-10 flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-xl px-6 py-4 text-base font-medium shadow-lg transition-all duration-200 hover:shadow-xl active:scale-[0.98] disabled:cursor-wait disabled:opacity-50"
+          >
+            {loading ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <FolderOpen className="h-5 w-5" />
+            )}
+            {loading ? 'Opening…' : 'Choose a Folder'}
+          </button>
 
-          {!agentReady ? (
-            /* Step 1: Agent setup */
-            <WelcomeAgentSetup onComplete={handleAgentSetupComplete} className="w-full" />
-          ) : (
-            /* Step 2: Add repository (shown immediately after agent is configured) */
-            <>
-              {/* Background auth status banner */}
-              <AgentAuthBanner status={authStatus} onRetry={handleRetryAuth} />
+          {/* Subtitle under CTA */}
+          <p className="text-muted-foreground/60 mt-3 text-center text-sm">
+            Any folder works — git will be initialized automatically if needed.
+          </p>
+        </div>
+      )}
 
-              {/* Repositories label */}
-              <div className="text-muted-foreground flex items-center gap-2">
-                <Github className="h-3.5 w-3.5" />
-                <span className="text-[10px] font-semibold tracking-widest uppercase">
-                  Repositories
-                </span>
-              </div>
+      {/* CLI toggle — anchored to bottom, doesn't shift centered content */}
+      {agentReady ? (
+        <div
+          className="absolute bottom-8 flex flex-col items-center"
+          style={{
+            animationDelay: '400ms',
+            animationDuration: '600ms',
+            animationFillMode: 'both',
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setCliExpanded(!cliExpanded)}
+            className="text-muted-foreground hover:text-foreground flex cursor-pointer items-center gap-1.5 transition-colors duration-200"
+          >
+            <Terminal className="h-3.5 w-3.5" />
+            <span className="text-sm">or use the CLI</span>
+            <ChevronDown
+              className={cn(
+                'h-3.5 w-3.5 transition-transform duration-200',
+                cliExpanded ? '' : 'rotate-180'
+              )}
+            />
+          </button>
 
-              {/* Add Repository button */}
-              <button
-                type="button"
-                data-testid="empty-state-add-repository"
-                onClick={handlePickerClick}
-                disabled={loading}
-                className="border-border hover:border-foreground/40 flex w-full cursor-pointer items-center gap-2.5 rounded-md border border-dashed px-4 py-2.5 transition-colors disabled:cursor-wait disabled:opacity-50"
-              >
-                {loading ? (
-                  <Loader2 className="text-muted-foreground h-4 w-4 animate-spin" />
-                ) : (
-                  <Plus className="text-muted-foreground h-4 w-4" />
-                )}
-                <span className="text-xs font-medium">
-                  {loading ? 'Opening…' : 'Add Repository'}
-                </span>
-              </button>
-
-              {/* CLI divider */}
-              <div className="text-muted-foreground flex items-center gap-2">
-                <div className="bg-border h-px w-10" />
-                <div className="flex items-center gap-1">
-                  <TerminalSquare className="h-3 w-3" />
-                  <span className="text-[10px] font-semibold tracking-widest uppercase">
-                    Or via CLI
-                  </span>
-                </div>
-                <div className="bg-border h-px w-10" />
-              </div>
-
-              {/* Code block */}
+          {cliExpanded ? (
+            <div className="animate-in fade-in slide-in-from-top-1 mt-3 w-80 duration-200">
               <div
                 data-testid="cli-code-block"
-                className="relative w-full rounded-md bg-zinc-900 px-3 py-2 font-mono text-[11px] text-zinc-300"
+                className="relative rounded-xl bg-zinc-900 px-5 py-4 font-mono text-[13px] leading-relaxed text-zinc-400"
               >
                 <button
                   type="button"
                   data-testid="cli-code-block-copy"
                   onClick={handleCopy}
-                  className="absolute top-2 right-2 cursor-pointer rounded p-1 text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-300"
+                  className="absolute top-3 right-3 cursor-pointer rounded-md p-1.5 text-zinc-600 transition-colors hover:bg-zinc-800 hover:text-zinc-300"
                   aria-label="Copy commands"
                 >
-                  {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                  {copied ? (
+                    <Check className="h-3.5 w-3.5 text-emerald-400" />
+                  ) : (
+                    <Copy className="h-3.5 w-3.5" />
+                  )}
                 </button>
-                <div className="space-y-0.5">
+                <div className="space-y-1">
                   {commands.map((cmd) => (
                     <div key={cmd} className="whitespace-nowrap">
-                      <span className="text-zinc-500 select-none">$ </span>
-                      <span>{cmd}</span>
+                      <span className="text-zinc-600 select-none">$ </span>
+                      <span className="text-zinc-300">{cmd}</span>
                     </div>
                   ))}
                 </div>
               </div>
-
-              {/* Hint */}
-              <p className="text-muted-foreground text-[10px]">
-                Feature will appear on canvas once created
-              </p>
-            </>
-          )}
+            </div>
+          ) : null}
         </div>
-      </div>
+      ) : null}
     </div>
   );
 }
 
-/** Compact auth status banner — shows checking/success/error states */
+/** Inline status pill — minimal, no background box */
 function AgentAuthBanner({
   status,
   onRetry,
@@ -182,48 +196,42 @@ function AgentAuthBanner({
   status: AgentAuthStatus | null;
   onRetry: () => void;
 }) {
-  // Still checking — show subtle spinner
   if (!status) {
     return (
-      <div className="bg-muted/50 flex w-full items-center gap-2 rounded-md px-3 py-1.5">
-        <Loader2 className="text-muted-foreground h-3 w-3 animate-spin" />
-        <span className="text-muted-foreground text-[10px]">Checking agent setup…</span>
+      <div className="flex items-center gap-2">
+        <Loader2 className="text-muted-foreground/50 h-3.5 w-3.5 animate-spin" />
+        <span className="text-muted-foreground/50 text-sm">Checking setup…</span>
       </div>
     );
   }
 
-  // All good — compact success, auto-fades
   if (status.installed && status.authenticated) {
     return (
-      <div className="animate-in fade-in flex w-full items-center gap-2 rounded-md bg-emerald-500/10 px-3 py-1.5">
-        <CheckCircle2 className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
-        <span className="text-[10px] text-emerald-700 dark:text-emerald-300">
-          {status.label} ready
-        </span>
+      <div className="animate-in fade-in flex items-center gap-2">
+        <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+        <span className="text-sm text-emerald-600 dark:text-emerald-400">{status.label} ready</span>
       </div>
     );
   }
 
-  // Not installed
   if (!status.installed) {
     return (
-      <div className="flex w-full flex-col gap-2 rounded-md bg-amber-500/10 px-3 py-2">
+      <div className="flex flex-col items-center gap-3">
         <div className="flex items-center gap-2">
-          <AlertCircle className="h-3 w-3 text-amber-600 dark:text-amber-400" />
-          <span className="text-[10px] font-medium text-amber-700 dark:text-amber-300">
+          <AlertCircle className="h-4 w-4 text-amber-500" />
+          <span className="text-sm font-medium text-amber-600 dark:text-amber-400">
             {status.label} not installed
           </span>
         </div>
         {status.binaryName ? (
-          <div className="rounded bg-zinc-900 px-2 py-1 font-mono text-[10px] text-zinc-300">
-            <span className="text-zinc-500 select-none">$ </span>
+          <code className="rounded-lg bg-zinc-100 px-3 py-1.5 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
             npm install -g {status.binaryName}
-          </div>
+          </code>
         ) : null}
         <button
           type="button"
           onClick={onRetry}
-          className="self-start text-[10px] font-medium text-amber-700 underline underline-offset-2 hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-100"
+          className="text-xs text-amber-600 underline underline-offset-2 hover:text-amber-800 dark:text-amber-400"
         >
           Re-check
         </button>
@@ -231,22 +239,20 @@ function AgentAuthBanner({
     );
   }
 
-  // Installed but not authenticated
   return (
-    <div className="flex w-full flex-col gap-2 rounded-md bg-amber-500/10 px-3 py-2">
+    <div className="flex flex-col items-center gap-3">
       <div className="flex items-center gap-2">
-        <AlertCircle className="h-3 w-3 text-amber-600 dark:text-amber-400" />
-        <span className="text-[10px] font-medium text-amber-700 dark:text-amber-300">
+        <AlertCircle className="h-4 w-4 text-amber-500" />
+        <span className="text-sm font-medium text-amber-600 dark:text-amber-400">
           {status.label} needs authentication
         </span>
       </div>
       {status.authCommand ? (
-        <div className="rounded bg-zinc-900 px-2 py-1 font-mono text-[10px] text-zinc-300">
-          <span className="text-zinc-500 select-none">$ </span>
+        <code className="rounded-lg bg-zinc-100 px-3 py-1.5 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
           {status.authCommand}
-        </div>
+        </code>
       ) : null}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
         {status.binaryName ? (
           <button
             type="button"
@@ -260,16 +266,16 @@ function AgentAuthBanner({
                 // best effort
               }
             }}
-            className="flex items-center gap-1 rounded border border-amber-600/30 px-2 py-0.5 text-[10px] font-medium text-amber-700 transition-colors hover:bg-amber-500/10 dark:text-amber-300"
+            className="flex items-center gap-1.5 text-xs font-medium text-amber-600 underline underline-offset-2 hover:text-amber-800 dark:text-amber-400"
           >
-            <Terminal className="h-2.5 w-2.5" />
+            <Terminal className="h-3 w-3" />
             Open {status.label}
           </button>
         ) : null}
         <button
           type="button"
           onClick={onRetry}
-          className="text-[10px] font-medium text-amber-700 underline underline-offset-2 hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-100"
+          className="text-xs text-amber-600 underline underline-offset-2 hover:text-amber-800 dark:text-amber-400"
         >
           Re-check
         </button>

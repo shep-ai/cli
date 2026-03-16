@@ -19,6 +19,8 @@ export interface PhaseTimingData {
   costUsd?: number;
   numTurns?: number;
   durationApiMs?: number;
+  exitCode?: string;
+  errorMessage?: string;
 }
 
 export interface RejectionFeedbackData {
@@ -59,6 +61,8 @@ export async function getFeaturePhaseTimings(featureId: string): Promise<GetPhas
       costUsd: t.costUsd != null ? Number(t.costUsd) : undefined,
       numTurns: t.numTurns ?? undefined,
       durationApiMs: t.durationApiMs != null ? Number(t.durationApiMs) : undefined,
+      exitCode: t.exitCode ?? undefined,
+      errorMessage: t.errorMessage ?? undefined,
     }));
 
     // Read rejection feedback from spec.yaml

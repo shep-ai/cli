@@ -981,9 +981,14 @@ describe('FeatureCreateDrawer', () => {
       expect(screen.getByTestId('repository-combobox')).toBeInTheDocument();
     });
 
-    it('does not show repository combobox when repositoryPath is provided', () => {
-      renderDrawer({ repositoryPath: '/Users/dev/my-repo', repositories: sampleRepos });
+    it('does not show repository combobox when repositoryPath matches an active repo', () => {
+      renderDrawer({ repositoryPath: '/Users/dev/projects/my-app', repositories: sampleRepos });
       expect(screen.queryByTestId('repo-selector-section')).not.toBeInTheDocument();
+    });
+
+    it('shows repository combobox when repositoryPath does not match any active repo', () => {
+      renderDrawer({ repositoryPath: '/Users/dev/deleted-repo', repositories: sampleRepos });
+      expect(screen.getByTestId('repo-selector-section')).toBeInTheDocument();
     });
 
     it('shows read-only repo label when repositoryPath is provided', () => {
