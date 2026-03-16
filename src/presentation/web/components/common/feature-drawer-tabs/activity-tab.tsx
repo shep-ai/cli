@@ -715,12 +715,10 @@ function SummaryCell({
   return (
     <div className={`flex flex-col gap-0.5 ${className}`}>
       <span className="text-muted-foreground flex items-center gap-1 text-xs">
-        <Icon className="h-3 w-3 opacity-50" />
+        <Icon className="h-3 w-3 opacity-40" />
         {label}
       </span>
-      <span
-        className={`text-sm tabular-nums ${isNA ? 'text-muted-foreground/40 italic' : 'font-medium'}`}
-      >
+      <span className={`text-sm tabular-nums ${isNA ? 'text-muted-foreground/40 italic' : ''}`}>
         {value}
       </span>
     </div>
