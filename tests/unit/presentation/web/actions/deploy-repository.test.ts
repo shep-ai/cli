@@ -1,8 +1,10 @@
 // @vitest-environment node
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { DevEnvironmentAnalysis } from '@shepai/core/domain/generated/output';
 
 const mockStart = vi.fn();
+const mockStartWithAnalysis = vi.fn();
 const mockResolve = vi.fn();
 vi.mock('@/lib/server-container', () => ({
   resolve: (token: string) => mockResolve(token),
@@ -23,14 +25,41 @@ const { deployRepository } = await import(
   '../../../../../src/presentation/web/app/actions/deploy-repository.js'
 );
 
+const MOCK_CACHE_KEY = 'https://github.com/org/repo.git';
+
+const mockCacheKeyResolve = vi.fn();
+const mockFindByCacheKey = vi.fn();
+
+function makeMockAnalysis(overrides?: Partial<DevEnvironmentAnalysis>): DevEnvironmentAnalysis {
+  return {
+    id: 'analysis-123',
+    cacheKey: MOCK_CACHE_KEY,
+    canStart: true,
+    commands: [{ command: 'npm run dev', description: 'Start dev server' }],
+    language: 'TypeScript',
+    source: 'Agent' as DevEnvironmentAnalysis['source'],
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
+  };
+}
+
 describe('deployRepository server action', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockExistsSync.mockReturnValue(true);
     mockIsAbsolute.mockImplementation((p: string) => /^\//.test(p));
+    mockCacheKeyResolve.mockResolvedValue(MOCK_CACHE_KEY);
+    mockFindByCacheKey.mockResolvedValue(null);
     mockResolve.mockImplementation((token: string) => {
       if (token === 'IDeploymentService') {
-        return { start: mockStart };
+        return { start: mockStart, startWithAnalysis: mockStartWithAnalysis };
+      }
+      if (token === 'IRepoCacheKeyResolver') {
+        return { resolve: mockCacheKeyResolve };
+      }
+      if (token === 'IDevEnvAnalysisRepository') {
+        return { findByCacheKey: mockFindByCacheKey };
       }
       return {};
     });
@@ -76,11 +105,46 @@ describe('deployRepository server action', () => {
     expect(mockStart).not.toHaveBeenCalled();
   });
 
-  it('calls service.start with repositoryPath as both targetId and path', async () => {
+  it('calls service.start with repositoryPath when no cached analysis', async () => {
     const result = await deployRepository('/home/user/project');
 
     expect(mockResolve).toHaveBeenCalledWith('IDeploymentService');
     expect(mockExistsSync).toHaveBeenCalledWith('/home/user/project');
+    expect(mockStart).toHaveBeenCalledWith('/home/user/project', '/home/user/project');
+    expect(result).toEqual({ success: true, state: 'Booting' });
+  });
+
+  it('uses startWithAnalysis when cached analysis exists', async () => {
+    const cached = makeMockAnalysis();
+    mockFindByCacheKey.mockResolvedValue(cached);
+
+    const result = await deployRepository('/home/user/project');
+
+    expect(mockStartWithAnalysis).toHaveBeenCalledWith(
+      '/home/user/project',
+      '/home/user/project',
+      cached
+    );
+    expect(mockStart).not.toHaveBeenCalled();
+    expect(result).toEqual({ success: true, state: 'Booting' });
+  });
+
+  it('returns NotStartable when cached analysis has canStart false', async () => {
+    const cached = makeMockAnalysis({ canStart: false, reason: 'CLI tool only' });
+    mockFindByCacheKey.mockResolvedValue(cached);
+
+    const result = await deployRepository('/home/user/project');
+
+    expect(mockStartWithAnalysis).not.toHaveBeenCalled();
+    expect(mockStart).not.toHaveBeenCalled();
+    expect(result).toEqual({ success: true, state: 'NotStartable' });
+  });
+
+  it('falls back to direct start when cache lookup fails', async () => {
+    mockCacheKeyResolve.mockRejectedValue(new Error('git not found'));
+
+    const result = await deployRepository('/home/user/project');
+
     expect(mockStart).toHaveBeenCalledWith('/home/user/project', '/home/user/project');
     expect(result).toEqual({ success: true, state: 'Booting' });
   });

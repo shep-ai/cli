@@ -6,6 +6,8 @@ import { createDeploymentLogger } from '@shepai/core/infrastructure/services/dep
 import { computeWorktreePath } from '@shepai/core/infrastructure/services/ide-launchers/compute-worktree-path';
 import type { IFeatureRepository } from '@shepai/core/application/ports/output/repositories/feature-repository.interface';
 import type { IDeploymentService } from '@shepai/core/application/ports/output/services/deployment-service.interface';
+import type { IRepoCacheKeyResolver } from '@shepai/core/application/ports/output/services/repo-cache-key-resolver.interface';
+import type { IDevEnvAnalysisRepository } from '@shepai/core/application/ports/output/repositories/dev-env-analysis-repository.interface';
 import { DeploymentState } from '@shepai/core/domain/generated/output';
 
 const log = createDeploymentLogger('[deployFeature]');
@@ -41,8 +43,31 @@ export async function deployFeature(
       return { success: false, error: `Worktree path does not exist: ${worktreePath}` };
     }
 
-    log.info('worktree path exists, calling deploymentService.start()');
     const deploymentService = resolve<IDeploymentService>('IDeploymentService');
+
+    // Try to use cached analysis for startWithAnalysis
+    try {
+      const cacheKeyResolver = resolve<IRepoCacheKeyResolver>('IRepoCacheKeyResolver');
+      const cacheKey = await cacheKeyResolver.resolve(worktreePath);
+      const analysisRepo = resolve<IDevEnvAnalysisRepository>('IDevEnvAnalysisRepository');
+      const cached = await analysisRepo.findByCacheKey(cacheKey);
+
+      if (cached) {
+        if (!cached.canStart) {
+          log.info(`cached analysis says not startable: ${cached.reason}`);
+          return { success: true, state: DeploymentState.NotStartable };
+        }
+        log.info('using cached analysis for deployment');
+        deploymentService.startWithAnalysis(featureId, worktreePath, cached);
+        log.info('startWithAnalysis() returned successfully — state=Booting');
+        return { success: true, state: DeploymentState.Booting };
+      }
+    } catch (cacheError) {
+      log.warn('cache lookup failed, falling back to direct start', cacheError);
+    }
+
+    // Fallback: no cached analysis, use existing direct start
+    log.info('no cached analysis, calling deploymentService.start()');
     deploymentService.start(featureId, worktreePath);
 
     log.info('start() returned successfully — state=Booting');

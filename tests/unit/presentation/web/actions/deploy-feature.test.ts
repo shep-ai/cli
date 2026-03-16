@@ -1,8 +1,10 @@
 // @vitest-environment node
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { DevEnvironmentAnalysis } from '@shepai/core/domain/generated/output';
 
 const mockStart = vi.fn();
+const mockStartWithAnalysis = vi.fn();
 const mockResolve = vi.fn();
 vi.mock('@/lib/server-container', () => ({
   resolve: (token: string) => mockResolve(token),
@@ -29,30 +31,87 @@ const MOCK_FEATURE = {
 };
 
 const MOCK_WORKTREE_PATH = '/mock/.shep/repos/abc123/wt/feat-my-feature';
+const MOCK_CACHE_KEY = 'https://github.com/org/repo.git';
+
+const mockCacheKeyResolve = vi.fn();
+const mockFindByCacheKey = vi.fn();
+
+function makeMockAnalysis(overrides?: Partial<DevEnvironmentAnalysis>): DevEnvironmentAnalysis {
+  return {
+    id: 'analysis-123',
+    cacheKey: MOCK_CACHE_KEY,
+    canStart: true,
+    commands: [{ command: 'npm run dev', description: 'Start dev server' }],
+    language: 'TypeScript',
+    source: 'Agent' as DevEnvironmentAnalysis['source'],
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
+  };
+}
 
 describe('deployFeature server action', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockComputeWorktreePath.mockReturnValue(MOCK_WORKTREE_PATH);
     mockExistsSync.mockReturnValue(true);
+    mockCacheKeyResolve.mockResolvedValue(MOCK_CACHE_KEY);
+    mockFindByCacheKey.mockResolvedValue(null);
     mockResolve.mockImplementation((token: string) => {
       if (token === 'IFeatureRepository') {
         return { findById: vi.fn().mockResolvedValue(MOCK_FEATURE) };
       }
       if (token === 'IDeploymentService') {
-        return { start: mockStart };
+        return { start: mockStart, startWithAnalysis: mockStartWithAnalysis };
+      }
+      if (token === 'IRepoCacheKeyResolver') {
+        return { resolve: mockCacheKeyResolve };
+      }
+      if (token === 'IDevEnvAnalysisRepository') {
+        return { findByCacheKey: mockFindByCacheKey };
       }
       return {};
     });
   });
 
-  it('resolves feature, computes worktree path, and calls service.start', async () => {
+  it('resolves feature, computes worktree path, and calls service.start when no cache', async () => {
     const result = await deployFeature('feat-123');
 
     expect(mockResolve).toHaveBeenCalledWith('IFeatureRepository');
     expect(mockResolve).toHaveBeenCalledWith('IDeploymentService');
     expect(mockComputeWorktreePath).toHaveBeenCalledWith('/home/user/project', 'feat/my-feature');
     expect(mockExistsSync).toHaveBeenCalledWith(MOCK_WORKTREE_PATH);
+    expect(mockStart).toHaveBeenCalledWith('feat-123', MOCK_WORKTREE_PATH);
+    expect(result).toEqual({ success: true, state: 'Booting' });
+  });
+
+  it('uses startWithAnalysis when cached analysis exists', async () => {
+    const cached = makeMockAnalysis();
+    mockFindByCacheKey.mockResolvedValue(cached);
+
+    const result = await deployFeature('feat-123');
+
+    expect(mockStartWithAnalysis).toHaveBeenCalledWith('feat-123', MOCK_WORKTREE_PATH, cached);
+    expect(mockStart).not.toHaveBeenCalled();
+    expect(result).toEqual({ success: true, state: 'Booting' });
+  });
+
+  it('returns NotStartable when cached analysis has canStart false', async () => {
+    const cached = makeMockAnalysis({ canStart: false, reason: 'Pure utility library' });
+    mockFindByCacheKey.mockResolvedValue(cached);
+
+    const result = await deployFeature('feat-123');
+
+    expect(mockStartWithAnalysis).not.toHaveBeenCalled();
+    expect(mockStart).not.toHaveBeenCalled();
+    expect(result).toEqual({ success: true, state: 'NotStartable' });
+  });
+
+  it('falls back to direct start when cache lookup fails', async () => {
+    mockCacheKeyResolve.mockRejectedValue(new Error('git not found'));
+
+    const result = await deployFeature('feat-123');
+
     expect(mockStart).toHaveBeenCalledWith('feat-123', MOCK_WORKTREE_PATH);
     expect(result).toEqual({ success: true, state: 'Booting' });
   });
@@ -70,7 +129,13 @@ describe('deployFeature server action', () => {
         return { findById: vi.fn().mockResolvedValue(null) };
       }
       if (token === 'IDeploymentService') {
-        return { start: mockStart };
+        return { start: mockStart, startWithAnalysis: mockStartWithAnalysis };
+      }
+      if (token === 'IRepoCacheKeyResolver') {
+        return { resolve: mockCacheKeyResolve };
+      }
+      if (token === 'IDevEnvAnalysisRepository') {
+        return { findByCacheKey: mockFindByCacheKey };
       }
       return {};
     });

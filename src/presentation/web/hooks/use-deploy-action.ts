@@ -2,17 +2,31 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { createLogger } from '@/lib/logger';
-import type { DeploymentState } from '@shepai/core/domain/generated/output';
+import type { DeploymentState, DevEnvironmentAnalysis } from '@shepai/core/domain/generated/output';
+import type { AnalysisMode } from '@shepai/core/application/ports/output/services/dev-environment-analyzer.interface';
 import { deployFeature } from '@/app/actions/deploy-feature';
 import { deployRepository } from '@/app/actions/deploy-repository';
 import { stopDeployment } from '@/app/actions/stop-deployment';
 import { getDeploymentStatus } from '@/app/actions/get-deployment-status';
+import { analyzeRepository } from '@/app/actions/analyze-repository';
+import { invalidateDevEnvCache } from '@/app/actions/invalidate-dev-env-cache';
 
 export interface DeployActionInput {
   targetId: string;
   targetType: 'feature' | 'repository';
   repositoryPath: string;
   branch?: string;
+}
+
+/** Summary of a cached analysis for UI display. */
+export interface AnalysisSummary {
+  canStart: boolean;
+  reason?: string;
+  language: string;
+  framework?: string;
+  commandCount: number;
+  ports?: number[];
+  source: string;
 }
 
 export interface DeployActionState {
@@ -23,6 +37,16 @@ export interface DeployActionState {
   deployError: string | null;
   status: DeploymentState | null;
   url: string | null;
+  /** Current analysis mode: "fast", "agent", or null if not yet determined. */
+  mode: AnalysisMode | null;
+  /** Set the analysis mode. */
+  setMode: (mode: AnalysisMode) => void;
+  /** Summary of cached analysis, or null if no cache exists. */
+  analysisSummary: AnalysisSummary | null;
+  /** Whether an analysis is currently in progress. */
+  analyzing: boolean;
+  /** Invalidate cache and re-run analysis. */
+  reAnalyze: () => Promise<void>;
 }
 
 const log = createLogger('[useDeployAction]');
@@ -30,12 +54,27 @@ const log = createLogger('[useDeployAction]');
 const ERROR_CLEAR_DELAY = 5000;
 const POLL_INTERVAL = 3000;
 
+function toSummary(analysis: DevEnvironmentAnalysis): AnalysisSummary {
+  return {
+    canStart: analysis.canStart,
+    reason: analysis.reason,
+    language: analysis.language,
+    framework: analysis.framework,
+    commandCount: analysis.commands?.length ?? 0,
+    ports: analysis.ports,
+    source: analysis.source,
+  };
+}
+
 export function useDeployAction(input: DeployActionInput | null): DeployActionState {
   const [deployLoading, setDeployLoading] = useState(false);
   const [stopLoading, setStopLoading] = useState(false);
   const [deployError, setDeployError] = useState<string | null>(null);
   const [status, setStatus] = useState<DeploymentState | null>(null);
   const [url, setUrl] = useState<string | null>(null);
+  const [analysisMode, setAnalysisMode] = useState<AnalysisMode | null>(null);
+  const [analysisSummary, setAnalysisSummary] = useState<AnalysisSummary | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
 
   const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -61,6 +100,48 @@ export function useDeployAction(input: DeployActionInput | null): DeployActionSt
       if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     };
+  }, []);
+
+  // Load cached analysis on mount (and when repositoryPath changes)
+  useEffect(() => {
+    if (!input?.repositoryPath) return;
+
+    let cancelled = false;
+
+    async function loadCachedAnalysis() {
+      try {
+        const result = await analyzeRepository(input!.repositoryPath);
+        if (cancelled || !mountedRef.current) return;
+
+        if (result.success) {
+          setAnalysisSummary(toSummary(result.analysis));
+          // Auto-detect mode from cached analysis source
+          if (result.analysis.source === 'FastPath') {
+            setAnalysisMode('fast');
+          } else if (result.analysis.source === 'Agent') {
+            setAnalysisMode('agent');
+          }
+          // If cached analysis says not startable, set NotStartable status
+          if (!result.analysis.canStart) {
+            setStatus('NotStartable' as DeploymentState);
+          }
+        }
+      } catch {
+        // Non-critical: analysis cache load failed silently
+        log.debug('failed to load cached analysis on mount');
+      }
+    }
+
+    loadCachedAnalysis();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [input]);
+
+  const setMode = useCallback((newMode: AnalysisMode) => {
+    log.info(`mode changed to "${newMode}"`);
+    setAnalysisMode(newMode);
   }, []);
 
   const stopPolling = useCallback(() => {
@@ -91,6 +172,11 @@ export function useDeployAction(input: DeployActionInput | null): DeployActionSt
             `poll result: ${result ? `state=${result.state}` : 'null (deployment gone)'} — stopping poll`
           );
           setStatus(null);
+          setUrl(null);
+          stopPolling();
+        } else if (result.state === 'NotStartable') {
+          log.info('poll result: NotStartable — stopping poll');
+          setStatus(result.state as DeploymentState);
           setUrl(null);
           stopPolling();
         } else {
@@ -127,6 +213,24 @@ export function useDeployAction(input: DeployActionInput | null): DeployActionSt
     setDeployError(null);
 
     try {
+      // Run analysis first if we have a mode selected
+      if (analysisMode) {
+        setAnalyzing(true);
+        const analysisResult = await analyzeRepository(input.repositoryPath, analysisMode);
+        if (mountedRef.current) {
+          setAnalyzing(false);
+          if (analysisResult.success) {
+            setAnalysisSummary(toSummary(analysisResult.analysis));
+            if (!analysisResult.analysis.canStart) {
+              log.info('analysis says not startable — setting NotStartable');
+              setStatus('NotStartable' as DeploymentState);
+              setDeployLoading(false);
+              return;
+            }
+          }
+        }
+      }
+
       const result =
         input.targetType === 'feature'
           ? await deployFeature(input.targetId)
@@ -144,6 +248,10 @@ export function useDeployAction(input: DeployActionInput | null): DeployActionSt
         log.error(`deploy failed: ${errorMessage}`);
         setDeployError(errorMessage);
         errorTimerRef.current = setTimeout(() => setDeployError(null), ERROR_CLEAR_DELAY);
+      } else if (result.state === ('NotStartable' as DeploymentState)) {
+        log.info('deploy returned NotStartable — no polling needed');
+        setStatus('NotStartable' as DeploymentState);
+        setUrl(null);
       } else {
         log.info(`deploy succeeded — initial state=${result.state}, starting polling`);
         setStatus(result.state ?? null);
@@ -159,9 +267,10 @@ export function useDeployAction(input: DeployActionInput | null): DeployActionSt
     } finally {
       if (mountedRef.current) {
         setDeployLoading(false);
+        setAnalyzing(false);
       }
     }
-  }, [input, deployLoading, startPolling]);
+  }, [input, deployLoading, startPolling, analysisMode]);
 
   const handleStop = useCallback(async () => {
     if (!input || stopLoading) return;
@@ -189,6 +298,43 @@ export function useDeployAction(input: DeployActionInput | null): DeployActionSt
     }
   }, [input, stopLoading, stopPolling]);
 
+  const handleReAnalyze = useCallback(async () => {
+    if (!input?.repositoryPath) return;
+
+    log.info(`reAnalyze() — repositoryPath="${input.repositoryPath}"`);
+    setAnalyzing(true);
+
+    try {
+      // Invalidate existing cache
+      await invalidateDevEnvCache(input.repositoryPath);
+
+      if (!mountedRef.current) return;
+
+      // Re-run analysis
+      const result = await analyzeRepository(input.repositoryPath, analysisMode ?? undefined);
+
+      if (!mountedRef.current) return;
+
+      if (result.success) {
+        setAnalysisSummary(toSummary(result.analysis));
+        if (!result.analysis.canStart) {
+          setStatus('NotStartable' as DeploymentState);
+        } else {
+          // Clear NotStartable status if re-analysis says it's now startable
+          if (statusRef.current === ('NotStartable' as DeploymentState)) {
+            setStatus(null);
+          }
+        }
+      }
+    } catch (err) {
+      log.warn('reAnalyze error:', err);
+    } finally {
+      if (mountedRef.current) {
+        setAnalyzing(false);
+      }
+    }
+  }, [input?.repositoryPath, analysisMode]);
+
   return {
     deploy: handleDeploy,
     stop: handleStop,
@@ -197,5 +343,10 @@ export function useDeployAction(input: DeployActionInput | null): DeployActionSt
     deployError,
     status,
     url,
+    mode: analysisMode,
+    setMode,
+    analysisSummary,
+    analyzing,
+    reAnalyze: handleReAnalyze,
   };
 }
