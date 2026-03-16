@@ -12,8 +12,8 @@ import {
 } from '@/application/ports/output/services/git-pr-service.interface';
 
 describe('GitPrErrorCode', () => {
-  it('should define all 9 error codes', () => {
-    expect(Object.keys(GitPrErrorCode)).toHaveLength(9);
+  it('should define all 11 error codes', () => {
+    expect(Object.keys(GitPrErrorCode)).toHaveLength(11);
   });
 
   it.each([
@@ -26,6 +26,8 @@ describe('GitPrErrorCode', () => {
     'GIT_ERROR',
     'MERGE_FAILED',
     'PR_NOT_FOUND',
+    'REBASE_CONFLICT',
+    'NOT_A_FORK',
   ] as const)('should have %s error code', (code) => {
     expect(GitPrErrorCode[code]).toBe(code);
   });
@@ -166,6 +168,19 @@ describe('IGitPrService', () => {
       localMergeSquash: async () => {
         /* noop */
       },
+      isFork: async () => ({ isFork: false }),
+      ensureUpstreamRemote: async () => {
+        /* noop */
+      },
+      fetchUpstream: async () => {
+        /* noop */
+      },
+      syncForkMain: async () => {
+        /* noop */
+      },
+      rebase: async () => {
+        /* noop */
+      },
     };
 
     // Verify all methods exist
@@ -190,9 +205,14 @@ describe('IGitPrService', () => {
       'getFailureLogs',
       'getMergeableStatus',
       'localMergeSquash',
+      'isFork',
+      'ensureUpstreamRemote',
+      'fetchUpstream',
+      'syncForkMain',
+      'rebase',
     ];
 
-    expect(methodNames).toHaveLength(20);
+    expect(methodNames).toHaveLength(25);
     for (const name of methodNames) {
       expect(typeof mock[name]).toBe('function');
     }

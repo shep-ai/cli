@@ -20,6 +20,8 @@ export enum GitPrErrorCode {
   GIT_ERROR = 'GIT_ERROR',
   MERGE_FAILED = 'MERGE_FAILED',
   PR_NOT_FOUND = 'PR_NOT_FOUND',
+  REBASE_CONFLICT = 'REBASE_CONFLICT',
+  NOT_A_FORK = 'NOT_A_FORK',
 }
 
 /**
@@ -371,4 +373,58 @@ export interface IGitPrService {
    * @throws GitPrError with GH_NOT_FOUND or GIT_ERROR code on failure
    */
   getFailureLogs(cwd: string, runId: string, branch: string, logMaxChars?: number): Promise<string>;
+
+  /**
+   * Detect whether the current repository is a GitHub fork.
+   * Calls `gh repo view --json parent` once and returns both the boolean result and the
+   * parent clone URL so callers can pass it to ensureUpstreamRemote() without a second
+   * gh invocation (NFR-9).
+   *
+   * @param cwd - Working directory path (inside the git repo)
+   * @returns Object with isFork boolean and optional upstreamUrl from parent
+   * @throws GitPrError with GIT_ERROR code on unexpected failures
+   */
+  isFork(cwd: string): Promise<{ isFork: boolean; upstreamUrl?: string }>;
+
+  /**
+   * Ensure a remote named "upstream" exists in the repo.
+   * If it does not exist, adds it using the provided upstreamUrl.
+   * Idempotent: if the remote already exists, this is a no-op.
+   *
+   * @param cwd - Working directory path (inside the git repo)
+   * @param upstreamUrl - Clone URL of the upstream (parent) repository
+   * @throws GitPrError with GIT_ERROR code on failure
+   */
+  ensureUpstreamRemote(cwd: string, upstreamUrl: string): Promise<void>;
+
+  /**
+   * Fetch the latest refs from the upstream remote.
+   *
+   * @param cwd - Working directory path (inside the git repo)
+   * @throws GitPrError with GIT_ERROR or NETWORK_ERROR code on failure
+   */
+  fetchUpstream(cwd: string): Promise<void>;
+
+  /**
+   * Sync the local main branch to exactly match upstream/main using
+   * `git reset --hard upstream/main`. The upstream remote must already exist.
+   * Idempotent: if local main already matches upstream/main, this is a no-op.
+   *
+   * @param cwd - Working directory path (inside the git repo)
+   * @throws GitPrError with GIT_ERROR code on failure
+   */
+  syncForkMain(cwd: string): Promise<void>;
+
+  /**
+   * Rebase the specified branch onto the target branch (e.g., main).
+   * On conflict, automatically runs `git rebase --abort` to keep the worktree clean,
+   * then throws GitPrError with REBASE_CONFLICT listing the conflicting files.
+   *
+   * @param cwd - Working directory of the feature worktree
+   * @param branch - The branch to rebase (must be checked out in cwd)
+   * @param onto - The target branch to rebase onto (e.g., 'main')
+   * @throws GitPrError with REBASE_CONFLICT code (includes conflicting file list)
+   * @throws GitPrError with GIT_ERROR code on other failures
+   */
+  rebase(cwd: string, branch: string, onto: string): Promise<void>;
 }

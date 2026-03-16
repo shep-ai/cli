@@ -768,4 +768,24 @@ export class GitPrService implements IGitPrService {
       commitCount,
     };
   }
+
+  async isFork(_cwd: string): Promise<{ isFork: boolean; upstreamUrl?: string }> {
+    throw new Error('not implemented');
+  }
+
+  async ensureUpstreamRemote(_cwd: string, _upstreamUrl: string): Promise<void> {
+    throw new Error('not implemented');
+  }
+
+  async fetchUpstream(_cwd: string): Promise<void> {
+    throw new Error('not implemented');
+  }
+
+  async syncForkMain(_cwd: string): Promise<void> {
+    throw new Error('not implemented');
+  }
+
+  async rebase(_cwd: string, _branch: string, _onto: string): Promise<void> {
+    throw new Error('not implemented');
+  }
 }

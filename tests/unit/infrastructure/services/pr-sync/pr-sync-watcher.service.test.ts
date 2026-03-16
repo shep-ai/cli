@@ -93,6 +93,11 @@ function createMockGitPrService(): IGitPrService {
     getMergeableStatus: vi.fn().mockResolvedValue(undefined),
     revParse: vi.fn().mockResolvedValue('mock-sha'),
     localMergeSquash: vi.fn().mockResolvedValue(undefined),
+    isFork: vi.fn().mockResolvedValue({ isFork: false }),
+    ensureUpstreamRemote: vi.fn().mockResolvedValue(undefined),
+    fetchUpstream: vi.fn().mockResolvedValue(undefined),
+    syncForkMain: vi.fn().mockResolvedValue(undefined),
+    rebase: vi.fn().mockResolvedValue(undefined),
   };
 }
 
