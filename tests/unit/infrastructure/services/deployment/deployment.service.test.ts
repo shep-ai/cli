@@ -342,6 +342,7 @@ describe('DeploymentService', () => {
     it('should call kill with positive PID (not negative process group)', async () => {
       service.start('feature-1', '/project/path');
 
+      (deps.isAlive as ReturnType<typeof vi.fn>).mockReturnValue(false);
       const stopPromise = service.stop('feature-1');
       await vi.advanceTimersByTimeAsync(300);
       mockChild.emit('exit', 0, null);
@@ -356,6 +357,7 @@ describe('DeploymentService', () => {
     it('should pass signal string to kill function', async () => {
       service.start('feature-1', '/project/path');
 
+      (deps.isAlive as ReturnType<typeof vi.fn>).mockReturnValue(false);
       const stopPromise = service.stop('feature-1');
       await vi.advanceTimersByTimeAsync(300);
       mockChild.emit('exit', 0, null);
