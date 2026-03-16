@@ -19,12 +19,13 @@ export default async function DatabasePage() {
   }
 
   return (
-    <div className="flex h-full flex-col px-6 pb-6">
+    <div className="flex h-full flex-col overflow-hidden px-6 pb-6">
       <DatabasePageClient
         initialTables={tables}
         fetchRows={getTableRows}
         fetchSchema={getTableSchema}
         runQuery={executeQuery}
+        className="min-h-0 flex-1"
       />
     </div>
   );
