@@ -11,7 +11,7 @@ summary: >
   language/framework), cache its analysis per-repo for fast subsequent starts, execute the correct
   dev server commands, and gracefully report when a repo has nothing to start (e.g. pure libraries,
   scripts, or CLI tools with no UI/server).
-phase: Analysis
+phase: Requirements
 sizeEstimate: L
 
 # Relationships
@@ -32,15 +32,208 @@ relatedLinks: []
 
 # Open questions (must be resolved before implementation)
 openQuestions:
-  - question: "Should the agent cache be stored in SQLite alongside other data, or in a separate file-based cache?"
-    resolved: false
-    answer: ""
-  - question: "Should the agent analysis run synchronously before spawning the dev server, or should it provide a streaming UX with status updates?"
-    resolved: false
-    answer: ""
-  - question: "What should the UX look like when the agent determines there is nothing to start — a toast notification, a modal, or an inline status in the deployment badge?"
-    resolved: false
-    answer: ""
+  - question: 'Should the existing detectDevScript() be kept as a fast-path fallback when no agent is available (offline/timeout), or fully replaced by the agent?'
+    resolved: true
+    options:
+      - option: 'Keep as fast-path fallback'
+        description: >
+          Retain detectDevScript() as an immediate synchronous fallback for Node.js repos. If the agent
+          is unavailable (no agent configured, timeout exceeded, or user preference), the system falls
+          back to the existing lockfile + package.json detection. This provides a zero-latency start for
+          simple Node.js repos and graceful degradation when the agent system is down.
+        selected: true
+      - option: 'Fully replace with agent'
+        description: >
+          Remove detectDevScript() entirely. All dev environment analysis goes through the agent, even
+          for simple Node.js repos. Simpler codebase (one path), but means the system cannot start any
+          dev server if the agent is unavailable.
+        selected: false
+      - option: 'Keep as cache-miss fast-path only'
+        description: >
+          Use detectDevScript() as a quick heuristic to pre-populate the cache for Node.js repos, but
+          still run the agent on first analysis. The heuristic result is used as a hint to the agent
+          prompt, not as a standalone fallback.
+        selected: false
+    selectionRationale: >
+      Keeping detectDevScript() as a fast-path fallback ensures graceful degradation. Simple Node.js
+      repos (the majority use case today) get instant starts without waiting for agent analysis, while
+      the agent handles complex/non-Node repos. This also means the deployment system works when no
+      agent executor is configured, which is critical for initial setup and CI environments.
+    answer: 'Keep as fast-path fallback'
+
+  - question: 'How should the analysis cache be invalidated when repository contents change?'
+    resolved: true
+    options:
+      - option: 'File mtime-based invalidation'
+        description: >
+          Track mtime of key files (package.json, Dockerfile, docker-compose.yml, Makefile, etc.).
+          If any tracked file mtime is newer than the cache entry, invalidate. Fast O(1) stat check,
+          but misses changes to files not in the tracked set.
+        selected: false
+      - option: 'Git HEAD hash-based invalidation'
+        description: >
+          Store the git HEAD commit hash with the cache entry. On each start, compare current HEAD to
+          cached HEAD. If different, re-analyze. Catches all committed changes, misses uncommitted.
+          Single O(1) git rev-parse call.
+        selected: true
+      - option: 'TTL-based expiration'
+        description: >
+          Cache entries expire after a fixed duration (e.g., 24h). Simple to implement, but
+          re-analyzes unnecessarily if nothing changed, and stale if changes happen within the window.
+        selected: false
+      - option: 'Manual invalidation only'
+        description: >
+          Cache never auto-expires. User must explicitly re-analyze. Simplest implementation but
+          worst UX — users will get stale results after switching branches or updating dependencies.
+        selected: false
+    selectionRationale: >
+      Git HEAD hash comparison is the best balance of correctness and performance. A single
+      `git rev-parse HEAD` call is ~1ms and catches all committed changes (new dependencies,
+      config changes, Dockerfile updates). Since shep operates in git repos by design, this
+      assumption is safe. Uncommitted changes can be handled by an explicit "re-analyze" action.
+    answer: 'Git HEAD hash-based invalidation'
+
+  - question: 'What should the agent analysis output schema look like?'
+    resolved: true
+    options:
+      - option: 'Flat command-only result'
+        description: >
+          Agent returns only the command to run (e.g., "pnpm dev") and whether there is anything
+          to start. Minimal schema, fast to parse, but loses useful metadata about what was detected.
+        selected: false
+      - option: 'Structured analysis result'
+        description: >
+          Agent returns a structured object: detected framework/language, recommended command,
+          working directory (for monorepos), environment variables needed, expected port,
+          confidence level, and a human-readable explanation. Rich data enables better UX
+          (showing what was detected) and smarter port detection.
+        selected: true
+      - option: 'DeploySkill-compatible result'
+        description: >
+          Agent returns data that maps directly to the existing DeploySkill TypeSpec model
+          (method, ports, instructions). Reuses existing domain model but constrains the
+          analysis to deployment-centric fields only.
+        selected: false
+    selectionRationale: >
+      A structured analysis result provides the most value. The framework/language detection enables
+      better UI messaging ("Starting Next.js dev server..."), the expected port improves port
+      detection reliability, and the confidence level lets the system warn users when analysis is
+      uncertain. The working directory field is essential for monorepo support. This schema can
+      still be mapped to DeploySkill when needed.
+    answer: 'Structured analysis result'
+
+  - question: 'How should the "nothing to start" scenario be communicated through the stack?'
+    resolved: true
+    options:
+      - option: 'New DeploymentState enum value'
+        description: >
+          Add NothingToStart as a new DeploymentState value alongside Booting/Ready/Stopped.
+          Clean state machine extension, but NothingToStart is not really a "deployment state" —
+          it means no deployment was ever created.
+        selected: false
+      - option: 'Separate result type on start()'
+        description: >
+          Change IDeploymentService.start() to return a discriminated union: either a successful
+          start (current behavior) or a NothingToStart result with an explanation. The deployment
+          is never created in the in-memory map. UI handles this as a distinct state.
+        selected: true
+      - option: 'Throw a typed error'
+        description: >
+          Throw a DevEnvironmentNotFoundError with a human-readable message. Callers catch and
+          display. Simple error handling, but errors should represent unexpected failures, not
+          expected outcomes.
+        selected: false
+    selectionRationale: >
+      A discriminated union return type is the cleanest approach. "Nothing to start" is an expected,
+      valid outcome — not an error and not a deployment state. Returning a union from start() lets
+      callers handle it explicitly without try/catch, and avoids polluting the DeploymentState enum
+      with a value that represents the absence of a deployment. The UI can show a helpful message
+      with the agent's explanation of why there is nothing to start.
+    answer: 'Separate result type on start()'
+
+  - question: 'Should the agent analysis stream progress updates to the UI while analyzing?'
+    resolved: true
+    options:
+      - option: 'No streaming — show spinner only'
+        description: >
+          Show a simple "Analyzing repository..." spinner in the UI. No real-time progress.
+          Simplest to implement. User has no visibility into what the agent is doing.
+        selected: false
+      - option: 'Stream status updates via existing log system'
+        description: >
+          Use the existing LogRingBuffer + EventEmitter + SSE infrastructure to stream analysis
+          progress. The agent analysis creates a temporary "deployment" entry in Booting state
+          with a new sub-state (Analyzing) so logs flow through the existing pipeline. Reuses
+          infrastructure, provides real-time visibility.
+        selected: true
+      - option: 'Dedicated analysis progress endpoint'
+        description: >
+          Create a separate SSE endpoint and hook specifically for analysis progress, independent
+          of the deployment log system. Clean separation but duplicates SSE infrastructure.
+        selected: false
+    selectionRationale: >
+      Reusing the existing log streaming infrastructure (EventEmitter + LogRingBuffer + SSE) is the
+      most pragmatic approach. The deployment system already has real-time log streaming built in.
+      By emitting analysis progress as log entries during the Booting phase, we avoid building
+      parallel infrastructure. The UI already shows a terminal button during Booting state, so
+      users can open the log viewer to see what the agent is doing.
+    answer: 'Stream status updates via existing log system'
+
+  - question: 'Should the user be able to override or edit the cached analysis result?'
+    resolved: true
+    options:
+      - option: 'No manual override'
+        description: >
+          Cache is fully agent-managed. Users can only trigger re-analysis to get a fresh result.
+          Simple UX, but frustrating if the agent gets it wrong and keeps getting it wrong.
+        selected: false
+      - option: 'Re-analyze button only'
+        description: >
+          Provide a "Re-analyze" action that clears the cache for the repo and runs the agent
+          again. No manual editing of the command. Covers the "agent got it wrong, try again"
+          case without complex editing UI.
+        selected: true
+      - option: 'Full manual editing'
+        description: >
+          Provide a UI to view and edit the cached analysis (command, working directory, port).
+          Maximum user control, but adds significant UI complexity and maintenance burden for
+          an edge case.
+        selected: false
+    selectionRationale: >
+      A re-analyze button is the right trade-off for v1. It covers the primary failure mode (agent
+      gets it wrong) without requiring a complex editing UI. If the agent consistently fails for a
+      specific repo type, that is a prompt engineering problem to fix at the agent level, not a
+      per-user override. Full manual editing can be added later if re-analysis proves insufficient.
+    answer: 'Re-analyze button only'
+
+  - question: 'What new DeploymentState value should represent the analysis phase?'
+    resolved: true
+    options:
+      - option: 'Add Analyzing state'
+        description: >
+          Add a new Analyzing value to DeploymentState enum. Clear semantic meaning, but adds a
+          state to the enum that all consumers must handle. State flow becomes:
+          Analyzing → Booting → Ready → Stopped.
+        selected: true
+      - option: 'Reuse Booting state'
+        description: >
+          Use existing Booting state for analysis. The UI already shows a spinner for Booting.
+          No TypeSpec changes needed, but conflates two distinct phases (analyzing what to run
+          vs. actually starting the process).
+        selected: false
+      - option: 'No state — analysis is pre-deployment'
+        description: >
+          Analysis happens before any deployment entry exists. A separate loading state in the
+          UI hook handles the "analyzing" visual. No enum change, but the UI needs a parallel
+          state management path.
+        selected: false
+    selectionRationale: >
+      Adding an explicit Analyzing state is the cleanest approach. It gives the UI a clear signal
+      to show "Analyzing repository..." instead of "Starting dev server..." during the analysis
+      phase. The state machine becomes Analyzing → Booting → Ready → Stopped, which accurately
+      represents the lifecycle. All state consumers already handle unknown states gracefully
+      (defaulting to hidden/null), so adding a new value is low-risk.
+    answer: 'Add Analyzing state'
 
 content: |
   ## Problem Statement
@@ -53,75 +246,113 @@ content: |
   4. **No caching**: Every deployment start re-reads package.json and re-detects everything. There's no memory of what worked before for a given repo.
   5. **No graceful "nothing to start"**: If a repo is a pure library, CLI tool, or script with no server/UI, the service throws a hard error (`No dev script found in package.json`) instead of providing a helpful explanation.
 
-  The feature request is to replace this with an AI agent that can:
-  - Analyze any repository regardless of language/framework
-  - Cache its analysis per-repo for fast subsequent starts
-  - Execute the correct startup commands
-  - Gracefully report when there is nothing to start
+  ## Success Criteria
 
-  ## Codebase Analysis
+  - [ ] Agent can analyze a Node.js repo (with package.json) and produce the correct dev command — matching or exceeding the existing detectDevScript() accuracy
+  - [ ] Agent can analyze a Python repo (e.g., FastAPI with uvicorn, Django with manage.py) and produce the correct dev command
+  - [ ] Agent can analyze a Docker-based repo (with docker-compose.yml) and produce the correct startup command
+  - [ ] Agent can analyze a repo with no dev server (e.g., a pure npm library) and return a NothingToStart result with a human-readable explanation
+  - [ ] Analysis results are cached per-repo in SQLite and reused on subsequent starts without re-invoking the agent
+  - [ ] Cache is automatically invalidated when the repo's git HEAD changes (new commits)
+  - [ ] A re-analyze action is available to force cache invalidation and re-run the agent
+  - [ ] When no agent executor is configured, the system falls back to the existing detectDevScript() for Node.js repos
+  - [ ] The Analyzing state is visible in the UI with a distinct badge and live log streaming of agent progress
+  - [ ] The NothingToStart outcome is displayed in the UI with the agent's explanation (not a hard error)
+  - [ ] All new code has unit tests written TDD-style (red → green → refactor)
+  - [ ] All new/updated web UI components have colocated Storybook stories
+  - [ ] No hardcoded agent types — all agent execution flows through IAgentExecutorProvider
+  - [ ] Existing Node.js deployment flows continue to work without regression
 
-  ### Project Structure
+  ## Functional Requirements
 
-  The project follows Clean Architecture with four layers:
+  ### Agent Analysis
 
-  - **Domain** (`packages/core/src/domain/`): Generated from TypeSpec (`tsp/`). Contains `DeploymentState`, `DeployMethod`, `Deployment`, `DeploySkill`, `LocalDeployAgent` models.
-  - **Application** (`packages/core/src/application/`): Use cases and port interfaces. `IDeploymentService` interface defines the deployment contract.
-  - **Infrastructure** (`packages/core/src/infrastructure/`): Concrete implementations. `DeploymentService` manages process spawning, port detection, and lifecycle. Agent graphs live under `services/agents/`.
-  - **Presentation** (`src/presentation/`): Web UI with server actions (`deploy-feature.ts`, `deploy-repository.ts`), hooks (`use-deploy-action.ts`, `use-deployment-logs.ts`), and components (`deployment-status-badge`).
+  - **FR-1**: The system SHALL provide a LangGraph-based DevEnvironmentAnalysisGraph that accepts a repository path and returns a structured analysis result containing: detected language/framework, recommended command, working directory, expected port, environment variables, confidence level (high/medium/low), and a human-readable explanation.
+  - **FR-2**: The agent graph SHALL use `IAgentExecutor` via `IAgentExecutorProvider` for all AI inference — no hardcoding of agent types (Claude Code, Cursor, Gemini CLI, etc.).
+  - **FR-3**: The agent prompt SHALL instruct the AI to inspect repository files (package.json, pyproject.toml, Cargo.toml, go.mod, Dockerfile, docker-compose.yml, Makefile, etc.) and reason about the best dev startup command.
+  - **FR-4**: The agent SHALL return a `NothingToStart` result (not an error) when the repository has no dev server, UI, or startable service — including a human-readable explanation of why (e.g., "This is a pure npm library with no dev server or UI").
+  - **FR-5**: The agent analysis SHALL have a configurable timeout (default: 2 minutes) after which the system falls back to the detectDevScript() heuristic for Node.js repos or returns a timeout error for others.
 
-  ### Architecture Patterns
+  ### Cache Layer
 
-  **Agent System (LangGraph)**:
-  - Agents are built as LangGraph `StateGraph` instances with typed state annotations
-  - The `analyze-repository-graph.ts` is the closest existing pattern — a single-node graph that takes a repo path, builds a prompt, and calls `IAgentExecutor.execute()`
-  - All agent execution flows through `IAgentExecutorProvider` → `IAgentExecutorFactory` → concrete executor (Claude Code, Cursor, Gemini CLI, etc.)
-  - NO hardcoding of agent types — this is mandatory
+  - **FR-6**: The system SHALL persist agent analysis results in a SQLite table keyed by repository path, storing the structured analysis result, the git HEAD hash at analysis time, and a timestamp.
+  - **FR-7**: On each deployment start, the system SHALL check the cache first. If a valid (non-stale) cache entry exists, it SHALL be used immediately without invoking the agent.
+  - **FR-8**: Cache entries SHALL be invalidated when the current git HEAD hash differs from the cached HEAD hash (detected via `git rev-parse HEAD`).
+  - **FR-9**: The system SHALL provide a `reanalyze(targetId)` method on `IDeploymentService` that clears the cache for a given repo and re-runs the agent analysis.
+  - **FR-10**: Cache lookups and git HEAD checks SHALL complete in under 10ms to avoid adding perceptible latency to cached starts.
 
-  **Deployment Service**:
-  - `DeploymentService` holds an in-memory `Map<string, DeploymentEntry>` of active deployments
-  - Process spawning via Node.js `child_process.spawn()` with detached mode
-  - Port detection by parsing stdout/stderr lines through regex patterns
-  - Graceful shutdown: SIGTERM → poll → SIGKILL via `tree-kill`
-  - Log streaming via `EventEmitter` + `LogRingBuffer` (1000 lines)
-  - Registered as singleton instance in DI container
+  ### Deployment Service Changes
 
-  **TypeSpec Models**:
-  - `tsp/agents/deploy-agent.tsp` already defines `LocalDeployAgent` model and `LocalDeployAgentOperations` interface with `Deploy()`, `Analyze()`, and `Ask()` operations
-  - `tsp/deployment/` has `Deployment`, `DeploySkill`, `DeployMethod` enums
-  - `tsp/common/enums/deployment.tsp` defines `DeploymentState` (Booting, Ready, Stopped) and `DeployMethod` (DockerCompose, Docker, Kubernetes, Script, Manual)
+  - **FR-11**: `IDeploymentService.start()` SHALL return a discriminated union: `DeploymentStarted` (current behavior with state/url) or `NothingToStart` (with explanation string) — not throw an error for the "nothing to start" case.
+  - **FR-12**: The `start()` method SHALL transition through states: Analyzing → Booting → Ready (or Analyzing → NothingToStart) — with the Analyzing state visible to status queries and log subscribers.
+  - **FR-13**: During the Analyzing state, the system SHALL emit progress log entries through the existing EventEmitter + LogRingBuffer infrastructure so the UI can display real-time analysis progress.
+  - **FR-14**: When no agent executor is configured (IAgentExecutorProvider returns null/unavailable), the system SHALL fall back to the existing `detectDevScript()` heuristic for Node.js repos and return a clear error for non-Node repos.
+  - **FR-15**: The existing `detectDevScript()` function SHALL be preserved as-is for use as the fallback path. It SHALL NOT be modified as part of this feature.
 
-  **DI Container** (`infrastructure/di/container.ts`):
-  - `IDeploymentService` → `DeploymentService` (singleton instance)
-  - All agent infrastructure registered: `IAgentExecutorFactory`, `IAgentExecutorProvider`, `IAgentRunner`, etc.
+  ### TypeSpec Model Changes
 
-  ### Relevant Technologies
+  - **FR-16**: The `DeploymentState` enum SHALL be extended with an `Analyzing` value representing the pre-boot analysis phase.
+  - **FR-17**: A new `DevEnvironmentAnalysis` TypeSpec model SHALL be defined containing: language, framework, command, workingDirectory, expectedPort, environmentVariables, confidence (enum: High/Medium/Low), explanation, and hasDevServer (boolean).
+  - **FR-18**: The `LocalDeployAgentOperations.Analyze()` return type SHALL be updated to return the new `DevEnvironmentAnalysis` model instead of `DeploySkill`.
 
-  - **LangGraph** (`@langchain/langgraph`): StateGraph-based agent workflow orchestration
-  - **TypeSpec**: Domain model code generation (`pnpm tsp:compile`)
-  - **tsyringe**: DI container with token-based injection
-  - **better-sqlite3**: Synchronous SQLite for persistence (potential cache store)
-  - **tree-kill**: Cross-platform process tree termination
-  - **Next.js 16**: Server actions for web UI deployment control
+  ### Web UI Updates
+
+  - **FR-19**: The `DeploymentStatusBadge` component SHALL render an "Analyzing" state with a distinct visual treatment (e.g., purple/amber badge with a scanning icon) and a terminal button for viewing analysis logs.
+  - **FR-20**: The `DeploymentStatusBadge` component SHALL render a "Nothing to Start" state with an informational message displaying the agent's explanation.
+  - **FR-21**: The deploy server actions (`deploy-feature.ts`, `deploy-repository.ts`) SHALL handle the new `NothingToStart` return type and pass it to the UI.
+  - **FR-22**: The `use-deploy-action` hook SHALL handle the Analyzing state (continue polling) and NothingToStart result (display explanation, stop polling).
+  - **FR-23**: A "Re-analyze" button SHALL be available in the UI when a cached analysis exists, triggering cache invalidation and fresh agent analysis.
+
+  ### DI and Wiring
+
+  - **FR-24**: The new DevEnvironmentAnalysisGraph SHALL be registered in the DI container following the same pattern as the existing AnalyzeRepositoryGraph.
+  - **FR-25**: A new `IDevEnvironmentCacheRepository` interface SHALL be defined in the application layer with `get(repoPath)`, `set(repoPath, analysis, gitHead)`, and `clear(repoPath)` methods, implemented by a SQLite-backed repository in the infrastructure layer.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1 — Performance (cached path)**: When a valid cache entry exists, `start()` SHALL add no more than 20ms of latency compared to the current direct detectDevScript() path. The cache lookup + git HEAD check SHALL complete in under 10ms.
+  - **NFR-2 — Performance (agent path)**: First-time agent analysis SHALL complete within the configured timeout (default 2 minutes). The system SHALL remain responsive during analysis (non-blocking, streaming progress).
+  - **NFR-3 — Reliability**: If the agent executor crashes, times out, or returns malformed output, the system SHALL fall back to detectDevScript() for Node.js repos and return a descriptive error for others — never leave a deployment stuck in Analyzing state indefinitely.
+  - **NFR-4 — Backwards compatibility**: All existing deployment workflows (start, stop, status, logs) SHALL continue to function identically for Node.js repos that use the fast-path fallback. No breaking changes to the IDeploymentService interface signature for existing consumers.
+  - **NFR-5 — Testability**: The agent graph, cache repository, and deployment service changes SHALL be independently unit-testable with injected mocks. No test shall require a real AI agent executor.
+  - **NFR-6 — Observability**: Analysis progress, cache hits/misses, fallback activations, and agent errors SHALL be logged at appropriate levels (debug for cache hits, info for analysis starts, warn for fallbacks, error for failures).
+  - **NFR-7 — Security**: The agent prompt SHALL NOT include sensitive environment variables, secrets, or credentials from the repository. Only file names and non-secret file contents (package.json, Dockerfile, etc.) SHALL be sent to the agent.
+  - **NFR-8 — Data integrity**: Cache entries SHALL use repository absolute path as the primary key to avoid collisions between repos with similar names. The SQLite migration SHALL be additive (new table) with no modifications to existing tables.
+  - **NFR-9 — UI accessibility**: New badge states (Analyzing, NothingToStart) SHALL meet WCAG 2.1 AA color contrast requirements and include appropriate aria-labels for screen readers.
+  - **NFR-10 — Storybook coverage**: All new/modified UI components SHALL have colocated `.stories.tsx` files demonstrating each state (Analyzing, NothingToStart, Booting, Ready, Stopped).
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Should detectDevScript() be kept as fallback? | Keep as fast-path fallback | Ensures graceful degradation when agent unavailable; instant starts for simple Node.js repos |
+  | 2 | How should the cache be invalidated? | Git HEAD hash comparison | Single ~1ms git rev-parse call catches all committed changes; safe assumption since shep operates in git repos |
+  | 3 | What should the analysis output schema look like? | Structured analysis result | Rich data (framework, port, confidence) enables better UX and smarter startup; maps to DeploySkill when needed |
+  | 4 | How should "nothing to start" be communicated? | Discriminated union return type | Expected outcome, not an error; avoids polluting DeploymentState with absence-of-deployment semantics |
+  | 5 | Should analysis stream progress to UI? | Via existing log system | Reuses EventEmitter + LogRingBuffer + SSE infrastructure; no parallel streaming stack needed |
+  | 6 | Should users be able to override cached analysis? | Re-analyze button only | Covers the "agent got it wrong" case without complex editing UI; prompt fixes beat per-user overrides |
+  | 7 | What state represents the analysis phase? | New Analyzing enum value | Clear semantic signal for UI; accurate lifecycle representation; low-risk enum addition |
 
   ## Affected Areas
 
   | Area | Impact | Reasoning |
   | ---- | ------ | --------- |
-  | `tsp/agents/deploy-agent.tsp` | Medium | May need new fields for cache status, analysis result, and "nothing to start" capability |
-  | `tsp/deployment/` | Medium | May need new `DeploymentState` values (e.g., `Analyzing`, `NothingToStart`) or new models for cached analysis |
+  | `tsp/agents/deploy-agent.tsp` | Medium | Update Analyze() return type, add DevEnvironmentAnalysis model |
+  | `tsp/deployment/` | Medium | New DevEnvironmentAnalysis model, AnalysisConfidence enum |
+  | `tsp/common/enums/deployment.tsp` | Medium | Add Analyzing value to DeploymentState enum |
   | `packages/core/src/domain/generated/output.ts` | Medium | Auto-generated from TypeSpec changes |
-  | `packages/core/src/application/ports/output/services/deployment-service.interface.ts` | High | Interface needs to accommodate agent-based analysis, caching, and "nothing to start" responses |
-  | `packages/core/src/infrastructure/services/deployment/deployment.service.ts` | High | Core rewrite — replace `detectDevScript()` with agent-based analysis, add cache layer, handle no-start scenarios |
-  | `packages/core/src/infrastructure/services/deployment/detect-dev-script.ts` | High | Will be replaced/wrapped by agent analysis (may keep as fallback for offline/fast-path) |
-  | `packages/core/src/infrastructure/services/agents/` | High | New LangGraph graph for dev-environment analysis agent (similar pattern to `analyze-repository-graph.ts`) |
-  | `packages/core/src/infrastructure/di/container.ts` | Medium | Register new agent graph, cache service, updated deployment service |
-  | `src/presentation/web/app/actions/deploy-feature.ts` | Medium | Handle new response types (analyzing, nothing-to-start) |
-  | `src/presentation/web/app/actions/deploy-repository.ts` | Medium | Same as deploy-feature |
-  | `src/presentation/web/hooks/use-deploy-action.ts` | Medium | Handle new deployment states in UI |
-  | `src/presentation/web/components/common/deployment-status-badge/` | Medium | Display new states (Analyzing, NothingToStart) |
-  | `packages/core/src/infrastructure/persistence/sqlite/` | Medium | New migration for cache table if using SQLite for analysis cache |
-  | Tests (unit, integration) | High | Extensive testing needed for agent graph, cache layer, deployment service changes |
+  | `packages/core/src/application/ports/output/services/deployment-service.interface.ts` | High | Return type changes for start(), new reanalyze() method, DeploymentStartResult union type |
+  | `packages/core/src/application/ports/output/repositories/` | Medium | New IDevEnvironmentCacheRepository interface |
+  | `packages/core/src/infrastructure/services/deployment/deployment.service.ts` | High | Integrate agent analysis, cache lookups, fallback logic, Analyzing state, NothingToStart flow |
+  | `packages/core/src/infrastructure/services/deployment/detect-dev-script.ts` | None | Preserved as-is for fallback use |
+  | `packages/core/src/infrastructure/services/agents/` | High | New DevEnvironmentAnalysisGraph (LangGraph StateGraph) |
+  | `packages/core/src/infrastructure/persistence/sqlite/` | Medium | New migration for dev_environment_cache table, new SQLiteDevEnvironmentCacheRepository |
+  | `packages/core/src/infrastructure/di/container.ts` | Medium | Register new graph, cache repository, updated service wiring |
+  | `src/presentation/web/app/actions/deploy-feature.ts` | Medium | Handle NothingToStart return type |
+  | `src/presentation/web/app/actions/deploy-repository.ts` | Medium | Handle NothingToStart return type |
+  | `src/presentation/web/hooks/use-deploy-action.ts` | Medium | Handle Analyzing state and NothingToStart result |
+  | `src/presentation/web/components/common/deployment-status-badge/` | Medium | New Analyzing and NothingToStart visual states |
+  | Tests (unit, integration) | High | Agent graph tests, cache repository tests, deployment service tests, UI component tests |
 
   ## Dependencies
 
@@ -130,9 +361,10 @@ content: |
   - `IDeploymentService` interface — deployment lifecycle contract
   - LangGraph `StateGraph` / `Annotation` — agent graph construction
   - `DeploymentState`, `DeployMethod` enums — deployment state machine
-  - `LogRingBuffer`, `parsePort` utilities — log and port detection (may be reused)
-  - SQLite persistence layer — for cache storage
+  - `LogRingBuffer`, `parsePort` utilities — log and port detection (reused)
+  - SQLite persistence layer + migration system — for cache storage
   - `EventEmitter` pattern — for streaming status updates during analysis
+  - `detectDevScript()` — preserved as fast-path fallback
 
   **External libraries already in the project:**
   - `@langchain/langgraph` — graph-based agent orchestration
@@ -140,20 +372,20 @@ content: |
   - `tree-kill` — process management
   - `tsyringe` — dependency injection
 
-  **No new external dependencies expected** — the existing agent infrastructure and SQLite stack should be sufficient.
+  **No new external dependencies expected** — the existing agent infrastructure and SQLite stack are sufficient.
 
   ## Size Estimate
 
-  **L** — This is a week+ effort because it involves:
-  1. TypeSpec model changes and regeneration (new states, cache model)
-  2. A new LangGraph agent graph (dev-environment-analysis) with prompt engineering
-  3. A SQLite-backed cache layer for per-repo analysis results
-  4. Significant refactoring of `DeploymentService` to use agent analysis instead of `detectDevScript()`
-  5. New deployment states and "nothing to start" flow through the entire stack (domain → application → infrastructure → presentation)
-  6. Web UI updates (deployment badge, actions, hooks) for new states
-  7. Comprehensive TDD across all layers (unit + integration tests)
-  8. Storybook stories for updated UI components
+  **L** — This is a week+ effort involving:
+  1. TypeSpec model changes and regeneration (Analyzing state, DevEnvironmentAnalysis model, AnalysisConfidence enum)
+  2. A new LangGraph agent graph (DevEnvironmentAnalysisGraph) with prompt engineering for multi-language repo analysis
+  3. A SQLite-backed cache layer (new migration, repository interface, implementation) with git HEAD invalidation
+  4. Significant updates to DeploymentService: agent integration, cache-first flow, fallback logic, Analyzing state, discriminated union returns
+  5. IDeploymentService interface changes: return type union, reanalyze() method, new cache repository port
+  6. Web UI updates: deployment badge (Analyzing + NothingToStart states), server actions, hooks, re-analyze button
+  7. Comprehensive TDD across all layers (agent graph, cache repo, service, UI)
+  8. Storybook stories for all new/modified UI components
 
   ---
 
-  _Analysis complete — proceed with research_
+  _Requirements complete — proceed with research_
