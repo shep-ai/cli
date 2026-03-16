@@ -79,9 +79,12 @@ export function ControlCenterEmptyState({
   return (
     <div
       data-testid="control-center-empty-state"
-      className={cn('flex h-full w-full flex-col items-center justify-center px-8', className)}
+      className={cn(
+        'relative flex h-full w-full flex-col items-center justify-center px-8',
+        className
+      )}
     >
-      {/* Vertically centered content — no card, just content on the page */}
+      {/* Vertically centered content */}
       <div className="flex w-full max-w-md flex-col items-center">
         {/* Hero */}
         <h1
@@ -94,9 +97,9 @@ export function ControlCenterEmptyState({
           className="text-muted-foreground mt-3 text-center text-lg leading-relaxed font-light"
           style={{ animationDelay: '80ms', animationDuration: '600ms', animationFillMode: 'both' }}
         >
-          Point Shep at any repository and it will analyze,
+          Add a repository to start creating features.
           <br />
-          plan, and implement features for you.
+          Shep will analyze, plan, and build them for you.
         </p>
 
         {/* Status badge */}
@@ -143,67 +146,69 @@ export function ControlCenterEmptyState({
                 animationFillMode: 'both',
               }}
             >
-              Select a folder with a git repo. Your features will appear here.
+              Pick any folder with a git repo to get started.
             </p>
-
-            {/* CLI toggle — subtle, at the bottom */}
-            <div
-              className="mt-12 w-full"
-              style={{
-                animationDelay: '400ms',
-                animationDuration: '600ms',
-                animationFillMode: 'both',
-              }}
-            >
-              <button
-                type="button"
-                onClick={() => setCliExpanded(!cliExpanded)}
-                className="text-muted-foreground/50 hover:text-muted-foreground mx-auto flex cursor-pointer items-center gap-1.5 transition-colors duration-200"
-              >
-                <Terminal className="h-3.5 w-3.5" />
-                <span className="text-xs">or use the CLI</span>
-                <ChevronDown
-                  className={cn(
-                    'h-3 w-3 transition-transform duration-200',
-                    cliExpanded && 'rotate-180'
-                  )}
-                />
-              </button>
-
-              {cliExpanded ? (
-                <div className="animate-in fade-in slide-in-from-top-1 mx-auto mt-4 max-w-sm duration-200">
-                  <div
-                    data-testid="cli-code-block"
-                    className="relative rounded-xl bg-zinc-900 px-5 py-4 font-mono text-[13px] leading-relaxed text-zinc-400"
-                  >
-                    <button
-                      type="button"
-                      data-testid="cli-code-block-copy"
-                      onClick={handleCopy}
-                      className="absolute top-3 right-3 cursor-pointer rounded-md p-1.5 text-zinc-600 transition-colors hover:bg-zinc-800 hover:text-zinc-300"
-                      aria-label="Copy commands"
-                    >
-                      {copied ? (
-                        <Check className="h-3.5 w-3.5 text-emerald-400" />
-                      ) : (
-                        <Copy className="h-3.5 w-3.5" />
-                      )}
-                    </button>
-                    <div className="space-y-1">
-                      {commands.map((cmd) => (
-                        <div key={cmd} className="whitespace-nowrap">
-                          <span className="text-zinc-600 select-none">$ </span>
-                          <span className="text-zinc-300">{cmd}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-            </div>
           </>
         ) : null}
       </div>
+
+      {/* CLI toggle — anchored to bottom, doesn't shift centered content */}
+      {agentReady ? (
+        <div
+          className="absolute bottom-8 flex flex-col items-center"
+          style={{
+            animationDelay: '400ms',
+            animationDuration: '600ms',
+            animationFillMode: 'both',
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setCliExpanded(!cliExpanded)}
+            className="text-muted-foreground/50 hover:text-muted-foreground flex cursor-pointer items-center gap-1.5 transition-colors duration-200"
+          >
+            <Terminal className="h-3.5 w-3.5" />
+            <span className="text-xs">or use the CLI</span>
+            <ChevronDown
+              className={cn(
+                'h-3 w-3 transition-transform duration-200',
+                cliExpanded && 'rotate-180'
+              )}
+            />
+          </button>
+
+          {cliExpanded ? (
+            <div className="animate-in fade-in slide-in-from-top-1 mt-3 w-80 duration-200">
+              <div
+                data-testid="cli-code-block"
+                className="relative rounded-xl bg-zinc-900 px-5 py-4 font-mono text-[13px] leading-relaxed text-zinc-400"
+              >
+                <button
+                  type="button"
+                  data-testid="cli-code-block-copy"
+                  onClick={handleCopy}
+                  className="absolute top-3 right-3 cursor-pointer rounded-md p-1.5 text-zinc-600 transition-colors hover:bg-zinc-800 hover:text-zinc-300"
+                  aria-label="Copy commands"
+                >
+                  {copied ? (
+                    <Check className="h-3.5 w-3.5 text-emerald-400" />
+                  ) : (
+                    <Copy className="h-3.5 w-3.5" />
+                  )}
+                </button>
+                <div className="space-y-1">
+                  {commands.map((cmd) => (
+                    <div key={cmd} className="whitespace-nowrap">
+                      <span className="text-zinc-600 select-none">$ </span>
+                      <span className="text-zinc-300">{cmd}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
