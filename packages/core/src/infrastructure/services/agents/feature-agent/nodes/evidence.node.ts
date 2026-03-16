@@ -32,7 +32,7 @@ import { reportNodeStart } from '../heartbeat.js';
 import { recordPhaseStart, recordPhaseEnd } from '../phase-timing-context.js';
 import { updateNodeLifecycle } from '../lifecycle-context.js';
 import { buildEvidencePrompt } from './prompts/evidence-prompts.js';
-import { parseEvidenceRecords } from './evidence-output-parser.js';
+import { parseEvidenceRecords, validateUiEvidenceHasAppProof } from './evidence-output-parser.js';
 import { hasSettings, getSettings } from '../../../settings.service.js';
 
 /**
@@ -87,6 +87,16 @@ export function createEvidenceNode(executor: IAgentExecutor) {
         evidence = [];
       }
 
+      // --- Validate UI evidence includes app-level proof ---
+      const validationResult = validateUiEvidenceHasAppProof(evidence);
+      const validationMessages: string[] = [];
+      if (validationResult.warnings.length > 0) {
+        for (const warning of validationResult.warnings) {
+          log.error(`Evidence validation: ${warning}`);
+          validationMessages.push(`[evidence] Warning: ${warning}`);
+        }
+      }
+
       await recordPhaseEnd(timingId, durationMs);
       markPhaseComplete(state.specDir, 'evidence', log);
 
@@ -98,6 +108,7 @@ export function createEvidenceNode(executor: IAgentExecutor) {
           ...(evidence.length === 0
             ? ['[evidence] Warning: no evidence records parsed from agent output']
             : []),
+          ...validationMessages,
         ],
         _needsReexecution: false,
       };
