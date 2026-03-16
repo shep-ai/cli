@@ -1,0 +1,467 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: adopt-existing-branch
+summary: >
+  14 tasks across 5 phases. Foundation establishes interfaces and pure helpers,
+  infrastructure implements service/repository methods, application builds the core
+  use case with DI registration, CLI adds the feat adopt command, and Web UI adds
+  the server action, drawer, and FAB integration.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - TypeScript
+  - tsyringe (DI)
+  - Commander.js (CLI)
+  - Next.js (Web UI)
+  - SQLite
+  - Vitest
+relatedLinks: []
+
+# Structured task list
+tasks:
+  # ── Phase 1: Foundation — Interfaces & Pure Helpers ──────────────────────
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Create branch-name utility functions (name derivation + slug derivation)'
+    description: >
+      Create pure functions for deriving a human-readable feature name and a URL-safe
+      slug from any git branch name. These are zero-dependency pure functions that the
+      use case and tests will rely on. Covers FR-9 (name derivation) and FR-10 (slug
+      derivation).
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'deriveName strips common prefixes (feat/, fix/, chore/, refactor/, docs/, test/, ci/, build/, perf/, style/, revert/, hotfix/, release/)'
+      - 'deriveName replaces hyphens and underscores with spaces'
+      - 'deriveName title-cases each word'
+      - 'deriveName handles nested slashes (feat/auth/login-bug -> "Auth Login Bug")'
+      - 'deriveSlug lowercases the full branch name'
+      - 'deriveSlug converts slashes and special characters to hyphens'
+      - 'deriveSlug handles edge cases: trailing hyphens, consecutive hyphens, dots'
+      - 'Examples: fix/login-bug -> name "Login Bug", slug "fix-login-bug"'
+      - 'Examples: feat/user-auth -> name "User Auth", slug "feat-user-auth"'
+      - 'Examples: my-cool-feature -> name "My Cool Feature", slug "my-cool-feature"'
+    tdd:
+      red:
+        - 'Write tests for deriveName with various branch formats: simple (my-feature), prefixed (feat/user-auth), nested (feat/auth/login-bug), underscored (my_cool_feature), dotted (release/v1.0.0)'
+        - 'Write tests for deriveSlug with same branch formats, asserting lowercase and slash-to-hyphen conversion'
+        - 'Write edge case tests: empty string after prefix strip, consecutive special chars, already-clean names'
+      green:
+        - 'Implement deriveName: split on first slash to detect prefix, strip if in known prefix list, replace [-_] with space, title-case words'
+        - 'Implement deriveSlug: lowercase full branch name, replace [/._] with hyphens, collapse consecutive hyphens, trim leading/trailing hyphens'
+      refactor:
+        - 'Extract PREFIX_LIST as a module constant'
+        - 'Ensure both functions are exported as named exports from branch-name-utils.ts'
+    estimatedEffort: '45min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Extend IWorktreeService interface with addExisting() method'
+    description: >
+      Add the addExisting(repoPath, branch, worktreePath) method signature to the
+      IWorktreeService interface. This method creates a worktree for an already-existing
+      branch (git worktree add without -b flag). Covers FR-2.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'IWorktreeService interface has addExisting(repoPath: string, branch: string, worktreePath: string): Promise<WorktreeInfo>'
+      - 'Method signature follows the same pattern as create() but without startPoint parameter'
+      - 'JSDoc comment explains this is for existing branches (no -b flag)'
+      - 'TypeScript compiles without errors'
+    tdd:
+      red:
+        - 'Verify WorktreeService implementation does NOT yet satisfy the interface (compile error expected)'
+      green:
+        - 'Add addExisting method signature to IWorktreeService interface'
+      refactor:
+        - 'Ensure JSDoc matches the style of existing method docs in the interface'
+    estimatedEffort: '15min'
+
+  - id: task-3
+    phaseId: phase-1
+    title: 'Extend IFeatureRepository interface with findByBranch() method'
+    description: >
+      Add findByBranch(branch, repositoryPath) method signature to IFeatureRepository.
+      This enables efficient duplicate detection by querying directly on the branch column
+      scoped to a repository. Covers FR-6.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'IFeatureRepository interface has findByBranch(branch: string, repositoryPath: string): Promise<Feature | null>'
+      - 'Method signature follows findBySlug pattern (scoped to repositoryPath)'
+      - 'JSDoc comment explains this is for duplicate adoption detection'
+      - 'TypeScript compiles without errors'
+    tdd:
+      red:
+        - 'Verify SQLiteFeatureRepository does NOT yet satisfy the interface (compile error expected)'
+      green:
+        - 'Add findByBranch method signature to IFeatureRepository interface'
+      refactor:
+        - 'Ensure JSDoc matches the style of existing method docs in the interface'
+    estimatedEffort: '15min'
+
+  # ── Phase 2: Infrastructure — Service & Repository Implementations ──────
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Implement WorktreeService.addExisting() method'
+    description: >
+      Implement addExisting() in the WorktreeService infrastructure class. This runs
+      `git worktree add <worktreePath> <branch>` without the -b flag, creating a worktree
+      for an already-existing branch. Covers FR-3. For remote-only branches, the caller
+      passes origin/<branch> and git sets up local tracking automatically.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'addExisting calls execFile with args ["worktree", "add", worktreePath, branch] (no -b flag)'
+      - 'Returns WorktreeInfo with path, branch, and head properties'
+      - 'Handles errors gracefully (branch not found, worktree path conflict) with descriptive messages'
+      - 'Creates parent directory for worktree path if needed'
+      - 'Works with remote tracking refs (origin/<branch>) as the branch argument'
+    tdd:
+      red:
+        - 'Write test: addExisting calls execFile with correct git args (mock ExecFunction)'
+        - 'Write test: addExisting returns WorktreeInfo with expected fields'
+        - 'Write test: addExisting propagates git errors with descriptive message'
+        - 'Write test: addExisting creates parent directory via mkdir -p equivalent'
+      green:
+        - 'Implement addExisting mirroring create() method structure but with different git args: ["worktree", "add", worktreePath, branch]'
+        - 'Parse git output or query worktree list to build WorktreeInfo return value'
+      refactor:
+        - 'Extract shared setup logic (mkdir, error wrapping) if duplicated with create()'
+    estimatedEffort: '1h'
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Implement SQLiteFeatureRepository.findByBranch() method'
+    description: >
+      Implement findByBranch(branch, repositoryPath) in the SQLite repository. This
+      executes a SQL query: SELECT * FROM features WHERE branch = ? AND repository_path = ?
+      AND deleted_at IS NULL. Covers FR-6 duplicate detection requirement.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'Query filters by branch AND repositoryPath AND deleted_at IS NULL'
+      - 'Returns Feature entity when found, null when not found'
+      - 'Path normalization applied to repositoryPath (forward slashes) before query'
+      - 'Maps SQLite row to Feature domain entity using existing mapper'
+    tdd:
+      red:
+        - 'Write test: findByBranch returns feature when branch matches (seed DB with test feature)'
+        - 'Write test: findByBranch returns null when branch does not match'
+        - 'Write test: findByBranch scopes to repositoryPath (different repos, same branch name)'
+        - 'Write test: findByBranch excludes soft-deleted features (deleted_at IS NOT NULL)'
+      green:
+        - 'Implement SQL query using existing DB.prepare().get() pattern from findBySlug'
+        - 'Apply path normalization with forward slash conversion before query'
+        - 'Use existing mapRowToFeature for result mapping'
+      refactor:
+        - 'Verify query uses the same WHERE clause pattern as findBySlug for consistency'
+    estimatedEffort: '45min'
+
+  # ── Phase 3: Application — AdoptBranchUseCase & DI Registration ─────────
+
+  - id: task-6
+    phaseId: phase-3
+    title: 'Create AdoptBranchUseCase — happy path (local branch)'
+    description: >
+      Create the AdoptBranchUseCase class with @injectable() decorator, constructor
+      injection of IFeatureRepository, IRepositoryRepository, and IWorktreeService.
+      Implement the execute() method for the primary happy path: local branch exists,
+      no duplicate, no existing worktree. Covers FR-1, FR-9, FR-10, FR-11.
+    state: Todo
+    dependencies:
+      - task-1
+      - task-4
+      - task-5
+    acceptanceCriteria:
+      - 'Class is @injectable() with 3 constructor-injected dependencies'
+      - 'execute(branchName, repositoryPath) validates branch exists locally via branchExists()'
+      - 'Derives feature name via deriveName() and slug via deriveSlug()'
+      - 'Resolves or creates Repository entity (find-or-create pattern from CreateFeatureUseCase)'
+      - 'Creates worktree via addExisting() at getWorktreePath() location'
+      - 'Persists Feature with lifecycle=Maintain, empty userQuery, undefined specPath/agentRunId'
+      - 'Returns the created Feature entity'
+    tdd:
+      red:
+        - 'Write test: execute with local branch — mocks branchExists=true, asserts worktree creation, feature creation with correct field values'
+        - 'Write test: verify Feature entity has lifecycle=Maintain, branch preserved verbatim, name/slug derived correctly'
+        - 'Write test: verify repository find-or-create — mock findByPath returns null, assert repositoryRepo.create called'
+        - 'Write test: verify repository reuse — mock findByPath returns existing repo, assert repositoryRepo.create NOT called'
+      green:
+        - 'Create AdoptBranchUseCase class with execute() method implementing the full happy path'
+        - 'Use deriveName/deriveSlug from branch-name-utils.ts'
+        - 'Use crypto.randomUUID() for feature and repository IDs'
+      refactor:
+        - 'Extract repository resolution into a private method (resolveRepository)'
+        - 'Ensure all feature field defaults are clearly documented inline'
+    estimatedEffort: '1.5h'
+
+  - id: task-7
+    phaseId: phase-3
+    title: 'Add remote branch support to AdoptBranchUseCase'
+    description: >
+      Extend execute() to handle remote-only branches: when branchExists() returns false,
+      check remoteBranchExists(). If remote-only, pass origin/<branch> to addExisting().
+      If neither local nor remote, throw descriptive error. Covers FR-4, FR-5.
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'When local branch does not exist, checks remoteBranchExists()'
+      - 'When remote-only, calls addExisting with "origin/<branch>" as the branch argument'
+      - 'When neither local nor remote, throws error with message including the branch name'
+      - 'Error message suggests checking branch name spelling and remote fetch status'
+    tdd:
+      red:
+        - 'Write test: remote-only branch — mock branchExists=false, remoteBranchExists=true, assert addExisting called with "origin/<branch>"'
+        - 'Write test: branch not found — mock both branchExists=false and remoteBranchExists=false, assert error thrown with descriptive message'
+      green:
+        - 'Add conditional: if !branchExists, check remoteBranchExists, use origin/ prefix'
+        - 'Throw Error with branch name in message when neither exists'
+      refactor:
+        - 'Consolidate branch resolution logic into a clear sequential flow'
+    estimatedEffort: '30min'
+
+  - id: task-8
+    phaseId: phase-3
+    title: 'Add validation guards to AdoptBranchUseCase (duplicates, main branch, existing worktree)'
+    description: >
+      Add pre-execution validation: reject main/master branch (FR-7), reject already-adopted
+      branches via findByBranch (FR-6), check for existing worktree and reuse if found (FR-8).
+      Also validate slug uniqueness via findBySlug.
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'Rejects branch name "main" or "master" with descriptive error explaining why'
+      - 'Rejects already-adopted branch with error including existing feature ID and name'
+      - 'Reuses existing worktree path when worktreeService.exists() returns true (no addExisting call)'
+      - 'Validates slug uniqueness via findBySlug; rejects with error if collision found'
+      - 'All error messages are user-facing quality (clear, actionable, no stack traces)'
+    tdd:
+      red:
+        - 'Write test: main branch rejection — assert error message mentions "main branch"'
+        - 'Write test: master branch rejection — same behavior as main'
+        - 'Write test: duplicate branch — mock findByBranch returns existing feature, assert error includes feature ID and name'
+        - 'Write test: existing worktree reuse — mock exists=true, assert addExisting NOT called, feature still created with correct worktreePath'
+        - 'Write test: slug collision — mock findBySlug returns existing feature, assert error'
+      green:
+        - 'Add guard clauses at the top of execute(): check main/master, then findByBranch, then findBySlug'
+        - 'Check worktreeService.exists() before calling addExisting(); if exists, compute path via getWorktreePath()'
+      refactor:
+        - 'Order guard clauses by cost: cheapest checks (string comparison) first, then DB queries, then git operations'
+    estimatedEffort: '1h'
+
+  - id: task-9
+    phaseId: phase-3
+    title: 'Register AdoptBranchUseCase in DI container'
+    description: >
+      Register the use case in the DI container following the established pattern:
+      registerSingleton for the class + string token factory alias for web route resolution.
+      Covers FR-15.
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'container.registerSingleton(AdoptBranchUseCase) added alongside other feature use cases'
+      - 'container.register("AdoptBranchUseCase", { useFactory }) added for web route string token'
+      - 'Resolving AdoptBranchUseCase from container returns a functional instance'
+      - 'TypeScript compiles without errors after registration'
+    tdd:
+      red:
+        - 'Write test: resolve AdoptBranchUseCase from initialized container, assert instance is not null'
+      green:
+        - 'Add two registrations in container.ts following CreateFeatureUseCase pattern'
+      refactor:
+        - 'Ensure registration is placed in the correct section (grouped with other feature use cases)'
+    estimatedEffort: '15min'
+
+  # ── Phase 4: Presentation — CLI Command ─────────────────────────────────
+
+  - id: task-10
+    phaseId: phase-4
+    title: 'Create feat adopt CLI command'
+    description: >
+      Create adopt.command.ts with createAdoptCommand() factory function. Accepts required
+      positional argument <branch> and optional --repo flag. Resolves AdoptBranchUseCase
+      from DI container, executes, and displays result with messages/colors. Register in
+      feat/index.ts. Covers FR-12.
+    state: Todo
+    dependencies:
+      - task-9
+    acceptanceCriteria:
+      - '`shep feat adopt <branch>` command exists and is registered'
+      - 'Accepts required positional argument for branch name'
+      - 'Accepts optional -r/--repo flag for repository path (defaults to cwd)'
+      - 'Displays adopted feature metadata on success: ID, name, branch, status, worktree path'
+      - 'Displays descriptive error message on failure (sets process.exitCode = 1)'
+      - 'Uses spinner for async operation'
+      - 'Output format matches existing commands (colors.muted labels, colors.accent values)'
+    tdd:
+      red:
+        - 'Write test: command exists in feat command group with correct name and arguments'
+        - 'Write test: successful adopt displays feature name, branch, and worktree path'
+        - 'Write test: failed adopt displays error message and sets exitCode = 1'
+      green:
+        - 'Create createAdoptCommand() following createStartCommand() pattern'
+        - 'Register via .addCommand(createAdoptCommand()) in feat/index.ts'
+      refactor:
+        - 'Ensure output format consistency with start and new commands'
+    estimatedEffort: '1h'
+
+  # ── Phase 5: Presentation — Web UI ──────────────────────────────────────
+
+  - id: task-11
+    phaseId: phase-5
+    title: 'Create adoptBranch server action'
+    description: >
+      Create the Next.js server action at src/presentation/web/app/actions/adopt-branch.ts.
+      Resolves AdoptBranchUseCase from server container, executes, returns { feature?, error? }.
+      Single-phase synchronous execution (no background task). Covers FR-13.
+    state: Todo
+    dependencies:
+      - task-9
+    acceptanceCriteria:
+      - 'File has "use server" directive'
+      - 'Accepts { branchName: string, repositoryPath: string } input'
+      - 'Resolves AdoptBranchUseCase via resolve<AdoptBranchUseCase>("AdoptBranchUseCase")'
+      - 'Returns { feature } on success, { error: string } on failure'
+      - 'Error messages are user-friendly (no raw stack traces)'
+    tdd:
+      red:
+        - 'Write test: server action resolves use case and returns feature on success'
+        - 'Write test: server action returns error string when use case throws'
+      green:
+        - 'Implement server action following startFeature/deleteFeature pattern'
+      refactor:
+        - 'Ensure return type is explicitly typed for client-side type safety'
+    estimatedEffort: '30min'
+
+  - id: task-12
+    phaseId: phase-5
+    title: 'Create AdoptBranchDrawer component and Storybook stories'
+    description: >
+      Create the AdoptBranchDrawer form component with a text input for branch name and
+      a submit button. On submit, calls the adoptBranch server action. Displays loading
+      state during submission and error messages on failure. On success, dispatches
+      shep:feature-created event and closes drawer. Covers FR-14. Create colocated
+      .stories.tsx file per MANDATORY rule.
+    state: Todo
+    dependencies:
+      - task-11
+    acceptanceCriteria:
+      - 'AdoptBranchDrawer component renders text input for branch name'
+      - 'Submit button triggers adoptBranch server action'
+      - 'Loading state shown during submission (button disabled, spinner)'
+      - 'Error message displayed on failure (below input or as toast)'
+      - 'On success: dispatches shep:feature-created CustomEvent and calls router.back()'
+      - 'Storybook stories file covers: default state, loading state, error state, success state'
+      - 'Component uses existing shadcn/ui components (Input, Button, DrawerContent, etc.)'
+    tdd:
+      red:
+        - 'Write story: default state — drawer with empty input and enabled submit button'
+        - 'Write story: loading state — input disabled, button shows spinner'
+        - 'Write story: error state — error message visible below input'
+      green:
+        - 'Create AdoptBranchDrawer with controlled input, form onSubmit, loading/error state'
+        - 'Create AdoptDrawerClient wrapper for client-side interactivity'
+        - 'Wire to adoptBranch server action'
+      refactor:
+        - 'Extract form validation (empty input check) into inline helper'
+        - 'Ensure consistent styling with FeatureCreateDrawer'
+    estimatedEffort: '1.5h'
+
+  - id: task-13
+    phaseId: phase-5
+    title: 'Create /adopt parallel route drawer page'
+    description: >
+      Create the /adopt parallel route at src/presentation/web/app/(dashboard)/@drawer/adopt/page.tsx.
+      Server component that renders AdoptDrawerClient. Follows the existing parallel route
+      pattern with force-dynamic export.
+    state: Todo
+    dependencies:
+      - task-12
+    acceptanceCriteria:
+      - 'File exports default async function AdoptDrawerPage'
+      - 'Has export const dynamic = "force-dynamic"'
+      - 'Renders AdoptDrawerClient component'
+      - 'Navigating to /adopt opens the adopt drawer'
+    tdd:
+      red:
+        - 'Verify /adopt route renders the adopt drawer (component render test or manual verification)'
+      green:
+        - 'Create page.tsx following repository drawer page pattern'
+      refactor:
+        - 'Ensure consistent with other @drawer parallel route pages'
+    estimatedEffort: '20min'
+
+  - id: task-14
+    phaseId: phase-5
+    title: 'Add Adopt Branch action to FAB and update route prefixes'
+    description: >
+      Add a third FAB action "Adopt Branch" that navigates to /adopt via router.push.
+      Update CONTROL_CENTER_PREFIXES to include "/adopt" so the FAB is visible on the
+      adopt route. Covers FR-14 entry point.
+    state: Todo
+    dependencies:
+      - task-13
+    acceptanceCriteria:
+      - 'FAB shows three actions: New Feature, Adopt Branch, Add Repository'
+      - 'Adopt Branch action uses GitBranch (or similar) icon from lucide-react'
+      - 'Clicking Adopt Branch navigates to /adopt'
+      - 'CONTROL_CENTER_PREFIXES includes "/adopt"'
+      - 'FAB is visible on /adopt route'
+    tdd:
+      red:
+        - 'Verify FAB renders three actions when on control center route'
+        - 'Verify Adopt Branch action triggers router.push("/adopt")'
+      green:
+        - 'Add adopt action to fabActions array in app-shell.tsx'
+        - 'Add "/adopt" to CONTROL_CENTER_PREFIXES'
+      refactor:
+        - 'Ensure action ordering is logical: New Feature, Adopt Branch, Add Repository'
+    estimatedEffort: '20min'
+
+# Total effort estimate
+totalEstimate: '8.5h'
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Summary
+
+  The implementation is broken into 14 tasks across 5 phases, totaling approximately 8.5 hours
+  of effort.
+
+  The work begins with foundation tasks that establish the interface contracts (addExisting on
+  IWorktreeService, findByBranch on IFeatureRepository) and pure utility functions (branch name
+  and slug derivation). These have zero dependencies and are the easiest to TDD.
+
+  Next, the infrastructure layer implements the concrete service and repository methods against
+  the new interfaces — WorktreeService.addExisting() runs git worktree add without -b, and
+  SQLiteFeatureRepository.findByBranch() runs a scoped SQL query.
+
+  The core application phase builds the AdoptBranchUseCase incrementally: first the happy path
+  (local branch, no conflicts), then remote branch support, then all validation guards
+  (main branch rejection, duplicate detection, existing worktree reuse). DI registration
+  completes this phase.
+
+  The CLI phase creates a single adopt.command.ts following the established factory pattern,
+  and the Web UI phase adds the server action, adopt drawer with Storybook stories, parallel
+  route page, and FAB integration.
+
+  Each task has explicit TDD cycles (RED tests first, GREEN minimal implementation, REFACTOR
+  cleanup) and clear acceptance criteria. Dependencies are ordered so no task depends on a
+  later task.
+
+  ---
+
+  _Task breakdown complete — ready for implementation_
