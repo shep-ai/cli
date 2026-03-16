@@ -66,6 +66,26 @@ export class WorktreeService implements IWorktreeService {
     return created;
   }
 
+  async addExisting(repoPath: string, branch: string, worktreePath: string): Promise<WorktreeInfo> {
+    try {
+      await this.execFile('git', ['worktree', 'add', worktreePath, branch], { cwd: repoPath });
+    } catch (error) {
+      throw this.parseGitError(error);
+    }
+
+    const worktrees = await this.list(repoPath);
+    const created =
+      worktrees.find((w) => w.branch === branch) ??
+      worktrees.find((w) => this.arePathsEquivalent(w.path, worktreePath));
+    if (!created) {
+      throw new WorktreeError(
+        'Worktree created but not found in list',
+        WorktreeErrorCode.GIT_ERROR
+      );
+    }
+    return created;
+  }
+
   async remove(repoPath: string, worktreePath: string, force?: boolean): Promise<void> {
     try {
       const args = ['worktree', 'remove'];

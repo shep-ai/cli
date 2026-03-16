@@ -95,6 +95,7 @@ describe('CreateFeatureUseCase', () => {
       findById: vi.fn().mockResolvedValue(null),
       findByIdPrefix: vi.fn().mockResolvedValue(null),
       findBySlug: vi.fn().mockResolvedValue(null),
+      findByBranch: vi.fn().mockResolvedValue(null),
       list: vi.fn().mockResolvedValue([]),
       findByParentId: vi.fn().mockResolvedValue([]),
       update: vi.fn().mockResolvedValue(undefined),
@@ -104,6 +105,7 @@ describe('CreateFeatureUseCase', () => {
 
     mockWorktreeService = {
       create: vi.fn().mockResolvedValue(undefined),
+      addExisting: vi.fn().mockResolvedValue(undefined),
       remove: vi.fn().mockResolvedValue(undefined),
       prune: vi.fn().mockResolvedValue(undefined),
       list: vi.fn().mockResolvedValue([]),
