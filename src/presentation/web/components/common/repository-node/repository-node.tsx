@@ -3,7 +3,19 @@
 import { useState, useCallback } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import { useRouter } from 'next/navigation';
-import { Github, Plus, Code2, Terminal, FolderOpen, Trash2, Play, Square } from 'lucide-react';
+import {
+  Github,
+  Plus,
+  Code2,
+  Terminal,
+  FolderOpen,
+  Trash2,
+  Play,
+  Square,
+  GitBranch,
+  GitCommitHorizontal,
+  ArrowDown,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ActionButton } from '@/components/common/action-button';
 import {
@@ -158,143 +170,182 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
             data.onClick?.();
           }
         }}
-        className="nodrag bg-card flex min-w-[18rem] cursor-pointer items-center gap-3 rounded-full border px-4 py-3 shadow-sm"
+        className="nodrag bg-card flex min-w-[18rem] cursor-pointer flex-col rounded-xl border shadow-sm"
       >
-        <Github className="text-muted-foreground h-5 w-5 shrink-0" />
-        <span data-testid="repository-node-name" className="min-w-0 truncate text-sm font-medium">
-          {data.name}
-        </span>
+        {/* Row 1: Repository name + action buttons */}
+        <div className="flex items-center gap-3 px-4 py-3">
+          <Github className="text-muted-foreground h-5 w-5 shrink-0" />
+          <span data-testid="repository-node-name" className="min-w-0 truncate text-sm font-medium">
+            {data.name}
+          </span>
 
-        <div
-          className={cn(
-            'flex shrink-0 items-center gap-2',
-            (data.repositoryPath ?? data.onAdd) && 'ml-auto'
-          )}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {data.repositoryPath ? (
-            <>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="flex items-center">
-                      <ActionButton
-                        label="Open in IDE"
-                        onClick={actions.openInIde}
-                        loading={actions.ideLoading}
-                        error={!!actions.ideError}
-                        icon={Code2}
-                        iconOnly
-                        variant="ghost"
-                        size="icon-xs"
+          <div
+            className={cn(
+              'flex shrink-0 items-center gap-2',
+              (data.repositoryPath ?? data.onAdd) && 'ml-auto'
+            )}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {data.repositoryPath ? (
+              <>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="flex items-center">
+                        <ActionButton
+                          label="Open in IDE"
+                          onClick={actions.openInIde}
+                          loading={actions.ideLoading}
+                          error={!!actions.ideError}
+                          icon={Code2}
+                          iconOnly
+                          variant="ghost"
+                          size="icon-xs"
+                        />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>Open in IDE</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="flex items-center">
+                        <ActionButton
+                          label="Open in Shell"
+                          onClick={actions.openInShell}
+                          loading={actions.shellLoading}
+                          error={!!actions.shellError}
+                          icon={Terminal}
+                          iconOnly
+                          variant="ghost"
+                          size="icon-xs"
+                        />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>Open in Shell</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="flex items-center">
+                        <ActionButton
+                          label="Open Folder"
+                          onClick={actions.openFolder}
+                          loading={actions.folderLoading}
+                          error={!!actions.folderError}
+                          icon={FolderOpen}
+                          iconOnly
+                          variant="ghost"
+                          size="icon-xs"
+                        />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>Open Folder</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <FeatureSessionsDropdown
+                  repositoryPath={data.repositoryPath}
+                  onCreateFromSession={handleCreateFromSession}
+                />
+                {featureFlags.envDeploy ? (
+                  <>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="flex items-center">
+                            <ActionButton
+                              label={isDeploymentActive ? 'Stop Dev Server' : 'Start Dev Server'}
+                              onClick={isDeploymentActive ? deployAction.stop : deployAction.deploy}
+                              loading={deployAction.deployLoading || deployAction.stopLoading}
+                              error={!!deployAction.deployError}
+                              icon={isDeploymentActive ? Square : Play}
+                              iconOnly
+                              variant="ghost"
+                              size="icon-xs"
+                            />
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {isDeploymentActive ? 'Stop Dev Server' : 'Start Dev Server'}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    {isDeploymentActive ? (
+                      <DeploymentStatusBadge
+                        status={deployAction.status}
+                        url={deployAction.url}
+                        targetId={data.repositoryPath}
                       />
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>Open in IDE</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="flex items-center">
-                      <ActionButton
-                        label="Open in Shell"
-                        onClick={actions.openInShell}
-                        loading={actions.shellLoading}
-                        error={!!actions.shellError}
-                        icon={Terminal}
-                        iconOnly
-                        variant="ghost"
-                        size="icon-xs"
-                      />
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>Open in Shell</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="flex items-center">
-                      <ActionButton
-                        label="Open Folder"
-                        onClick={actions.openFolder}
-                        loading={actions.folderLoading}
-                        error={!!actions.folderError}
-                        icon={FolderOpen}
-                        iconOnly
-                        variant="ghost"
-                        size="icon-xs"
-                      />
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>Open Folder</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              <FeatureSessionsDropdown
-                repositoryPath={data.repositoryPath}
-                onCreateFromSession={handleCreateFromSession}
-              />
-              {featureFlags.envDeploy ? (
-                <>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="flex items-center">
-                          <ActionButton
-                            label={isDeploymentActive ? 'Stop Dev Server' : 'Start Dev Server'}
-                            onClick={isDeploymentActive ? deployAction.stop : deployAction.deploy}
-                            loading={deployAction.deployLoading || deployAction.stopLoading}
-                            error={!!deployAction.deployError}
-                            icon={isDeploymentActive ? Square : Play}
-                            iconOnly
-                            variant="ghost"
-                            size="icon-xs"
-                          />
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        {isDeploymentActive ? 'Stop Dev Server' : 'Start Dev Server'}
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                  {isDeploymentActive ? (
-                    <DeploymentStatusBadge
-                      status={deployAction.status}
-                      url={deployAction.url}
-                      targetId={data.repositoryPath}
-                    />
-                  ) : null}
-                </>
-              ) : null}
-            </>
-          ) : null}
+                    ) : null}
+                  </>
+                ) : null}
+              </>
+            ) : null}
 
-          {data.onAdd ? (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    aria-label="Add feature"
-                    data-testid="repository-node-add-button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      data.onAdd?.();
-                    }}
-                    className={cn(
-                      'text-muted-foreground hover:bg-accent dark:hover:bg-accent/50 flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors hover:text-blue-500',
-                      data.pulseAdd &&
-                        'animate-pulse-cta bg-blue-100 text-blue-500 dark:bg-blue-900/40'
-                    )}
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>Add feature</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          ) : null}
+            {data.onAdd ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      aria-label="Add feature"
+                      data-testid="repository-node-add-button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        data.onAdd?.();
+                      }}
+                      className={cn(
+                        'text-muted-foreground hover:bg-accent dark:hover:bg-accent/50 flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors hover:text-blue-500',
+                        data.pulseAdd &&
+                          'animate-pulse-cta bg-blue-100 text-blue-500 dark:bg-blue-900/40'
+                      )}
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>Add feature</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : null}
+          </div>
         </div>
+
+        {/* Row 2: Git info — branch, commit, behind status */}
+        {data.branch ? (
+          <div
+            data-testid="repository-node-git-info"
+            className="text-muted-foreground border-t px-4 py-2"
+          >
+            <div className="flex items-center gap-3 text-xs">
+              <span
+                className="flex items-center gap-1 truncate"
+                data-testid="repository-node-branch"
+              >
+                <GitBranch className="h-3 w-3 shrink-0" />
+                <span className="truncate">{data.branch}</span>
+              </span>
+              {data.commitHash ? (
+                <span
+                  className="flex items-center gap-1 font-mono"
+                  data-testid="repository-node-commit"
+                >
+                  <GitCommitHorizontal className="h-3 w-3 shrink-0" />
+                  {data.commitHash}
+                </span>
+              ) : null}
+              {data.behindCount != null && data.behindCount > 0 ? (
+                <span
+                  className="flex items-center gap-1 text-amber-500"
+                  data-testid="repository-node-behind"
+                >
+                  <ArrowDown className="h-3 w-3 shrink-0" />
+                  {data.behindCount} behind
+                </span>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {/* Source handle — invisible, for edge connections */}

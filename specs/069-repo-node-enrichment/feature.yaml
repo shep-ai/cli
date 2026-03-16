@@ -1,0 +1,36 @@
+feature:
+  id: '069-repo-node-enrichment'
+  name: 'repo-node-enrichment'
+  number: 69
+  branch: 'feat/069-repo-node-enrichment'
+  lifecycle: 'research'
+  createdAt: '2026-03-16T12:21:32Z'
+
+status:
+  phase: 'research'
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-03-16T12:21:32Z'
+  lastUpdatedBy: 'feature-agent'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-03-16T12:21:32Z'
+    completedBy: 'feature-agent'
+
+errors:
+  current: null
+  history: []

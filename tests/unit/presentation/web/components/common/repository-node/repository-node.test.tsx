@@ -461,4 +461,45 @@ describe('RepositoryNode', () => {
       expect(onClick).toHaveBeenCalledOnce();
     });
   });
+
+  describe('git info display', () => {
+    it('renders branch name when branch is provided', () => {
+      renderNode({ ...defaultData, branch: 'main', commitHash: 'a1b2c3d' });
+
+      expect(screen.getByTestId('repository-node-git-info')).toBeInTheDocument();
+      expect(screen.getByTestId('repository-node-branch')).toHaveTextContent('main');
+    });
+
+    it('renders commit hash when commitHash is provided', () => {
+      renderNode({ ...defaultData, branch: 'main', commitHash: 'a1b2c3d' });
+
+      expect(screen.getByTestId('repository-node-commit')).toHaveTextContent('a1b2c3d');
+    });
+
+    it('renders behind count when behindCount is greater than 0', () => {
+      renderNode({ ...defaultData, branch: 'feat/test', commitHash: 'abc1234', behindCount: 5 });
+
+      const behind = screen.getByTestId('repository-node-behind');
+      expect(behind).toBeInTheDocument();
+      expect(behind).toHaveTextContent('5 behind');
+    });
+
+    it('does not render behind count when behindCount is 0', () => {
+      renderNode({ ...defaultData, branch: 'main', commitHash: 'a1b2c3d', behindCount: 0 });
+
+      expect(screen.queryByTestId('repository-node-behind')).not.toBeInTheDocument();
+    });
+
+    it('does not render behind count when behindCount is null', () => {
+      renderNode({ ...defaultData, branch: 'main', commitHash: 'a1b2c3d', behindCount: null });
+
+      expect(screen.queryByTestId('repository-node-behind')).not.toBeInTheDocument();
+    });
+
+    it('does not render git info section when branch is not provided', () => {
+      renderNode(defaultData);
+
+      expect(screen.queryByTestId('repository-node-git-info')).not.toBeInTheDocument();
+    });
+  });
 });

@@ -1,3 +1,5 @@
+import { execFile as execFileCb } from 'node:child_process';
+import { promisify } from 'node:util';
 import { resolve } from '@/lib/server-container';
 import type { ListFeaturesUseCase } from '@shepai/core/application/use-cases/features/list-features.use-case';
 import type { ListRepositoriesUseCase } from '@shepai/core/application/use-cases/repositories/list-repositories.use-case';
@@ -5,6 +7,7 @@ import type { IAgentRunRepository } from '@shepai/core/application/ports/output/
 import type { IGitPrService } from '@shepai/core/application/ports/output/services/git-pr-service.interface';
 import type { IFeatureRepository } from '@shepai/core/application/ports/output/repositories/feature-repository.interface';
 import type { IDeploymentService } from '@shepai/core/application/ports/output/services/deployment-service.interface';
+import type { Repository } from '@shepai/core/domain/generated/output';
 import { CiStatus } from '@shepai/core/domain/generated/output';
 import { getSettings } from '@shepai/core/infrastructure/services/settings.service';
 import { layoutWithDagre, CANVAS_LAYOUT_DEFAULTS } from '@/lib/layout-with-dagre';
@@ -12,6 +15,62 @@ import { buildGraphNodes } from '@/app/build-graph-nodes';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 import type { FeatureNodeData } from '@/components/common/feature-node';
 import type { Edge } from '@xyflow/react';
+
+const execFileAsync = promisify(execFileCb);
+
+export interface RepoGitInfo {
+  branch: string;
+  commitHash: string;
+  behindCount: number | null;
+}
+
+async function gitCommand(cwd: string, args: string[]): Promise<string | null> {
+  try {
+    const { stdout } = await execFileAsync('git', args, { cwd });
+    return stdout.trim();
+  } catch {
+    return null;
+  }
+}
+
+async function fetchRepoGitInfo(repo: Repository): Promise<RepoGitInfo | null> {
+  try {
+    const [currentBranch, commitHash] = await Promise.all([
+      gitCommand(repo.path, ['symbolic-ref', '--short', 'HEAD']),
+      gitCommand(repo.path, ['rev-parse', '--short', 'HEAD']),
+    ]);
+
+    if (!currentBranch) return null;
+
+    // Try to determine the default branch to compute behind count
+    let behindCount: number | null = null;
+    const defaultBranch = await gitCommand(repo.path, [
+      'symbolic-ref',
+      '--short',
+      'refs/remotes/origin/HEAD',
+    ]).then((ref) => ref?.replace('origin/', '') ?? null);
+
+    if (defaultBranch && currentBranch !== defaultBranch) {
+      const behind = await gitCommand(repo.path, [
+        'rev-list',
+        '--count',
+        `${currentBranch}..origin/${defaultBranch}`,
+      ]);
+      behindCount = behind !== null ? parseInt(behind, 10) : null;
+      if (isNaN(behindCount!)) behindCount = null;
+    } else if (!defaultBranch || currentBranch === defaultBranch) {
+      behindCount = 0;
+    }
+
+    return {
+      branch: currentBranch,
+      commitHash: commitHash ?? 'unknown',
+      behindCount,
+    };
+  } catch {
+    return null;
+  }
+}
 
 const CI_STATUS_MAP: Record<string, CiStatus> = {
   success: CiStatus.Success,
@@ -27,6 +86,15 @@ export async function getGraphData(): Promise<{ nodes: CanvasNodeType[]; edges: 
   const featureRepo = resolve<IFeatureRepository>('IFeatureRepository');
 
   const [features, repositories] = await Promise.all([listFeatures.execute(), listRepos.execute()]);
+
+  // Fetch git info (branch, commit, behind count) for each repository
+  const repoGitInfoMap = new Map<string, RepoGitInfo>();
+  await Promise.all(
+    repositories.map(async (repo) => {
+      const info = await fetchRepoGitInfo(repo);
+      if (info) repoGitInfoMap.set(repo.path, info);
+    })
+  );
 
   // Fetch live PR status for features with open PRs so the canvas
   // reflects the current GitHub state without waiting for the background watcher.
@@ -81,6 +149,7 @@ export async function getGraphData(): Promise<{ nodes: CanvasNodeType[]; edges: 
     enableEvidence: workflow.enableEvidence,
     commitEvidence: workflow.commitEvidence,
     ciWatchEnabled: workflow.ciWatchEnabled,
+    repoGitInfo: repoGitInfoMap,
   });
 
   // Enrich feature nodes with deployment status

@@ -42,6 +42,8 @@ const meta: Meta<RepositoryNodeData> = {
   },
   args: {
     name: 'shep-ai/cli',
+    branch: 'main',
+    commitHash: 'a1b2c3d',
   },
 };
 
@@ -76,10 +78,10 @@ export const LongName: Story = {
 const onAdd = () => undefined;
 
 const multipleRepos: RepositoryNodeData[] = [
-  { name: 'shep-ai/cli' },
-  { name: 'vercel/edge-runtime' },
-  { name: 'acme-corp/web-dashboard-v2' },
-  { name: 'openai/tiktoken' },
+  { name: 'shep-ai/cli', branch: 'main', commitHash: 'a1b2c3d' },
+  { name: 'vercel/edge-runtime', branch: 'feat/streaming', commitHash: 'e4f5g6h', behindCount: 3 },
+  { name: 'acme-corp/web-dashboard-v2', branch: 'develop', commitHash: 'i7j8k9l', behindCount: 12 },
+  { name: 'openai/tiktoken', branch: 'main', commitHash: 'm0n1o2p' },
 ];
 
 export const Multiple: Story = {
@@ -87,12 +89,12 @@ export const Multiple: Story = {
     const nodes: RepositoryNodeType[] = multipleRepos.map((data, i) => ({
       id: `repo-${i}`,
       type: 'repositoryNode' as const,
-      position: { x: 0, y: i * 80 },
+      position: { x: 0, y: i * 100 },
       data,
     }));
 
     return (
-      <div style={{ width: 500, height: 500 }}>
+      <div style={{ width: 550, height: 600 }}>
         <ReactFlowProvider>
           <ReactFlow
             nodes={nodes}
@@ -109,10 +111,16 @@ export const Multiple: Story = {
 };
 
 const multipleReposWithButton: RepositoryNodeData[] = [
-  { name: 'shep-ai/cli', onAdd },
-  { name: 'vercel/edge-runtime', onAdd },
-  { name: 'acme-corp/web-dashboard-v2', onAdd },
-  { name: 'openai/tiktoken', onAdd },
+  { name: 'shep-ai/cli', onAdd, branch: 'main', commitHash: 'a1b2c3d' },
+  {
+    name: 'vercel/edge-runtime',
+    onAdd,
+    branch: 'feat/streaming',
+    commitHash: 'e4f5g6h',
+    behindCount: 3,
+  },
+  { name: 'acme-corp/web-dashboard-v2', onAdd, branch: 'develop', commitHash: 'i7j8k9l' },
+  { name: 'openai/tiktoken', onAdd, branch: 'main', commitHash: 'm0n1o2p' },
 ];
 
 export const MultipleWithButton: Story = {
@@ -120,12 +128,12 @@ export const MultipleWithButton: Story = {
     const nodes: RepositoryNodeType[] = multipleReposWithButton.map((data, i) => ({
       id: `repo-${i}`,
       type: 'repositoryNode' as const,
-      position: { x: 0, y: i * 80 },
+      position: { x: 0, y: i * 100 },
       data,
     }));
 
     return (
-      <div style={{ width: 500, height: 500 }}>
+      <div style={{ width: 550, height: 600 }}>
         <ReactFlowProvider>
           <ReactFlow
             nodes={nodes}
@@ -183,13 +191,24 @@ export const WithDeleteButton: Story = {
 };
 
 const multipleReposWithActions: RepositoryNodeData[] = [
-  { id: 'r1', name: 'shep-ai/cli', repositoryPath: '/home/user/shep-ai/cli', onAdd, onDelete },
+  {
+    id: 'r1',
+    name: 'shep-ai/cli',
+    repositoryPath: '/home/user/shep-ai/cli',
+    onAdd,
+    onDelete,
+    branch: 'main',
+    commitHash: '60ef554',
+  },
   {
     id: 'r2',
     name: 'vercel/edge-runtime',
     repositoryPath: '/home/user/vercel/edge-runtime',
     onAdd,
     onDelete,
+    branch: 'feat/streaming-v2',
+    commitHash: 'e4f5g6h',
+    behindCount: 5,
   },
   {
     id: 'r3',
@@ -197,6 +216,9 @@ const multipleReposWithActions: RepositoryNodeData[] = [
     repositoryPath: '/home/user/acme-corp/web-dashboard-v2',
     onAdd,
     onDelete,
+    branch: 'develop',
+    commitHash: 'i7j8k9l',
+    behindCount: 23,
   },
   {
     id: 'r4',
@@ -204,6 +226,8 @@ const multipleReposWithActions: RepositoryNodeData[] = [
     repositoryPath: '/home/user/openai/tiktoken',
     onAdd,
     onDelete,
+    branch: 'main',
+    commitHash: 'm0n1o2p',
   },
 ];
 
@@ -212,12 +236,12 @@ export const MultipleWithActions: Story = {
     const nodes: RepositoryNodeType[] = multipleReposWithActions.map((data, i) => ({
       id: `repo-${i}`,
       type: 'repositoryNode' as const,
-      position: { x: 0, y: i * 80 },
+      position: { x: 0, y: i * 100 },
       data,
     }));
 
     return (
-      <div style={{ width: 500, height: 500 }}>
+      <div style={{ width: 550, height: 600 }}>
         <ReactFlowProvider>
           <ReactFlow
             nodes={nodes}
@@ -231,4 +255,24 @@ export const MultipleWithActions: Story = {
       </div>
     );
   },
+};
+
+export const WithGitInfo: Story = {
+  args: {
+    repositoryPath: '/home/user/shep-ai/cli',
+    branch: 'feat/repo-node-enrichment',
+    commitHash: '60ef554',
+    behindCount: 0,
+  },
+  render: (args) => <RepositoryNodeCanvas data={args} />,
+};
+
+export const WithGitInfoBehind: Story = {
+  args: {
+    repositoryPath: '/home/user/shep-ai/cli',
+    branch: 'feat/old-feature-branch',
+    commitHash: 'abc1234',
+    behindCount: 7,
+  },
+  render: (args) => <RepositoryNodeCanvas data={args} />,
 };
