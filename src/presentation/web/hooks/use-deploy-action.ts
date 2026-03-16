@@ -135,6 +135,31 @@ export function useDeployAction(input: DeployActionInput | null): DeployActionSt
     [stopPolling]
   );
 
+  // Idle poll — when no deployment is known, periodically check if one was
+  // started externally (e.g., from the drawer while the repo node is mounted).
+  const IDLE_POLL_INTERVAL = 5000;
+  useEffect(() => {
+    if (!input || status !== null) return;
+
+    const timer = setInterval(async () => {
+      if (!mountedRef.current) return;
+      try {
+        const result = await getDeploymentStatus(input.targetId);
+        if (!mountedRef.current) return;
+        if (result && result.state !== 'Stopped') {
+          log.info(`idle poll: "${input.targetId}" state=${result.state}, url=${result.url}`);
+          setStatus(result.state as DeploymentState);
+          setUrl(result.url);
+          startPolling(input.targetId);
+        }
+      } catch {
+        // ignore
+      }
+    }, IDLE_POLL_INTERVAL);
+
+    return () => clearInterval(timer);
+  }, [input, status, startPolling]);
+
   const handleDeploy = useCallback(async () => {
     if (!input) {
       log.warn('deploy() called but input is null — no-op');
