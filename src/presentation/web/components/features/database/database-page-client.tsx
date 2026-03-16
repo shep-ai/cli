@@ -1,9 +1,8 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { Database } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Database, Table2, Code2, Columns3 } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TableList } from './table-list';
 import { RowBrowser } from './row-browser';
 import { SchemaViewer } from './schema-viewer';
@@ -114,77 +113,105 @@ export function DatabasePageClient({
   );
 
   return (
-    <div data-testid="database-page-client" className={className}>
-      <div className="mb-4 flex items-center gap-2">
-        <Database className="text-muted-foreground h-4 w-4" />
-        <h1 className="text-sm font-bold tracking-tight">Database</h1>
+    <div data-testid="database-page-client" className={`flex flex-col ${className ?? ''}`}>
+      {/* Header */}
+      <div className="mb-3 flex items-center gap-2.5 pt-1">
+        <div className="bg-primary/10 flex h-7 w-7 items-center justify-center rounded-md">
+          <Database className="text-primary h-4 w-4" />
+        </div>
+        <div>
+          <h1 className="text-sm font-semibold tracking-tight">Database Browser</h1>
+          <p className="text-muted-foreground text-xs">
+            {initialTables.length} table{initialTables.length !== 1 ? 's' : ''}
+          </p>
+        </div>
       </div>
 
-      <div className="flex gap-4">
+      {/* Main layout: sidebar + content */}
+      <div className="flex min-h-0 flex-1 gap-3">
         {/* Sidebar: Table list */}
-        <Card className="w-64 shrink-0">
-          <CardContent className="p-0">
+        <div className="border-border bg-card flex w-56 flex-col rounded-lg border">
+          <div className="border-border border-b px-3 py-2">
+            <span className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
+              Tables
+            </span>
+          </div>
+          <div className="min-h-0 flex-1">
             <TableList
               tables={initialTables}
               selectedTable={selectedTable}
               onSelectTable={handleSelectTable}
             />
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Main content area */}
-        <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 flex-1 flex-col">
           {selectedTable ? (
-            <Card>
-              <CardContent className="p-4">
-                <div className="mb-3 font-mono text-sm font-medium">{selectedTable}</div>
+            <div className="border-border bg-card flex min-h-0 flex-1 flex-col rounded-lg border">
+              {/* Table name header + tabs */}
+              <div className="border-border flex items-center justify-between border-b px-4 py-2">
+                <span className="font-mono text-sm font-medium">{selectedTable}</span>
                 <Tabs
                   value={activeTab}
                   onValueChange={(v) => setActiveTab(v as TabValue)}
                   data-testid="database-tabs"
                 >
-                  <TabsList className="h-8">
-                    <TabsTrigger value="data" className="text-xs" data-testid="tab-data">
+                  <TabsList className="h-7">
+                    <TabsTrigger
+                      value="data"
+                      className="gap-1.5 px-2.5 text-xs"
+                      data-testid="tab-data"
+                    >
+                      <Table2 className="h-3 w-3" />
                       Data
                     </TabsTrigger>
-                    <TabsTrigger value="schema" className="text-xs" data-testid="tab-schema">
+                    <TabsTrigger
+                      value="schema"
+                      className="gap-1.5 px-2.5 text-xs"
+                      data-testid="tab-schema"
+                    >
+                      <Columns3 className="h-3 w-3" />
                       Schema
                     </TabsTrigger>
-                    <TabsTrigger value="query" className="text-xs" data-testid="tab-query">
+                    <TabsTrigger
+                      value="query"
+                      className="gap-1.5 px-2.5 text-xs"
+                      data-testid="tab-query"
+                    >
+                      <Code2 className="h-3 w-3" />
                       Query
                     </TabsTrigger>
                   </TabsList>
-
-                  <TabsContent value="data">
-                    <RowBrowser
-                      columns={columns}
-                      rows={rows}
-                      totalRows={totalRows}
-                      page={page}
-                      pageSize={pageSize}
-                      onPageChange={handlePageChange}
-                      loading={rowsLoading}
-                    />
-                  </TabsContent>
-
-                  <TabsContent value="schema">
-                    <SchemaViewer columns={schemaColumns} loading={schemaLoading} />
-                  </TabsContent>
-
-                  <TabsContent value="query">
-                    <QueryRunner onExecute={handleExecuteQuery} />
-                  </TabsContent>
                 </Tabs>
-              </CardContent>
-            </Card>
+              </div>
+
+              {/* Tab content */}
+              <div className="min-h-0 flex-1 overflow-auto p-4">
+                {activeTab === 'data' && (
+                  <RowBrowser
+                    columns={columns}
+                    rows={rows}
+                    totalRows={totalRows}
+                    page={page}
+                    pageSize={pageSize}
+                    onPageChange={handlePageChange}
+                    loading={rowsLoading}
+                  />
+                )}
+                {activeTab === 'schema' && (
+                  <SchemaViewer columns={schemaColumns} loading={schemaLoading} />
+                )}
+                {activeTab === 'query' && <QueryRunner onExecute={handleExecuteQuery} />}
+              </div>
+            </div>
           ) : (
-            <Card>
-              <CardContent className="flex items-center justify-center p-12">
-                <p className="text-muted-foreground text-sm">
-                  Select a table from the list to browse its data
-                </p>
-              </CardContent>
-            </Card>
+            <div className="border-border bg-card flex flex-1 flex-col items-center justify-center rounded-lg border">
+              <div className="bg-muted/50 mb-3 flex h-12 w-12 items-center justify-center rounded-full">
+                <Database className="text-muted-foreground h-6 w-6" />
+              </div>
+              <p className="text-muted-foreground text-sm">Select a table to browse its data</p>
+            </div>
           )}
         </div>
       </div>

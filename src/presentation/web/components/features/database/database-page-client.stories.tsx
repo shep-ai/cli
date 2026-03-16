@@ -50,8 +50,15 @@ const meta: Meta<typeof DatabasePageClient> = {
   component: DatabasePageClient,
   tags: ['autodocs'],
   parameters: {
-    layout: 'padded',
+    layout: 'fullscreen',
   },
+  decorators: [
+    (Story) => (
+      <div style={{ height: '100vh', padding: '24px', display: 'flex', flexDirection: 'column' }}>
+        <Story />
+      </div>
+    ),
+  ],
   args: {
     fetchRows: mockFetchRows,
     fetchSchema: mockFetchSchema,
