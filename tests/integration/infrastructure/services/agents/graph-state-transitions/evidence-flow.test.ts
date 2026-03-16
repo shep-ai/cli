@@ -86,8 +86,8 @@ describe('Graph State Transitions › Evidence Flow (with merge)', () => {
     const result = await ctx.graph.invoke(state, config);
     expectInterruptAt(result, 'merge');
 
-    // Nodes: analyze + requirements + research + plan + implement(1 phase + 1 evidence sub-agent) + merge-commit = 7
-    expect(ctx.executor.callCount).toBe(7);
+    // Nodes: analyze + requirements + research + plan + implement(1 phase + 1 evidence sub-agent) = 6 (merge-commit is programmatic in local-only mode)
+    expect(ctx.executor.callCount).toBe(6);
   });
 
   it('should populate evidence state when agent returns evidence JSON', async () => {
@@ -160,12 +160,12 @@ describe('Graph State Transitions › Evidence Flow (with merge)', () => {
     });
 
     const config = ctx.newConfig();
-    const state = ctx.initialState(PRD_PLAN_ALLOWED);
+    const state = { ...ctx.initialState(PRD_PLAN_ALLOWED), push: true };
 
     const result = await ctx.graph.invoke(state, config);
     expectInterruptAt(result, 'merge');
 
-    // Verify the merge prompt includes the evidence section
+    // Verify the merge prompt includes the evidence section (push=true so agent merge path is used)
     expect(mergePrompts.length).toBeGreaterThanOrEqual(1);
     const lastMergePrompt = mergePrompts[mergePrompts.length - 1];
     expect(lastMergePrompt).toContain('Evidence');
@@ -180,8 +180,8 @@ describe('Graph State Transitions › Evidence Flow (with merge)', () => {
     const result = await ctx.graph.invoke(state, config);
 
     expectNoInterrupts(result);
-    // All nodes + merge: analyze + requirements + research + plan + implement(1 phase + 1 evidence) + merge-commit = 7 (merge squash is now programmatic via localMergeSquash, no agent call)
-    expect(ctx.executor.callCount).toBe(7);
+    // All nodes + evidence: analyze + requirements + research + plan + implement(1 phase + 1 evidence) = 6 (merge-commit is programmatic via commitAll in local-only mode)
+    expect(ctx.executor.callCount).toBe(6);
   });
 
   it('should not interrupt at evidence (no approval gate)', async () => {

@@ -50,8 +50,8 @@ describe('Graph State Transitions › Merge Flow', () => {
     const result = await ctx.graph.invoke(state, config);
     expectInterruptAt(result, 'merge');
 
-    // All producer nodes + evidence + merge commit call: analyze + requirements + research + plan + implement + evidence + merge-commit = 7
-    expect(ctx.executor.callCount).toBe(7);
+    // All producer nodes + evidence: analyze + requirements + research + plan + implement + evidence = 6 (merge-commit is programmatic in local-only mode)
+    expect(ctx.executor.callCount).toBe(6);
   });
 
   it('should run to completion when all gates enabled (including merge)', async () => {
@@ -62,8 +62,8 @@ describe('Graph State Transitions › Merge Flow', () => {
 
     expectNoInterrupts(result);
     expect(result.messages.length).toBeGreaterThanOrEqual(1);
-    // All producer nodes + evidence + merge commit: 6 + 1 = 7 (merge squash is now programmatic via localMergeSquash, no agent call)
-    expect(ctx.executor.callCount).toBe(7);
+    // All producer nodes + evidence = 6 (merge-commit is programmatic via commitAll in local-only mode, no agent call)
+    expect(ctx.executor.callCount).toBe(6);
   });
 
   it('should walk through all gates: requirements → plan → merge → end', async () => {
@@ -119,15 +119,15 @@ describe('Graph State Transitions › Merge Flow', () => {
     // Invoke #1 — runs to merge, interrupts
     const r1 = await ctx.graph.invoke(state, config);
     expectInterruptAt(r1, 'merge');
-    // analyze + requirements + research + plan + implement + evidence + merge-commit = 7
-    expect(ctx.executor.callCount).toBe(7);
+    // analyze + requirements + research + plan + implement + evidence = 6 (merge-commit is programmatic in local-only mode)
+    expect(ctx.executor.callCount).toBe(6);
 
     // Invoke #2 — reject merge → re-execute merge, interrupt again
     const r2 = await ctx.graph.invoke(rejectCommand('fix the PR description'), config);
     expectInterruptAt(r2, 'merge');
 
-    // merge-commit re-executed = 8
-    expect(ctx.executor.callCount).toBe(8);
+    // merge-commit re-executed programmatically (no agent call in local-only mode) = still 6
+    expect(ctx.executor.callCount).toBe(6);
   });
 
   it('should reject merge then approve: full iteration cycle', async () => {
@@ -154,8 +154,8 @@ describe('Graph State Transitions › Merge Flow', () => {
     // Invoke #1 — runs to merge, interrupts
     const r1 = await ctx.graph.invoke(state, config);
     expectInterruptAt(r1, 'merge');
-    // analyze + requirements + research + plan + implement + evidence + merge-commit = 7
-    expect(ctx.executor.callCount).toBe(7);
+    // analyze + requirements + research + plan + implement + evidence = 6 (merge-commit is programmatic in local-only mode)
+    expect(ctx.executor.callCount).toBe(6);
 
     // 8 consecutive merge rejections
     const rejectionMessages = [
@@ -169,17 +169,17 @@ describe('Graph State Transitions › Merge Flow', () => {
       'update documentation links',
     ];
 
-    for (let i = 0; i < rejectionMessages.length; i++) {
-      const result = await ctx.graph.invoke(rejectCommand(rejectionMessages[i]), config);
+    for (const msg of rejectionMessages) {
+      const result = await ctx.graph.invoke(rejectCommand(msg), config);
       expectInterruptAt(result, 'merge');
 
-      // Each rejection re-executes merge-commit once
-      // initial(7) + rejections(i+1)
-      expect(ctx.executor.callCount).toBe(8 + i);
+      // Each rejection re-executes merge-commit programmatically (no agent call in local-only mode)
+      // Count stays at 6
+      expect(ctx.executor.callCount).toBe(6);
     }
 
-    // Final call count: initial(7) + 8 re-execs = 15
-    expect(ctx.executor.callCount).toBe(15);
+    // Final call count: 6 (merge re-executions are programmatic in local-only mode)
+    expect(ctx.executor.callCount).toBe(6);
 
     // Approve → merge completes, graph ends
     const rApprove = await ctx.graph.invoke(approveCommand(), config);
@@ -220,7 +220,7 @@ describe('Graph State Transitions › Merge Flow', () => {
     const result = await ctx.graph.invoke(state, config);
 
     expectNoInterrupts(result);
-    // All producer nodes + evidence + merge commit call (no merge squash since no allowMerge gate)
-    expect(ctx.executor.callCount).toBe(7);
+    // All producer nodes + evidence (merge-commit is programmatic in local-only mode)
+    expect(ctx.executor.callCount).toBe(6);
   });
 });
