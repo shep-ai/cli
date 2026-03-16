@@ -1,0 +1,78 @@
+Repository Node Unit Tests — All Passing
+=========================================
+
+Test Suite: tests/unit/presentation/web/components/common/repository-node/repository-node.test.tsx
+Tests: 42 passed (0 failed)
+
+RepositoryNode
+  action buttons rendering
+    ✓ renders IDE and Shell buttons when repositoryPath is provided
+    ✓ does not render action buttons when repositoryPath is absent
+  action button clicks
+    ✓ IDE button click calls openInIde
+    ✓ Shell button click calls openInShell
+    ✓ action button click does not trigger parent onClick
+  loading states
+    ✓ shows loading spinner on IDE button when ideLoading is true
+    ✓ shows loading spinner on Shell button when shellLoading is true
+  error states
+    ✓ shows error icon on IDE button when ideError is set
+    ✓ shows error icon on Shell button when shellError is set
+  tooltip accessibility
+    ✓ IDE button has aria-label "Open in IDE"
+    ✓ Shell button has aria-label "Open in Shell"
+  node width
+    ✓ uses min-w-[20rem] class on the main button element
+  delete button
+    ✓ renders delete button when onDelete and id are provided
+    ✓ does not render delete button when onDelete is absent
+    ✓ does not render delete button when id is absent
+    ✓ opens confirmation dialog when delete button is clicked
+    ✓ calls onDelete only after confirming in the dialog
+    ✓ does not call onDelete when cancel is clicked
+    ✓ delete button click does not trigger parent onClick
+  deploy button
+    ✓ renders Deploy button when repositoryPath is provided
+    ✓ does not render Deploy button when repositoryPath is absent
+    ✓ clicking Deploy calls the deploy action
+    ✓ shows Stop button when deployment is active
+    ✓ clicking Stop calls the stop action
+    ✓ renders DeploymentStatusBadge when status is Booting or Ready
+    ✓ does not render DeploymentStatusBadge when status is null
+    ✓ passes targetId (repositoryPath) to DeploymentStatusBadge
+  pulse add animation
+    ✓ applies pulse animation class when pulseAdd is true
+    ✓ does not apply pulse animation class when pulseAdd is false
+    ✓ does not apply pulse animation class when pulseAdd is not set
+  existing behavior preserved
+    ✓ renders repository name
+    ✓ renders add button when onAdd is provided
+    ✓ calls onClick when card is clicked
+  git info display
+    ✓ renders branch name when branch is provided
+    ✓ renders behind count when behindCount is greater than 0
+    ✓ does not render behind count when behindCount is 0
+    ✓ does not render behind count when behindCount is null
+    ✓ does not render git info section when branch is not provided
+  commit info display
+    ✓ renders commit message when commitMessage is provided
+    ✓ renders committer name when committer is provided
+    ✓ does not render committer when committer is absent
+    ✓ does not render commit info section when commitMessage is not provided
+
+---
+
+Test Suite: tests/unit/presentation/web/common/repository-node/repository-node.test.tsx
+Tests: 7 passed (0 failed)
+
+---
+
+Test Suite: tests/unit/presentation/web/components/common/repository-node/use-repository-actions.test.ts
+Tests: 15 passed (0 failed)
+
+---
+
+Full Suite Summary
+==================
+Test Files: 313 passed (313)
+Tests:      4030 passed (4030)

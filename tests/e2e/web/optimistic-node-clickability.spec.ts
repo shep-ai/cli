@@ -1,17 +1,17 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Optimistic node clickability — drawer opens on other nodes while feature is creating', () => {
-  test('clicking existing feature nodes opens the detail drawer while an optimistic node is in creating state', async ({
+test.describe('Feature node clickability — drawer opens after feature creation', () => {
+  test('clicking existing feature nodes opens the detail drawer after submitting the create form', async ({
     page,
   }) => {
-    // Intercept createFeature server action to delay it (keep optimistic node in "creating" state)
+    // Intercept createFeature server action to delay it (simulate slow creation)
     await page.route('**/*', async (route) => {
       const request = route.request();
       if (request.method() === 'POST' && request.headers()['next-action']) {
         const body = request.postData();
         if (body?.includes('E2E Optimistic Clickability Test')) {
-          // Delay for 15 seconds — long enough to click other nodes
-          await new Promise((resolve) => setTimeout(resolve, 15000));
+          // Delay for 10 seconds — long enough to click other nodes
+          await new Promise((resolve) => setTimeout(resolve, 10000));
           await route.fulfill({
             status: 200,
             contentType: 'text/x-component',
@@ -26,7 +26,7 @@ test.describe('Optimistic node clickability — drawer opens on other nodes whil
     // Navigate to control center
     await page.goto('/');
 
-    // Check if any feature nodes exist (use isVisible with short timeout to avoid blocking)
+    // Check if any feature nodes exist
     const featureCards = page.locator('[data-testid="feature-node-card"]');
     const hasFeatures = await featureCards
       .first()
@@ -34,7 +34,7 @@ test.describe('Optimistic node clickability — drawer opens on other nodes whil
       .catch(() => false);
     test.skip(!hasFeatures, 'Need at least 1 existing feature node to test clickability');
 
-    // Remember the name of the first existing (non-creating) feature node for drawer verification
+    // Remember the name of the first existing feature node for drawer verification
     const firstNodeHeading = page
       .locator('[data-testid="feature-node-card"]:not([aria-busy="true"]) h3')
       .first();
@@ -48,24 +48,22 @@ test.describe('Optimistic node clickability — drawer opens on other nodes whil
       timeout: 15000,
     });
 
-    // Step 2: Fill the feature name and submit
-    const nameInput = page.getByPlaceholder('e.g. GitHub OAuth Login');
-    await nameInput.fill('E2E Optimistic Clickability Test');
+    // Step 2: Fill the feature description and submit
+    const descriptionInput = page.getByPlaceholder(
+      'e.g. Add GitHub OAuth login with callback handling and token refresh...'
+    );
+    await descriptionInput.fill('E2E Optimistic Clickability Test');
 
     const submitButton = page.getByRole('button', { name: '+ Create Feature' });
     await expect(submitButton).toBeEnabled();
     await submitButton.click();
 
-    // Step 3: Verify the optimistic node appeared with "Creating..." text
-    await expect(page.getByText('Creating...').first()).toBeVisible({ timeout: 5000 });
+    // Step 3: Drawer should close (router.push('/') fires immediately on submit)
+    await expect(page.getByRole('heading', { name: 'NEW FEATURE' })).not.toBeVisible({
+      timeout: 5000,
+    });
 
-    // Verify the optimistic node has aria-busy="true"
-    const creatingNode = page.locator('[data-testid="feature-node-card"][aria-busy="true"]');
-    await expect(creatingNode).toBeVisible();
-    await expect(creatingNode).toContainText('E2E Optimistic Clickability Test');
-
-    // Step 4: While the optimistic node is in "creating" state, click on an EXISTING feature node
-    // First, get the first non-creating feature node
+    // Step 4: While the server action is still in-flight, click on an existing feature node
     const clickableNode = page
       .locator('[data-testid="feature-node-card"]:not([aria-busy="true"])')
       .first();
@@ -81,15 +79,11 @@ test.describe('Optimistic node clickability — drawer opens on other nodes whil
       await expect(drawerHeader).toContainText(firstNodeName);
     }
 
-    // Step 6: Verify the optimistic node is STILL in "creating" state (server action is still pending)
-    await expect(creatingNode).toBeVisible();
-    await expect(creatingNode).toHaveAttribute('aria-busy', 'true');
-
-    // Step 7: Close the drawer by pressing Escape
+    // Step 6: Close the drawer by pressing Escape
     await page.keyboard.press('Escape');
     await expect(drawerHeader).not.toBeVisible({ timeout: 3000 });
 
-    // Step 8: Click a different existing node (if available) to verify multiple clicks work
+    // Step 7: Click a different existing node (if available) to verify multiple clicks work
     const secondClickableNode = page
       .locator('[data-testid="feature-node-card"]:not([aria-busy="true"])')
       .nth(1);
@@ -104,11 +98,6 @@ test.describe('Optimistic node clickability — drawer opens on other nodes whil
       await page.keyboard.press('Escape');
       await expect(drawerHeader).not.toBeVisible({ timeout: 3000 });
     }
-
-    // Step 9: Verify clicking the CREATING node does NOT open the drawer
-    await creatingNode.click();
-    await page.waitForTimeout(500);
-    await expect(drawerHeader).not.toBeVisible();
   });
 });
 
