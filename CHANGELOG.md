@@ -1,3 +1,9 @@
+## [1.122.1](https://github.com/shep-ai/cli/compare/v1.122.0...v1.122.1) (2026-03-16)
+
+### Bug Fixes
+
+- **web:** guard optimistic feature state from stale reconcile flash ([#380](https://github.com/shep-ai/cli/issues/380)) ([d4bb20d](https://github.com/shep-ai/cli/commit/d4bb20d1db25b859e0b89d42c74a81fc1e1612ca))
+
 # [1.122.0](https://github.com/shep-ai/cli/compare/v1.121.0...v1.122.0) (2026-03-16)
 
 ### Bug Fixes
