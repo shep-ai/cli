@@ -1,3 +1,9 @@
+## [1.122.2](https://github.com/shep-ai/cli/compare/v1.122.1...v1.122.2) (2026-03-16)
+
+### Bug Fixes
+
+- **agents:** skip validate nodes on resume using successor phase check ([#393](https://github.com/shep-ai/cli/issues/393)) ([0b7bdf8](https://github.com/shep-ai/cli/commit/0b7bdf82098fabacd53fde0c592d6c53a8d4610e))
+
 ## [1.122.1](https://github.com/shep-ai/cli/compare/v1.122.0...v1.122.1) (2026-03-16)
 
 ### Bug Fixes
