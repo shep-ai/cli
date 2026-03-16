@@ -284,32 +284,85 @@ describe('GitPrService', () => {
   });
 
   describe('mergePr', () => {
-    it('should call gh pr merge with prNumber and default squash strategy', async () => {
-      vi.mocked(mockExec).mockResolvedValue({ stdout: '', stderr: '' });
+    it('should stash changes before merge and pop after when there are uncommitted changes', async () => {
+      vi.mocked(mockExec)
+        .mockResolvedValueOnce({ stdout: ' M dirty-file.ts\n', stderr: '' }) // git status --porcelain
+        .mockResolvedValueOnce({ stdout: '', stderr: '' }) // git stash push
+        .mockResolvedValueOnce({ stdout: '', stderr: '' }) // gh pr merge
+        .mockResolvedValueOnce({ stdout: '', stderr: '' }); // git stash pop
 
       await service.mergePr('/repo', 42);
 
-      expect(mockExec).toHaveBeenCalledWith(
+      expect(mockExec).toHaveBeenNthCalledWith(1, 'git', ['status', '--porcelain'], {
+        cwd: '/repo',
+      });
+      expect(mockExec).toHaveBeenNthCalledWith(
+        2,
+        'git',
+        ['stash', 'push', '-m', 'shep: auto-stash before merge'],
+        { cwd: '/repo' }
+      );
+      expect(mockExec).toHaveBeenNthCalledWith(
+        3,
         'gh',
         ['pr', 'merge', '42', '--squash', '--auto', '--delete-branch'],
         { cwd: '/repo' }
       );
+      expect(mockExec).toHaveBeenNthCalledWith(4, 'git', ['stash', 'pop'], { cwd: '/repo' });
+    });
+
+    it('should skip stash when working tree is clean', async () => {
+      vi.mocked(mockExec)
+        .mockResolvedValueOnce({ stdout: '', stderr: '' }) // git status --porcelain (clean)
+        .mockResolvedValueOnce({ stdout: '', stderr: '' }); // gh pr merge
+
+      await service.mergePr('/repo', 42);
+
+      expect(mockExec).toHaveBeenNthCalledWith(1, 'git', ['status', '--porcelain'], {
+        cwd: '/repo',
+      });
+      expect(mockExec).toHaveBeenNthCalledWith(
+        2,
+        'gh',
+        ['pr', 'merge', '42', '--squash', '--auto', '--delete-branch'],
+        { cwd: '/repo' }
+      );
+      expect(mockExec).toHaveBeenCalledTimes(2);
     });
 
     it('should call gh pr merge with specified strategy', async () => {
-      vi.mocked(mockExec).mockResolvedValue({ stdout: '', stderr: '' });
+      vi.mocked(mockExec)
+        .mockResolvedValueOnce({ stdout: '', stderr: '' }) // git status --porcelain (clean)
+        .mockResolvedValueOnce({ stdout: '', stderr: '' }); // gh pr merge
 
       await service.mergePr('/repo', 42, 'rebase');
 
-      expect(mockExec).toHaveBeenCalledWith(
+      expect(mockExec).toHaveBeenNthCalledWith(
+        2,
         'gh',
         ['pr', 'merge', '42', '--rebase', '--auto', '--delete-branch'],
         { cwd: '/repo' }
       );
     });
 
+    it('should pop stash even when merge fails', async () => {
+      vi.mocked(mockExec)
+        .mockResolvedValueOnce({ stdout: ' M file.ts\n', stderr: '' }) // git status --porcelain
+        .mockResolvedValueOnce({ stdout: '', stderr: '' }) // git stash push
+        .mockRejectedValueOnce(new Error('merge failed: not mergeable')) // gh pr merge
+        .mockResolvedValueOnce({ stdout: '', stderr: '' }); // git stash pop
+
+      await expect(service.mergePr('/repo', 42)).rejects.toMatchObject({
+        code: GitPrErrorCode.MERGE_FAILED,
+      });
+
+      expect(mockExec).toHaveBeenNthCalledWith(4, 'git', ['stash', 'pop'], { cwd: '/repo' });
+    });
+
     it('should throw GitPrError with MERGE_FAILED on merge failure', async () => {
-      vi.mocked(mockExec).mockRejectedValue(new Error('merge failed: not mergeable'));
+      vi.mocked(mockExec)
+        .mockResolvedValueOnce({ stdout: '', stderr: '' }) // git status --porcelain (clean)
+        .mockRejectedValueOnce(new Error('merge failed: not mergeable'));
 
       await expect(service.mergePr('/repo', 42)).rejects.toMatchObject({
         code: GitPrErrorCode.MERGE_FAILED,
