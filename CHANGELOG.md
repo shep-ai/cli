@@ -1,3 +1,10 @@
+# [1.123.0](https://github.com/shep-ai/cli/compare/v1.122.2...v1.123.0) (2026-03-16)
+
+### Features
+
+- **web:** enrich repository node with branch, commit message, and behind count ([#390](https://github.com/shep-ai/cli/issues/390)) ([0d752b4](https://github.com/shep-ai/cli/commit/0d752b4aafcbcf09b6727d387aa141ed67eceab6))
+- **web:** redesign activity timeline and onboarding experience ([#392](https://github.com/shep-ai/cli/issues/392)) ([9cce178](https://github.com/shep-ai/cli/commit/9cce178f300f3dcc2eb1c511c1ee80dd9c471375))
+
 ## [1.122.2](https://github.com/shep-ai/cli/compare/v1.122.1...v1.122.2) (2026-03-16)
 
 ### Bug Fixes
