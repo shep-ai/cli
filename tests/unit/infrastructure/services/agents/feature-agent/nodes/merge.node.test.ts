@@ -223,7 +223,7 @@ describe('createMergeNode (agent-driven)', () => {
   describe('agent executor calls', () => {
     it('should make first agent call with commit-push-pr prompt', async () => {
       const node = createMergeNode(deps);
-      const state = baseState();
+      const state = baseState({ push: true });
       await node(state);
 
       expect(mockBuildCommitPushPrPrompt).toHaveBeenCalledWith(
@@ -238,7 +238,7 @@ describe('createMergeNode (agent-driven)', () => {
 
     it('should parse commit hash and PR URL from first agent call result', async () => {
       const node = createMergeNode(deps);
-      const state = baseState();
+      const state = baseState({ push: true });
       const result = await node(state);
 
       expect(mockParseCommitHash).toHaveBeenCalledWith(
@@ -363,8 +363,9 @@ describe('createMergeNode (agent-driven)', () => {
         expect.stringContaining('squash merge'),
         true
       );
-      // Only one executor call for commit/push/PR — local merge is programmatic
-      expect(deps.executor.execute).toHaveBeenCalledTimes(1);
+      // Local-only mode: commitAll is used instead of executor, no agent calls
+      expect(deps.executor.execute).not.toHaveBeenCalled();
+      expect(deps.commitAll).toHaveBeenCalled();
     });
 
     it('should NOT make second agent call when allowMerge is not true', async () => {
@@ -372,8 +373,8 @@ describe('createMergeNode (agent-driven)', () => {
       const state = baseState();
       await node(state);
 
-      // Only one call for commit/push/PR
-      expect(deps.executor.execute).toHaveBeenCalledTimes(1);
+      // Local-only mode (push=false, openPr=false): no agent calls at all
+      expect(deps.executor.execute).toHaveBeenCalledTimes(0);
       expect(deps.localMergeSquash).not.toHaveBeenCalled();
     });
 
@@ -417,17 +418,15 @@ describe('createMergeNode (agent-driven)', () => {
 
   // --- Conditional push/PR logic ---
   describe('conditional push/PR logic', () => {
-    it('should pass push=false state to prompt builder when push=false and openPr=false', async () => {
+    it('should use programmatic commitAll when push=false and openPr=false (local-only)', async () => {
       const node = createMergeNode(deps);
       const state = baseState({ push: false, openPr: false });
       await node(state);
 
-      expect(mockBuildCommitPushPrPrompt).toHaveBeenCalledWith(
-        expect.objectContaining({ push: false, openPr: false }),
-        expect.any(String),
-        'main',
-        'https://github.com/test-owner/test-repo'
-      );
+      // Local-only mode: agent is not called, commitAll is used instead
+      expect(deps.commitAll).toHaveBeenCalled();
+      expect(deps.executor.execute).not.toHaveBeenCalled();
+      expect(mockBuildCommitPushPrPrompt).not.toHaveBeenCalled();
     });
 
     it('should pass push=true state to prompt builder when push=true', async () => {
@@ -462,12 +461,10 @@ describe('createMergeNode (agent-driven)', () => {
       const state = baseState({ push: true, openPr: true });
       await node(state);
 
-      expect(mockBuildCommitPushPrPrompt).toHaveBeenCalledWith(
-        expect.objectContaining({ push: false, openPr: false }),
-        expect.any(String),
-        'main',
-        undefined
-      );
+      // No remote → effectiveState has push=false, openPr=false → local-only path
+      expect(noRemoteDeps.commitAll).toHaveBeenCalled();
+      expect(noRemoteDeps.executor.execute).not.toHaveBeenCalled();
+      expect(mockBuildCommitPushPrPrompt).not.toHaveBeenCalled();
       expect(mockParsePrUrl).not.toHaveBeenCalled();
     });
 
@@ -629,7 +626,8 @@ describe('createMergeNode (agent-driven)', () => {
       const state = baseState();
       const result = await node(state);
 
-      expect(result.commitHash).toBe('abc1234');
+      // Local-only mode: commitHash comes from commitAll, not agent parsing
+      expect(result.commitHash).toBe('mock-commit-hash');
     });
 
     it('should include PR data in feature update when PR was created', async () => {
@@ -754,7 +752,7 @@ describe('createMergeNode (agent-driven)', () => {
         new Error('Agent execution failed')
       );
       const node = createMergeNode(deps);
-      const state = baseState();
+      const state = baseState({ push: true });
 
       await expect(node(state)).rejects.toThrow('Agent execution failed');
     });
@@ -789,7 +787,7 @@ describe('createMergeNode (agent-driven)', () => {
     it('should record phase timing even when merge fails', async () => {
       (deps.executor.execute as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Failed'));
       const node = createMergeNode(deps);
-      const state = baseState();
+      const state = baseState({ push: true });
 
       await expect(node(state)).rejects.toThrow('Failed');
 
