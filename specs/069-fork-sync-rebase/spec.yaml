@@ -1,0 +1,142 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: fork-sync-rebase
+number: 069
+branch: feat/069-fork-sync-rebase
+oneLiner: rebase feature branch on main and sync fork repository main with upstream remote
+userQuery: >
+  Add support to rebase feature on main and fo repository to sync its main branch with the remote main
+summary: >
+  This feature adds two related git workflow capabilities: (1) rebase a feature worktree
+  branch on top of the current main branch so it stays up-to-date, and (2) sync a fork
+  repository's local main branch with its upstream remote main before or after rebasing.
+  Both operations extend the existing GitPrService and introduce new CLI commands and use
+  cases following the established Clean Architecture patterns.
+phase: Analysis
+sizeEstimate: M
+
+# Relationships
+relatedFeatures:
+  - 039-github-pr-sync
+
+technologies:
+  - TypeScript
+  - Node.js
+  - git (CLI via execFile)
+  - GitHub CLI (gh)
+  - TSyringe (dependency injection)
+  - Vitest (unit + integration tests)
+  - Better-SQLite3
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - What should happen when a rebase produces conflicts — abort and report, or surface an
+    interactive resolution flow?
+  - Should fork sync (upstream → local main) be a standalone CLI command, a flag on feat
+    rebase, or both?
+  - Should the rebase operation apply to all active feature worktrees or only a specific
+    one chosen by the user?
+  - Should the agent be able to trigger rebase/sync autonomously, or is this always a
+    manual user-initiated action?
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  When working with feature branches in git worktrees, the feature branch can fall behind
+  the main branch as other work lands. Developers need a way to rebase their feature branch
+  on top of the latest main to reduce future merge conflicts and keep CI green. Additionally,
+  when the repository is a fork, local main itself may be out of sync with the upstream
+  remote; this upstream drift must be resolved first before a meaningful rebase can occur.
+
+  Currently, `GitPrService` only pushes to `origin` and performs squash merges. There is no
+  `git rebase` support, no upstream remote management, and no fork-aware branch sync logic.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  ```
+  packages/core/src/
+  ├── domain/generated/output.ts        # Auto-generated TypeSpec types (read-only)
+  ├── application/
+  │   ├── ports/output/services/        # IGitPrService, IWorktreeService interfaces
+  │   └── use-cases/features/           # Feature lifecycle use cases
+  ├── infrastructure/
+  │   ├── services/git/
+  │   │   ├── git-pr.service.ts         # Concrete git operations (exec git/gh)
+  │   │   └── worktree.service.ts       # Worktree CRUD
+  │   └── di/container.ts              # TSyringe DI registrations
+  src/presentation/cli/commands/
+  ├── feat/                             # Feature sub-commands (new, start, approve…)
+  └── repo/                             # Repository sub-commands (ls, show)
+  tsp/domain/                           # TypeSpec source models
+  tests/integration/infrastructure/services/git/  # Real-git integration tests
+  ```
+
+  ### Architecture Patterns
+
+  - **Clean Architecture**: Domain → Application → Infrastructure → Presentation. New
+    service methods belong in `git-pr.service.ts`; interfaces belong in
+    `application/ports/output/services/`; use cases belong in
+    `application/use-cases/features/` (or `repositories/` for fork-level operations).
+  - **Dependency Injection**: All services are injected via TSyringe tokens; no `new`
+    at call sites. New use cases receive `IGitPrService` through constructor injection.
+  - **No hardcoded agent types**: Any agent interaction must flow through
+    `IAgentExecutorProvider`.
+  - **TDD mandatory**: Tests are written before implementation (RED → GREEN → REFACTOR).
+    Integration tests use real git repos created with `mkdtempSync()`.
+  - **TypeSpec-first**: Any new domain fields (e.g., upstream remote URL, rebase status)
+    must be defined in `tsp/` and compiled before use.
+
+  ### Relevant Technologies
+
+  | Technology | Role |
+  | ---------- | ---- |
+  | `git` CLI | Rebase (`git rebase`), fetch upstream (`git fetch upstream`), reset local main (`git reset --hard`) |
+  | `gh` CLI | Detect fork parent, manage upstream remote URL via `gh repo view --json parent` |
+  | TSyringe | Inject new use cases and service extensions |
+  | Vitest | Unit tests for new use cases; integration tests with real temp git repos |
+  | TypeSpec | New domain fields for fork metadata if stored on the `Repository` entity |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `packages/core/src/infrastructure/services/git/git-pr.service.ts` | High | Must add `rebase(cwd, branch, onto)`, `fetchUpstream(cwd)`, `syncForkMain(cwd)` methods |
+  | `packages/core/src/application/ports/output/services/git-pr-service.interface.ts` | High | Interface must expose the new method signatures so use cases remain testable via mocks |
+  | `packages/core/src/application/use-cases/features/` | High | New `RebaseFeatureUseCase`; possibly `SyncForkMainUseCase` |
+  | `src/presentation/cli/commands/feat/` | Medium | New `shep feat rebase` CLI command (or `shep feat sync`) |
+  | `src/presentation/cli/commands/repo/` | Medium | Potentially `shep repo sync` for standalone fork main sync |
+  | `packages/core/src/infrastructure/di/container.ts` | Medium | Register new use cases and any new service tokens |
+  | `tsp/domain/entities/` | Low | May need `upstreamUrl` or `isFork` fields on `Repository` entity |
+  | `tests/integration/infrastructure/services/git/` | High | Real-git integration tests covering rebase, conflict abort, upstream sync scenarios |
+
+  ## Dependencies
+
+  - **Existing `GitPrService`** — extend with new git commands using the same `execFile`
+    pattern already used for push, merge, etc.
+  - **Existing `IGitPrService` interface** — must stay in sync with implementation; all
+    use case tests mock via this interface.
+  - **`WorktreeService`** — feature branches live in worktrees; the rebase must run inside
+    the correct worktree `cwd`.
+  - **`gh` CLI** — used to detect whether the current repo is a fork
+    (`gh repo view --json parent`) and to retrieve the upstream remote URL.
+  - **`IFeatureRepository`** — needed by `RebaseFeatureUseCase` to look up the feature's
+    branch name and worktree path.
+  - **TSyringe DI container** — all new use cases must be registered.
+
+  ## Size Estimate
+
+  **M** — Multiple clean-architecture layers are touched (interface, service, use case,
+  CLI command, DI registration, integration tests) but the operations themselves are
+  well-understood git commands with clear success/failure states. Conflict handling scope
+  (abort vs. interactive) is the main uncertainty that could push toward L if an
+  interactive resolution UI is required.
+
+  ---
+
+  _Analysis complete — proceed with /shep-kit:research_
