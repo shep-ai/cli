@@ -1,0 +1,150 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: git-rebase-sync
+number: 068
+branch: feat/068-git-rebase-sync
+oneLiner: Add git rebase-on-main for feature branches and sync-main for repository main branch updates
+userQuery: >
+  Add support to rebase feature on main and for repository to sync its main branch with the remote main
+summary: >
+  Add two new git operations to the platform: (1) rebase a feature branch onto the latest main branch,
+  keeping feature work up-to-date with upstream changes, and (2) sync a repository's local main branch
+  with its remote counterpart. These operations require new methods on IGitPrService, new application
+  use cases, CLI commands, and web UI server actions.
+phase: Analysis
+sizeEstimate: M
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - TypeScript
+  - tsyringe (dependency injection)
+  - Commander.js (CLI)
+  - Next.js (web server actions)
+  - Vitest (testing)
+  - git (native CLI)
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - Should rebase-on-main abort and report conflicts, or attempt auto-resolution?
+  - Should sync-main be triggered automatically (e.g., before feature creation) or only on demand?
+  - Should rebase operate on the worktree or the original repo (worktrees have branch-locking constraints)?
+  - Should there be a web UI button for these operations, or CLI-only initially?
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  The platform currently has no built-in mechanism to keep feature branches up-to-date with the
+  main branch. When main advances (e.g., after other features are merged), feature branches diverge
+  and may encounter conflicts at merge time. Additionally, there is no explicit operation to sync
+  a repository's local main branch with its remote counterpart — the only fetch/pull operations
+  exist inside `localMergeSquash()` as part of the merge workflow.
+
+  Two capabilities are needed:
+
+  1. **Rebase feature on main** — rebase a feature branch onto the latest main so it incorporates
+     upstream changes. This is critical for long-running features and reduces merge conflicts.
+
+  2. **Sync main with remote** — fast-forward the local main branch to match `origin/main`, ensuring
+     the local main is always current before rebasing or creating new features.
+
+  ### Current Limitations
+
+  - `IGitPrService` has `mergeBranch()` and `localMergeSquash()` but no `rebase` operation.
+  - `MergeStrategy` includes `'rebase'` but only for PR merges via `gh pr merge --rebase`, not local rebase.
+  - The merge prompts explicitly forbid `git rebase` in the agent workflow (merge-prompts.ts:206).
+  - No CLI command exists for `shep repo sync` or `shep feat rebase`.
+  - No web action exists for triggering rebase or sync operations.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The codebase follows Clean Architecture with four layers:
+
+  - **Domain** (`packages/core/src/domain/`) — Generated from TypeSpec. Contains Feature, Repository
+    entities and value objects. No new domain models likely needed for this feature.
+  - **Application** (`packages/core/src/application/`) — Use cases and port interfaces. New use cases
+    for `RebaseFeatureOnMain` and `SyncRepositoryMain` will live here.
+  - **Infrastructure** (`packages/core/src/infrastructure/`) — Service implementations.
+    `GitPrService` and `WorktreeService` in `infrastructure/services/git/` are the primary targets.
+  - **Presentation** (`src/presentation/`) — CLI commands (`cli/commands/`) and web server actions
+    (`web/app/actions/`). New CLI subcommands and web actions needed.
+
+  ### Architecture Patterns
+
+  - **Dependency Injection**: All services registered in `infrastructure/di/container.ts` via tsyringe.
+    Use cases inject port interfaces (`IGitPrService`, `IWorktreeService`) by string token.
+  - **Port/Adapter**: Application layer defines interfaces; infrastructure implements them.
+    New git operations must be added to `IGitPrService` interface first, then implemented.
+  - **CLI Pattern**: Commands use Commander.js, organized in subdirectories
+    (`commands/feat/`, `commands/repo/`). New subcommands follow existing patterns.
+  - **Web Actions**: Next.js server actions in `app/actions/` resolve DI container and call use cases.
+  - **Agent Constraint**: The agent merge prompts explicitly forbid `git rebase` — this feature is
+    for user-initiated operations, not agent-driven ones.
+
+  ### Relevant Technologies
+
+  - **git rebase**: Native git command for replaying commits on top of another base.
+    `git rebase main` from a feature branch replays feature commits on top of main.
+  - **git fetch + fast-forward**: `git fetch origin main:main` or
+    `git checkout main && git pull --ff-only origin main` to sync local main.
+  - **tsyringe**: DI container for resolving services and use cases.
+  - **Commander.js**: CLI framework for defining subcommands.
+  - **Vitest**: Test framework for unit and integration tests.
+
+  ## Success Criteria
+
+  - [ ] `IGitPrService` interface extended with `rebaseOnMain(cwd, featureBranch, baseBranch)` method
+  - [ ] `IGitPrService` interface extended with `syncMain(cwd, baseBranch)` method
+  - [ ] `GitPrService` implements both methods with proper error handling (conflict detection, dirty worktree checks)
+  - [ ] `RebaseFeatureOnMainUseCase` created in application layer
+  - [ ] `SyncRepositoryMainUseCase` created in application layer
+  - [ ] CLI command `shep feat rebase [featureId]` added
+  - [ ] CLI command `shep repo sync [repoId]` added
+  - [ ] Use cases registered in DI container
+  - [ ] Unit tests for new GitPrService methods (conflict scenarios, clean rebase, dirty worktree)
+  - [ ] Unit tests for use cases with mocked ports
+  - [ ] Integration tests for rebase and sync operations with real git repos
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `packages/core/src/application/ports/output/services/git-pr-service.interface.ts` | High | New `rebaseOnMain` and `syncMain` methods added to the interface |
+  | `packages/core/src/infrastructure/services/git/git-pr.service.ts` | High | Implementation of rebase and sync git operations |
+  | `packages/core/src/application/use-cases/features/` | High | New `RebaseFeatureOnMainUseCase` |
+  | `packages/core/src/application/use-cases/repositories/` | High | New `SyncRepositoryMainUseCase` |
+  | `packages/core/src/infrastructure/di/container.ts` | Medium | Register new use cases and string-token aliases |
+  | `src/presentation/cli/commands/feat/` | Medium | New `rebase` subcommand |
+  | `src/presentation/cli/commands/repo/` | Medium | New `sync` subcommand |
+  | `src/presentation/web/app/actions/` | Low | Optional web server actions for rebase and sync |
+  | `tests/unit/` | High | Unit tests for new service methods and use cases |
+  | `tests/integration/` | Medium | Integration tests with real git repos |
+
+  ## Dependencies
+
+  - **IGitPrService** — Existing interface that must be extended (not replaced).
+  - **IWorktreeService** — Needed by rebase use case to resolve worktree paths for features.
+  - **IFeatureRepository** — Needed to look up feature branch and repository path.
+  - **IRepositoryRepository** — Needed to look up repository path for sync.
+  - **ExecFunction** — Already injected into GitPrService for running git commands.
+  - **GitPrError / GitPrErrorCode** — Existing error types; may need new error codes
+    (e.g., `REBASE_CONFLICT`, `DIRTY_WORKTREE`).
+  - No new external libraries required — all operations use native git commands.
+
+  ## Size Estimate
+
+  **M** — This feature touches multiple layers (interface, implementation, use cases, CLI, DI) but
+  each change is well-scoped. The git operations themselves are straightforward (rebase, fetch+ff).
+  The main complexity is in error handling (conflicts, dirty state) and proper test coverage.
+  Estimated 2-3 days of work including TDD cycles.
+
+  ---
+
+  _Analysis complete — proceed with research phase_
