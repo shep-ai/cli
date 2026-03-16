@@ -1,0 +1,164 @@
+name: Shep E2E — Cursor/Windows
+
+on:
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  cursor-windows:
+    name: cursor / windows
+    runs-on: windows-latest
+    timeout-minutes: 15
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm run build
+
+      - name: Link shep globally
+        run: npm link
+
+      - name: Install Cursor CLI (Windows)
+        shell: pwsh
+        run: |
+          irm 'https://cursor.com/install?win32=true' | iex
+          echo "$env:LOCALAPPDATA\cursor-agent" >> $env:GITHUB_PATH
+
+      - name: Clone sheep repo
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        run: |
+          TARGET_DIR="${RUNNER_TEMP}/sheep"
+          git clone https://x-access-token:${GH_TOKEN}@github.com/shep-ai/sheep.git "$TARGET_DIR"
+          cd "$TARGET_DIR"
+          git config user.name "shep-bot"
+          git config user.email "bot@shep.ai"
+          echo "TARGET_DIR=$TARGET_DIR" >> $GITHUB_ENV
+
+      - name: Configure cursor agent
+        shell: bash
+        working-directory: ${{ env.TARGET_DIR }}
+        run: shep settings agent --agent cursor --auth token --token "$CURSOR_API_KEY"
+        env:
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+
+      - name: Create feature
+        timeout-minutes: 5
+        shell: bash
+        working-directory: ${{ env.TARGET_DIR }}
+        env:
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+        run: |
+          SUFFIX=$(node -e "console.log(Math.random().toString(36).slice(2,8))")
+          shep feat new "create a single markdown file called test-${SUFFIX}.md with a title and 2-3 sentences about anything" \
+            --fast \
+            --allow-all \
+            --model auto
+
+      - name: Wait and show logs
+        timeout-minutes: 10
+        shell: node {0}
+        env:
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+        run: |
+          const { execSync } = require('child_process');
+          const cwd = process.env.TARGET_DIR;
+          const fs = require('fs');
+
+          const lsOutput = execSync('shep feat ls', { cwd, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+          const idMatch = lsOutput.match(/[0-9a-f]{8}/);
+          if (!idMatch) { console.error('::error::No feature ID'); process.exit(1); }
+          const featureId = idMatch[0];
+          console.log(`Feature ID: ${featureId}`);
+
+          const MAX_WAIT = 600000, INTERVAL = 5000, start = Date.now();
+          let lastLogLen = 0;
+
+          function poll() {
+            const elapsed = Math.round((Date.now() - start) / 1000);
+
+            // Stream logs instead of feat show — shows real-time executor output
+            try {
+              const logs = execSync(`shep feat logs ${featureId}`, { cwd, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+              if (logs.length > lastLogLen) {
+                const newLines = logs.slice(lastLogLen);
+                process.stdout.write(newLines);
+                lastLogLen = logs.length;
+              }
+
+              // Check for terminal states in logs
+              if (logs.includes('Worker completed successfully')) {
+                // Check if completed or failed
+                const status = execSync(`shep feat show ${featureId}`, { cwd, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+                if (/completed/i.test(status)) {
+                  console.log('\n=== FEATURE COMPLETED ===');
+                  console.log(status);
+                  fs.appendFileSync(process.env.GITHUB_ENV, `FEATURE_ID=${featureId}\n`);
+                  process.exit(0);
+                }
+                if (/failed|crashed/i.test(status)) {
+                  console.error('\n=== FEATURE FAILED ===');
+                  console.error(status);
+                  process.exit(1);
+                }
+              }
+              if (logs.includes('Run marked as failed')) {
+                console.error(`\n::error::Feature failed after ${elapsed}s`);
+                process.exit(1);
+              }
+            } catch (e) {
+              // feat logs may not be available yet
+            }
+
+            if (Date.now() - start > MAX_WAIT) {
+              console.error(`::error::Feature did not complete within ${MAX_WAIT / 1000}s`);
+              process.exit(1);
+            }
+            setTimeout(poll, INTERVAL);
+          }
+          poll();
+
+      - name: Verify local changes
+        if: success()
+        shell: bash
+        working-directory: ${{ env.TARGET_DIR }}
+        run: |
+          COMMIT_COUNT=$(git log --oneline --all | wc -l)
+          echo "Total commits: $COMMIT_COUNT"
+          if [ "$COMMIT_COUNT" -le 1 ]; then
+            echo "::error::No new commits found"
+            exit 1
+          fi
+          echo "Local changes verified!"
+
+      - name: Dump feature logs
+        if: always()
+        shell: bash
+        working-directory: ${{ env.TARGET_DIR }}
+        run: shep feat logs "$FEATURE_ID" || echo "(no logs available)"
+
+      - name: Upload shep logs
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: shep-logs-cursor-windows
+          path: ~/.shep/logs/
+          if-no-files-found: ignore
+          retention-days: 7
