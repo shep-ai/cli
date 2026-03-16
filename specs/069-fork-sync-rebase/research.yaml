@@ -1,0 +1,478 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: fork-sync-rebase
+summary: >
+  The feature extends GitPrService with rebase and fork-sync capabilities using the
+  existing execFile/ExecFunction injection pattern. Two new use cases
+  (RebaseFeatureUseCase, SyncForkMainUseCase) follow the established injectable/inject
+  TSyringe pattern. Fork detection runs via `gh repo view --json parent` at most once per
+  invocation, with the upstream remote managed under the conventional "upstream" name.
+
+# Relationships
+relatedFeatures:
+  - 039-github-pr-sync
+
+technologies:
+  - TypeScript
+  - Node.js (child_process execFile)
+  - git CLI
+  - GitHub CLI (gh)
+  - TSyringe (DI)
+  - Vitest (unit + integration tests)
+  - Commander.js (CLI)
+  - Better-SQLite3
+
+relatedLinks:
+  - https://git-scm.com/docs/git-rebase
+  - https://cli.github.com/manual/gh_repo_view
+
+# Structured technology decisions
+decisions:
+  - title: 'Git Command Execution Pattern'
+    chosen: >
+      Extend GitPrService using the existing injected ExecFunction (execFileAsync wrapped
+      via DI token). Each new method receives `cwd` as a parameter and calls
+      `this.exec(gitBinary, [...args], { cwd })` mirroring the existing `push()`,
+      `commitAll()`, and `mergeBranch()` implementations.
+    rejected:
+      - >
+        simple-git npm library — would add a new dependency and deviate from the established
+        in-repo pattern where all git calls go through execFile. Mixing two git execution
+        strategies increases surface area and complicates testing.
+      - >
+        nodegit (libgit2 bindings) — heavy native dependency, complex build requirements,
+        overkill for a handful of new shell invocations, and incompatible with the project's
+        shell-first approach for git operations.
+    rationale: >
+      The existing GitPrService already uses an injected ExecFunction for every git and gh
+      call. All integration tests mock this token via vi.fn(). Staying with the same
+      pattern means zero new dependencies, consistent error handling via GitPrError, and
+      test mocking that works identically to existing tests. Deviating would require
+      parallel test infrastructure for no gain.
+
+  - title: 'Fork Detection Strategy'
+    chosen: >
+      Call `gh repo view --json parent --jq .parent.url` once per command invocation from
+      within `isFork()`. The method returns `{ isFork: boolean; upstreamUrl?: string }`.
+      The result is passed down the call chain so the upstream URL is available to
+      ensureUpstreamRemote() without a second gh invocation, satisfying NFR-9.
+    rejected:
+      - >
+        Parse `git remote -v` for a remote named "upstream" — unreliable as a fork
+        indicator because the upstream remote may not yet have been added. This conflates
+        "is this a fork" with "has upstream already been configured".
+      - >
+        Store isFork in the Repository domain entity — the spec explicitly prohibits new
+        TypeSpec fields (NFR-7). Runtime detection is sufficient and avoids DB migration.
+    rationale: >
+      `gh repo view --json parent` is the authoritative source for whether a repo is a
+      GitHub fork. It is fast, already available since GitPrService uses gh for other
+      operations, and returns the parent clone URL in the same call. Bundling boolean and
+      URL in the return value satisfies NFR-9 with a clean interface easy to mock in tests.
+
+  - title: 'Rebase Conflict Detection and Abort'
+    chosen: >
+      Execute `git rebase main` in the feature worktree cwd. On non-zero exit code,
+      immediately run `git rebase --abort` in the same cwd, parse conflicting files from
+      output using a regex matching `CONFLICT \(content\): Merge conflict in (.+)`, then
+      throw a GitPrError with code REBASE_CONFLICT listing the conflicting files.
+    rejected:
+      - >
+        Leave worktree in conflict state — explicitly rejected in the feature spec. A
+        partially-applied rebase leaves the worktree broken and confusing for tooling.
+      - >
+        Interactive TUI conflict resolution — out of scope for size M, requires complex
+        state management for a partially-applied rebase. Users have VS Code and git CLI.
+    rationale: >
+      Aborting immediately keeps the worktree clean regardless of outcome. Git reliably
+      prints CONFLICT lines to stdout before stopping, making regex parsing straightforward.
+      The REBASE_CONFLICT error code follows the existing GitPrErrorCode enum pattern
+      alongside MERGE_CONFLICT, keeping the typed error-handling contract consistent.
+
+  - title: 'SyncForkMain Git Strategy'
+    chosen: >
+      Sync local main by: (1) git fetch upstream, (2) git checkout main,
+      (3) git reset --hard upstream/main, (4) git checkout - to restore prior branch.
+      The reset --hard guarantees local main exactly matches upstream/main regardless
+      of divergence or upstream force-pushes.
+    rejected:
+      - >
+        `git pull upstream main` — performs a merge which can create merge commits on local
+        main and is not idempotent if the local branch has diverged from upstream.
+      - >
+        `git merge --ff-only upstream/main` — fails if upstream has been force-pushed or
+        if local main has any commits not in upstream, making it fragile for fork workflows.
+    rationale: >
+      `reset --hard` is the canonical fork sync pattern recommended by GitHub. It is
+      idempotent (NFR-3): running it when already in sync is a no-op. It handles upstream
+      force-pushes correctly. Local commits on main are intentionally discarded since main
+      in a fork workflow should never have fork-local commits.
+
+  - title: 'New GitPrErrorCode Values'
+    chosen: >
+      Add two new values to the existing GitPrErrorCode enum: `REBASE_CONFLICT` (rebase
+      aborted due to merge conflicts) and `NOT_A_FORK` (sync requested but repo has no
+      upstream parent). This maintains the typed error taxonomy used across the codebase.
+    rejected:
+      - >
+        Reuse existing MERGE_CONFLICT for rebase conflicts — misleading; MERGE_CONFLICT
+        maps to gh pr merge / squash merge failures. Callers handling MERGE_CONFLICT would
+        silently catch unrelated rebase failures.
+      - >
+        Throw generic Error — deviates from the established pattern and breaks the typed
+        error-handling contract used in all CLI command handlers.
+    rationale: >
+      The GitPrErrorCode enum is the project's authoritative error taxonomy for git
+      operations. New operations require new codes to enable precise error handling.
+      NOT_A_FORK allows SyncForkMainUseCase to return a clean informational result
+      rather than throwing, and REBASE_CONFLICT surfaces actionable conflict file lists.
+
+  - title: 'Integration Test Strategy'
+    chosen: >
+      Write integration tests using real temporary git repos initialised with
+      `mkdtempSync()` in beforeEach/afterEach. Each test creates a bare "remote" repo
+      (git init --bare), clones it to a local "origin" dir, and optionally creates a
+      second bare "upstream" repo to simulate a fork topology. Tests live in
+      `tests/integration/infrastructure/services/git/git-pr-rebase.service.test.ts`.
+    rejected:
+      - >
+        Mock ExecFunction via vi.fn() as CI-watch and getFailureLogs tests do — cannot
+        validate real git state changes (branch HEAD, rebase completion, conflict abort).
+        Correctness for rebase depends on real git semantics, not argument construction.
+      - >
+        Use a shared fixture repo committed to the repository — fragile and hard to
+        maintain; fixture state drifts and cannot accurately represent varying fork/
+        non-fork topologies per test case.
+    rationale: >
+      The spec (NFR-1) explicitly requires real temporary git repos. Rebase operations
+      involve non-trivial git state transitions (detached HEAD during rebase, REBASE_HEAD,
+      conflict markers) that can only be verified against a real git binary. Real temp
+      repos also validate that execFile arguments are syntactically correct.
+
+  - title: 'Use Case Structure and DI Registration'
+    chosen: >
+      Create RebaseFeatureUseCase in
+      `packages/core/src/application/use-cases/features/rebase-feature.use-case.ts`
+      and SyncForkMainUseCase in
+      `packages/core/src/application/use-cases/sync-fork-main.use-case.ts`.
+      Both decorated `@injectable()`, dependencies injected via `@inject()` with interface
+      tokens. Register both as singletons in container.ts with string token aliases for
+      web route compatibility.
+    rejected:
+      - >
+        Place SyncForkMainUseCase inside features/ — it is not feature-lifecycle specific.
+        It operates on the repository itself and has no IFeatureRepository dependency.
+        Top-level use-cases/ is the correct location for repo-scoped operations.
+      - >
+        Co-locate rebase and sync logic in a single use case — violates single
+        responsibility. Rebase requires a feature entity lookup; sync is purely
+        repository-scoped. Separation enables `shep repo sync` to function independently.
+    rationale: >
+      Existing use cases demonstrate the subdirectory convention: features/ for feature
+      lifecycle operations, top-level for cross-cutting concerns. This separation enables
+      `shep repo sync` as a standalone command and keeps each use case focused on a
+      single bounded operation with a minimal dependency set.
+
+  - title: 'CLI Command Registration Pattern'
+    chosen: >
+      Create `src/presentation/cli/commands/feat/rebase.command.ts` exporting
+      `createRebaseCommand()` and register it in feat/index.ts via `.addCommand()`.
+      Create `src/presentation/cli/commands/repo/sync.command.ts` exporting
+      `createSyncCommand()` and register it in repo/index.ts. Both handlers resolve use
+      cases from container, call execute(), print output with messages/colors UI helpers,
+      set process.exitCode = 1 on error.
+    rejected:
+      - >
+        Add rebase as a flag on `shep feat start` — semantically wrong; rebase is not
+        part of the feature start lifecycle. A dedicated subcommand is discoverable and
+        composable.
+      - >
+        Inline git logic in CLI handlers — violates NFR-5. Handlers must only parse args
+        and call use cases; all git operations belong in GitPrService.
+    rationale: >
+      All existing feat/* and repo/* commands follow the identical factory function pattern.
+      The index.ts barrel chains .addCommand() calls. This is the minimum-change,
+      pattern-consistent approach. The messages/colors UI helpers used by approve, reject,
+      and show ensure consistent UX output.
+
+# Open questions (should be resolved by end of research)
+openQuestions:
+  - question: >
+      What should the isFork() method return signature be in IGitPrService to satisfy
+      the single-gh-call requirement (NFR-9)?
+    resolved: true
+    options:
+      - option: 'Return { isFork: boolean; upstreamUrl?: string }'
+        description: >
+          isFork() returns both the boolean and the parent URL in one call. The caller
+          (use case) stores this and passes upstreamUrl to ensureUpstreamRemote(), so no
+          second gh invocation is needed. Interface:
+          `isFork(cwd: string): Promise<{ isFork: boolean; upstreamUrl?: string }>`.
+        selected: true
+      - option: 'Return boolean only, add separate getParentUrl() method'
+        description: >
+          isFork() returns a boolean. A separate getParentUrl() retrieves the URL when
+          needed. Cleaner single-responsibility but requires two gh calls per fork sync
+          operation, violating NFR-9.
+        selected: false
+      - option: 'Accept callback to receive fork metadata internally'
+        description: >
+          Pass a callback into syncForkMain() that receives fork metadata. Avoids interface
+          changes for the URL but introduces an unusual pattern not present elsewhere in
+          IGitPrService and harder to mock in unit tests.
+        selected: false
+    selectionRationale: >
+      Returning a combined result object is idiomatic TypeScript for commands that retrieve
+      multiple related pieces of data atomically. It satisfies NFR-9 by design: the URL is
+      bundled with the boolean so callers never need a second gh call. Easy to mock:
+      `vi.fn().mockResolvedValue({ isFork: true, upstreamUrl: 'https://github.com/org/repo.git' })`.
+
+  - question: >
+      How should RebaseFeatureUseCase resolve the worktree cwd for a given feature ID?
+    resolved: true
+    options:
+      - option: 'Look up feature in IFeatureRepository, read worktreePath field'
+        description: >
+          RebaseFeatureUseCase injects IFeatureRepository and calls findById(featureId)
+          to get the Feature entity, then uses feature.worktreePath as the cwd for all
+          git operations. Consistent with how StartFeatureUseCase and other feature use
+          cases access worktree state.
+        selected: true
+      - option: 'Require caller to pass cwd explicitly as a CLI argument'
+        description: >
+          `shep feat rebase <id> --cwd <path>` requires the user to know and type the
+          worktree path. Poor UX; defeats the purpose of shep tracking worktree locations.
+        selected: false
+      - option: 'Use IWorktreeService to find the worktree by branch name'
+        description: >
+          Derive the branch name from the feature, then call IWorktreeService to list
+          worktrees and find the matching path. Indirect — requires an extra service
+          dependency and an extra lookup when IFeatureRepository already provides the
+          worktreePath directly.
+        selected: false
+    selectionRationale: >
+      The Feature entity has a worktreePath property populated during feature creation.
+      Reading it via IFeatureRepository is the direct, zero-indirection approach.
+      IFeatureRepository is already injected by StartFeatureUseCase and similar use cases,
+      adding no new dependency pattern and staying within established conventions.
+
+  - question: >
+      Should `shep repo sync` accept a repo-id argument or always use the current
+      working directory?
+    resolved: true
+    options:
+      - option: 'Use process.cwd() implicitly, no argument required'
+        description: >
+          SyncForkMainUseCase uses process.cwd() as the repository root. The user runs
+          `shep repo sync` from anywhere inside the repo. Consistent with how `shep feat
+          rebase` detects the repo root. Simple, no argument parsing needed.
+        selected: true
+      - option: 'Accept an optional repo-id argument'
+        description: >
+          `shep repo sync [repo-id]` looks up the repository path from
+          IRepositoryRepository by ID when provided. More flexible but adds complexity and
+          an optional IRepositoryRepository dependency for a command most users run from cwd.
+        selected: false
+      - option: 'Accept a --path flag'
+        description: >
+          `shep repo sync --path /absolute/path` allows syncing any repo path explicitly.
+          Deviates from the convention that shep commands discover context from the working
+          directory.
+        selected: false
+    selectionRationale: >
+      `shep repo sync` is a companion to `shep feat rebase` and will be run in the same
+      working directory context. Using process.cwd() matches the pattern of other shep
+      commands that implicitly operate on the repo in the current directory. The command
+      is simple enough that argument-free invocation is the clearest UX.
+
+# Markdown content (the full research document)
+content: |
+  ## Technology Decisions
+
+  ### 1. Git Command Execution Pattern
+
+  **Chosen:** Extend `GitPrService` using the injected `ExecFunction` token, calling
+  `this.exec(gitBinary, [...args], { cwd })` for every new git command.
+
+  **Rejected:**
+  - `simple-git` — new dependency, deviates from established in-repo execFile pattern
+  - `nodegit` (libgit2 bindings) — heavy native dep, overkill for shell invocations
+
+  **Rationale:** Zero new dependencies. All test infrastructure (vi.fn() mocked exec,
+  DI token injection) already exists. `GitPrService` is 772 lines of this exact pattern.
+
+  ---
+
+  ### 2. Fork Detection Strategy
+
+  **Chosen:** `gh repo view --json parent --jq .parent.url` called once in `isFork()`,
+  returning `{ isFork: boolean; upstreamUrl?: string }`.
+
+  **Rejected:**
+  - Parse `git remote -v` for "upstream" — conflates detection with configuration state
+  - Persist in Repository domain — TypeSpec changes prohibited by NFR-7
+
+  **Rationale:** The gh CLI is already used for PR operations throughout `GitPrService`.
+  Bundling the boolean and URL in one return value satisfies NFR-9 with a clean interface.
+
+  ---
+
+  ### 3. Rebase Conflict Detection
+
+  **Chosen:** On non-zero exit from `git rebase main`, run `git rebase --abort`, parse
+  `CONFLICT (content): Merge conflict in (.+)` from output, throw `GitPrError(REBASE_CONFLICT)`.
+
+  **Rejected:**
+  - Leave worktree in conflict state — breaks worktree for automated tooling
+  - Interactive TUI resolution — out of scope (size M)
+
+  **Rationale:** Aborting keeps the worktree clean. Git reliably prints conflict file
+  names to stdout before stopping; regex parsing is straightforward and consistent with
+  existing diff-parsing logic in `GitPrService`.
+
+  ---
+
+  ### 4. SyncForkMain Git Strategy
+
+  **Chosen:** `git fetch upstream` + `git reset --hard upstream/main` on local main.
+
+  **Rejected:**
+  - `git pull upstream main` — may create merge commits, not idempotent with diverged history
+  - `git merge --ff-only upstream/main` — fails on upstream force-pushes
+
+  **Rationale:** `reset --hard` is the canonical fork sync pattern recommended by GitHub.
+  It is idempotent (NFR-3) and handles upstream force-pushes correctly.
+
+  ---
+
+  ### 5. New GitPrErrorCode Values
+
+  **Chosen:** Add `REBASE_CONFLICT` and `NOT_A_FORK` to the existing enum.
+
+  **Rejected:**
+  - Reuse `MERGE_CONFLICT` — misleading for rebase failures, causes silent catch bugs
+  - Generic `Error` — breaks typed error-handling contract
+
+  **Rationale:** The GitPrErrorCode enum is the authoritative error taxonomy. New codes
+  enable precise handling in use cases and CLI handlers.
+
+  ---
+
+  ### 6. Integration Test Strategy
+
+  **Chosen:** Real temporary git repos via `mkdtempSync()` with bare "remote" and bare
+  "upstream" to simulate fork topology.
+
+  **Rejected:**
+  - Mock ExecFunction only — cannot validate real git state transitions
+  - Shared fixture repos — fragile, state drifts, cannot vary topology per test
+
+  **Rationale:** Spec NFR-1 explicitly requires real git repos. Rebase semantics (detached
+  HEAD, REBASE_HEAD, conflict markers) only behave correctly with a real git binary.
+
+  ---
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | simple-git | Git operations | Reject | New dep, deviates from execFile pattern |
+  | nodegit | libgit2 bindings | Reject | Heavy native dep, overkill |
+  | node:child_process execFile | Git/gh execution | Use (existing) | Already injected via DI token |
+  | node:fs mkdtempSync | Test temp dirs | Use (existing) | Available in Node.js stdlib |
+  | Vitest | Test runner | Use (existing) | Established test framework |
+  | Commander.js | CLI parsing | Use (existing) | All CLI commands use this |
+
+  ---
+
+  ## Security Considerations
+
+  - **Command injection**: All git/gh arguments passed as discrete array elements to
+    `execFile` (not shell-interpolated strings). Branch names and remote URLs from user
+    input or gh API responses must never be shell-concatenated. The existing ExecFunction
+    wrapper already enforces argument array form — new methods follow the same pattern.
+  - **reset --hard safety**: `git reset --hard upstream/main` on local `main` is
+    destructive but intentional. CLI output should warn that local commits on main will
+    be discarded. Acceptable for fork workflows where main should never have local commits.
+  - **Upstream remote URL**: The parent URL comes from the GitHub API via `gh repo view`.
+    It is passed directly to `git remote add` as an argument array element — no shell
+    interpolation risk.
+
+  ---
+
+  ## Performance Implications
+
+  - **Single gh call per invocation**: `isFork()` returns both boolean and URL. The use
+    case stores this and passes it down — no second `gh repo view` call (NFR-9).
+  - **Git operations are sequential**: fetch → fast-forward main → rebase cannot be
+    parallelised (each depends on the previous). Network round-trip for `git fetch
+    upstream` is the dominant latency (~1–3s on typical repos).
+  - **No SQLite overhead for sync**: `SyncForkMainUseCase` has no repository lookup.
+    `RebaseFeatureUseCase` does one `findById()` — a single primary-key SQLite query.
+
+  ---
+
+  ## Architecture Notes
+
+  ### Clean Architecture Compliance
+
+  The feature touches all four layers with correct dependency direction:
+
+  ```
+  CLI command handler (presentation)
+      → RebaseFeatureUseCase / SyncForkMainUseCase (application)
+          → IGitPrService interface (application port)
+              → GitPrService implementation (infrastructure)
+  ```
+
+  No business logic in CLI handlers (NFR-5). No infrastructure imports in use cases.
+  All construction via TSyringe `container.resolve()` (NFR-6).
+
+  ### New File Locations
+
+  ```
+  packages/core/src/
+    application/
+      ports/output/services/git-pr-service.interface.ts   ← extend with 5 new methods
+      use-cases/
+        features/rebase-feature.use-case.ts               ← new
+        sync-fork-main.use-case.ts                         ← new
+    infrastructure/
+      services/git/git-pr.service.ts                      ← extend with 5 new methods
+      di/container.ts                                     ← register 2 new use cases
+
+  src/presentation/cli/commands/
+    feat/
+      rebase.command.ts                                   ← new
+      index.ts                                            ← add createRebaseCommand()
+    repo/
+      sync.command.ts                                     ← new
+      index.ts                                            ← add createSyncCommand()
+
+  tests/integration/infrastructure/services/git/
+    git-pr-rebase.service.test.ts                         ← new (real git repos)
+  ```
+
+  ### RebaseFeatureUseCase Flow
+
+  ```
+  1. featureRepo.findById(featureId) → feature.worktreePath, feature.branch
+  2. gitPrService.isFork(cwd) → { isFork, upstreamUrl }
+  3. if isFork: gitPrService.syncForkMain(worktreePath, upstreamUrl)
+  4. gitPrService.rebase(worktreePath, feature.branch, 'main')
+  5. Return { success: true, branch, rebased: true }
+  ```
+
+  ### SyncForkMainUseCase Flow
+
+  ```
+  1. gitPrService.isFork(cwd) → { isFork, upstreamUrl }
+  2. if not isFork: return { synced: false, reason: 'not-a-fork' }
+  3. gitPrService.syncForkMain(cwd, upstreamUrl)
+  4. Return { synced: true, upstreamUrl }
+  ```
+
+  ---
+
+  _Research complete — proceed with /shep-kit:plan_
