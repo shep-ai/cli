@@ -107,7 +107,9 @@ function AppShellInner({ children }: AppShellProps) {
             <ThemeToggle />
           </div>
           <main className="h-full">{children}</main>
-          {isControlCenterRoute(pathname) && <FloatingActionButton actions={fabActions} />}
+          {isControlCenterRoute(pathname) && features.length > 0 && (
+            <FloatingActionButton actions={fabActions} />
+          )}
         </div>
       </SidebarInset>
     </SidebarProvider>

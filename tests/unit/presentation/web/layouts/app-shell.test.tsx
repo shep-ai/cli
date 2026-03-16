@@ -101,10 +101,22 @@ describe('AppShell', () => {
       ['/feature/abc-123', 'feature detail'],
       ['/feature/abc-123/activity', 'feature tab'],
       ['/repository/repo-1', 'repository detail'],
-    ])('renders the FAB on control center route %s (%s)', (pathname) => {
+    ])('renders the FAB on control center route %s (%s) when features exist', (pathname) => {
       mockPathname = pathname;
-      renderShell(<div>Content</div>);
+      // FAB only shows when there are features (empty state has its own Add Repository)
+      renderShell(
+        <>
+          <ContextPublisher features={[{ featureId: 'f1', name: 'Test', status: 'in-progress' }]} />
+          <div>Content</div>
+        </>
+      );
       expect(screen.getByTestId('fab-trigger')).toBeInTheDocument();
+    });
+
+    it('hides the FAB on control center route when no features exist (empty state)', () => {
+      mockPathname = '/';
+      renderShell(<div>Content</div>);
+      expect(screen.queryByTestId('fab-trigger')).not.toBeInTheDocument();
     });
 
     it.each([
