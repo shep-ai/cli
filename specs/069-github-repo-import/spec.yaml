@@ -1,0 +1,126 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: github-repo-import
+number: 069
+branch: feat/069-github-repo-import
+oneLiner: Import GitHub repositories by URL or by browsing user's repos via gh CLI
+userQuery: >
+  As a user of shep I want to be able to add new repository from remote github,
+  it should support both direct url and also list my own private repositories
+summary: >
+  Add the ability to import GitHub repositories into Shep by cloning them locally.
+  Supports two flows: (1) paste a GitHub URL directly, and (2) browse/search the
+  authenticated user's repositories (including private ones) via the gh CLI. The
+  cloned repo is automatically registered as a tracked Shep repository.
+phase: Analysis
+sizeEstimate: M
+
+# Relationships
+relatedFeatures:
+  - "036 - Repository Entity (introduced Repository domain model)"
+  - "038 - Repo CLI Commands (shep repo ls / show)"
+
+technologies:
+  - "GitHub CLI (gh) - already installed as a required tool"
+  - "Commander.js - CLI command framework"
+  - "@inquirer/prompts - interactive TUI prompts"
+  - "TypeSpec - domain model definitions"
+  - "tsyringe - dependency injection"
+  - "better-sqlite3 - persistence layer"
+  - "Next.js / React - Web UI (shadcn/ui components)"
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - "Should the Repository domain model be extended with remoteUrl/source fields, or keep it minimal and rely on git remote metadata?"
+  - "What should the default clone destination be — a user-chosen directory, or auto-managed under ~/.shep/repos/?"
+  - "Should we support non-GitHub git URLs (GitLab, Bitbucket) in the same feature, or scope strictly to GitHub?"
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  Currently, Shep only supports adding repositories that already exist on the local filesystem.
+  The Web UI uses a native folder picker, and there is no CLI command for adding repos at all.
+  Users who want to work with a GitHub repository must manually clone it first, then add
+  the local path to Shep — a disjointed experience.
+
+  This feature adds a streamlined GitHub import flow: users can either paste a GitHub URL
+  or interactively browse their own repositories (including private ones) to clone and
+  register a repo in a single step.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The project follows Clean Architecture with four layers:
+
+  - **domain/** — TypeSpec-generated models (`Repository` entity with `name` and `path` fields)
+  - **application/** — Use cases (`AddRepositoryUseCase`, `ListRepositoriesUseCase`, `DeleteRepositoryUseCase`) and port interfaces (`IRepositoryRepository`)
+  - **infrastructure/** — SQLite persistence, git services, GitHub CLI integration, DI container
+  - **presentation/** — CLI (Commander.js), TUI (@inquirer/prompts), Web UI (Next.js + React Flow canvas)
+
+  Key directories:
+  - `tsp/domain/entities/repository.tsp` — Repository TypeSpec model
+  - `packages/core/src/application/use-cases/repositories/` — Existing repo use cases
+  - `packages/core/src/application/ports/output/` — Output port interfaces
+  - `packages/core/src/infrastructure/services/external/` — GitHub CLI integration
+  - `packages/core/src/infrastructure/services/git/` — Git operations (worktree, PR)
+  - `packages/core/src/infrastructure/services/filesystem/shep-directory.service.ts` — `~/.shep/` path management
+  - `src/presentation/cli/commands/repo/` — CLI repo commands (ls, show)
+  - `src/presentation/web/components/common/add-repository-button/` — Web UI add repo button
+  - `src/presentation/web/app/actions/add-repository.ts` — Server action for adding repos
+
+  ### Architecture Patterns
+
+  - **Dependency injection** via tsyringe (`@injectable()`, `@inject('token')`)
+  - **Port/adapter pattern**: interfaces in `application/ports/output/`, implementations in `infrastructure/`
+  - **GitHub CLI integration**: all GitHub operations use `gh` CLI subprocess (no Octokit), e.g. `GitHubIssueFetcher`
+  - **Git operations**: native `git` CLI via `execFile`, no third-party git libraries
+  - **CLI commands**: factory functions returning `Commander.Command` instances, registered in `cli/index.ts`
+  - **TUI wizards**: multi-step interactive prompts using `@inquirer/prompts` with `shepTheme`
+  - **Web server actions**: Next.js server actions that resolve use cases from DI container
+  - **Path management**: `getShepHomeDir()` returns `~/.shep/`, repos stored under `~/.shep/repos/<hash>/`
+
+  ### Relevant Technologies
+
+  - **gh CLI**: Already a required tool (auto-installed via tool-installer). Used for issues, PRs, and API calls. Provides `gh repo clone`, `gh repo list`, `gh auth status`.
+  - **git CLI**: Used for all git operations. Will need `git clone` support.
+  - **Commander.js**: CLI framework for `shep repo` commands.
+  - **@inquirer/prompts**: Interactive selection for browsing repos.
+  - **React / Next.js**: Web UI with server actions and React Flow canvas.
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `packages/core/src/application/use-cases/repositories/` | High | New `ImportGitHubRepositoryUseCase` and `ListGitHubRepositoriesUseCase` use cases |
+  | `packages/core/src/application/ports/output/services/` | High | New `IGitHubRepositoryService` port interface for clone and list operations |
+  | `packages/core/src/infrastructure/services/external/` | High | New `GitHubRepositoryService` implementation using `gh` CLI |
+  | `src/presentation/cli/commands/repo/` | High | New `shep repo add` command with `--url` flag and interactive GitHub browser |
+  | `src/presentation/tui/prompts/` | Medium | New prompt for selecting from user's GitHub repos |
+  | `src/presentation/web/components/common/add-repository-button/` | Medium | Extend to support GitHub URL input and repo browsing alongside folder picker |
+  | `src/presentation/web/app/actions/` | Medium | New server action for GitHub import flow |
+  | `tsp/domain/entities/repository.tsp` | Low | Potentially add optional `remoteUrl` field (depends on open question) |
+  | `packages/core/src/infrastructure/persistence/sqlite/` | Low | Migration if domain model changes |
+  | `packages/core/src/infrastructure/di/container.ts` | Low | Register new services and use cases |
+
+  ## Dependencies
+
+  - **GitHub CLI (`gh`)**: Already declared as a required tool in `packages/core/src/infrastructure/services/tool-installer/tools/gh.json`. Must be authenticated (`gh auth login`).
+  - **AddRepositoryUseCase**: The import flow will clone first, then delegate to the existing `AddRepositoryUseCase` to register the local path.
+  - **Shep directory service**: Uses `getShepHomeDir()` from `shep-directory.service.ts` if auto-managing clone destinations.
+  - **Tool installer**: May need to verify `gh` is installed and authenticated before import.
+
+  ## Size Estimate
+
+  **M (days)** — The core functionality (clone via gh, register repo) is straightforward since
+  it builds on existing patterns (gh CLI integration, AddRepositoryUseCase). The main effort
+  is in creating the interactive browsing UX (CLI + Web), handling auth edge cases, and
+  writing comprehensive tests across all three presentation layers (CLI, TUI, Web).
+
+  ---
+
+  _Analysis complete — proceed with research phase_
