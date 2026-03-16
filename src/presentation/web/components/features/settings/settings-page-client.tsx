@@ -401,6 +401,11 @@ export function SettingsPageClient({
   const [ciLogMax, setCiLogMax] = useState(
     settings.workflow.ciLogMaxChars != null ? String(settings.workflow.ciLogMaxChars) : ''
   );
+  const [ciPollInterval, setCiPollInterval] = useState(
+    settings.workflow.ciWatchPollIntervalSeconds != null
+      ? String(settings.workflow.ciWatchPollIntervalSeconds)
+      : ''
+  );
   // Feature agent per-stage timeout states (stored in seconds for display, converted to ms on save)
   // Defaults: feature agent stages = 1_800_000 ms (1800s), analyze-repo = 600_000 ms (600s)
   const stageTimeoutsConfig = settings.workflow.stageTimeouts;
@@ -446,6 +451,10 @@ export function SettingsPageClient({
       : '';
   const originalCiLogMax =
     settings.workflow.ciLogMaxChars != null ? String(settings.workflow.ciLogMaxChars) : '';
+  const originalCiPollInterval =
+    settings.workflow.ciWatchPollIntervalSeconds != null
+      ? String(settings.workflow.ciWatchPollIntervalSeconds)
+      : '';
   const originalAnalyzeTimeout =
     stageTimeoutsConfig?.analyzeMs != null
       ? String(Math.round(stageTimeoutsConfig.analyzeMs / 1000))
@@ -510,6 +519,7 @@ export function SettingsPageClient({
       ciMaxFix?: string;
       ciTimeout?: string;
       ciLogMax?: string;
+      ciPollInterval?: string;
       analyzeTimeout?: string;
       requirementsTimeout?: string;
       researchTimeout?: string;
@@ -534,6 +544,7 @@ export function SettingsPageClient({
         ciMaxFixAttempts: parseOptionalInt(overrides.ciMaxFix ?? ciMaxFix),
         ciWatchTimeoutMs: timeoutSeconds != null ? timeoutSeconds * 1000 : undefined,
         ciLogMaxChars: parseOptionalInt(overrides.ciLogMax ?? ciLogMax),
+        ciWatchPollIntervalSeconds: parseOptionalInt(overrides.ciPollInterval ?? ciPollInterval),
         stageTimeouts: {
           analyzeMs: secondsToMs(overrides.analyzeTimeout ?? analyzeTimeout),
           requirementsMs: secondsToMs(overrides.requirementsTimeout ?? requirementsTimeout),
@@ -1081,6 +1092,26 @@ export function SettingsPageClient({
                 min={1000}
                 step={5000}
                 suffix="chars"
+              />
+            </SettingsRow>
+            <SettingsRow
+              label="Poll interval"
+              description="How often to check GitHub for CI status updates"
+              htmlFor="ci-poll-interval"
+            >
+              <NumberStepper
+                id="ci-poll-interval"
+                testId="ci-poll-interval-input"
+                placeholder="30"
+                value={ciPollInterval}
+                onChange={setCiPollInterval}
+                onBlur={() => {
+                  if (ciPollInterval !== originalCiPollInterval)
+                    save(buildWorkflowPayload({ ciPollInterval }));
+                }}
+                min={5}
+                step={5}
+                suffix="sec"
               />
             </SettingsRow>
           </SettingsSection>
