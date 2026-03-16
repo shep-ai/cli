@@ -413,4 +413,111 @@ describe('GitHubWebhookService', () => {
       expect(registered[0].webhookId).toBe(555);
     });
   });
+
+  describe('registerWebhookForSingleRepo', () => {
+    it('should register a webhook and add it to the registered list', async () => {
+      vi.mocked(mockGitPrService.getRemoteUrl).mockResolvedValue('https://github.com/owner/repo');
+      mockExecFn.mockResolvedValue({ stdout: JSON.stringify({ id: 42 }), stderr: '' });
+
+      const result = await service.registerWebhookForSingleRepo(
+        '/home/user/repo',
+        'https://tunnel.example.com/api/webhooks/github'
+      );
+
+      expect(result).not.toBeNull();
+      expect(result!.repoFullName).toBe('owner/repo');
+      expect(result!.webhookId).toBe(42);
+      expect(service.getRegisteredWebhooks()).toHaveLength(1);
+    });
+
+    it('should no-op when a webhook is already registered for the repo path', async () => {
+      vi.mocked(mockGitPrService.getRemoteUrl).mockResolvedValue('https://github.com/owner/repo');
+      mockExecFn.mockResolvedValue({ stdout: JSON.stringify({ id: 42 }), stderr: '' });
+
+      await service.registerWebhookForSingleRepo(
+        '/home/user/repo',
+        'https://tunnel.example.com/api/webhooks/github'
+      );
+      const callCountAfterFirst = mockExecFn.mock.calls.length;
+
+      await service.registerWebhookForSingleRepo(
+        '/home/user/repo',
+        'https://tunnel.example.com/api/webhooks/github'
+      );
+
+      // No additional gh api calls for the second registration
+      expect(mockExecFn.mock.calls.length).toBe(callCountAfterFirst);
+      expect(service.getRegisteredWebhooks()).toHaveLength(1);
+    });
+
+    it('should normalize backslash paths before comparing', async () => {
+      vi.mocked(mockGitPrService.getRemoteUrl).mockResolvedValue('https://github.com/owner/repo');
+      mockExecFn.mockResolvedValue({ stdout: JSON.stringify({ id: 42 }), stderr: '' });
+
+      await service.registerWebhookForSingleRepo(
+        '/home/user/repo',
+        'https://tunnel.example.com/api/webhooks/github'
+      );
+      await service.registerWebhookForSingleRepo(
+        '\\home\\user\\repo',
+        'https://tunnel.example.com/api/webhooks/github'
+      );
+      expect(service.getRegisteredWebhooks()).toHaveLength(1);
+    });
+
+    it('should return the existing webhook when already registered', async () => {
+      vi.mocked(mockGitPrService.getRemoteUrl).mockResolvedValue('https://github.com/owner/repo');
+      mockExecFn.mockResolvedValue({ stdout: JSON.stringify({ id: 42 }), stderr: '' });
+
+      const first = await service.registerWebhookForSingleRepo(
+        '/home/user/repo',
+        'https://tunnel.example.com/api/webhooks/github'
+      );
+      const second = await service.registerWebhookForSingleRepo(
+        '/home/user/repo',
+        'https://tunnel.example.com/api/webhooks/github'
+      );
+      expect(first).toEqual(second);
+    });
+  });
+
+  describe('removeWebhookForRepo', () => {
+    it('should remove a webhook from GitHub and the registered list', async () => {
+      vi.mocked(mockGitPrService.getRemoteUrl).mockResolvedValue('https://github.com/owner/repo');
+      mockExecFn.mockResolvedValue({ stdout: JSON.stringify({ id: 42 }), stderr: '' });
+
+      await service.registerWebhookForSingleRepo(
+        '/home/user/repo',
+        'https://tunnel.example.com/api/webhooks/github'
+      );
+      expect(service.getRegisteredWebhooks()).toHaveLength(1);
+      mockExecFn.mockClear();
+
+      await service.removeWebhookForRepo('/home/user/repo');
+      expect(service.getRegisteredWebhooks()).toHaveLength(0);
+      expect(mockExecFn).toHaveBeenCalledWith(
+        'gh',
+        expect.arrayContaining(['api', '--method', 'DELETE']),
+        expect.any(Object)
+      );
+    });
+
+    it('should no-op when repo path is not found', async () => {
+      mockExecFn.mockClear();
+      await service.removeWebhookForRepo('/nonexistent/path');
+      expect(mockExecFn).not.toHaveBeenCalled();
+    });
+
+    it('should normalize paths when finding webhook to remove', async () => {
+      vi.mocked(mockGitPrService.getRemoteUrl).mockResolvedValue('https://github.com/owner/repo');
+      mockExecFn.mockResolvedValue({ stdout: JSON.stringify({ id: 42 }), stderr: '' });
+
+      await service.registerWebhookForSingleRepo(
+        '/home/user/repo',
+        'https://tunnel.example.com/api/webhooks/github'
+      );
+      await service.removeWebhookForRepo('\\home\\user\\repo');
+      expect(service.getRegisteredWebhooks()).toHaveLength(0);
+    });
+  });
 });

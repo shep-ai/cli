@@ -25,8 +25,12 @@ import { NotificationEventType, NotificationSeverity } from '../../../domain/gen
 import type { NotificationEvent, Feature } from '../../../domain/generated/output.js';
 
 const TAG = '[GitHubWebhook]';
-const WEBHOOK_EVENTS = ['pull_request', 'check_suite', 'check_run'];
+const WEBHOOK_EVENTS = ['pull_request', 'check_suite', 'check_run'] as const;
 const MAX_EVENT_HISTORY = 200;
+
+function normalizePath(p: string): string {
+  return p.replace(/\\/g, '/');
+}
 
 export type ExecFunction = (
   file: string,
@@ -95,6 +99,65 @@ export class GitHubWebhookService implements IWebhookService {
    */
   getDeliveryHistory(): readonly WebhookDeliveryRecord[] {
     return this.deliveryHistory;
+  }
+
+  /**
+   * Register a webhook for a single repository.
+   * No-ops if the repo already has a registered webhook (normalized path comparison).
+   */
+  async registerWebhookForSingleRepo(
+    repoPath: string,
+    webhookUrl: string
+  ): Promise<RegisteredWebhook | null> {
+    const normalized = normalizePath(repoPath);
+    const existing = this.registeredWebhooks.find(
+      (w) => normalizePath(w.repositoryPath) === normalized
+    );
+    if (existing) return existing;
+
+    await this.registerWebhookForRepo(repoPath, webhookUrl);
+
+    const added = this.registeredWebhooks.find(
+      (w) => normalizePath(w.repositoryPath) === normalized
+    );
+    return added ?? null;
+  }
+
+  /**
+   * Remove the webhook for a single repository.
+   * No-ops if the repo has no registered webhook.
+   */
+  async removeWebhookForRepo(repoPath: string): Promise<void> {
+    const normalized = normalizePath(repoPath);
+    const index = this.registeredWebhooks.findIndex(
+      (w) => normalizePath(w.repositoryPath) === normalized
+    );
+    if (index === -1) return;
+
+    const webhook = this.registeredWebhooks[index];
+
+    try {
+      await this.execFn(
+        'gh',
+        [
+          'api',
+          '--method',
+          'DELETE',
+          `-H`,
+          'Accept: application/vnd.github+json',
+          `/repos/${webhook.repoFullName}/hooks/${webhook.webhookId}`,
+        ],
+        { cwd: webhook.repositoryPath }
+      );
+      // eslint-disable-next-line no-console
+      console.log(`${TAG} Removed webhook #${webhook.webhookId} for ${webhook.repoFullName}`);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      // eslint-disable-next-line no-console
+      console.warn(`${TAG} Failed to remove webhook for ${webhook.repoFullName}: ${msg}`);
+    }
+
+    this.registeredWebhooks.splice(index, 1);
   }
 
   async registerWebhooks(publicUrl: string): Promise<void> {
