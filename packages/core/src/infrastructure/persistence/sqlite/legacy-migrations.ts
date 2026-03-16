@@ -534,6 +534,29 @@ CREATE TABLE IF NOT EXISTS pr_sync_lock (
       }
     },
   },
+  {
+    version: 36,
+    name: '036-add-phase-execution-metadata',
+    sql: '',
+    handler: (db: Database.Database) => {
+      const columns = db.pragma('table_info(phase_timings)') as { name: string }[];
+      const existing = new Set(columns.map((c) => c.name));
+      const additions: [string, string][] = [
+        ['prompt', 'TEXT'],
+        ['model_id', 'TEXT'],
+        ['agent_type', 'TEXT'],
+        ['input_tokens', 'INTEGER'],
+        ['output_tokens', 'INTEGER'],
+        ['exit_code', 'TEXT'],
+        ['error_message', 'TEXT'],
+      ];
+      for (const [col, type] of additions) {
+        if (!existing.has(col)) {
+          db.exec(`ALTER TABLE phase_timings ADD COLUMN ${col} ${type}`);
+        }
+      }
+    },
+  },
 ];
 
 /**

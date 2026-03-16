@@ -22,6 +22,13 @@ interface PhaseTimingRow {
   duration_ms: number | null;
   waiting_approval_at: number | null;
   approval_wait_ms: number | null;
+  prompt: string | null;
+  model_id: string | null;
+  agent_type: string | null;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  exit_code: string | null;
+  error_message: string | null;
   created_at: number;
   updated_at: number;
 }
@@ -37,6 +44,13 @@ function toDatabase(timing: PhaseTiming): PhaseTimingRow {
     waiting_approval_at:
       timing.waitingApprovalAt instanceof Date ? timing.waitingApprovalAt.getTime() : null,
     approval_wait_ms: timing.approvalWaitMs != null ? Number(timing.approvalWaitMs) : null,
+    prompt: timing.prompt ?? null,
+    model_id: timing.modelId ?? null,
+    agent_type: timing.agentType ?? null,
+    input_tokens: timing.inputTokens != null ? Number(timing.inputTokens) : null,
+    output_tokens: timing.outputTokens != null ? Number(timing.outputTokens) : null,
+    exit_code: timing.exitCode ?? null,
+    error_message: timing.errorMessage ?? null,
     created_at: timing.createdAt instanceof Date ? timing.createdAt.getTime() : timing.createdAt,
     updated_at: timing.updatedAt instanceof Date ? timing.updatedAt.getTime() : timing.updatedAt,
   };
@@ -56,6 +70,13 @@ function fromDatabase(row: PhaseTimingRow): PhaseTiming {
       waitingApprovalAt: new Date(row.waiting_approval_at),
     }),
     ...(row.approval_wait_ms !== null && { approvalWaitMs: BigInt(row.approval_wait_ms) }),
+    ...(row.prompt !== null && { prompt: row.prompt }),
+    ...(row.model_id !== null && { modelId: row.model_id }),
+    ...(row.agent_type !== null && { agentType: row.agent_type }),
+    ...(row.input_tokens !== null && { inputTokens: BigInt(row.input_tokens) }),
+    ...(row.output_tokens !== null && { outputTokens: BigInt(row.output_tokens) }),
+    ...(row.exit_code !== null && { exitCode: row.exit_code }),
+    ...(row.error_message !== null && { errorMessage: row.error_message }),
   };
 }
 
@@ -73,10 +94,12 @@ export class SQLitePhaseTimingRepository implements IPhaseTimingRepository {
       INSERT INTO phase_timings (
         id, agent_run_id, phase, started_at, completed_at, duration_ms,
         waiting_approval_at, approval_wait_ms,
+        prompt, model_id, agent_type, input_tokens, output_tokens, exit_code, error_message,
         created_at, updated_at
       ) VALUES (
         @id, @agent_run_id, @phase, @started_at, @completed_at, @duration_ms,
         @waiting_approval_at, @approval_wait_ms,
+        @prompt, @model_id, @agent_type, @input_tokens, @output_tokens, @exit_code, @error_message,
         @created_at, @updated_at
       )
     `);
@@ -86,7 +109,12 @@ export class SQLitePhaseTimingRepository implements IPhaseTimingRepository {
 
   async update(
     id: string,
-    updates: Partial<Pick<PhaseTiming, 'completedAt' | 'durationMs'>>
+    updates: Partial<
+      Pick<
+        PhaseTiming,
+        'completedAt' | 'durationMs' | 'inputTokens' | 'outputTokens' | 'exitCode' | 'errorMessage'
+      >
+    >
   ): Promise<void> {
     const setClauses: string[] = ['updated_at = @updated_at'];
     const params: Record<string, unknown> = {
@@ -103,6 +131,26 @@ export class SQLitePhaseTimingRepository implements IPhaseTimingRepository {
     if (updates.durationMs !== undefined) {
       setClauses.push('duration_ms = @duration_ms');
       params.duration_ms = updates.durationMs;
+    }
+
+    if (updates.inputTokens !== undefined) {
+      setClauses.push('input_tokens = @input_tokens');
+      params.input_tokens = Number(updates.inputTokens);
+    }
+
+    if (updates.outputTokens !== undefined) {
+      setClauses.push('output_tokens = @output_tokens');
+      params.output_tokens = Number(updates.outputTokens);
+    }
+
+    if (updates.exitCode !== undefined) {
+      setClauses.push('exit_code = @exit_code');
+      params.exit_code = updates.exitCode;
+    }
+
+    if (updates.errorMessage !== undefined) {
+      setClauses.push('error_message = @error_message');
+      params.error_message = updates.errorMessage;
     }
 
     const stmt = this.db.prepare(

@@ -676,7 +676,7 @@ describe('SQLite Migrations', () => {
     it('sets schema version to latest after migration', async () => {
       await runSQLiteMigrations(db);
       expect(getSchemaVersion(db)).toBe(LATEST_SCHEMA_VERSION);
-      expect(LATEST_SCHEMA_VERSION).toBe(35);
+      expect(LATEST_SCHEMA_VERSION).toBe(36);
     });
   });
 
@@ -881,17 +881,17 @@ describe('SQLite Migrations', () => {
       expect(tableExists(db, 'umzug_migrations')).toBe(true);
     });
 
-    it('should record 35 migration entries in umzug_migrations', async () => {
+    it('should record 36 migration entries in umzug_migrations', async () => {
       await runSQLiteMigrations(db);
       const applied = getAppliedMigrations(db);
-      expect(applied).toHaveLength(35);
+      expect(applied).toHaveLength(36);
     });
 
-    it('should record migrations with zero-padded names from 001 to 035', async () => {
+    it('should record migrations with zero-padded names from 001 to 036', async () => {
       await runSQLiteMigrations(db);
       const applied = getAppliedMigrations(db);
       expect(applied[0]).toMatch(/^001-/);
-      expect(applied[34]).toMatch(/^035-/);
+      expect(applied[35]).toMatch(/^036-/);
     });
 
     it('should bootstrap seeder for database at user_version 20', async () => {
@@ -905,12 +905,12 @@ describe('SQLite Migrations', () => {
       db.exec('DROP TABLE umzug_migrations');
       db.pragma('user_version = 20');
 
-      // Running migrations should bootstrap 20 records and re-run 21-35
+      // Running migrations should bootstrap 20 records and re-run 21-36
       await runSQLiteMigrations(db);
 
       expect(getSchemaVersion(db)).toBe(LATEST_SCHEMA_VERSION);
       const applied = getAppliedMigrations(db);
-      expect(applied).toHaveLength(35);
+      expect(applied).toHaveLength(36);
     });
 
     it('should apply only pending migrations when some are already tracked', async () => {
@@ -920,11 +920,11 @@ describe('SQLite Migrations', () => {
       clearMigrationsAfter(db, '029');
       db.pragma('user_version = 29');
 
-      // Re-run should apply only pending migrations (030-035)
+      // Re-run should apply only pending migrations (030-036)
       await runSQLiteMigrations(db);
 
       expect(getSchemaVersion(db)).toBe(LATEST_SCHEMA_VERSION);
-      expect(getAppliedMigrations(db)).toHaveLength(35);
+      expect(getAppliedMigrations(db)).toHaveLength(36);
     });
 
     it('should repair missing pr_sync_lock table after bootstrap gap', async () => {
@@ -941,15 +941,15 @@ describe('SQLite Migrations', () => {
       // Step 2: Drop pr_sync_lock and umzug_migrations to simulate the gap
       db.exec('DROP TABLE pr_sync_lock');
       db.exec('DROP TABLE umzug_migrations');
-      // user_version stays at 35 (simulating the pre-umzug state)
+      // user_version stays at 36 (simulating the pre-umzug state)
 
       // Step 3 & 4: Re-run migrations — should bootstrap, verify, and repair
       await runSQLiteMigrations(db);
 
       // pr_sync_lock should now exist
       expect(tableExists(db, 'pr_sync_lock')).toBe(true);
-      // All 35 migrations should be tracked
-      expect(getAppliedMigrations(db)).toHaveLength(35);
+      // All 36 migrations should be tracked
+      expect(getAppliedMigrations(db)).toHaveLength(36);
       // user_version may be 33 (set by re-run of 033) since 034 was already
       // tracked and didn't re-run. With umzug, user_version is a legacy artifact.
       expect(getSchemaVersion(db)).toBeGreaterThanOrEqual(33);

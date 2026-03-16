@@ -69,6 +69,13 @@ async function resolveIterationPhase(
   }
 }
 
+/** Pre-execution metadata recorded at phase start. */
+export interface PhaseStartMetadata {
+  prompt?: string;
+  modelId?: string;
+  agentType?: string;
+}
+
 /**
  * Record the start of a phase. Returns the timing record ID (for later update)
  * or null if context is not set or save fails.
@@ -76,7 +83,10 @@ async function resolveIterationPhase(
  * Automatically appends an iteration suffix (`:2`, `:3`, …) when the same
  * phase has already been recorded for this run (e.g. after a rejection loop).
  */
-export async function recordPhaseStart(phase: string): Promise<string | null> {
+export async function recordPhaseStart(
+  phase: string,
+  metadata?: PhaseStartMetadata
+): Promise<string | null> {
   if (!contextRunId || !contextRepository) return null;
 
   const id = randomUUID();
@@ -91,6 +101,9 @@ export async function recordPhaseStart(phase: string): Promise<string | null> {
       startedAt: now,
       createdAt: now,
       updatedAt: now,
+      ...(metadata?.prompt != null && { prompt: metadata.prompt }),
+      ...(metadata?.modelId != null && { modelId: metadata.modelId }),
+      ...(metadata?.agentType != null && { agentType: metadata.agentType }),
     });
     lastTimingId = id;
     return id;
@@ -100,17 +113,34 @@ export async function recordPhaseStart(phase: string): Promise<string | null> {
   }
 }
 
+/** Post-execution metadata recorded at phase end. */
+export interface PhaseEndMetadata {
+  inputTokens?: number;
+  outputTokens?: number;
+  exitCode?: string;
+  errorMessage?: string;
+}
+
 /**
- * Record the end of a phase. Updates the timing record with completedAt and durationMs.
+ * Record the end of a phase. Updates the timing record with completedAt, durationMs,
+ * and optional execution metadata (token usage, exit code, error).
  * No-op if timingId is null (phase start was skipped or failed).
  */
-export async function recordPhaseEnd(timingId: string | null, durationMs: number): Promise<void> {
+export async function recordPhaseEnd(
+  timingId: string | null,
+  durationMs: number,
+  metadata?: PhaseEndMetadata
+): Promise<void> {
   if (!timingId || !contextRepository) return;
 
   try {
     await contextRepository.update(timingId, {
       completedAt: new Date(),
       durationMs: BigInt(durationMs),
+      ...(metadata?.inputTokens != null && { inputTokens: BigInt(metadata.inputTokens) }),
+      ...(metadata?.outputTokens != null && { outputTokens: BigInt(metadata.outputTokens) }),
+      ...(metadata?.exitCode != null && { exitCode: metadata.exitCode }),
+      ...(metadata?.errorMessage != null && { errorMessage: metadata.errorMessage }),
     });
   } catch {
     // Swallow — timing update failure is non-fatal
