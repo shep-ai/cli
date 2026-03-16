@@ -158,7 +158,7 @@ export function FeatureNode({
           data.state === 'deleting' && 'opacity-60'
         )}
       >
-        {/* Top row: lifecycle label + agent icon */}
+        {/* Top row: lifecycle label + inline icons (deployment, fast mode, agent) */}
         <div className="flex items-center justify-between">
           <span
             data-testid="feature-node-lifecycle-label"
@@ -171,6 +171,49 @@ export function FeatureNode({
                 : lifecycleDisplayLabels[data.lifecycle]}
           </span>
           <div className="flex items-center gap-0.5">
+            {data.deployment ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      aria-label={
+                        data.deployment.status === DeploymentState.Booting
+                          ? 'Deploying'
+                          : 'Open dev server'
+                      }
+                      data-testid="feature-node-deployment-indicator"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (
+                          data.deployment?.status === DeploymentState.Ready &&
+                          data.deployment.url
+                        ) {
+                          window.open(data.deployment.url, '_blank', 'noopener,noreferrer');
+                        }
+                      }}
+                      className={cn(
+                        'nodrag -mt-1 p-1',
+                        data.deployment.status === DeploymentState.Ready && data.deployment.url
+                          ? 'cursor-pointer opacity-80 transition-opacity hover:opacity-100'
+                          : 'cursor-default'
+                      )}
+                    >
+                      {data.deployment.status === DeploymentState.Booting ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-500" />
+                      ) : (
+                        <Globe className="h-3.5 w-3.5 text-green-600" />
+                      )}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    {data.deployment.status === DeploymentState.Booting
+                      ? 'Deploying...'
+                      : (data.deployment.url ?? 'Live')}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : null}
             {data.fastMode ? (
               <TooltipProvider>
                 <Tooltip>
@@ -234,30 +277,6 @@ export function FeatureNode({
           >
             {data.description}
           </p>
-        ) : null}
-
-        {/* Deployment status indicator */}
-        {data.deployment ? (
-          <div
-            data-testid="feature-node-deployment-indicator"
-            className={cn(
-              'mt-1.5 flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium',
-              data.deployment.status === DeploymentState.Booting
-                ? 'bg-blue-50 text-blue-700'
-                : 'bg-green-50 text-green-700'
-            )}
-          >
-            {data.deployment.status === DeploymentState.Booting ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            ) : (
-              <Globe className="h-3 w-3" />
-            )}
-            <span className="truncate">
-              {data.deployment.status === DeploymentState.Booting
-                ? 'Deploying...'
-                : (data.deployment.url ?? 'Live')}
-            </span>
-          </div>
         ) : null}
 
         {/* Bottom section — pushed to bottom for consistent card height */}

@@ -1,0 +1,36 @@
+feature:
+  id: '069-inline-devserver-icon'
+  name: 'inline-devserver-icon'
+  number: 69
+  branch: 'feat/069-inline-devserver-icon'
+  lifecycle: 'research'
+  createdAt: '2026-03-16T16:52:38Z'
+
+status:
+  phase: 'research'
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-03-16T16:52:38Z'
+  lastUpdatedBy: 'feature-agent'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-03-16T16:52:38Z'
+    completedBy: 'feature-agent'
+
+errors:
+  current: null
+  history: []
