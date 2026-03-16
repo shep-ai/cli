@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Loader2, AlertCircle, Clock } from 'lucide-react';
+import { Loader2, AlertCircle, Clock, Zap } from 'lucide-react';
 import type {
   PhaseTimingData,
   RejectionFeedbackData,
@@ -49,6 +49,13 @@ function useTickingNow(timings: PhaseTimingData[] | null): number {
   }, [timings]);
 
   return now;
+}
+
+/** Format a token count with K/M suffix for readability. */
+function formatTokens(count: number): string {
+  if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}M`;
+  if (count >= 1_000) return `${(count / 1_000).toFixed(1)}K`;
+  return String(count);
 }
 
 export interface ActivityTabProps {
@@ -228,6 +235,8 @@ export function ActivityTab({ timings, loading, error, rejectionFeedback }: Acti
 
   const totalExecMs = nodeTimings.reduce((sum, t) => sum + getEffectiveDuration(t, now), 0);
   const totalWaitMs = nodeTimings.reduce((sum, t) => sum + (t.approvalWaitMs ?? 0), 0);
+  const totalInputTokens = nodeTimings.reduce((sum, t) => sum + (t.inputTokens ?? 0), 0);
+  const totalOutputTokens = nodeTimings.reduce((sum, t) => sum + (t.outputTokens ?? 0), 0);
 
   return (
     <div className="flex flex-col gap-4 p-4">
@@ -243,7 +252,12 @@ export function ActivityTab({ timings, loading, error, rejectionFeedback }: Acti
         ))}
       </div>
       {totalExecMs > 0 ? (
-        <SummaryTotals totalExecMs={totalExecMs} totalWaitMs={totalWaitMs} />
+        <SummaryTotals
+          totalExecMs={totalExecMs}
+          totalWaitMs={totalWaitMs}
+          totalInputTokens={totalInputTokens}
+          totalOutputTokens={totalOutputTokens}
+        />
       ) : null}
     </div>
   );
@@ -352,6 +366,10 @@ function NodeTimingRow({
   const barPercent = maxDurationMs > 0 ? Math.max(2, (durationMs / maxDurationMs) * 100) : 2;
   const isRunning = !timing.completedAt && !!timing.startedAt;
   const barColorClass = timing.completedAt ? 'bg-emerald-500' : 'bg-blue-500';
+  const totalTokens =
+    timing.inputTokens != null || timing.outputTokens != null
+      ? (timing.inputTokens ?? 0) + (timing.outputTokens ?? 0)
+      : null;
 
   return (
     <div className="flex flex-col gap-1">
@@ -363,9 +381,15 @@ function NodeTimingRow({
             style={{ width: `${Math.min(barPercent, 100)}%` }}
           />
         </div>
-        <span className="text-muted-foreground w-14 shrink-0 text-right text-xs">
-          {formatDuration(durationMs)}
-        </span>
+        <div className="flex w-14 shrink-0 flex-col items-end">
+          <span className="text-muted-foreground text-xs">{formatDuration(durationMs)}</span>
+          {totalTokens != null && totalTokens > 0 ? (
+            <span className="text-muted-foreground flex items-center gap-0.5 text-[10px]">
+              <Zap className="h-2 w-2" />
+              {formatTokens(totalTokens)}
+            </span>
+          ) : null}
+        </div>
       </div>
       {timing.approvalWaitMs != null && timing.approvalWaitMs > 0 ? (
         <ApprovalWaitRow timing={timing} maxDurationMs={maxDurationMs} />
@@ -400,7 +424,18 @@ function ApprovalWaitRow({
   );
 }
 
-function SummaryTotals({ totalExecMs, totalWaitMs }: { totalExecMs: number; totalWaitMs: number }) {
+function SummaryTotals({
+  totalExecMs,
+  totalWaitMs,
+  totalInputTokens,
+  totalOutputTokens,
+}: {
+  totalExecMs: number;
+  totalWaitMs: number;
+  totalInputTokens: number;
+  totalOutputTokens: number;
+}) {
+  const totalTokens = totalInputTokens + totalOutputTokens;
   return (
     <div
       data-testid="activity-summary"
@@ -411,6 +446,15 @@ function SummaryTotals({ totalExecMs, totalWaitMs }: { totalExecMs: number; tota
         <>
           <SummaryRow label="Total wait" value={formatDuration(totalWaitMs)} />
           <SummaryRow label="Total wall-clock" value={formatDuration(totalExecMs + totalWaitMs)} />
+        </>
+      ) : null}
+      {totalTokens > 0 ? (
+        <>
+          <SummaryRow
+            label="Tokens"
+            value={`${formatTokens(totalInputTokens)} in / ${formatTokens(totalOutputTokens)} out`}
+          />
+          <SummaryRow label="Total tokens" value={formatTokens(totalTokens)} />
         </>
       ) : null}
     </div>
