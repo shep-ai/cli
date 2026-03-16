@@ -14,12 +14,14 @@ import type { AgentType } from '@/domain/generated/output.js';
 
 // ─── Mocks ──────────────────────────────────────────────────────────
 
-const { mockReadFileSync, mockWriteFileSync, mockReaddirSync, mockStatSync } = vi.hoisted(() => ({
-  mockReadFileSync: vi.fn(),
-  mockWriteFileSync: vi.fn(),
-  mockReaddirSync: vi.fn(),
-  mockStatSync: vi.fn(),
-}));
+const { mockReadFileSync, mockWriteFileSync, mockReaddirSync, mockStatSync, mockExecSync } =
+  vi.hoisted(() => ({
+    mockReadFileSync: vi.fn(),
+    mockWriteFileSync: vi.fn(),
+    mockReaddirSync: vi.fn(),
+    mockStatSync: vi.fn(),
+    mockExecSync: vi.fn(),
+  }));
 
 vi.mock('node:fs', async (importOriginal) => {
   // eslint-disable-next-line @typescript-eslint/consistent-type-imports
@@ -54,6 +56,15 @@ vi.mock('@/infrastructure/services/agents/feature-agent/phase-timing-context.js'
   recordPhaseEnd: vi.fn().mockResolvedValue(undefined),
   recordApprovalWaitStart: vi.fn().mockResolvedValue(undefined),
 }));
+
+vi.mock('node:child_process', async (importOriginal) => {
+  // eslint-disable-next-line @typescript-eslint/consistent-type-imports
+  const actual = await importOriginal<typeof import('node:child_process')>();
+  return {
+    ...actual,
+    execSync: mockExecSync,
+  };
+});
 
 // Mock settings service — evidence enabled by default in tests
 vi.mock('@/infrastructure/services/settings.service.js', () => ({
@@ -129,6 +140,9 @@ describe('createFastFeatureAgentGraph', () => {
     mockWriteFileSync.mockReset();
     mockReaddirSync.mockReset();
     mockStatSync.mockReset();
+    mockExecSync.mockReset();
+    // Default: git status reports changes exist (happy path)
+    mockExecSync.mockReturnValue('M  src/index.ts\n');
   });
 
   it('should create a compiled graph', () => {
