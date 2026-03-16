@@ -1,0 +1,143 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: adopt-existing-branch
+number: 068
+branch: feat/068-adopt-existing-branch
+oneLiner: Allow users to adopt an existing git branch into Shep as a tracked feature without triggering autonomous development
+summary: >
+  Add a new "adopt" flow that lets users import an existing git branch (local or remote) into Shep's
+  feature tracking system. This creates a worktree if one doesn't exist, registers it as a Feature entity
+  in the database with lifecycle=Maintain (agent inactive), and surfaces it in the feature list with full
+  action support (open in IDE, open shell, deploy, etc.) — but does NOT spawn an agent unless explicitly requested.
+phase: Analysis
+sizeEstimate: M
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - TypeScript
+  - tsyringe (DI)
+  - Commander.js (CLI)
+  - Next.js (Web UI server actions)
+  - SQLite (persistence)
+  - git worktree (branch isolation)
+  - React Flow (feature graph visualization)
+  - TypeSpec (domain model)
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - What lifecycle state should adopted features use? Maintain (terminal, agent permanently inactive) seems
+    right since the user explicitly doesn't want Shep to develop it. Alternatively, a new "Adopted" enum
+    value could be clearer.
+  - Should the user be able to later "activate" an adopted feature so Shep continues development from
+    where the branch left off? If so, what lifecycle transition is appropriate?
+  - Should the adopt flow support remote-only branches (fetch + create local tracking branch) or only
+    branches that already exist locally?
+  - Should the adopt command accept a custom name/description or auto-derive them from the branch name?
+
+content: |
+  ## Problem Statement
+
+  Currently, Shep only supports features it creates from scratch via `shep feat new`. Every feature
+  creation flow generates a new branch, creates a worktree, initializes spec YAML, and spawns an
+  autonomous agent. There is no way to bring an existing branch (e.g., one created by Claude Code,
+  another developer, or a manual coding session) under Shep's management.
+
+  Users who have work-in-progress branches want to:
+  1. See them in the Shep feature list alongside Shep-created features
+  2. Use Shep actions on them (open in IDE, open shell, deploy)
+  3. Work on them in parallel via git worktrees
+  4. NOT have Shep autonomously develop them unless explicitly asked
+
+  The `CreateFeatureUseCase` is tightly coupled to a "create new branch" workflow — it always calls
+  `worktreeService.create()` with `-b` (new branch) and always runs metadata generation + spec
+  initialization + agent spawning. There is no path to adopt an existing branch.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The codebase follows Clean Architecture with four layers:
+
+  - **Domain** (`packages/core/src/domain/`): TypeSpec-generated types including `Feature` (aggregate root),
+    `SdlcLifecycle` enum, `ApprovalGates` value object. Source of truth at `tsp/domain/entities/feature.tsp`.
+  - **Application** (`packages/core/src/application/`): Use cases (`CreateFeatureUseCase`, `StartFeatureUseCase`,
+    `ListFeaturesUseCase`, etc.) and port interfaces (`IWorktreeService`, `IFeatureRepository`, `IGitPrService`).
+  - **Infrastructure** (`packages/core/src/infrastructure/`): Implementations — `WorktreeService` (git worktree
+    operations), SQLite repositories, DI container (tsyringe).
+  - **Presentation** (`src/presentation/`): CLI (Commander.js at `cli/commands/feat/`), Web UI (Next.js server
+    actions at `web/app/actions/`), TUI wizards.
+
+  ### Architecture Patterns
+
+  - **Dependency Injection**: tsyringe container at `infrastructure/di/container.ts`
+  - **Two-phase feature creation**: `createRecord()` (fast DB write) → `initializeAndSpawn()` (slow: AI metadata,
+    git worktree, spec init, agent spawn). Web UI uses fire-and-forget for phase 2.
+  - **Slug → Branch convention**: `SlugResolver` generates `feat/<slug>` branches. Branch names always start with `feat/`.
+  - **Worktree path convention**: `~/.shep/repos/<sha256(repoPath).slice(0,16)>/wt/<branch-slug>/`
+  - **Feature actions**: Server actions in `web/app/actions/` resolve use cases from DI container. Actions like
+    `open-ide.ts`, `open-shell.ts`, `deploy-feature.ts` work with `worktreePath` on the Feature entity.
+
+  ### Relevant Technologies
+
+  - **git worktree**: The `WorktreeService` wraps `git worktree add/remove/list`. Currently `create()` always
+    passes `-b` to create a new branch. Adopting an existing branch requires `git worktree add <path> <existing-branch>`
+    (without `-b`).
+  - **TypeSpec**: Domain models are defined in `tsp/` and compiled to `packages/core/src/domain/generated/output.ts`.
+    Any new lifecycle state would need to be added to `tsp/common/enums/lifecycle.tsp`.
+  - **SQLite**: Feature records stored via `feature.mapper.ts`. The mapper handles toDatabase/fromDatabase conversion.
+  - **React Flow**: Feature graph visualization in the web UI. Nodes derive from `Feature` entities via `getGraphData()`.
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `packages/core/src/application/use-cases/features/` | High | New `AdoptBranchUseCase` needed — the core business logic for adopting a branch |
+  | `packages/core/src/application/ports/output/services/worktree-service.interface.ts` | Medium | Need a new method like `addExisting()` that runs `git worktree add <path> <branch>` without `-b` |
+  | `packages/core/src/infrastructure/services/git/worktree.service.ts` | Medium | Implement the new `addExisting()` method |
+  | `src/presentation/cli/commands/feat/index.ts` | Medium | Register new `adopt` subcommand |
+  | `src/presentation/cli/commands/feat/` | High | New `adopt.command.ts` CLI entry point |
+  | `src/presentation/web/app/actions/` | Medium | New `adopt-branch.ts` server action for web UI |
+  | `src/presentation/web/components/` | Medium | UI entry point for adopt flow (e.g., in the create feature dialog or as a separate action) |
+  | `packages/core/src/application/ports/output/repositories/feature-repository.interface.ts` | Low | May need `findByBranch()` to check for duplicate adoption |
+  | `tsp/common/enums/lifecycle.tsp` | Low | Possibly add `Adopted` lifecycle state (or reuse `Maintain`) |
+  | `packages/core/src/domain/generated/output.ts` | Low | Auto-generated from TypeSpec if lifecycle enum changes |
+  | `tests/` | High | Unit tests for `AdoptBranchUseCase`, integration tests for CLI command, worktree service tests |
+
+  ## Dependencies
+
+  - **IWorktreeService**: Must be extended with a method to add a worktree for an existing branch (without `-b`)
+  - **IFeatureRepository**: The `create()` method is already sufficient for persisting the adopted feature
+  - **WorktreeService.getWorktreePath()**: Can be reused to compute the worktree path for the adopted branch
+  - **WorktreeService.branchExists() / remoteBranchExists()**: Used to validate the branch exists before adopting
+  - **IRepositoryRepository**: Reuse existing logic to resolve/create the Repository entity
+  - **Feature entity**: No schema changes needed — all fields can be populated for an adopted feature (branch, worktreePath, lifecycle=Maintain, empty specPath, no agentRunId)
+
+  ## Success Criteria
+
+  - [ ] `shep feat adopt <branch-name>` CLI command creates a Feature record for an existing branch
+  - [ ] If no worktree exists for the branch, one is created via `git worktree add`
+  - [ ] If a worktree already exists, it is reused (no duplicate creation)
+  - [ ] The adopted feature appears in `shep feat ls` and the web UI feature list
+  - [ ] Feature actions work on adopted features: open in IDE, open shell, deploy
+  - [ ] No agent is spawned — the feature is passive/manual by default
+  - [ ] The branch name is preserved exactly (not reformatted to `feat/<slug>`)
+  - [ ] Duplicate adoption of the same branch is detected and rejected gracefully
+  - [ ] Web UI provides an entry point to adopt an existing branch
+  - [ ] Unit tests cover the AdoptBranchUseCase and worktree service extension
+
+  ## Size Estimate
+
+  **M** — This feature requires a new use case, a worktree service extension, CLI command, web server action,
+  and web UI entry point. However, it largely follows existing patterns (CreateFeatureUseCase is a template)
+  and doesn't require domain model changes (no TypeSpec changes needed if we reuse Maintain lifecycle).
+  The main complexity is in correctly handling the "adopt existing branch" git worktree flow and ensuring
+  all feature actions work with adopted features that may lack spec directories or agent runs.
+
+  ---
+
+  _Generated by feature agent — proceed with research_
