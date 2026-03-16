@@ -109,8 +109,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
-      - run: pnpm run generate
-      - run: pnpm run build
+      - run: pnpm run build:release
       - run: pnpm run test:e2e:cli
 
   test-e2e-tui:
@@ -124,8 +123,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
-      - run: pnpm run generate
-      - run: pnpm run build
+      - run: pnpm run build:release
       - run: pnpm run test:e2e:tui
 
   test-e2e-web:
@@ -139,8 +137,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
-      - run: pnpm run generate
-      - run: pnpm run build
+      - run: pnpm run build:release
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm run test:e2e:web
 
@@ -346,8 +343,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
-      - run: pnpm run generate
-      - run: pnpm run build
+      - run: pnpm run build:release
 
       - name: Run semantic-release
         id: semantic
@@ -402,8 +398,7 @@ jobs:
           cache: 'pnpm'
           registry-url: 'https://registry.npmjs.org'
       - run: pnpm install --frozen-lockfile
-      - run: pnpm run generate
-      - run: pnpm run build
+      - run: pnpm run build:release
 
       - name: Publish npm dev release
         env:
