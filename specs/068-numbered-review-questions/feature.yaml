@@ -1,0 +1,36 @@
+feature:
+  id: '068-numbered-review-questions'
+  name: 'numbered-review-questions'
+  number: 68
+  branch: 'feat/068-numbered-review-questions'
+  lifecycle: 'research'
+  createdAt: '2026-03-16T12:10:56Z'
+
+status:
+  phase: 'research'
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-03-16T12:10:56Z'
+  lastUpdatedBy: 'feature-agent'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-03-16T12:10:56Z'
+    completedBy: 'feature-agent'
+
+errors:
+  current: null
+  history: []

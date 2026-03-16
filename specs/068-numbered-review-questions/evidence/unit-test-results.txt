@@ -1,0 +1,115 @@
+
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-numbered-review-questions[39m
+
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/presentation/tui/prompts/prd-review-question.prompt.test.ts[2m > [22mcreateQuestionSelectConfig[2m > [22mshould create a select config with question as message[32m 1[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/presentation/tui/prompts/prd-review-question.prompt.test.ts[2m > [22mcreateQuestionSelectConfig[2m > [22mshould prefix message with question number when provided[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/presentation/tui/prompts/prd-review-question.prompt.test.ts[2m > [22mcreateQuestionSelectConfig[2m > [22mshould not prefix message when question number is not provided[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/presentation/tui/prompts/prd-review-question.prompt.test.ts[2m > [22mcreateQuestionSelectConfig[2m > [22mshould map options to choices with name, value, description[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/presentation/tui/prompts/prd-review-question.prompt.test.ts[2m > [22mcreateQuestionSelectConfig[2m > [22mshould set default to current answer if provided[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/presentation/tui/prompts/prd-review-question.prompt.test.ts[2m > [22mcreateQuestionSelectConfig[2m > [22mshould not set default if no current answer[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/presentation/tui/prompts/prd-review-question.prompt.test.ts[2m > [22mcreateQuestionSelectConfig[2m > [22mshould use shepTheme[32m 0[2mms[22m[39m
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/prd-questionnaire/prd-questionnaire.test.tsx[2m > [22mPrdQuestionnaire[2m > [22mheader rendering[2m > [22mhides header by default (showHeader=false)[32m 25[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/prd-questionnaire/prd-questionnaire.test.tsx[2m > [22mPrdQuestionnaire[2m > [22mheader rendering[2m > [22mrenders header with amber dot, question title, and context when showHeader=true[32m 6[2mms[22m[39m
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/prd-questionnaire/prd-questionnaire.test.tsx[2m > [22mPrdQuestionnaire[2m > [22mquestion rendering[2m > [22mrenders the current question with number prefix and step dots[32m 74[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/prd-questionnaire/prd-questionnaire.test.tsx[2m > [22mPrdQuestionnaire[2m > [22mquestion rendering[2m > [22mrenders options as button elements with letter prefixes[32m 20[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/prd-questionnaire/prd-questionnaire.test.tsx[2m > [22mPrdQuestionnaire[2m > [22mbadge rendering[2m > [22mrenders AI Recommended badge when recommended=true[32m 3[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/prd-questionnaire/prd-questionnaire.test.tsx[2m > [22mPrdQuestionnaire[2m > [22mbadge rendering[2m > [22mrenders New badge when isNew=true[32m 2[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/prd-questionnaire/prd-questionnaire.test.tsx[2m > [22mPrdQuestionnaire[2m > [22mbadge rendering[2m > [22mapplies animate-option-highlight class when isNew=true[32m 9[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/prd-questionnaire/prd-questionnaire.test.tsx[2m > [22mPrdQuestionnaire[2m > [22mselection state[2m > [22mhighlights selected option with border-primary[32m 8[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/prd-questionnaire/prd-questionnaire.test.tsx[2m > [22mPrdQuestionnaire[2m > [22mcallbacks[2m > [22mcalls onSelect(questionId, optionId) when option clicked[32m 12[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/prd-questionnaire/prd-questionnaire.test.tsx[2m > [22mPrdQuestionnaire[2m > [22mcallbacks[2m > [22mchat input submit calls onReject with input text[32m 34[2mms[22m[39m
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/prd-questionnaire/prd-questionnaire.test.tsx[2m > [22mPrdQuestionnaire[2m > [22mcallbacks[2m > [22mapprove button calls onApprove with finalAction.id[32m 16[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/prd-questionnaire/prd-questionnaire.test.tsx[2m > [22mPrdQuestionnaire[2m > [22mprogress bar[2m > [22mprogress bar width reflects selections/questions ratio[32m 4[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/prd-questionnaire/prd-questionnaire.test.tsx[2m > [22mPrdQuestionnaire[2m > [22mprogress bar[2m > [22mprogress bar hidden when no selections and not processing[32m 2[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/prd-questionnaire/prd-questionnaire.test.tsx[2m > [22mPrdQuestionnaire[2m > [22mprogress bar[2m > [22mprogress bar visible when selections exist[32m 2[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/prd-questionnaire/prd-questionnaire.test.tsx[2m > [22mPrdQuestionnaire[2m > [22mprocessing state[2m > [22misProcessing=true disables option buttons, nav buttons, and chat input[32m 31[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/prd-questionnaire/prd-questionnaire.test.tsx[2m > [22mPrdQuestionnaire[2m > [22mreject functionality[2m > [22mdoes not render revision input when onReject is undefined[32m 16[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/prd-questionnaire/prd-questionnaire.test.tsx[2m > [22mPrdQuestionnaire[2m > [22mreject functionality[2m > [22mrenders revision input on last step when onReject is provided[32m 23[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/prd-questionnaire/prd-questionnaire.test.tsx[2m > [22mPrdQuestionnaire[2m > [22mreject functionality[2m > [22mrenders revision input on all steps when onReject is provided[32m 4[2mms[22m[39m
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/prd-questionnaire/prd-questionnaire.test.tsx[2m > [22mPrdQuestionnaire[2m > [22mreject functionality[2m > [22mrevision input is disabled when isRejecting is true[32m 27[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/prd-questionnaire/prd-questionnaire.test.tsx[2m > [22mPrdQuestionnaire[2m > [22mreject functionality[2m > [22mrevision input is disabled when isProcessing is true[32m 25[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/prd-questionnaire/prd-questionnaire.test.tsx[2m > [22mPrdQuestionnaire[2m > [22mreject functionality[2m > [22msubmitting revision input calls onReject with feedback[32m 40[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/prd-questionnaire/prd-questionnaire.test.tsx[2m > [22mPrdQuestionnaire[2m > [22mreject functionality[2m > [22mapprove button is disabled when isRejecting is true[32m 20[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/prd-questionnaire/prd-questionnaire.test.tsx[2m > [22mPrdQuestionnaire[2m > [22maccessibility[2m > [22mchat input has aria-label attribute when onReject is provided[32m 4[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m2 passed[39m[22m[90m (2)[39m
+[2m      Tests [22m [1m[32m30 passed[39m[22m[90m (30)[39m
+[2m   Start at [22m 14:18:29
+[2m   Duration [22m 961ms[2m (transform 102ms, setup 79ms, import 219ms, tests 411ms, environment 220ms)[22m
+
