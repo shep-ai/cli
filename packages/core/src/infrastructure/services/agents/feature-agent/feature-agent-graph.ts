@@ -12,7 +12,12 @@ import { createRepairNode } from './nodes/repair.node.js';
 import { validateSpecAnalyze, validateSpecRequirements } from './nodes/schemas/spec.schema.js';
 import { validateResearch } from './nodes/schemas/research.schema.js';
 import { validatePlan, validateTasks } from './nodes/schemas/plan.schema.js';
-import { readSpecFile, safeYamlLoad, createNodeLogger } from './nodes/node-helpers.js';
+import {
+  readSpecFile,
+  safeYamlLoad,
+  createNodeLogger,
+  getCompletedPhases,
+} from './nodes/node-helpers.js';
 
 // Re-export state types for consumers
 export { FeatureAgentAnnotation, type FeatureAgentState } from './state.js';
@@ -78,6 +83,20 @@ function createPlanTasksValidator(): (
 
   return async (state: FeatureAgentState): Promise<Partial<FeatureAgentState>> => {
     log.activate();
+
+    // Skip validation when the successor phase (implement) is already completed.
+    // This proves validation already passed and the pipeline progressed beyond it.
+    // Same logic as createValidateNode's successorPhase guard.
+    if (getCompletedPhases(state.specDir).includes('implement')) {
+      log.info("Successor phase 'implement' already completed, skipping validation");
+      return {
+        lastValidationTarget: 'plan.yaml+tasks.yaml',
+        lastValidationErrors: [],
+        validationRetries: 0,
+        messages: ["[validate:plan+tasks] SKIP (successor 'implement' already completed)"],
+      };
+    }
+
     log.info('Validating plan.yaml and tasks.yaml');
     const allErrors: string[] = [];
 
@@ -177,12 +196,20 @@ export function createFeatureAgentGraph(
     .addNode('implement', createImplementNode(executor))
 
     // --- Validate nodes ---
-    .addNode('validate_spec_analyze', createValidateNode('spec.yaml', validateSpecAnalyze))
+    // Each validate node receives its SUCCESSOR phase name (the phase that runs
+    // after validation passes). On resume, validation is skipped only when the
+    // successor is already completed — proving this validation already passed.
+    // Using the successor (not the producer) avoids skipping validation when the
+    // producer ran successfully but validation itself failed.
+    .addNode(
+      'validate_spec_analyze',
+      createValidateNode('spec.yaml', validateSpecAnalyze, 'requirements')
+    )
     .addNode(
       'validate_spec_requirements',
-      createValidateNode('spec.yaml', validateSpecRequirements)
+      createValidateNode('spec.yaml', validateSpecRequirements, 'research')
     )
-    .addNode('validate_research', createValidateNode('research.yaml', validateResearch))
+    .addNode('validate_research', createValidateNode('research.yaml', validateResearch, 'plan'))
     .addNode('validate_plan_tasks', createPlanTasksValidator())
 
     // --- Repair nodes ---

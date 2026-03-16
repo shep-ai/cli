@@ -10,6 +10,20 @@ vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
 import { createValidateNode } from '@/infrastructure/services/agents/feature-agent/nodes/validate.node.js';
 import type { FeatureAgentState } from '@/infrastructure/services/agents/feature-agent/state.js';
 
+// Mock getCompletedPhases from node-helpers
+vi.mock(
+  '@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js',
+  async (importOriginal) => {
+    const actual = await importOriginal();
+    return {
+      ...(actual as Record<string, unknown>),
+      getCompletedPhases: vi.fn(() => []),
+    };
+  }
+);
+
+import { getCompletedPhases } from '@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js';
+
 describe('createValidateNode', () => {
   let tempDir: string;
   let specDir: string;
@@ -84,5 +98,73 @@ describe('createValidateNode', () => {
 
     const result = await node(makeState({ validationRetries: 2 }));
     expect(result.validationRetries).toBe(3);
+  });
+
+  it('skips validation when successor phase is already completed', async () => {
+    writeFileSync(join(specDir, 'test.yaml'), 'name: hello\n');
+    const schema = vi.fn().mockReturnValue({
+      valid: false,
+      errors: ['would fail'],
+    });
+
+    // validate_spec_analyze has successor 'requirements'.
+    // If requirements is completed, this validation already passed.
+    vi.mocked(getCompletedPhases).mockReturnValue(['analyze', 'requirements']);
+
+    const node = createValidateNode('test.yaml', schema, 'requirements');
+    const result = await node(makeState({ validationRetries: 2 }));
+
+    // Should skip validation entirely — pass through with clean state
+    expect(result.lastValidationErrors).toEqual([]);
+    expect(result.validationRetries).toBe(0);
+    expect(schema).not.toHaveBeenCalled();
+  });
+
+  it('still validates when successor phase is NOT completed', async () => {
+    writeFileSync(join(specDir, 'test.yaml'), 'name: hello\n');
+    const schema = vi.fn().mockReturnValue({ valid: true, errors: [] });
+
+    // Producer (analyze) is completed but successor (requirements) is not.
+    // Validation must still run because we can't prove it passed before.
+    vi.mocked(getCompletedPhases).mockReturnValue(['analyze']);
+
+    const node = createValidateNode('test.yaml', schema, 'requirements');
+    const result = await node(makeState());
+
+    expect(schema).toHaveBeenCalled();
+    expect(result.lastValidationErrors).toEqual([]);
+  });
+
+  it('validates normally when no successor phase is specified (backwards compat)', async () => {
+    writeFileSync(join(specDir, 'test.yaml'), 'name: hello\n');
+    const schema = vi.fn().mockReturnValue({ valid: true, errors: [] });
+
+    vi.mocked(getCompletedPhases).mockReturnValue(['analyze']);
+
+    const node = createValidateNode('test.yaml', schema);
+    const result = await node(makeState());
+
+    expect(schema).toHaveBeenCalled();
+    expect(result.lastValidationErrors).toEqual([]);
+  });
+
+  it('does NOT skip when producer completed but successor has not (validation failed before)', async () => {
+    writeFileSync(join(specDir, 'research.yaml'), 'name: hello\n');
+    const schema = vi.fn().mockReturnValue({
+      valid: false,
+      errors: ['still broken'],
+    });
+
+    // Research agent ran (markPhaseComplete called) but validate_research failed.
+    // Successor 'plan' is NOT in completedPhases, so validation must re-run.
+    vi.mocked(getCompletedPhases).mockReturnValue(['analyze', 'requirements', 'research']);
+
+    const node = createValidateNode('research.yaml', schema, 'plan');
+    const result = await node(makeState());
+
+    // Must NOT skip — validation needs to run
+    expect(schema).toHaveBeenCalled();
+    expect(result.lastValidationErrors).toEqual(['still broken']);
+    expect(result.validationRetries).toBe(1);
   });
 });
