@@ -171,7 +171,7 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
             data.onClick?.();
           }
         }}
-        className="nodrag bg-card flex min-w-[18rem] cursor-pointer flex-col rounded-xl border shadow-sm"
+        className="nodrag bg-card flex max-w-[22rem] min-w-[18rem] cursor-pointer flex-col overflow-hidden rounded-xl border shadow-sm"
       >
         {/* Row 1: Repository name + action buttons */}
         <div className="flex items-center gap-3 px-4 py-3">
@@ -345,21 +345,18 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
             data-testid="repository-node-commit-info"
             className="text-muted-foreground border-t px-4 py-2"
           >
-            <div className="flex items-center gap-3 text-xs">
-              <span
-                className="flex min-w-0 items-center gap-1 truncate"
-                data-testid="repository-node-commit-message"
-              >
-                <GitCommitHorizontal className="h-3 w-3 shrink-0" />
-                <span className="truncate">{data.commitMessage}</span>
+            <div className="flex items-center gap-2 text-xs">
+              <GitCommitHorizontal className="h-3 w-3 shrink-0" />
+              <span className="min-w-0 truncate" data-testid="repository-node-commit-message">
+                {data.commitMessage}
               </span>
               {data.committer ? (
                 <span
-                  className="flex shrink-0 items-center gap-1"
+                  className="text-muted-foreground/70 ml-auto flex shrink-0 items-center gap-1"
                   data-testid="repository-node-committer"
                 >
                   <User className="h-3 w-3 shrink-0" />
-                  <span className="truncate">{data.committer}</span>
+                  <span>{data.committer}</span>
                 </span>
               ) : null}
             </div>

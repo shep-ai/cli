@@ -89,3 +89,10 @@ rejectionFeedback:
     attachments:
       - >-
         /Users/arielshadkhan/.shep/attachments/pending-51c08a61-2a71-4ba9-bf77-9571e88423bd/image-6db3d6d8.png
+  - iteration: 2
+    message: the ui is courapted
+    phase: merge
+    timestamp: '2026-03-16T14:04:46.334Z'
+    attachments:
+      - >-
+        /Users/arielshadkhan/.shep/attachments/pending-85da7a9b-941f-445d-aa89-5b032a4e3ad8/image-f007defa.png

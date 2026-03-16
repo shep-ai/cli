@@ -8,7 +8,7 @@ const nodeTypes = { repositoryNode: RepositoryNode };
 
 function RepositoryNodeCanvas({
   data,
-  style = { width: 500, height: 250 },
+  style = { width: 550, height: 300 },
 }: {
   data: RepositoryNodeData;
   style?: React.CSSProperties;
@@ -112,12 +112,12 @@ export const Multiple: Story = {
     const nodes: RepositoryNodeType[] = multipleRepos.map((data, i) => ({
       id: `repo-${i}`,
       type: 'repositoryNode' as const,
-      position: { x: 0, y: i * 100 },
+      position: { x: 0, y: i * 140 },
       data,
     }));
 
     return (
-      <div style={{ width: 550, height: 600 }}>
+      <div style={{ width: 600, height: 750 }}>
         <ReactFlowProvider>
           <ReactFlow
             nodes={nodes}
@@ -170,12 +170,12 @@ export const MultipleWithButton: Story = {
     const nodes: RepositoryNodeType[] = multipleReposWithButton.map((data, i) => ({
       id: `repo-${i}`,
       type: 'repositoryNode' as const,
-      position: { x: 0, y: i * 100 },
+      position: { x: 0, y: i * 140 },
       data,
     }));
 
     return (
-      <div style={{ width: 550, height: 600 }}>
+      <div style={{ width: 600, height: 750 }}>
         <ReactFlowProvider>
           <ReactFlow
             nodes={nodes}
@@ -229,7 +229,7 @@ export const WithDeleteButton: Story = {
   argTypes: {
     onDelete: { action: 'onDelete' },
   },
-  render: (args) => <RepositoryNodeCanvas data={args} style={{ width: 550, height: 250 }} />,
+  render: (args) => <RepositoryNodeCanvas data={args} style={{ width: 600, height: 300 }} />,
 };
 
 const multipleReposWithActions: RepositoryNodeData[] = [
@@ -282,12 +282,12 @@ export const MultipleWithActions: Story = {
     const nodes: RepositoryNodeType[] = multipleReposWithActions.map((data, i) => ({
       id: `repo-${i}`,
       type: 'repositoryNode' as const,
-      position: { x: 0, y: i * 100 },
+      position: { x: 0, y: i * 140 },
       data,
     }));
 
     return (
-      <div style={{ width: 550, height: 600 }}>
+      <div style={{ width: 600, height: 800 }}>
         <ReactFlowProvider>
           <ReactFlow
             nodes={nodes}
