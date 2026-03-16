@@ -84,8 +84,8 @@ export function ControlCenterEmptyState({
       data-testid="control-center-empty-state"
       className={cn('flex flex-col items-center justify-center', className)}
     >
-      {/* Glassy container — wider for breathing room */}
-      <div className="animate-in fade-in slide-in-from-bottom-2 w-full max-w-lg rounded-2xl border border-white/30 bg-white/50 px-10 py-10 shadow-lg backdrop-blur-xl duration-300 dark:border-white/10 dark:bg-white/5">
+      {/* Glassy container — near full-width */}
+      <div className="animate-in fade-in slide-in-from-bottom-2 w-full max-w-3xl rounded-2xl border border-white/30 bg-white/50 px-16 py-14 shadow-lg backdrop-blur-xl duration-300 dark:border-white/10 dark:bg-white/5">
         <div className="flex flex-col items-center gap-6">
           {/* Page header */}
           <div className="text-center">
