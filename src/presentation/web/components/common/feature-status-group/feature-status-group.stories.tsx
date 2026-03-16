@@ -51,6 +51,19 @@ export const Done: Story = {
   },
 };
 
+export const Pending: Story = {
+  args: {
+    label: 'Pending',
+    count: 2,
+    children: (
+      <>
+        <FeatureListItem name="Dark Mode" status="pending" />
+        <FeatureListItem name="Search Filters" status="pending" />
+      </>
+    ),
+  },
+};
+
 export const ActionNeeded: Story = {
   args: {
     label: 'Action Needed',

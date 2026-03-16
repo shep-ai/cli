@@ -1,7 +1,13 @@
-import { CircleAlert, Loader2, CircleCheck, Ban, CircleX } from 'lucide-react';
+import { CircleAlert, Loader2, CircleCheck, Ban, CircleX, Clock } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
-export type FeatureStatus = 'action-needed' | 'in-progress' | 'blocked' | 'error' | 'done';
+export type FeatureStatus =
+  | 'action-needed'
+  | 'in-progress'
+  | 'pending'
+  | 'blocked'
+  | 'error'
+  | 'done';
 
 export interface FeatureStatusConfig {
   icon: LucideIcon;
@@ -22,6 +28,12 @@ export const featureStatusConfig: Record<FeatureStatus, FeatureStatusConfig> = {
     iconClass: 'text-blue-500 animate-spin',
     bgClass: 'bg-blue-500/10',
     label: 'In Progress',
+  },
+  pending: {
+    icon: Clock,
+    iconClass: 'text-slate-400',
+    bgClass: 'bg-slate-400/10',
+    label: 'Pending',
   },
   blocked: {
     icon: Ban,
@@ -48,5 +60,6 @@ export const featureStatusOrder: FeatureStatus[] = [
   'error',
   'blocked',
   'in-progress',
+  'pending',
   'done',
 ];
