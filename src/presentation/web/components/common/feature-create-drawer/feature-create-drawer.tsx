@@ -197,10 +197,13 @@ export function FeatureCreateDrawer({
   const createSound = useSoundAction('create');
   // Validate repositoryPath from URL against active repos — prevents stale URL params
   // from selecting deleted repos after add/delete/re-add cycles.
-  // When repositories list isn't loaded yet (undefined), trust the prop as-is.
+  // Trust the prop when: repos not loaded yet (undefined), empty list (no repos to check),
+  // or the path matches an active repo.
   const validRepoPath = !repositoryPath
     ? ''
-    : repositories === undefined || repositories.some((r) => r.path === repositoryPath)
+    : !repositories ||
+        repositories.length === 0 ||
+        repositories.some((r) => r.path === repositoryPath)
       ? repositoryPath
       : '';
   const defaultGates = workflowDefaults?.approvalGates ?? EMPTY_GATES;
