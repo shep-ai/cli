@@ -1,3 +1,17 @@
+# [1.122.0](https://github.com/shep-ai/cli/compare/v1.121.0...v1.122.0) (2026-03-16)
+
+### Bug Fixes
+
+- **agents:** prevent fast-implement agent from planning instead of coding ([#386](https://github.com/shep-ai/cli/issues/386)) ([7901c40](https://github.com/shep-ai/cli/commit/7901c4087ef12302135c71abb8b5c9a060d2de50))
+- **agents:** remove --delete-branch from gh pr merge for worktree compat ([#391](https://github.com/shep-ai/cli/issues/391)) ([e396072](https://github.com/shep-ai/cli/commit/e396072eb762f91e40577ae1a80e303cc4b39b34))
+- **web:** resume feature from error state on approve or reject ([#375](https://github.com/shep-ai/cli/issues/375)) ([482f7d8](https://github.com/shep-ai/cli/commit/482f7d8c21b8cea39f5d457421393d09c7a82cd1))
+
+### Features
+
+- **tui:** add question numbering to prd review prompts ([#388](https://github.com/shep-ai/cli/issues/388)) ([3229e69](https://github.com/shep-ai/cli/commit/3229e698153649e5215b787d8748f59819b8eac6))
+- **web:** add token/cost tracking and agent stop button ([#383](https://github.com/shep-ai/cli/issues/383)) ([5c1638c](https://github.com/shep-ai/cli/commit/5c1638cbb27158302c6ec8e1090c353a92fbec04))
+- **agents:** require app-level proof in ui evidence validation ([#387](https://github.com/shep-ai/cli/issues/387)) ([31cce2c](https://github.com/shep-ai/cli/commit/31cce2c6095d253e4431beaed6a02264c4f1319e))
+
 # [1.121.0](https://github.com/shep-ai/cli/compare/v1.120.0...v1.121.0) (2026-03-16)
 
 ### Features
