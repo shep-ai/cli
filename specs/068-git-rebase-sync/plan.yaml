@@ -22,6 +22,115 @@ technologies:
   - IAgentExecutor (agent system)
 relatedLinks: []
 
+# Structured technology decisions (from research)
+decisions:
+  - id: conflict-resolution-architecture
+    title: Conflict resolution as a separate service vs inline in use case
+    status: accepted
+    chosen: separate-service
+    rationale: >
+      A dedicated ConflictResolutionService keeps the use case focused on
+      orchestration (resolve feature, determine cwd, sync, rebase, delegate
+      conflict resolution) while the service handles the iterative agent loop.
+      This mirrors the codebase pattern where CiWatchFixLoop is a separate
+      service from the merge use case. The service is injectable via tsyringe
+      and independently unit-testable.
+
+  - id: agent-invocation-pattern
+    title: Agent invocation via IAgentExecutorProvider following CI fix loop pattern
+    status: accepted
+    chosen: follow-ci-fix-pattern
+    rationale: >
+      Following the CI watch/fix loop pattern is mandatory per codebase rules.
+      IAgentExecutorProvider resolves the agent executor from user settings at
+      runtime, ensuring no hardcoded agent types. The retryExecute helper
+      provides logging and error handling. The iterative loop pattern (invoke
+      agent -> validate -> retry or continue) maps directly to conflict
+      resolution (invoke agent -> check markers -> stage and continue or retry).
+
+  - id: git-operations-layer
+    title: Git rebase/sync operations in GitPrService infrastructure layer
+    status: accepted
+    chosen: extend-git-pr-service
+    rationale: >
+      GitPrService is the established home for all git operations in the
+      infrastructure layer. It already has ExecFunction injection, parseGitError,
+      and methods like localMergeSquash that handle similar workflows (fetch,
+      checkout, merge). The new methods (syncMain, rebaseOnMain, getConflictedFiles,
+      stageFiles, rebaseContinue, rebaseAbort) are natural extensions. The interface
+      IGitPrService is additive — new methods don't break existing consumers.
+
+  - id: error-handling-strategy
+    title: Dedicated error codes REBASE_CONFLICT and SYNC_FAILED
+    status: accepted
+    chosen: new-error-codes
+    rationale: >
+      Rebase conflicts and merge conflicts require different user guidance
+      (different abort commands, different recovery steps). The existing
+      GitPrErrorCode enum is designed for extensibility — adding two new values
+      is trivial and provides precise error classification for the CLI and web
+      presentation layers. The parseGitError method already handles pattern
+      matching for error classification and extends naturally.
+
+  - id: rebase-conflict-detection
+    title: Conflict detection via git exit code and stderr parsing
+    status: accepted
+    chosen: exit-code-stderr
+    rationale: >
+      The existing codebase parses git stderr for error classification in
+      parseGitError. Rebase conflicts produce specific stderr patterns
+      (containing "CONFLICT") that can be matched the same way. This avoids
+      an extra git command and is consistent with how the codebase handles
+      merge conflicts and other git errors. The getConflictedFiles method
+      uses git diff --name-only --diff-filter=U as a follow-up to identify
+      specific files after conflict is detected.
+
+  - id: sync-main-strategy
+    title: Branch-aware sync using fetch vs pull based on current branch
+    status: accepted
+    chosen: branch-aware-fetch-pull
+    rationale: >
+      git fetch origin main:main fails if the user is on the main branch because
+      git cannot update a checked-out branch via fetch refspec. Detecting the
+      current branch via git rev-parse --abbrev-ref HEAD and choosing the
+      appropriate command is a minimal check that handles all scenarios. The
+      --ff-only flag on pull ensures we never create merge commits on main.
+
+  - id: prompt-design
+    title: Focused conflict resolution prompt following merge-prompts.ts pattern
+    status: accepted
+    chosen: follow-merge-prompt-pattern
+    rationale: >
+      The merge-prompts.ts pattern of pure functions that return markdown strings
+      is proven and testable. The buildConflictResolutionPrompt function takes
+      parameters (conflicted files with contents, feature branch name, base
+      branch name, attempt number, previous feedback) and returns a focused
+      prompt. Retry context is passed as a parameter, not as mutable state.
+
+  - id: worktree-support
+    title: Support both worktree-based and standard feature branches
+    status: accepted
+    chosen: support-both
+    rationale: >
+      The platform must handle features regardless of worktree status. The
+      IWorktreeService is already injected in use cases like StartFeatureUseCase.
+      Checking for worktree existence is a single async call, and falling back
+      to the repository root path is trivial. This matches the existing pattern
+      where use cases determine cwd from worktree path or repo path.
+
+  - id: retry-strategy
+    title: Up to 3 agent retry attempts per conflicted commit
+    status: accepted
+    chosen: three-retries
+    rationale: >
+      The CI watch/fix loop uses iterative retries with validation between
+      attempts. Three retries per conflicted commit provides a good balance —
+      the agent may miss a file or make a minor mistake on the first pass.
+      Each subsequent attempt includes feedback about remaining unresolved
+      markers, improving the chance of success. The abort fallback (git rebase
+      --abort) ensures the system always returns to a clean state. NFR-9
+      bounds the cost at 3 attempts maximum per commit.
+
 phases:
   - id: phase-1
     name: 'Domain & Interface Foundation'
@@ -52,8 +161,8 @@ phases:
       use case resolves repo and delegates to syncMain. The rebase use case
       resolves the feature, determines worktree path, calls syncMain first, then
       orchestrates the rebase with an iterative agent-powered conflict resolution
-      loop: detect conflicts → read conflicted files → invoke agent → validate
-      no remaining markers → git add + rebase --continue, up to 3 retries per
+      loop: detect conflicts -> read conflicted files -> invoke agent -> validate
+      no remaining markers -> git add + rebase --continue, up to 3 retries per
       commit. Includes the conflict resolution prompt builder. Register both
       use cases in the DI container with class + string-token aliases.
     parallel: false
@@ -126,7 +235,7 @@ content: |
   - `RebaseFeatureOnMainUseCase` — resolves feature, determines worktree path via
     `IWorktreeService`, auto-calls `syncMain`, then calls `rebaseOnMain`. If rebase throws
     `REBASE_CONFLICT`, it delegates to `ConflictResolutionService` which runs the iterative
-    resolve loop (agent → validate → add → continue, up to 3 retries per commit). If resolution
+    resolve loop (agent -> validate -> add -> continue, up to 3 retries per commit). If resolution
     exhausts retries, it aborts and reports.
 
   **Presentation layer:** CLI commands follow the `createXxxCommand()` factory pattern with
@@ -170,6 +279,40 @@ content: |
   Per the spec decision, `RebaseFeatureOnMainUseCase` calls `syncMain` before rebasing. This
   ensures the feature is always rebased onto the true latest main. The sync is fast and
   idempotent — no downside to running it automatically.
+
+  ### 5. Agent Invocation via IAgentExecutorProvider
+
+  The conflict resolution agent is invoked via `IAgentExecutorProvider`, following the mandatory
+  codebase rule that no component may hardcode an agent type. The provider resolves from user
+  settings at runtime, supporting all configured agent types (Claude Code, Cursor, Gemini CLI,
+  etc.). The `retryExecute` helper provides logging and error handling.
+
+  ### 6. Branch-Aware Sync Strategy
+
+  `syncMain` detects the current branch via `git rev-parse --abbrev-ref HEAD`. If on main,
+  it uses `git pull --ff-only`. If on a feature branch, it uses `git fetch origin main:main`.
+  This handles all scenarios without branch switching. The `--ff-only` flag prevents accidental
+  divergence on main.
+
+  ### 7. Dedicated Error Codes (REBASE_CONFLICT, SYNC_FAILED)
+
+  New error codes provide precise error classification. Rebase conflicts and merge conflicts
+  require different user guidance (different abort commands, different recovery steps). The
+  existing `GitPrErrorCode` enum is designed for extensibility and `parseGitError` extends
+  naturally with pattern matching for rebase-specific stderr messages.
+
+  ### 8. Retry Strategy (3 attempts per conflicted commit)
+
+  The conflict resolution loop allows up to 3 agent attempts per conflicted commit. Each
+  retry includes feedback about remaining unresolved markers. The abort fallback (`git rebase
+  --abort`) ensures the system always returns to a clean state. This matches the CI watch/fix
+  loop pattern of iterative retries with validation.
+
+  ### 9. Worktree Support (both worktree and standard branches)
+
+  The rebase use case checks `IWorktreeService.exists()` to determine the correct working
+  directory — worktree path if one exists, repository root otherwise. This handles all
+  feature configurations with a single async check.
 
   ## Implementation Strategy
 

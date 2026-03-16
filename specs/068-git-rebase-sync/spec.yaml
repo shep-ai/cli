@@ -17,7 +17,7 @@ summary: >
   These operations span all four architecture layers — new methods on
   IGitPrService, new application use cases, conflict resolution agent logic, CLI
   commands, web server actions, and DI registration.
-phase: Requirements
+phase: Plan
 sizeEstimate: L
 relatedFeatures: []
 technologies:
@@ -665,3 +665,7 @@ rejectionFeedback:
     message: the tech decision is empty, fix it update whatever missing in the spec
     phase: plan
     timestamp: '2026-03-16T14:50:56.757Z'
+  - iteration: 3
+    message: this feature should be supported in the ui
+    phase: merge
+    timestamp: '2026-03-16T16:23:29.217Z'
