@@ -81,11 +81,25 @@ export class CursorExecutorService implements IAgentExecutor {
 
     const { proc, tmpFile } = this.spawnAgent(prompt, args, options);
 
+    // Diagnostic: verify streams are connected and process is alive
+    this.log(`[diag] proc.pid=${proc.pid}, killed=${proc.killed}`);
+    this.log(`[diag] stdout=${!!proc.stdout}, stderr=${!!proc.stderr}, stdin=${!!proc.stdin}`);
+    this.log(
+      `[diag] CURSOR_API_KEY set=${!!process.env.CURSOR_API_KEY}, len=${process.env.CURSOR_API_KEY?.length ?? 0}`
+    );
+    this.log(
+      `[diag] authConfig.token set=${!!this.authConfig?.token}, method=${this.authConfig?.authMethod ?? 'none'}`
+    );
+    this.log(`[diag] platform=${process.platform}, cwd=${options?.cwd ?? '(inherited)'}`);
+
     return new Promise<AgentExecutionResult>((resolve, reject) => {
       let lineBuffer = '';
       let stderr = '';
       let timedOut = false;
       let timeoutId: ReturnType<typeof setTimeout> | undefined;
+      let stdoutChunks = 0;
+      let stderrChunks = 0;
+      const startTime = Date.now();
 
       // Accumulated from JSON events or raw text fallback
       let resultText = '';
@@ -93,9 +107,18 @@ export class CursorExecutorService implements IAgentExecutor {
       let sessionId: string | undefined;
       let metadata: Record<string, unknown> | undefined;
 
+      // Periodic heartbeat to prove the executor is alive and waiting
+      const heartbeatId = setInterval(() => {
+        const elapsed = Math.round((Date.now() - startTime) / 1000);
+        this.log(
+          `[diag] heartbeat ${elapsed}s: stdout_chunks=${stdoutChunks}, stderr_chunks=${stderrChunks}, pid_killed=${proc.killed}`
+        );
+      }, 15_000);
+
       if (options?.timeout) {
         timeoutId = setTimeout(() => {
           timedOut = true;
+          this.log(`[diag] TIMEOUT after ${options.timeout}ms — killing process tree`);
           // On Windows, proc.kill() may not kill the entire process tree
           // (PowerShell + child agent process). Use taskkill /T for tree kill.
           if (process.platform === 'win32' && proc.pid) {
@@ -103,8 +126,10 @@ export class CursorExecutorService implements IAgentExecutor {
               execFileSync('taskkill', ['/F', '/T', '/PID', String(proc.pid)], {
                 stdio: 'ignore',
               });
+              this.log(`[diag] taskkill /T /PID ${proc.pid} succeeded`);
             } catch {
               proc.kill();
+              this.log(`[diag] taskkill failed, fell back to proc.kill()`);
             }
           } else {
             proc.kill();
@@ -136,7 +161,14 @@ export class CursorExecutorService implements IAgentExecutor {
       };
 
       proc.stdout?.on('data', (chunk: Buffer | string) => {
-        lineBuffer += chunk.toString();
+        stdoutChunks++;
+        const data = chunk.toString();
+        if (stdoutChunks <= 3) {
+          this.log(
+            `[diag] stdout chunk #${stdoutChunks}: ${data.length} bytes, first 200: ${data.slice(0, 200).replace(/\n/g, '\\n')}`
+          );
+        }
+        lineBuffer += data;
         const lines = lineBuffer.split('\n');
         lineBuffer = lines.pop() ?? '';
         for (const line of lines) {
@@ -146,20 +178,23 @@ export class CursorExecutorService implements IAgentExecutor {
       });
 
       proc.stderr?.on('data', (chunk: Buffer | string) => {
+        stderrChunks++;
         const data = chunk.toString();
         stderr += data;
-        this.log(`stderr: ${data.trimEnd()}`);
+        this.log(`[diag] stderr chunk #${stderrChunks}: ${data.trimEnd()}`);
 
         // Detect fatal errors early so callers don't waste time retrying
         if (data.includes('Cannot use this model')) {
           if (timeoutId) clearTimeout(timeoutId);
+          clearInterval(heartbeatId);
           proc.kill();
           reject(new Error(data.trim()));
         }
       });
 
       proc.on('error', (error: Error & { code?: string }) => {
-        this.log(`Process error event: ${error.message}`);
+        this.log(`[diag] Process ERROR event: ${error.message} (code=${error.code})`);
+        clearInterval(heartbeatId);
         if (timeoutId) clearTimeout(timeoutId);
         if (error.code === 'ENOENT') {
           reject(
@@ -173,6 +208,8 @@ export class CursorExecutorService implements IAgentExecutor {
       });
 
       proc.on('close', (code: number | null) => {
+        const elapsed = Math.round((Date.now() - startTime) / 1000);
+        clearInterval(heartbeatId);
         // Clean up temp file on Windows
         if (tmpFile) {
           try {
@@ -184,7 +221,9 @@ export class CursorExecutorService implements IAgentExecutor {
         if (lineBuffer.trim()) processLine(lineBuffer.trim());
         // Use raw text as fallback when no JSON result was captured
         const finalText = resultText || rawText.trim();
-        this.log(`Process closed with code ${code}, result=${finalText.length} chars`);
+        this.log(
+          `[diag] Process CLOSE: code=${code}, elapsed=${elapsed}s, stdout_chunks=${stdoutChunks}, stderr_chunks=${stderrChunks}, result=${finalText.length} chars, raw=${rawText.length} chars`
+        );
         if (timeoutId) clearTimeout(timeoutId);
 
         if (timedOut) {
@@ -403,9 +442,20 @@ export class CursorExecutorService implements IAgentExecutor {
     // even when the env var isn't inherited (e.g. direct node.exe invocation on Windows).
     if (this.authConfig?.authMethod === 'token' && this.authConfig.token) {
       cleanEnv.CURSOR_API_KEY = this.authConfig.token;
+      this.log(
+        `[diag] buildEnv: injected CURSOR_API_KEY from authConfig (${this.authConfig.token.length} chars)`
+      );
+    } else {
+      this.log(
+        `[diag] buildEnv: NO token injection (authMethod=${this.authConfig?.authMethod ?? 'none'}, hasToken=${!!this.authConfig?.token}, envKey=${!!cleanEnv.CURSOR_API_KEY})`
+      );
     }
 
-    return extra ? { ...cleanEnv, ...extra } : cleanEnv;
+    const env = extra ? { ...cleanEnv, ...extra } : cleanEnv;
+    this.log(
+      `[diag] buildEnv: final CURSOR_API_KEY in env=${!!env.CURSOR_API_KEY}, len=${(env.CURSOR_API_KEY as string)?.length ?? 0}`
+    );
+    return env;
   }
 
   private spawnAgent(
