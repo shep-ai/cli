@@ -1,0 +1,595 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: github-repo-import
+summary: >
+  Technical research for importing GitHub repositories into Shep. Key decisions
+  cover domain model extension (adding remoteUrl to Repository via TypeSpec),
+  GitHub CLI subprocess execution pattern (execFile for auth/list, spawn for
+  clone with progress streaming), service port design (IGitHubRepositoryService),
+  Web UI dialog architecture (popover method picker + tabbed dialog), and
+  configurable clone directory (EnvironmentConfig extension). All decisions
+  align with established codebase patterns including Clean Architecture layers,
+  tsyringe DI, Commander.js CLI, and shadcn/ui components.
+
+# Relationships
+relatedFeatures:
+  - 036 - Repository Entity (Repository domain model, TypeSpec, migrations)
+  - 038 - Repo CLI Commands (shep repo ls / show command patterns)
+  - 044 - FAB Add Repository (add-repository-button, pickFolder, server action)
+  - 005 - Global Settings Service (settings model, EnvironmentConfig)
+
+technologies:
+  - GitHub CLI (gh) v2 - subprocess for auth, clone, and repo listing
+  - TypeSpec - domain model extension for Repository.remoteUrl
+  - better-sqlite3 - migration for remote_url column
+  - umzug - migration runner (existing pattern)
+  - tsyringe - DI registration for new services and use cases
+  - Commander.js - CLI command framework for shep repo add
+  - '@inquirer/prompts - interactive TUI prompts (select, input)'
+  - Next.js Server Actions - importGitHubRepository action
+  - shadcn/ui - Dialog, Popover, Tabs, Input components
+  - React Flow (@xyflow/react) - canvas node for optimistic repo add
+  - picocolors - CLI output styling via shepTheme
+
+relatedLinks:
+  - https://cli.github.com/manual/gh_repo_clone
+  - https://cli.github.com/manual/gh_repo_list
+  - https://cli.github.com/manual/gh_auth_status
+
+# Structured technology decisions
+decisions:
+  - title: 'Domain Model Extension Strategy'
+    chosen: 'Add optional remoteUrl field to TypeSpec Repository model with SQLite migration'
+    rejected:
+      - >
+        Store remoteUrl in a separate metadata table — Adds unnecessary
+        complexity (join queries, separate repository) when the data belongs
+        on the entity. The Repository model is simple enough that an extra
+        optional column is cleaner than a separate table.
+      - >
+        Store remoteUrl only in a JSON config file per repo — Loses database
+        queryability needed for duplicate detection (findByRemoteUrl). Would
+        require scanning files instead of SQL WHERE clause. Breaks the
+        established pattern of all entity data living in SQLite.
+    rationale: >
+      The TypeSpec Repository model at tsp/domain/entities/repository.tsp is
+      minimal (name + path). Adding `remoteUrl?: string` is a one-line
+      TypeSpec change. The SQLite migration follows the established pattern
+      (migration 040-add-repository-remote-url.ts) using ALTER TABLE ADD
+      COLUMN with an idempotent pragma check. The mapper at
+      infrastructure/persistence/sqlite/mappers/repository.mapper.ts needs
+      remote_url ↔ remoteUrl mapping added. The IRepositoryRepository
+      interface needs a new findByRemoteUrl() method for duplicate detection,
+      and the SQLite implementation needs the corresponding query. The
+      AddRepositoryUseCase already handles path normalization and
+      deduplication — ImportGitHubRepositoryUseCase will compose with it
+      rather than modifying it.
+
+  - title: 'GitHub CLI Subprocess Execution Pattern'
+    chosen: 'Use ExecFunction (execFile) for auth check and repo listing; use spawn for clone with progress streaming'
+    rejected:
+      - >
+        Use ExecFunction (execFile) for everything including clone — Clone
+        operations can produce large stderr output (git progress) and may run
+        for minutes on large repos. execFile buffers all output and resolves
+        only on completion, losing real-time progress feedback and risking
+        maxBuffer exceeded errors.
+      - >
+        Use a third-party GitHub API library (octokit) — Adds a heavyweight
+        dependency when gh CLI is already required, installed, and
+        authenticated. gh CLI handles auth token management, rate limiting,
+        and pagination internally. Octokit would require separate token
+        management and duplicate the auth flow.
+    rationale: >
+      The codebase already registers ExecFunction in the DI container
+      (promisify(execFile) with Windows shell:true handling). For auth check
+      (gh auth status) and repo listing (gh repo list --json), execFile is
+      ideal — they are fast, produce bounded output, and return structured
+      JSON. For clone (gh repo clone), we need spawn to stream progress
+      output to stderr in real-time. The container already imports spawn from
+      node:child_process for AgentExecutorFactory. The
+      IGitHubRepositoryService implementation will inject ExecFunction for
+      auth/list operations and use spawn directly for clone, following the
+      same pattern as AgentExecutorFactory. A SpawnFunction token could be
+      registered for testability, or the clone method can accept an optional
+      spawn override for testing.
+
+  - title: 'Service Port Interface Design'
+    chosen: 'Single IGitHubRepositoryService port with four methods: checkAuth, cloneRepository, listUserRepositories, parseGitHubUrl'
+    rejected:
+      - >
+        Multiple fine-grained interfaces (IAuthChecker, IRepoCloner,
+        IRepoLister) — Over-segmentation for what is conceptually one
+        integration boundary (GitHub via gh CLI). All methods share the same
+        dependency (execFile/spawn for gh subprocess). Splitting forces
+        multiple DI registrations for what is one infrastructure adapter.
+      - >
+        Add methods to existing IExternalIssueFetcher — Wrong abstraction.
+        Issue fetching and repository operations are separate concerns. The
+        existing interface is for reading issue data, not managing
+        repositories.
+    rationale: >
+      The codebase's service port pattern (e.g., IGitPrService in
+      ports/output/services/git-pr-service.interface.ts) groups related
+      operations into a single interface per integration boundary. GitHub
+      repository operations (auth, clone, list, parse) form one cohesive
+      boundary around the gh CLI. The interface goes in
+      application/ports/output/services/github-repository-service.interface.ts
+      with error classes (GitHubAuthError, GitHubCloneError,
+      GitHubUrlParseError, GitHubRepoListError) defined in the same file,
+      following the GitPrError pattern. parseGitHubUrl is a pure function
+      but belongs on the port because URL format knowledge is an external
+      concern (GitHub URL conventions).
+
+  - title: 'Use Case Composition Strategy'
+    chosen: 'ImportGitHubRepositoryUseCase composes with existing AddRepositoryUseCase via DI injection'
+    rejected:
+      - >
+        Extend AddRepositoryUseCase to handle GitHub URLs directly — Violates
+        single responsibility. AddRepositoryUseCase handles "register a local
+        path" which is a complete, tested use case. Adding clone logic would
+        bloat it and couple it to GitHub.
+      - >
+        Merge all logic into the CLI command handler — Puts business logic in
+        the presentation layer, violating Clean Architecture. Web UI would
+        need to duplicate the logic. Untestable without end-to-end tests.
+    rationale: >
+      Clean Architecture use case composition: ImportGitHubRepositoryUseCase
+      injects IGitHubRepositoryService (for auth, clone, list),
+      IRepositoryRepository (for findByRemoteUrl duplicate check), and
+      AddRepositoryUseCase (for local path registration after clone). The
+      flow is: validate URL → check auth → check duplicate by remoteUrl →
+      clone to destination → delegate to AddRepositoryUseCase → update
+      remoteUrl on returned entity. This mirrors how the codebase composes
+      use cases (e.g., CreateFeatureUseCase calling AddRepositoryUseCase
+      patterns). ListGitHubRepositoriesUseCase is a thin wrapper: check auth
+      → call listUserRepositories.
+
+  - title: 'CLI Command Architecture'
+    chosen: 'Single shep repo add command with optional --url and --dest flags, interactive mode as default'
+    rejected:
+      - >
+        Separate shep repo import and shep repo browse subcommands — Adds two
+        commands when the user mental model is one action ("add a repo"). The
+        existing repo commands (ls, show) follow one-verb-per-action. Two
+        import commands would be confusing and break convention.
+      - >
+        Add import as a top-level command (shep import) — Breaks the
+        established command hierarchy (shep repo ls, shep repo show). Repo
+        operations should live under the repo command group.
+    rationale: >
+      The repo command group (src/presentation/cli/commands/repo/index.ts)
+      already registers ls and show subcommands via createLsCommand() and
+      createShowCommand(). Adding createAddCommand() follows the same
+      pattern. The add command without flags enters an interactive wizard
+      (matching the agent-config.wizard.ts pattern) with @inquirer/prompts
+      select and input. With --url, it skips to direct clone. With --dest,
+      it overrides the default clone directory. The command resolves
+      ImportGitHubRepositoryUseCase and ListGitHubRepositoriesUseCase from
+      the DI container inside the action handler, consistent with ls and
+      show commands.
+
+  - title: 'Clone Destination Configuration'
+    chosen: 'Add optional defaultCloneDirectory to EnvironmentConfig in TypeSpec settings model'
+    rejected:
+      - >
+        Use a CLI-only config file (~/.shep/clone-config.json) — Fragments
+        configuration across two systems. Settings already has
+        EnvironmentConfig for tooling preferences. A separate file would not
+        be visible in the Web UI settings page.
+      - >
+        Hardcode ~/repos/ as default with no configurability — Too opinionated.
+        Some users organize repos by org (~/work/, ~/personal/), others use
+        ~/Projects/ or ~/code/. A configurable default respects diverse
+        workflows while still providing a sensible fallback.
+    rationale: >
+      EnvironmentConfig (tsp/domain/entities/settings.tsp lines 128-152)
+      already holds defaultEditor, shellPreference, and terminalPreference.
+      Adding defaultCloneDirectory?: string fits naturally. The Settings
+      entity is a singleton with existing DB persistence, settings service,
+      and Web UI settings page
+      (web/components/features/settings/environment-settings-section.tsx).
+      The field is optional so existing installations are unaffected.
+      Default fallback is ~/repos/ when unset. Requires a TypeSpec model
+      change, tsp:compile, and a SQLite migration to add the column to the
+      settings JSON blob (settings are stored as a JSON column, so this may
+      not require a schema migration — just a default value update in the
+      settings factory).
+
+  - title: 'Web UI Import Dialog Architecture'
+    chosen: 'Popover method picker on FAB button + Dialog with URL/Browse tabs for GitHub import'
+    rejected:
+      - >
+        Inline the GitHub import directly in the add-repository-button —
+        The button is currently a simple icon button with tooltip. Expanding
+        it to handle URL input, search, and repo listing in a popover would
+        be too cramped and complex for the component.
+      - >
+        Replace the FAB button with a dropdown menu — Loses the existing
+        single-click folder picker flow. Users who only use local folders
+        would now need two clicks (menu → local folder). The popover
+        preserves the two-click flow while adding GitHub as an option.
+    rationale: >
+      The existing add-repository-button
+      (web/components/common/add-repository-button/) uses TooltipProvider
+      + Button with FolderPlus icon. The change transforms it to
+      PopoverTrigger with a PopoverContent showing two choices: "Local
+      folder" (calls existing pickFolder) and "From GitHub" (opens a
+      Dialog). The Dialog uses shadcn/ui Tabs with "URL" and "Browse" tab
+      panels. URL tab has an input with validation. Browse tab shows a
+      searchable list fetched via a new listGitHubRepositories server
+      action. The optimistic add pattern follows the existing
+      addRepository flow: call importGitHubRepository server action →
+      addRepository callback with returned repository → useGraphState
+      addRepository → canvas node appears. Loading state shows Loader2
+      spinner icon.
+
+  - title: 'GitHub URL Validation Approach'
+    chosen: 'Regex-based URL parser in the IGitHubRepositoryService infrastructure implementation'
+    rejected:
+      - >
+        Use the URL constructor for full URL parsing — Handles HTTPS URLs
+        but cannot parse git@github.com:owner/repo.git SSH format or
+        owner/repo shorthand. Would still need regex for those formats.
+        Overly complex for a well-defined URL space (GitHub only).
+      - >
+        Use a URL validation library (valid-url, is-url) — Adds a dependency
+        for trivial validation. GitHub URL formats are well-known and finite.
+        A focused regex covers all four supported formats without external
+        deps.
+    rationale: >
+      The spec defines exactly four URL formats to support:
+      https://github.com/owner/repo,
+      https://github.com/owner/repo.git,
+      git@github.com:owner/repo.git, and owner/repo shorthand. A single
+      regex or small set of regexes can extract owner/repo (nameWithOwner)
+      from all four. The existing codebase already uses regex for URL
+      parsing in git-pr.service.ts (SSH to HTTPS conversion:
+      raw.replace(/^git@([^:]+):/, 'https://$1/').replace(/\.git$/, '')).
+      The parser returns { owner, repo, nameWithOwner } and throws
+      GitHubUrlParseError for unrecognized formats. This lives on the
+      IGitHubRepositoryService port as parseGitHubUrl() because URL format
+      is an external concern, but the implementation is pure (no subprocess).
+
+  - title: 'Error Handling Architecture'
+    chosen: 'Custom error classes per failure mode defined in the service port file, following GitPrError pattern'
+    rejected:
+      - >
+        Use generic Error with message codes — Loses type safety. Callers
+        cannot use instanceof checks for specific error handling. The
+        codebase consistently uses typed error classes (GitPrError,
+        SessionNotFoundError, StructuredCallError).
+      - >
+        Use a single GitHubError class with a code enum — Less ergonomic
+        than separate classes. instanceof is more readable than
+        error.code === 'AUTH_FAILED'. The GitPrError pattern uses a code
+        enum but the codebase also has standalone error classes
+        (SessionNotFoundError). For a new service with four distinct failure
+        modes, separate classes are cleaner.
+    rationale: >
+      Define four error classes in
+      github-repository-service.interface.ts: GitHubAuthError (gh not
+      authenticated), GitHubCloneError (clone subprocess failed),
+      GitHubUrlParseError (invalid URL format), GitHubRepoListError (repo
+      list failed). Each extends Error with this.name set and optional
+      cause parameter for chaining, following the SessionNotFoundError
+      pattern (Object.setPrototypeOf for proper prototype chain).
+      Error classes are exported from the port file so both
+      application-layer use cases and presentation-layer commands can catch
+      specific types. The CLI command handler catches each type to display
+      a targeted error message (e.g., GitHubAuthError → "Run gh auth login
+      first").
+
+  - title: 'Repository Update Strategy for remoteUrl'
+    chosen: 'Add an update() method to IRepositoryRepository for partial entity updates'
+    rejected:
+      - >
+        Set remoteUrl during create() by extending AddRepositoryInput — The
+        AddRepositoryUseCase creates the entity and calls
+        repositoryRepo.create(). Modifying it to accept remoteUrl would
+        couple it to GitHub import. AddRepositoryUseCase should remain
+        focused on "register a local path".
+      - >
+        Use a separate SQL UPDATE statement in the use case directly — Bypasses
+        the repository pattern and breaks Clean Architecture. All database
+        operations should go through the repository interface.
+    rationale: >
+      IRepositoryRepository currently has create, find, list, remove,
+      softDelete, and restore but no update. Adding update(id, partial)
+      is a natural extension needed for setting remoteUrl after
+      AddRepositoryUseCase returns the entity. The
+      ImportGitHubRepositoryUseCase flow is: clone → addRepo.execute() →
+      repoRepository.update(id, { remoteUrl }). The update method takes
+      an id and a partial Repository object, updates the specified fields
+      and updatedAt timestamp. The SQLite implementation builds a dynamic
+      SET clause from provided fields.
+
+# Open questions (resolved during research)
+openQuestions:
+  - question: 'Should gh repo clone progress be streamed or buffered?'
+    resolved: true
+    options:
+      - option: Stream progress via spawn
+        description: >
+          Use child_process.spawn to run gh repo clone, piping stderr to
+          the parent process stderr for real-time progress display. Clone
+          progress (objects, deltas, receiving) appears immediately. Spawn
+          is already imported in the DI container module for
+          AgentExecutorFactory.
+        selected: true
+      - option: Buffer output via execFile
+        description: >
+          Use the ExecFunction (execFile) to run gh repo clone, capturing
+          all output at once. Simpler to implement but the user sees nothing
+          until the entire clone completes, which could be minutes for large
+          repos. Risks maxBuffer exceeded for verbose clone output.
+        selected: false
+      - option: Poll with progress callback
+        description: >
+          Use execFile but poll the destination directory for .git existence
+          and file count to estimate progress. Unreliable, implementation
+          complexity for an inaccurate progress indicator. No real-time git
+          transfer output.
+        selected: false
+    selectionRationale: >
+      Streaming progress via spawn is the right choice for clone operations.
+      Git clone writes progress data (counting objects, compressing,
+      receiving) to stderr in real-time. Using spawn with stdio: 'pipe'
+      allows forwarding stderr to the parent process. The CLI can display
+      this directly. The Web UI can capture stderr chunks and update a
+      loading indicator. The DI container already imports spawn from
+      node:child_process. The IGitHubRepositoryService.cloneRepository
+      method will accept an optional onProgress callback for the Web UI
+      use case while defaulting to direct stderr passthrough for CLI.
+
+  - question: 'How should the default clone directory setting be stored?'
+    resolved: true
+    options:
+      - option: Add field to EnvironmentConfig in TypeSpec
+        description: >
+          Add optional defaultCloneDirectory?: string to the EnvironmentConfig
+          model in tsp/domain/entities/settings.tsp. Gets compiled into the
+          Settings type. Stored in the settings JSON blob in SQLite. Editable
+          via Web UI settings page and CLI settings command.
+        selected: true
+      - option: Store in a separate ~/.shep/config.json file
+        description: >
+          Create a lightweight JSON config file outside the Settings entity.
+          Avoids a model change but fragments configuration across two
+          persistence mechanisms. Web UI settings page would need separate
+          read/write logic.
+        selected: false
+      - option: Environment variable SHEP_CLONE_DIR only
+        description: >
+          Support only an environment variable for the clone directory.
+          Zero persistence code needed but forces users to set env vars
+          in their shell profile. Not discoverable, not visible in Web UI.
+        selected: false
+    selectionRationale: >
+      Adding to EnvironmentConfig in TypeSpec is the natural fit. Settings
+      is already a fully managed singleton entity with SQLite persistence,
+      a settings service, a defaults factory, and a Web UI settings page.
+      The EnvironmentConfig sub-model already holds defaultEditor,
+      shellPreference, and terminalPreference. Adding
+      defaultCloneDirectory?: string is one line in TypeSpec, one property
+      in the mapper, and one input field in the environment settings
+      section component. The settings factory provides a fallback default
+      (e.g., ~/repos or platform homedir + /repos).
+
+  - question: 'Should IRepositoryRepository.findByRemoteUrl match normalized URLs?'
+    resolved: true
+    options:
+      - option: Normalize URLs before storage and query (strip .git suffix, lowercase)
+        description: >
+          Before storing remoteUrl and before querying findByRemoteUrl,
+          normalize the URL by removing trailing .git, converting to
+          lowercase, and stripping trailing slashes. This ensures
+          https://github.com/Owner/Repo.git and
+          https://github.com/owner/repo match as duplicates.
+        selected: true
+      - option: Store raw URL and do exact match
+        description: >
+          Store the URL exactly as provided and query with exact string
+          match. Simpler but misses duplicates when URLs differ only in
+          casing or .git suffix. Users pasting URLs from different sources
+          may get slightly different formats.
+        selected: false
+      - option: Store both raw and normalized URLs
+        description: >
+          Store the original URL for display and a normalized form for
+          querying. Most flexible but adds a second column (normalized_remote_url)
+          and complexity to the mapper and migration. Over-engineered for
+          the actual URL variance (case + .git suffix).
+        selected: false
+    selectionRationale: >
+      Normalizing before storage is the simplest approach that catches
+      real-world duplicate scenarios. The normalization is minimal: strip
+      trailing .git suffix and lowercase the URL. This is consistent with
+      how git-pr.service.ts already normalizes remote URLs
+      (raw.replace(/\.git$/, '')). The parseGitHubUrl function will also
+      normalize the input URL before returning nameWithOwner, so the stored
+      remoteUrl will always be in canonical form
+      (https://github.com/owner/repo, lowercase, no .git).
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Domain Model Extension Strategy
+
+  **Chosen:** Add optional `remoteUrl` field to TypeSpec Repository model with SQLite migration
+
+  **Rejected:**
+  - Separate metadata table — Unnecessary complexity for one optional field. Breaks simple Repository entity pattern.
+  - JSON config file per repo — Loses SQL queryability for `findByRemoteUrl()` duplicate detection.
+
+  **Rationale:** The TypeSpec Repository model at `tsp/domain/entities/repository.tsp` currently has `name` and `path` (extending SoftDeletableEntity). Adding `remoteUrl?: string` is a one-line change. Migration 040-add-repository-remote-url.ts follows the established pattern (ALTER TABLE ADD COLUMN, idempotent pragma check). The RepositoryRow mapper needs a `remote_url` ↔ `remoteUrl` mapping. IRepositoryRepository needs `findByRemoteUrl()` for duplicate detection, and an `update()` method for setting remoteUrl after clone + registration.
+
+  ### 2. GitHub CLI Subprocess Execution Pattern
+
+  **Chosen:** ExecFunction (execFile) for auth/list operations; spawn for clone with progress streaming
+
+  **Rejected:**
+  - ExecFunction for everything — Clone progress can't be streamed; risks maxBuffer exceeded on large repos.
+  - Octokit library — Heavyweight dependency that duplicates gh CLI's already-required auth mechanism.
+
+  **Rationale:** The DI container registers ExecFunction as `promisify(execFile)` with Windows shell:true handling. For `gh auth status` and `gh repo list --json`, execFile is ideal (fast, bounded output, JSON parsing). For `gh repo clone`, spawn is needed to stream stderr progress in real-time. Spawn is already imported in the container module for AgentExecutorFactory. The service will inject ExecFunction for auth/list and use spawn for clone.
+
+  ### 3. Service Port Interface Design
+
+  **Chosen:** Single `IGitHubRepositoryService` port with four methods
+
+  **Rejected:**
+  - Multiple fine-grained interfaces — Over-segmentation for one integration boundary.
+  - Extend IExternalIssueFetcher — Wrong abstraction (issue fetching ≠ repo management).
+
+  **Rationale:** Follows the codebase's service port pattern (IGitPrService groups related git operations). Methods: `checkAuth()`, `cloneRepository(nameWithOwner, dest)`, `listUserRepositories(options?)`, `parseGitHubUrl(url)`. Lives at `application/ports/output/services/github-repository-service.interface.ts` with error classes in the same file.
+
+  ### 4. Use Case Composition Strategy
+
+  **Chosen:** ImportGitHubRepositoryUseCase composes with AddRepositoryUseCase via DI
+
+  **Rejected:**
+  - Extend AddRepositoryUseCase — Violates SRP, couples local registration to GitHub.
+  - Logic in CLI command handler — Violates Clean Architecture, prevents Web UI reuse.
+
+  **Rationale:** ImportGitHubRepositoryUseCase injects IGitHubRepositoryService, IRepositoryRepository, and AddRepositoryUseCase. Flow: validate URL → check auth → check duplicate by remoteUrl → clone → delegate to AddRepositoryUseCase → update remoteUrl. ListGitHubRepositoriesUseCase is a thin wrapper: check auth → listUserRepositories.
+
+  ### 5. CLI Command Architecture
+
+  **Chosen:** Single `shep repo add` command with `--url` and `--dest` flags
+
+  **Rejected:**
+  - Separate import/browse subcommands — Two commands for one action breaks convention.
+  - Top-level `shep import` — Breaks the repo command group hierarchy.
+
+  **Rationale:** Follows the existing repo command pattern (createLsCommand, createShowCommand). createAddCommand goes in `src/presentation/cli/commands/repo/add.command.ts`. Interactive mode uses @inquirer/prompts with shepTheme. --url flag enables direct/scripted use.
+
+  ### 6. Clone Destination Configuration
+
+  **Chosen:** Add optional `defaultCloneDirectory` to EnvironmentConfig in TypeSpec settings model
+
+  **Rejected:**
+  - Separate config file — Fragments configuration, invisible in Web UI settings.
+  - Hardcoded ~/repos/ — Too opinionated for diverse user workflows.
+
+  **Rationale:** EnvironmentConfig already holds defaultEditor, shellPreference, terminalPreference. Adding defaultCloneDirectory?: string fits naturally. The Settings entity has full SQLite persistence, settings service, defaults factory, and Web UI settings page.
+
+  ### 7. Web UI Import Dialog Architecture
+
+  **Chosen:** Popover method picker on FAB button + Dialog with URL/Browse tabs
+
+  **Rejected:**
+  - Inline in button component — Too complex for a simple icon button.
+  - Dropdown menu replacing button — Adds a click to the existing folder picker flow.
+
+  **Rationale:** Transforms add-repository-button from Button to PopoverTrigger with two choices. "From GitHub" opens a Dialog with shadcn/ui Tabs (URL input + searchable repo list). Follows existing patterns from delete-feature-dialog and repository-combobox.
+
+  ### 8. GitHub URL Validation Approach
+
+  **Chosen:** Regex-based URL parser in IGitHubRepositoryService implementation
+
+  **Rejected:**
+  - URL constructor — Can't handle SSH or shorthand formats.
+  - Validation library — Overkill for four well-known formats.
+
+  **Rationale:** Four formats to support (HTTPS, HTTPS+.git, SSH, shorthand). The codebase already uses regex for git URL parsing in git-pr.service.ts. Returns `{ owner, repo, nameWithOwner }` or throws GitHubUrlParseError.
+
+  ### 9. Error Handling Architecture
+
+  **Chosen:** Custom error classes per failure mode, defined in port file
+
+  **Rejected:**
+  - Generic Error with codes — Loses type safety and instanceof ergonomics.
+  - Single error class with code enum — Less readable than separate classes for distinct failures.
+
+  **Rationale:** Four classes: GitHubAuthError, GitHubCloneError, GitHubUrlParseError, GitHubRepoListError. Each extends Error with this.name and optional cause. Follows SessionNotFoundError pattern with Object.setPrototypeOf.
+
+  ### 10. Repository Update Strategy for remoteUrl
+
+  **Chosen:** Add update() method to IRepositoryRepository
+
+  **Rejected:**
+  - Extend AddRepositoryInput with remoteUrl — Couples AddRepositoryUseCase to GitHub.
+  - Direct SQL in use case — Bypasses repository pattern, violates Clean Architecture.
+
+  **Rationale:** IRepositoryRepository needs update(id, partial) to set remoteUrl after clone + registration. The SQLite implementation builds a dynamic SET clause. This is a general-purpose addition that benefits future use cases too.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | GitHub CLI (gh) | Auth, clone, repo listing | Use (already required) | Installed per tool-installer/tools/gh.json, handles auth automatically |
+  | @inquirer/prompts | Interactive CLI prompts | Use (already installed) | Used in existing wizards (agent-config.wizard.ts), supports select/input |
+  | shadcn/ui Dialog | GitHub import modal | Use (already installed) | Used in delete-feature-dialog, consistent with UI patterns |
+  | shadcn/ui Popover | Method picker on FAB | Use (already installed) | Used in repository-combobox, proven pattern for dropdown menus |
+  | shadcn/ui Tabs | URL/Browse tab panels | Use (already installed) | Standard shadcn/ui component for tabbed interfaces |
+  | picocolors | CLI color output | Use (already installed) | Used in shepTheme for prompt styling |
+  | octokit | GitHub REST API client | Reject | Heavyweight, duplicates gh CLI auth, adds dependency management overhead |
+  | simple-git | Git operations library | Reject | Unnecessary abstraction over gh repo clone; subprocess is simpler |
+  | node-fetch / axios | HTTP client for GitHub API | Reject | gh CLI --json flag provides structured output without HTTP client |
+
+  ## Security Considerations
+
+  - **Token exposure**: Never log gh auth tokens. ExecFunction captures stdout/stderr but we only parse structured JSON output. Clone stderr is progress data only (no tokens). Error messages from gh are safe to display.
+  - **URL validation (SSRF prevention)**: parseGitHubUrl rejects non-GitHub URLs by matching against github.com hostname only. The regex must not accept arbitrary URLs to prevent cloning from malicious servers.
+  - **Path traversal**: The --dest flag must be validated. Use path.resolve() to get absolute path, then verify it does not traverse outside allowed directories (e.g., reject paths containing .., ensure writability).
+  - **Command injection**: All subprocess calls use execFile/spawn with argument arrays (never string concatenation). The nameWithOwner is validated by parseGitHubUrl (must match owner/repo format) before passing to gh.
+  - **Private repo access**: gh repo clone automatically uses the authenticated user's permissions. No additional token handling needed. If the user can't access the repo, gh returns an error that we surface.
+
+  ## Performance Implications
+
+  - **gh repo list**: First call may take 2-5 seconds (network round-trip to GitHub API). Limited to 30 repos by default, with search filter for refinement. No caching needed — list is called once per browse session.
+  - **gh repo clone**: Duration depends on repo size. Progress streaming via spawn ensures the user sees activity. No timeout imposed (spec NFR-1 says no artificial timeout). The CLI shows git's native progress output.
+  - **Duplicate detection**: findByRemoteUrl is a simple SQL WHERE on an indexed column. Adding an index on remote_url in the migration ensures O(log n) lookup.
+  - **Web UI responsiveness**: The importGitHubRepository server action returns immediately with a pending/optimistic state. Clone runs in the background. The Browse tab fetches repo list once on open, with client-side search filtering for instant response.
+  - **Settings read**: defaultCloneDirectory is read from the in-memory Settings singleton (getSettings()), no DB query per import.
+
+  ## Architecture Notes
+
+  ### Layer Placement
+
+  | Component | Layer | Location |
+  | --------- | ----- | -------- |
+  | Repository.remoteUrl | Domain | tsp/domain/entities/repository.tsp |
+  | IGitHubRepositoryService | Application (port) | packages/core/src/application/ports/output/services/ |
+  | GitHubRepositoryService | Infrastructure | packages/core/src/infrastructure/services/external/ |
+  | ImportGitHubRepositoryUseCase | Application | packages/core/src/application/use-cases/repositories/ |
+  | ListGitHubRepositoriesUseCase | Application | packages/core/src/application/use-cases/repositories/ |
+  | shep repo add command | Presentation (CLI) | src/presentation/cli/commands/repo/ |
+  | GitHub import wizard | Presentation (TUI) | src/presentation/tui/wizards/ |
+  | GitHub import dialog | Presentation (Web) | src/presentation/web/components/common/ |
+  | importGitHubRepository action | Presentation (Web) | src/presentation/web/app/actions/ |
+  | Migration 040 | Infrastructure | packages/core/src/infrastructure/persistence/sqlite/migrations/ |
+
+  ### Dependency Flow
+
+  ```
+  CLI Command / Web Action
+    → ImportGitHubRepositoryUseCase
+      → IGitHubRepositoryService (port)
+        → GitHubRepositoryService (infra, uses gh CLI)
+      → IRepositoryRepository (port)
+        → SQLiteRepositoryRepository (infra)
+      → AddRepositoryUseCase
+        → IRepositoryRepository
+  ```
+
+  ### DI Registration (container.ts additions)
+
+  ```
+  1. Register IGitHubRepositoryService with factory (needs ExecFunction)
+  2. Register ImportGitHubRepositoryUseCase as singleton
+  3. Register ListGitHubRepositoriesUseCase as singleton
+  4. Register string token aliases for web route resolution
+  ```
+
+  ### Key Integration Points
+
+  - **AddRepositoryUseCase**: Existing, unchanged. ImportGitHubRepositoryUseCase calls it after clone.
+  - **IRepositoryRepository**: Extended with findByRemoteUrl() and update(). SQLite impl updated.
+  - **Repository mapper**: Extended with remote_url ↔ remoteUrl mapping.
+  - **Settings factory**: Updated with defaultCloneDirectory default value.
+  - **CLI repo command group**: New add subcommand registered in index.ts.
+  - **Web add-repository-button**: Refactored from simple button to popover trigger.
+  - **Web control center**: Existing onRepositoryAdd callback wired to new import flow.
