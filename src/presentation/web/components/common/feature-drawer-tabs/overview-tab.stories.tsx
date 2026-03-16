@@ -167,6 +167,11 @@ export const ErrorWithRetry: Story = {
   args: { data: errorWithRetryData },
 };
 
+/** Running state with stop button visible. */
+export const RunningWithStop: Story = {
+  args: { data: { ...fullData, onStop: fn() } },
+};
+
 /** Minimal data — only required fields, no optional details or PR. */
 export const Minimal: Story = {
   args: { data: minimalData },

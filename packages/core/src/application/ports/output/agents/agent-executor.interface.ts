@@ -24,6 +24,24 @@
 import type { AgentType, AgentFeature } from '../../../../domain/generated/output.js';
 
 /**
+ * Token usage and execution statistics returned by an agent.
+ */
+export interface AgentExecutionUsage {
+  inputTokens: number;
+  outputTokens: number;
+  /** Tokens used to populate the prompt cache (cache misses) */
+  cacheCreationInputTokens?: number;
+  /** Tokens served from the prompt cache (cache hits) */
+  cacheReadInputTokens?: number;
+  /** Estimated cost in USD */
+  costUsd?: number;
+  /** Number of agentic turns (tool-call round-trips) */
+  numTurns?: number;
+  /** Time spent waiting for the API in milliseconds */
+  durationApiMs?: number;
+}
+
+/**
  * Result returned after an agent execution completes.
  */
 export interface AgentExecutionResult {
@@ -31,8 +49,8 @@ export interface AgentExecutionResult {
   result: string;
   /** Session ID for resuming conversations */
   sessionId?: string;
-  /** Token usage statistics */
-  usage?: { inputTokens: number; outputTokens: number };
+  /** Token usage and execution statistics */
+  usage?: AgentExecutionUsage;
   /** Additional metadata from the agent */
   metadata?: Record<string, unknown>;
 }
