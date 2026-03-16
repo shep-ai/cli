@@ -28,10 +28,8 @@ vi.mock('@shepai/core/infrastructure/services/filesystem/shep-directory.service'
   getShepHomeDir: () => '/home/test/.shep',
 }));
 
-vi.mock('node:fs', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('node:fs')>(); // eslint-disable-line @typescript-eslint/consistent-type-imports
+vi.mock('node:fs', () => {
   const mock = {
-    ...actual,
     existsSync: (...args: unknown[]) => mockExistsSync(...(args as [string])),
     readFileSync: (...args: unknown[]) => mockReadFileSync(...(args as [string, string])),
   };
