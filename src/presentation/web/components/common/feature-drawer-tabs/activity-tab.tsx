@@ -557,12 +557,24 @@ function NodeTimingRow({
 
         {/* Progress bar */}
         <div
-          className={`bg-muted min-w-0 flex-1 overflow-hidden rounded-full ${isSubPhase ? 'h-1.5' : 'h-2'}`}
+          className={`bg-muted relative min-w-0 flex-1 overflow-hidden rounded-full ${isSubPhase ? 'h-1.5' : 'h-2'}`}
         >
-          <div
-            className={`h-full rounded-full transition-all duration-300 ${barColorClass}${isRunning ? 'animate-pulse' : ''}`}
-            style={{ width: `${Math.min(barPercent, 100)}%` }}
-          />
+          {isRunning ? (
+            <div
+              className="absolute inset-0 rounded-full bg-blue-500/30"
+              style={{
+                backgroundImage:
+                  'linear-gradient(90deg, transparent 0%, rgb(59 130 246) 50%, transparent 100%)',
+                backgroundSize: '200% 100%',
+                animation: 'shimmer 1.5s ease-in-out infinite',
+              }}
+            />
+          ) : (
+            <div
+              className={`h-full rounded-full transition-all duration-300 ${barColorClass}`}
+              style={{ width: `${Math.min(barPercent, 100)}%` }}
+            />
+          )}
         </div>
 
         {/* Duration */}
