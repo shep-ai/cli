@@ -18,6 +18,7 @@ describe('mapNodeStateToSidebarStatus', () => {
     ['running', 'in-progress'],
     ['done', 'done'],
     ['blocked', 'blocked'],
+    ['pending', 'pending'],
     ['error', 'error'],
     ['creating', null],
   ])('maps %s → %s', (input, expected) => {
