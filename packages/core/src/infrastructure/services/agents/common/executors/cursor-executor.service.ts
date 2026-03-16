@@ -152,11 +152,29 @@ export class CursorExecutorService implements IAgentExecutor {
             if (parsed.duration_ms !== undefined) {
               metadata = { ...metadata, duration_ms: parsed.duration_ms };
             }
+            if (parsed.is_error) {
+              this.log(
+                `[diag] result event has is_error=true: ${JSON.stringify(parsed).slice(0, 300)}`
+              );
+            }
+          } else if (parsed.type === 'error') {
+            this.log(`[diag] cursor error event: ${JSON.stringify(parsed).slice(0, 500)}`);
+          } else if (
+            parsed.type !== 'user' &&
+            parsed.type !== 'system' &&
+            parsed.type !== 'thinking' &&
+            parsed.type !== 'tool_call'
+          ) {
+            this.log(
+              `[diag] unknown event type="${parsed.type}": ${JSON.stringify(parsed).slice(0, 300)}`
+            );
           }
-          // user, system, thinking events: logged but don't affect result
         } catch {
           // Non-JSON output — accumulate as raw text fallback
-          if (line.length > 0) rawText += `${line}\n`;
+          if (line.length > 0) {
+            rawText += `${line}\n`;
+            this.log(`[diag] non-JSON line (${line.length} chars): ${line.slice(0, 200)}`);
+          }
         }
       };
 
@@ -232,8 +250,22 @@ export class CursorExecutorService implements IAgentExecutor {
         }
 
         if (code !== 0 && code !== null) {
-          reject(new Error(stderr.trim() || `Process exited with code ${code}`));
+          const errMsg = stderr.trim() || `Process exited with code ${code}`;
+          this.log(`[diag] non-zero exit — rejecting with: ${errMsg.slice(0, 200)}`);
+          reject(new Error(errMsg));
           return;
+        }
+
+        if (stdoutChunks === 0 && stderrChunks === 0) {
+          this.log(
+            `[diag] WARNING: process exited with code 0 but produced ZERO output (stdout=0, stderr=0, elapsed=${elapsed}s)`
+          );
+        }
+
+        if (!finalText && code === 0) {
+          this.log(
+            `[diag] WARNING: process exited code=0 but result is empty (resultText=${resultText.length}, rawText=${rawText.length})`
+          );
         }
 
         const result: AgentExecutionResult = { result: finalText };
@@ -248,23 +280,29 @@ export class CursorExecutorService implements IAgentExecutor {
     prompt: string,
     options?: AgentExecutionOptions
   ): AsyncIterable<AgentExecutionStreamEvent> {
+    this.silent = options?.silent ?? false;
     const args = this.buildStreamArgs(prompt, options);
     const { proc, tmpFile } = this.spawnAgent(prompt, args, options);
 
+    this.log(`[stream] pid=${proc.pid}, stdout=${!!proc.stdout}, stderr=${!!proc.stderr}`);
+
     let lineBuffer = '';
     let stderr = '';
+    let stdoutChunks = 0;
+    let stderrChunks = 0;
+    const startTime = Date.now();
 
     const queue: (AgentExecutionStreamEvent | null)[] = [];
     let resolve: (() => void) | null = null;
     let error: Error | null = null;
 
-    function enqueue(event: AgentExecutionStreamEvent | null) {
+    const enqueue = (event: AgentExecutionStreamEvent | null) => {
       queue.push(event);
       if (resolve) {
         resolve();
         resolve = null;
       }
-    }
+    };
 
     function waitForItem(): Promise<void> {
       if (queue.length > 0) return Promise.resolve();
@@ -273,8 +311,21 @@ export class CursorExecutorService implements IAgentExecutor {
       });
     }
 
+    // Heartbeat for stream mode too
+    const heartbeatId = setInterval(() => {
+      const elapsed = Math.round((Date.now() - startTime) / 1000);
+      this.log(
+        `[stream] heartbeat ${elapsed}s: stdout_chunks=${stdoutChunks}, stderr_chunks=${stderrChunks}, pid_killed=${proc.killed}`
+      );
+    }, 30_000);
+
     proc.stdout?.on('data', (chunk: Buffer | string) => {
-      lineBuffer += chunk.toString();
+      stdoutChunks++;
+      const data = chunk.toString();
+      if (stdoutChunks <= 3) {
+        this.log(`[stream] stdout chunk #${stdoutChunks}: ${data.length} bytes`);
+      }
+      lineBuffer += data;
       const lines = lineBuffer.split('\n');
       lineBuffer = lines.pop() ?? '';
       for (const line of lines) {
@@ -286,15 +337,25 @@ export class CursorExecutorService implements IAgentExecutor {
     });
 
     proc.stderr?.on('data', (chunk: Buffer | string) => {
-      stderr += chunk.toString();
+      stderrChunks++;
+      const data = chunk.toString();
+      stderr += data;
+      this.log(`[stream] stderr chunk #${stderrChunks}: ${data.trimEnd()}`);
     });
 
     proc.on('error', (err: Error) => {
+      this.log(`[stream] Process ERROR: ${err.message}`);
+      clearInterval(heartbeatId);
       error = err;
       enqueue(null);
     });
 
     proc.on('close', (code: number | null) => {
+      const elapsed = Math.round((Date.now() - startTime) / 1000);
+      clearInterval(heartbeatId);
+      this.log(
+        `[stream] Process CLOSE: code=${code}, elapsed=${elapsed}s, stdout_chunks=${stdoutChunks}, stderr_chunks=${stderrChunks}`
+      );
       if (tmpFile) {
         try {
           unlinkSync(tmpFile);
@@ -306,8 +367,10 @@ export class CursorExecutorService implements IAgentExecutor {
         const event = this.parseStreamLine(lineBuffer.trim());
         if (event) enqueue(event);
       }
-      if (code !== 0 && code !== null && stderr.trim()) {
-        enqueue({ type: 'error', content: stderr.trim(), timestamp: new Date() });
+      if (code !== 0 && code !== null) {
+        const errMsg = stderr.trim() || `Process exited with code ${code}`;
+        this.log(`[stream] non-zero exit: ${errMsg}`);
+        enqueue({ type: 'error', content: errMsg, timestamp: new Date() });
       }
       enqueue(null);
     });
@@ -361,6 +424,13 @@ export class CursorExecutorService implements IAgentExecutor {
       }
 
       if (parsed.type === 'user') return; // Skip echoed input
+
+      // Log any unrecognized event type so nothing is silently dropped
+      if (
+        !['assistant', 'tool_call', 'result', 'user', 'system', 'thinking'].includes(parsed.type)
+      ) {
+        this.log(`[diag] unhandled stream event type="${parsed.type}": ${line.slice(0, 200)}`);
+      }
     } catch {
       if (line.length > 0) this.log(`[raw] ${line}`);
     }
@@ -397,10 +467,16 @@ export class CursorExecutorService implements IAgentExecutor {
    */
   private resolveCursorBinary(): { nodePath: string; indexPath: string } | undefined {
     const localAppData = process.env.LOCALAPPDATA;
-    if (!localAppData) return undefined;
+    if (!localAppData) {
+      this.log('[diag] resolveCursorBinary: LOCALAPPDATA not set');
+      return undefined;
+    }
 
     const versionsDir = join(localAppData, 'cursor-agent', 'versions');
-    if (!existsSync(versionsDir)) return undefined;
+    if (!existsSync(versionsDir)) {
+      this.log(`[diag] resolveCursorBinary: versions dir not found: ${versionsDir}`);
+      return undefined;
+    }
 
     // Find the latest version directory (format: YYYY.MM.DD-commit)
     const versionPattern = /^\d{4}\.\d{1,2}\.\d{1,2}-[a-f0-9]+$/;
@@ -409,14 +485,23 @@ export class CursorExecutorService implements IAgentExecutor {
       .sort()
       .reverse();
 
-    if (versions.length === 0) return undefined;
+    if (versions.length === 0) {
+      this.log(`[diag] resolveCursorBinary: no version dirs in ${versionsDir}`);
+      return undefined;
+    }
 
     const versionDir = join(versionsDir, versions[0]);
     const nodePath = join(versionDir, 'node.exe');
     const indexPath = join(versionDir, 'index.js');
 
-    if (!existsSync(nodePath) || !existsSync(indexPath)) return undefined;
+    if (!existsSync(nodePath) || !existsSync(indexPath)) {
+      this.log(
+        `[diag] resolveCursorBinary: missing binary — node=${existsSync(nodePath)}, index=${existsSync(indexPath)}`
+      );
+      return undefined;
+    }
 
+    this.log(`[diag] resolveCursorBinary: resolved version=${versions[0]}`);
     return { nodePath, indexPath };
   }
 
@@ -490,7 +575,7 @@ export class CursorExecutorService implements IAgentExecutor {
       }
 
       // Fallback: if direct resolution fails, use PowerShell + temp file
-      this.log('Windows fallback: cursor binary not resolved, using PowerShell');
+      this.log('[diag] Windows fallback: cursor binary not resolved, using PowerShell + temp file');
       const tmpFile = join(
         tmpdir(),
         `shep-cursor-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.txt`
@@ -501,6 +586,7 @@ export class CursorExecutorService implements IAgentExecutor {
       const safePath = tmpFile.replace(/'/g, "''");
       const psCmd = `$p = Get-Content -Raw '${safePath}'; & agent ${agentFlags} -p $p`;
 
+      this.log(`[diag] PS command: ${psCmd.replace(prompt, `<${prompt.length} chars>`)}`);
       const proc = this.spawn(
         'powershell.exe',
         ['-NoProfile', '-NonInteractive', '-Command', psCmd],
@@ -511,6 +597,7 @@ export class CursorExecutorService implements IAgentExecutor {
           env: this.buildEnv(),
         }
       );
+      this.log(`[diag] PowerShell PID: ${proc.pid ?? 'undefined (spawn may have failed)'}`);
       if (proc.stdin) proc.stdin.end();
 
       return { proc, tmpFile };
