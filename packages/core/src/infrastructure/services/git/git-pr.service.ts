@@ -363,20 +363,24 @@ export class GitPrService implements IGitPrService {
     timeoutMs?: number,
     intervalSeconds?: number
   ): Promise<CiStatusResult> {
+    // Resolve the latest run for the branch BEFORE the try/catch so the
+    // runUrl is available in both success and failure return paths.
+    let runUrl: string | undefined;
     try {
       // gh run watch requires a run ID — it does not support --branch.
       // First, resolve the latest run ID for the branch via gh run list.
       const { stdout: listOut } = await this.execFile(
         'gh',
-        ['run', 'list', '--branch', branch, '--json', 'databaseId', '--limit', '1'],
+        ['run', 'list', '--branch', branch, '--json', 'databaseId,url', '--limit', '1'],
         { cwd }
       );
-      const runs = JSON.parse(listOut) as { databaseId: number }[];
+      const runs = JSON.parse(listOut) as { databaseId: number; url: string }[];
       if (runs.length === 0 || !runs[0].databaseId) {
         return { status: 'pending' };
       }
 
       const runId = String(runs[0].databaseId);
+      runUrl = runs[0].url;
       const interval = intervalSeconds ?? 30;
       const args = [
         'run',
@@ -396,6 +400,7 @@ export class GitPrService implements IGitPrService {
       // If we reach here (no exception), CI passed — no need for fragile stdout parsing.
       return {
         status: 'success',
+        runUrl,
         logExcerpt: stdout.trim(),
       };
     } catch (error) {
@@ -416,7 +421,7 @@ export class GitPrService implements IGitPrService {
         // Build a useful log excerpt from stdout/stderr if available
         const errObj = error as { stdout?: string; stderr?: string };
         const parts = [errObj.stdout, errObj.stderr, message].filter(Boolean);
-        return { status: 'failure', logExcerpt: parts.join('\n').trim() };
+        return { status: 'failure', runUrl, logExcerpt: parts.join('\n').trim() };
       }
       throw new GitPrError(message, GitPrErrorCode.GIT_ERROR, cause);
     }

@@ -55,6 +55,34 @@ export function useDeployAction(input: DeployActionInput | null): DeployActionSt
     };
   }, []);
 
+  // Fetch status on mount — recover running dev servers after page reload
+  useEffect(() => {
+    if (!input) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const result = await getDeploymentStatus(input.targetId);
+        if (cancelled || !mountedRef.current) return;
+        if (result && result.state !== 'Stopped') {
+          log.info(`mount recovery: "${input.targetId}" state=${result.state}, url=${result.url}`);
+          setStatus(result.state as DeploymentState);
+          setUrl(result.url);
+          startPolling(input.targetId);
+        }
+      } catch {
+        // Server container may not be available (e.g., in tests)
+        log.debug(`mount recovery failed for "${input.targetId}" — ignoring`);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // Only run on mount (input identity is stable from the caller)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [input?.targetId]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {

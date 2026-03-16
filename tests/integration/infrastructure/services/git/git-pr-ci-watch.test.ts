@@ -24,7 +24,9 @@ describe('GitPrService.watchCi integration', () => {
   /** Helper: mock the gh run list call that resolves the latest run ID */
   function mockRunList() {
     vi.mocked(mockExec).mockResolvedValueOnce({
-      stdout: JSON.stringify([{ databaseId: runId }]),
+      stdout: JSON.stringify([
+        { databaseId: runId, url: `https://github.com/org/repo/actions/runs/${runId}` },
+      ]),
       stderr: '',
     });
   }
@@ -49,7 +51,7 @@ Run completed: success
     expect(mockExec).toHaveBeenNthCalledWith(
       1,
       'gh',
-      ['run', 'list', '--branch', branch, '--json', 'databaseId', '--limit', '1'],
+      ['run', 'list', '--branch', branch, '--json', 'databaseId,url', '--limit', '1'],
       { cwd }
     );
     expect(mockExec).toHaveBeenNthCalledWith(
