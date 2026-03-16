@@ -1,38 +1,38 @@
-# Feature Specification (YAML)
-# This is the source of truth. Markdown is auto-generated from this file.
-
 name: agent-dev-environment-ff7266
-number: 069
+number: 69
 branch: feat/069-agent-dev-environment-ff7266
 oneLiner: >
-  Replace the simple script-only DeploymentService with an agent-based dev environment that
-  analyzes any repo, caches results per-repo, supports a fast path for recognized projects,
-  and correctly reports when there is nothing to start
+  Replace the simple script-only DeploymentService with an agent-based dev
+  environment that analyzes any repo, caches results per-repo, supports a fast
+  path for recognized projects, and correctly reports when there is nothing to
+  start
 userQuery: >
-  The current deployment env feature is simple stupid. lets introduce agent based deployment.
-  so it could start dev env for any repo. it should have some level of cache per repo so it
-  would be fast. it should support all languages and be basically an agent for that. there are
-  some repos which is basically impossible to start local dev server as there is no server or
-  ui maybe its just a script in such case the agent should respond that there is nothing to start.
-  The user should be able to select to run with "fast path" or non agentic. If we recognize it
-  has package.json with basic start dev / start the cache invalidation should be manual.
-  Should the user be able to override or edit the cached analysis result? Full Manual.
+  The current deployment env feature is simple stupid. lets introduce agent
+  based deployment. so it could start dev env for any repo. it should have some
+  level of cache per repo so it would be fast. it should support all languages
+  and be basically an agent for that. there are some repos which is basically
+  impossible to start local dev server as there is no server or ui maybe its
+  just a script in such case the agent should respond that there is nothing to
+  start. The user should be able to select to run with "fast path" or non
+  agentic. If we recognize it has package.json with basic start dev / start the
+  cache invalidation should be manual. Should the user be able to override or
+  edit the cached analysis result? Full Manual.
 summary: >
-  Replace the current hard-coded Node.js-only DeploymentService (detect-dev-script + spawn)
-  with a two-mode system: (1) a "fast path" that reuses the existing deterministic package.json
-  detection for recognized Node.js projects, and (2) an agent-based path that uses
-  IAgentExecutor (via StructuredAgentCaller) to analyze any repository — regardless of language
-  or framework — and produce a structured DevEnvironmentAnalysis (commands, ports, prerequisites).
-  Analysis results are cached per-repo in SQLite with manual-only invalidation and full manual
-  editing. Repos with no startable server/UI get a clear "nothing to start" response.
+  Replace the current hard-coded Node.js-only DeploymentService
+  (detect-dev-script + spawn) with a two-mode system: (1) a "fast path" that
+  reuses the existing deterministic package.json detection for recognized
+  Node.js projects, and (2) an agent-based path that uses IAgentExecutor (via
+  StructuredAgentCaller) to analyze any repository — regardless of language or
+  framework — and produce a structured DevEnvironmentAnalysis (commands, ports,
+  prerequisites). Analysis results are cached per-repo in SQLite keyed by git
+  remote URL (falling back to root repo absolute path for non-git repos), with
+  manual-only invalidation and full manual editing. Repos with no startable
+  server/UI get a clear "nothing to start" response.
 phase: Requirements
 sizeEstimate: L
-
-# Relationships
 relatedFeatures:
-  - '045-feature-env-deploy'
-  - '061-default-env-deployment'
-
+  - 045-feature-env-deploy
+  - 061-default-env-deployment
 technologies:
   - TypeScript
   - TypeSpec
@@ -43,206 +43,241 @@ technologies:
   - Node.js child_process
   - better-sqlite3
   - Umzug (migrations)
-
 relatedLinks: []
-
-# Open questions (must be resolved before implementation)
 openQuestions:
-  - question: 'Should the agent analysis use StructuredAgentCaller (single prompt) or a LangGraph multi-step graph?'
+  - question: >-
+      Should the agent analysis use StructuredAgentCaller (single prompt) or a
+      LangGraph multi-step graph?
     resolved: true
     options:
-      - option: 'StructuredAgentCaller single call'
+      - option: StructuredAgentCaller single call
         description: >
-          Use IStructuredAgentCaller.call() with a well-crafted prompt and JSON schema.
-          Simpler to implement, fewer moving parts, no graph state management.
-          Sufficient because repo analysis is a single-shot task — read files, reason, output JSON.
-          Follows the pattern already used for structured extraction elsewhere in the codebase.
+          Use IStructuredAgentCaller.call() with a well-crafted prompt and JSON
+          schema. Simpler to implement, fewer moving parts, no graph state
+          management. Sufficient because repo analysis is a single-shot task —
+          read files, reason, output JSON. Follows the pattern already used for
+          structured extraction elsewhere in the codebase.
         selected: true
-      - option: 'LangGraph multi-step graph'
+      - option: LangGraph multi-step graph
         description: >
-          Build a StateGraph with multiple nodes (scan files → detect language → analyze config → produce result).
-          More complex, adds graph state management overhead, but allows tool-use loops where the agent
-          can iteratively explore the repo. Better for very complex repos but overkill for most cases.
+          Build a StateGraph with multiple nodes (scan files → detect language →
+          analyze config → produce result). More complex, adds graph state
+          management overhead, but allows tool-use loops where the agent can
+          iteratively explore the repo. Better for very complex repos but
+          overkill for most cases.
         selected: false
-      - option: 'Hybrid — StructuredAgentCaller with tool-use fallback'
+      - option: Hybrid — StructuredAgentCaller with tool-use fallback
         description: >
-          Start with StructuredAgentCaller. If the agent needs to read specific files it cannot
-          access via the initial prompt context, fall back to a LangGraph graph with file-reading tools.
-          Most flexible but highest implementation cost.
+          Start with StructuredAgentCaller. If the agent needs to read specific
+          files it cannot access via the initial prompt context, fall back to a
+          LangGraph graph with file-reading tools. Most flexible but highest
+          implementation cost.
         selected: false
     selectionRationale: >
-      StructuredAgentCaller is recommended because repo analysis is fundamentally a single-shot task:
-      the agent receives the repo path, we include key file contents (package.json, Dockerfile,
-      pyproject.toml, etc.) in the prompt, and it returns structured JSON. The existing
-      StructuredAgentCallerService already handles native structured output vs prompt-based JSON
-      extraction. A LangGraph graph adds complexity without clear benefit since we can pre-read
-      the relevant config files before calling the agent. This also aligns with the codebase pattern
-      where StructuredAgentCaller is used for focused, single-output tasks.
-    answer: 'StructuredAgentCaller single call'
-
-  - question: 'How should the mode selection (fast path vs agent) be presented to the user?'
+      StructuredAgentCaller is recommended because repo analysis is
+      fundamentally a single-shot task: the agent receives the repo path, we
+      include key file contents (package.json, Dockerfile, pyproject.toml, etc.)
+      in the prompt, and it returns structured JSON. The existing
+      StructuredAgentCallerService already handles native structured output vs
+      prompt-based JSON extraction. A LangGraph graph adds complexity without
+      clear benefit since we can pre-read the relevant config files before
+      calling the agent. This also aligns with the codebase pattern where
+      StructuredAgentCaller is used for focused, single-output tasks.
+    answer: StructuredAgentCaller single call
+  - question: >-
+      How should the mode selection (fast path vs agent) be presented to the
+      user?
     resolved: true
     options:
-      - option: 'Auto-detect with manual override'
+      - option: Auto-detect with manual override
         description: >
-          The system auto-detects whether fast path is viable (package.json with dev/start/serve exists).
-          If viable, it defaults to fast path with an option to switch to agent mode.
-          If not viable, it defaults to agent mode. The user can always toggle between modes.
-          Minimal friction for the common case while preserving full control.
+          The system auto-detects whether fast path is viable (package.json with
+          dev/start/serve exists). If viable, it defaults to fast path with an
+          option to switch to agent mode. If not viable, it defaults to agent
+          mode. The user can always toggle between modes. Minimal friction for
+          the common case while preserving full control.
         selected: true
-      - option: 'Always ask — explicit mode picker'
+      - option: Always ask — explicit mode picker
         description: >
-          Every deploy shows a mode selector (Fast / Agent) before starting. Forces user to make
-          a conscious choice every time. More explicit but adds friction, especially for repeat deploys
-          where the choice is obvious.
+          Every deploy shows a mode selector (Fast / Agent) before starting.
+          Forces user to make a conscious choice every time. More explicit but
+          adds friction, especially for repeat deploys where the choice is
+          obvious.
         selected: false
-      - option: 'Settings-level default with per-deploy override'
+      - option: Settings-level default with per-deploy override
         description: >
-          A global setting chooses the default mode. Each deploy can override it. Two-layer config
-          adds complexity but works well for users who always prefer one mode.
+          A global setting chooses the default mode. Each deploy can override
+          it. Two-layer config adds complexity but works well for users who
+          always prefer one mode.
         selected: false
     selectionRationale: >
-      Auto-detect with manual override provides the best UX: Node.js projects with obvious dev
-      scripts get instant fast-path behavior (no change from current UX), while non-Node.js projects
-      automatically use the agent. The user always sees which mode was selected and can switch.
-      This avoids adding friction for the 80% case while keeping full control for the 20%.
-    answer: 'Auto-detect with manual override'
-
-  - question: 'What should the cache key be for agent analysis results?'
+      Auto-detect with manual override provides the best UX: Node.js projects
+      with obvious dev scripts get instant fast-path behavior (no change from
+      current UX), while non-Node.js projects automatically use the agent. The
+      user always sees which mode was selected and can switch. This avoids
+      adding friction for the 80% case while keeping full control for the 20%.
+    answer: Auto-detect with manual override
+  - question: What should the cache key be for agent analysis results?
     resolved: true
     options:
-      - option: 'Absolute repository path'
+      - option: Git remote URL with root repo path fallback
         description: >
-          Use the full filesystem path (e.g., /Users/dev/projects/my-app) as the cache key.
-          Simple and unambiguous. Works because repos are accessed by path throughout the system.
-          Downside: moving a repo invalidates cache, but manual invalidation makes this acceptable.
+          Use the git remote origin URL as the primary cache key (resolved via
+          `git remote get-url origin`). If no remote exists (non-git repo or no
+          remote configured), fall back to the root repository absolute path
+          (resolved via `git rev-parse --git-common-dir` to find the actual repo
+          root, NOT the worktree path). This is critical because the system uses
+          git worktrees — multiple worktrees of the same repo live at different
+          filesystem paths (e.g., ~/.shep/repos/<hash>/wt/<branch>/) but share
+          the same git remote and root repo. Using the remote URL ensures all
+          worktrees of the same repo share one cache entry. The existing
+          GitPrService.getRemoteUrl() already provides remote URL resolution.
         selected: true
-      - option: 'Git remote URL + branch'
+      - option: Worktree absolute path
         description: >
-          Use the git remote origin URL and current branch as cache key. Survives directory moves
-          but requires git metadata access, fails for non-git repos, and branch changes would
-          miss cache even if the dev setup is identical.
+          Use the full filesystem path of the working directory as the cache
+          key. Simple but WRONG for this codebase — each worktree gets a unique
+          path under ~/.shep/repos/<hash>/wt/<branch>/, so the same repo would
+          have separate cache entries per worktree/branch. Defeats the purpose
+          of per-repo caching.
         selected: false
-      - option: 'Content hash of config files'
+      - option: Content hash of config files
         description: >
-          Hash the contents of detected config files (package.json, Dockerfile, etc.). Automatically
-          invalidates when config changes. But contradicts the "manual-only invalidation" requirement
-          and adds file-reading overhead on every deploy.
+          Hash the contents of detected config files (package.json, Dockerfile,
+          etc.). Automatically invalidates when config changes. But contradicts
+          the "manual-only invalidation" requirement and adds file-reading
+          overhead on every deploy.
         selected: false
     selectionRationale: >
-      Absolute repository path is the simplest and most reliable cache key. The existing codebase
-      already uses targetPath as the primary identifier in DeploymentService.start(targetId, targetPath).
-      Since cache invalidation is manual-only per the user's requirements, we don't need content-aware
-      keys. The path is always available and unambiguous.
-    answer: 'Absolute repository path'
-
-  - question: 'How should the "nothing to start" state integrate with the existing deployment UI?'
+      Git remote URL with root repo path fallback is the correct cache key
+      because this codebase uses git worktrees extensively — the same repo is
+      checked out into multiple worktree directories under
+      ~/.shep/repos/<hash>/wt/<branch>/. Using the worktree path would create
+      duplicate cache entries for the same project. The remote URL (e.g.,
+      git@github.com:org/repo.git) is the canonical identifier of a repository
+      and stays stable across worktrees, clones, and directory moves. For
+      non-git repos with no remote, the root repo absolute path (from
+      `git rev-parse --git-common-dir`, NOT the worktree path) provides a stable
+      fallback. The existing GitPrService already implements getRemoteUrl() and
+      the worktree service already uses git-common-dir for root resolution.
+    answer: Git remote URL with root repo path fallback
+  - question: >-
+      How should the "nothing to start" state integrate with the existing
+      deployment UI?
     resolved: true
     options:
-      - option: 'Inline informational state in deployment badge'
+      - option: Inline informational state in deployment badge
         description: >
-          Add a new "NotStartable" state to DeploymentStatusBadge. When canStart is false, show
-          the badge with an info icon and the agent reason text. The deploy button becomes disabled
-          with a tooltip. Minimal UI changes, reuses existing components.
+          Add a new "NotStartable" state to DeploymentStatusBadge. When canStart
+          is false, show the badge with an info icon and the agent reason text.
+          The deploy button becomes disabled with a tooltip. Minimal UI changes,
+          reuses existing components.
         selected: true
-      - option: 'Separate analysis results panel'
+      - option: Separate analysis results panel
         description: >
-          Show a dedicated panel/card with the full analysis results (language, framework, reason).
-          More informative but requires a new component and takes more screen space.
-          Better for cases where the user wants to understand WHY before deciding to override.
+          Show a dedicated panel/card with the full analysis results (language,
+          framework, reason). More informative but requires a new component and
+          takes more screen space. Better for cases where the user wants to
+          understand WHY before deciding to override.
         selected: false
-      - option: 'Dialog/modal on deploy attempt'
+      - option: Dialog/modal on deploy attempt
         description: >
-          When the user clicks deploy on a not-startable repo, show a modal explaining why and
-          offering to re-analyze or manually configure. Interrupts the flow but ensures the user
-          sees the explanation.
+          When the user clicks deploy on a not-startable repo, show a modal
+          explaining why and offering to re-analyze or manually configure.
+          Interrupts the flow but ensures the user sees the explanation.
         selected: false
     selectionRationale: >
-      Inline informational state is recommended because it follows the existing deployment badge
-      pattern (Booting → Ready → Stopped) and requires minimal UI changes. The badge already has
-      visual states; adding NotStartable with an info icon and the reason text is a natural
-      extension. The user sees the state at a glance without modal interruptions. The reason text
-      from the agent provides sufficient context.
-    answer: 'Inline informational state in deployment badge'
-
-  - question: 'Should the cache editor UI be a full form or a JSON editor?'
+      Inline informational state is recommended because it follows the existing
+      deployment badge pattern (Booting → Ready → Stopped) and requires minimal
+      UI changes. The badge already has visual states; adding NotStartable with
+      an info icon and the reason text is a natural extension. The user sees the
+      state at a glance without modal interruptions. The reason text from the
+      agent provides sufficient context.
+    answer: Inline informational state in deployment badge
+  - question: Should the cache editor UI be a full form or a JSON editor?
     resolved: true
     options:
-      - option: 'Structured form with fields'
+      - option: Structured form with fields
         description: >
-          A form with labeled fields for each DevEnvironmentAnalysis property (commands list,
-          ports, prerequisites, env vars). Users edit individual fields with proper input types
-          (text, number, add/remove list items). More polished, harder to build, prevents invalid JSON.
+          A form with labeled fields for each DevEnvironmentAnalysis property
+          (commands list, ports, prerequisites, env vars). Users edit individual
+          fields with proper input types (text, number, add/remove list items).
+          More polished, harder to build, prevents invalid JSON.
         selected: true
-      - option: 'Raw JSON editor'
+      - option: Raw JSON editor
         description: >
-          A textarea or code editor showing the raw JSON of the cached analysis. Users edit the
-          JSON directly. Fast to build, flexible, but error-prone (invalid JSON, typos in field names).
-          Better for power users.
+          A textarea or code editor showing the raw JSON of the cached analysis.
+          Users edit the JSON directly. Fast to build, flexible, but error-prone
+          (invalid JSON, typos in field names). Better for power users.
         selected: false
-      - option: 'Hybrid — form with JSON fallback'
+      - option: Hybrid — form with JSON fallback
         description: >
-          Default to structured form, with a "View as JSON" toggle for power users.
-          Best of both worlds but double the implementation cost for the editor.
+          Default to structured form, with a "View as JSON" toggle for power
+          users. Best of both worlds but double the implementation cost for the
+          editor.
         selected: false
     selectionRationale: >
-      A structured form is recommended because the DevEnvironmentAnalysis schema is well-defined
-      and relatively flat. Users should not need to understand JSON to edit their dev environment
-      config. The form can use existing shadcn/ui components (Input, Select, dynamic lists) and
-      validates input before saving. This also aligns with the "full manual editing" requirement —
-      the user should feel in control, not fighting a text editor.
-    answer: 'Structured form with fields'
-
-  - question: 'How should the agent read repository files for analysis?'
+      A structured form is recommended because the DevEnvironmentAnalysis schema
+      is well-defined and relatively flat. Users should not need to understand
+      JSON to edit their dev environment config. The form can use existing
+      shadcn/ui components (Input, Select, dynamic lists) and validates input
+      before saving. This also aligns with the "full manual editing" requirement
+      — the user should feel in control, not fighting a text editor.
+    answer: Structured form with fields
+  - question: How should the agent read repository files for analysis?
     resolved: true
     options:
-      - option: 'Pre-read key files in prompt context'
+      - option: Pre-read key files in prompt context
         description: >
-          Before calling the agent, read a predefined list of config files (package.json, Dockerfile,
-          docker-compose.yml, Makefile, pyproject.toml, Cargo.toml, go.mod, Gemfile, pom.xml, etc.)
-          and include their contents in the agent prompt. The agent reasons over the provided content.
-          Fast, deterministic file selection, no tool-use overhead. Limited to known config file patterns.
+          Before calling the agent, read a predefined list of config files
+          (package.json, Dockerfile, docker-compose.yml, Makefile,
+          pyproject.toml, Cargo.toml, go.mod, Gemfile, pom.xml, etc.) and
+          include their contents in the agent prompt. The agent reasons over the
+          provided content. Fast, deterministic file selection, no tool-use
+          overhead. Limited to known config file patterns.
         selected: true
-      - option: 'Agent uses file-reading tools'
+      - option: Agent uses file-reading tools
         description: >
-          Give the agent tools to list directory contents and read files. The agent decides which
-          files to examine. More flexible — can discover unexpected config patterns — but slower
-          due to multiple tool-use rounds and harder to test deterministically.
+          Give the agent tools to list directory contents and read files. The
+          agent decides which files to examine. More flexible — can discover
+          unexpected config patterns — but slower due to multiple tool-use
+          rounds and harder to test deterministically.
         selected: false
     selectionRationale: >
-      Pre-reading key files is recommended because the set of relevant config files across all major
-      ecosystems is well-known and finite: package.json, pyproject.toml, Cargo.toml, go.mod, Gemfile,
-      pom.xml, build.gradle, Dockerfile, docker-compose.yml, Makefile, etc. Including their contents
-      in a single prompt is simpler, faster, and produces deterministic inputs for testing. The agent
-      still applies intelligence to interpret the contents — it just doesn't need to discover which
-      files to read.
-    answer: 'Pre-read key files in prompt context'
-
-  - question: 'Should fast-path results also be stored in the cache table?'
+      Pre-reading key files is recommended because the set of relevant config
+      files across all major ecosystems is well-known and finite: package.json,
+      pyproject.toml, Cargo.toml, go.mod, Gemfile, pom.xml, build.gradle,
+      Dockerfile, docker-compose.yml, Makefile, etc. Including their contents in
+      a single prompt is simpler, faster, and produces deterministic inputs for
+      testing. The agent still applies intelligence to interpret the contents —
+      it just doesn't need to discover which files to read.
+    answer: Pre-read key files in prompt context
+  - question: Should fast-path results also be stored in the cache table?
     resolved: true
     options:
-      - option: 'Yes — unified cache for both modes'
+      - option: Yes — unified cache for both modes
         description: >
-          Store fast-path detection results in the same cache table as agent results. Both modes
-          produce a DevEnvironmentAnalysis record. Simplifies the data model — one table, one
-          repository, one editor. The source field distinguishes fast-path vs agent results.
-          Fast-path results can also be manually edited.
+          Store fast-path detection results in the same cache table as agent
+          results. Both modes produce a DevEnvironmentAnalysis record.
+          Simplifies the data model — one table, one repository, one editor. The
+          source field distinguishes fast-path vs agent results. Fast-path
+          results can also be manually edited.
         selected: true
-      - option: 'No — cache only agent results'
+      - option: No — cache only agent results
         description: >
-          Only agent results go in the cache table. Fast-path detection is cheap and deterministic,
-          so it runs every time. Simpler cache table but creates two code paths for the UI (cached
-          vs live-detected) and the user cannot edit fast-path results.
+          Only agent results go in the cache table. Fast-path detection is cheap
+          and deterministic, so it runs every time. Simpler cache table but
+          creates two code paths for the UI (cached vs live-detected) and the
+          user cannot edit fast-path results.
         selected: false
     selectionRationale: >
-      Unified cache is recommended because it gives a single data model and UI for both modes.
-      When the user edits a fast-path result (e.g., changes the port or adds env vars), it becomes
-      a cached entry. A source field (fast-path vs agent) lets the system know whether re-detection
-      is cheap. This also means the "nothing to start" state is cached consistently regardless of
-      how it was determined.
-    answer: 'Yes — unified cache for both modes'
-
-# Markdown content (the actual spec)
+      Unified cache is recommended because it gives a single data model and UI
+      for both modes. When the user edits a fast-path result (e.g., changes the
+      port or adds env vars), it becomes a cached entry. A source field
+      (fast-path vs agent) lets the system know whether re-detection is cheap.
+      This also means the "nothing to start" state is cached consistently
+      regardless of how it was determined.
+    answer: Yes — unified cache for both modes
 content: |
   ## Problem Statement
 
@@ -300,7 +335,9 @@ content: |
   - [ ] Fast path works for Node.js repos with package.json containing dev/start/serve scripts — no regression from current behavior
   - [ ] Mode auto-detection correctly selects fast path for recognized Node.js projects and agent path for all others
   - [ ] User can manually switch between fast path and agent mode via the UI
-  - [ ] Agent analysis results are persisted in SQLite and reused on subsequent deploys for the same repo path
+  - [ ] Cache key uses git remote URL when available, falling back to root repo absolute path (not worktree path) for repos without a remote
+  - [ ] Multiple worktrees of the same repo share a single cache entry
+  - [ ] Agent analysis results are persisted in SQLite and reused on subsequent deploys for the same repo
   - [ ] Cache invalidation is manual only — user must explicitly trigger re-analysis
   - [ ] User can view and edit all fields of a cached DevEnvironmentAnalysis via a structured form in the UI
   - [ ] DeploymentService.start() uses the cached/analyzed commands to spawn the correct process regardless of language
@@ -326,41 +363,47 @@ content: |
 
   - **FR-6**: The `DevCommand` structure MUST include: command (string, the actual shell command), description (string, human-readable explanation), and workingDirectory (optional string, relative path from repo root for monorepo support).
 
+  ### Cache Key Resolution
+
+  - **FR-7**: The cache key for analysis results MUST be resolved using the following priority: (1) the git remote origin URL (resolved via `git remote get-url origin` from the working directory), or (2) if no remote exists, the root repository absolute path (resolved via `git rev-parse --git-common-dir` to find the actual git root, NOT the worktree path). This ensures that multiple worktrees of the same repo share a single cache entry, since worktrees live at different filesystem paths (e.g., `~/.shep/repos/<hash>/wt/<branch>/`) but all point to the same git remote and root repo.
+
+  - **FR-8**: A `RepoCacheKeyResolver` utility MUST be provided that encapsulates the cache key resolution logic: attempt `git remote get-url origin` first; if it fails or returns empty, resolve the root repo path via `git rev-parse --git-common-dir`; if both fail (non-git directory), fall back to the provided working directory path. This utility MUST be injectable and mockable for testing.
+
   ### Caching
 
-  - **FR-7**: Analysis results (from both fast and agent modes) MUST be persisted in a new SQLite table keyed by the absolute repository path. The cache record MUST store the full `DevEnvironmentAnalysis`, the analysis source (fast-path or agent), and timestamps (createdAt, updatedAt).
+  - **FR-9**: Analysis results (from both fast and agent modes) MUST be persisted in a new SQLite table keyed by the resolved cache key (remote URL or root repo path per FR-7). The cache record MUST store the full `DevEnvironmentAnalysis`, the analysis source (fast-path or agent), the resolved cache key, and timestamps (createdAt, updatedAt).
 
-  - **FR-8**: On subsequent deploy requests for the same repository path, the system MUST check the cache first and use the cached result if available, skipping re-analysis entirely.
+  - **FR-10**: On subsequent deploy requests for any path within the same repository (including different worktrees), the system MUST resolve the cache key (FR-7), check the cache, and use the cached result if available, skipping re-analysis entirely.
 
-  - **FR-9**: Cache invalidation MUST be manual only. The user MUST explicitly trigger re-analysis via a "Re-analyze" action in the UI. There is no automatic invalidation based on file changes, timestamps, or content hashes.
+  - **FR-11**: Cache invalidation MUST be manual only. The user MUST explicitly trigger re-analysis via a "Re-analyze" action in the UI. There is no automatic invalidation based on file changes, timestamps, or content hashes.
 
-  - **FR-10**: The user MUST be able to fully edit any cached `DevEnvironmentAnalysis` record via the UI, including: adding/removing/reordering commands, editing ports, modifying prerequisites, changing environment variables, toggling canStart, and editing the reason text.
+  - **FR-12**: The user MUST be able to fully edit any cached `DevEnvironmentAnalysis` record via the UI, including: adding/removing/reordering commands, editing ports, modifying prerequisites, changing environment variables, toggling canStart, and editing the reason text.
 
-  - **FR-11**: When a user edits a cached result, the source field MUST be updated to "manual" to indicate the analysis has been user-modified.
+  - **FR-13**: When a user edits a cached result, the source field MUST be updated to "manual" to indicate the analysis has been user-modified.
 
   ### Deployment Integration
 
-  - **FR-12**: `DeploymentService.start()` MUST be refactored to accept a `DevEnvironmentAnalysis` (or resolve one from cache/analyzer) instead of calling `detectDevScript()` directly. It MUST execute the commands from the analysis in order.
+  - **FR-14**: `DeploymentService.start()` MUST be refactored to accept a `DevEnvironmentAnalysis` (or resolve one from cache/analyzer) instead of calling `detectDevScript()` directly. It MUST execute the commands from the analysis in order.
 
-  - **FR-13**: When a cached analysis has `canStart: false`, `DeploymentService` MUST NOT attempt to spawn any process. The deployment state MUST transition to a `NotStartable` state.
+  - **FR-15**: When a cached analysis has `canStart: false`, `DeploymentService` MUST NOT attempt to spawn any process. The deployment state MUST transition to a `NotStartable` state.
 
-  - **FR-14**: The deployment process MUST use `parsePort()` on stdout/stderr of spawned commands to detect URLs/ports, consistent with current behavior. The expected ports from the analysis MAY be used as hints but MUST NOT override actual detected ports.
+  - **FR-16**: The deployment process MUST use `parsePort()` on stdout/stderr of spawned commands to detect URLs/ports, consistent with current behavior. The expected ports from the analysis MAY be used as hints but MUST NOT override actual detected ports.
 
   ### UI / Presentation
 
-  - **FR-15**: The deployment UI MUST show the current mode (Fast / Agent) and allow the user to switch modes before deploying.
+  - **FR-17**: The deployment UI MUST show the current mode (Fast / Agent) and allow the user to switch modes before deploying.
 
-  - **FR-16**: When a cached analysis exists, the UI MUST show a summary of the cached result (language, framework, commands count, ports) with options to: deploy using cached config, edit the cached config, or re-analyze.
+  - **FR-18**: When a cached analysis exists, the UI MUST show a summary of the cached result (language, framework, commands count, ports) with options to: deploy using cached config, edit the cached config, or re-analyze.
 
-  - **FR-17**: The `DeploymentStatusBadge` MUST support a `NotStartable` visual state that displays the agent's reason text explaining why the repo cannot be started.
+  - **FR-19**: The `DeploymentStatusBadge` MUST support a `NotStartable` visual state that displays the agent's reason text explaining why the repo cannot be started.
 
-  - **FR-18**: The cache editor MUST be a structured form with labeled fields for each `DevEnvironmentAnalysis` property, using appropriate input types (text inputs, number inputs, dynamic add/remove lists for commands and prerequisites).
+  - **FR-20**: The cache editor MUST be a structured form with labeled fields for each `DevEnvironmentAnalysis` property, using appropriate input types (text inputs, number inputs, dynamic add/remove lists for commands and prerequisites).
 
-  - **FR-19**: During agent analysis (which may take several seconds), the UI MUST show a loading/analyzing state with a spinner or progress indicator. The user MUST be able to cancel an in-progress analysis.
+  - **FR-21**: During agent analysis (which may take several seconds), the UI MUST show a loading/analyzing state with a spinner or progress indicator. The user MUST be able to cancel an in-progress analysis.
 
   ### Server Actions
 
-  - **FR-20**: New or updated server actions MUST be provided for: triggering analysis (with mode selection), deploying from cached analysis, invalidating cache (re-analyze), and updating cached analysis (edit).
+  - **FR-22**: New or updated server actions MUST be provided for: triggering analysis (with mode selection), deploying from cached analysis, invalidating cache (re-analyze), and updating cached analysis (edit).
 
   ## Non-Functional Requirements
 
@@ -368,21 +411,23 @@ content: |
 
   - **NFR-2 — Performance (agent path)**: Agent-based analysis MUST complete within 30 seconds for typical repositories. The UI MUST remain responsive during analysis (non-blocking, with progress indication).
 
-  - **NFR-3 — Performance (cached)**: Deploying from a cached analysis MUST add no more than 50ms overhead compared to the current direct-detection path. Cache lookup is a single SQLite query.
+  - **NFR-3 — Performance (cached)**: Deploying from a cached analysis MUST add no more than 50ms overhead compared to the current direct-detection path. Cache lookup is a single SQLite query by resolved cache key.
 
-  - **NFR-4 — Reliability**: The agent analysis MUST gracefully handle: repositories with no config files, repositories with conflicting config files, network errors during agent call, and agent response parsing failures. All error states MUST surface user-visible messages.
+  - **NFR-4 — Performance (cache key resolution)**: Resolving the cache key (git remote URL or root repo path) MUST complete in under 200ms. The two git commands (`git remote get-url origin` and `git rev-parse --git-common-dir`) are fast local operations.
 
-  - **NFR-5 — Backward compatibility**: The existing `deployFeature()` and `deployRepository()` server actions MUST continue to work for Node.js projects without any user-visible behavior change when fast-path mode is selected (or auto-detected).
+  - **NFR-5 — Reliability**: The agent analysis MUST gracefully handle: repositories with no config files, repositories with conflicting config files, network errors during agent call, and agent response parsing failures. All error states MUST surface user-visible messages.
 
-  - **NFR-6 — Agent resolution**: The analyzer MUST resolve the agent executor via `IAgentExecutorProvider` (never hardcode an agent type), consistent with AGENTS.md mandatory rules.
+  - **NFR-6 — Backward compatibility**: The existing `deployFeature()` and `deployRepository()` server actions MUST continue to work for Node.js projects without any user-visible behavior change when fast-path mode is selected (or auto-detected).
 
-  - **NFR-7 — Data integrity**: The SQLite cache table MUST use proper constraints (unique on repo path, NOT NULL on required fields). Mapper functions MUST round-trip domain objects without data loss.
+  - **NFR-7 — Agent resolution**: The analyzer MUST resolve the agent executor via `IAgentExecutorProvider` (never hardcode an agent type), consistent with AGENTS.md mandatory rules.
 
-  - **NFR-8 — Testability**: The `DevEnvironmentAnalyzerService` MUST accept its dependencies via DI (IStructuredAgentCaller, file system access) so agent calls can be mocked in unit tests. No real agent calls in unit tests.
+  - **NFR-8 — Data integrity**: The SQLite cache table MUST use proper constraints (unique on cache key, NOT NULL on required fields). Mapper functions MUST round-trip domain objects without data loss.
 
-  - **NFR-9 — Accessibility**: All new UI components MUST follow existing shadcn/ui accessibility patterns (proper aria labels, keyboard navigation, focus management in the cache editor form).
+  - **NFR-9 — Testability**: The `DevEnvironmentAnalyzerService` and `RepoCacheKeyResolver` MUST accept their dependencies via DI (IStructuredAgentCaller, file system access, git command execution) so agent calls and git operations can be mocked in unit tests. No real agent calls or git operations in unit tests.
 
-  - **NFR-10 — Code organization**: All new code MUST follow Clean Architecture layering: TypeSpec models in `tsp/`, interfaces in `application/ports/`, implementations in `infrastructure/services/`, UI in `presentation/web/`. No layer violations.
+  - **NFR-10 — Accessibility**: All new UI components MUST follow existing shadcn/ui accessibility patterns (proper aria labels, keyboard navigation, focus management in the cache editor form).
+
+  - **NFR-11 — Code organization**: All new code MUST follow Clean Architecture layering: TypeSpec models in `tsp/`, interfaces in `application/ports/`, implementations in `infrastructure/services/`, UI in `presentation/web/`. No layer violations.
 
   ## Product Questions & AI Recommendations
 
@@ -390,7 +435,7 @@ content: |
   | - | -------- | ----------------- | --------- |
   | 1 | Agent analysis approach — StructuredAgentCaller vs LangGraph? | StructuredAgentCaller single call | Repo analysis is single-shot; pre-read config files in prompt avoids multi-step graph complexity |
   | 2 | Mode selection UX — auto-detect vs always-ask vs settings default? | Auto-detect with manual override | 80% case (Node.js) gets instant fast path; 20% case auto-falls to agent; full override available |
-  | 3 | Cache key strategy? | Absolute repository path | Matches existing targetPath usage; manual invalidation makes content-hashing unnecessary |
+  | 3 | Cache key strategy? | Git remote URL with root repo path fallback | Remote URL is the canonical repo identifier; survives worktree differences and directory moves. Falls back to root repo path (via git-common-dir, not worktree path) for repos without a remote. Multiple worktrees of the same repo share one cache entry. |
   | 4 | "Nothing to start" UI treatment? | Inline informational state in deployment badge | Extends existing badge states naturally; no modal interruptions |
   | 5 | Cache editor style — form vs JSON vs hybrid? | Structured form with fields | Well-defined schema suits form UX; prevents JSON typos; uses existing shadcn/ui inputs |
   | 6 | How agent reads repo files? | Pre-read key files in prompt context | Finite set of known config files; faster than tool-use loops; deterministic for testing |
@@ -404,22 +449,24 @@ content: |
   | `tsp/agents/deploy-agent.tsp` | Medium | Update `LocalDeployAgent` operations to include agent-based analyze |
   | `tsp/common/enums/deployment.tsp` | Low | Add `NotStartable` to `DeploymentState` enum, add `AnalysisSource` enum |
   | `packages/core/src/infrastructure/services/deployment/` | High | Refactor `DeploymentService.start()` to support two-mode dispatch, add `DevEnvironmentAnalyzerService` |
+  | `packages/core/src/infrastructure/services/git/` | Medium | Add `RepoCacheKeyResolver` utility using existing git command execution patterns |
   | `packages/core/src/infrastructure/services/agents/common/` | Medium | Use `StructuredAgentCallerService` for agent-based repo analysis |
   | `packages/core/src/infrastructure/repositories/` | Medium | New `SQLiteDevEnvAnalysisRepository` for cached analysis records |
   | `packages/core/src/infrastructure/persistence/sqlite/` | Medium | New migration + mapper for dev_environment_analyses table |
-  | `packages/core/src/application/ports/output/services/` | Medium | New `IDevEnvironmentAnalyzer` port interface |
+  | `packages/core/src/application/ports/output/services/` | Medium | New `IDevEnvironmentAnalyzer` and `IRepoCacheKeyResolver` port interfaces |
   | `packages/core/src/application/ports/output/repositories/` | Medium | New `IDevEnvAnalysisRepository` port interface |
   | `src/presentation/web/app/actions/` | Medium | Update deploy actions, add analyze/cache-management actions |
   | `src/presentation/web/hooks/` | Medium | Add mode selection, cache management, analyzing state to deploy hooks |
   | `src/presentation/web/components/common/base-drawer/` | Medium | Add mode selector, cache summary, cache editor UI |
   | `src/presentation/web/components/common/deployment-status-badge/` | Low | Add `NotStartable` visual state |
   | `packages/core/src/infrastructure/di/container.ts` | Medium | Register new services and repositories |
-  | `tests/` | High | Tests for analyzer, cache repository, mapper, updated deploy actions, UI components |
+  | `tests/` | High | Tests for analyzer, cache key resolver, cache repository, mapper, updated deploy actions, UI components |
 
   ## Dependencies
 
   - **Existing agent infrastructure**: `IAgentExecutorProvider`, `StructuredAgentCallerService`, `IAgentExecutor` — all already implemented and working
   - **Existing deployment pipeline**: `DeploymentService`, `detectDevScript`, `parsePort` — preserved as the "fast path"
+  - **Existing git services**: `GitPrService.getRemoteUrl()` for remote URL resolution, `WorktreeService` for worktree path handling, `git rev-parse --git-common-dir` for root repo resolution
   - **SQLite persistence layer**: Connection management, migration system (Umzug), mapper pattern — established patterns to follow
   - **TypeSpec compiler**: For generating the new domain model types
   - **Feature flags**: `featureFlags.envDeploy` already gates the deploy UI — no new flag needed
@@ -432,6 +479,7 @@ content: |
 
   - **New TypeSpec models** for DevEnvironmentAnalysis + DevCommand + AnalysisSource enum
   - **New SQLite table** + migration + mapper + repository for the analysis cache
+  - **New RepoCacheKeyResolver** utility for git remote URL / root repo path resolution
   - **New DevEnvironmentAnalyzerService** with two-mode dispatch (fast + agent)
   - **Refactored DeploymentService** to accept DevEnvironmentAnalysis instead of direct detection
   - **Updated server actions** for mode selection, analysis trigger, cache management
@@ -441,5 +489,15 @@ content: |
   - **Storybook stories** for all new UI components (mandatory)
 
   The scope is significantly larger than the original spec-045 implementation because it adds an
-  AI analysis pipeline, persistent caching with full manual editing, and a two-mode dispatch system
-  on top of the existing process management infrastructure.
+  AI analysis pipeline, persistent caching with full manual editing, a two-mode dispatch system,
+  and worktree-aware cache key resolution on top of the existing process management infrastructure.
+rejectionFeedback:
+  - iteration: 1
+    message: >-
+      question 3:
+
+      it should be just the remote url if there is no such its the repo
+      aboustulte path, notice the wroktree path is different so make sure to use
+      the root repo abosulte path
+    phase: requirements
+    timestamp: '2026-03-16T14:09:50.848Z'
