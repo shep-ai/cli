@@ -1,0 +1,180 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: cleanup-settings-page
+number: 069
+branch: feat/069-cleanup-settings-page
+oneLiner: Remove unsupported settings from the web settings page and clean up unused domain fields
+userQuery: >
+  Go over the settings page and remove any unsupported settings
+summary: >
+  Audit the settings page UI against actual backend usage and remove settings that are either
+  not consumed by any service, shown as permanently disabled, or defined in the domain but
+  never surfaced in any UI. Also add missing notification event toggles that exist in the
+  backend but are absent from the settings page.
+phase: Analysis
+sizeEstimate: S
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - React (Next.js App Router)
+  - TypeSpec (domain model definitions)
+  - SQLite (settings persistence via mapper)
+  - Storybook (component stories)
+  - Vitest (unit tests)
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - >
+    Should the `system.autoUpdate` and `system.logLevel` fields be removed from the TypeSpec
+    domain model and database entirely, or only confirmed as not shown on the settings page?
+    Removing from TypeSpec requires a migration. Leaving them in the domain is harmless but
+    adds dead code.
+  - >
+    Should the `user` profile fields (name, email, githubUsername) be removed from the domain
+    model? They are stored but never read by any service. However, they may be planned for
+    future commit attribution.
+  - >
+    The authentication method row in the Agent section is shown as permanently disabled with
+    a "Coming soon" tooltip. Should it be removed entirely from the UI, or kept as-is?
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  The settings page displays several settings that are either unsupported (never consumed
+  by backend code), permanently disabled in the UI, or missing from the UI despite being
+  fully supported in the backend. This creates user confusion and maintenance burden.
+
+  Specific issues identified:
+
+  1. **Authentication method row** — shown as disabled with "Coming soon" tooltip. The
+     `authMethod` field IS used in agent configuration, but the UI disables it, making
+     it misleading dead UI.
+  2. **Shell preference** — displayed in the Environment section but IS actually used
+     by `open-shell.ts` action and CLI tables display. This is SUPPORTED and should stay.
+  3. **CI settings (ciMaxFixAttempts, ciWatchTimeoutMs, ciLogMaxChars, ciWatchPollIntervalSeconds)**
+     — displayed in their own CI section and ARE used in `ci-watch-fix-loop.ts`. These
+     are SUPPORTED and should stay.
+  4. **Missing notification toggles** — `prBlocked` and `mergeReviewReady` events are
+     fully supported in `notification.service.ts` but are missing from the settings page
+     notification event toggles (only 4 of 6 PR events are shown).
+  5. **system.autoUpdate** — defined in TypeSpec, stored in DB, but never read by any
+     service or shown in any UI.
+  6. **system.logLevel** — defined in TypeSpec, stored in DB, but never read by any
+     service or shown in any UI.
+  7. **user profile (name, email, githubUsername)** — defined in TypeSpec, stored in DB,
+     but never read by any service. The worktree service uses hardcoded constants instead.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  Settings system spans four layers:
+  - **Domain**: `tsp/domain/entities/settings.tsp` (TypeSpec source of truth) generates
+    `packages/core/src/domain/generated/output.ts`
+  - **Domain factory**: `packages/core/src/domain/factories/settings-defaults.factory.ts`
+  - **Infrastructure**: `packages/core/src/infrastructure/persistence/sqlite/mappers/settings.mapper.ts`
+    maps domain to/from SQLite columns
+  - **Presentation (Web)**: `src/presentation/web/components/features/settings/settings-page-client.tsx`
+    is the main settings page (~1555 lines)
+  - **Presentation (CLI)**: `src/presentation/cli/ui/tables.ts` displays settings summary
+
+  ### Architecture Patterns
+
+  - Settings is a singleton entity with database-level enforcement
+  - TypeSpec-first: domain model in `tsp/` generates TypeScript types
+  - Settings are auto-saved on change via `updateSettingsAction` server action
+  - The settings page uses local React state synchronized to the server
+  - Each section has a colocated Storybook story file
+
+  ### Relevant Technologies
+
+  - **TypeSpec**: Domain model definitions (source of truth for Settings type)
+  - **React/Next.js**: Settings page is a client component with auto-save
+  - **SQLite + mapper**: Persistence layer with column-level mapping
+  - **Storybook**: Component stories for each settings section
+  - **Vitest**: Unit test at `tests/unit/presentation/web/components/features/settings/settings-page-client.test.tsx`
+
+  ## Findings: Settings Audit
+
+  ### Settings that should be REMOVED from UI
+
+  | Setting | Current UI Location | Backend Usage | Recommendation |
+  | ------- | ------------------- | ------------- | -------------- |
+  | Authentication method | Agent section (disabled, "Coming soon") | Used in configure-agent use case | Remove disabled row from UI |
+
+  ### Settings MISSING from UI (should be ADDED)
+
+  | Setting | Backend Support | Recommendation |
+  | ------- | --------------- | -------------- |
+  | `notifications.events.prBlocked` | Used in notification.service.ts | Add toggle to PR Events subsection |
+  | `notifications.events.mergeReviewReady` | Used in notification.service.ts | Add toggle to PR Events subsection |
+
+  ### Settings NOT in UI and NOT used (domain-only dead fields)
+
+  | Setting | Domain Location | Backend Usage | Recommendation |
+  | ------- | --------------- | ------------- | -------------- |
+  | `system.autoUpdate` | SystemConfig model | Only in mapper/defaults | Keep in domain (no UI change needed) |
+  | `system.logLevel` | SystemConfig model | Only in mapper/defaults | Keep in domain (no UI change needed) |
+  | `user.name` | UserProfile model | Only in mapper/defaults | Keep in domain (no UI change needed) |
+  | `user.email` | UserProfile model | Only in mapper/defaults | Keep in domain (no UI change needed) |
+  | `user.githubUsername` | UserProfile model | Only in mapper/defaults | Keep in domain (no UI change needed) |
+
+  ### Settings that are SUPPORTED (should STAY)
+
+  | Setting | UI Location | Backend Usage |
+  | ------- | ----------- | ------------- |
+  | Agent & Model | Agent section | create-feature, agent resolution |
+  | Default Editor | Environment section | open-ide.ts |
+  | Shell Preference | Environment section | open-shell.ts, CLI tables |
+  | Terminal | Environment section | open-shell.ts |
+  | All Workflow settings | Workflow section | Feature drawer, nodes |
+  | CI Watch Enabled | Workflow section | merge.node.ts |
+  | CI Max Fix Attempts | CI section | ci-watch-fix-loop.ts |
+  | CI Watch Timeout | CI section | ci-watch-fix-loop.ts |
+  | CI Max Log Size | CI section | ci-watch-fix-loop.ts |
+  | CI Poll Interval | CI section | ci-watch-fix-loop.ts |
+  | All Stage Timeouts | Timeouts section | node-helpers.ts |
+  | Notification channels | Notifications section | notification.service.ts |
+  | Notification agent events | Notifications section | notification.service.ts |
+  | PR Merged/Closed/Passed/Failed | Notifications section | notification.service.ts |
+  | Feature Flags | Flags section | feature-flags.ts |
+  | Database info | Database section | Read-only display |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `src/presentation/web/components/features/settings/settings-page-client.tsx` | High | Remove auth method row; add prBlocked and mergeReviewReady toggles |
+  | `src/presentation/web/components/features/settings/settings-page-client.stories.tsx` | Medium | Update stories to reflect UI changes |
+  | `tests/unit/presentation/web/components/features/settings/settings-page-client.test.tsx` | Medium | Update tests for removed/added UI elements |
+
+  ## Success Criteria
+
+  - [ ] Authentication method row (disabled "Coming soon") is removed from Agent section
+  - [ ] `prBlocked` notification toggle is added to PR Events subsection
+  - [ ] `mergeReviewReady` notification toggle is added to PR Events subsection
+  - [ ] All existing supported settings remain functional and unchanged
+  - [ ] Storybook stories are updated to reflect changes
+  - [ ] Unit tests pass with updated assertions
+  - [ ] No TypeSpec or domain model changes required (scope limited to UI)
+
+  ## Dependencies
+
+  - `NotificationEventConfig` type already includes `prBlocked` and `mergeReviewReady` fields
+  - `notification.service.ts` already maps these events — no backend changes needed
+  - `settings-defaults.factory.ts` already includes defaults for these events
+
+  ## Size Estimate
+
+  **S** — This is a focused UI-only change: remove one disabled row, add two switch toggles,
+  update stories and tests. No domain model, TypeSpec, database, or backend changes required.
+
+  ---
+
+  _Generated by feature agent — proceed with research_
