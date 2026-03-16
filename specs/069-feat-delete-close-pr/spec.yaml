@@ -11,8 +11,11 @@ summary: >
   When a feature is deleted, the existing cleanup logic removes worktrees and deletes
   local/remote branches, but leaves any open GitHub PR untouched. This feature adds a
   closePr method to IGitPrService and calls it from DeleteFeatureUseCase so that open
-  PRs are closed as part of the best-effort cleanup phase.
-phase: Analysis
+  PRs are closed as part of the best-effort cleanup phase. The PR closure follows the
+  established two-phase delete pattern: the feature is soft-deleted immediately (Phase 1),
+  then PR closure runs as best-effort cleanup (Phase 2) alongside worktree removal and
+  branch deletion.
+phase: Requirements
 sizeEstimate: S
 
 # Relationships
@@ -32,51 +35,183 @@ technologies:
 relatedLinks: []
 
 # Open questions (must be resolved before implementation)
-openQuestions: []
+openQuestions:
+  - question: 'Should PR closure happen before or after branch deletion in the cleanup sequence?'
+    resolved: true
+    options:
+      - option: 'Close PR before deleting branches'
+        description: >
+          Close the PR first, then delete local/remote branches. This is safer because
+          gh pr close works against the PR number and does not depend on the branch
+          existing. Closing first ensures the PR is marked Closed in GitHub before
+          the source branch disappears, giving a cleaner audit trail.
+        selected: true
+      - option: 'Close PR after deleting branches'
+        description: >
+          Delete branches first, then close the PR. The PR would already be in a
+          broken state (deleted source branch) before being closed. gh pr close still
+          works by PR number so this is technically fine, but the ordering is less clean.
+        selected: false
+      - option: 'Close PR in parallel with branch deletion'
+        description: >
+          Run PR closure and branch deletion concurrently. Marginally faster but adds
+          complexity with no meaningful benefit for a best-effort cleanup step that
+          takes milliseconds.
+        selected: false
+    selectionRationale: >
+      Closing the PR before deleting branches is the cleanest sequence. The gh pr close
+      command operates by PR number (not branch name), so it works regardless of branch
+      state, but closing first ensures GitHub records a clean close event rather than
+      an orphaned-branch close. This matches the principle of cleaning up the highest-level
+      resource (PR) before the lower-level ones (branches).
+    answer: 'Close PR before deleting branches'
+
+  - question: 'Should the CLI and Web UI inform the user that an open PR will be closed during deletion?'
+    resolved: true
+    options:
+      - option: 'Post-deletion summary only'
+        description: >
+          Only mention PR closure in the deletion summary output after the fact
+          (e.g., "Cleanup: worktree, local branch, remote branch, PR #42 closed").
+          Keeps the confirmation flow unchanged and avoids adding noise to the
+          deletion prompt for a best-effort step.
+        selected: true
+      - option: 'Pre-deletion warning and post-deletion summary'
+        description: >
+          Show a warning before deletion that an open PR exists and will be closed,
+          and also report the result afterward. More informative but adds complexity
+          to the confirmation flow and may be unnecessary since the user is already
+          choosing to delete the feature.
+        selected: false
+    selectionRationale: >
+      Post-deletion summary is sufficient. The user is already explicitly choosing to
+      delete the feature and has confirmed the action. Adding a pre-deletion warning
+      about PR closure adds noise without meaningful value — if you're deleting a feature,
+      closing its PR is the obviously expected behavior. The summary line confirms what
+      happened.
+    answer: 'Post-deletion summary only'
+
+  - question: 'Should the Web UI delete-feature-dialog mention PR closure?'
+    resolved: true
+    options:
+      - option: 'No change to dialog'
+        description: >
+          Keep the dialog as-is. PR closure is an implementation detail of cleanup
+          that does not need a separate UI control. The "Clean up worktree and
+          branches" checkbox already implies full cleanup. Avoids a UI change for
+          a low-impact detail.
+        selected: true
+      - option: 'Add informational text to dialog'
+        description: >
+          Add a note like "This will also close any open pull request" to the dialog
+          when cleanup is checked. Provides transparency but adds visual clutter for
+          a behavior that is expected when deleting a feature.
+        selected: false
+    selectionRationale: >
+      No change to the dialog is needed. PR closure is a natural consequence of feature
+      deletion with cleanup enabled. The dialog already communicates that cleanup will
+      happen. Adding specific text about PR closure would over-communicate a detail that
+      users expect by default — if you delete a feature, its PR should close too.
+    answer: 'No change to dialog'
+
+  - question: 'Should closePr also delete the associated remote branch, or rely on the existing branch deletion step?'
+    resolved: true
+    options:
+      - option: 'closePr closes PR only, branch deletion stays separate'
+        description: >
+          Keep closePr focused on a single responsibility: closing the PR via
+          gh pr close. Branch deletion continues to be handled by the existing
+          deleteBranch calls in the cleanup flow. This follows the Single
+          Responsibility Principle and avoids gh pr close --delete-branch which
+          could conflict with the existing branch deletion logic.
+        selected: true
+      - option: 'closePr uses --delete-branch flag to also delete the branch'
+        description: >
+          Use gh pr close --delete-branch to close the PR and delete the remote
+          branch in one command. Reduces the number of separate cleanup steps but
+          creates overlap with the existing deleteBranch call and could cause
+          confusing errors if the branch was already deleted.
+        selected: false
+    selectionRationale: >
+      closePr should only close the PR. The existing cleanup flow already handles
+      branch deletion separately (both local and remote). Using --delete-branch
+      would create duplicate deletion attempts and potential race conditions. Keeping
+      concerns separated matches the existing architecture and avoids surprises.
+    answer: 'closePr closes PR only, branch deletion stays separate'
 
 # Markdown content (the actual spec)
 content: |
   ## Problem Statement
 
   When a user deletes a feature via `shep feat del`, the `DeleteFeatureUseCase` performs
-  best-effort cleanup: cancel agent runs, remove the git worktree, and delete local/remote
-  branches. However, if a GitHub pull request was created for the feature, it is left open —
-  the PR becomes orphaned with a deleted source branch.
+  two-phase deletion: immediate soft-delete (Phase 1) followed by best-effort cleanup
+  (Phase 2). The cleanup phase cancels agent runs, removes the git worktree, and deletes
+  local/remote branches. However, if a GitHub pull request was created for the feature,
+  it is left open — the PR becomes orphaned with a deleted source branch.
 
-  This feature closes any open PR associated with the feature during the cleanup phase,
-  using the existing `feature.pr` data (which stores the PR number and status).
+  This feature closes any open PR associated with the feature during the Phase 2 cleanup,
+  using the existing `feature.pr` data (which stores the PR number and status). The closure
+  follows the established best-effort pattern: failures are caught and do not block deletion.
 
-  ## Codebase Analysis
+  ## Success Criteria
 
-  ### Project Structure
+  - [ ] `IGitPrService` interface includes a `closePr(cwd: string, prNumber: number): Promise<void>` method
+  - [ ] `GitPrService` implements `closePr` by invoking `gh pr close <number>`
+  - [ ] `DeleteFeatureUseCase.cleanupSingleFeature` calls `closePr` when `feature.pr` exists and `feature.pr.status === 'Open'`
+  - [ ] PR closure runs before branch deletion in the cleanup sequence
+  - [ ] PR closure is best-effort: wrapped in try/catch, failure does not block or abort deletion
+  - [ ] PR closure is skipped when `cleanup === false` (user opted out of cleanup)
+  - [ ] PR closure is skipped when `feature.pr` is undefined (no PR was ever created)
+  - [ ] PR closure is skipped when `feature.pr.status` is `Merged` or `Closed` (already terminal)
+  - [ ] CLI deletion summary includes "PR #N closed" when a PR was successfully closed
+  - [ ] CLI deletion summary does not mention PR closure when no PR existed or PR was already closed/merged
+  - [ ] Unit tests for `closePr` in GitPrService: successful close, gh CLI error handling
+  - [ ] Unit tests for DeleteFeatureUseCase PR closure: open PR closed, merged PR skipped, closed PR skipped, no PR skipped, close failure handled gracefully, cleanup=false skips PR close
+  - [ ] Cascade delete closes PRs on child features that have open PRs
+  - [ ] All existing tests continue to pass with no modifications
 
-  The codebase follows Clean Architecture with four layers in `packages/core/src/`:
+  ## Functional Requirements
 
-  - **domain/** — Generated TypeSpec models including `Feature` (with optional `pr?: PullRequest`),
-    `PullRequest` (with `number`, `status: PrStatus`), and `PrStatus` enum (Open | Merged | Closed)
-  - **application/** — Use cases and output port interfaces. `DeleteFeatureUseCase` orchestrates
-    deletion. `IGitPrService` defines the git/PR operations interface.
-  - **infrastructure/** — `GitPrService` implements `IGitPrService` using `gh` CLI and git commands.
-    Uses injected `ExecFunction` (promisified `child_process.execFile`).
-  - **presentation/** — CLI (`src/presentation/cli/commands/feat/del.command.ts`) and
-    Web UI (`src/presentation/web/components/common/delete-feature-dialog/`)
+  - **FR-1: closePr interface method** — Add `closePr(cwd: string, prNumber: number): Promise<void>` to the `IGitPrService` interface. The method accepts the working directory and PR number, and returns a Promise that resolves on success or rejects with a `GitPrError` on failure.
 
-  ### Architecture Patterns
+  - **FR-2: closePr implementation** — Implement `closePr` in `GitPrService` by executing `gh pr close <prNumber>` in the given working directory. Parse errors using the existing `parseGhError` method to produce typed `GitPrError` instances.
 
-  - **Dependency injection** via tsyringe — all services resolved through DI container
-  - **Output ports** — `IGitPrService` is an interface in the application layer; `GitPrService`
-    implements it in the infrastructure layer
-  - **Best-effort cleanup** — worktree removal, branch deletion, and (new) PR closing are
-    wrapped in try/catch blocks so failures don't block the soft-delete
-  - **Two-phase delete** — features are immediately soft-deleted (hidden from queries), then
-    cleanup runs best-effort afterward
+  - **FR-3: PR closure in delete cleanup** — In `DeleteFeatureUseCase.cleanupSingleFeature`, after cancelling agent runs and removing the worktree, but before deleting branches: if `feature.pr` exists and `feature.pr.status === PrStatus.Open`, call `gitPrService.closePr(feature.repositoryPath, feature.pr.number)`. Wrap the call in a try/catch that silently catches errors (matching the existing best-effort pattern).
 
-  ### Relevant Technologies
+  - **FR-4: Skip PR closure when cleanup is disabled** — When `options.cleanup === false`, do not attempt to close the PR. This matches the existing behavior where branch deletion is also skipped when cleanup is disabled.
 
-  - **GitHub CLI (`gh`)** — used for all PR operations (`gh pr create`, `gh pr merge`, `gh pr view`).
-    The new `closePr` method will use `gh pr close <number>`.
-  - **tsyringe** — DI container; `IGitPrService` is already registered as a singleton.
-  - **Vitest** — unit tests with mocked dependencies for the use case layer.
+  - **FR-5: Skip PR closure for terminal PR states** — Do not call `closePr` when `feature.pr.status` is `Merged` or `Closed`. These are terminal states where the PR is already resolved. Only `Open` PRs should be closed.
+
+  - **FR-6: Skip PR closure when no PR exists** — Do not call `closePr` when `feature.pr` is `undefined`. The feature may never have had a PR created.
+
+  - **FR-7: CLI summary includes PR closure** — Update the CLI `del.command.ts` cleanup summary to include "PR #N closed" when a PR was closed during cleanup. The summary currently lists "worktree, local branch, remote branch" — append PR closure info when applicable.
+
+  - **FR-8: Cascade delete handles child PRs** — When cascade deleting child features, each child's `cleanupSingleFeature` call should independently check and close its own open PR. No special handling needed beyond the existing cascade cleanup loop.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1: Best-effort resilience** — PR closure failure must not prevent feature deletion from completing. The try/catch pattern must match the existing cleanup error handling: catch all errors, do not rethrow, do not log to stderr. The feature soft-delete (Phase 1) is already committed before cleanup begins.
+
+  - **NFR-2: No new dependencies** — The implementation must use only the existing `gh` CLI dependency and the established `execFile` injection pattern. No new npm packages or system dependencies.
+
+  - **NFR-3: Interface segregation** — The `closePr` method must be added to the existing `IGitPrService` interface, not to a new interface. This keeps PR operations consolidated in a single port.
+
+  - **NFR-4: Test isolation** — All new unit tests must mock `IGitPrService.closePr` (in use case tests) and `execFile` (in service tests). No tests should make real GitHub API calls.
+
+  - **NFR-5: Cleanup ordering consistency** — PR closure must execute before branch deletion within the cleanup sequence to ensure a clean audit trail in GitHub. The PR is closed while the source branch still exists.
+
+  - **NFR-6: No domain model changes** — The existing `Feature.pr` and `PullRequest` types already contain all necessary data (`number`, `status`). No TypeSpec changes required.
+
+  - **NFR-7: No Web UI changes** — The delete-feature-dialog does not need modification. PR closure is an implementation detail of the cleanup phase, not a separate user-facing option.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Should PR closure happen before or after branch deletion? | Before branch deletion | Closing the PR while the source branch still exists gives a cleaner GitHub audit trail. gh pr close works by number regardless, but ordering is cleaner. |
+  | 2 | Should the CLI/Web UI warn about PR closure before deleting? | Post-deletion summary only | The user is already confirming deletion. PR closure is expected behavior, not a surprise. Report it in the summary. |
+  | 3 | Should the Web UI dialog mention PR closure? | No change to dialog | PR closure is a natural part of cleanup. Over-communicating adds clutter without value. |
+  | 4 | Should closePr also handle branch deletion? | No, PR close only | Branch deletion is already handled separately. Combining them creates overlap and potential conflicts with existing logic. |
 
   ## Affected Areas
 
@@ -85,10 +220,9 @@ content: |
   | `packages/core/src/application/ports/output/services/git-pr-service.interface.ts` | High | Add `closePr(cwd, prNumber)` method to the interface |
   | `packages/core/src/infrastructure/services/git/git-pr.service.ts` | High | Implement `closePr` using `gh pr close <number>` |
   | `packages/core/src/application/use-cases/features/delete-feature.use-case.ts` | High | Call `closePr` in `cleanupSingleFeature` when `feature.pr` exists and status is Open |
-  | `tests/unit/application/use-cases/features/delete-feature.use-case.test.ts` | High | Add test cases for PR closing (open PR, merged PR, no PR, close failure) |
-  | `tests/unit/infrastructure/services/git/git-pr.service.test.ts` | Medium | Add test for new `closePr` method |
-  | `src/presentation/cli/commands/feat/del.command.ts` | Low | Update cleanup summary to mention PR closure |
-  | `src/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.tsx` | Low | Optionally mention PR closure in the dialog text |
+  | `tests/unit/application/use-cases/features/delete-feature.use-case.test.ts` | High | Add test cases for PR closing (open PR, merged PR, no PR, close failure, cleanup=false) |
+  | `tests/unit/infrastructure/services/git/git-pr.service.test.ts` | Medium | Add tests for new `closePr` method |
+  | `src/presentation/cli/commands/feat/del.command.ts` | Low | Update cleanup summary to mention PR closure when applicable |
 
   ## Dependencies
 
@@ -98,31 +232,21 @@ content: |
   - **`IGitPrService` + `GitPrService`** — Existing interface/implementation pair that handles
     all git/PR operations. Only needs a new method added.
   - **`DeleteFeatureUseCase`** — Already injects `IGitPrService`. No new DI registration needed.
-
-  ## Success Criteria
-
-  - [ ] `IGitPrService` interface includes a `closePr(cwd: string, prNumber: number): Promise<void>` method
-  - [ ] `GitPrService` implements `closePr` using `gh pr close <number>`
-  - [ ] `DeleteFeatureUseCase.cleanupSingleFeature` closes the PR when `feature.pr` exists and status is Open
-  - [ ] PR closure is best-effort (wrapped in try/catch, does not block deletion)
-  - [ ] PR closure is skipped when `cleanup=false`
-  - [ ] PR closure is skipped when `feature.pr` is undefined or status is Merged/Closed
-  - [ ] Unit tests cover: open PR closed, merged PR skipped, no PR skipped, close failure handled gracefully
-  - [ ] CLI deletion summary mentions PR closure when applicable
-  - [ ] All existing tests continue to pass
+  - **`parseGhError`** — Existing error parser in `GitPrService` for converting gh CLI errors
+    to typed `GitPrError` instances. Will be reused by `closePr`.
 
   ## Size Estimate
 
   **S** — This is a small, well-scoped change. The domain model already has PR data on features.
   The interface and implementation patterns are established. The main work is:
-  1. Add one method to the interface (~5 lines)
-  2. Implement it in GitPrService (~10 lines)
-  3. Add a try/catch block in DeleteFeatureUseCase (~8 lines)
-  4. Add ~4-5 unit tests
-  5. Minor CLI output update
+  1. Add one method to the interface (~3 lines)
+  2. Implement it in GitPrService (~8 lines)
+  3. Add a try/catch block in DeleteFeatureUseCase cleanup (~10 lines)
+  4. Add ~6 unit tests across use case and service test files
+  5. Minor CLI summary output update (~5 lines)
 
-  Total estimated: a few hours of focused work.
+  No domain model changes, no web UI changes, no new dependencies.
 
   ---
 
-  _Generated by feature agent — proceed with research_
+  _Generated by requirements phase — proceed with research_
