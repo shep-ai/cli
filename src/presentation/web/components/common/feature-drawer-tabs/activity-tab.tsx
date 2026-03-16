@@ -358,17 +358,25 @@ function NodeTimingRow({
   maxDurationMs: number;
   now: number;
 }) {
-  const iteration = timing.phase.includes(':') ? timing.phase.split(':')[1] : null;
-  const isRetry = iteration !== null;
-  const label = isRetry ? `retry #${iteration}` : (NODE_TO_PHASE[timing.phase] ?? timing.phase);
+  const suffix = timing.phase.includes(':') ? timing.phase.split(':')[1] : null;
+  const isSubPhase = suffix !== null;
+  // Distinguish implementation sub-phases (phase-1, phase-2) from rejection retries (2, 3)
+  const isImplPhase = suffix?.startsWith('phase-') ?? false;
+  const label = isImplPhase
+    ? `Phase ${suffix!.replace('phase-', '')}`
+    : suffix !== null
+      ? `retry #${suffix}`
+      : (NODE_TO_PHASE[timing.phase] ?? timing.phase);
 
   const durationMs = getEffectiveDuration(timing, now);
   const barPercent = maxDurationMs > 0 ? Math.max(2, (durationMs / maxDurationMs) * 100) : 2;
   const isRunning = !timing.completedAt && !!timing.startedAt;
   const barColorClass = timing.completedAt
-    ? isRetry
-      ? 'bg-amber-500'
-      : 'bg-emerald-500'
+    ? isImplPhase
+      ? 'bg-emerald-400'
+      : isSubPhase
+        ? 'bg-amber-500'
+        : 'bg-emerald-500'
     : 'bg-blue-500';
   const totalTokens =
     timing.inputTokens != null || timing.outputTokens != null
@@ -376,13 +384,13 @@ function NodeTimingRow({
       : null;
 
   return (
-    <div className={isRetry ? 'flex flex-col gap-1 pl-6' : 'flex flex-col gap-1'}>
+    <div className={isSubPhase ? 'flex flex-col gap-1 pl-6' : 'flex flex-col gap-1'}>
       <div data-testid={`timing-bar-${timing.phase}`} className="flex items-center gap-2">
-        <span className={`text-muted-foreground shrink-0 text-xs ${isRetry ? 'w-18' : 'w-24'}`}>
+        <span className={`text-muted-foreground shrink-0 text-xs ${isSubPhase ? 'w-18' : 'w-24'}`}>
           {label}
         </span>
         <div
-          className={`bg-muted min-w-0 flex-1 overflow-hidden rounded-full ${isRetry ? 'h-2.5' : 'h-3'}`}
+          className={`bg-muted min-w-0 flex-1 overflow-hidden rounded-full ${isSubPhase ? 'h-2.5' : 'h-3'}`}
         >
           <div
             className={`h-full rounded-full ${barColorClass}${isRunning ? 'animate-pulse' : ''}`}
