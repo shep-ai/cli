@@ -29,6 +29,7 @@ const {
   mockRecordPhaseEnd,
   mockBuildEvidencePrompt,
   mockParseEvidenceRecords,
+  mockValidateUiEvidenceHasAppProof,
   mockIsGraphBubbleUp,
   mockHasSettings,
   mockGetSettings,
@@ -39,6 +40,13 @@ const {
   mockRecordPhaseEnd: vi.fn().mockResolvedValue(undefined),
   mockBuildEvidencePrompt: vi.fn().mockReturnValue('evidence collection prompt'),
   mockParseEvidenceRecords: vi.fn().mockReturnValue([]),
+  mockValidateUiEvidenceHasAppProof: vi.fn().mockReturnValue({
+    valid: true,
+    hasScreenshots: false,
+    hasAppScreenshots: false,
+    hasOnlyStorybookScreenshots: false,
+    warnings: [],
+  }),
   mockIsGraphBubbleUp: vi.fn().mockReturnValue(false),
   mockHasSettings: vi.fn().mockReturnValue(true),
   mockGetSettings: vi.fn().mockReturnValue({ workflow: { commitEvidence: false } }),
@@ -93,6 +101,7 @@ vi.mock('@/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-p
 // Mock evidence output parser
 vi.mock('@/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.js', () => ({
   parseEvidenceRecords: mockParseEvidenceRecords,
+  validateUiEvidenceHasAppProof: mockValidateUiEvidenceHasAppProof,
 }));
 
 // Mock settings service
@@ -383,6 +392,89 @@ describe('createEvidenceNode', () => {
       await expect(node(baseState())).rejects.toThrow('Execution failed');
 
       expect(mockMarkPhaseComplete).not.toHaveBeenCalled();
+    });
+  });
+
+  // --- UI evidence app-level proof validation ---
+  describe('ui evidence app-level proof validation', () => {
+    it('should call validateUiEvidenceHasAppProof with parsed evidence', async () => {
+      mockParseEvidenceRecords.mockReturnValueOnce(sampleEvidence);
+      const node = createEvidenceNode(executor);
+      await node(baseState());
+
+      expect(mockValidateUiEvidenceHasAppProof).toHaveBeenCalledWith(sampleEvidence);
+    });
+
+    it('should include validation warnings in messages when storybook-only evidence detected', async () => {
+      const storybookOnlyEvidence: Evidence[] = [
+        {
+          type: EvidenceType.Screenshot,
+          capturedAt: '2026-03-09T12:00:00Z',
+          description: 'Storybook: toggle component',
+          relativePath: '.shep/evidence/storybook-toggle.png',
+        },
+      ];
+      mockParseEvidenceRecords.mockReturnValueOnce(storybookOnlyEvidence);
+      mockValidateUiEvidenceHasAppProof.mockReturnValueOnce({
+        valid: false,
+        hasScreenshots: true,
+        hasAppScreenshots: false,
+        hasOnlyStorybookScreenshots: true,
+        warnings: [
+          'UI evidence contains only Storybook screenshots. App-level screenshots from the running application are REQUIRED for UI features.',
+        ],
+      });
+
+      const node = createEvidenceNode(executor);
+      const result = await node(baseState());
+
+      expect(result.messages!.some((m) => m.includes('Storybook'))).toBe(true);
+      expect(result.messages!.some((m) => m.includes('REQUIRED'))).toBe(true);
+    });
+
+    it('should not include validation warnings when app-level evidence is present', async () => {
+      mockParseEvidenceRecords.mockReturnValueOnce(sampleEvidence);
+      mockValidateUiEvidenceHasAppProof.mockReturnValueOnce({
+        valid: true,
+        hasScreenshots: true,
+        hasAppScreenshots: true,
+        hasOnlyStorybookScreenshots: false,
+        warnings: [],
+      });
+
+      const node = createEvidenceNode(executor);
+      const result = await node(baseState());
+
+      const validationWarnings = result.messages!.filter(
+        (m) => m.includes('Storybook') || m.includes('app-level')
+      );
+      expect(validationWarnings).toHaveLength(0);
+    });
+
+    it('should still return evidence even when validation warns about storybook-only', async () => {
+      const storybookEvidence: Evidence[] = [
+        {
+          type: EvidenceType.Screenshot,
+          capturedAt: '2026-03-09T12:00:00Z',
+          description: 'Storybook: component view',
+          relativePath: '.shep/evidence/storybook.png',
+        },
+      ];
+      mockParseEvidenceRecords.mockReturnValueOnce(storybookEvidence);
+      mockValidateUiEvidenceHasAppProof.mockReturnValueOnce({
+        valid: false,
+        hasScreenshots: true,
+        hasAppScreenshots: false,
+        hasOnlyStorybookScreenshots: true,
+        warnings: ['UI evidence contains only Storybook screenshots.'],
+      });
+
+      const node = createEvidenceNode(executor);
+      const result = await node(baseState());
+
+      // Evidence is still returned (validation is informational, not blocking)
+      expect(result.evidence).toEqual(storybookEvidence);
+      expect(result.evidence).toHaveLength(1);
     });
   });
 

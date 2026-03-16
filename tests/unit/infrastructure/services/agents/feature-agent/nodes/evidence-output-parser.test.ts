@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { parseEvidenceRecords } from '../../../../../../../packages/core/src/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.js';
-import { EvidenceType } from '../../../../../../../packages/core/src/domain/generated/output.js';
+import {
+  parseEvidenceRecords,
+  validateUiEvidenceHasAppProof,
+} from '../../../../../../../packages/core/src/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.js';
+import {
+  EvidenceType,
+  type Evidence,
+} from '../../../../../../../packages/core/src/domain/generated/output.js';
 
 describe('evidence-output-parser', () => {
   describe('parseEvidenceRecords', () => {
@@ -224,6 +230,202 @@ Evidence collection complete.`;
       expect(result[1].type).toBe(EvidenceType.Video);
       expect(result[2].type).toBe(EvidenceType.TestOutput);
       expect(result[3].type).toBe(EvidenceType.TerminalRecording);
+    });
+  });
+
+  describe('validateUiEvidenceHasAppProof', () => {
+    function makeEvidence(overrides: Partial<Evidence> = {}): Evidence {
+      return {
+        type: EvidenceType.Screenshot,
+        capturedAt: '2026-03-09T12:00:00Z',
+        description: 'App: dashboard page showing new toggle',
+        relativePath: '.shep/evidence/app-dashboard.png',
+        ...overrides,
+      };
+    }
+
+    it('should return valid when evidence has app-level screenshots', () => {
+      const evidence: Evidence[] = [
+        makeEvidence({ description: 'App: settings page with updated layout' }),
+        makeEvidence({
+          type: EvidenceType.TestOutput,
+          description: 'Unit tests passing',
+          relativePath: '.shep/evidence/tests.txt',
+        }),
+      ];
+
+      const result = validateUiEvidenceHasAppProof(evidence);
+      expect(result.valid).toBe(true);
+      expect(result.hasScreenshots).toBe(true);
+      expect(result.hasAppScreenshots).toBe(true);
+      expect(result.hasOnlyStorybookScreenshots).toBe(false);
+      expect(result.warnings).toHaveLength(0);
+    });
+
+    it('should return invalid when evidence has only storybook screenshots', () => {
+      const evidence: Evidence[] = [
+        makeEvidence({
+          description: 'Storybook: toggle component in default state',
+          relativePath: '.shep/evidence/storybook-toggle.png',
+        }),
+        makeEvidence({
+          description: 'Storybook: toggle component in active state',
+          relativePath: '.shep/evidence/storybook-toggle-active.png',
+        }),
+      ];
+
+      const result = validateUiEvidenceHasAppProof(evidence);
+      expect(result.valid).toBe(false);
+      expect(result.hasScreenshots).toBe(true);
+      expect(result.hasAppScreenshots).toBe(false);
+      expect(result.hasOnlyStorybookScreenshots).toBe(true);
+      expect(result.warnings.length).toBeGreaterThan(0);
+      expect(result.warnings[0]).toContain('Storybook');
+    });
+
+    it('should return valid when evidence has both app and storybook screenshots', () => {
+      const evidence: Evidence[] = [
+        makeEvidence({ description: 'App: dashboard page with new toggle' }),
+        makeEvidence({
+          description: 'Storybook: toggle component isolated view',
+          relativePath: '.shep/evidence/storybook-toggle.png',
+        }),
+      ];
+
+      const result = validateUiEvidenceHasAppProof(evidence);
+      expect(result.valid).toBe(true);
+      expect(result.hasScreenshots).toBe(true);
+      expect(result.hasAppScreenshots).toBe(true);
+      expect(result.hasOnlyStorybookScreenshots).toBe(false);
+      expect(result.warnings).toHaveLength(0);
+    });
+
+    it('should return valid with no warnings when no screenshots exist', () => {
+      const evidence: Evidence[] = [
+        makeEvidence({
+          type: EvidenceType.TestOutput,
+          description: 'Unit tests',
+          relativePath: '.shep/evidence/tests.txt',
+        }),
+        makeEvidence({
+          type: EvidenceType.TerminalRecording,
+          description: 'CLI output',
+          relativePath: '.shep/evidence/cli.txt',
+        }),
+      ];
+
+      const result = validateUiEvidenceHasAppProof(evidence);
+      expect(result.valid).toBe(true);
+      expect(result.hasScreenshots).toBe(false);
+      expect(result.warnings).toHaveLength(0);
+    });
+
+    it('should return valid with no warnings for empty evidence array', () => {
+      const result = validateUiEvidenceHasAppProof([]);
+      expect(result.valid).toBe(true);
+      expect(result.hasScreenshots).toBe(false);
+      expect(result.warnings).toHaveLength(0);
+    });
+
+    it('should detect storybook in relativePath even without description match', () => {
+      const evidence: Evidence[] = [
+        makeEvidence({
+          description: 'Component in default state',
+          relativePath: '.shep/evidence/storybook-component.png',
+        }),
+      ];
+
+      const result = validateUiEvidenceHasAppProof(evidence);
+      expect(result.valid).toBe(false);
+      expect(result.hasOnlyStorybookScreenshots).toBe(true);
+    });
+
+    it('should detect storybook via "story" keyword in description', () => {
+      const evidence: Evidence[] = [
+        makeEvidence({
+          description: 'Story view of the button component',
+          relativePath: '.shep/evidence/button.png',
+        }),
+      ];
+
+      const result = validateUiEvidenceHasAppProof(evidence);
+      expect(result.valid).toBe(false);
+      expect(result.hasOnlyStorybookScreenshots).toBe(true);
+    });
+
+    it('should detect storybook via port 6006 in description', () => {
+      const evidence: Evidence[] = [
+        makeEvidence({
+          description: 'Component at localhost:6006',
+          relativePath: '.shep/evidence/component.png',
+        }),
+      ];
+
+      const result = validateUiEvidenceHasAppProof(evidence);
+      expect(result.valid).toBe(false);
+      expect(result.hasOnlyStorybookScreenshots).toBe(true);
+    });
+
+    it('should treat screenshots without storybook keywords as app evidence', () => {
+      const evidence: Evidence[] = [
+        makeEvidence({
+          description: 'Homepage showing new feature banner',
+          relativePath: '.shep/evidence/homepage.png',
+        }),
+      ];
+
+      const result = validateUiEvidenceHasAppProof(evidence);
+      expect(result.valid).toBe(true);
+      expect(result.hasAppScreenshots).toBe(true);
+      expect(result.hasOnlyStorybookScreenshots).toBe(false);
+    });
+
+    it('should treat Video type as visual evidence for validation', () => {
+      const evidence: Evidence[] = [
+        makeEvidence({
+          type: EvidenceType.Video,
+          description: 'Storybook: recording of component interaction',
+          relativePath: '.shep/evidence/storybook-recording.mp4',
+        }),
+      ];
+
+      const result = validateUiEvidenceHasAppProof(evidence);
+      expect(result.valid).toBe(false);
+      expect(result.hasScreenshots).toBe(true);
+      expect(result.hasOnlyStorybookScreenshots).toBe(true);
+    });
+
+    it('should treat app-prefixed descriptions as app evidence', () => {
+      const evidence: Evidence[] = [
+        makeEvidence({ description: 'App: control center with new sidebar' }),
+      ];
+
+      const result = validateUiEvidenceHasAppProof(evidence);
+      expect(result.valid).toBe(true);
+      expect(result.hasAppScreenshots).toBe(true);
+    });
+
+    it('should treat "dev server" descriptions as app evidence', () => {
+      const evidence: Evidence[] = [
+        makeEvidence({ description: 'Dev server showing updated dashboard' }),
+      ];
+
+      const result = validateUiEvidenceHasAppProof(evidence);
+      expect(result.valid).toBe(true);
+      expect(result.hasAppScreenshots).toBe(true);
+    });
+
+    it('should detect "stories" keyword as storybook evidence', () => {
+      const evidence: Evidence[] = [
+        makeEvidence({
+          description: 'Component stories showing all variants',
+          relativePath: '.shep/evidence/component-stories.png',
+        }),
+      ];
+
+      const result = validateUiEvidenceHasAppProof(evidence);
+      expect(result.valid).toBe(false);
+      expect(result.hasOnlyStorybookScreenshots).toBe(true);
     });
   });
 });

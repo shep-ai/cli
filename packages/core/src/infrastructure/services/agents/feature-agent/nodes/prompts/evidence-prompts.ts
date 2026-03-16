@@ -108,11 +108,17 @@ ${cwd}
 
 Review the completed tasks above and capture evidence for each.
 
-### MANDATORY Screenshot Rule
+### MANDATORY Screenshot Rule — App-Level Proof Required
 
-**If ANY task touches UI code (components, pages, views, styles, layouts, templates, JSX/TSX, HTML, CSS), you MUST capture at least one Screenshot.** This is non-negotiable. Changing a heading, button label, color, layout, or any visible element requires a screenshot proving the change renders correctly.
+**If ANY task touches UI code (components, pages, views, styles, layouts, templates, JSX/TSX, HTML, CSS), you MUST capture at least one Screenshot from the ACTUAL RUNNING APPLICATION (dev server).** This is non-negotiable. Changing a heading, button label, color, layout, or any visible element requires a screenshot proving the change renders correctly in the real app context.
 
-To capture screenshots:
+**CRITICAL: Storybook-only evidence is NOT sufficient for UI features.** Storybook screenshots may be included as supplementary evidence, but they do NOT replace app-level screenshots. You MUST capture screenshots from the actual running application (via the dev server) to prove the feature works in its real context with actual data, routing, and integration.
+
+For each UI change you MUST capture:
+1. **App screenshot (REQUIRED)**: A screenshot from the running dev server showing the feature in its actual app context. Include "app" or the actual page/route name in the screenshot file name (e.g., \`app-dashboard-new-toggle.png\`, \`app-settings-page.png\`).
+2. **Storybook screenshot (OPTIONAL, supplementary)**: If the component has a Storybook story, you may also capture a Storybook screenshot as supplementary evidence. Include "storybook" in the file name (e.g., \`storybook-toggle-component.png\`).
+
+To capture app-level screenshots:
 1. Install Playwright if not already available: \`npx playwright install chromium --with-deps 2>/dev/null || npx playwright install chromium\`
 2. Start the dev server in the background (e.g., \`npm run dev &\` or \`pnpm dev &\`)
 3. Wait for the server to be ready
@@ -132,11 +138,16 @@ To capture screenshots:
    \`\`\`
 5. Stop the dev server after capturing
 
+To capture Storybook screenshots (supplementary only):
+1. Start Storybook: \`npx storybook dev -p 6006 &\` or \`pnpm dev:storybook &\`
+2. Navigate to the relevant story and capture a screenshot
+3. Stop Storybook after capturing
+
 If Playwright installation fails, try alternative approaches (e.g., \`npx puppeteer\`, \`curl\` for API responses). Only skip screenshots if ALL browser automation approaches fail — and in that case, explicitly note the failure reason in the evidence description.
 
 ### Evidence by Task Type
 
-- **UI/Web tasks**: You MUST take screenshots (see mandatory rule above). Also run and capture test output.
+- **UI/Web tasks**: You MUST take screenshots FROM THE RUNNING APP (see mandatory rule above). Storybook-only screenshots are NOT acceptable as primary evidence. Also run and capture test output.
 - **Backend/API tasks**: Run the relevant test suite and capture test output showing passing tests.
 - **CLI tasks**: Run the CLI commands and capture terminal output demonstrating correct behavior.
 - **Refactoring/Infrastructure tasks**: Capture test output or build output confirming no regressions.
@@ -151,9 +162,10 @@ If Playwright installation fails, try alternative approaches (e.g., \`npx puppet
 ### Minimum Evidence Requirements
 
 Your output MUST include:
-1. At least one **Screenshot** if any task modifies UI/visual code (components, styles, templates, markup)
+1. At least one **Screenshot from the running app** (NOT Storybook) if any task modifies UI/visual code (components, styles, templates, markup). The screenshot description MUST clearly indicate it was captured from the actual application (e.g., "App: dashboard page showing new toggle", "App: settings page with updated layout"). Do NOT use descriptions that suggest Storybook-only proof.
 2. At least one **TestOutput** if the project has a test suite
-3. Do NOT output only TestOutput/TerminalRecording when the feature involves visible UI changes — screenshots are mandatory in that case
+3. Do NOT output only TestOutput/TerminalRecording when the feature involves visible UI changes — app-level screenshots are mandatory in that case
+4. Do NOT submit only Storybook screenshots for UI features — each UI screenshot MUST have a corresponding app-level screenshot proving the feature works in its real context
 
 ${storageSection}
 
