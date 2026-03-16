@@ -1,0 +1,281 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: agent-dev-environment-ff7266
+number: 069
+branch: feat/069-agent-dev-environment-ff7266
+oneLiner: >
+  Replace the simple script-only DeploymentService with an agent-based dev environment that
+  analyzes any repo, caches results per-repo, supports a fast path for recognized projects,
+  and correctly reports when there is nothing to start
+userQuery: >
+  The current deployment env feature is simple stupid. lets introduce agent based deployment.
+  so it could start dev env for any repo. it should have some level of cache per repo so it
+  would be fast. it should support all languages and be basically an agent for that. there are
+  some repos which is basically impossible to start local dev server as there is no server or
+  ui maybe its just a script in such case the agent should respond that there is nothing to start.
+  The user should be able to select to run with "fast path" or non agentic. If we recognize it
+  has package.json with basic start dev / start the cache invalidation should be manual.
+  Should the user be able to override or edit the cached analysis result? Full Manual.
+summary: >
+  Replace the current hard-coded Node.js-only DeploymentService (detect-dev-script + spawn)
+  with a two-mode system: (1) a "fast path" that reuses the existing deterministic package.json
+  detection for recognized Node.js projects, and (2) an agent-based path that uses
+  IAgentExecutor (via StructuredAgentCaller) to analyze any repository — regardless of language
+  or framework — and produce a structured DevEnvironmentAnalysis (commands, ports, prerequisites).
+  Analysis results are cached per-repo in SQLite with manual-only invalidation and full manual
+  editing. Repos with no startable server/UI get a clear "nothing to start" response.
+phase: Analysis
+sizeEstimate: L
+
+# Relationships
+relatedFeatures:
+  - '045-feature-env-deploy'
+  - '061-default-env-deployment'
+
+technologies:
+  - TypeScript
+  - TypeSpec
+  - LangGraph
+  - SQLite
+  - Next.js / React
+  - tsyringe (DI)
+  - Node.js child_process
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - question: >
+      Should the agent analysis run synchronously (blocking the UI) or asynchronously
+      (background with polling)?
+    resolved: false
+  - question: >
+      Should the cache key be based on repository path, or path + branch (worktree)?
+    resolved: false
+  - question: >
+      Where should the "Edit cached analysis" UI live — in the base-drawer deploy section,
+      a dedicated settings page, or a modal triggered from the deploy area?
+    resolved: false
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  The current dev environment / deployment feature (spec 045) is a direct, non-agentic
+  `DeploymentService` that only works for Node.js projects with a `package.json` containing
+  a `dev`, `start`, or `serve` script. It uses `detect-dev-script.ts` to find the script
+  and `parse-port.ts` to detect the URL from stdout — a purely deterministic pipeline.
+
+  This approach has critical limitations:
+
+  1. **Node.js only** — Cannot start dev environments for Python, Go, Rust, Java, Ruby,
+     or any non-Node.js project. The `detectDevScript()` function reads `package.json`
+     exclusively and fails with "No package.json found" for all other ecosystems.
+
+  2. **No intelligence** — Cannot reason about complex setups (monorepos with multiple
+     services, Docker Compose required, environment variables needed, database dependencies).
+
+  3. **No caching** — Every deploy re-detects the script. While fast for the current
+     deterministic path, an agent-based analysis would be slow without caching.
+
+  4. **No "nothing to start" awareness** — Some repos are pure libraries, CLI tools, or
+     scripts with no server/UI. The current system just errors with "No dev script found"
+     instead of giving a meaningful explanation.
+
+  5. **No user control** — No way to override the detected command, edit the analysis,
+     or choose between fast/agent modes.
+
+  ### Current Implementation (spec 045)
+
+  The existing pipeline flows:
+
+  ```
+  deployFeature() / deployRepository()  [server actions]
+    → DeploymentService.start(targetId, targetPath)
+      → detectDevScript(targetPath)        [reads package.json, finds dev/start/serve]
+      → spawn(packageManager, args, cwd)   [child_process.spawn]
+      → attachOutputListener()             [parsePort from stdout/stderr]
+      → state: Booting → Ready (when URL detected)
+  ```
+
+  Key files:
+  - `packages/core/src/infrastructure/services/deployment/deployment.service.ts` — Process lifecycle
+  - `packages/core/src/infrastructure/services/deployment/detect-dev-script.ts` — package.json scanner
+  - `packages/core/src/infrastructure/services/deployment/parse-port.ts` — URL/port extraction
+  - `src/presentation/web/hooks/use-deploy-action.ts` — React hook for deploy UI state
+  - `src/presentation/web/app/actions/deploy-feature.ts` — Next.js server action
+  - `src/presentation/web/app/actions/deploy-repository.ts` — Next.js server action
+
+  ## Proposed Solution
+
+  Introduce a two-mode dev environment system:
+
+  ### Mode 1: Fast Path (Non-Agentic)
+
+  Keep the existing `detectDevScript()` pipeline for Node.js projects that have a
+  `package.json` with a recognized dev script. This is instant, deterministic, and
+  already battle-tested. The user can explicitly select this mode.
+
+  **Cache invalidation for fast path**: Manual only — the detection is cheap and
+  deterministic, so caching is less critical, but when the agent path produces a
+  cached result for a Node.js project, invalidation is manual.
+
+  ### Mode 2: Agent Path
+
+  Use `IAgentExecutor` (resolved via `IAgentExecutorProvider`) to analyze the
+  repository and produce a structured `DevEnvironmentAnalysis`:
+
+  ```typescript
+  interface DevEnvironmentAnalysis {
+    canStart: boolean;              // false for pure libraries/scripts
+    reason?: string;                // "This is a Python utility library with no server"
+    commands: DevCommand[];         // Ordered list of commands to run
+    prerequisites?: string[];       // "Requires Docker", "Run migrations first"
+    ports?: number[];               // Expected ports
+    environmentVariables?: Record<string, string>;  // Suggested env vars
+    language: string;               // Detected primary language
+    framework?: string;             // Detected framework (Next.js, Django, etc.)
+  }
+
+  interface DevCommand {
+    command: string;                // "npm run dev", "python manage.py runserver"
+    description: string;            // "Start the Next.js dev server"
+    workingDirectory?: string;      // Relative path from repo root
+  }
+  ```
+
+  The agent receives the repository path, reads files (package.json, Dockerfile,
+  docker-compose.yml, Makefile, pyproject.toml, Cargo.toml, go.mod, etc.), and
+  returns structured JSON via `StructuredAgentCallerService`.
+
+  ### Caching
+
+  Analysis results are cached per-repo in SQLite (new table or extending the existing
+  settings/deployment models). Cache key is the repository path. Cache invalidation is
+  **manual only** — the user must explicitly trigger re-analysis or edit the cached result.
+
+  The user can **fully edit** the cached analysis result (edit commands, ports, prerequisites,
+  etc.) via the UI.
+
+  ### "Nothing to Start" Handling
+
+  When the agent determines `canStart: false`, the UI displays the agent's reasoning
+  (e.g., "This repository is a CLI tool with no web server or UI to preview") instead
+  of showing an error. The deploy button is replaced with an informational state.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  ```
+  packages/core/src/
+  ├── domain/generated/output.ts      — TypeSpec-generated types
+  ├── application/
+  │   └── ports/output/
+  │       ├── agents/                 — Agent executor interfaces
+  │       └── services/
+  │           └── deployment-service.interface.ts  — Current deploy port
+  └── infrastructure/
+      ├── services/
+      │   ├── deployment/             — Current DeploymentService (5 files)
+      │   ├── agents/
+      │   │   ├── common/             — AgentExecutorProvider, Factory, Registry, StructuredCaller
+      │   │   ├── analyze-repo/       — LangGraph analyze-repository graph
+      │   │   └── feature-agent/      — LangGraph feature SDLC agent
+      │   ├── filesystem/             — ShepDirectoryService (~/.shep/)
+      │   └── settings.service.ts     — Global singleton settings
+      ├── repositories/               — SQLite repositories
+      └── persistence/sqlite/         — DB connection, mappers, migrations
+
+  src/presentation/web/
+  ├── app/actions/                    — Next.js server actions (deploy-*, stop-*, get-status)
+  ├── hooks/                          — use-deploy-action, use-deployment-logs
+  ├── components/common/
+  │   ├── base-drawer/                — BaseDrawer (has deployTarget prop)
+  │   ├── deployment-status-badge/    — DeploymentStatusBadge component
+  │   └── control-center-drawer/      — RepositoryDrawerClient
+  └── lib/
+      └── feature-flags.ts            — envDeploy feature flag
+
+  tsp/
+  ├── agents/
+  │   ├── deploy-agent.tsp            — LocalDeployAgent model + operations
+  │   └── deploy-target.tsp           — DeployTarget discriminated union
+  ├── deployment/
+  │   ├── deployment.tsp              — Deployment entity
+  │   ├── deploy-skill.tsp            — DeploySkill config entity
+  │   └── port-map.tsp                — PortMap value object
+  └── common/enums/deployment.tsp     — DeploymentState, DeployMethod, PortProtocol
+  ```
+
+  ### Architecture Patterns
+
+  - **Clean Architecture**: Domain → Application → Infrastructure → Presentation
+  - **TypeSpec-first**: All domain models in `tsp/`, generated to TypeScript
+  - **Agent resolution via DI**: `IAgentExecutorProvider` → `IAgentExecutorFactory` → concrete executor
+  - **Structured agent calls**: `StructuredAgentCallerService` handles JSON extraction from agent responses
+  - **LangGraph for workflows**: `StateGraph` with `Annotation.Root` for typed state
+  - **Settings singleton**: Global settings in SQLite, in-memory singleton
+  - **Feature flags**: `featureFlags.envDeploy` gates the deploy UI
+  - **Background workers**: Detached child processes for long-running agents
+
+  ### Relevant Technologies
+
+  - **LangGraph** (`@langchain/langgraph`) — For building the dev environment analysis graph
+  - **tsyringe** — DI container for service wiring
+  - **SQLite** (better-sqlite3) — Persistence for settings, agent runs, and will store cached analyses
+  - **TypeSpec** — Domain model definitions
+  - **Next.js Server Actions** — Web UI backend
+  - **React hooks** — Client-side deploy state management
+  - **tree-kill** — Process tree cleanup
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `tsp/deployment/` | High | New TypeSpec model for `DevEnvironmentAnalysis` with cache metadata |
+  | `tsp/agents/deploy-agent.tsp` | Medium | Update `LocalDeployAgent` operations to include agent-based analyze |
+  | `tsp/common/enums/deployment.tsp` | Low | May add new enum values for analysis states |
+  | `packages/core/src/infrastructure/services/deployment/` | High | Refactor `DeploymentService.start()` to support two-mode dispatch (fast path vs agent), add `DevEnvAnalyzer` service |
+  | `packages/core/src/infrastructure/services/agents/` | High | New LangGraph graph or structured agent call for repository dev env analysis |
+  | `packages/core/src/infrastructure/repositories/` | Medium | New SQLite repository for cached `DevEnvironmentAnalysis` records |
+  | `packages/core/src/infrastructure/persistence/sqlite/` | Medium | New migration, mapper for dev env analysis cache table |
+  | `packages/core/src/application/ports/output/services/` | Medium | Updated `IDeploymentService` interface or new `IDevEnvAnalyzer` port |
+  | `src/presentation/web/app/actions/` | Medium | Update `deploy-feature.ts` and `deploy-repository.ts` to support mode selection and cached analysis |
+  | `src/presentation/web/hooks/use-deploy-action.ts` | Medium | Add mode selection (fast/agent), cache management, "nothing to start" state |
+  | `src/presentation/web/components/common/base-drawer/` | Medium | Add mode selector UI, cache edit UI, "nothing to start" display |
+  | `src/presentation/web/components/common/deployment-status-badge/` | Low | Add "Not Startable" visual state |
+  | `packages/core/src/infrastructure/services/agents/common/agent-registry.service.ts` | Low | Register new dev-env-analyze agent if using LangGraph |
+  | `tests/` | High | Tests for new analyzer service, cache repository, updated deploy actions, UI components |
+
+  ## Dependencies
+
+  - **Existing agent infrastructure**: `IAgentExecutorProvider`, `StructuredAgentCallerService`, `IAgentExecutor` — all already implemented and working
+  - **Existing deployment pipeline**: `DeploymentService`, `detectDevScript`, `parsePort` — preserved as the "fast path"
+  - **SQLite persistence layer**: Connection management, migration system, mapper pattern — established patterns to follow
+  - **LangGraph** (if using a graph): Already a dependency, used by analyze-repo and feature-agent graphs
+  - **TypeSpec compiler**: For generating the new domain model types
+  - **Feature flags**: `featureFlags.envDeploy` already gates the deploy UI
+
+  ## Size Estimate
+
+  **L** — This feature touches many layers across the full Clean Architecture stack:
+
+  - **New TypeSpec models** for DevEnvironmentAnalysis + cache metadata
+  - **New SQLite table** + migration + mapper + repository for the analysis cache
+  - **New agent analysis service** (either LangGraph graph or StructuredAgentCaller-based)
+  - **Refactored DeploymentService** with two-mode dispatch
+  - **Updated server actions** for mode selection and cache management
+  - **Updated React hooks** for mode toggle, cache edit, "nothing to start" state
+  - **New/updated UI components** for mode selector, cache editor, analysis display
+  - **Comprehensive tests** across all layers (TDD mandate)
+  - **Storybook stories** for all new UI components (mandatory)
+
+  The scope is significantly larger than the original spec-045 implementation because
+  it adds an AI analysis pipeline, persistent caching, and user-editable configuration
+  on top of the existing process management infrastructure.
+
+  ---
+
+  _Analysis complete — proceed with research phase_
