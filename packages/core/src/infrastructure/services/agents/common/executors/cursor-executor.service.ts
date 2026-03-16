@@ -577,31 +577,11 @@ export class CursorExecutorService implements IAgentExecutor {
     const cwd = options?.cwd;
 
     if (IS_WINDOWS) {
-      const resolved = this.resolveCursorBinary();
-      if (resolved) {
-        // Direct invocation: node.exe index.js <args>
-        // No shell wrappers, no nesting, no hangs.
-        const directArgs = [resolved.indexPath, ...args];
-
-        this.log(`Windows direct mode: ${resolved.nodePath}`);
-        this.log(
-          `Args: ${directArgs.map((a) => (a.length > 80 ? `${a.slice(0, 77)}...` : a)).join(' ')}`
-        );
-
-        const proc = this.spawn(resolved.nodePath, directArgs, {
-          cwd,
-          stdio: ['pipe', 'pipe', 'pipe'],
-          windowsHide: true,
-          env: this.buildEnv({ CURSOR_INVOKED_AS: 'agent' }),
-        });
-        this.log(`Direct PID: ${proc.pid ?? 'undefined (spawn may have failed)'}`);
-        if (proc.stdin) proc.stdin.end();
-
-        return { proc, tmpFile: undefined };
-      }
-
-      // Fallback: if direct resolution fails, use PowerShell + temp file
-      this.log('[diag] Windows fallback: cursor binary not resolved, using PowerShell + temp file');
+      // Primary: PowerShell + temp file.
+      // Writes prompt to a temp file, invokes agent via PowerShell which reads
+      // the file and passes content as -p. This goes through agent.cmd which
+      // sets up cursor's environment properly. Direct node.exe invocation
+      // (bypassing agent.cmd) hangs on Windows Server CI with API key auth.
       const tmpFile = join(
         tmpdir(),
         `shep-cursor-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.txt`
@@ -612,6 +592,7 @@ export class CursorExecutorService implements IAgentExecutor {
       const safePath = tmpFile.replace(/'/g, "''");
       const psCmd = `$p = Get-Content -Raw '${safePath}'; & agent ${agentFlags} -p $p`;
 
+      this.log(`Windows PowerShell mode: wrote ${prompt.length} chars to ${tmpFile}`);
       this.log(`[diag] PS command: ${psCmd.replace(prompt, `<${prompt.length} chars>`)}`);
       const proc = this.spawn(
         'powershell.exe',
@@ -623,7 +604,7 @@ export class CursorExecutorService implements IAgentExecutor {
           env: this.buildEnv(),
         }
       );
-      this.log(`[diag] PowerShell PID: ${proc.pid ?? 'undefined (spawn may have failed)'}`);
+      this.log(`PowerShell PID: ${proc.pid ?? 'undefined (spawn may have failed)'}`);
       if (proc.stdin) proc.stdin.end();
 
       return { proc, tmpFile };
