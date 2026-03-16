@@ -97,7 +97,7 @@ export function ControlCenterEmptyState({
           className="text-muted-foreground mt-3 text-center text-lg leading-relaxed font-light"
           style={{ animationDelay: '80ms', animationDuration: '600ms', animationFillMode: 'both' }}
         >
-          Add a repository to start creating features.
+          Add a project folder to start creating features.
           <br />
           Shep will analyze, plan, and build them for you.
         </p>
@@ -146,7 +146,7 @@ export function ControlCenterEmptyState({
                 animationFillMode: 'both',
               }}
             >
-              Pick any folder with a git repo to get started.
+              Any folder works — git will be initialized automatically if needed.
             </p>
           </>
         ) : null}
