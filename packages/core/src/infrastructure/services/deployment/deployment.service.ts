@@ -14,6 +14,7 @@ import { DeploymentState } from '@/domain/generated/output.js';
 import type {
   IDeploymentService,
   DeploymentStatus,
+  DeploymentStartOptions,
   LogEntry,
 } from '@/application/ports/output/services/deployment-service.interface.js';
 import { detectDevScript } from './detect-dev-script.js';
@@ -69,9 +70,15 @@ export class DeploymentService implements IDeploymentService {
   /**
    * Start a deployment for the given target.
    * If a deployment already exists for this target, it is stopped first.
+   *
+   * When options.command is provided, the command is executed directly via shell
+   * instead of auto-detecting from package.json. This enables agent-based
+   * deployment for any language/framework.
    */
-  start(targetId: string, targetPath: string): void {
-    log.info(`start() called — targetId="${targetId}", targetPath="${targetPath}"`);
+  start(targetId: string, targetPath: string, options?: DeploymentStartOptions): void {
+    log.info(
+      `start() called — targetId="${targetId}", targetPath="${targetPath}", command=${options?.command ?? 'auto-detect'}`
+    );
 
     // Stop any existing deployment for this target
     const existing = this.deployments.get(targetId);
@@ -81,24 +88,37 @@ export class DeploymentService implements IDeploymentService {
       this.deployments.delete(targetId);
     }
 
-    // Detect the dev script
-    const detection = this.deps.detectDevScript(targetPath);
-    if (!detection.success) {
-      log.error(`Dev script detection failed: ${detection.error}`);
-      throw new Error(detection.error);
+    // Resolve the working directory
+    const cwd = options?.cwd && options.cwd !== '.' ? `${targetPath}/${options.cwd}` : targetPath;
+
+    let spawnCommand: string;
+    let spawnArgs: string[];
+
+    if (options?.command) {
+      // Agent-provided command — run directly via shell
+      const parts = options.command.split(/\s+/);
+      spawnCommand = parts[0];
+      spawnArgs = parts.slice(1);
+      log.info(`Using agent-provided command: "${options.command}", cwd="${cwd}"`);
+    } else {
+      // Legacy auto-detection from package.json
+      const detection = this.deps.detectDevScript(targetPath);
+      if (!detection.success) {
+        log.error(`Dev script detection failed: ${detection.error}`);
+        throw new Error(detection.error);
+      }
+
+      const { packageManager, scriptName, command } = detection;
+      spawnCommand = packageManager;
+      spawnArgs = packageManager === 'npm' ? ['run', scriptName] : [scriptName];
+      log.info(
+        `Spawning dev server: command="${command}", packageManager="${packageManager}", scriptName="${scriptName}", cwd="${cwd}"`
+      );
     }
 
-    // Build spawn args based on package manager
-    const { packageManager, scriptName, command } = detection;
-    const args = packageManager === 'npm' ? ['run', scriptName] : [scriptName];
-
-    log.info(
-      `Spawning dev server: command="${command}", packageManager="${packageManager}", scriptName="${scriptName}", cwd="${targetPath}"`
-    );
-
-    const child = this.deps.spawn(packageManager, args, {
+    const child = this.deps.spawn(spawnCommand, spawnArgs, {
       shell: true,
-      cwd: targetPath,
+      cwd,
       detached: true,
       stdio: ['ignore', 'pipe', 'pipe'] as const,
     });
