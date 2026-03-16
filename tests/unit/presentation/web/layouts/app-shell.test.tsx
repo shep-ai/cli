@@ -3,9 +3,10 @@ import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const mockPush = vi.fn();
+let mockPathname = '/';
 
 vi.mock('next/navigation', () => ({
-  usePathname: () => '/',
+  usePathname: () => mockPathname,
   useRouter: () => ({ push: mockPush, refresh: vi.fn() }),
 }));
 
@@ -43,6 +44,7 @@ function ContextPublisher({
 describe('AppShell', () => {
   beforeEach(() => {
     mockPush.mockClear();
+    mockPathname = '/';
   });
 
   it('renders children within the dashboard layout', () => {
@@ -90,5 +92,30 @@ describe('AppShell', () => {
     renderShell(<div>Content</div>);
     // Nav items use icons + links which are still accessible when collapsed
     expect(screen.getByRole('link', { name: /control center/i })).toBeInTheDocument();
+  });
+
+  describe('FAB visibility by route', () => {
+    it.each([
+      ['/', 'root'],
+      ['/create', 'create feature'],
+      ['/feature/abc-123', 'feature detail'],
+      ['/feature/abc-123/activity', 'feature tab'],
+      ['/repository/repo-1', 'repository detail'],
+    ])('renders the FAB on control center route %s (%s)', (pathname) => {
+      mockPathname = pathname;
+      renderShell(<div>Content</div>);
+      expect(screen.getByTestId('fab-trigger')).toBeInTheDocument();
+    });
+
+    it.each([
+      ['/settings', 'settings page'],
+      ['/skills', 'skills page'],
+      ['/tools', 'tools page'],
+      ['/version', 'version page'],
+    ])('does not render the FAB on non-control-center route %s (%s)', (pathname) => {
+      mockPathname = pathname;
+      renderShell(<div>Content</div>);
+      expect(screen.queryByTestId('fab-trigger')).not.toBeInTheDocument();
+    });
   });
 });
