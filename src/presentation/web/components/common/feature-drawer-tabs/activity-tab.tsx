@@ -15,6 +15,8 @@ import {
   Ban,
   MessageSquare,
   Timer,
+  ArrowDownToLine,
+  ArrowUpFromLine,
 } from 'lucide-react';
 import type {
   PhaseTimingData,
@@ -685,16 +687,32 @@ function SummaryTotals({
           label="Cost"
           value={totalCostUsd > 0 ? formatCost(totalCostUsd) : 'n/a'}
         />
-        <SummaryCell
-          icon={Zap}
-          label="Tokens"
-          value={
-            totalTokens > 0
-              ? `${formatTokens(totalTokens)} (${formatTokens(totalInputTokens)} in · ${formatTokens(totalOutputTokens)} out)`
-              : 'n/a'
-          }
-          className="col-span-2"
-        />
+        <div className="col-span-2 flex flex-col gap-0.5">
+          <span className="text-muted-foreground flex items-center gap-1 text-xs">
+            <Zap className="h-3 w-3 opacity-40" />
+            Tokens
+          </span>
+          {totalTokens > 0 ? (
+            <span className="flex items-center gap-2.5 text-sm tabular-nums">
+              <span>{formatTokens(totalTokens)}</span>
+              <span
+                className="text-muted-foreground flex items-center gap-3 text-xs"
+                title="Input tokens / Output tokens"
+              >
+                <span className="flex items-center gap-0.5">
+                  <ArrowDownToLine className="h-3 w-3 text-blue-500 opacity-60" />
+                  {formatTokens(totalInputTokens)}
+                </span>
+                <span className="flex items-center gap-0.5">
+                  <ArrowUpFromLine className="h-3 w-3 text-emerald-500 opacity-60" />
+                  {formatTokens(totalOutputTokens)}
+                </span>
+              </span>
+            </span>
+          ) : (
+            <span className="text-muted-foreground/40 text-sm italic tabular-nums">n/a</span>
+          )}
+        </div>
       </div>
     </div>
   );
