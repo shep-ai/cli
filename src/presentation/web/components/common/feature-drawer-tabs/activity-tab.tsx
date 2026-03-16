@@ -1,7 +1,21 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Loader2, AlertCircle, Clock, Zap, DollarSign } from 'lucide-react';
+import {
+  Loader2,
+  AlertCircle,
+  Clock,
+  Zap,
+  DollarSign,
+  Play,
+  RotateCcw,
+  CheckCircle2,
+  XCircle,
+  Square,
+  Ban,
+  MessageSquare,
+  Timer,
+} from 'lucide-react';
 import type {
   PhaseTimingData,
   RejectionFeedbackData,
@@ -58,6 +72,13 @@ function formatTokens(count: number): string {
   return String(count);
 }
 
+/** Format a timestamp to a short local time string (e.g. "10:05:30 AM"). */
+function formatTimestamp(value: string | Date | unknown): string {
+  const d = value instanceof Date ? value : new Date(String(value));
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
 /** Format a USD cost with appropriate precision. */
 function formatCost(usd: number): string {
   if (usd >= 1) return `$${usd.toFixed(2)}`;
@@ -81,14 +102,52 @@ const NODE_TO_PHASE: Record<string, string> = {
   merge: 'Merging',
 };
 
-const LIFECYCLE_EVENTS: Record<string, { label: string; colorClass: string }> = {
-  'run:started': { label: 'started', colorClass: 'text-blue-600' },
-  'run:resumed': { label: 'resumed', colorClass: 'text-blue-600' },
-  'run:completed': { label: 'completed', colorClass: 'text-emerald-600' },
-  'run:failed': { label: 'failed', colorClass: 'text-red-600' },
-  'run:stopped': { label: 'stopped', colorClass: 'text-amber-600' },
-  'run:crashed': { label: 'crashed', colorClass: 'text-red-600' },
-  'run:rejected': { label: 'rejected', colorClass: 'text-orange-600' },
+const LIFECYCLE_EVENTS: Record<
+  string,
+  { label: string; colorClass: string; bgClass: string; icon: typeof Play }
+> = {
+  'run:started': {
+    label: 'started',
+    colorClass: 'text-blue-600',
+    bgClass: 'bg-blue-50 dark:bg-blue-950/30',
+    icon: Play,
+  },
+  'run:resumed': {
+    label: 'resumed',
+    colorClass: 'text-blue-600',
+    bgClass: 'bg-blue-50 dark:bg-blue-950/30',
+    icon: RotateCcw,
+  },
+  'run:completed': {
+    label: 'completed',
+    colorClass: 'text-emerald-600',
+    bgClass: 'bg-emerald-50 dark:bg-emerald-950/30',
+    icon: CheckCircle2,
+  },
+  'run:failed': {
+    label: 'failed',
+    colorClass: 'text-red-600',
+    bgClass: 'bg-red-50 dark:bg-red-950/30',
+    icon: XCircle,
+  },
+  'run:stopped': {
+    label: 'stopped',
+    colorClass: 'text-amber-600',
+    bgClass: 'bg-amber-50 dark:bg-amber-950/30',
+    icon: Square,
+  },
+  'run:crashed': {
+    label: 'crashed',
+    colorClass: 'text-red-600',
+    bgClass: 'bg-red-50 dark:bg-red-950/30',
+    icon: XCircle,
+  },
+  'run:rejected': {
+    label: 'rejected',
+    colorClass: 'text-orange-600',
+    bgClass: 'bg-orange-50 dark:bg-orange-950/30',
+    icon: Ban,
+  },
 };
 
 function isLifecycleEvent(phase: string): boolean {
@@ -197,6 +256,29 @@ export function buildLifecycleTimeline(
   return iterations;
 }
 
+/** Determine the outcome status of an iteration */
+function getIterationOutcome(
+  iteration: TimelineIteration
+): { label: string; colorClass: string; dotClass: string } | null {
+  const lastLifecycle = [...iteration.timings].reverse().find((t) => isLifecycleEvent(t.phase));
+  if (!lastLifecycle) return null;
+
+  switch (lastLifecycle.phase) {
+    case 'run:rejected':
+      return { label: 'Rejected', colorClass: 'text-orange-600', dotClass: 'bg-orange-500' };
+    case 'run:completed':
+      return { label: 'Completed', colorClass: 'text-emerald-600', dotClass: 'bg-emerald-500' };
+    case 'run:failed':
+      return { label: 'Failed', colorClass: 'text-red-600', dotClass: 'bg-red-500' };
+    case 'run:crashed':
+      return { label: 'Crashed', colorClass: 'text-red-600', dotClass: 'bg-red-500' };
+    case 'run:stopped':
+      return { label: 'Stopped', colorClass: 'text-amber-600', dotClass: 'bg-amber-500' };
+    default:
+      return null;
+  }
+}
+
 /* ---------------------------------------------------------------------------
  * Component
  * ------------------------------------------------------------------------- */
@@ -214,7 +296,7 @@ export function ActivityTab({ timings, loading, error, rejectionFeedback }: Acti
 
   if (error) {
     return (
-      <div className="flex items-center gap-2 p-4 text-sm text-red-600">
+      <div className="flex items-center gap-2 p-4 text-base text-red-600">
         <AlertCircle className="h-4 w-4 shrink-0" />
         <span>{error}</span>
       </div>
@@ -225,7 +307,7 @@ export function ActivityTab({ timings, loading, error, rejectionFeedback }: Acti
     return (
       <div className="flex flex-col items-center justify-center gap-2 p-8">
         <Clock className="text-muted-foreground h-8 w-8" />
-        <p className="text-muted-foreground text-sm">No activity recorded yet</p>
+        <p className="text-muted-foreground text-base">No activity recorded yet</p>
       </div>
     );
   }
@@ -247,7 +329,7 @@ export function ActivityTab({ timings, loading, error, rejectionFeedback }: Acti
   const totalCostUsd = nodeTimings.reduce((sum, t) => sum + (t.costUsd ?? 0), 0);
 
   return (
-    <div className="flex flex-col gap-4 p-4">
+    <div className="flex flex-col gap-3 p-4">
       <div data-testid="activity-timings" className="flex flex-col gap-3">
         {iterations.map((iteration) => (
           <IterationGroup
@@ -287,35 +369,57 @@ function IterationGroup({
   maxDurationMs: number;
   now: number;
 }) {
+  const outcome = getIterationOutcome(iteration);
+
   return (
-    <div data-testid={`iteration-${iteration.number}`} className="flex flex-col gap-1.5">
+    <div
+      data-testid={`iteration-${iteration.number}`}
+      className="border-border/50 bg-card/50 flex flex-col overflow-hidden rounded-lg border"
+    >
+      {/* Iteration header */}
       {showHeader ? (
-        <div className="text-muted-foreground text-xs font-medium">
-          Iteration {iteration.number}
+        <div className="bg-muted/30 border-border/50 flex items-center justify-between border-b px-3 py-1.5">
+          <span className="text-muted-foreground text-sm font-semibold tracking-wide">
+            Iteration {iteration.number}
+          </span>
+          {outcome ? (
+            <span className={`flex items-center gap-1 text-xs font-medium ${outcome.colorClass}`}>
+              <span className={`inline-block h-1.5 w-1.5 rounded-full ${outcome.dotClass}`} />
+              {outcome.label}
+            </span>
+          ) : null}
         </div>
       ) : null}
-      {iteration.timings.map((t) => {
-        if (isLifecycleEvent(t.phase)) {
-          // For run:rejected, the message comes from the iteration, not a separate map
-          const isRejection = t.phase === 'run:rejected';
+
+      {/* Timeline content */}
+      <div className="relative flex flex-col">
+        {/* Vertical timeline line — centered on 20px dots with px-3 (12px) left padding: 12 + 10 - 0.5 = 21.5px */}
+        <div className="bg-border/60 absolute top-4 bottom-4 left-[21.5px] w-px" />
+
+        {iteration.timings.map((t, idx) => {
+          if (isLifecycleEvent(t.phase)) {
+            const isRejection = t.phase === 'run:rejected';
+            return (
+              <LifecycleEventRow
+                key={`${t.agentRunId}-${t.phase}-${t.startedAt}`}
+                timing={t}
+                message={isRejection ? iteration.rejectionMessage : undefined}
+                attachments={isRejection ? iteration.rejectionAttachments : undefined}
+                isFirst={idx === 0}
+                isLast={idx === iteration.timings.length - 1}
+              />
+            );
+          }
           return (
-            <LifecycleEventRow
+            <NodeTimingRow
               key={`${t.agentRunId}-${t.phase}-${t.startedAt}`}
               timing={t}
-              message={isRejection ? iteration.rejectionMessage : undefined}
-              attachments={isRejection ? iteration.rejectionAttachments : undefined}
+              maxDurationMs={maxDurationMs}
+              now={now}
             />
           );
-        }
-        return (
-          <NodeTimingRow
-            key={`${t.agentRunId}-${t.phase}-${t.startedAt}`}
-            timing={t}
-            maxDurationMs={maxDurationMs}
-            now={now}
-          />
-        );
-      })}
+        })}
+      </div>
     </div>
   );
 }
@@ -328,29 +432,59 @@ function LifecycleEventRow({
   timing,
   message,
   attachments,
+  isFirst,
+  isLast,
 }: {
   timing: PhaseTimingData;
   message?: string;
   attachments?: string[];
+  isFirst?: boolean;
+  isLast?: boolean;
 }) {
   const event = LIFECYCLE_EVENTS[timing.phase];
   if (!event) return null;
 
   const hasAttachments = attachments && attachments.length > 0;
+  const Icon = event.icon;
 
   return (
-    <div className={`text-xs ${event.colorClass}`}>
-      <span>{event.label}</span>
-      {message ? (
-        <span
-          data-testid="rejection-feedback-text"
-          className="text-muted-foreground ml-2 font-normal italic"
+    <div
+      className={`relative flex flex-col gap-1 px-3 ${isFirst ? 'pt-2' : 'pt-1'} ${isLast ? 'pb-2' : 'pb-1'}`}
+    >
+      <div className="flex items-center gap-2">
+        {/* Timeline dot */}
+        <div
+          className={`relative z-10 flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${event.bgClass}`}
         >
-          &mdash; {message}
-        </span>
+          <Icon className={`h-3 w-3 ${event.colorClass}`} />
+        </div>
+
+        {/* Label */}
+        <span className={`text-sm font-medium ${event.colorClass}`}>{event.label}</span>
+
+        {/* Timestamp */}
+        {timing.startedAt &&
+        !(typeof timing.startedAt === 'string' && timing.startedAt.startsWith('synthetic')) ? (
+          <span className="text-muted-foreground/60 ml-auto text-xs tabular-nums">
+            {formatTimestamp(String(timing.startedAt))}
+          </span>
+        ) : null}
+      </div>
+
+      {/* Rejection feedback */}
+      {message ? (
+        <div className="ml-[26px] flex items-start gap-1.5 rounded-md bg-orange-50/50 px-2 py-1.5 dark:bg-orange-950/20">
+          <MessageSquare className="mt-0.5 h-3.5 w-3.5 shrink-0 text-orange-400" />
+          <span
+            data-testid="rejection-feedback-text"
+            className="text-muted-foreground text-xs leading-relaxed italic"
+          >
+            &mdash; {message}
+          </span>
+        </div>
       ) : null}
       {hasAttachments ? (
-        <div data-testid="rejection-feedback-attachments" className="mt-1.5 ml-2">
+        <div data-testid="rejection-feedback-attachments" className="ml-[26px]">
           <InlineAttachments text="" attachmentPaths={attachments} />
         </div>
       ) : null}
@@ -369,7 +503,6 @@ function NodeTimingRow({
 }) {
   const suffix = timing.phase.includes(':') ? timing.phase.split(':')[1] : null;
   const isSubPhase = suffix !== null;
-  // Distinguish implementation sub-phases (phase-1, phase-2) from rejection retries (2, 3)
   const isImplPhase = suffix?.startsWith('phase-') ?? false;
   const label = isImplPhase
     ? `Phase ${suffix!.replace('phase-', '')}`
@@ -393,39 +526,68 @@ function NodeTimingRow({
       : null;
 
   return (
-    <div className={isSubPhase ? 'flex flex-col gap-1 pl-6' : 'flex flex-col gap-1'}>
+    <div className={`relative flex flex-col gap-0.5 px-3 py-1.5 ${isSubPhase ? 'ml-4' : ''}`}>
       <div data-testid={`timing-bar-${timing.phase}`} className="flex items-center gap-2">
-        <span className={`text-muted-foreground shrink-0 text-xs ${isSubPhase ? 'w-18' : 'w-24'}`}>
+        {/* Timeline dot */}
+        <div className="relative z-10 flex h-5 w-5 shrink-0 items-center justify-center">
+          <div
+            className={`rounded-full ${isRunning ? 'h-3 w-3 animate-pulse' : 'h-2.5 w-2.5'} ${
+              isRunning
+                ? 'bg-blue-500'
+                : timing.completedAt
+                  ? 'bg-emerald-500'
+                  : 'bg-muted-foreground/30'
+            }`}
+          />
+        </div>
+
+        {/* Phase label — fixed width so all bars align in a single column */}
+        <span
+          className={`w-28 shrink-0 truncate text-sm font-medium ${
+            isSubPhase ? 'text-muted-foreground' : 'text-foreground/80'
+          }`}
+        >
           {label}
         </span>
+
+        {/* Progress bar */}
         <div
-          className={`bg-muted min-w-0 flex-1 overflow-hidden rounded-full ${isSubPhase ? 'h-2.5' : 'h-3'}`}
+          className={`bg-muted min-w-0 flex-1 overflow-hidden rounded-full ${isSubPhase ? 'h-1.5' : 'h-2'}`}
         >
           <div
-            className={`h-full rounded-full ${barColorClass}${isRunning ? 'animate-pulse' : ''}`}
+            className={`h-full rounded-full transition-all duration-300 ${barColorClass}${isRunning ? 'animate-pulse' : ''}`}
             style={{ width: `${Math.min(barPercent, 100)}%` }}
           />
         </div>
-        <span className="text-muted-foreground w-10 shrink-0 text-right text-xs tabular-nums">
+
+        {/* Duration */}
+        <span className="text-muted-foreground w-14 shrink-0 text-right text-sm font-medium tabular-nums">
           {formatDuration(durationMs)}
         </span>
-        <span className="text-muted-foreground w-12 shrink-0 text-right text-[10px] tabular-nums">
-          {totalTokens != null && totalTokens > 0 ? (
-            <span className="inline-flex items-center gap-0.5">
-              <Zap className="h-2 w-2 opacity-50" />
-              {formatTokens(totalTokens)}
-            </span>
-          ) : null}
-        </span>
-        <span className="text-muted-foreground w-14 shrink-0 text-right text-[10px] tabular-nums">
-          {timing.costUsd != null && timing.costUsd > 0 ? (
-            <span className="inline-flex items-center gap-0.5">
-              <DollarSign className="h-2 w-2 opacity-50" />
-              {formatCost(timing.costUsd)}
-            </span>
-          ) : null}
-        </span>
       </div>
+
+      {/* Metrics row (timestamp + tokens + cost) */}
+      <div className="ml-[28px] flex items-center gap-3 text-xs">
+        {timing.startedAt ? (
+          <span className="text-muted-foreground/60 tabular-nums">
+            {formatTimestamp(timing.startedAt)}
+          </span>
+        ) : null}
+        {totalTokens != null && totalTokens > 0 ? (
+          <span className="text-muted-foreground/70 inline-flex items-center gap-0.5">
+            <Zap className="h-3 w-3 opacity-50" />
+            {formatTokens(totalTokens)}
+          </span>
+        ) : null}
+        {timing.costUsd != null && timing.costUsd > 0 ? (
+          <span className="text-muted-foreground/70 inline-flex items-center gap-0.5">
+            <DollarSign className="h-3 w-3 opacity-50" />
+            {formatCost(timing.costUsd)}
+          </span>
+        ) : null}
+      </div>
+
+      {/* Approval wait sub-row */}
       {timing.approvalWaitMs != null && timing.approvalWaitMs > 0 ? (
         <ApprovalWaitRow timing={timing} maxDurationMs={maxDurationMs} />
       ) : null}
@@ -444,20 +606,21 @@ function ApprovalWaitRow({
   const barPercent = maxDurationMs > 0 ? Math.max(2, (waitMs / maxDurationMs) * 100) : 2;
 
   return (
-    <div data-testid={`approval-wait-${timing.phase}`} className="flex items-center gap-2 pl-4">
-      <span className="text-muted-foreground w-20 shrink-0 text-xs">approval</span>
-      <div className="bg-muted h-2.5 min-w-0 flex-1 overflow-hidden rounded-full">
+    <div
+      data-testid={`approval-wait-${timing.phase}`}
+      className="ml-[26px] flex items-center gap-2 rounded-md bg-amber-50/50 px-1.5 py-1 dark:bg-amber-950/20"
+    >
+      <Timer className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+      <span className="text-muted-foreground w-16 shrink-0 text-xs">approval</span>
+      <div className="bg-muted h-1.5 min-w-0 flex-1 overflow-hidden rounded-full">
         <div
           className="h-full rounded-full bg-amber-500"
           style={{ width: `${Math.min(barPercent, 100)}%` }}
         />
       </div>
-      <span className="text-muted-foreground w-10 shrink-0 text-right text-xs tabular-nums">
+      <span className="text-muted-foreground w-14 shrink-0 text-right text-xs tabular-nums">
         {formatDuration(waitMs)}
       </span>
-      {/* Spacers to align with token + cost columns */}
-      <span className="w-12 shrink-0" />
-      <span className="w-14 shrink-0" />
     </div>
   );
 }
@@ -479,31 +642,58 @@ function SummaryTotals({
   return (
     <div
       data-testid="activity-summary"
-      className="border-border flex flex-col gap-1.5 border-t pt-3"
+      className="border-border bg-card/30 flex flex-col gap-2 rounded-lg border p-3"
     >
-      <SummaryRow label="Total execution" value={formatDuration(totalExecMs)} />
-      {totalWaitMs > 0 ? (
-        <>
-          <SummaryRow label="Total wait" value={formatDuration(totalWaitMs)} />
-          <SummaryRow label="Total wall-clock" value={formatDuration(totalExecMs + totalWaitMs)} />
-        </>
-      ) : null}
-      {totalTokens > 0 ? (
-        <SummaryRow
-          label="Total tokens"
-          value={`${formatTokens(totalTokens)} (${formatTokens(totalInputTokens)} in · ${formatTokens(totalOutputTokens)} out)`}
-        />
-      ) : null}
-      {totalCostUsd > 0 ? <SummaryRow label="Total cost" value={formatCost(totalCostUsd)} /> : null}
+      <div className="text-muted-foreground mb-0.5 text-xs font-semibold tracking-wider uppercase">
+        Summary
+      </div>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+        <SummaryItem icon={Clock} label="Total execution" value={formatDuration(totalExecMs)} />
+        {totalWaitMs > 0 ? (
+          <>
+            <SummaryItem icon={Timer} label="Total wait" value={formatDuration(totalWaitMs)} />
+            <SummaryItem
+              icon={Clock}
+              label="Total wall-clock"
+              value={formatDuration(totalExecMs + totalWaitMs)}
+              className="col-span-2"
+            />
+          </>
+        ) : null}
+        {totalTokens > 0 ? (
+          <SummaryItem
+            icon={Zap}
+            label="Total tokens"
+            value={`${formatTokens(totalTokens)} (${formatTokens(totalInputTokens)} in · ${formatTokens(totalOutputTokens)} out)`}
+            className="col-span-2"
+          />
+        ) : null}
+        {totalCostUsd > 0 ? (
+          <SummaryItem icon={DollarSign} label="Total cost" value={formatCost(totalCostUsd)} />
+        ) : null}
+      </div>
     </div>
   );
 }
 
-function SummaryRow({ label, value }: { label: string; value: string }) {
+function SummaryItem({
+  icon: Icon,
+  label,
+  value,
+  className = '',
+}: {
+  icon: typeof Clock;
+  label: string;
+  value: string;
+  className?: string;
+}) {
   return (
-    <div className="flex items-center justify-between">
-      <span className="text-muted-foreground text-xs font-medium">{label}</span>
-      <span className="text-xs font-medium">{value}</span>
+    <div className={`flex items-center justify-between ${className}`}>
+      <span className="text-muted-foreground flex items-center gap-1.5 text-sm">
+        <Icon className="h-3.5 w-3.5 opacity-50" />
+        <span className="font-medium">{label}</span>
+      </span>
+      <span className="text-sm font-semibold tabular-nums">{value}</span>
     </div>
   );
 }
