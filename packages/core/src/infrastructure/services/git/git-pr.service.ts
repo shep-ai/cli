@@ -207,7 +207,11 @@ export class GitPrService implements IGitPrService {
 
   async mergePr(cwd: string, prNumber: number, strategy: MergeStrategy = 'squash'): Promise<void> {
     try {
-      await this.execFile('gh', ['pr', 'merge', String(prNumber), `--${strategy}`], { cwd });
+      await this.execFile(
+        'gh',
+        ['pr', 'merge', String(prNumber), `--${strategy}`, '--auto', '--delete-branch'],
+        { cwd }
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const cause = error instanceof Error ? error : undefined;
@@ -329,7 +333,12 @@ export class GitPrService implements IGitPrService {
     }
   }
 
-  async watchCi(cwd: string, branch: string, timeoutMs?: number): Promise<CiStatusResult> {
+  async watchCi(
+    cwd: string,
+    branch: string,
+    timeoutMs?: number,
+    intervalSeconds?: number
+  ): Promise<CiStatusResult> {
     try {
       // gh run watch requires a run ID — it does not support --branch.
       // First, resolve the latest run ID for the branch via gh run list.
@@ -344,7 +353,16 @@ export class GitPrService implements IGitPrService {
       }
 
       const runId = String(runs[0].databaseId);
-      const args = ['run', 'watch', runId, '--exit-status'];
+      const interval = intervalSeconds ?? 30;
+      const args = [
+        'run',
+        'watch',
+        runId,
+        '--exit-status',
+        '--compact',
+        '--interval',
+        String(interval),
+      ];
       const { stdout } = await this.execFile('gh', args, {
         cwd,
         ...(timeoutMs ? { timeout: timeoutMs } : {}),

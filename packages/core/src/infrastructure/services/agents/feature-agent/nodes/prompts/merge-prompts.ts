@@ -1,9 +1,12 @@
 /**
  * Merge Node Prompt Builders
  *
- * Builds prompts for the two agent calls in the merge node:
+ * Builds prompts for agent calls in the merge node:
  * 1. buildCommitPushPrPrompt — commit (always), push (conditional), PR create (conditional)
- * 2. buildMergeSquashPrompt — merge/squash PR or branch
+ * 2. buildCiWatchFixPrompt — diagnose and fix CI failures
+ *
+ * NOTE: The actual PR merge and local squash-merge are handled directly by
+ * GitPrService.mergePr() and GitPrService.localMergeSquash() — not via agent prompts.
  */
 
 import yaml from 'js-yaml';
@@ -246,84 +249,4 @@ ${failureLogs}
 - The commit message MUST start with \`fix(ci): attempt ${attemptNumber}/${maxAttempts} — \`
 - Do NOT create a new branch — push directly to \`${branch}\`
 - If the failure is unclear, make your best diagnosis and explain your reasoning in the commit message`;
-}
-
-/**
- * Build a prompt for the merge/squash agent call.
- *
- * When a PR exists, uses `gh pr merge` (remote operation — no local merge needed).
- * When no PR exists, performs a local merge in the ORIGINAL repo directory
- * (not the worktree, which IS the feature branch).
- */
-export function buildMergeSquashPrompt(
-  state: FeatureAgentState,
-  branch: string,
-  baseBranch: string,
-  hasRemote = false
-): string {
-  if (state.prUrl && state.prNumber) {
-    // PR path: remote merge via GitHub CLI — no local merge needed
-    return `You are merging a pull request via the GitHub CLI.
-
-## PR to Merge
-
-- PR URL: ${state.prUrl}
-- PR Number: #${state.prNumber}
-
-## Instructions
-
-1. Merge the PR using squash merge with auto-merge: \`gh pr merge ${state.prNumber} --squash --delete-branch --auto\`
-   - The --auto flag queues the merge to execute automatically once all branch protection requirements (CI checks, reviews, etc.) are satisfied
-2. If the merge command fails, report the error clearly
-
-## Constraints
-
-- Use squash merge strategy to keep history clean
-- Report the merge result clearly`;
-  }
-
-  // Non-PR path: local merge in the ORIGINAL repo (not the worktree)
-  const originalRepo = state.repositoryPath;
-
-  const fetchSteps = hasRemote
-    ? `2. Fetch latest: \`git fetch origin\`
-3. Checkout the base branch: \`git checkout ${baseBranch}\`
-4. Pull latest base: \`git pull origin ${baseBranch}\`
-5. Merge the feature branch: \`git merge --squash ${branch}\`
-6. If merge conflicts are encountered, resolve them manually and complete the merge
-7. Commit the squash merge with a descriptive conventional commit message
-8. Delete the feature branch after successful merge: \`git branch -d ${branch}\``
-    : `2. Checkout the base branch: \`git checkout ${baseBranch}\`
-3. Merge the feature branch: \`git merge --squash ${branch}\`
-4. If merge conflicts are encountered, resolve them manually and complete the merge
-5. Commit the squash merge with a descriptive conventional commit message
-6. Delete the feature branch after successful merge: \`git branch -d ${branch}\``;
-
-  return `You are performing a local merge in the original repository directory.
-
-IMPORTANT: You MUST run all git commands in the original repository directory, NOT in any worktree.
-
-## Branch to Merge
-
-- Feature branch: \`${branch}\`
-- Base branch: \`${baseBranch}\`
-
-## Working Directory
-
-${originalRepo}
-
-## Instructions
-
-1. Change to the original repository: \`cd ${originalRepo}\`
-${fetchSteps}
-
-## Constraints
-
-- Use squash merge strategy to keep history clean
-- All commands MUST run in \`${originalRepo}\` (the original repo), NOT in the worktree
-- NEVER remove, modify, or prune git worktrees — they are managed by the system
-- Do NOT try to \`git checkout\` the feature branch — \`git merge --squash\` reads from it without checking it out
-- If conflicts arise during merge, attempt to resolve them intelligently
-- Do NOT modify any source code beyond what is needed for conflict resolution
-- Report the merge result clearly`;
 }

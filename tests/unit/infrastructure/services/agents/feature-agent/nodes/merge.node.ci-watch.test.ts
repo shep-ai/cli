@@ -331,7 +331,8 @@ describe('createMergeNode — CI watch/fix loop', () => {
       expect(deps.gitPrService.watchCi).toHaveBeenCalledWith(
         '/tmp/worktree',
         expect.any(String),
-        600_000
+        600_000,
+        30
       );
     });
 
@@ -368,7 +369,8 @@ describe('createMergeNode — CI watch/fix loop', () => {
       expect(deps.gitPrService.watchCi).toHaveBeenCalledWith(
         expect.any(String),
         expect.any(String),
-        120_000
+        120_000,
+        30
       );
     });
 
@@ -380,7 +382,8 @@ describe('createMergeNode — CI watch/fix loop', () => {
       expect(deps.gitPrService.watchCi).toHaveBeenCalledWith(
         expect.any(String),
         expect.any(String),
-        600_000
+        600_000,
+        30
       );
     });
   });

@@ -401,6 +401,10 @@ export type WorkflowConfig = {
    */
   ciLogMaxChars?: number;
   /**
+   * Poll interval in seconds for gh run watch (default: 30)
+   */
+  ciWatchPollIntervalSeconds?: number;
+  /**
    * Per-stage timeout overrides for the feature agent (default: 600000 = 10 minutes per stage)
    */
   stageTimeouts?: StageTimeouts;

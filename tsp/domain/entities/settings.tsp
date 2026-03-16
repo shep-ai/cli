@@ -293,6 +293,9 @@ model WorkflowConfig {
   @doc("Maximum characters of CI failure logs to pass to the executor (default: 50000)")
   ciLogMaxChars?: int32;
 
+  @doc("Poll interval in seconds for gh run watch (default: 30)")
+  ciWatchPollIntervalSeconds?: int32;
+
   @doc("Per-stage timeout overrides for the feature agent (default: 600000 = 10 minutes per stage)")
   stageTimeouts?: StageTimeouts;
 
