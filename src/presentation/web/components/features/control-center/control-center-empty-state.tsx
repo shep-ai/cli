@@ -165,14 +165,14 @@ export function ControlCenterEmptyState({
           <button
             type="button"
             onClick={() => setCliExpanded(!cliExpanded)}
-            className="text-muted-foreground/50 hover:text-muted-foreground flex cursor-pointer items-center gap-1.5 transition-colors duration-200"
+            className="text-muted-foreground hover:text-foreground flex cursor-pointer items-center gap-1.5 transition-colors duration-200"
           >
             <Terminal className="h-3.5 w-3.5" />
-            <span className="text-xs">or use the CLI</span>
+            <span className="text-sm">or use the CLI</span>
             <ChevronDown
               className={cn(
-                'h-3 w-3 transition-transform duration-200',
-                cliExpanded && 'rotate-180'
+                'h-3.5 w-3.5 transition-transform duration-200',
+                cliExpanded ? '' : 'rotate-180'
               )}
             />
           </button>
