@@ -1,0 +1,441 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feat-delete-close-pr
+summary: >
+  Technical research for adding a toggleable "Close pull request" checkbox to the
+  delete-feature dialog and CLI. The feature threads a closePr flag through the
+  existing dialog → server action → use case pipeline, conditionally skips remote
+  branch deletion when closePr is false, and updates pr.status to Closed after
+  branch deletion. No new dependencies, no TypeSpec changes, no new interface
+  methods required — the implementation follows existing codebase patterns exactly.
+
+# Relationships
+relatedFeatures:
+  - '022 - delete feature node (web UI)'
+  - '036 - merge flow'
+  - '039 - github pr sync watcher'
+  - '056 - soft delete'
+
+technologies:
+  - TypeScript
+  - React (Next.js)
+  - Shadcn UI (AlertDialog, Checkbox, Label)
+  - Vitest
+  - Commander.js
+  - '@inquirer/prompts'
+  - tsyringe (DI)
+  - Storybook
+
+relatedLinks: []
+
+# Structured technology decisions
+decisions:
+  - title: 'PR closure mechanism'
+    chosen: 'Rely on GitHub auto-close via remote branch deletion'
+    rejected:
+      - >-
+        Add explicit closePr() method to IGitPrService — redundant because
+        GitHub natively closes PRs when the head branch is deleted. Would
+        require a new interface method, new infrastructure implementation,
+        and a new gh CLI call, all to duplicate platform-native behavior.
+      - >-
+        Call GitHub REST API directly from the use case — violates Clean
+        Architecture by bypassing the port/adapter layer. Also redundant
+        given auto-close behavior.
+    rationale: >
+      GitHub automatically closes a PR when its head branch is deleted. The
+      existing cleanupSingleFeature method (delete-feature.use-case.ts:158-169)
+      already calls gitPrService.deleteBranch(cwd, branch, true) to delete the
+      remote branch. This triggers auto-closure with zero new code for the PR
+      close itself. The spec explicitly requires NFR-3: No new interface methods.
+
+  - title: 'closePr flag behavior — skip remote branch vs skip all cleanup'
+    chosen: >-
+      When closePr === false, skip only remote branch deletion (keep local
+      branch deletion and worktree removal)
+    rejected:
+      - >-
+        Skip all branch deletion (local + remote) when closePr is false —
+        too broad. The user explicitly wants branches cleaned up but the PR
+        preserved. Local branch cleanup is independent of PR state.
+      - >-
+        Use a separate skipRemoteBranch flag instead of closePr — adds
+        unnecessary abstraction. The user mental model is "close the PR", not
+        "skip remote branch deletion". closePr is the right semantic flag.
+    rationale: >
+      The spec states FR-6: "if closePr === false, skip only the remote branch
+      deletion (still delete local branch and worktree)". This is because the PR
+      is kept open by preserving the remote branch on GitHub. Local cleanup
+      (worktree removal, local branch deletion) can proceed independently. The
+      existing code structure in cleanupSingleFeature (lines 149-170) cleanly
+      separates local branch deletion (lines 151-156) from remote branch
+      deletion (lines 158-169), making this a simple conditional insertion.
+
+  - title: 'PR status database update approach'
+    chosen: >-
+      Best-effort update of feature.pr.status to PrStatus.Closed via
+      featureRepo.update() after remote branch deletion
+    rejected:
+      - >-
+        Let the PR sync watcher (feature 039) detect the closure eventually —
+        unreliable because the feature is being soft-deleted and the sync
+        watcher may never process it, leaving stale data if queried with
+        includeDeleted=true.
+      - >-
+        Make the PR status update mandatory (throw on failure) — violates the
+        established best-effort pattern in cleanupSingleFeature where all
+        cleanup operations are wrapped in try/catch to prevent blocking
+        deletion.
+    rationale: >
+      After successfully deleting the remote branch (line 165), the feature's
+      pr.status should be updated to PrStatus.Closed to keep the database
+      consistent. This follows the exact same try/catch best-effort pattern
+      used for worktree removal (lines 143-147), local branch deletion
+      (lines 152-156), and remote branch deletion (lines 159-169). The update
+      uses the existing featureRepo.update() method. PrStatus.Closed already
+      exists in the enum (domain/generated/output.ts:771). Only features with
+      pr?.status === PrStatus.Open are updated — Merged and Closed are skipped.
+
+  - title: 'Dialog checkbox coupling strategy'
+    chosen: >-
+      closePr checkbox auto-checked when cleanup is checked, auto-unchecked
+      and disabled when cleanup is unchecked, independently uncheckable
+    rejected:
+      - >-
+        Fully independent checkbox with no coupling to cleanup — creates
+        confusing UX. If cleanup is unchecked, there is no remote branch
+        deletion, so the PR cannot be auto-closed. The checkbox would be
+        misleading.
+      - >-
+        Nested checkbox (indented under cleanup) — while visually communicates
+        hierarchy, it diverges from the existing flat checkbox layout in the
+        dialog. The cascade-delete checkbox is not nested under cleanup, so
+        nesting closePr would be inconsistent.
+    rationale: >
+      The dialog currently uses flat checkbox layout (delete-feature-dialog.tsx).
+      The cleanup checkbox and cascade-delete checkbox are at the same level.
+      Adding closePr as another flat checkbox maintains consistency. The coupling
+      is implemented via a useEffect that watches the cleanup state: when cleanup
+      becomes false, closePr is set to false and disabled; when cleanup becomes
+      true, closePr is re-enabled and re-checked. This mirrors the dialog's
+      existing reset behavior (useEffect on open, lines 24-29).
+
+  - title: 'CLI close-PR prompt placement and flag design'
+    chosen: >-
+      Sequential prompt after cleanup confirmation using @inquirer/prompts
+      confirm(), with --no-close-pr Commander.js boolean negation flag
+    rejected:
+      - >-
+        Combined prompt with cleanup ("Clean up branches and close PR?") —
+        removes user control. The spec requires independent toggleability,
+        matching the Web UI where the user can check cleanup but uncheck
+        close-PR.
+      - >-
+        Positional --close-pr flag (opt-in) instead of --no-close-pr (opt-out)
+        — inconsistent with the default behavior. The default is to close the
+        PR (matching the checkbox default), so the flag should be the negation
+        form, following the same pattern as --no-cleanup.
+    rationale: >
+      The existing CLI pattern (del.command.ts:53-62) uses sequential confirm()
+      prompts. The cleanup prompt is asked after the delete confirmation. The
+      close-PR prompt follows naturally after the cleanup prompt, and is only
+      shown when: (1) not --force, (2) cleanup is enabled, (3) feature has an
+      open PR. The --no-close-pr flag follows Commander.js boolean negation
+      convention, matching the existing --no-cleanup flag pattern. When --force
+      is used, closePr defaults to true (full cleanup).
+
+  - title: 'onConfirm callback signature extension'
+    chosen: >-
+      Add closePr as third parameter: onConfirm(cleanup, cascadeDelete, closePr)
+    rejected:
+      - >-
+        Use an options object: onConfirm({ cleanup, cascadeDelete, closePr }) —
+        while more extensible, it would be a breaking change to all existing
+        call sites and diverges from the established positional parameter
+        pattern.
+      - >-
+        Separate onClosePr callback — adds unnecessary complexity. The closePr
+        flag is part of the same delete action, not a separate operation.
+    rationale: >
+      The existing onConfirm signature is (cleanup: boolean, cascadeDelete:
+      boolean). Adding closePr as a third boolean parameter is minimal change,
+      backward compatible (existing call sites already pass the first two
+      parameters), and follows the established pattern. The dialog config
+      interface (delete-feature-dialog-config.ts) will update to:
+      onConfirm: (cleanup: boolean, cascadeDelete: boolean, closePr: boolean)
+      => void. All call sites (feature-node.tsx, feature-drawer-client.tsx,
+      use-control-center-state.ts, server action) add the third parameter.
+
+  - title: 'hasOpenPr prop source'
+    chosen: >-
+      Derive hasOpenPr from feature.pr?.status === PrStatus.Open at the call
+      site and pass as boolean prop to the dialog
+    rejected:
+      - >-
+        Pass the full feature.pr object to the dialog and derive internally —
+        leaks domain model details into a presentational component. The dialog
+        should receive pre-computed booleans, matching the hasChildren pattern.
+      - >-
+        Fetch PR status from GitHub in real-time before showing the dialog —
+        adds unnecessary network latency and complexity. The feature already
+        has pr.status from the database, which is kept in sync by the PR sync
+        watcher (feature 039).
+    rationale: >
+      The dialog already receives hasChildren as a pre-computed boolean prop.
+      Adding hasOpenPr follows the identical pattern. The feature data is
+      already available at both call sites: feature-node.tsx receives it via
+      node data, and feature-drawer-client.tsx has the feature object. Both
+      can compute hasOpenPr = feature.pr?.status === 'Open' before passing
+      to the dialog.
+
+# Open questions (resolved during research)
+openQuestions:
+  - question: >-
+      Should the closePr flag be added to DeleteFeatureOptions or handled as a
+      separate parameter in the execute method?
+    resolved: true
+    options:
+      - option: Add closePr to DeleteFeatureOptions interface
+        description: >
+          Add closePr?: boolean to the existing DeleteFeatureOptions interface
+          alongside cleanup and cascadeDelete. This keeps all deletion options
+          in a single object, follows the existing pattern, and is passed
+          through to cleanupSingleFeature via the options parameter.
+        selected: true
+      - option: Add closePr as a separate second parameter to execute()
+        description: >
+          Add a separate closePr parameter to the execute method signature.
+          This diverges from the options object pattern and creates an awkward
+          signature with mixed positional args and options.
+        selected: false
+      - option: Create a new ClosePrOptions type composed with DeleteFeatureOptions
+        description: >
+          Create a separate interface for PR-related options and compose with
+          DeleteFeatureOptions via intersection type. Over-engineered for a
+          single boolean field.
+        selected: false
+    selectionRationale: >
+      The DeleteFeatureOptions interface (delete-feature.use-case.ts:25-28)
+      already groups deletion-related flags. Adding closePr?: boolean to the
+      same interface is the natural extension. The options object is already
+      threaded through execute() → cascadeCleanupChildren() →
+      cleanupSingleFeature(), so closePr will flow through automatically
+      with zero signature changes to internal methods.
+
+  - question: >-
+      Where in cleanupSingleFeature should the remote branch deletion be
+      conditionally skipped based on closePr?
+    resolved: true
+    options:
+      - option: Guard the remote branch deletion block (lines 158-169)
+        description: >
+          Add a closePr !== false check around the existing remote branch
+          deletion try/catch block. The local branch deletion (lines 151-156)
+          still executes. This is the minimal change — a single if-condition
+          wrapping existing code.
+        selected: true
+      - option: Split cleanupSingleFeature into two methods
+        description: >
+          Extract remote branch deletion into a separate method and call it
+          conditionally. Adds indirection without benefit for a single
+          conditional.
+        selected: false
+      - option: Use early return after local branch deletion
+        description: >
+          Add if (closePr === false) return after local branch deletion.
+          However, the PR status update needs to happen after remote branch
+          deletion succeeds, so an early return would prevent adding the
+          status update in the right place.
+        selected: false
+    selectionRationale: >
+      The cleanest approach is to wrap the remote branch deletion block (lines
+      158-169) in a closePr !== false condition. After the remote branch is
+      successfully deleted (inside the existing try block), add the pr.status
+      update. This keeps all the logic co-located, follows the existing
+      best-effort try/catch pattern, and makes the code change minimal and
+      readable.
+
+  - question: >-
+      How should the feature-drawer-client.tsx pass closePr through the custom
+      DOM event dispatch pattern?
+    resolved: true
+    options:
+      - option: Add closePr to the existing CustomEvent detail object
+        description: >
+          The feature-drawer-client.tsx dispatches a CustomEvent with detail
+          containing { featureId, cleanup, cascadeDelete }. Add closePr to
+          this detail object. The event listener in use-control-center-state.ts
+          already destructures the detail, so adding closePr is trivial.
+        selected: true
+      - option: Dispatch a separate event for closePr
+        description: >
+          Fire a separate 'shep:feature-close-pr' event alongside the delete
+          event. Adds complexity and creates ordering concerns between two
+          events for the same action.
+        selected: false
+      - option: Skip the event dispatch and call the server action directly
+        description: >
+          Bypass the event-driven pattern and call deleteFeature directly from
+          the drawer. Would break the optimistic UI update pattern that the
+          control center state hook relies on.
+        selected: false
+    selectionRationale: >
+      The existing pattern dispatches a single CustomEvent with all delete
+      parameters in the detail object (feature-drawer-client.tsx). Adding
+      closePr to this detail is the minimal, consistent change. The event
+      listener in use-control-center-state.ts already destructures
+      { featureId, cleanup, cascadeDelete } from event.detail — adding
+      closePr follows naturally.
+
+# Markdown content (the full research document)
+content: |
+  ## Technology Decisions
+
+  ### 1. PR Closure Mechanism
+
+  **Chosen:** Rely on GitHub auto-close via remote branch deletion
+
+  **Rejected:**
+  - Add explicit closePr() method to IGitPrService — redundant, duplicates platform-native behavior, requires new interface method violating NFR-3
+  - Call GitHub REST API directly from the use case — violates Clean Architecture port/adapter layer
+
+  **Rationale:** GitHub natively closes PRs when the head branch is deleted. The existing `cleanupSingleFeature` already calls `gitPrService.deleteBranch(cwd, branch, true)`. Zero new code needed for the PR close itself.
+
+  ### 2. closePr Flag Behavior
+
+  **Chosen:** When closePr === false, skip only remote branch deletion (keep local branch and worktree cleanup)
+
+  **Rejected:**
+  - Skip all branch deletion (local + remote) — too broad, user wants branch cleanup but PR preserved
+  - Separate skipRemoteBranch flag — wrong semantic model, user thinks "close the PR" not "skip remote branch"
+
+  **Rationale:** The existing code cleanly separates local branch deletion (lines 151-156) from remote branch deletion (lines 158-169), making this a simple conditional guard.
+
+  ### 3. PR Status Database Update
+
+  **Chosen:** Best-effort update of feature.pr.status to PrStatus.Closed via featureRepo.update()
+
+  **Rejected:**
+  - Let PR sync watcher detect closure — unreliable for soft-deleted features
+  - Make update mandatory (throw on failure) — violates established best-effort pattern
+
+  **Rationale:** Follows exact same try/catch pattern as other cleanup operations. PrStatus.Closed already exists in the enum. Only Open PRs are updated.
+
+  ### 4. Dialog Checkbox Coupling
+
+  **Chosen:** closePr auto-checked when cleanup is checked, auto-unchecked and disabled when cleanup unchecked, independently uncheckable
+
+  **Rejected:**
+  - Fully independent checkbox — misleading when cleanup is off (no remote deletion = no auto-close)
+  - Nested checkbox under cleanup — inconsistent with existing flat layout
+
+  **Rationale:** Flat layout matches existing dialog pattern. useEffect coupling provides correct defaults with user override.
+
+  ### 5. CLI Prompt and Flag
+
+  **Chosen:** Sequential @inquirer/prompts confirm() after cleanup, with --no-close-pr flag
+
+  **Rejected:**
+  - Combined prompt with cleanup — removes independent toggleability
+  - Opt-in --close-pr flag — inconsistent with default (close PR by default, opt out to preserve)
+
+  **Rationale:** Follows existing sequential confirm() pattern in del.command.ts. --no-close-pr matches --no-cleanup Commander.js convention.
+
+  ### 6. onConfirm Signature Extension
+
+  **Chosen:** Add closePr as third parameter: onConfirm(cleanup, cascadeDelete, closePr)
+
+  **Rejected:**
+  - Options object { cleanup, cascadeDelete, closePr } — breaking change to all call sites
+  - Separate onClosePr callback — unnecessary complexity for same delete action
+
+  **Rationale:** Minimal, backward-compatible extension of existing positional parameter pattern.
+
+  ### 7. hasOpenPr Prop Source
+
+  **Chosen:** Derive hasOpenPr from feature.pr?.status === 'Open' at call site, pass as boolean prop
+
+  **Rejected:**
+  - Pass full feature.pr to dialog — leaks domain model into presentational component
+  - Fetch PR status from GitHub in real-time — unnecessary latency, data already in DB
+
+  **Rationale:** Matches existing hasChildren pattern. Feature data already available at both call sites.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | Shadcn UI Checkbox | Close PR checkbox in dialog | Use (existing) | Already imported and used for cleanup and cascade checkboxes |
+  | Shadcn UI Label | Checkbox label | Use (existing) | Already imported and used in the dialog |
+  | @inquirer/prompts confirm | CLI close-PR prompt | Use (existing) | Already used for delete confirmation and cleanup prompt |
+  | Commander.js | --no-close-pr flag | Use (existing) | Already used for --no-cleanup flag with boolean negation |
+  | Vitest | Unit tests | Use (existing) | Already used for all test files in the project |
+  | Storybook | Story variants | Use (existing) | Already used for dialog stories |
+
+  **No new dependencies required.** All implementation uses existing libraries already in the project.
+
+  ## Security Considerations
+
+  - **No new attack surface:** The closePr flag is a boolean that flows through the same authenticated server action path. No new API endpoints, no new external calls.
+  - **No credential exposure:** PR closure relies on GitHub auto-close via branch deletion, which uses the same git credentials already in use.
+  - **Input validation:** closePr is a boolean — no string parsing, no injection vectors. The server action already validates featureId.
+  - **Authorization:** Same authorization as existing delete feature — if the user can delete, they can choose to close the PR.
+
+  ## Performance Implications
+
+  - **No performance impact for closePr=true:** The remote branch deletion already happens. Adding a pr.status update is a single database write (featureRepo.update), which is negligible.
+  - **Slight improvement for closePr=false:** When the user opts to preserve the PR, remote branch deletion is skipped entirely — one fewer git operation and network call.
+  - **No additional network calls:** No new GitHub API calls. The auto-close is a side effect of the existing branch deletion.
+  - **Dialog rendering:** Adding one checkbox and a useEffect for coupling is negligible React overhead.
+
+  ## Architecture Notes
+
+  ### Data Flow
+
+  ```
+  Web UI:
+  Dialog checkbox → onConfirm(cleanup, cascadeDelete, closePr)
+    → feature-node/drawer → handleDeleteFeature(id, cleanup, cascade, closePr)
+    → CustomEvent detail { featureId, cleanup, cascadeDelete, closePr }
+    → use-control-center-state → deleteFeature server action(id, cleanup, cascade, closePr)
+    → DeleteFeatureUseCase.execute(id, { cleanup, cascadeDelete, closePr })
+    → cleanupSingleFeature(feature, options)
+    → if closePr !== false: delete remote branch → update pr.status
+
+  CLI:
+  --force / prompts → DelOptions { cleanup, closePr }
+    → DeleteFeatureUseCase.execute(id, { cleanup, closePr })
+    → cleanupSingleFeature(feature, options)
+    → if closePr !== false: delete remote branch → update pr.status
+  ```
+
+  ### Files Modified (no new files)
+
+  1. `delete-feature-dialog-config.ts` — Add hasOpenPr prop, update onConfirm signature
+  2. `delete-feature-dialog.tsx` — Add closePr checkbox with cleanup coupling
+  3. `delete-feature-dialog.stories.tsx` — Add hasOpenPr story variants
+  4. `delete-feature-dialog.test.tsx` — Add closePr checkbox tests
+  5. `delete-feature.use-case.ts` — Add closePr to options, conditional remote deletion, pr.status update
+  6. `delete-feature.use-case.test.ts` — Add closePr test cases
+  7. `delete-feature.ts` (server action) — Add closePr parameter
+  8. `del.command.ts` — Add close-PR prompt, --no-close-pr flag, summary line
+  9. `del.command.test.ts` — Add close-PR prompt and flag tests
+  10. `feature-node.tsx` — Pass hasOpenPr and closePr through
+  11. `feature-drawer-client.tsx` — Pass hasOpenPr and closePr through
+  12. `use-control-center-state.ts` — Pass closePr through handleDeleteFeature
+
+  ### Existing Patterns Leveraged
+
+  - **Conditional checkbox rendering:** Same as hasChildren → cascade-delete checkbox
+  - **Best-effort try/catch:** Same pattern as worktree removal and branch deletion
+  - **Commander.js boolean negation:** Same as --no-cleanup flag
+  - **Sequential @inquirer/prompts confirm():** Same as existing cleanup prompt
+  - **useEffect state reset on open:** Same as existing dialog open handler
+  - **Pre-computed boolean props:** Same as hasChildren prop pattern
+  - **CustomEvent detail extension:** Same as existing event dispatch pattern
+  - **featureRepo.update():** Already used in the delete flow for lifecycle updates
+
+  ---
+
+  _Research complete — proceed to planning phase_
