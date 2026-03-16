@@ -399,12 +399,18 @@ describe('CursorExecutorService', () => {
       );
     });
 
-    it('should spawn PowerShell on Windows with temp file prompt', async () => {
-      // On Windows, cursor CLI is invoked via PowerShell + temp file to go through
-      // agent.cmd which sets up cursor's environment properly. Direct node.exe
-      // invocation hangs on Windows Server CI with API key auth.
+    it('should spawn cursor node.exe directly on Windows', async () => {
+      // On Windows, cursor CLI is invoked directly via its bundled node.exe + index.js.
+      // PowerShell + bare `agent` triggers Windows "Open with" GUI dialogs.
       const originalPlatform = process.platform;
       Object.defineProperty(process, 'platform', { value: 'win32' });
+
+      const resolveSpy = vi.spyOn(executor as any, 'resolveCursorBinary').mockReturnValue({
+        nodePath:
+          'C:\\Users\\test\\AppData\\Local\\cursor-agent\\versions\\2026.3.11-abc\\node.exe',
+        indexPath:
+          'C:\\Users\\test\\AppData\\Local\\cursor-agent\\versions\\2026.3.11-abc\\index.js',
+      });
 
       try {
         const mockProc = createMockChildProcess();
@@ -417,13 +423,15 @@ describe('CursorExecutorService', () => {
 
         await executePromise;
 
-        // Should spawn powershell.exe with -Command that reads temp file
+        const spawnCmd = vi.mocked(mockSpawn).mock.calls[0][0];
+        expect(spawnCmd).toMatch(/node\.exe$/);
         expect(mockSpawn).toHaveBeenCalledWith(
-          'powershell.exe',
-          expect.arrayContaining(['-NoProfile', '-NonInteractive', '-Command']),
+          expect.stringMatching(/node\.exe$/),
+          expect.arrayContaining(['--yolo', '-p', 'Test']),
           expect.objectContaining({ windowsHide: true })
         );
       } finally {
+        resolveSpy.mockRestore();
         Object.defineProperty(process, 'platform', { value: originalPlatform });
       }
     });

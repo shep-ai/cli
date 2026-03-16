@@ -577,11 +577,34 @@ export class CursorExecutorService implements IAgentExecutor {
     const cwd = options?.cwd;
 
     if (IS_WINDOWS) {
-      // Primary: PowerShell + temp file.
-      // Writes prompt to a temp file, invokes agent via PowerShell which reads
-      // the file and passes content as -p. This goes through agent.cmd which
-      // sets up cursor's environment properly. Direct node.exe invocation
-      // (bypassing agent.cmd) hangs on Windows Server CI with API key auth.
+      // Direct invocation: resolve cursor's bundled node.exe + index.js and
+      // spawn directly. This bypasses agent.cmd/PowerShell which can trigger
+      // GUI "Open with" dialogs on Windows when `agent` isn't on PATH.
+      const resolved = this.resolveCursorBinary();
+      if (resolved) {
+        const directArgs = [resolved.indexPath, ...args];
+
+        this.log(`Windows direct mode: ${resolved.nodePath}`);
+        this.log(
+          `Args: ${directArgs.map((a) => (a.length > 80 ? `${a.slice(0, 77)}...` : a)).join(' ')}`
+        );
+
+        const proc = this.spawn(resolved.nodePath, directArgs, {
+          cwd,
+          stdio: ['pipe', 'pipe', 'pipe'],
+          windowsHide: true,
+          env: this.buildEnv({ CURSOR_INVOKED_AS: 'agent' }),
+        });
+        this.log(`Direct PID: ${proc.pid ?? 'undefined (spawn may have failed)'}`);
+        if (proc.stdin) proc.stdin.end();
+
+        return { proc, tmpFile: undefined };
+      }
+
+      // Fallback: PowerShell + temp file with FULL path to agent.cmd
+      // (bare `agent` triggers Windows "Open with" dialog)
+      const agentCmd = join(process.env.LOCALAPPDATA ?? '', 'cursor-agent', 'agent.cmd');
+      this.log(`[diag] Windows fallback: using PowerShell + ${agentCmd}`);
       const tmpFile = join(
         tmpdir(),
         `shep-cursor-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.txt`
@@ -590,9 +613,9 @@ export class CursorExecutorService implements IAgentExecutor {
 
       const agentFlags = args.filter((a) => a !== '-p' && a !== prompt).join(' ');
       const safePath = tmpFile.replace(/'/g, "''");
-      const psCmd = `$p = Get-Content -Raw '${safePath}'; & agent ${agentFlags} -p $p`;
+      const agentPath = agentCmd.replace(/'/g, "''");
+      const psCmd = `$p = Get-Content -Raw '${safePath}'; & '${agentPath}' ${agentFlags} -p $p`;
 
-      this.log(`Windows PowerShell mode: wrote ${prompt.length} chars to ${tmpFile}`);
       this.log(`[diag] PS command: ${psCmd.replace(prompt, `<${prompt.length} chars>`)}`);
       const proc = this.spawn(
         'powershell.exe',
@@ -604,7 +627,7 @@ export class CursorExecutorService implements IAgentExecutor {
           env: this.buildEnv(),
         }
       );
-      this.log(`PowerShell PID: ${proc.pid ?? 'undefined (spawn may have failed)'}`);
+      this.log(`[diag] PowerShell PID: ${proc.pid ?? 'undefined (spawn may have failed)'}`);
       if (proc.stdin) proc.stdin.end();
 
       return { proc, tmpFile };
