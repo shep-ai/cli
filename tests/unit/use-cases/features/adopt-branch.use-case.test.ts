@@ -62,6 +62,7 @@ describe('AdoptBranchUseCase', () => {
       getWorktreePath: vi.fn().mockReturnValue('/home/user/.shep/repos/hash/wt/fix-login-bug'),
       prune: vi.fn().mockResolvedValue(undefined),
       ensureGitRepository: vi.fn().mockResolvedValue(undefined),
+      listBranches: vi.fn().mockResolvedValue([]),
     };
 
     useCase = new AdoptBranchUseCase(mockFeatureRepo, mockRepositoryRepo, mockWorktreeService);

@@ -87,6 +87,7 @@ describe('DeleteFeatureUseCase', () => {
       remoteBranchExists: vi.fn().mockResolvedValue(false),
       getWorktreePath: vi.fn().mockReturnValue('/repo/.worktrees/feat-test-feature'),
       ensureGitRepository: vi.fn(),
+      listBranches: vi.fn().mockResolvedValue([]),
     };
 
     mockProcessService = {

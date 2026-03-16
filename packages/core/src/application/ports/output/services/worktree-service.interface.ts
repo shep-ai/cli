@@ -136,6 +136,17 @@ export interface IWorktreeService {
   getWorktreePath(repoPath: string, branch: string): string;
 
   /**
+   * List all local and remote branch names in a repository.
+   *
+   * Returns unique branch names (without remote prefixes like "origin/").
+   * Excludes HEAD pointers and the current branch marker.
+   *
+   * @param repoPath - Path to the git repository
+   * @returns Array of branch name strings
+   */
+  listBranches(repoPath: string): Promise<string[]>;
+
+  /**
    * Prune stale worktree entries whose directories no longer exist.
    *
    * @param repoPath - Path to the git repository

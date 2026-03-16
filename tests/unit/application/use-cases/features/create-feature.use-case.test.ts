@@ -114,6 +114,7 @@ describe('CreateFeatureUseCase', () => {
       remoteBranchExists: vi.fn().mockResolvedValue(false),
       getWorktreePath: vi.fn().mockReturnValue('/worktrees/test-feature'),
       ensureGitRepository: vi.fn().mockResolvedValue(undefined),
+      listBranches: vi.fn().mockResolvedValue([]),
     };
 
     mockAgentProcess = {

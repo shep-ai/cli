@@ -139,6 +139,29 @@ export class WorktreeService implements IWorktreeService {
     }
   }
 
+  async listBranches(repoPath: string): Promise<string[]> {
+    try {
+      const { stdout } = await this.execFile('git', ['branch', '-a', '--format=%(refname:short)'], {
+        cwd: repoPath,
+      });
+      const seen = new Set<string>();
+      const branches: string[] = [];
+      for (const line of stdout.split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed === 'origin/HEAD' || trimmed.startsWith('origin/HEAD ->')) continue;
+        // Strip "origin/" prefix for remote branches
+        const name = trimmed.startsWith('origin/') ? trimmed.slice('origin/'.length) : trimmed;
+        if (!seen.has(name)) {
+          seen.add(name);
+          branches.push(name);
+        }
+      }
+      return branches.sort();
+    } catch {
+      return [];
+    }
+  }
+
   async ensureGitRepository(repoPath: string): Promise<void> {
     let isExistingRepo = false;
     try {

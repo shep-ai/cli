@@ -72,6 +72,7 @@ describe('CleanupFeatureWorktreeUseCase', () => {
       remoteBranchExists: vi.fn().mockResolvedValue(true),
       getWorktreePath: vi.fn(),
       ensureGitRepository: vi.fn(),
+      listBranches: vi.fn().mockResolvedValue([]),
     };
 
     mockGitPrService = {

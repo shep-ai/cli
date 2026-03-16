@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { toast } from 'sonner';
 import { adoptBranch } from '@/app/actions/adopt-branch';
+import { listBranches } from '@/app/actions/list-branches';
 import { AdoptBranchDrawer } from './adopt-branch-drawer';
 
 export interface AdoptDrawerClientProps {
@@ -15,6 +16,8 @@ export function AdoptDrawerClient({ repositoryPath }: AdoptDrawerClientProps) {
   const pathname = usePathname();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string>();
+  const [branches, setBranches] = useState<string[]>([]);
+  const [branchesLoading, setBranchesLoading] = useState(false);
 
   const isOnAdoptRoute = pathname.startsWith('/adopt');
   const isOpen = !isSubmitting && isOnAdoptRoute;
@@ -32,6 +35,17 @@ export function AdoptDrawerClient({ repositoryPath }: AdoptDrawerClientProps) {
       setError(undefined);
     }
   }, [isOnAdoptRoute]);
+
+  // Fetch branches when drawer opens
+  useEffect(() => {
+    if (isOnAdoptRoute && repositoryPath) {
+      setBranchesLoading(true);
+      listBranches(repositoryPath)
+        .then(setBranches)
+        .catch(() => setBranches([]))
+        .finally(() => setBranchesLoading(false));
+    }
+  }, [isOnAdoptRoute, repositoryPath]);
 
   const onClose = useCallback(() => {
     router.push('/');
@@ -76,6 +90,8 @@ export function AdoptDrawerClient({ repositoryPath }: AdoptDrawerClientProps) {
       onSubmit={onSubmit}
       isSubmitting={isSubmitting}
       error={error}
+      branches={branches}
+      branchesLoading={branchesLoading}
     />
   );
 }

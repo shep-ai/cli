@@ -13,14 +13,15 @@ import { Button } from '@/components/ui/button';
  * existing git branch into Shep's feature tracking system.
  *
  * ### Form
- * - **Branch name** (required) — text input for the branch name
- * - **Adopt Branch** button — disabled when input is empty or submitting
+ * - **Branch name** (required) — combobox with search for selecting a branch
+ * - **Adopt Branch** button — disabled when no branch is selected or submitting
  * - **Cancel** button — closes the drawer
  *
  * ### States
- * - Default: empty input, submit disabled
- * - Loading: input disabled, button shows spinner
- * - Error: error message shown below input
+ * - Default: no branch selected, submit disabled
+ * - Loading branches: combobox shows loading spinner
+ * - Loading submit: button shows spinner
+ * - Error: error message shown below combobox
  */
 const meta: Meta<typeof AdoptBranchDrawer> = {
   title: 'Drawers/Feature/AdoptBranchDrawer',
@@ -35,6 +36,8 @@ const meta: Meta<typeof AdoptBranchDrawer> = {
     onSubmit: { description: 'Called with the branch name when the form is submitted' },
     isSubmitting: { control: 'boolean', description: 'Shows loading state' },
     error: { control: 'text', description: 'Error message to display' },
+    branches: { description: 'Available branch names for the combobox dropdown' },
+    branchesLoading: { control: 'boolean', description: 'Whether branches are loading' },
   },
 };
 
@@ -42,11 +45,24 @@ export default meta;
 type Story = StoryObj<typeof AdoptBranchDrawer>;
 
 /* ---------------------------------------------------------------------------
- * Shared action loggers
+ * Shared data
  * ------------------------------------------------------------------------- */
 
 const logSubmit = fn().mockName('onSubmit');
 const logClose = fn().mockName('onClose');
+
+const sampleBranches = [
+  'feat/user-auth',
+  'feat/dashboard-redesign',
+  'fix/login-bug',
+  'fix/memory-leak',
+  'chore/update-deps',
+  'refactor/api-layer',
+  'docs/readme-update',
+  'release/v2.0',
+  'hotfix/critical-fix',
+  'develop',
+];
 
 /* ---------------------------------------------------------------------------
  * Trigger wrapper
@@ -56,10 +72,14 @@ function AdoptDrawerTrigger({
   label = 'Open Adopt Branch',
   isSubmitting = false,
   error,
+  branches = sampleBranches,
+  branchesLoading = false,
 }: {
   label?: string;
   isSubmitting?: boolean;
   error?: string;
+  branches?: string[];
+  branchesLoading?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -80,6 +100,8 @@ function AdoptDrawerTrigger({
         }}
         isSubmitting={isSubmitting}
         error={error}
+        branches={branches}
+        branchesLoading={branchesLoading}
       />
     </div>
   );
@@ -89,12 +111,12 @@ function AdoptDrawerTrigger({
  * Stories
  * ------------------------------------------------------------------------- */
 
-/** Default empty form — click the trigger button to open the adopt branch drawer. */
+/** Default — click the trigger button to open the adopt branch drawer with branch combobox. */
 export const Default: Story = {
   render: () => <AdoptDrawerTrigger />,
 };
 
-/** Pre-opened drawer for quick visual inspection. */
+/** Pre-opened drawer with branch combobox for quick visual inspection. */
 export const PreOpened: Story = {
   render: () => <AdoptDrawerTrigger label="Open Drawer" />,
   play: async ({ canvasElement }) => {
@@ -103,20 +125,16 @@ export const PreOpened: Story = {
   },
 };
 
-/** Drawer with branch name typed in — ready to submit. */
-export const WithBranchName: Story = {
-  render: () => <AdoptDrawerTrigger label="Open (With Branch)" />,
+/** Branches loading state — combobox shows "Loading branches..." */
+export const BranchesLoading: Story = {
+  render: () => <AdoptDrawerTrigger label="Open (Loading Branches)" branchesLoading />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.click(canvas.getByRole('button', { name: 'Open (With Branch)' }));
-
-    const body = within(canvasElement.ownerDocument.body);
-    const input = await body.findByPlaceholderText('e.g. fix/login-bug or feat/user-auth');
-    await userEvent.type(input, 'fix/login-bug');
+    await userEvent.click(canvas.getByRole('button', { name: 'Open (Loading Branches)' }));
   },
 };
 
-/** Loading state — input disabled, button shows spinner. */
+/** Loading state — submit in progress, button shows spinner. */
 export const Loading: Story = {
   render: () => <AdoptDrawerTrigger label="Open (Loading)" isSubmitting />,
   play: async ({ canvasElement }) => {
@@ -125,7 +143,7 @@ export const Loading: Story = {
   },
 };
 
-/** Error state — error message visible below input. */
+/** Error state — error message visible below combobox. */
 export const WithError: Story = {
   render: () => (
     <AdoptDrawerTrigger
@@ -136,6 +154,15 @@ export const WithError: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.click(canvas.getByRole('button', { name: 'Open (Error)' }));
+  },
+};
+
+/** No branches available — empty state in the combobox dropdown. */
+export const NoBranches: Story = {
+  render: () => <AdoptDrawerTrigger label="Open (No Branches)" branches={[]} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Open (No Branches)' }));
   },
 };
 
@@ -165,6 +192,7 @@ function AdoptDrawerShellTemplate() {
           logSubmit(branchName);
           setOpen(false);
         }}
+        branches={sampleBranches}
       />
     </div>
   );
