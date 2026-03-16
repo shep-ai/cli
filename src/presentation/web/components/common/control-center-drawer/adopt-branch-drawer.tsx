@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { Check, ChevronsUpDown, GitBranch, Loader2 } from 'lucide-react';
+import { Check, CheckIcon, ChevronsUpDown, GitBranch, Loader2 } from 'lucide-react';
 import { BaseDrawer } from '@/components/common/base-drawer';
 import { DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Command,
@@ -16,13 +17,20 @@ import {
 } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
+import type { RepositoryOption } from '@/components/common/feature-create-drawer/feature-create-drawer';
 
 export interface AdoptBranchDrawerProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (branchName: string) => void;
+  onSubmit: (branchName: string, repositoryPath: string) => void;
   isSubmitting?: boolean;
   error?: string;
+  /** Available repositories for the repository selector */
+  repositories?: RepositoryOption[];
+  /** Currently selected repository path */
+  selectedRepositoryPath?: string;
+  /** Callback when user selects a different repository */
+  onRepositoryChange?: (repositoryPath: string) => void;
   /** Available branch names for the combobox dropdown */
   branches?: string[];
   /** Whether branches are still loading */
@@ -35,6 +43,9 @@ export function AdoptBranchDrawer({
   onSubmit,
   isSubmitting = false,
   error,
+  repositories = [],
+  selectedRepositoryPath,
+  onRepositoryChange,
   branches = [],
   branchesLoading = false,
 }: AdoptBranchDrawerProps) {
@@ -42,6 +53,12 @@ export function AdoptBranchDrawer({
   const [comboboxOpen, setComboboxOpen] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const [repoOpen, setRepoOpen] = useState(false);
+  const [repoQuery, setRepoQuery] = useState('');
+  const repoInputRef = useRef<HTMLInputElement>(null);
+
+  const selectedRepo = repositories.find((r) => r.path === selectedRepositoryPath);
+  const hasRepo = !!selectedRepositoryPath;
 
   // Reset state when drawer closes
   useEffect(() => {
@@ -49,17 +66,25 @@ export function AdoptBranchDrawer({
       setBranchName('');
       setInputValue('');
       setComboboxOpen(false);
+      setRepoOpen(false);
+      setRepoQuery('');
     }
   }, [open]);
+
+  // Reset branch selection when repository changes
+  useEffect(() => {
+    setBranchName('');
+    setInputValue('');
+  }, [selectedRepositoryPath]);
 
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault();
       const trimmed = branchName.trim();
-      if (!trimmed || isSubmitting) return;
-      onSubmit(trimmed);
+      if (!trimmed || !selectedRepositoryPath || isSubmitting) return;
+      onSubmit(trimmed, selectedRepositoryPath);
     },
-    [branchName, isSubmitting, onSubmit]
+    [branchName, selectedRepositoryPath, isSubmitting, onSubmit]
   );
 
   const handleClose = useCallback(() => {
@@ -100,11 +125,36 @@ export function AdoptBranchDrawer({
     [inputValue, branchName]
   );
 
+  const handleRepoSelect = useCallback(
+    (path: string) => {
+      onRepositoryChange?.(path);
+      setRepoOpen(false);
+      setRepoQuery('');
+    },
+    [onRepositoryChange]
+  );
+
   const filteredBranches = branches.filter((b) =>
     b.toLowerCase().includes(inputValue.toLowerCase())
   );
 
-  const isDisabled = !branchName.trim() || isSubmitting;
+  const filteredRepos = repoQuery.trim()
+    ? repositories.filter(
+        (r) =>
+          r.name.toLowerCase().includes(repoQuery.toLowerCase()) ||
+          r.path.toLowerCase().includes(repoQuery.toLowerCase())
+      )
+    : repositories;
+
+  useEffect(() => {
+    if (repoOpen) {
+      setTimeout(() => repoInputRef.current?.focus(), 0);
+    } else {
+      setRepoQuery('');
+    }
+  }, [repoOpen]);
+
+  const isDisabled = !branchName.trim() || !selectedRepositoryPath || isSubmitting;
 
   const header = (
     <div>
@@ -130,6 +180,93 @@ export function AdoptBranchDrawer({
       <form onSubmit={handleSubmit} className="flex flex-1 flex-col">
         <div className="flex-1 overflow-y-auto p-4">
           <div className="flex flex-col gap-4">
+            {/* Repository selector */}
+            <div className="flex flex-col gap-2">
+              <Label>Repository</Label>
+              <Popover open={repoOpen} onOpenChange={setRepoOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    role="combobox"
+                    aria-expanded={repoOpen}
+                    aria-label="Repository"
+                    disabled={isSubmitting}
+                    data-testid="adopt-repo-combobox"
+                    className={cn(
+                      'border-input bg-background ring-offset-background focus:ring-ring flex h-9 w-full items-center justify-between rounded-md border px-3 py-2 text-sm focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50',
+                      !selectedRepo && 'text-muted-foreground'
+                    )}
+                  >
+                    <span className="truncate">
+                      {selectedRepo ? selectedRepo.name : 'Select repository...'}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent
+                  className="w-80 p-0"
+                  align="start"
+                  data-testid="adopt-repo-combobox-content"
+                >
+                  <div className="flex flex-col">
+                    <div className="border-b p-2">
+                      <Input
+                        ref={repoInputRef}
+                        placeholder="Search repositories..."
+                        value={repoQuery}
+                        onChange={(e) => setRepoQuery(e.target.value)}
+                        className="h-8 border-0 p-0 text-sm shadow-none focus-visible:ring-0"
+                        data-testid="adopt-repo-search"
+                      />
+                    </div>
+                    <div
+                      className="max-h-48 overflow-y-auto py-1"
+                      role="listbox"
+                      aria-label="Repositories"
+                    >
+                      {filteredRepos.length === 0 ? (
+                        <p className="text-muted-foreground px-3 py-2 text-sm">
+                          No repositories found.
+                        </p>
+                      ) : (
+                        filteredRepos.map((r) => (
+                          <button
+                            key={r.id}
+                            type="button"
+                            role="option"
+                            aria-selected={selectedRepositoryPath === r.path}
+                            onClick={() => handleRepoSelect(r.path)}
+                            className={cn(
+                              'hover:bg-accent hover:text-accent-foreground flex w-full items-center gap-2 px-3 py-2 text-sm',
+                              selectedRepositoryPath === r.path && 'bg-accent/50'
+                            )}
+                            data-testid={`adopt-repo-option-${r.id}`}
+                          >
+                            <CheckIcon
+                              className={cn(
+                                'h-4 w-4 shrink-0',
+                                selectedRepositoryPath !== r.path && 'invisible'
+                              )}
+                            />
+                            <span className="flex flex-col items-start truncate">
+                              <span className="truncate">{r.name}</span>
+                              <span className="text-muted-foreground truncate text-xs">
+                                {r.path}
+                              </span>
+                            </span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+              <p className="text-muted-foreground text-xs">
+                Select the repository that contains the branch you want to adopt.
+              </p>
+            </div>
+
+            {/* Branch selector */}
             <div className="flex flex-col gap-2">
               <Label htmlFor="branch-name">Branch name</Label>
               <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
@@ -138,12 +275,16 @@ export function AdoptBranchDrawer({
                     variant="outline"
                     role="combobox"
                     aria-expanded={comboboxOpen}
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || !hasRepo}
                     className="w-full justify-between font-normal"
                     data-testid="adopt-branch-input"
                   >
                     <span className="truncate">
-                      {branchesLoading ? 'Loading branches...' : branchName || 'Select a branch...'}
+                      {!hasRepo
+                        ? 'Select a repository first...'
+                        : branchesLoading
+                          ? 'Loading branches...'
+                          : branchName || 'Select a branch...'}
                     </span>
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
@@ -201,8 +342,9 @@ export function AdoptBranchDrawer({
                 </PopoverContent>
               </Popover>
               <p className="text-muted-foreground text-xs">
-                Select a branch from the dropdown or type to search. Local and remote branches are
-                shown.
+                {hasRepo
+                  ? 'Select a branch from the dropdown or type to search. Local and remote branches are shown.'
+                  : 'Please select a repository above to see available branches.'}
               </p>
             </div>
 

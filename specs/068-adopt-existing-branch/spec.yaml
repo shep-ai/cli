@@ -547,3 +547,7 @@ rejectionFeedback:
       instead it should be in status review merge request
     phase: merge
     timestamp: '2026-03-16T17:16:17.694Z'
+  - iteration: 4
+    message: when adopting we should select from which repo an not show all branchs
+    phase: merge
+    timestamp: '2026-03-16T17:41:58.755Z'

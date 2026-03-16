@@ -13,18 +13,23 @@ export default async function AdoptDrawerPage({ searchParams }: AdoptDrawerPageP
   const { repo } = await searchParams;
 
   let repositoryPath = repo ?? '';
+  let repositoryOptions: { id: string; name: string; path: string }[] = [];
 
-  if (!repositoryPath) {
-    try {
-      const listRepos = resolve<ListRepositoriesUseCase>('ListRepositoriesUseCase');
-      const repositories = await listRepos.execute();
-      if (repositories.length > 0) {
-        repositoryPath = repositories[0].path;
-      }
-    } catch {
-      // Fall through with empty path — server action will validate
+  try {
+    const listRepos = resolve<ListRepositoriesUseCase>('ListRepositoriesUseCase');
+    const repositories = await listRepos.execute();
+    repositoryOptions = repositories.map((r) => ({
+      id: r.id,
+      name: r.name,
+      path: r.path,
+    }));
+
+    if (!repositoryPath && repositories.length > 0) {
+      repositoryPath = repositories[0].path;
     }
+  } catch {
+    // Fall through with empty path — server action will validate
   }
 
-  return <AdoptDrawerClient repositoryPath={repositoryPath} />;
+  return <AdoptDrawerClient repositoryPath={repositoryPath} repositories={repositoryOptions} />;
 }

@@ -6,18 +6,21 @@ import { toast } from 'sonner';
 import { adoptBranch } from '@/app/actions/adopt-branch';
 import { listBranches } from '@/app/actions/list-branches';
 import { AdoptBranchDrawer } from './adopt-branch-drawer';
+import type { RepositoryOption } from '@/components/common/feature-create-drawer/feature-create-drawer';
 
 export interface AdoptDrawerClientProps {
   repositoryPath: string;
+  repositories: RepositoryOption[];
 }
 
-export function AdoptDrawerClient({ repositoryPath }: AdoptDrawerClientProps) {
+export function AdoptDrawerClient({ repositoryPath, repositories }: AdoptDrawerClientProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string>();
   const [branches, setBranches] = useState<string[]>([]);
   const [branchesLoading, setBranchesLoading] = useState(false);
+  const [selectedRepoPath, setSelectedRepoPath] = useState(repositoryPath);
 
   const isOnAdoptRoute = pathname.startsWith('/adopt');
   const isOpen = !isSubmitting && isOnAdoptRoute;
@@ -29,35 +32,43 @@ export function AdoptDrawerClient({ repositoryPath }: AdoptDrawerClientProps) {
     }
   }, [isOnAdoptRoute, isSubmitting]);
 
-  // Clear error when drawer reopens
+  // Clear error when drawer reopens and reset selected repo to default
   useEffect(() => {
     if (isOnAdoptRoute) {
       setError(undefined);
+      setSelectedRepoPath(repositoryPath);
     }
-  }, [isOnAdoptRoute]);
+  }, [isOnAdoptRoute, repositoryPath]);
 
-  // Fetch branches when drawer opens
+  // Fetch branches when drawer opens AND a repository is selected
   useEffect(() => {
-    if (isOnAdoptRoute && repositoryPath) {
+    if (isOnAdoptRoute && selectedRepoPath) {
       setBranchesLoading(true);
-      listBranches(repositoryPath)
+      setBranches([]);
+      listBranches(selectedRepoPath)
         .then(setBranches)
         .catch(() => setBranches([]))
         .finally(() => setBranchesLoading(false));
+    } else {
+      setBranches([]);
     }
-  }, [isOnAdoptRoute, repositoryPath]);
+  }, [isOnAdoptRoute, selectedRepoPath]);
 
   const onClose = useCallback(() => {
     router.push('/');
   }, [router]);
 
+  const handleRepositoryChange = useCallback((path: string) => {
+    setSelectedRepoPath(path);
+  }, []);
+
   const onSubmit = useCallback(
-    (branchName: string) => {
+    (branchName: string, repoPath: string) => {
       setError(undefined);
       setIsSubmitting(true);
       router.push('/');
 
-      adoptBranch({ branchName, repositoryPath })
+      adoptBranch({ branchName, repositoryPath: repoPath })
         .then((result) => {
           if (result.error) {
             toast.error(result.error);
@@ -80,7 +91,7 @@ export function AdoptDrawerClient({ repositoryPath }: AdoptDrawerClientProps) {
           setIsSubmitting(false);
         });
     },
-    [router, repositoryPath]
+    [router]
   );
 
   return (
@@ -90,6 +101,9 @@ export function AdoptDrawerClient({ repositoryPath }: AdoptDrawerClientProps) {
       onSubmit={onSubmit}
       isSubmitting={isSubmitting}
       error={error}
+      repositories={repositories}
+      selectedRepositoryPath={selectedRepoPath}
+      onRepositoryChange={handleRepositoryChange}
       branches={branches}
       branchesLoading={branchesLoading}
     />

@@ -13,12 +13,13 @@ import { Button } from '@/components/ui/button';
  * existing git branch into Shep's feature tracking system.
  *
  * ### Form
- * - **Branch name** (required) — combobox with search for selecting a branch
- * - **Adopt Branch** button — disabled when no branch is selected or submitting
+ * - **Repository** (required) — combobox for selecting which repository to adopt from
+ * - **Branch name** (required) — combobox with search for selecting a branch (scoped to selected repo)
+ * - **Adopt Branch** button — disabled when no repo/branch is selected or submitting
  * - **Cancel** button — closes the drawer
  *
  * ### States
- * - Default: no branch selected, submit disabled
+ * - Default: no repo or branch selected, submit disabled
  * - Loading branches: combobox shows loading spinner
  * - Loading submit: button shows spinner
  * - Error: error message shown below combobox
@@ -33,9 +34,12 @@ const meta: Meta<typeof AdoptBranchDrawer> = {
   argTypes: {
     open: { control: 'boolean', description: 'Controls drawer visibility' },
     onClose: { description: 'Called when the drawer is dismissed' },
-    onSubmit: { description: 'Called with the branch name when the form is submitted' },
+    onSubmit: { description: 'Called with branch name and repo path when submitted' },
     isSubmitting: { control: 'boolean', description: 'Shows loading state' },
     error: { control: 'text', description: 'Error message to display' },
+    repositories: { description: 'Available repositories for selection' },
+    selectedRepositoryPath: { description: 'Currently selected repository path' },
+    onRepositoryChange: { description: 'Called when user selects a different repository' },
     branches: { description: 'Available branch names for the combobox dropdown' },
     branchesLoading: { control: 'boolean', description: 'Whether branches are loading' },
   },
@@ -50,6 +54,13 @@ type Story = StoryObj<typeof AdoptBranchDrawer>;
 
 const logSubmit = fn().mockName('onSubmit');
 const logClose = fn().mockName('onClose');
+const logRepoChange = fn().mockName('onRepositoryChange');
+
+const sampleRepositories = [
+  { id: 'repo-1', name: 'my-app', path: '/Users/dev/projects/my-app' },
+  { id: 'repo-2', name: 'api-server', path: '/Users/dev/projects/api-server' },
+  { id: 'repo-3', name: 'shared-lib', path: '/Users/dev/projects/shared-lib' },
+];
 
 const sampleBranches = [
   'feat/user-auth',
@@ -72,16 +83,21 @@ function AdoptDrawerTrigger({
   label = 'Open Adopt Branch',
   isSubmitting = false,
   error,
+  repositories = sampleRepositories,
+  selectedRepositoryPath = sampleRepositories[0].path,
   branches = sampleBranches,
   branchesLoading = false,
 }: {
   label?: string;
   isSubmitting?: boolean;
   error?: string;
+  repositories?: { id: string; name: string; path: string }[];
+  selectedRepositoryPath?: string;
   branches?: string[];
   branchesLoading?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [selectedRepo, setSelectedRepo] = useState(selectedRepositoryPath);
 
   return (
     <div className="flex h-screen items-start p-4">
@@ -94,12 +110,18 @@ function AdoptDrawerTrigger({
           setOpen(false);
           logClose();
         }}
-        onSubmit={(branchName) => {
-          logSubmit(branchName);
+        onSubmit={(branchName, repoPath) => {
+          logSubmit(branchName, repoPath);
           setOpen(false);
         }}
         isSubmitting={isSubmitting}
         error={error}
+        repositories={repositories}
+        selectedRepositoryPath={selectedRepo}
+        onRepositoryChange={(path) => {
+          setSelectedRepo(path);
+          logRepoChange(path);
+        }}
         branches={branches}
         branchesLoading={branchesLoading}
       />
@@ -111,17 +133,26 @@ function AdoptDrawerTrigger({
  * Stories
  * ------------------------------------------------------------------------- */
 
-/** Default — click the trigger button to open the adopt branch drawer with branch combobox. */
+/** Default — click the trigger button to open the adopt branch drawer with repo and branch selectors. */
 export const Default: Story = {
   render: () => <AdoptDrawerTrigger />,
 };
 
-/** Pre-opened drawer with branch combobox for quick visual inspection. */
+/** Pre-opened drawer with repository and branch comboboxes for quick visual inspection. */
 export const PreOpened: Story = {
   render: () => <AdoptDrawerTrigger label="Open Drawer" />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.click(canvas.getByRole('button', { name: 'Open Drawer' }));
+  },
+};
+
+/** No repository selected — branch selector shows "Select a repository first..." */
+export const NoRepoSelected: Story = {
+  render: () => <AdoptDrawerTrigger label="Open (No Repo)" selectedRepositoryPath="" />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Open (No Repo)' }));
   },
 };
 
@@ -172,6 +203,7 @@ export const NoBranches: Story = {
 
 function AdoptDrawerShellTemplate() {
   const [open, setOpen] = useState(true);
+  const [selectedRepo, setSelectedRepo] = useState(sampleRepositories[0].path);
 
   return (
     <div style={{ height: '100vh', background: '#f8fafc', padding: '2rem' }}>
@@ -188,9 +220,15 @@ function AdoptDrawerShellTemplate() {
           setOpen(false);
           logClose();
         }}
-        onSubmit={(branchName) => {
-          logSubmit(branchName);
+        onSubmit={(branchName, repoPath) => {
+          logSubmit(branchName, repoPath);
           setOpen(false);
+        }}
+        repositories={sampleRepositories}
+        selectedRepositoryPath={selectedRepo}
+        onRepositoryChange={(path) => {
+          setSelectedRepo(path);
+          logRepoChange(path);
         }}
         branches={sampleBranches}
       />
