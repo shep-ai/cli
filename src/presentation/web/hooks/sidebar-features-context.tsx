@@ -46,6 +46,8 @@ export function mapNodeStateToSidebarStatus(state: FeatureNodeState): FeatureSta
 interface SidebarFeaturesContextValue {
   features: SidebarFeatureItem[];
   setFeatures: (features: SidebarFeatureItem[]) => void;
+  hasRepositories: boolean;
+  setHasRepositories: (value: boolean) => void;
 }
 
 const SidebarFeaturesContext = createContext<SidebarFeaturesContextValue | null>(null);
@@ -56,8 +58,12 @@ interface SidebarFeaturesProviderProps {
 
 export function SidebarFeaturesProvider({ children }: SidebarFeaturesProviderProps) {
   const [features, setFeatures] = useState<SidebarFeatureItem[]>([]);
+  const [hasRepositories, setHasRepositories] = useState(false);
 
-  const value = useMemo<SidebarFeaturesContextValue>(() => ({ features, setFeatures }), [features]);
+  const value = useMemo<SidebarFeaturesContextValue>(
+    () => ({ features, setFeatures, hasRepositories, setHasRepositories }),
+    [features, hasRepositories]
+  );
 
   return (
     <SidebarFeaturesContext.Provider value={value}>{children}</SidebarFeaturesContext.Provider>

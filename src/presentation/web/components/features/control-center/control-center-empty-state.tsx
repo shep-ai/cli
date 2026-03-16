@@ -89,36 +89,19 @@ export function ControlCenterEmptyState({
         /* Agent setup wizard — owns its own hero */
         <WelcomeAgentSetup onComplete={handleAgentSetupComplete} />
       ) : (
-        /* Repository step */
-        <div className="flex w-full max-w-md flex-col items-center">
-          <h1
-            className="text-foreground/90 text-center text-5xl font-extralight tracking-tight"
-            style={{ animationDelay: '0ms', animationDuration: '600ms', animationFillMode: 'both' }}
-          >
+        /* Repository step — fade in to match wizard transitions */
+        <div className="animate-in fade-in flex w-full max-w-md flex-col items-center duration-300">
+          <h1 className="text-foreground/90 text-center text-5xl font-extralight tracking-tight">
             Add a project
           </h1>
-          <p
-            className="text-muted-foreground mt-3 text-center text-lg leading-relaxed font-light"
-            style={{
-              animationDelay: '80ms',
-              animationDuration: '600ms',
-              animationFillMode: 'both',
-            }}
-          >
-            Point Shep at any folder and it will analyze,
+          <p className="text-muted-foreground mt-3 text-center text-lg leading-relaxed font-light">
+            Add your project folder to unlock feature creation.
             <br />
-            plan, and implement features for you.
+            Describe what you need — Shep handles the rest.
           </p>
 
           {/* Auth status */}
-          <div
-            className="mt-8"
-            style={{
-              animationDelay: '160ms',
-              animationDuration: '600ms',
-              animationFillMode: 'both',
-            }}
-          >
+          <div className="mt-8">
             <AgentAuthBanner status={authStatus} onRetry={handleRetryAuth} />
           </div>
           {/* Primary CTA */}
@@ -128,11 +111,6 @@ export function ControlCenterEmptyState({
             onClick={handlePickerClick}
             disabled={loading}
             className="bg-foreground text-background hover:bg-foreground/90 mt-10 flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-xl px-6 py-4 text-base font-medium shadow-lg transition-all duration-200 hover:shadow-xl active:scale-[0.98] disabled:cursor-wait disabled:opacity-50"
-            style={{
-              animationDelay: '240ms',
-              animationDuration: '600ms',
-              animationFillMode: 'both',
-            }}
           >
             {loading ? (
               <Loader2 className="h-5 w-5 animate-spin" />
@@ -143,14 +121,7 @@ export function ControlCenterEmptyState({
           </button>
 
           {/* Subtitle under CTA */}
-          <p
-            className="text-muted-foreground/60 mt-3 text-center text-sm"
-            style={{
-              animationDelay: '320ms',
-              animationDuration: '600ms',
-              animationFillMode: 'both',
-            }}
-          >
+          <p className="text-muted-foreground/60 mt-3 text-center text-sm">
             Any folder works — git will be initialized automatically if needed.
           </p>
         </div>

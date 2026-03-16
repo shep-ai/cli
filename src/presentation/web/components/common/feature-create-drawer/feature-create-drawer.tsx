@@ -195,6 +195,14 @@ export function FeatureCreateDrawer({
   initialDescription,
 }: FeatureCreateDrawerProps) {
   const createSound = useSoundAction('create');
+  // Validate repositoryPath from URL against active repos — prevents stale URL params
+  // from selecting deleted repos after add/delete/re-add cycles.
+  // When repositories list isn't loaded yet (undefined), trust the prop as-is.
+  const validRepoPath = !repositoryPath
+    ? ''
+    : repositories === undefined || repositories.some((r) => r.path === repositoryPath)
+      ? repositoryPath
+      : '';
   const defaultGates = workflowDefaults?.approvalGates ?? EMPTY_GATES;
   const defaultPush = workflowDefaults?.push ?? false;
   const defaultOpenPr = workflowDefaults?.openPr ?? false;
@@ -224,7 +232,7 @@ export function FeatureCreateDrawer({
   const [overrideAgent, setOverrideAgent] = useState<string | undefined>(undefined);
   const [overrideModel, setOverrideModel] = useState<string | undefined>(undefined);
   const [selectedRepoPath, setSelectedRepoPath] = useState<string | undefined>(
-    repositoryPath || undefined
+    validRepoPath || undefined
   );
   const [localRepos, setLocalRepos] = useState<RepositoryOption[]>(repositories ?? []);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -270,7 +278,7 @@ export function FeatureCreateDrawer({
     setEnableEvidence(defaultEnableEvidence);
     setCommitEvidence(defaultCommitEvidence);
     setParentId(undefined);
-    setSelectedRepoPath(repositoryPath || undefined);
+    setSelectedRepoPath(validRepoPath || undefined);
     setLocalRepos(repositories ?? []);
     setFast(false);
     setPending(false);
@@ -286,7 +294,7 @@ export function FeatureCreateDrawer({
     defaultEnableEvidence,
     defaultCiWatch,
     defaultCommitEvidence,
-    repositoryPath,
+    validRepoPath,
     repositories,
   ]);
 
@@ -427,7 +435,7 @@ export function FeatureCreateDrawer({
     (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
       if (!description.trim()) return;
-      const effectiveRepoPath = selectedRepoPath ?? repositoryPath;
+      const effectiveRepoPath = selectedRepoPath ?? validRepoPath;
       if (!effectiveRepoPath) return;
       createSound.play();
       onSubmit({
@@ -458,7 +466,7 @@ export function FeatureCreateDrawer({
       attachments,
       approvalGates,
       selectedRepoPath,
-      repositoryPath,
+      validRepoPath,
       onSubmit,
       push,
       openPr,
@@ -559,8 +567,8 @@ export function FeatureCreateDrawer({
   }, []);
 
   const hasFeatures = features && features.length > 0;
-  const needsRepo = !repositoryPath && !selectedRepoPath;
-  const showRepoSelector = !repositoryPath && repositories !== undefined;
+  const needsRepo = !validRepoPath && !selectedRepoPath;
+  const showRepoSelector = !validRepoPath && repositories !== undefined;
 
   return (
     <BaseDrawer
@@ -627,14 +635,14 @@ export function FeatureCreateDrawer({
                   disabled={isSubmitting}
                 />
               </div>
-            ) : repositoryPath ? (
+            ) : validRepoPath ? (
               <div className="flex flex-col gap-1.5" data-testid="repo-readonly-section">
                 <Label className="text-muted-foreground text-xs font-semibold tracking-wider">
                   REPOSITORY
                 </Label>
                 <p className="text-sm" data-testid="repo-readonly-label">
-                  {repositories?.find((r) => r.path === repositoryPath)?.name ??
-                    repositoryPath.split('/').pop()}
+                  {repositories?.find((r) => r.path === validRepoPath)?.name ??
+                    validRepoPath.split('/').pop()}
                 </p>
               </div>
             ) : null}

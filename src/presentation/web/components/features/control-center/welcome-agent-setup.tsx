@@ -61,8 +61,13 @@ export function WelcomeAgentSetup({ onComplete, className }: WelcomeAgentSetupPr
       setSaving(true);
       try {
         await updateAgentAndModel(agentType, model);
-        onComplete();
-      } finally {
+        // Fade out the entire wizard before handing off to the next view
+        setVisible(false);
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        timeoutRef.current = setTimeout(() => {
+          onComplete();
+        }, 200);
+      } catch {
         setSaving(false);
       }
     },
@@ -129,16 +134,8 @@ export function WelcomeAgentSetup({ onComplete, className }: WelcomeAgentSetupPr
       data-testid="welcome-agent-setup"
       className={cn('flex w-full flex-col items-center', className)}
     >
-      {/* Hero — dynamic per step */}
-      <h1 className="text-foreground/90 text-center text-5xl font-extralight tracking-tight">
-        {heroTitle}
-      </h1>
-      <p className="text-muted-foreground mt-3 text-center text-lg leading-relaxed font-light">
-        {heroSubtitle}
-      </p>
-
-      {/* Step indicator */}
-      <div className="mt-8 flex w-full max-w-xs items-center gap-1.5">
+      {/* Step indicator — stays visible across transitions */}
+      <div className="mb-8 flex w-full max-w-xs items-center gap-1.5">
         {STEPS.map((s, i) => (
           <div
             key={s}
@@ -150,83 +147,94 @@ export function WelcomeAgentSetup({ onComplete, className }: WelcomeAgentSetupPr
         ))}
       </div>
 
-      {/* Step content — fade transition */}
+      {/* Hero + content — all fade together on step transitions */}
       <div
         className={cn(
-          'mt-8 flex w-full flex-col items-center transition-opacity duration-150',
+          'flex w-full flex-col items-center transition-opacity duration-200',
           visible && !transitioning ? 'opacity-100' : 'opacity-0'
         )}
       >
-        {/* Step 1: Agent selection — horizontal grid */}
-        {step === 'select-agent' && (
-          <div
-            data-testid="agent-list"
-            className="grid w-full max-w-lg gap-3"
-            style={{
-              gridTemplateColumns: `repeat(${Math.min(groups.length, 4)}, minmax(0, 1fr))`,
-            }}
-          >
-            {groups.map((group) => {
-              const GroupIcon = getAgentTypeIcon(group.agentType);
-              return (
-                <button
-                  key={group.agentType}
-                  type="button"
-                  disabled={saving}
-                  data-testid={`agent-option-${group.agentType}`}
-                  className="border-border hover:bg-accent hover:border-foreground/20 flex cursor-pointer flex-col items-center gap-3 rounded-2xl border px-4 py-5 transition-all duration-150 active:scale-[0.97] disabled:opacity-50"
-                  onClick={() => handleAgentSelect(group.agentType)}
-                >
-                  <GroupIcon className="text-foreground/70 h-7 w-7" />
-                  <span className="text-sm font-medium">{group.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        )}
+        <h1 className="text-foreground/90 text-center text-5xl font-extralight tracking-tight">
+          {heroTitle}
+        </h1>
+        <p className="text-muted-foreground mt-3 text-center text-lg leading-relaxed font-light">
+          {heroSubtitle}
+        </p>
 
-        {/* Step 2: Model selection — horizontal grid */}
-        {step === 'select-model' && activeGroup ? (
-          <div
-            data-testid="model-list"
-            className="flex w-full max-w-lg flex-col items-center gap-4"
-          >
-            <button
-              type="button"
-              disabled={saving}
-              className="text-muted-foreground hover:text-foreground flex cursor-pointer items-center gap-1.5 self-start text-sm transition-colors"
-              onClick={handleBack}
-            >
-              <ChevronLeft className="h-4 w-4" />
-              Back
-            </button>
+        <div className="mt-8 flex w-full flex-col items-center">
+          {/* Step 1: Agent selection — horizontal grid */}
+          {step === 'select-agent' && (
             <div
-              className="grid w-full gap-3"
+              data-testid="agent-list"
+              className="grid w-full max-w-lg gap-3"
               style={{
-                gridTemplateColumns: `repeat(${Math.min(activeGroup.models.length, 3)}, minmax(0, 1fr))`,
+                gridTemplateColumns: `repeat(${Math.min(groups.length, 4)}, minmax(0, 1fr))`,
               }}
             >
-              {activeGroup.models.map((m) => {
-                const meta = getModelMeta(m.id);
+              {groups.map((group) => {
+                const GroupIcon = getAgentTypeIcon(group.agentType);
                 return (
                   <button
-                    key={m.id}
+                    key={group.agentType}
                     type="button"
                     disabled={saving}
-                    data-testid={`model-option-${m.id}`}
-                    className="border-border hover:bg-accent hover:border-foreground/20 flex cursor-pointer flex-col items-center gap-2 rounded-2xl border px-4 py-5 text-center transition-all duration-150 active:scale-[0.97] disabled:opacity-50"
-                    onClick={() => handleModelSelect(m.id)}
+                    data-testid={`agent-option-${group.agentType}`}
+                    className="border-border hover:bg-accent hover:border-foreground/20 flex cursor-pointer flex-col items-center gap-3 rounded-2xl border px-4 py-5 transition-all duration-150 active:scale-[0.97] disabled:opacity-50"
+                    onClick={() => handleAgentSelect(group.agentType)}
                   >
-                    <span className="text-sm font-medium">{meta.displayName || m.displayName}</span>
-                    <span className="text-muted-foreground text-xs leading-tight">
-                      {meta.description || m.description}
-                    </span>
+                    <GroupIcon className="text-foreground/70 h-7 w-7" />
+                    <span className="text-sm font-medium">{group.label}</span>
                   </button>
                 );
               })}
             </div>
-          </div>
-        ) : null}
+          )}
+
+          {/* Step 2: Model selection — horizontal grid */}
+          {step === 'select-model' && activeGroup ? (
+            <div
+              data-testid="model-list"
+              className="flex w-full max-w-lg flex-col items-center gap-4"
+            >
+              <button
+                type="button"
+                disabled={saving}
+                className="text-muted-foreground hover:text-foreground flex cursor-pointer items-center gap-1.5 self-start text-sm transition-colors"
+                onClick={handleBack}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Back
+              </button>
+              <div
+                className="grid w-full gap-3"
+                style={{
+                  gridTemplateColumns: `repeat(${Math.min(activeGroup.models.length, 3)}, minmax(0, 1fr))`,
+                }}
+              >
+                {activeGroup.models.map((m) => {
+                  const meta = getModelMeta(m.id);
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      disabled={saving}
+                      data-testid={`model-option-${m.id}`}
+                      className="border-border hover:bg-accent hover:border-foreground/20 flex cursor-pointer flex-col items-center gap-2 rounded-2xl border px-4 py-5 text-center transition-all duration-150 active:scale-[0.97] disabled:opacity-50"
+                      onClick={() => handleModelSelect(m.id)}
+                    >
+                      <span className="text-sm font-medium">
+                        {meta.displayName || m.displayName}
+                      </span>
+                      <span className="text-muted-foreground text-xs leading-tight">
+                        {meta.description || m.description}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+        </div>
       </div>
     </div>
   );
