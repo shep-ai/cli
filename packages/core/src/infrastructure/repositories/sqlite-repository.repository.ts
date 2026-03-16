@@ -63,6 +63,49 @@ export class SQLiteRepositoryRepository implements IRepositoryRepository {
     return row ? fromDatabase(row) : null;
   }
 
+  async findByRemoteUrl(url: string): Promise<Repository | null> {
+    const normalized = SQLiteRepositoryRepository.normalizeRemoteUrl(url);
+    const stmt = this.db.prepare(
+      'SELECT * FROM repositories WHERE remote_url = ? AND deleted_at IS NULL'
+    );
+    const row = stmt.get(normalized) as RepositoryRow | undefined;
+    return row ? fromDatabase(row) : null;
+  }
+
+  async update(
+    id: string,
+    fields: Partial<Pick<Repository, 'name' | 'path' | 'remoteUrl'>>
+  ): Promise<Repository> {
+    const now = Date.now();
+    const setClauses: string[] = ['updated_at = ?'];
+    const values: unknown[] = [now];
+
+    if (fields.name !== undefined) {
+      setClauses.push('name = ?');
+      values.push(fields.name);
+    }
+    if (fields.path !== undefined) {
+      setClauses.push('path = ?');
+      values.push(fields.path);
+    }
+    if (fields.remoteUrl !== undefined) {
+      setClauses.push('remote_url = ?');
+      values.push(fields.remoteUrl);
+    }
+
+    values.push(id);
+    const stmt = this.db.prepare(`UPDATE repositories SET ${setClauses.join(', ')} WHERE id = ?`);
+    const result = stmt.run(...values);
+
+    if (result.changes === 0) {
+      throw new Error(`Repository not found: ${id}`);
+    }
+
+    const selectStmt = this.db.prepare('SELECT * FROM repositories WHERE id = ?');
+    const row = selectStmt.get(id) as RepositoryRow;
+    return fromDatabase(row);
+  }
+
   async softDelete(id: string): Promise<void> {
     const now = Date.now();
     const stmt = this.db.prepare(
@@ -77,5 +120,9 @@ export class SQLiteRepositoryRepository implements IRepositoryRepository {
       'UPDATE repositories SET deleted_at = NULL, updated_at = ? WHERE id = ?'
     );
     stmt.run(now, id);
+  }
+
+  static normalizeRemoteUrl(url: string): string {
+    return url.replace(/\.git$/, '').toLowerCase();
   }
 }

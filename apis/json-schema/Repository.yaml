@@ -8,6 +8,9 @@ properties:
   path:
     type: string
     description: Absolute file system path to the repository root (unique)
+  remoteUrl:
+    type: string
+    description: "Remote GitHub URL this repository was cloned from (normalized: lowercase, no .git suffix)"
 required:
   - name
   - path

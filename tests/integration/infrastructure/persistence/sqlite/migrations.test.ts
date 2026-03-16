@@ -884,7 +884,7 @@ describe('SQLite Migrations', () => {
     it('should record 39 migration entries in umzug_migrations', async () => {
       await runSQLiteMigrations(db);
       const applied = getAppliedMigrations(db);
-      expect(applied).toHaveLength(39);
+      expect(applied).toHaveLength(40);
     });
 
     it('should record migrations with zero-padded names from 001 to 038', async () => {
@@ -910,7 +910,7 @@ describe('SQLite Migrations', () => {
 
       expect(getSchemaVersion(db)).toBe(LATEST_SCHEMA_VERSION);
       const applied = getAppliedMigrations(db);
-      expect(applied).toHaveLength(39);
+      expect(applied).toHaveLength(40);
     });
 
     it('should apply only pending migrations when some are already tracked', async () => {
@@ -924,7 +924,7 @@ describe('SQLite Migrations', () => {
       await runSQLiteMigrations(db);
 
       expect(getSchemaVersion(db)).toBe(LATEST_SCHEMA_VERSION);
-      expect(getAppliedMigrations(db)).toHaveLength(39);
+      expect(getAppliedMigrations(db)).toHaveLength(40);
     });
 
     it('should repair missing pr_sync_lock table after bootstrap gap', async () => {
@@ -949,7 +949,7 @@ describe('SQLite Migrations', () => {
       // pr_sync_lock should now exist
       expect(tableExists(db, 'pr_sync_lock')).toBe(true);
       // All 39 migrations should be tracked
-      expect(getAppliedMigrations(db)).toHaveLength(39);
+      expect(getAppliedMigrations(db)).toHaveLength(40);
       // user_version may be 33 (set by re-run of 033) since 034 was already
       // tracked and didn't re-run. With umzug, user_version is a legacy artifact.
       expect(getSchemaVersion(db)).toBeGreaterThanOrEqual(33);

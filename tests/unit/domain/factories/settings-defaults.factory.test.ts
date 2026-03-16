@@ -9,6 +9,8 @@
  * - All tests should FAIL initially (factory doesn't exist yet)
  */
 
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import { createDefaultSettings } from '@/domain/factories/settings-defaults.factory.js';
 import type {
@@ -144,6 +146,14 @@ describe('createDefaultSettings', () => {
       expect(settings.environment.shellPreference).toBe('bash');
     });
 
+    it('should set defaultCloneDirectory to homedir/repos', () => {
+      // Act
+      const settings = createDefaultSettings();
+
+      // Assert
+      expect(settings.environment.defaultCloneDirectory).toBe(join(homedir(), 'repos'));
+    });
+
     it('should match TypeSpec model defaults', () => {
       // Act
       const settings = createDefaultSettings();
@@ -153,6 +163,7 @@ describe('createDefaultSettings', () => {
         defaultEditor: 'vscode',
         shellPreference: 'bash',
         terminalPreference: 'system',
+        defaultCloneDirectory: join(homedir(), 'repos'),
       });
     });
   });
@@ -324,6 +335,7 @@ describe('createDefaultSettings', () => {
         defaultEditor: 'vscode',
         shellPreference: 'bash',
         terminalPreference: 'system',
+        defaultCloneDirectory: join(homedir(), 'repos'),
       });
       expect(settings.system).toEqual({
         autoUpdate: true,

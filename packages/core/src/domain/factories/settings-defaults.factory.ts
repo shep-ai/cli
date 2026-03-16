@@ -25,6 +25,8 @@ import type {
   FeatureFlags,
 } from '../generated/output';
 import { AgentType, AgentAuthMethod, EditorType, TerminalType } from '../generated/output';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 
 /**
  * Default AI model for all SDLC agents.
@@ -102,6 +104,7 @@ export function createDefaultSettings(): Settings {
     defaultEditor: DEFAULT_EDITOR,
     shellPreference: DEFAULT_SHELL,
     terminalPreference: DEFAULT_TERMINAL,
+    defaultCloneDirectory: join(homedir(), 'repos'),
   };
 
   const system: SystemConfig = {

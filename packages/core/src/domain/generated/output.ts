@@ -298,6 +298,10 @@ export type EnvironmentConfig = {
    * Preferred terminal emulator
    */
   terminalPreference: TerminalType;
+  /**
+   * Default directory for cloning GitHub repositories (e.g. ~/repos)
+   */
+  defaultCloneDirectory?: string;
 };
 
 /**
@@ -1524,6 +1528,10 @@ export type Repository = SoftDeletableEntity & {
    * Absolute file system path to the repository root (unique)
    */
   path: string;
+  /**
+   * Remote GitHub URL this repository was cloned from (normalized: lowercase, no .git suffix)
+   */
+  remoteUrl?: string;
 };
 
 /**

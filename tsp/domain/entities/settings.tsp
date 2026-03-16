@@ -149,6 +149,9 @@ model EnvironmentConfig {
    */
   @doc("Preferred terminal emulator")
   terminalPreference: TerminalType = TerminalType.System;
+
+  @doc("Default directory for cloning GitHub repositories (e.g. ~/repos)")
+  defaultCloneDirectory?: string;
 }
 
 /**
