@@ -37,29 +37,16 @@ function getExtension(path: string): string {
   return dot >= 0 ? path.slice(dot).toLowerCase() : '';
 }
 
-/** Build the API URL for serving an evidence file. */
-function buildEvidenceUrl(relativePath: string, basePath?: string): string | undefined {
-  // If relativePath is already absolute, use it directly
-  const filePath = relativePath.startsWith('/')
-    ? relativePath
-    : basePath
-      ? `${basePath}/${relativePath}`
-      : undefined;
-  if (!filePath) return undefined;
-  return `/api/evidence?path=${encodeURIComponent(filePath)}`;
+/** Build the API URL for serving an evidence file (paths are pre-normalized to absolute). */
+function buildEvidenceUrl(absolutePath: string): string {
+  return `/api/evidence?path=${encodeURIComponent(absolutePath)}`;
 }
 
-function EvidenceItem({
-  evidence,
-  basePath,
-}: {
-  evidence: MergeReviewEvidence;
-  basePath?: string;
-}) {
+function EvidenceItem({ evidence }: { evidence: MergeReviewEvidence }) {
   const [expanded, setExpanded] = useState(true);
   const Icon = EVIDENCE_ICONS[evidence.type] ?? Camera;
   const ext = getExtension(evidence.relativePath);
-  const url = buildEvidenceUrl(evidence.relativePath, basePath);
+  const url = buildEvidenceUrl(evidence.relativePath);
   const isImage = evidence.type === 'Screenshot' || IMAGE_EXTENSIONS.has(ext);
   const isVideo = evidence.type === 'Video' || VIDEO_EXTENSIONS.has(ext);
   const isText = evidence.type === 'TestOutput' || evidence.type === 'TerminalRecording';
@@ -163,13 +150,7 @@ function EvidenceTextPreview({ url }: { url: string }) {
   );
 }
 
-function EvidenceList({
-  evidence,
-  basePath,
-}: {
-  evidence: MergeReviewEvidence[];
-  basePath?: string;
-}) {
+function EvidenceList({ evidence }: { evidence: MergeReviewEvidence[] }) {
   return (
     <div className="border-border rounded-lg border">
       <div className="px-4 py-3">
@@ -182,7 +163,7 @@ function EvidenceList({
         </div>
         <ul className="space-y-2">
           {evidence.map((e) => (
-            <EvidenceItem key={`${e.type}-${e.relativePath}`} evidence={e} basePath={basePath} />
+            <EvidenceItem key={`${e.type}-${e.relativePath}`} evidence={e} />
           ))}
         </ul>
       </div>
@@ -200,7 +181,7 @@ export function MergeReview({
   chatInput,
   onChatInputChange,
 }: MergeReviewProps) {
-  const { pr, diffSummary, fileDiffs, branch, warning, evidence, evidenceBasePath } = data;
+  const { pr, diffSummary, fileDiffs, branch, warning, evidence } = data;
   const hasConflicts = pr?.mergeable === false;
 
   const handleApproveOrResolve =
@@ -337,9 +318,7 @@ export function MergeReview({
         ) : null}
 
         {/* Evidence */}
-        {evidence && evidence.length > 0 ? (
-          <EvidenceList evidence={evidence} basePath={evidenceBasePath} />
-        ) : null}
+        {evidence && evidence.length > 0 ? <EvidenceList evidence={evidence} /> : null}
 
         {/* File diffs */}
         {fileDiffs && fileDiffs.length > 0 ? <DiffView fileDiffs={fileDiffs} /> : null}

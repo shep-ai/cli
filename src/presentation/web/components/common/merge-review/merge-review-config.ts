@@ -73,10 +73,8 @@ export interface MergeReviewData {
   branch?: MergeReviewBranch;
   /** Warning message when diff summary could not be retrieved */
   warning?: string;
-  /** Evidence captured during implementation */
+  /** Evidence captured during implementation (paths are absolute) */
   evidence?: MergeReviewEvidence[];
-  /** Absolute path to the evidence directory (for serving files via API) */
-  evidenceBasePath?: string;
 }
 
 /** Props for the merge review content component */
