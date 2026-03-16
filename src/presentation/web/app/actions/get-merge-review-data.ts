@@ -1,7 +1,8 @@
 'use server';
 
+import { createHash } from 'node:crypto';
 import { readFileSync, existsSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { basename, join, dirname } from 'node:path';
 import { resolve } from '@/lib/server-container';
 import type { IFeatureRepository } from '@shepai/core/application/ports/output/repositories/feature-repository.interface';
 import type { IGitPrService } from '@shepai/core/application/ports/output/services/git-pr-service.interface';
@@ -10,8 +11,44 @@ import type {
   MergeReviewEvidence,
 } from '@/components/common/merge-review/merge-review-config';
 import { computeWorktreePath } from '@shepai/core/infrastructure/services/ide-launchers/compute-worktree-path';
+import { getShepHomeDir } from '@shepai/core/infrastructure/services/filesystem/shep-directory.service';
 
 type GetMergeReviewDataResult = MergeReviewData | { error: string };
+
+/**
+ * Compute the shep evidence directory for a given repository and feature.
+ * Path: ~/.shep/repos/<sha256-hash-prefix>/evidence/<featureId>/
+ */
+function computeEvidenceDir(repositoryPath: string, featureId: string): string {
+  const repoHash = createHash('sha256').update(repositoryPath).digest('hex').slice(0, 16);
+  return join(getShepHomeDir(), 'repos', repoHash, 'evidence', featureId).replace(/\\/g, '/');
+}
+
+/**
+ * Normalize evidence paths so they all point to the shep evidence directory.
+ * When commitEvidence was enabled, the manifest may contain relative paths
+ * (e.g. "specs/066-feature/evidence/file.png"). After merge the worktree is
+ * deleted so those paths no longer resolve. The evidence files were also saved
+ * to the shep evidence dir with the same filename, so we map relative paths
+ * to absolute paths there.
+ */
+function normalizeEvidencePaths(
+  evidence: MergeReviewEvidence[],
+  evidenceDir: string
+): MergeReviewEvidence[] {
+  return evidence.map((e) => {
+    if (e.relativePath.startsWith('/')) {
+      // Already absolute — check if the file exists; if not, try the evidence dir
+      if (existsSync(e.relativePath)) return e;
+      const fallback = join(evidenceDir, basename(e.relativePath)).replace(/\\/g, '/');
+      if (existsSync(fallback)) return { ...e, relativePath: fallback };
+      return e;
+    }
+    // Relative path — resolve to evidence dir using the filename
+    const absolutePath = join(evidenceDir, basename(e.relativePath)).replace(/\\/g, '/');
+    return { ...e, relativePath: absolutePath };
+  });
+}
 
 export async function getMergeReviewData(featureId: string): Promise<GetMergeReviewDataResult> {
   if (!featureId.trim()) {
@@ -45,19 +82,24 @@ export async function getMergeReviewData(featureId: string): Promise<GetMergeRev
         ? computeWorktreePath(feature.repositoryPath, feature.branch)
         : null);
 
-    // Load evidence manifest (best-effort)
+    // Load evidence manifest (best-effort).
+    // Evidence is stored independently of the worktree at:
+    //   ~/.shep/repos/<hash>/evidence/<featureId>/manifest.json
+    // We compute this path from repositoryPath so evidence is accessible
+    // even after the worktree has been deleted post-merge.
     let evidence: MergeReviewEvidence[] | undefined;
-    let evidenceBasePath: string | undefined;
-    if (worktreePath) {
+    const evidenceDir = feature.repositoryPath
+      ? computeEvidenceDir(feature.repositoryPath, featureId)
+      : worktreePath
+        ? join(dirname(dirname(worktreePath)), 'evidence', featureId).replace(/\\/g, '/')
+        : null;
+
+    if (evidenceDir) {
       try {
-        // Worktree path: ~/.shep/repos/<hash>/wt/<slug>
-        // Evidence manifest: ~/.shep/repos/<hash>/evidence/<featureId>/manifest.json
-        const repoHashDir = dirname(dirname(worktreePath));
-        const evidenceDir = join(repoHashDir, 'evidence', featureId);
         const manifestPath = join(evidenceDir, 'manifest.json');
         if (existsSync(manifestPath)) {
-          evidence = JSON.parse(readFileSync(manifestPath, 'utf-8'));
-          evidenceBasePath = worktreePath;
+          const raw: MergeReviewEvidence[] = JSON.parse(readFileSync(manifestPath, 'utf-8'));
+          evidence = normalizeEvidencePaths(raw, evidenceDir);
         }
       } catch {
         // Evidence unavailable — not critical
@@ -69,7 +111,6 @@ export async function getMergeReviewData(featureId: string): Promise<GetMergeRev
         pr,
         branch,
         evidence,
-        evidenceBasePath,
         warning: pr ? undefined : 'No PR or diff data available',
       };
     }
@@ -80,13 +121,12 @@ export async function getMergeReviewData(featureId: string): Promise<GetMergeRev
         gitPrService.getPrDiffSummary(worktreePath, 'main'),
         gitPrService.getFileDiffs(worktreePath, 'main').catch(() => undefined),
       ]);
-      return { pr, branch, diffSummary, fileDiffs, evidence, evidenceBasePath };
+      return { pr, branch, diffSummary, fileDiffs, evidence };
     } catch {
       return {
         pr,
         branch,
         evidence,
-        evidenceBasePath,
         warning: 'Diff statistics unavailable',
       };
     }

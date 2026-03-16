@@ -99,6 +99,22 @@ describe('MergeReviewProps interface', () => {
 
     expectTypeOf(props).toMatchTypeOf<MergeReviewProps>();
   });
+
+  it('accepts readOnly prop for post-merge history mode', () => {
+    const props: MergeReviewProps = {
+      data: {
+        pr: {
+          url: 'https://github.com/org/repo/pull/42',
+          number: 42,
+          status: PrStatus.Merged,
+        },
+      },
+      readOnly: true,
+      onApprove: vi.fn(),
+    };
+
+    expectTypeOf(props).toMatchTypeOf<MergeReviewProps>();
+  });
 });
 
 describe('MergeReviewDrawerProps interface', () => {
@@ -135,6 +151,19 @@ describe('MergeReviewDrawerProps interface', () => {
       open: false,
       onClose: vi.fn(),
       featureName: 'My Feature',
+    };
+
+    expectTypeOf(props).toMatchTypeOf<MergeReviewDrawerProps>();
+  });
+
+  it('inherits readOnly prop from MergeReviewProps', () => {
+    const props: MergeReviewDrawerProps = {
+      data: {},
+      readOnly: true,
+      onApprove: vi.fn(),
+      open: true,
+      onClose: vi.fn(),
+      featureName: 'Completed Feature',
     };
 
     expectTypeOf(props).toMatchTypeOf<MergeReviewDrawerProps>();

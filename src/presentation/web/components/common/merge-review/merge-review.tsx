@@ -37,29 +37,16 @@ function getExtension(path: string): string {
   return dot >= 0 ? path.slice(dot).toLowerCase() : '';
 }
 
-/** Build the API URL for serving an evidence file. */
-function buildEvidenceUrl(relativePath: string, basePath?: string): string | undefined {
-  // If relativePath is already absolute, use it directly
-  const filePath = relativePath.startsWith('/')
-    ? relativePath
-    : basePath
-      ? `${basePath}/${relativePath}`
-      : undefined;
-  if (!filePath) return undefined;
-  return `/api/evidence?path=${encodeURIComponent(filePath)}`;
+/** Build the API URL for serving an evidence file (paths are pre-normalized to absolute). */
+function buildEvidenceUrl(absolutePath: string): string {
+  return `/api/evidence?path=${encodeURIComponent(absolutePath)}`;
 }
 
-function EvidenceItem({
-  evidence,
-  basePath,
-}: {
-  evidence: MergeReviewEvidence;
-  basePath?: string;
-}) {
+function EvidenceItem({ evidence }: { evidence: MergeReviewEvidence }) {
   const [expanded, setExpanded] = useState(true);
   const Icon = EVIDENCE_ICONS[evidence.type] ?? Camera;
   const ext = getExtension(evidence.relativePath);
-  const url = buildEvidenceUrl(evidence.relativePath, basePath);
+  const url = buildEvidenceUrl(evidence.relativePath);
   const isImage = evidence.type === 'Screenshot' || IMAGE_EXTENSIONS.has(ext);
   const isVideo = evidence.type === 'Video' || VIDEO_EXTENSIONS.has(ext);
   const isText = evidence.type === 'TestOutput' || evidence.type === 'TerminalRecording';
@@ -163,13 +150,7 @@ function EvidenceTextPreview({ url }: { url: string }) {
   );
 }
 
-function EvidenceList({
-  evidence,
-  basePath,
-}: {
-  evidence: MergeReviewEvidence[];
-  basePath?: string;
-}) {
+function EvidenceList({ evidence }: { evidence: MergeReviewEvidence[] }) {
   return (
     <div className="border-border rounded-lg border">
       <div className="px-4 py-3">
@@ -182,7 +163,7 @@ function EvidenceList({
         </div>
         <ul className="space-y-2">
           {evidence.map((e) => (
-            <EvidenceItem key={`${e.type}-${e.relativePath}`} evidence={e} basePath={basePath} />
+            <EvidenceItem key={`${e.type}-${e.relativePath}`} evidence={e} />
           ))}
         </ul>
       </div>
@@ -192,6 +173,7 @@ function EvidenceList({
 
 export function MergeReview({
   data,
+  readOnly = false,
   onApprove,
   onReject,
   isProcessing = false,
@@ -199,7 +181,7 @@ export function MergeReview({
   chatInput,
   onChatInputChange,
 }: MergeReviewProps) {
-  const { pr, diffSummary, fileDiffs, branch, warning, evidence, evidenceBasePath } = data;
+  const { pr, diffSummary, fileDiffs, branch, warning, evidence } = data;
   const hasConflicts = pr?.mergeable === false;
 
   const handleApproveOrResolve =
@@ -212,11 +194,15 @@ export function MergeReview({
         <div className="flex items-start gap-3">
           <div className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-500" />
           <div className="flex-1">
-            <h2 className="text-foreground text-sm font-bold">Merge Review</h2>
+            <h2 className="text-foreground text-sm font-bold">
+              {readOnly ? 'Merge History' : 'Merge Review'}
+            </h2>
             <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
-              {pr
-                ? 'Review the pull request details and approve to merge.'
-                : 'Review the changes and approve to merge.'}
+              {readOnly
+                ? 'This feature was merged. Review the pull request details and evidence below.'
+                : pr
+                  ? 'Review the pull request details and approve to merge.'
+                  : 'Review the changes and approve to merge.'}
             </p>
           </div>
         </div>
@@ -332,25 +318,25 @@ export function MergeReview({
         ) : null}
 
         {/* Evidence */}
-        {evidence && evidence.length > 0 ? (
-          <EvidenceList evidence={evidence} basePath={evidenceBasePath} />
-        ) : null}
+        {evidence && evidence.length > 0 ? <EvidenceList evidence={evidence} /> : null}
 
         {/* File diffs */}
         {fileDiffs && fileDiffs.length > 0 ? <DiffView fileDiffs={fileDiffs} /> : null}
       </div>
 
-      <DrawerActionBar
-        onReject={onReject}
-        onApprove={handleApproveOrResolve}
-        approveLabel={hasConflicts ? 'Resolve Conflicts' : 'Approve Merge'}
-        approveVariant={hasConflicts ? 'warning' : 'default'}
-        revisionPlaceholder="Ask AI to revise before merging..."
-        isProcessing={isProcessing}
-        isRejecting={isRejecting}
-        chatInput={chatInput}
-        onChatInputChange={onChatInputChange}
-      />
+      {!readOnly && (
+        <DrawerActionBar
+          onReject={onReject}
+          onApprove={handleApproveOrResolve}
+          approveLabel={hasConflicts ? 'Resolve Conflicts' : 'Approve Merge'}
+          approveVariant={hasConflicts ? 'warning' : 'default'}
+          revisionPlaceholder="Ask AI to revise before merging..."
+          isProcessing={isProcessing}
+          isRejecting={isRejecting}
+          chatInput={chatInput}
+          onChatInputChange={onChatInputChange}
+        />
+      )}
     </div>
   );
 }

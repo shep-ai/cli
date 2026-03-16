@@ -1,0 +1,285 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: post-merge-history
+summary: >
+  7 tasks across 3 phases. Phase 1 extends tab visibility and labeling (2 tasks).
+  Phase 2 adds read-only mode to MergeReview with Storybook coverage (4 tasks).
+  Phase 3 validates integration with full test suite and build (1 task).
+
+# Relationships
+relatedFeatures:
+  - 047-post-feature-cleanup
+technologies:
+  - React 19
+  - Next.js 16
+  - TypeScript
+  - shadcn/ui
+  - Tailwind CSS
+relatedLinks: []
+
+# Structured task list
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Extend computeVisibleTabs() for maintain+pr'
+    description: >
+      Add a new condition branch in computeVisibleTabs() that includes 'merge-review'
+      when node.lifecycle === 'maintain' && node.pr is truthy. This is the core logic
+      change that makes the tab visible for completed features. Write unit tests first.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'computeVisibleTabs() returns array containing merge-review when lifecycle=maintain and pr is truthy'
+      - 'computeVisibleTabs() does NOT include merge-review when lifecycle=maintain and pr is falsy'
+      - 'Existing review+action-required condition continues to include merge-review'
+      - 'Existing review+error condition continues to include merge-review'
+      - 'All existing feature-drawer-tabs tests pass unchanged'
+    tdd:
+      red:
+        - >
+          Add test in feature-drawer-tabs.test.tsx: "includes merge-review tab when
+          lifecycle=maintain and pr exists". Create a FeatureNodeData fixture with
+          lifecycle='maintain', state='done', and a pr object. Assert computeVisibleTabs()
+          result includes 'merge-review'.
+        - >
+          Add test: "excludes merge-review tab when lifecycle=maintain and pr is undefined".
+          Create a fixture with lifecycle='maintain', state='done', pr=undefined. Assert
+          computeVisibleTabs() result does NOT include 'merge-review'.
+      green:
+        - >
+          Add condition in computeVisibleTabs() after the existing review block:
+          if (node.lifecycle === 'maintain' && node.pr) { tabs.push('merge-review'); }
+      refactor:
+        - 'Verify no duplication with existing review condition — both paths are intentionally separate'
+    estimatedEffort: '20min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Add dynamic tab label for Merge History'
+    description: >
+      Modify the visibleTabDefs memo in FeatureDrawerTabs to compute the merge-review tab
+      label dynamically — "Merge History" when lifecycle=maintain, "Merge Review" otherwise.
+      The ALL_TABS constant remains unchanged; the label override happens in the filter/map step.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Tab displays "Merge History" when featureNode.lifecycle === maintain'
+      - 'Tab displays "Merge Review" when featureNode.lifecycle === review (unchanged)'
+      - 'ALL_TABS constant is not modified'
+      - 'Tab key remains merge-review internally in both cases'
+    tdd:
+      red:
+        - >
+          Add test in feature-drawer-tabs.test.tsx: "renders Merge History label when
+          lifecycle=maintain". Render FeatureDrawerTabs with a maintain+pr node. Assert
+          the tab trigger text content is "Merge History", not "Merge Review".
+        - >
+          Add test: "renders Merge Review label when lifecycle=review". Render with a
+          review+action-required node. Assert tab trigger text is "Merge Review".
+      green:
+        - >
+          Update the visibleTabDefs memo to map tab labels: for tabs with key 'merge-review',
+          use featureNode.lifecycle === 'maintain' ? 'Merge History' : t.label. Change
+          from filter-only to filter-then-map to allow label override.
+      refactor:
+        - 'Ensure the memo dependency array includes featureNode (already covered by visibleTabs dependency)'
+    estimatedEffort: '20min'
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Add readOnly prop to MergeReviewProps'
+    description: >
+      Add readOnly?: boolean to the MergeReviewProps interface in merge-review-config.ts.
+      The prop defaults to false (NFR-3) to maintain backward compatibility with all
+      existing usages.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'MergeReviewProps has readOnly?: boolean field'
+      - 'readOnly defaults to false (optional prop)'
+      - 'No existing MergeReview usage requires modification'
+      - 'TypeScript compiles without errors'
+    tdd:
+      red:
+        - >
+          This is a type-only change. The RED step is verifying that passing readOnly={true}
+          to MergeReview is currently a type error (before the change).
+      green:
+        - >
+          Add readOnly?: boolean to MergeReviewProps in merge-review-config.ts. Add the
+          prop to the MergeReview component signature with default value false.
+      refactor:
+        - 'Verify MergeReviewDrawerProps (which extends MergeReviewProps) inherits the new prop correctly'
+    estimatedEffort: '10min'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Implement read-only rendering in MergeReview'
+    description: >
+      Conditionally hide DrawerActionBar when readOnly is true. Update header text to
+      "Merge History" and description to archival language when readOnly. The green dot
+      color remains emerald-500 unchanged.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'DrawerActionBar is not rendered when readOnly=true'
+      - 'DrawerActionBar renders normally when readOnly=false or undefined'
+      - 'Header reads "Merge History" when readOnly=true'
+      - 'Header reads "Merge Review" when readOnly=false (unchanged)'
+      - 'Description text updates to archival language when readOnly=true'
+      - 'All data sections (PR card, branch, diff, evidence, file diffs) still render when readOnly=true'
+      - 'Green dot remains emerald-500 in both modes'
+    tdd:
+      red:
+        - >
+          Add test: "hides DrawerActionBar when readOnly is true". Render MergeReview with
+          readOnly={true} and full data. Assert DrawerActionBar (or its approve button) is
+          not in the document.
+        - >
+          Add test: "shows DrawerActionBar when readOnly is false". Render MergeReview with
+          readOnly={false} and full data. Assert the approve button is present.
+        - >
+          Add test: "displays Merge History header when readOnly". Render with readOnly={true}.
+          Assert heading text is "Merge History".
+      green:
+        - >
+          In MergeReview component: destructure readOnly from props (default false). Wrap
+          DrawerActionBar in {!readOnly && <DrawerActionBar ... />}. Add ternary for h2
+          text: readOnly ? 'Merge History' : 'Merge Review'. Add ternary for description
+          text with archival language.
+      refactor:
+        - 'Ensure the component layout is clean — the scrollable div should expand to fill when action bar is absent'
+    estimatedEffort: '25min'
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Thread readOnly prop from FeatureDrawerTabs'
+    description: >
+      Pass readOnly={featureNode.lifecycle === 'maintain'} to MergeReview in the
+      merge-review TabsContent section of FeatureDrawerTabs. The featureNode is already
+      in scope at the render site.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'MergeReview receives readOnly=true when featureNode.lifecycle is maintain'
+      - 'MergeReview receives readOnly=false (or undefined) when featureNode.lifecycle is review'
+      - 'No changes to FeatureDrawerTabsProps interface'
+    tdd:
+      red:
+        - >
+          Add integration-style test in feature-drawer-tabs.test.tsx: "passes readOnly to
+          MergeReview when lifecycle=maintain". Render FeatureDrawerTabs with maintain+pr
+          node and mergeData. Navigate to merge-review tab. Assert DrawerActionBar approve
+          button is NOT present (proving readOnly was passed).
+        - >
+          Add test: "does not pass readOnly when lifecycle=review". Render with review+
+          action-required node and mergeData. Navigate to merge-review tab. Assert approve
+          button IS present.
+      green:
+        - >
+          Add readOnly={featureNode.lifecycle === 'maintain'} to the MergeReview JSX at
+          the merge-review TabsContent (around line 456-464 in feature-drawer-tabs.tsx).
+      refactor:
+        - 'Verify no redundant props or unnecessary re-renders introduced'
+    estimatedEffort: '15min'
+
+  - id: task-6
+    phaseId: phase-2
+    title: 'Add Storybook stories for read-only mode'
+    description: >
+      Add stories to merge-review.stories.tsx covering read-only/history mode variants
+      per NFR-4: (a) full data, (b) evidence but no diffs, (c) PR metadata only.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'Story exists for read-only mode with full data (PR + diff + evidence + file diffs)'
+      - 'Story exists for read-only mode with evidence but no diff data (warning shown)'
+      - 'Story exists for read-only mode with PR metadata only (no evidence, no diffs)'
+      - 'All stories render without errors'
+      - 'All existing stories continue to work unchanged'
+      - 'Stories are colocated in merge-review.stories.tsx'
+    tdd:
+      red:
+        - >
+          Storybook stories are not TDD in the traditional sense. The RED step is confirming
+          that no read-only stories exist yet.
+      green:
+        - >
+          Add three stories to merge-review.stories.tsx:
+          1. ReadOnlyFullData — readOnly=true with PR, diffSummary, evidence, fileDiffs
+          2. ReadOnlyEvidenceNoDiffs — readOnly=true with PR, evidence, warning (no diffSummary)
+          3. ReadOnlyPrOnly — readOnly=true with PR only (no evidence, no diffs)
+          Use existing story data fixtures as a base.
+      refactor:
+        - 'Ensure story names follow existing naming conventions in the file'
+        - 'Verify argTypes exclude onApprove/onReject for read-only stories if applicable'
+    estimatedEffort: '20min'
+
+  - id: task-7
+    phaseId: phase-3
+    title: 'Integration verification and existing test validation'
+    description: >
+      Run the full test suite to confirm no regressions. Verify deriveInitialTab() returns
+      overview for maintain lifecycle (existing test in drawer-view.test.ts). Run build
+      and lint. Confirm all existing merge-review stories render correctly.
+    state: Todo
+    dependencies:
+      - task-5
+      - task-6
+    acceptanceCriteria:
+      - 'All unit tests pass (pnpm test:unit)'
+      - 'deriveInitialTab() returns overview for maintain lifecycle (existing test passes)'
+      - 'All existing merge-review stories render without errors'
+      - 'TypeScript compilation succeeds (pnpm validate)'
+      - 'Build succeeds (pnpm build)'
+      - 'No lint errors (pnpm lint:fix)'
+    tdd:
+      red:
+        - 'Verify existing deriveInitialTab test for maintain lifecycle in drawer-view.test.ts'
+      green:
+        - 'Run pnpm test:unit and confirm zero failures'
+        - 'Run pnpm validate and confirm zero errors'
+        - 'Run pnpm build and confirm success'
+      refactor:
+        - 'Address any warnings or minor issues discovered during validation'
+    estimatedEffort: '15min'
+
+totalEstimate: '2h 5min'
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Summary
+
+  The implementation follows a bottom-up approach across 3 phases with 7 tasks.
+
+  **Phase 1 (Tab Visibility & Label Logic)** establishes the foundation: first we extend
+  `computeVisibleTabs()` with a maintain+pr condition so the tab appears for completed
+  features, then we add dynamic label mapping so it reads "Merge History" instead of
+  "Merge Review" for the maintain lifecycle. Both changes are in feature-drawer-tabs.tsx
+  and are tested in isolation.
+
+  **Phase 2 (MergeReview Read-Only Mode)** adapts the component: we add a `readOnly`
+  prop to the interface, implement conditional rendering (hide action bar, update header),
+  thread the prop from FeatureDrawerTabs, and add Storybook stories for three read-only
+  variants. The prop threading depends on Phase 1 (tab must be visible), and stories
+  depend on the component changes.
+
+  **Phase 3 (Integration Verification)** runs the full test suite, build, and lint to
+  confirm zero regressions. This validates that existing merge-review behavior for the
+  review lifecycle remains unchanged and that deriveInitialTab() correctly defaults to
+  overview for maintain lifecycle.
+
+  Total estimated effort: ~2 hours across all tasks.
+
+  ---
+
+  _Task breakdown created 2026-03-15_

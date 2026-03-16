@@ -7,6 +7,8 @@ const mockGetFileDiffs = vi.fn();
 const mockComputeWorktreePath = vi.fn(
   (_repoPath: string, branch: string) => `/computed/wt/${branch.replace(/\//g, '-')}`
 );
+const mockExistsSync = vi.fn<(path: string) => boolean>(() => false);
+const mockReadFileSync = vi.fn<(path: string, encoding: string) => string>(() => '[]');
 
 vi.mock('@/lib/server-container', () => ({
   resolve: (token: string) => {
@@ -21,6 +23,18 @@ vi.mock('@shepai/core/infrastructure/services/ide-launchers/compute-worktree-pat
   computeWorktreePath: (...args: unknown[]) =>
     mockComputeWorktreePath(...(args as [string, string])),
 }));
+
+vi.mock('@shepai/core/infrastructure/services/filesystem/shep-directory.service', () => ({
+  getShepHomeDir: () => '/home/test/.shep',
+}));
+
+vi.mock('node:fs', () => {
+  const mock = {
+    existsSync: (...args: unknown[]) => mockExistsSync(...(args as [string])),
+    readFileSync: (...args: unknown[]) => mockReadFileSync(...(args as [string, string])),
+  };
+  return { ...mock, default: mock };
+});
 
 const { getMergeReviewData } = await import(
   '../../../../../../src/presentation/web/app/actions/get-merge-review-data.js'
@@ -248,6 +262,92 @@ describe('getMergeReviewData server action', () => {
     expect(result).toMatchObject({
       diffSummary: baseDiffSummary,
       fileDiffs: undefined,
+    });
+  });
+
+  describe('evidence loading', () => {
+    const evidenceManifest = [
+      {
+        type: 'Screenshot',
+        capturedAt: '2026-01-01T12:00:00Z',
+        description: 'Homepage screenshot',
+        relativePath: '/home/test/.shep/repos/abcdef0123456789/evidence/feat-123/homepage.png',
+        taskRef: 'task-1',
+      },
+    ];
+
+    it('loads evidence from shep evidence dir using repositoryPath', async () => {
+      mockFindById.mockResolvedValue(baseFeature);
+      mockGetPrDiffSummary.mockResolvedValue(baseDiffSummary);
+      mockExistsSync.mockReturnValue(true);
+      mockReadFileSync.mockReturnValue(JSON.stringify(evidenceManifest));
+
+      const result = await getMergeReviewData('feat-123');
+
+      expect(result).toMatchObject({ evidence: evidenceManifest });
+    });
+
+    it('loads evidence even when worktree path does not exist on disk (post-merge)', async () => {
+      // Feature still has repositoryPath and branch but worktree was deleted
+      mockFindById.mockResolvedValue({
+        ...baseFeature,
+        worktreePath: undefined, // worktreePath not stored
+      });
+      mockGetPrDiffSummary.mockResolvedValue(baseDiffSummary);
+      mockExistsSync.mockReturnValue(true);
+      mockReadFileSync.mockReturnValue(JSON.stringify(evidenceManifest));
+
+      const result = await getMergeReviewData('feat-123');
+
+      // Evidence should still be loaded via repositoryPath hash computation
+      expect(result).toMatchObject({ evidence: evidenceManifest });
+    });
+
+    it('normalizes relative evidence paths to absolute paths in evidence dir', async () => {
+      const relativeManifest = [
+        {
+          type: 'Screenshot',
+          capturedAt: '2026-01-01T12:00:00Z',
+          description: 'Homepage screenshot',
+          relativePath: 'specs/066-feature/evidence/homepage.png',
+          taskRef: 'task-1',
+        },
+      ];
+      mockFindById.mockResolvedValue(baseFeature);
+      mockGetPrDiffSummary.mockResolvedValue(baseDiffSummary);
+      mockExistsSync.mockReturnValue(true);
+      mockReadFileSync.mockReturnValue(JSON.stringify(relativeManifest));
+
+      const result = await getMergeReviewData('feat-123');
+
+      // Relative path should be resolved to evidence dir + basename
+      expect('evidence' in result && result.evidence?.[0]?.relativePath).toMatch(
+        /evidence\/feat-123\/homepage\.png$/
+      );
+      expect('evidence' in result && result.evidence?.[0]?.relativePath).toMatch(/^\//);
+    });
+
+    it('returns no evidence when manifest does not exist', async () => {
+      mockFindById.mockResolvedValue(baseFeature);
+      mockGetPrDiffSummary.mockResolvedValue(baseDiffSummary);
+      mockExistsSync.mockReturnValue(false);
+
+      const result = await getMergeReviewData('feat-123');
+
+      expect(result).toMatchObject({ evidence: undefined });
+    });
+
+    it('returns no evidence when repositoryPath and worktreePath are both absent', async () => {
+      mockFindById.mockResolvedValue({
+        ...baseFeature,
+        worktreePath: undefined,
+        repositoryPath: undefined,
+        branch: undefined,
+      });
+
+      const result = await getMergeReviewData('feat-123');
+
+      expect(result).toMatchObject({ evidence: undefined });
     });
   });
 });
