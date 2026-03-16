@@ -13,18 +13,14 @@ phase: Analysis
 sizeEstimate: M
 
 # Relationships
-relatedFeatures:
-  []
+relatedFeatures: []
 
-technologies:
-  []
+technologies: []
 
-relatedLinks:
-  []
+relatedLinks: []
 
 # Open questions (must be resolved before implementation)
-openQuestions:
-  []
+openQuestions: []
 
 # Markdown content (the actual spec)
 content: |
