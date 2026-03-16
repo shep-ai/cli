@@ -18,9 +18,6 @@ type SetupStep = 'select-agent' | 'select-model';
 
 const STEPS: SetupStep[] = ['select-agent', 'select-model'];
 
-/** Fixed width for the wizard content area to prevent layout jumps */
-const WIZARD_WIDTH = 'w-72';
-
 export function WelcomeAgentSetup({ onComplete, className }: WelcomeAgentSetupProps) {
   const [groups, setGroups] = useState<AgentModelGroup[]>([]);
   const [loading, setLoading] = useState(true);
@@ -109,10 +106,10 @@ export function WelcomeAgentSetup({ onComplete, className }: WelcomeAgentSetupPr
     return (
       <div
         data-testid="welcome-agent-setup"
-        className={cn('flex flex-col items-center justify-center gap-3', className)}
+        className={cn('flex flex-col items-center justify-center gap-4', className)}
       >
-        <Loader2 className="text-muted-foreground h-4 w-4 animate-spin" />
-        <p className="text-muted-foreground text-xs">Loading agents…</p>
+        <Loader2 className="text-muted-foreground h-5 w-5 animate-spin" />
+        <p className="text-muted-foreground text-sm">Loading agents…</p>
       </div>
     );
   }
@@ -122,49 +119,47 @@ export function WelcomeAgentSetup({ onComplete, className }: WelcomeAgentSetupPr
   return (
     <div
       data-testid="welcome-agent-setup"
-      className={cn('flex flex-col items-center gap-4', WIZARD_WIDTH, className)}
+      className={cn('flex w-full max-w-sm flex-col items-center gap-5', className)}
     >
       {/* Section header */}
-      <div className="flex flex-col items-center gap-1">
-        <div className="text-muted-foreground flex items-center gap-2">
-          {step === 'select-agent' && (
-            <>
-              <Bot className="h-3.5 w-3.5" />
-              <span className="text-[10px] font-semibold tracking-widest uppercase">
-                Choose your agent
-              </span>
-            </>
-          )}
-          {step === 'select-model' && activeGroup
-            ? (() => {
-                const AgentIcon = getAgentTypeIcon(activeGroup.agentType);
-                return (
-                  <>
-                    <AgentIcon className="h-3.5 w-3.5" />
-                    <span className="text-[10px] font-semibold tracking-widest uppercase">
-                      {activeGroup.label} — Pick a model
-                    </span>
-                  </>
-                );
-              })()
-            : null}
-        </div>
+      <div className="text-muted-foreground flex items-center gap-2.5">
+        {step === 'select-agent' && (
+          <>
+            <Bot className="h-4 w-4" />
+            <span className="text-xs font-semibold tracking-widest uppercase">
+              Choose your agent
+            </span>
+          </>
+        )}
+        {step === 'select-model' && activeGroup
+          ? (() => {
+              const AgentIcon = getAgentTypeIcon(activeGroup.agentType);
+              return (
+                <>
+                  <AgentIcon className="h-4 w-4" />
+                  <span className="text-xs font-semibold tracking-widest uppercase">
+                    {activeGroup.label} — Pick a model
+                  </span>
+                </>
+              );
+            })()
+          : null}
       </div>
 
       {/* Step indicator */}
-      <div className="flex w-full items-center gap-1">
+      <div className="flex w-full items-center gap-1.5">
         {STEPS.map((s, i) => (
           <div
             key={s}
             className={cn(
-              'h-0.5 flex-1 rounded-full transition-colors duration-300',
+              'h-[3px] flex-1 rounded-full transition-colors duration-300',
               i <= stepIndex ? 'bg-foreground/60' : 'bg-muted'
             )}
           />
         ))}
       </div>
 
-      {/* Step content — fixed dimensions, fade transition */}
+      {/* Step content — fade transition */}
       <div
         className={cn(
           'flex w-full flex-col items-center transition-opacity duration-150',
@@ -173,7 +168,7 @@ export function WelcomeAgentSetup({ onComplete, className }: WelcomeAgentSetupPr
       >
         {/* Step 1: Agent selection */}
         {step === 'select-agent' && (
-          <div data-testid="agent-list" className="flex w-full flex-col gap-1.5">
+          <div data-testid="agent-list" className="flex w-full flex-col gap-2">
             {groups.map((group) => {
               const GroupIcon = getAgentTypeIcon(group.agentType);
               return (
@@ -182,12 +177,12 @@ export function WelcomeAgentSetup({ onComplete, className }: WelcomeAgentSetupPr
                   type="button"
                   disabled={saving}
                   data-testid={`agent-option-${group.agentType}`}
-                  className="border-border hover:border-foreground/40 flex w-full cursor-pointer items-center gap-2.5 rounded-md border border-dashed px-4 py-2.5 transition-colors disabled:opacity-50"
+                  className="border-border hover:bg-accent hover:border-foreground/20 flex w-full cursor-pointer items-center gap-3 rounded-xl border px-5 py-4 transition-all duration-150 disabled:opacity-50"
                   onClick={() => handleAgentSelect(group.agentType)}
                 >
-                  <GroupIcon className="text-muted-foreground h-4 w-4 shrink-0" />
-                  <span className="flex-1 text-left text-xs font-medium">{group.label}</span>
-                  <ChevronRight className="text-muted-foreground h-3 w-3" />
+                  <GroupIcon className="text-foreground/70 h-5 w-5 shrink-0" />
+                  <span className="flex-1 text-left text-sm font-medium">{group.label}</span>
+                  <ChevronRight className="text-muted-foreground h-4 w-4" />
                 </button>
               );
             })}
@@ -196,17 +191,17 @@ export function WelcomeAgentSetup({ onComplete, className }: WelcomeAgentSetupPr
 
         {/* Step 2: Model selection */}
         {step === 'select-model' && activeGroup ? (
-          <div data-testid="model-list" className="flex w-full flex-col gap-1.5">
+          <div data-testid="model-list" className="flex w-full flex-col gap-2">
             <button
               type="button"
               disabled={saving}
-              className="text-muted-foreground hover:text-foreground mb-0.5 flex cursor-pointer items-center gap-1 self-start text-[10px] font-medium transition-colors"
+              className="text-muted-foreground hover:text-foreground mb-1 flex cursor-pointer items-center gap-1.5 self-start text-sm transition-colors"
               onClick={handleBack}
             >
-              <ChevronLeft className="h-3 w-3" />
+              <ChevronLeft className="h-4 w-4" />
               Back
             </button>
-            <div className="flex max-h-48 w-full flex-col gap-1.5 overflow-y-auto">
+            <div className="flex max-h-64 w-full flex-col gap-2 overflow-y-auto">
               {activeGroup.models.map((m) => {
                 const meta = getModelMeta(m.id);
                 return (
@@ -215,18 +210,18 @@ export function WelcomeAgentSetup({ onComplete, className }: WelcomeAgentSetupPr
                     type="button"
                     disabled={saving}
                     data-testid={`model-option-${m.id}`}
-                    className="border-border hover:border-foreground/40 flex w-full cursor-pointer items-center gap-2.5 rounded-md border border-dashed px-4 py-2.5 text-left transition-colors disabled:opacity-50"
+                    className="border-border hover:bg-accent hover:border-foreground/20 flex w-full cursor-pointer items-center gap-3 rounded-xl border px-5 py-4 text-left transition-all duration-150 disabled:opacity-50"
                     onClick={() => handleModelSelect(m.id)}
                   >
-                    <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                      <span className="text-xs font-medium">
+                    <div className="flex min-w-0 flex-1 flex-col gap-1">
+                      <span className="text-sm font-medium">
                         {meta.displayName || m.displayName}
                       </span>
-                      <span className="text-muted-foreground text-[10px] leading-tight">
+                      <span className="text-muted-foreground text-xs leading-tight">
                         {meta.description || m.description}
                       </span>
                     </div>
-                    <ChevronRight className="text-muted-foreground h-3 w-3 shrink-0" />
+                    <ChevronRight className="text-muted-foreground h-4 w-4 shrink-0" />
                   </button>
                 );
               })}
