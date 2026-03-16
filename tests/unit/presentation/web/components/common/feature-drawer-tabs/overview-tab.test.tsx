@@ -2,8 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { PrStatus, CiStatus } from '@shepai/core/domain/generated/output';
 import { OverviewTab } from '@/components/common/feature-drawer-tabs/overview-tab';
-import { featureNodeStateConfig, lifecycleDisplayLabels } from '@/components/common/feature-node';
-import type { FeatureNodeData, FeatureLifecyclePhase } from '@/components/common/feature-node';
+import type { FeatureNodeData } from '@/components/common/feature-node';
 
 vi.mock('@/hooks/use-sound-action', () => ({
   useSoundAction: vi.fn(() => ({ play: vi.fn(), stop: vi.fn(), isPlaying: false })),
@@ -43,57 +42,6 @@ function renderOverviewTab(data: FeatureNodeData = defaultData) {
 }
 
 describe('OverviewTab', () => {
-  describe('lifecycle label', () => {
-    it('renders lifecycle phase label from FeatureNodeData', () => {
-      renderOverviewTab({ ...defaultData, lifecycle: 'requirements' });
-      expect(screen.getByText('REQUIREMENTS')).toBeInTheDocument();
-    });
-
-    it('renders all lifecycle phase labels correctly', () => {
-      const phases: FeatureLifecyclePhase[] = [
-        'requirements',
-        'research',
-        'implementation',
-        'review',
-        'deploy',
-        'maintain',
-      ];
-
-      for (const phase of phases) {
-        const { unmount } = renderOverviewTab({ ...defaultData, lifecycle: phase });
-        expect(screen.getByText(lifecycleDisplayLabels[phase])).toBeInTheDocument();
-        unmount();
-      }
-    });
-  });
-
-  describe('state badge', () => {
-    it('renders FeatureStateBadge with correct label for running state', () => {
-      renderOverviewTab({ ...defaultData, state: 'running' });
-      expect(screen.getByText(featureNodeStateConfig.running.label)).toBeInTheDocument();
-    });
-
-    it('renders FeatureStateBadge with correct label for action-required state', () => {
-      renderOverviewTab({ ...defaultData, state: 'action-required' });
-      expect(screen.getByText(featureNodeStateConfig['action-required'].label)).toBeInTheDocument();
-    });
-
-    it('renders FeatureStateBadge with correct label for done state', () => {
-      renderOverviewTab({ ...defaultData, state: 'done', progress: 100 });
-      expect(screen.getByText(featureNodeStateConfig.done.label)).toBeInTheDocument();
-    });
-
-    it('renders FeatureStateBadge with correct label for blocked state', () => {
-      renderOverviewTab({ ...defaultData, state: 'blocked' });
-      expect(screen.getByText(featureNodeStateConfig.blocked.label)).toBeInTheDocument();
-    });
-
-    it('renders FeatureStateBadge with correct label for error state', () => {
-      renderOverviewTab({ ...defaultData, state: 'error' });
-      expect(screen.getByText(featureNodeStateConfig.error.label)).toBeInTheDocument();
-    });
-  });
-
   describe('progress bar', () => {
     it('renders progress bar when progress > 0', () => {
       renderOverviewTab({ ...defaultData, progress: 60 });

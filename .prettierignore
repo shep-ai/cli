@@ -4,6 +4,9 @@ build/
 .next/
 out/
 
+# Spec YAML files (managed by spec tooling, not subject to prettier formatting)
+specs/
+
 # Dependencies
 node_modules/
 
