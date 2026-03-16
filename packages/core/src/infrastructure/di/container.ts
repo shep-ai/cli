@@ -47,6 +47,10 @@ import { DaemonPidService } from '../services/daemon/daemon-pid.service.js';
 import type { IDeploymentService } from '../../application/ports/output/services/deployment-service.interface.js';
 import { DeploymentService } from '../services/deployment/deployment.service.js';
 import { AttachmentStorageService } from '../services/attachment-storage.service.js';
+import type { ITunnelService } from '../../application/ports/output/services/tunnel-service.interface.js';
+import type { IWebhookService } from '../../application/ports/output/services/webhook-service.interface.js';
+import { CloudflareTunnelService } from '../services/tunnel/cloudflare-tunnel.service.js';
+import { GitHubWebhookService } from '../services/webhook/github-webhook.service.js';
 
 // Agent infrastructure interfaces and implementations
 import type { IAgentExecutorFactory } from '../../application/ports/output/agents/agent-executor-factory.interface.js';
@@ -222,6 +226,20 @@ export async function initializeContainer(): Promise<typeof container> {
   container.register('AttachmentStorageService', { useToken: AttachmentStorageService });
   const deploymentService = new DeploymentService();
   container.registerInstance<IDeploymentService>('IDeploymentService', deploymentService);
+
+  // Register tunnel and webhook services
+  container.register<ITunnelService>('ITunnelService', {
+    useFactory: () => new CloudflareTunnelService(),
+  });
+
+  container.register<IWebhookService>('IWebhookService', {
+    useFactory: (c) => {
+      const featureRepo = c.resolve<IFeatureRepository>('IFeatureRepository');
+      const gitPrService = c.resolve<IGitPrService>('IGitPrService');
+      const notifService = c.resolve<INotificationService>('INotificationService');
+      return new GitHubWebhookService(featureRepo, gitPrService, notifService, execFn);
+    },
+  });
 
   // Register agent infrastructure
   container.register<IAgentRunRepository>('IAgentRunRepository', {

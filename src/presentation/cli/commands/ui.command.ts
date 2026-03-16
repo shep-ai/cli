@@ -37,6 +37,13 @@ import {
 } from '@/infrastructure/services/pr-sync/pr-sync-watcher.service.js';
 import { getExistingConnection } from '@/infrastructure/persistence/sqlite/connection.js';
 import { BrowserOpenerService } from '@/infrastructure/services/browser-opener.service.js';
+import type { ITunnelService } from '@/application/ports/output/services/tunnel-service.interface.js';
+import type { IWebhookService } from '@/application/ports/output/services/webhook-service.interface.js';
+import {
+  initializeWebhookManager,
+  getWebhookManager,
+  hasWebhookManager,
+} from '@/infrastructure/services/webhook/webhook-manager.service.js';
 import { colors, fmt, messages } from '../ui/index.js';
 
 function parsePort(value: string): number {
@@ -102,6 +109,17 @@ Examples:
         );
         getPrSyncWatcher().start();
 
+        // Start webhook system (optional — falls back to polling if cloudflared is not available)
+        try {
+          const tunnelService = container.resolve<ITunnelService>('ITunnelService');
+          const webhookService = container.resolve<IWebhookService>('IWebhookService');
+          initializeWebhookManager(tunnelService, webhookService);
+          // Start is async and non-blocking — failures are logged, not thrown
+          void getWebhookManager().start(port);
+        } catch {
+          // Webhook system is optional; polling continues to work
+        }
+
         const url = `http://localhost:${port}`;
         messages.success(`Server ready at ${fmt.code(url)}`);
         messages.info('Press Ctrl+C to stop');
@@ -126,6 +144,9 @@ Examples:
           const forceExit = setTimeout(() => process.exit(0), 5000);
           forceExit.unref();
 
+          if (hasWebhookManager()) {
+            await getWebhookManager().stop();
+          }
           getPrSyncWatcher().stop();
           getNotificationWatcher().stop();
           await service.stop();

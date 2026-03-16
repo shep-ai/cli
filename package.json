@@ -164,6 +164,7 @@
   "pnpm": {
     "onlyBuiltDependencies": [
       "better-sqlite3",
+      "cloudflared",
       "esbuild",
       "sharp"
     ],
@@ -181,6 +182,7 @@
     "ajv-formats": "^3.0.1",
     "better-sqlite3": "^12.6.2",
     "cli-table3": "^0.6.5",
+    "cloudflared": "^0.7.1",
     "commander": "^14.0.3",
     "js-yaml": "^4.1.1",
     "minimatch": "^7.x",

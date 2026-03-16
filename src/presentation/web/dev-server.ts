@@ -34,6 +34,13 @@ import {
   getPrSyncWatcher,
 } from '@/infrastructure/services/pr-sync/pr-sync-watcher.service.js';
 import { getExistingConnection } from '@/infrastructure/persistence/sqlite/connection.js';
+import type { ITunnelService } from '@/application/ports/output/services/tunnel-service.interface.js';
+import type { IWebhookService } from '@/application/ports/output/services/webhook-service.interface.js';
+import {
+  initializeWebhookManager,
+  getWebhookManager,
+  hasWebhookManager,
+} from '@/infrastructure/services/webhook/webhook-manager.service.js';
 
 const DEFAULT_PORT = 3000;
 
@@ -90,6 +97,17 @@ async function main() {
     const db = getExistingConnection();
     initializePrSyncWatcher(featureRepo, runRepo, gitPrService, notificationService, undefined, db);
     getPrSyncWatcher().start();
+
+    // Start webhook system (optional — falls back to polling if cloudflared is not installed)
+    try {
+      const tunnelService = container.resolve<ITunnelService>('ITunnelService');
+      const webhookService = container.resolve<IWebhookService>('IWebhookService');
+      initializeWebhookManager(tunnelService, webhookService);
+      // Start is async and non-blocking — failures are logged, not thrown
+      void getWebhookManager().start(port);
+    } catch (error) {
+      console.warn('[dev-server] Webhook system init failed (using polling fallback):', error);
+    }
   } catch (error) {
     console.warn('[dev-server] DI initialization failed — features will be empty:', error);
   }
@@ -132,6 +150,13 @@ async function main() {
     console.log('\n[dev-server] Shutting down...');
     const forceExit = setTimeout(() => process.exit(0), 2000);
     try {
+      try {
+        if (hasWebhookManager()) {
+          await getWebhookManager().stop();
+        }
+      } catch {
+        /* not initialized */
+      }
       try {
         getNotificationWatcher().stop();
       } catch {
