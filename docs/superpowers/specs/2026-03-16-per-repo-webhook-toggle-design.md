@@ -14,14 +14,16 @@ Add a per-repo webhook toggle on the repository node (action button) and reposit
 
 New methods on `GitHubWebhookService`:
 
-- `registerWebhookForSingleRepo(repoPath: string, publicUrl: string)` — exposes the existing private `registerWebhookForRepo()` for single-repo registration
-- `removeWebhookForRepo(repoPath: string)` — finds and removes the webhook for a specific repo path from the `registeredWebhooks` array and GitHub API
+- `registerWebhookForSingleRepo(repoPath: string, webhookUrl: string)` — checks if a webhook is already registered for this repo path (after normalizing to forward slashes) and no-ops if so; otherwise delegates to the existing private `registerWebhookForRepo()`
+- `removeWebhookForRepo(repoPath: string)` — finds the registered webhook for this repo path (normalized comparison), removes it from GitHub via DELETE API, then removes from the in-memory `registeredWebhooks` array
 
 New methods on `WebhookManagerService`:
 
-- `enableWebhookForRepo(repoPath: string)` — validates tunnel is running, gets tunnel URL, delegates to `GitHubWebhookService.registerWebhookForSingleRepo()`
+- `enableWebhookForRepo(repoPath: string)` — validates tunnel is running (returns `{ success: false, error: "tunnel_not_connected" }` if not), constructs webhook URL as `${tunnelUrl}/api/webhooks/github`, delegates to `GitHubWebhookService.registerWebhookForSingleRepo()`
 - `disableWebhookForRepo(repoPath: string)` — delegates to `GitHubWebhookService.removeWebhookForRepo()`
-- `isWebhookEnabledForRepo(repoPath: string)` — checks if repo path exists in the registered webhooks list
+- `isWebhookEnabledForRepo(repoPath: string)` — checks if repo path exists in the registered webhooks list (normalized path comparison)
+
+**Path normalization**: All path comparisons in the service layer normalize to forward slashes before matching (`path.replace(/\\\\/g, '/')`). This applies to `isWebhookEnabledForRepo`, `removeWebhookForRepo`, and the duplicate check in `registerWebhookForSingleRepo`.
 
 These are concrete methods on the service classes, not on `IWebhookService`. This is consistent with how `getStatus()` and `getDeliveryHistory()` already bypass the interface.
 
@@ -35,7 +37,7 @@ Three new endpoints under `/api/webhooks/repos/`:
 | `POST` | `/api/webhooks/repos/disable` | `{ repositoryPath: string }` | `{ success: boolean, error?: string }`                              |
 | `GET`  | `/api/webhooks/repos/status`  | `?repositoryPath=...`        | `{ enabled: boolean, webhookId?: number, repoFullName?: string }`   |
 
-All endpoints check `hasWebhookManager()` and return appropriate errors if the system is not initialized.
+All endpoints check `hasWebhookManager()` and return appropriate errors if the system is not initialized. The enable endpoint returns a machine-readable error code when the tunnel is not connected: `{ success: false, error: "tunnel_not_connected" }`.
 
 ### UI Layer
 
@@ -66,8 +68,9 @@ New hook (similar pattern to `useRepositoryActions`):
 
 - **Input**: `repositoryPath: string | null`
 - **Fetches**: webhook status for the repo via `GET /api/webhooks/repos/status` on mount
-- **Checks**: tunnel status from `GET /api/webhooks/status` to determine if toggle should be disabled
+- **Checks**: tunnel status from `GET /api/webhooks/status` (only reads `tunnel.connected`, ignores the rest) — fetched once on mount, acceptably stale while drawer/node is open
 - **Exposes**: `toggle()`, `enabled`, `loading`, `error`, `tunnelConnected`, `webhookId`, `repoFullName`
+- **Optimistic updates**: on toggle, immediately flip `enabled` state in the hook before the server responds; on error, roll back to previous state and set `error`
 - **Error handling**: auto-clear after 5s (matching `useRepositoryActions` pattern)
 
 No changes to `RepositoryNodeData` — the hook derives everything from `repositoryPath`.
@@ -97,6 +100,12 @@ No changes to `RepositoryNodeData` — the hook derives everything from `reposit
 - `src/presentation/web/components/common/repository-node/repository-drawer.tsx` — add webhooks section
 - `src/presentation/web/components/common/repository-node/repository-node.stories.tsx` — add webhook state stories
 - `src/presentation/web/components/common/repository-node/repository-drawer.stories.tsx` — add webhook section stories
+
+### Edge Cases
+
+- **Duplicate registration**: `registerWebhookForSingleRepo` checks if a webhook is already registered for the repo path before creating a new one. If already registered, it no-ops and returns the existing webhook.
+- **Bulk + manual overlap**: If bulk registration on startup already registered a webhook for a repo, the toggle will show it as enabled. Disabling removes it for the current session. On next restart, bulk registration will re-register it. This is expected behavior given the in-memory non-goal.
+- **Tunnel disconnects while webhook is enabled**: The webhook remains registered on GitHub but events will fail delivery. The UI continues to show the webhook as enabled (accurate — it is registered). Re-enabling after tunnel reconnects is not needed since the webhook URL auto-updates via the existing `onUrlChange` handler.
 
 ### Non-Goals
 

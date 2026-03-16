@@ -3,7 +3,17 @@
 import { useState, useCallback } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import { useRouter } from 'next/navigation';
-import { Github, Plus, Code2, Terminal, FolderOpen, Trash2, Play, Square } from 'lucide-react';
+import {
+  Github,
+  Plus,
+  Code2,
+  Terminal,
+  FolderOpen,
+  Trash2,
+  Play,
+  Square,
+  Radio,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ActionButton } from '@/components/common/action-button';
 import {
@@ -19,6 +29,7 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { DeploymentStatusBadge } from '@/components/common/deployment-status-badge';
 import { useDeployAction } from '@/hooks/use-deploy-action';
+import { useWebhookAction } from '@/hooks/use-webhook-action';
 import { useFeatureFlags } from '@/hooks/feature-flags-context';
 import type { RepositoryNodeData } from './repository-node-config';
 import { useRepositoryActions } from './use-repository-actions';
@@ -44,6 +55,13 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
       : null
   );
   const isDeploymentActive = deployAction.status === 'Booting' || deployAction.status === 'Ready';
+  const webhookAction = useWebhookAction(data.repositoryPath ?? null);
+
+  const webhookTooltip = !webhookAction.tunnelConnected
+    ? 'Webhook unavailable \u2014 tunnel not running'
+    : webhookAction.enabled
+      ? 'Disable webhook'
+      : 'Enable webhook';
 
   const handleCreateFromSession = useCallback(
     (session: SessionSummary, sessionFilePath: string) => {
@@ -229,6 +247,31 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
                     </span>
                   </TooltipTrigger>
                   <TooltipContent>Open Folder</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="flex items-center">
+                      <ActionButton
+                        label={webhookTooltip}
+                        onClick={webhookAction.toggle}
+                        loading={webhookAction.loading}
+                        error={!!webhookAction.error}
+                        icon={Radio}
+                        iconOnly
+                        variant="ghost"
+                        size="icon-xs"
+                        disabled={!webhookAction.tunnelConnected}
+                        className={
+                          webhookAction.enabled && !webhookAction.error
+                            ? 'text-green-500 hover:text-green-600'
+                            : undefined
+                        }
+                      />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>{webhookTooltip}</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
               <FeatureSessionsDropdown

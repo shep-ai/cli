@@ -82,3 +82,7 @@ function RepositoryDrawerShellTemplate({ data }: { data: RepositoryNodeData }) {
 export const InDrawer: Story = {
   render: () => <RepositoryDrawerShellTemplate data={repoData} />,
 };
+
+export const WithWebhookSection: Story = {
+  render: () => <RepositoryDrawerShellTemplate data={repoData} />,
+};
