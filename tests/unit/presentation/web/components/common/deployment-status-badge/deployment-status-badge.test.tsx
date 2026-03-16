@@ -16,6 +16,29 @@ vi.mock('@/components/common/server-log-viewer', () => ({
 }));
 
 describe('DeploymentStatusBadge', () => {
+  it('renders info badge with reason text when status is NotStartable', () => {
+    render(
+      <DeploymentStatusBadge
+        status={DeploymentState.NotStartable}
+        reason="This is a CLI tool with no server or UI to start"
+      />
+    );
+
+    expect(screen.getByText('Not startable')).toBeInTheDocument();
+    expect(
+      screen.getByText('This is a CLI tool with no server or UI to start')
+    ).toBeInTheDocument();
+    // Should have an info icon (svg)
+    const badge = screen.getByText('Not startable').closest('[class*="bg-gray"]');
+    expect(badge).toBeInTheDocument();
+  });
+
+  it('renders NotStartable badge without reason when reason is not provided', () => {
+    render(<DeploymentStatusBadge status={DeploymentState.NotStartable} />);
+
+    expect(screen.getByText('Not startable')).toBeInTheDocument();
+  });
+
   it('renders spinning loader badge when status is Booting', () => {
     const { container } = render(<DeploymentStatusBadge status={DeploymentState.Booting} />);
 

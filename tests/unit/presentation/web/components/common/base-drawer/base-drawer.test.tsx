@@ -15,6 +15,19 @@ const mockDeployAction = {
   deployError: null,
   status: null as string | null,
   url: null as string | null,
+  mode: null as string | null,
+  setMode: vi.fn(),
+  analysisSummary: null as {
+    canStart: boolean;
+    reason?: string;
+    language: string;
+    framework?: string;
+    commandCount: number;
+    ports?: number[];
+    source: string;
+  } | null,
+  analyzing: false,
+  reAnalyze: vi.fn(),
 };
 
 vi.mock('@/hooks/use-deploy-action', () => ({
@@ -22,16 +35,92 @@ vi.mock('@/hooks/use-deploy-action', () => ({
 }));
 
 vi.mock('@/components/common/deployment-status-badge', () => ({
-  DeploymentStatusBadge: ({ status, targetId }: { status: string | null; targetId?: string }) =>
+  DeploymentStatusBadge: ({
+    status,
+    targetId,
+    reason,
+  }: {
+    status: string | null;
+    targetId?: string;
+    reason?: string;
+  }) =>
     status ? (
-      <div data-testid="deployment-status-badge" data-status={status} data-target-id={targetId} />
+      <div
+        data-testid="deployment-status-badge"
+        data-status={status}
+        data-target-id={targetId}
+        data-reason={reason}
+      />
     ) : null,
+}));
+
+vi.mock('@/components/common/base-drawer/deploy-mode-toggle', () => ({
+  DeployModeToggle: ({
+    mode,
+    onModeChange,
+  }: {
+    mode: string;
+    onModeChange: (m: string) => void;
+  }) => (
+    <div data-testid="deploy-mode-toggle" data-mode={mode}>
+      <button type="button" onClick={() => onModeChange('agent')}>
+        toggle
+      </button>
+    </div>
+  ),
+}));
+
+vi.mock('@/components/common/base-drawer/cache-summary', () => ({
+  CacheSummary: ({
+    summary,
+    onEdit,
+    onReAnalyze,
+  }: {
+    summary: { language: string };
+    onEdit: () => void;
+    onReAnalyze: () => void;
+  }) => (
+    <div data-testid="cache-summary" data-language={summary.language}>
+      <button type="button" onClick={onEdit}>
+        Edit
+      </button>
+      <button type="button" onClick={onReAnalyze}>
+        Re-analyze
+      </button>
+    </div>
+  ),
+}));
+
+vi.mock('@/components/common/base-drawer/dev-env-analysis-editor', () => ({
+  DevEnvAnalysisEditor: () => <div data-testid="dev-env-analysis-editor" />,
+}));
+
+vi.mock('@/app/actions/update-dev-env-analysis', () => ({
+  updateDevEnvAnalysis: vi.fn().mockResolvedValue({ success: true }),
+}));
+
+vi.mock('@/app/actions/analyze-repository', () => ({
+  analyzeRepository: vi.fn().mockResolvedValue({
+    success: true,
+    analysis: {
+      id: 'test',
+      canStart: true,
+      commands: [],
+      language: 'TypeScript',
+      source: 'FastPath',
+    },
+  }),
 }));
 
 describe('BaseDrawer', () => {
   beforeEach(() => {
     mockDeployAction.status = null;
     mockDeployAction.url = null;
+    mockDeployAction.mode = null;
+    mockDeployAction.analysisSummary = null;
+    mockDeployAction.analyzing = false;
+    mockDeployAction.setMode.mockClear();
+    mockDeployAction.reAnalyze.mockClear();
   });
 
   describe('rendering', () => {
@@ -293,6 +382,128 @@ describe('BaseDrawer', () => {
       );
 
       expect(screen.queryByTestId('base-drawer-deploy-bar')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('deploy bar with analysis', () => {
+    const deployTargetProps = {
+      targetId: 'f1',
+      targetType: 'feature' as const,
+      repositoryPath: '/repo',
+      branch: 'main',
+    };
+
+    it('renders mode toggle when mode is set', () => {
+      mockDeployAction.mode = 'fast';
+      render(
+        <BaseDrawer open onClose={vi.fn()} deployTarget={deployTargetProps}>
+          <p>Content</p>
+        </BaseDrawer>
+      );
+
+      expect(screen.getByTestId('deploy-mode-toggle')).toBeInTheDocument();
+      expect(screen.getByTestId('deploy-mode-toggle')).toHaveAttribute('data-mode', 'fast');
+    });
+
+    it('does not render mode toggle when mode is null', () => {
+      mockDeployAction.mode = null;
+      render(
+        <BaseDrawer open onClose={vi.fn()} deployTarget={deployTargetProps}>
+          <p>Content</p>
+        </BaseDrawer>
+      );
+
+      expect(screen.queryByTestId('deploy-mode-toggle')).not.toBeInTheDocument();
+    });
+
+    it('renders cache summary when analysis summary exists', () => {
+      mockDeployAction.analysisSummary = {
+        canStart: true,
+        language: 'TypeScript',
+        framework: 'Next.js',
+        commandCount: 1,
+        ports: [3000],
+        source: 'FastPath',
+      };
+      render(
+        <BaseDrawer open onClose={vi.fn()} deployTarget={deployTargetProps}>
+          <p>Content</p>
+        </BaseDrawer>
+      );
+
+      expect(screen.getByTestId('cache-summary')).toBeInTheDocument();
+      expect(screen.getByTestId('cache-summary')).toHaveAttribute('data-language', 'TypeScript');
+    });
+
+    it('does not render cache summary when no analysis exists', () => {
+      mockDeployAction.analysisSummary = null;
+      render(
+        <BaseDrawer open onClose={vi.fn()} deployTarget={deployTargetProps}>
+          <p>Content</p>
+        </BaseDrawer>
+      );
+
+      expect(screen.queryByTestId('cache-summary')).not.toBeInTheDocument();
+    });
+
+    it('renders NotStartable badge when status is NotStartable', () => {
+      mockDeployAction.status = 'NotStartable';
+      mockDeployAction.analysisSummary = {
+        canStart: false,
+        reason: 'CLI tool',
+        language: 'Go',
+        commandCount: 0,
+        source: 'Agent',
+      };
+      render(
+        <BaseDrawer open onClose={vi.fn()} deployTarget={deployTargetProps}>
+          <p>Content</p>
+        </BaseDrawer>
+      );
+
+      const badge = screen.getByTestId('deployment-status-badge');
+      expect(badge).toHaveAttribute('data-status', 'NotStartable');
+      expect(badge).toHaveAttribute('data-reason', 'CLI tool');
+    });
+
+    it('shows analyzing spinner when analyzing is true', () => {
+      mockDeployAction.analyzing = true;
+      render(
+        <BaseDrawer open onClose={vi.fn()} deployTarget={deployTargetProps}>
+          <p>Content</p>
+        </BaseDrawer>
+      );
+
+      expect(screen.getByTestId('deploy-analyzing-spinner')).toBeInTheDocument();
+      expect(screen.getByText('Analyzing...')).toBeInTheDocument();
+    });
+
+    it('does not show analyzing spinner when analyzing is false', () => {
+      mockDeployAction.analyzing = false;
+      render(
+        <BaseDrawer open onClose={vi.fn()} deployTarget={deployTargetProps}>
+          <p>Content</p>
+        </BaseDrawer>
+      );
+
+      expect(screen.queryByTestId('deploy-analyzing-spinner')).not.toBeInTheDocument();
+    });
+
+    it('hides cache summary when analyzing', () => {
+      mockDeployAction.analyzing = true;
+      mockDeployAction.analysisSummary = {
+        canStart: true,
+        language: 'TypeScript',
+        commandCount: 1,
+        source: 'FastPath',
+      };
+      render(
+        <BaseDrawer open onClose={vi.fn()} deployTarget={deployTargetProps}>
+          <p>Content</p>
+        </BaseDrawer>
+      );
+
+      expect(screen.queryByTestId('cache-summary')).not.toBeInTheDocument();
     });
   });
 

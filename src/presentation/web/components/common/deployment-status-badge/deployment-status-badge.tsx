@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Loader2, ExternalLink, Terminal } from 'lucide-react';
+import { Loader2, ExternalLink, Terminal, Info } from 'lucide-react';
 import { DeploymentState } from '@shepai/core/domain/generated/output';
 import { Badge } from '@/components/ui/badge';
 import { ServerLogViewer } from '@/components/common/server-log-viewer';
@@ -10,9 +10,15 @@ export interface DeploymentStatusBadgeProps {
   status: DeploymentState | null;
   url?: string | null;
   targetId?: string;
+  reason?: string;
 }
 
-export function DeploymentStatusBadge({ status, url, targetId }: DeploymentStatusBadgeProps) {
+export function DeploymentStatusBadge({
+  status,
+  url,
+  targetId,
+  reason,
+}: DeploymentStatusBadgeProps) {
   const [logViewerOpen, setLogViewerOpen] = useState(false);
   const showLogButton =
     targetId && (status === DeploymentState.Booting || status === DeploymentState.Ready);
@@ -88,6 +94,18 @@ export function DeploymentStatusBadge({ status, url, targetId }: DeploymentStatu
             />
           ) : null}
         </>
+      );
+    case DeploymentState.NotStartable:
+      return (
+        <div className="flex flex-col gap-1">
+          <Badge className="border-transparent bg-gray-100 text-gray-600 hover:bg-gray-100">
+            <Info className="mr-1 h-3.5 w-3.5" />
+            Not startable
+          </Badge>
+          {reason ? (
+            <span className="text-muted-foreground max-w-xs truncate text-xs">{reason}</span>
+          ) : null}
+        </div>
       );
     default:
       return null;

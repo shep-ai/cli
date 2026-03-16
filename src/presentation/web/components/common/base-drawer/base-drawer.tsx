@@ -1,11 +1,14 @@
 'use client';
 
-import { useRef, useEffect } from 'react';
-import { XIcon, Play, Square } from 'lucide-react';
+import { useRef, useEffect, useState, useCallback } from 'react';
+import { XIcon, Play, Square, Loader2 } from 'lucide-react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 import { ActionButton } from '@/components/common/action-button';
 import { DeploymentStatusBadge } from '@/components/common/deployment-status-badge';
+import { DeployModeToggle } from '@/components/common/base-drawer/deploy-mode-toggle';
+import { CacheSummary } from '@/components/common/base-drawer/cache-summary';
+import { DevEnvAnalysisEditor } from '@/components/common/base-drawer/dev-env-analysis-editor';
 import {
   Drawer,
   DrawerContent,
@@ -15,10 +18,20 @@ import {
   DrawerTitle,
   DrawerDescription,
 } from '@/components/ui/drawer';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import type { DevEnvironmentAnalysis } from '@shepai/core/domain/generated/output';
 import { useDeployAction, type DeployActionInput } from '@/hooks/use-deploy-action';
 import { useFeatureFlags } from '@/hooks/feature-flags-context';
+import { updateDevEnvAnalysis } from '@/app/actions/update-dev-env-analysis';
+import { analyzeRepository } from '@/app/actions/analyze-repository';
 
 const drawerVariants = cva('', {
   variants: {
@@ -151,37 +164,132 @@ export function BaseDrawer({
 function DeployBar({ deployTarget }: { deployTarget: DeployActionInput }) {
   const deployAction = useDeployAction(deployTarget);
   const isDeploymentActive = deployAction.status === 'Booting' || deployAction.status === 'Ready';
+  const isNotStartable = deployAction.status === 'NotStartable';
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [fullAnalysis, setFullAnalysis] = useState<DevEnvironmentAnalysis | null>(null);
+
+  const handleEdit = useCallback(async () => {
+    // Load the full analysis from cache to populate the editor
+    const result = await analyzeRepository(deployTarget.repositoryPath);
+    if (result.success) {
+      setFullAnalysis(result.analysis);
+      setEditorOpen(true);
+    }
+  }, [deployTarget.repositoryPath]);
+
+  const handleSave = useCallback(
+    async (updated: DevEnvironmentAnalysis) => {
+      await updateDevEnvAnalysis(deployTarget.repositoryPath, {
+        canStart: updated.canStart,
+        reason: updated.reason,
+        commands: updated.commands,
+        ports: updated.ports,
+        prerequisites: updated.prerequisites,
+        environmentVariables: updated.environmentVariables,
+        language: updated.language,
+        framework: updated.framework,
+      });
+      setEditorOpen(false);
+      // Re-load analysis to update summary
+      await deployAction.reAnalyze();
+    },
+    [deployTarget.repositoryPath, deployAction]
+  );
+
+  const deployTooltip = isNotStartable
+    ? (deployAction.analysisSummary?.reason ?? 'This repo cannot start a dev server')
+    : isDeploymentActive
+      ? 'Stop Dev Server'
+      : 'Start Dev Server';
 
   return (
-    <div data-testid="base-drawer-deploy-bar" className="flex items-center gap-2 px-4 pb-3">
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span>
-              <ActionButton
-                label={isDeploymentActive ? 'Stop Dev Server' : 'Start Dev Server'}
-                onClick={isDeploymentActive ? deployAction.stop : deployAction.deploy}
-                loading={deployAction.deployLoading || deployAction.stopLoading}
-                error={!!deployAction.deployError}
-                icon={isDeploymentActive ? Square : Play}
-                iconOnly
-                variant="outline"
-                size="icon-sm"
-              />
-            </span>
-          </TooltipTrigger>
-          <TooltipContent>
-            {isDeploymentActive ? 'Stop Dev Server' : 'Start Dev Server'}
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-      {isDeploymentActive ? (
-        <DeploymentStatusBadge
-          status={deployAction.status}
-          url={deployAction.url}
-          targetId={deployTarget.targetId}
+    <div data-testid="base-drawer-deploy-bar" className="flex flex-col gap-2 px-4 pb-3">
+      {/* Mode toggle */}
+      {deployAction.mode ? (
+        <DeployModeToggle
+          mode={deployAction.mode}
+          autoDetectedMode={deployAction.mode}
+          onModeChange={deployAction.setMode}
         />
       ) : null}
+
+      {/* Deploy button row */}
+      <div className="flex items-center gap-2">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span>
+                <ActionButton
+                  label={isDeploymentActive ? 'Stop Dev Server' : 'Start Dev Server'}
+                  onClick={isDeploymentActive ? deployAction.stop : deployAction.deploy}
+                  loading={deployAction.deployLoading || deployAction.stopLoading}
+                  error={!!deployAction.deployError}
+                  icon={isDeploymentActive ? Square : Play}
+                  iconOnly
+                  variant="outline"
+                  size="icon-sm"
+                />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>{deployTooltip}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        {/* Analyzing spinner */}
+        {deployAction.analyzing ? (
+          <span
+            data-testid="deploy-analyzing-spinner"
+            className="text-muted-foreground inline-flex items-center gap-1 text-xs"
+          >
+            <Loader2 className="h-3 w-3 animate-spin" />
+            Analyzing...
+          </span>
+        ) : null}
+
+        {/* Deployment status badge (Booting/Ready) */}
+        {isDeploymentActive ? (
+          <DeploymentStatusBadge
+            status={deployAction.status}
+            url={deployAction.url}
+            targetId={deployTarget.targetId}
+          />
+        ) : null}
+
+        {/* NotStartable badge */}
+        {isNotStartable ? (
+          <DeploymentStatusBadge
+            status={deployAction.status}
+            reason={deployAction.analysisSummary?.reason}
+          />
+        ) : null}
+      </div>
+
+      {/* Cache summary */}
+      {deployAction.analysisSummary && !deployAction.analyzing ? (
+        <CacheSummary
+          summary={deployAction.analysisSummary}
+          onEdit={handleEdit}
+          onReAnalyze={deployAction.reAnalyze}
+          reAnalyzing={deployAction.analyzing}
+        />
+      ) : null}
+
+      {/* Analysis editor dialog */}
+      <Dialog open={editorOpen} onOpenChange={setEditorOpen}>
+        <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit Dev Environment Config</DialogTitle>
+            <DialogDescription>Modify the analysis results for this repository.</DialogDescription>
+          </DialogHeader>
+          {fullAnalysis ? (
+            <DevEnvAnalysisEditor
+              analysis={fullAnalysis}
+              onSave={handleSave}
+              onCancel={() => setEditorOpen(false)}
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

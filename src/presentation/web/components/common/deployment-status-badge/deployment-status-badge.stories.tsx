@@ -43,3 +43,16 @@ export const BootingWithLogs: Story = {
 export const ReadyWithLogs: Story = {
   args: { status: DeploymentState.Ready, url: 'http://localhost:3000', targetId: 'demo-target' },
 };
+
+/** NotStartable — gray info badge with reason text. */
+export const NotStartable: Story = {
+  args: {
+    status: DeploymentState.NotStartable,
+    reason: 'This is a CLI tool with no server or UI to start',
+  },
+};
+
+/** NotStartable without reason — shows badge only. */
+export const NotStartableNoReason: Story = {
+  args: { status: DeploymentState.NotStartable },
+};
