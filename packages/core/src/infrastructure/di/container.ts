@@ -232,12 +232,21 @@ export async function initializeContainer(): Promise<typeof container> {
     useFactory: () => new CloudflareTunnelService(),
   });
 
+  let webhookServiceInstance: IWebhookService | null = null;
   container.register<IWebhookService>('IWebhookService', {
     useFactory: (c) => {
-      const featureRepo = c.resolve<IFeatureRepository>('IFeatureRepository');
-      const gitPrService = c.resolve<IGitPrService>('IGitPrService');
-      const notifService = c.resolve<INotificationService>('INotificationService');
-      return new GitHubWebhookService(featureRepo, gitPrService, notifService, execFn);
+      if (!webhookServiceInstance) {
+        const featureRepo = c.resolve<IFeatureRepository>('IFeatureRepository');
+        const gitPrService = c.resolve<IGitPrService>('IGitPrService');
+        const notifService = c.resolve<INotificationService>('INotificationService');
+        webhookServiceInstance = new GitHubWebhookService(
+          featureRepo,
+          gitPrService,
+          notifService,
+          execFn
+        );
+      }
+      return webhookServiceInstance;
     },
   });
 

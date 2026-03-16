@@ -420,6 +420,11 @@ export class GitHubWebhookService implements IWebhookService {
         return;
       }
 
+      // Clean up any stale webhooks from previous sessions before creating a new one.
+      // Without this, old webhooks remain on GitHub with an outdated secret, causing
+      // signature mismatches when GitHub delivers events signed with the old secret.
+      await this.removeStaleWebhooks(repoFullName, repoPath);
+
       // Create webhook via GitHub API
       const { stdout } = await this.execFn(
         'gh',
@@ -460,6 +465,53 @@ export class GitHubWebhookService implements IWebhookService {
       const msg = error instanceof Error ? error.message : String(error);
       // eslint-disable-next-line no-console
       console.warn(`${TAG} Failed to register webhook for ${repoPath}: ${msg}`);
+    }
+  }
+
+  /**
+   * Remove stale webhooks from a previous session that point to our webhook path.
+   * Lists all hooks on the repo and deletes any whose URL ends with /api/webhooks/github.
+   */
+  private async removeStaleWebhooks(repoFullName: string, repoPath: string): Promise<void> {
+    try {
+      const { stdout } = await this.execFn(
+        'gh',
+        ['api', `-H`, 'Accept: application/vnd.github+json', `/repos/${repoFullName}/hooks`],
+        { cwd: repoPath }
+      );
+
+      const hooks = JSON.parse(stdout) as {
+        id: number;
+        config?: { url?: string };
+      }[];
+
+      for (const hook of hooks) {
+        const hookUrl = hook.config?.url ?? '';
+        if (hookUrl.endsWith('/api/webhooks/github')) {
+          try {
+            await this.execFn(
+              'gh',
+              [
+                'api',
+                '--method',
+                'DELETE',
+                `-H`,
+                'Accept: application/vnd.github+json',
+                `/repos/${repoFullName}/hooks/${hook.id}`,
+              ],
+              { cwd: repoPath }
+            );
+            // eslint-disable-next-line no-console
+            console.log(`${TAG} Removed stale webhook #${hook.id} from ${repoFullName}`);
+          } catch (deleteError) {
+            const msg = deleteError instanceof Error ? deleteError.message : String(deleteError);
+            // eslint-disable-next-line no-console
+            console.warn(`${TAG} Failed to remove stale webhook #${hook.id}: ${msg}`);
+          }
+        }
+      }
+    } catch {
+      // If listing fails (e.g. permissions), proceed with creating a new webhook anyway
     }
   }
 
