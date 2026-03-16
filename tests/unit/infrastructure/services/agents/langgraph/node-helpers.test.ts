@@ -179,9 +179,11 @@ describe('classifyError', () => {
     });
   });
 
-  describe('non-retryable errors - timeouts', () => {
-    it('should classify agent execution timeout as non-retryable', () => {
-      expect(classifyError('Agent execution timed out')).toBe('non-retryable');
+  describe('retryable errors - agent timeouts', () => {
+    it('should classify agent execution timeout as retryable-network', () => {
+      // Timeouts are retryable so the silence watchdog can kill hung cursor
+      // processes and retryExecute retries automatically.
+      expect(classifyError('Agent execution timed out')).toBe('retryable-network');
     });
   });
 

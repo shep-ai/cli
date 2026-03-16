@@ -179,11 +179,15 @@ describe('CursorExecutorService', () => {
 
       expect(result.result).toBe('Analysis complete. Found 3 files.');
       expect(result.sessionId).toBe('sess-abc-123');
+      // Prompt is piped via stdin, not in args
       expect(mockSpawn).toHaveBeenCalledWith(
         'agent',
-        expect.arrayContaining(['-p', 'Analyze this codebase', '--output-format', 'json']),
+        expect.arrayContaining(['-p', '--output-format', 'json']),
         expect.any(Object)
       );
+      // Args should NOT contain the prompt text
+      const spawnArgs = vi.mocked(mockSpawn).mock.calls[0][1] as string[];
+      expect(spawnArgs).not.toContain('Analyze this codebase');
     });
 
     it('should parse session_id from result event', async () => {
@@ -321,7 +325,7 @@ describe('CursorExecutorService', () => {
       expect(result.sessionId).toBe('sess-1');
     });
 
-    it('should pass -p flag with prompt', async () => {
+    it('should pass -p flag (print mode) and pipe prompt via stdin', async () => {
       const mockProc = createMockChildProcess();
       vi.mocked(mockSpawn).mockReturnValue(mockProc as any);
 
@@ -332,11 +336,10 @@ describe('CursorExecutorService', () => {
 
       await executePromise;
 
-      expect(mockSpawn).toHaveBeenCalledWith(
-        'agent',
-        expect.arrayContaining(['-p', 'My prompt']),
-        expect.any(Object)
-      );
+      // -p is a boolean flag (print mode), prompt goes via stdin
+      const spawnArgs = vi.mocked(mockSpawn).mock.calls[0][1] as string[];
+      expect(spawnArgs).toContain('-p');
+      expect(spawnArgs).not.toContain('My prompt');
     });
 
     it('should pass --resume flag when resumeSession is set', async () => {
@@ -424,12 +427,12 @@ describe('CursorExecutorService', () => {
         await executePromise;
 
         const spawnCmd = vi.mocked(mockSpawn).mock.calls[0][0];
+        const spawnArgs = vi.mocked(mockSpawn).mock.calls[0][1] as string[];
         expect(spawnCmd).toMatch(/node\.exe$/);
-        expect(mockSpawn).toHaveBeenCalledWith(
-          expect.stringMatching(/node\.exe$/),
-          expect.arrayContaining(['--yolo', '-p', 'Test']),
-          expect.objectContaining({ windowsHide: true })
-        );
+        expect(spawnArgs).toContain('--yolo');
+        expect(spawnArgs).toContain('-p');
+        // Prompt NOT in args — piped via stdin
+        expect(spawnArgs).not.toContain('Test');
       } finally {
         resolveSpy.mockRestore();
         Object.defineProperty(process, 'platform', { value: originalPlatform });

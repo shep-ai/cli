@@ -9,9 +9,8 @@
  * to enable testability without mocking node:child_process directly.
  */
 
-import { writeFileSync, unlinkSync, readdirSync, existsSync } from 'node:fs';
+import { unlinkSync, readdirSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type {
   AgentType,
@@ -474,12 +473,12 @@ export class CursorExecutorService implements IAgentExecutor {
     }
   }
 
-  private buildArgs(prompt: string, options?: AgentExecutionOptions): string[] {
-    const args = ['--yolo', '-p', prompt, '--output-format', 'json'];
+  private buildArgs(_prompt: string, options?: AgentExecutionOptions): string[] {
+    // Prompt is piped via stdin (not passed as arg) to avoid Windows command line
+    // length limits and argument escaping issues on Windows Server CI.
+    const args = ['--yolo', '-p', '--output-format', 'json'];
     if (options?.resumeSession) args.push('--resume', options.resumeSession);
     if (options?.model) args.push('--model', toCursorModelName(options.model));
-    // Unsupported options silently omitted: systemPrompt, allowedTools, maxTurns, outputSchema
-    // No auth flags — binary handles its own auth
     return args;
   }
 
@@ -618,41 +617,37 @@ export class CursorExecutorService implements IAgentExecutor {
         if (!proc.pid) {
           this.log(`[diag] WARNING: spawn returned no PID — process may not have started`);
         }
-        if (proc.stdin) proc.stdin.end();
+        // Pipe prompt via stdin (like claude-code executor) to avoid Windows
+        // command line length limits that cause zero-output hangs on Windows Server.
+        this.log(`[diag] Piping ${prompt.length} chars via stdin`);
+        if (proc.stdin) {
+          proc.stdin.write(prompt);
+          proc.stdin.end();
+        }
 
         return { proc, tmpFile: undefined };
       }
 
-      // Fallback: PowerShell + temp file with FULL path to agent.cmd
-      // (bare `agent` triggers Windows "Open with" dialog)
+      // Fallback: spawn agent.cmd directly with shell: true
+      // (only used when cursor binary resolution fails)
       const agentCmd = join(process.env.LOCALAPPDATA ?? '', 'cursor-agent', 'agent.cmd');
-      this.log(`[diag] Windows fallback: using PowerShell + ${agentCmd}`);
-      const tmpFile = join(
-        tmpdir(),
-        `shep-cursor-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.txt`
-      );
-      writeFileSync(tmpFile, prompt, 'utf8');
+      this.log(`[diag] Windows fallback: using agent.cmd at ${agentCmd}`);
 
-      const agentFlags = args.filter((a) => a !== '-p' && a !== prompt).join(' ');
-      const safePath = tmpFile.replace(/'/g, "''");
-      const agentPath = agentCmd.replace(/'/g, "''");
-      const psCmd = `$p = Get-Content -Raw '${safePath}'; & '${agentPath}' ${agentFlags} -p $p`;
+      const proc = this.spawn(agentCmd, args, {
+        cwd,
+        stdio: ['pipe', 'pipe', 'pipe'],
+        windowsHide: true,
+        shell: true,
+        env: this.buildEnv(),
+      });
+      this.log(`[diag] Fallback PID: ${proc.pid ?? 'undefined (spawn may have failed)'}`);
+      this.log(`[diag] Piping ${prompt.length} chars via stdin`);
+      if (proc.stdin) {
+        proc.stdin.write(prompt);
+        proc.stdin.end();
+      }
 
-      this.log(`[diag] PS command: ${psCmd.replace(prompt, `<${prompt.length} chars>`)}`);
-      const proc = this.spawn(
-        'powershell.exe',
-        ['-NoProfile', '-NonInteractive', '-Command', psCmd],
-        {
-          cwd,
-          stdio: ['pipe', 'pipe', 'pipe'],
-          windowsHide: true,
-          env: this.buildEnv(),
-        }
-      );
-      this.log(`[diag] PowerShell PID: ${proc.pid ?? 'undefined (spawn may have failed)'}`);
-      if (proc.stdin) proc.stdin.end();
-
-      return { proc, tmpFile };
+      return { proc, tmpFile: undefined };
     }
 
     // Linux/macOS: spawn agent directly, no shell needed
@@ -669,7 +664,11 @@ export class CursorExecutorService implements IAgentExecutor {
 
     const proc = this.spawn('agent', args, spawnOpts);
     this.log(`Subprocess PID: ${proc.pid ?? 'undefined (spawn may have failed)'}`);
-    if (proc.stdin) proc.stdin.end();
+    this.log(`[diag] Piping ${prompt.length} chars via stdin`);
+    if (proc.stdin) {
+      proc.stdin.write(prompt);
+      proc.stdin.end();
+    }
 
     return { proc, tmpFile: undefined };
   }
