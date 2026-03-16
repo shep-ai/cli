@@ -1,3 +1,9 @@
+# [1.120.0](https://github.com/shep-ai/cli/compare/v1.119.0...v1.120.0) (2026-03-16)
+
+### Features
+
+- **web:** scope fab-trigger visibility to control center routes ([#382](https://github.com/shep-ai/cli/issues/382)) ([3673a61](https://github.com/shep-ai/cli/commit/3673a619e849b06f47b4fd6ae1ee48bffb7395da))
+
 # [1.119.0](https://github.com/shep-ai/cli/compare/v1.118.0...v1.119.0) (2026-03-16)
 
 ### Bug Fixes
