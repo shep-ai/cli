@@ -2,8 +2,6 @@
 
 import { useState, useTransition, useRef, useEffect, useCallback } from 'react';
 import {
-  Eye,
-  EyeOff,
   Check,
   Bot,
   Terminal,
@@ -21,10 +19,7 @@ import {
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Select,
   SelectContent,
@@ -33,12 +28,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { updateSettingsAction } from '@/app/actions/update-settings';
-import {
-  type AgentType,
-  AgentAuthMethod,
-  EditorType,
-  TerminalType,
-} from '@shepai/core/domain/generated/output';
+import { type AgentType, EditorType, TerminalType } from '@shepai/core/domain/generated/output';
 import { getEditorTypeIcon } from '@/components/common/editor-type-icons';
 import { AgentModelPicker } from '@/components/features/settings/AgentModelPicker';
 import { TimeoutSlider } from '@/components/features/settings/timeout-slider';
@@ -48,11 +38,6 @@ import type {
   NotificationPreferences,
 } from '@shepai/core/domain/generated/output';
 import type { AvailableTerminal } from '@/app/actions/get-available-terminals';
-
-const AUTH_METHOD_OPTIONS = [
-  { value: AgentAuthMethod.Session, label: 'Session' },
-  { value: AgentAuthMethod.Token, label: 'Token' },
-];
 
 const EDITOR_OPTIONS = [
   { value: EditorType.VsCode, label: 'VS Code' },
@@ -364,9 +349,6 @@ export function SettingsPageClient({
 
   // Agent state
   const [agentType, setAgentType] = useState(settings.agent.type);
-  const authMethod = settings.agent.authMethod;
-  const [token, setToken] = useState(settings.agent.token ?? '');
-  const [showToken, setShowToken] = useState(false);
 
   // Environment state
   const [editor, setEditor] = useState(settings.environment.defaultEditor);
@@ -489,16 +471,6 @@ export function SettingsPageClient({
     if (value === '') return undefined;
     const n = parseInt(value, 10);
     return Number.isNaN(n) || n <= 0 ? undefined : n;
-  }
-
-  // Agent helpers
-  function buildAgentPayload(overrides: Partial<typeof settings.agent> = {}) {
-    const merged = { type: agentType, authMethod, ...overrides };
-    const result: Record<string, unknown> = { type: merged.type, authMethod: merged.authMethod };
-    if (merged.authMethod === AgentAuthMethod.Token) {
-      result.token = overrides.token ?? token;
-    }
-    return { agent: result };
   }
 
   function secondsToMs(val: string | undefined): number | undefined {
@@ -693,68 +665,6 @@ export function SettingsPageClient({
                 className="w-55"
               />
             </SettingsRow>
-            <SettingsRow
-              label="Authentication"
-              description="How the agent authenticates"
-              htmlFor="auth-method"
-            >
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div>
-                      <Select value={authMethod} disabled>
-                        <SelectTrigger
-                          id="auth-method"
-                          data-testid="auth-method-select"
-                          className="w-55 cursor-not-allowed text-xs opacity-60"
-                        >
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {AUTH_METHOD_OPTIONS.map((opt) => (
-                            <SelectItem key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent>Coming soon</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </SettingsRow>
-            {authMethod === AgentAuthMethod.Token && (
-              <SettingsRow label="API Token" htmlFor="agent-token">
-                <div className="relative w-45">
-                  <Input
-                    id="agent-token"
-                    data-testid="agent-token-input"
-                    type={showToken ? 'text' : 'password'}
-                    value={token}
-                    onChange={(e) => setToken(e.target.value)}
-                    onBlur={() => {
-                      if (token !== (settings.agent.token ?? '')) {
-                        save(buildAgentPayload({ token }));
-                      }
-                    }}
-                    placeholder="Enter token"
-                    className="pr-8"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute top-0 right-0 h-full px-2 hover:bg-transparent"
-                    onClick={() => setShowToken(!showToken)}
-                    data-testid="toggle-token-visibility"
-                    aria-label={showToken ? 'Hide token' : 'Show token'}
-                  >
-                    {showToken ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-                  </Button>
-                </div>
-              </SettingsRow>
-            )}
           </SettingsSection>
           <SectionHint
             links={[
