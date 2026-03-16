@@ -1,3 +1,9 @@
+# [1.124.0](https://github.com/shep-ai/cli/compare/v1.123.0...v1.124.0) (2026-03-16)
+
+### Features
+
+- **web:** inline devserver icon in feature node top row ([#398](https://github.com/shep-ai/cli/issues/398)) ([b8b967d](https://github.com/shep-ai/cli/commit/b8b967d96d49aa0754e607525f4f927911569512))
+
 # [1.123.0](https://github.com/shep-ai/cli/compare/v1.122.2...v1.123.0) (2026-03-16)
 
 ### Features
