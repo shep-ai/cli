@@ -42,6 +42,8 @@ describe('useDeployAction', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
+    // Default: no running deployment on mount, so the initial status fetch is a no-op
+    mockGetDeploymentStatus.mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -231,10 +233,10 @@ describe('useDeployAction', () => {
     it('clears status and url on successful stop', async () => {
       // First deploy to get status
       mockDeployFeature.mockResolvedValue({ success: true, state: DeploymentState.Booting });
-      mockGetDeploymentStatus.mockResolvedValue({
-        state: DeploymentState.Ready,
-        url: 'http://localhost:3000',
-      });
+      // Initial fetch returns null (no pre-existing deployment), then poll returns Ready
+      mockGetDeploymentStatus
+        .mockResolvedValueOnce(null)
+        .mockResolvedValue({ state: DeploymentState.Ready, url: 'http://localhost:3000' });
 
       const { result } = renderHook(() => useDeployAction(featureInput));
 
@@ -275,10 +277,10 @@ describe('useDeployAction', () => {
   describe('polling', () => {
     it('starts polling after successful deploy', async () => {
       mockDeployFeature.mockResolvedValue({ success: true, state: DeploymentState.Booting });
-      mockGetDeploymentStatus.mockResolvedValue({
-        state: DeploymentState.Booting,
-        url: null,
-      });
+      // Initial fetch returns null (no pre-existing deployment), then poll returns Booting
+      mockGetDeploymentStatus
+        .mockResolvedValueOnce(null)
+        .mockResolvedValue({ state: DeploymentState.Booting, url: null });
 
       const { result } = renderHook(() => useDeployAction(featureInput));
 
@@ -298,10 +300,10 @@ describe('useDeployAction', () => {
 
     it('updates status and url from polling result', async () => {
       mockDeployFeature.mockResolvedValue({ success: true, state: DeploymentState.Booting });
-      mockGetDeploymentStatus.mockResolvedValue({
-        state: DeploymentState.Ready,
-        url: 'http://localhost:3000',
-      });
+      // Initial fetch returns null, then poll returns Ready
+      mockGetDeploymentStatus
+        .mockResolvedValueOnce(null)
+        .mockResolvedValue({ state: DeploymentState.Ready, url: 'http://localhost:3000' });
 
       const { result } = renderHook(() => useDeployAction(featureInput));
 
@@ -320,7 +322,7 @@ describe('useDeployAction', () => {
 
     it('stops polling when status returns null', async () => {
       mockDeployFeature.mockResolvedValue({ success: true, state: DeploymentState.Booting });
-      mockGetDeploymentStatus.mockResolvedValue(null);
+      // Default mock already returns null (from beforeEach)
 
       const { result } = renderHook(() => useDeployAction(featureInput));
 
@@ -328,34 +330,39 @@ describe('useDeployAction', () => {
         await result.current.deploy();
       });
 
+      // 1 call from initial fetch (returns null — no-op)
+      const callsBeforePoll = mockGetDeploymentStatus.mock.calls.length;
+
       // First poll
       await act(async () => {
         vi.advanceTimersByTime(3000);
       });
 
       expect(result.current.status).toBeNull();
-      expect(mockGetDeploymentStatus).toHaveBeenCalledTimes(1);
+      expect(mockGetDeploymentStatus).toHaveBeenCalledTimes(callsBeforePoll + 1);
 
       // Second poll should not happen since status is null
       await act(async () => {
         vi.advanceTimersByTime(3000);
       });
 
-      expect(mockGetDeploymentStatus).toHaveBeenCalledTimes(1);
+      expect(mockGetDeploymentStatus).toHaveBeenCalledTimes(callsBeforePoll + 1);
     });
 
     it('stops polling when status returns Stopped', async () => {
       mockDeployFeature.mockResolvedValue({ success: true, state: DeploymentState.Booting });
-      mockGetDeploymentStatus.mockResolvedValue({
-        state: DeploymentState.Stopped,
-        url: null,
-      });
+      // Initial fetch returns null, then poll returns Stopped
+      mockGetDeploymentStatus
+        .mockResolvedValueOnce(null)
+        .mockResolvedValue({ state: DeploymentState.Stopped, url: null });
 
       const { result } = renderHook(() => useDeployAction(featureInput));
 
       await act(async () => {
         await result.current.deploy();
       });
+
+      const callsBeforePoll = mockGetDeploymentStatus.mock.calls.length;
 
       // First poll
       await act(async () => {
@@ -363,18 +370,19 @@ describe('useDeployAction', () => {
       });
 
       expect(result.current.status).toBeNull();
-      expect(mockGetDeploymentStatus).toHaveBeenCalledTimes(1);
+      expect(mockGetDeploymentStatus).toHaveBeenCalledTimes(callsBeforePoll + 1);
 
       // Second poll should not happen
       await act(async () => {
         vi.advanceTimersByTime(3000);
       });
 
-      expect(mockGetDeploymentStatus).toHaveBeenCalledTimes(1);
+      expect(mockGetDeploymentStatus).toHaveBeenCalledTimes(callsBeforePoll + 1);
     });
 
     it('does not start polling when deploy fails', async () => {
       mockDeployFeature.mockResolvedValue({ success: false, error: 'No dev script' });
+      // Default mock returns null (initial fetch is no-op)
 
       const { result } = renderHook(() => useDeployAction(featureInput));
 
@@ -382,12 +390,14 @@ describe('useDeployAction', () => {
         await result.current.deploy();
       });
 
-      // Advance past poll interval
+      const callsAfterDeploy = mockGetDeploymentStatus.mock.calls.length;
+
+      // Advance past poll interval — no new calls should happen
       await act(async () => {
         vi.advanceTimersByTime(3000);
       });
 
-      expect(mockGetDeploymentStatus).not.toHaveBeenCalled();
+      expect(mockGetDeploymentStatus).toHaveBeenCalledTimes(callsAfterDeploy);
       expect(result.current.status).toBeNull();
     });
   });
@@ -395,10 +405,10 @@ describe('useDeployAction', () => {
   describe('cleanup', () => {
     it('cleans up timers and intervals on unmount', async () => {
       mockDeployFeature.mockResolvedValue({ success: true, state: DeploymentState.Booting });
-      mockGetDeploymentStatus.mockResolvedValue({
-        state: DeploymentState.Booting,
-        url: null,
-      });
+      // Initial fetch returns null, then poll returns Booting
+      mockGetDeploymentStatus
+        .mockResolvedValueOnce(null)
+        .mockResolvedValue({ state: DeploymentState.Booting, url: null });
 
       const { result, unmount } = renderHook(() => useDeployAction(featureInput));
 
@@ -435,6 +445,115 @@ describe('useDeployAction', () => {
       act(() => {
         vi.advanceTimersByTime(5000);
       });
+    });
+  });
+
+  describe('initial status fetch', () => {
+    it('fetches deployment status on mount when input is provided', async () => {
+      mockGetDeploymentStatus.mockResolvedValue({
+        state: DeploymentState.Ready,
+        url: 'http://localhost:3000',
+      });
+
+      const { result } = renderHook(() => useDeployAction(featureInput));
+
+      // Allow the initial fetch promise to resolve
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      expect(mockGetDeploymentStatus).toHaveBeenCalledWith('feature-123');
+      expect(result.current.status).toBe(DeploymentState.Ready);
+      expect(result.current.url).toBe('http://localhost:3000');
+    });
+
+    it('starts polling after discovering a running deployment on mount', async () => {
+      mockGetDeploymentStatus.mockResolvedValue({
+        state: DeploymentState.Booting,
+        url: null,
+      });
+
+      renderHook(() => useDeployAction(featureInput));
+
+      // Allow initial fetch to resolve
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      // Initial fetch call
+      expect(mockGetDeploymentStatus).toHaveBeenCalledTimes(1);
+
+      // Now update the mock for the poll result
+      mockGetDeploymentStatus.mockResolvedValue({
+        state: DeploymentState.Ready,
+        url: 'http://localhost:3000',
+      });
+
+      // Advance one poll interval to verify polling started
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(3000);
+      });
+
+      // Initial fetch + 1 poll = 2 calls
+      expect(mockGetDeploymentStatus).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not set status when deployment is stopped', async () => {
+      mockGetDeploymentStatus.mockResolvedValue({
+        state: DeploymentState.Stopped,
+        url: null,
+      });
+
+      const { result } = renderHook(() => useDeployAction(featureInput));
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      expect(result.current.status).toBeNull();
+      expect(result.current.url).toBeNull();
+    });
+
+    it('does not set status when deployment result is null', async () => {
+      mockGetDeploymentStatus.mockResolvedValue(null);
+
+      const { result } = renderHook(() => useDeployAction(featureInput));
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      expect(result.current.status).toBeNull();
+    });
+
+    it('does not fetch when input is null', async () => {
+      renderHook(() => useDeployAction(null));
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      expect(mockGetDeploymentStatus).not.toHaveBeenCalled();
+    });
+
+    it('cancels initial fetch when unmounted before resolution', async () => {
+      let resolveStatus!: (value: { state: DeploymentState; url: string | null }) => void;
+      mockGetDeploymentStatus.mockReturnValue(
+        new Promise((resolve) => {
+          resolveStatus = resolve;
+        })
+      );
+
+      const { result, unmount } = renderHook(() => useDeployAction(featureInput));
+
+      unmount();
+
+      // Resolve after unmount — should not update state
+      await act(async () => {
+        resolveStatus({ state: DeploymentState.Ready, url: 'http://localhost:3000' });
+      });
+
+      expect(result.current.status).toBeNull();
     });
   });
 });
