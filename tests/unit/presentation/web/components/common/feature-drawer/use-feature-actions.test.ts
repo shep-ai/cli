@@ -2,7 +2,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useFeatureActions } from '@/components/common/feature-drawer/use-feature-actions';
 
-const mockInput = { repositoryPath: '/home/user/my-repo', branch: 'feat/auth-module' };
+const mockInput = {
+  featureId: 'feat-123',
+  repositoryPath: '/home/user/my-repo',
+  branch: 'feat/auth-module',
+};
 
 // --- Server action mocks ---
 const mockOpenIde = vi.fn();
@@ -14,6 +18,10 @@ vi.mock('@/app/actions/open-ide', () => ({
 
 vi.mock('@/app/actions/open-shell', () => ({
   openShell: (...args: unknown[]) => mockOpenShell(...args),
+}));
+
+vi.mock('@/app/actions/rebase-feature', () => ({
+  rebaseFeature: vi.fn().mockResolvedValue({ success: true }),
 }));
 
 describe('useFeatureActions', () => {

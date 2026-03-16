@@ -7,12 +7,15 @@ const defaultActions: FeatureActionsState = {
   openInIde: fn().mockName('openInIde'),
   openInShell: fn().mockName('openInShell'),
   openSpecsFolder: fn().mockName('openSpecsFolder'),
+  rebaseOnMain: fn().mockName('rebaseOnMain'),
   ideLoading: false,
   shellLoading: false,
   specsLoading: false,
+  rebaseLoading: false,
   ideError: null,
   shellError: null,
   specsError: null,
+  rebaseError: null,
 };
 
 const meta: Meta<typeof OpenActionMenu> = {

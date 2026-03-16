@@ -2,7 +2,7 @@
 
 import { useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { Code2, Terminal, FolderOpen } from 'lucide-react';
+import { Code2, Terminal, FolderOpen, RefreshCw } from 'lucide-react';
 import { BaseDrawer } from '@/components/common/base-drawer';
 import { ActionButton } from '@/components/common/action-button';
 import { DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
@@ -21,7 +21,7 @@ export function RepositoryDrawerClient({ data }: RepositoryDrawerClientProps) {
   const pathname = usePathname();
   const isOpen = pathname.startsWith('/repository/');
   const repoActions = useRepositoryActions(
-    data.repositoryPath ? { repositoryPath: data.repositoryPath } : null
+    data.repositoryPath ? { repositoryId: data.id, repositoryPath: data.repositoryPath } : null
   );
 
   const onClose = useCallback(() => {
@@ -94,6 +94,30 @@ export function RepositoryDrawerClient({ data }: RepositoryDrawerClientProps) {
               />
             </div>
           </div>
+          {data.id ? (
+            <>
+              <Separator />
+              <div className="flex flex-col gap-3 p-4">
+                <div className="text-muted-foreground text-xs font-semibold tracking-wider">
+                  GIT OPERATIONS
+                </div>
+                <div className="flex flex-col gap-2">
+                  <ActionButton
+                    label="Sync Main"
+                    onClick={repoActions.syncMain}
+                    loading={repoActions.syncLoading}
+                    error={!!repoActions.syncError}
+                    icon={RefreshCw}
+                    variant="outline"
+                    size="sm"
+                  />
+                  {repoActions.syncError ? (
+                    <p className="text-destructive text-xs">{repoActions.syncError}</p>
+                  ) : null}
+                </div>
+              </div>
+            </>
+          ) : null}
         </div>
       ) : null}
     </BaseDrawer>

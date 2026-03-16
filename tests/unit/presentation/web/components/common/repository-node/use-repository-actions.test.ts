@@ -2,12 +2,13 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useRepositoryActions } from '@/components/common/repository-node/use-repository-actions';
 
-const mockInput = { repositoryPath: '/home/user/my-repo' };
+const mockInput = { repositoryId: 'repo-123', repositoryPath: '/home/user/my-repo' };
 
 // --- Server action mocks ---
 const mockOpenIde = vi.fn();
 const mockOpenShell = vi.fn();
 const mockOpenFolder = vi.fn();
+const mockSyncRepository = vi.fn();
 
 vi.mock('@/app/actions/open-ide', () => ({
   openIde: (...args: unknown[]) => mockOpenIde(...args),
@@ -19,6 +20,10 @@ vi.mock('@/app/actions/open-shell', () => ({
 
 vi.mock('@/app/actions/open-folder', () => ({
   openFolder: (...args: unknown[]) => mockOpenFolder(...args),
+}));
+
+vi.mock('@/app/actions/sync-repository', () => ({
+  syncRepository: (...args: unknown[]) => mockSyncRepository(...args),
 }));
 
 describe('useRepositoryActions', () => {

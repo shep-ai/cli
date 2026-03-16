@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback } from 'react';
-import { Code2, Terminal, FolderOpen } from 'lucide-react';
+import { Code2, Terminal, FolderOpen, RefreshCw } from 'lucide-react';
 import { BaseDrawer } from '@/components/common/base-drawer';
 import { DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
 import { Separator } from '@/components/ui/separator';
@@ -20,7 +20,7 @@ export function RepositoryDrawer({ data, onClose }: RepositoryDrawerProps) {
   }, [onClose]);
 
   const actions = useRepositoryActions(
-    data?.repositoryPath ? { repositoryPath: data.repositoryPath } : null
+    data?.repositoryPath ? { repositoryId: data.id, repositoryPath: data.repositoryPath } : null
   );
 
   return (
@@ -89,6 +89,30 @@ export function RepositoryDrawer({ data, onClose }: RepositoryDrawerProps) {
               />
             </div>
           </div>
+          {data.id ? (
+            <>
+              <Separator />
+              <div className="flex flex-col gap-3 p-4">
+                <div className="text-muted-foreground text-xs font-semibold tracking-wider">
+                  GIT OPERATIONS
+                </div>
+                <div className="flex flex-col gap-2">
+                  <ActionButton
+                    label="Sync Main"
+                    onClick={actions.syncMain}
+                    loading={actions.syncLoading}
+                    error={!!actions.syncError}
+                    icon={RefreshCw}
+                    variant="outline"
+                    size="sm"
+                  />
+                  {actions.syncError ? (
+                    <p className="text-destructive text-xs">{actions.syncError}</p>
+                  ) : null}
+                </div>
+              </div>
+            </>
+          ) : null}
         </>
       ) : null}
     </BaseDrawer>

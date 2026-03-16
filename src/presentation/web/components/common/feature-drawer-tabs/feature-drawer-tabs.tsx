@@ -112,6 +112,11 @@ export interface FeatureDrawerTabsProps {
   onMergeReject?: (feedback: string, attachments: RejectAttachment[]) => void;
   isMergeLoading?: boolean;
 
+  // Rebase
+  onRebaseOnMain?: () => void;
+  rebaseLoading?: boolean;
+  rebaseError?: string | null;
+
   // Shared
   isRejecting?: boolean;
   chatInput?: string;
@@ -160,6 +165,9 @@ export function FeatureDrawerTabs({
   onMergeApprove,
   onMergeReject,
   isMergeLoading,
+  onRebaseOnMain,
+  rebaseLoading,
+  rebaseError,
   isRejecting,
   chatInput,
   onChatInputChange,
@@ -381,7 +389,12 @@ export function FeatureDrawerTabs({
         </div>
 
         <TabsContent value="overview" className="mt-0 flex-1 overflow-y-auto">
-          <OverviewTab data={featureNode} />
+          <OverviewTab
+            data={featureNode}
+            onRebaseOnMain={onRebaseOnMain}
+            rebaseLoading={rebaseLoading}
+            rebaseError={rebaseError}
+          />
         </TabsContent>
 
         <TabsContent value="activity" className="mt-0 flex-1 overflow-y-auto">

@@ -417,6 +417,7 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
   const featureActionsInput =
     featureNode?.repositoryPath && featureNode?.branch
       ? {
+          featureId: featureNode.featureId,
           repositoryPath: featureNode.repositoryPath,
           branch: featureNode.branch,
           specPath: featureNode.specPath,
@@ -610,6 +611,9 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
         onMergeApprove={handleMergeApprove}
         onMergeReject={handleMergeReject}
         isMergeLoading={isLoadingMerge}
+        onRebaseOnMain={featureActions.rebaseOnMain}
+        rebaseLoading={featureActions.rebaseLoading}
+        rebaseError={featureActions.rebaseError}
         isRejecting={isRejecting}
         chatInput={chatInput}
         onChatInputChange={setChatInput}

@@ -8,6 +8,7 @@ import {
   FileSearch,
   GitBranch,
   GitCommitHorizontal,
+  GitMerge,
   RotateCcw,
   ShieldCheck,
   Square,
@@ -21,6 +22,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { CiStatusBadge } from '@/components/common/ci-status-badge';
 import { CometSpinner } from '@/components/ui/comet-spinner';
+import { ActionButton } from '@/components/common/action-button';
 import { featureNodeStateConfig, lifecycleDisplayLabels } from '@/components/common/feature-node';
 import type { FeatureNodeData } from '@/components/common/feature-node';
 import {
@@ -32,9 +34,17 @@ import { formatDuration } from '@/lib/format-duration';
 
 export interface OverviewTabProps {
   data: FeatureNodeData;
+  onRebaseOnMain?: () => void;
+  rebaseLoading?: boolean;
+  rebaseError?: string | null;
 }
 
-export function OverviewTab({ data }: OverviewTabProps) {
+export function OverviewTab({
+  data,
+  onRebaseOnMain,
+  rebaseLoading,
+  rebaseError,
+}: OverviewTabProps) {
   const isCompleted = data.lifecycle === 'maintain';
   return (
     <>
@@ -94,6 +104,13 @@ export function OverviewTab({ data }: OverviewTabProps) {
         </>
       ) : null}
       <FeatureDetails data={data} />
+      {onRebaseOnMain && data.branch ? (
+        <FeatureGitOperations
+          onRebaseOnMain={onRebaseOnMain}
+          rebaseLoading={rebaseLoading}
+          rebaseError={rebaseError}
+        />
+      ) : null}
       <FeatureSettings data={data} />
     </>
   );
@@ -329,6 +346,41 @@ function AgentDetailRow({ agentType }: { agentType: string }) {
         {label}
       </span>
     </div>
+  );
+}
+
+// ── Git Operations section ───────────────────────────────────────────
+
+function FeatureGitOperations({
+  onRebaseOnMain,
+  rebaseLoading,
+  rebaseError,
+}: {
+  onRebaseOnMain: () => void;
+  rebaseLoading?: boolean;
+  rebaseError?: string | null;
+}) {
+  return (
+    <>
+      <Separator />
+      <div data-testid="feature-drawer-git-operations" className="flex flex-col gap-3 p-4">
+        <div className="text-muted-foreground text-xs font-semibold tracking-wider">
+          GIT OPERATIONS
+        </div>
+        <div className="flex flex-col gap-2">
+          <ActionButton
+            label="Rebase on Main"
+            onClick={onRebaseOnMain}
+            loading={rebaseLoading ?? false}
+            error={!!rebaseError}
+            icon={GitMerge}
+            variant="outline"
+            size="sm"
+          />
+          {rebaseError ? <p className="text-destructive text-xs">{rebaseError}</p> : null}
+        </div>
+      </div>
+    </>
   );
 }
 
