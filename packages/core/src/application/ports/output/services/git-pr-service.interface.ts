@@ -11,15 +11,17 @@ import type { PrStatus } from '../../../../domain/generated/output.js';
  * Error codes for git PR operations.
  */
 export enum GitPrErrorCode {
-  MERGE_CONFLICT = 'MERGE_CONFLICT',
   AUTH_FAILURE = 'AUTH_FAILURE',
-  GH_NOT_FOUND = 'GH_NOT_FOUND',
-  NETWORK_ERROR = 'NETWORK_ERROR',
-  CI_TIMEOUT = 'CI_TIMEOUT',
   BRANCH_NOT_FOUND = 'BRANCH_NOT_FOUND',
+  CI_TIMEOUT = 'CI_TIMEOUT',
+  GH_NOT_FOUND = 'GH_NOT_FOUND',
   GIT_ERROR = 'GIT_ERROR',
+  MERGE_CONFLICT = 'MERGE_CONFLICT',
   MERGE_FAILED = 'MERGE_FAILED',
+  NETWORK_ERROR = 'NETWORK_ERROR',
   PR_NOT_FOUND = 'PR_NOT_FOUND',
+  REBASE_CONFLICT = 'REBASE_CONFLICT',
+  SYNC_FAILED = 'SYNC_FAILED',
 }
 
 /**
@@ -374,4 +376,73 @@ export interface IGitPrService {
    * @throws GitPrError with GH_NOT_FOUND or GIT_ERROR code on failure
    */
   getFailureLogs(cwd: string, runId: string, branch: string, logMaxChars?: number): Promise<string>;
+
+  // --- Rebase & Sync operations ---
+
+  /**
+   * Fast-forward the local base branch to match its remote counterpart.
+   * If currently on the base branch, uses `git pull --ff-only`.
+   * If on a different branch, uses `git fetch origin <baseBranch>:<baseBranch>`.
+   *
+   * @param cwd - Working directory path
+   * @param baseBranch - The base branch to sync (e.g. "main")
+   * @throws GitPrError with SYNC_FAILED code if the branch has diverged and cannot fast-forward
+   * @throws GitPrError with GIT_ERROR code on other git failures
+   */
+  syncMain(cwd: string, baseBranch: string): Promise<void>;
+
+  /**
+   * Rebase the feature branch onto the latest base branch.
+   * Checks for dirty worktree before starting. Detects conflict state
+   * from git exit code and stderr — throws REBASE_CONFLICT if conflicts
+   * are encountered (caller is responsible for resolution or abort).
+   *
+   * @param cwd - Working directory path
+   * @param featureBranch - The feature branch to rebase
+   * @param baseBranch - The base branch to rebase onto
+   * @throws GitPrError with GIT_ERROR code if the worktree is dirty
+   * @throws GitPrError with REBASE_CONFLICT code if conflicts are detected
+   * @throws GitPrError with BRANCH_NOT_FOUND code if a branch does not exist
+   */
+  rebaseOnMain(cwd: string, featureBranch: string, baseBranch: string): Promise<void>;
+
+  /**
+   * Get the list of files with unresolved conflicts (unmerged paths).
+   * Uses `git diff --name-only --diff-filter=U` to identify conflicted files.
+   *
+   * @param cwd - Working directory path
+   * @returns Array of file paths with unresolved conflicts
+   * @throws GitPrError with GIT_ERROR code on failure
+   */
+  getConflictedFiles(cwd: string): Promise<string[]>;
+
+  /**
+   * Stage specific files in the working directory.
+   * Uses `git add` for the specified file paths.
+   *
+   * @param cwd - Working directory path
+   * @param files - Array of file paths to stage
+   * @throws GitPrError with GIT_ERROR code on failure
+   */
+  stageFiles(cwd: string, files: string[]): Promise<void>;
+
+  /**
+   * Continue an in-progress rebase after conflicts have been resolved.
+   * Runs `git rebase --continue`. May throw REBASE_CONFLICT if the next
+   * commit in the rebase also has conflicts.
+   *
+   * @param cwd - Working directory path
+   * @throws GitPrError with REBASE_CONFLICT code if new conflicts are detected
+   * @throws GitPrError with GIT_ERROR code on other git failures
+   */
+  rebaseContinue(cwd: string): Promise<void>;
+
+  /**
+   * Abort an in-progress rebase, restoring the branch to its pre-rebase state.
+   * Runs `git rebase --abort`.
+   *
+   * @param cwd - Working directory path
+   * @throws GitPrError with GIT_ERROR code on failure
+   */
+  rebaseAbort(cwd: string): Promise<void>;
 }

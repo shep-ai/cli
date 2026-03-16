@@ -765,4 +765,30 @@ export class GitPrService implements IGitPrService {
       commitCount,
     };
   }
+
+  // --- Rebase & Sync operations (stubs — implemented in phase 2) ---
+
+  async syncMain(_cwd: string, _baseBranch: string): Promise<void> {
+    throw new Error('Not implemented — see phase 2');
+  }
+
+  async rebaseOnMain(_cwd: string, _featureBranch: string, _baseBranch: string): Promise<void> {
+    throw new Error('Not implemented — see phase 2');
+  }
+
+  async getConflictedFiles(_cwd: string): Promise<string[]> {
+    throw new Error('Not implemented — see phase 2');
+  }
+
+  async stageFiles(_cwd: string, _files: string[]): Promise<void> {
+    throw new Error('Not implemented — see phase 2');
+  }
+
+  async rebaseContinue(_cwd: string): Promise<void> {
+    throw new Error('Not implemented — see phase 2');
+  }
+
+  async rebaseAbort(_cwd: string): Promise<void> {
+    throw new Error('Not implemented — see phase 2');
+  }
 }
