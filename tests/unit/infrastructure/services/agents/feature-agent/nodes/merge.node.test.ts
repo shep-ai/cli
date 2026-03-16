@@ -165,6 +165,7 @@ function baseDeps(overrides?: Partial<MergeNodeDeps>): MergeNodeDeps {
     featureRepository: createMockFeatureRepo(),
     verifyMerge: vi.fn().mockResolvedValue(true),
     revParse: vi.fn().mockResolvedValue('premerge-sha-abc'),
+    commitAll: vi.fn().mockResolvedValue('mock-commit-hash'),
     localMergeSquash: vi.fn().mockResolvedValue(undefined),
     gitPrService: {
       getCiStatus: vi.fn().mockResolvedValue({ status: 'success', runUrl: null }),

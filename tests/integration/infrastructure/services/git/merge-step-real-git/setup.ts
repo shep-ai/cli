@@ -248,6 +248,7 @@ export function buildDeps(opts: BuildDepsOptions = {}): BuiltDeps {
     featureRepository,
     verifyMerge: (cwd, fb, bb, pre) => gitPrService.verifyMerge(cwd, fb, bb, pre),
     revParse: (cwd, ref) => gitPrService.revParse(cwd, ref),
+    commitAll: async () => 'mock-commit-hash',
     localMergeSquash: (cwd, featureBranch, baseBranch, commitMessage, hasRemote) =>
       gitPrService.localMergeSquash(cwd, featureBranch, baseBranch, commitMessage, hasRemote),
     gitPrService,

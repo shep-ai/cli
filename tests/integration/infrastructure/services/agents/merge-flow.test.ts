@@ -146,6 +146,7 @@ describe('Merge Flow (Graph-level)', () => {
         getDefaultBranch: vi.fn().mockResolvedValue('main'),
         verifyMerge: vi.fn().mockResolvedValue(true),
         revParse: vi.fn().mockResolvedValue('premerge-sha-mock'),
+        commitAll: vi.fn().mockResolvedValue('mock-commit-hash'),
         localMergeSquash: vi.fn().mockResolvedValue(undefined),
         featureRepository: featureRepo,
         gitPrService: createMockGitPrService(),
