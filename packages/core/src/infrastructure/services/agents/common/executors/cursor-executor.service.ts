@@ -117,8 +117,20 @@ export class CursorExecutorService implements IAgentExecutor {
       const heartbeatId = setInterval(() => {
         const elapsed = Math.round((Date.now() - startTime) / 1000);
         const silenceMs = Date.now() - lastOutputAt;
+
+        // Check if child process is actually alive (proc.killed only reflects OUR kills)
+        let processAlive = false;
+        if (proc.pid) {
+          try {
+            process.kill(proc.pid, 0); // signal 0 = check existence
+            processAlive = true;
+          } catch {
+            processAlive = false;
+          }
+        }
+
         this.log(
-          `[diag] heartbeat ${elapsed}s: stdout_chunks=${stdoutChunks}, stderr_chunks=${stderrChunks}, silence=${Math.round(silenceMs / 1000)}s, pid_killed=${proc.killed}`
+          `[diag] heartbeat ${elapsed}s: stdout=${stdoutChunks}, stderr=${stderrChunks}, silence=${Math.round(silenceMs / 1000)}s, alive=${processAlive}, pid=${proc.pid}`
         );
 
         // Kill if zero output for too long
@@ -586,16 +598,26 @@ export class CursorExecutorService implements IAgentExecutor {
 
         this.log(`Windows direct mode: ${resolved.nodePath}`);
         this.log(
+          `[diag] node.exe exists: ${existsSync(resolved.nodePath)}, index.js exists: ${existsSync(resolved.indexPath)}`
+        );
+        this.log(
+          `[diag] cwd: ${cwd ?? '(inherited)'}, cwd exists: ${cwd ? existsSync(cwd) : 'n/a'}`
+        );
+        this.log(
           `Args: ${directArgs.map((a) => (a.length > 80 ? `${a.slice(0, 77)}...` : a)).join(' ')}`
         );
 
+        const spawnEnv = this.buildEnv({ CURSOR_INVOKED_AS: 'agent' });
         const proc = this.spawn(resolved.nodePath, directArgs, {
           cwd,
           stdio: ['pipe', 'pipe', 'pipe'],
           windowsHide: true,
-          env: this.buildEnv({ CURSOR_INVOKED_AS: 'agent' }),
+          env: spawnEnv,
         });
         this.log(`Direct PID: ${proc.pid ?? 'undefined (spawn may have failed)'}`);
+        if (!proc.pid) {
+          this.log(`[diag] WARNING: spawn returned no PID — process may not have started`);
+        }
         if (proc.stdin) proc.stdin.end();
 
         return { proc, tmpFile: undefined };
