@@ -504,6 +504,11 @@ export function executeNode(
       await recordPhaseEnd(timingId, durationMs, {
         inputTokens: result.usage?.inputTokens,
         outputTokens: result.usage?.outputTokens,
+        cacheCreationInputTokens: result.usage?.cacheCreationInputTokens,
+        cacheReadInputTokens: result.usage?.cacheReadInputTokens,
+        costUsd: result.usage?.costUsd,
+        numTurns: result.usage?.numTurns,
+        durationApiMs: result.usage?.durationApiMs,
         exitCode: 'success',
       });
 

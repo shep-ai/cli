@@ -1,0 +1,57 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-ui-evidence-app-proof
+
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > parseEvidenceRecords > should extract valid Evidence[] from agent output with JSON block 1ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > parseEvidenceRecords > should return empty array when no JSON block found 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > parseEvidenceRecords > should return empty array on malformed JSON 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > parseEvidenceRecords > should filter records missing required fields 1ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > parseEvidenceRecords > should filter records with path traversal in relativePath 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > parseEvidenceRecords > should handle mixed valid and invalid records 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > parseEvidenceRecords > should handle empty JSON array 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > parseEvidenceRecords > should return empty array for empty string 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > parseEvidenceRecords > should return empty array when JSON is not an array 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > parseEvidenceRecords > should handle all valid EvidenceType values 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > validateUiEvidenceHasAppProof > should return valid when evidence has app-level screenshots 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > validateUiEvidenceHasAppProof > should return invalid when evidence has only storybook screenshots 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > validateUiEvidenceHasAppProof > should return valid when evidence has both app and storybook screenshots 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > validateUiEvidenceHasAppProof > should return valid with no warnings when no screenshots exist 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > validateUiEvidenceHasAppProof > should return valid with no warnings for empty evidence array 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > validateUiEvidenceHasAppProof > should detect storybook in relativePath even without description match 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > validateUiEvidenceHasAppProof > should detect storybook via "story" keyword in description 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > validateUiEvidenceHasAppProof > should detect storybook via port 6006 in description 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > validateUiEvidenceHasAppProof > should treat screenshots without storybook keywords as app evidence 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > validateUiEvidenceHasAppProof > should treat Video type as visual evidence for validation 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > validateUiEvidenceHasAppProof > should treat app-prefixed descriptions as app evidence 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > validateUiEvidenceHasAppProof > should treat "dev server" descriptions as app evidence 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > validateUiEvidenceHasAppProof > should detect "stories" keyword as storybook evidence 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > agent executor calls > should call executor.execute with evidence prompt 2ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > agent executor calls > should pass executor options from buildExecutorOptions 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > evidence parsing > should parse evidence records from executor result 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > evidence parsing > should return evidence array in state update 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > evidence parsing > should return empty evidence array when parser returns empty 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > state update > should return currentNode as evidence 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > state update > should return messages array with completion message 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > state update > should include evidence count in completion message 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > graceful degradation > should return empty evidence when parseEvidenceRecords throws 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > graceful degradation > should still mark phase complete when parsing fails 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > graceful degradation > should include warning message when parsing fails 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > resume support > should skip execution when evidence phase already in completedPhases 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > resume support > should return skip message when already completed 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > resume support > should execute normally when other phases are completed but not evidence 1ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > phase completion marking > should mark evidence phase complete after successful execution 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > phase completion marking > should record phase timing start and end 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > error handling > should re-throw GraphBubbleUp errors 1ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > error handling > should throw on non-retryable executor errors 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > error handling > should record phase timing even when executor fails 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > error handling > should NOT mark phase complete when executor fails 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > ui evidence app-level proof validation > should call validateUiEvidenceHasAppProof with parsed evidence 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > ui evidence app-level proof validation > should include validation warnings in messages when storybook-only evidence detected 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > ui evidence app-level proof validation > should not include validation warnings when app-level evidence is present 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > ui evidence app-level proof validation > should still return evidence even when validation warns about storybook-only 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > no approval gate > should not import or use interrupt (evidence always runs automatically) 0ms
+
+ Test Files  2 passed (2)
+      Tests  48 passed (48)
+   Start at  14:04:16
+   Duration  162ms (transform 111ms, setup 0ms, import 145ms, tests 12ms, environment 0ms)
+

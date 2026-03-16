@@ -14,6 +14,7 @@ import type {
   IAgentExecutor,
   AgentExecutionOptions,
   AgentExecutionResult,
+  AgentExecutionUsage,
   AgentExecutionStreamEvent,
 } from '../../../../../application/ports/output/agents/agent-executor.interface.js';
 import type { SpawnFunction } from '../types.js';
@@ -98,18 +99,9 @@ export class ClaudeCodeExecutorService implements IAgentExecutor {
           if (parsed.type === 'result') {
             resultText = parsed.result ?? '';
             if (parsed.session_id) sessionId = parsed.session_id;
-            if (parsed.input_tokens !== undefined && parsed.output_tokens !== undefined) {
-              usage = { inputTokens: parsed.input_tokens, outputTokens: parsed.output_tokens };
-            }
+            usage = this.extractUsage(parsed);
 
-            const {
-              type: _t,
-              result: _r,
-              session_id: _s,
-              input_tokens: _it,
-              output_tokens: _ot,
-              ...rest
-            } = parsed;
+            const { type: _t, result: _r, session_id: _s, usage: _u, ...rest } = parsed;
             if (Object.keys(rest).length > 0) metadata = rest;
           }
         } catch {
@@ -298,8 +290,15 @@ export class ClaudeCodeExecutorService implements IAgentExecutor {
         this.log(
           `[result] ${(parsed.result ?? '').length} chars, session=${parsed.session_id ?? 'none'}`
         );
-        if (parsed.input_tokens != null) {
-          this.log(`[tokens] ${parsed.input_tokens} in / ${parsed.output_tokens} out`);
+        const u = parsed.usage;
+        if (u) {
+          const inTokens =
+            (u.input_tokens ?? 0) +
+            (u.cache_creation_input_tokens ?? 0) +
+            (u.cache_read_input_tokens ?? 0);
+          const costStr =
+            parsed.total_cost_usd != null ? `, $${Number(parsed.total_cost_usd).toFixed(4)}` : '';
+          this.log(`[tokens] ${inTokens} in / ${u.output_tokens ?? 0} out${costStr}`);
         }
         return;
       }
@@ -378,15 +377,11 @@ export class ClaudeCodeExecutorService implements IAgentExecutor {
         result.sessionId = parsed.session_id;
       }
 
-      if (parsed.input_tokens !== undefined && parsed.output_tokens !== undefined) {
-        result.usage = {
-          inputTokens: parsed.input_tokens,
-          outputTokens: parsed.output_tokens,
-        };
-      }
+      const usage = this.extractUsage(parsed);
+      if (usage) result.usage = usage;
 
       // Store additional metadata
-      const { result: _r, session_id: _s, input_tokens: _it, output_tokens: _ot, ...rest } = parsed;
+      const { result: _r, session_id: _s, usage: _u, ...rest } = parsed;
       if (Object.keys(rest).length > 0) {
         result.metadata = rest;
       }
@@ -396,6 +391,31 @@ export class ClaudeCodeExecutorService implements IAgentExecutor {
       // If stdout is not valid JSON, treat it as raw text result
       return { result: trimmed };
     }
+  }
+
+  /**
+   * Extract token usage and execution stats from a Claude Code CLI result object.
+   * Tokens live inside `parsed.usage`; cost/turns/apiDuration at the top level.
+   */
+  private extractUsage(parsed: Record<string, unknown>): AgentExecutionUsage | undefined {
+    const u = parsed.usage as Record<string, number> | undefined;
+    if (u?.output_tokens === undefined) return undefined;
+
+    const cacheCreation = u.cache_creation_input_tokens ?? 0;
+    const cacheRead = u.cache_read_input_tokens ?? 0;
+    const inputTokens = (u.input_tokens ?? 0) + cacheCreation + cacheRead;
+
+    const usage: AgentExecutionUsage = { inputTokens, outputTokens: u.output_tokens };
+
+    if (cacheCreation > 0) usage.cacheCreationInputTokens = cacheCreation;
+    if (cacheRead > 0) usage.cacheReadInputTokens = cacheRead;
+
+    // Top-level fields from the result object
+    if (typeof parsed.total_cost_usd === 'number') usage.costUsd = parsed.total_cost_usd;
+    if (typeof parsed.num_turns === 'number') usage.numTurns = parsed.num_turns;
+    if (typeof parsed.duration_api_ms === 'number') usage.durationApiMs = parsed.duration_api_ms;
+
+    return usage;
   }
 
   private parseStreamLine(line: string): AgentExecutionStreamEvent | null {

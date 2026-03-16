@@ -10,13 +10,20 @@
  * dependency, returns async (state) => Partial<FeatureAgentState>.
  */
 
+import { execSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { isGraphBubbleUp } from '@langchain/langgraph';
 import type { IAgentExecutor } from '@/application/ports/output/agents/agent-executor.interface.js';
 import type { Evidence } from '@/domain/generated/output.js';
 import type { FeatureAgentState } from '../state.js';
-import { createNodeLogger, buildExecutorOptions, retryExecute } from './node-helpers.js';
+import {
+  createNodeLogger,
+  buildExecutorOptions,
+  retryExecute,
+  getCompletedPhases,
+  markPhaseComplete,
+} from './node-helpers.js';
 import { reportNodeStart } from '../heartbeat.js';
 import { recordPhaseStart, recordPhaseEnd } from '../phase-timing-context.js';
 import { updateNodeLifecycle } from '../lifecycle-context.js';
@@ -40,6 +47,17 @@ export function createFastImplementNode(executor: IAgentExecutor) {
     reportNodeStart('fast-implement');
     await updateNodeLifecycle('fast-implement');
 
+    // Skip if already completed (resume from error path)
+    const completedPhases = getCompletedPhases(state.specDir);
+    if (completedPhases.includes('fast-implement')) {
+      log.info('Phase already completed, skipping execution');
+      return {
+        currentNode: 'fast-implement',
+        messages: ['[fast-implement] already completed — skipping'],
+        _needsReexecution: false,
+      };
+    }
+
     const startTime = Date.now();
     const timingId = await recordPhaseStart('fast-implement');
 
@@ -54,6 +72,14 @@ export function createFastImplementNode(executor: IAgentExecutor) {
       const elapsed = (durationMs / 1000).toFixed(1);
       log.info(`Complete (${result.result.length} chars, ${elapsed}s)`);
 
+      // Validate that the executor actually produced file changes
+      const cwd = state.worktreePath || state.repositoryPath;
+      if (!hasWorktreeChanges(cwd)) {
+        throw new Error(
+          '[fast-implement] Agent produced no file changes — it may have entered plan mode or asked questions instead of implementing. Retrying.'
+        );
+      }
+
       // --- Evidence sub-agent: capture proof of completion (settings-gated) ---
       const evidenceEnabled = hasSettings() && getSettings().workflow.enableEvidence;
       const evidence = evidenceEnabled ? await collectEvidence(executor, state, log) : [];
@@ -62,6 +88,9 @@ export function createFastImplementNode(executor: IAgentExecutor) {
       }
 
       await recordPhaseEnd(timingId, durationMs);
+
+      // Mark phase complete so resume from error skips re-execution
+      markPhaseComplete(state.specDir, 'fast-implement', log);
 
       return {
         currentNode: 'fast-implement',
@@ -122,6 +151,21 @@ async function collectEvidence(
     const msg = err instanceof Error ? err.message : String(err);
     log.error(`Evidence collection failed: ${msg} — continuing without evidence`);
     return [];
+  }
+}
+
+/**
+ * Check whether the worktree has any uncommitted changes (new, modified, or deleted files).
+ * Uses `git status --porcelain` which outputs one line per changed file, or empty if clean.
+ * Returns false if the git command fails (e.g. not a git repo).
+ */
+function hasWorktreeChanges(cwd: string): boolean {
+  try {
+    const output = execSync('git status --porcelain', { cwd, encoding: 'utf-8' });
+    return output.trim().length > 0;
+  } catch {
+    // If git command fails, assume no changes (conservative — will trigger the error)
+    return false;
   }
 }
 

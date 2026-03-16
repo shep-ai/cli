@@ -19,6 +19,16 @@ describe('createQuestionSelectConfig', () => {
     expect(config.message).toBe('Which approach?');
   });
 
+  it('should prefix message with question number when provided', () => {
+    const config = createQuestionSelectConfig('Which approach?', options, undefined, 2, 5);
+    expect(config.message).toBe('[2/5] Which approach?');
+  });
+
+  it('should not prefix message when question number is not provided', () => {
+    const config = createQuestionSelectConfig('Which approach?', options, 'Option A');
+    expect(config.message).toBe('Which approach?');
+  });
+
   it('should map options to choices with name, value, description', () => {
     const config = createQuestionSelectConfig('Which approach?', options);
     expect(config.choices).toEqual([

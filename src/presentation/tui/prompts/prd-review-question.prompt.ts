@@ -14,7 +14,9 @@ import type { QuestionOption } from '@/domain/generated/output.js';
 export function createQuestionSelectConfig(
   question: string,
   options: QuestionOption[],
-  currentAnswer?: string
+  currentAnswer?: string,
+  questionNumber?: number,
+  totalQuestions?: number
 ) {
   const choices = options.map((opt) => ({
     name: opt.option,
@@ -22,8 +24,13 @@ export function createQuestionSelectConfig(
     description: opt.description,
   }));
 
+  const prefix =
+    questionNumber != null && totalQuestions != null
+      ? `[${questionNumber}/${totalQuestions}] `
+      : '';
+
   return {
-    message: question,
+    message: `${prefix}${question}`,
     choices,
     default: currentAnswer,
     theme: shepTheme,

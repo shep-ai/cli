@@ -14,10 +14,20 @@ import type { FeatureAgentState } from '@/infrastructure/services/agents/feature
 
 // ─── Mocks ──────────────────────────────────────────────────────────
 
-const { mockReadFileSync, mockReaddirSync, mockStatSync } = vi.hoisted(() => ({
+const {
+  mockReadFileSync,
+  mockReaddirSync,
+  mockStatSync,
+  mockExecSync,
+  mockMkdirSync,
+  mockWriteFileSync,
+} = vi.hoisted(() => ({
   mockReadFileSync: vi.fn(),
   mockReaddirSync: vi.fn(),
   mockStatSync: vi.fn(),
+  mockExecSync: vi.fn(),
+  mockMkdirSync: vi.fn(),
+  mockWriteFileSync: vi.fn(),
 }));
 
 vi.mock('node:fs', async (importOriginal) => {
@@ -30,14 +40,43 @@ vi.mock('node:fs', async (importOriginal) => {
       readFileSync: mockReadFileSync,
       readdirSync: mockReaddirSync,
       statSync: mockStatSync,
-      writeFileSync: vi.fn(),
+      mkdirSync: mockMkdirSync,
+      writeFileSync: mockWriteFileSync,
     },
     readFileSync: mockReadFileSync,
     readdirSync: mockReaddirSync,
     statSync: mockStatSync,
-    writeFileSync: vi.fn(),
+    mkdirSync: mockMkdirSync,
+    writeFileSync: mockWriteFileSync,
   };
 });
+
+vi.mock('node:child_process', async (importOriginal) => {
+  // eslint-disable-next-line @typescript-eslint/consistent-type-imports
+  const actual = await importOriginal<typeof import('node:child_process')>();
+  return {
+    ...actual,
+    execSync: mockExecSync,
+  };
+});
+
+// Mock node-helpers (getCompletedPhases / markPhaseComplete)
+const { mockGetCompletedPhases, mockMarkPhaseComplete } = vi.hoisted(() => ({
+  mockGetCompletedPhases: vi.fn().mockReturnValue([]),
+  mockMarkPhaseComplete: vi.fn(),
+}));
+
+vi.mock(
+  '@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js',
+  async (importOriginal) => {
+    const actual = (await importOriginal()) as Record<string, unknown>;
+    return {
+      ...actual,
+      getCompletedPhases: mockGetCompletedPhases,
+      markPhaseComplete: mockMarkPhaseComplete,
+    };
+  }
+);
 
 // Mock heartbeat, lifecycle, and phase-timing contexts (module-level singletons)
 vi.mock('@/infrastructure/services/agents/feature-agent/heartbeat.js', () => ({
@@ -312,6 +351,33 @@ describe('buildFastImplementPrompt', () => {
     expect(prompt).not.toContain('node_modules');
     expect(prompt).not.toContain('.git');
   });
+
+  it('should forbid entering plan mode', () => {
+    setupFileMocks();
+    const state = createMockState();
+
+    const prompt = buildFastImplementPrompt(state);
+
+    expect(prompt.toLowerCase()).toContain('do not enter plan mode');
+  });
+
+  it('should forbid asking user questions', () => {
+    setupFileMocks();
+    const state = createMockState();
+
+    const prompt = buildFastImplementPrompt(state);
+
+    expect(prompt.toLowerCase()).toContain('do not ask');
+  });
+
+  it('should require producing actual code files', () => {
+    setupFileMocks();
+    const state = createMockState();
+
+    const prompt = buildFastImplementPrompt(state);
+
+    expect(prompt.toLowerCase()).toContain('must create or modify');
+  });
 });
 
 describe('createFastImplementNode', () => {
@@ -321,6 +387,11 @@ describe('createFastImplementNode', () => {
     mockReadFileSync.mockReset();
     mockReaddirSync.mockReset();
     mockStatSync.mockReset();
+    mockExecSync.mockReset();
+    // Default: git status reports changes exist (happy path)
+    mockExecSync.mockReturnValue('M  src/index.ts\n');
+    mockGetCompletedPhases.mockReset().mockReturnValue([]);
+    mockMarkPhaseComplete.mockReset();
     mockExecutor = createMockExecutor();
   });
 
@@ -385,5 +456,69 @@ describe('createFastImplementNode', () => {
     const state = createMockState();
 
     await expect(node(state)).rejects.toThrow('Process exited with code 1');
+  });
+
+  it('should throw when executor produces no file changes', async () => {
+    setupFileMocks();
+    // git status --porcelain returns empty string = no changes
+    mockExecSync.mockReturnValue('');
+    const node = createFastImplementNode(mockExecutor);
+    const state = createMockState();
+
+    await expect(node(state)).rejects.toThrow('no file changes');
+  });
+
+  it('should succeed when executor produces file changes', async () => {
+    setupFileMocks();
+    // git status --porcelain returns modified files
+    mockExecSync.mockReturnValue('M  src/index.ts\n?? src/new-file.ts\n');
+    const node = createFastImplementNode(mockExecutor);
+    const state = createMockState();
+
+    const result = await node(state);
+
+    expect(result.currentNode).toBe('fast-implement');
+    expect(result._needsReexecution).toBe(false);
+  });
+
+  it('should skip execution when fast-implement is already in completedPhases', async () => {
+    setupFileMocks();
+    mockGetCompletedPhases.mockReturnValue(['fast-implement']);
+    const node = createFastImplementNode(mockExecutor);
+    const state = createMockState();
+
+    const result = await node(state);
+
+    expect(mockExecutor.execute).not.toHaveBeenCalled();
+    expect(result.currentNode).toBe('fast-implement');
+    expect(result.messages![0]).toContain('already completed');
+  });
+
+  it('should call markPhaseComplete after successful execution', async () => {
+    setupFileMocks();
+    mockGetCompletedPhases.mockReturnValue([]);
+    const node = createFastImplementNode(mockExecutor);
+    const state = createMockState();
+
+    await node(state);
+
+    expect(mockMarkPhaseComplete).toHaveBeenCalledWith(
+      state.specDir,
+      'fast-implement',
+      expect.anything()
+    );
+  });
+
+  it('should NOT call markPhaseComplete when execution fails', async () => {
+    setupFileMocks();
+    mockGetCompletedPhases.mockReturnValue([]);
+    (mockExecutor.execute as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new Error('Process exited with code 1')
+    );
+    const node = createFastImplementNode(mockExecutor);
+    const state = createMockState();
+
+    await expect(node(state)).rejects.toThrow();
+    expect(mockMarkPhaseComplete).not.toHaveBeenCalled();
   });
 });

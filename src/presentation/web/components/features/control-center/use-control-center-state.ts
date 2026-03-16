@@ -15,6 +15,7 @@ import {
 import { deleteFeature } from '@/app/actions/delete-feature';
 import { resumeFeature } from '@/app/actions/resume-feature';
 import { startFeature } from '@/app/actions/start-feature';
+import { stopFeature } from '@/app/actions/stop-feature';
 import { addRepository } from '@/app/actions/add-repository';
 import { deleteRepository } from '@/app/actions/delete-repository';
 import { getFeatureMetadata } from '@/app/actions/get-feature-metadata';
@@ -42,6 +43,7 @@ export interface ControlCenterState {
   handleDeleteFeature: (featureId: string, cleanup?: boolean, cascadeDelete?: boolean) => void;
   handleRetryFeature: (featureId: string) => void;
   handleStartFeature: (featureId: string) => void;
+  handleStopFeature: (featureId: string) => void;
   handleDeleteRepository: (repositoryId: string) => Promise<void>;
   createFeatureNode: (
     sourceNodeId: string | null,
@@ -354,6 +356,26 @@ export function useControlCenterState(
     [updateFeature, beginMutation, endMutation]
   );
 
+  const handleStopFeature = useCallback(
+    (featureId: string) => {
+      beginMutation();
+
+      stopFeature(featureId)
+        .then((result) => {
+          if (result.error) {
+            toast.error(result.error);
+          } else {
+            toast.success('Agent stopped');
+          }
+        })
+        .catch(() => {
+          toast.error('Failed to stop agent');
+        })
+        .finally(() => endMutation());
+    },
+    [beginMutation, endMutation]
+  );
+
   const handleDeleteFeature = useCallback(
     (featureId: string, cleanup?: boolean, cascadeDelete?: boolean) => {
       const nodeId = `feat-${featureId}`;
@@ -559,6 +581,7 @@ export function useControlCenterState(
     handleDeleteFeature,
     handleRetryFeature,
     handleStartFeature,
+    handleStopFeature,
     handleDeleteRepository,
     createFeatureNode,
     getFeatureRepositoryPath,

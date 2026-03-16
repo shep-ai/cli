@@ -33,7 +33,17 @@ export interface IPhaseTimingRepository {
     updates: Partial<
       Pick<
         PhaseTiming,
-        'completedAt' | 'durationMs' | 'inputTokens' | 'outputTokens' | 'exitCode' | 'errorMessage'
+        | 'completedAt'
+        | 'durationMs'
+        | 'inputTokens'
+        | 'outputTokens'
+        | 'cacheCreationInputTokens'
+        | 'cacheReadInputTokens'
+        | 'costUsd'
+        | 'numTurns'
+        | 'durationApiMs'
+        | 'exitCode'
+        | 'errorMessage'
       >
     >
   ): Promise<void>;

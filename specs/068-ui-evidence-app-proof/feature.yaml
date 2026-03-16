@@ -1,0 +1,36 @@
+feature:
+  id: '068-ui-evidence-app-proof'
+  name: 'ui-evidence-app-proof'
+  number: 68
+  branch: 'feat/068-ui-evidence-app-proof'
+  lifecycle: 'research'
+  createdAt: '2026-03-16T11:52:56Z'
+
+status:
+  phase: 'research'
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-03-16T11:52:56Z'
+  lastUpdatedBy: 'feature-agent'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-03-16T11:52:56Z'
+    completedBy: 'feature-agent'
+
+errors:
+  current: null
+  history: []

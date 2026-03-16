@@ -117,6 +117,11 @@ export async function recordPhaseStart(
 export interface PhaseEndMetadata {
   inputTokens?: number;
   outputTokens?: number;
+  cacheCreationInputTokens?: number;
+  cacheReadInputTokens?: number;
+  costUsd?: number;
+  numTurns?: number;
+  durationApiMs?: number;
   exitCode?: string;
   errorMessage?: string;
 }
@@ -139,6 +144,15 @@ export async function recordPhaseEnd(
       durationMs: BigInt(durationMs),
       ...(metadata?.inputTokens != null && { inputTokens: BigInt(metadata.inputTokens) }),
       ...(metadata?.outputTokens != null && { outputTokens: BigInt(metadata.outputTokens) }),
+      ...(metadata?.cacheCreationInputTokens != null && {
+        cacheCreationInputTokens: BigInt(metadata.cacheCreationInputTokens),
+      }),
+      ...(metadata?.cacheReadInputTokens != null && {
+        cacheReadInputTokens: BigInt(metadata.cacheReadInputTokens),
+      }),
+      ...(metadata?.costUsd != null && { costUsd: metadata.costUsd }),
+      ...(metadata?.numTurns != null && { numTurns: metadata.numTurns }),
+      ...(metadata?.durationApiMs != null && { durationApiMs: BigInt(metadata.durationApiMs) }),
       ...(metadata?.exitCode != null && { exitCode: metadata.exitCode }),
       ...(metadata?.errorMessage != null && { errorMessage: metadata.errorMessage }),
     });
