@@ -27,6 +27,11 @@ interface PhaseTimingRow {
   agent_type: string | null;
   input_tokens: number | null;
   output_tokens: number | null;
+  cache_creation_input_tokens: number | null;
+  cache_read_input_tokens: number | null;
+  cost_usd: number | null;
+  num_turns: number | null;
+  duration_api_ms: number | null;
   exit_code: string | null;
   error_message: string | null;
   created_at: number;
@@ -49,6 +54,13 @@ function toDatabase(timing: PhaseTiming): PhaseTimingRow {
     agent_type: timing.agentType ?? null,
     input_tokens: timing.inputTokens != null ? Number(timing.inputTokens) : null,
     output_tokens: timing.outputTokens != null ? Number(timing.outputTokens) : null,
+    cache_creation_input_tokens:
+      timing.cacheCreationInputTokens != null ? Number(timing.cacheCreationInputTokens) : null,
+    cache_read_input_tokens:
+      timing.cacheReadInputTokens != null ? Number(timing.cacheReadInputTokens) : null,
+    cost_usd: timing.costUsd != null ? Number(timing.costUsd) : null,
+    num_turns: timing.numTurns ?? null,
+    duration_api_ms: timing.durationApiMs != null ? Number(timing.durationApiMs) : null,
     exit_code: timing.exitCode ?? null,
     error_message: timing.errorMessage ?? null,
     created_at: timing.createdAt instanceof Date ? timing.createdAt.getTime() : timing.createdAt,
@@ -75,6 +87,15 @@ function fromDatabase(row: PhaseTimingRow): PhaseTiming {
     ...(row.agent_type !== null && { agentType: row.agent_type }),
     ...(row.input_tokens !== null && { inputTokens: BigInt(row.input_tokens) }),
     ...(row.output_tokens !== null && { outputTokens: BigInt(row.output_tokens) }),
+    ...(row.cache_creation_input_tokens !== null && {
+      cacheCreationInputTokens: BigInt(row.cache_creation_input_tokens),
+    }),
+    ...(row.cache_read_input_tokens !== null && {
+      cacheReadInputTokens: BigInt(row.cache_read_input_tokens),
+    }),
+    ...(row.cost_usd !== null && { costUsd: row.cost_usd }),
+    ...(row.num_turns !== null && { numTurns: row.num_turns }),
+    ...(row.duration_api_ms !== null && { durationApiMs: BigInt(row.duration_api_ms) }),
     ...(row.exit_code !== null && { exitCode: row.exit_code }),
     ...(row.error_message !== null && { errorMessage: row.error_message }),
   };
@@ -94,12 +115,18 @@ export class SQLitePhaseTimingRepository implements IPhaseTimingRepository {
       INSERT INTO phase_timings (
         id, agent_run_id, phase, started_at, completed_at, duration_ms,
         waiting_approval_at, approval_wait_ms,
-        prompt, model_id, agent_type, input_tokens, output_tokens, exit_code, error_message,
+        prompt, model_id, agent_type, input_tokens, output_tokens,
+        cache_creation_input_tokens, cache_read_input_tokens,
+        cost_usd, num_turns, duration_api_ms,
+        exit_code, error_message,
         created_at, updated_at
       ) VALUES (
         @id, @agent_run_id, @phase, @started_at, @completed_at, @duration_ms,
         @waiting_approval_at, @approval_wait_ms,
-        @prompt, @model_id, @agent_type, @input_tokens, @output_tokens, @exit_code, @error_message,
+        @prompt, @model_id, @agent_type, @input_tokens, @output_tokens,
+        @cache_creation_input_tokens, @cache_read_input_tokens,
+        @cost_usd, @num_turns, @duration_api_ms,
+        @exit_code, @error_message,
         @created_at, @updated_at
       )
     `);
@@ -112,7 +139,17 @@ export class SQLitePhaseTimingRepository implements IPhaseTimingRepository {
     updates: Partial<
       Pick<
         PhaseTiming,
-        'completedAt' | 'durationMs' | 'inputTokens' | 'outputTokens' | 'exitCode' | 'errorMessage'
+        | 'completedAt'
+        | 'durationMs'
+        | 'inputTokens'
+        | 'outputTokens'
+        | 'cacheCreationInputTokens'
+        | 'cacheReadInputTokens'
+        | 'costUsd'
+        | 'numTurns'
+        | 'durationApiMs'
+        | 'exitCode'
+        | 'errorMessage'
       >
     >
   ): Promise<void> {
@@ -141,6 +178,31 @@ export class SQLitePhaseTimingRepository implements IPhaseTimingRepository {
     if (updates.outputTokens !== undefined) {
       setClauses.push('output_tokens = @output_tokens');
       params.output_tokens = Number(updates.outputTokens);
+    }
+
+    if (updates.cacheCreationInputTokens !== undefined) {
+      setClauses.push('cache_creation_input_tokens = @cache_creation_input_tokens');
+      params.cache_creation_input_tokens = Number(updates.cacheCreationInputTokens);
+    }
+
+    if (updates.cacheReadInputTokens !== undefined) {
+      setClauses.push('cache_read_input_tokens = @cache_read_input_tokens');
+      params.cache_read_input_tokens = Number(updates.cacheReadInputTokens);
+    }
+
+    if (updates.costUsd !== undefined) {
+      setClauses.push('cost_usd = @cost_usd');
+      params.cost_usd = Number(updates.costUsd);
+    }
+
+    if (updates.numTurns !== undefined) {
+      setClauses.push('num_turns = @num_turns');
+      params.num_turns = updates.numTurns;
+    }
+
+    if (updates.durationApiMs !== undefined) {
+      setClauses.push('duration_api_ms = @duration_api_ms');
+      params.duration_api_ms = Number(updates.durationApiMs);
     }
 
     if (updates.exitCode !== undefined) {

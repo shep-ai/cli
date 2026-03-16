@@ -14,6 +14,11 @@ export interface PhaseTimingData {
   approvalWaitMs?: number;
   inputTokens?: number;
   outputTokens?: number;
+  cacheCreationInputTokens?: number;
+  cacheReadInputTokens?: number;
+  costUsd?: number;
+  numTurns?: number;
+  durationApiMs?: number;
 }
 
 export interface RejectionFeedbackData {
@@ -47,6 +52,13 @@ export async function getFeaturePhaseTimings(featureId: string): Promise<GetPhas
       approvalWaitMs: t.approvalWaitMs != null ? Number(t.approvalWaitMs) : undefined,
       inputTokens: t.inputTokens != null ? Number(t.inputTokens) : undefined,
       outputTokens: t.outputTokens != null ? Number(t.outputTokens) : undefined,
+      cacheCreationInputTokens:
+        t.cacheCreationInputTokens != null ? Number(t.cacheCreationInputTokens) : undefined,
+      cacheReadInputTokens:
+        t.cacheReadInputTokens != null ? Number(t.cacheReadInputTokens) : undefined,
+      costUsd: t.costUsd != null ? Number(t.costUsd) : undefined,
+      numTurns: t.numTurns ?? undefined,
+      durationApiMs: t.durationApiMs != null ? Number(t.durationApiMs) : undefined,
     }));
 
     // Read rejection feedback from spec.yaml

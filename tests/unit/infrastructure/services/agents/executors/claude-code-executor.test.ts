@@ -41,14 +41,18 @@ function createMockChildProcess() {
 }
 
 /**
- * Build a stream-json result line (the format execute() now uses internally).
- * execute() parses this from the stream to build AgentExecutionResult.
+ * Build a stream-json result line matching real Claude CLI output format.
+ * Tokens are nested inside a `usage` object (not top-level).
  */
 function buildStreamResult(data: {
   result?: string;
   session_id?: string;
-  input_tokens?: number;
-  output_tokens?: number;
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+    cache_creation_input_tokens?: number;
+    cache_read_input_tokens?: number;
+  };
   [key: string]: unknown;
 }): string {
   return JSON.stringify({ type: 'result', ...data });
@@ -174,8 +178,12 @@ describe('ClaudeCodeExecutorService', () => {
       const resultLine = buildStreamResult({
         result: 'Done',
         session_id: 'sess-1',
-        input_tokens: 1500,
-        output_tokens: 800,
+        usage: {
+          input_tokens: 100,
+          output_tokens: 800,
+          cache_creation_input_tokens: 1000,
+          cache_read_input_tokens: 400,
+        },
       });
 
       const executePromise = executor.execute('Test prompt');
@@ -184,11 +192,63 @@ describe('ClaudeCodeExecutorService', () => {
       // Act
       const result = await executePromise;
 
-      // Assert
+      // Assert — input includes cache tokens, cache breakdown preserved
       expect(result.usage).toEqual({
         inputTokens: 1500,
         outputTokens: 800,
+        cacheCreationInputTokens: 1000,
+        cacheReadInputTokens: 400,
       });
+    });
+
+    it('should include usage without cache tokens', async () => {
+      const mockProc = createMockChildProcess();
+      vi.mocked(mockSpawn).mockReturnValue(mockProc as any);
+
+      const resultLine = buildStreamResult({
+        result: 'Done',
+        usage: { input_tokens: 500, output_tokens: 200 },
+      });
+
+      const executePromise = executor.execute('Test');
+      emitStreamData(mockProc, [resultLine], null, 0);
+
+      const result = await executePromise;
+      expect(result.usage).toEqual({ inputTokens: 500, outputTokens: 200 });
+    });
+
+    it('should extract cost and turns from result line', async () => {
+      const mockProc = createMockChildProcess();
+      vi.mocked(mockSpawn).mockReturnValue(mockProc as any);
+
+      const resultLine = buildStreamResult({
+        result: 'Done',
+        usage: { input_tokens: 100, output_tokens: 50 },
+        total_cost_usd: 0.1857,
+        num_turns: 3,
+        duration_api_ms: 5758,
+      });
+
+      const executePromise = executor.execute('Test');
+      emitStreamData(mockProc, [resultLine], null, 0);
+
+      const result = await executePromise;
+      expect(result.usage?.costUsd).toBe(0.1857);
+      expect(result.usage?.numTurns).toBe(3);
+      expect(result.usage?.durationApiMs).toBe(5758);
+    });
+
+    it('should not include usage when usage field is absent', async () => {
+      const mockProc = createMockChildProcess();
+      vi.mocked(mockSpawn).mockReturnValue(mockProc as any);
+
+      const resultLine = buildStreamResult({ result: 'Done' });
+
+      const executePromise = executor.execute('Test');
+      emitStreamData(mockProc, [resultLine], null, 0);
+
+      const result = await executePromise;
+      expect(result.usage).toBeUndefined();
     });
 
     it('should handle subprocess errors gracefully', async () => {
@@ -446,8 +506,7 @@ describe('ClaudeCodeExecutorService', () => {
       const resultLine = buildStreamResult({
         result: 'Done',
         session_id: 'sess-1',
-        input_tokens: 100,
-        output_tokens: 50,
+        usage: { input_tokens: 100, output_tokens: 50 },
         cost_usd: 0.01,
         num_turns: 1,
       });

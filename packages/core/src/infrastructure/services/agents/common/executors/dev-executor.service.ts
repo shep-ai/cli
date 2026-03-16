@@ -158,11 +158,36 @@ export class DevAgentExecutorService implements IAgentExecutor {
       await new Promise<void>((resolve) => setTimeout(resolve, this.delayMs));
     }
     const result = this.dispatch(prompt);
+    // Simulate realistic Claude Code token counts: prompts are large due to
+    // system prompt + codebase context; output varies by phase.
+    const baseInputTokens = Math.floor(prompt.length * 0.25); // ~4 chars/token
+    const contextTokens = 25000 + Math.floor(Math.random() * 15000); // cached context
+    const cacheReadTokens = Math.floor(contextTokens * 0.7);
+    const cacheCreationTokens = contextTokens - cacheReadTokens;
+    const inputTokens = baseInputTokens + contextTokens;
+    const outputTokens = Math.floor(result.length * 0.25) + 500;
+    const numTurns = Math.floor(Math.random() * 8) + 1;
+
+    // Pricing: ~$3/M input, ~$15/M output, cache read ~$0.30/M, cache write ~$3.75/M
+    const costUsd =
+      baseInputTokens * 0.000003 +
+      cacheCreationTokens * 0.00000375 +
+      cacheReadTokens * 0.0000003 +
+      outputTokens * 0.000015;
+
+    // API time correlates with output tokens and turns
+    const durationApiMs = Math.floor(outputTokens * 0.08 * numTurns + Math.random() * 2000);
+
     return {
       result,
       usage: {
-        inputTokens: Math.floor(prompt.length * 1.3),
-        outputTokens: Math.floor(result.length * 1.3),
+        inputTokens,
+        outputTokens,
+        cacheCreationInputTokens: cacheCreationTokens,
+        cacheReadInputTokens: cacheReadTokens,
+        costUsd: Math.round(costUsd * 10000) / 10000, // 4 decimal places
+        numTurns,
+        durationApiMs,
       },
     };
   }

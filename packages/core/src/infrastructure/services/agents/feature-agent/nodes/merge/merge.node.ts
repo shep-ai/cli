@@ -128,6 +128,9 @@ export function createMergeNode(deps: MergeNodeDeps) {
     const startTime = Date.now();
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
+    let totalCostUsd = 0;
+    let totalNumTurns = 0;
+    let totalDurationApiMs = 0;
     const { executor } = deps;
     const mergeTimingId = await recordPhaseStart('merge', {
       agentType: executor.agentType,
@@ -177,6 +180,9 @@ export function createMergeNode(deps: MergeNodeDeps) {
         });
         totalInputTokens += commitResult.usage?.inputTokens ?? 0;
         totalOutputTokens += commitResult.usage?.outputTokens ?? 0;
+        totalCostUsd += commitResult.usage?.costUsd ?? 0;
+        totalNumTurns += commitResult.usage?.numTurns ?? 0;
+        totalDurationApiMs += commitResult.usage?.durationApiMs ?? 0;
 
         commitHash = parseCommitHash(commitResult.result) ?? state.commitHash;
         messages.push(`[merge] Agent completed commit/push/PR operations`);
@@ -263,6 +269,9 @@ export function createMergeNode(deps: MergeNodeDeps) {
           await recordPhaseEnd(mergeTimingId, Date.now() - startTime, {
             inputTokens: totalInputTokens || undefined,
             outputTokens: totalOutputTokens || undefined,
+            costUsd: totalCostUsd || undefined,
+            numTurns: totalNumTurns || undefined,
+            durationApiMs: totalDurationApiMs || undefined,
             exitCode: 'success',
           });
           await recordApprovalWaitStart(mergeTimingId);
@@ -385,6 +394,9 @@ export function createMergeNode(deps: MergeNodeDeps) {
       await recordPhaseEnd(mergeTimingId, Date.now() - startTime, {
         inputTokens: totalInputTokens || undefined,
         outputTokens: totalOutputTokens || undefined,
+        costUsd: totalCostUsd || undefined,
+        numTurns: totalNumTurns || undefined,
+        durationApiMs: totalDurationApiMs || undefined,
         exitCode: 'error',
         errorMessage: message.slice(0, 1000),
       });
