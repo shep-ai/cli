@@ -270,6 +270,12 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
             `Iteration ${result.iteration} — consider approving or adjusting feedback to avoid excessive iterations`
           );
         }
+        // Optimistically update canvas node before SSE arrives (~500ms delay)
+        window.dispatchEvent(
+          new CustomEvent('shep:feature-approved', {
+            detail: { featureId: featureNode.featureId },
+          })
+        );
         onClose();
         onDone?.();
       } finally {

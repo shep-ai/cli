@@ -420,6 +420,97 @@ describe('useControlCenterState', () => {
     });
   });
 
+  describe('optimistic approve/reject (shep:feature-approved)', () => {
+    const actionRequiredFeature: FeatureNodeType = {
+      id: 'feat-1',
+      type: 'featureNode',
+      position: { x: 100, y: 100 },
+      data: {
+        name: 'Auth Module',
+        featureId: '1',
+        lifecycle: 'review',
+        state: 'action-required',
+        progress: 80,
+        repositoryPath: '/home/user/my-repo',
+        branch: 'feat/auth-module',
+      },
+    };
+
+    it('transitions feature node to running state on shep:feature-approved event', () => {
+      let capturedState: ControlCenterState | null = null;
+      renderHook([actionRequiredFeature, mockRepoNode] as CanvasNodeType[], [], (state) => {
+        capturedState = state;
+      });
+
+      // Verify initial state is action-required
+      const initialNode = capturedState!.nodes.find((n) => n.id === 'feat-1');
+      expect((initialNode!.data as FeatureNodeData).state).toBe('action-required');
+
+      // Dispatch the optimistic approval event
+      act(() => {
+        window.dispatchEvent(
+          new CustomEvent('shep:feature-approved', {
+            detail: { featureId: '1' },
+          })
+        );
+      });
+
+      // Node should now be in 'running' state
+      const updatedNode = capturedState!.nodes.find((n) => n.id === 'feat-1');
+      expect((updatedNode!.data as FeatureNodeData).state).toBe('running');
+    });
+
+    it('guards optimistic state from stale reconcile during transition', () => {
+      let capturedState: ControlCenterState | null = null;
+      const { rerender } = render(
+        <HookTestHarness
+          initialNodes={[actionRequiredFeature, mockRepoNode] as CanvasNodeType[]}
+          initialEdges={[]}
+          onStateChange={(state) => {
+            capturedState = state;
+          }}
+        />
+      );
+
+      // Dispatch the optimistic approval event (engages mutation guard)
+      act(() => {
+        window.dispatchEvent(
+          new CustomEvent('shep:feature-approved', {
+            detail: { featureId: '1' },
+          })
+        );
+      });
+
+      expect(
+        (capturedState!.nodes.find((n) => n.id === 'feat-1')!.data as FeatureNodeData).state
+      ).toBe('running');
+
+      // Simulate a stale server re-render with error state (this would cause the flash without the fix)
+      const staleFeature: FeatureNodeType = {
+        ...actionRequiredFeature,
+        data: {
+          ...actionRequiredFeature.data,
+          state: 'error',
+          errorMessage: 'Something went wrong',
+        },
+      };
+
+      rerender(
+        <HookTestHarness
+          initialNodes={[staleFeature, mockRepoNode] as CanvasNodeType[]}
+          initialEdges={[]}
+          onStateChange={(state) => {
+            capturedState = state;
+          }}
+        />
+      );
+
+      // The mutation guard should prevent the stale 'error' state from overwriting 'running'
+      const nodeAfterReconcile = capturedState!.nodes.find((n) => n.id === 'feat-1');
+      expect((nodeAfterReconcile!.data as FeatureNodeData).state).toBe('running');
+    });
+  });
+
   describe('fast-mode feature handling', () => {
     it('creates optimistic feature node with real featureId when provided', () => {
       let capturedState: ControlCenterState | null = null;
