@@ -1,0 +1,416 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: fork-sync-rebase
+summary: >
+  14 tasks across 4 phases covering: interface extension and error codes (phase 1),
+  GitPrService implementation with real-git integration tests (phase 2), use case
+  implementation with unit tests and DI registration (phase 3), and CLI command
+  creation with final validation (phase 4).
+
+# Relationships
+relatedFeatures:
+  - 039-github-pr-sync
+
+technologies:
+  - TypeScript
+  - Vitest
+  - git CLI
+  - GitHub CLI (gh)
+  - TSyringe
+  - Commander.js
+
+relatedLinks: []
+
+# Structured task list
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Add REBASE_CONFLICT and NOT_A_FORK to GitPrErrorCode enum'
+    description: >
+      Add two new values to the GitPrErrorCode enum used across GitPrService error
+      handling. REBASE_CONFLICT is thrown when a rebase fails due to merge conflicts.
+      NOT_A_FORK is used when a fork-sync operation is requested on a non-fork repo.
+      These must exist before any other code can reference them.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'GitPrErrorCode enum contains REBASE_CONFLICT and NOT_A_FORK values'
+      - 'TypeScript compiles with zero errors after the change'
+      - 'Existing tests still pass (no regressions to error handling)'
+    tdd:
+      red:
+        - 'Write a type-level test (or import assertion) that references GitPrErrorCode.REBASE_CONFLICT and GitPrErrorCode.NOT_A_FORK — this will fail to compile until the values are added'
+      green:
+        - 'Add REBASE_CONFLICT and NOT_A_FORK to the GitPrErrorCode enum in git-pr.service.ts or its shared enum file'
+      refactor:
+        - 'Ensure enum values follow the existing naming convention (SCREAMING_SNAKE_CASE)'
+    estimatedEffort: '15min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Extend IGitPrService interface with 5 new method signatures'
+    description: >
+      Add the following method signatures to the IGitPrService interface:
+      isFork(cwd: string): Promise<{ isFork: boolean; upstreamUrl?: string }>,
+      ensureUpstreamRemote(cwd: string, upstreamUrl: string): Promise<void>,
+      fetchUpstream(cwd: string): Promise<void>,
+      syncForkMain(cwd: string): Promise<void>,
+      rebase(cwd: string, branch: string, onto: string): Promise<void>.
+      These signatures define the contract that use case unit tests will mock.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'IGitPrService interface declares all 5 new methods with correct TypeScript signatures'
+      - 'GitPrService class (infrastructure) fails to compile due to missing implementations (confirms interface is enforced)'
+      - 'pnpm tsc --noEmit reports only the missing-implementation errors, not other errors'
+    tdd:
+      red:
+        - 'Add the 5 method signatures to IGitPrService — GitPrService now fails to compile (expected RED state)'
+      green:
+        - 'Add stub implementations to GitPrService (throw new Error("not implemented")) to satisfy the interface and restore compilation'
+      refactor:
+        - 'Review JSDoc/comments on new interface methods for consistency with existing method documentation style'
+    estimatedEffort: '20min'
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Implement isFork() and ensureUpstreamRemote() with integration tests'
+    description: >
+      Implement isFork() which calls `gh repo view --json parent --jq .parent.url`
+      and returns { isFork: boolean; upstreamUrl?: string }. Handle non-zero gh exit
+      gracefully by returning { isFork: false }. Implement ensureUpstreamRemote() which
+      checks if "upstream" remote exists (git remote get-url upstream) and adds it via
+      `git remote add upstream <url>` if absent. Write integration tests in
+      git-pr-rebase.service.test.ts using real temp git repos.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'isFork() returns { isFork: false } when gh exits non-zero or parent is null'
+      - 'isFork() returns { isFork: true, upstreamUrl: <url> } when parent is non-null'
+      - 'ensureUpstreamRemote() adds remote if absent; is idempotent if already present'
+      - 'Integration tests cover: non-fork repo, fork repo with no upstream remote, fork repo with existing upstream remote'
+    tdd:
+      red:
+        - 'Write integration tests for isFork() and ensureUpstreamRemote() using mkdtempSync() temp repos — tests fail because methods throw "not implemented"'
+      green:
+        - 'Implement isFork() calling gh via this.exec(); parse output; handle errors'
+        - 'Implement ensureUpstreamRemote() calling git remote get-url and git remote add'
+      refactor:
+        - 'Extract gh output parsing into a private helper if reused elsewhere'
+        - 'Ensure error handling in isFork() uses try/catch around exec, not conditional exit code checks'
+    estimatedEffort: '1.5h'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Implement fetchUpstream() and syncForkMain() with integration tests'
+    description: >
+      Implement fetchUpstream() which runs `git fetch upstream` in the given cwd.
+      Implement syncForkMain() which orchestrates: (1) ensureUpstreamRemote(), (2)
+      fetchUpstream(), (3) git checkout main, (4) git reset --hard upstream/main,
+      (5) git checkout - to restore prior branch. Tests must verify that local main
+      SHA matches upstream/main after sync.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'fetchUpstream() fetches from the upstream remote without error'
+      - 'syncForkMain() leaves local main at exactly the same SHA as upstream/main'
+      - 'syncForkMain() is idempotent: running twice produces the same final state'
+      - 'syncForkMain() restores the prior branch after completing the sync'
+      - 'Integration tests cover: fresh clone needing sync, already-synced repo (idempotent case)'
+    tdd:
+      red:
+        - 'Write integration tests using two bare repos (origin + upstream) and a clone; assert local main SHA equals upstream/main SHA after sync — fails because syncForkMain throws "not implemented"'
+      green:
+        - 'Implement fetchUpstream() and syncForkMain() using this.exec() calls in sequence'
+      refactor:
+        - 'Ensure branch-restoration (git checkout -) runs even if an intermediate step fails (wrap in try/finally)'
+    estimatedEffort: '1.5h'
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Implement rebase() with conflict detection and integration tests'
+    description: >
+      Implement rebase() which runs `git rebase <onto>` in the feature worktree cwd.
+      On non-zero exit: run `git rebase --abort`, parse CONFLICT lines from combined
+      stdout+stderr via regex `CONFLICT \(content\): Merge conflict in (.+)`, throw
+      GitPrError(REBASE_CONFLICT) with the conflicting file list in the message.
+      On success: return void. Integration tests must cover clean rebase and conflicting
+      rebase scenarios.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'rebase() rebases the feature branch onto the target branch in a clean repo'
+      - 'rebase() runs git rebase --abort when a conflict is detected'
+      - 'rebase() throws GitPrError with code REBASE_CONFLICT listing conflicting files'
+      - 'The worktree is in a clean state (no REBASE_HEAD) after a conflict abort'
+      - 'Integration tests cover: clean fast-forward rebase, non-fast-forward rebase, conflicting rebase'
+    tdd:
+      red:
+        - 'Write integration tests: one with a clean rebase (no conflicts), one where two branches modify the same line — assert REBASE_CONFLICT error and clean worktree state'
+      green:
+        - 'Implement rebase() catching exec errors, running abort, parsing conflict lines, throwing GitPrError'
+      refactor:
+        - 'Extract conflict-line parsing into a private parseConflictFiles(output: string): string[] helper'
+        - 'Review error message format against NFR-2: must include operation name, file list, and next-step instruction'
+    estimatedEffort: '2h'
+
+  - id: task-6
+    phaseId: phase-3
+    title: 'Implement SyncForkMainUseCase with unit tests'
+    description: >
+      Create SyncForkMainUseCase in packages/core/src/application/use-cases/sync-fork-main.use-case.ts.
+      The use case is @injectable(), injects IGitPrService via @inject('IGitPrService'),
+      and implements execute(cwd: string): Promise<SyncForkMainResult>. Flow: call
+      isFork(cwd); if not a fork return { synced: false, reason: 'not-a-fork' }; else
+      call syncForkMain(cwd) and return { synced: true, upstreamUrl }. Unit tests mock
+      IGitPrService via vi.fn().
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'SyncForkMainUseCase is decorated @injectable() and injects IGitPrService'
+      - 'execute() returns { synced: false, reason: "not-a-fork" } for non-fork repos'
+      - 'execute() calls syncForkMain() and returns { synced: true, upstreamUrl } for fork repos'
+      - 'Unit tests cover: non-fork repo result, fork repo result, service error propagation'
+    tdd:
+      red:
+        - 'Write unit tests mocking IGitPrService.isFork() returning non-fork and fork cases — tests fail because file does not exist'
+      green:
+        - 'Create the use case file with the class, constructor, and execute() method'
+      refactor:
+        - 'Define SyncForkMainResult as an exported interface for type safety in CLI handlers'
+    estimatedEffort: '45min'
+
+  - id: task-7
+    phaseId: phase-3
+    title: 'Implement RebaseFeatureUseCase with unit tests'
+    description: >
+      Create RebaseFeatureUseCase in packages/core/src/application/use-cases/features/rebase-feature.use-case.ts.
+      The use case is @injectable(), injects IGitPrService and IFeatureRepository. Flow:
+      findById(featureId) → validate worktreePath exists → isFork(worktreePath) →
+      if fork: syncForkMain(worktreePath, upstreamUrl) → rebase(worktreePath, branch,
+      "main") → return { success: true, branch, rebased: true }. Unit tests mock both
+      injected interfaces.
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'RebaseFeatureUseCase is decorated @injectable() and injects IGitPrService and IFeatureRepository'
+      - 'execute() throws a clear error if feature not found or worktreePath is null'
+      - 'execute() calls syncForkMain before rebase when isFork returns true'
+      - 'execute() skips syncForkMain when isFork returns false'
+      - 'execute() propagates REBASE_CONFLICT error from rebase() to the caller'
+      - 'Unit tests cover: feature not found, non-fork rebase, fork rebase, rebase conflict propagation'
+    tdd:
+      red:
+        - 'Write unit tests mocking IFeatureRepository.findById() and IGitPrService methods — tests fail because file does not exist'
+      green:
+        - 'Create the use case file with the class, constructor, and execute() method'
+      refactor:
+        - 'Define RebaseFeatureResult as an exported interface'
+        - 'Validate feature.worktreePath before any git call with a descriptive error message'
+    estimatedEffort: '1h'
+
+  - id: task-8
+    phaseId: phase-3
+    title: 'Register new use cases in DI container'
+    description: >
+      Add RebaseFeatureUseCase and SyncForkMainUseCase to the TSyringe container in
+      packages/core/src/infrastructure/di/container.ts. Register as singletons with
+      both class token and string-token aliases following the existing pattern used by
+      ListFeaturesUseCase, ShowFeatureUseCase, etc.
+    state: Todo
+    dependencies:
+      - task-7
+    acceptanceCriteria:
+      - 'container.registerSingleton(RebaseFeatureUseCase) is present'
+      - 'container.registerSingleton(SyncForkMainUseCase) is present'
+      - 'String-token aliases "RebaseFeatureUseCase" and "SyncForkMainUseCase" are registered for web route compatibility'
+      - 'container.resolve(RebaseFeatureUseCase) returns an instance without throwing'
+      - 'container.resolve(SyncForkMainUseCase) returns an instance without throwing'
+    tdd:
+      red:
+        - 'Write a test that calls container.resolve(RebaseFeatureUseCase) and container.resolve(SyncForkMainUseCase) — fails because registrations are absent'
+      green:
+        - 'Add the four registration lines to container.ts'
+      refactor:
+        - 'Verify registrations are grouped with other use case registrations for readability'
+    estimatedEffort: '20min'
+
+  - id: task-9
+    phaseId: phase-4
+    title: 'Create shep feat rebase CLI command'
+    description: >
+      Create src/presentation/cli/commands/feat/rebase.command.ts exporting
+      createRebaseCommand(). The command: accepts a required <feature-id> argument,
+      resolves RebaseFeatureUseCase from container, calls execute(featureId), prints
+      success with messages.success() or error with messages.error() and sets
+      process.exitCode = 1 on failure. Handles REBASE_CONFLICT GitPrError with a
+      descriptive message listing conflicting files.
+    state: Todo
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - 'createRebaseCommand() returns a Command named "rebase"'
+      - 'Command accepts a required <feature-id> positional argument'
+      - 'On success: prints a confirmation message with the rebased branch name'
+      - 'On REBASE_CONFLICT: prints conflicting files and next-step instruction; exitCode = 1'
+      - 'On other errors: prints error message; exitCode = 1'
+      - 'No git logic in the handler — all operations delegated to use case'
+    tdd:
+      red:
+        - 'Write unit tests for the command handler using a mocked container and use case — fails because file does not exist'
+      green:
+        - 'Create rebase.command.ts with the factory function and action handler'
+      refactor:
+        - 'Ensure REBASE_CONFLICT error message format matches NFR-2: operation name, file list, next-step instruction'
+    estimatedEffort: '45min'
+
+  - id: task-10
+    phaseId: phase-4
+    title: 'Register shep feat rebase in feat/index.ts'
+    description: >
+      Import createRebaseCommand from rebase.command.ts and add .addCommand(createRebaseCommand())
+      to the createFeatCommand() factory in src/presentation/cli/commands/feat/index.ts.
+    state: Todo
+    dependencies:
+      - task-9
+    acceptanceCriteria:
+      - 'shep feat rebase --help shows the rebase subcommand'
+      - 'shep feat rebase <id> dispatches to the correct handler'
+      - 'No other feat commands are affected'
+    tdd:
+      red: null
+      green:
+        - 'Add the import and .addCommand() call to feat/index.ts'
+      refactor: null
+    estimatedEffort: '10min'
+
+  - id: task-11
+    phaseId: phase-4
+    title: 'Create shep repo sync CLI command'
+    description: >
+      Create src/presentation/cli/commands/repo/sync.command.ts exporting
+      createSyncCommand(). The command: takes no arguments, resolves SyncForkMainUseCase
+      from container, calls execute(process.cwd()), prints an informational message when
+      repo is not a fork, prints success when sync completes, or prints error and sets
+      process.exitCode = 1 on failure.
+    state: Todo
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - 'createSyncCommand() returns a Command named "sync"'
+      - 'Command takes no positional arguments'
+      - 'On non-fork result: prints informational "Repository is not a fork, nothing to sync"'
+      - 'On synced result: prints success message with upstream URL'
+      - 'On error: prints error message; exitCode = 1'
+      - 'No git logic in the handler — all operations delegated to use case'
+    tdd:
+      red:
+        - 'Write unit tests for the command handler using a mocked container and use case — fails because file does not exist'
+      green:
+        - 'Create sync.command.ts with the factory function and action handler'
+      refactor:
+        - 'Review output messages for consistency with existing repo/* command output style'
+    estimatedEffort: '30min'
+
+  - id: task-12
+    phaseId: phase-4
+    title: 'Register shep repo sync in repo/index.ts'
+    description: >
+      Import createSyncCommand from sync.command.ts and add .addCommand(createSyncCommand())
+      to the createRepoCommand() factory in src/presentation/cli/commands/repo/index.ts.
+    state: Todo
+    dependencies:
+      - task-11
+    acceptanceCriteria:
+      - 'shep repo sync --help shows the sync subcommand'
+      - 'shep repo sync dispatches to the correct handler'
+      - 'No other repo commands are affected'
+    tdd:
+      red: null
+      green:
+        - 'Add the import and .addCommand() call to repo/index.ts'
+      refactor: null
+    estimatedEffort: '10min'
+
+  - id: task-13
+    phaseId: phase-4
+    title: 'Run pnpm validate and fix all errors'
+    description: >
+      Run pnpm validate (lint + format + typecheck + tsp) and fix any lint, formatting,
+      or TypeScript errors introduced by the implementation. Ensure all new files comply
+      with the project's ESLint and Prettier configuration.
+    state: Todo
+    dependencies:
+      - task-10
+      - task-12
+    acceptanceCriteria:
+      - 'pnpm validate exits with code 0'
+      - 'Zero TypeScript errors'
+      - 'Zero ESLint errors or warnings'
+      - 'All files are correctly formatted per Prettier config'
+    tdd:
+      red: null
+      green:
+        - 'Run pnpm validate; fix each reported issue in turn'
+      refactor: null
+    estimatedEffort: '30min'
+
+  - id: task-14
+    phaseId: phase-4
+    title: 'Run pnpm test and fix all failures'
+    description: >
+      Run the full test suite (pnpm test) and ensure all new and existing tests pass.
+      Investigate and fix any failures — no failure is "unrelated". Confirm test coverage
+      for new code is >= 90% as required by NFR-1.
+    state: Todo
+    dependencies:
+      - task-13
+    acceptanceCriteria:
+      - 'pnpm test exits with code 0'
+      - 'Zero test failures across unit, integration, and e2e suites'
+      - 'New code has >= 90% test coverage'
+      - 'All previously-passing tests continue to pass'
+    tdd:
+      red: null
+      green:
+        - 'Run pnpm test; investigate and fix every failure reported'
+      refactor: null
+    estimatedEffort: '45min'
+
+# Total effort estimate
+totalEstimate: '10h'
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Summary
+
+  The implementation proceeds in four phases with 14 tasks totalling approximately 10 hours.
+
+  Phase 1 (tasks 1-2) establishes the contract: new error code enum values and the
+  extended IGitPrService interface. This unlocks all downstream work because use case
+  unit tests mock the interface, and the service implementation must satisfy it.
+
+  Phase 2 (tasks 3-5) builds the GitPrService implementation TDD-first with real
+  temporary git repos. The methods are implemented in dependency order: fork detection
+  and remote management (task 3) before upstream fetch and sync (task 4), and both
+  before rebase with conflict handling (task 5).
+
+  Phase 3 (tasks 6-8) implements the two use cases and wires them into the DI container.
+  SyncForkMainUseCase (task 6) is implemented before RebaseFeatureUseCase (task 7) because
+  the rebase use case orchestrates the sync flow. DI registration (task 8) follows after
+  both use cases are verified by unit tests.
+
+  Phase 4 (tasks 9-14) creates the CLI commands, registers them in their index barrels,
+  and runs the full validation and test suites to confirm zero failures. The two CLI
+  commands (tasks 9, 11) are independent of each other and can be written concurrently
+  but both depend on DI registration being complete (task 8).

@@ -1,0 +1,177 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: fork-sync-rebase
+summary: >
+  Extend GitPrService with rebase and fork-sync capabilities using the existing
+  execFile/ExecFunction injection pattern. Introduce two new use cases
+  (RebaseFeatureUseCase and SyncForkMainUseCase) following the established
+  @injectable/@inject TSyringe pattern. Add two CLI commands (shep feat rebase,
+  shep repo sync) following the createXxxCommand() factory function pattern.
+  No TypeSpec changes or DB migrations required; fork detection is runtime-only
+  via gh CLI.
+
+# Relationships
+relatedFeatures:
+  - 039-github-pr-sync
+
+technologies:
+  - TypeScript
+  - Node.js (child_process execFile)
+  - git CLI
+  - GitHub CLI (gh)
+  - TSyringe (DI)
+  - Vitest (unit + integration tests)
+  - Commander.js (CLI)
+  - Better-SQLite3
+
+relatedLinks:
+  - https://git-scm.com/docs/git-rebase
+  - https://cli.github.com/manual/gh_repo_view
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'Interface & Error Code Extension'
+    description: >
+      Extend the IGitPrService interface with the 5 new method signatures and add the
+      two new GitPrErrorCode enum values (REBASE_CONFLICT, NOT_A_FORK). This phase
+      establishes the contract that all downstream layers depend on. Completing it first
+      allows use case unit tests to be written against mocked interface methods before
+      any implementation exists.
+    parallel: false
+
+  - id: phase-2
+    name: 'GitPrService Implementation'
+    description: >
+      Implement the 5 new methods on GitPrService using the existing injected
+      ExecFunction pattern: isFork(), ensureUpstreamRemote(), fetchUpstream(),
+      syncForkMain(), and rebase(). Each method calls git/gh via this.exec() with
+      discrete argument arrays. Integration tests using real temporary git repos
+      are written alongside each method (TDD-first).
+    parallel: false
+
+  - id: phase-3
+    name: 'Use Cases & DI Registration'
+    description: >
+      Implement RebaseFeatureUseCase (in application/use-cases/features/) and
+      SyncForkMainUseCase (in application/use-cases/) as @injectable classes.
+      Unit tests mock IGitPrService and IFeatureRepository via vi.fn(). Register
+      both use cases in the TSyringe DI container as singletons with string-token
+      aliases.
+    parallel: false
+
+  - id: phase-4
+    name: 'CLI Commands & Integration'
+    description: >
+      Create the shep feat rebase and shep repo sync CLI commands following the
+      createXxxCommand() factory pattern. Wire them into their respective index.ts
+      barrel files. Run pnpm validate and pnpm test to confirm zero failures.
+    parallel: false
+
+# File change tracking
+filesToCreate:
+  - packages/core/src/application/use-cases/features/rebase-feature.use-case.ts
+  - packages/core/src/application/use-cases/sync-fork-main.use-case.ts
+  - src/presentation/cli/commands/feat/rebase.command.ts
+  - src/presentation/cli/commands/repo/sync.command.ts
+  - tests/integration/infrastructure/services/git/git-pr-rebase.service.test.ts
+
+filesToModify:
+  - packages/core/src/application/ports/output/services/git-pr-service.interface.ts
+  - packages/core/src/infrastructure/services/git/git-pr.service.ts
+  - packages/core/src/infrastructure/di/container.ts
+  - src/presentation/cli/commands/feat/index.ts
+  - src/presentation/cli/commands/repo/index.ts
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Architecture Overview
+
+  This feature fits cleanly into the existing four-layer Clean Architecture without
+  introducing cross-layer violations or new dependency patterns.
+
+  ```
+  CLI handlers (presentation)
+      → RebaseFeatureUseCase / SyncForkMainUseCase (application)
+          → IGitPrService interface (application output port)
+              → GitPrService implementation (infrastructure)
+                  → execFile (git, gh via injected ExecFunction token)
+  ```
+
+  The only error taxonomy artifact touched is the `GitPrErrorCode` enum — adding two
+  new values alongside `MERGE_CONFLICT`, `MERGE_FAILED`, etc. No TypeSpec changes;
+  no DB migration.
+
+  ## Key Design Decisions
+
+  ### 1. ExecFunction Injection Pattern (unchanged)
+  All new GitPrService methods call `this.exec(binary, [...args], { cwd })` using the
+  injected ExecFunction token — identical to the existing push(), mergeBranch(), and
+  commitAll() methods. Zero new dependencies; test mocking via vi.fn() works identically
+  to existing tests.
+
+  ### 2. isFork() Return Type: `{ isFork: boolean; upstreamUrl?: string }`
+  Bundling the boolean and parent URL in one return value satisfies NFR-9 (single gh
+  call per invocation). The use case stores this struct and passes upstreamUrl to
+  ensureUpstreamRemote() — no second `gh repo view` call is ever made.
+
+  ### 3. SyncForkMain Strategy: `reset --hard upstream/main`
+  The sequence `git fetch upstream` → `git checkout main` → `git reset --hard
+  upstream/main` → `git checkout -` is the canonical GitHub fork-sync pattern.
+  It is idempotent (NFR-3) and handles upstream force-pushes correctly, unlike
+  `git pull` (creates merge commits) or `git merge --ff-only` (fails on diverged history).
+
+  ### 4. Conflict Handling: Abort and Surface Error
+  On non-zero exit from `git rebase main`: run `git rebase --abort`, parse CONFLICT
+  lines from output via regex `CONFLICT \(content\): Merge conflict in (.+)`, throw
+  `GitPrError(REBASE_CONFLICT)` with the conflicting file list. The worktree is left
+  clean. This is the only safe default without an interactive TUI (out of scope, size M).
+
+  ### 5. New GitPrErrorCode Values
+  `REBASE_CONFLICT` and `NOT_A_FORK` are added to the existing enum. Reusing
+  `MERGE_CONFLICT` for rebase failures would be misleading and cause silent catch
+  bugs in handlers. `NOT_A_FORK` lets `SyncForkMainUseCase` return a clean
+  informational result rather than throwing.
+
+  ### 6. Use Case Placement
+  - `RebaseFeatureUseCase` → `application/use-cases/features/` (feature lifecycle
+    operation, needs IFeatureRepository)
+  - `SyncForkMainUseCase` → `application/use-cases/` (repository-scoped, no feature
+    dependency)
+
+  This matches the existing convention where features/ is for feature lifecycle use cases
+  and top-level use-cases/ is for cross-cutting or repo-scoped operations.
+
+  ### 7. Worktree CWD Resolution
+  RebaseFeatureUseCase calls `featureRepo.findById(featureId)` and reads
+  `feature.worktreePath`. This is the established pattern used by StartFeatureUseCase
+  and others — zero-indirection, no additional service dependencies.
+
+  ### 8. shep repo sync Uses process.cwd()
+  SyncForkMainUseCase operates on process.cwd() (repo root). No argument needed.
+  Consistent with how other shep commands discover context from the working directory.
+
+  ## Implementation Strategy
+
+  Phase 1 (Interface & Error Codes) must come first because use case unit tests mock
+  the interface and error code constants must be available to write meaningful assertions.
+  Phase 2 (Service implementation) is built TDD-first: write integration tests against
+  real temporary git repos before implementing each method. Phase 3 (Use Cases) builds
+  on the interface contract from Phase 1; use case unit tests only mock the interface
+  so they can be written concurrently with Phase 2. Phase 4 (CLI) comes last as it
+  depends on fully-implemented use cases being resolvable from the DI container.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Real git test setup complexity | Follow the mkdtempSync() + bare remote + clone topology already used in git-pr.service.test.ts |
+  | Rebase conflict detection fragility | Test explicitly: create two branches with conflicting changes; verify abort runs and error includes file names |
+  | `git checkout main` failing mid-rebase cwd | Run checkout from the repo root, not the worktree; use `git -C <repoRoot>` pattern |
+  | `gh repo view` failing in non-GitHub repos | isFork() must catch non-zero gh exit and return `{ isFork: false }` gracefully |
+  | DI container string token conflicts | Follow existing token naming: 'RebaseFeatureUseCase', 'SyncForkMainUseCase' |
+  | Missing worktreePath on feature entity | Validate feature.worktreePath is set before running any git ops; throw clear error if null |
