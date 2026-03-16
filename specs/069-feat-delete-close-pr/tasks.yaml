@@ -1,0 +1,363 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feat-delete-close-pr
+summary: >
+  10 tasks across 3 phases. Phase 1 adds closePr to DeleteFeatureOptions with
+  conditional remote branch deletion and pr.status update. Phase 2 threads closePr
+  through the entire web UI data flow (dialog checkbox, callback signature,
+  custom event, server action). Phase 3 adds CLI prompt and --no-close-pr flag.
+
+# Relationships
+relatedFeatures:
+  - '022 - delete feature node (web UI)'
+  - '036 - merge flow'
+  - '039 - github pr sync watcher'
+  - '056 - soft delete'
+
+technologies:
+  - TypeScript
+  - React (Next.js)
+  - Shadcn UI (AlertDialog, Checkbox, Label)
+  - Vitest
+  - Commander.js
+  - '@inquirer/prompts'
+  - tsyringe (DI)
+  - Storybook
+
+relatedLinks: []
+
+# Structured task list
+tasks:
+  # ── Phase 1: Application Layer ──────────────────────────────────────────
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Add closePr to DeleteFeatureOptions and conditionally skip remote branch deletion'
+    description: >
+      Add closePr?: boolean to the DeleteFeatureOptions interface. In
+      cleanupSingleFeature, wrap the remote branch deletion block (lines 158-169)
+      in a closePr !== false condition so that when closePr is explicitly false,
+      only the remote branch deletion is skipped (local branch + worktree cleanup
+      still proceed). Import PrStatus for the next task.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'DeleteFeatureOptions has closePr?: boolean property'
+      - 'When closePr === false and cleanup === true, local branch is deleted but remote branch is NOT deleted'
+      - 'When closePr is true or undefined, remote branch deletion proceeds as before (no behavior change)'
+      - 'Existing tests continue to pass unchanged (closePr defaults to undefined = same as true)'
+    tdd:
+      red:
+        - 'Write test: "should skip remote branch deletion when closePr is false" - execute with { cleanup: true, closePr: false }, assert gitPrService.deleteBranch called once (local only), not twice'
+        - 'Write test: "should still delete local branch when closePr is false" - assert local deleteBranch is called'
+        - 'Write test: "should delete remote branch when closePr is true" - execute with { cleanup: true, closePr: true }, assert remote deleteBranch called'
+      green:
+        - 'Add closePr?: boolean to DeleteFeatureOptions interface'
+        - 'Add if (options?.closePr !== false) guard around the remote branch deletion try/catch block (lines 158-169)'
+      refactor:
+        - 'Verify the guard condition reads cleanly and matches the existing cleanup !== false pattern at line 149'
+    estimatedEffort: '30min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Update pr.status to Closed after remote branch deletion'
+    description: >
+      After the remote branch is successfully deleted in cleanupSingleFeature
+      (inside the existing try block at line 165), check if feature.pr exists and
+      feature.pr.status === PrStatus.Open. If so, update feature.pr.status to
+      PrStatus.Closed via featureRepo.update(). Wrap in try/catch matching the
+      existing best-effort pattern. Skip when pr is undefined, Merged, or Closed.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'After remote branch deletion, feature.pr.status is updated to Closed when it was Open'
+      - 'pr.status update is skipped when feature.pr is undefined'
+      - 'pr.status update is skipped when feature.pr.status is Merged'
+      - 'pr.status update is skipped when feature.pr.status is already Closed'
+      - 'pr.status update failure does not throw or block deletion (best-effort)'
+      - 'featureRepo.update() is called with the feature spread and pr.status set to Closed'
+    tdd:
+      red:
+        - 'Write test: "should update pr.status to Closed after remote branch deletion when pr is Open" - assert featureRepo.update called with pr.status = Closed'
+        - 'Write test: "should not update pr.status when feature has no pr" - assert featureRepo.update NOT called for pr update'
+        - 'Write test: "should not update pr.status when pr.status is Merged" - assert featureRepo.update NOT called for pr update'
+        - 'Write test: "should not throw when pr.status update fails" - mock featureRepo.update to reject, assert execute resolves'
+      green:
+        - 'Import PrStatus from domain/generated/output.js'
+        - 'After line 165 (successful remote branch deletion), add: if feature.pr?.status === PrStatus.Open, try { await featureRepo.update({ ...feature, pr: { ...feature.pr, status: PrStatus.Closed }, updatedAt: new Date() }) } catch { /* best-effort */ }'
+      refactor:
+        - 'Ensure the try/catch follows the same comment style as the existing best-effort blocks'
+    estimatedEffort: '30min'
+
+  # ── Phase 2: Web UI ─────────────────────────────────────────────────────
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Update dialog config and add closePr checkbox to delete-feature-dialog'
+    description: >
+      Add hasOpenPr?: boolean to DeleteFeatureDialogProps and update onConfirm
+      signature to (cleanup: boolean, cascadeDelete: boolean, closePr: boolean).
+      In the dialog component, add a closePr state (default true), a useEffect
+      that couples it to cleanup state (auto-uncheck and disable when cleanup is
+      false, re-check when cleanup becomes true), and render the "Close pull
+      request" checkbox conditionally when hasOpenPr is true. Reset closePr to
+      true in the existing dialog-open useEffect.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'DeleteFeatureDialogProps has hasOpenPr?: boolean'
+      - 'onConfirm signature is (cleanup: boolean, cascadeDelete: boolean, closePr: boolean) => void'
+      - '"Close pull request" checkbox renders only when hasOpenPr is true'
+      - 'Checkbox is checked by default when cleanup is checked'
+      - 'Checkbox is unchecked and disabled when cleanup is unchecked'
+      - 'Checkbox re-enables and re-checks when cleanup is re-checked'
+      - 'User can independently uncheck closePr while cleanup remains checked'
+      - 'closePr resets to true when dialog reopens'
+      - 'onConfirm passes closePr as third argument'
+      - 'Checkbox is disabled during deletion (isDeleting)'
+    tdd:
+      red:
+        - 'Write test: "should not render close-PR checkbox when hasOpenPr is false/undefined"'
+        - 'Write test: "should render close-PR checkbox when hasOpenPr is true"'
+        - 'Write test: "close-PR checkbox should be checked by default"'
+        - 'Write test: "close-PR checkbox should uncheck and disable when cleanup is unchecked"'
+        - 'Write test: "close-PR checkbox should re-enable and re-check when cleanup is re-checked"'
+        - 'Write test: "should pass closePr=true to onConfirm when checkbox is checked"'
+        - 'Write test: "should pass closePr=false to onConfirm when checkbox is unchecked"'
+      green:
+        - 'Add hasOpenPr?: boolean to DeleteFeatureDialogProps in delete-feature-dialog-config.ts'
+        - 'Update onConfirm signature to include closePr: boolean as third parameter'
+        - 'Add const [closePr, setClosePr] = useState(true) in the dialog component'
+        - 'Add closePr to the dialog-open useEffect reset: setClosePr(true)'
+        - 'Add useEffect watching cleanup: if !cleanup, setClosePr(false); if cleanup, setClosePr(true)'
+        - 'Add conditional checkbox rendering: {hasOpenPr ? (<div>...<Checkbox checked={closePr} disabled={isDeleting || !cleanup} .../></div>) : null}'
+        - 'Update onConfirm call: onConfirm(cleanup, cascadeDelete, closePr)'
+      refactor:
+        - 'Ensure checkbox layout matches existing checkboxes (same gap, label style, disabled state)'
+        - 'Verify the useEffect dependency array is correct and does not cause infinite loops'
+    estimatedEffort: '45min'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Add Storybook stories for close-PR checkbox variants'
+    description: >
+      Add new Storybook stories to delete-feature-dialog.stories.tsx for the
+      hasOpenPr prop: WithOpenPr (hasOpenPr=true), WithOpenPrAndChildren
+      (hasOpenPr=true, hasChildren=true), and DeletingWithOpenPr (isDeleting=true,
+      hasOpenPr=true).
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'WithOpenPr story shows the close-PR checkbox'
+      - 'WithOpenPrAndChildren story shows both cascade and close-PR checkboxes'
+      - 'DeletingWithOpenPr story shows disabled close-PR checkbox'
+    tdd: null
+    estimatedEffort: '15min'
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Update FeatureNodeData.onDelete signature and feature-node call site'
+    description: >
+      Update the onDelete callback type in FeatureNodeData (feature-node-state-config.ts)
+      to accept closePr as a fourth parameter. Update feature-node.tsx to pass
+      hasOpenPr and closePr from the dialog through the onDelete callback. The
+      feature-node derives hasOpenPr from data.pr?.status === 'Open'.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'FeatureNodeData.onDelete signature is (featureId: string, cleanup?: boolean, cascadeDelete?: boolean, closePr?: boolean) => void'
+      - 'feature-node.tsx passes hasOpenPr={data.pr?.status === "Open"} to DeleteFeatureDialog'
+      - 'feature-node.tsx passes closePr from dialog onConfirm to data.onDelete'
+    tdd:
+      red:
+        - 'Write test or verify TypeScript compilation: onDelete in feature-node passes four arguments (featureId, cleanup, cascadeDelete, closePr)'
+      green:
+        - 'Update onDelete type in feature-node-state-config.ts to include closePr?: boolean parameter'
+        - 'Update feature-node.tsx: pass hasOpenPr={!!data.pr && data.pr.status === "Open"} to DeleteFeatureDialog'
+        - 'Update feature-node.tsx onConfirm callback: (cleanup, cascadeDelete, closePr) => { setConfirmOpen(false); data.onDelete?.(data.featureId, cleanup, cascadeDelete, closePr); }'
+      refactor:
+        - 'Ensure PrStatus import or string literal comparison is consistent with codebase conventions'
+    estimatedEffort: '20min'
+
+  - id: task-6
+    phaseId: phase-2
+    title: 'Thread closePr through feature-drawer, custom event, and control-center state'
+    description: >
+      Update feature-drawer-client.tsx handleDelete to accept and dispatch closePr
+      in the CustomEvent detail. Pass hasOpenPr to the DeleteFeatureDialog. Update
+      the CustomEvent type in control-center-inner.tsx to include closePr. Update
+      handleDeleteFeature in use-control-center-state.ts to accept and pass
+      closePr to the server action.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'feature-drawer-client.tsx handleDelete accepts closePr parameter'
+      - 'feature-drawer-client.tsx passes hasOpenPr to DeleteFeatureDialog derived from featureNode.pr?.status'
+      - 'CustomEvent detail includes closePr'
+      - 'control-center-inner.tsx event handler extracts and passes closePr to handleDeleteFeature'
+      - 'handleDeleteFeature in use-control-center-state.ts accepts closePr and passes it to deleteFeature server action'
+    tdd:
+      red:
+        - 'Verify TypeScript compilation passes across the full chain: dialog -> drawer -> event -> state -> action'
+      green:
+        - 'Update feature-drawer-client.tsx handleDelete: add closePr parameter, include in CustomEvent detail, pass hasOpenPr to dialog'
+        - 'Update feature-drawer-client.tsx DeleteFeatureDialog onConfirm: pass closePr through'
+        - 'Update control-center-inner.tsx event handler: extract closePr from event.detail, pass to handleDeleteFeature'
+        - 'Update handleDeleteFeature in use-control-center-state.ts: add closePr parameter, pass to deleteFeature(featureId, cleanup, cascadeDelete, closePr)'
+      refactor:
+        - 'Ensure the CustomEvent type annotation includes closePr?: boolean'
+    estimatedEffort: '30min'
+
+  - id: task-7
+    phaseId: phase-2
+    title: 'Update server action to accept and pass closePr'
+    description: >
+      Update the deleteFeature server action (src/presentation/web/app/actions/
+      delete-feature.ts) to accept closePr?: boolean as a fourth parameter and
+      include it in the options object passed to DeleteFeatureUseCase.execute().
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'deleteFeature server action accepts closePr?: boolean parameter'
+      - 'closePr is included in the options object when defined'
+      - 'Existing behavior unchanged when closePr is undefined'
+    tdd:
+      red:
+        - 'Verify TypeScript compilation passes with the updated server action signature'
+      green:
+        - 'Add closePr?: boolean as fourth parameter to deleteFeature function'
+        - 'Add if (closePr !== undefined) options.closePr = closePr to the options construction'
+      refactor:
+        - 'Ensure the options type annotation includes closePr'
+    estimatedEffort: '10min'
+
+  # ── Phase 3: CLI ────────────────────────────────────────────────────────
+
+  - id: task-8
+    phaseId: phase-3
+    title: 'Add --no-close-pr flag and closePr to DelOptions'
+    description: >
+      Add --no-close-pr option to the CLI del command using Commander.js boolean
+      negation pattern (same as --no-cleanup). Add closePr to the DelOptions
+      interface. When --no-close-pr is provided, closePr is false. The flag
+      follows the same pattern as the existing --no-cleanup flag.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'CLI accepts --no-close-pr flag'
+      - 'DelOptions interface has closePr?: boolean'
+      - 'When --no-close-pr is provided, options.closePr is false'
+      - 'When flag is not provided, closePr defaults to undefined (Commander.js default)'
+    tdd:
+      red:
+        - 'Write test: "should pass closePr=false with --force --no-close-pr" - assert deleteExecute called with { cleanup: true, closePr: false }'
+        - 'Write test: "should pass closePr=false with --no-close-pr" (interactive) - confirm both prompts, assert closePr: false'
+      green:
+        - 'Add .option("--no-close-pr", "Keep the pull request open") to the command chain'
+        - 'Add closePr?: boolean to DelOptions interface'
+      refactor:
+        - 'Ensure the flag description is clear and follows the existing --no-cleanup pattern'
+    estimatedEffort: '20min'
+
+  - id: task-9
+    phaseId: phase-3
+    title: 'Add interactive close-PR prompt'
+    description: >
+      After the cleanup confirmation prompt, if cleanup is enabled and the feature
+      has an open PR (feature.pr?.status === 'Open') and --no-close-pr was not
+      provided and --force is not set, show a confirm prompt: "Also close the
+      pull request? (PR #N)". Default: true. When --force is used, closePr
+      defaults to true (full cleanup). Pass closePr to deleteUseCase.execute().
+    state: Todo
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - 'Prompt shown when cleanup=true, feature has open PR, not --force, not --no-close-pr'
+      - 'Prompt not shown when cleanup=false'
+      - 'Prompt not shown when feature has no PR'
+      - 'Prompt not shown when --force (closePr defaults to true)'
+      - 'Prompt not shown when --no-close-pr (closePr already false)'
+      - 'closePr value passed to deleteUseCase.execute() in options'
+    tdd:
+      red:
+        - 'Write test: "should prompt to close PR when feature has open PR and cleanup is enabled" - mock feature with pr.status Open, assert confirm called with close-PR message'
+        - 'Write test: "should not prompt to close PR when feature has no PR" - mock feature without pr, assert no close-PR confirm'
+        - 'Write test: "should default closePr to true with --force when feature has open PR" - assert closePr: true in execute call'
+      green:
+        - 'After cleanup determination, add closePr logic: check feature.pr?.status === "Open", check options.closePr !== false, check cleanup, check !force'
+        - 'If all conditions met, prompt: confirm({ message: `Also close the pull request? (PR #${feature.pr.number})`, default: true })'
+        - 'If --force and feature has open PR, set closePr = true'
+        - 'Pass closePr in the options object to deleteUseCase.execute()'
+      refactor:
+        - 'Ensure prompt is only shown when truly applicable (all guard conditions)'
+    estimatedEffort: '30min'
+
+  - id: task-10
+    phaseId: phase-3
+    title: 'Add PR closure info to CLI summary output'
+    description: >
+      Update the CLI deletion summary to include "PR #N closed" when the feature
+      had an open PR and closePr was enabled. Do not mention PR closure when no
+      PR existed, PR was already closed/merged, or user opted out via
+      --no-close-pr or prompt.
+    state: Todo
+    dependencies:
+      - task-9
+    acceptanceCriteria:
+      - 'Summary shows "PR #N closed" when feature had open PR and closePr was true'
+      - 'Summary does not mention PR when feature had no PR'
+      - 'Summary does not mention PR closure when closePr was false'
+      - 'Cleanup line still shows correctly alongside PR info'
+    tdd:
+      red:
+        - 'Write test: "should include PR closure in summary when feature has open PR and closePr is true" - assert console.log called with PR #N closed'
+        - 'Write test: "should not mention PR in summary when feature has no PR" - assert console.log not called with PR text'
+      green:
+        - 'After the cleanup summary line, add: if (closePr && feature.pr?.status === "Open") console.log(`  ${colors.muted("PR:")}     #${feature.pr.number} closed`)'
+      refactor:
+        - 'Ensure summary formatting is consistent with existing Name/Branch/Cleanup lines'
+    estimatedEffort: '15min'
+
+# Total effort estimate
+totalEstimate: '4h'
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Summary
+
+  The implementation is split into 10 tasks across 3 phases. Phase 1 establishes
+  the core business logic in the application layer by adding `closePr` to
+  `DeleteFeatureOptions`, conditionally skipping remote branch deletion, and
+  updating `pr.status` to `Closed` after successful remote branch deletion.
+
+  Phase 2 threads the `closePr` flag through the entire web UI data flow: first
+  the dialog gets a new checkbox with cleanup coupling, then the callback
+  signature and call sites are updated (feature-node, feature-drawer, custom
+  event, control-center state), and finally the server action passes it to the
+  use case.
+
+  Phase 3 adds CLI support with a `--no-close-pr` flag, an interactive prompt
+  shown when the feature has an open PR and cleanup is enabled, and a summary
+  line showing PR closure status.
+
+  Each task follows TDD (RED-GREEN-REFACTOR) where applicable, with tests
+  written before implementation. The tasks are ordered by dependency: the use
+  case changes come first (tasks 1-2), then the web UI changes (tasks 3-7),
+  and finally the CLI changes (tasks 8-10). The CLI tasks depend only on the
+  use case tasks, not on the web UI tasks, but are sequenced after them for
+  a cleaner implementation flow.
+
+  ---
+
+  _Task breakdown for implementation tracking_
