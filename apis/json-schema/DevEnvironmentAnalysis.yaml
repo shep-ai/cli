@@ -1,0 +1,63 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: DevEnvironmentAnalysis.yaml
+type: object
+properties:
+  id:
+    $ref: UUID.yaml
+    description: Unique identifier for the analysis record
+  cacheKey:
+    type: string
+    description: Cache key for this analysis (git remote URL or root repo absolute path)
+  canStart:
+    type: boolean
+    description: Whether the repository has a startable dev environment
+  reason:
+    type: string
+    description: Human-readable reason when canStart is false (e.g., 'This is a utility library with no server')
+  commands:
+    type: array
+    items:
+      $ref: DevCommand.yaml
+    description: Ordered list of commands to start the dev environment (first command is primary)
+  prerequisites:
+    type: array
+    items:
+      type: string
+    description: Prerequisites that must be installed before running commands (e.g., 'Docker', 'Python 3.10+')
+  ports:
+    type: array
+    items:
+      type: integer
+      minimum: -2147483648
+      maximum: 2147483647
+    description: Expected port numbers the dev environment will listen on
+  environmentVariables:
+    $ref: RecordString.yaml
+    description: Environment variables needed to run the dev environment
+  language:
+    type: string
+    description: Primary programming language of the repository
+  framework:
+    type: string
+    description: Framework or build tool detected (e.g., 'Next.js', 'Django', 'Cargo')
+  source:
+    $ref: AnalysisSource.yaml
+    description: How this analysis was produced (FastPath, Agent, or Manual)
+  createdAt:
+    type: string
+    format: date-time
+    description: Timestamp when the analysis was first created
+  updatedAt:
+    type: string
+    format: date-time
+    description: Timestamp when the analysis was last updated
+required:
+  - id
+  - cacheKey
+  - canStart
+  - commands
+  - language
+  - source
+  - createdAt
+  - updatedAt
+description: Result of analyzing a repository's dev environment configuration

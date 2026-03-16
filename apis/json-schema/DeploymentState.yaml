@@ -5,4 +5,5 @@ enum:
   - Booting
   - Ready
   - Stopped
+  - NotStartable
 description: States for deployment instances

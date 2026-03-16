@@ -11,10 +11,12 @@
  *
  * ### Value Objects
  * - **PortMap**: Network port mapping configuration for service exposure
+ * - **DevCommand**: Shell command for starting a dev environment
  *
  * ### Entities
  * - **Deployment**: A running deployment instance with state and network config
  * - **DeploySkill**: Configuration blueprint for how to deploy an application
+ * - **DevEnvironmentAnalysis**: Cached result of analyzing a repo's dev environment
  *
  * ## Usage
  *
@@ -44,3 +46,5 @@
 import "./port-map.tsp";
 import "./deployment.tsp";
 import "./deploy-skill.tsp";
+import "./dev-command.tsp";
+import "./dev-environment-analysis.tsp";

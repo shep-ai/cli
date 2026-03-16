@@ -1808,6 +1808,7 @@ export enum DeploymentState {
   Booting = 'Booting',
   Ready = 'Ready',
   Stopped = 'Stopped',
+  NotStartable = 'NotStartable',
 }
 
 /**
@@ -1838,6 +1839,87 @@ export type Deployment = {
    * Timestamp when the deployment was stopped (only present when state is Stopped)
    */
   stoppedAt?: any;
+};
+
+/**
+ * A shell command for starting a dev environment
+ */
+export type DevCommand = {
+  /**
+   * The shell command to execute (e.g., 'npm run dev', 'python manage.py runserver')
+   */
+  command: string;
+  /**
+   * Human-readable description of what this command does
+   */
+  description: string;
+  /**
+   * Working directory relative to repo root for monorepo support (e.g., 'packages/web')
+   */
+  workingDirectory?: string;
+};
+export enum AnalysisSource {
+  FastPath = 'FastPath',
+  Agent = 'Agent',
+  Manual = 'Manual',
+}
+
+/**
+ * Result of analyzing a repository's dev environment configuration
+ */
+export type DevEnvironmentAnalysis = {
+  /**
+   * Unique identifier for the analysis record
+   */
+  id: UUID;
+  /**
+   * Cache key for this analysis (git remote URL or root repo absolute path)
+   */
+  cacheKey: string;
+  /**
+   * Whether the repository has a startable dev environment
+   */
+  canStart: boolean;
+  /**
+   * Human-readable reason when canStart is false (e.g., 'This is a utility library with no server')
+   */
+  reason?: string;
+  /**
+   * Ordered list of commands to start the dev environment (first command is primary)
+   */
+  commands: DevCommand[];
+  /**
+   * Prerequisites that must be installed before running commands (e.g., 'Docker', 'Python 3.10+')
+   */
+  prerequisites?: string[];
+  /**
+   * Expected port numbers the dev environment will listen on
+   */
+  ports?: number[];
+  /**
+   * Environment variables needed to run the dev environment
+   */
+  environmentVariables?: Record<string, string>;
+  /**
+   * Primary programming language of the repository
+   */
+  language: string;
+  /**
+   * Framework or build tool detected (e.g., 'Next.js', 'Django', 'Cargo')
+   */
+  framework?: string;
+  /**
+   * How this analysis was produced (FastPath, Agent, or Manual)
+   */
+  source: AnalysisSource;
+  /**
+   * Timestamp when the analysis was first created
+   */
+  createdAt: any;
+  /**
+   * Timestamp when the analysis was last updated
+   */
+  updatedAt: any;
 };
 export enum AgentRunStatus {
   pending = 'pending',
@@ -2296,3 +2378,5 @@ export type LocalDeployAgentOperations = {
   Analyze(repositoryPath: string): DeploySkill;
   Ask(query: string): AskResponse;
 };
+
+export namespace TypeSpec {}

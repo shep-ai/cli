@@ -2,7 +2,7 @@
  * @module Shep.Common.Enums.Deployment
  *
  * Defines enums for deployment-related entities in the Shep AI platform,
- * including deployment states, methods, and network protocols.
+ * including deployment states, methods, network protocols, and analysis sources.
  */
 /**
  * Deployment State Transition Flow:
@@ -36,6 +36,14 @@ enum DeploymentState {
    */
   @doc("Deployment has been stopped")
   Stopped,
+
+  /**
+   * Repository analysis determined that there is nothing startable -
+   * the repo is a library, CLI tool, or utility with no server/UI.
+   * No process is spawned in this state.
+   */
+  @doc("Repository has no startable server or UI")
+  NotStartable,
 }
 
 /**
@@ -97,4 +105,31 @@ enum PortProtocol {
    */
   @doc("UDP protocol for connectionless best-effort delivery")
   UDP,
+}
+
+/**
+ * Source of a dev environment analysis result.
+ * Indicates how the analysis was produced, which affects
+ * cache behavior and UI display.
+ */
+@doc("Source of a dev environment analysis result")
+enum AnalysisSource {
+  /**
+   * Analysis was produced by the fast-path deterministic detection
+   * (e.g., package.json script scanning).
+   */
+  @doc("Deterministic fast-path detection (e.g., package.json scripts)")
+  FastPath,
+
+  /**
+   * Analysis was produced by the AI agent via StructuredAgentCaller.
+   */
+  @doc("AI agent analysis via StructuredAgentCaller")
+  Agent,
+
+  /**
+   * Analysis was manually edited by the user.
+   */
+  @doc("Manually edited by the user")
+  Manual,
 }

@@ -1,0 +1,17 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: DevCommand.yaml
+type: object
+properties:
+  command:
+    type: string
+    description: The shell command to execute (e.g., 'npm run dev', 'python manage.py runserver')
+  description:
+    type: string
+    description: Human-readable description of what this command does
+  workingDirectory:
+    type: string
+    description: Working directory relative to repo root for monorepo support (e.g., 'packages/web')
+required:
+  - command
+  - description
+description: A shell command for starting a dev environment
