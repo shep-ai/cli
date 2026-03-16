@@ -1,3 +1,9 @@
+# [1.121.0](https://github.com/shep-ai/cli/compare/v1.120.0...v1.121.0) (2026-03-16)
+
+### Features
+
+- **web:** add pending status to sidebar feature list ([#385](https://github.com/shep-ai/cli/issues/385)) ([129a291](https://github.com/shep-ai/cli/commit/129a29176cf576f8b23782bd28134bcf5bf5360b))
+
 # [1.120.0](https://github.com/shep-ai/cli/compare/v1.119.0...v1.120.0) (2026-03-16)
 
 ### Features
