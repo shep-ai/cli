@@ -284,28 +284,38 @@ describe('GitPrService', () => {
   });
 
   describe('mergePr', () => {
-    it('should call gh pr merge with prNumber and default squash strategy', async () => {
-      vi.mocked(mockExec).mockResolvedValue({ stdout: '', stderr: '' });
+    it('should call gh pr merge without --delete-branch and attempt remote branch cleanup', async () => {
+      vi.mocked(mockExec)
+        .mockResolvedValueOnce({ stdout: '', stderr: '' }) // gh pr merge
+        .mockResolvedValueOnce({ stdout: 'feat/my-branch\n', stderr: '' }) // gh pr view --json headRefName
+        .mockResolvedValueOnce({ stdout: '', stderr: '' }); // gh api DELETE
 
       await service.mergePr('/repo', 42);
 
-      expect(mockExec).toHaveBeenCalledWith(
-        'gh',
-        ['pr', 'merge', '42', '--squash', '--auto', '--delete-branch'],
-        { cwd: '/repo' }
-      );
+      expect(mockExec).toHaveBeenCalledWith('gh', ['pr', 'merge', '42', '--squash', '--auto'], {
+        cwd: '/repo',
+      });
     });
 
     it('should call gh pr merge with specified strategy', async () => {
-      vi.mocked(mockExec).mockResolvedValue({ stdout: '', stderr: '' });
+      vi.mocked(mockExec)
+        .mockResolvedValueOnce({ stdout: '', stderr: '' }) // gh pr merge
+        .mockResolvedValueOnce({ stdout: 'feat/my-branch\n', stderr: '' }) // gh pr view
+        .mockResolvedValueOnce({ stdout: '', stderr: '' }); // gh api DELETE
 
       await service.mergePr('/repo', 42, 'rebase');
 
-      expect(mockExec).toHaveBeenCalledWith(
-        'gh',
-        ['pr', 'merge', '42', '--rebase', '--auto', '--delete-branch'],
-        { cwd: '/repo' }
-      );
+      expect(mockExec).toHaveBeenCalledWith('gh', ['pr', 'merge', '42', '--rebase', '--auto'], {
+        cwd: '/repo',
+      });
+    });
+
+    it('should not throw when remote branch deletion fails', async () => {
+      vi.mocked(mockExec)
+        .mockResolvedValueOnce({ stdout: '', stderr: '' }) // gh pr merge
+        .mockRejectedValueOnce(new Error('branch delete failed')); // gh pr view fails
+
+      await expect(service.mergePr('/repo', 42)).resolves.toBeUndefined();
     });
 
     it('should throw GitPrError with MERGE_FAILED on merge failure', async () => {
