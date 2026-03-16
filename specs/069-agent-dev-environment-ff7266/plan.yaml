@@ -1,0 +1,279 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: agent-dev-environment-ff7266
+summary: >
+  Replace the deterministic Node.js-only DeploymentService with a two-mode system:
+  (1) fast path reusing existing detectDevScript for recognized Node.js projects,
+  (2) agent path using StructuredAgentCallerService to analyze any repository.
+  Results cached in SQLite keyed by git remote URL (root repo path fallback),
+  with manual-only invalidation and full structured form editing. Repos with
+  no startable server get a clear NotStartable state. Implementation follows
+  Clean Architecture bottom-up: TypeSpec models, persistence, services,
+  presentation, with TDD throughout.
+
+relatedFeatures:
+  - 045-feature-env-deploy
+  - 061-default-env-deployment
+
+technologies:
+  - TypeScript
+  - TypeSpec
+  - better-sqlite3
+  - Umzug (migrations)
+  - tsyringe (DI)
+  - StructuredAgentCallerService
+  - shadcn/ui
+  - Next.js server actions
+  - Vitest
+  - Storybook
+
+relatedLinks: []
+
+phases:
+  - id: phase-1
+    name: 'Domain Models & TypeSpec'
+    description: >
+      Define the new domain types in TypeSpec: DevEnvironmentAnalysis model,
+      DevCommand value object, AnalysisSource enum, and NotStartable addition
+      to DeploymentState. Compile to generate TypeScript types. This comes first
+      because all subsequent layers depend on these types.
+    parallel: false
+
+  - id: phase-2
+    name: 'Persistence Layer'
+    description: >
+      Create SQLite migration 040 for dev_environment_analyses table, the
+      mapper (toDatabase/fromDatabase), repository interface, and SQLite
+      repository implementation. Establishes the data layer that the analyzer
+      service and server actions depend on.
+    parallel: false
+
+  - id: phase-3
+    name: 'Cache Key Resolution'
+    description: >
+      Build RepoCacheKeyResolver utility that resolves git remote URL
+      (primary) or root repo absolute path (fallback) as the cache key. This
+      is a standalone utility with no upstream dependencies beyond ExecFunction,
+      needed by the analyzer service in phase 4.
+    parallel: false
+
+  - id: phase-4
+    name: 'Analyzer Service & Deployment Integration'
+    description: >
+      Build DevEnvironmentAnalyzerService with two-mode dispatch (fast path
+      via detectDevScript, agent path via StructuredAgentCallerService with
+      pre-read config files). Refactor DeploymentService to accept
+      DevEnvironmentAnalysis via new startWithAnalysis() method. Register
+      all new services in the DI container.
+    parallel: false
+
+  - id: phase-5
+    name: 'Server Actions & Hooks'
+    description: >
+      Create server actions for analyze-repository, invalidate-dev-env-cache,
+      and update-dev-env-analysis. Update deploy-feature and deploy-repository
+      to resolve analysis from cache before deploying. Extend useDeployAction
+      hook with mode selection, analysis state, and NotStartable handling.
+    parallel: false
+
+  - id: phase-6
+    name: 'UI Components & Storybook'
+    description: >
+      Add mode toggle to DeployBar, cache summary display, structured form
+      editor for cached analysis, NotStartable badge state, and analyzing
+      spinner. Create colocated Storybook stories for all new/modified
+      components.
+    parallel: false
+
+filesToCreate:
+  # TypeSpec models
+  - tsp/deployment/dev-environment-analysis.tsp
+  - tsp/deployment/dev-command.tsp
+
+  # Persistence
+  - packages/core/src/infrastructure/persistence/sqlite/migrations/040-create-dev-environment-analyses.ts
+  - packages/core/src/infrastructure/persistence/sqlite/mappers/dev-env-analysis.mapper.ts
+
+  # Repository
+  - packages/core/src/application/ports/output/repositories/dev-env-analysis-repository.interface.ts
+  - packages/core/src/infrastructure/repositories/sqlite-dev-env-analysis.repository.ts
+
+  # Services
+  - packages/core/src/application/ports/output/services/dev-environment-analyzer.interface.ts
+  - packages/core/src/application/ports/output/services/repo-cache-key-resolver.interface.ts
+  - packages/core/src/infrastructure/services/deployment/dev-environment-analyzer.service.ts
+  - packages/core/src/infrastructure/services/deployment/repo-cache-key-resolver.ts
+  - packages/core/src/infrastructure/services/deployment/config-file-reader.ts
+
+  # Server actions
+  - src/presentation/web/app/actions/analyze-repository.ts
+  - src/presentation/web/app/actions/invalidate-dev-env-cache.ts
+  - src/presentation/web/app/actions/update-dev-env-analysis.ts
+
+  # UI components
+  - src/presentation/web/components/common/base-drawer/deploy-mode-toggle.tsx
+  - src/presentation/web/components/common/base-drawer/deploy-mode-toggle.stories.tsx
+  - src/presentation/web/components/common/base-drawer/cache-summary.tsx
+  - src/presentation/web/components/common/base-drawer/cache-summary.stories.tsx
+  - src/presentation/web/components/common/base-drawer/dev-env-analysis-editor.tsx
+  - src/presentation/web/components/common/base-drawer/dev-env-analysis-editor.stories.tsx
+
+  # Tests
+  - packages/core/src/infrastructure/persistence/sqlite/mappers/__tests__/dev-env-analysis.mapper.test.ts
+  - packages/core/src/infrastructure/repositories/__tests__/sqlite-dev-env-analysis.repository.test.ts
+  - packages/core/src/infrastructure/services/deployment/__tests__/repo-cache-key-resolver.test.ts
+  - packages/core/src/infrastructure/services/deployment/__tests__/dev-environment-analyzer.service.test.ts
+  - packages/core/src/infrastructure/services/deployment/__tests__/config-file-reader.test.ts
+
+filesToModify:
+  # TypeSpec
+  - tsp/common/enums/deployment.tsp
+  - tsp/deployment/index.tsp
+
+  # DI
+  - packages/core/src/infrastructure/di/container.ts
+
+  # Existing deployment service
+  - packages/core/src/infrastructure/services/deployment/deployment.service.ts
+  - packages/core/src/application/ports/output/services/deployment-service.interface.ts
+
+  # Port interfaces index
+  - packages/core/src/application/ports/output/repositories/index.ts
+
+  # Server actions
+  - src/presentation/web/app/actions/deploy-feature.ts
+  - src/presentation/web/app/actions/deploy-repository.ts
+
+  # UI
+  - src/presentation/web/hooks/use-deploy-action.ts
+  - src/presentation/web/components/common/base-drawer/base-drawer.tsx
+  - src/presentation/web/components/common/deployment-status-badge/deployment-status-badge.tsx
+
+  # Tests
+  - packages/core/src/infrastructure/services/deployment/__tests__/deployment.service.test.ts
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  This feature extends the existing deployment pipeline (spec 045) with a two-mode
+  analysis system while preserving backward compatibility. The architecture follows
+  Clean Architecture bottom-up: domain types define the shape, persistence stores
+  the cache, services implement the logic, and presentation provides the UI.
+
+  The key architectural addition is a **DevEnvironmentAnalyzerService** that sits
+  between the server actions and DeploymentService. It encapsulates mode detection
+  (fast vs agent), cache lookup/storage, and analysis execution. The existing
+  DeploymentService gains a new `startWithAnalysis()` entry point that accepts
+  pre-computed analysis results instead of calling `detectDevScript()` directly.
+
+  ### Data Flow
+
+  ```
+  User clicks Deploy
+    -> useDeployAction (mode selection)
+    -> Server action: analyze-repository
+      -> RepoCacheKeyResolver.resolve(cwd) -> cacheKey
+      -> IDevEnvAnalysisRepository.findByCacheKey(cacheKey)
+      -> If cached: return cached analysis
+      -> If not cached:
+        -> DevEnvironmentAnalyzerService.analyze(path, mode)
+          -> If fast: detectDevScript() -> build DevEnvironmentAnalysis
+          -> If agent: pre-read config files -> StructuredAgentCaller.call()
+        -> IDevEnvAnalysisRepository.save(analysis)
+        -> Return analysis
+    -> Server action: deploy-feature / deploy-repository
+      -> DeploymentService.startWithAnalysis(targetId, analysis)
+        -> If canStart: false -> set state NotStartable, no spawn
+        -> If canStart: true -> spawn first command, attach listeners
+    -> UI updates via polling (existing pattern)
+  ```
+
+  ## Key Design Decisions
+
+  ### 1. StructuredAgentCaller over LangGraph
+
+  Repo analysis is a single-shot task. The existing StructuredAgentCallerService
+  handles native structured output and JSON fallback parsing. Pre-reading config
+  files (package.json, pyproject.toml, Cargo.toml, etc.) into the prompt gives
+  the agent all necessary context without tool-use loops. This avoids StateGraph
+  complexity and keeps testing deterministic.
+
+  ### 2. Unified Cache for Both Modes
+
+  Both fast-path and agent results are stored in the same SQLite table with a
+  `source` field (fast-path | agent | manual). This gives a single data model,
+  single repository, single editor UI. When a user edits a fast-path result, it
+  becomes source=manual. No divergent code paths for cached vs live detection.
+
+  ### 3. First Command Only Execution
+
+  The analysis returns an ordered commands array, but DeploymentService only
+  executes the first (primary) command. This aligns with the current single-process-
+  per-target architecture. Additional commands are stored for user reference and
+  future multi-process support. Users can reorder commands via the cache editor.
+
+  ### 4. Additive Refactoring via startWithAnalysis()
+
+  DeploymentService.start() is preserved unchanged. A new startWithAnalysis()
+  method accepts DevEnvironmentAnalysis and spawns from the first command. The
+  refactored deploy server actions resolve analysis first, then call
+  startWithAnalysis(). This avoids breaking existing callers.
+
+  ### 5. Cache Key: Git Remote URL with Root Repo Path Fallback
+
+  The cache key uses `git remote get-url origin` (primary) or `git rev-parse
+  --git-common-dir` (fallback for repos without a remote). This ensures all
+  worktrees of the same repo share one cache entry, since worktrees live at
+  different filesystem paths but share the same git remote and root repo.
+
+  ### 6. TypeSpec Models Follow Deployment Module Pattern
+
+  The existing Deployment and DeploySkill models define id and createdAt directly
+  (they do NOT extend BaseEntity). DevEnvironmentAnalysis follows this same
+  pattern for consistency within the deployment module.
+
+  ### 7. Config File Pre-reading Strategy
+
+  A fixed list of known config files (package.json, pyproject.toml, Cargo.toml,
+  go.mod, Gemfile, pom.xml, build.gradle, Dockerfile, docker-compose.yml,
+  Makefile, requirements.txt, etc.) is read before the agent call. A shallow
+  directory listing (depth 1-2, excluding node_modules/.git/dist/build) provides
+  structural context. Deterministic inputs enable reliable testing.
+
+  ## Implementation Strategy
+
+  The six phases build bottom-up through the Clean Architecture layers:
+
+  **Phase 1 (Domain)** establishes the type system. All subsequent code depends
+  on these generated types, so this must come first.
+
+  **Phase 2 (Persistence)** creates the SQLite table and data access layer. The
+  analyzer service needs the repository to cache results.
+
+  **Phase 3 (Cache Key)** is a standalone utility returning a plain string. It
+  has no dependency on phase 1-2 types but is sequenced after for clarity.
+
+  **Phase 4 (Services)** is the core logic phase. The analyzer service combines
+  cache key resolution, repository access, fast-path detection, and agent calls.
+  DeploymentService refactoring also happens here.
+
+  **Phase 5 (Server Actions)** wires the services to the web layer. Must follow
+  phase 4 since actions call the analyzer service.
+
+  **Phase 6 (UI)** builds the user-facing components. Must follow phase 5 since
+  components call server actions.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Agent returns invalid/incomplete analysis | StructuredAgentCallerService handles parse failures via StructuredCallError. Validate required fields (canStart, language, commands when canStart=true) before caching. Return user-visible error on failure. |
+  | TypeSpec compilation breaks existing types | Run `pnpm tsp:compile` after each TypeSpec change. New models are additive (new files + new enum values). Only existing modification is adding NotStartable to DeploymentState enum. |
+  | Migration 040 conflicts with concurrent features | Check for existing migration 040 before naming. Use CREATE TABLE IF NOT EXISTS for idempotent migration. |
+  | DeploymentService refactoring breaks existing deploys | Preserve existing start() method unchanged. New startWithAnalysis() is additive. Existing server actions continue to work until updated in phase 5. |
+  | Cache key resolution fails in edge cases | Three-level fallback: remote URL, root repo path, working directory path. Each level has try/catch. Unit tests cover all three paths plus error cases. |
+  | Agent analysis takes too long | UI shows analyzing spinner with cancel button (FR-21). StructuredAgentCaller has configurable maxTurns. 30-second timeout enforced at server action level. |
+  | NotStartable state confuses existing UI consumers | NotStartable is a new enum value. Existing code switching on Booting/Ready/Stopped falls through to default/null handling safely. Only updated components explicitly handle NotStartable. |

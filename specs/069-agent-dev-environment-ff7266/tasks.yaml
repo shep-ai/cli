@@ -1,0 +1,748 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: agent-dev-environment-ff7266
+summary: >
+  22 tasks across 6 phases implementing the agent-based dev environment feature.
+  Bottom-up through Clean Architecture: TypeSpec domain models, SQLite persistence,
+  cache key resolution, analyzer service with deployment integration, server
+  actions with hooks, and UI components with Storybook stories.
+
+relatedFeatures:
+  - 045-feature-env-deploy
+  - 061-default-env-deployment
+
+technologies:
+  - TypeScript
+  - TypeSpec
+  - better-sqlite3
+  - Umzug
+  - tsyringe
+  - StructuredAgentCallerService
+  - shadcn/ui
+  - Next.js
+  - Vitest
+  - Storybook
+
+relatedLinks: []
+
+tasks:
+  # ============================================================
+  # Phase 1: Domain Models & TypeSpec
+  # ============================================================
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Add AnalysisSource enum and NotStartable to DeploymentState'
+    description: >
+      Extend tsp/common/enums/deployment.tsp with a new AnalysisSource enum
+      (FastPath, Agent, Manual) and add NotStartable to the existing
+      DeploymentState enum. These enums are used by the analysis model and
+      the deployment state machine.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'AnalysisSource enum has three values: FastPath, Agent, Manual'
+      - 'DeploymentState enum includes NotStartable alongside Booting, Ready, Stopped'
+      - 'Both enums have @doc annotations following existing conventions'
+      - 'pnpm tsp:compile succeeds with no errors'
+    tdd:
+      red:
+        - 'Verify generated output.ts does not contain AnalysisSource or NotStartable (confirms types do not exist yet)'
+      green:
+        - 'Add AnalysisSource enum and NotStartable value to tsp/common/enums/deployment.tsp'
+        - 'Run pnpm tsp:compile and verify generated output.ts contains the new types'
+      refactor:
+        - 'Ensure @doc annotations are consistent with existing enum documentation style'
+    estimatedEffort: '20min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Create DevCommand TypeSpec value object'
+    description: >
+      Create tsp/deployment/dev-command.tsp defining the DevCommand value object
+      with command (string), description (string), and optional workingDirectory
+      (string). This is a value object (no id, no BaseEntity) following the
+      PortMap pattern.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'DevCommand model has command, description, and optional workingDirectory fields'
+      - 'Model has @doc annotations on the model and each field'
+      - 'Model does NOT extend BaseEntity (value object pattern like PortMap)'
+      - 'pnpm tsp:compile succeeds and DevCommand appears in generated output.ts'
+    tdd:
+      red:
+        - 'Verify generated output.ts does not contain DevCommand type'
+      green:
+        - 'Create tsp/deployment/dev-command.tsp with the DevCommand model'
+        - 'Add import to tsp/deployment/index.tsp'
+        - 'Run pnpm tsp:compile and verify DevCommand in generated output'
+      refactor:
+        - 'Review documentation annotations match the style of port-map.tsp'
+    estimatedEffort: '15min'
+
+  - id: task-3
+    phaseId: phase-1
+    title: 'Create DevEnvironmentAnalysis TypeSpec model'
+    description: >
+      Create tsp/deployment/dev-environment-analysis.tsp defining the main
+      analysis model with: id (UUID), cacheKey (string), canStart (boolean),
+      reason (optional string), commands (DevCommand[]), prerequisites (optional
+      string[]), ports (optional int32[]), environmentVariables (optional
+      Record<string>), language (string), framework (optional string), source
+      (AnalysisSource), createdAt (utcDateTime), updatedAt (utcDateTime).
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'DevEnvironmentAnalysis model has all required fields with correct types'
+      - 'cacheKey field stores the resolved cache key (git remote URL or root repo path)'
+      - 'commands field is DevCommand[] type'
+      - 'source field uses AnalysisSource enum'
+      - 'Model follows Deployment model pattern (own id + timestamps, not BaseEntity)'
+      - 'pnpm tsp:compile succeeds and DevEnvironmentAnalysis appears in generated output.ts'
+    tdd:
+      red:
+        - 'Verify generated output.ts does not contain DevEnvironmentAnalysis type'
+      green:
+        - 'Create tsp/deployment/dev-environment-analysis.tsp with all fields'
+        - 'Add import to tsp/deployment/index.tsp'
+        - 'Run pnpm tsp:compile and verify DevEnvironmentAnalysis in generated output'
+      refactor:
+        - 'Review field ordering and documentation for consistency with deployment.tsp'
+    estimatedEffort: '25min'
+
+  # ============================================================
+  # Phase 2: Persistence Layer
+  # ============================================================
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Create SQLite migration 040 for dev_environment_analyses table'
+    description: >
+      Create migration 040-create-dev-environment-analyses.ts with the
+      dev_environment_analyses table: id TEXT PK, cache_key TEXT UNIQUE NOT NULL,
+      can_start INTEGER NOT NULL, reason TEXT, commands TEXT NOT NULL (JSON),
+      prerequisites TEXT (JSON), ports TEXT (JSON), environment_variables TEXT
+      (JSON), language TEXT NOT NULL, framework TEXT, source TEXT NOT NULL,
+      created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL. Follow the
+      pragma table_info idempotent pattern from existing migrations.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'Migration file named 040-create-dev-environment-analyses.ts'
+      - 'Table has UNIQUE constraint on cache_key column'
+      - 'NOT NULL constraints on id, cache_key, can_start, commands, language, source, created_at, updated_at'
+      - 'up() checks if table exists before CREATE TABLE'
+      - 'down() is a no-op following existing convention'
+      - 'Migration runs cleanly on fresh DB via pnpm test (integration tests exercise migrations)'
+    tdd:
+      red:
+        - 'Write integration test that opens a fresh SQLite DB, runs all migrations, and verifies dev_environment_analyses table exists with correct columns via pragma table_info'
+      green:
+        - 'Create the migration file with CREATE TABLE IF NOT EXISTS'
+        - 'Verify test passes'
+      refactor:
+        - 'Ensure column types and constraints match the mapper expectations exactly'
+    estimatedEffort: '30min'
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Create dev-env-analysis mapper (toDatabase/fromDatabase)'
+    description: >
+      Create the mapper at packages/core/src/infrastructure/persistence/sqlite/
+      mappers/dev-env-analysis.mapper.ts with DevEnvAnalysisRow interface,
+      toDatabase() converting domain to row (camelCase to snake_case, JSON.stringify
+      for arrays/objects, Date to unix ms), and fromDatabase() converting row to
+      domain (snake_case to camelCase, JSON.parse, unix ms to Date).
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'DevEnvAnalysisRow interface has snake_case columns matching migration schema'
+      - 'toDatabase() correctly converts all fields including JSON stringification of commands, prerequisites, ports, environmentVariables'
+      - 'fromDatabase() correctly converts all fields including JSON.parse and Date reconstruction'
+      - 'Round-trip conversion (toDatabase then fromDatabase) preserves all data'
+      - 'Handles null/undefined optional fields correctly in both directions'
+    tdd:
+      red:
+        - 'Write test that creates a DevEnvironmentAnalysis domain object with all fields populated, calls toDatabase(), and asserts each row field is correct (snake_case, JSON strings, integer timestamps)'
+        - 'Write test that creates a DevEnvAnalysisRow, calls fromDatabase(), and asserts each domain field is correct (camelCase, parsed arrays, Date objects)'
+        - 'Write round-trip test: toDatabase(fromDatabase(row)) preserves all data'
+        - 'Write test for optional fields being null/undefined'
+      green:
+        - 'Implement DevEnvAnalysisRow interface'
+        - 'Implement toDatabase() and fromDatabase() functions'
+      refactor:
+        - 'Extract any shared conversion helpers if patterns emerge with existing mappers'
+    estimatedEffort: '45min'
+
+  - id: task-6
+    phaseId: phase-2
+    title: 'Create IDevEnvAnalysisRepository interface'
+    description: >
+      Define the repository port interface at packages/core/src/application/ports/
+      output/repositories/dev-env-analysis-repository.interface.ts with methods:
+      findByCacheKey(cacheKey: string), save(analysis), update(analysis),
+      deleteByCacheKey(cacheKey: string). Export from the repositories index.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'Interface has findByCacheKey, save, update, deleteByCacheKey methods'
+      - 'findByCacheKey returns Promise<DevEnvironmentAnalysis | null>'
+      - 'save and update accept DevEnvironmentAnalysis and return Promise<void>'
+      - 'deleteByCacheKey accepts string and returns Promise<void>'
+      - 'Interface is exported from repositories/index.ts'
+    tdd: null
+    estimatedEffort: '15min'
+
+  - id: task-7
+    phaseId: phase-2
+    title: 'Create SQLiteDevEnvAnalysisRepository implementation'
+    description: >
+      Implement the repository at packages/core/src/infrastructure/repositories/
+      sqlite-dev-env-analysis.repository.ts following SQLiteFeatureRepository
+      patterns: @injectable(), constructor(db: Database.Database), prepared
+      statements with named params, using the mapper for conversions.
+    state: Todo
+    dependencies:
+      - task-5
+      - task-6
+    acceptanceCriteria:
+      - 'Repository implements IDevEnvAnalysisRepository'
+      - 'findByCacheKey uses prepared statement with @cache_key parameter'
+      - 'save uses INSERT with all columns from toDatabase()'
+      - 'update uses UPDATE SET with WHERE cache_key = @cache_key'
+      - 'deleteByCacheKey uses DELETE WHERE cache_key = @cache_key'
+      - 'All methods use mapper functions for domain-row conversion'
+      - '>= 90% branch coverage in unit tests'
+    tdd:
+      red:
+        - 'Write test for findByCacheKey returning null when no record exists'
+        - 'Write test for save() followed by findByCacheKey() returning the saved analysis'
+        - 'Write test for update() modifying an existing record'
+        - 'Write test for deleteByCacheKey() removing a record'
+        - 'Write test for save() with duplicate cache_key throwing (UNIQUE constraint)'
+      green:
+        - 'Implement SQLiteDevEnvAnalysisRepository with all four methods'
+        - 'Use in-memory SQLite database for tests (following existing test patterns)'
+      refactor:
+        - 'Ensure prepared statement patterns are consistent with SQLiteFeatureRepository'
+    estimatedEffort: '1h'
+
+  # ============================================================
+  # Phase 3: Cache Key Resolution
+  # ============================================================
+
+  - id: task-8
+    phaseId: phase-3
+    title: 'Create IRepoCacheKeyResolver interface'
+    description: >
+      Define the port interface at packages/core/src/application/ports/output/
+      services/repo-cache-key-resolver.interface.ts with a single method:
+      resolve(cwd: string): Promise<string>. The returned string is the cache
+      key (git remote URL, root repo path, or fallback working directory).
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'Interface has resolve(cwd: string): Promise<string> method'
+      - 'Interface has JSDoc explaining the three-level resolution strategy'
+    tdd: null
+    estimatedEffort: '10min'
+
+  - id: task-9
+    phaseId: phase-3
+    title: 'Implement RepoCacheKeyResolver'
+    description: >
+      Create packages/core/src/infrastructure/services/deployment/
+      repo-cache-key-resolver.ts implementing IRepoCacheKeyResolver. Resolution
+      strategy: (1) try `git remote get-url origin` via injected ExecFunction,
+      trim the result; (2) if that fails or returns empty, try `git rev-parse
+      --git-common-dir` to get root repo path, resolve to absolute path;
+      (3) if both fail, return the provided cwd as fallback.
+    state: Todo
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - 'Returns trimmed git remote URL when `git remote get-url origin` succeeds'
+      - 'Returns absolute root repo path when remote fails but `git rev-parse --git-common-dir` succeeds'
+      - 'Returns provided cwd when both git commands fail (non-git directory)'
+      - 'Multiple worktrees of same repo return the same cache key'
+      - 'ExecFunction is injected via constructor (mockable for tests)'
+      - '>= 90% branch coverage'
+    tdd:
+      red:
+        - 'Write test with mock ExecFunction returning remote URL — assert resolver returns trimmed URL'
+        - 'Write test with mock ExecFunction where remote fails but git-common-dir succeeds — assert resolver returns absolute root path'
+        - 'Write test with mock ExecFunction where both commands fail — assert resolver returns provided cwd'
+        - 'Write test verifying remote URL is trimmed of whitespace/newlines'
+        - 'Write test for git-common-dir returning relative path (e.g., "../.git") — assert it is resolved to absolute'
+      green:
+        - 'Implement RepoCacheKeyResolver with three-level fallback and ExecFunction injection'
+      refactor:
+        - 'Ensure error handling follows the pattern in GitPrService'
+    estimatedEffort: '45min'
+
+  # ============================================================
+  # Phase 4: Analyzer Service & Deployment Integration
+  # ============================================================
+
+  - id: task-10
+    phaseId: phase-4
+    title: 'Create config file reader utility'
+    description: >
+      Create packages/core/src/infrastructure/services/deployment/
+      config-file-reader.ts that pre-reads known config files from a repository
+      path. Reads a fixed list of config files (package.json, tsconfig.json,
+      Dockerfile, docker-compose.yml, Makefile, pyproject.toml, requirements.txt,
+      setup.py, Cargo.toml, go.mod, Gemfile, pom.xml, build.gradle, CMakeLists.txt,
+      .env.example, Procfile, Pipfile), truncates to 2000 chars each, and produces
+      a shallow directory listing (depth 1, excluding node_modules/.git/dist/build).
+      Returns a structured object for prompt inclusion.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'Reads all listed config files, returning { filename, content } for each that exists'
+      - 'Truncates file content to 2000 characters with a truncation notice'
+      - 'Produces shallow directory listing excluding node_modules, .git, dist, build, .next, __pycache__'
+      - 'Returns empty array for files and empty listing for empty/non-existent directories'
+      - 'Uses fs/promises for async file reading'
+      - 'File reading errors are silently caught (file may not exist)'
+    tdd:
+      red:
+        - 'Write test with a temp directory containing package.json and Dockerfile — assert both are read'
+        - 'Write test with a large file (>2000 chars) — assert content is truncated'
+        - 'Write test with empty directory — assert empty files array and listing'
+        - 'Write test verifying node_modules and .git are excluded from directory listing'
+        - 'Write test with non-existent directory — assert graceful empty result'
+      green:
+        - 'Implement readConfigFiles(repoPath) and getDirectoryListing(repoPath) functions'
+      refactor:
+        - 'Extract the config file list as a constant for easy extension'
+    estimatedEffort: '45min'
+
+  - id: task-11
+    phaseId: phase-4
+    title: 'Create IDevEnvironmentAnalyzer interface'
+    description: >
+      Define the port interface at packages/core/src/application/ports/output/
+      services/dev-environment-analyzer.interface.ts with methods:
+      analyze(repoPath: string, mode: AnalysisMode): Promise<DevEnvironmentAnalysis>,
+      and autoDetectMode(repoPath: string): AnalysisMode. Define AnalysisMode
+      type as 'fast' | 'agent'.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'Interface has analyze(repoPath, mode) method returning Promise<DevEnvironmentAnalysis>'
+      - 'Interface has autoDetectMode(repoPath) method returning AnalysisMode'
+      - 'AnalysisMode type exported as "fast" | "agent"'
+      - 'JSDoc explains the two-mode dispatch and auto-detection logic'
+    tdd: null
+    estimatedEffort: '15min'
+
+  - id: task-12
+    phaseId: phase-4
+    title: 'Implement DevEnvironmentAnalyzerService'
+    description: >
+      Create packages/core/src/infrastructure/services/deployment/
+      dev-environment-analyzer.service.ts implementing IDevEnvironmentAnalyzer.
+      Dependencies: IStructuredAgentCaller, IAgentExecutorProvider, detectDevScript
+      function, config file reader. autoDetectMode checks for package.json with
+      dev/start/serve scripts. Fast mode wraps detectDevScript result into
+      DevEnvironmentAnalysis. Agent mode pre-reads config files, builds prompt,
+      calls StructuredAgentCaller with JSON schema for DevEnvironmentAnalysis,
+      validates the result.
+    state: Todo
+    dependencies:
+      - task-10
+      - task-11
+    acceptanceCriteria:
+      - 'autoDetectMode returns "fast" when package.json has dev/start/serve scripts'
+      - 'autoDetectMode returns "agent" when no package.json or no matching scripts'
+      - 'Fast mode wraps detectDevScript result into DevEnvironmentAnalysis with source=FastPath'
+      - 'Fast mode returns canStart:false with reason when detectDevScript fails'
+      - 'Agent mode pre-reads config files and includes them in prompt'
+      - 'Agent mode calls IStructuredAgentCaller.call() with DevEnvironmentAnalysis schema'
+      - 'Agent mode result has source=Agent'
+      - 'Validates required fields (canStart, language) before returning'
+      - 'Agent resolution via IAgentExecutorProvider (never hardcoded)'
+      - '>= 90% branch coverage'
+    tdd:
+      red:
+        - 'Write test for autoDetectMode with package.json containing dev script — assert returns "fast"'
+        - 'Write test for autoDetectMode with no package.json — assert returns "agent"'
+        - 'Write test for fast mode with successful detectDevScript — assert DevEnvironmentAnalysis with correct fields'
+        - 'Write test for fast mode with failed detectDevScript — assert canStart:false with reason'
+        - 'Write test for agent mode with mock StructuredAgentCaller — assert prompt includes config file contents'
+        - 'Write test for agent mode returning canStart:false (library repo) — assert reason is set'
+        - 'Write test for agent mode with StructuredCallError — assert error propagates with user message'
+      green:
+        - 'Implement DevEnvironmentAnalyzerService with fast and agent code paths'
+        - 'Build agent prompt template with config files and directory listing sections'
+        - 'Define JSON schema for StructuredAgentCaller matching DevEnvironmentAnalysis shape'
+      refactor:
+        - 'Extract prompt template to a separate constant or function for readability'
+        - 'Ensure error messages are user-friendly (not raw agent errors)'
+    estimatedEffort: '2h'
+
+  - id: task-13
+    phaseId: phase-4
+    title: 'Refactor DeploymentService with startWithAnalysis method'
+    description: >
+      Add startWithAnalysis(targetId: string, analysis: DevEnvironmentAnalysis)
+      to DeploymentService and its interface. When canStart is false, set state
+      to NotStartable and return without spawning. When canStart is true, spawn
+      the first command from analysis.commands[0], using the command string
+      directly (shell: true). Preserve existing start() method unchanged.
+    state: Todo
+    dependencies:
+      - task-1
+      - task-3
+    acceptanceCriteria:
+      - 'IDeploymentService interface has startWithAnalysis(targetId, analysis) method'
+      - 'When analysis.canStart is false, state is set to NotStartable, no process spawned'
+      - 'When analysis.canStart is true, first command is spawned with shell:true'
+      - 'Command working directory resolves to repo root or command.workingDirectory if specified'
+      - 'Existing start() method behavior is completely unchanged'
+      - 'Port detection still works via parsePort on stdout/stderr'
+      - 'DeploymentStatus type updated to include NotStartable state'
+      - 'Existing deployment tests still pass with no modifications'
+    tdd:
+      red:
+        - 'Write test calling startWithAnalysis with canStart:false — assert state is NotStartable and no spawn'
+        - 'Write test calling startWithAnalysis with canStart:true and a command — assert spawn called with correct args'
+        - 'Write test verifying parsePort still detects URLs from spawned process stdout'
+        - 'Write test for startWithAnalysis with workingDirectory in command — assert cwd is resolved correctly'
+        - 'Verify all existing deployment.service.test.ts tests still pass'
+      green:
+        - 'Add startWithAnalysis to IDeploymentService interface'
+        - 'Implement startWithAnalysis in DeploymentService'
+        - 'Handle NotStartable state (store in deployments map with null child/pid or skip map entry)'
+      refactor:
+        - 'Extract shared spawn logic between start() and startWithAnalysis() into private method'
+    estimatedEffort: '1.5h'
+
+  - id: task-14
+    phaseId: phase-4
+    title: 'Register new services in DI container'
+    description: >
+      Register IDevEnvAnalysisRepository, IRepoCacheKeyResolver, and
+      IDevEnvironmentAnalyzer in packages/core/src/infrastructure/di/container.ts.
+      Follow existing factory registration patterns with string tokens.
+      Add web route aliases for server action resolution.
+    state: Todo
+    dependencies:
+      - task-7
+      - task-9
+      - task-12
+    acceptanceCriteria:
+      - 'IDevEnvAnalysisRepository registered with factory injecting Database'
+      - 'IRepoCacheKeyResolver registered with factory injecting ExecFunction'
+      - 'IDevEnvironmentAnalyzer registered with factory injecting IStructuredAgentCaller and IAgentExecutorProvider'
+      - 'String token aliases added for web route resolution'
+      - 'Container builds without errors (pnpm build succeeds)'
+    tdd:
+      red:
+        - 'Write test resolving IDevEnvAnalysisRepository from container — assert instance of SQLiteDevEnvAnalysisRepository'
+        - 'Write test resolving IRepoCacheKeyResolver from container — assert instance of RepoCacheKeyResolver'
+        - 'Write test resolving IDevEnvironmentAnalyzer from container — assert instance of DevEnvironmentAnalyzerService'
+      green:
+        - 'Add factory registrations to container.ts following existing patterns'
+      refactor:
+        - 'Group new registrations logically near existing deployment registrations'
+    estimatedEffort: '30min'
+
+  # ============================================================
+  # Phase 5: Server Actions & Hooks
+  # ============================================================
+
+  - id: task-15
+    phaseId: phase-5
+    title: 'Create analyze-repository server action'
+    description: >
+      Create src/presentation/web/app/actions/analyze-repository.ts that accepts
+      repositoryPath and optional mode override. Resolves cache key via
+      IRepoCacheKeyResolver, checks cache via IDevEnvAnalysisRepository, and if
+      not cached runs DevEnvironmentAnalyzerService.analyze(). Saves result to
+      cache and returns it. Follows existing server action patterns with typed
+      result objects.
+    state: Todo
+    dependencies:
+      - task-14
+    acceptanceCriteria:
+      - 'Server action has "use server" directive'
+      - 'Accepts repositoryPath (string) and optional mode ("fast" | "agent" | undefined for auto)'
+      - 'Returns { success: true, analysis: DevEnvironmentAnalysis } or { success: false, error: string }'
+      - 'Checks cache first — returns cached result without re-analyzing'
+      - 'When mode is undefined, calls autoDetectMode to determine mode'
+      - 'Saves fresh analysis to cache via repository'
+      - 'Error handling follows try/catch with typed return pattern'
+    tdd:
+      red:
+        - 'Write test calling analyze-repository with a path that has a cached result — assert cached result returned without analyzer call'
+        - 'Write test calling analyze-repository with no cached result — assert analyzer called and result saved to cache'
+        - 'Write test with mode override — assert specified mode used instead of auto-detect'
+        - 'Write test with analyzer error — assert error returned in result object'
+      green:
+        - 'Implement analyze-repository server action with cache-first logic'
+      refactor:
+        - 'Ensure DI resolution follows resolve<T>("Token") pattern from server-container'
+    estimatedEffort: '45min'
+
+  - id: task-16
+    phaseId: phase-5
+    title: 'Create cache management server actions'
+    description: >
+      Create invalidate-dev-env-cache.ts (resolves cache key, deletes cached
+      entry) and update-dev-env-analysis.ts (resolves cache key, updates analysis
+      with source=Manual). Both follow existing server action patterns.
+    state: Todo
+    dependencies:
+      - task-14
+    acceptanceCriteria:
+      - 'invalidate-dev-env-cache accepts repositoryPath, resolves cache key, deletes entry'
+      - 'update-dev-env-analysis accepts repositoryPath and partial DevEnvironmentAnalysis fields'
+      - 'update-dev-env-analysis sets source to Manual on save'
+      - 'Both return typed { success, error? } results'
+      - 'Both have "use server" directive'
+    tdd:
+      red:
+        - 'Write test for invalidate: save an entry, call invalidate, verify findByCacheKey returns null'
+        - 'Write test for update: save an entry, call update with modified commands, verify changes persisted with source=Manual'
+        - 'Write test for invalidate with non-existent cache key — assert success (no-op)'
+      green:
+        - 'Implement both server actions'
+      refactor:
+        - 'Extract shared cache key resolution into a helper if duplicated across actions'
+    estimatedEffort: '30min'
+
+  - id: task-17
+    phaseId: phase-5
+    title: 'Update deploy-feature and deploy-repository server actions'
+    description: >
+      Modify existing deploy server actions to resolve analysis from cache (via
+      analyze-repository logic) before calling DeploymentService. Use
+      startWithAnalysis() when analysis is available, falling back to existing
+      start() for backward compatibility. Handle NotStartable by returning
+      appropriate state without spawning.
+    state: Todo
+    dependencies:
+      - task-15
+    acceptanceCriteria:
+      - 'deploy-feature resolves analysis from cache before starting deployment'
+      - 'deploy-repository resolves analysis from cache before starting deployment'
+      - 'Uses startWithAnalysis() when analysis is available'
+      - 'Returns NotStartable state when analysis.canStart is false'
+      - 'Existing deploy behavior preserved when no cached analysis exists (fast-path fallback)'
+      - 'No breaking changes to return type of either action'
+    tdd:
+      red:
+        - 'Write test for deploy-feature with cached analysis — assert startWithAnalysis called'
+        - 'Write test for deploy-feature with canStart:false analysis — assert NotStartable returned'
+        - 'Write test for deploy-feature with no cached analysis — assert existing start() path used'
+      green:
+        - 'Update deploy-feature.ts and deploy-repository.ts to resolve analysis first'
+      refactor:
+        - 'Extract shared analysis resolution logic if duplicated between the two actions'
+    estimatedEffort: '45min'
+
+  - id: task-18
+    phaseId: phase-5
+    title: 'Extend useDeployAction hook with mode selection and analysis state'
+    description: >
+      Extend the useDeployAction hook to support: mode state (fast | agent | null),
+      mode auto-detection on mount, mode toggle function, analysis state
+      (cached analysis summary), analyzing loading state (for agent mode),
+      re-analyze function, and NotStartable status handling. The deploy function
+      should call the updated server actions.
+    state: Todo
+    dependencies:
+      - task-15
+      - task-16
+      - task-17
+    acceptanceCriteria:
+      - 'Hook exposes mode state and setMode function'
+      - 'Hook exposes analysisState (null | DevEnvironmentAnalysis summary) for cache display'
+      - 'Hook exposes analyzing boolean for loading state during agent analysis'
+      - 'Hook exposes reAnalyze function that invalidates cache and re-runs analysis'
+      - 'deploy() calls analyze-repository then deploy action with analysis'
+      - 'NotStartable status is surfaced through status field'
+      - 'Polling handles NotStartable (no polling needed when state is NotStartable)'
+    tdd:
+      red:
+        - 'Write test verifying mode is auto-detected on mount'
+        - 'Write test verifying setMode updates the mode state'
+        - 'Write test verifying deploy() calls analyze-repository then deploy action'
+        - 'Write test verifying reAnalyze invalidates cache and re-triggers analysis'
+        - 'Write test verifying NotStartable status stops polling'
+      green:
+        - 'Extend useDeployAction with new state and functions'
+      refactor:
+        - 'Ensure cleanup refs handle the new analysis-related async operations'
+    estimatedEffort: '1h'
+
+  # ============================================================
+  # Phase 6: UI Components & Storybook
+  # ============================================================
+
+  - id: task-19
+    phaseId: phase-6
+    title: 'Add NotStartable state to DeploymentStatusBadge'
+    description: >
+      Update DeploymentStatusBadge to handle NotStartable state. Show an info
+      badge with the reason text from the analysis. Use a muted/gray badge style
+      with an info icon, distinct from Booting (blue) and Ready (green).
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Badge renders for NotStartable state with info icon and reason text'
+      - 'Badge uses a distinct visual style (muted/gray) from Booting and Ready'
+      - 'Reason text is passed as a prop or resolved from deployment context'
+      - 'Existing Booting and Ready states render identically to before'
+      - 'Colocated Storybook story added with NotStartable variant'
+    tdd:
+      red:
+        - 'Write test rendering DeploymentStatusBadge with NotStartable state — assert info icon and reason text visible'
+        - 'Write test rendering with Booting state — assert unchanged behavior'
+      green:
+        - 'Add NotStartable case to the badge component switch/conditional'
+        - 'Add reason prop for NotStartable state'
+      refactor:
+        - 'Ensure the badge component handles the new prop gracefully when undefined'
+    estimatedEffort: '30min'
+
+  - id: task-20
+    phaseId: phase-6
+    title: 'Create deploy mode toggle component'
+    description: >
+      Create deploy-mode-toggle.tsx in the base-drawer directory. A small toggle
+      (shadcn ToggleGroup or similar) showing Fast/Agent options. Highlights the
+      current mode. Calls onModeChange when toggled. Shows auto-detected mode
+      with a label. Create colocated Storybook story.
+    state: Todo
+    dependencies:
+      - task-18
+    acceptanceCriteria:
+      - 'Component renders Fast and Agent mode options'
+      - 'Current mode is visually highlighted'
+      - 'Calls onModeChange callback when user toggles'
+      - 'Shows "(auto)" label next to auto-detected mode'
+      - 'Colocated .stories.tsx file with variants: fast selected, agent selected, auto-detected'
+    tdd:
+      red:
+        - 'Write test rendering toggle with mode="fast" — assert Fast option is highlighted'
+        - 'Write test clicking Agent option — assert onModeChange called with "agent"'
+      green:
+        - 'Implement DeployModeToggle component using shadcn ToggleGroup'
+        - 'Create deploy-mode-toggle.stories.tsx with all variants'
+      refactor:
+        - 'Ensure accessible labels and keyboard navigation work correctly'
+    estimatedEffort: '30min'
+
+  - id: task-21
+    phaseId: phase-6
+    title: 'Create cache summary and analysis editor components'
+    description: >
+      Create cache-summary.tsx showing language, framework, commands count, and
+      ports when a cached analysis exists, with Edit and Re-analyze buttons.
+      Create dev-env-analysis-editor.tsx as a structured form with fields for
+      each DevEnvironmentAnalysis property (canStart toggle, reason text, dynamic
+      commands list with add/remove/reorder, ports list, prerequisites list,
+      environment variables key-value pairs, language, framework). Create
+      colocated Storybook stories for both components.
+    state: Todo
+    dependencies:
+      - task-18
+    acceptanceCriteria:
+      - 'CacheSummary shows language, framework, command count, ports from cached analysis'
+      - 'CacheSummary has Edit Config and Re-analyze buttons'
+      - 'DevEnvAnalysisEditor renders structured form with all DevEnvironmentAnalysis fields'
+      - 'Commands list supports add, remove, and reorder operations'
+      - 'Environment variables section supports key-value pair editing'
+      - 'canStart is a toggle/switch component'
+      - 'Form calls onSave with updated DevEnvironmentAnalysis on submit'
+      - 'Both components have colocated .stories.tsx files'
+    tdd:
+      red:
+        - 'Write test rendering CacheSummary with analysis — assert language and commands count displayed'
+        - 'Write test clicking Edit button — assert onEdit callback called'
+        - 'Write test rendering DevEnvAnalysisEditor with analysis — assert all fields populated'
+        - 'Write test adding a command in the editor — assert commands list length increases'
+        - 'Write test toggling canStart — assert switch state changes'
+      green:
+        - 'Implement CacheSummary component'
+        - 'Implement DevEnvAnalysisEditor form component'
+        - 'Create Storybook stories for both'
+      refactor:
+        - 'Extract reusable dynamic-list sub-component for commands, prerequisites, ports'
+    estimatedEffort: '2h'
+
+  - id: task-22
+    phaseId: phase-6
+    title: 'Integrate mode toggle, cache summary, and editor into DeployBar'
+    description: >
+      Update the DeployBar component in base-drawer.tsx to render DeployModeToggle,
+      CacheSummary (when cached analysis exists), and open DevEnvAnalysisEditor
+      in a dialog/drawer on Edit click. Connect to the extended useDeployAction
+      hook for mode state, analysis state, re-analyze, and deploy. Disable
+      deploy button with tooltip when analysis.canStart is false. Show analyzing
+      spinner during agent analysis.
+    state: Todo
+    dependencies:
+      - task-19
+      - task-20
+      - task-21
+    acceptanceCriteria:
+      - 'DeployBar renders DeployModeToggle above the deploy button'
+      - 'CacheSummary shown when cached analysis exists'
+      - 'Edit button opens DevEnvAnalysisEditor in a dialog'
+      - 'Re-analyze button calls reAnalyze from hook'
+      - 'Deploy button disabled with tooltip when canStart is false'
+      - 'Analyzing spinner shown during agent analysis'
+      - 'Existing deploy/stop functionality preserved'
+      - 'No regressions in existing DeployBar behavior when no analysis exists'
+    tdd:
+      red:
+        - 'Write test rendering DeployBar with cached analysis — assert CacheSummary and mode toggle visible'
+        - 'Write test rendering DeployBar with canStart:false — assert deploy button is disabled'
+        - 'Write test rendering DeployBar with analyzing:true — assert spinner visible'
+        - 'Write test rendering DeployBar without analysis — assert existing behavior (deploy button enabled, no cache summary)'
+      green:
+        - 'Update DeployBar to integrate new components'
+        - 'Wire up useDeployAction hook extensions'
+      refactor:
+        - 'Ensure component does not re-render unnecessarily (memoize callbacks)'
+    estimatedEffort: '1.5h'
+
+totalEstimate: '16h'
+
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation spans 22 tasks across 6 phases, building bottom-up through
+  the Clean Architecture layers. The first phase establishes the TypeSpec domain
+  models that all subsequent code depends on. Phase 2 creates the persistence
+  layer (migration, mapper, repository) for caching analysis results. Phase 3
+  builds the standalone cache key resolver. Phase 4 is the largest phase,
+  implementing the core analyzer service, config file reader, deployment service
+  refactoring, and DI registration. Phase 5 wires everything to the web layer
+  via server actions and hook extensions. Phase 6 builds the user-facing
+  components with Storybook stories.
+
+  Each code task follows TDD: write failing tests first (RED), implement minimal
+  code to pass (GREEN), then clean up (REFACTOR). Non-code tasks (interface
+  definitions, TypeSpec models) skip TDD since they are validated by compilation.
+
+  The dependency graph ensures no task references work that has not been completed
+  in a prior task. The phases are strictly ordered (no parallel phases) to
+  maintain a clear progression and avoid integration surprises.
+
+  Estimated total effort is approximately 16 hours of implementation time.
