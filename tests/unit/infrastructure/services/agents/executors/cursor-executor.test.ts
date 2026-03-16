@@ -22,7 +22,12 @@ vi.mock('@/infrastructure/platform.js', () => ({
 
 import { CursorExecutorService } from '@/infrastructure/services/agents/common/executors/cursor-executor.service.js';
 import type { SpawnFunction } from '@/infrastructure/services/agents/common/types.js';
-import { AgentType, AgentFeature } from '@/domain/generated/output.js';
+import {
+  AgentType,
+  AgentFeature,
+  AgentAuthMethod,
+  type AgentConfig,
+} from '@/domain/generated/output.js';
 
 /**
  * Creates a mock ChildProcess-like object that can emit events and provide
@@ -394,10 +399,20 @@ describe('CursorExecutorService', () => {
       );
     });
 
-    it('should spawn PowerShell on Windows with temp file prompt', async () => {
-      // On Windows, cursor CLI is invoked via PowerShell to bypass cmd.exe arg mangling
+    it('should spawn cursor node.exe directly on Windows (no PowerShell nesting)', async () => {
+      // On Windows, cursor CLI should be invoked directly via its bundled node.exe + index.js
+      // to avoid the problematic PowerShell → agent.cmd → PowerShell → node.exe chain
+      // that causes hangs on Windows CI runners.
       const originalPlatform = process.platform;
       Object.defineProperty(process, 'platform', { value: 'win32' });
+
+      // Mock resolveCursorBinary to return fake paths (avoids filesystem dependency)
+      const resolveSpy = vi.spyOn(executor as any, 'resolveCursorBinary').mockReturnValue({
+        nodePath:
+          'C:\\Users\\test\\AppData\\Local\\cursor-agent\\versions\\2026.3.11-abc\\node.exe',
+        indexPath:
+          'C:\\Users\\test\\AppData\\Local\\cursor-agent\\versions\\2026.3.11-abc\\index.js',
+      });
 
       try {
         const mockProc = createMockChildProcess();
@@ -410,13 +425,61 @@ describe('CursorExecutorService', () => {
 
         await executePromise;
 
-        // Should spawn powershell.exe, not agent directly
+        // Should spawn the cursor node.exe directly, NOT powershell.exe
+        const spawnCmd = vi.mocked(mockSpawn).mock.calls[0][0];
+        const spawnArgs = vi.mocked(mockSpawn).mock.calls[0][1] as string[];
+        const spawnOpts = vi.mocked(mockSpawn).mock.calls[0][2] as Record<string, unknown>;
+
+        // Must NOT use powershell.exe
+        expect(spawnCmd).not.toBe('powershell.exe');
+        // Should end with node.exe (the cursor CLI's bundled node)
+        expect(spawnCmd).toMatch(/node\.exe$/);
+        // First arg should be index.js path
+        expect(spawnArgs[0]).toMatch(/index\.js$/);
+        // Remaining args should include --yolo, -p, prompt, --output-format, json
+        expect(spawnArgs.slice(1)).toContain('--yolo');
+        expect(spawnArgs.slice(1)).toContain('-p');
+        expect(spawnArgs.slice(1)).toContain('Test');
+        expect(spawnArgs.slice(1)).toContain('--output-format');
+        expect(spawnArgs.slice(1)).toContain('json');
+        // Should have windowsHide
+        expect(spawnOpts.windowsHide).toBe(true);
+        // Should set CURSOR_INVOKED_AS env var
+        expect((spawnOpts.env as Record<string, string>).CURSOR_INVOKED_AS).toBe('agent');
+      } finally {
+        resolveSpy.mockRestore();
+        Object.defineProperty(process, 'platform', { value: originalPlatform });
+      }
+    });
+
+    it('should fall back to PowerShell on Windows when cursor binary is not resolved', async () => {
+      // When the cursor installation can't be found, fall back to PowerShell + temp file
+      const originalPlatform = process.platform;
+      Object.defineProperty(process, 'platform', { value: 'win32' });
+
+      const resolveSpy = vi
+        .spyOn(executor as any, 'resolveCursorBinary')
+        .mockReturnValue(undefined);
+
+      try {
+        const mockProc = createMockChildProcess();
+        vi.mocked(mockSpawn).mockReturnValue(mockProc as any);
+
+        const assistantLine = buildCursorAssistantEvent('Done');
+        const resultLine = buildCursorResultEvent('sess-1', 100);
+        const executePromise = executor.execute('Test', { silent: true });
+        emitStreamData(mockProc, [assistantLine, resultLine], null, 0);
+
+        await executePromise;
+
+        // Should fall back to powershell.exe
         expect(mockSpawn).toHaveBeenCalledWith(
           'powershell.exe',
           expect.arrayContaining(['-NoProfile', '-NonInteractive', '-Command']),
           expect.objectContaining({ windowsHide: true })
         );
       } finally {
+        resolveSpy.mockRestore();
         Object.defineProperty(process, 'platform', { value: originalPlatform });
       }
     });
@@ -527,6 +590,52 @@ describe('CursorExecutorService', () => {
       expect(spawnArgs).not.toContain('--api-key');
       expect(spawnArgs).not.toContain('--token');
       expect(spawnArgs).not.toContain('--auth');
+    });
+
+    it('should inject CURSOR_API_KEY env var when authConfig has token', async () => {
+      const authConfig: AgentConfig = {
+        type: AgentType.Cursor,
+        authMethod: AgentAuthMethod.Token,
+        token: 'fake-key',
+      };
+      const executorWithAuth = new CursorExecutorService(mockSpawn, authConfig);
+
+      const mockProc = createMockChildProcess();
+      vi.mocked(mockSpawn).mockReturnValue(mockProc as any);
+
+      const assistantLine = buildCursorAssistantEvent('Done');
+      const resultLine = buildCursorResultEvent('sess-1', 100);
+      const executePromise = executorWithAuth.execute('Test', { silent: true });
+      emitStreamData(mockProc, [assistantLine, resultLine], null, 0);
+
+      await executePromise;
+
+      const spawnOpts = vi.mocked(mockSpawn).mock.calls[0][2] as Record<string, unknown>;
+      const env = spawnOpts.env as Record<string, string>;
+      expect(env.CURSOR_API_KEY).toBe('fake-key');
+    });
+
+    it('should NOT inject CURSOR_API_KEY when authConfig has no token', async () => {
+      const authConfig: AgentConfig = {
+        type: AgentType.Cursor,
+        authMethod: AgentAuthMethod.Session,
+      };
+      const executorNoToken = new CursorExecutorService(mockSpawn, authConfig);
+
+      const mockProc = createMockChildProcess();
+      vi.mocked(mockSpawn).mockReturnValue(mockProc as any);
+
+      const assistantLine = buildCursorAssistantEvent('Done');
+      const resultLine = buildCursorResultEvent('sess-1', 100);
+      const executePromise = executorNoToken.execute('Test', { silent: true });
+      emitStreamData(mockProc, [assistantLine, resultLine], null, 0);
+
+      await executePromise;
+
+      const spawnOpts = vi.mocked(mockSpawn).mock.calls[0][2] as Record<string, unknown>;
+      const env = spawnOpts.env as Record<string, string>;
+      // Should not have been injected (may exist from process.env, but not from authConfig)
+      expect(env.CURSOR_API_KEY).toBeUndefined();
     });
   });
 
