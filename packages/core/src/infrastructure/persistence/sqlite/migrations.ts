@@ -23,7 +23,7 @@ import { LEGACY_MIGRATIONS, LEGACY_MIGRATION_NAMES } from './legacy-migrations.j
  * The latest schema version (highest legacy migration version number).
  * Exported for test assertions so they don't hardcode version numbers.
  */
-export const LATEST_SCHEMA_VERSION = 36;
+export const LATEST_SCHEMA_VERSION = 34;
 
 /**
  * Resolves the migrations directory path.

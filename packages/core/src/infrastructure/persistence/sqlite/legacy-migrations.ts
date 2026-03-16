@@ -523,40 +523,6 @@ CREATE TABLE IF NOT EXISTS pr_sync_lock (
       add('notif_evt_merge_review_ready');
     },
   },
-  {
-    version: 35,
-    name: '035-add-ci-watch-enabled',
-    sql: '',
-    handler: (db: Database.Database) => {
-      const columns = db.pragma('table_info(settings)') as { name: string }[];
-      if (!columns.some((c) => c.name === 'ci_watch_enabled')) {
-        db.exec('ALTER TABLE settings ADD COLUMN ci_watch_enabled INTEGER NOT NULL DEFAULT 1');
-      }
-    },
-  },
-  {
-    version: 36,
-    name: '036-add-phase-execution-metadata',
-    sql: '',
-    handler: (db: Database.Database) => {
-      const columns = db.pragma('table_info(phase_timings)') as { name: string }[];
-      const existing = new Set(columns.map((c) => c.name));
-      const additions: [string, string][] = [
-        ['prompt', 'TEXT'],
-        ['model_id', 'TEXT'],
-        ['agent_type', 'TEXT'],
-        ['input_tokens', 'INTEGER'],
-        ['output_tokens', 'INTEGER'],
-        ['exit_code', 'TEXT'],
-        ['error_message', 'TEXT'],
-      ];
-      for (const [col, type] of additions) {
-        if (!existing.has(col)) {
-          db.exec(`ALTER TABLE phase_timings ADD COLUMN ${col} ${type}`);
-        }
-      }
-    },
-  },
 ];
 
 /**

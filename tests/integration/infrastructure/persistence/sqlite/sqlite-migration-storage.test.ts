@@ -287,8 +287,8 @@ describe('SQLiteMigrationStorage', () => {
 
   describe('bootstrap schema verification', () => {
     /**
-     * Full list of legacy migration names matching production (001–036).
-     * Needed so the bootstrap seeder can seed all 36 records.
+     * Full list of legacy migration names matching production (001–034).
+     * Needed so the bootstrap seeder can seed all 34 records.
      */
     const ALL_LEGACY_NAMES = [
       '001-create-settings-table',
@@ -325,14 +325,12 @@ describe('SQLiteMigrationStorage', () => {
       '032-update-env-deploy-default',
       '033-create-pr-sync-lock',
       '034-add-merge-review-notifications',
-      '035-add-ci-watch-enabled',
-      '036-add-phase-execution-metadata',
     ];
 
     it('should unlog migration whose expected table is missing after bootstrap', () => {
       // Simulate a DB that had all tables EXCEPT pr_sync_lock created,
-      // but user_version was already set to 36.
-      // Create the core tables that would exist in a real DB at version 36:
+      // but user_version was already set to 34.
+      // Create the core tables that would exist in a real DB at version 34:
       db.exec(`
         CREATE TABLE settings (id TEXT PRIMARY KEY);
         CREATE TABLE agent_runs (id TEXT PRIMARY KEY);
@@ -341,9 +339,9 @@ describe('SQLiteMigrationStorage', () => {
         CREATE TABLE repositories (id TEXT PRIMARY KEY);
       `);
       // Deliberately omit pr_sync_lock table
-      db.pragma('user_version = 36');
+      db.pragma('user_version = 34');
 
-      // Construct storage — bootstrap seeds all 36 records,
+      // Construct storage — bootstrap seeds all 34 records,
       // then verification should detect missing pr_sync_lock and unlog 033
       new SQLiteMigrationStorage(db, ALL_LEGACY_NAMES);
 
@@ -358,7 +356,7 @@ describe('SQLiteMigrationStorage', () => {
       expect(appliedNames).toContain('001-create-settings-table');
       expect(appliedNames).toContain('004-create-features');
       expect(appliedNames).toContain('034-add-merge-review-notifications');
-      expect(applied).toHaveLength(35);
+      expect(applied).toHaveLength(33);
     });
 
     it('should not unlog migration when expected table exists', () => {
@@ -371,7 +369,7 @@ describe('SQLiteMigrationStorage', () => {
         CREATE TABLE repositories (id TEXT PRIMARY KEY);
         CREATE TABLE pr_sync_lock (id INTEGER PRIMARY KEY);
       `);
-      db.pragma('user_version = 36');
+      db.pragma('user_version = 34');
 
       new SQLiteMigrationStorage(db, ALL_LEGACY_NAMES);
 
@@ -380,9 +378,9 @@ describe('SQLiteMigrationStorage', () => {
       }[];
       const appliedNames = applied.map((r) => r.name);
 
-      // All 36 should remain seeded
-      expect(appliedNames).toContain('036-add-phase-execution-metadata');
-      expect(applied).toHaveLength(36);
+      // All 34 should remain seeded
+      expect(appliedNames).toContain('034-add-merge-review-notifications');
+      expect(applied).toHaveLength(34);
     });
 
     it('should unlog multiple migrations when multiple tables are missing', () => {
@@ -392,7 +390,7 @@ describe('SQLiteMigrationStorage', () => {
         CREATE TABLE settings (id TEXT PRIMARY KEY);
         CREATE TABLE agent_runs (id TEXT PRIMARY KEY);
       `);
-      db.pragma('user_version = 36');
+      db.pragma('user_version = 34');
 
       new SQLiteMigrationStorage(db, ALL_LEGACY_NAMES);
 
@@ -409,7 +407,7 @@ describe('SQLiteMigrationStorage', () => {
       // These tables exist, so their migrations remain
       expect(appliedNames).toContain('001-create-settings-table');
       expect(appliedNames).toContain('003-create-agent-runs');
-      expect(applied).toHaveLength(32);
+      expect(applied).toHaveLength(30);
     });
 
     it('should not run verification when bootstrap did not seed (fresh DB)', () => {
@@ -430,7 +428,7 @@ describe('SQLiteMigrationStorage', () => {
       storage = new SQLiteMigrationStorage(db);
       await storage.logMigration({ name: '001-create-settings-table', context: db });
 
-      db.pragma('user_version = 36');
+      db.pragma('user_version = 34');
 
       // Construct with legacy names — bootstrap should skip (table not empty),
       // and verification should NOT run either
