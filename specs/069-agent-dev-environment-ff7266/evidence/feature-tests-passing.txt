@@ -1,0 +1,35 @@
+Feature-Specific Tests — Dev Environment Analysis
+===================================================
+Date: 2026-03-16
+Branch: feat/agent-dev-environment-ff7266
+
+Phase 1-2: Domain & Persistence
+  ✓ dev-env-analysis.mapper.test.ts (22 tests)
+  ✓ sqlite-dev-env-analysis.repository.test.ts (included in suite)
+  ✓ migrations.test.ts (included in suite)
+
+Phase 3: Cache Key Resolution
+  ✓ repo-cache-key-resolver.test.ts (9 tests)
+
+Phase 4: Analyzer & Deployment
+  ✓ config-file-reader.test.ts (14 tests)
+  ✓ dev-environment-analyzer.service.test.ts (17 tests)
+  ✓ deployment.service.test.ts (31 tests)
+
+Phase 5: Server Actions & Hooks
+  ✓ analyze-repository.test.ts (included in suite)
+  ✓ deploy-feature.test.ts (9 tests)
+  ✓ deploy-repository.test.ts (10 tests)
+  ✓ invalidate-dev-env-cache.test.ts (6 tests)
+  ✓ update-dev-env-analysis.test.ts (6 tests)
+  ✓ use-deploy-action.test.ts (30 tests)
+
+Phase 6: UI Components
+  ✓ deployment-status-badge.test.tsx (15 tests)
+  ✓ deploy-mode-toggle.test.tsx (8 tests)
+  ✓ cache-summary.test.tsx (10 tests)
+  ✓ dev-env-analysis-editor.test.tsx (10 tests)
+  ✓ base-drawer.test.tsx (included in suite)
+
+All feature-specific tests PASS.
+Full suite: 323 files, 4202 tests — ALL PASSING

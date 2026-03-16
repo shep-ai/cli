@@ -1,0 +1,19 @@
+TypeSpec Compilation — Successful
+===================================
+Date: 2026-03-16
+Branch: feat/agent-dev-environment-ff7266
+
+Command: pnpm tsp:compile
+Output: TypeSpec compiler v0.60.1 — Compilation completed successfully.
+
+Generated types in packages/core/src/domain/generated/output.ts:
+  - enum DeploymentState { ... NotStartable = "NotStartable" ... }
+  - enum AnalysisSource { FastPath, Agent, Manual }
+  - type DevCommand { command, description, workingDirectory? }
+  - type DevEnvironmentAnalysis {
+      id, cacheKey, canStart, reason?, commands: DevCommand[],
+      prerequisites?, ports?, environmentVariables?, language,
+      framework?, source: AnalysisSource, createdAt, updatedAt
+    }
+
+Build (tsc): SUCCESS — pnpm build completed without errors.
