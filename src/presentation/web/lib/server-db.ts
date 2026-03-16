@@ -5,8 +5,6 @@
  * which is initialized by the CLI bootstrap or dev-server.
  */
 
-import type Database from 'better-sqlite3';
-
 import { resolve } from '@/lib/server-container';
 
 export interface DbLike {
@@ -19,5 +17,5 @@ export interface DbLike {
 }
 
 export function getDb(): DbLike {
-  return resolve<Database.Database>('Database');
+  return resolve<DbLike>('Database');
 }
