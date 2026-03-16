@@ -661,60 +661,68 @@ function SummaryTotals({
       data-testid="activity-summary"
       className="border-border bg-card/30 flex flex-col gap-2 rounded-lg border p-3"
     >
-      <div className="text-muted-foreground mb-0.5 text-xs font-semibold tracking-wider uppercase">
+      <div className="text-muted-foreground mb-1 text-xs font-semibold tracking-wider uppercase">
         Summary
       </div>
-      <div className="flex flex-col gap-1.5">
-        <SummaryItem icon={Clock} label="Total execution" value={formatDuration(totalExecMs)} />
-        <SummaryItem
+      <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+        <SummaryCell icon={Clock} label="Execution" value={formatDuration(totalExecMs)} />
+        <SummaryCell
           icon={Timer}
-          label="Total wait"
+          label="Wait"
           value={totalWaitMs > 0 ? formatDuration(totalWaitMs) : 'n/a'}
         />
-        <SummaryItem
+        <SummaryCell
           icon={Clock}
-          label="Total wall-clock"
+          label="Wall-clock"
           value={
             totalWaitMs > 0
               ? formatDuration(totalExecMs + totalWaitMs)
               : formatDuration(totalExecMs)
           }
         />
-        <SummaryItem
+        <SummaryCell
+          icon={DollarSign}
+          label="Cost"
+          value={totalCostUsd > 0 ? formatCost(totalCostUsd) : 'n/a'}
+        />
+        <SummaryCell
           icon={Zap}
-          label="Total tokens"
+          label="Tokens"
           value={
             totalTokens > 0
               ? `${formatTokens(totalTokens)} (${formatTokens(totalInputTokens)} in · ${formatTokens(totalOutputTokens)} out)`
               : 'n/a'
           }
-        />
-        <SummaryItem
-          icon={DollarSign}
-          label="Total cost"
-          value={totalCostUsd > 0 ? formatCost(totalCostUsd) : 'n/a'}
+          className="col-span-2"
         />
       </div>
     </div>
   );
 }
 
-function SummaryItem({
+function SummaryCell({
   icon: Icon,
   label,
   value,
+  className = '',
 }: {
   icon: typeof Clock;
   label: string;
   value: string;
+  className?: string;
 }) {
+  const isNA = value === 'n/a';
   return (
-    <div className="flex items-center justify-between">
-      <span className="text-muted-foreground flex items-center gap-1.5 text-sm">
-        <Icon className="h-3.5 w-3.5 opacity-50" />
-        <span className="font-medium">{label}</span>
+    <div className={`flex flex-col gap-0.5 ${className}`}>
+      <span className="text-muted-foreground flex items-center gap-1 text-xs">
+        <Icon className="h-3 w-3 opacity-50" />
+        {label}
       </span>
-      <span className="text-sm font-semibold tabular-nums">{value}</span>
+      <span
+        className={`text-sm tabular-nums ${isNA ? 'text-muted-foreground/40 italic' : 'font-medium'}`}
+      >
+        {value}
+      </span>
     </div>
   );
 }
