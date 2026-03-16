@@ -42,6 +42,8 @@ export interface GraphCallbacks {
   onRetryFeature?: (featureId: string) => void;
   /** Called when the user starts a pending feature. */
   onStartFeature?: (featureId: string) => void;
+  /** Called when the user stops a running feature. */
+  onStopFeature?: (featureId: string) => void;
 }
 
 /**
@@ -160,6 +162,11 @@ export function deriveGraph(
         entry.data.state === 'pending' &&
         callbacks?.onStartFeature && {
           onStart: callbacks.onStartFeature,
+        }),
+      ...(!isCreating &&
+        (entry.data.state === 'running' || entry.data.state === 'action-required') &&
+        callbacks?.onStopFeature && {
+          onStop: callbacks.onStopFeature,
         }),
     };
 

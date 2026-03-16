@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Loader2, AlertCircle, Clock, Zap } from 'lucide-react';
+import { Loader2, AlertCircle, Clock, Zap, DollarSign } from 'lucide-react';
 import type {
   PhaseTimingData,
   RejectionFeedbackData,
@@ -56,6 +56,13 @@ function formatTokens(count: number): string {
   if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}M`;
   if (count >= 1_000) return `${(count / 1_000).toFixed(1)}K`;
   return String(count);
+}
+
+/** Format a USD cost with appropriate precision. */
+function formatCost(usd: number): string {
+  if (usd >= 1) return `$${usd.toFixed(2)}`;
+  if (usd >= 0.01) return `$${usd.toFixed(3)}`;
+  return `$${usd.toFixed(4)}`;
 }
 
 export interface ActivityTabProps {
@@ -237,6 +244,7 @@ export function ActivityTab({ timings, loading, error, rejectionFeedback }: Acti
   const totalWaitMs = nodeTimings.reduce((sum, t) => sum + (t.approvalWaitMs ?? 0), 0);
   const totalInputTokens = nodeTimings.reduce((sum, t) => sum + (t.inputTokens ?? 0), 0);
   const totalOutputTokens = nodeTimings.reduce((sum, t) => sum + (t.outputTokens ?? 0), 0);
+  const totalCostUsd = nodeTimings.reduce((sum, t) => sum + (t.costUsd ?? 0), 0);
 
   return (
     <div className="flex flex-col gap-4 p-4">
@@ -257,6 +265,7 @@ export function ActivityTab({ timings, loading, error, rejectionFeedback }: Acti
           totalWaitMs={totalWaitMs}
           totalInputTokens={totalInputTokens}
           totalOutputTokens={totalOutputTokens}
+          totalCostUsd={totalCostUsd}
         />
       ) : null}
     </div>
@@ -408,6 +417,14 @@ function NodeTimingRow({
             </span>
           ) : null}
         </span>
+        <span className="text-muted-foreground w-14 shrink-0 text-right text-[10px] tabular-nums">
+          {timing.costUsd != null && timing.costUsd > 0 ? (
+            <span className="inline-flex items-center gap-0.5">
+              <DollarSign className="h-2 w-2 opacity-50" />
+              {formatCost(timing.costUsd)}
+            </span>
+          ) : null}
+        </span>
       </div>
       {timing.approvalWaitMs != null && timing.approvalWaitMs > 0 ? (
         <ApprovalWaitRow timing={timing} maxDurationMs={maxDurationMs} />
@@ -438,8 +455,9 @@ function ApprovalWaitRow({
       <span className="text-muted-foreground w-10 shrink-0 text-right text-xs tabular-nums">
         {formatDuration(waitMs)}
       </span>
-      {/* Spacer to align with token column */}
+      {/* Spacers to align with token + cost columns */}
       <span className="w-12 shrink-0" />
+      <span className="w-14 shrink-0" />
     </div>
   );
 }
@@ -449,11 +467,13 @@ function SummaryTotals({
   totalWaitMs,
   totalInputTokens,
   totalOutputTokens,
+  totalCostUsd,
 }: {
   totalExecMs: number;
   totalWaitMs: number;
   totalInputTokens: number;
   totalOutputTokens: number;
+  totalCostUsd: number;
 }) {
   const totalTokens = totalInputTokens + totalOutputTokens;
   return (
@@ -474,6 +494,7 @@ function SummaryTotals({
           value={`${formatTokens(totalTokens)} (${formatTokens(totalInputTokens)} in · ${formatTokens(totalOutputTokens)} out)`}
         />
       ) : null}
+      {totalCostUsd > 0 ? <SummaryRow label="Total cost" value={formatCost(totalCostUsd)} /> : null}
     </div>
   );
 }

@@ -10,6 +10,7 @@ import {
   GitCommitHorizontal,
   RotateCcw,
   ShieldCheck,
+  Square,
   X,
   Zap,
 } from 'lucide-react';
@@ -51,6 +52,16 @@ export function OverviewTab({ data }: OverviewTabProps) {
             >
               <RotateCcw className="h-3.5 w-3.5" />
               Retry
+            </button>
+          ) : null}
+          {(data.state === 'running' || data.state === 'action-required') && data.onStop ? (
+            <button
+              data-testid="feature-drawer-stop-button"
+              onClick={() => data.onStop!(data.featureId)}
+              className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full bg-red-50 px-3 py-1.5 text-sm font-medium text-red-700 transition-colors hover:bg-red-100"
+            >
+              <Square className="h-3.5 w-3.5" />
+              Stop
             </button>
           ) : null}
         </div>
