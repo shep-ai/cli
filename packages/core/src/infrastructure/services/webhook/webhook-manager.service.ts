@@ -174,13 +174,17 @@ export class WebhookManagerService {
   }
 
   isWebhookEnabledForRepo(repoPath: string): boolean {
+    return this.getWebhookForRepo(repoPath) !== undefined;
+  }
+
+  getWebhookForRepo(repoPath: string): RegisteredWebhook | undefined {
     const ghService = this.webhookService as GitHubWebhookService;
     const registered =
       typeof ghService.getRegisteredWebhooks === 'function'
         ? ghService.getRegisteredWebhooks()
         : [];
     const normalized = normalizePath(repoPath);
-    return registered.some((w) => normalizePath(w.repositoryPath) === normalized);
+    return registered.find((w) => normalizePath(w.repositoryPath) === normalized);
   }
 
   isRunning(): boolean {
