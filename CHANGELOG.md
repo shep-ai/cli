@@ -1,3 +1,14 @@
+# [1.119.0](https://github.com/shep-ai/cli/compare/v1.118.0...v1.119.0) (2026-03-16)
+
+### Bug Fixes
+
+- **agents:** add --auto and --delete-branch flags to gh pr merge ([#379](https://github.com/shep-ai/cli/issues/379)) ([5da8aa2](https://github.com/shep-ai/cli/commit/5da8aa2d719ed4762babe5c66e5f202ade19b14f))
+
+### Features
+
+- **web:** add post-merge history tab for completed features ([#378](https://github.com/shep-ai/cli/issues/378)) ([fd45331](https://github.com/shep-ai/cli/commit/fd45331c35abebd3d1de8aede8f1329236bdf85d))
+- **web:** add sessions dropdown and ci watch toggle ([#372](https://github.com/shep-ai/cli/issues/372)) ([26710a2](https://github.com/shep-ai/cli/commit/26710a29d9c598f0de15077f3c914b0f83925378))
+
 # [1.118.0](https://github.com/shep-ai/cli/compare/v1.117.0...v1.118.0) (2026-03-16)
 
 ### Features
