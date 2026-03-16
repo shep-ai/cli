@@ -186,8 +186,17 @@ Cursor CLI ships as `.cmd`/`.ps1` scripts on Windows. Node.js needs `shell: true
 | #   | Commit | Fix                                                                           | Result  |
 | --- | ------ | ----------------------------------------------------------------------------- | ------- |
 | 21  | —      | Bypass PowerShell nesting: resolve `node.exe` + `index.js` directly on Win    | PARTIAL |
-| 22  | —      | Inject `CURSOR_API_KEY` via `authConfig` into subprocess env (was never set!) | TESTING |
+| 22  | —      | Inject `CURSOR_API_KEY` via `authConfig` into subprocess env (was never set!) | PARTIAL |
+| 23  | —      | Skip agent call for local-only merge, commit programmatically                 | PARTIAL |
+| 24  | —      | Add 3-min silence watchdog — kill cursor if zero output                       | PARTIAL |
+| 25  | —      | Make "Agent execution timed out" retryable (was non-retryable, no retry!)     | TESTING |
 
 **Root cause (attempt 21)**: The `agent.cmd` → PowerShell → `cursor-agent.ps1` → `node.exe` nesting chain hangs on Windows CI runners. Direct invocation of `node.exe index.js` via `resolveCursorBinary()` eliminates the chain entirely. Spawn no longer hangs — PID created successfully.
 
-**Root cause (attempt 22)**: Cursor agent spawned but produced zero output for 10 minutes. Investigation revealed `CursorExecutorService` constructor never received `authConfig` from the factory (unlike `GeminiCliExecutorService` which did). The `CURSOR_API_KEY` env var was never injected into the subprocess environment. On Linux/macOS this worked because the CI step's `env:` block inherited `CURSOR_API_KEY` into the process tree. On Windows with direct `node.exe` invocation, the env is constructed explicitly and the key was missing. Fix: accept `authConfig` in constructor, inject `CURSOR_API_KEY` via `buildEnv()` helper across all spawn paths.
+**Root cause (attempt 22)**: `CursorExecutorService` never received `authConfig` from factory — `CURSOR_API_KEY` was absent from subprocess env. On Linux/macOS masked by CI step env inheritance. Fixed.
+
+**Root cause (attempt 23)**: Merge phase calls agent executor to do `git commit` even in local-only mode (no push/PR). This second cursor call hangs indefinitely on Windows. Fix: commit programmatically via `commitAll` when no push/PR needed.
+
+**Root cause (attempt 24)**: Cursor CLI on Windows sometimes starts but produces zero stdout/stderr indefinitely. Added 3-minute silence watchdog that kills the process so retryExecute can retry.
+
+**Root cause (attempt 25)**: `"Agent execution timed out"` was in `NON_RETRYABLE_RE` regex, so `retryExecute` threw immediately without retrying after watchdog kill. Moved to `retryable-network` category. Now watchdog kill → retry (up to 3x) → fail fast if all 3 hang.
