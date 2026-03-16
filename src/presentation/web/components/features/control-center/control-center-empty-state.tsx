@@ -214,10 +214,10 @@ function AgentAuthBanner({
             {status.label} not installed
           </span>
         </div>
-        {status.binaryName ? (
+        {status.installCommand ? (
           <div className="rounded bg-zinc-900 px-2 py-1 font-mono text-[10px] text-zinc-300">
             <span className="text-zinc-500 select-none">$ </span>
-            npm install -g {status.binaryName}
+            {status.installCommand}
           </div>
         ) : null}
         <button

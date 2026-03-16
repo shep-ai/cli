@@ -26,6 +26,7 @@ vi.mock('@/app/actions/check-agent-auth', () => ({
       label: 'Claude Code',
       binaryName: 'claude',
       authCommand: null,
+      installCommand: null,
     })
   ),
 }));

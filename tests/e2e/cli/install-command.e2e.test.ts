@@ -103,11 +103,11 @@ describe('CLI: install command', () => {
         expect(result.success).toBe(true);
         expect(result.stdout).toContain('Installation Instructions for Cursor CLI');
         expect(result.stdout).toContain('Binary:');
-        expect(result.stdout).toContain('cursor');
-        expect(result.stdout).toContain('curl');
+        expect(result.stdout).toContain('cursor-agent');
+        expect(result.stdout).toContain('curl https://cursor.com/install');
         expect(result.stdout).toContain('bash');
         expect(result.stdout).toContain('Package Manager');
-        expect(result.stdout).toContain('--version');
+        expect(result.stdout).toContain('cursor-agent --version');
       },
       30000
     );
