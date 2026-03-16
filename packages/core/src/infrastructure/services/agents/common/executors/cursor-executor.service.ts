@@ -107,12 +107,36 @@ export class CursorExecutorService implements IAgentExecutor {
       let sessionId: string | undefined;
       let metadata: Record<string, unknown> | undefined;
 
-      // Periodic heartbeat to prove the executor is alive and waiting
+      // Periodic heartbeat + zero-output watchdog.
+      // Cursor CLI on Windows sometimes starts but never produces any output.
+      // If no stdout/stderr arrives within SILENCE_TIMEOUT_MS, kill the process
+      // so retryExecute can retry instead of waiting 30 minutes.
+      const SILENCE_TIMEOUT_MS = 180_000; // 3 minutes of zero output = stuck
+      let lastOutputAt = Date.now();
+
       const heartbeatId = setInterval(() => {
         const elapsed = Math.round((Date.now() - startTime) / 1000);
+        const silenceMs = Date.now() - lastOutputAt;
         this.log(
-          `[diag] heartbeat ${elapsed}s: stdout_chunks=${stdoutChunks}, stderr_chunks=${stderrChunks}, pid_killed=${proc.killed}`
+          `[diag] heartbeat ${elapsed}s: stdout_chunks=${stdoutChunks}, stderr_chunks=${stderrChunks}, silence=${Math.round(silenceMs / 1000)}s, pid_killed=${proc.killed}`
         );
+
+        // Kill if zero output for too long
+        if (silenceMs > SILENCE_TIMEOUT_MS && !proc.killed) {
+          this.log(
+            `[diag] SILENCE WATCHDOG: no output for ${Math.round(silenceMs / 1000)}s — killing process`
+          );
+          timedOut = true;
+          if (process.platform === 'win32' && proc.pid) {
+            try {
+              execFileSync('taskkill', ['/F', '/T', '/PID', String(proc.pid)], { stdio: 'ignore' });
+            } catch {
+              proc.kill();
+            }
+          } else {
+            proc.kill();
+          }
+        }
       }, 15_000);
 
       if (options?.timeout) {
@@ -180,6 +204,7 @@ export class CursorExecutorService implements IAgentExecutor {
 
       proc.stdout?.on('data', (chunk: Buffer | string) => {
         stdoutChunks++;
+        lastOutputAt = Date.now();
         const data = chunk.toString();
         if (stdoutChunks <= 3) {
           this.log(
@@ -197,6 +222,7 @@ export class CursorExecutorService implements IAgentExecutor {
 
       proc.stderr?.on('data', (chunk: Buffer | string) => {
         stderrChunks++;
+        lastOutputAt = Date.now();
         const data = chunk.toString();
         stderr += data;
         this.log(`[diag] stderr chunk #${stderrChunks}: ${data.trimEnd()}`);
