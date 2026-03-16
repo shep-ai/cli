@@ -1,3 +1,9 @@
+# [1.118.0](https://github.com/shep-ai/cli/compare/v1.117.0...v1.118.0) (2026-03-16)
+
+### Features
+
+- **web:** add configurable terminal emulator preference to settings ([#376](https://github.com/shep-ai/cli/issues/376)) ([c046924](https://github.com/shep-ai/cli/commit/c046924bdad5d43ce6211c68f3f5d4308482af14))
+
 # [1.117.0](https://github.com/shep-ai/cli/compare/v1.116.3...v1.117.0) (2026-03-15)
 
 ### Features
