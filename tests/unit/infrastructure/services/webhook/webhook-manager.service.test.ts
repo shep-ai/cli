@@ -207,3 +207,101 @@ describe('Singleton accessors', () => {
     expect(hasWebhookManager()).toBe(false);
   });
 });
+
+describe('Per-repo webhook methods', () => {
+  function createMockWebhookServiceWithSingleRepo() {
+    return {
+      ...createMockWebhookService(),
+      registerWebhookForSingleRepo: vi
+        .fn()
+        .mockResolvedValue({ repoFullName: 'owner/repo', webhookId: 42, repositoryPath: '/repo' }),
+      removeWebhookForRepo: vi.fn().mockResolvedValue(undefined),
+      getRegisteredWebhooks: vi.fn().mockReturnValue([]),
+      getDeliveryHistory: vi.fn().mockReturnValue([]),
+    };
+  }
+
+  describe('enableWebhookForRepo', () => {
+    it('should return error when tunnel is not running', async () => {
+      const tunnel = createMockTunnelService();
+      vi.mocked(tunnel.isRunning).mockReturnValue(false);
+      vi.mocked(tunnel.getPublicUrl).mockReturnValue(null);
+      const webhook = createMockWebhookServiceWithSingleRepo();
+      const manager = new WebhookManagerService(tunnel, webhook);
+
+      const result = await manager.enableWebhookForRepo('/repo');
+      expect(result).toEqual({ success: false, error: 'tunnel_not_connected' });
+      expect(webhook.registerWebhookForSingleRepo).not.toHaveBeenCalled();
+    });
+
+    it('should register webhook and return success when tunnel is running', async () => {
+      const tunnel = createMockTunnelService();
+      const webhook = createMockWebhookServiceWithSingleRepo();
+      const manager = new WebhookManagerService(tunnel, webhook);
+
+      const result = await manager.enableWebhookForRepo('/repo');
+      expect(result.success).toBe(true);
+      expect(result.webhook).toBeDefined();
+      expect(webhook.registerWebhookForSingleRepo).toHaveBeenCalledWith(
+        '/repo',
+        'https://test.trycloudflare.com/api/webhooks/github'
+      );
+    });
+
+    it('should return error when registration throws', async () => {
+      const tunnel = createMockTunnelService();
+      const webhook = createMockWebhookServiceWithSingleRepo();
+      webhook.registerWebhookForSingleRepo.mockRejectedValue(new Error('gh api failed'));
+      const manager = new WebhookManagerService(tunnel, webhook);
+
+      const result = await manager.enableWebhookForRepo('/repo');
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('gh api failed');
+    });
+  });
+
+  describe('disableWebhookForRepo', () => {
+    it('should delegate to webhookService.removeWebhookForRepo', async () => {
+      const tunnel = createMockTunnelService();
+      const webhook = createMockWebhookServiceWithSingleRepo();
+      const manager = new WebhookManagerService(tunnel, webhook);
+
+      const result = await manager.disableWebhookForRepo('/repo');
+      expect(result).toEqual({ success: true });
+      expect(webhook.removeWebhookForRepo).toHaveBeenCalledWith('/repo');
+    });
+
+    it('should return error when removal throws', async () => {
+      const tunnel = createMockTunnelService();
+      const webhook = createMockWebhookServiceWithSingleRepo();
+      webhook.removeWebhookForRepo.mockRejectedValue(new Error('api error'));
+      const manager = new WebhookManagerService(tunnel, webhook);
+
+      const result = await manager.disableWebhookForRepo('/repo');
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('api error');
+    });
+  });
+
+  describe('isWebhookEnabledForRepo', () => {
+    it('should return false when repo has no webhook', () => {
+      const tunnel = createMockTunnelService();
+      const webhook = createMockWebhookServiceWithSingleRepo();
+      const manager = new WebhookManagerService(tunnel, webhook);
+
+      expect(manager.isWebhookEnabledForRepo('/repo')).toBe(false);
+    });
+
+    it('should return true when repo has a webhook (normalized path)', () => {
+      const tunnel = createMockTunnelService();
+      const webhook = createMockWebhookServiceWithSingleRepo();
+      webhook.getRegisteredWebhooks.mockReturnValue([
+        { repoFullName: 'owner/repo', webhookId: 42, repositoryPath: '/home/user/repo' },
+      ]);
+      const manager = new WebhookManagerService(tunnel, webhook);
+
+      expect(manager.isWebhookEnabledForRepo('/home/user/repo')).toBe(true);
+      expect(manager.isWebhookEnabledForRepo('\\home\\user\\repo')).toBe(true);
+    });
+  });
+});

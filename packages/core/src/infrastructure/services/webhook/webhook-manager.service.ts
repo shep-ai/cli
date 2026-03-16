@@ -23,6 +23,8 @@ import type {
   GitHubWebhookService,
 } from './github-webhook.service.js';
 
+const SUBSCRIBED_EVENTS = ['pull_request', 'check_suite', 'check_run'] as const;
+
 export interface WebhookSystemStatus {
   running: boolean;
   tunnel: {
@@ -31,12 +33,23 @@ export interface WebhookSystemStatus {
   };
   webhooks: {
     registered: readonly RegisteredWebhook[];
+    subscribedEvents: readonly string[];
     totalDeliveries: number;
     successCount: number;
     errorCount: number;
     ignoredCount: number;
   };
   startedAt: string | null;
+}
+
+function normalizePath(p: string): string {
+  return p.replace(/\\/g, '/');
+}
+
+export interface WebhookRepoResult {
+  success: boolean;
+  webhook?: RegisteredWebhook;
+  error?: string;
 }
 
 const TAG = '[WebhookManager]';
@@ -131,6 +144,45 @@ export class WebhookManagerService {
     console.log(`${TAG} Webhook system stopped`);
   }
 
+  async enableWebhookForRepo(repoPath: string): Promise<WebhookRepoResult> {
+    if (!this.tunnelService.isRunning() || !this.tunnelService.getPublicUrl()) {
+      return { success: false, error: 'tunnel_not_connected' };
+    }
+
+    const webhookUrl = `${this.tunnelService.getPublicUrl()}/api/webhooks/github`;
+    const ghService = this.webhookService as GitHubWebhookService;
+
+    try {
+      const webhook = await ghService.registerWebhookForSingleRepo(repoPath, webhookUrl);
+      return { success: true, webhook: webhook ?? undefined };
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      return { success: false, error: msg };
+    }
+  }
+
+  async disableWebhookForRepo(repoPath: string): Promise<{ success: boolean; error?: string }> {
+    const ghService = this.webhookService as GitHubWebhookService;
+
+    try {
+      await ghService.removeWebhookForRepo(repoPath);
+      return { success: true };
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      return { success: false, error: msg };
+    }
+  }
+
+  isWebhookEnabledForRepo(repoPath: string): boolean {
+    const ghService = this.webhookService as GitHubWebhookService;
+    const registered =
+      typeof ghService.getRegisteredWebhooks === 'function'
+        ? ghService.getRegisteredWebhooks()
+        : [];
+    const normalized = normalizePath(repoPath);
+    return registered.some((w) => normalizePath(w.repositoryPath) === normalized);
+  }
+
   isRunning(): boolean {
     return this.running;
   }
@@ -166,6 +218,7 @@ export class WebhookManagerService {
       },
       webhooks: {
         registered,
+        subscribedEvents: SUBSCRIBED_EVENTS,
         totalDeliveries: deliveries.length,
         successCount,
         errorCount,
