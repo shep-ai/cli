@@ -1,0 +1,14 @@
+Feature: Repository Node Enrichment (069)
+Test run: 2026-03-16
+
+Target test files:
+  - tests/unit/presentation/web/components/common/repository-node/repository-node.test.tsx (39 tests)
+  - tests/unit/presentation/web/common/repository-node/repository-node.test.tsx (7 tests)  
+  - tests/unit/presentation/web/app/build-graph-nodes.test.ts (18 tests)
+
+All feature-specific tests: PASSED (64 tests)
+
+Full test suite summary:
+  Test Files: 313 passed (313)
+  Tests:      4027 passed (4027)
+  Duration:   ~25s
