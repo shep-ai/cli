@@ -769,23 +769,105 @@ export class GitPrService implements IGitPrService {
     };
   }
 
-  async isFork(_cwd: string): Promise<{ isFork: boolean; upstreamUrl?: string }> {
-    throw new Error('not implemented');
+  async isFork(cwd: string): Promise<{ isFork: boolean; upstreamUrl?: string }> {
+    try {
+      const { stdout } = await this.execFile(
+        'gh',
+        ['repo', 'view', '--json', 'parent', '--jq', '.parent.url'],
+        { cwd }
+      );
+      const url = stdout.trim();
+      if (!url || url === 'null') {
+        return { isFork: false };
+      }
+      return { isFork: true, upstreamUrl: url };
+    } catch {
+      return { isFork: false };
+    }
   }
 
-  async ensureUpstreamRemote(_cwd: string, _upstreamUrl: string): Promise<void> {
-    throw new Error('not implemented');
+  async ensureUpstreamRemote(cwd: string, upstreamUrl: string): Promise<void> {
+    try {
+      await this.execFile('git', ['remote', 'get-url', 'upstream'], { cwd });
+      // Remote already exists — no-op
+    } catch {
+      // Remote does not exist — add it
+      try {
+        await this.execFile('git', ['remote', 'add', 'upstream', upstreamUrl], { cwd });
+      } catch (error) {
+        throw this.parseGitError(error);
+      }
+    }
   }
 
-  async fetchUpstream(_cwd: string): Promise<void> {
-    throw new Error('not implemented');
+  async fetchUpstream(cwd: string): Promise<void> {
+    try {
+      await this.execFile('git', ['fetch', 'upstream'], { cwd });
+    } catch (error) {
+      throw this.parseGitError(error);
+    }
   }
 
-  async syncForkMain(_cwd: string): Promise<void> {
-    throw new Error('not implemented');
+  async syncForkMain(cwd: string): Promise<void> {
+    // Save current branch to restore after sync
+    let currentBranch: string;
+    try {
+      const { stdout } = await this.execFile('git', ['symbolic-ref', '--short', 'HEAD'], { cwd });
+      currentBranch = stdout.trim();
+    } catch {
+      // Detached HEAD — save commit hash instead
+      const { stdout } = await this.execFile('git', ['rev-parse', 'HEAD'], { cwd });
+      currentBranch = stdout.trim();
+    }
+
+    try {
+      await this.fetchUpstream(cwd);
+      await this.execFile('git', ['checkout', 'main'], { cwd });
+      await this.execFile('git', ['reset', '--hard', 'upstream/main'], { cwd });
+    } finally {
+      // Restore previous branch even if sync partially fails
+      try {
+        await this.execFile('git', ['checkout', currentBranch], { cwd });
+      } catch {
+        // best effort — ignore restore failure
+      }
+    }
   }
 
-  async rebase(_cwd: string, _branch: string, _onto: string): Promise<void> {
-    throw new Error('not implemented');
+  async rebase(cwd: string, branch: string, onto: string): Promise<void> {
+    try {
+      await this.execFile('git', ['rebase', onto], { cwd });
+    } catch (error) {
+      // Extract stdout/stderr from the exec error to find conflict file names
+      const stdout = (error as { stdout?: string }).stdout ?? '';
+      const stderr = (error as { stderr?: string }).stderr ?? '';
+      const combined = `${stdout}\n${stderr}`;
+      const conflictFiles = this.parseConflictFiles(combined);
+
+      // Abort to keep the worktree clean
+      try {
+        await this.execFile('git', ['rebase', '--abort'], { cwd });
+      } catch {
+        // abort is best-effort — ignore failure
+      }
+
+      if (conflictFiles.length > 0) {
+        const fileList = conflictFiles.map((f) => `  - ${f}`).join('\n');
+        throw new GitPrError(
+          `Rebase of '${branch}' onto '${onto}' failed due to conflicts.\n` +
+            `Conflicting files:\n${fileList}\n\n` +
+            `Resolve the conflicts manually then re-run the rebase command.`,
+          GitPrErrorCode.REBASE_CONFLICT,
+          error instanceof Error ? error : undefined
+        );
+      }
+
+      throw this.parseGitError(error);
+    }
+  }
+
+  private parseConflictFiles(output: string): string[] {
+    const matches = output.matchAll(/CONFLICT \(content\): Merge conflict in (.+)/g);
+    return [...matches].map((m) => m[1].trim());
   }
 }
