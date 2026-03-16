@@ -2,7 +2,12 @@
 
 import { resolve } from '@/lib/server-container';
 import type { RejectAgentRunUseCase } from '@shepai/core/application/use-cases/agents/reject-agent-run.use-case';
+import type { ResumeFeatureUseCase } from '@shepai/core/application/use-cases/features/resume-feature.use-case';
 import type { IFeatureRepository } from '@shepai/core/application/ports/output/repositories/feature-repository.interface';
+import type { IAgentRunRepository } from '@shepai/core/application/ports/output/agents/agent-run-repository.interface';
+import { AgentRunStatus } from '@shepai/core/domain/generated/output';
+
+const ERROR_STATUSES = new Set<string>([AgentRunStatus.failed, AgentRunStatus.interrupted]);
 
 export async function rejectFeature(
   featureId: string,
@@ -32,6 +37,15 @@ export async function rejectFeature(
 
     if (!feature.agentRunId) {
       return { rejected: false, error: 'Feature has no agent run' };
+    }
+
+    const runRepo = resolve<IAgentRunRepository>('IAgentRunRepository');
+    const run = await runRepo.findById(feature.agentRunId);
+
+    if (run && ERROR_STATUSES.has(run.status)) {
+      const resumeUseCase = resolve<ResumeFeatureUseCase>('ResumeFeatureUseCase');
+      await resumeUseCase.execute(featureId, { promptPrefix: feedback });
+      return { rejected: true, iteration: 1 };
     }
 
     const rejectUseCase = resolve<RejectAgentRunUseCase>('RejectAgentRunUseCase');

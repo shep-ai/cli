@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { readdir, stat, readFile } from 'node:fs/promises';
+import { readdir, stat } from 'node:fs/promises';
 
 export const dynamic = 'force-dynamic';
 
@@ -81,21 +81,41 @@ async function scanClaudeSessions(repositoryPath: string, limit: number): Promis
     .filter((s): s is SessionResult => s !== null);
 }
 
+/**
+ * Read the first N bytes of a file to extract preview and timestamps
+ * without loading the entire (potentially multi-MB) session file.
+ */
+const PREVIEW_READ_BYTES = 8_192; // 8KB is enough for first few messages
+
 async function parseClaudeSession(
   filePath: string,
   fileName: string,
   mtime: number,
   repositoryPath: string
 ): Promise<SessionResult | null> {
-  const content = await readFile(filePath, 'utf-8');
-  const lines = content.split('\n').filter((l) => l.trim());
+  const { createReadStream } = await import('node:fs');
   const id = fileName.replace('.jsonl', '');
 
+  // Read only the first chunk to extract preview and first timestamp
   let preview: string | null = null;
-  let messageCount = 0;
   let firstTimestamp: string | null = null;
-  let lastTimestamp: string | null = null;
+  let messageCount = 0;
 
+  const head = await new Promise<string>((resolve) => {
+    const chunks: Buffer[] = [];
+    let size = 0;
+    const stream = createReadStream(filePath, { end: PREVIEW_READ_BYTES - 1 });
+    stream.on('data', (chunk: Buffer) => {
+      chunks.push(chunk);
+      size += chunk.length;
+    });
+    stream.on('end', () => resolve(Buffer.concat(chunks, size).toString('utf-8')));
+    stream.on('error', () => resolve(''));
+  });
+
+  if (!head) return null;
+
+  const lines = head.split('\n').filter((l) => l.trim());
   for (const line of lines) {
     try {
       const entry = JSON.parse(line) as {
@@ -109,7 +129,6 @@ async function parseClaudeSession(
           messageCount++;
           if (entry.timestamp) {
             firstTimestamp ??= entry.timestamp;
-            lastTimestamp = entry.timestamp;
           }
           if (role === 'user' && preview === null) {
             preview = extractText(entry.message?.content);
@@ -123,14 +142,16 @@ async function parseClaudeSession(
 
   if (messageCount === 0) return null;
 
+  // Use mtime as lastMessageAt — avoids reading entire file for last line
+  const mtimeIso = new Date(mtime).toISOString();
   return {
     id,
     agentType: 'claude-code',
     preview,
     messageCount,
     firstMessageAt: firstTimestamp,
-    lastMessageAt: lastTimestamp,
-    createdAt: firstTimestamp ?? new Date(mtime).toISOString(),
+    lastMessageAt: mtimeIso,
+    createdAt: firstTimestamp ?? mtimeIso,
     projectPath: repositoryPath,
     filePath,
     _mtime: mtime,
@@ -213,13 +234,28 @@ async function parseCursorSession(
   mtime: number,
   repositoryPath: string
 ): Promise<SessionResult | null> {
-  const content = await readFile(filePath, 'utf-8');
-  const lines = content.split('\n').filter((l) => l.trim());
+  const { createReadStream } = await import('node:fs');
   const id = fileName.replace('.jsonl', '');
+
+  // Read only the first chunk for preview extraction
+  const head = await new Promise<string>((resolve) => {
+    const chunks: Buffer[] = [];
+    let size = 0;
+    const stream = createReadStream(filePath, { end: PREVIEW_READ_BYTES - 1 });
+    stream.on('data', (chunk: Buffer) => {
+      chunks.push(chunk);
+      size += chunk.length;
+    });
+    stream.on('end', () => resolve(Buffer.concat(chunks, size).toString('utf-8')));
+    stream.on('error', () => resolve(''));
+  });
+
+  if (!head) return null;
 
   let preview: string | null = null;
   let messageCount = 0;
 
+  const lines = head.split('\n').filter((l) => l.trim());
   for (const line of lines) {
     try {
       const entry = JSON.parse(line) as {

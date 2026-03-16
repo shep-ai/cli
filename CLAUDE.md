@@ -16,17 +16,18 @@ Specs live in `specs/NNN-feature-name/`. **Edit YAML only — Markdown is auto-g
 
 ## Commands
 
-| Command          | Purpose                         |
-| ---------------- | ------------------------------- |
-| `pnpm build`     | Build CLI + web                 |
-| `pnpm test`      | Run all tests                   |
-| `pnpm test:unit` | Unit tests only                 |
-| `pnpm test:int`  | Integration tests only          |
-| `pnpm test:e2e`  | Playwright e2e tests            |
-| `pnpm lint:fix`  | Fix lint issues                 |
-| `pnpm validate`  | Lint + format + typecheck + tsp |
-| `pnpm dev:cli`   | Run CLI locally (ts-node)       |
-| `pnpm dev:web`   | Start Next.js dev server        |
+| Command              | Purpose                         |
+| -------------------- | ------------------------------- |
+| `pnpm build`         | Build CLI only (fast, for dev)  |
+| `pnpm build:release` | Build CLI + web (CI/packaging)  |
+| `pnpm test`          | Run all tests                   |
+| `pnpm test:unit`     | Unit tests only                 |
+| `pnpm test:int`      | Integration tests only          |
+| `pnpm test:e2e`      | Playwright e2e tests            |
+| `pnpm lint:fix`      | Fix lint issues                 |
+| `pnpm validate`      | Lint + format + typecheck + tsp |
+| `pnpm dev:cli`       | Run CLI locally (ts-node)       |
+| `pnpm dev:web`       | Start Next.js dev server        |
 
 ## Architecture
 

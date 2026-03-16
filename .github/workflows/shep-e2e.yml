@@ -63,7 +63,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build shep CLI
-        run: pnpm run build
+        run: pnpm run build:release
 
       - name: Link shep globally
         run: npm link
@@ -317,7 +317,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build shep CLI
-        run: pnpm run build
+        run: pnpm run build:release
 
       - name: Link shep globally
         run: npm link
@@ -457,7 +457,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build shep CLI
-        run: pnpm run build
+        run: pnpm run build:release
 
       - name: Link shep globally
         run: npm link

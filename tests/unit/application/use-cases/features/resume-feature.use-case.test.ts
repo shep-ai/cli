@@ -350,4 +350,34 @@ describe('ResumeFeatureUseCase', () => {
       })
     );
   });
+
+  it('should prepend promptPrefix to the new run prompt when provided', async () => {
+    featureRepo.findById.mockResolvedValue(createTestFeature());
+    runRepo.findById.mockResolvedValue(
+      createTestRun({ status: AgentRunStatus.failed, prompt: 'original prompt' })
+    );
+
+    await useCase.execute('feat-001', { promptPrefix: 'User feedback: fix the tests' });
+
+    expect(runRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: 'User feedback: fix the tests\n\noriginal prompt',
+      })
+    );
+  });
+
+  it('should use original prompt unchanged when no promptPrefix provided', async () => {
+    featureRepo.findById.mockResolvedValue(createTestFeature());
+    runRepo.findById.mockResolvedValue(
+      createTestRun({ status: AgentRunStatus.failed, prompt: 'original prompt' })
+    );
+
+    await useCase.execute('feat-001');
+
+    expect(runRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: 'original prompt',
+      })
+    );
+  });
 });
