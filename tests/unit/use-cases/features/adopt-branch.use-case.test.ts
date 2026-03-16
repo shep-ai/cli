@@ -314,7 +314,7 @@ describe('AdoptBranchUseCase', () => {
         status: PrStatus.Open,
         mergeable: true,
       });
-      expect(result.feature.lifecycle).toBe(SdlcLifecycle.Maintain);
+      expect(result.feature.lifecycle).toBe(SdlcLifecycle.Review);
     });
 
     it('should set openPr=true and populate pr data when branch has a merged PR', async () => {
@@ -341,6 +341,7 @@ describe('AdoptBranchUseCase', () => {
         status: PrStatus.Merged,
         mergeable: undefined,
       });
+      expect(result.feature.lifecycle).toBe(SdlcLifecycle.Maintain);
     });
 
     it('should set openPr=false when branch has a closed (not merged) PR', async () => {

@@ -539,3 +539,11 @@ rejectionFeedback:
       or we are not recognized its pull request is closed)
     phase: merge
     timestamp: '2026-03-16T16:55:03.519Z'
+  - iteration: 3
+    message: >-
+      adopting branch should NOT mark the feature node as completed (if it has
+      open pull request or we are not recognized its pull request is closed)
+
+      instead it should be in status review merge request
+    phase: merge
+    timestamp: '2026-03-16T17:16:17.694Z'

@@ -3,7 +3,8 @@
  *
  * Imports an existing git branch into Shep's feature tracking system.
  * Creates a worktree (if needed), derives feature metadata from the branch name,
- * and persists a Feature entity with lifecycle=Maintain (agent inactive).
+ * and persists a Feature entity. Branches with an open PR get lifecycle=Review
+ * (shown as "REVIEW" in the UI); all others get lifecycle=Maintain (completed).
  *
  * This is a standalone use case — it does NOT extend or modify CreateFeatureUseCase.
  * It needs only three dependencies: IFeatureRepository, IRepositoryRepository, and IWorktreeService.
@@ -93,9 +94,13 @@ export class AdoptBranchUseCase {
     const name = deriveName(branchName);
     const now = new Date();
 
-    // If the branch has an open PR (or we cannot confirm the PR is closed),
-    // mark the feature as completed (Maintain) with PR data attached.
     const hasOpenPr = prData !== undefined;
+
+    // If the branch has an open (not yet merged) PR, place the feature in
+    // Review so the node shows "REVIEW" instead of "COMPLETED". Only truly
+    // finished branches (no PR, merged PR, or closed PR) get Maintain.
+    const lifecycle =
+      prData?.status === PrStatus.Open ? SdlcLifecycle.Review : SdlcLifecycle.Maintain;
 
     // --- Persist feature ---
     const feature: Feature = {
@@ -106,7 +111,7 @@ export class AdoptBranchUseCase {
       userQuery: '',
       repositoryPath,
       branch: branchName,
-      lifecycle: SdlcLifecycle.Maintain,
+      lifecycle,
       messages: [],
       relatedArtifacts: [],
       fast: false,
