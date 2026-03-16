@@ -718,6 +718,14 @@ export class GitPrService implements IGitPrService {
     const message = error instanceof Error ? error.message : String(error);
     const cause = error instanceof Error ? error : undefined;
 
+    // Rebase-specific: detect "CONFLICT" during rebase operations
+    if (message.includes('CONFLICT') && message.includes('rebase')) {
+      return new GitPrError(message, GitPrErrorCode.REBASE_CONFLICT, cause);
+    }
+    // Sync-specific: non-fast-forward or diverged branch
+    if (message.includes('non-fast-forward') || message.includes('diverged')) {
+      return new GitPrError(message, GitPrErrorCode.SYNC_FAILED, cause);
+    }
     if (message.includes('rejected') || message.includes('conflict')) {
       return new GitPrError(message, GitPrErrorCode.MERGE_CONFLICT, cause);
     }
@@ -766,29 +774,161 @@ export class GitPrService implements IGitPrService {
     };
   }
 
-  // --- Rebase & Sync operations (stubs — implemented in phase 2) ---
+  // --- Rebase & Sync operations ---
 
-  async syncMain(_cwd: string, _baseBranch: string): Promise<void> {
-    throw new Error('Not implemented — see phase 2');
+  async syncMain(cwd: string, baseBranch: string): Promise<void> {
+    try {
+      // Detect current branch
+      const { stdout } = await this.execFile('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd });
+      const currentBranch = stdout.trim();
+
+      if (currentBranch === baseBranch) {
+        // On the base branch — use git pull --ff-only
+        await this.execFile('git', ['pull', '--ff-only', 'origin', baseBranch], { cwd });
+      } else {
+        // On a different branch — use git fetch to update the base branch ref without switching
+        await this.execFile('git', ['fetch', 'origin', `${baseBranch}:${baseBranch}`], { cwd });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const cause = error instanceof Error ? error : undefined;
+
+      if (message.includes('non-fast-forward') || message.includes('diverged')) {
+        throw new GitPrError(
+          `Cannot fast-forward '${baseBranch}': local branch has diverged from remote. ` +
+            `Resolve the divergence manually with 'git checkout ${baseBranch} && git reset --hard origin/${baseBranch}' ` +
+            `if you want to discard local changes on ${baseBranch}.`,
+          GitPrErrorCode.SYNC_FAILED,
+          cause
+        );
+      }
+
+      throw new GitPrError(
+        `Failed to sync '${baseBranch}' with remote: ${message}`,
+        GitPrErrorCode.GIT_ERROR,
+        cause
+      );
+    }
   }
 
-  async rebaseOnMain(_cwd: string, _featureBranch: string, _baseBranch: string): Promise<void> {
-    throw new Error('Not implemented — see phase 2');
+  async rebaseOnMain(cwd: string, featureBranch: string, baseBranch: string): Promise<void> {
+    // Check for dirty worktree before starting
+    const dirty = await this.hasUncommittedChanges(cwd);
+    if (dirty) {
+      throw new GitPrError(
+        `Cannot rebase: working directory has uncommitted changes. ` +
+          `Please commit or stash your changes before rebasing.`,
+        GitPrErrorCode.GIT_ERROR
+      );
+    }
+
+    // Checkout the feature branch
+    try {
+      await this.execFile('git', ['checkout', featureBranch], { cwd });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const cause = error instanceof Error ? error : undefined;
+      if (
+        message.includes('did not match') ||
+        message.includes('not a commit') ||
+        message.includes('pathspec')
+      ) {
+        throw new GitPrError(
+          `Branch '${featureBranch}' not found.`,
+          GitPrErrorCode.BRANCH_NOT_FOUND,
+          cause
+        );
+      }
+      throw new GitPrError(
+        `Failed to checkout '${featureBranch}': ${message}`,
+        GitPrErrorCode.GIT_ERROR,
+        cause
+      );
+    }
+
+    // Rebase onto the base branch
+    try {
+      await this.execFile('git', ['rebase', baseBranch], { cwd });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const cause = error instanceof Error ? error : undefined;
+
+      // Detect rebase conflict from git stderr/exit code
+      if (message.includes('CONFLICT') || message.includes('could not apply')) {
+        // Get the list of conflicted files to include in the error message
+        let conflictedFiles: string[] = [];
+        try {
+          conflictedFiles = await this.getConflictedFiles(cwd);
+        } catch {
+          // Failed to get conflicted files — still report the conflict
+        }
+
+        const fileList =
+          conflictedFiles.length > 0 ? ` Conflicted files: ${conflictedFiles.join(', ')}` : '';
+        throw new GitPrError(
+          `Rebase of '${featureBranch}' onto '${baseBranch}' encountered conflicts.${fileList}`,
+          GitPrErrorCode.REBASE_CONFLICT,
+          cause
+        );
+      }
+
+      throw new GitPrError(
+        `Rebase of '${featureBranch}' onto '${baseBranch}' failed: ${message}`,
+        GitPrErrorCode.GIT_ERROR,
+        cause
+      );
+    }
   }
 
-  async getConflictedFiles(_cwd: string): Promise<string[]> {
-    throw new Error('Not implemented — see phase 2');
+  async getConflictedFiles(cwd: string): Promise<string[]> {
+    try {
+      const { stdout } = await this.execFile('git', ['diff', '--name-only', '--diff-filter=U'], {
+        cwd,
+      });
+      return stdout
+        .trim()
+        .split('\n')
+        .filter((f) => f.length > 0)
+        .map((f) => f.replace(/\\/g, '/'));
+    } catch (error) {
+      throw this.parseGitError(error);
+    }
   }
 
-  async stageFiles(_cwd: string, _files: string[]): Promise<void> {
-    throw new Error('Not implemented — see phase 2');
+  async stageFiles(cwd: string, files: string[]): Promise<void> {
+    try {
+      await this.execFile('git', ['add', ...files], { cwd });
+    } catch (error) {
+      throw this.parseGitError(error);
+    }
   }
 
-  async rebaseContinue(_cwd: string): Promise<void> {
-    throw new Error('Not implemented — see phase 2');
+  async rebaseContinue(cwd: string): Promise<void> {
+    try {
+      await this.execFile('git', ['rebase', '--continue'], {
+        cwd,
+        env: { ...process.env, GIT_EDITOR: 'true' },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const cause = error instanceof Error ? error : undefined;
+
+      if (message.includes('CONFLICT') || message.includes('could not apply')) {
+        throw new GitPrError(
+          `Rebase continue encountered new conflicts: ${message}`,
+          GitPrErrorCode.REBASE_CONFLICT,
+          cause
+        );
+      }
+      throw this.parseGitError(error);
+    }
   }
 
-  async rebaseAbort(_cwd: string): Promise<void> {
-    throw new Error('Not implemented — see phase 2');
+  async rebaseAbort(cwd: string): Promise<void> {
+    try {
+      await this.execFile('git', ['rebase', '--abort'], { cwd });
+    } catch (error) {
+      throw this.parseGitError(error);
+    }
   }
 }
