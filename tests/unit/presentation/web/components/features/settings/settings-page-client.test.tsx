@@ -82,4 +82,20 @@ describe('SettingsPageClient', () => {
     );
     expect(screen.getByTestId('shell-select')).toBeDefined();
   });
+
+  it('renders PR blocked notification toggle', () => {
+    render(
+      <SettingsPageClient settings={settings} shepHome="/home/user/.shep" dbFileSize="2.4 MB" />
+    );
+    expect(screen.getByTestId('switch-event-prBlocked')).toBeDefined();
+    expect(screen.getByText('PR blocked')).toBeDefined();
+  });
+
+  it('renders Merge review ready notification toggle', () => {
+    render(
+      <SettingsPageClient settings={settings} shepHome="/home/user/.shep" dbFileSize="2.4 MB" />
+    );
+    expect(screen.getByTestId('switch-event-mergeReviewReady')).toBeDefined();
+    expect(screen.getByText('Merge review ready')).toBeDefined();
+  });
 });

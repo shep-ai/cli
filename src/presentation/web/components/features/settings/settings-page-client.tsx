@@ -1346,6 +1346,28 @@ export function SettingsPageClient({
                 save(buildNotificationPayload({ events: newEvents }));
               }}
             />
+            <SwitchRow
+              label="PR blocked"
+              id="notif-event-prBlocked"
+              testId="switch-event-prBlocked"
+              checked={events.prBlocked}
+              onChange={(v) => {
+                const newEvents = { ...events, prBlocked: v };
+                setEvents(newEvents);
+                save(buildNotificationPayload({ events: newEvents }));
+              }}
+            />
+            <SwitchRow
+              label="Merge review ready"
+              id="notif-event-mergeReviewReady"
+              testId="switch-event-mergeReviewReady"
+              checked={events.mergeReviewReady}
+              onChange={(v) => {
+                const newEvents = { ...events, mergeReviewReady: v };
+                setEvents(newEvents);
+                save(buildNotificationPayload({ events: newEvents }));
+              }}
+            />
           </SettingsSection>
           <SectionHint
             links={[
