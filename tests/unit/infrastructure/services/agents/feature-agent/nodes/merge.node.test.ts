@@ -580,7 +580,11 @@ describe('createMergeNode (agent-driven)', () => {
       });
       await node(state);
 
-      expect(mockRecordPhaseEnd).toHaveBeenCalledWith('timing-123', expect.any(Number));
+      expect(mockRecordPhaseEnd).toHaveBeenCalledWith(
+        'timing-123',
+        expect.any(Number),
+        expect.objectContaining({ exitCode: 'success' })
+      );
       expect(mockRecordApprovalWaitStart).toHaveBeenCalledWith('timing-123');
     });
   });
@@ -788,8 +792,15 @@ describe('createMergeNode (agent-driven)', () => {
 
       await expect(node(state)).rejects.toThrow('Failed');
 
-      expect(mockRecordPhaseStart).toHaveBeenCalledWith('merge');
-      expect(mockRecordPhaseEnd).toHaveBeenCalledWith('timing-123', expect.any(Number));
+      expect(mockRecordPhaseStart).toHaveBeenCalledWith(
+        'merge',
+        expect.objectContaining({ agentType: 'claude-code' })
+      );
+      expect(mockRecordPhaseEnd).toHaveBeenCalledWith(
+        'timing-123',
+        expect.any(Number),
+        expect.objectContaining({ exitCode: 'error' })
+      );
     });
   });
 });

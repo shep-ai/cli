@@ -4,6 +4,11 @@ import { ReactFlowProvider, ReactFlow } from '@xyflow/react';
 import { RepositoryNode } from '@/components/common/repository-node';
 import type { RepositoryNodeData, RepositoryNodeType } from '@/components/common/repository-node';
 
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn() }),
+  usePathname: () => '/',
+}));
+
 const nodeTypes = { repositoryNode: RepositoryNode };
 
 const defaultData: RepositoryNodeData = {

@@ -5,6 +5,11 @@ import type { FeatureNodeType } from '@/components/common/feature-node';
 import type { RepositoryNodeType } from '@/components/common/repository-node';
 import type { Viewport } from '@/hooks/use-viewport-persistence';
 
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn() }),
+  usePathname: () => '/',
+}));
+
 const mockOnAction = vi.fn();
 const mockOnSettings = vi.fn();
 const mockOnDelete = vi.fn();
