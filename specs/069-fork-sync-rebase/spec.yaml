@@ -12,8 +12,9 @@ summary: >
   branch on top of the current main branch so it stays up-to-date, and (2) sync a fork
   repository's local main branch with its upstream remote main before or after rebasing.
   Both operations extend the existing GitPrService and introduce new CLI commands and use
-  cases following the established Clean Architecture patterns.
-phase: Analysis
+  cases following the established Clean Architecture patterns. Conflict detection aborts
+  with a clear error; no interactive resolution UI is in scope.
+phase: Requirements
 sizeEstimate: M
 
 # Relationships
@@ -33,16 +34,129 @@ relatedLinks: []
 
 # Open questions (must be resolved before implementation)
 openQuestions:
-  - What should happen when a rebase produces conflicts — abort and report, or surface an
-    interactive resolution flow?
-  - Should fork sync (upstream → local main) be a standalone CLI command, a flag on feat
-    rebase, or both?
-  - Should the rebase operation apply to all active feature worktrees or only a specific
-    one chosen by the user?
-  - Should the agent be able to trigger rebase/sync autonomously, or is this always a
-    manual user-initiated action?
+  - question: 'How should merge conflicts during rebase be handled?'
+    resolved: true
+    options:
+      - option: 'Abort and error'
+        description: >
+          On any rebase conflict, run `git rebase --abort` automatically and surface a
+          clear error message with the conflicting files. The user must resolve manually
+          outside of shep. Simple to implement, no interactive TUI needed, keeps scope at M.
+        selected: true
+      - option: 'Interactive resolution UI'
+        description: >
+          Present an interactive TUI or guided flow allowing the user to resolve conflicts
+          inline. More powerful but significantly increases scope (L or XL) and introduces
+          complex state management for a partially-applied rebase.
+        selected: false
+      - option: 'Leave in conflict state'
+        description: >
+          Stop mid-rebase, print the conflicting files, and leave the worktree in the
+          conflict state for manual resolution. Avoids scope bloat but leaves the worktree
+          in a broken state which is confusing and hard to recover from.
+        selected: false
+    selectionRationale: >
+      Aborting on conflict is the safest default: it keeps the worktree clean, does not
+      require an interactive UI, and keeps the feature at size M. Users who need conflict
+      resolution have mature tooling (VS Code, git CLI) available. The error message
+      should clearly list conflicting files and instruct the user to resolve manually then
+      re-run the command.
+    answer: 'Abort and error'
 
-# Markdown content (the actual spec)
+  - question: 'Should fork sync run automatically before rebase, or should it be a separate command?'
+    resolved: true
+    options:
+      - option: 'Auto-sync then rebase'
+        description: >
+          When the repository is detected as a fork, `shep feat rebase` automatically
+          syncs the fork main with upstream before rebasing the feature branch. Single
+          command, lowest friction, always produces a correct rebase against latest upstream.
+        selected: true
+      - option: 'Separate commands only'
+        description: >
+          Provide `shep feat rebase` and `shep repo sync` as entirely independent commands.
+          The user must run sync manually before rebase when on a fork. More composable
+          but requires the user to know the ordering.
+        selected: false
+      - option: 'Flag-controlled'
+        description: >
+          `shep feat rebase --sync-fork` opt-in flag triggers upstream sync first. Off by
+          default. Flexible but adds a flag the user may forget, leading to rebasing on a
+          stale main.
+        selected: false
+    selectionRationale: >
+      Auto-detecting the fork and syncing upstream first gives the best out-of-the-box
+      experience: the user runs one command and gets a fully up-to-date rebase regardless
+      of whether they are on a fork or not. Non-fork repos skip the sync step silently.
+      This matches the principle of least surprise and reduces user error.
+    answer: 'Auto-sync then rebase'
+
+  - question: 'Should `shep repo sync` also be exposed as a standalone CLI command?'
+    resolved: true
+    options:
+      - option: 'Yes, expose as shep repo sync'
+        description: >
+          Add `shep repo sync` as a first-class command that syncs the fork main with
+          upstream without touching any feature branch. Useful for users who want to sync
+          before starting new work, outside of any rebase flow.
+        selected: true
+      - option: 'No, internal only'
+        description: >
+          Keep fork sync as an internal implementation detail called only from
+          `RebaseFeatureUseCase`. Reduces surface area but removes the ability to sync
+          main standalone.
+        selected: false
+    selectionRationale: >
+      A standalone `shep repo sync` is low-cost to add (the use case and service method
+      already exist for the rebase flow) and meaningfully useful — developers may want to
+      sync main before branching or after returning from vacation. Exposing it keeps the
+      CLI composable.
+    answer: 'Yes, expose as shep repo sync'
+
+  - question: 'Should new TypeSpec domain fields be added for fork metadata?'
+    resolved: true
+    options:
+      - option: 'Add isFork and upstreamUrl to Repository'
+        description: >
+          Extend the `Repository` TypeSpec entity with `isFork: boolean` and
+          `upstreamUrl: string` (optional). Persisted and surfaced in the domain model.
+          Enables future features (e.g., auto-PR to upstream) without re-querying gh CLI.
+        selected: false
+      - option: 'Detect at runtime, no new domain fields'
+        description: >
+          Call `gh repo view --json parent` at runtime inside the service method. No new
+          TypeSpec fields, no DB migration, no generated type changes. Simpler, avoids
+          premature domain modeling, and the gh CLI call is fast enough to not matter.
+        selected: true
+    selectionRationale: >
+      Fork detection is a one-time runtime check before rebase. Persisting it in the domain
+      adds a TypeSpec change, DB migration, and generated-type regeneration for marginal
+      benefit within this feature's scope. Runtime detection via `gh repo view` is
+      sufficient and keeps the footprint small. Fork metadata can be promoted to the domain
+      model in a dedicated future feature if needed.
+    answer: 'Detect at runtime, no new domain fields'
+
+  - question: 'How should the upstream remote be named/managed?'
+    resolved: true
+    options:
+      - option: 'Always use conventional "upstream" remote name'
+        description: >
+          The service always looks for a remote named `upstream`. If it does not exist,
+          it is added automatically using the parent URL from `gh repo view --json parent`.
+          This follows the canonical git fork workflow convention and is predictable.
+        selected: true
+      - option: 'Configurable remote name via settings'
+        description: >
+          Allow users to configure the upstream remote name in shep settings (e.g.,
+          `git.upstreamRemote`). Flexible but adds settings surface area and complexity
+          for an edge case few users need.
+        selected: false
+    selectionRationale: >
+      The "upstream" remote name is the de-facto standard for git fork workflows (GitHub
+      docs, git-scm guides all use it). Auto-adding it when absent removes friction.
+      Configurability is unnecessary complexity for this scope.
+    answer: 'Always use conventional "upstream" remote name'
+
 content: |
   ## Problem Statement
 
@@ -55,64 +169,70 @@ content: |
   Currently, `GitPrService` only pushes to `origin` and performs squash merges. There is no
   `git rebase` support, no upstream remote management, and no fork-aware branch sync logic.
 
-  ## Codebase Analysis
+  ## Success Criteria
 
-  ### Project Structure
+  - [ ] `shep feat rebase <feature-id>` successfully rebases the feature branch on top of the current local main in a clean repo
+  - [ ] `shep feat rebase <feature-id>` auto-detects a fork repo, syncs local main with upstream, then rebases
+  - [ ] `shep feat rebase <feature-id>` aborts cleanly and prints conflicting file names when a rebase conflict is detected
+  - [ ] `shep repo sync` syncs a fork's local main with its upstream remote as a standalone command
+  - [ ] `shep repo sync` is a no-op (with informational output) when the repo is not a fork
+  - [ ] All new service methods are covered by integration tests using real temporary git repos
+  - [ ] All new use cases are covered by unit tests using mocked `IGitPrService`
+  - [ ] `IGitPrService` interface is extended with the new method signatures
+  - [ ] New use cases are registered in the TSyringe DI container
+  - [ ] No new TypeSpec fields are added; no DB migration is required
+  - [ ] `pnpm validate` passes with zero errors after implementation
+  - [ ] `pnpm test` passes with zero failures after implementation
 
-  ```
-  packages/core/src/
-  ├── domain/generated/output.ts        # Auto-generated TypeSpec types (read-only)
-  ├── application/
-  │   ├── ports/output/services/        # IGitPrService, IWorktreeService interfaces
-  │   └── use-cases/features/           # Feature lifecycle use cases
-  ├── infrastructure/
-  │   ├── services/git/
-  │   │   ├── git-pr.service.ts         # Concrete git operations (exec git/gh)
-  │   │   └── worktree.service.ts       # Worktree CRUD
-  │   └── di/container.ts              # TSyringe DI registrations
-  src/presentation/cli/commands/
-  ├── feat/                             # Feature sub-commands (new, start, approve…)
-  └── repo/                             # Repository sub-commands (ls, show)
-  tsp/domain/                           # TypeSpec source models
-  tests/integration/infrastructure/services/git/  # Real-git integration tests
-  ```
+  ## Functional Requirements
 
-  ### Architecture Patterns
+  - **FR-1**: The system MUST provide a `shep feat rebase <feature-id>` CLI command that rebases the specified feature branch onto the latest local `main`.
+  - **FR-2**: Before rebasing, the system MUST `git fetch origin` to ensure `origin/main` is current, then fast-forward local `main` to match.
+  - **FR-3**: The system MUST detect whether the current repository is a fork by calling `gh repo view --json parent` and checking whether the `parent` field is non-null.
+  - **FR-4**: When the repo is a fork, the system MUST ensure a remote named `upstream` exists; if it does not exist, the system MUST add it using the parent repository's clone URL from `gh repo view --json parent`.
+  - **FR-5**: When the repo is a fork, the system MUST run `git fetch upstream` and `git reset --hard upstream/main` (or equivalent fast-forward) on the local `main` branch before rebasing.
+  - **FR-6**: The system MUST run `git rebase main` from within the feature branch's worktree working directory.
+  - **FR-7**: If a rebase conflict occurs, the system MUST run `git rebase --abort` automatically, then surface an error that lists the conflicting files and instructs the user to resolve manually.
+  - **FR-8**: The system MUST provide a `shep repo sync` CLI command that syncs the fork's local `main` with upstream as a standalone operation (no rebase).
+  - **FR-9**: `shep repo sync` MUST be a no-op with an informational message (e.g., "Repository is not a fork, nothing to sync") when the repo is not a fork.
+  - **FR-10**: A new `RebaseFeatureUseCase` MUST be implemented in `application/use-cases/features/` and injected with `IGitPrService` and `IFeatureRepository`.
+  - **FR-11**: A new `SyncForkMainUseCase` MUST be implemented in `application/use-cases/` and injected with `IGitPrService`.
+  - **FR-12**: `IGitPrService` MUST be extended with the following method signatures: `rebase(cwd: string, branch: string, onto: string): Promise<void>`, `fetchUpstream(cwd: string): Promise<void>`, `syncForkMain(cwd: string): Promise<void>`, `isFork(cwd: string): Promise<boolean>`, `ensureUpstreamRemote(cwd: string): Promise<void>`.
+  - **FR-13**: Both new use cases MUST be registered in the TSyringe DI container in `infrastructure/di/container.ts`.
 
-  - **Clean Architecture**: Domain → Application → Infrastructure → Presentation. New
-    service methods belong in `git-pr.service.ts`; interfaces belong in
-    `application/ports/output/services/`; use cases belong in
-    `application/use-cases/features/` (or `repositories/` for fork-level operations).
-  - **Dependency Injection**: All services are injected via TSyringe tokens; no `new`
-    at call sites. New use cases receive `IGitPrService` through constructor injection.
-  - **No hardcoded agent types**: Any agent interaction must flow through
-    `IAgentExecutorProvider`.
-  - **TDD mandatory**: Tests are written before implementation (RED → GREEN → REFACTOR).
-    Integration tests use real git repos created with `mkdtempSync()`.
-  - **TypeSpec-first**: Any new domain fields (e.g., upstream remote URL, rebase status)
-    must be defined in `tsp/` and compiled before use.
+  ## Non-Functional Requirements
 
-  ### Relevant Technologies
+  - **NFR-1 — Testability**: All new service methods MUST have integration tests using real temporary git repos (`mkdtempSync()`). All new use cases MUST have unit tests using mocked `IGitPrService`. Test coverage for new code must be ≥ 90%.
+  - **NFR-2 — Error messages**: Error output for rebase conflicts MUST include: (a) the name of the operation that failed, (b) the list of conflicting files from `git rebase --abort` output, and (c) a clear next-step instruction for the user.
+  - **NFR-3 — Idempotency**: Running `shep repo sync` multiple times on the same state MUST produce the same result without error (fast-forward-only behavior on an already-synced main is a no-op).
+  - **NFR-4 — Non-destructive on non-forks**: For non-fork repos, `shep feat rebase` MUST still work correctly (fetch origin, fast-forward main, rebase feature branch) and MUST NOT attempt any upstream operations.
+  - **NFR-5 — Clean Architecture compliance**: No business logic in CLI command handlers. All git operations in `GitPrService`. All orchestration in use cases. CLI handlers only parse args and call use cases.
+  - **NFR-6 — DI compliance**: No `new UseCase()` or `new Service()` at call sites. All construction via TSyringe `container.resolve()`.
+  - **NFR-7 — No TypeSpec changes**: This feature MUST NOT introduce new TypeSpec models or DB schema changes. Fork detection is runtime-only via the `gh` CLI.
+  - **NFR-8 — Conventional commits**: All commits MUST follow the project's conventional commit format with allowed types and scopes.
+  - **NFR-9 — Performance**: The `gh repo view` call MUST be made at most once per command invocation; the result MUST be passed through the call chain rather than re-fetched.
 
-  | Technology | Role |
-  | ---------- | ---- |
-  | `git` CLI | Rebase (`git rebase`), fetch upstream (`git fetch upstream`), reset local main (`git reset --hard`) |
-  | `gh` CLI | Detect fork parent, manage upstream remote URL via `gh repo view --json parent` |
-  | TSyringe | Inject new use cases and service extensions |
-  | Vitest | Unit tests for new use cases; integration tests with real temp git repos |
-  | TypeSpec | New domain fields for fork metadata if stored on the `Repository` entity |
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | How should merge conflicts during rebase be handled? | Abort and error | Keeps worktree clean, scope at M, users have better tools for conflict resolution |
+  | 2 | Should fork sync run automatically before rebase, or be a separate command? | Auto-sync then rebase | Single command, correct result regardless of fork status, least surprise |
+  | 3 | Should `shep repo sync` also be exposed as a standalone CLI command? | Yes, expose as shep repo sync | Low cost to add, useful for syncing main before new work |
+  | 4 | Should new TypeSpec domain fields be added for fork metadata? | Detect at runtime, no new domain fields | Avoids TypeSpec/DB migration churn for a one-time runtime check |
+  | 5 | How should the upstream remote be named/managed? | Always use conventional "upstream" remote name | De-facto standard, auto-add if missing, no config complexity |
 
   ## Affected Areas
 
   | Area | Impact | Reasoning |
   | ---- | ------ | --------- |
-  | `packages/core/src/infrastructure/services/git/git-pr.service.ts` | High | Must add `rebase(cwd, branch, onto)`, `fetchUpstream(cwd)`, `syncForkMain(cwd)` methods |
+  | `packages/core/src/infrastructure/services/git/git-pr.service.ts` | High | Must add `rebase`, `fetchUpstream`, `syncForkMain`, `isFork`, `ensureUpstreamRemote` methods |
   | `packages/core/src/application/ports/output/services/git-pr-service.interface.ts` | High | Interface must expose the new method signatures so use cases remain testable via mocks |
-  | `packages/core/src/application/use-cases/features/` | High | New `RebaseFeatureUseCase`; possibly `SyncForkMainUseCase` |
-  | `src/presentation/cli/commands/feat/` | Medium | New `shep feat rebase` CLI command (or `shep feat sync`) |
-  | `src/presentation/cli/commands/repo/` | Medium | Potentially `shep repo sync` for standalone fork main sync |
-  | `packages/core/src/infrastructure/di/container.ts` | Medium | Register new use cases and any new service tokens |
-  | `tsp/domain/entities/` | Low | May need `upstreamUrl` or `isFork` fields on `Repository` entity |
+  | `packages/core/src/application/use-cases/features/` | High | New `RebaseFeatureUseCase` |
+  | `packages/core/src/application/use-cases/` | High | New `SyncForkMainUseCase` |
+  | `src/presentation/cli/commands/feat/` | Medium | New `shep feat rebase` CLI command |
+  | `src/presentation/cli/commands/repo/` | Medium | New `shep repo sync` CLI command |
+  | `packages/core/src/infrastructure/di/container.ts` | Medium | Register new use cases |
   | `tests/integration/infrastructure/services/git/` | High | Real-git integration tests covering rebase, conflict abort, upstream sync scenarios |
 
   ## Dependencies
@@ -124,19 +244,20 @@ content: |
   - **`WorktreeService`** — feature branches live in worktrees; the rebase must run inside
     the correct worktree `cwd`.
   - **`gh` CLI** — used to detect whether the current repo is a fork
-    (`gh repo view --json parent`) and to retrieve the upstream remote URL.
+    (`gh repo view --json parent`) and to retrieve the upstream remote URL. Called at most
+    once per command invocation.
   - **`IFeatureRepository`** — needed by `RebaseFeatureUseCase` to look up the feature's
     branch name and worktree path.
   - **TSyringe DI container** — all new use cases must be registered.
 
   ## Size Estimate
 
-  **M** — Multiple clean-architecture layers are touched (interface, service, use case,
-  CLI command, DI registration, integration tests) but the operations themselves are
-  well-understood git commands with clear success/failure states. Conflict handling scope
-  (abort vs. interactive) is the main uncertainty that could push toward L if an
-  interactive resolution UI is required.
+  **M** — Multiple clean-architecture layers are touched (interface, service, two use cases,
+  two CLI commands, DI registration, integration tests) but the operations themselves are
+  well-understood git commands with clear success/failure states. Keeping conflict handling
+  as abort-and-error and fork metadata as runtime-only (no TypeSpec/DB changes) holds the
+  scope firmly at M.
 
   ---
 
-  _Analysis complete — proceed with /shep-kit:research_
+  _Requirements complete — proceed with /shep-kit:research_
