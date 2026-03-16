@@ -15,7 +15,7 @@ import {
 import { useSelectedFeatureId } from '@/hooks/use-selected-feature-id';
 import { useSoundAction } from '@/hooks/use-sound-action';
 import { useDrawerCloseGuard } from '@/hooks/drawer-close-guard';
-import { useViewportPersistence } from '@/hooks/use-viewport-persistence';
+import { useViewportPersistence, DEFAULT_VIEWPORT } from '@/hooks/use-viewport-persistence';
 import { ControlCenterEmptyState } from './control-center-empty-state';
 import { useControlCenterState } from './use-control-center-state';
 
@@ -38,7 +38,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
   const selectedFeatureId = useSelectedFeatureId();
   const clickSound = useSoundAction('click');
   const { guardedNavigate } = useDrawerCloseGuard();
-  const { fitView } = useReactFlow();
+  const { fitView, setViewport } = useReactFlow();
   const drawerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const {
@@ -180,6 +180,13 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     }
   }, [router, pathname, guardedNavigate]);
 
+  // ── Deferred fitView mechanism ──────────────────────────────────────
+  // Instead of calling fitView from event handlers (which races with the
+  // showCanvas latch and React render cycles), we set a ref flag and let
+  // a useEffect consume it once showCanvas is true and nodes are rendered.
+  const pendingFitViewRef = useRef(false);
+  const pendingDrawerRepoRef = useRef<string | null>(null);
+
   // Listen for global "add repository" events from the top bar button
   useEffect(() => {
     const handler = (e: Event) => {
@@ -190,20 +197,13 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
       // pan/zoom position.  This guarantees the repo is visible after adding
       // — even if the user previously panned far away or deleted everything.
       resetViewport();
-
-      // Use a short delay to allow React to flush the state update and
-      // the showCanvas latch to transition, ensuring ReactFlow has the
-      // new nodes rendered before fitView calculates bounds.
-      requestAnimationFrame(() => {
-        fitView(AUTO_FOCUS_OPTIONS);
-
-        if (wasEmpty) {
-          // Open the create-feature drawer after the fitView animation completes
-          drawerTimerRef.current = setTimeout(() => {
-            guardedNavigate(() => router.push(`/create?repo=${encodeURIComponent(repoPath)}`));
-          }, AUTO_FOCUS_DRAWER_DELAY_MS);
-        }
-      });
+      // Immediately snap the in-memory viewport so the user never sees
+      // the old far-away position (defaultViewport only applies on mount).
+      setViewport(DEFAULT_VIEWPORT);
+      pendingFitViewRef.current = true;
+      if (wasEmpty) {
+        pendingDrawerRepoRef.current = repoPath;
+      }
     };
     window.addEventListener('shep:add-repository', handler);
     return () => {
@@ -212,7 +212,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
         clearTimeout(drawerTimerRef.current);
       }
     };
-  }, [handleAddRepository, fitView, guardedNavigate, router, resetViewport]);
+  }, [handleAddRepository, resetViewport, setViewport]);
 
   // Listen for create events from the create drawer (with real feature ID from server)
   useEffect(() => {
@@ -306,13 +306,13 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
   useEffect(() => {
     const hasNodes = nodes.length > 0;
     if (hasNodes && !hadNodesRef.current) {
-      // Went from empty → has nodes — center the view
+      // Went from empty → has nodes — request a deferred fitView
       resetViewport();
-      // Yield to React so nodes are rendered in the DOM before fitView calculates bounds.
-      setTimeout(() => fitView(AUTO_FOCUS_OPTIONS), 0);
+      setViewport(DEFAULT_VIEWPORT);
+      pendingFitViewRef.current = true;
     }
     hadNodesRef.current = hasNodes;
-  }, [nodes.length, fitView, resetViewport]);
+  }, [nodes.length, resetViewport, setViewport]);
 
   const handleMoveEnd = useCallback(
     (_event: unknown, viewport: Viewport) => {
@@ -348,6 +348,29 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
       if (latchTimerRef.current) clearTimeout(latchTimerRef.current);
     };
   }, [hasRepositories, showCanvas]);
+
+  // ── Consume the pending fitView flag ──────────────────────────────────
+  // This effect runs after React renders with showCanvas=true and nodes
+  // available, guaranteeing ReactFlow has the nodes in the DOM before
+  // fitView calculates bounds.  Using requestAnimationFrame ensures the
+  // browser has flushed layout so ReactFlow can measure node dimensions.
+  useEffect(() => {
+    if (!pendingFitViewRef.current || !showCanvas || nodes.length === 0) return;
+    pendingFitViewRef.current = false;
+
+    const drawerRepo = pendingDrawerRepoRef.current;
+    pendingDrawerRepoRef.current = null;
+
+    requestAnimationFrame(() => {
+      fitView(AUTO_FOCUS_OPTIONS);
+
+      if (drawerRepo) {
+        drawerTimerRef.current = setTimeout(() => {
+          guardedNavigate(() => router.push(`/create?repo=${encodeURIComponent(drawerRepo)}`));
+        }, AUTO_FOCUS_DRAWER_DELAY_MS);
+      }
+    });
+  }, [showCanvas, nodes.length, fitView, guardedNavigate, router]);
 
   // Pulse the "+" button when there's a single repo with no features and the
   // create-feature drawer is not open — draws attention to the next action.

@@ -18,9 +18,10 @@ vi.mock('@/hooks/agent-events-provider', () => ({
 }));
 
 const mockFitView = vi.fn();
+const mockSetViewport = vi.fn();
 
 vi.mock('@xyflow/react', () => ({
-  useReactFlow: () => ({ fitView: mockFitView }),
+  useReactFlow: () => ({ fitView: mockFitView, setViewport: mockSetViewport }),
 }));
 
 vi.mock('@/app/actions/add-repository', () => ({
@@ -61,6 +62,7 @@ vi.mock('@/components/features/features-canvas', () => ({
 const mockResetViewport = vi.fn(() => ({ x: 30, y: 30, zoom: 0.85 }));
 
 vi.mock('@/hooks/use-viewport-persistence', () => ({
+  DEFAULT_VIEWPORT: { x: 30, y: 30, zoom: 0.85 },
   useViewportPersistence: () => ({
     defaultViewport: { x: 30, y: 30, zoom: 0.85 },
     hasSavedViewport: true,
@@ -131,6 +133,7 @@ describe('ControlCenterInner URL-based navigation', () => {
     vi.clearAllMocks();
     currentPathname = '/';
     mockFitView.mockReset();
+    mockSetViewport.mockClear();
     mockResetViewport.mockClear();
   });
 
