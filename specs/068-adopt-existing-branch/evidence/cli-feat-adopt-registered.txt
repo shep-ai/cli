@@ -1,0 +1,31 @@
+CLI Command Registration — `shep feat adopt`
+==============================================
+Run: pnpm dev:cli -- feat
+Date: 2026-03-16
+
+Usage: shep feat [options] [command]
+
+Manage features through the SDLC lifecycle
+
+Options:
+  -h, --help                   display help for command
+
+Commands:
+  new [options] <description>  Create a new feature
+  ls [options]                 List features
+  show <id>                    Show feature details
+  del [options] <id>           Delete a feature
+  resume <id>                  Resume a stopped or failed feature agent
+  start <id>                   Start a pending feature (spawn the agent)
+  review [id]                  Interactive review of a feature waiting for approval
+  approve [id]                 Approve a feature waiting for review
+  reject [options] [id]        Reject a feature waiting for review
+  logs [options] <id>          View feature agent logs
+  adopt [options] <branch>     Adopt an existing branch as a tracked feature   <--- NEW
+  help [command]               display help for command
+
+Evidence:
+- The `adopt` command is registered as a subcommand of `shep feat`
+- It accepts a required `<branch>` positional argument
+- It accepts `[options]` (including -r/--repo for repository path)
+- The description is "Adopt an existing branch as a tracked feature"
