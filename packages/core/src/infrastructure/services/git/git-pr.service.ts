@@ -206,6 +206,14 @@ export class GitPrService implements IGitPrService {
   }
 
   async mergePr(cwd: string, prNumber: number, strategy: MergeStrategy = 'squash'): Promise<void> {
+    // Stash uncommitted changes to prevent --delete-branch from failing
+    const { stdout: status } = await this.execFile('git', ['status', '--porcelain'], { cwd });
+    const hasChanges = status.trim().length > 0;
+
+    if (hasChanges) {
+      await this.execFile('git', ['stash', 'push', '-m', 'shep: auto-stash before merge'], { cwd });
+    }
+
     try {
       await this.execFile(
         'gh',
@@ -216,6 +224,14 @@ export class GitPrService implements IGitPrService {
       const message = error instanceof Error ? error.message : String(error);
       const cause = error instanceof Error ? error : undefined;
       throw new GitPrError(message, GitPrErrorCode.MERGE_FAILED, cause);
+    } finally {
+      if (hasChanges) {
+        try {
+          await this.execFile('git', ['stash', 'pop'], { cwd });
+        } catch {
+          // Stash pop failure is non-fatal — changes remain in stash
+        }
+      }
     }
   }
 
