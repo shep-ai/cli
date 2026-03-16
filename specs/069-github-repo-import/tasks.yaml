@@ -1,0 +1,837 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: github-repo-import
+summary: >
+  22 tasks across 6 phases implementing GitHub repository import for Shep.
+  Covers domain model extension, application-layer port and use cases,
+  infrastructure gh CLI service, CLI command with interactive wizard,
+  Web UI dialog with URL/Browse tabs, and integration testing.
+
+relatedFeatures:
+  - 036 - Repository Entity
+  - 038 - Repo CLI Commands
+  - 044 - FAB Add Repository
+  - 005 - Global Settings Service
+
+technologies:
+  - GitHub CLI (gh)
+  - TypeSpec
+  - better-sqlite3 / umzug
+  - tsyringe
+  - Commander.js
+  - '@inquirer/prompts'
+  - Next.js Server Actions
+  - shadcn/ui
+  - spawn (node:child_process)
+
+relatedLinks: []
+
+tasks:
+  # ============================================================
+  # PHASE 1: Domain & Persistence Foundation
+  # ============================================================
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Extend Repository TypeSpec model with remoteUrl field'
+    description: >
+      Add optional `remoteUrl?: string` to the Repository model in
+      tsp/domain/entities/repository.tsp. Add optional `defaultCloneDirectory?:
+      string` to EnvironmentConfig in settings.tsp. Run pnpm tsp:compile to
+      regenerate output.ts. Verify the generated Repository type includes the
+      new field.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'Repository type in output.ts includes optional remoteUrl: string field'
+      - 'EnvironmentConfig type in output.ts includes optional defaultCloneDirectory: string field'
+      - 'pnpm tsp:compile succeeds without errors'
+      - 'Existing Repository fields (name, path, id, timestamps) unchanged'
+    tdd:
+      red:
+        - 'Write test asserting Repository type has optional remoteUrl property'
+        - 'Write test asserting EnvironmentConfig has optional defaultCloneDirectory property'
+      green:
+        - 'Add remoteUrl?: string to repository.tsp model'
+        - 'Add defaultCloneDirectory?: string to EnvironmentConfig in settings.tsp'
+        - 'Run pnpm tsp:compile to regenerate domain types'
+      refactor:
+        - 'Add JSDoc comments to the new TypeSpec fields describing their purpose'
+    estimatedEffort: '30min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Create SQLite migration for remote_url column'
+    description: >
+      Create migration 040-add-repository-remote-url.ts that adds a nullable
+      remote_url TEXT column to the repositories table. Follow the idempotent
+      pattern from migration 039 (check existing columns via pragma before
+      ALTER TABLE). Add an index on remote_url for efficient duplicate lookups.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Migration file exists at migrations/040-add-repository-remote-url.ts'
+      - 'Migration adds remote_url TEXT column (nullable) to repositories table'
+      - 'Migration adds idx_repositories_remote_url index'
+      - 'Migration is idempotent (safe to run on already-migrated databases)'
+      - 'down() migration drops the column and index'
+    tdd:
+      red:
+        - 'Write test that runs the migration on a fresh DB and asserts remote_url column exists'
+        - 'Write test that running migration twice does not throw (idempotency)'
+      green:
+        - 'Implement migration 040 with ALTER TABLE ADD COLUMN remote_url TEXT'
+        - 'Add CREATE INDEX idx_repositories_remote_url ON repositories(remote_url)'
+        - 'Add pragma table_info check for idempotency'
+      refactor:
+        - 'Ensure down() properly reverses the migration'
+    estimatedEffort: '30min'
+
+  - id: task-3
+    phaseId: phase-1
+    title: 'Extend repository mapper with remote_url mapping'
+    description: >
+      Update RepositoryRow interface to include optional remote_url field.
+      Update toDatabase() and fromDatabase() mapper functions to handle the
+      remoteUrl <-> remote_url mapping. Handle null/undefined correctly.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'RepositoryRow interface includes remote_url?: string | null'
+      - 'toDatabase() maps remoteUrl to remote_url (null if undefined)'
+      - 'fromDatabase() maps remote_url to remoteUrl (undefined if null)'
+      - 'Existing mapping behavior for name, path, timestamps unchanged'
+    tdd:
+      red:
+        - 'Write test that toDatabase() maps remoteUrl to remote_url column'
+        - 'Write test that fromDatabase() maps remote_url back to remoteUrl'
+        - 'Write test that null remote_url maps to undefined remoteUrl'
+        - 'Write test that repositories without remoteUrl produce remote_url: null'
+      green:
+        - 'Add remote_url to RepositoryRow interface'
+        - 'Add remoteUrl -> remote_url mapping in toDatabase()'
+        - 'Add remote_url -> remoteUrl mapping in fromDatabase()'
+      refactor:
+        - 'Ensure null vs undefined handling is consistent across all mapper functions'
+    estimatedEffort: '30min'
+
+  - id: task-4
+    phaseId: phase-1
+    title: 'Add findByRemoteUrl() and update() to IRepositoryRepository'
+    description: >
+      Extend the IRepositoryRepository interface with findByRemoteUrl(url)
+      returning Repository | null, and update(id, partial) for updating
+      specific fields. Implement both in SQLiteRepositoryRepository.
+      findByRemoteUrl normalizes the URL (lowercase, strip .git) before
+      querying. update() builds a dynamic SET clause from provided fields.
+    state: Todo
+    dependencies:
+      - task-2
+      - task-3
+    acceptanceCriteria:
+      - 'IRepositoryRepository interface has findByRemoteUrl(url: string): Promise<Repository | null>'
+      - 'IRepositoryRepository interface has update(id: string, fields: Partial<Repository>): Promise<Repository>'
+      - 'SQLite findByRemoteUrl normalizes URL before query (lowercase, strip .git)'
+      - 'SQLite update() sets only provided fields and updates updatedAt'
+      - 'findByRemoteUrl returns null when no match found'
+      - 'update() throws when repository id not found'
+    tdd:
+      red:
+        - 'Write test: findByRemoteUrl returns repo when remoteUrl matches (exact)'
+        - 'Write test: findByRemoteUrl returns repo when URL differs only in .git suffix'
+        - 'Write test: findByRemoteUrl returns repo when URL differs only in casing'
+        - 'Write test: findByRemoteUrl returns null when no match'
+        - 'Write test: update() sets remoteUrl and updates updatedAt'
+        - 'Write test: update() throws for nonexistent id'
+      green:
+        - 'Add findByRemoteUrl and update to IRepositoryRepository interface'
+        - 'Implement findByRemoteUrl in SQLiteRepositoryRepository with URL normalization'
+        - 'Implement update() with dynamic SET clause and updatedAt bump'
+      refactor:
+        - 'Extract URL normalization into a private helper method'
+        - 'Ensure update() only touches provided fields (not overwriting others with undefined)'
+    estimatedEffort: '1h'
+
+  - id: task-5
+    phaseId: phase-1
+    title: 'Update settings defaults factory with defaultCloneDirectory'
+    description: >
+      Update createDefaultSettings() in settings-defaults.factory.ts to include
+      defaultCloneDirectory in the EnvironmentConfig section. Default value
+      should be the user home directory + /repos (e.g., ~/repos). Ensure
+      existing settings without the field get the default on read.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'createDefaultSettings() returns EnvironmentConfig with defaultCloneDirectory set'
+      - 'Default value resolves to <homedir>/repos'
+      - 'Existing settings factory tests still pass'
+    tdd:
+      red:
+        - 'Write test: createDefaultSettings() includes defaultCloneDirectory in environmentConfig'
+        - 'Write test: defaultCloneDirectory value ends with /repos'
+      green:
+        - 'Add defaultCloneDirectory to EnvironmentConfig section in createDefaultSettings()'
+        - 'Use os.homedir() + /repos as default value'
+      refactor:
+        - 'Extract home dir resolution to avoid duplication if used elsewhere'
+    estimatedEffort: '20min'
+
+  # ============================================================
+  # PHASE 2: Application Layer — Port & Use Cases
+  # ============================================================
+
+  - id: task-6
+    phaseId: phase-2
+    title: 'Define IGitHubRepositoryService port interface with error classes'
+    description: >
+      Create the output port interface at
+      application/ports/output/services/github-repository-service.interface.ts.
+      Define four methods: checkAuth(), cloneRepository(), listUserRepositories(),
+      parseGitHubUrl(). Define four error classes in the same file:
+      GitHubAuthError, GitHubCloneError, GitHubUrlParseError,
+      GitHubRepoListError. Define GitHubRepo type for list results.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'IGitHubRepositoryService interface exported with all four methods'
+      - 'checkAuth(): Promise<void> throws GitHubAuthError'
+      - 'cloneRepository(nameWithOwner, dest, options?): Promise<void> throws GitHubCloneError'
+      - 'listUserRepositories(options?): Promise<GitHubRepo[]> throws GitHubRepoListError'
+      - 'parseGitHubUrl(url): { owner, repo, nameWithOwner } throws GitHubUrlParseError'
+      - 'All four error classes extend Error with name and optional cause'
+      - 'GitHubRepo type includes name, nameWithOwner, description, isPrivate, pushedAt'
+    tdd:
+      red:
+        - 'Write test: GitHubAuthError extends Error with correct name property'
+        - 'Write test: GitHubCloneError extends Error with cause chaining'
+        - 'Write test: GitHubUrlParseError extends Error with correct name'
+        - 'Write test: GitHubRepoListError extends Error with cause chaining'
+        - 'Write test: all error classes maintain instanceof via Object.setPrototypeOf'
+      green:
+        - 'Create interface file with IGitHubRepositoryService interface'
+        - 'Implement four error classes following SessionNotFoundError pattern'
+        - 'Define GitHubRepo type and ListUserRepositoriesOptions type'
+        - 'Define CloneOptions type with optional onProgress callback'
+      refactor:
+        - 'Add JSDoc to each method with @throws documentation'
+        - 'Ensure error message templates are descriptive and actionable'
+    estimatedEffort: '45min'
+
+  - id: task-7
+    phaseId: phase-2
+    title: 'Implement ListGitHubRepositoriesUseCase'
+    description: >
+      Create use case that checks GitHub auth, then fetches the user's
+      repositories via IGitHubRepositoryService.listUserRepositories().
+      Thin wrapper that decouples presentation from infrastructure.
+      Inject IGitHubRepositoryService via constructor.
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'Use case class is injectable with @injectable() decorator'
+      - 'execute() calls checkAuth() then listUserRepositories()'
+      - 'Passes limit and search options through to service'
+      - 'Returns GitHubRepo[] from service'
+      - 'Propagates GitHubAuthError and GitHubRepoListError to caller'
+    tdd:
+      red:
+        - 'Write test: execute() calls checkAuth before listing repos'
+        - 'Write test: execute() returns repos from service'
+        - 'Write test: execute() passes search/limit options to service'
+        - 'Write test: execute() propagates GitHubAuthError when not authenticated'
+      green:
+        - 'Create ListGitHubRepositoriesUseCase class with IGitHubRepositoryService injection'
+        - 'Implement execute(options?) method with auth check then list call'
+      refactor:
+        - 'Ensure constructor uses @inject token string for the service'
+    estimatedEffort: '30min'
+
+  - id: task-8
+    phaseId: phase-2
+    title: 'Implement ImportGitHubRepositoryUseCase'
+    description: >
+      Create the main import use case that orchestrates: (1) parse and validate
+      URL, (2) check auth, (3) check duplicate by remoteUrl, (4) resolve
+      clone destination, (5) clone via service, (6) delegate to
+      AddRepositoryUseCase to register, (7) update repo with remoteUrl.
+      Injects IGitHubRepositoryService, IRepositoryRepository, and
+      AddRepositoryUseCase.
+    state: Todo
+    dependencies:
+      - task-4
+      - task-6
+    acceptanceCriteria:
+      - 'Use case accepts { url: string; dest?: string; defaultCloneDir?: string }'
+      - 'Validates URL via parseGitHubUrl (throws GitHubUrlParseError for invalid)'
+      - 'Checks auth via checkAuth (throws GitHubAuthError if not authenticated)'
+      - 'Returns existing repo if findByRemoteUrl matches (skips clone)'
+      - 'Clones to dest or defaultCloneDir/repoName when dest not provided'
+      - 'Delegates to AddRepositoryUseCase after clone'
+      - 'Updates repository with normalized remoteUrl via IRepositoryRepository.update()'
+      - 'Returns the registered Repository entity'
+    tdd:
+      red:
+        - 'Write test: execute() with valid URL clones and registers repo'
+        - 'Write test: execute() returns existing repo when remoteUrl already tracked'
+        - 'Write test: execute() throws GitHubUrlParseError for invalid URL'
+        - 'Write test: execute() throws GitHubAuthError when not authenticated'
+        - 'Write test: execute() uses dest when provided, otherwise defaultCloneDir/repoName'
+        - 'Write test: execute() normalizes remoteUrl before storing (lowercase, no .git)'
+        - 'Write test: execute() calls checkAuth before clone'
+        - 'Write test: execute() calls AddRepositoryUseCase with cloned path'
+      green:
+        - 'Create ImportGitHubRepositoryUseCase with three DI injections'
+        - 'Implement execute() with the full orchestration flow'
+        - 'Add URL normalization helper (lowercase, strip .git suffix)'
+        - 'Resolve destination: dest param > defaultCloneDir/repoName > ~/repos/repoName'
+      refactor:
+        - 'Extract URL normalization to a shared utility if duplicated with repository impl'
+        - 'Ensure error messages include the URL or nameWithOwner for debugging'
+    estimatedEffort: '1.5h'
+
+  # ============================================================
+  # PHASE 3: Infrastructure — GitHub CLI Service & DI Wiring
+  # ============================================================
+
+  - id: task-9
+    phaseId: phase-3
+    title: 'Implement GitHubRepositoryService (auth check + repo listing)'
+    description: >
+      Create infrastructure service at services/external/github-repository.service.ts.
+      Implement checkAuth() using ExecFunction to run `gh auth status`.
+      Implement listUserRepositories() using ExecFunction to run
+      `gh repo list --json name,nameWithOwner,description,isPrivate,pushedAt --limit N`.
+      Implement parseGitHubUrl() with regex for four URL formats.
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'Class is @injectable() and injects ExecFunction via @inject token'
+      - 'checkAuth() runs `gh auth status` and throws GitHubAuthError on non-zero exit'
+      - 'listUserRepositories() runs `gh repo list --json` and parses JSON output'
+      - 'listUserRepositories() supports limit and search options'
+      - 'parseGitHubUrl() handles HTTPS, HTTPS+.git, SSH, and owner/repo shorthand'
+      - 'parseGitHubUrl() returns { owner, repo, nameWithOwner }'
+      - 'parseGitHubUrl() throws GitHubUrlParseError for non-GitHub URLs'
+    tdd:
+      red:
+        - 'Write test: checkAuth() succeeds when gh auth status exits 0'
+        - 'Write test: checkAuth() throws GitHubAuthError when gh auth status fails'
+        - 'Write test: listUserRepositories() parses JSON output from gh repo list'
+        - 'Write test: listUserRepositories() passes --limit flag'
+        - 'Write test: listUserRepositories() throws GitHubRepoListError on failure'
+        - 'Write test: parseGitHubUrl parses https://github.com/owner/repo'
+        - 'Write test: parseGitHubUrl parses https://github.com/owner/repo.git'
+        - 'Write test: parseGitHubUrl parses git@github.com:owner/repo.git'
+        - 'Write test: parseGitHubUrl parses owner/repo shorthand'
+        - 'Write test: parseGitHubUrl throws for non-GitHub URLs'
+        - 'Write test: parseGitHubUrl throws for malformed input'
+      green:
+        - 'Create GitHubRepositoryService class implementing IGitHubRepositoryService'
+        - 'Implement checkAuth with execFile("gh", ["auth", "status"])'
+        - 'Implement listUserRepositories with execFile and JSON.parse'
+        - 'Implement parseGitHubUrl with regex matching four formats'
+      refactor:
+        - 'Extract URL regex patterns as named constants for readability'
+        - 'Ensure error.cause is set for all error classes wrapping subprocess failures'
+    estimatedEffort: '1h'
+
+  - id: task-10
+    phaseId: phase-3
+    title: 'Implement GitHubRepositoryService clone method with spawn'
+    description: >
+      Add cloneRepository() to GitHubRepositoryService using child_process.spawn
+      for `gh repo clone <nameWithOwner> <dest>`. Stream stderr for progress
+      output. Support optional onProgress callback for Web UI. Throw
+      GitHubCloneError on non-zero exit. Clean up partial clone directory on
+      failure.
+    state: Todo
+    dependencies:
+      - task-9
+    acceptanceCriteria:
+      - 'cloneRepository() spawns `gh repo clone` with args array (no shell interpolation)'
+      - 'stderr output is streamed (not buffered) for progress display'
+      - 'onProgress callback receives stderr chunks when provided'
+      - 'Non-zero exit code throws GitHubCloneError with stderr content'
+      - 'Partial clone directory is cleaned up on failure'
+      - 'Destination path is validated (no path traversal)'
+    tdd:
+      red:
+        - 'Write test: cloneRepository() spawns gh with correct args'
+        - 'Write test: cloneRepository() resolves on exit code 0'
+        - 'Write test: cloneRepository() rejects with GitHubCloneError on non-zero exit'
+        - 'Write test: cloneRepository() calls onProgress with stderr data'
+        - 'Write test: cloneRepository() validates destination path (rejects ../ traversal)'
+      green:
+        - 'Implement cloneRepository using spawn with stdio pipe'
+        - 'Add stderr data event handler for progress streaming'
+        - 'Add exit code check in close event handler'
+        - 'Add path.resolve validation for destination'
+        - 'Add cleanup of partial clone dir in catch path'
+      refactor:
+        - 'Extract path validation into a reusable utility'
+        - 'Ensure spawn is testable (inject or override for tests)'
+    estimatedEffort: '1h'
+
+  - id: task-11
+    phaseId: phase-3
+    title: 'Register new services and use cases in DI container'
+    description: >
+      Register IGitHubRepositoryService, ImportGitHubRepositoryUseCase, and
+      ListGitHubRepositoriesUseCase in the DI container. Follow existing
+      patterns: service with useFactory for ExecFunction injection, use cases
+      as singletons with string token aliases for web route resolution.
+    state: Todo
+    dependencies:
+      - task-8
+      - task-10
+    acceptanceCriteria:
+      - 'IGitHubRepositoryService registered with useFactory injecting ExecFunction'
+      - 'ImportGitHubRepositoryUseCase registered as singleton'
+      - 'ListGitHubRepositoriesUseCase registered as singleton'
+      - 'String token aliases registered for web server action resolution'
+      - 'container.resolve() successfully creates all new registrations'
+    tdd:
+      red:
+        - 'Write test: container resolves IGitHubRepositoryService without error'
+        - 'Write test: container resolves ImportGitHubRepositoryUseCase without error'
+        - 'Write test: container resolves ListGitHubRepositoriesUseCase without error'
+      green:
+        - 'Add IGitHubRepositoryService factory registration to container.ts'
+        - 'Add singleton registrations for both use cases'
+        - 'Add string token registrations for web resolve() calls'
+      refactor:
+        - 'Group new registrations with existing repository-related registrations'
+    estimatedEffort: '30min'
+
+  # ============================================================
+  # PHASE 4: CLI Presentation — shep repo add Command
+  # ============================================================
+
+  - id: task-12
+    phaseId: phase-4
+    title: 'Create GitHub import TUI wizard'
+    description: >
+      Create an interactive wizard at tui/wizards/github-import.wizard.ts
+      following the agent-config.wizard.ts pattern. The wizard presents
+      a choice between "Paste a GitHub URL" and "Browse my repositories".
+      URL path prompts for URL input and validates. Browse path calls
+      ListGitHubRepositoriesUseCase, displays repos in a select list with
+      search support, and returns the selected nameWithOwner.
+    state: Todo
+    dependencies:
+      - task-7
+      - task-8
+    acceptanceCriteria:
+      - 'Wizard exports async function returning { url: string; dest?: string }'
+      - 'First prompt offers two choices: URL input or Browse repos'
+      - 'URL path validates input with parseGitHubUrl before accepting'
+      - 'Browse path displays repos with name, description, and visibility badge'
+      - 'Browse path supports search/filter by repo name'
+      - 'Uses shepTheme for consistent styling'
+      - 'Optional dest prompt for clone destination override'
+    tdd:
+      red:
+        - 'Write test: wizard returns URL when user selects URL input path'
+        - 'Write test: wizard returns nameWithOwner when user selects browse path'
+        - 'Write test: wizard re-prompts on invalid URL input'
+        - 'Write test: wizard passes search query to list use case'
+      green:
+        - 'Create github-import.wizard.ts with select prompt for method choice'
+        - 'Implement URL input path with input prompt and validation'
+        - 'Implement browse path with select prompt populated from use case'
+        - 'Add optional dest override prompt'
+      refactor:
+        - 'Extract repo display formatting into helper function'
+        - 'Ensure error messages use picocolors for consistent CLI styling'
+    estimatedEffort: '1h'
+
+  - id: task-13
+    phaseId: phase-4
+    title: 'Create shep repo add CLI command'
+    description: >
+      Create add.command.ts following the pattern of ls.command.ts and
+      show.command.ts. Command accepts optional --url and --dest flags.
+      With --url, resolves ImportGitHubRepositoryUseCase and executes directly.
+      Without --url, launches the GitHub import wizard then executes the
+      use case with wizard results. Register in repo/index.ts command group.
+    state: Todo
+    dependencies:
+      - task-11
+      - task-12
+    acceptanceCriteria:
+      - 'createAddCommand() exports a Commander.js Command'
+      - 'Command registered in repo/index.ts as .addCommand(createAddCommand())'
+      - 'shep repo add --url <url> clones and registers directly'
+      - 'shep repo add (no flags) launches interactive wizard'
+      - '--dest <path> overrides clone destination'
+      - 'Success output shows repo name and path'
+      - 'Error output shows specific messages for auth, clone, and URL errors'
+      - 'Resolves use cases from DI container in action handler'
+    tdd:
+      red:
+        - 'Write test: command with --url resolves use case and calls execute'
+        - 'Write test: command without --url calls wizard then execute'
+        - 'Write test: command with --dest passes dest to use case'
+        - 'Write test: command catches GitHubAuthError and shows auth instructions'
+        - 'Write test: command catches GitHubUrlParseError and shows URL format help'
+      green:
+        - 'Create add.command.ts with Commander Command and --url/--dest options'
+        - 'Implement action handler resolving ImportGitHubRepositoryUseCase'
+        - 'Add wizard fallback when --url not provided'
+        - 'Add error handling with specific messages per error class'
+        - 'Register command in repo/index.ts'
+      refactor:
+        - 'Align output formatting with ls/show command patterns'
+        - 'Ensure help text describes both usage modes clearly'
+    estimatedEffort: '1h'
+
+  # ============================================================
+  # PHASE 5: Web UI — GitHub Import Dialog & Server Actions
+  # ============================================================
+
+  - id: task-14
+    phaseId: phase-5
+    title: 'Create importGitHubRepository server action'
+    description: >
+      Create Next.js server action at app/actions/import-github-repository.ts
+      following the add-repository.ts pattern. Accepts { url: string; dest?:
+      string }, resolves ImportGitHubRepositoryUseCase, returns
+      { repository?: Repository; error?: string }.
+    state: Todo
+    dependencies:
+      - task-11
+    acceptanceCriteria:
+      - 'File has "use server" directive'
+      - 'Resolves ImportGitHubRepositoryUseCase via resolve() from server-container'
+      - 'Returns { repository } on success'
+      - 'Returns { error: string } on any failure'
+      - 'Validates url input is not empty'
+      - 'Catches and maps all error types to user-friendly messages'
+    tdd:
+      red:
+        - 'Write test: returns repository on successful import'
+        - 'Write test: returns error string on GitHubAuthError'
+        - 'Write test: returns error string on GitHubUrlParseError'
+        - 'Write test: returns error when url is empty'
+      green:
+        - 'Create import-github-repository.ts server action'
+        - 'Implement with resolve, try-catch, typed return'
+      refactor:
+        - 'Ensure error messages are user-facing (no stack traces)'
+    estimatedEffort: '30min'
+
+  - id: task-15
+    phaseId: phase-5
+    title: 'Create listGitHubRepositories server action'
+    description: >
+      Create Next.js server action at app/actions/list-github-repositories.ts.
+      Accepts optional { search?: string; limit?: number }, resolves
+      ListGitHubRepositoriesUseCase, returns { repos?: GitHubRepo[];
+      error?: string }.
+    state: Todo
+    dependencies:
+      - task-11
+    acceptanceCriteria:
+      - 'File has "use server" directive'
+      - 'Resolves ListGitHubRepositoriesUseCase via resolve()'
+      - 'Returns { repos } array on success'
+      - 'Returns { error } on auth or list failure'
+      - 'Passes search and limit options to use case'
+    tdd:
+      red:
+        - 'Write test: returns repos array on success'
+        - 'Write test: returns error on GitHubAuthError'
+        - 'Write test: passes search filter to use case'
+      green:
+        - 'Create list-github-repositories.ts server action'
+        - 'Implement with resolve, try-catch, typed return'
+      refactor:
+        - 'Align error handling pattern with import action'
+    estimatedEffort: '20min'
+
+  - id: task-16
+    phaseId: phase-5
+    title: 'Build GitHubUrlInput component'
+    description: >
+      Create github-url-input.tsx component with a text input for GitHub URL,
+      validation feedback, and submit handler. Uses shadcn/ui Input component.
+      Validates URL format on blur/submit using a client-side regex (same
+      four formats as parseGitHubUrl). Shows inline error for invalid URLs.
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'Component renders text input with placeholder and label'
+      - 'Validates GitHub URL format on submit'
+      - 'Shows inline error message for invalid URLs'
+      - 'Calls onSubmit(url) with valid URL'
+      - 'Supports loading state (disabled input + spinner)'
+      - 'Keyboard accessible (Enter to submit)'
+      - 'Colocated .stories.tsx with default, error, loading, empty states'
+    tdd:
+      red:
+        - 'Write test: renders input with placeholder'
+        - 'Write test: calls onSubmit with valid GitHub URL'
+        - 'Write test: shows error for invalid URL format'
+        - 'Write test: disables input when loading'
+      green:
+        - 'Create GitHubUrlInput component with state for url and error'
+        - 'Add URL validation regex matching four GitHub URL formats'
+        - 'Wire onSubmit callback on Enter key and button click'
+        - 'Show validation error inline below input'
+      refactor:
+        - 'Extract URL validation regex to shared constant'
+    estimatedEffort: '45min'
+
+  - id: task-17
+    phaseId: phase-5
+    title: 'Build GitHubRepoBrowser component'
+    description: >
+      Create github-repo-browser.tsx that fetches and displays the user's
+      GitHub repos in a selectable list. Uses the listGitHubRepositories
+      server action. Shows repo name, description, and private/public badge.
+      Includes a search input for filtering. Loading skeleton while fetching.
+    state: Todo
+    dependencies:
+      - task-15
+    acceptanceCriteria:
+      - 'Component fetches repos on mount via listGitHubRepositories action'
+      - 'Displays repos in a scrollable list with name, description, visibility'
+      - 'Search input filters repos (debounced, calls action with search param)'
+      - 'Clicking a repo calls onSelect(nameWithOwner)'
+      - 'Shows loading skeleton during fetch'
+      - 'Shows empty state when no repos match search'
+      - 'Shows error state when fetch fails'
+      - 'Colocated .stories.tsx with default, loading, empty, error states'
+    tdd:
+      red:
+        - 'Write test: renders loading skeleton initially'
+        - 'Write test: displays repo list after fetch'
+        - 'Write test: calls onSelect when repo clicked'
+        - 'Write test: filters repos via search input'
+        - 'Write test: shows error state on fetch failure'
+        - 'Write test: shows empty state when no repos'
+      green:
+        - 'Create GitHubRepoBrowser with useEffect for initial fetch'
+        - 'Render list items with repo name, description, Badge for visibility'
+        - 'Add search Input with debounced onChange calling action'
+        - 'Handle loading, error, and empty states'
+      refactor:
+        - 'Extract repo list item into a sub-component for reuse in stories'
+    estimatedEffort: '1h'
+
+  - id: task-18
+    phaseId: phase-5
+    title: 'Build GitHubImportDialog component with URL/Browse tabs'
+    description: >
+      Create github-import-dialog.tsx that combines GitHubUrlInput and
+      GitHubRepoBrowser in a Dialog with Tabs. URL tab shows the URL input.
+      Browse tab shows the repo browser. Both trigger the import flow via
+      importGitHubRepository server action on selection/submit.
+    state: Todo
+    dependencies:
+      - task-14
+      - task-16
+      - task-17
+    acceptanceCriteria:
+      - 'Dialog opens when triggered (controlled via open prop)'
+      - 'Two tabs: "URL" and "Browse" using shadcn/ui Tabs'
+      - 'URL tab renders GitHubUrlInput'
+      - 'Browse tab renders GitHubRepoBrowser'
+      - 'Submitting URL or selecting repo calls importGitHubRepository action'
+      - 'Shows loading state during import'
+      - 'Calls onImportComplete(repository) on success'
+      - 'Shows error toast on failure'
+      - 'Dialog closes on successful import'
+      - 'Colocated .stories.tsx with default, URL tab, Browse tab, loading states'
+    tdd:
+      red:
+        - 'Write test: renders dialog with two tabs'
+        - 'Write test: URL tab submission triggers import action'
+        - 'Write test: Browse tab selection triggers import action'
+        - 'Write test: shows loading state during import'
+        - 'Write test: calls onImportComplete on success'
+        - 'Write test: shows error on failure'
+      green:
+        - 'Create GitHubImportDialog with Dialog, Tabs, TabsContent'
+        - 'Wire URL tab to importGitHubRepository action'
+        - 'Wire Browse tab selection to importGitHubRepository action'
+        - 'Add loading and error state handling'
+        - 'Create index.ts barrel export'
+      refactor:
+        - 'Extract import logic into a custom hook (useGitHubImport)'
+    estimatedEffort: '1h'
+
+  - id: task-19
+    phaseId: phase-5
+    title: 'Refactor AddRepositoryButton to popover with method picker'
+    description: >
+      Refactor add-repository-button.tsx from a simple folder-picker button
+      to a Popover with two options: "Local folder" (existing pickFolder flow)
+      and "From GitHub" (opens GitHubImportDialog). "Local folder" preserves
+      the exact existing behavior. "From GitHub" opens the new dialog.
+    state: Todo
+    dependencies:
+      - task-18
+    acceptanceCriteria:
+      - 'Button click opens a Popover (not direct folder picker)'
+      - 'Popover shows two options: "Local folder" and "From GitHub"'
+      - '"Local folder" calls existing pickFolder() and onSelect(path)'
+      - '"From GitHub" opens GitHubImportDialog'
+      - 'Successful GitHub import calls onSelect callback with new repo'
+      - 'Existing folder picker behavior is completely preserved'
+      - 'Popover closes after selection'
+      - 'Component exports updated in index.ts'
+    tdd:
+      red:
+        - 'Write test: renders button that opens popover on click'
+        - 'Write test: popover shows "Local folder" and "From GitHub" options'
+        - 'Write test: "Local folder" calls pickFolder and onSelect'
+        - 'Write test: "From GitHub" opens GitHubImportDialog'
+        - 'Write test: popover closes after method selection'
+      green:
+        - 'Replace Button+Tooltip with Popover+PopoverTrigger+PopoverContent'
+        - 'Add two clickable options in PopoverContent'
+        - 'Wire "Local folder" to existing pickFolder flow'
+        - 'Wire "From GitHub" to open GitHubImportDialog via state'
+        - 'Update index.ts exports'
+      refactor:
+        - 'Ensure ARIA labels and keyboard navigation work correctly'
+        - 'Match styling to existing popover patterns in the codebase'
+    estimatedEffort: '1h'
+
+  - id: task-20
+    phaseId: phase-5
+    title: 'Create Storybook stories for all GitHub import components'
+    description: >
+      Create .stories.tsx files for GitHubUrlInput, GitHubRepoBrowser, and
+      GitHubImportDialog. Each needs stories for: default, loading, error,
+      and empty states. Use mock data for repo lists. Follow existing
+      storybook patterns (e.g., delete-feature-dialog.stories.tsx).
+    state: Todo
+    dependencies:
+      - task-18
+    acceptanceCriteria:
+      - 'github-url-input.stories.tsx with Default, WithError, Loading, Empty stories'
+      - 'github-repo-browser.stories.tsx with Default, Loading, Empty, Error stories'
+      - 'github-import-dialog.stories.tsx with Default, URLTab, BrowseTab, Loading stories'
+      - 'All stories render without errors'
+      - 'Mock server actions for story isolation'
+    tdd: null
+    estimatedEffort: '45min'
+
+  # ============================================================
+  # PHASE 6: Integration Testing & Polish
+  # ============================================================
+
+  - id: task-21
+    phaseId: phase-6
+    title: 'Write integration tests for import flow'
+    description: >
+      Write integration tests that exercise the full import pipeline:
+      ImportGitHubRepositoryUseCase with mocked IGitHubRepositoryService
+      and real SQLite database. Test the complete flow: URL validation ->
+      auth check -> duplicate detection -> clone -> register -> update
+      remoteUrl. Verify the repository is persisted correctly with remoteUrl.
+    state: Todo
+    dependencies:
+      - task-11
+    acceptanceCriteria:
+      - 'Test: full import flow creates repository with remoteUrl in database'
+      - 'Test: duplicate detection returns existing repo (no re-clone)'
+      - 'Test: remoteUrl is normalized before storage'
+      - 'Test: import with --dest clones to specified directory'
+      - 'Test: auth failure aborts before clone attempt'
+      - 'Test: clone failure does not leave partial registration'
+      - 'All tests use real SQLite (in-memory) with migrations applied'
+    tdd:
+      red:
+        - 'Write integration test: import creates repo with remoteUrl persisted'
+        - 'Write integration test: importing same URL twice returns same repo'
+        - 'Write integration test: importing URL with different casing/.git still deduplicates'
+        - 'Write integration test: failed clone does not register repo'
+        - 'Write integration test: auth failure throws before clone'
+      green:
+        - 'Set up test fixture with in-memory SQLite, migrations, and mocked service'
+        - 'Implement each test case using the real use case with mocked subprocess'
+      refactor:
+        - 'Extract test fixture setup into shared helper for reuse'
+    estimatedEffort: '1.5h'
+
+  - id: task-22
+    phaseId: phase-6
+    title: 'End-to-end validation and edge case coverage'
+    description: >
+      Run pnpm validate (lint + format + typecheck + tsp). Run full test
+      suite (pnpm test). Fix any failures. Add edge case tests: empty URL,
+      URL with trailing whitespace, path with special characters, Windows-style
+      paths, concurrent imports of same repo. Verify settings
+      defaultCloneDirectory integration.
+    state: Todo
+    dependencies:
+      - task-21
+    acceptanceCriteria:
+      - 'pnpm validate passes (lint, format, typecheck, tsp all green)'
+      - 'pnpm test passes (all unit + integration tests green)'
+      - 'Edge case tests added for: empty URL, whitespace URL, special chars in path'
+      - 'Cross-platform path normalization tested (Windows backslashes)'
+      - 'Settings defaultCloneDirectory used as fallback when dest not provided'
+    tdd:
+      red:
+        - 'Write test: empty URL throws GitHubUrlParseError'
+        - 'Write test: URL with trailing whitespace is trimmed and accepted'
+        - 'Write test: path with spaces is handled correctly'
+        - 'Write test: Windows-style backslash paths normalized to forward slashes'
+        - 'Write test: defaultCloneDirectory from settings used as fallback'
+      green:
+        - 'Fix any validation/lint/test failures found'
+        - 'Add trim() to URL input before parsing'
+        - 'Ensure path.resolve handles all platform edge cases'
+      refactor:
+        - 'Final cleanup of any code duplication found during testing'
+        - 'Ensure all error messages are consistent and actionable'
+    estimatedEffort: '1h'
+
+totalEstimate: '16h'
+
+openQuestions: []
+
+content: |
+  ## Summary
+
+  This task breakdown covers 22 tasks across 6 phases, implementing GitHub
+  repository import end-to-end following Clean Architecture.
+
+  The work begins with domain and persistence foundation — extending the
+  Repository TypeSpec model with `remoteUrl`, creating the SQLite migration,
+  and adding `findByRemoteUrl()`/`update()` to the repository interface.
+  These are prerequisites for everything else.
+
+  Next, the application layer is built: the IGitHubRepositoryService port
+  interface defines the contract, and two use cases (Import + List)
+  orchestrate the business logic using only port interfaces — fully testable
+  with mocks before any infrastructure exists.
+
+  The infrastructure phase implements the gh CLI adapter behind the port,
+  using execFile for auth/list and spawn for clone with progress streaming.
+  DI container wiring connects all layers.
+
+  Presentation layers come next: the CLI command with interactive wizard
+  (Phase 4), then the Web UI with popover method picker, tabbed dialog,
+  server actions, and Storybook stories (Phase 5).
+
+  Finally, integration tests validate the full pipeline with real SQLite
+  and mocked subprocesses, plus edge case coverage and validation suite
+  verification.
+
+  Each task includes explicit TDD cycles ensuring tests are written before
+  implementation. Dependencies are strictly ordered so no task depends on
+  a later task.

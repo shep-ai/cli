@@ -1,0 +1,293 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: github-repo-import
+summary: >
+  Implementation plan for importing GitHub repositories into Shep via URL or
+  interactive browse. Follows Clean Architecture with a new
+  IGitHubRepositoryService port, two use cases (Import + List), a gh CLI-based
+  infrastructure adapter, CLI command with interactive wizard, and Web UI dialog
+  with URL/Browse tabs. The domain model gains an optional remoteUrl field via
+  TypeSpec + SQLite migration, and the settings model gains
+  defaultCloneDirectory.
+
+relatedFeatures:
+  - 036 - Repository Entity (Repository domain model, TypeSpec, migrations)
+  - 038 - Repo CLI Commands (shep repo ls / show command patterns)
+  - 044 - FAB Add Repository (add-repository-button, pickFolder, server action)
+  - 005 - Global Settings Service (settings model, EnvironmentConfig)
+
+technologies:
+  - GitHub CLI (gh) v2 - subprocess for auth, clone, and repo listing
+  - TypeSpec - domain model extension for Repository.remoteUrl + Settings.defaultCloneDirectory
+  - better-sqlite3 / umzug - migration for remote_url column
+  - tsyringe - DI registration for new services and use cases
+  - Commander.js - CLI command framework for shep repo add
+  - '@inquirer/prompts - interactive TUI prompts (select, input)'
+  - Next.js Server Actions - importGitHubRepository + listGitHubRepositories actions
+  - shadcn/ui - Dialog, Popover, Tabs, Input components
+  - spawn (node:child_process) - clone progress streaming
+
+relatedLinks:
+  - https://cli.github.com/manual/gh_repo_clone
+  - https://cli.github.com/manual/gh_repo_list
+  - https://cli.github.com/manual/gh_auth_status
+
+phases:
+  - id: phase-1
+    name: 'Domain & Persistence Foundation'
+    description: >
+      Extend the Repository TypeSpec model with optional remoteUrl, add
+      defaultCloneDirectory to EnvironmentConfig, compile TypeSpec, create
+      SQLite migration for remote_url column, extend the repository mapper,
+      add findByRemoteUrl() and update() to IRepositoryRepository and its
+      SQLite implementation. This phase must come first because every
+      subsequent layer depends on the domain model and persistence.
+    parallel: false
+
+  - id: phase-2
+    name: 'Application Layer — Port & Use Cases'
+    description: >
+      Define the IGitHubRepositoryService output port interface with error
+      classes, then implement the two use cases: ImportGitHubRepositoryUseCase
+      (validate URL, check auth, detect duplicates, clone, register, set
+      remoteUrl) and ListGitHubRepositoriesUseCase (check auth, list repos).
+      These live entirely in the application layer and depend only on port
+      interfaces, not infrastructure.
+    parallel: false
+
+  - id: phase-3
+    name: 'Infrastructure — GitHub CLI Service & DI Wiring'
+    description: >
+      Implement GitHubRepositoryService behind the IGitHubRepositoryService
+      port using gh CLI subprocesses. Uses ExecFunction for auth check and
+      repo listing (bounded output, JSON parsing), and spawn for clone
+      (streaming progress to stderr). Register all new services and use
+      cases in the DI container.
+    parallel: false
+
+  - id: phase-4
+    name: 'CLI Presentation — shep repo add Command'
+    description: >
+      Add the shep repo add CLI command with --url and --dest flags. Without
+      flags, enters an interactive wizard (select between URL input and repo
+      browsing, then proceed to clone). With --url, skips directly to clone.
+      Follows existing Commander.js patterns from ls/show commands and
+      @inquirer/prompts wizard patterns from agent-config.wizard.ts.
+    parallel: false
+
+  - id: phase-5
+    name: 'Web UI — GitHub Import Dialog & Server Actions'
+    description: >
+      Refactor add-repository-button from simple button to popover with
+      "Local folder" and "From GitHub" options. Build the GitHub import
+      dialog with URL and Browse tabs. Create server actions for
+      importGitHubRepository and listGitHubRepositories. Wire to canvas
+      with optimistic add pattern. Create Storybook stories for all new
+      components.
+    parallel: false
+
+  - id: phase-6
+    name: 'Integration Testing & Polish'
+    description: >
+      Write integration tests that exercise the full import flow (mock gh
+      subprocess, verify clone + register + remoteUrl persistence). Test
+      duplicate detection, error handling paths, and cross-platform path
+      normalization. Verify settings defaultCloneDirectory flows through
+      the import path. Final cleanup and edge case coverage.
+    parallel: false
+
+filesToCreate:
+  # Application port
+  - packages/core/src/application/ports/output/services/github-repository-service.interface.ts
+
+  # Use cases
+  - packages/core/src/application/use-cases/repositories/import-github-repository.use-case.ts
+  - packages/core/src/application/use-cases/repositories/list-github-repositories.use-case.ts
+
+  # Persistence
+  - packages/core/src/infrastructure/persistence/sqlite/migrations/040-add-repository-remote-url.ts
+
+  # Infrastructure service
+  - packages/core/src/infrastructure/services/external/github-repository.service.ts
+
+  # CLI
+  - src/presentation/cli/commands/repo/add.command.ts
+
+  # TUI
+  - src/presentation/tui/wizards/github-import.wizard.ts
+
+  # Web UI components
+  - src/presentation/web/components/common/github-import-dialog/github-import-dialog.tsx
+  - src/presentation/web/components/common/github-import-dialog/github-import-dialog.stories.tsx
+  - src/presentation/web/components/common/github-import-dialog/github-repo-browser.tsx
+  - src/presentation/web/components/common/github-import-dialog/github-repo-browser.stories.tsx
+  - src/presentation/web/components/common/github-import-dialog/github-url-input.tsx
+  - src/presentation/web/components/common/github-import-dialog/github-url-input.stories.tsx
+  - src/presentation/web/components/common/github-import-dialog/index.ts
+
+  # Web server actions
+  - src/presentation/web/app/actions/import-github-repository.ts
+  - src/presentation/web/app/actions/list-github-repositories.ts
+
+  # Tests
+  - packages/core/src/application/use-cases/repositories/__tests__/import-github-repository.use-case.test.ts
+  - packages/core/src/application/use-cases/repositories/__tests__/list-github-repositories.use-case.test.ts
+  - packages/core/src/infrastructure/services/external/__tests__/github-repository.service.test.ts
+  - packages/core/src/infrastructure/repositories/__tests__/sqlite-repository.repository.remote-url.test.ts
+  - src/presentation/cli/commands/repo/__tests__/add.command.test.ts
+  - src/presentation/tui/wizards/__tests__/github-import.wizard.test.ts
+
+filesToModify:
+  # Domain model (TypeSpec)
+  - tsp/domain/entities/repository.tsp
+  - tsp/domain/entities/settings.tsp
+  - packages/core/src/domain/generated/output.ts  # regenerated via tsp:compile
+
+  # Persistence mapper
+  - packages/core/src/infrastructure/persistence/sqlite/mappers/repository.mapper.ts
+
+  # Repository interface + implementation
+  - packages/core/src/application/ports/output/repositories/repository-repository.interface.ts
+  - packages/core/src/infrastructure/repositories/sqlite-repository.repository.ts
+
+  # Settings defaults
+  - packages/core/src/domain/factories/settings-defaults.factory.ts
+
+  # DI container
+  - packages/core/src/infrastructure/di/container.ts
+
+  # CLI command group
+  - src/presentation/cli/commands/repo/index.ts
+
+  # Web UI — add-repository-button refactored to popover
+  - src/presentation/web/components/common/add-repository-button/add-repository-button.tsx
+  - src/presentation/web/components/common/add-repository-button/index.ts
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  This feature adds GitHub repository import capability across all three
+  presentation layers (CLI, TUI wizard, Web UI) while keeping business logic
+  in the application layer per Clean Architecture.
+
+  The architecture follows the established pattern:
+  - **Domain layer**: Repository entity gains optional `remoteUrl` field (TypeSpec).
+    Error classes for GitHub-specific failure modes defined in the service port file
+    following the `SessionNotFoundError` pattern (extends Error, Object.setPrototypeOf).
+  - **Application layer**: New `IGitHubRepositoryService` output port interface
+    defines the contract for GitHub operations. Two new use cases
+    (`ImportGitHubRepositoryUseCase`, `ListGitHubRepositoriesUseCase`) orchestrate
+    the import flow using existing `AddRepositoryUseCase` composition.
+  - **Infrastructure layer**: `GitHubRepositoryService` implements the port using
+    `gh` CLI subprocesses (execFile for auth/list, spawn for clone with progress
+    streaming). SQLite migration adds `remote_url` column. Repository mapper and
+    implementation extended with `findByRemoteUrl()` and `update()`.
+  - **Presentation layer**: CLI command (`shep repo add --url --dest`), TUI
+    interactive wizard, Web UI popover + dialog with URL/Browse tabs.
+
+  The dependency flow mirrors existing patterns:
+  ```
+  Presentation (CLI/Web/TUI)
+    -> ImportGitHubRepositoryUseCase / ListGitHubRepositoriesUseCase
+      -> IGitHubRepositoryService (port) -> GitHubRepositoryService (infra)
+      -> IRepositoryRepository (port) -> SQLiteRepositoryRepository (infra)
+      -> AddRepositoryUseCase (existing, composed via DI)
+  ```
+
+  ## Key Design Decisions
+
+  ### 1. Domain Model Extension (Research Decision #1)
+  Add optional `remoteUrl?: string` to Repository TypeSpec model. One-line
+  TypeSpec change, one migration (ALTER TABLE ADD COLUMN remote_url TEXT),
+  mapper extension. Enables duplicate detection by URL and future "open on
+  GitHub" features. The field is optional so existing local-only repos are
+  unaffected.
+
+  ### 2. Subprocess Strategy (Research Decision #2)
+  ExecFunction (execFile) for `gh auth status` and `gh repo list --json` —
+  fast, bounded output, returns JSON. Spawn for `gh repo clone` — streams
+  progress to stderr in real-time, no maxBuffer risk. The DI container
+  already provides ExecFunction and imports spawn for AgentExecutorFactory.
+
+  ### 3. Single Service Port (Research Decision #3)
+  One `IGitHubRepositoryService` interface with four methods rather than
+  multiple fine-grained interfaces. Mirrors `IGitPrService` pattern — one
+  interface per integration boundary. Error classes (GitHubAuthError,
+  GitHubCloneError, GitHubUrlParseError, GitHubRepoListError) defined in
+  the port file following `SessionNotFoundError` pattern.
+
+  ### 4. Use Case Composition (Research Decision #4)
+  ImportGitHubRepositoryUseCase composes with AddRepositoryUseCase via DI
+  injection. The import use case handles GitHub-specific logic (URL
+  validation, auth, clone, duplicate detection) then delegates local
+  registration to the existing, unchanged AddRepositoryUseCase. This
+  preserves SRP and avoids modifying tested code.
+
+  ### 5. Repository Update Method (Research Decision #10)
+  Add `update(id, partial)` to IRepositoryRepository. Needed to set
+  remoteUrl after AddRepositoryUseCase returns the entity (since
+  AddRepositoryUseCase should not know about remoteUrl). The SQLite
+  implementation builds a dynamic SET clause from provided fields.
+
+  ### 6. Clone Destination Configuration (Research Decision #6)
+  Configurable `defaultCloneDirectory` added to EnvironmentConfig TypeSpec
+  model. Defaults to `~/repos` in settings factory. CLI `--dest` flag
+  overrides. Web UI shows default with option to change. Settings are
+  stored in the existing JSON blob column — no additional schema migration
+  needed for this field, just a defaults factory update.
+
+  ### 7. Web UI Pattern (Research Decision #7)
+  Add-repository-button refactored from simple Button to PopoverTrigger
+  with two choices: "Local folder" (existing pickFolder flow) and
+  "From GitHub" (opens dialog). Dialog uses shadcn/ui Tabs for URL input
+  and repo browser. Follows delete-feature-dialog and repository-combobox
+  patterns already in the codebase.
+
+  ### 8. URL Normalization for Duplicate Detection (Research Decision on normalization)
+  Before storing remoteUrl, normalize: strip trailing `.git`, lowercase.
+  Consistent with git-pr.service.ts URL handling. Ensures
+  `https://github.com/Owner/Repo.git` and `https://github.com/owner/repo`
+  match as duplicates.
+
+  ## Implementation Strategy
+
+  The six phases follow Clean Architecture's dependency rule — inner layers
+  first, outer layers last:
+
+  **Phase 1 (Domain & Persistence)** comes first because every subsequent
+  layer depends on the Repository entity having remoteUrl, the mapper
+  knowing how to serialize it, and the repository interface exposing
+  findByRemoteUrl/update.
+
+  **Phase 2 (Application Layer)** builds the port interface and use cases
+  that depend only on domain types and port interfaces — no infrastructure
+  yet. Fully testable with mocks.
+
+  **Phase 3 (Infrastructure)** implements the gh CLI service and wires
+  everything into the DI container. After this phase, the feature is
+  functionally complete at the service level.
+
+  **Phase 4 (CLI)** and **Phase 5 (Web UI)** are presentation layers that
+  consume the use cases. They could theoretically be parallel but are
+  sequenced for focus — CLI first (simpler, validates the use case API),
+  then Web UI (more complex, needs server actions and multiple components).
+
+  **Phase 6 (Integration)** exercises the full stack with integration tests
+  and covers edge cases missed by unit tests.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | gh CLI not installed or not authenticated | Check `gh auth status` before any operation; throw GitHubAuthError with clear "run `gh auth login`" message |
+  | Clone fails (network, permissions, disk space) | GitHubCloneError wraps subprocess error with stderr output; cleanup partial clone directory on failure |
+  | Large repos take minutes to clone | Spawn with progress streaming so user sees activity; no artificial timeout (per NFR-1) |
+  | TypeSpec model change breaks generated output | Run `pnpm tsp:compile` immediately after model change; verify output.ts diffs are as expected |
+  | Migration fails on existing databases | Migration uses idempotent ALTER TABLE ADD COLUMN with pragma check (existing pattern from migration 039) |
+  | Path traversal via --dest flag | Validate with path.resolve(); reject paths containing `..`; ensure resolved path is absolute |
+  | URL injection via crafted GitHub URLs | Strict regex validation; only accept github.com domain; pass args as array to execFile/spawn (no shell interpolation) |
+  | Web UI popover breaks existing folder picker flow | "Local folder" option calls existing pickFolder() unchanged; regression test with Storybook |
+  | Settings JSON blob lacks defaultCloneDirectory for existing users | Settings factory provides fallback default; existing settings without the field get the default on read |
