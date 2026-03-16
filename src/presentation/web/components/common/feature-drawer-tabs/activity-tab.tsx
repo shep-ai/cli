@@ -358,26 +358,32 @@ function NodeTimingRow({
   maxDurationMs: number;
   now: number;
 }) {
-  const basePhase = timing.phase.split(':')[0];
   const iteration = timing.phase.includes(':') ? timing.phase.split(':')[1] : null;
-  const label = iteration
-    ? `${NODE_TO_PHASE[basePhase] ?? basePhase} #${iteration}`
-    : (NODE_TO_PHASE[timing.phase] ?? timing.phase);
+  const isRetry = iteration !== null;
+  const label = isRetry ? `retry #${iteration}` : (NODE_TO_PHASE[timing.phase] ?? timing.phase);
 
   const durationMs = getEffectiveDuration(timing, now);
   const barPercent = maxDurationMs > 0 ? Math.max(2, (durationMs / maxDurationMs) * 100) : 2;
   const isRunning = !timing.completedAt && !!timing.startedAt;
-  const barColorClass = timing.completedAt ? 'bg-emerald-500' : 'bg-blue-500';
+  const barColorClass = timing.completedAt
+    ? isRetry
+      ? 'bg-amber-500'
+      : 'bg-emerald-500'
+    : 'bg-blue-500';
   const totalTokens =
     timing.inputTokens != null || timing.outputTokens != null
       ? (timing.inputTokens ?? 0) + (timing.outputTokens ?? 0)
       : null;
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className={isRetry ? 'flex flex-col gap-1 pl-6' : 'flex flex-col gap-1'}>
       <div data-testid={`timing-bar-${timing.phase}`} className="flex items-center gap-2">
-        <span className="text-muted-foreground w-24 shrink-0 truncate text-xs">{label}</span>
-        <div className="bg-muted h-3 min-w-0 flex-1 overflow-hidden rounded-full">
+        <span className={`text-muted-foreground shrink-0 text-xs ${isRetry ? 'w-18' : 'w-24'}`}>
+          {label}
+        </span>
+        <div
+          className={`bg-muted min-w-0 flex-1 overflow-hidden rounded-full ${isRetry ? 'h-2.5' : 'h-3'}`}
+        >
           <div
             className={`h-full rounded-full ${barColorClass}${isRunning ? 'animate-pulse' : ''}`}
             style={{ width: `${Math.min(barPercent, 100)}%` }}
