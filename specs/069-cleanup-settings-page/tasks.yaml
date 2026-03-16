@@ -1,0 +1,234 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: cleanup-settings-page
+summary: >
+  6 tasks across 3 phases. Phase 1 removes dead auth method UI and code (3 tasks).
+  Phase 2 adds two missing notification event toggles (1 task). Phase 3 updates
+  stories and verifies tests (2 tasks).
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - React (Next.js App Router)
+  - shadcn/ui (Switch, Tooltip, Select)
+  - Storybook
+  - Vitest + React Testing Library
+relatedLinks: []
+
+# Structured task list
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Remove AUTH_METHOD_OPTIONS constant and unused imports'
+    description: >
+      Remove the AUTH_METHOD_OPTIONS constant (lines ~52-55) and all imports that
+      become unused after auth method removal: Eye, EyeOff from lucide-react;
+      Tooltip, TooltipContent, TooltipProvider, TooltipTrigger from shadcn/ui;
+      AgentAuthMethod from domain types. Keep Select imports (used by editor,
+      shell, terminal selects). This is done first to establish a clean import
+      baseline before removing JSX.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'AUTH_METHOD_OPTIONS constant is deleted from the file'
+      - 'Eye and EyeOff are removed from lucide-react import'
+      - 'Tooltip, TooltipContent, TooltipProvider, TooltipTrigger imports removed'
+      - 'AgentAuthMethod removed from domain type import'
+      - 'Select, SelectContent, SelectItem, SelectTrigger, SelectValue imports remain'
+      - 'File compiles without errors (no unused import warnings)'
+    tdd:
+      red:
+        - 'Write a test asserting AUTH_METHOD_OPTIONS is not exported/defined in the component module'
+        - 'Write a test asserting the component renders without Tooltip-wrapped auth method row'
+      green:
+        - 'Remove AUTH_METHOD_OPTIONS constant (lines ~52-55)'
+        - 'Remove Eye, EyeOff from lucide-react import statement'
+        - 'Remove Tooltip/TooltipContent/TooltipProvider/TooltipTrigger import'
+        - 'Remove AgentAuthMethod from domain import'
+      refactor:
+        - 'Verify remaining imports are all still used (no orphaned imports)'
+        - 'Run lint to confirm no unused import warnings'
+    estimatedEffort: '15min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Remove auth method SettingsRow and token input JSX'
+    description: >
+      Remove the auth method SettingsRow (lines ~696-726) which contains the
+      disabled Select wrapped in TooltipProvider/Tooltip with "Coming soon"
+      content. Remove the unreachable token input block (lines ~727-757) guarded
+      by `authMethod === AgentAuthMethod.Token` (always false since default is
+      Session). Remove the authMethod variable reference (line ~367) and
+      token/showToken state declarations (lines ~368-369).
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Auth method SettingsRow with disabled Select is removed from Agent section'
+      - 'Token input conditional block (authMethod === Token) is removed'
+      - 'authMethod variable assignment is removed'
+      - 'token and showToken useState declarations are removed'
+      - 'Component renders the Agent section without auth method row'
+      - 'No "Coming soon" tooltip text in the rendered output'
+    tdd:
+      red:
+        - 'Write a test asserting no element with data-testid "auth-method-select" renders'
+        - 'Write a test asserting no element with data-testid "agent-token-input" renders'
+        - 'Write a test asserting "Coming soon" text is not present in the Agent section'
+      green:
+        - 'Remove authMethod variable (line ~367), token/showToken state (lines ~368-369)'
+        - 'Remove auth method SettingsRow JSX block (lines ~696-726)'
+        - 'Remove token input conditional JSX block (lines ~727-757)'
+      refactor:
+        - 'Verify Agent section still renders agent type select correctly'
+        - 'Ensure no dangling references to authMethod, token, or showToken variables'
+    estimatedEffort: '20min'
+
+  - id: task-3
+    phaseId: phase-1
+    title: 'Simplify buildAgentPayload to remove token logic'
+    description: >
+      Simplify the buildAgentPayload helper (lines ~495-502) to only handle the
+      agent type field. Remove the authMethod spread, the token conditional
+      (lines ~498-499), and the token fallback. The function should return
+      `{ agent: { type: merged.type } }` since type is the only user-changeable
+      agent setting after removing the auth method UI.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'buildAgentPayload no longer references authMethod or token'
+      - 'buildAgentPayload returns { agent: { type } } shape'
+      - 'Agent type selection still triggers save via buildAgentPayload'
+      - 'No references to authMethod or token remain anywhere in the component'
+    tdd:
+      red:
+        - 'Write a test that changes agent type and verifies save is called with { agent: { type: newType } }'
+        - 'Write a test asserting no "token" key appears in the agent save payload'
+      green:
+        - 'Simplify buildAgentPayload to: function buildAgentPayload(overrides) { const merged = { type: agentType, ...overrides }; return { agent: { type: merged.type } }; }'
+        - 'Remove token and authMethod references from the function body'
+      refactor:
+        - 'Grep the file for any remaining references to authMethod, token, showToken'
+        - 'Verify the overrides parameter typing still works for type changes'
+    estimatedEffort: '10min'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Add prBlocked and mergeReviewReady notification toggles'
+    description: >
+      Add two SwitchRow components to the PR Events subsection, positioned after
+      the prChecksFailed toggle (line ~1438) and before the closing
+      </SettingsSection> tag. Follow the identical pattern: label, id, testId,
+      checked bound to events[key], onChange that creates newEvents with the
+      toggled value, calls setEvents, then saves via buildNotificationPayload.
+      Labels: "PR blocked" for prBlocked, "Merge review ready" for
+      mergeReviewReady.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'SwitchRow with label "PR blocked" renders in PR Events subsection'
+      - 'SwitchRow with label "Merge review ready" renders in PR Events subsection'
+      - 'prBlocked toggle has id="notif-event-prBlocked" and testId="switch-event-prBlocked"'
+      - 'mergeReviewReady toggle has id="notif-event-mergeReviewReady" and testId="switch-event-mergeReviewReady"'
+      - 'Toggles appear after prChecksFailed and before section close'
+      - 'Toggling prBlocked calls save with updated events including prBlocked value'
+      - 'Toggling mergeReviewReady calls save with updated events including mergeReviewReady value'
+      - 'Initial checked state reads from events.prBlocked and events.mergeReviewReady'
+    tdd:
+      red:
+        - 'Write a test asserting element with data-testid "switch-event-prBlocked" renders'
+        - 'Write a test asserting element with data-testid "switch-event-mergeReviewReady" renders'
+        - 'Write a test asserting "PR blocked" label text is present'
+        - 'Write a test asserting "Merge review ready" label text is present'
+      green:
+        - 'Add SwitchRow for prBlocked after prChecksFailed toggle'
+        - 'Add SwitchRow for mergeReviewReady after prBlocked toggle'
+        - 'Wire onChange to spread events, setEvents, save(buildNotificationPayload({ events: newEvents }))'
+      refactor:
+        - 'Verify toggle order matches spec: prMerged, prClosed, prChecksPassed, prChecksFailed, prBlocked, mergeReviewReady'
+        - 'Confirm accessibility: labels are associated with switches via id/htmlFor pattern'
+    estimatedEffort: '15min'
+
+  - id: task-5
+    phaseId: phase-3
+    title: 'Update Storybook stories for settings page'
+    description: >
+      Update the AllSections story to remove the authMethod and token fields from
+      the agent configuration override, since those fields are no longer displayed
+      in the UI. Verify the Default story renders correctly with
+      createDefaultSettings() which already includes prBlocked: true and
+      mergeReviewReady: true. Ensure all stories render without errors.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'AllSections story does not reference authMethod: Token or token: string'
+      - 'Default story renders with prBlocked and mergeReviewReady toggles visible'
+      - 'All stories compile and render without errors'
+      - 'No stale references to removed auth method UI in any story'
+    tdd:
+      red:
+        - 'Write a test or smoke-check that AllSections story renders without auth method references'
+      green:
+        - 'Remove authMethod and token from AllSections story agent config override'
+        - 'Verify Default story uses createDefaultSettings() which includes new event defaults'
+      refactor:
+        - 'Review all stories for any other stale references to removed code'
+        - 'Ensure story names and descriptions accurately reflect current UI'
+    estimatedEffort: '10min'
+
+  - id: task-6
+    phaseId: phase-3
+    title: 'Run full test suite and verify all tests pass'
+    description: >
+      Run the unit test suite to verify all existing tests pass with the updated
+      component. The existing tests check section-level rendering (testIds like
+      notification-settings-section), props passing, and edge cases. None test
+      individual notification toggles or the auth method row, so they should pass
+      without modification. Run lint and typecheck to confirm no errors.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'All unit tests pass (pnpm test:unit)'
+      - 'TypeScript compilation succeeds (pnpm validate includes typecheck)'
+      - 'Lint passes with no unused import warnings (pnpm lint:fix)'
+      - 'No regressions in any other test file'
+    tdd: null
+    estimatedEffort: '10min'
+
+# Total effort estimate
+totalEstimate: '1h 20min'
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Summary
+
+  The implementation follows a subtract-then-add approach across 3 phases with
+  6 tasks total.
+
+  First, we remove the dead auth method UI from the settings page component:
+  the AUTH_METHOD_OPTIONS constant, unused imports (Eye, EyeOff, Tooltip*,
+  AgentAuthMethod), the disabled auth method SettingsRow with its "Coming soon"
+  tooltip, the unreachable token input JSX block, and all associated state
+  variables (authMethod, token, showToken). The buildAgentPayload helper is
+  simplified to only handle the agent type field.
+
+  Next, we add two new SwitchRow toggles for prBlocked ("PR blocked") and
+  mergeReviewReady ("Merge review ready") to the PR Events subsection, placed
+  after the existing four PR event toggles. These follow the identical pattern
+  used by all existing event toggles, wired to auto-save via
+  buildNotificationPayload.
+
+  Finally, we update the AllSections Storybook story to remove stale auth method
+  references, and run the full test suite plus lint/typecheck to verify zero
+  regressions.
+
+  All changes are confined to the presentation layer. No domain, TypeSpec,
+  database, or backend modifications are needed.

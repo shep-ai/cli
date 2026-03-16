@@ -1,0 +1,140 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: cleanup-settings-page
+summary: >
+  Presentation-layer-only cleanup in two phases: (1) remove dead auth method UI
+  and all associated dead code/imports from settings-page-client.tsx, (2) add two
+  missing notification event toggles (prBlocked, mergeReviewReady) using the
+  existing SwitchRow pattern. Update Storybook stories and verify unit tests pass.
+  No domain, TypeSpec, database, or backend changes. Two files modified.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - React (Next.js App Router)
+  - shadcn/ui (Switch, Select, Tooltip, Label, Input, Button)
+  - Storybook
+  - Vitest + React Testing Library
+relatedLinks: []
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'Remove dead auth method UI and code'
+    description: >
+      Remove the disabled auth method SettingsRow, AUTH_METHOD_OPTIONS constant,
+      authMethod/token/showToken state references, unreachable token input JSX,
+      token logic in buildAgentPayload, and clean up unused imports (Eye, EyeOff,
+      Tooltip*, AgentAuthMethod). This phase comes first because it is purely
+      subtractive — removing code is lower risk and makes the subsequent addition
+      phase cleaner by reducing noise in the file.
+    parallel: false
+  - id: phase-2
+    name: 'Add missing notification event toggles'
+    description: >
+      Add prBlocked and mergeReviewReady SwitchRow toggles to the PR Events
+      subsection, positioned after the existing four PR event toggles. Both follow
+      the identical pattern: label, id, testId, checked from events state, onChange
+      that spreads events and saves via buildNotificationPayload. This phase depends
+      on phase-1 being complete so all tests run against the final state.
+    parallel: false
+  - id: phase-3
+    name: 'Update stories and verify tests'
+    description: >
+      Update the AllSections Storybook story to remove stale authMethod/token
+      references. Verify the Default story renders new toggles via
+      createDefaultSettings() defaults. Run full test suite to confirm all existing
+      tests pass with the updated component.
+    parallel: false
+
+# File change tracking
+filesToCreate: []
+filesToModify:
+  - src/presentation/web/components/features/settings/settings-page-client.tsx
+  - src/presentation/web/components/features/settings/settings-page-client.stories.tsx
+
+# Open questions (all resolved)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Architecture Overview
+
+  This change operates entirely within the **Presentation layer**
+  (`src/presentation/web/`), specifically the settings page component. It does
+  not cross any Clean Architecture boundaries:
+
+  - **Domain layer**: Unchanged. `NotificationEventConfig` already includes
+    `prBlocked` and `mergeReviewReady` fields. `AgentAuthMethod` enum stays in
+    the domain — only the UI import is removed.
+  - **Application layer**: Unchanged. `updateSettingsAction` already handles the
+    full settings payload including all notification events.
+  - **Infrastructure layer**: Unchanged. `notification.service.ts` already maps
+    PrBlocked and MergeReviewReady events. `settings.mapper.ts` already persists
+    all notification event fields.
+  - **Presentation layer**: Only `settings-page-client.tsx` and its stories are
+    modified.
+
+  The settings page component (`settings-page-client.tsx`, ~1554 lines) uses a
+  pattern of local state initialized from server-provided `settings` props, with
+  payload builder helpers (`buildAgentPayload`, `buildNotificationPayload`) that
+  format state into the shape expected by `updateSettingsAction`. Each SwitchRow
+  toggle follows an identical pattern: checked bound to `events[key]`, onChange
+  that spreads the events object with the new value, calls setEvents, then saves.
+
+  ## Key Design Decisions
+
+  ### 1. Single-pass dead code removal
+
+  Remove the entire auth method feature in one pass: SettingsRow JSX, constant,
+  state variables, unreachable conditional JSX, and payload logic. This is safe
+  because all removed code is either dead (unreachable `authMethod === Token`
+  condition) or exclusively used by removed UI (AUTH_METHOD_OPTIONS, Tooltip
+  wrapper). The `buildAgentPayload` function is simplified to only return
+  `{ agent: { type } }` since that is the only user-changeable agent setting.
+
+  ### 2. Targeted import cleanup
+
+  Remove only imports confirmed unused after removal: `Eye`, `EyeOff` (only in
+  token toggle), `Tooltip`, `TooltipContent`, `TooltipProvider`, `TooltipTrigger`
+  (only in auth row), `AgentAuthMethod` (only in dead code). Keep `Select`
+  imports — they are used by editor (line ~809), shell (line ~849), and terminal
+  (line ~883) selects.
+
+  ### 3. Follow existing SwitchRow pattern exactly
+
+  The two new toggles use the identical SwitchRow component and onChange pattern
+  as the four existing PR event toggles. No new abstractions, no data-driven
+  rendering. The events state object (initialized from
+  `settings.notifications.events` at line ~441) already contains `prBlocked` and
+  `mergeReviewReady` fields because `NotificationEventConfig` includes them and
+  `settings-defaults.factory.ts` sets both to `true`.
+
+  ## Implementation Strategy
+
+  Three sequential phases, ordered by dependency and risk:
+
+  **Phase 1 (Subtract)**: Remove auth method dead code. Done first because it
+  simplifies the file and any test assertions that might reference removed
+  elements. Subtractive changes are lower risk — if something breaks, it means
+  the removed code was actually used, which is easy to diagnose.
+
+  **Phase 2 (Add)**: Add new notification toggles. Done after phase 1 so the
+  component is in its cleaned-up state. The addition follows a proven pattern
+  repeated 9 times in the file (4 PR events + 5 pipeline events), making it
+  mechanical and low-risk.
+
+  **Phase 3 (Verify)**: Update stories and run tests. Done last to verify the
+  combined effect of removal + addition. The AllSections story references
+  `authMethod: Token` and `token:` which map to removed UI and must be cleaned.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Removing imports that are actually used elsewhere | Grep confirmed each import is only used in removed code; Select imports explicitly kept |
+  | buildAgentPayload simplification breaks agent type saving | Function is only called when agent type changes; simplified version preserves `type` field |
+  | New toggles not saving correctly | Follow identical pattern as 4 existing PR event toggles; events state already includes the fields |
+  | Storybook stories break after removal | Update AllSections to remove stale agent config; Default story uses factory defaults that include new event fields |
+  | Tests fail after changes | Existing tests verify section-level rendering, not individual toggles or auth row; verify by running suite |
