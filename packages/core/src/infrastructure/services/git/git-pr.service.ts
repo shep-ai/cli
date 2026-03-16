@@ -207,16 +207,40 @@ export class GitPrService implements IGitPrService {
 
   async mergePr(cwd: string, prNumber: number, strategy: MergeStrategy = 'squash'): Promise<void> {
     try {
-      await this.execFile(
-        'gh',
-        ['pr', 'merge', String(prNumber), `--${strategy}`, '--auto', '--delete-branch'],
-        { cwd }
-      );
+      await this.execFile('gh', ['pr', 'merge', String(prNumber), `--${strategy}`, '--auto'], {
+        cwd,
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const cause = error instanceof Error ? error : undefined;
       throw new GitPrError(message, GitPrErrorCode.MERGE_FAILED, cause);
     }
+
+    // Try to delete the remote branch gracefully — not fatal if it fails
+    // (e.g. branch already deleted by GitHub auto-delete, or permissions)
+    try {
+      await this.execFile(
+        'gh',
+        [
+          'api',
+          '--method',
+          'DELETE',
+          `repos/{owner}/{repo}/git/refs/heads/${await this.getPrHeadBranch(cwd, prNumber)}`,
+        ],
+        { cwd }
+      );
+    } catch {
+      // Branch deletion is best-effort — log-level concern, not an error
+    }
+  }
+
+  private async getPrHeadBranch(cwd: string, prNumber: number): Promise<string> {
+    const { stdout } = await this.execFile(
+      'gh',
+      ['pr', 'view', String(prNumber), '--json', 'headRefName', '--jq', '.headRefName'],
+      { cwd }
+    );
+    return stdout.trim();
   }
 
   async localMergeSquash(
