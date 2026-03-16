@@ -1,15 +1,17 @@
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { SdlcLifecycle } from '@/domain/generated/output.js';
+import { SdlcLifecycle, PrStatus } from '@/domain/generated/output.js';
 import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
 import type { IRepositoryRepository } from '@/application/ports/output/repositories/repository-repository.interface.js';
 import type { IWorktreeService } from '@/application/ports/output/services/worktree-service.interface.js';
+import type { IGitPrService } from '@/application/ports/output/services/git-pr-service.interface.js';
 import { AdoptBranchUseCase } from '@/application/use-cases/features/adopt-branch.use-case.js';
 
 describe('AdoptBranchUseCase', () => {
   let mockFeatureRepo: IFeatureRepository;
   let mockRepositoryRepo: IRepositoryRepository;
   let mockWorktreeService: IWorktreeService;
+  let mockGitPrService: IGitPrService;
   let useCase: AdoptBranchUseCase;
 
   const repoPath = '/home/user/my-project';
@@ -65,7 +67,37 @@ describe('AdoptBranchUseCase', () => {
       listBranches: vi.fn().mockResolvedValue([]),
     };
 
-    useCase = new AdoptBranchUseCase(mockFeatureRepo, mockRepositoryRepo, mockWorktreeService);
+    mockGitPrService = {
+      hasRemote: vi.fn().mockResolvedValue(false),
+      listPrStatuses: vi.fn().mockResolvedValue([]),
+      getRemoteUrl: vi.fn().mockResolvedValue(null),
+      getDefaultBranch: vi.fn().mockResolvedValue('main'),
+      revParse: vi.fn().mockResolvedValue('abc123'),
+      hasUncommittedChanges: vi.fn().mockResolvedValue(false),
+      commitAll: vi.fn().mockResolvedValue('abc123'),
+      push: vi.fn().mockResolvedValue(undefined),
+      createPr: vi.fn().mockResolvedValue({ url: '', number: 0 }),
+      mergePr: vi.fn().mockResolvedValue(undefined),
+      mergeBranch: vi.fn().mockResolvedValue(undefined),
+      getCiStatus: vi.fn().mockResolvedValue({ status: 'success' }),
+      watchCi: vi.fn().mockResolvedValue({ status: 'success' }),
+      deleteBranch: vi.fn().mockResolvedValue(undefined),
+      getPrDiffSummary: vi
+        .fn()
+        .mockResolvedValue({ filesChanged: 0, additions: 0, deletions: 0, commitCount: 0 }),
+      getFileDiffs: vi.fn().mockResolvedValue([]),
+      verifyMerge: vi.fn().mockResolvedValue(false),
+      localMergeSquash: vi.fn().mockResolvedValue(undefined),
+      getMergeableStatus: vi.fn().mockResolvedValue(undefined),
+      getFailureLogs: vi.fn().mockResolvedValue(''),
+    };
+
+    useCase = new AdoptBranchUseCase(
+      mockFeatureRepo,
+      mockRepositoryRepo,
+      mockWorktreeService,
+      mockGitPrService
+    );
   });
 
   describe('happy path — local branch', () => {
@@ -254,6 +286,131 @@ describe('AdoptBranchUseCase', () => {
       expect(mockWorktreeService.addExisting).not.toHaveBeenCalled();
       expect(result.feature.worktreePath).toBe('/home/user/.shep/repos/hash/wt/fix-login-bug');
       expect(mockFeatureRepo.create).toHaveBeenCalled();
+    });
+  });
+
+  describe('PR detection', () => {
+    it('should set openPr=true and populate pr data when branch has an open PR', async () => {
+      (mockGitPrService.hasRemote as any).mockResolvedValue(true);
+      (mockGitPrService.listPrStatuses as any).mockResolvedValue([
+        {
+          number: 42,
+          state: PrStatus.Open,
+          url: 'https://github.com/org/repo/pull/42',
+          headRefName: 'fix/login-bug',
+          mergeable: true,
+        },
+      ]);
+
+      const result = await useCase.execute({
+        branchName: 'fix/login-bug',
+        repositoryPath: repoPath,
+      });
+
+      expect(result.feature.openPr).toBe(true);
+      expect(result.feature.pr).toEqual({
+        url: 'https://github.com/org/repo/pull/42',
+        number: 42,
+        status: PrStatus.Open,
+        mergeable: true,
+      });
+      expect(result.feature.lifecycle).toBe(SdlcLifecycle.Maintain);
+    });
+
+    it('should set openPr=true and populate pr data when branch has a merged PR', async () => {
+      (mockGitPrService.hasRemote as any).mockResolvedValue(true);
+      (mockGitPrService.listPrStatuses as any).mockResolvedValue([
+        {
+          number: 99,
+          state: PrStatus.Merged,
+          url: 'https://github.com/org/repo/pull/99',
+          headRefName: 'fix/login-bug',
+          mergeable: undefined,
+        },
+      ]);
+
+      const result = await useCase.execute({
+        branchName: 'fix/login-bug',
+        repositoryPath: repoPath,
+      });
+
+      expect(result.feature.openPr).toBe(true);
+      expect(result.feature.pr).toEqual({
+        url: 'https://github.com/org/repo/pull/99',
+        number: 99,
+        status: PrStatus.Merged,
+        mergeable: undefined,
+      });
+    });
+
+    it('should set openPr=false when branch has a closed (not merged) PR', async () => {
+      (mockGitPrService.hasRemote as any).mockResolvedValue(true);
+      (mockGitPrService.listPrStatuses as any).mockResolvedValue([
+        {
+          number: 10,
+          state: PrStatus.Closed,
+          url: 'https://github.com/org/repo/pull/10',
+          headRefName: 'fix/login-bug',
+          mergeable: undefined,
+        },
+      ]);
+
+      const result = await useCase.execute({
+        branchName: 'fix/login-bug',
+        repositoryPath: repoPath,
+      });
+
+      expect(result.feature.openPr).toBe(false);
+      expect(result.feature.pr).toBeUndefined();
+    });
+
+    it('should set openPr=false when no PR exists for the branch', async () => {
+      (mockGitPrService.hasRemote as any).mockResolvedValue(true);
+      (mockGitPrService.listPrStatuses as any).mockResolvedValue([
+        {
+          number: 5,
+          state: PrStatus.Open,
+          url: 'https://github.com/org/repo/pull/5',
+          headRefName: 'other-branch',
+        },
+      ]);
+
+      const result = await useCase.execute({
+        branchName: 'fix/login-bug',
+        repositoryPath: repoPath,
+      });
+
+      expect(result.feature.openPr).toBe(false);
+      expect(result.feature.pr).toBeUndefined();
+    });
+
+    it('should set openPr=false when repo has no remote', async () => {
+      (mockGitPrService.hasRemote as any).mockResolvedValue(false);
+
+      const result = await useCase.execute({
+        branchName: 'fix/login-bug',
+        repositoryPath: repoPath,
+      });
+
+      expect(result.feature.openPr).toBe(false);
+      expect(result.feature.pr).toBeUndefined();
+      expect(mockGitPrService.listPrStatuses).not.toHaveBeenCalled();
+    });
+
+    it('should gracefully skip PR detection when gh CLI fails', async () => {
+      (mockGitPrService.hasRemote as any).mockResolvedValue(true);
+      (mockGitPrService.listPrStatuses as any).mockRejectedValue(
+        new Error('gh: command not found')
+      );
+
+      const result = await useCase.execute({
+        branchName: 'fix/login-bug',
+        repositoryPath: repoPath,
+      });
+
+      expect(result.feature.openPr).toBe(false);
+      expect(result.feature.pr).toBeUndefined();
+      expect(result.feature.lifecycle).toBe(SdlcLifecycle.Maintain);
     });
   });
 });

@@ -36,6 +36,11 @@ export function createAdoptCommand(): Command {
         console.log(`  ${colors.muted('Name:')}      ${feature.name}`);
         console.log(`  ${colors.muted('Branch:')}    ${colors.accent(feature.branch)}`);
         console.log(`  ${colors.muted('Status:')}    ${feature.lifecycle}`);
+        if (feature.pr) {
+          console.log(
+            `  ${colors.muted('PR:')}        ${colors.accent(feature.pr.url)} (${feature.pr.status})`
+          );
+        }
         console.log(`  ${colors.muted('Worktree:')}  ${colors.accent(feature.worktreePath ?? '')}`);
         messages.newline();
       } catch (error) {

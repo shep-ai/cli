@@ -11,11 +11,12 @@
 
 import { injectable, inject } from 'tsyringe';
 import { randomUUID } from 'node:crypto';
-import type { Feature } from '../../../domain/generated/output.js';
-import { SdlcLifecycle } from '../../../domain/generated/output.js';
+import type { Feature, PullRequest } from '../../../domain/generated/output.js';
+import { SdlcLifecycle, PrStatus } from '../../../domain/generated/output.js';
 import type { IFeatureRepository } from '../../ports/output/repositories/feature-repository.interface.js';
 import type { IRepositoryRepository } from '../../ports/output/repositories/repository-repository.interface.js';
 import type { IWorktreeService } from '../../ports/output/services/worktree-service.interface.js';
+import type { IGitPrService } from '../../ports/output/services/git-pr-service.interface.js';
 import { deriveName, deriveSlug } from './branch-name-utils.js';
 
 export interface AdoptBranchInput {
@@ -38,7 +39,9 @@ export class AdoptBranchUseCase {
     @inject('IRepositoryRepository')
     private readonly repositoryRepo: IRepositoryRepository,
     @inject('IWorktreeService')
-    private readonly worktreeService: IWorktreeService
+    private readonly worktreeService: IWorktreeService,
+    @inject('IGitPrService')
+    private readonly gitPrService: IGitPrService
   ) {}
 
   async execute(input: AdoptBranchInput): Promise<AdoptBranchResult> {
@@ -83,9 +86,16 @@ export class AdoptBranchUseCase {
       await this.worktreeService.addExisting(repositoryPath, branchRef, worktreePath);
     }
 
+    // --- Detect open PR for this branch ---
+    const prData = await this.detectPrForBranch(branchName, repositoryPath);
+
     // --- Derive feature metadata ---
     const name = deriveName(branchName);
     const now = new Date();
+
+    // If the branch has an open PR (or we cannot confirm the PR is closed),
+    // mark the feature as completed (Maintain) with PR data attached.
+    const hasOpenPr = prData !== undefined;
 
     // --- Persist feature ---
     const feature: Feature = {
@@ -101,7 +111,7 @@ export class AdoptBranchUseCase {
       relatedArtifacts: [],
       fast: false,
       push: false,
-      openPr: false,
+      openPr: hasOpenPr,
       approvalGates: {
         allowPrd: false,
         allowPlan: false,
@@ -109,6 +119,7 @@ export class AdoptBranchUseCase {
       },
       worktreePath,
       repositoryId: repository.id,
+      pr: prData,
       createdAt: now,
       updatedAt: now,
     };
@@ -138,6 +149,39 @@ export class AdoptBranchUseCase {
       `Branch "${branchName}" does not exist locally or on the remote. ` +
         'Check the branch name spelling and ensure you have fetched from the remote.'
     );
+  }
+
+  /**
+   * Detect if the branch has an open PR (or one whose closure we cannot confirm).
+   * Returns PullRequest data if found, undefined otherwise.
+   * Gracefully returns undefined if gh CLI is unavailable or the repo has no remote.
+   */
+  private async detectPrForBranch(
+    branchName: string,
+    repositoryPath: string
+  ): Promise<PullRequest | undefined> {
+    try {
+      const hasRemote = await this.gitPrService.hasRemote(repositoryPath);
+      if (!hasRemote) return undefined;
+
+      const prStatuses = await this.gitPrService.listPrStatuses(repositoryPath);
+      const match = prStatuses.find((pr) => pr.headRefName === branchName);
+      if (!match) return undefined;
+
+      // If the PR is definitively closed (not merged), skip it
+      if (match.state === PrStatus.Closed) return undefined;
+
+      // Open or Merged — attach PR data
+      return {
+        url: match.url,
+        number: match.number,
+        status: match.state,
+        mergeable: match.mergeable,
+      };
+    } catch {
+      // gh CLI not installed, auth failure, etc. — gracefully skip PR detection
+      return undefined;
+    }
   }
 
   /**

@@ -533,3 +533,9 @@ rejectionFeedback:
       search
     phase: merge
     timestamp: '2026-03-16T16:22:17.923Z'
+  - iteration: 2
+    message: >-
+      adopting branch should mark it as completed (if it has open pull request
+      or we are not recognized its pull request is closed)
+    phase: merge
+    timestamp: '2026-03-16T16:55:03.519Z'
