@@ -9,11 +9,13 @@
  * Subcommands:
  *   shep repo ls             List tracked repositories
  *   shep repo show <id>      Display details of a tracked repository
+ *   shep repo add             Import a GitHub repository
  */
 
 import { Command } from 'commander';
 import { createShowCommand } from './show.command.js';
 import { createLsCommand } from './ls.command.js';
+import { createAddCommand } from './add.command.js';
 
 /**
  * Create the repo command with all subcommands
@@ -22,7 +24,8 @@ export function createRepoCommand(): Command {
   const repo = new Command('repo')
     .description('Manage tracked repositories')
     .addCommand(createLsCommand())
-    .addCommand(createShowCommand());
+    .addCommand(createShowCommand())
+    .addCommand(createAddCommand());
 
   return repo;
 }
