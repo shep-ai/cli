@@ -1,0 +1,128 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feat-delete-close-pr
+number: 069
+branch: feat/069-feat-delete-close-pr
+oneLiner: Close open PRs when deleting a feature (in addition to branch cleanup)
+userQuery: >
+  Add support to delete feature to also delete the remote branch / close the pull request
+summary: >
+  When a feature is deleted, the existing cleanup logic removes worktrees and deletes
+  local/remote branches, but leaves any open GitHub PR untouched. This feature adds a
+  closePr method to IGitPrService and calls it from DeleteFeatureUseCase so that open
+  PRs are closed as part of the best-effort cleanup phase.
+phase: Analysis
+sizeEstimate: S
+
+# Relationships
+relatedFeatures:
+  - "022 - delete feature node (web UI)"
+  - "036 - merge flow"
+  - "039 - github pr sync watcher"
+  - "056 - soft delete"
+
+technologies:
+  - TypeScript
+  - tsyringe (DI)
+  - GitHub CLI (gh pr close)
+  - Vitest (unit tests)
+  - Commander.js (CLI)
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  When a user deletes a feature via `shep feat del`, the `DeleteFeatureUseCase` performs
+  best-effort cleanup: cancel agent runs, remove the git worktree, and delete local/remote
+  branches. However, if a GitHub pull request was created for the feature, it is left open —
+  the PR becomes orphaned with a deleted source branch.
+
+  This feature closes any open PR associated with the feature during the cleanup phase,
+  using the existing `feature.pr` data (which stores the PR number and status).
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The codebase follows Clean Architecture with four layers in `packages/core/src/`:
+
+  - **domain/** — Generated TypeSpec models including `Feature` (with optional `pr?: PullRequest`),
+    `PullRequest` (with `number`, `status: PrStatus`), and `PrStatus` enum (Open | Merged | Closed)
+  - **application/** — Use cases and output port interfaces. `DeleteFeatureUseCase` orchestrates
+    deletion. `IGitPrService` defines the git/PR operations interface.
+  - **infrastructure/** — `GitPrService` implements `IGitPrService` using `gh` CLI and git commands.
+    Uses injected `ExecFunction` (promisified `child_process.execFile`).
+  - **presentation/** — CLI (`src/presentation/cli/commands/feat/del.command.ts`) and
+    Web UI (`src/presentation/web/components/common/delete-feature-dialog/`)
+
+  ### Architecture Patterns
+
+  - **Dependency injection** via tsyringe — all services resolved through DI container
+  - **Output ports** — `IGitPrService` is an interface in the application layer; `GitPrService`
+    implements it in the infrastructure layer
+  - **Best-effort cleanup** — worktree removal, branch deletion, and (new) PR closing are
+    wrapped in try/catch blocks so failures don't block the soft-delete
+  - **Two-phase delete** — features are immediately soft-deleted (hidden from queries), then
+    cleanup runs best-effort afterward
+
+  ### Relevant Technologies
+
+  - **GitHub CLI (`gh`)** — used for all PR operations (`gh pr create`, `gh pr merge`, `gh pr view`).
+    The new `closePr` method will use `gh pr close <number>`.
+  - **tsyringe** — DI container; `IGitPrService` is already registered as a singleton.
+  - **Vitest** — unit tests with mocked dependencies for the use case layer.
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `packages/core/src/application/ports/output/services/git-pr-service.interface.ts` | High | Add `closePr(cwd, prNumber)` method to the interface |
+  | `packages/core/src/infrastructure/services/git/git-pr.service.ts` | High | Implement `closePr` using `gh pr close <number>` |
+  | `packages/core/src/application/use-cases/features/delete-feature.use-case.ts` | High | Call `closePr` in `cleanupSingleFeature` when `feature.pr` exists and status is Open |
+  | `tests/unit/application/use-cases/features/delete-feature.use-case.test.ts` | High | Add test cases for PR closing (open PR, merged PR, no PR, close failure) |
+  | `tests/unit/infrastructure/services/git/git-pr.service.test.ts` | Medium | Add test for new `closePr` method |
+  | `src/presentation/cli/commands/feat/del.command.ts` | Low | Update cleanup summary to mention PR closure |
+  | `src/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.tsx` | Low | Optionally mention PR closure in the dialog text |
+
+  ## Dependencies
+
+  - **Existing `feature.pr` data** — The `Feature` domain model already has an optional `pr`
+    field with `number` and `status` properties. No domain model changes needed.
+  - **GitHub CLI (`gh`)** — Already a runtime dependency. `gh pr close` is a standard command.
+  - **`IGitPrService` + `GitPrService`** — Existing interface/implementation pair that handles
+    all git/PR operations. Only needs a new method added.
+  - **`DeleteFeatureUseCase`** — Already injects `IGitPrService`. No new DI registration needed.
+
+  ## Success Criteria
+
+  - [ ] `IGitPrService` interface includes a `closePr(cwd: string, prNumber: number): Promise<void>` method
+  - [ ] `GitPrService` implements `closePr` using `gh pr close <number>`
+  - [ ] `DeleteFeatureUseCase.cleanupSingleFeature` closes the PR when `feature.pr` exists and status is Open
+  - [ ] PR closure is best-effort (wrapped in try/catch, does not block deletion)
+  - [ ] PR closure is skipped when `cleanup=false`
+  - [ ] PR closure is skipped when `feature.pr` is undefined or status is Merged/Closed
+  - [ ] Unit tests cover: open PR closed, merged PR skipped, no PR skipped, close failure handled gracefully
+  - [ ] CLI deletion summary mentions PR closure when applicable
+  - [ ] All existing tests continue to pass
+
+  ## Size Estimate
+
+  **S** — This is a small, well-scoped change. The domain model already has PR data on features.
+  The interface and implementation patterns are established. The main work is:
+  1. Add one method to the interface (~5 lines)
+  2. Implement it in GitPrService (~10 lines)
+  3. Add a try/catch block in DeleteFeatureUseCase (~8 lines)
+  4. Add ~4-5 unit tests
+  5. Minor CLI output update
+
+  Total estimated: a few hours of focused work.
+
+  ---
+
+  _Generated by feature agent — proceed with research_
