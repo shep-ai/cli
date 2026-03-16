@@ -113,14 +113,14 @@ describe('CLI: install command', () => {
     );
 
     it.concurrent(
-      'should print installation instructions for claude-code with npm',
+      'should print installation instructions for claude-code with curl',
       async () => {
         const result = await runCliAsync('install claude-code --how');
         expect(result.success).toBe(true);
         expect(result.stdout).toContain('Installation Instructions for Claude Code');
         expect(result.stdout).toContain('Binary:');
         expect(result.stdout).toContain('claude');
-        expect(result.stdout).toContain('npm install -g @anthropic-ai/claude-code');
+        expect(result.stdout).toContain('curl -fsSL https://claude.ai/install.sh | bash');
         expect(result.stdout).toContain('Package Manager');
       },
       30000

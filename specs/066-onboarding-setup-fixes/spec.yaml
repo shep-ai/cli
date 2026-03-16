@@ -61,3 +61,9 @@ rejectionFeedback:
     message: cicd failed
     phase: merge
     timestamp: '2026-03-15T12:31:54.136Z'
+  - iteration: 2
+    message: |-
+      curl -fsSL https://claude.ai/install.sh | bash
+      THIS IS THE CORRECT WAY TO ISNTALL CLAUDE. DO NOT USE npm i ITS DEPRECATED
+    phase: merge
+    timestamp: '2026-03-16T12:01:40.077Z'

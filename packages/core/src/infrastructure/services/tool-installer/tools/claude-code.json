@@ -8,11 +8,11 @@
   "platforms": ["linux", "darwin", "win32"],
   "iconUrl": "https://cdn.simpleicons.org/claude",
   "binary": "claude",
-  "packageManager": "npm",
+  "packageManager": "curl",
   "commands": {
-    "linux": "npm install -g @anthropic-ai/claude-code",
-    "darwin": "npm install -g @anthropic-ai/claude-code",
-    "win32": "npm install -g @anthropic-ai/claude-code"
+    "linux": "curl -fsSL https://claude.ai/install.sh | bash",
+    "darwin": "curl -fsSL https://claude.ai/install.sh | bash",
+    "win32": "powershell -Command \"iwr -useb https://claude.ai/install.ps1 | iex\""
   },
   "timeout": 300000,
   "documentationUrl": "https://docs.anthropic.com/en/docs/claude-code/overview",

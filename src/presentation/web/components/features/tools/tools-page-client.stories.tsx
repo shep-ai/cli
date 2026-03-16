@@ -51,7 +51,7 @@ const mockTools: ToolItem[] = [
     required: false,
     openDirectory: undefined,
     documentationUrl: 'https://claude.ai/code',
-    installCommand: 'npm install -g @anthropic-ai/claude-code',
+    installCommand: 'curl -fsSL https://claude.ai/install.sh | bash',
     status: { status: 'available', toolName: 'claude-code' },
     author: 'Anthropic',
     website: 'https://claude.ai/code',
