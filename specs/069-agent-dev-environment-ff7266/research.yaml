@@ -1,0 +1,567 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: agent-dev-environment-ff7266
+summary: >
+  Technical research for replacing the deterministic Node.js-only DeploymentService
+  with a two-mode agent-based dev environment system. Key decisions: use
+  StructuredAgentCallerService for agent analysis (existing pattern), add
+  DevEnvironmentAnalysis TypeSpec model extending BaseEntity, create SQLite
+  cache table (migration 040) with git-remote-URL cache key, pre-read config
+  files in prompt context, refactor DeploymentService.start() to accept analysis
+  results, and add structured form editor + NotStartable badge state in the UI.
+
+relatedFeatures:
+  - 045-feature-env-deploy
+  - 061-default-env-deployment
+
+technologies:
+  - TypeScript
+  - TypeSpec
+  - better-sqlite3
+  - Umzug (migrations)
+  - tsyringe (DI)
+  - StructuredAgentCallerService
+  - shadcn/ui
+  - Next.js server actions
+  - Vitest
+  - Storybook
+
+relatedLinks: []
+
+decisions:
+  - title: 'Agent analysis approach — StructuredAgentCaller vs LangGraph'
+    chosen: 'StructuredAgentCallerService with pre-read config files'
+    rejected:
+      - >-
+        LangGraph multi-step graph — Adds StateGraph complexity, graph state
+        management, and node/edge definitions for what is fundamentally a
+        single-shot task. The agent does not need tool-use loops because the
+        relevant config files are finite and pre-readable. Overkill for the use
+        case.
+      - >-
+        Hybrid StructuredAgentCaller with tool-use fallback — Highest
+        implementation cost, requires two code paths (with and without graph),
+        and testing becomes non-deterministic when the agent decides to use
+        tools. The pre-read approach makes this unnecessary.
+    rationale: >
+      The codebase already has a production-tested StructuredAgentCallerService
+      at packages/core/src/infrastructure/services/agents/common/structured-agent-caller.service.ts.
+      It handles both native structured output (when the agent supports it) and
+      prompt-based JSON extraction with brace-depth parsing as a fallback. Repo
+      analysis is a single-shot task: we pre-read config files (package.json,
+      Dockerfile, pyproject.toml, etc.) into the prompt and the agent returns a
+      structured DevEnvironmentAnalysis JSON. The existing IStructuredAgentCaller
+      interface at application/ports/output/agents/structured-agent-caller.interface.ts
+      provides the call<T>(prompt, schema, options?) signature we need. Agent
+      resolution goes through IAgentExecutorProvider (mandatory per AGENTS.md),
+      never hardcoded. The StructuredCallError class already handles parse
+      failures and agent errors.
+
+  - title: 'DevEnvironmentAnalysis TypeSpec model design'
+    chosen: 'New model extending BaseEntity with embedded DevCommand array'
+    rejected:
+      - >-
+        Flat model without BaseEntity — Would miss id/createdAt/updatedAt fields
+        needed for the cache table. All domain entities in this codebase extend
+        BaseEntity for consistency.
+      - >-
+        Reuse existing DeploySkill model — DeploySkill is deployment-blueprint
+        focused (DockerCompose, Kubernetes, etc.) with different semantics. The
+        new analysis model needs canStart, reason, commands array, prerequisites,
+        environmentVariables, and analysisSource — a different shape entirely.
+    rationale: >
+      Following the codebase TypeSpec patterns at tsp/deployment/, the new model
+      should be at tsp/deployment/dev-environment-analysis.tsp extending BaseEntity
+      (like all domain entities). DevCommand is a value object (no BaseEntity
+      extension) similar to PortMap at tsp/deployment/port-map.tsp. The
+      AnalysisSource enum (fast-path, agent, manual) follows the enum pattern
+      at tsp/common/enums/deployment.tsp. The generated TypeScript types in
+      packages/core/src/domain/generated/output.ts will be used by the mapper,
+      repository, and service layers. New TypeSpec files: dev-environment-analysis.tsp,
+      dev-command.tsp. Modified: tsp/common/enums/deployment.tsp (add NotStartable
+      to DeploymentState, add AnalysisSource enum), tsp/deployment/index.tsp
+      (add imports).
+
+  - title: 'Cache key resolution strategy'
+    chosen: 'Git remote URL with root repo absolute path fallback via RepoCacheKeyResolver'
+    rejected:
+      - >-
+        Worktree absolute path — WRONG for this codebase. Worktrees live at
+        ~/.shep/repos/<hash>/wt/<branch>/, so the same repo would get separate
+        cache entries per worktree/branch. Defeats per-repo caching entirely.
+      - >-
+        Content hash of config files — Contradicts the manual-only invalidation
+        requirement. Would add file-reading overhead on every deploy to compute
+        the hash. Also fragile: irrelevant changes (comments, formatting) would
+        bust the cache.
+    rationale: >
+      The codebase uses git worktrees extensively via WorktreeService. The
+      existing GitPrService.getRemoteUrl(cwd) already resolves the git remote
+      origin URL (converting SSH to HTTPS). For the fallback, git rev-parse
+      --git-common-dir (already used in GitPrService.getDefaultBranch for
+      worktree detection) gives the root repo git directory. The new
+      RepoCacheKeyResolver will: (1) try git remote get-url origin via the
+      injected ExecFunction, (2) if that fails, resolve root repo path via
+      git rev-parse --git-common-dir, (3) if both fail (non-git dir), fall back
+      to the provided working directory path. This ensures all worktrees of the
+      same repo share one cache entry. The resolver must be injectable and
+      mockable — it depends on ExecFunction (the same DI token used by
+      GitPrService and WorktreeService).
+
+  - title: 'SQLite cache table design and migration'
+    chosen: 'New dev_environment_analyses table, migration 040, with mapper pattern'
+    rejected:
+      - >-
+        Store analysis in existing features table — Breaks Clean Architecture
+        separation. Analysis is per-repo, not per-feature. Multiple features
+        in the same repo should share one analysis. Adding columns to features
+        would create redundant data.
+      - >-
+        JSON file cache outside SQLite — Inconsistent with the codebase's
+        established SQLite-for-everything pattern. Would need separate file I/O,
+        different error handling, no transactional guarantees, and a different
+        migration story.
+    rationale: >
+      The codebase has 39 migrations (legacy 001-034 in legacy-migrations.ts,
+      individual files 035-039 in migrations/). Migration 040 will create the
+      dev_environment_analyses table following the exact pattern of migration
+      037: export async function up/down with MigrationParams<Database.Database>.
+      Table schema: id TEXT PRIMARY KEY, cache_key TEXT NOT NULL UNIQUE,
+      can_start INTEGER NOT NULL, reason TEXT, commands TEXT NOT NULL (JSON array),
+      prerequisites TEXT (JSON array), ports TEXT (JSON array),
+      environment_variables TEXT (JSON object), language TEXT NOT NULL,
+      framework TEXT, source TEXT NOT NULL (fast-path|agent|manual),
+      created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL. The mapper follows
+      the established toDatabase/fromDatabase pattern at
+      packages/core/src/infrastructure/persistence/sqlite/mappers/ — converting
+      domain camelCase to snake_case, JSON stringifying arrays/objects, and
+      handling Date-to-timestamp conversions. The repository follows
+      SQLiteFeatureRepository/SQLiteAgentRunRepository pattern: @injectable,
+      constructor(db: Database.Database), prepared statements with named params.
+
+  - title: 'DeploymentService refactoring approach'
+    chosen: 'Add startWithAnalysis() method, preserve existing start() as internal fast-path'
+    rejected:
+      - >-
+        Replace start() signature entirely — Would break the existing
+        deployFeature/deployRepository server actions and useDeployAction hook.
+        Too many simultaneous changes. Better to add a new entry point and
+        migrate callers incrementally.
+      - >-
+        Create a completely separate AgentDeploymentService — Duplicates process
+        management logic (spawn, kill, polling, log buffering). The process
+        lifecycle is identical regardless of how commands were determined.
+    rationale: >
+      The current DeploymentService at packages/core/src/infrastructure/services/
+      deployment/deployment.service.ts has a well-tested process lifecycle:
+      spawn, stdout/stderr listeners, parsePort, state transitions, stop
+      with SIGTERM then SIGKILL. The refactoring adds a new public method that
+      accepts DevEnvironmentAnalysis and delegates to the existing spawn/process
+      management. The start(targetId, targetPath) signature is preserved but
+      internally becomes the fast-path code path. Key changes:
+      (1) New DevEnvironmentAnalyzerService handles mode detection and
+      dispatching to fast-path or agent. (2) DeploymentService gets a new
+      startWithAnalysis(targetId, analysis) method that spawns from analysis
+      commands instead of detectDevScript. (3) The existing DeploymentServiceDeps
+      interface gains an optional analyzerService dependency. (4) For canStart:false,
+      the service transitions to NotStartable state without spawning. The
+      NotStartable state is added to DeploymentState enum in TypeSpec.
+
+  - title: 'Config file pre-reading strategy for agent prompt'
+    chosen: 'Pre-read a fixed list of known config files plus shallow directory listing'
+    rejected:
+      - >-
+        Agent uses file-reading tools — Slower due to multiple tool-use rounds,
+        harder to test deterministically, adds tool infrastructure complexity.
+        The set of relevant config files is well-known and finite.
+      - >-
+        Read entire directory listing and let agent choose — Too much noise.
+        Large repos can have thousands of files. The agent would waste tokens
+        on irrelevant content.
+    rationale: >
+      The relevant config files across all major ecosystems are well-known:
+      package.json, tsconfig.json, Dockerfile, docker-compose.yml,
+      docker-compose.yaml, Makefile, pyproject.toml, requirements.txt,
+      setup.py, setup.cfg, Cargo.toml, go.mod, go.sum, Gemfile, pom.xml,
+      build.gradle, build.gradle.kts, CMakeLists.txt, .env.example,
+      Procfile, Pipfile. The analyzer service reads each if present (fs.readFile
+      with try/catch per file), truncates large files to first 2000 chars, and
+      includes them in a structured prompt section. A shallow directory listing
+      (depth 1-2, excluding node_modules, .git, dist, build) provides structural
+      context for monorepo detection. This produces deterministic prompt inputs
+      for testing: given the same set of config files, the prompt is identical.
+
+  - title: 'UI mode selector and cache editor design'
+    chosen: 'Mode toggle in DeployBar plus structured form drawer for cache editing'
+    rejected:
+      - >-
+        Full separate settings page — Over-engineered for a per-repo cache
+        entry. The existing BaseDrawer already has a DeployBar component that
+        integrates with useDeployAction. Adding mode toggle and cache controls
+        inline is more natural.
+      - >-
+        Raw JSON textarea editor — Error-prone (invalid JSON, typos in field
+        names), poor UX for non-technical users, inconsistent with the
+        shadcn/ui form patterns used elsewhere in the codebase.
+    rationale: >
+      The existing BaseDrawer at src/presentation/web/components/common/base-drawer/
+      base-drawer.tsx already renders a DeployBar when featureFlags.envDeploy and
+      deployTarget are provided. The DeployBar uses useDeployAction hook for
+      state. The plan: (1) Add a mode toggle (Fast/Agent) to DeployBar using
+      shadcn ToggleGroup. (2) Add cache summary line showing language,
+      framework, commands count when a cached analysis exists. (3) Add
+      Edit Config button that opens a drawer/dialog with structured form
+      fields for each DevEnvironmentAnalysis property. (4) Add Re-analyze
+      button for manual cache invalidation. (5) The form uses shadcn Input,
+      Select, Switch, and dynamic add/remove lists for commands array and
+      prerequisites. The NotStartable state extends DeploymentStatusBadge
+      with an info/warning badge variant showing the reason text.
+
+  - title: 'DI registration pattern for new services'
+    chosen: 'String token factory registration in container.ts, matching existing patterns'
+    rejected:
+      - >-
+        Symbol-based tokens — The codebase consistently uses string tokens
+        (e.g., ISettingsRepository, IAgentExecutorProvider) for Turbopack
+        web compatibility. Using symbols would be inconsistent.
+      - >-
+        Auto-registration with @injectable only — Requires class-token
+        resolution which fails in the web bundle. The factory pattern is needed
+        to inject Database dependency into repositories.
+    rationale: >
+      Following the exact patterns in packages/core/src/infrastructure/di/container.ts:
+      (1) IDevEnvAnalysisRepository registered with factory pattern injecting
+      Database, same as IFeatureRepository. (2) IDevEnvironmentAnalyzer
+      registered with factory resolving IStructuredAgentCaller and
+      IDevEnvAnalysisRepository dependencies. (3) IRepoCacheKeyResolver
+      registered with factory injecting ExecFunction. (4) Web route string
+      aliases added at the end for server action resolution. New
+      tokens: IDevEnvAnalysisRepository, IDevEnvironmentAnalyzer,
+      IRepoCacheKeyResolver. All follow the I prefix convention.
+
+  - title: 'Server action design for new operations'
+    chosen: 'Four focused server actions matching the codebase pattern'
+    rejected:
+      - >-
+        Single monolithic deploy action with mode parameter — Too many
+        responsibilities in one action. The existing pattern uses separate
+        focused actions (deploy-feature, deploy-repository, stop-deployment,
+        get-deployment-status).
+      - >-
+        REST API endpoints instead of server actions — The codebase uses
+        Next.js server actions exclusively for web-to-core communication. No
+        REST API layer exists or is planned.
+    rationale: >
+      Following the existing server action patterns at src/presentation/web/app/actions/:
+      (1) analyze-repository.ts — accepts repositoryPath and mode, resolves
+      cache key, checks cache, runs analysis if needed, returns
+      DevEnvironmentAnalysis. (2) invalidate-dev-env-cache.ts — accepts
+      repositoryPath, resolves cache key, deletes cached entry. (3)
+      update-dev-env-analysis.ts — accepts repositoryPath and partial
+      DevEnvironmentAnalysis, resolves cache key, updates with source=manual.
+      (4) Updated deploy-feature.ts and deploy-repository.ts to resolve
+      analysis from cache before calling DeploymentService. Each action follows
+      the pattern: use server directive, input validation, DI resolution via
+      resolve, try/catch with typed return union.
+
+  - title: 'Command execution strategy for multi-command analyses'
+    chosen: 'Execute first (primary) command only; additional commands stored for reference'
+    rejected:
+      - >-
+        Sequential execution — Cannot handle concurrent services; adds wait
+        complexity for setup commands that do not terminate. Unclear when to
+        proceed to next command.
+      - >-
+        Parallel execution — Far beyond current single-process-per-target
+        architecture. Would require multi-PID tracking, multi-port detection,
+        and coordinated shutdown.
+    rationale: >
+      Executing only the primary (first) command keeps the implementation
+      aligned with the current DeploymentService architecture which manages
+      one child process per targetId. The commands array stores the full
+      analysis for user reference and future extension. This avoids the
+      complexity of multi-process management, multi-port detection, and
+      coordinated shutdown. The DevCommand description field explains what
+      each command does, so users can see the full picture. If a user needs
+      a different primary command, they can reorder via the cache editor form.
+      This decision can be revisited in a future iteration.
+
+openQuestions:
+  - question: 'Should the agent prompt include directory listing alongside config file contents?'
+    resolved: true
+    options:
+      - option: 'Include shallow directory listing (depth 1-2)'
+        description: >
+          Run a shallow readdir of the repo root and first-level directories.
+          Include the listing in the prompt so the agent can see the project
+          structure (src/, tests/, docs/) alongside config file contents.
+          Adds 100-500 tokens of context but helps identify monorepo structures.
+        selected: true
+      - option: 'Config files only — no directory listing'
+        description: >
+          Only include config file contents. Simpler, fewer tokens, fully
+          deterministic. But the agent cannot see the directory structure, which
+          matters for monorepos or projects where config files are minimal.
+        selected: false
+      - option: 'Full recursive tree listing (all files)'
+        description: >
+          Include a full recursive file tree. Maximally informative but
+          potentially thousands of tokens for large repos. Risk of hitting
+          token limits and noise from node_modules and build artifacts.
+        selected: false
+    selectionRationale: >
+      A shallow directory listing (depth 1-2) provides useful structural context
+      without excessive token usage. For monorepos, seeing directories like
+      packages/frontend, packages/api immediately tells the agent about the
+      structure. The listing excludes node_modules, .git, dist, build and other
+      common artifact directories. Combined with config file contents, this gives
+      the agent sufficient information for a high-quality single-shot analysis.
+
+  - question: 'How should the NotStartable state interact with the deploy button?'
+    resolved: true
+    options:
+      - option: 'Disable deploy button with tooltip showing reason'
+        description: >
+          When cached analysis has canStart: false, the deploy button is
+          disabled (grayed out) with a tooltip showing the agent reason text.
+          The user can still see the analysis, edit it, or re-analyze.
+        selected: true
+      - option: 'Hide deploy button entirely'
+        description: >
+          Remove the deploy button from the UI when canStart is false. Cleaner
+          but the user loses the ability to see that deploy functionality exists
+          for this repo. Harder to discover re-analyze/edit options.
+        selected: false
+      - option: 'Show deploy button but warn on click'
+        description: >
+          Keep deploy button enabled. When clicked on a canStart: false repo,
+          show a confirmation dialog. More discoverable but allows confusing
+          click-to-fail interactions.
+        selected: false
+    selectionRationale: >
+      Disabling the button with a tooltip follows the standard UX pattern for
+      actions that are not currently available. The NotStartable badge (FR-19)
+      shows the reason text inline, and the tooltip reinforces it. The user can
+      edit the cached analysis to set canStart: true and provide manual commands,
+      at which point the deploy button becomes enabled.
+
+  - question: 'How should commands be ordered and executed when there are multiple?'
+    resolved: true
+    options:
+      - option: 'First command only — additional commands as documentation'
+        description: >
+          Execute only the first (primary) command in the array. Additional
+          commands are stored for user reference but not auto-executed.
+          Matches current single-command DeploymentService behavior.
+        selected: true
+      - option: 'Sequential execution — run commands in array order'
+        description: >
+          Execute commands one after another. First must complete before second
+          starts. Simple but cannot handle concurrent backend/frontend services.
+        selected: false
+      - option: 'Parallel execution — spawn all commands concurrently'
+        description: >
+          Spawn all commands at once. Good for microservices but adds significant
+          complexity: multiple PIDs, multiple port detections, complex cleanup.
+        selected: false
+    selectionRationale: >
+      Executing only the primary (first) command aligns with the current
+      DeploymentService managing one child process per targetId. The commands
+      array stores the full analysis for reference and future extension. Users
+      can reorder commands via the cache editor to change the primary command.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Agent Analysis Approach — StructuredAgentCaller vs LangGraph
+
+  **Chosen:** StructuredAgentCallerService with pre-read config files
+
+  **Rejected:**
+  - LangGraph multi-step graph — Adds graph state management overhead for a single-shot task
+  - Hybrid with tool-use fallback — Highest implementation cost, two code paths, non-deterministic testing
+
+  **Rationale:** The existing StructuredAgentCallerService (infrastructure/services/agents/common/structured-agent-caller.service.ts) handles native structured output vs prompt-based JSON extraction. Repo analysis is single-shot: pre-read config files into the prompt, agent returns structured JSON. Uses IAgentExecutorProvider for agent resolution (mandatory per AGENTS.md). StructuredCallError already handles parse failures.
+
+  ### 2. DevEnvironmentAnalysis TypeSpec Model Design
+
+  **Chosen:** New model extending BaseEntity with embedded DevCommand array
+
+  **Rejected:**
+  - Flat model without BaseEntity — Misses id/createdAt/updatedAt fields needed for cache table
+  - Reuse existing DeploySkill — Different semantics; DeploySkill is for deployment blueprints, not repo analysis
+
+  **Rationale:** New TypeSpec files in tsp/deployment/: dev-environment-analysis.tsp (extends BaseEntity), dev-command.tsp (value object). New AnalysisSource enum in tsp/common/enums/deployment.tsp. NotStartable added to DeploymentState enum. Follows patterns from tsp/deployment/deployment.tsp and tsp/deployment/port-map.tsp.
+
+  ### 3. Cache Key Resolution Strategy
+
+  **Chosen:** Git remote URL with root repo absolute path fallback via RepoCacheKeyResolver
+
+  **Rejected:**
+  - Worktree absolute path — Same repo gets duplicate entries per worktree
+  - Content hash of config files — Contradicts manual-only invalidation; adds overhead
+
+  **Rationale:** GitPrService.getRemoteUrl() already resolves remote URLs. git rev-parse --git-common-dir (used in GitPrService.getDefaultBranch) gives root repo path. New RepoCacheKeyResolver injectable service using ExecFunction DI token.
+
+  ### 4. SQLite Cache Table Design
+
+  **Chosen:** New dev_environment_analyses table, migration 040, with mapper pattern
+
+  **Rejected:**
+  - Store in features table — Analysis is per-repo, not per-feature; would create redundant data
+  - JSON file cache — Inconsistent with SQLite-for-everything pattern; no transactional guarantees
+
+  **Rationale:** Migration 040 follows pattern of 035-039 (export up/down with MigrationParams). Table: id TEXT PK, cache_key TEXT UNIQUE, can_start INTEGER, reason TEXT, commands TEXT (JSON), prerequisites TEXT (JSON), ports TEXT (JSON), environment_variables TEXT (JSON), language TEXT, framework TEXT, source TEXT, created_at/updated_at INTEGER. Mapper follows toDatabase/fromDatabase pattern. Repository follows SQLiteFeatureRepository pattern.
+
+  ### 5. DeploymentService Refactoring Approach
+
+  **Chosen:** Add startWithAnalysis() method, preserve existing start() as internal fast-path
+
+  **Rejected:**
+  - Replace start() signature — Breaks existing server actions and hook
+  - Separate AgentDeploymentService — Duplicates process management logic
+
+  **Rationale:** Preserves the tested process lifecycle (spawn, kill, polling, log buffering). New DevEnvironmentAnalyzerService handles mode detection and dispatching. DeploymentService gets startWithAnalysis(targetId, analysis) that spawns from analysis commands. canStart:false transitions to NotStartable state without spawning.
+
+  ### 6. Config File Pre-reading Strategy
+
+  **Chosen:** Pre-read fixed list of known config files plus shallow directory listing (depth 1-2)
+
+  **Rejected:**
+  - Agent uses file-reading tools — Slower, non-deterministic, requires tool infrastructure
+  - Read entire recursive tree — Thousands of tokens for large repos, noise from artifacts
+
+  **Rationale:** Known config files: package.json, tsconfig.json, Dockerfile, docker-compose.yml, Makefile, pyproject.toml, requirements.txt, setup.py, Cargo.toml, go.mod, Gemfile, pom.xml, build.gradle, CMakeLists.txt, .env.example, Procfile, Pipfile. Truncate to 2000 chars each. Include shallow directory listing (excluding node_modules, .git, dist, build) for structural context. Deterministic inputs for testing.
+
+  ### 7. UI Mode Selector and Cache Editor
+
+  **Chosen:** Mode toggle in DeployBar plus structured form drawer for cache editing
+
+  **Rejected:**
+  - Full separate settings page — Over-engineered for per-repo cache entries
+  - Raw JSON textarea — Error-prone, inconsistent with shadcn/ui form patterns
+
+  **Rationale:** Extend existing DeployBar in BaseDrawer with: mode toggle (Fast/Agent), cache summary, Edit Config button (opens form drawer), Re-analyze button. Form uses shadcn Input, Select, Switch, dynamic add/remove lists. NotStartable extends DeploymentStatusBadge with info badge variant.
+
+  ### 8. DI Registration Pattern
+
+  **Chosen:** String token factory registration matching existing patterns
+
+  **Rejected:**
+  - Symbol-based tokens — Inconsistent with codebase's string token convention for Turbopack
+  - Auto-registration — Fails in web bundle; factory needed for Database injection
+
+  **Rationale:** New tokens: IDevEnvAnalysisRepository, IDevEnvironmentAnalyzer, IRepoCacheKeyResolver. Factory registration in container.ts with dependency resolution.
+
+  ### 9. Server Action Design
+
+  **Chosen:** Four focused server actions: analyze, invalidate cache, update cache, plus updated deploy actions
+
+  **Rejected:**
+  - Single monolithic action — Too many responsibilities
+  - REST API endpoints — Codebase uses server actions exclusively
+
+  **Rationale:** analyze-repository.ts, invalidate-dev-env-cache.ts, update-dev-env-analysis.ts, plus updated deploy-feature.ts and deploy-repository.ts.
+
+  ### 10. Command Execution Strategy
+
+  **Chosen:** Execute first (primary) command only; additional commands stored for reference
+
+  **Rejected:**
+  - Sequential execution — Cannot handle concurrent services; unclear when to proceed
+  - Parallel execution — Far beyond current single-process-per-target architecture
+
+  **Rationale:** Aligns with current DeploymentService managing one child process per targetId. Commands array stored for reference. Users can reorder via cache editor.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | better-sqlite3 | SQLite database access | Use (existing) | Already the persistence layer for all tables |
+  | Umzug | Migration runner | Use (existing) | Migration 040 follows established patterns |
+  | tsyringe | Dependency injection | Use (existing) | String token + factory pattern matching container.ts |
+  | StructuredAgentCallerService | Structured agent output | Use (existing) | Native structured output + JSON fallback |
+  | shadcn/ui | UI components | Use (existing) | Input, Select, Switch, ToggleGroup, Badge, Tooltip |
+  | Zod | Schema validation | Reject | Codebase uses manual validation in server actions |
+  | React Hook Form | Form state management | Reject | Codebase uses useState for forms |
+  | node:fs/promises | File reading | Use (built-in) | For pre-reading config files |
+  | node:child_process | Git commands | Use (existing, via ExecFunction) | DI-injected ExecFunction token |
+
+  ## Security Considerations
+
+  - **SQL Injection**: All queries use prepared statements with named parameters (@cache_key, @id), matching existing repository patterns
+  - **Path Traversal**: RepoCacheKeyResolver uses git commands, not user input. File reads limited to pre-defined config filenames
+  - **Agent Prompt Injection**: Config file contents in agent prompt could contain injection attempts. StructuredAgentCaller's JSON schema enforcement and brace-depth parsing mitigate this
+  - **Cache Key Integrity**: Cache keys derived from git commands, not user input. UNIQUE constraint prevents duplicates
+  - **Environment Variables**: Stored in analysis, displayed in editor, passed as-is to spawn env. UI should not auto-expand or execute values
+
+  ## Performance Implications
+
+  - **Fast-path (<100ms)**: detectDevScript reads package.json + one SQLite SELECT by cache_key (indexed)
+  - **Agent path (<30s)**: One StructuredAgentCaller call. Pre-reading config files <100ms. Agent call 5-20s
+  - **Cached path (<50ms)**: Single SQLite SELECT by cache_key (UNIQUE index). Mapper conversion only
+  - **Cache key resolution (<200ms)**: Two sequential local git commands (remote get-url + rev-parse)
+  - **Memory**: DevEnvironmentAnalysis objects typically <5KB. Growth bounded by repos analyzed
+
+  ## Architecture Notes
+
+  ### Clean Architecture Layering
+
+  **Domain Layer** (tsp/ to generated):
+  - DevEnvironmentAnalysis model (extends BaseEntity)
+  - DevCommand value object
+  - AnalysisSource enum (fast-path, agent, manual)
+  - NotStartable addition to DeploymentState enum
+
+  **Application Layer** (ports):
+  - IDevEnvironmentAnalyzer — analyze(path, mode) returns DevEnvironmentAnalysis
+  - IRepoCacheKeyResolver — resolve(cwd) returns string
+  - IDevEnvAnalysisRepository — findByCacheKey, save, update, delete
+
+  **Infrastructure Layer** (implementations):
+  - DevEnvironmentAnalyzerService — two-mode dispatch (fast/agent)
+  - RepoCacheKeyResolver — git remote URL to git-common-dir to fallback
+  - SQLiteDevEnvAnalysisRepository — CRUD on dev_environment_analyses table
+  - DevEnvAnalysisMapper — toDatabase/fromDatabase
+  - Migration 040 — CREATE TABLE dev_environment_analyses
+  - Updated DeploymentService — new startWithAnalysis method
+  - Updated container.ts — register new services
+
+  **Presentation Layer** (web):
+  - Updated DeployBar — mode toggle, cache summary, edit/re-analyze buttons
+  - DevEnvAnalysisEditor — structured form component
+  - Updated DeploymentStatusBadge — NotStartable state
+  - New server actions — analyze, invalidate cache, update cache
+  - Updated useDeployAction hook — mode selection, analysis state
+  - Storybook stories for all new components
+
+  ### Data Flow
+
+  ```
+  User clicks Deploy
+    -> useDeployAction checks mode
+    -> Server action: analyze-repository
+      -> RepoCacheKeyResolver.resolve(cwd) -> cacheKey
+      -> IDevEnvAnalysisRepository.findByCacheKey(cacheKey)
+      -> If cached: return cached analysis
+      -> If not cached:
+        -> DevEnvironmentAnalyzerService.analyze(path, mode)
+          -> If fast: detectDevScript() -> build DevEnvironmentAnalysis
+          -> If agent: pre-read config files -> StructuredAgentCaller.call()
+        -> IDevEnvAnalysisRepository.save(analysis)
+        -> Return analysis
+    -> Server action: deploy-feature / deploy-repository
+      -> DeploymentService.startWithAnalysis(targetId, analysis)
+        -> If canStart: false -> set state NotStartable, no spawn
+        -> If canStart: true -> spawn first command, attach listeners
+    -> UI updates via polling (existing pattern)
+  ```
+
+  ### Integration with Existing Code
+
+  - DeploymentService.start() remains for backward compatibility
+  - deployFeature/deployRepository actions updated to resolve analysis first
+  - useDeployAction hook extended with mode and analysis state
+  - BaseDrawer DeployBar extended with mode toggle and cache controls
+  - featureFlags.envDeploy already gates the deploy UI — no new flag needed
