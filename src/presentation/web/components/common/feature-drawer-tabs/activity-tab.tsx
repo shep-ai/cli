@@ -664,30 +664,36 @@ function SummaryTotals({
       <div className="text-muted-foreground mb-0.5 text-xs font-semibold tracking-wider uppercase">
         Summary
       </div>
-      <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+      <div className="flex flex-col gap-1.5">
         <SummaryItem icon={Clock} label="Total execution" value={formatDuration(totalExecMs)} />
-        {totalWaitMs > 0 ? (
-          <>
-            <SummaryItem icon={Timer} label="Total wait" value={formatDuration(totalWaitMs)} />
-            <SummaryItem
-              icon={Clock}
-              label="Total wall-clock"
-              value={formatDuration(totalExecMs + totalWaitMs)}
-              className="col-span-2"
-            />
-          </>
-        ) : null}
-        {totalTokens > 0 ? (
-          <SummaryItem
-            icon={Zap}
-            label="Total tokens"
-            value={`${formatTokens(totalTokens)} (${formatTokens(totalInputTokens)} in · ${formatTokens(totalOutputTokens)} out)`}
-            className="col-span-2"
-          />
-        ) : null}
-        {totalCostUsd > 0 ? (
-          <SummaryItem icon={DollarSign} label="Total cost" value={formatCost(totalCostUsd)} />
-        ) : null}
+        <SummaryItem
+          icon={Timer}
+          label="Total wait"
+          value={totalWaitMs > 0 ? formatDuration(totalWaitMs) : 'n/a'}
+        />
+        <SummaryItem
+          icon={Clock}
+          label="Total wall-clock"
+          value={
+            totalWaitMs > 0
+              ? formatDuration(totalExecMs + totalWaitMs)
+              : formatDuration(totalExecMs)
+          }
+        />
+        <SummaryItem
+          icon={Zap}
+          label="Total tokens"
+          value={
+            totalTokens > 0
+              ? `${formatTokens(totalTokens)} (${formatTokens(totalInputTokens)} in · ${formatTokens(totalOutputTokens)} out)`
+              : 'n/a'
+          }
+        />
+        <SummaryItem
+          icon={DollarSign}
+          label="Total cost"
+          value={totalCostUsd > 0 ? formatCost(totalCostUsd) : 'n/a'}
+        />
       </div>
     </div>
   );
@@ -697,15 +703,13 @@ function SummaryItem({
   icon: Icon,
   label,
   value,
-  className = '',
 }: {
   icon: typeof Clock;
   label: string;
   value: string;
-  className?: string;
 }) {
   return (
-    <div className={`flex items-center justify-between ${className}`}>
+    <div className="flex items-center justify-between">
       <span className="text-muted-foreground flex items-center gap-1.5 text-sm">
         <Icon className="h-3.5 w-3.5 opacity-50" />
         <span className="font-medium">{label}</span>
