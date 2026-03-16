@@ -10,9 +10,10 @@ userQuery: >
 summary: >
   Add two new git operations to the platform: (1) rebase a feature branch onto the latest main branch,
   keeping feature work up-to-date with upstream changes, and (2) sync a repository's local main branch
-  with its remote counterpart. These operations require new methods on IGitPrService, new application
-  use cases, CLI commands, and web UI server actions.
-phase: Analysis
+  with its remote counterpart. These operations span all four architecture layers — new methods on
+  IGitPrService, new application use cases, CLI commands, web server actions, and DI registration —
+  with robust error handling for conflicts, dirty worktrees, and diverged branches.
+phase: Requirements
 sizeEstimate: M
 
 # Relationships
@@ -30,10 +31,143 @@ relatedLinks: []
 
 # Open questions (must be resolved before implementation)
 openQuestions:
-  - Should rebase-on-main abort and report conflicts, or attempt auto-resolution?
-  - Should sync-main be triggered automatically (e.g., before feature creation) or only on demand?
-  - Should rebase operate on the worktree or the original repo (worktrees have branch-locking constraints)?
-  - Should there be a web UI button for these operations, or CLI-only initially?
+  - question: 'Should rebase-on-main automatically sync main before rebasing, or require the user to sync first?'
+    resolved: true
+    options:
+      - option: 'Auto-sync before rebase'
+        description: >
+          The rebase use case automatically fetches and fast-forwards the local main branch before
+          rebasing the feature branch. This provides a one-command workflow and ensures the feature
+          is always rebased onto the true latest main. Downside: couples two operations, slightly
+          longer execution time.
+        selected: true
+      - option: 'Require manual sync first'
+        description: >
+          The user must run `shep repo sync` before `shep feat rebase`. This keeps operations atomic
+          and composable, but adds friction and risk of rebasing onto a stale main.
+        selected: false
+      - option: 'Auto-sync with opt-out flag'
+        description: >
+          Auto-sync by default but provide a `--no-sync` flag to skip the sync step. Most flexible
+          but adds CLI surface area and testing complexity for a rarely-used flag.
+        selected: false
+    selectionRationale: >
+      Auto-sync before rebase is recommended because rebasing onto a stale main defeats the purpose
+      of the operation. Users expect `shep feat rebase` to bring them fully up-to-date. The sync
+      operation is fast (fetch + fast-forward) and idempotent, so running it automatically adds
+      negligible overhead while preventing a common mistake.
+    answer: 'Auto-sync before rebase'
+
+  - question: 'How should rebase conflicts be handled when detected?'
+    resolved: true
+    options:
+      - option: 'Abort rebase and report'
+        description: >
+          When `git rebase` encounters conflicts, automatically run `git rebase --abort` to restore
+          the branch to its pre-rebase state, then report the conflicting files to the user. The
+          user must resolve conflicts manually outside the platform. Safe and predictable.
+        selected: true
+      - option: 'Leave conflicts for manual resolution'
+        description: >
+          Leave the repository in the mid-rebase state with conflict markers. The user resolves
+          conflicts, then runs `git rebase --continue`. This matches standard git workflow but
+          leaves the worktree in a dirty state that could confuse other platform operations.
+        selected: false
+      - option: 'Interactive conflict resolution'
+        description: >
+          Build a TUI or web UI for resolving conflicts inline. Provides the best UX but is a
+          large scope increase (M → L) and deserves its own feature spec.
+        selected: false
+    selectionRationale: >
+      Abort-and-report is recommended because leaving a worktree in mid-rebase state would break
+      other platform operations (agent runs, merges, etc.). Aborting keeps the system in a known-good
+      state. The error message should list conflicting files so the user knows what to address before
+      retrying. Interactive resolution is a future enhancement.
+    answer: 'Abort rebase and report'
+
+  - question: 'Should sync-main work when the user is currently on the main branch, or only from other branches?'
+    resolved: true
+    options:
+      - option: 'Support both — fetch-update if on another branch, pull if on main'
+        description: >
+          If the user is on a feature branch, use `git fetch origin main:main` to update main
+          without switching branches. If already on main, use `git pull --ff-only`. This handles
+          all scenarios transparently.
+        selected: true
+      - option: 'Only work from non-main branches'
+        description: >
+          Require the user to be on a feature branch. Use `git fetch origin main:main` exclusively.
+          Simpler implementation but fails if the user happens to be on main.
+        selected: false
+    selectionRationale: >
+      Supporting both scenarios is recommended because users may run `shep repo sync` from any
+      branch. The implementation difference is minimal (check current branch, choose fetch vs pull)
+      and avoids a confusing error when the user is on main.
+    answer: 'Support both — fetch-update if on another branch, pull if on main'
+
+  - question: 'Should new GitPrErrorCode values be added for rebase-specific errors, or reuse existing codes?'
+    resolved: true
+    options:
+      - option: 'Add REBASE_CONFLICT and SYNC_FAILED codes'
+        description: >
+          Add dedicated error codes for rebase conflicts and sync failures. Enables precise
+          programmatic error handling in CLI and web layers. Follows the pattern of having
+          specific codes for specific failure modes (like MERGE_CONFLICT, AUTH_FAILURE).
+        selected: true
+      - option: 'Reuse MERGE_CONFLICT and GIT_ERROR'
+        description: >
+          Map rebase conflicts to the existing MERGE_CONFLICT code and sync failures to GIT_ERROR.
+          Fewer changes to the enum but loses semantic precision — callers cannot distinguish
+          a merge conflict from a rebase conflict.
+        selected: false
+    selectionRationale: >
+      Adding dedicated error codes is recommended because rebase conflicts and merge conflicts
+      require different user guidance (rebase --abort vs merge --abort, different recovery steps).
+      The existing enum is extensible and the cost of adding two new codes is trivial compared
+      to the debugging clarity they provide.
+    answer: 'Add REBASE_CONFLICT and SYNC_FAILED codes'
+
+  - question: 'Should web server actions be included in the initial implementation scope?'
+    resolved: true
+    options:
+      - option: 'Include web actions'
+        description: >
+          Add server actions for both rebase and sync operations. Enables the web UI to trigger
+          these operations. Follows the pattern of existing features which all have web actions.
+          Small incremental cost since the use cases already encapsulate the logic.
+        selected: true
+      - option: 'Defer web actions to a follow-up'
+        description: >
+          Only implement CLI commands initially. Web actions can be added later. Reduces initial
+          scope but breaks the pattern of full-stack feature delivery.
+        selected: false
+    selectionRationale: >
+      Including web actions is recommended because the incremental cost is low (each action is
+      ~20 lines that delegates to the use case), and it maintains consistency with the platform's
+      full-stack delivery pattern. Deferring would leave the web UI unable to trigger these
+      operations.
+    answer: 'Include web actions'
+
+  - question: 'Should the rebase operation support worktree-based feature branches or only standard branches?'
+    resolved: true
+    options:
+      - option: 'Support both worktrees and standard branches'
+        description: >
+          Detect whether the feature uses a worktree (via IWorktreeService) and resolve the
+          correct working directory. If the feature has a worktree, rebase runs in the worktree
+          path. If not, rebase runs in the repository root. This matches how the platform
+          manages features.
+        selected: true
+      - option: 'Only support worktree-based features'
+        description: >
+          Assume all features use worktrees (the platform default). Simpler implementation
+          but would fail for any edge case where a feature does not have a worktree.
+        selected: false
+    selectionRationale: >
+      Supporting both is recommended because the platform must handle features regardless of
+      their worktree status. The IWorktreeService.exists() check is a single async call and
+      the fallback to repository root is trivial.
+    answer: 'Support both worktrees and standard branches'
 
 # Markdown content (the actual spec)
 content: |
@@ -57,94 +191,162 @@ content: |
 
   - `IGitPrService` has `mergeBranch()` and `localMergeSquash()` but no `rebase` operation.
   - `MergeStrategy` includes `'rebase'` but only for PR merges via `gh pr merge --rebase`, not local rebase.
-  - The merge prompts explicitly forbid `git rebase` in the agent workflow (merge-prompts.ts:206).
+  - The merge prompts explicitly forbid `git rebase` in the agent workflow (merge-prompts.ts:206) —
+    this feature is for user-initiated operations, not agent-driven ones.
   - No CLI command exists for `shep repo sync` or `shep feat rebase`.
   - No web action exists for triggering rebase or sync operations.
-
-  ## Codebase Analysis
-
-  ### Project Structure
-
-  The codebase follows Clean Architecture with four layers:
-
-  - **Domain** (`packages/core/src/domain/`) — Generated from TypeSpec. Contains Feature, Repository
-    entities and value objects. No new domain models likely needed for this feature.
-  - **Application** (`packages/core/src/application/`) — Use cases and port interfaces. New use cases
-    for `RebaseFeatureOnMain` and `SyncRepositoryMain` will live here.
-  - **Infrastructure** (`packages/core/src/infrastructure/`) — Service implementations.
-    `GitPrService` and `WorktreeService` in `infrastructure/services/git/` are the primary targets.
-  - **Presentation** (`src/presentation/`) — CLI commands (`cli/commands/`) and web server actions
-    (`web/app/actions/`). New CLI subcommands and web actions needed.
-
-  ### Architecture Patterns
-
-  - **Dependency Injection**: All services registered in `infrastructure/di/container.ts` via tsyringe.
-    Use cases inject port interfaces (`IGitPrService`, `IWorktreeService`) by string token.
-  - **Port/Adapter**: Application layer defines interfaces; infrastructure implements them.
-    New git operations must be added to `IGitPrService` interface first, then implemented.
-  - **CLI Pattern**: Commands use Commander.js, organized in subdirectories
-    (`commands/feat/`, `commands/repo/`). New subcommands follow existing patterns.
-  - **Web Actions**: Next.js server actions in `app/actions/` resolve DI container and call use cases.
-  - **Agent Constraint**: The agent merge prompts explicitly forbid `git rebase` — this feature is
-    for user-initiated operations, not agent-driven ones.
-
-  ### Relevant Technologies
-
-  - **git rebase**: Native git command for replaying commits on top of another base.
-    `git rebase main` from a feature branch replays feature commits on top of main.
-  - **git fetch + fast-forward**: `git fetch origin main:main` or
-    `git checkout main && git pull --ff-only origin main` to sync local main.
-  - **tsyringe**: DI container for resolving services and use cases.
-  - **Commander.js**: CLI framework for defining subcommands.
-  - **Vitest**: Test framework for unit and integration tests.
+  - `GitPrErrorCode` enum lacks rebase-specific error codes.
 
   ## Success Criteria
 
-  - [ ] `IGitPrService` interface extended with `rebaseOnMain(cwd, featureBranch, baseBranch)` method
-  - [ ] `IGitPrService` interface extended with `syncMain(cwd, baseBranch)` method
-  - [ ] `GitPrService` implements both methods with proper error handling (conflict detection, dirty worktree checks)
-  - [ ] `RebaseFeatureOnMainUseCase` created in application layer
-  - [ ] `SyncRepositoryMainUseCase` created in application layer
-  - [ ] CLI command `shep feat rebase [featureId]` added
-  - [ ] CLI command `shep repo sync [repoId]` added
-  - [ ] Use cases registered in DI container
-  - [ ] Unit tests for new GitPrService methods (conflict scenarios, clean rebase, dirty worktree)
-  - [ ] Unit tests for use cases with mocked ports
-  - [ ] Integration tests for rebase and sync operations with real git repos
+  - [ ] `IGitPrService` interface extended with `rebaseOnMain(cwd: string, featureBranch: string, baseBranch: string): Promise<void>` method
+  - [ ] `IGitPrService` interface extended with `syncMain(cwd: string, baseBranch: string): Promise<void>` method
+  - [ ] `GitPrErrorCode` enum extended with `REBASE_CONFLICT` and `SYNC_FAILED` codes
+  - [ ] `GitPrService` implements `rebaseOnMain` with: fetch latest main, checkout feature branch, rebase onto main, auto-abort on conflict
+  - [ ] `GitPrService` implements `syncMain` with: detect current branch, fetch+fast-forward main (from any branch or via pull if on main)
+  - [ ] `GitPrService` rebase implementation checks for dirty worktree before starting and throws `GIT_ERROR` if dirty
+  - [ ] `RebaseFeatureOnMainUseCase` created: resolves feature → resolves worktree path → calls syncMain → calls rebaseOnMain
+  - [ ] `SyncRepositoryMainUseCase` created: resolves repository → calls syncMain
+  - [ ] Both use cases registered in DI container with class and string-token registrations
+  - [ ] CLI command `shep feat rebase <featureId>` added with spinner, success/error output
+  - [ ] CLI command `shep repo sync <repoId>` added with spinner, success/error output
+  - [ ] Web server action `rebaseFeature(featureId)` added returning `{ success?, error? }`
+  - [ ] Web server action `syncRepository(repoId)` added returning `{ success?, error? }`
+  - [ ] Unit tests for `GitPrService.rebaseOnMain`: clean rebase, conflict detection + abort, dirty worktree rejection, branch-not-found
+  - [ ] Unit tests for `GitPrService.syncMain`: clean fast-forward, from main branch, from feature branch, diverged main rejection
+  - [ ] Unit tests for `RebaseFeatureOnMainUseCase` with mocked ports: happy path, feature not found, conflict error propagation
+  - [ ] Unit tests for `SyncRepositoryMainUseCase` with mocked ports: happy path, repo not found, sync failure propagation
+  - [ ] Integration tests for rebase and sync operations against real temporary git repos
+  - [ ] All existing tests continue to pass (no regressions)
+
+  ## Functional Requirements
+
+  ### Rebase Feature on Main
+
+  - **FR-1**: The system shall provide a `rebaseOnMain(cwd, featureBranch, baseBranch)` method on
+    `IGitPrService` that rebases the specified feature branch onto the latest base branch.
+  - **FR-2**: Before rebasing, the system shall automatically sync the local base branch with its
+    remote counterpart (`git fetch origin <baseBranch>:<baseBranch>` or `git pull --ff-only` if
+    currently on the base branch).
+  - **FR-3**: Before rebasing, the system shall verify the worktree is clean (no uncommitted changes).
+    If dirty, it shall throw a `GitPrError` with code `GIT_ERROR` and a message instructing the
+    user to commit or stash changes.
+  - **FR-4**: If `git rebase` encounters conflicts, the system shall automatically run
+    `git rebase --abort` to restore the branch to its pre-rebase state.
+  - **FR-5**: After aborting a conflicted rebase, the system shall throw a `GitPrError` with code
+    `REBASE_CONFLICT` and include the list of conflicting files in the error message.
+  - **FR-6**: On successful rebase, the method shall return void (the branch is now rebased in place).
+  - **FR-7**: The `RebaseFeatureOnMainUseCase` shall accept a feature ID (or prefix), resolve the
+    feature entity, determine the correct working directory (worktree path if exists, otherwise
+    repository root), and invoke the git operations.
+  - **FR-8**: The CLI command `shep feat rebase <featureId>` shall resolve the feature, display a
+    spinner during the operation, and show success or error output following existing CLI patterns.
+  - **FR-9**: The web server action `rebaseFeature(featureId)` shall resolve the use case via DI
+    string token and return `{ success: true }` or `{ error: string }`.
+
+  ### Sync Main with Remote
+
+  - **FR-10**: The system shall provide a `syncMain(cwd, baseBranch)` method on `IGitPrService`
+    that fast-forwards the local base branch to match its remote counterpart.
+  - **FR-11**: If the current branch is the base branch, the system shall use
+    `git pull --ff-only origin <baseBranch>`.
+  - **FR-12**: If the current branch is NOT the base branch, the system shall use
+    `git fetch origin <baseBranch>:<baseBranch>` to update the local base branch without switching.
+  - **FR-13**: If the local base branch has diverged from the remote (cannot fast-forward), the
+    system shall throw a `GitPrError` with code `SYNC_FAILED` and a message explaining the
+    divergence.
+  - **FR-14**: The `SyncRepositoryMainUseCase` shall accept a repository ID (or prefix), resolve
+    the repository entity and its path, and invoke `syncMain`.
+  - **FR-15**: The CLI command `shep repo sync <repoId>` shall resolve the repository, display a
+    spinner during the operation, and show success or error output.
+  - **FR-16**: The web server action `syncRepository(repoId)` shall resolve the use case via DI
+    string token and return `{ success: true }` or `{ error: string }`.
+
+  ### Error Handling
+
+  - **FR-17**: Two new error codes shall be added to `GitPrErrorCode`: `REBASE_CONFLICT` for
+    rebase conflicts that were auto-aborted, and `SYNC_FAILED` for sync operations that cannot
+    fast-forward.
+  - **FR-18**: All git errors during rebase and sync shall be parsed through the existing
+    `parseGitError` pattern, mapping specific git stderr messages to the appropriate error codes.
+  - **FR-19**: Error messages shown to the user (via CLI or web) shall include actionable guidance:
+    for rebase conflicts, list the conflicting files and suggest resolving manually; for sync
+    failures, explain the divergence and suggest manual resolution.
+
+  ### DI Registration
+
+  - **FR-20**: `RebaseFeatureOnMainUseCase` shall be registered in the DI container as a singleton
+    with both class registration and string-token alias `'RebaseFeatureOnMainUseCase'`.
+  - **FR-21**: `SyncRepositoryMainUseCase` shall be registered in the DI container as a singleton
+    with both class registration and string-token alias `'SyncRepositoryMainUseCase'`.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1** (Performance): Both operations shall complete within the time bounds of the
+    underlying git commands. No additional overhead beyond a single DI resolution and entity
+    lookup per invocation.
+  - **NFR-2** (Reliability): On any failure (network, git error, conflict), the worktree shall
+    be left in a clean, recoverable state — never in a mid-rebase or partially-synced state.
+  - **NFR-3** (Cross-platform): All git commands and path handling shall work on macOS, Linux,
+    and Windows. Path normalization (backslash to forward slash) shall be applied consistently.
+  - **NFR-4** (Consistency): New code shall follow all existing codebase patterns — DI injection
+    via string tokens, error classes with enum codes, CLI spinner + messages utilities, web action
+    discriminated union returns.
+  - **NFR-5** (Testability): All new code shall be testable via dependency injection. Git operations
+    shall be invoked through the injected `ExecFunction`, allowing unit tests to mock git commands.
+  - **NFR-6** (Idempotency): `syncMain` shall be idempotent — calling it when main is already
+    up-to-date shall succeed silently. `rebaseOnMain` when already rebased (no-op rebase) shall
+    succeed silently.
+  - **NFR-7** (Agent safety): These operations shall remain user-initiated only. The agent merge
+    prompts shall continue to forbid `git rebase`. No agent workflow shall invoke these use cases.
+  - **NFR-8** (Backward compatibility): Extending `IGitPrService` with new methods shall not
+    break existing implementations or tests. The new methods are additive.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Should rebase auto-sync main first? | Auto-sync before rebase | Rebasing onto stale main defeats the purpose; sync is fast and idempotent |
+  | 2 | How to handle rebase conflicts? | Abort rebase and report | Leaving mid-rebase state breaks other platform operations; abort keeps system clean |
+  | 3 | Should sync work from any branch? | Support both main and non-main | Minimal implementation difference; avoids confusing errors |
+  | 4 | New error codes or reuse existing? | Add REBASE_CONFLICT and SYNC_FAILED | Different recovery guidance needed; trivial cost for better clarity |
+  | 5 | Include web actions in scope? | Yes, include them | Low incremental cost (~20 lines each); maintains full-stack delivery pattern |
+  | 6 | Support worktrees and standard branches? | Support both | Platform must handle all feature configurations; single async check |
 
   ## Affected Areas
 
   | Area | Impact | Reasoning |
   | ---- | ------ | --------- |
-  | `packages/core/src/application/ports/output/services/git-pr-service.interface.ts` | High | New `rebaseOnMain` and `syncMain` methods added to the interface |
-  | `packages/core/src/infrastructure/services/git/git-pr.service.ts` | High | Implementation of rebase and sync git operations |
+  | `packages/core/src/application/ports/output/services/git-pr-service.interface.ts` | High | New `rebaseOnMain` and `syncMain` methods + new error codes added to interface |
+  | `packages/core/src/infrastructure/services/git/git-pr.service.ts` | High | Implementation of rebase and sync git operations with error parsing |
   | `packages/core/src/application/use-cases/features/` | High | New `RebaseFeatureOnMainUseCase` |
   | `packages/core/src/application/use-cases/repositories/` | High | New `SyncRepositoryMainUseCase` |
-  | `packages/core/src/infrastructure/di/container.ts` | Medium | Register new use cases and string-token aliases |
-  | `src/presentation/cli/commands/feat/` | Medium | New `rebase` subcommand |
-  | `src/presentation/cli/commands/repo/` | Medium | New `sync` subcommand |
-  | `src/presentation/web/app/actions/` | Low | Optional web server actions for rebase and sync |
-  | `tests/unit/` | High | Unit tests for new service methods and use cases |
+  | `packages/core/src/infrastructure/di/container.ts` | Medium | Register new use cases with class + string-token registrations |
+  | `src/presentation/cli/commands/feat/` | Medium | New `rebase` subcommand + index export |
+  | `src/presentation/cli/commands/repo/` | Medium | New `sync` subcommand + index export |
+  | `src/presentation/web/app/actions/` | Medium | New `rebase-feature.ts` and `sync-repository.ts` server actions |
+  | `tests/unit/` | High | Unit tests for service methods, use cases |
   | `tests/integration/` | Medium | Integration tests with real git repos |
 
   ## Dependencies
 
-  - **IGitPrService** — Existing interface that must be extended (not replaced).
-  - **IWorktreeService** — Needed by rebase use case to resolve worktree paths for features.
-  - **IFeatureRepository** — Needed to look up feature branch and repository path.
-  - **IRepositoryRepository** — Needed to look up repository path for sync.
-  - **ExecFunction** — Already injected into GitPrService for running git commands.
-  - **GitPrError / GitPrErrorCode** — Existing error types; may need new error codes
-    (e.g., `REBASE_CONFLICT`, `DIRTY_WORKTREE`).
-  - No new external libraries required — all operations use native git commands.
+  - **IGitPrService** — Existing interface that must be extended (not replaced) with two new methods.
+  - **GitPrError / GitPrErrorCode** — Existing error types extended with `REBASE_CONFLICT` and `SYNC_FAILED` codes.
+  - **IWorktreeService** — Used by `RebaseFeatureOnMainUseCase` to resolve worktree paths and check existence.
+  - **IFeatureRepository** — Used to look up feature entity by ID/prefix for branch name and repository reference.
+  - **IRepositoryRepository** — Used to look up repository entity by ID/prefix for path resolution.
+  - **ExecFunction** — Already injected into `GitPrService` for running git commands; no changes needed.
+  - **DI Container** — Existing container needs new registrations for both use cases.
+  - No new external libraries required — all operations use native git commands via existing `ExecFunction`.
 
   ## Size Estimate
 
-  **M** — This feature touches multiple layers (interface, implementation, use cases, CLI, DI) but
-  each change is well-scoped. The git operations themselves are straightforward (rebase, fetch+ff).
-  The main complexity is in error handling (conflicts, dirty state) and proper test coverage.
-  Estimated 2-3 days of work including TDD cycles.
+  **M** — This feature touches multiple layers (interface, implementation, use cases, CLI, web actions, DI)
+  but each change is well-scoped and follows existing patterns exactly. The git operations themselves are
+  straightforward (`git rebase`, `git fetch`, `git pull --ff-only`). The main complexity is in error
+  handling (conflicts, dirty state, diverged branches) and comprehensive test coverage. The inclusion
+  of web actions adds minimal scope since they delegate entirely to use cases.
 
   ---
 
-  _Analysis complete — proceed with research phase_
+  _Requirements complete — proceed with research phase_
