@@ -4,15 +4,15 @@
 name: cleanup-settings-page
 number: 069
 branch: feat/069-cleanup-settings-page
-oneLiner: Remove unsupported settings from the web settings page and clean up unused domain fields
+oneLiner: Remove unsupported settings from the web settings page and add missing notification event toggles
 userQuery: >
   Go over the settings page and remove any unsupported settings
 summary: >
   Audit the settings page UI against actual backend usage and remove settings that are either
-  not consumed by any service, shown as permanently disabled, or defined in the domain but
-  never surfaced in any UI. Also add missing notification event toggles that exist in the
-  backend but are absent from the settings page.
-phase: Analysis
+  not consumed by any service or shown as permanently disabled. Add missing notification event
+  toggles (prBlocked, mergeReviewReady) that are fully supported in the backend but absent
+  from the settings page. Scope is limited to presentation-layer changes only.
+phase: Requirements
 sizeEstimate: S
 
 # Relationships
@@ -29,18 +29,53 @@ relatedLinks: []
 
 # Open questions (must be resolved before implementation)
 openQuestions:
-  - >
-    Should the `system.autoUpdate` and `system.logLevel` fields be removed from the TypeSpec
-    domain model and database entirely, or only confirmed as not shown on the settings page?
-    Removing from TypeSpec requires a migration. Leaving them in the domain is harmless but
-    adds dead code.
-  - >
-    Should the `user` profile fields (name, email, githubUsername) be removed from the domain
-    model? They are stored but never read by any service. However, they may be planned for
-    future commit attribution.
-  - >
-    The authentication method row in the Agent section is shown as permanently disabled with
-    a "Coming soon" tooltip. Should it be removed entirely from the UI, or kept as-is?
+  - question: 'Should the "Coming soon" auth method row be removed entirely or replaced with a non-interactive display of the current value?'
+    resolved: true
+    options:
+      - option: 'Remove entirely'
+        description: 'Delete the auth method row completely from the Agent section. The field is used internally for agent configuration but user cannot change it via UI today. Removing eliminates dead UI and reduces confusion. The row can be re-added when the feature is actually implemented.'
+        selected: true
+      - option: 'Show read-only display'
+        description: 'Replace the disabled select with a read-only text display showing the current auth method value. Gives visibility into the setting but no interaction. Adds complexity for minimal user value since users cannot change it.'
+        selected: false
+    selectionRationale: 'Remove entirely is recommended because a permanently disabled control with "Coming soon" is confusing dead UI. The auth method is set programmatically during agent configuration and does not require user visibility. Re-adding it when the feature ships is trivial.'
+    answer: 'Remove entirely'
+
+  - question: 'What labels should be used for the two new notification event toggles?'
+    resolved: true
+    options:
+      - option: 'PR blocked / Merge review ready'
+        description: 'Follows the existing pattern where PR events use "PR" prefix with title case. "PR blocked" is consistent with "PR merged", "PR closed", etc. "Merge review ready" describes the event clearly without PR prefix since it relates to the merge review process.'
+        selected: true
+      - option: 'PR blocked / PR review ready'
+        description: 'Both use "PR" prefix for consistency. However, the backend event is named "mergeReviewReady" not "prReviewReady", so using "PR review ready" could create a naming mismatch and confuse the meaning (it is specifically about merge reviews, not general PR reviews).'
+        selected: false
+    selectionRationale: '"PR blocked / Merge review ready" is recommended because it matches the backend event naming (prBlocked, mergeReviewReady) and follows the established label pattern used by existing PR event toggles.'
+    answer: 'PR blocked / Merge review ready'
+
+  - question: 'Should the token input field and visibility toggle be removed along with the auth method row?'
+    resolved: true
+    options:
+      - option: 'Remove token field and visibility toggle'
+        description: 'The token input and show/hide toggle are directly associated with the auth method functionality. Since auth method is being removed as dead UI, the token field is equally unused and should be removed to avoid orphaned UI elements.'
+        selected: true
+      - option: 'Keep token field'
+        description: 'Keep the token field visible even without the auth method selector. This would leave an orphaned input with no clear purpose since users cannot select an auth method that requires a token.'
+        selected: false
+    selectionRationale: 'Remove token field because it is part of the same auth method feature that is being removed. An orphaned token field without a corresponding auth method selector would be confusing.'
+    answer: 'Remove token field and visibility toggle'
+
+  - question: 'Where should the new PR event toggles be positioned within the PR Events subsection?'
+    resolved: true
+    options:
+      - option: 'After existing PR events (append)'
+        description: 'Add prBlocked and mergeReviewReady after the existing four PR events (prMerged, prClosed, prChecksPassed, prChecksFailed). This preserves existing UI order and appends new items at the end, minimizing visual disruption for existing users.'
+        selected: true
+      - option: 'Grouped by lifecycle stage'
+        description: 'Reorder all PR events by lifecycle: prBlocked (blocking issue) -> prChecksPassed/Failed (CI) -> mergeReviewReady (merge review) -> prMerged/prClosed (terminal states). More logical ordering but changes existing UI positions which could confuse users.'
+        selected: false
+    selectionRationale: 'Appending after existing events is recommended because it preserves the current toggle order that users are familiar with. Reordering would change muscle memory and is out of scope for a cleanup task.'
+    answer: 'After existing PR events (append)'
 
 # Markdown content (the actual spec)
 content: |
@@ -54,21 +89,84 @@ content: |
 
   1. **Authentication method row** — shown as disabled with "Coming soon" tooltip. The
      `authMethod` field IS used in agent configuration, but the UI disables it, making
-     it misleading dead UI.
-  2. **Shell preference** — displayed in the Environment section but IS actually used
-     by `open-shell.ts` action and CLI tables display. This is SUPPORTED and should stay.
-  3. **CI settings (ciMaxFixAttempts, ciWatchTimeoutMs, ciLogMaxChars, ciWatchPollIntervalSeconds)**
-     — displayed in their own CI section and ARE used in `ci-watch-fix-loop.ts`. These
-     are SUPPORTED and should stay.
-  4. **Missing notification toggles** — `prBlocked` and `mergeReviewReady` events are
-     fully supported in `notification.service.ts` but are missing from the settings page
-     notification event toggles (only 4 of 6 PR events are shown).
-  5. **system.autoUpdate** — defined in TypeSpec, stored in DB, but never read by any
-     service or shown in any UI.
-  6. **system.logLevel** — defined in TypeSpec, stored in DB, but never read by any
-     service or shown in any UI.
-  7. **user profile (name, email, githubUsername)** — defined in TypeSpec, stored in DB,
-     but never read by any service. The worktree service uses hardcoded constants instead.
+     it misleading dead UI. The associated token input field is also unused.
+  2. **Missing notification toggles** — `prBlocked` and `mergeReviewReady` events are
+     fully supported in `notification.service.ts` (event mapping exists), defaults are
+     set to `true` in `settings-defaults.factory.ts`, but they are missing from the
+     settings page notification event toggles (only 4 of 6 PR events are shown).
+
+  Settings that were audited and confirmed as SUPPORTED (no changes needed):
+  - Shell preference (used by `open-shell.ts` and CLI tables)
+  - CI settings (used by `ci-watch-fix-loop.ts`)
+  - All Agent & Model, Environment, Workflow, Stage Timeouts, Feature Flags, Database settings
+
+  Domain-only dead fields (no UI change needed — kept in domain for future use):
+  - `system.autoUpdate`, `system.logLevel`, `user.name`, `user.email`, `user.githubUsername`
+
+  ## Success Criteria
+
+  - [ ] SC-1: Authentication method row (disabled Select with "Coming soon" tooltip) is removed from Agent section
+  - [ ] SC-2: Token input field and show/hide visibility toggle associated with auth method are removed
+  - [ ] SC-3: `AUTH_METHOD_OPTIONS` constant is removed from the component
+  - [ ] SC-4: `authMethod` and `token`/`showToken` state variables are cleaned up if no longer referenced
+  - [ ] SC-5: `prBlocked` notification toggle is added to PR Events subsection with label "PR blocked"
+  - [ ] SC-6: `mergeReviewReady` notification toggle is added to PR Events subsection with label "Merge review ready"
+  - [ ] SC-7: New toggles are appended after the existing four PR event toggles
+  - [ ] SC-8: New toggles follow the same Switch component pattern as existing event toggles
+  - [ ] SC-9: New toggles trigger auto-save via the same `updateSettingsAction` mechanism
+  - [ ] SC-10: All existing supported settings remain functional and visually unchanged
+  - [ ] SC-11: Storybook stories are updated to reflect the removed auth row and added toggles
+  - [ ] SC-12: Unit tests pass with updated assertions reflecting the UI changes
+  - [ ] SC-13: No TypeSpec, domain model, database, or backend changes are required
+  - [ ] SC-14: Unused imports (if any) are cleaned up after removing auth method row
+
+  ## Functional Requirements
+
+  - **FR-1**: Remove the authentication method `SettingsRow` from the Agent section, including
+    the disabled `Select` component, `Tooltip`/`TooltipProvider` wrapping it, and the
+    "Coming soon" `TooltipContent`.
+  - **FR-2**: Remove the `AUTH_METHOD_OPTIONS` constant array that defines the auth method
+    select options.
+  - **FR-3**: Remove the `authMethod` local state variable and any references to it, since
+    the auth method row is the only consumer.
+  - **FR-4**: Remove the token input field and `showToken` visibility toggle state that are
+    associated with the auth method feature.
+  - **FR-5**: Add a `Switch` toggle for `prBlocked` in the PR Events notification subsection,
+    labeled "PR blocked", following the same pattern as `prMerged`, `prClosed`, `prChecksPassed`,
+    and `prChecksFailed` toggles.
+  - **FR-6**: Add a `Switch` toggle for `mergeReviewReady` in the PR Events notification
+    subsection, labeled "Merge review ready", following the same pattern as existing toggles.
+  - **FR-7**: Position the two new toggles after the existing four PR event toggles
+    (prMerged, prClosed, prChecksPassed, prChecksFailed, then prBlocked, mergeReviewReady).
+  - **FR-8**: Wire both new toggles to the existing auto-save mechanism so toggling them
+    persists the change via `updateSettingsAction`, consistent with all other event toggles.
+  - **FR-9**: Update Storybook stories to reflect the removal of the auth method row and
+    addition of the new notification toggles.
+  - **FR-10**: Update unit tests to remove assertions for the auth method row and add
+    coverage for the new notification event toggles if the existing test structure supports it.
+  - **FR-11**: Clean up any imports that become unused after removing the auth method row
+    (e.g., if `Select`, `Tooltip` components are no longer used elsewhere in the file).
+
+  ## Non-Functional Requirements
+
+  - **NFR-1**: No visual regression — all sections other than Agent (auth row removal) and
+    Notifications (added toggles) must render identically before and after the change.
+  - **NFR-2**: Auto-save latency — new toggles must save with the same latency as existing
+    toggles (no additional network calls or state management overhead).
+  - **NFR-3**: Accessibility — new Switch toggles must include proper `aria-label` or
+    associated label text, matching the pattern used by existing event toggles.
+  - **NFR-4**: Bundle size — removal of dead UI should not increase bundle size; the net
+    effect should be neutral or a slight decrease.
+  - **NFR-5**: Storybook — all settings page stories must render without errors after changes.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Should the auth method row be removed entirely or shown as read-only? | Remove entirely | A permanently disabled control with "Coming soon" is confusing dead UI. It can be re-added when the feature ships. |
+  | 2 | What labels for the new notification toggles? | "PR blocked" / "Merge review ready" | Matches backend event naming and existing label patterns. |
+  | 3 | Should the token field be removed with the auth method? | Yes, remove both | Token field is orphaned without auth method selector. |
+  | 4 | Where to position new PR event toggles? | After existing PR events (append) | Preserves current UI order; avoids disrupting user familiarity. |
 
   ## Codebase Analysis
 
@@ -84,96 +182,36 @@ content: |
     is the main settings page (~1555 lines)
   - **Presentation (CLI)**: `src/presentation/cli/ui/tables.ts` displays settings summary
 
-  ### Architecture Patterns
+  ### Key Code Locations
 
-  - Settings is a singleton entity with database-level enforcement
-  - TypeSpec-first: domain model in `tsp/` generates TypeScript types
-  - Settings are auto-saved on change via `updateSettingsAction` server action
-  - The settings page uses local React state synchronized to the server
-  - Each section has a colocated Storybook story file
-
-  ### Relevant Technologies
-
-  - **TypeSpec**: Domain model definitions (source of truth for Settings type)
-  - **React/Next.js**: Settings page is a client component with auto-save
-  - **SQLite + mapper**: Persistence layer with column-level mapping
-  - **Storybook**: Component stories for each settings section
-  - **Vitest**: Unit test at `tests/unit/presentation/web/components/features/settings/settings-page-client.test.tsx`
-
-  ## Findings: Settings Audit
-
-  ### Settings that should be REMOVED from UI
-
-  | Setting | Current UI Location | Backend Usage | Recommendation |
-  | ------- | ------------------- | ------------- | -------------- |
-  | Authentication method | Agent section (disabled, "Coming soon") | Used in configure-agent use case | Remove disabled row from UI |
-
-  ### Settings MISSING from UI (should be ADDED)
-
-  | Setting | Backend Support | Recommendation |
-  | ------- | --------------- | -------------- |
-  | `notifications.events.prBlocked` | Used in notification.service.ts | Add toggle to PR Events subsection |
-  | `notifications.events.mergeReviewReady` | Used in notification.service.ts | Add toggle to PR Events subsection |
-
-  ### Settings NOT in UI and NOT used (domain-only dead fields)
-
-  | Setting | Domain Location | Backend Usage | Recommendation |
-  | ------- | --------------- | ------------- | -------------- |
-  | `system.autoUpdate` | SystemConfig model | Only in mapper/defaults | Keep in domain (no UI change needed) |
-  | `system.logLevel` | SystemConfig model | Only in mapper/defaults | Keep in domain (no UI change needed) |
-  | `user.name` | UserProfile model | Only in mapper/defaults | Keep in domain (no UI change needed) |
-  | `user.email` | UserProfile model | Only in mapper/defaults | Keep in domain (no UI change needed) |
-  | `user.githubUsername` | UserProfile model | Only in mapper/defaults | Keep in domain (no UI change needed) |
-
-  ### Settings that are SUPPORTED (should STAY)
-
-  | Setting | UI Location | Backend Usage |
-  | ------- | ----------- | ------------- |
-  | Agent & Model | Agent section | create-feature, agent resolution |
-  | Default Editor | Environment section | open-ide.ts |
-  | Shell Preference | Environment section | open-shell.ts, CLI tables |
-  | Terminal | Environment section | open-shell.ts |
-  | All Workflow settings | Workflow section | Feature drawer, nodes |
-  | CI Watch Enabled | Workflow section | merge.node.ts |
-  | CI Max Fix Attempts | CI section | ci-watch-fix-loop.ts |
-  | CI Watch Timeout | CI section | ci-watch-fix-loop.ts |
-  | CI Max Log Size | CI section | ci-watch-fix-loop.ts |
-  | CI Poll Interval | CI section | ci-watch-fix-loop.ts |
-  | All Stage Timeouts | Timeouts section | node-helpers.ts |
-  | Notification channels | Notifications section | notification.service.ts |
-  | Notification agent events | Notifications section | notification.service.ts |
-  | PR Merged/Closed/Passed/Failed | Notifications section | notification.service.ts |
-  | Feature Flags | Flags section | feature-flags.ts |
-  | Database info | Database section | Read-only display |
+  - **Auth method row**: `settings-page-client.tsx` lines ~696-726 (SettingsRow with disabled Select)
+  - **AUTH_METHOD_OPTIONS**: `settings-page-client.tsx` lines ~52-55
+  - **authMethod state**: `settings-page-client.tsx` line ~367
+  - **token/showToken state**: `settings-page-client.tsx` lines ~368-369
+  - **PR event toggles**: `settings-page-client.tsx` lines ~1395-1438 (prMerged, prClosed, prChecksPassed, prChecksFailed)
+  - **Notification defaults**: `settings-defaults.factory.ts` lines ~117-134 (prBlocked: true, mergeReviewReady: true)
+  - **Event mapping**: `notification.service.ts` lines ~22-34 (PrBlocked and MergeReviewReady already mapped)
 
   ## Affected Areas
 
   | Area | Impact | Reasoning |
   | ---- | ------ | --------- |
-  | `src/presentation/web/components/features/settings/settings-page-client.tsx` | High | Remove auth method row; add prBlocked and mergeReviewReady toggles |
+  | `src/presentation/web/components/features/settings/settings-page-client.tsx` | High | Remove auth method row + token field; add prBlocked and mergeReviewReady toggles |
   | `src/presentation/web/components/features/settings/settings-page-client.stories.tsx` | Medium | Update stories to reflect UI changes |
   | `tests/unit/presentation/web/components/features/settings/settings-page-client.test.tsx` | Medium | Update tests for removed/added UI elements |
-
-  ## Success Criteria
-
-  - [ ] Authentication method row (disabled "Coming soon") is removed from Agent section
-  - [ ] `prBlocked` notification toggle is added to PR Events subsection
-  - [ ] `mergeReviewReady` notification toggle is added to PR Events subsection
-  - [ ] All existing supported settings remain functional and unchanged
-  - [ ] Storybook stories are updated to reflect changes
-  - [ ] Unit tests pass with updated assertions
-  - [ ] No TypeSpec or domain model changes required (scope limited to UI)
 
   ## Dependencies
 
   - `NotificationEventConfig` type already includes `prBlocked` and `mergeReviewReady` fields
   - `notification.service.ts` already maps these events — no backend changes needed
-  - `settings-defaults.factory.ts` already includes defaults for these events
+  - `settings-defaults.factory.ts` already includes defaults for these events (both default to `true`)
+  - No TypeSpec, domain model, or database schema changes required
 
   ## Size Estimate
 
-  **S** — This is a focused UI-only change: remove one disabled row, add two switch toggles,
-  update stories and tests. No domain model, TypeSpec, database, or backend changes required.
+  **S** — This is a focused UI-only change: remove one disabled row and associated token field,
+  add two switch toggles following an existing pattern, update stories and tests. No domain
+  model, TypeSpec, database, or backend changes required. Estimated 3 files changed.
 
   ---
 
