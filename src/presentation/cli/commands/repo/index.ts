@@ -14,6 +14,7 @@
 import { Command } from 'commander';
 import { createShowCommand } from './show.command.js';
 import { createLsCommand } from './ls.command.js';
+import { createSyncCommand } from './sync.command.js';
 
 /**
  * Create the repo command with all subcommands
@@ -22,7 +23,8 @@ export function createRepoCommand(): Command {
   const repo = new Command('repo')
     .description('Manage tracked repositories')
     .addCommand(createLsCommand())
-    .addCommand(createShowCommand());
+    .addCommand(createShowCommand())
+    .addCommand(createSyncCommand());
 
   return repo;
 }
