@@ -10,7 +10,7 @@ summary: >
   feature tracking system. This creates a worktree if one doesn't exist, registers it as a Feature entity
   in the database with lifecycle=Maintain (agent inactive), and surfaces it in the feature list with full
   action support (open in IDE, open shell, deploy, etc.) — but does NOT spawn an agent unless explicitly requested.
-phase: Analysis
+phase: Requirements
 sizeEstimate: M
 
 # Relationships
@@ -30,14 +30,152 @@ relatedLinks: []
 
 # Open questions (must be resolved before implementation)
 openQuestions:
-  - What lifecycle state should adopted features use? Maintain (terminal, agent permanently inactive) seems
-    right since the user explicitly doesn't want Shep to develop it. Alternatively, a new "Adopted" enum
-    value could be clearer.
-  - Should the user be able to later "activate" an adopted feature so Shep continues development from
-    where the branch left off? If so, what lifecycle transition is appropriate?
-  - Should the adopt flow support remote-only branches (fetch + create local tracking branch) or only
-    branches that already exist locally?
-  - Should the adopt command accept a custom name/description or auto-derive them from the branch name?
+  - question: 'Should adopted features use the existing Maintain lifecycle state or a new Adopted lifecycle state?'
+    resolved: true
+    options:
+      - option: 'Reuse Maintain'
+        description: >
+          Use the existing SdlcLifecycle.Maintain state. It already means "terminal, agent inactive" which
+          semantically fits adopted branches. No TypeSpec changes needed, no migration needed, no impact on
+          existing code that checks lifecycle states. The feature list already handles Maintain display.
+        selected: true
+      - option: 'Add new Adopted state'
+        description: >
+          Add SdlcLifecycle.Adopted to the TypeSpec enum. This provides a semantically distinct state that
+          clearly differentiates adopted vs organically-completed features. However, it requires TypeSpec
+          changes, regeneration, updating all switch/if-else blocks that handle lifecycle, and updating
+          the feature mapper. Higher effort with marginal user-facing benefit.
+        selected: false
+    selectionRationale: >
+      Maintain already has the exact semantics needed: the agent is permanently inactive, and the feature
+      is in a terminal state. Adding a new lifecycle state would require TypeSpec changes, regeneration,
+      and auditing every lifecycle check in the codebase — significant effort with minimal user benefit.
+      If differentiation is needed later, a boolean flag (e.g., adopted: true) on the Feature entity
+      would be less disruptive.
+    answer: 'Reuse Maintain'
+
+  - question: 'Should adopted features be allowed for any branch name, or only branches following the feat/<slug> convention?'
+    resolved: true
+    options:
+      - option: 'Any branch name'
+        description: >
+          Accept any valid git branch name (e.g., fix/bug-123, develop, release/v2, my-feature).
+          Derive slug from the full branch name by converting slashes and special characters to hyphens.
+          This maximizes flexibility — users can adopt branches from any workflow convention.
+        selected: true
+      - option: 'Only feat/* branches'
+        description: >
+          Restrict adoption to branches that follow the feat/<slug> convention. This keeps the feature
+          list consistent with Shep-created features and avoids confusion with non-feature branches.
+          However, it limits the primary use case (adopting branches from external workflows that
+          don't follow Shep conventions).
+        selected: false
+    selectionRationale: >
+      The core use case for adopt is bringing in branches from external workflows (Claude Code, other
+      developers, manual work). These branches rarely follow feat/<slug>. Restricting to feat/* would
+      undermine the feature's value. The slug can be derived from any branch name via simple normalization
+      (strip common prefixes, convert slashes/special chars to hyphens).
+    answer: 'Any branch name'
+
+  - question: 'How should the feature name be derived for adopted branches?'
+    resolved: true
+    options:
+      - option: 'Derive from branch name'
+        description: >
+          Automatically generate a human-readable name from the branch name by stripping common prefixes
+          (feat/, fix/, chore/), replacing hyphens/underscores with spaces, and title-casing.
+          e.g., fix/login-bug → "Login Bug", feat/user-auth → "User Auth". Fast, no AI call needed,
+          deterministic. User can rename later if desired.
+        selected: true
+      - option: 'Prompt user for name'
+        description: >
+          Ask the user to provide a name for the feature during adoption. Provides maximum control but
+          adds friction to the adopt flow, which should be fast and low-ceremony.
+        selected: false
+      - option: 'Use AI to generate name'
+        description: >
+          Call the MetadataGenerator to analyze the branch diff/commits and generate a meaningful name.
+          Produces higher quality names but adds latency (AI call), cost, and a dependency on agent
+          infrastructure. Overkill for what should be a lightweight operation.
+        selected: false
+    selectionRationale: >
+      Adopt should be a fast, low-ceremony operation. Deriving the name from the branch name is instant,
+      deterministic, and produces reasonable results. Users can rename the feature later if the auto-generated
+      name isn't satisfactory. AI-based naming adds unnecessary latency and cost for an operation that
+      should feel like a simple import.
+    answer: 'Derive from branch name'
+
+  - question: 'Where should the web UI entry point for adopt be placed?'
+    resolved: true
+    options:
+      - option: 'Separate adopt drawer/route'
+        description: >
+          Create a new /adopt parallel route with its own drawer component, similar to the /create route.
+          The adopt drawer would have a branch selector/input instead of a description textarea.
+          Access via a new "Adopt Branch" button in the control center toolbar or FAB menu.
+          Keeps the create and adopt flows cleanly separated since they have different inputs.
+        selected: true
+      - option: 'Tab in create drawer'
+        description: >
+          Add a "New" / "Adopt" tab toggle at the top of the existing create feature drawer.
+          Reuses the drawer infrastructure but conflates two conceptually different flows.
+          The adopt form only needs a branch name, while create needs description, attachments, etc.
+        selected: false
+      - option: 'Context menu action'
+        description: >
+          Add "Adopt Branch" as a context menu item on the repository node in the React Flow graph.
+          Discoverable but buried — first-time users may not find it.
+        selected: false
+    selectionRationale: >
+      A separate drawer/route keeps the adopt flow focused and uncluttered. The create drawer has many
+      fields (description, attachments, agent settings, gates) that don't apply to adopt. A dedicated
+      adopt drawer with just a branch selector is cleaner UX. Access can be via a button in the control
+      center toolbar alongside the existing "New Feature" button.
+    answer: 'Separate adopt drawer/route'
+
+  - question: 'Should adopting a remote-only branch (no local branch) automatically fetch and create the local branch?'
+    resolved: true
+    options:
+      - option: 'Auto-fetch remote branches'
+        description: >
+          If the branch exists only on origin (detected via remoteBranchExists), automatically run
+          git fetch origin <branch> and then create the worktree. This makes adoption seamless — users
+          don't need to manually fetch first. The worktree add command can reference origin/<branch>
+          directly as the start point.
+        selected: true
+      - option: 'Require local branch'
+        description: >
+          Only allow adoption of branches that exist locally. If the branch is remote-only, show an
+          error message instructing the user to fetch it first. Simpler implementation but adds
+          friction for a common use case (adopting a teammate's branch).
+        selected: false
+    selectionRationale: >
+      A key use case is adopting branches from teammates or CI that only exist on the remote. Requiring
+      users to manually fetch first adds unnecessary friction. Git worktree add can handle remote tracking
+      branches directly (git worktree add <path> origin/<branch>), and the WorktreeService already has
+      remoteBranchExists() to detect this case.
+    answer: 'Auto-fetch remote branches'
+
+  - question: 'Should the adopt flow support bulk adoption of multiple branches at once?'
+    resolved: true
+    options:
+      - option: 'Single branch only (v1)'
+        description: >
+          Support adopting one branch at a time via CLI argument or web UI selection. Simple, covers the
+          primary use case, and can be extended to bulk later. Keeps the v1 implementation focused
+          and testable.
+        selected: true
+      - option: 'Bulk adoption'
+        description: >
+          Support adopting multiple branches in one command (e.g., shep feat adopt branch1 branch2) or
+          via multi-select in the web UI. More powerful but adds complexity to error handling (partial
+          failures), progress reporting, and the web UI. Better as a follow-up feature.
+        selected: false
+    selectionRationale: >
+      Single-branch adoption covers the primary use case and keeps the v1 implementation simple.
+      Bulk adoption can be added as a follow-up if users frequently adopt multiple branches.
+      The CLI and web UI patterns are easier to get right for a single branch first.
+    answer: 'Single branch only (v1)'
 
 content: |
   ## Problem Statement
@@ -57,87 +195,178 @@ content: |
   `worktreeService.create()` with `-b` (new branch) and always runs metadata generation + spec
   initialization + agent spawning. There is no path to adopt an existing branch.
 
-  ## Codebase Analysis
+  ## Success Criteria
 
-  ### Project Structure
+  - [ ] `shep feat adopt <branch-name>` CLI command creates a Feature record for an existing branch
+  - [ ] The branch is validated to exist locally or on the remote before adoption
+  - [ ] If the branch exists only on the remote, it is fetched automatically
+  - [ ] If no worktree exists for the branch, one is created via `git worktree add <path> <branch>` (no `-b`)
+  - [ ] If a worktree already exists for the branch, it is reused (no duplicate creation)
+  - [ ] The adopted feature is persisted with lifecycle=Maintain and no agentRunId
+  - [ ] The adopted feature appears in `shep feat ls` and the web UI feature list
+  - [ ] Feature actions work on adopted features: open in IDE, open shell, deploy
+  - [ ] No agent is spawned — the feature is passive/manual by default
+  - [ ] The branch name is preserved exactly (not reformatted to `feat/<slug>`)
+  - [ ] The feature name is auto-derived from the branch name (e.g., fix/login-bug → "Login Bug")
+  - [ ] Duplicate adoption of the same branch is detected and rejected with a clear error message
+  - [ ] Adoption of the current main/master branch is rejected with a clear error message
+  - [ ] Web UI provides a dedicated adopt drawer with branch selection input
+  - [ ] Unit tests cover the AdoptBranchUseCase (happy path, duplicate rejection, branch validation)
+  - [ ] Unit tests cover the worktree service addExisting() method
+  - [ ] Integration tests cover the CLI `adopt` subcommand
 
-  The codebase follows Clean Architecture with four layers:
+  ## Functional Requirements
 
-  - **Domain** (`packages/core/src/domain/`): TypeSpec-generated types including `Feature` (aggregate root),
-    `SdlcLifecycle` enum, `ApprovalGates` value object. Source of truth at `tsp/domain/entities/feature.tsp`.
-  - **Application** (`packages/core/src/application/`): Use cases (`CreateFeatureUseCase`, `StartFeatureUseCase`,
-    `ListFeaturesUseCase`, etc.) and port interfaces (`IWorktreeService`, `IFeatureRepository`, `IGitPrService`).
-  - **Infrastructure** (`packages/core/src/infrastructure/`): Implementations — `WorktreeService` (git worktree
-    operations), SQLite repositories, DI container (tsyringe).
-  - **Presentation** (`src/presentation/`): CLI (Commander.js at `cli/commands/feat/`), Web UI (Next.js server
-    actions at `web/app/actions/`), TUI wizards.
+  - **FR-1**: The system SHALL provide a new `AdoptBranchUseCase` in the application layer that accepts
+    a branch name and repository path, validates the branch exists, creates a worktree if needed,
+    derives feature metadata (name, slug) from the branch name, and persists a Feature entity with
+    lifecycle=Maintain.
 
-  ### Architecture Patterns
+  - **FR-2**: The `IWorktreeService` interface SHALL be extended with an `addExisting(repoPath, branch, worktreePath)`
+    method that runs `git worktree add <worktreePath> <branch>` without the `-b` flag, creating a worktree
+    for an already-existing branch.
 
-  - **Dependency Injection**: tsyringe container at `infrastructure/di/container.ts`
-  - **Two-phase feature creation**: `createRecord()` (fast DB write) → `initializeAndSpawn()` (slow: AI metadata,
-    git worktree, spec init, agent spawn). Web UI uses fire-and-forget for phase 2.
-  - **Slug → Branch convention**: `SlugResolver` generates `feat/<slug>` branches. Branch names always start with `feat/`.
-  - **Worktree path convention**: `~/.shep/repos/<sha256(repoPath).slice(0,16)>/wt/<branch-slug>/`
-  - **Feature actions**: Server actions in `web/app/actions/` resolve use cases from DI container. Actions like
-    `open-ide.ts`, `open-shell.ts`, `deploy-feature.ts` work with `worktreePath` on the Feature entity.
+  - **FR-3**: The `WorktreeService` infrastructure implementation SHALL implement `addExisting()` by
+    executing `git worktree add <worktreePath> <branch>` and returning the worktree path.
 
-  ### Relevant Technologies
+  - **FR-4**: The `AdoptBranchUseCase` SHALL validate that the branch exists either locally (via
+    `branchExists()`) or on the remote (via `remoteBranchExists()`) before proceeding. If the branch
+    does not exist in either location, it SHALL return a descriptive error.
 
-  - **git worktree**: The `WorktreeService` wraps `git worktree add/remove/list`. Currently `create()` always
-    passes `-b` to create a new branch. Adopting an existing branch requires `git worktree add <path> <existing-branch>`
-    (without `-b`).
-  - **TypeSpec**: Domain models are defined in `tsp/` and compiled to `packages/core/src/domain/generated/output.ts`.
-    Any new lifecycle state would need to be added to `tsp/common/enums/lifecycle.tsp`.
-  - **SQLite**: Feature records stored via `feature.mapper.ts`. The mapper handles toDatabase/fromDatabase conversion.
-  - **React Flow**: Feature graph visualization in the web UI. Nodes derive from `Feature` entities via `getGraphData()`.
+  - **FR-5**: If the branch exists only on the remote, the `AdoptBranchUseCase` SHALL use the remote
+    tracking reference (e.g., `origin/<branch>`) as the start point for the worktree, allowing git
+    to set up local tracking automatically.
+
+  - **FR-6**: The `AdoptBranchUseCase` SHALL check if the branch is already tracked as a Feature in
+    the database. If so, it SHALL reject the adoption with a clear error message including the existing
+    feature's ID and name.
+
+  - **FR-7**: The `AdoptBranchUseCase` SHALL reject adoption of the main/master branch with a
+    descriptive error (main branch should not be treated as a feature).
+
+  - **FR-8**: The `AdoptBranchUseCase` SHALL check if a worktree already exists for the branch (via
+    `worktreeService.exists()`). If one exists, it SHALL reuse the existing worktree path rather than
+    attempting to create a duplicate.
+
+  - **FR-9**: The feature name SHALL be derived from the branch name by: (a) stripping common prefixes
+    (`feat/`, `fix/`, `chore/`, `refactor/`, `docs/`, `test/`, `ci/`, `build/`, `perf/`, `style/`,
+    `revert/`, `hotfix/`, `release/`), (b) replacing hyphens and underscores with spaces,
+    (c) title-casing each word. Example: `fix/login-bug` → "Login Bug".
+
+  - **FR-10**: The feature slug SHALL be derived from the full branch name by converting slashes and
+    special characters to hyphens and lowercasing. Example: `fix/login-bug` → `fix-login-bug`.
+    The slug SHALL be validated for uniqueness via the existing `IFeatureRepository.findBySlug()`.
+
+  - **FR-11**: The adopted Feature entity SHALL be persisted with the following field values:
+    - `branch`: exact branch name as provided (preserved verbatim)
+    - `slug`: derived from branch name (FR-10)
+    - `name`: derived from branch name (FR-9)
+    - `lifecycle`: `SdlcLifecycle.Maintain`
+    - `userQuery`: empty string
+    - `specPath`: undefined (no spec directory)
+    - `agentRunId`: undefined (no agent run)
+    - `worktreePath`: computed via `getWorktreePath()` or reused from existing worktree
+    - `messages`: empty array
+    - `relatedArtifacts`: empty array
+    - `approvalGates`: all false (no gates required)
+    - `fast`: false
+    - `push`: false
+    - `openPr`: false
+
+  - **FR-12**: A new CLI subcommand `shep feat adopt <branch-name>` SHALL be registered in the feat
+    command group. It SHALL accept a required positional argument for the branch name and display
+    the adopted feature's metadata (ID, name, branch, status, worktree path) on success.
+
+  - **FR-13**: A new Next.js server action `adoptBranch()` SHALL be created at
+    `src/presentation/web/app/actions/adopt-branch.ts` that resolves `AdoptBranchUseCase` from the
+    DI container and executes it. It SHALL return `{ feature?, error? }` matching the existing
+    server action pattern.
+
+  - **FR-14**: A new web UI drawer SHALL be created at a `/adopt` parallel route, accessible via a
+    button in the control center. The drawer SHALL contain a text input for the branch name and
+    a submit button. On success, it SHALL close the drawer and dispatch a feature-created event
+    for optimistic UI updates.
+
+  - **FR-15**: The `AdoptBranchUseCase` SHALL be registered in the DI container alongside existing
+    use cases, following the tsyringe injection pattern.
+
+  - **FR-16**: The adopted feature SHALL appear in the React Flow feature graph as a node connected
+    to its repository, consistent with Shep-created features. No special node styling is required
+    for v1.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1**: The adopt operation SHALL complete within 5 seconds for local branches (excluding
+    network time for remote-only branches), as it does not involve AI calls or agent spawning.
+
+  - **NFR-2**: The adopt flow SHALL follow the existing Clean Architecture layering: use case in
+    application layer, worktree extension in infrastructure, CLI command and web action in
+    presentation. No layer violations.
+
+  - **NFR-3**: All new code SHALL have unit test coverage. The `AdoptBranchUseCase` SHALL have tests
+    for: happy path (local branch), happy path (remote-only branch), duplicate rejection, main branch
+    rejection, missing branch error, existing worktree reuse. The `addExisting()` method SHALL have
+    tests for successful creation and error handling.
+
+  - **NFR-4**: The adopt command SHALL provide clear, actionable error messages for all failure modes:
+    branch not found, branch already adopted, main branch rejection, git worktree failures.
+
+  - **NFR-5**: The adopt flow SHALL not modify any existing feature creation behavior. The
+    `CreateFeatureUseCase` SHALL remain unchanged. Adopt is an additive capability.
+
+  - **NFR-6**: The web UI adopt drawer SHALL follow existing UI patterns (drawer component structure,
+    form submission, error display, loading states) for visual consistency.
+
+  - **NFR-7**: The adopt flow SHALL be idempotent with respect to worktree creation — calling adopt
+    on a branch that already has a worktree SHALL succeed by reusing the existing worktree rather
+    than failing or creating a duplicate.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Lifecycle state for adopted features? | Reuse Maintain | Already exists, exact semantics match, no TypeSpec changes needed |
+  | 2 | Branch name restrictions? | Any branch name | Core use case is external branches that don't follow feat/* convention |
+  | 3 | Feature name derivation? | Auto-derive from branch | Fast, deterministic, no AI dependency; user can rename later |
+  | 4 | Web UI entry point? | Separate adopt drawer | Different inputs from create flow; cleaner UX with dedicated route |
+  | 5 | Remote-only branch handling? | Auto-fetch | Key use case is teammate branches; friction-free adoption |
+  | 6 | Bulk adoption? | Single branch only (v1) | Keep v1 focused; add bulk as follow-up if needed |
 
   ## Affected Areas
 
   | Area | Impact | Reasoning |
   | ---- | ------ | --------- |
-  | `packages/core/src/application/use-cases/features/` | High | New `AdoptBranchUseCase` needed — the core business logic for adopting a branch |
-  | `packages/core/src/application/ports/output/services/worktree-service.interface.ts` | Medium | Need a new method like `addExisting()` that runs `git worktree add <path> <branch>` without `-b` |
-  | `packages/core/src/infrastructure/services/git/worktree.service.ts` | Medium | Implement the new `addExisting()` method |
+  | `packages/core/src/application/use-cases/features/` | High | New `AdoptBranchUseCase` — core business logic for adopting a branch |
+  | `packages/core/src/application/ports/output/services/worktree-service.interface.ts` | Medium | New `addExisting()` method signature |
+  | `packages/core/src/infrastructure/services/git/worktree.service.ts` | Medium | Implement `addExisting()` |
   | `src/presentation/cli/commands/feat/index.ts` | Medium | Register new `adopt` subcommand |
   | `src/presentation/cli/commands/feat/` | High | New `adopt.command.ts` CLI entry point |
-  | `src/presentation/web/app/actions/` | Medium | New `adopt-branch.ts` server action for web UI |
-  | `src/presentation/web/components/` | Medium | UI entry point for adopt flow (e.g., in the create feature dialog or as a separate action) |
-  | `packages/core/src/application/ports/output/repositories/feature-repository.interface.ts` | Low | May need `findByBranch()` to check for duplicate adoption |
-  | `tsp/common/enums/lifecycle.tsp` | Low | Possibly add `Adopted` lifecycle state (or reuse `Maintain`) |
-  | `packages/core/src/domain/generated/output.ts` | Low | Auto-generated from TypeSpec if lifecycle enum changes |
-  | `tests/` | High | Unit tests for `AdoptBranchUseCase`, integration tests for CLI command, worktree service tests |
+  | `src/presentation/web/app/actions/` | Medium | New `adopt-branch.ts` server action |
+  | `src/presentation/web/components/` | Medium | New adopt drawer component |
+  | `src/presentation/web/app/(dashboard)/@drawer/` | Medium | New `/adopt` parallel route |
+  | `packages/core/src/application/ports/output/repositories/feature-repository.interface.ts` | Low | May add `findByBranch()` for duplicate detection |
+  | `packages/core/src/infrastructure/di/container.ts` | Low | Register `AdoptBranchUseCase` in DI |
+  | `tests/` | High | Unit tests for use case, worktree service; integration tests for CLI |
 
   ## Dependencies
 
-  - **IWorktreeService**: Must be extended with a method to add a worktree for an existing branch (without `-b`)
-  - **IFeatureRepository**: The `create()` method is already sufficient for persisting the adopted feature
-  - **WorktreeService.getWorktreePath()**: Can be reused to compute the worktree path for the adopted branch
-  - **WorktreeService.branchExists() / remoteBranchExists()**: Used to validate the branch exists before adopting
-  - **IRepositoryRepository**: Reuse existing logic to resolve/create the Repository entity
-  - **Feature entity**: No schema changes needed — all fields can be populated for an adopted feature (branch, worktreePath, lifecycle=Maintain, empty specPath, no agentRunId)
-
-  ## Success Criteria
-
-  - [ ] `shep feat adopt <branch-name>` CLI command creates a Feature record for an existing branch
-  - [ ] If no worktree exists for the branch, one is created via `git worktree add`
-  - [ ] If a worktree already exists, it is reused (no duplicate creation)
-  - [ ] The adopted feature appears in `shep feat ls` and the web UI feature list
-  - [ ] Feature actions work on adopted features: open in IDE, open shell, deploy
-  - [ ] No agent is spawned — the feature is passive/manual by default
-  - [ ] The branch name is preserved exactly (not reformatted to `feat/<slug>`)
-  - [ ] Duplicate adoption of the same branch is detected and rejected gracefully
-  - [ ] Web UI provides an entry point to adopt an existing branch
-  - [ ] Unit tests cover the AdoptBranchUseCase and worktree service extension
+  - **IWorktreeService**: Must be extended with `addExisting()` method (no `-b` flag)
+  - **IFeatureRepository**: Existing `create()` and `findBySlug()` methods sufficient; may add `findByBranch()`
+  - **WorktreeService.getWorktreePath()**: Reused to compute worktree path
+  - **WorktreeService.branchExists() / remoteBranchExists()**: Used to validate branch existence
+  - **WorktreeService.exists()**: Used to check for existing worktree before creating
+  - **IRepositoryRepository**: Reused to resolve/create Repository entity
+  - **Feature entity**: No schema changes — all fields populated with defaults for adopted features
+  - **SdlcLifecycle.Maintain**: Existing enum value, no TypeSpec changes needed
 
   ## Size Estimate
 
   **M** — This feature requires a new use case, a worktree service extension, CLI command, web server action,
   and web UI entry point. However, it largely follows existing patterns (CreateFeatureUseCase is a template)
-  and doesn't require domain model changes (no TypeSpec changes needed if we reuse Maintain lifecycle).
+  and doesn't require domain model changes (no TypeSpec changes needed since we reuse Maintain lifecycle).
   The main complexity is in correctly handling the "adopt existing branch" git worktree flow and ensuring
   all feature actions work with adopted features that may lack spec directories or agent runs.
 
   ---
 
-  _Generated by feature agent — proceed with research_
+  _Requirements defined — proceed with research_
