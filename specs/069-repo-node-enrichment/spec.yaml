@@ -96,3 +96,10 @@ rejectionFeedback:
     attachments:
       - >-
         /Users/arielshadkhan/.shep/attachments/pending-85da7a9b-941f-445d-aa89-5b032a4e3ad8/image-f007defa.png
+  - iteration: 3
+    message: lets make it a bit bigger so the 3 behind would be single line
+    phase: merge
+    timestamp: '2026-03-16T14:30:22.324Z'
+    attachments:
+      - >-
+        /Users/arielshadkhan/.shep/attachments/pending-5ab6aa05-2f4e-49df-8df9-299401b36b0b/image-3760bab7.png

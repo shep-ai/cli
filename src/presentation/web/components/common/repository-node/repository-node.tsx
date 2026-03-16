@@ -171,7 +171,7 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
             data.onClick?.();
           }
         }}
-        className="nodrag bg-card flex max-w-[22rem] min-w-[18rem] cursor-pointer flex-col overflow-hidden rounded-xl border shadow-sm"
+        className="nodrag bg-card flex max-w-[26rem] min-w-[22rem] cursor-pointer flex-col overflow-hidden rounded-xl border shadow-sm"
       >
         {/* Row 1: Repository name + action buttons */}
         <div className="flex items-center gap-3 px-4 py-3">
@@ -328,7 +328,7 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
               </span>
               {data.behindCount != null && data.behindCount > 0 ? (
                 <span
-                  className="flex items-center gap-1 text-amber-500"
+                  className="flex shrink-0 items-center gap-1 whitespace-nowrap text-amber-500"
                   data-testid="repository-node-behind"
                 >
                   <ArrowDown className="h-3 w-3 shrink-0" />
