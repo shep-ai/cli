@@ -47,7 +47,7 @@ function createMockDeps(mockChild?: ReturnType<typeof createMockChild>): Deploym
       command: 'npm run dev',
     }),
     kill: vi.fn(),
-    isAlive: vi.fn().mockReturnValue(false),
+    isAlive: vi.fn().mockReturnValue(true),
   };
 }
 
@@ -222,6 +222,8 @@ describe('DeploymentService', () => {
     it('should send SIGTERM to process tree via tree-kill (positive PID)', async () => {
       service.start('feature-1', '/project/path');
 
+      // After SIGTERM, process dies
+      (deps.isAlive as ReturnType<typeof vi.fn>).mockReturnValue(false);
       const stopPromise = service.stop('feature-1');
 
       // Advance timers to let pollUntilDead complete (isAlive returns false)
@@ -264,6 +266,8 @@ describe('DeploymentService', () => {
     it('should remove entry from map after process exits', async () => {
       service.start('feature-1', '/project/path');
 
+      // After SIGTERM, process dies
+      (deps.isAlive as ReturnType<typeof vi.fn>).mockReturnValue(false);
       const stopPromise = service.stop('feature-1');
 
       // Advance timers to let pollUntilDead complete (isAlive returns false)
