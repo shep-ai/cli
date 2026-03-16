@@ -203,6 +203,14 @@ export function FeatureCreateDrawer({
   const defaultCommitEvidence = workflowDefaults?.commitEvidence ?? false;
 
   const [description, setDescription] = useState(initialDescription ?? '');
+
+  // Sync description when initialDescription prop changes (e.g. from session context)
+  useEffect(() => {
+    if (initialDescription) {
+      setDescription(initialDescription);
+    }
+  }, [initialDescription]);
+
   const [attachments, setAttachments] = useState<FormAttachment[]>([]);
   const [approvalGates, setApprovalGates] = useState<Record<string, boolean>>({ ...defaultGates });
   const [push, setPush] = useState(defaultPush);
