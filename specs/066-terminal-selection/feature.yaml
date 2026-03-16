@@ -1,0 +1,36 @@
+feature:
+  id: '066-terminal-selection'
+  name: 'terminal-selection'
+  number: 66
+  branch: 'feat/066-terminal-selection'
+  lifecycle: 'research'
+  createdAt: '2026-03-15T13:02:26Z'
+
+status:
+  phase: 'research'
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-03-15T13:02:26Z'
+  lastUpdatedBy: 'feature-agent'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-03-15T13:02:26Z'
+    completedBy: 'feature-agent'
+
+errors:
+  current: null
+  history: []

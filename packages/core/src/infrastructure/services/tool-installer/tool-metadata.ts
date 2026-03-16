@@ -142,3 +142,13 @@ export const TOOL_METADATA: Record<string, ToolMetadata> = loadToolMetadata();
 export function getIdeEntries(): [string, ToolMetadata][] {
   return Object.entries(TOOL_METADATA).filter(([, meta]) => meta.openDirectory != null);
 }
+
+/**
+ * Returns entries from TOOL_METADATA tagged as "terminal" that have an
+ * `openDirectory` field. Each entry is [toolId, metadata].
+ */
+export function getTerminalEntries(): [string, ToolMetadata][] {
+  return Object.entries(TOOL_METADATA).filter(
+    ([, meta]) => meta.tags.includes('terminal') && meta.openDirectory != null
+  );
+}

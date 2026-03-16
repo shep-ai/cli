@@ -1,0 +1,24 @@
+{
+  "name": "System Terminal",
+  "summary": "OS default terminal emulator",
+  "description": "The default terminal emulator for your operating system: Terminal.app on macOS, x-terminal-emulator on Linux, and PowerShell on Windows.",
+  "tags": ["terminal"],
+  "author": "System",
+  "platforms": ["linux", "darwin", "win32"],
+  "binary": {
+    "darwin": "open",
+    "linux": "x-terminal-emulator",
+    "win32": "powershell"
+  },
+  "packageManager": "system",
+  "commands": {},
+  "timeout": 5000,
+  "documentationUrl": "https://support.apple.com/guide/terminal/welcome/mac",
+  "verifyCommand": "true",
+  "autoInstall": false,
+  "openDirectory": {
+    "darwin": "open -a Terminal {dir}",
+    "linux": "x-terminal-emulator --working-directory={dir}",
+    "win32": "powershell -NoExit -Command \"Set-Location \\\"{dir}\\\"\""
+  }
+}

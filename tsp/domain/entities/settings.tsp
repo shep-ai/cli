@@ -36,6 +36,7 @@ import "../../common/base.tsp";
 import "../../common/enums/agent-config.tsp";
 import "../../common/enums/editor.tsp";
 import "../../common/enums/notification.tsp";
+import "../../common/enums/terminal.tsp";
 
 /**
  * Model Configuration
@@ -139,6 +140,15 @@ model EnvironmentConfig {
    */
   @doc("Preferred shell")
   shellPreference: string = "bash";
+
+  /**
+   * Preferred terminal emulator.
+   * Controls which terminal application opens when Shep launches
+   * shell sessions (e.g., from the web UI "Open Terminal" button).
+   * "system" uses the OS default (Terminal.app, x-terminal-emulator, PowerShell).
+   */
+  @doc("Preferred terminal emulator")
+  terminalPreference: TerminalType = TerminalType.System;
 }
 
 /**
@@ -485,7 +495,8 @@ model FeatureFlags {
  *   },
  *   "environment": {
  *     "defaultEditor": "vscode",
- *     "shellPreference": "bash"
+ *     "shellPreference": "bash",
+ *     "terminalPreference": "system"
  *   },
  *   "system": {
  *     "autoUpdate": true,

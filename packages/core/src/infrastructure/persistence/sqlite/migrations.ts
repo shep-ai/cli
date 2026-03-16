@@ -72,8 +72,8 @@ async function discoverNewMigrations(
   const migrations: RunnableMigration<Database.Database>[] = [];
 
   for (const file of files) {
-    const filePath = join(migrationsDir, file);
     const name = file.replace(/\.(js|ts)$/, '');
+    const filePath = join(migrationsDir, file);
     const mod = (await import(pathToFileURL(filePath).href)) as {
       up: (params: MigrationParams<Database.Database>) => Promise<unknown>;
       down?: (params: MigrationParams<Database.Database>) => Promise<unknown>;

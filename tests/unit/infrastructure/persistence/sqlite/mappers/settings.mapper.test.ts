@@ -16,7 +16,7 @@ import {
   type SettingsRow,
 } from '@/infrastructure/persistence/sqlite/mappers/settings.mapper.js';
 import type { Settings } from '@/domain/generated/output.js';
-import { AgentType, AgentAuthMethod, EditorType } from '@/domain/generated/output.js';
+import { AgentType, AgentAuthMethod, EditorType, TerminalType } from '@/domain/generated/output.js';
 
 /**
  * Creates a complete test Settings object with all fields populated,
@@ -38,6 +38,7 @@ function createTestSettings(overrides: Partial<Settings> = {}): Settings {
     environment: {
       defaultEditor: EditorType.VsCode,
       shellPreference: 'zsh',
+      terminalPreference: TerminalType.System,
     },
     system: {
       autoUpdate: true,
@@ -100,6 +101,7 @@ function createTestRow(overrides: Partial<SettingsRow> = {}): SettingsRow {
     user_github_username: 'testuser',
     env_default_editor: 'vscode',
     env_shell_preference: 'zsh',
+    env_terminal_preference: 'system',
     sys_auto_update: 1,
     sys_log_level: 'info',
     agent_type: 'claude-code',
@@ -483,6 +485,55 @@ describe('Settings Mapper', () => {
         allowMerge: true,
         pushOnImplementationComplete: true,
       });
+    });
+  });
+
+  describe('toDatabase() - terminal preference', () => {
+    it('should map terminalPreference to env_terminal_preference', () => {
+      const settings = createTestSettings({
+        environment: {
+          defaultEditor: EditorType.VsCode,
+          shellPreference: 'bash',
+          terminalPreference: TerminalType.Warp,
+        },
+      });
+      const row = toDatabase(settings);
+      expect(row.env_terminal_preference).toBe('warp');
+    });
+
+    it('should default to system terminal', () => {
+      const settings = createTestSettings();
+      const row = toDatabase(settings);
+      expect(row.env_terminal_preference).toBe('system');
+    });
+  });
+
+  describe('fromDatabase() - terminal preference', () => {
+    it('should reconstruct terminalPreference from env_terminal_preference', () => {
+      const row = createTestRow({ env_terminal_preference: 'warp' });
+      const settings = fromDatabase(row);
+      expect(settings.environment.terminalPreference).toBe('warp');
+    });
+
+    it('should default to system when column is null', () => {
+      const row = createTestRow({ env_terminal_preference: undefined as any });
+      const settings = fromDatabase(row);
+      expect(settings.environment.terminalPreference).toBe('system');
+    });
+  });
+
+  describe('round-trip - terminal preference', () => {
+    it('should preserve terminalPreference through toDatabase → fromDatabase', () => {
+      const original = createTestSettings({
+        environment: {
+          defaultEditor: EditorType.Cursor,
+          shellPreference: 'fish',
+          terminalPreference: TerminalType.ITerm2,
+        },
+      });
+      const row = toDatabase(original);
+      const restored = fromDatabase(row);
+      expect(restored.environment.terminalPreference).toBe(TerminalType.ITerm2);
     });
   });
 
