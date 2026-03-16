@@ -157,7 +157,14 @@ export class DevAgentExecutorService implements IAgentExecutor {
     if (this.delayMs > 0) {
       await new Promise<void>((resolve) => setTimeout(resolve, this.delayMs));
     }
-    return { result: this.dispatch(prompt) };
+    const result = this.dispatch(prompt);
+    return {
+      result,
+      usage: {
+        inputTokens: Math.floor(prompt.length * 1.3),
+        outputTokens: Math.floor(result.length * 1.3),
+      },
+    };
   }
 
   async *executeStream(
