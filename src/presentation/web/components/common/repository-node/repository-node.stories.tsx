@@ -43,7 +43,8 @@ const meta: Meta<RepositoryNodeData> = {
   args: {
     name: 'shep-ai/cli',
     branch: 'main',
-    commitHash: 'a1b2c3d',
+    commitMessage: 'feat: add dark mode toggle',
+    committer: 'Jane Doe',
   },
 };
 
@@ -78,10 +79,32 @@ export const LongName: Story = {
 const onAdd = () => undefined;
 
 const multipleRepos: RepositoryNodeData[] = [
-  { name: 'shep-ai/cli', branch: 'main', commitHash: 'a1b2c3d' },
-  { name: 'vercel/edge-runtime', branch: 'feat/streaming', commitHash: 'e4f5g6h', behindCount: 3 },
-  { name: 'acme-corp/web-dashboard-v2', branch: 'develop', commitHash: 'i7j8k9l', behindCount: 12 },
-  { name: 'openai/tiktoken', branch: 'main', commitHash: 'm0n1o2p' },
+  {
+    name: 'shep-ai/cli',
+    branch: 'main',
+    commitMessage: 'feat: add dark mode toggle',
+    committer: 'Jane Doe',
+  },
+  {
+    name: 'vercel/edge-runtime',
+    branch: 'feat/streaming',
+    commitMessage: 'fix: handle edge cases in streaming',
+    committer: 'John Smith',
+    behindCount: 3,
+  },
+  {
+    name: 'acme-corp/web-dashboard-v2',
+    branch: 'develop',
+    commitMessage: 'chore: update dependencies',
+    committer: 'Bot',
+    behindCount: 12,
+  },
+  {
+    name: 'openai/tiktoken',
+    branch: 'main',
+    commitMessage: 'perf: optimize token encoding',
+    committer: 'Alice Chen',
+  },
 ];
 
 export const Multiple: Story = {
@@ -111,16 +134,35 @@ export const Multiple: Story = {
 };
 
 const multipleReposWithButton: RepositoryNodeData[] = [
-  { name: 'shep-ai/cli', onAdd, branch: 'main', commitHash: 'a1b2c3d' },
+  {
+    name: 'shep-ai/cli',
+    onAdd,
+    branch: 'main',
+    commitMessage: 'feat: add dark mode toggle',
+    committer: 'Jane Doe',
+  },
   {
     name: 'vercel/edge-runtime',
     onAdd,
     branch: 'feat/streaming',
-    commitHash: 'e4f5g6h',
+    commitMessage: 'fix: handle edge cases in streaming',
+    committer: 'John Smith',
     behindCount: 3,
   },
-  { name: 'acme-corp/web-dashboard-v2', onAdd, branch: 'develop', commitHash: 'i7j8k9l' },
-  { name: 'openai/tiktoken', onAdd, branch: 'main', commitHash: 'm0n1o2p' },
+  {
+    name: 'acme-corp/web-dashboard-v2',
+    onAdd,
+    branch: 'develop',
+    commitMessage: 'chore: update dependencies',
+    committer: 'Bot',
+  },
+  {
+    name: 'openai/tiktoken',
+    onAdd,
+    branch: 'main',
+    commitMessage: 'perf: optimize token encoding',
+    committer: 'Alice Chen',
+  },
 ];
 
 export const MultipleWithButton: Story = {
@@ -198,7 +240,8 @@ const multipleReposWithActions: RepositoryNodeData[] = [
     onAdd,
     onDelete,
     branch: 'main',
-    commitHash: '60ef554',
+    commitMessage: 'feat(web): enrich repository node with branch and commit info',
+    committer: 'Ariel Shadkhan',
   },
   {
     id: 'r2',
@@ -207,7 +250,8 @@ const multipleReposWithActions: RepositoryNodeData[] = [
     onAdd,
     onDelete,
     branch: 'feat/streaming-v2',
-    commitHash: 'e4f5g6h',
+    commitMessage: 'fix: handle edge cases in streaming response',
+    committer: 'John Smith',
     behindCount: 5,
   },
   {
@@ -217,7 +261,8 @@ const multipleReposWithActions: RepositoryNodeData[] = [
     onAdd,
     onDelete,
     branch: 'develop',
-    commitHash: 'i7j8k9l',
+    commitMessage: 'chore(deps): update all dependencies to latest',
+    committer: 'Renovate Bot',
     behindCount: 23,
   },
   {
@@ -227,7 +272,8 @@ const multipleReposWithActions: RepositoryNodeData[] = [
     onAdd,
     onDelete,
     branch: 'main',
-    commitHash: 'm0n1o2p',
+    commitMessage: 'perf: optimize token encoding for large inputs',
+    committer: 'Alice Chen',
   },
 ];
 
@@ -261,7 +307,8 @@ export const WithGitInfo: Story = {
   args: {
     repositoryPath: '/home/user/shep-ai/cli',
     branch: 'feat/repo-node-enrichment',
-    commitHash: '60ef554',
+    commitMessage: 'feat(web): enrich repository node with branch and commit info',
+    committer: 'Ariel Shadkhan',
     behindCount: 0,
   },
   render: (args) => <RepositoryNodeCanvas data={args} />,
@@ -271,7 +318,8 @@ export const WithGitInfoBehind: Story = {
   args: {
     repositoryPath: '/home/user/shep-ai/cli',
     branch: 'feat/old-feature-branch',
-    commitHash: 'abc1234',
+    commitMessage: 'fix: resolve merge conflict in auth module',
+    committer: 'Jane Doe',
     behindCount: 7,
   },
   render: (args) => <RepositoryNodeCanvas data={args} />,

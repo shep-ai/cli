@@ -300,7 +300,15 @@ describe('buildGraphNodes', () => {
     it('includes git info when repoGitInfo map has data for the repository', () => {
       const repo = makeRepo({ path: '/my/repo' });
       const repoGitInfo = new Map([
-        ['/my/repo', { branch: 'feat/test', commitHash: 'abc1234', behindCount: 3 }],
+        [
+          '/my/repo',
+          {
+            branch: 'feat/test',
+            commitMessage: 'feat: add login page',
+            committer: 'Jane Doe',
+            behindCount: 3,
+          },
+        ],
       ]);
       const { nodes } = buildGraphNodes([repo], [], { repoGitInfo });
 
@@ -308,21 +316,25 @@ describe('buildGraphNodes', () => {
       expect(repoNode).toBeDefined();
       const data = repoNode!.data as Record<string, unknown>;
       expect(data.branch).toBe('feat/test');
-      expect(data.commitHash).toBe('abc1234');
+      expect(data.commitMessage).toBe('feat: add login page');
+      expect(data.committer).toBe('Jane Doe');
       expect(data.behindCount).toBe(3);
     });
 
     it('does not include git info when repoGitInfo map has no data for the repository', () => {
       const repo = makeRepo({ path: '/my/repo' });
       const repoGitInfo = new Map([
-        ['/other/repo', { branch: 'main', commitHash: 'def5678', behindCount: 0 }],
+        [
+          '/other/repo',
+          { branch: 'main', commitMessage: 'chore: cleanup', committer: 'Bot', behindCount: 0 },
+        ],
       ]);
       const { nodes } = buildGraphNodes([repo], [], { repoGitInfo });
 
       const repoNode = nodes.find((n) => n.id === 'repo-repo-1');
       const data = repoNode!.data as Record<string, unknown>;
       expect(data.branch).toBeUndefined();
-      expect(data.commitHash).toBeUndefined();
+      expect(data.commitMessage).toBeUndefined();
     });
 
     it('does not include git info when repoGitInfo is not provided', () => {

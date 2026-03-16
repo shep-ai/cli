@@ -15,6 +15,7 @@ import {
   GitBranch,
   GitCommitHorizontal,
   ArrowDown,
+  User,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ActionButton } from '@/components/common/action-button';
@@ -311,7 +312,7 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
           </div>
         </div>
 
-        {/* Row 2: Git info — branch, commit, behind status */}
+        {/* Row 2: Git info — branch, behind status */}
         {data.branch ? (
           <div
             data-testid="repository-node-git-info"
@@ -325,15 +326,6 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
                 <GitBranch className="h-3 w-3 shrink-0" />
                 <span className="truncate">{data.branch}</span>
               </span>
-              {data.commitHash ? (
-                <span
-                  className="flex items-center gap-1 font-mono"
-                  data-testid="repository-node-commit"
-                >
-                  <GitCommitHorizontal className="h-3 w-3 shrink-0" />
-                  {data.commitHash}
-                </span>
-              ) : null}
               {data.behindCount != null && data.behindCount > 0 ? (
                 <span
                   className="flex items-center gap-1 text-amber-500"
@@ -341,6 +333,33 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
                 >
                   <ArrowDown className="h-3 w-3 shrink-0" />
                   {data.behindCount} behind
+                </span>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+
+        {/* Row 3: Latest commit — message and committer */}
+        {data.commitMessage ? (
+          <div
+            data-testid="repository-node-commit-info"
+            className="text-muted-foreground border-t px-4 py-2"
+          >
+            <div className="flex items-center gap-3 text-xs">
+              <span
+                className="flex min-w-0 items-center gap-1 truncate"
+                data-testid="repository-node-commit-message"
+              >
+                <GitCommitHorizontal className="h-3 w-3 shrink-0" />
+                <span className="truncate">{data.commitMessage}</span>
+              </span>
+              {data.committer ? (
+                <span
+                  className="flex shrink-0 items-center gap-1"
+                  data-testid="repository-node-committer"
+                >
+                  <User className="h-3 w-3 shrink-0" />
+                  <span className="truncate">{data.committer}</span>
                 </span>
               ) : null}
             </div>

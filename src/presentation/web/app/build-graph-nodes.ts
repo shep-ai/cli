@@ -40,8 +40,11 @@ export interface BuildGraphNodesOptions {
   commitEvidence?: boolean;
   /** Whether CI watch/fix loop is enabled (global workflow setting) */
   ciWatchEnabled?: boolean;
-  /** Git info (branch, commit, behind count) keyed by repository path */
-  repoGitInfo?: Map<string, { branch: string; commitHash: string; behindCount: number | null }>;
+  /** Git info (branch, commit message, committer, behind count) keyed by repository path */
+  repoGitInfo?: Map<
+    string,
+    { branch: string; commitMessage: string; committer: string; behindCount: number | null }
+  >;
 }
 
 export function buildGraphNodes(
@@ -86,7 +89,8 @@ export function buildGraphNodes(
           repo.createdAt instanceof Date ? repo.createdAt.getTime() : Number(repo.createdAt),
         ...(gitInfo && {
           branch: gitInfo.branch,
-          commitHash: gitInfo.commitHash,
+          commitMessage: gitInfo.commitMessage,
+          committer: gitInfo.committer,
           behindCount: gitInfo.behindCount,
         }),
       },

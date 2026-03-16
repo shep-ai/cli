@@ -12,8 +12,10 @@ export interface RepositoryNodeData {
   createdAt?: number;
   /** Current git branch name (e.g. "main", "feat/my-feature") */
   branch?: string;
-  /** Short commit hash of the branch HEAD (e.g. "a1b2c3d") */
-  commitHash?: string;
+  /** Commit message of the branch HEAD (first line only) */
+  commitMessage?: string;
+  /** Name of the person who made the latest commit */
+  committer?: string;
   /** Number of commits the current branch is behind the default branch. null if on default branch or unknown. */
   behindCount?: number | null;
   onClick?: () => void;

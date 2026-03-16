@@ -20,7 +20,8 @@ const execFileAsync = promisify(execFileCb);
 
 export interface RepoGitInfo {
   branch: string;
-  commitHash: string;
+  commitMessage: string;
+  committer: string;
   behindCount: number | null;
 }
 
@@ -35,9 +36,10 @@ async function gitCommand(cwd: string, args: string[]): Promise<string | null> {
 
 async function fetchRepoGitInfo(repo: Repository): Promise<RepoGitInfo | null> {
   try {
-    const [currentBranch, commitHash] = await Promise.all([
+    const [currentBranch, commitMessage, committer] = await Promise.all([
       gitCommand(repo.path, ['symbolic-ref', '--short', 'HEAD']),
-      gitCommand(repo.path, ['rev-parse', '--short', 'HEAD']),
+      gitCommand(repo.path, ['log', '-1', '--format=%s']),
+      gitCommand(repo.path, ['log', '-1', '--format=%an']),
     ]);
 
     if (!currentBranch) return null;
@@ -64,7 +66,8 @@ async function fetchRepoGitInfo(repo: Repository): Promise<RepoGitInfo | null> {
 
     return {
       branch: currentBranch,
-      commitHash: commitHash ?? 'unknown',
+      commitMessage: commitMessage ?? 'unknown',
+      committer: committer ?? 'unknown',
       behindCount,
     };
   } catch {

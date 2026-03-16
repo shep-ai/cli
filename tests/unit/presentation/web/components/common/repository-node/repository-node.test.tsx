@@ -464,20 +464,14 @@ describe('RepositoryNode', () => {
 
   describe('git info display', () => {
     it('renders branch name when branch is provided', () => {
-      renderNode({ ...defaultData, branch: 'main', commitHash: 'a1b2c3d' });
+      renderNode({ ...defaultData, branch: 'main' });
 
       expect(screen.getByTestId('repository-node-git-info')).toBeInTheDocument();
       expect(screen.getByTestId('repository-node-branch')).toHaveTextContent('main');
     });
 
-    it('renders commit hash when commitHash is provided', () => {
-      renderNode({ ...defaultData, branch: 'main', commitHash: 'a1b2c3d' });
-
-      expect(screen.getByTestId('repository-node-commit')).toHaveTextContent('a1b2c3d');
-    });
-
     it('renders behind count when behindCount is greater than 0', () => {
-      renderNode({ ...defaultData, branch: 'feat/test', commitHash: 'abc1234', behindCount: 5 });
+      renderNode({ ...defaultData, branch: 'feat/test', behindCount: 5 });
 
       const behind = screen.getByTestId('repository-node-behind');
       expect(behind).toBeInTheDocument();
@@ -485,13 +479,13 @@ describe('RepositoryNode', () => {
     });
 
     it('does not render behind count when behindCount is 0', () => {
-      renderNode({ ...defaultData, branch: 'main', commitHash: 'a1b2c3d', behindCount: 0 });
+      renderNode({ ...defaultData, branch: 'main', behindCount: 0 });
 
       expect(screen.queryByTestId('repository-node-behind')).not.toBeInTheDocument();
     });
 
     it('does not render behind count when behindCount is null', () => {
-      renderNode({ ...defaultData, branch: 'main', commitHash: 'a1b2c3d', behindCount: null });
+      renderNode({ ...defaultData, branch: 'main', behindCount: null });
 
       expect(screen.queryByTestId('repository-node-behind')).not.toBeInTheDocument();
     });
@@ -500,6 +494,35 @@ describe('RepositoryNode', () => {
       renderNode(defaultData);
 
       expect(screen.queryByTestId('repository-node-git-info')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('commit info display', () => {
+    it('renders commit message when commitMessage is provided', () => {
+      renderNode({ ...defaultData, commitMessage: 'feat: add login page', committer: 'Jane Doe' });
+
+      expect(screen.getByTestId('repository-node-commit-info')).toBeInTheDocument();
+      expect(screen.getByTestId('repository-node-commit-message')).toHaveTextContent(
+        'feat: add login page'
+      );
+    });
+
+    it('renders committer name when committer is provided', () => {
+      renderNode({ ...defaultData, commitMessage: 'fix: typo', committer: 'John Smith' });
+
+      expect(screen.getByTestId('repository-node-committer')).toHaveTextContent('John Smith');
+    });
+
+    it('does not render committer when committer is absent', () => {
+      renderNode({ ...defaultData, commitMessage: 'fix: typo' });
+
+      expect(screen.queryByTestId('repository-node-committer')).not.toBeInTheDocument();
+    });
+
+    it('does not render commit info section when commitMessage is not provided', () => {
+      renderNode(defaultData);
+
+      expect(screen.queryByTestId('repository-node-commit-info')).not.toBeInTheDocument();
     });
   });
 });
