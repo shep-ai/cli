@@ -79,6 +79,7 @@ export interface SettingsRow {
   ci_max_fix_attempts: number | null;
   ci_watch_timeout_ms: number | null;
   ci_log_max_chars: number | null;
+  ci_watch_enabled: number;
 
   // WorkflowConfig per-stage timeouts (workflow.stageTimeouts.*)
   stage_timeout_analyze_ms: number | null;
@@ -175,6 +176,7 @@ export function toDatabase(settings: Settings): SettingsRow {
     ci_max_fix_attempts: settings.workflow.ciMaxFixAttempts ?? null,
     ci_watch_timeout_ms: settings.workflow.ciWatchTimeoutMs ?? null,
     ci_log_max_chars: settings.workflow.ciLogMaxChars ?? null,
+    ci_watch_enabled: settings.workflow.ciWatchEnabled !== false ? 1 : 0,
 
     // WorkflowConfig per-stage timeouts (optional number → INTEGER | null)
     stage_timeout_analyze_ms: settings.workflow.stageTimeouts?.analyzeMs ?? null,
@@ -326,6 +328,7 @@ export function fromDatabase(row: SettingsRow): Settings {
       ...(row.ci_log_max_chars !== null && { ciLogMaxChars: row.ci_log_max_chars }),
       ...buildStageTimeoutsFromRow(row),
       ...buildAnalyzeRepoTimeoutsFromRow(row),
+      ciWatchEnabled: row.ci_watch_enabled !== 0,
       enableEvidence: row.workflow_enable_evidence === 1,
       commitEvidence: row.workflow_commit_evidence === 1,
     },

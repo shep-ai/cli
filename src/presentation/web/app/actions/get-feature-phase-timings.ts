@@ -12,6 +12,8 @@ export interface PhaseTimingData {
   durationMs?: number;
   waitingApprovalAt?: string;
   approvalWaitMs?: number;
+  inputTokens?: number;
+  outputTokens?: number;
 }
 
 export interface RejectionFeedbackData {
@@ -43,6 +45,8 @@ export async function getFeaturePhaseTimings(featureId: string): Promise<GetPhas
       durationMs: t.durationMs != null ? Number(t.durationMs) : undefined,
       waitingApprovalAt: t.waitingApprovalAt,
       approvalWaitMs: t.approvalWaitMs != null ? Number(t.approvalWaitMs) : undefined,
+      inputTokens: t.inputTokens != null ? Number(t.inputTokens) : undefined,
+      outputTokens: t.outputTokens != null ? Number(t.outputTokens) : undefined,
     }));
 
     // Read rejection feedback from spec.yaml

@@ -341,6 +341,7 @@ const SAMPLE_WORKFLOW_DEFAULTS: WorkflowDefaults = {
   approvalGates: { allowPrd: true, allowPlan: true, allowMerge: false },
   push: true,
   openPr: true,
+  ciWatchEnabled: true,
   enableEvidence: true,
   commitEvidence: false,
 };

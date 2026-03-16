@@ -284,6 +284,9 @@ model WorkflowConfig {
   @doc("Default approval gate preferences for new features")
   approvalGateDefaults: ApprovalGateDefaults;
 
+  @doc("Enable CI watch/fix loop after push (default: true)")
+  ciWatchEnabled: boolean = true;
+
   @doc("Maximum number of CI fix/push/watch iterations before giving up (default: 3)")
   ciMaxFixAttempts?: int32;
 

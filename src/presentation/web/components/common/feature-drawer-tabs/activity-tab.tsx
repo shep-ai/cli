@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Loader2, AlertCircle, Clock } from 'lucide-react';
+import { Loader2, AlertCircle, Clock, Zap } from 'lucide-react';
 import type {
   PhaseTimingData,
   RejectionFeedbackData,
@@ -49,6 +49,13 @@ function useTickingNow(timings: PhaseTimingData[] | null): number {
   }, [timings]);
 
   return now;
+}
+
+/** Format a token count with K/M suffix for readability. */
+function formatTokens(count: number): string {
+  if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}M`;
+  if (count >= 1_000) return `${(count / 1_000).toFixed(1)}K`;
+  return String(count);
 }
 
 export interface ActivityTabProps {
@@ -228,6 +235,8 @@ export function ActivityTab({ timings, loading, error, rejectionFeedback }: Acti
 
   const totalExecMs = nodeTimings.reduce((sum, t) => sum + getEffectiveDuration(t, now), 0);
   const totalWaitMs = nodeTimings.reduce((sum, t) => sum + (t.approvalWaitMs ?? 0), 0);
+  const totalInputTokens = nodeTimings.reduce((sum, t) => sum + (t.inputTokens ?? 0), 0);
+  const totalOutputTokens = nodeTimings.reduce((sum, t) => sum + (t.outputTokens ?? 0), 0);
 
   return (
     <div className="flex flex-col gap-4 p-4">
@@ -243,7 +252,12 @@ export function ActivityTab({ timings, loading, error, rejectionFeedback }: Acti
         ))}
       </div>
       {totalExecMs > 0 ? (
-        <SummaryTotals totalExecMs={totalExecMs} totalWaitMs={totalWaitMs} />
+        <SummaryTotals
+          totalExecMs={totalExecMs}
+          totalWaitMs={totalWaitMs}
+          totalInputTokens={totalInputTokens}
+          totalOutputTokens={totalOutputTokens}
+        />
       ) : null}
     </div>
   );
@@ -344,27 +358,55 @@ function NodeTimingRow({
   maxDurationMs: number;
   now: number;
 }) {
-  const label = timing.phase.includes(':')
-    ? `rev ${timing.phase.split(':')[1]}`
-    : (NODE_TO_PHASE[timing.phase] ?? timing.phase);
+  const suffix = timing.phase.includes(':') ? timing.phase.split(':')[1] : null;
+  const isSubPhase = suffix !== null;
+  // Distinguish implementation sub-phases (phase-1, phase-2) from rejection retries (2, 3)
+  const isImplPhase = suffix?.startsWith('phase-') ?? false;
+  const label = isImplPhase
+    ? `Phase ${suffix!.replace('phase-', '')}`
+    : suffix !== null
+      ? `retry #${suffix}`
+      : (NODE_TO_PHASE[timing.phase] ?? timing.phase);
 
   const durationMs = getEffectiveDuration(timing, now);
   const barPercent = maxDurationMs > 0 ? Math.max(2, (durationMs / maxDurationMs) * 100) : 2;
   const isRunning = !timing.completedAt && !!timing.startedAt;
-  const barColorClass = timing.completedAt ? 'bg-emerald-500' : 'bg-blue-500';
+  const barColorClass = timing.completedAt
+    ? isImplPhase
+      ? 'bg-emerald-400'
+      : isSubPhase
+        ? 'bg-amber-500'
+        : 'bg-emerald-500'
+    : 'bg-blue-500';
+  const totalTokens =
+    timing.inputTokens != null || timing.outputTokens != null
+      ? (timing.inputTokens ?? 0) + (timing.outputTokens ?? 0)
+      : null;
 
   return (
-    <div className="flex flex-col gap-1">
-      <div data-testid={`timing-bar-${timing.phase}`} className="flex items-center gap-3">
-        <span className="text-muted-foreground w-24 shrink-0 text-xs">{label}</span>
-        <div className="bg-muted h-3 flex-1 overflow-hidden rounded-full">
+    <div className={isSubPhase ? 'flex flex-col gap-1 pl-6' : 'flex flex-col gap-1'}>
+      <div data-testid={`timing-bar-${timing.phase}`} className="flex items-center gap-2">
+        <span className={`text-muted-foreground shrink-0 text-xs ${isSubPhase ? 'w-18' : 'w-24'}`}>
+          {label}
+        </span>
+        <div
+          className={`bg-muted min-w-0 flex-1 overflow-hidden rounded-full ${isSubPhase ? 'h-2.5' : 'h-3'}`}
+        >
           <div
             className={`h-full rounded-full ${barColorClass}${isRunning ? 'animate-pulse' : ''}`}
             style={{ width: `${Math.min(barPercent, 100)}%` }}
           />
         </div>
-        <span className="text-muted-foreground w-14 shrink-0 text-right text-xs">
+        <span className="text-muted-foreground w-10 shrink-0 text-right text-xs tabular-nums">
           {formatDuration(durationMs)}
+        </span>
+        <span className="text-muted-foreground w-12 shrink-0 text-right text-[10px] tabular-nums">
+          {totalTokens != null && totalTokens > 0 ? (
+            <span className="inline-flex items-center gap-0.5">
+              <Zap className="h-2 w-2 opacity-50" />
+              {formatTokens(totalTokens)}
+            </span>
+          ) : null}
         </span>
       </div>
       {timing.approvalWaitMs != null && timing.approvalWaitMs > 0 ? (
@@ -385,22 +427,35 @@ function ApprovalWaitRow({
   const barPercent = maxDurationMs > 0 ? Math.max(2, (waitMs / maxDurationMs) * 100) : 2;
 
   return (
-    <div data-testid={`approval-wait-${timing.phase}`} className="flex items-center gap-3 pl-4">
+    <div data-testid={`approval-wait-${timing.phase}`} className="flex items-center gap-2 pl-4">
       <span className="text-muted-foreground w-20 shrink-0 text-xs">approval</span>
-      <div className="bg-muted h-2.5 flex-1 overflow-hidden rounded-full">
+      <div className="bg-muted h-2.5 min-w-0 flex-1 overflow-hidden rounded-full">
         <div
           className="h-full rounded-full bg-amber-500"
           style={{ width: `${Math.min(barPercent, 100)}%` }}
         />
       </div>
-      <span className="text-muted-foreground w-14 shrink-0 text-right text-xs">
+      <span className="text-muted-foreground w-10 shrink-0 text-right text-xs tabular-nums">
         {formatDuration(waitMs)}
       </span>
+      {/* Spacer to align with token column */}
+      <span className="w-12 shrink-0" />
     </div>
   );
 }
 
-function SummaryTotals({ totalExecMs, totalWaitMs }: { totalExecMs: number; totalWaitMs: number }) {
+function SummaryTotals({
+  totalExecMs,
+  totalWaitMs,
+  totalInputTokens,
+  totalOutputTokens,
+}: {
+  totalExecMs: number;
+  totalWaitMs: number;
+  totalInputTokens: number;
+  totalOutputTokens: number;
+}) {
+  const totalTokens = totalInputTokens + totalOutputTokens;
   return (
     <div
       data-testid="activity-summary"
@@ -412,6 +467,12 @@ function SummaryTotals({ totalExecMs, totalWaitMs }: { totalExecMs: number; tota
           <SummaryRow label="Total wait" value={formatDuration(totalWaitMs)} />
           <SummaryRow label="Total wall-clock" value={formatDuration(totalExecMs + totalWaitMs)} />
         </>
+      ) : null}
+      {totalTokens > 0 ? (
+        <SummaryRow
+          label="Total tokens"
+          value={`${formatTokens(totalTokens)} (${formatTokens(totalInputTokens)} in · ${formatTokens(totalOutputTokens)} out)`}
+        />
       ) : null}
     </div>
   );

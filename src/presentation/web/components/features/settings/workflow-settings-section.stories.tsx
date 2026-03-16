@@ -23,6 +23,7 @@ export const Default: Story = {
         allowMerge: false,
         pushOnImplementationComplete: false,
       },
+      ciWatchEnabled: true,
       enableEvidence: false,
       commitEvidence: false,
     },
@@ -53,6 +54,7 @@ export const AllEnabled: Story = {
       analyzeRepoTimeouts: {
         analyzeMs: 600000,
       },
+      ciWatchEnabled: true,
       enableEvidence: true,
       commitEvidence: true,
     },
@@ -83,6 +85,7 @@ export const WithCiSettings: Story = {
       analyzeRepoTimeouts: {
         analyzeMs: 1200000,
       },
+      ciWatchEnabled: true,
       enableEvidence: false,
       commitEvidence: false,
     },

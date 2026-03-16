@@ -23,14 +23,19 @@ export interface IPhaseTimingRepository {
   save(phaseTiming: PhaseTiming): Promise<void>;
 
   /**
-   * Update a phase timing record (typically to set completedAt and durationMs).
+   * Update a phase timing record on completion with timing and execution metadata.
    *
    * @param id - The phase timing ID
-   * @param updates - Fields to update
+   * @param updates - Fields to update (timing + optional token usage, exit code, error)
    */
   update(
     id: string,
-    updates: Partial<Pick<PhaseTiming, 'completedAt' | 'durationMs'>>
+    updates: Partial<
+      Pick<
+        PhaseTiming,
+        'completedAt' | 'durationMs' | 'inputTokens' | 'outputTokens' | 'exitCode' | 'errorMessage'
+      >
+    >
   ): Promise<void>;
 
   /**

@@ -52,6 +52,7 @@ function createTestSettings(overrides: Partial<Settings> = {}): Settings {
       },
       enableEvidence: false,
       commitEvidence: false,
+      ciWatchEnabled: true,
     },
     onboardingComplete: false,
     ...overrides,

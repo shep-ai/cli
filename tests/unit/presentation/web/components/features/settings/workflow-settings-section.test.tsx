@@ -22,6 +22,7 @@ const defaultWorkflow = {
   },
   enableEvidence: false,
   commitEvidence: false,
+  ciWatchEnabled: true,
 };
 
 describe('WorkflowSettingsSection', () => {

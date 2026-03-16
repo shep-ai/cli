@@ -9,11 +9,11 @@ import { CreateDrawerClient } from '@/components/common/control-center-drawer/cr
 export const dynamic = 'force-dynamic';
 
 interface CreateDrawerPageProps {
-  searchParams: Promise<{ repo?: string; parent?: string }>;
+  searchParams: Promise<{ repo?: string; parent?: string; prompt?: string }>;
 }
 
 export default async function CreateDrawerPage({ searchParams }: CreateDrawerPageProps) {
-  const { repo, parent } = await searchParams;
+  const { repo, parent, prompt } = await searchParams;
 
   const listFeatures = resolve<ListFeaturesUseCase>('ListFeaturesUseCase');
   const listRepos = resolve<ListRepositoriesUseCase>('ListRepositoriesUseCase');
@@ -39,6 +39,7 @@ export default async function CreateDrawerPage({ searchParams }: CreateDrawerPag
     <CreateDrawerClient
       repositoryPath={repo ?? ''}
       initialParentId={parent}
+      initialDescription={prompt}
       features={featureOptions}
       repositories={repositoryOptions}
       workflowDefaults={workflowDefaults}

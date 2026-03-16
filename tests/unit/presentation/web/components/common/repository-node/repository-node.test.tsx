@@ -3,6 +3,12 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { RepositoryNode } from '@/components/common/repository-node/repository-node';
 import type { RepositoryNodeData } from '@/components/common/repository-node/repository-node-config';
 
+// Mock next/navigation
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn() }),
+  usePathname: () => '/',
+}));
+
 // Mock @xyflow/react — RepositoryNode uses Handle and Position
 vi.mock('@xyflow/react', () => ({
   Handle: ({ type, position }: { type: string; position: string }) => (
@@ -42,6 +48,11 @@ let mockDeployHookReturn = {
 
 vi.mock('@/hooks/use-deploy-action', () => ({
   useDeployAction: () => mockDeployHookReturn,
+}));
+
+// Mock FeatureSessionsDropdown — avoids pulling in radix-ui/dropdown-menu
+vi.mock('@/components/common/feature-node/feature-sessions-dropdown', () => ({
+  FeatureSessionsDropdown: () => <div data-testid="mock-sessions-dropdown" />,
 }));
 
 // Mock feature flags — enable envDeploy so deploy buttons render

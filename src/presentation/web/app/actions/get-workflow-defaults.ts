@@ -10,6 +10,7 @@ export interface WorkflowDefaults {
   };
   push: boolean;
   openPr: boolean;
+  ciWatchEnabled: boolean;
   enableEvidence: boolean;
   commitEvidence: boolean;
 }
@@ -26,6 +27,7 @@ export async function getWorkflowDefaults(): Promise<WorkflowDefaults> {
     },
     push: workflow.approvalGateDefaults.pushOnImplementationComplete,
     openPr: workflow.openPrOnImplementationComplete,
+    ciWatchEnabled: workflow.ciWatchEnabled,
     enableEvidence: workflow.enableEvidence,
     commitEvidence: workflow.commitEvidence,
   };

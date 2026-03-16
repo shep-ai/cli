@@ -27,6 +27,7 @@ import type { FeatureNodeData } from './feature-node-state-config';
 import { getAgentTypeIcon, agentTypeLabels, type AgentTypeValue } from './agent-type-icons';
 import { getModelMeta } from '@/lib/model-metadata';
 import { DeploymentState } from '@shepai/core/domain/generated/output';
+import { FeatureSessionsDropdown } from './feature-sessions-dropdown';
 
 function AgentIcon({ agentType, className }: { agentType?: string; className?: string }) {
   const IconComponent = getAgentTypeIcon(agentType);
@@ -329,9 +330,14 @@ export function FeatureNode({
             </>
           ) : (
             <>
-              {/* featureId row */}
-              <div className="text-muted-foreground text-[10px]">
+              {/* featureId row + sessions button */}
+              <div className="text-muted-foreground flex items-center justify-between text-[10px]">
                 <span>{data.featureId}</span>
+                {(data.worktreePath ?? data.repositoryPath) ? (
+                  <FeatureSessionsDropdown
+                    repositoryPath={data.worktreePath ?? data.repositoryPath}
+                  />
+                ) : null}
               </div>
 
               {/* State badge */}

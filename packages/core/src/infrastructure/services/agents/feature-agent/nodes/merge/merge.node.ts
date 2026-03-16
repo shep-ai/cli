@@ -38,6 +38,7 @@ import { updateNodeLifecycle } from '../../lifecycle-context.js';
 import { buildCommitPushPrPrompt } from '../prompts/merge-prompts.js';
 import { parseCommitHash, parsePrUrl } from './merge-output-parser.js';
 import { runCiWatchFixLoop } from './ci-watch-fix-loop.js';
+import { getSettings } from '@/infrastructure/services/settings.service.js';
 import type { CleanupFeatureWorktreeUseCase } from '@/application/use-cases/features/cleanup-feature-worktree.use-case.js';
 
 export interface MergeNodeDeps {
@@ -125,10 +126,15 @@ export function createMergeNode(deps: MergeNodeDeps) {
 
     const messages: string[] = [];
     const startTime = Date.now();
-    const mergeTimingId = await recordPhaseStart('merge');
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
+    const { executor } = deps;
+    const mergeTimingId = await recordPhaseStart('merge', {
+      agentType: executor.agentType,
+      modelId: state.model,
+    });
 
     try {
-      const { executor } = deps;
       const cwd = state.worktreePath;
 
       const feature = await deps.featureRepository.findById(state.featureId);
@@ -169,6 +175,8 @@ export function createMergeNode(deps: MergeNodeDeps) {
         const commitResult = await retryExecute(executor, commitPushPrPrompt, options, {
           logger: log,
         });
+        totalInputTokens += commitResult.usage?.inputTokens ?? 0;
+        totalOutputTokens += commitResult.usage?.outputTokens ?? 0;
 
         commitHash = parseCommitHash(commitResult.result) ?? state.commitHash;
         messages.push(`[merge] Agent completed commit/push/PR operations`);
@@ -197,8 +205,9 @@ export function createMergeNode(deps: MergeNodeDeps) {
           }
         }
 
-        // --- CI watch/fix loop (when push or openPr is enabled) ---
-        if (effectiveState.push || effectiveState.openPr) {
+        // --- CI watch/fix loop (when push or openPr is enabled and CI watch is not disabled) ---
+        const ciWatchEnabled = getSettings().workflow?.ciWatchEnabled !== false;
+        if (ciWatchEnabled && (effectiveState.push || effectiveState.openPr)) {
           const ciResult = await runCiWatchFixLoop(
             {
               executor,
@@ -251,7 +260,11 @@ export function createMergeNode(deps: MergeNodeDeps) {
         // --- Merge approval gate ---
         if (shouldInterrupt('merge', state.approvalGates)) {
           log.info('Interrupting for merge approval');
-          await recordPhaseEnd(mergeTimingId, Date.now() - startTime);
+          await recordPhaseEnd(mergeTimingId, Date.now() - startTime, {
+            inputTokens: totalInputTokens || undefined,
+            outputTokens: totalOutputTokens || undefined,
+            exitCode: 'success',
+          });
           await recordApprovalWaitStart(mergeTimingId);
           const diffSummary = await deps.getDiffSummary(cwd, baseBranch);
           interrupt({
@@ -341,7 +354,11 @@ export function createMergeNode(deps: MergeNodeDeps) {
       }
 
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-      await recordPhaseEnd(mergeTimingId, Date.now() - startTime);
+      await recordPhaseEnd(mergeTimingId, Date.now() - startTime, {
+        inputTokens: totalInputTokens || undefined,
+        outputTokens: totalOutputTokens || undefined,
+        exitCode: 'success',
+      });
       messages.push(`[merge] Complete (${elapsed}s)`);
       log.info(`Merge flow complete (${elapsed}s)`);
 
@@ -365,7 +382,12 @@ export function createMergeNode(deps: MergeNodeDeps) {
       const message = err instanceof Error ? err.message : String(err);
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
       log.error(`Merge failed: ${message} (${elapsed}s)`);
-      await recordPhaseEnd(mergeTimingId, Date.now() - startTime);
+      await recordPhaseEnd(mergeTimingId, Date.now() - startTime, {
+        inputTokens: totalInputTokens || undefined,
+        outputTokens: totalOutputTokens || undefined,
+        exitCode: 'error',
+        errorMessage: message.slice(0, 1000),
+      });
       throw err;
     }
   };

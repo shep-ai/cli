@@ -379,7 +379,7 @@ describe('SQLiteMigrationStorage', () => {
       const appliedNames = applied.map((r) => r.name);
 
       // All 34 should remain seeded
-      expect(appliedNames).toContain('033-create-pr-sync-lock');
+      expect(appliedNames).toContain('034-add-merge-review-notifications');
       expect(applied).toHaveLength(34);
     });
 

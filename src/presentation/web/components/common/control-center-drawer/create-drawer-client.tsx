@@ -13,6 +13,7 @@ import type { WorkflowDefaults } from '@/app/actions/get-workflow-defaults';
 export interface CreateDrawerClientProps {
   repositoryPath: string;
   initialParentId?: string;
+  initialDescription?: string;
   features: ParentFeatureOption[];
   repositories?: RepositoryOption[];
   workflowDefaults?: WorkflowDefaults;
@@ -23,6 +24,7 @@ export interface CreateDrawerClientProps {
 export function CreateDrawerClient({
   repositoryPath,
   initialParentId,
+  initialDescription,
   features,
   repositories,
   workflowDefaults,
@@ -101,6 +103,7 @@ export function CreateDrawerClient({
       repositories={repositories}
       workflowDefaults={workflowDefaults}
       initialParentId={initialParentId}
+      initialDescription={initialDescription}
       isSubmitting={isSubmitting}
       currentAgentType={currentAgentType}
       currentModel={currentModel}

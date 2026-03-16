@@ -77,21 +77,27 @@ export class ClaudeCodeSessionRepository implements IAgentSessionRepository {
 
   async list(options?: ListSessionsOptions): Promise<AgentSession[]> {
     const limit = options?.limit ?? 20;
+    const filterPath = options?.projectPath;
 
-    const fileInfos = await this.collectSessionFiles();
+    // When filtering by path, use the directory naming convention to scan only the
+    // matching project directory instead of all 100+ directories. Claude Code encodes
+    // project paths as directory names by replacing '/' with '-'.
+    const fileInfos = filterPath
+      ? await this.collectSessionFilesForPath(filterPath)
+      : await this.collectSessionFiles();
     fileInfos.sort((a, b) => b.mtime.getTime() - a.mtime.getTime());
 
-    const topFiles = limit === 0 ? fileInfos : fileInfos.slice(0, limit);
+    // Apply limit before full parsing
+    const toParse = limit > 0 ? fileInfos.slice(0, limit) : fileInfos;
+
+    const parseResults = await Promise.allSettled(
+      toParse.map((fi) => this.parseSessionFile(fi, { includeMessages: false }))
+    );
 
     const sessions: AgentSession[] = [];
-    for (const fileInfo of topFiles) {
-      try {
-        const session = await this.parseSessionFile(fileInfo, { includeMessages: false });
-        if (session !== null) {
-          sessions.push(session);
-        }
-      } catch {
-        // Malformed or unreadable file — skip silently
+    for (const result of parseResults) {
+      if (result.status === 'fulfilled' && result.value !== null) {
+        sessions.push(result.value);
       }
     }
 
@@ -114,6 +120,29 @@ export class ClaudeCodeSessionRepository implements IAgentSessionRepository {
       return await this.parseSessionFile(fileInfo, { includeMessages: true, messageLimit });
     } catch {
       return null;
+    }
+  }
+
+  /**
+   * Collect session files only from the directory matching the given project path.
+   * Claude Code encodes project paths as directory names by replacing '/', '\', and '.'
+   * with '-'. e.g. /home/user/.shep/repos/abc/wt/feat-x → -home-user--shep-repos-abc-wt-feat-x
+   * This avoids scanning all 100+ project directories.
+   */
+  private async collectSessionFilesForPath(projectPath: string): Promise<SessionFileInfo[]> {
+    // Normalize: resolve ~ and convert path separators
+    const normalizedPath = projectPath.startsWith('~')
+      ? path.join(os.homedir(), projectPath.slice(1))
+      : projectPath;
+    // Claude Code replaces '/', '\', and '.' with '-' in directory names
+    const dirName = normalizedPath.replace(/[/\\.]/g, '-');
+    const projectDir = path.join(this.basePath, dirName);
+
+    try {
+      return await this.collectDepthOneJsonlFiles(projectDir);
+    } catch {
+      // Directory doesn't exist — no sessions for this path
+      return [];
     }
   }
 

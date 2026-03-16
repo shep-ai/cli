@@ -481,14 +481,18 @@ export function executeNode(
 
     const startTime = Date.now();
 
-    // Record phase start (no-op if timing context not set)
-    const timingId = await recordPhaseStart(nodeName);
+    const resumePrefix = buildResumeContext(state.resumeReason);
+    const prompt = resumePrefix + buildPrompt(state, log);
+    const options = buildExecutorOptions(state, undefined, nodeName);
+
+    // Record phase start with pre-execution metadata
+    const timingId = await recordPhaseStart(nodeName, {
+      prompt,
+      modelId: state.model,
+      agentType: executor.agentType,
+    });
 
     try {
-      const resumePrefix = buildResumeContext(state.resumeReason);
-      const prompt = resumePrefix + buildPrompt(state, log);
-      const options = buildExecutorOptions(state, undefined, nodeName);
-
       log.info(`Executing agent at cwd=${options.cwd}`);
       log.info(`Prompt length: ${prompt.length} chars`);
       const result = await executor.execute(prompt, options);
@@ -496,8 +500,12 @@ export function executeNode(
       const elapsed = (durationMs / 1000).toFixed(1);
       log.info(`Complete (${result.result.length} chars, ${elapsed}s)`);
 
-      // Record phase completion
-      await recordPhaseEnd(timingId, durationMs);
+      // Record phase completion with post-execution metadata
+      await recordPhaseEnd(timingId, durationMs, {
+        inputTokens: result.usage?.inputTokens,
+        outputTokens: result.usage?.outputTokens,
+        exitCode: 'success',
+      });
 
       // Mark phase complete BEFORE interrupting so that on resume the
       // node detects the work is already done and returns early.
@@ -536,7 +544,10 @@ export function executeNode(
       log.error(`${message} (after ${elapsed}s)`);
 
       // Record phase end even on failure so timing shows duration, not "running"
-      await recordPhaseEnd(timingId, durationMs);
+      await recordPhaseEnd(timingId, durationMs, {
+        exitCode: 'error',
+        errorMessage: message.slice(0, 1000),
+      });
 
       // Throw so LangGraph does NOT checkpoint this node as "completed".
       // The worker catch block marks the run as failed, and on resume

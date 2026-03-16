@@ -143,6 +143,7 @@ export function createDefaultSettings(): Settings {
   const workflow: WorkflowConfig = {
     openPrOnImplementationComplete: false,
     approvalGateDefaults,
+    ciWatchEnabled: true,
     enableEvidence: false,
     commitEvidence: false,
   };

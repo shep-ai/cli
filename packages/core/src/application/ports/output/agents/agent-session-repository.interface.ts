@@ -18,6 +18,8 @@ import type { AgentSession } from '../../../../domain/generated/output.js';
 export interface ListSessionsOptions {
   /** Maximum number of sessions to return (default 20, 0 = all) */
   limit?: number;
+  /** Filter sessions by project path (absolute path, matched against session cwd) */
+  projectPath?: string;
 }
 
 /**

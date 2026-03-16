@@ -67,6 +67,7 @@ export interface FeatureCreatePayload {
   };
   push: boolean;
   openPr: boolean;
+  ciWatchEnabled: boolean;
   enableEvidence: boolean;
   commitEvidence: boolean;
   parentId?: string;
@@ -175,6 +176,8 @@ export interface FeatureCreateDrawerProps {
   currentAgentType?: string;
   /** Current global model from settings */
   currentModel?: string;
+  /** Pre-fill the description textarea (e.g. from session context) */
+  initialDescription?: string;
 }
 
 export function FeatureCreateDrawer({
@@ -189,19 +192,30 @@ export function FeatureCreateDrawer({
   initialParentId,
   currentAgentType,
   currentModel,
+  initialDescription,
 }: FeatureCreateDrawerProps) {
   const createSound = useSoundAction('create');
   const defaultGates = workflowDefaults?.approvalGates ?? EMPTY_GATES;
   const defaultPush = workflowDefaults?.push ?? false;
   const defaultOpenPr = workflowDefaults?.openPr ?? false;
+  const defaultCiWatch = workflowDefaults?.ciWatchEnabled !== false;
   const defaultEnableEvidence = workflowDefaults?.enableEvidence ?? false;
   const defaultCommitEvidence = workflowDefaults?.commitEvidence ?? false;
 
-  const [description, setDescription] = useState('');
+  const [description, setDescription] = useState(initialDescription ?? '');
+
+  // Sync description when initialDescription prop changes (e.g. from session context)
+  useEffect(() => {
+    if (initialDescription) {
+      setDescription(initialDescription);
+    }
+  }, [initialDescription]);
+
   const [attachments, setAttachments] = useState<FormAttachment[]>([]);
   const [approvalGates, setApprovalGates] = useState<Record<string, boolean>>({ ...defaultGates });
   const [push, setPush] = useState(defaultPush);
   const [openPr, setOpenPr] = useState(defaultOpenPr);
+  const [ciWatchEnabled, setCiWatchEnabled] = useState(workflowDefaults?.ciWatchEnabled !== false);
   const [enableEvidence, setEnableEvidence] = useState(defaultEnableEvidence);
   const [commitEvidence, setCommitEvidence] = useState(defaultCommitEvidence);
   const [parentId, setParentId] = useState<string | undefined>(undefined);
@@ -228,6 +242,7 @@ export function FeatureCreateDrawer({
       setApprovalGates({ ...workflowDefaults.approvalGates });
       setPush(workflowDefaults.push);
       setOpenPr(workflowDefaults.openPr);
+      setCiWatchEnabled(workflowDefaults.ciWatchEnabled !== false);
       setEnableEvidence(workflowDefaults.enableEvidence);
       setCommitEvidence(workflowDefaults.commitEvidence);
     }
@@ -251,6 +266,7 @@ export function FeatureCreateDrawer({
     setApprovalGates({ ...defaultGates });
     setPush(defaultPush);
     setOpenPr(defaultOpenPr);
+    setCiWatchEnabled(defaultCiWatch);
     setEnableEvidence(defaultEnableEvidence);
     setCommitEvidence(defaultCommitEvidence);
     setParentId(undefined);
@@ -268,6 +284,7 @@ export function FeatureCreateDrawer({
     defaultPush,
     defaultOpenPr,
     defaultEnableEvidence,
+    defaultCiWatch,
     defaultCommitEvidence,
     repositoryPath,
     repositories,
@@ -424,6 +441,7 @@ export function FeatureCreateDrawer({
         },
         push: push || openPr,
         openPr,
+        ciWatchEnabled,
         enableEvidence,
         commitEvidence,
         fast,
@@ -445,6 +463,7 @@ export function FeatureCreateDrawer({
       push,
       openPr,
       enableEvidence,
+      ciWatchEnabled,
       commitEvidence,
       fast,
       pending,
@@ -961,6 +980,23 @@ export function FeatureCreateDrawer({
                     <TooltipContent side="bottom">
                       Open a pull request after pushing.
                     </TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex cursor-pointer items-center gap-1.5">
+                        <Switch
+                          id="ci-watch"
+                          size="sm"
+                          checked={ciWatchEnabled}
+                          onCheckedChange={setCiWatchEnabled}
+                          disabled={isSubmitting}
+                        />
+                        <Label htmlFor="ci-watch" className="cursor-pointer text-xs font-medium">
+                          Watch
+                        </Label>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">Watch CI and auto-fix after push.</TooltipContent>
                   </Tooltip>
                 </div>
               </div>

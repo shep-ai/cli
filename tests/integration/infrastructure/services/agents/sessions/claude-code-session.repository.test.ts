@@ -133,6 +133,38 @@ describe('ClaudeCodeSessionRepository (integration)', () => {
     });
   });
 
+  describe('list() with projectPath filter', () => {
+    it('should return only sessions from the matching project directory', async () => {
+      const sessions = await repo.list({ limit: 0, projectPath: '/home/user/projects/foo' });
+      // foo has session-001 and session-002 (session-003 is malformed)
+      expect(sessions).toHaveLength(2);
+      const ids = sessions.map((s) => s.id);
+      expect(ids).toContain('session-001');
+      expect(ids).toContain('session-002');
+      expect(ids).not.toContain('session-004');
+    });
+
+    it('should return sessions from bar directory', async () => {
+      const sessions = await repo.list({ limit: 0, projectPath: '/home/user/projects/bar' });
+      expect(sessions).toHaveLength(1);
+      expect(sessions[0].id).toBe('session-004');
+    });
+
+    it('should return empty array for non-existent project path', async () => {
+      const sessions = await repo.list({
+        limit: 0,
+        projectPath: '/home/user/projects/nonexistent',
+      });
+      expect(sessions).toHaveLength(0);
+    });
+
+    it('should respect limit when filtering by projectPath', async () => {
+      const sessions = await repo.list({ limit: 1, projectPath: '/home/user/projects/foo' });
+      expect(sessions).toHaveLength(1);
+      expect(sessions[0].id).toBe('session-001'); // newest first
+    });
+  });
+
   describe('findById()', () => {
     it('should return the correct session for session-001', async () => {
       const session = await repo.findById('session-001');

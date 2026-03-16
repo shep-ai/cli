@@ -19,6 +19,8 @@ export interface BuildFeatureNodeDataOptions {
   enableEvidence?: boolean;
   /** Whether evidence is committed to the PR body (global workflow setting) */
   commitEvidence?: boolean;
+  /** Whether CI watch/fix loop is enabled (global workflow setting) */
+  ciWatchEnabled?: boolean;
 }
 
 /**
@@ -57,6 +59,7 @@ export function buildFeatureNodeData(
     openPr: feature.openPr,
     ...(options?.enableEvidence != null && { enableEvidence: options.enableEvidence }),
     ...(options?.commitEvidence != null && { commitEvidence: options.commitEvidence }),
+    ...(options?.ciWatchEnabled != null && { ciWatchEnabled: options.ciWatchEnabled }),
     ...(options?.repositoryName && { repositoryName: options.repositoryName }),
     ...(options?.baseBranch && { baseBranch: options.baseBranch }),
     ...(options?.oneLiner && { oneLiner: options.oneLiner }),

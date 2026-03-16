@@ -342,6 +342,7 @@ function FeatureSettings({ data }: { data: FeatureNodeData }) {
     data.approvalGates != null ||
     data.push != null ||
     data.openPr != null ||
+    data.ciWatchEnabled != null ||
     data.enableEvidence != null ||
     data.modelId;
   if (!hasSettings) return null;
@@ -386,7 +387,7 @@ function FeatureSettings({ data }: { data: FeatureNodeData }) {
             </div>
           </div>
         ) : null}
-        {data.push != null || data.openPr != null ? (
+        {data.push != null || data.openPr != null || data.ciWatchEnabled != null ? (
           <div className="flex flex-col gap-1">
             <span className="text-muted-foreground flex items-center gap-1 text-xs font-medium">
               <GitBranch className="h-3 w-3" />
@@ -395,6 +396,9 @@ function FeatureSettings({ data }: { data: FeatureNodeData }) {
             <div className="flex flex-wrap gap-1.5">
               {data.push != null ? <SettingBadge enabled={data.push} label="Push" /> : null}
               {data.openPr != null ? <SettingBadge enabled={data.openPr} label="PR" /> : null}
+              {data.ciWatchEnabled != null ? (
+                <SettingBadge enabled={data.ciWatchEnabled} label="Watch" />
+              ) : null}
             </div>
           </div>
         ) : null}

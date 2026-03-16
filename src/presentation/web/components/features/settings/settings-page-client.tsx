@@ -390,6 +390,7 @@ export function SettingsPageClient({
   const [allowMerge, setAllowMerge] = useState(settings.workflow.approvalGateDefaults.allowMerge);
   const [enableEvidence, setEnableEvidence] = useState(settings.workflow.enableEvidence);
   const [commitEvidence, setCommitEvidence] = useState(settings.workflow.commitEvidence);
+  const [ciWatchEnabled, setCiWatchEnabled] = useState(settings.workflow.ciWatchEnabled !== false);
   const [ciMaxFix, setCiMaxFix] = useState(
     settings.workflow.ciMaxFixAttempts != null ? String(settings.workflow.ciMaxFixAttempts) : ''
   );
@@ -516,6 +517,7 @@ export function SettingsPageClient({
       allowMerge?: boolean;
       enableEvidence?: boolean;
       commitEvidence?: boolean;
+      ciWatchEnabled?: boolean;
       ciMaxFix?: string;
       ciTimeout?: string;
       ciLogMax?: string;
@@ -541,6 +543,7 @@ export function SettingsPageClient({
         },
         enableEvidence: overrides.enableEvidence ?? enableEvidence,
         commitEvidence: overrides.commitEvidence ?? commitEvidence,
+        ciWatchEnabled: overrides.ciWatchEnabled ?? ciWatchEnabled,
         ciMaxFixAttempts: parseOptionalInt(overrides.ciMaxFix ?? ciMaxFix),
         ciWatchTimeoutMs: timeoutSeconds != null ? timeoutSeconds * 1000 : undefined,
         ciLogMaxChars: parseOptionalInt(overrides.ciLogMax ?? ciLogMax),
@@ -1007,6 +1010,17 @@ export function SettingsPageClient({
                 } else {
                   save(buildWorkflowPayload({ openPr: v }));
                 }
+              }}
+            />
+            <SwitchRow
+              label="Watch CI after push"
+              description="Monitor CI and auto-fix failures. Disable to avoid rate limits."
+              id="ci-watch-enabled"
+              testId="switch-ci-watch-enabled"
+              checked={ciWatchEnabled}
+              onChange={(v) => {
+                setCiWatchEnabled(v);
+                save(buildWorkflowPayload({ ciWatchEnabled: v }));
               }}
             />
           </SettingsSection>
