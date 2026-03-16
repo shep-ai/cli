@@ -501,18 +501,23 @@ function NodeTimingRow({
   maxDurationMs: number;
   now: number;
 }) {
+  const base = timing.phase.includes(':') ? timing.phase.split(':')[0] : timing.phase;
   const suffix = timing.phase.includes(':') ? timing.phase.split(':')[1] : null;
   const isSubPhase = suffix !== null;
   const isImplPhase = suffix?.startsWith('phase-') ?? false;
+  const baseName = NODE_TO_PHASE[base] ?? base;
   const label = isImplPhase
     ? `Phase ${suffix!.replace('phase-', '')}`
     : suffix !== null
-      ? `retry #${suffix}`
-      : (NODE_TO_PHASE[timing.phase] ?? timing.phase);
+      ? `${baseName} #${suffix}`
+      : baseName;
 
   const durationMs = getEffectiveDuration(timing, now);
-  const barPercent = maxDurationMs > 0 ? Math.max(2, (durationMs / maxDurationMs) * 100) : 2;
   const isRunning = !timing.completedAt && !!timing.startedAt;
+  // Running phases get a minimum 15% bar so they're always visually prominent
+  const minPercent = isRunning ? 15 : 2;
+  const barPercent =
+    maxDurationMs > 0 ? Math.max(minPercent, (durationMs / maxDurationMs) * 100) : minPercent;
   const barColorClass = timing.completedAt
     ? isImplPhase
       ? 'bg-emerald-400'
