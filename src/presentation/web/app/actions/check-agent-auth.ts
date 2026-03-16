@@ -20,6 +20,8 @@ export interface AgentAuthStatus {
   binaryName: string | null;
   /** Instructions to authenticate if not authenticated */
   authCommand: string | null;
+  /** Platform-resolved install command (e.g. "npm install -g @google/gemini-cli") */
+  installCommand: string | null;
 }
 
 const AGENT_LABELS: Record<string, string> = {
@@ -39,7 +41,7 @@ const AGENT_TOOL_MAP: Record<string, string> = {
 
 const AGENT_BINARY_MAP: Record<string, string> = {
   'claude-code': 'claude',
-  cursor: 'agent',
+  cursor: 'cursor-agent',
   'gemini-cli': 'gemini',
 };
 
@@ -128,6 +130,7 @@ export async function checkAgentAuth(): Promise<AgentAuthStatus> {
       label: 'Unknown',
       binaryName: null,
       authCommand: null,
+      installCommand: null,
     };
   }
 
@@ -144,16 +147,19 @@ export async function checkAgentAuth(): Promise<AgentAuthStatus> {
       label,
       binaryName: null,
       authCommand: null,
+      installCommand: null,
     };
   }
 
   // Check if tool is installed
   let installed = false;
+  let installCommand: string | null = null;
   try {
     const useCase = resolve<ListToolsUseCase>('ListToolsUseCase');
     const tools = await useCase.execute();
     const tool = tools.find((t) => t.id === toolId);
     installed = tool?.status.status === 'available';
+    installCommand = tool?.installCommand ?? null;
   } catch {
     installed = false;
   }
@@ -166,6 +172,7 @@ export async function checkAgentAuth(): Promise<AgentAuthStatus> {
       label,
       binaryName,
       authCommand: binaryName ? `Install ${label} first` : null,
+      installCommand,
     };
   }
 
@@ -180,6 +187,7 @@ export async function checkAgentAuth(): Promise<AgentAuthStatus> {
       label,
       binaryName,
       authCommand: binaryName,
+      installCommand,
     };
   }
 
@@ -196,5 +204,6 @@ export async function checkAgentAuth(): Promise<AgentAuthStatus> {
     label,
     binaryName,
     authCommand: authenticated ? null : binaryName,
+    installCommand,
   };
 }

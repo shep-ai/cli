@@ -130,7 +130,7 @@ describe('WelcomeAgentSetup', () => {
     render(<WelcomeAgentSetup onComplete={onComplete} />);
 
     await waitFor(() => {
-      expect(screen.getByTestId('welcome-agent-setup')).toBeInTheDocument();
+      expect(screen.getByTestId('agent-list')).toBeInTheDocument();
     });
 
     expect(screen.getByText('Choose your agent')).toBeInTheDocument();

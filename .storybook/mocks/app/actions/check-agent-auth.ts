@@ -6,5 +6,6 @@ export async function checkAgentAuth() {
     label: 'Claude Code',
     binaryName: 'claude',
     authCommand: null,
+    installCommand: null,
   };
 }

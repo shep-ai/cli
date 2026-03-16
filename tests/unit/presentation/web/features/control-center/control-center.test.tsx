@@ -37,6 +37,7 @@ vi.mock('@/app/actions/check-agent-auth', () => ({
       label: 'Demo',
       binaryName: null,
       authCommand: null,
+      installCommand: null,
     })
   ),
 }));

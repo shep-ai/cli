@@ -141,6 +141,36 @@ describe('ToolInstallerServiceImpl', () => {
       expect(opts.shell).toBe(true);
     });
 
+    it('should use piped stdin in non-interactive mode (isTTY is falsy)', async () => {
+      const mockProc = createMockProcess(0);
+      mockSpawn.mockReturnValue(mockProc);
+      // In test environments, stdin is not a TTY
+      Object.defineProperty(process.stdin, 'isTTY', { value: undefined, configurable: true });
+
+      const installPromise = service.executeInstall('vscode');
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      await installPromise;
+
+      const [, , opts] = mockSpawn.mock.calls[0];
+      expect(opts.stdio[0]).toBe('pipe');
+    });
+
+    it('should inherit stdin in interactive mode (isTTY is true) to allow sudo password input', async () => {
+      const mockProc = createMockProcess(0);
+      mockSpawn.mockReturnValue(mockProc);
+      Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true });
+
+      const installPromise = service.executeInstall('vscode');
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      await installPromise;
+
+      const [, , opts] = mockSpawn.mock.calls[0];
+      expect(opts.stdio[0]).toBe('inherit');
+
+      // Restore
+      Object.defineProperty(process.stdin, 'isTTY', { value: undefined, configurable: true });
+    });
+
     it('should return "available" status on exit code 0', async () => {
       const mockProc = createMockProcess(0);
       mockSpawn.mockReturnValue(mockProc);

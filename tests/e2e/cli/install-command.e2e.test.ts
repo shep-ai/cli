@@ -103,11 +103,11 @@ describe('CLI: install command', () => {
         expect(result.success).toBe(true);
         expect(result.stdout).toContain('Installation Instructions for Cursor CLI');
         expect(result.stdout).toContain('Binary:');
-        expect(result.stdout).toContain('cursor');
-        expect(result.stdout).toContain('curl');
+        expect(result.stdout).toContain('cursor-agent');
+        expect(result.stdout).toContain('curl https://cursor.com/install');
         expect(result.stdout).toContain('bash');
         expect(result.stdout).toContain('Package Manager');
-        expect(result.stdout).toContain('--version');
+        expect(result.stdout).toContain('cursor-agent --version');
       },
       30000
     );
@@ -120,10 +120,25 @@ describe('CLI: install command', () => {
         expect(result.stdout).toContain('Installation Instructions for Claude Code');
         expect(result.stdout).toContain('Binary:');
         expect(result.stdout).toContain('claude');
-        expect(result.stdout).toContain('curl');
+        expect(result.stdout).toContain('curl -fsSL https://claude.ai/install.sh | bash');
         expect(result.stdout).toContain('Package Manager');
       },
       30000
+    );
+
+    it.concurrent(
+      'should print installation instructions for gemini-cli with correct npm package',
+      async () => {
+        const result = await runCliAsync('install gemini-cli --how');
+        expect(result.success).toBe(true);
+        expect(result.stdout).toContain('Installation Instructions for Gemini CLI');
+        expect(result.stdout).toContain('Binary:');
+        expect(result.stdout).toContain('gemini');
+        expect(result.stdout).toContain('npm install -g @google/gemini-cli');
+        expect(result.stdout).toContain('Package Manager');
+        expect(result.stdout).toContain('--version');
+      },
+      15000
     );
   });
 

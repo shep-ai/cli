@@ -12,13 +12,17 @@
   "commands": {
     "linux": "curl -fsSL https://claude.ai/install.sh | bash",
     "darwin": "curl -fsSL https://claude.ai/install.sh | bash",
-    "win32": "npm install -g @anthropic-ai/claude-code"
+    "win32": "powershell -Command \"iwr -useb https://claude.ai/install.ps1 | iex\""
   },
   "timeout": 300000,
-  "documentationUrl": "https://code.claude.com/docs/en/overview",
+  "documentationUrl": "https://docs.anthropic.com/en/docs/claude-code/overview",
   "verifyCommand": "claude --version",
   "autoInstall": true,
-  "openDirectory": "cd {dir} && exec claude",
+  "openDirectory": {
+    "linux": "cd {dir} && exec claude",
+    "darwin": "cd {dir} && exec claude",
+    "win32": "cd /d {dir} && claude"
+  },
   "spawnOptions": {
     "shell": true,
     "stdio": "inherit",
@@ -26,6 +30,7 @@
   },
   "terminalCommand": {
     "linux": "x-terminal-emulator -e bash -c 'cd {dir} && exec claude'",
-    "darwin": "open -a Terminal.app bash -c 'cd {dir} && exec claude'"
+    "darwin": "osascript -e 'tell application \"Terminal\" to do script \"cd {dir} && exec claude\"'",
+    "win32": "start cmd /k \"cd /d {dir} && claude\""
   }
 }
