@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { ChevronRight, ChevronLeft, Loader2, Bot } from 'lucide-react';
+import { ChevronLeft, Loader2 } from 'lucide-react';
 import { getAllAgentModels } from '@/app/actions/get-all-agent-models';
 import type { AgentModelGroup } from '@/app/actions/get-all-agent-models';
 import { updateAgentAndModel } from '@/app/actions/update-agent-and-model';
@@ -36,7 +36,6 @@ export function WelcomeAgentSetup({ onComplete, className }: WelcomeAgentSetupPr
 
   const activeGroup = selectedAgent ? groups.find((g) => g.agentType === selectedAgent) : null;
 
-  /** Animate step transition: fade out → change step → fade in */
   const transitionTo = useCallback((nextStep: SetupStep, setup?: () => void) => {
     setTransitioning(true);
     setVisible(false);
@@ -57,7 +56,6 @@ export function WelcomeAgentSetup({ onComplete, className }: WelcomeAgentSetupPr
     };
   }, []);
 
-  /** Save agent+model selection and complete the wizard */
   const saveAndComplete = useCallback(
     async (agentType: string, model: string | null) => {
       setSaving(true);
@@ -79,7 +77,6 @@ export function WelcomeAgentSetup({ onComplete, className }: WelcomeAgentSetupPr
           setSelectedAgent(agentType);
         });
       } else {
-        // No models — save immediately
         saveAndComplete(agentType, null);
       }
     },
@@ -116,38 +113,32 @@ export function WelcomeAgentSetup({ onComplete, className }: WelcomeAgentSetupPr
 
   const stepIndex = STEPS.indexOf(step);
 
+  // Dynamic hero text per step
+  const heroTitle =
+    step === 'select-agent' ? 'Choose your agent' : activeGroup ? `Pick a model` : 'Pick a model';
+
+  const heroSubtitle =
+    step === 'select-agent'
+      ? 'Select the AI coding agent you want Shep to use.'
+      : activeGroup
+        ? `Choose which ${activeGroup.label} model to run.`
+        : '';
+
   return (
     <div
       data-testid="welcome-agent-setup"
-      className={cn('flex w-full max-w-sm flex-col items-center gap-5', className)}
+      className={cn('flex w-full flex-col items-center', className)}
     >
-      {/* Section header */}
-      <div className="text-muted-foreground flex items-center gap-2.5">
-        {step === 'select-agent' && (
-          <>
-            <Bot className="h-4 w-4" />
-            <span className="text-xs font-semibold tracking-widest uppercase">
-              Choose your agent
-            </span>
-          </>
-        )}
-        {step === 'select-model' && activeGroup
-          ? (() => {
-              const AgentIcon = getAgentTypeIcon(activeGroup.agentType);
-              return (
-                <>
-                  <AgentIcon className="h-4 w-4" />
-                  <span className="text-xs font-semibold tracking-widest uppercase">
-                    {activeGroup.label} — Pick a model
-                  </span>
-                </>
-              );
-            })()
-          : null}
-      </div>
+      {/* Hero — dynamic per step */}
+      <h1 className="text-foreground/90 text-center text-5xl font-extralight tracking-tight">
+        {heroTitle}
+      </h1>
+      <p className="text-muted-foreground mt-3 text-center text-lg leading-relaxed font-light">
+        {heroSubtitle}
+      </p>
 
       {/* Step indicator */}
-      <div className="flex w-full items-center gap-1.5">
+      <div className="mt-8 flex w-full max-w-xs items-center gap-1.5">
         {STEPS.map((s, i) => (
           <div
             key={s}
@@ -162,13 +153,19 @@ export function WelcomeAgentSetup({ onComplete, className }: WelcomeAgentSetupPr
       {/* Step content — fade transition */}
       <div
         className={cn(
-          'flex w-full flex-col items-center transition-opacity duration-150',
+          'mt-8 flex w-full flex-col items-center transition-opacity duration-150',
           visible && !transitioning ? 'opacity-100' : 'opacity-0'
         )}
       >
-        {/* Step 1: Agent selection */}
+        {/* Step 1: Agent selection — horizontal grid */}
         {step === 'select-agent' && (
-          <div data-testid="agent-list" className="flex w-full flex-col gap-2">
+          <div
+            data-testid="agent-list"
+            className="grid w-full max-w-lg gap-3"
+            style={{
+              gridTemplateColumns: `repeat(${Math.min(groups.length, 4)}, minmax(0, 1fr))`,
+            }}
+          >
             {groups.map((group) => {
               const GroupIcon = getAgentTypeIcon(group.agentType);
               return (
@@ -177,31 +174,38 @@ export function WelcomeAgentSetup({ onComplete, className }: WelcomeAgentSetupPr
                   type="button"
                   disabled={saving}
                   data-testid={`agent-option-${group.agentType}`}
-                  className="border-border hover:bg-accent hover:border-foreground/20 flex w-full cursor-pointer items-center gap-3 rounded-xl border px-5 py-4 transition-all duration-150 disabled:opacity-50"
+                  className="border-border hover:bg-accent hover:border-foreground/20 flex cursor-pointer flex-col items-center gap-3 rounded-2xl border px-4 py-5 transition-all duration-150 active:scale-[0.97] disabled:opacity-50"
                   onClick={() => handleAgentSelect(group.agentType)}
                 >
-                  <GroupIcon className="text-foreground/70 h-5 w-5 shrink-0" />
-                  <span className="flex-1 text-left text-sm font-medium">{group.label}</span>
-                  <ChevronRight className="text-muted-foreground h-4 w-4" />
+                  <GroupIcon className="text-foreground/70 h-7 w-7" />
+                  <span className="text-sm font-medium">{group.label}</span>
                 </button>
               );
             })}
           </div>
         )}
 
-        {/* Step 2: Model selection */}
+        {/* Step 2: Model selection — horizontal grid */}
         {step === 'select-model' && activeGroup ? (
-          <div data-testid="model-list" className="flex w-full flex-col gap-2">
+          <div
+            data-testid="model-list"
+            className="flex w-full max-w-lg flex-col items-center gap-4"
+          >
             <button
               type="button"
               disabled={saving}
-              className="text-muted-foreground hover:text-foreground mb-1 flex cursor-pointer items-center gap-1.5 self-start text-sm transition-colors"
+              className="text-muted-foreground hover:text-foreground flex cursor-pointer items-center gap-1.5 self-start text-sm transition-colors"
               onClick={handleBack}
             >
               <ChevronLeft className="h-4 w-4" />
               Back
             </button>
-            <div className="flex max-h-64 w-full flex-col gap-2 overflow-y-auto">
+            <div
+              className="grid w-full gap-3"
+              style={{
+                gridTemplateColumns: `repeat(${Math.min(activeGroup.models.length, 3)}, minmax(0, 1fr))`,
+              }}
+            >
               {activeGroup.models.map((m) => {
                 const meta = getModelMeta(m.id);
                 return (
@@ -210,18 +214,13 @@ export function WelcomeAgentSetup({ onComplete, className }: WelcomeAgentSetupPr
                     type="button"
                     disabled={saving}
                     data-testid={`model-option-${m.id}`}
-                    className="border-border hover:bg-accent hover:border-foreground/20 flex w-full cursor-pointer items-center gap-3 rounded-xl border px-5 py-4 text-left transition-all duration-150 disabled:opacity-50"
+                    className="border-border hover:bg-accent hover:border-foreground/20 flex cursor-pointer flex-col items-center gap-2 rounded-2xl border px-4 py-5 text-center transition-all duration-150 active:scale-[0.97] disabled:opacity-50"
                     onClick={() => handleModelSelect(m.id)}
                   >
-                    <div className="flex min-w-0 flex-1 flex-col gap-1">
-                      <span className="text-sm font-medium">
-                        {meta.displayName || m.displayName}
-                      </span>
-                      <span className="text-muted-foreground text-xs leading-tight">
-                        {meta.description || m.description}
-                      </span>
-                    </div>
-                    <ChevronRight className="text-muted-foreground h-4 w-4 shrink-0" />
+                    <span className="text-sm font-medium">{meta.displayName || m.displayName}</span>
+                    <span className="text-muted-foreground text-xs leading-tight">
+                      {meta.description || m.description}
+                    </span>
                   </button>
                 );
               })}

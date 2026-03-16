@@ -85,72 +85,76 @@ export function ControlCenterEmptyState({
       )}
     >
       {/* Vertically centered content */}
-      <div className="flex w-full max-w-md flex-col items-center">
-        {/* Hero */}
-        <h1
-          className="text-foreground/90 text-center text-5xl font-extralight tracking-tight"
-          style={{ animationDelay: '0ms', animationDuration: '600ms', animationFillMode: 'both' }}
-        >
-          Welcome to Shep
-        </h1>
-        <p
-          className="text-muted-foreground mt-3 text-center text-lg leading-relaxed font-light"
-          style={{ animationDelay: '80ms', animationDuration: '600ms', animationFillMode: 'both' }}
-        >
-          Add a project folder to start creating features.
-          <br />
-          Shep will analyze, plan, and build them for you.
-        </p>
+      {!agentReady ? (
+        /* Agent setup wizard — owns its own hero */
+        <WelcomeAgentSetup onComplete={handleAgentSetupComplete} />
+      ) : (
+        /* Repository step */
+        <div className="flex w-full max-w-md flex-col items-center">
+          <h1
+            className="text-foreground/90 text-center text-5xl font-extralight tracking-tight"
+            style={{ animationDelay: '0ms', animationDuration: '600ms', animationFillMode: 'both' }}
+          >
+            Add a project
+          </h1>
+          <p
+            className="text-muted-foreground mt-3 text-center text-lg leading-relaxed font-light"
+            style={{
+              animationDelay: '80ms',
+              animationDuration: '600ms',
+              animationFillMode: 'both',
+            }}
+          >
+            Point Shep at any folder and it will analyze,
+            <br />
+            plan, and implement features for you.
+          </p>
 
-        {/* Status badge */}
-        <div
-          className="mt-8"
-          style={{ animationDelay: '160ms', animationDuration: '600ms', animationFillMode: 'both' }}
-        >
-          {!agentReady ? (
-            <WelcomeAgentSetup onComplete={handleAgentSetupComplete} className="w-full" />
-          ) : (
+          {/* Auth status */}
+          <div
+            className="mt-8"
+            style={{
+              animationDelay: '160ms',
+              animationDuration: '600ms',
+              animationFillMode: 'both',
+            }}
+          >
             <AgentAuthBanner status={authStatus} onRetry={handleRetryAuth} />
-          )}
+          </div>
+          {/* Primary CTA */}
+          <button
+            type="button"
+            data-testid="empty-state-add-repository"
+            onClick={handlePickerClick}
+            disabled={loading}
+            className="bg-foreground text-background hover:bg-foreground/90 mt-10 flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-xl px-6 py-4 text-base font-medium shadow-lg transition-all duration-200 hover:shadow-xl active:scale-[0.98] disabled:cursor-wait disabled:opacity-50"
+            style={{
+              animationDelay: '240ms',
+              animationDuration: '600ms',
+              animationFillMode: 'both',
+            }}
+          >
+            {loading ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <FolderOpen className="h-5 w-5" />
+            )}
+            {loading ? 'Opening…' : 'Choose a Folder'}
+          </button>
+
+          {/* Subtitle under CTA */}
+          <p
+            className="text-muted-foreground/60 mt-3 text-center text-sm"
+            style={{
+              animationDelay: '320ms',
+              animationDuration: '600ms',
+              animationFillMode: 'both',
+            }}
+          >
+            Any folder works — git will be initialized automatically if needed.
+          </p>
         </div>
-
-        {agentReady ? (
-          <>
-            {/* Primary CTA */}
-            <button
-              type="button"
-              data-testid="empty-state-add-repository"
-              onClick={handlePickerClick}
-              disabled={loading}
-              className="bg-foreground text-background hover:bg-foreground/90 mt-10 flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-xl px-6 py-4 text-base font-medium shadow-lg transition-all duration-200 hover:shadow-xl active:scale-[0.98] disabled:cursor-wait disabled:opacity-50"
-              style={{
-                animationDelay: '240ms',
-                animationDuration: '600ms',
-                animationFillMode: 'both',
-              }}
-            >
-              {loading ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : (
-                <FolderOpen className="h-5 w-5" />
-              )}
-              {loading ? 'Opening…' : 'Choose a Repository'}
-            </button>
-
-            {/* Subtitle under CTA */}
-            <p
-              className="text-muted-foreground/60 mt-3 text-center text-sm"
-              style={{
-                animationDelay: '320ms',
-                animationDuration: '600ms',
-                animationFillMode: 'both',
-              }}
-            >
-              Any folder works — git will be initialized automatically if needed.
-            </p>
-          </>
-        ) : null}
-      </div>
+      )}
 
       {/* CLI toggle — anchored to bottom, doesn't shift centered content */}
       {agentReady ? (
