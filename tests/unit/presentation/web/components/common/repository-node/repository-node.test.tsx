@@ -277,11 +277,11 @@ describe('RepositoryNode', () => {
   });
 
   describe('node width', () => {
-    it('uses min-w-[22rem] class on the main button element', () => {
+    it('uses fixed w-[26rem] class on the main card element', () => {
       renderNode(dataWithRepoPath);
 
       const card = screen.getByTestId('repository-node-card');
-      expect(card).toHaveClass('min-w-[22rem]');
+      expect(card).toHaveClass('w-[26rem]');
     });
   });
 

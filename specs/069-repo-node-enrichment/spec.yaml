@@ -103,3 +103,9 @@ rejectionFeedback:
     attachments:
       - >-
         /Users/arielshadkhan/.shep/attachments/pending-5ab6aa05-2f4e-49df-8df9-299401b36b0b/image-3760bab7.png
+  - iteration: 4
+    message: >-
+      the feature card had max with, let make it min with to be the max so its
+      size would be always the seme
+    phase: merge
+    timestamp: '2026-03-16T14:49:19.648Z'

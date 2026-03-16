@@ -171,7 +171,7 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
             data.onClick?.();
           }
         }}
-        className="nodrag bg-card flex max-w-[26rem] min-w-[22rem] cursor-pointer flex-col overflow-hidden rounded-xl border shadow-sm"
+        className="nodrag bg-card flex w-[26rem] cursor-pointer flex-col overflow-hidden rounded-xl border shadow-sm"
       >
         {/* Row 1: Repository name + action buttons */}
         <div className="flex items-center gap-3 px-4 py-3">
