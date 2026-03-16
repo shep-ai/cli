@@ -1,0 +1,36 @@
+AppShell Unit Test Results — FAB Page Scope Feature
+====================================================
+Test file: tests/unit/presentation/web/layouts/app-shell.test.tsx
+Run date: 2026-03-16
+Runner: vitest v4.0.18
+
+Results:
+--------
+✓ AppShell > renders children within the dashboard layout (35ms)
+✓ AppShell > renders sidebar with Control Center and Tools nav items (10ms)
+✓ AppShell > sidebar is collapsed by default (logo text hidden) (10ms)
+✓ AppShell > renders ThemeToggle in header actions (8ms)
+✓ AppShell > marks Control Center as active for / pathname (56ms)
+✓ AppShell > passes context features to AppSidebar when sidebar is collapsed (8ms)
+✓ AppShell > renders sidebar nav items even when collapsed (19ms)
+
+FAB visibility by route (NEW):
+✓ AppShell > FAB visibility by route > renders the FAB on control center route / (root) (7ms)
+✓ AppShell > FAB visibility by route > renders the FAB on control center route /create (create feature) (7ms)
+✓ AppShell > FAB visibility by route > renders the FAB on control center route /feature/abc-123 (feature detail) (5ms)
+✓ AppShell > FAB visibility by route > renders the FAB on control center route /feature/abc-123/activity (feature tab) (7ms)
+✓ AppShell > FAB visibility by route > renders the FAB on control center route /repository/repo-1 (repository detail) (5ms)
+✓ AppShell > FAB visibility by route > does not render the FAB on non-control-center route /settings (settings page) (4ms)
+✓ AppShell > FAB visibility by route > does not render the FAB on non-control-center route /skills (skills page) (5ms)
+✓ AppShell > FAB visibility by route > does not render the FAB on non-control-center route /tools (tools page) (6ms)
+✓ AppShell > FAB visibility by route > does not render the FAB on non-control-center route /version (version page) (4ms)
+
+Summary:
+--------
+Test Files: 1 passed (1)
+Tests: 16 passed (16)
+Duration: 825ms
+
+Full suite (all unit tests):
+Test Files: 308 passed (308)
+Tests: 3918 passed (3918)
