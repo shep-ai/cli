@@ -226,7 +226,10 @@ ${dirListing}
 - Follow existing codebase conventions and patterns
 - Do NOT commit, push, or create pull requests
 - Do NOT modify any spec YAML files
-- Keep changes focused and minimal`);
+- Keep changes focused and minimal
+- Do NOT enter plan mode — implement directly without planning phases
+- Do NOT ask the user questions or use AskUserQuestion — make reasonable decisions and proceed
+- You MUST create or modify actual code files — a plan or summary alone is not acceptable output`);
 
   return sections.join('\n\n');
 }

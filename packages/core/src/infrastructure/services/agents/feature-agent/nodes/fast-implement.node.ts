@@ -10,6 +10,7 @@
  * dependency, returns async (state) => Partial<FeatureAgentState>.
  */
 
+import { execSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { isGraphBubbleUp } from '@langchain/langgraph';
@@ -53,6 +54,14 @@ export function createFastImplementNode(executor: IAgentExecutor) {
       const durationMs = Date.now() - startTime;
       const elapsed = (durationMs / 1000).toFixed(1);
       log.info(`Complete (${result.result.length} chars, ${elapsed}s)`);
+
+      // Validate that the executor actually produced file changes
+      const cwd = state.worktreePath || state.repositoryPath;
+      if (!hasWorktreeChanges(cwd)) {
+        throw new Error(
+          '[fast-implement] Agent produced no file changes — it may have entered plan mode or asked questions instead of implementing. Retrying.'
+        );
+      }
 
       // --- Evidence sub-agent: capture proof of completion (settings-gated) ---
       const evidenceEnabled = hasSettings() && getSettings().workflow.enableEvidence;
@@ -122,6 +131,21 @@ async function collectEvidence(
     const msg = err instanceof Error ? err.message : String(err);
     log.error(`Evidence collection failed: ${msg} — continuing without evidence`);
     return [];
+  }
+}
+
+/**
+ * Check whether the worktree has any uncommitted changes (new, modified, or deleted files).
+ * Uses `git status --porcelain` which outputs one line per changed file, or empty if clean.
+ * Returns false if the git command fails (e.g. not a git repo).
+ */
+function hasWorktreeChanges(cwd: string): boolean {
+  try {
+    const output = execSync('git status --porcelain', { cwd, encoding: 'utf-8' });
+    return output.trim().length > 0;
+  } catch {
+    // If git command fails, assume no changes (conservative — will trigger the error)
+    return false;
   }
 }
 
