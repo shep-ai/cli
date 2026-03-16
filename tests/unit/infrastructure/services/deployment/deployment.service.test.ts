@@ -15,7 +15,11 @@ import {
   DeploymentService,
   type DeploymentServiceDeps,
 } from '@/infrastructure/services/deployment/deployment.service.js';
-import { DeploymentState } from '@/domain/generated/output.js';
+import {
+  DeploymentState,
+  type DevEnvironmentAnalysis,
+  type DevCommand,
+} from '@/domain/generated/output.js';
 
 /**
  * Create a mock ChildProcess that emits events and has controllable streams.
@@ -358,6 +362,156 @@ describe('DeploymentService', () => {
       await stopPromise;
 
       expect(deps.kill).toHaveBeenCalledWith(expect.any(Number), 'SIGTERM');
+    });
+  });
+
+  describe('startWithAnalysis', () => {
+    function makeAnalysis(overrides: Partial<DevEnvironmentAnalysis> = {}): DevEnvironmentAnalysis {
+      const defaultCommand: DevCommand = {
+        command: 'npm run dev',
+        description: 'Start dev server',
+      };
+      return {
+        id: 'test-id',
+        cacheKey: 'test-cache-key',
+        canStart: true,
+        commands: [defaultCommand],
+        language: 'TypeScript',
+        source: 'FastPath' as DevEnvironmentAnalysis['source'],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        ...overrides,
+      };
+    }
+
+    it('should set state to NotStartable when canStart is false', () => {
+      const analysis = makeAnalysis({
+        canStart: false,
+        reason: 'This is a library with no server.',
+        commands: [],
+      });
+
+      service.startWithAnalysis('feature-1', '/project/path', analysis);
+
+      const status = service.getStatus('feature-1');
+      expect(status).toEqual({
+        state: DeploymentState.NotStartable,
+        url: null,
+      });
+
+      // Should NOT have called spawn
+      expect(deps.spawn).not.toHaveBeenCalled();
+    });
+
+    it('should spawn the first command with shell:true when canStart is true', () => {
+      const analysis = makeAnalysis({
+        commands: [
+          { command: 'python manage.py runserver', description: 'Start Django' },
+          { command: 'celery worker', description: 'Start Celery' },
+        ],
+      });
+
+      service.startWithAnalysis('feature-1', '/project/path', analysis);
+
+      expect(deps.spawn).toHaveBeenCalledWith(
+        'python manage.py runserver',
+        [],
+        expect.objectContaining({
+          shell: true,
+          cwd: '/project/path',
+          detached: true,
+          stdio: ['ignore', 'pipe', 'pipe'],
+        })
+      );
+    });
+
+    it('should resolve workingDirectory relative to targetPath', () => {
+      const analysis = makeAnalysis({
+        commands: [
+          {
+            command: 'npm run dev',
+            description: 'Start frontend',
+            workingDirectory: 'packages/web',
+          },
+        ],
+      });
+
+      service.startWithAnalysis('feature-1', '/project/path', analysis);
+
+      expect(deps.spawn).toHaveBeenCalledWith(
+        'npm run dev',
+        [],
+        expect.objectContaining({
+          cwd: '/project/path/packages/web',
+        })
+      );
+    });
+
+    it('should store entry with Booting state when spawned', () => {
+      const analysis = makeAnalysis();
+
+      service.startWithAnalysis('feature-1', '/project/path', analysis);
+
+      const status = service.getStatus('feature-1');
+      expect(status).toEqual({
+        state: DeploymentState.Booting,
+        url: null,
+      });
+    });
+
+    it('should detect port from stdout just like start()', () => {
+      const analysis = makeAnalysis();
+
+      service.startWithAnalysis('feature-1', '/project/path', analysis);
+
+      // Simulate stdout with URL
+      mockChild.stdout.emit('data', Buffer.from('  Local:   http://localhost:3000/\n'));
+
+      const status = service.getStatus('feature-1');
+      expect(status).toEqual({
+        state: DeploymentState.Ready,
+        url: 'http://localhost:3000/',
+      });
+    });
+
+    it('should stop existing deployment before starting new one', () => {
+      const analysis = makeAnalysis();
+
+      // Start first deployment via regular start()
+      service.start('feature-1', '/project/path');
+
+      // Create new mock child for replacement
+      const secondChild = createMockChild();
+      secondChild.pid = 54321;
+      (deps.spawn as ReturnType<typeof vi.fn>).mockReturnValue(secondChild);
+
+      // Now start with analysis — should stop the first
+      service.startWithAnalysis('feature-1', '/project/path', analysis);
+
+      expect(deps.kill).toHaveBeenCalledWith(12345, 'SIGKILL');
+    });
+
+    it('should throw when canStart is true but commands array is empty', () => {
+      const analysis = makeAnalysis({
+        canStart: true,
+        commands: [],
+      });
+
+      expect(() => service.startWithAnalysis('feature-1', '/project/path', analysis)).toThrow(
+        'Analysis has canStart:true but no commands'
+      );
+    });
+
+    it('should throw when spawn returns no pid', () => {
+      const noPidChild = createMockChild();
+      (noPidChild as any).pid = undefined;
+      (deps.spawn as ReturnType<typeof vi.fn>).mockReturnValue(noPidChild);
+
+      const analysis = makeAnalysis();
+
+      expect(() => service.startWithAnalysis('feature-1', '/project/path', analysis)).toThrow(
+        'Failed to spawn dev server: no PID returned'
+      );
     });
   });
 });

@@ -1,0 +1,39 @@
+feature:
+  id: 069-agent-dev-environment-ff7266
+  name: agent-dev-environment-ff7266
+  number: 69
+  branch: feat/069-agent-dev-environment-ff7266
+  lifecycle: research
+  createdAt: '2026-03-16T13:52:07Z'
+status:
+  phase: implementing-phase-4
+  progress:
+    completed: 9
+    total: 22
+    percentage: 41
+  currentTask: task-10
+  lastUpdated: '2026-03-16T15:03:00.046Z'
+  lastUpdatedBy: feature-agent:implement
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+    - plan
+    - phase-1
+    - phase-2
+    - phase-3
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-03-16T13:52:07Z'
+    completedBy: feature-agent
+errors:
+  current: null
+  history: []

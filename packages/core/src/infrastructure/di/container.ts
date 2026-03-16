@@ -22,6 +22,8 @@ import type { IFeatureRepository } from '../../application/ports/output/reposito
 import { SQLiteFeatureRepository } from '../repositories/sqlite-feature.repository.js';
 import type { IRepositoryRepository } from '../../application/ports/output/repositories/repository-repository.interface.js';
 import { SQLiteRepositoryRepository } from '../repositories/sqlite-repository.repository.js';
+import type { IDevEnvAnalysisRepository } from '../../application/ports/output/repositories/dev-env-analysis-repository.interface.js';
+import { SQLiteDevEnvAnalysisRepository } from '../repositories/sqlite-dev-env-analysis.repository.js';
 
 // Validator interfaces and implementations
 import type { IAgentValidator } from '../../application/ports/output/agents/agent-validator.interface.js';
@@ -46,6 +48,10 @@ import type { IDaemonService } from '../../application/ports/output/services/dae
 import { DaemonPidService } from '../services/daemon/daemon-pid.service.js';
 import type { IDeploymentService } from '../../application/ports/output/services/deployment-service.interface.js';
 import { DeploymentService } from '../services/deployment/deployment.service.js';
+import type { IRepoCacheKeyResolver } from '../../application/ports/output/services/repo-cache-key-resolver.interface.js';
+import { RepoCacheKeyResolver } from '../services/deployment/repo-cache-key-resolver.js';
+import type { IDevEnvironmentAnalyzer } from '../../application/ports/output/services/dev-environment-analyzer.interface.js';
+import { DevEnvironmentAnalyzerService } from '../services/deployment/dev-environment-analyzer.service.js';
 import { AttachmentStorageService } from '../services/attachment-storage.service.js';
 
 // Agent infrastructure interfaces and implementations
@@ -171,6 +177,13 @@ export async function initializeContainer(): Promise<typeof container> {
     },
   });
 
+  container.register<IDevEnvAnalysisRepository>('IDevEnvAnalysisRepository', {
+    useFactory: (c) => {
+      const database = c.resolve<Database.Database>('Database');
+      return new SQLiteDevEnvAnalysisRepository(database);
+    },
+  });
+
   // Register external dependencies as tokens
   // On Windows, agent CLIs ship as .cmd/.ps1 scripts (e.g. cursor's `agent.cmd`).
   // execFile without shell: true cannot resolve .cmd extensions, causing ENOENT.
@@ -222,6 +235,20 @@ export async function initializeContainer(): Promise<typeof container> {
   container.register('AttachmentStorageService', { useToken: AttachmentStorageService });
   const deploymentService = new DeploymentService();
   container.registerInstance<IDeploymentService>('IDeploymentService', deploymentService);
+
+  container.register<IRepoCacheKeyResolver>('IRepoCacheKeyResolver', {
+    useFactory: (c) => {
+      const exec = c.resolve('ExecFunction') as typeof execFn;
+      return new RepoCacheKeyResolver(exec);
+    },
+  });
+
+  container.register<IDevEnvironmentAnalyzer>('IDevEnvironmentAnalyzer', {
+    useFactory: (c) => {
+      const caller = c.resolve<IStructuredAgentCaller>('IStructuredAgentCaller');
+      return new DevEnvironmentAnalyzerService(caller);
+    },
+  });
 
   // Register agent infrastructure
   container.register<IAgentRunRepository>('IAgentRunRepository', {

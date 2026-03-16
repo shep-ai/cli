@@ -10,7 +10,7 @@
  * - Infrastructure layer provides concrete implementations
  */
 
-import type { DeploymentState } from '@/domain/generated/output.js';
+import type { DeploymentState, DevEnvironmentAnalysis } from '@/domain/generated/output.js';
 
 /** A single log line captured from a deployment's stdout or stderr. */
 export interface LogEntry {
@@ -53,6 +53,17 @@ export interface IDeploymentService {
    * @throws Error if no dev script is found in package.json or the process fails to spawn
    */
   start(targetId: string, targetPath: string): void;
+
+  /**
+   * Start a deployment using a pre-computed DevEnvironmentAnalysis.
+   * If analysis.canStart is false, transitions to NotStartable state without spawning.
+   * If analysis.canStart is true, spawns the first command from analysis.commands.
+   *
+   * @param targetId - Unique identifier for the deployment target
+   * @param targetPath - Absolute filesystem path to the repository root
+   * @param analysis - Pre-computed analysis result with commands to execute
+   */
+  startWithAnalysis(targetId: string, targetPath: string, analysis: DevEnvironmentAnalysis): void;
 
   /**
    * Stop a running deployment gracefully.

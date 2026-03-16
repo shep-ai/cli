@@ -9,8 +9,9 @@
 
 import { spawn, type ChildProcess } from 'node:child_process';
 import { EventEmitter } from 'node:events';
+import { join } from 'node:path';
 import treeKill from 'tree-kill';
-import { DeploymentState } from '@/domain/generated/output.js';
+import { DeploymentState, type DevEnvironmentAnalysis } from '@/domain/generated/output.js';
 import type {
   IDeploymentService,
   DeploymentStatus,
@@ -143,6 +144,107 @@ export class DeploymentService implements IDeploymentService {
       if (wasBooting) {
         log.warn(
           'Process exited while still in Booting state — dev server likely crashed on startup. Check stderr output above.'
+        );
+      }
+      this.deployments.delete(targetId);
+    });
+  }
+
+  /**
+   * Start a deployment using a pre-computed DevEnvironmentAnalysis.
+   * If analysis.canStart is false, sets state to NotStartable without spawning.
+   * If analysis.canStart is true, spawns the first command using shell mode.
+   */
+  startWithAnalysis(targetId: string, targetPath: string, analysis: DevEnvironmentAnalysis): void {
+    log.info(`startWithAnalysis() called — targetId="${targetId}", canStart=${analysis.canStart}`);
+
+    // Stop any existing deployment for this target
+    const existing = this.deployments.get(targetId);
+    if (existing) {
+      log.info(`Stopping existing deployment for "${targetId}" (pid=${existing.pid})`);
+      this.killProcess(existing);
+      this.deployments.delete(targetId);
+    }
+
+    // If the analysis says there's nothing to start, set NotStartable
+    if (!analysis.canStart) {
+      log.info(`Repository is not startable: ${analysis.reason ?? 'no reason provided'}`);
+      // Store a minimal entry with NotStartable state (no child process)
+      const entry: DeploymentEntry = {
+        pid: 0,
+        child: null as unknown as ChildProcess,
+        state: DeploymentState.NotStartable,
+        url: null,
+        targetId,
+        stdoutBuffer: '',
+        stderrBuffer: '',
+        logs: new LogRingBuffer(),
+      };
+      this.deployments.set(targetId, entry);
+      return;
+    }
+
+    // Get the primary (first) command
+    const primaryCommand = analysis.commands[0];
+    if (!primaryCommand) {
+      log.error('Analysis has canStart:true but no commands');
+      throw new Error('Analysis has canStart:true but no commands');
+    }
+
+    // Resolve working directory
+    const cwd = primaryCommand.workingDirectory
+      ? join(targetPath, primaryCommand.workingDirectory)
+      : targetPath;
+
+    log.info(`Spawning from analysis: command="${primaryCommand.command}", cwd="${cwd}"`);
+
+    const child = this.deps.spawn(primaryCommand.command, [], {
+      shell: true,
+      cwd,
+      detached: true,
+      stdio: ['ignore', 'pipe', 'pipe'] as const,
+    });
+
+    if (!child.pid) {
+      log.error('spawn() returned no PID — process failed to start');
+      throw new Error('Failed to spawn dev server: no PID returned');
+    }
+
+    log.info(`Process spawned — pid=${child.pid}`);
+
+    const entry: DeploymentEntry = {
+      pid: child.pid,
+      child: child as ChildProcess,
+      state: DeploymentState.Booting,
+      url: null,
+      targetId,
+      stdoutBuffer: '',
+      stderrBuffer: '',
+      logs: new LogRingBuffer(),
+    };
+
+    this.deployments.set(targetId, entry);
+
+    // Attach stdout/stderr listeners for port detection
+    this.attachOutputListener(entry, 'stdout');
+    this.attachOutputListener(entry, 'stderr');
+
+    // Handle spawn errors
+    (child as ChildProcess).on('error', (err) => {
+      log.error(`Child process error for "${targetId}" (pid=${entry.pid}): ${err.message}`);
+      entry.state = DeploymentState.Stopped;
+      this.deployments.delete(targetId);
+    });
+
+    // Clean up on process exit
+    (child as ChildProcess).on('exit', (code, signal) => {
+      const wasBooting = entry.state === DeploymentState.Booting;
+      log.info(
+        `Process exited for "${targetId}" (pid=${entry.pid}) — code=${code}, signal=${signal}, wasBooting=${wasBooting}`
+      );
+      if (wasBooting) {
+        log.warn(
+          'Process exited while still in Booting state — dev server likely crashed on startup.'
         );
       }
       this.deployments.delete(targetId);
