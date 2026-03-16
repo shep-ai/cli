@@ -52,6 +52,15 @@ export const Done: Story = {
   },
 };
 
+export const Pending: Story = {
+  args: {
+    name: 'Dark Mode Toggle',
+    status: 'pending',
+    agentType: 'claude-code',
+    modelId: 'claude-sonnet-4-6',
+  },
+};
+
 export const Blocked: Story = {
   args: {
     name: 'Dependency Resolver',
