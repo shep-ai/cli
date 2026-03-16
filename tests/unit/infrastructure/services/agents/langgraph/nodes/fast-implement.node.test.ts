@@ -69,11 +69,7 @@ const { mockGetCompletedPhases, mockMarkPhaseComplete } = vi.hoisted(() => ({
 vi.mock(
   '@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js',
   async (importOriginal) => {
-    // eslint-disable-next-line @typescript-eslint/consistent-type-imports
-    const actual =
-      await importOriginal<
-        typeof import('@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js')
-      >();
+    const actual = (await importOriginal()) as Record<string, unknown>;
     return {
       ...actual,
       getCompletedPhases: mockGetCompletedPhases,
