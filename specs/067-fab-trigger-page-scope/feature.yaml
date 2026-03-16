@@ -1,0 +1,36 @@
+feature:
+  id: '067-fab-trigger-page-scope'
+  name: 'fab-trigger-page-scope'
+  number: 67
+  branch: 'feat/067-fab-trigger-page-scope'
+  lifecycle: 'research'
+  createdAt: '2026-03-16T10:32:49Z'
+
+status:
+  phase: 'research'
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-03-16T10:32:49Z'
+  lastUpdatedBy: 'feature-agent'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-03-16T10:32:49Z'
+    completedBy: 'feature-agent'
+
+errors:
+  current: null
+  history: []

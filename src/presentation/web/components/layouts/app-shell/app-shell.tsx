@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { Plus, FolderPlus } from 'lucide-react';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layouts/app-sidebar';
@@ -26,9 +26,18 @@ interface AppShellProps {
   children: ReactNode;
 }
 
-/** Inner shell that consumes the agent-events context for notifications. */
+/** Control center route prefixes where the FAB should be visible. */
+const CONTROL_CENTER_PREFIXES = ['/', '/create', '/feature', '/repository'];
+
+function isControlCenterRoute(pathname: string): boolean {
+  return CONTROL_CENTER_PREFIXES.some(
+    (prefix) => pathname === prefix || (prefix !== '/' && pathname.startsWith(`${prefix}/`))
+  );
+}
+
 function AppShellInner({ children }: AppShellProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const { guardedNavigate } = useDrawerCloseGuard();
   const featureFlags = useFeatureFlags();
 
@@ -98,7 +107,7 @@ function AppShellInner({ children }: AppShellProps) {
             <ThemeToggle />
           </div>
           <main className="h-full">{children}</main>
-          <FloatingActionButton actions={fabActions} />
+          {isControlCenterRoute(pathname) && <FloatingActionButton actions={fabActions} />}
         </div>
       </SidebarInset>
     </SidebarProvider>
