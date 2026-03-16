@@ -62,7 +62,7 @@ export function readSpecFile(specDir: string, filename: string): string {
 }
 
 /** Default timeout per agent call (30 minutes) — prevents infinite hangs. */
-const DEFAULT_STAGE_TIMEOUT_MS = 1_800_000;
+const DEFAULT_STAGE_TIMEOUT_MS = 600_000; // 10 minutes per agent call (retryExecute retries 3x, so 30min max per phase)
 
 /**
  * Map from node name to the corresponding StageTimeouts field.
@@ -96,7 +96,7 @@ export function getStageTimeoutMs(nodeName: string): number {
 /**
  * Build executor options with cwd. Each node gets a clean agent context.
  * The timeout is resolved per-stage from settings (workflow.stageTimeouts)
- * with a fallback to DEFAULT_STAGE_TIMEOUT_MS (10 min).
+ * with a fallback to DEFAULT_STAGE_TIMEOUT_MS (10 min per call, 30 min max with retries).
  *
  * When no `nodeName` is provided, the current node from state is used.
  */

@@ -176,7 +176,7 @@ jobs:
       # 7. Wait for feature to complete
       # ─────────────────────────────────────────────────────────────────────
       - name: Wait for feature to complete
-        timeout-minutes: 25
+        timeout-minutes: 15
         shell: node {0}
         env:
           DEV_EXECUTOR_DELAY_MS: '0'
@@ -196,8 +196,8 @@ jobs:
           const featureId = idMatch[0];
           console.log(`Feature ID: ${featureId}`);
 
-          const MAX_WAIT = 1200000; // 20 minutes (cursor on Windows takes 125s+ per API call)
-          const INTERVAL = 10000;  // 10 seconds
+          const MAX_WAIT = 600000; // 10 minutes
+          const INTERVAL = 10000; // 10 seconds
           const start = Date.now();
 
           function checkStatus() {
