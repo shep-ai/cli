@@ -53,7 +53,7 @@ describe('deployFeature server action', () => {
     expect(mockResolve).toHaveBeenCalledWith('IDeploymentService');
     expect(mockComputeWorktreePath).toHaveBeenCalledWith('/home/user/project', 'feat/my-feature');
     expect(mockExistsSync).toHaveBeenCalledWith(MOCK_WORKTREE_PATH);
-    expect(mockStart).toHaveBeenCalledWith('feat-123', MOCK_WORKTREE_PATH);
+    expect(mockStart).toHaveBeenCalledWith('feat-123', MOCK_WORKTREE_PATH, 'feature');
     expect(result).toEqual({ success: true, state: 'Booting' });
   });
 

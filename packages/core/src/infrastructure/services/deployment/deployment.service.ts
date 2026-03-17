@@ -2,14 +2,22 @@
  * Deployment Service
  *
  * Infrastructure service that manages local dev server deployments.
- * Holds an in-memory Map of active deployments keyed by targetId.
- * Handles process spawning, stdout-based port detection, and graceful
- * shutdown (SIGTERM → poll → SIGKILL).
+ * Holds an in-memory Map of active deployments keyed by targetId AND
+ * persists deployment records to the `dev_servers` SQLite table so that
+ * running dev servers survive page reloads and server restarts.
+ *
+ * On startup, call `recoverAll()` to reconcile the DB with actual
+ * process state (clean up dead PIDs, re-adopt live ones).
  */
 
 import { spawn, type ChildProcess } from 'node:child_process';
 import { EventEmitter } from 'node:events';
-import treeKill from 'tree-kill';
+import type Database from 'better-sqlite3';
+// NOTE: We intentionally do NOT use tree-kill here. tree-kill traverses
+// /proc to find child processes which can accidentally kill parent processes
+// (including the Shep web UI). Instead, we use process.kill(-pid) to send
+// signals to the process GROUP (since we spawn with detached: true, the
+// child gets its own process group via setsid()).
 import { DeploymentState } from '@/domain/generated/output.js';
 import type {
   IDeploymentService,
@@ -27,13 +35,25 @@ const MAX_WAIT_MS = 5000;
 
 interface DeploymentEntry {
   pid: number;
-  child: ChildProcess;
+  child: ChildProcess | null; // null for recovered (orphan) processes
   state: DeploymentState;
   url: string | null;
   targetId: string;
+  targetPath: string;
+  targetType: string;
   stdoutBuffer: string;
   stderrBuffer: string;
   logs: LogRingBuffer;
+}
+
+interface DevServerRow {
+  target_id: string;
+  target_type: string;
+  pid: number;
+  state: string;
+  url: string | null;
+  target_path: string;
+  started_at: number;
 }
 
 export interface DeploymentServiceDeps {
@@ -46,7 +66,20 @@ export interface DeploymentServiceDeps {
 const defaultDeps: DeploymentServiceDeps = {
   spawn,
   detectDevScript,
-  kill: (pid, signal) => treeKill(pid, signal),
+  kill: (pid, signal) => {
+    try {
+      // Kill the entire process group (negative PID) — safe because
+      // detached: true puts the child in its own group via setsid().
+      process.kill(-pid, signal as NodeJS.Signals);
+    } catch {
+      // Fallback: kill just the process itself
+      try {
+        process.kill(pid, signal as NodeJS.Signals);
+      } catch {
+        // Process already dead
+      }
+    }
+  },
   isAlive: (pid: number) => {
     try {
       process.kill(pid, 0);
@@ -61,16 +94,72 @@ export class DeploymentService implements IDeploymentService {
   private readonly deployments = new Map<string, DeploymentEntry>();
   private readonly deps: DeploymentServiceDeps;
   private readonly emitter = new EventEmitter();
+  private db: Database.Database | null = null;
 
   constructor(deps: Partial<DeploymentServiceDeps> = {}) {
     this.deps = { ...defaultDeps, ...deps };
   }
 
   /**
+   * Inject the database connection. Called from DI container after DB is ready.
+   */
+  setDatabase(db: Database.Database): void {
+    this.db = db;
+  }
+
+  /**
+   * Recover dev servers from the database on startup.
+   * Validates each PID is still alive; removes dead rows.
+   */
+  recoverAll(): void {
+    if (!this.db) return;
+
+    let rows: DevServerRow[];
+    try {
+      const stmt = this.db.prepare('SELECT * FROM dev_servers');
+      rows = (stmt.all() as DevServerRow[]) ?? [];
+    } catch {
+      log.info('dev_servers table not ready — skipping recovery');
+      return;
+    }
+
+    if (!rows || rows.length === 0) {
+      log.info('No dev servers to recover from database');
+      return;
+    }
+
+    log.info(`Recovering ${rows.length} dev server(s) from database`);
+
+    for (const row of rows) {
+      if (this.deps.isAlive(row.pid)) {
+        log.info(
+          `Recovered "${row.target_id}" (pid=${row.pid}, state=${row.state}, url=${row.url})`
+        );
+        const entry: DeploymentEntry = {
+          pid: row.pid,
+          child: null, // orphan — we don't have the ChildProcess handle
+          state: row.state as DeploymentState,
+          url: row.url,
+          targetId: row.target_id,
+          targetPath: row.target_path,
+          targetType: row.target_type,
+          stdoutBuffer: '',
+          stderrBuffer: '',
+          logs: new LogRingBuffer(),
+        };
+        this.deployments.set(row.target_id, entry);
+      } else {
+        log.info(`Stale dev server "${row.target_id}" (pid=${row.pid}) — removing from DB`);
+        this.dbDelete(row.target_id);
+      }
+    }
+  }
+
+  /**
    * Start a deployment for the given target.
    * If a deployment already exists for this target, it is stopped first.
    */
-  start(targetId: string, targetPath: string): void {
+  start(targetId: string, targetPath: string, targetType = 'repository'): void {
     log.info(`start() called — targetId="${targetId}", targetPath="${targetPath}"`);
 
     // Stop any existing deployment for this target
@@ -79,6 +168,7 @@ export class DeploymentService implements IDeploymentService {
       log.info(`Stopping existing deployment for "${targetId}" (pid=${existing.pid})`);
       this.killProcess(existing);
       this.deployments.delete(targetId);
+      this.dbDelete(targetId);
     }
 
     // Detect the dev script
@@ -116,12 +206,15 @@ export class DeploymentService implements IDeploymentService {
       state: DeploymentState.Booting,
       url: null,
       targetId,
+      targetPath,
+      targetType,
       stdoutBuffer: '',
       stderrBuffer: '',
       logs: new LogRingBuffer(),
     };
 
     this.deployments.set(targetId, entry);
+    this.dbUpsert(entry);
 
     // Attach stdout/stderr listeners for port detection
     this.attachOutputListener(entry, 'stdout');
@@ -132,6 +225,7 @@ export class DeploymentService implements IDeploymentService {
       log.error(`Child process error for "${targetId}" (pid=${entry.pid}): ${err.message}`);
       entry.state = DeploymentState.Stopped;
       this.deployments.delete(targetId);
+      this.dbDelete(targetId);
     });
 
     // Clean up on process exit
@@ -146,23 +240,57 @@ export class DeploymentService implements IDeploymentService {
         );
       }
       this.deployments.delete(targetId);
+      this.dbDelete(targetId);
     });
   }
 
   /**
    * Get the current deployment status for a target.
-   * Returns null if no deployment exists for this target.
+   * Checks in-memory Map first, then falls back to DB for recovered deployments.
+   * Validates PID liveness — cleans up if dead.
    */
   getStatus(targetId: string): DeploymentStatus | null {
     const entry = this.deployments.get(targetId);
-    if (!entry) {
-      log.debug(`getStatus("${targetId}") — no deployment found`);
-      return null;
+    if (entry) {
+      // Validate the process is still alive (handles orphan crashes)
+      if (!this.deps.isAlive(entry.pid)) {
+        log.info(`getStatus("${targetId}") — pid=${entry.pid} is dead, cleaning up`);
+        this.deployments.delete(targetId);
+        this.dbDelete(targetId);
+        return null;
+      }
+      log.debug(
+        `getStatus("${targetId}") — state=${entry.state}, url=${entry.url}, pid=${entry.pid}`
+      );
+      return { state: entry.state, url: entry.url };
     }
-    log.debug(
-      `getStatus("${targetId}") — state=${entry.state}, url=${entry.url}, pid=${entry.pid}`
-    );
-    return { state: entry.state, url: entry.url };
+
+    // Check DB for entries not yet in memory (e.g., after hook re-mount)
+    const row = this.dbFind(targetId);
+    if (row) {
+      if (this.deps.isAlive(row.pid)) {
+        // Re-adopt into memory
+        const recovered: DeploymentEntry = {
+          pid: row.pid,
+          child: null,
+          state: row.state as DeploymentState,
+          url: row.url,
+          targetId: row.target_id,
+          targetPath: row.target_path,
+          targetType: row.target_type,
+          stdoutBuffer: '',
+          stderrBuffer: '',
+          logs: new LogRingBuffer(),
+        };
+        this.deployments.set(targetId, recovered);
+        return { state: recovered.state, url: recovered.url };
+      }
+      // Dead — clean up
+      this.dbDelete(targetId);
+    }
+
+    log.debug(`getStatus("${targetId}") — no deployment found`);
+    return null;
   }
 
   /**
@@ -171,7 +299,18 @@ export class DeploymentService implements IDeploymentService {
   async stop(targetId: string): Promise<void> {
     const entry = this.deployments.get(targetId);
     if (!entry) {
-      log.info(`stop("${targetId}") — no deployment found, nothing to stop`);
+      // Check DB in case it's a recovered orphan
+      const row = this.dbFind(targetId);
+      if (row && this.deps.isAlive(row.pid)) {
+        log.info(`stop("${targetId}") — killing orphan process (pid=${row.pid})`);
+        try {
+          this.deps.kill(row.pid, 'SIGKILL');
+        } catch {
+          // already dead
+        }
+      }
+      this.dbDelete(targetId);
+      log.info(`stop("${targetId}") — no in-memory deployment found, cleaned DB`);
       return;
     }
 
@@ -185,6 +324,7 @@ export class DeploymentService implements IDeploymentService {
     } catch {
       log.info(`stop("${targetId}") — process already dead on SIGTERM`);
       this.deployments.delete(targetId);
+      this.dbDelete(targetId);
       return;
     }
 
@@ -195,7 +335,6 @@ export class DeploymentService implements IDeploymentService {
       log.warn(
         `stop("${targetId}") — process did not exit after ${MAX_WAIT_MS}ms, escalating to SIGKILL`
       );
-      // Escalate to SIGKILL
       try {
         this.deps.kill(entry.pid, 'SIGKILL');
       } catch {
@@ -205,8 +344,14 @@ export class DeploymentService implements IDeploymentService {
       log.info(`stop("${targetId}") — process exited gracefully`);
     }
 
-    // Wait for the exit event to clean up the map
-    await this.waitForExit(entry.child);
+    // Wait for the exit event to clean up the map (only if we have a ChildProcess handle)
+    if (entry.child) {
+      await this.waitForExit(entry.child);
+    }
+
+    // Ensure cleanup
+    this.deployments.delete(targetId);
+    this.dbDelete(targetId);
   }
 
   /**
@@ -216,6 +361,14 @@ export class DeploymentService implements IDeploymentService {
     for (const entry of this.deployments.values()) {
       entry.logs.clear();
       this.killProcess(entry);
+    }
+    // Also clean DB
+    if (this.db) {
+      try {
+        this.db.prepare('DELETE FROM dev_servers').run();
+      } catch {
+        // table might not exist yet
+      }
     }
   }
 
@@ -242,9 +395,66 @@ export class DeploymentService implements IDeploymentService {
     this.emitter.off(event, handler);
   }
 
-  /**
-   * Send SIGKILL to a process tree.
-   */
+  // ─── Database helpers ───────────────────────────────────────────────
+
+  private dbUpsert(entry: DeploymentEntry): void {
+    if (!this.db) return;
+    try {
+      this.db
+        .prepare(
+          `INSERT OR REPLACE INTO dev_servers
+         (target_id, target_type, pid, state, url, target_path, started_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`
+        )
+        .run(
+          entry.targetId,
+          entry.targetType,
+          entry.pid,
+          entry.state,
+          entry.url,
+          entry.targetPath,
+          Date.now()
+        );
+    } catch (err) {
+      log.warn(`dbUpsert failed for "${entry.targetId}": ${err}`);
+    }
+  }
+
+  private dbUpdateState(targetId: string, state: DeploymentState, url: string | null): void {
+    if (!this.db) return;
+    try {
+      this.db
+        .prepare('UPDATE dev_servers SET state = ?, url = ? WHERE target_id = ?')
+        .run(state, url, targetId);
+    } catch (err) {
+      log.warn(`dbUpdateState failed for "${targetId}": ${err}`);
+    }
+  }
+
+  private dbDelete(targetId: string): void {
+    if (!this.db) return;
+    try {
+      this.db.prepare('DELETE FROM dev_servers WHERE target_id = ?').run(targetId);
+    } catch (err) {
+      log.warn(`dbDelete failed for "${targetId}": ${err}`);
+    }
+  }
+
+  private dbFind(targetId: string): DevServerRow | null {
+    if (!this.db) return null;
+    try {
+      return (
+        (this.db.prepare('SELECT * FROM dev_servers WHERE target_id = ?').get(targetId) as
+          | DevServerRow
+          | undefined) ?? null
+      );
+    } catch {
+      return null;
+    }
+  }
+
+  // ─── Process helpers ────────────────────────────────────────────────
+
   private killProcess(entry: DeploymentEntry): void {
     try {
       this.deps.kill(entry.pid, 'SIGKILL');
@@ -259,7 +469,7 @@ export class DeploymentService implements IDeploymentService {
    */
   private attachOutputListener(entry: DeploymentEntry, stream: 'stdout' | 'stderr'): void {
     const bufferKey = stream === 'stdout' ? 'stdoutBuffer' : 'stderrBuffer';
-    const childStream = entry.child[stream];
+    const childStream = entry.child?.[stream];
     if (!childStream) {
       log.warn(`[${entry.targetId}] No ${stream} stream available — cannot attach listener`);
       return;
@@ -267,19 +477,15 @@ export class DeploymentService implements IDeploymentService {
 
     childStream.on('data', (chunk: Buffer) => {
       const text = chunk.toString();
-      // Append chunk to buffer
       entry[bufferKey] += text;
 
-      // Process complete lines
       const lines = entry[bufferKey].split('\n');
-      // Keep the last element (incomplete line) in the buffer
       entry[bufferKey] = lines.pop() ?? '';
 
       for (const line of lines) {
         if (!line.trim()) continue;
         log.debug(`[${entry.targetId}] ${stream}: ${line}`);
 
-        // Accumulate in log buffer and emit event
         const logEntry: LogEntry = {
           targetId: entry.targetId,
           stream,
@@ -296,13 +502,13 @@ export class DeploymentService implements IDeploymentService {
             log.info(`[${entry.targetId}] Port detected — url="${url}" (from ${stream})`);
             entry.state = DeploymentState.Ready;
             entry.url = url;
+            this.dbUpdateState(entry.targetId, entry.state, entry.url);
           }
         }
       }
     });
 
     childStream.on('end', () => {
-      // Flush remaining buffer content
       const remaining = entry[bufferKey].trim();
       if (remaining) {
         log.debug(`[${entry.targetId}] ${stream} (flush): ${remaining}`);
@@ -312,6 +518,7 @@ export class DeploymentService implements IDeploymentService {
             log.info(`[${entry.targetId}] Port detected in flushed buffer — url="${url}"`);
             entry.state = DeploymentState.Ready;
             entry.url = url;
+            this.dbUpdateState(entry.targetId, entry.state, entry.url);
           }
         }
         entry[bufferKey] = '';
@@ -320,9 +527,6 @@ export class DeploymentService implements IDeploymentService {
     });
   }
 
-  /**
-   * Poll until a process is dead or timeout expires.
-   */
   private async pollUntilDead(pid: number, maxMs: number, intervalMs: number): Promise<boolean> {
     const deadline = Date.now() + maxMs;
     while (Date.now() < deadline) {
@@ -334,9 +538,6 @@ export class DeploymentService implements IDeploymentService {
     return false;
   }
 
-  /**
-   * Wait for a child process to emit 'exit', with a short timeout.
-   */
   private waitForExit(child: ChildProcess): Promise<void> {
     return new Promise((resolve) => {
       const timeout = setTimeout(() => resolve(), 1000);

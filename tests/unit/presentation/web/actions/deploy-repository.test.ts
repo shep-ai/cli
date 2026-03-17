@@ -62,7 +62,11 @@ describe('deployRepository server action', () => {
     const result = await deployRepository('C:\\Projects\\repo');
 
     expect(mockExistsSync).toHaveBeenCalledWith('C:\\Projects\\repo');
-    expect(mockStart).toHaveBeenCalledWith('C:\\Projects\\repo', 'C:\\Projects\\repo');
+    expect(mockStart).toHaveBeenCalledWith(
+      'C:\\Projects\\repo',
+      'C:\\Projects\\repo',
+      'repository'
+    );
     expect(result).toEqual({ success: true, state: 'Booting' });
   });
 
@@ -81,7 +85,11 @@ describe('deployRepository server action', () => {
 
     expect(mockResolve).toHaveBeenCalledWith('IDeploymentService');
     expect(mockExistsSync).toHaveBeenCalledWith('/home/user/project');
-    expect(mockStart).toHaveBeenCalledWith('/home/user/project', '/home/user/project');
+    expect(mockStart).toHaveBeenCalledWith(
+      '/home/user/project',
+      '/home/user/project',
+      'repository'
+    );
     expect(result).toEqual({ success: true, state: 'Booting' });
   });
 

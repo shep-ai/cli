@@ -221,6 +221,8 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton(AttachmentStorageService);
   container.register('AttachmentStorageService', { useToken: AttachmentStorageService });
   const deploymentService = new DeploymentService();
+  deploymentService.setDatabase(db);
+  deploymentService.recoverAll();
   container.registerInstance<IDeploymentService>('IDeploymentService', deploymentService);
 
   // Register agent infrastructure
