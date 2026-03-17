@@ -96,7 +96,7 @@ export function PrdQuestionnaire({
                   key={opt.id}
                   type="button"
                   className={cn(
-                    'border-border w-full rounded-md border px-3 py-3 text-left text-xs transition-all',
+                    'border-border w-full overflow-hidden rounded-md border px-3 py-3 text-left text-xs transition-all',
                     'hover:border-primary/70 hover:bg-primary/5 group',
                     selected && 'border-primary bg-primary/5',
                     opt.isNew && 'animate-option-highlight'
@@ -108,26 +108,27 @@ export function PrdQuestionnaire({
                     <span className="text-muted-foreground mt-0.5 font-mono text-xs">
                       {letter}.
                     </span>
-                    <div className="flex-1">
-                      <div className="mb-0.5 flex items-center gap-2">
-                        <span className="text-foreground min-w-0 truncate text-xs font-semibold">
-                          {opt.label}
-                        </span>
-                        {opt.recommended ? (
-                          <Badge className="shrink-0 px-1.5 py-0 text-[10px] whitespace-nowrap">
-                            AI Recommended
-                          </Badge>
-                        ) : null}
-                        {opt.isNew ? (
-                          <Badge className="shrink-0 border-transparent bg-emerald-600 px-1.5 py-0 text-[10px] whitespace-nowrap text-white hover:bg-emerald-600/80">
-                            New
-                          </Badge>
-                        ) : null}
+                    <div className="min-w-0 flex-1">
+                      <div className="text-foreground mb-0.5 text-xs font-semibold wrap-break-word">
+                        {opt.label}
                       </div>
                       <div className="text-muted-foreground text-xs leading-snug">
                         {opt.rationale}
                       </div>
                     </div>
+                    {opt.recommended || opt.isNew ? (
+                      <div className="shrink-0 pt-0.5">
+                        {opt.recommended ? (
+                          <Badge className="px-1.5 py-0 text-[10px] whitespace-nowrap">
+                            AI Recommended
+                          </Badge>
+                        ) : (
+                          <Badge className="border-transparent bg-emerald-600 px-1.5 py-0 text-[10px] whitespace-nowrap text-white hover:bg-emerald-600/80">
+                            New
+                          </Badge>
+                        )}
+                      </div>
+                    ) : null}
                   </div>
                 </button>
               );
