@@ -241,6 +241,14 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
         premergeBaseSha?: string
       ) => gitPrService.verifyMerge(cwd, featureBranch, baseBranch, premergeBaseSha),
       revParse: (cwd: string, ref: string) => gitPrService.revParse(cwd, ref),
+      commitAll: async (cwd: string, message: string) => {
+        try {
+          return await gitPrService.commitAll(cwd, message);
+        } catch {
+          // commitAll throws when there's nothing to commit — return undefined
+          return undefined;
+        }
+      },
       localMergeSquash: (
         cwd: string,
         featureBranch: string,

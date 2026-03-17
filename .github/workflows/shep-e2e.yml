@@ -33,11 +33,8 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
         agent: [dev, claude-code, cursor]
-        # 8/9 combos enabled — cursor/windows excluded (cursor CLI hangs on Windows CI)
-        exclude:
-          - os: windows-latest
-            agent: cursor
-        # To exclude other combos, add entries here:
+        # 9/9 combos enabled — all platforms + agents
+        # To exclude combos, add entries here:
         #   - os: ubuntu-latest
         #     agent: dev
         #   - os: macos-latest
@@ -97,7 +94,6 @@ jobs:
         shell: pwsh
         run: |
           irm 'https://cursor.com/install?win32=true' | iex
-          # Installer adds $LOCALAPPDATA\cursor-agent to user PATH
           echo "$env:LOCALAPPDATA\cursor-agent" >> $env:GITHUB_PATH
 
       # ─────────────────────────────────────────────────────────────────────
@@ -200,7 +196,7 @@ jobs:
           console.log(`Feature ID: ${featureId}`);
 
           const MAX_WAIT = 600000; // 10 minutes
-          const INTERVAL = 10000;  // 10 seconds
+          const INTERVAL = 10000; // 10 seconds
           const start = Date.now();
 
           function checkStatus() {

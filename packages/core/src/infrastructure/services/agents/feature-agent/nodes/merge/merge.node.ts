@@ -71,6 +71,11 @@ export interface MergeNodeDeps {
    * Resolve a branch ref to its current SHA.
    */
   revParse: (cwd: string, ref: string) => Promise<string>;
+  /**
+   * Stage all changes and commit in the given directory.
+   * Returns the commit hash, or undefined if there was nothing to commit.
+   */
+  commitAll: (cwd: string, message: string) => Promise<string | undefined>;
   gitPrService: IGitPrService;
   cleanupFeatureWorktreeUseCase: Pick<CleanupFeatureWorktreeUseCase, 'execute'>;
 }
@@ -162,80 +167,107 @@ export function createMergeNode(deps: MergeNodeDeps) {
 
       // --- Agent Call 1: Commit + Push + PR (skip on approval resume) ---
       if (!isResumeAfterInterrupt) {
-        if (!remoteAvailable) {
-          log.info('No git remote configured — skipping push and PR, will merge locally');
-        }
-
         const effectiveState = remoteAvailable ? state : { ...state, push: false, openPr: false };
+        const needsAgentCall = effectiveState.push || effectiveState.openPr;
 
-        log.info('Agent call 1: commit + push + PR');
-        const commitPushPrPrompt = buildCommitPushPrPrompt(
-          effectiveState,
-          branch,
-          baseBranch,
-          repoUrl
-        );
-        const commitResult = await retryExecute(executor, commitPushPrPrompt, options, {
-          logger: log,
-        });
-        totalInputTokens += commitResult.usage?.inputTokens ?? 0;
-        totalOutputTokens += commitResult.usage?.outputTokens ?? 0;
-        totalCostUsd += commitResult.usage?.costUsd ?? 0;
-        totalNumTurns += commitResult.usage?.numTurns ?? 0;
-        totalDurationApiMs += commitResult.usage?.durationApiMs ?? 0;
-
-        commitHash = parseCommitHash(commitResult.result) ?? state.commitHash;
-        messages.push(`[merge] Agent completed commit/push/PR operations`);
-
-        if (effectiveState.openPr) {
-          const prResult = parsePrUrl(commitResult.result);
-          if (prResult) {
-            prUrl = prResult.url;
-            prNumber = prResult.number;
-
-            // Cross-validate agent-parsed PR URL against authoritative source.
-            // The agent may hallucinate the repo URL or PR number, so we look up
-            // the real PR for this branch via the GitHub API.
-            try {
-              const prStatuses = await deps.gitPrService.listPrStatuses(cwd);
-              const matchingPr = prStatuses.find((pr) => pr.headRefName === branch);
-              if (matchingPr) {
-                prUrl = matchingPr.url;
-                prNumber = matchingPr.number;
-              }
-            } catch {
-              // gh CLI unavailable or API failure — fall back to agent-parsed URL
+        if (!needsAgentCall) {
+          // Local-only: commit programmatically in worktree, no agent needed.
+          // This avoids calling the agent executor just to run git commit,
+          // which is slow/unreliable on some platforms (e.g. cursor on Windows hangs).
+          log.info('Local-only mode — committing in worktree programmatically (no agent)');
+          const worktreeCwd = state.worktreePath ?? cwd;
+          try {
+            const msg = `feat: ${branch}`;
+            const hash = await deps.commitAll(worktreeCwd, msg);
+            if (hash) {
+              commitHash = hash;
+              log.info(`Committed changes in worktree: ${commitHash}`);
+              messages.push(`[merge] Programmatic commit: ${commitHash}`);
+            } else {
+              log.info('No changes to commit in worktree');
+              messages.push(`[merge] No changes to commit`);
             }
-
-            messages.push(`[merge] PR created: ${prUrl}`);
+          } catch (commitErr) {
+            const errMsg = commitErr instanceof Error ? commitErr.message : String(commitErr);
+            log.info(`Programmatic commit failed: ${errMsg} — falling back to agent`);
+            messages.push(`[merge] Programmatic commit failed, falling back to agent`);
+            // Fall through — needsAgentCall stays false so agent won't run either.
+            // The localMergeSquash will handle uncommitted changes via --squash.
           }
         }
 
-        // --- CI watch/fix loop (when push or openPr is enabled and CI watch is not disabled) ---
-        const ciWatchEnabled = getSettings().workflow?.ciWatchEnabled !== false;
-        if (ciWatchEnabled && (effectiveState.push || effectiveState.openPr)) {
-          const ciResult = await runCiWatchFixLoop(
-            {
-              executor,
-              gitPrService: deps.gitPrService,
-              featureRepository: deps.featureRepository,
-            },
-            {
-              cwd,
-              branch,
-              options,
-              feature,
-              prUrl,
-              prNumber,
-              existingAttempts: ciFixAttempts,
-              messages,
-              log,
-            }
+        if (needsAgentCall) {
+          if (!remoteAvailable) {
+            log.info('No git remote configured — skipping push and PR, will merge locally');
+          }
+
+          log.info('Agent call 1: commit + push + PR');
+          const commitPushPrPrompt = buildCommitPushPrPrompt(
+            effectiveState,
+            branch,
+            baseBranch,
+            repoUrl
           );
-          ciStatus = ciResult.ciStatus;
-          ciFixAttempts = ciResult.ciFixAttempts;
-          ciFixHistory = ciResult.ciFixHistory;
-          ciFixStatus = ciResult.ciFixStatus;
+          const commitResult = await retryExecute(executor, commitPushPrPrompt, options, {
+            logger: log,
+          });
+          totalInputTokens += commitResult.usage?.inputTokens ?? 0;
+          totalOutputTokens += commitResult.usage?.outputTokens ?? 0;
+          totalCostUsd += commitResult.usage?.costUsd ?? 0;
+          totalNumTurns += commitResult.usage?.numTurns ?? 0;
+          totalDurationApiMs += commitResult.usage?.durationApiMs ?? 0;
+
+          commitHash = parseCommitHash(commitResult.result) ?? state.commitHash;
+          messages.push(`[merge] Agent completed commit/push/PR operations`);
+
+          if (effectiveState.openPr) {
+            const prResult = parsePrUrl(commitResult.result);
+            if (prResult) {
+              prUrl = prResult.url;
+              prNumber = prResult.number;
+
+              // Cross-validate agent-parsed PR URL against authoritative source.
+              try {
+                const prStatuses = await deps.gitPrService.listPrStatuses(cwd);
+                const matchingPr = prStatuses.find((pr) => pr.headRefName === branch);
+                if (matchingPr) {
+                  prUrl = matchingPr.url;
+                  prNumber = matchingPr.number;
+                }
+              } catch {
+                // gh CLI unavailable or API failure — fall back to agent-parsed URL
+              }
+
+              messages.push(`[merge] PR created: ${prUrl}`);
+            }
+          }
+
+          // --- CI watch/fix loop (when push or openPr is enabled and CI watch is not disabled) ---
+          const ciWatchEnabled = getSettings().workflow?.ciWatchEnabled !== false;
+          if (ciWatchEnabled && (effectiveState.push || effectiveState.openPr)) {
+            const ciResult = await runCiWatchFixLoop(
+              {
+                executor,
+                gitPrService: deps.gitPrService,
+                featureRepository: deps.featureRepository,
+              },
+              {
+                cwd,
+                branch,
+                options,
+                feature,
+                prUrl,
+                prNumber,
+                existingAttempts: ciFixAttempts,
+                messages,
+                log,
+              }
+            );
+            ciStatus = ciResult.ciStatus;
+            ciFixAttempts = ciResult.ciFixAttempts;
+            ciFixHistory = ciResult.ciFixHistory;
+            ciFixStatus = ciResult.ciFixStatus;
+          }
         }
 
         // --- Persist lifecycle + PR data before approval gate ---

@@ -80,8 +80,8 @@ describe('Merge Step — Gate Tests', () => {
     // Node should interrupt (throws LangGraph bubble-up error)
     await expect(mergeNode(state)).rejects.toThrow();
 
-    // Phase 1 agent was called (commit+push+PR prompt)
-    expect(executor.execute).toHaveBeenCalledTimes(1);
+    // In local-only mode (push=false, openPr=false), commitAll is used programmatically — no agent call
+    expect(executor.execute).toHaveBeenCalledTimes(0);
   });
 
   it('push-pr-with-gate: should interrupt at merge gate when allowMerge=false (PR path)', async () => {

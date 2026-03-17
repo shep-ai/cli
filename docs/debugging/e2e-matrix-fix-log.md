@@ -9,15 +9,15 @@ This is the living debugging log for the `shep-e2e.yml` workflow and Windows sup
 | ----------- | ------------- | -------------- | ------------ |
 | dev         | PASS          | PASS           | PASS         |
 | claude-code | PASS          | PASS           | PASS         |
-| cursor      | PASS          | EXCLUDED       | PASS         |
+| cursor      | PASS          | TESTING        | PASS         |
 
 ## CI Pipelines
 
-| Pipeline | File           | Windows Jobs                 |
-| -------- | -------------- | ---------------------------- |
-| CI/CD    | `ci.yml`       | Unit tests, CLI E2E (matrix) |
-| Shep E2E | `shep-e2e.yml` | dev + claude-code (matrix)   |
-| PR Check | `pr-check.yml` | N/A (commit lint only)       |
+| Pipeline | File           | Windows Jobs                        |
+| -------- | -------------- | ----------------------------------- |
+| CI/CD    | `ci.yml`       | Unit tests, CLI E2E (matrix)        |
+| Shep E2E | `shep-e2e.yml` | dev + claude-code + cursor (matrix) |
+| PR Check | `pr-check.yml` | N/A (commit lint only)              |
 
 ---
 
@@ -41,17 +41,17 @@ This is the living debugging log for the `shep-e2e.yml` workflow and Windows sup
 
 ### Shep E2E (`shep-e2e.yml`) — Full Matrix
 
-| Combo                 | Status   | Notes                                                        |
-| --------------------- | -------- | ------------------------------------------------------------ |
-| dev / ubuntu          | PASS     | Baseline — no subprocess spawning                            |
-| dev / windows         | PASS     | Same — pure in-process                                       |
-| dev / macos           | PASS     | Same                                                         |
-| claude-code / ubuntu  | PASS     | Full lifecycle                                               |
-| claude-code / windows | PASS     | `windowsHide: true`, no `shell: true` needed (.exe binary)   |
-| claude-code / macos   | PASS     | Full lifecycle                                               |
-| cursor / ubuntu       | PASS     | Full lifecycle                                               |
-| cursor / windows      | EXCLUDED | Cursor CLI hangs on Windows CI — excluded pending cursor fix |
-| cursor / macos        | PASS     | Full lifecycle                                               |
+| Combo                 | Status  | Notes                                                           |
+| --------------------- | ------- | --------------------------------------------------------------- |
+| dev / ubuntu          | PASS    | Baseline — no subprocess spawning                               |
+| dev / windows         | PASS    | Same — pure in-process                                          |
+| dev / macos           | PASS    | Same                                                            |
+| claude-code / ubuntu  | PASS    | Full lifecycle                                                  |
+| claude-code / windows | PASS    | `windowsHide: true`, no `shell: true` needed (.exe binary)      |
+| claude-code / macos   | PASS    | Full lifecycle                                                  |
+| cursor / ubuntu       | PASS    | Full lifecycle                                                  |
+| cursor / windows      | TESTING | Direct node.exe invocation + API key injection (attempts 21-22) |
+| cursor / macos        | PASS    | Full lifecycle                                                  |
 
 ---
 
@@ -177,3 +177,26 @@ Cursor CLI ships as `.cmd`/`.ps1` scripts on Windows. Node.js needs `shell: true
 14. `--output-format stream-json` is broken on Windows with `shell: true` — use `json` format instead
 15. `composer-1.5` model returns 0 chars with `--output-format stream-json` — use `claude-haiku-4-5`
 16. Cursor CLI has its own model list (not Anthropic model IDs) — use `auto` instead of `claude-haiku-4-5` in E2E tests
+17. `agent.cmd` spawns PowerShell → `cursor-agent.ps1` → `node.exe index.js` — nesting chains hang in CI
+18. Direct `node.exe index.js` invocation (bypassing all shell wrappers) eliminates spawn hangs
+19. `CursorExecutorService` factory did NOT pass `authConfig` — `CURSOR_API_KEY` was never injected into subprocess env
+
+### Round 4: Direct Invocation + API Key Injection (Attempts 21-22)
+
+| #   | Commit | Fix                                                                           | Result  |
+| --- | ------ | ----------------------------------------------------------------------------- | ------- |
+| 21  | —      | Bypass PowerShell nesting: resolve `node.exe` + `index.js` directly on Win    | PARTIAL |
+| 22  | —      | Inject `CURSOR_API_KEY` via `authConfig` into subprocess env (was never set!) | PARTIAL |
+| 23  | —      | Skip agent call for local-only merge, commit programmatically                 | PARTIAL |
+| 24  | —      | Add 3-min silence watchdog — kill cursor if zero output                       | PARTIAL |
+| 25  | —      | Make "Agent execution timed out" retryable (was non-retryable, no retry!)     | TESTING |
+
+**Root cause (attempt 21)**: The `agent.cmd` → PowerShell → `cursor-agent.ps1` → `node.exe` nesting chain hangs on Windows CI runners. Direct invocation of `node.exe index.js` via `resolveCursorBinary()` eliminates the chain entirely. Spawn no longer hangs — PID created successfully.
+
+**Root cause (attempt 22)**: `CursorExecutorService` never received `authConfig` from factory — `CURSOR_API_KEY` was absent from subprocess env. On Linux/macOS masked by CI step env inheritance. Fixed.
+
+**Root cause (attempt 23)**: Merge phase calls agent executor to do `git commit` even in local-only mode (no push/PR). This second cursor call hangs indefinitely on Windows. Fix: commit programmatically via `commitAll` when no push/PR needed.
+
+**Root cause (attempt 24)**: Cursor CLI on Windows sometimes starts but produces zero stdout/stderr indefinitely. Added 3-minute silence watchdog that kills the process so retryExecute can retry.
+
+**Root cause (attempt 25)**: `"Agent execution timed out"` was in `NON_RETRYABLE_RE` regex, so `retryExecute` threw immediately without retrying after watchdog kill. Moved to `retryable-network` category. Now watchdog kill → retry (up to 3x) → fail fast if all 3 hang.

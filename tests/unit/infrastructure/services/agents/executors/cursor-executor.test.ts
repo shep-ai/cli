@@ -22,7 +22,12 @@ vi.mock('@/infrastructure/platform.js', () => ({
 
 import { CursorExecutorService } from '@/infrastructure/services/agents/common/executors/cursor-executor.service.js';
 import type { SpawnFunction } from '@/infrastructure/services/agents/common/types.js';
-import { AgentType, AgentFeature } from '@/domain/generated/output.js';
+import {
+  AgentType,
+  AgentFeature,
+  AgentAuthMethod,
+  type AgentConfig,
+} from '@/domain/generated/output.js';
 
 /**
  * Creates a mock ChildProcess-like object that can emit events and provide
@@ -174,11 +179,15 @@ describe('CursorExecutorService', () => {
 
       expect(result.result).toBe('Analysis complete. Found 3 files.');
       expect(result.sessionId).toBe('sess-abc-123');
+      // Prompt is piped via stdin, not in args
       expect(mockSpawn).toHaveBeenCalledWith(
         'agent',
-        expect.arrayContaining(['-p', 'Analyze this codebase', '--output-format', 'json']),
+        expect.arrayContaining(['-p', '--output-format', 'json']),
         expect.any(Object)
       );
+      // Args should NOT contain the prompt text
+      const spawnArgs = vi.mocked(mockSpawn).mock.calls[0][1] as string[];
+      expect(spawnArgs).not.toContain('Analyze this codebase');
     });
 
     it('should parse session_id from result event', async () => {
@@ -316,7 +325,7 @@ describe('CursorExecutorService', () => {
       expect(result.sessionId).toBe('sess-1');
     });
 
-    it('should pass -p flag with prompt', async () => {
+    it('should pass -p flag (print mode) and pipe prompt via stdin', async () => {
       const mockProc = createMockChildProcess();
       vi.mocked(mockSpawn).mockReturnValue(mockProc as any);
 
@@ -327,11 +336,10 @@ describe('CursorExecutorService', () => {
 
       await executePromise;
 
-      expect(mockSpawn).toHaveBeenCalledWith(
-        'agent',
-        expect.arrayContaining(['-p', 'My prompt']),
-        expect.any(Object)
-      );
+      // -p is a boolean flag (print mode), prompt goes via stdin
+      const spawnArgs = vi.mocked(mockSpawn).mock.calls[0][1] as string[];
+      expect(spawnArgs).toContain('-p');
+      expect(spawnArgs).not.toContain('My prompt');
     });
 
     it('should pass --resume flag when resumeSession is set', async () => {
@@ -394,10 +402,18 @@ describe('CursorExecutorService', () => {
       );
     });
 
-    it('should spawn PowerShell on Windows with temp file prompt', async () => {
-      // On Windows, cursor CLI is invoked via PowerShell to bypass cmd.exe arg mangling
+    it('should spawn cursor node.exe directly on Windows', async () => {
+      // On Windows, cursor CLI is invoked directly via its bundled node.exe + index.js.
+      // PowerShell + bare `agent` triggers Windows "Open with" GUI dialogs.
       const originalPlatform = process.platform;
       Object.defineProperty(process, 'platform', { value: 'win32' });
+
+      const resolveSpy = vi.spyOn(executor as any, 'resolveCursorBinary').mockReturnValue({
+        nodePath:
+          'C:\\Users\\test\\AppData\\Local\\cursor-agent\\versions\\2026.3.11-abc\\node.exe',
+        indexPath:
+          'C:\\Users\\test\\AppData\\Local\\cursor-agent\\versions\\2026.3.11-abc\\index.js',
+      });
 
       try {
         const mockProc = createMockChildProcess();
@@ -410,13 +426,15 @@ describe('CursorExecutorService', () => {
 
         await executePromise;
 
-        // Should spawn powershell.exe, not agent directly
-        expect(mockSpawn).toHaveBeenCalledWith(
-          'powershell.exe',
-          expect.arrayContaining(['-NoProfile', '-NonInteractive', '-Command']),
-          expect.objectContaining({ windowsHide: true })
-        );
+        const spawnCmd = vi.mocked(mockSpawn).mock.calls[0][0];
+        const spawnArgs = vi.mocked(mockSpawn).mock.calls[0][1] as string[];
+        expect(spawnCmd).toMatch(/node\.exe$/);
+        expect(spawnArgs).toContain('--yolo');
+        expect(spawnArgs).toContain('-p');
+        // Prompt NOT in args — piped via stdin
+        expect(spawnArgs).not.toContain('Test');
       } finally {
+        resolveSpy.mockRestore();
         Object.defineProperty(process, 'platform', { value: originalPlatform });
       }
     });
@@ -527,6 +545,52 @@ describe('CursorExecutorService', () => {
       expect(spawnArgs).not.toContain('--api-key');
       expect(spawnArgs).not.toContain('--token');
       expect(spawnArgs).not.toContain('--auth');
+    });
+
+    it('should inject CURSOR_API_KEY env var when authConfig has token', async () => {
+      const authConfig: AgentConfig = {
+        type: AgentType.Cursor,
+        authMethod: AgentAuthMethod.Token,
+        token: 'fake-key',
+      };
+      const executorWithAuth = new CursorExecutorService(mockSpawn, authConfig);
+
+      const mockProc = createMockChildProcess();
+      vi.mocked(mockSpawn).mockReturnValue(mockProc as any);
+
+      const assistantLine = buildCursorAssistantEvent('Done');
+      const resultLine = buildCursorResultEvent('sess-1', 100);
+      const executePromise = executorWithAuth.execute('Test', { silent: true });
+      emitStreamData(mockProc, [assistantLine, resultLine], null, 0);
+
+      await executePromise;
+
+      const spawnOpts = vi.mocked(mockSpawn).mock.calls[0][2] as Record<string, unknown>;
+      const env = spawnOpts.env as Record<string, string>;
+      expect(env.CURSOR_API_KEY).toBe('fake-key');
+    });
+
+    it('should NOT inject CURSOR_API_KEY when authConfig has no token', async () => {
+      const authConfig: AgentConfig = {
+        type: AgentType.Cursor,
+        authMethod: AgentAuthMethod.Session,
+      };
+      const executorNoToken = new CursorExecutorService(mockSpawn, authConfig);
+
+      const mockProc = createMockChildProcess();
+      vi.mocked(mockSpawn).mockReturnValue(mockProc as any);
+
+      const assistantLine = buildCursorAssistantEvent('Done');
+      const resultLine = buildCursorResultEvent('sess-1', 100);
+      const executePromise = executorNoToken.execute('Test', { silent: true });
+      emitStreamData(mockProc, [assistantLine, resultLine], null, 0);
+
+      await executePromise;
+
+      const spawnOpts = vi.mocked(mockSpawn).mock.calls[0][2] as Record<string, unknown>;
+      const env = spawnOpts.env as Record<string, string>;
+      // Should not have been injected (may exist from process.env, but not from authConfig)
+      expect(env.CURSOR_API_KEY).toBeUndefined();
     });
   });
 
