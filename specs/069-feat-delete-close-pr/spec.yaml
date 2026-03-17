@@ -1,22 +1,21 @@
 name: feat-delete-close-pr
 number: 69
 branch: feat/069-feat-delete-close-pr
-oneLiner: >-
-  Add a toggleable "Close pull request" option to the feature delete dialog
+oneLiner: Add a toggleable "Close pull request" option to the feature delete dialog
 userQuery: >
   Add support to delete feature to also delete the remote branch / close the
   pull request
 summary: >
-  When a user deletes a feature, the delete dialog (Web UI) and CLI should
-  offer a toggleable option to close the associated pull request. In the Web
-  UI, this is a new checkbox in the delete-feature-dialog ("Close pull
-  request"), shown only when the feature has an open PR. When enabled, deleting
-  the remote branch triggers GitHub's auto-close behavior, and the feature's
-  pr.status is updated to Closed in the database. The CLI gains an equivalent
-  prompt/flag. The option is checked by default (since users typically want full
-  cleanup), but can be unchecked to preserve the PR while still deleting the
-  feature. This requires threading a new closePr flag through the dialog props,
-  server action, and DeleteFeatureUseCase options.
+  When a user deletes a feature, the delete dialog (Web UI) and CLI should offer
+  a toggleable option to close the associated pull request. In the Web UI, this
+  is a new checkbox in the delete-feature-dialog ("Close pull request"), shown
+  only when the feature has an open PR. When enabled, deleting the remote branch
+  triggers GitHub's auto-close behavior, and the feature's pr.status is updated
+  to Closed in the database. The CLI gains an equivalent prompt/flag. The option
+  is checked by default (since users typically want full cleanup), but can be
+  unchecked to preserve the PR while still deleting the feature. This requires
+  threading a new closePr flag through the dialog props, server action, and
+  DeleteFeatureUseCase options.
 phase: Requirements
 sizeEstimate: S
 relatedFeatures:
@@ -141,8 +140,7 @@ openQuestions:
       reality. This is a small, best-effort update that adds consistency without
       complexity.
     answer: Update pr.status to Closed after remote branch deletion
-  - question: >-
-      How should the CLI handle the close-PR option?
+  - question: How should the CLI handle the close-PR option?
     resolved: true
     options:
       - option: Add interactive prompt and --no-close-pr flag
@@ -150,8 +148,8 @@ openQuestions:
           Add a CLI prompt "Also close the pull request?" (shown when the
           feature has an open PR and cleanup is enabled) and a --no-close-pr
           flag to skip it non-interactively. Follows the same pattern as the
-          existing cleanup prompt. When --force is used, default to closing
-          the PR (matching the full-cleanup default).
+          existing cleanup prompt. When --force is used, default to closing the
+          PR (matching the full-cleanup default).
         selected: true
       - option: Always close PR when cleanup is enabled, no separate prompt
         description: >
@@ -162,149 +160,354 @@ openQuestions:
     selectionRationale: >
       Adding an interactive prompt and flag gives the CLI user the same
       toggleable control that the Web UI checkbox provides. This maintains
-      consistency across presentation layers and follows the existing pattern
-      of the cleanup prompt.
+      consistency across presentation layers and follows the existing pattern of
+      the cleanup prompt.
     answer: Add interactive prompt and --no-close-pr flag
-content: |
+content: >
   ## Problem Statement
 
+
   When a user deletes a feature via `shep feat del` or the Web UI, the
+
   `DeleteFeatureUseCase` performs two-phase deletion: immediate soft-delete
+
   (Phase 1) followed by best-effort cleanup (Phase 2). The cleanup phase
+
   cancels agent runs, removes the git worktree, and deletes local/remote
+
   branches. GitHub automatically closes a PR when its head branch is deleted.
 
+
   Currently, the system:
-  1. Does not give the user explicit control over whether the PR should be closed
-  2. Does not update the feature's `pr.status` in the database to reflect the auto-closure
+
+  1. Does not give the user explicit control over whether the PR should be
+  closed
+
+  2. Does not update the feature's `pr.status` in the database to reflect the
+  auto-closure
+
   3. Does not inform the user in the CLI/Web summary that the PR was closed
 
+
   The user wants a **toggleable option** in the delete-feature dialog to control
+
   PR closure — not just informational text. This means adding a "Close pull
+
   request" checkbox to the Web UI dialog, an equivalent CLI prompt/flag, and
+
   threading the `closePr` option through the use case.
+
 
   ## Success Criteria
 
-  - [ ] Delete-feature-dialog has a "Close pull request" checkbox, visible only when the feature has an open PR
+
+  - [ ] Delete-feature-dialog has a "Close pull request" checkbox, visible only
+  when the feature has an open PR
+
   - [ ] The checkbox is checked by default when the cleanup checkbox is checked
-  - [ ] The checkbox is automatically unchecked and disabled when the cleanup checkbox is unchecked
-  - [ ] The user can uncheck "Close pull request" independently while keeping cleanup checked (to clean up branches but preserve the PR — the remote branch deletion is skipped in this case)
-  - [ ] The `closePr` flag flows through: dialog → onConfirm → server action → use case options
+
+  - [ ] The checkbox is automatically unchecked and disabled when the cleanup
+  checkbox is unchecked
+
+  - [ ] The user can uncheck "Close pull request" independently while keeping
+  cleanup checked (to clean up branches but preserve the PR — the remote branch
+  deletion is skipped in this case)
+
+  - [ ] The `closePr` flag flows through: dialog → onConfirm → server action →
+  use case options
+
   - [ ] `DeleteFeatureOptions` gains a `closePr?: boolean` property
-  - [ ] When `closePr === false`, remote branch deletion is skipped (preserving the PR on GitHub)
-  - [ ] When `closePr !== false` and cleanup is enabled, remote branch deletion proceeds as before (GitHub auto-closes the PR)
-  - [ ] When remote branch is deleted for a feature with `pr.status === Open`, the feature's `pr.status` is updated to `Closed` in the database
-  - [ ] PR status update is best-effort: wrapped in try/catch, failure does not block or abort deletion
-  - [ ] PR status update is skipped when `feature.pr` is undefined or `feature.pr.status` is `Merged` or `Closed`
+
+  - [ ] When `closePr === false`, remote branch deletion is skipped (preserving
+  the PR on GitHub)
+
+  - [ ] When `closePr !== false` and cleanup is enabled, remote branch deletion
+  proceeds as before (GitHub auto-closes the PR)
+
+  - [ ] When remote branch is deleted for a feature with `pr.status === Open`,
+  the feature's `pr.status` is updated to `Closed` in the database
+
+  - [ ] PR status update is best-effort: wrapped in try/catch, failure does not
+  block or abort deletion
+
+  - [ ] PR status update is skipped when `feature.pr` is undefined or
+  `feature.pr.status` is `Merged` or `Closed`
+
   - [ ] CLI deletion summary includes "PR #N closed" when applicable
-  - [ ] CLI deletion summary does not mention PR closure when no PR existed, PR was already closed/merged, or user opted out
-  - [ ] CLI has a prompt "Also close the pull request?" when feature has an open PR and cleanup is enabled
+
+  - [ ] CLI deletion summary does not mention PR closure when no PR existed, PR
+  was already closed/merged, or user opted out
+
+  - [ ] CLI has a prompt "Also close the pull request?" when feature has an open
+  PR and cleanup is enabled
+
   - [ ] CLI has `--no-close-pr` flag to skip closing the PR non-interactively
-  - [ ] Cascade delete handles child PRs: each child independently checks its closePr behavior
-  - [ ] Delete-feature-dialog Storybook stories updated with new checkbox variants
-  - [ ] Delete-feature-dialog unit tests cover new checkbox (visibility, default state, interaction with cleanup checkbox)
+
+  - [ ] Cascade delete handles child PRs: each child independently checks its
+  closePr behavior
+
+  - [ ] Delete-feature-dialog Storybook stories updated with new checkbox
+  variants
+
+  - [ ] Delete-feature-dialog unit tests cover new checkbox (visibility, default
+  state, interaction with cleanup checkbox)
+
   - [ ] Unit tests for DeleteFeatureUseCase cover closePr scenarios
+
   - [ ] All existing tests continue to pass
+
 
   ## Functional Requirements
 
-  - **FR-1: Add "Close pull request" checkbox to delete-feature-dialog** — Add a new checkbox labeled "Close pull request" to the dialog. It is conditionally rendered only when `hasOpenPr={true}` is passed as a prop. The checkbox follows the same pattern as the existing cascade-delete checkbox (conditionally shown, with its own state). Default state: checked when the cleanup checkbox is checked.
 
-  - **FR-2: Checkbox interaction with cleanup** — When the "Clean up worktree and branches" checkbox is unchecked, the "Close pull request" checkbox should be automatically unchecked and disabled (grayed out), because PR closure depends on remote branch deletion which is part of cleanup. When cleanup is re-checked, close-PR should re-enable and re-check.
+  - **FR-1: Add "Close pull request" checkbox to delete-feature-dialog** — Add a
+  new checkbox labeled "Close pull request" to the dialog. It is conditionally
+  rendered only when `hasOpenPr={true}` is passed as a prop. The checkbox
+  follows the same pattern as the existing cascade-delete checkbox
+  (conditionally shown, with its own state). Default state: checked when the
+  cleanup checkbox is checked.
 
-  - **FR-3: Update dialog callback signature** — Update `DeleteFeatureDialogProps.onConfirm` to accept a third parameter: `(cleanup: boolean, cascadeDelete: boolean, closePr: boolean) => void`. Update all call sites (feature-node.tsx, feature-drawer-client.tsx, use-control-center-state.ts) to pass the new parameter through to the server action.
 
-  - **FR-4: Update server action signature** — Update the `deleteFeature` server action to accept `closePr?: boolean` and pass it through to `DeleteFeatureUseCase.execute()` via the options object.
+  - **FR-2: Checkbox interaction with cleanup** — When the "Clean up worktree
+  and branches" checkbox is unchecked, the "Close pull request" checkbox should
+  be automatically unchecked and disabled (grayed out), because PR closure
+  depends on remote branch deletion which is part of cleanup. When cleanup is
+  re-checked, close-PR should re-enable and re-check.
 
-  - **FR-5: Add closePr option to DeleteFeatureOptions** — Add `closePr?: boolean` to the `DeleteFeatureOptions` interface. When `closePr === false`, skip remote branch deletion (preserving the PR on GitHub). When `closePr` is `true` or `undefined` (default), remote branch deletion proceeds as before.
 
-  - **FR-6: Conditional remote branch deletion based on closePr** — In `cleanupSingleFeature`, when `cleanup` is enabled: if `closePr === false`, skip only the remote branch deletion (still delete local branch and worktree). If `closePr` is not `false`, delete remote branch as currently implemented.
+  - **FR-3: Update dialog callback signature** — Update
+  `DeleteFeatureDialogProps.onConfirm` to accept a third parameter: `(cleanup:
+  boolean, cascadeDelete: boolean, closePr: boolean) => void`. Update all call
+  sites (feature-node.tsx, feature-drawer-client.tsx,
+  use-control-center-state.ts) to pass the new parameter through to the server
+  action.
 
-  - **FR-7: Update PR status after remote branch deletion** — In `cleanupSingleFeature`, after successfully deleting the remote branch: if `feature.pr` exists and `feature.pr.status === PrStatus.Open`, update the feature's `pr.status` to `PrStatus.Closed` via `featureRepo.update()`. Wrap in try/catch matching the existing best-effort pattern.
 
-  - **FR-8: Skip PR status update for non-applicable states** — Do not update `pr.status` when `feature.pr` is undefined, or when `feature.pr.status` is `Merged` or `Closed`. Only `Open` PRs get updated.
+  - **FR-4: Update server action signature** — Update the `deleteFeature` server
+  action to accept `closePr?: boolean` and pass it through to
+  `DeleteFeatureUseCase.execute()` via the options object.
 
-  - **FR-9: CLI close-PR prompt** — In `del.command.ts`, after the cleanup confirmation, if cleanup is enabled and the feature has an open PR (`feature.pr?.status === 'Open'`), prompt: "Also close the pull request? (PR #N)". Default: true. Skip prompt when `--force` is used (default to closing).
 
-  - **FR-10: CLI --no-close-pr flag** — Add `--no-close-pr` option to the CLI command. When provided, skip the close-PR prompt and pass `closePr: false` to the use case.
+  - **FR-5: Add closePr option to DeleteFeatureOptions** — Add `closePr?:
+  boolean` to the `DeleteFeatureOptions` interface. When `closePr === false`,
+  skip remote branch deletion (preserving the PR on GitHub). When `closePr` is
+  `true` or `undefined` (default), remote branch deletion proceeds as before.
 
-  - **FR-11: CLI summary includes PR closure info** — Update the CLI cleanup summary to include "PR #N closed" when the feature had an open PR and closePr was enabled. When closePr was false, do not mention PR closure.
 
-  - **FR-12: Cascade delete handles child PRs** — When cascade deleting child features, the closePr option is passed through to each child's `cleanupSingleFeature` call. Each child independently checks its own PR status.
+  - **FR-6: Conditional remote branch deletion based on closePr** — In
+  `cleanupSingleFeature`, when `cleanup` is enabled: if `closePr === false`,
+  skip only the remote branch deletion (still delete local branch and worktree).
+  If `closePr` is not `false`, delete remote branch as currently implemented.
 
-  - **FR-13: Pass hasOpenPr to dialog** — The dialog consumers (feature-node, feature-drawer) must determine whether the feature has an open PR and pass `hasOpenPr` to the dialog. This data is available from the feature's `pr` field.
+
+  - **FR-7: Update PR status after remote branch deletion** — In
+  `cleanupSingleFeature`, after successfully deleting the remote branch: if
+  `feature.pr` exists and `feature.pr.status === PrStatus.Open`, update the
+  feature's `pr.status` to `PrStatus.Closed` via `featureRepo.update()`. Wrap in
+  try/catch matching the existing best-effort pattern.
+
+
+  - **FR-8: Skip PR status update for non-applicable states** — Do not update
+  `pr.status` when `feature.pr` is undefined, or when `feature.pr.status` is
+  `Merged` or `Closed`. Only `Open` PRs get updated.
+
+
+  - **FR-9: CLI close-PR prompt** — In `del.command.ts`, after the cleanup
+  confirmation, if cleanup is enabled and the feature has an open PR
+  (`feature.pr?.status === 'Open'`), prompt: "Also close the pull request? (PR
+  #N)". Default: true. Skip prompt when `--force` is used (default to closing).
+
+
+  - **FR-10: CLI --no-close-pr flag** — Add `--no-close-pr` option to the CLI
+  command. When provided, skip the close-PR prompt and pass `closePr: false` to
+  the use case.
+
+
+  - **FR-11: CLI summary includes PR closure info** — Update the CLI cleanup
+  summary to include "PR #N closed" when the feature had an open PR and closePr
+  was enabled. When closePr was false, do not mention PR closure.
+
+
+  - **FR-12: Cascade delete handles child PRs** — When cascade deleting child
+  features, the closePr option is passed through to each child's
+  `cleanupSingleFeature` call. Each child independently checks its own PR
+  status.
+
+
+  - **FR-13: Pass hasOpenPr to dialog** — The dialog consumers (feature-node,
+  feature-drawer) must determine whether the feature has an open PR and pass
+  `hasOpenPr` to the dialog. This data is available from the feature's `pr`
+  field.
+
 
   ## Non-Functional Requirements
 
-  - **NFR-1: Best-effort resilience** — PR status update failure must not prevent feature deletion from completing. The try/catch pattern must match the existing cleanup error handling.
 
-  - **NFR-2: No new dependencies** — No new npm packages. Uses existing Shadcn UI Checkbox component, existing `IFeatureRepository.update()`, and existing feature PR data.
+  - **NFR-1: Best-effort resilience** — PR status update failure must not
+  prevent feature deletion from completing. The try/catch pattern must match the
+  existing cleanup error handling.
 
-  - **NFR-3: No new interface methods** — No changes to `IGitPrService`. GitHub's auto-close behavior via branch deletion means no explicit `closePr` method is needed.
 
-  - **NFR-4: Test isolation** — All new unit tests must mock dependencies. No tests should make real GitHub API calls.
+  - **NFR-2: No new dependencies** — No new npm packages. Uses existing Shadcn
+  UI Checkbox component, existing `IFeatureRepository.update()`, and existing
+  feature PR data.
 
-  - **NFR-5: No domain model changes** — The existing `Feature.pr` and `PullRequest` types already contain all necessary data (`number`, `status`). No TypeSpec changes required. `PrStatus.Closed` already exists in the enum.
 
-  - **NFR-6: Consistent UX pattern** — The "Close pull request" checkbox must follow the same visual pattern as the existing checkboxes in the dialog (same spacing, label style, disabled state behavior).
+  - **NFR-3: No new interface methods** — No changes to `IGitPrService`.
+  GitHub's auto-close behavior via branch deletion means no explicit `closePr`
+  method is needed.
 
-  - **NFR-7: Storybook coverage** — New Storybook stories must be added for the dialog with the close-PR checkbox visible (hasOpenPr=true), and a variant with it disabled (cleanup unchecked).
+
+  - **NFR-4: Test isolation** — All new unit tests must mock dependencies. No
+  tests should make real GitHub API calls.
+
+
+  - **NFR-5: No domain model changes** — The existing `Feature.pr` and
+  `PullRequest` types already contain all necessary data (`number`, `status`).
+  No TypeSpec changes required. `PrStatus.Closed` already exists in the enum.
+
+
+  - **NFR-6: Consistent UX pattern** — The "Close pull request" checkbox must
+  follow the same visual pattern as the existing checkboxes in the dialog (same
+  spacing, label style, disabled state behavior).
+
+
+  - **NFR-7: Storybook coverage** — New Storybook stories must be added for the
+  dialog with the close-PR checkbox visible (hasOpenPr=true), and a variant with
+  it disabled (cleanup unchecked).
+
 
   ## Product Questions & AI Recommendations
 
+
   | # | Question | AI Recommendation | Rationale |
+
   | - | -------- | ----------------- | --------- |
-  | 1 | How should "Close pull request" interact with cleanup checkbox? | Auto-checked when cleanup is checked, disabled when cleanup unchecked | PR closure depends on remote branch deletion. Coupling provides correct defaults with user override ability. |
-  | 2 | Should the checkbox only appear when the feature has an open PR? | Yes, conditionally show | Follows the same pattern as the cascade-delete checkbox (only shown when hasChildren). Avoids irrelevant UI. |
-  | 3 | Should we add an explicit closePr call or rely on GitHub auto-close? | Rely on GitHub auto-close | GitHub natively closes PRs on branch deletion. Simpler, no new interface methods needed. |
-  | 4 | Should pr.status be updated in the database? | Yes, update to Closed | Keeps database consistent with GitHub state for downstream consumers. |
-  | 5 | How should the CLI handle the close-PR option? | Interactive prompt + --no-close-pr flag | Gives CLI users the same toggleable control as the Web UI checkbox. |
+
+  | 1 | How should "Close pull request" interact with cleanup checkbox? |
+  Auto-checked when cleanup is checked, disabled when cleanup unchecked | PR
+  closure depends on remote branch deletion. Coupling provides correct defaults
+  with user override ability. |
+
+  | 2 | Should the checkbox only appear when the feature has an open PR? | Yes,
+  conditionally show | Follows the same pattern as the cascade-delete checkbox
+  (only shown when hasChildren). Avoids irrelevant UI. |
+
+  | 3 | Should we add an explicit closePr call or rely on GitHub auto-close? |
+  Rely on GitHub auto-close | GitHub natively closes PRs on branch deletion.
+  Simpler, no new interface methods needed. |
+
+  | 4 | Should pr.status be updated in the database? | Yes, update to Closed |
+  Keeps database consistent with GitHub state for downstream consumers. |
+
+  | 5 | How should the CLI handle the close-PR option? | Interactive prompt +
+  --no-close-pr flag | Gives CLI users the same toggleable control as the Web UI
+  checkbox. |
+
 
   ## Affected Areas
 
+
   | Area | Impact | Reasoning |
+
   | ---- | ------ | --------- |
-  | `src/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.tsx` | High | Add "Close pull request" checkbox with conditional rendering and cleanup coupling |
-  | `src/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog-config.ts` | Medium | Add hasOpenPr prop and update onConfirm signature to include closePr |
-  | `src/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.stories.tsx` | Medium | Add stories for open PR checkbox variants |
-  | `tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx` | Medium | Add tests for close-PR checkbox visibility, default state, and cleanup interaction |
-  | `packages/core/src/application/use-cases/features/delete-feature.use-case.ts` | Medium | Add closePr option, conditional remote branch deletion, PR status update |
-  | `tests/unit/application/use-cases/features/delete-feature.use-case.test.ts` | Medium | Add test cases for closePr option and PR status update |
-  | `src/presentation/web/app/actions/delete-feature.ts` | Low | Add closePr parameter to server action |
-  | `src/presentation/cli/commands/feat/del.command.ts` | Medium | Add close-PR prompt, --no-close-pr flag, and summary output |
-  | `src/presentation/web/components/features/control-center/use-control-center-state.ts` | Low | Pass closePr through handleDeleteFeature |
-  | `src/presentation/web/components/features/feature-node/feature-node.tsx` | Low | Pass closePr through onDelete callback and hasOpenPr to dialog |
-  | `src/presentation/web/components/features/feature-drawer/feature-drawer-client.tsx` | Low | Pass closePr through delete handler and hasOpenPr to dialog |
+
+  |
+  `src/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.tsx`
+  | High | Add "Close pull request" checkbox with conditional rendering and
+  cleanup coupling |
+
+  |
+  `src/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog-config.ts`
+  | Medium | Add hasOpenPr prop and update onConfirm signature to include
+  closePr |
+
+  |
+  `src/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.stories.tsx`
+  | Medium | Add stories for open PR checkbox variants |
+
+  |
+  `tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx`
+  | Medium | Add tests for close-PR checkbox visibility, default state, and
+  cleanup interaction |
+
+  |
+  `packages/core/src/application/use-cases/features/delete-feature.use-case.ts`
+  | Medium | Add closePr option, conditional remote branch deletion, PR status
+  update |
+
+  | `tests/unit/application/use-cases/features/delete-feature.use-case.test.ts`
+  | Medium | Add test cases for closePr option and PR status update |
+
+  | `src/presentation/web/app/actions/delete-feature.ts` | Low | Add closePr
+  parameter to server action |
+
+  | `src/presentation/cli/commands/feat/del.command.ts` | Medium | Add close-PR
+  prompt, --no-close-pr flag, and summary output |
+
+  |
+  `src/presentation/web/components/features/control-center/use-control-center-state.ts`
+  | Low | Pass closePr through handleDeleteFeature |
+
+  | `src/presentation/web/components/features/feature-node/feature-node.tsx` |
+  Low | Pass closePr through onDelete callback and hasOpenPr to dialog |
+
+  |
+  `src/presentation/web/components/features/feature-drawer/feature-drawer-client.tsx`
+  | Low | Pass closePr through delete handler and hasOpenPr to dialog |
+
 
   ## Dependencies
 
-  - **Existing `feature.pr` data** — The `Feature` domain model already has an optional `pr`
+
+  - **Existing `feature.pr` data** — The `Feature` domain model already has an
+  optional `pr`
     field with `number` and `status` properties. No domain model changes needed.
-  - **GitHub auto-close behavior** — GitHub automatically closes a PR when its head branch
+  - **GitHub auto-close behavior** — GitHub automatically closes a PR when its
+  head branch
     is deleted. This is a platform guarantee that the existing remote branch deletion leverages.
-  - **`IFeatureRepository.update()`** — Already used in the delete flow. Will be reused to
+  - **`IFeatureRepository.update()`** — Already used in the delete flow. Will be
+  reused to
     update pr.status after remote branch deletion.
-  - **Shadcn UI Checkbox** — Already imported and used in the dialog. No new UI component needed.
-  - **Feature data availability** — Dialog consumers (feature-node, feature-drawer) already
+  - **Shadcn UI Checkbox** — Already imported and used in the dialog. No new UI
+  component needed.
+
+  - **Feature data availability** — Dialog consumers (feature-node,
+  feature-drawer) already
     have access to the feature's PR data to determine hasOpenPr.
 
   ## Size Estimate
 
-  **S** — This is a small change, upgraded from XS due to the dialog UI work. The main areas:
 
-  1. Delete-feature-dialog: new checkbox with conditional rendering and cleanup coupling (~20 lines)
+  **S** — This is a small change, upgraded from XS due to the dialog UI work.
+  The main areas:
+
+
+  1. Delete-feature-dialog: new checkbox with conditional rendering and cleanup
+  coupling (~20 lines)
+
   2. Dialog config: updated props interface (~3 lines)
-  3. DeleteFeatureOptions: new closePr field, conditional remote branch deletion, PR status update (~15 lines)
+
+  3. DeleteFeatureOptions: new closePr field, conditional remote branch
+  deletion, PR status update (~15 lines)
+
   4. Server action: pass closePr parameter (~3 lines)
+
   5. CLI: close-PR prompt, --no-close-pr flag, summary update (~15 lines)
-  6. Call sites: pass closePr through feature-node, feature-drawer, use-control-center-state (~10 lines each)
+
+  6. Call sites: pass closePr through feature-node, feature-drawer,
+  use-control-center-state (~10 lines each)
+
   7. Tests: dialog tests, use case tests (~30 lines each)
+
   8. Storybook stories: new variants (~15 lines)
+
 
   No new dependencies, no TypeSpec changes, no new interface methods.
 
+
   ---
+
 
   _Generated by requirements phase — proceed with research_
 rejectionFeedback:

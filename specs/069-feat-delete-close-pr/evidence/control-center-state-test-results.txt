@@ -1,0 +1,140 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-feat-delete-close-pr
+
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+ ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > initializes with provided nodes and edges 25ms
+ ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > createFeatureNode state override and return value > returns the generated node ID via createFeatureNode 10ms
+ ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > createFeatureNode state override and return value > creates a node with state "creating" when dataOverride has state creating 5ms
+ ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > createFeatureNode positioning > places new child feature to the right of the parent via createFeatureNode 4ms
+ ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > createFeatureNode positioning > places two children at distinct Y positions via dagre layout 6ms
+ ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > handleAddRepository > adds a new repository node 2ms
+ ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > handleAddRepository > creates repo node with selected path as name 2ms
+ ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > handleAddRepository > places new repo via dagre layout 2ms
+ ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > handleAddRepository > stacks multiple repos without overlap via dagre layout 3ms
+ ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > handleAddRepository > rolls back repo node on server action error 2ms
+ ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > handleAddRepository > rolls back repo node on network failure 4ms
+ ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > handleAddRepository > first-repo metadata return value > returns wasEmpty true when repoMap is empty 1ms
+ ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > handleAddRepository > first-repo metadata return value > returns wasEmpty false when repoMap has entries 1ms
+ ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > handleAddRepository > first-repo metadata return value > returns the correct repoPath 1ms
+ ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > handleAddRepository > first-repo metadata return value > returns wasEmpty false after a repo has already been added 1ms
+ ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > optimistic approve/reject (shep:feature-approved) > transitions feature node to running state on shep:feature-approved event 2ms
+ ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > optimistic approve/reject (shep:feature-approved) > guards optimistic state from stale reconcile during transition 2ms
+ ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > fast-mode feature handling > creates optimistic feature node with real featureId when provided 1ms
+ ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > fast-mode feature handling > feature starting at Implementation lifecycle renders correctly after reconcile 2ms
+ ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > initialNodes/initialEdges prop sync > syncs local state when initialNodes prop changes (different node IDs) 2ms
+ ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > initialNodes/initialEdges prop sync > syncs local edges when initialNodes add a feature with matching repositoryPath 2ms
+ ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > initialNodes/initialEdges prop sync > replaces optimistic node when initialNodes changes to include real feature 2ms
+ ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > initialNodes/initialEdges prop sync > does not update when initialNodes have the same IDs (stable comparison) 1ms
+ ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > handleDeleteFeature > calls deleteFeature server action with correct featureId 3ms
+ ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > handleDeleteFeature > removes deleted node from canvas after successful delete 3ms
+ ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > handleDeleteFeature > removes edges for deleted feature 3ms
+ ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > handleDeleteFeature > navigates to root on successful deletion 2ms
+ ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > handleDeleteFeature > shows error toast with server action error message 2ms
+ ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > handleDeleteFeature > preserves nodes and edges on server action error 2ms
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+ ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > handleDeleteFeature > shows generic error toast on network failure 2ms
+ ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > handleDeleteFeature > preserves state on network failure 2ms
+ ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > handleDeleteFeature > does not call router.refresh() on error 2ms
+ ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > handleDeleteFeature > post-deletion relayout > removes deleted feature from canvas after successful delete 2ms
+ ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > handleDeleteFeature > post-deletion relayout > restores all nodes and edges on server action error 2ms
+ ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > handleDeleteFeature > post-deletion relayout > remaining nodes have valid positions after deletion 2ms
+ ✓  web  tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx > useControlCenterState > handleDeleteFeature > post-deletion relayout > removes deleted feature and its edges after successful delete 2ms
+
+ Test Files  1 passed (1)
+      Tests  36 passed (36)
+   Start at  10:09:09
+   Duration  780ms (transform 183ms, setup 104ms, import 198ms, tests 112ms, environment 287ms)
+

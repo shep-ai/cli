@@ -1,0 +1,44 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-feat-delete-close-pr
+
+ ✓  node  tests/unit/application/use-cases/features/delete-feature.use-case.test.ts > DeleteFeatureUseCase > should delete a feature successfully with no agent run 2ms
+ ✓  node  tests/unit/application/use-cases/features/delete-feature.use-case.test.ts > DeleteFeatureUseCase > should remove worktree directly when cleanup=false 1ms
+ ✓  node  tests/unit/application/use-cases/features/delete-feature.use-case.test.ts > DeleteFeatureUseCase > should cancel a running agent run before deletion 0ms
+ ✓  node  tests/unit/application/use-cases/features/delete-feature.use-case.test.ts > DeleteFeatureUseCase > should kill the OS process if running agent has a live PID 1ms
+ ✓  node  tests/unit/application/use-cases/features/delete-feature.use-case.test.ts > DeleteFeatureUseCase > should cancel a pending agent run before deletion 0ms
+ ✓  node  tests/unit/application/use-cases/features/delete-feature.use-case.test.ts > DeleteFeatureUseCase > should NOT cancel a completed agent run 0ms
+ ✓  node  tests/unit/application/use-cases/features/delete-feature.use-case.test.ts > DeleteFeatureUseCase > should throw if feature is not found 1ms
+ ✓  node  tests/unit/application/use-cases/features/delete-feature.use-case.test.ts > DeleteFeatureUseCase > should include the feature id in the error message 0ms
+ ✓  node  tests/unit/application/use-cases/features/delete-feature.use-case.test.ts > DeleteFeatureUseCase > should still delete feature if worktree removal fails (cleanup=false) 1ms
+ ✓  node  tests/unit/application/use-cases/features/delete-feature.use-case.test.ts > DeleteFeatureUseCase > should find feature by prefix match 0ms
+ ✓  node  tests/unit/application/use-cases/features/delete-feature.use-case.test.ts > DeleteFeatureUseCase > should return the deleted feature 0ms
+ ✓  node  tests/unit/application/use-cases/features/delete-feature.use-case.test.ts > DeleteFeatureUseCase > should cascade delete blocked children when cascadeDelete=true 0ms
+ ✓  node  tests/unit/application/use-cases/features/delete-feature.use-case.test.ts > DeleteFeatureUseCase > should cascade delete children in any lifecycle state when cascadeDelete=true 1ms
+ ✓  node  tests/unit/application/use-cases/features/delete-feature.use-case.test.ts > DeleteFeatureUseCase > should recursively delete grandchildren when cascadeDelete=true 0ms
+ ✓  node  tests/unit/application/use-cases/features/delete-feature.use-case.test.ts > DeleteFeatureUseCase > should cancel agent runs on children during cascade delete 0ms
+ ✓  node  tests/unit/application/use-cases/features/delete-feature.use-case.test.ts > DeleteFeatureUseCase > should relocate children one level up when cascadeDelete=false 1ms
+ ✓  node  tests/unit/application/use-cases/features/delete-feature.use-case.test.ts > DeleteFeatureUseCase > should cascade delete children when cascadeDelete=true 0ms
+ ✓  node  tests/unit/application/use-cases/features/delete-feature.use-case.test.ts > DeleteFeatureUseCase > should default to cascadeDelete=false and relocate children when no options provided 0ms
+ ✓  node  tests/unit/application/use-cases/features/delete-feature.use-case.test.ts > DeleteFeatureUseCase > should relocate children and NOT cleanup them when cascadeDelete=false 0ms
+ ✓  node  tests/unit/application/use-cases/features/delete-feature.use-case.test.ts > DeleteFeatureUseCase > should succeed when there are no children at all 0ms
+ ✓  node  tests/unit/application/use-cases/features/delete-feature.use-case.test.ts > DeleteFeatureUseCase > cleanup option > should delete local and remote branches when cleanup=true 0ms
+ ✓  node  tests/unit/application/use-cases/features/delete-feature.use-case.test.ts > DeleteFeatureUseCase > cleanup option > should NOT delete branches when cleanup=false 0ms
+ ✓  node  tests/unit/application/use-cases/features/delete-feature.use-case.test.ts > DeleteFeatureUseCase > cleanup option > should default to cleanup=true when no options provided 1ms
+ ✓  node  tests/unit/application/use-cases/features/delete-feature.use-case.test.ts > DeleteFeatureUseCase > cleanup option > should still delete feature record even if branch cleanup fails 0ms
+ ✓  node  tests/unit/application/use-cases/features/delete-feature.use-case.test.ts > DeleteFeatureUseCase > cleanup option > should skip remote branch delete when remote does not exist 0ms
+ ✓  node  tests/unit/application/use-cases/features/delete-feature.use-case.test.ts > DeleteFeatureUseCase > closePr option > should skip remote branch deletion when closePr is false 0ms
+ ✓  node  tests/unit/application/use-cases/features/delete-feature.use-case.test.ts > DeleteFeatureUseCase > closePr option > should still delete local branch when closePr is false 0ms
+ ✓  node  tests/unit/application/use-cases/features/delete-feature.use-case.test.ts > DeleteFeatureUseCase > closePr option > should delete remote branch when closePr is true 0ms
+ ✓  node  tests/unit/application/use-cases/features/delete-feature.use-case.test.ts > DeleteFeatureUseCase > closePr option > should delete remote branch when closePr is undefined (default) 0ms
+ ✓  node  tests/unit/application/use-cases/features/delete-feature.use-case.test.ts > DeleteFeatureUseCase > closePr option > should update pr.status to Closed after remote branch deletion when pr is Open 0ms
+ ✓  node  tests/unit/application/use-cases/features/delete-feature.use-case.test.ts > DeleteFeatureUseCase > closePr option > should not update pr.status when feature has no pr 0ms
+ ✓  node  tests/unit/application/use-cases/features/delete-feature.use-case.test.ts > DeleteFeatureUseCase > closePr option > should not update pr.status when pr.status is Merged 0ms
+ ✓  node  tests/unit/application/use-cases/features/delete-feature.use-case.test.ts > DeleteFeatureUseCase > closePr option > should not update pr.status when pr.status is already Closed 0ms
+ ✓  node  tests/unit/application/use-cases/features/delete-feature.use-case.test.ts > DeleteFeatureUseCase > closePr option > should not throw when pr.status update fails 0ms
+ ✓  node  tests/unit/application/use-cases/features/delete-feature.use-case.test.ts > DeleteFeatureUseCase > closePr option > should not update pr.status when closePr is false 0ms
+
+ Test Files  1 passed (1)
+      Tests  35 passed (35)
+   Start at  10:08:35
+   Duration  173ms (transform 54ms, setup 0ms, import 79ms, tests 16ms, environment 0ms)
+

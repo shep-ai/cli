@@ -1,0 +1,39 @@
+feature:
+  id: 069-feat-delete-close-pr
+  name: feat-delete-close-pr
+  number: 69
+  branch: feat/069-feat-delete-close-pr
+  lifecycle: research
+  createdAt: '2026-03-16T17:27:07Z'
+status:
+  phase: implementation-complete
+  progress:
+    completed: 10
+    total: 10
+    percentage: 100
+  currentTask: null
+  lastUpdated: '2026-03-17T08:04:46.662Z'
+  lastUpdatedBy: feature-agent:implement
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+    - plan
+    - phase-1
+    - phase-2
+    - phase-3
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-03-16T17:27:07Z'
+    completedBy: feature-agent
+errors:
+  current: null
+  history: []
