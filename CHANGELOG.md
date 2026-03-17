@@ -1,3 +1,10 @@
+## [1.129.1](https://github.com/shep-ai/cli/compare/v1.129.0...v1.129.1) (2026-03-17)
+
+
+### Bug Fixes
+
+* **web:** repo ordering on canvas and git info perf ([#410](https://github.com/shep-ai/cli/issues/410)) ([1cca481](https://github.com/shep-ai/cli/commit/1cca481efe2e94b2965aab23abfaeb1a772148a4))
+
 # [1.129.0](https://github.com/shep-ai/cli/compare/v1.128.0...v1.129.0) (2026-03-17)
 
 
