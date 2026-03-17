@@ -1,0 +1,145 @@
+name: evidence-validation-loop
+number: 071
+branch: feat/071-evidence-validation-loop
+oneLiner: Add validation and retry loop to evidence collection to ensure evidence truly proves task completion
+summary: >
+  The evidence collection phase currently captures evidence once without validating whether the captured
+  evidence actually proves the tasks were completed successfully. This feature adds a validation step
+  with visual inspection logic and a retry loop to ensure evidence quality meets acceptance criteria
+  before proceeding to the merge phase.
+phase: Analysis
+sizeEstimate: M
+
+relatedFeatures: []
+
+technologies:
+  - LangGraph
+  - TypeScript
+  - Node.js
+  - Playwright
+  - Better-SQLite3
+  - Vitest
+
+relatedLinks: []
+
+openQuestions: []
+
+content: |
+  ## Problem Statement
+
+  The current evidence collection implementation (evidence.node.ts) runs once as a sub-agent within the
+  implement node. It captures visual and textual evidence (screenshots, test outputs, terminal recordings)
+  and parses them into Evidence[] records via parseEvidenceRecords. However, there is no automated
+  validation to ensure the captured evidence actually proves the tasks were completed or that bugs were fixed.
+
+  Current limitations:
+  - Evidence collection executes once without quality validation
+  - The agent's output is parsed for Evidence[] but not inspected for correctness
+  - No retry mechanism if evidence is insufficient or doesn't demonstrate task completion
+  - validateUiEvidenceHasAppProof provides basic warnings but doesn't trigger re-collection
+  - Evidence failures never block the merge (FR-8 graceful degradation), but there's no retry before giving up
+
+  This creates a gap where evidence collection may succeed technically (files captured, JSON parsed)
+  but fail qualitatively (screenshots don't show the feature, tests don't prove the bug fix).
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The repository follows Clean Architecture with four layers:
+  - **domain/** — TypeSpec-generated domain models including Evidence type (tsp/domain/value-objects/evidence.tsp)
+  - **application/** — Use cases and port interfaces (agent executors, repositories)
+  - **infrastructure/** — Agent system implementation using LangGraph StateGraphs
+  - **presentation/** — CLI, TUI, Web UI
+
+  Evidence collection is implemented in the agent system at:
+  - `packages/core/src/infrastructure/services/agents/feature-agent/`
+
+  ### Architecture Patterns
+
+  **LangGraph State-Based Workflow:**
+  - Nodes are pure async functions that process and update typed state
+  - Evidence flows through the FeatureAgentState annotation (state.ts:84-88)
+  - Evidence is populated by the evidence.node.ts within the implement phase
+  - Current flow: analyze → requirements → research → plan → implement (includes evidence sub-agent) → merge
+  - Validation nodes exist for other phases (validate.node.ts, repair.node.ts)
+
+  **Validation/Repair Pattern:**
+  - The graph already implements a validate → repair → validate loop for YAML artifacts
+  - validate.node.ts: reads YAML, runs schema validation, returns errors
+  - repair.node.ts: sends broken YAML + errors to executor for fixing
+  - routeValidation(): conditional edge routes to repair on failure, successor on success
+  - Max retries (default 3) before throwing error
+  - This pattern can be adapted for evidence validation
+
+  **Evidence System Components:**
+  - evidence.node.ts: Creates evidence node, invokes agent, parses output
+  - evidence-prompts.ts: Builds prompt with mandatory screenshot rules, storage instructions
+  - evidence-output-parser.ts: Extracts Evidence[] from fenced JSON code block
+  - validateUiEvidenceHasAppProof: Checks for Storybook-only vs app-level screenshots
+  - State channel: evidence (Annotation<Evidence[]> with reducer)
+
+  ### Relevant Technologies
+
+  - **LangGraph**: StateGraph, Annotation, conditional edges, interrupt() for HITL approval
+  - **TypeScript**: Strict typing with TypeSpec-generated domain models
+  - **Node.js + fs**: File operations for reading evidence files
+  - **Playwright**: Used in prompts for screenshot capture automation
+  - **Better-SQLite3**: State persistence (though evidence validation is in-memory during graph execution)
+  - **Vitest**: Testing framework — evidence-flow.test.ts validates evidence state propagation
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | packages/core/src/infrastructure/services/agents/feature-agent/nodes/evidence.node.ts | High | Must add validation logic and retry loop around evidence collection |
+  | packages/core/src/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.ts | High | Need to add validation function to inspect Evidence[] records for quality/completeness |
+  | packages/core/src/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.ts | Medium | May need to enhance prompt when retrying with feedback about insufficient evidence |
+  | packages/core/src/infrastructure/services/agents/feature-agent/state.ts | Medium | May need to add state channels for validation retries, errors, feedback |
+  | packages/core/src/infrastructure/services/agents/feature-agent/feature-agent-graph.ts | Low | Evidence node is called within implement node (not a standalone graph node), so no graph topology changes unless we extract evidence to its own node |
+  | tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts | High | Must add tests for validation logic, retry loop, max attempts handling |
+  | tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts | Medium | Add tests for new validation function |
+  | tests/integration/infrastructure/services/agents/graph-state-transitions/evidence-flow.test.ts | Medium | Update tests to cover retry scenarios |
+  | docs/architecture/agent-system.md | Low | Update if evidence becomes a standalone node or adds significant new workflow |
+
+  ## Dependencies
+
+  **Existing Code:**
+  - validate.node.ts and repair.node.ts patterns (validation/repair loop template)
+  - evidence.node.ts (current evidence collection implementation)
+  - evidence-output-parser.ts (parsing and basic UI validation)
+  - node-helpers.ts (retryExecute, createNodeLogger, buildExecutorOptions, markPhaseComplete, getCompletedPhases)
+  - state.ts (FeatureAgentAnnotation for state channels)
+
+  **Libraries:**
+  - @langchain/langgraph (StateGraph, Annotation, interrupt, Command)
+  - Node.js fs/path for file inspection
+  - Vitest for testing
+
+  **No external API dependencies** — validation is local inspection of captured evidence files and records.
+
+  ## Size Estimate
+
+  **M (Medium)** — Estimated 1-2 days of focused development
+
+  **Justification:**
+  - This is a medium-complexity enhancement to an existing node
+  - Reuses established validation/repair patterns from other nodes
+  - Requires careful design of validation logic (what makes evidence "sufficient"?)
+  - Need to add retry loop with max attempts and feedback mechanism
+  - Must handle edge cases (missing files, corrupt images, insufficient screenshots)
+  - Requires comprehensive unit and integration test coverage
+  - Must preserve graceful degradation (FR-8) — evidence validation can retry but ultimately cannot block merge
+  - No new infrastructure (graph already supports validate/repair pattern, evidence already flows through state)
+
+  **Scope Breakdown:**
+  1. Add validation function to evidence-output-parser.ts (inspect Evidence[] for completeness)
+  2. Refactor evidence.node.ts to run validation → retry loop (similar to validate/repair pattern)
+  3. Enhance evidence prompt to include retry feedback when validation fails
+  4. Add state channels for validation retries/errors if needed (or reuse validationRetries pattern)
+  5. Write unit tests for validation logic and retry behavior
+  6. Update integration tests to cover retry scenarios
+  7. Update documentation if evidence becomes a standalone workflow step
+
+  This is not Small because it requires non-trivial logic to determine evidence sufficiency, and not Large
+  because it builds on existing patterns and doesn't require new graph nodes or external integrations.
