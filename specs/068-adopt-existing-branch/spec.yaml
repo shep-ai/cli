@@ -588,3 +588,7 @@ rejectionFeedback:
       ---
     phase: merge
     timestamp: '2026-03-17T08:12:37.023Z'
+  - iteration: 6
+    message: Hide the adopt branch feature behind feature flag (settings page)
+    phase: merge
+    timestamp: '2026-03-17T09:07:18.000Z'

@@ -152,6 +152,7 @@ export function createDefaultSettings(): Settings {
     skills: false,
     envDeploy: true,
     debug: false,
+    adoptBranch: false,
   };
 
   return {

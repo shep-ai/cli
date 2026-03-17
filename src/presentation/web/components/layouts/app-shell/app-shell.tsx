@@ -83,12 +83,16 @@ function AppShellInner({ children }: AppShellProps) {
         icon: <Plus className="h-4 w-4" />,
         onClick: handleNewFeature,
       },
-      {
-        id: 'adopt-branch',
-        label: 'Adopt Branch',
-        icon: <GitBranch className="h-4 w-4" />,
-        onClick: handleAdoptBranch,
-      },
+      ...(featureFlags.adoptBranch
+        ? [
+            {
+              id: 'adopt-branch',
+              label: 'Adopt Branch',
+              icon: <GitBranch className="h-4 w-4" />,
+              onClick: handleAdoptBranch,
+            },
+          ]
+        : []),
       {
         id: 'add-repository',
         label: 'Add Repository',
@@ -97,7 +101,7 @@ function AppShellInner({ children }: AppShellProps) {
         loading: addingRepo,
       },
     ],
-    [handleNewFeature, handleAdoptBranch, handleAddRepository, addingRepo]
+    [handleNewFeature, handleAdoptBranch, handleAddRepository, addingRepo, featureFlags.adoptBranch]
   );
 
   return (

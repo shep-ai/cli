@@ -306,6 +306,7 @@ describe('createDefaultSettings', () => {
         skills: false,
         envDeploy: true,
         debug: false,
+        adoptBranch: false,
       });
     });
   });
