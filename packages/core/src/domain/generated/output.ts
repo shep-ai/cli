@@ -558,6 +558,10 @@ export type FeatureFlags = {
    * Enable debug UI elements and verbose client-side logging
    */
   debug: boolean;
+  /**
+   * Enable GitHub repository import in the web UI
+   */
+  githubImport: boolean;
 };
 
 /**

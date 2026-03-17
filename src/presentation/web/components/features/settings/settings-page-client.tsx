@@ -360,7 +360,12 @@ export function SettingsPageClient({
   availableTerminals,
 }: SettingsPageClientProps) {
   const { showSaving, showSaved, save } = useSaveIndicator();
-  const featureFlags = settings.featureFlags ?? { skills: false, envDeploy: false, debug: false };
+  const featureFlags = settings.featureFlags ?? {
+    skills: false,
+    envDeploy: false,
+    debug: false,
+    githubImport: false,
+  };
 
   // Agent state
   const [agentType, setAgentType] = useState(settings.agent.type);

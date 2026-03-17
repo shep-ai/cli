@@ -7,6 +7,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { GitHubImportDialog } from '@/components/common/github-import-dialog';
 import { pickFolder } from './pick-folder';
+import { useFeatureFlags } from '@/hooks/feature-flags-context';
 import type { Repository } from '@shepai/core/domain/generated/output';
 
 export interface AddRepositoryButtonProps {
@@ -15,6 +16,7 @@ export interface AddRepositoryButtonProps {
 }
 
 export function AddRepositoryButton({ onSelect, onGitHubImport }: AddRepositoryButtonProps) {
+  const featureFlags = useFeatureFlags();
   const [loading, setLoading] = useState(false);
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [githubDialogOpen, setGithubDialogOpen] = useState(false);
@@ -81,23 +83,27 @@ export function AddRepositoryButton({ onSelect, onGitHubImport }: AddRepositoryB
             <FolderPlus className="h-4 w-4" />
             Local folder
           </button>
-          <button
-            type="button"
-            className="hover:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm"
-            onClick={handleFromGitHub}
-            data-testid="add-repo-from-github"
-          >
-            <Github className="h-4 w-4" />
-            From GitHub
-          </button>
+          {featureFlags.githubImport ? (
+            <button
+              type="button"
+              className="hover:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm"
+              onClick={handleFromGitHub}
+              data-testid="add-repo-from-github"
+            >
+              <Github className="h-4 w-4" />
+              From GitHub
+            </button>
+          ) : null}
         </PopoverContent>
       </Popover>
 
-      <GitHubImportDialog
-        open={githubDialogOpen}
-        onOpenChange={setGithubDialogOpen}
-        onImportComplete={handleImportComplete}
-      />
+      {featureFlags.githubImport ? (
+        <GitHubImportDialog
+          open={githubDialogOpen}
+          onOpenChange={setGithubDialogOpen}
+          onImportComplete={handleImportComplete}
+        />
+      ) : null}
     </>
   );
 }

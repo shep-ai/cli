@@ -466,6 +466,9 @@ model FeatureFlags {
 
   @doc("Enable debug UI elements and verbose client-side logging")
   debug: boolean = false;
+
+  @doc("Enable GitHub repository import in the web UI")
+  githubImport: boolean = false;
 }
 
 /**

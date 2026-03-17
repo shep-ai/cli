@@ -144,6 +144,7 @@ function createTestRow(overrides: Partial<SettingsRow> = {}): SettingsRow {
     feature_flag_skills: 0,
     feature_flag_env_deploy: 0,
     feature_flag_debug: 0,
+    feature_flag_github_import: 0,
     ...overrides,
   };
 }

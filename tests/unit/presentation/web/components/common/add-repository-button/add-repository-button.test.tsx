@@ -18,6 +18,10 @@ vi.mock('@/app/actions/list-github-repositories', () => ({
   listGitHubRepositories: (...args: unknown[]) => mockListGitHubRepositories(...args),
 }));
 
+vi.mock('@/hooks/feature-flags-context', () => ({
+  useFeatureFlags: () => ({ skills: false, envDeploy: false, debug: false, githubImport: true }),
+}));
+
 import { AddRepositoryButton } from '@/components/common/add-repository-button';
 
 describe('AddRepositoryButton', () => {

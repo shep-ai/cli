@@ -153,6 +153,7 @@ export function createDefaultSettings(): Settings {
     skills: false,
     envDeploy: true,
     debug: false,
+    githubImport: false,
   };
 
   return {

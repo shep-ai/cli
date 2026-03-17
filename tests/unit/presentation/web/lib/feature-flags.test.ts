@@ -24,7 +24,7 @@ describe('getFeatureFlags', () => {
   it('returns DB values when settings has featureFlags', () => {
     mockHasSettings.mockReturnValue(true);
     mockGetSettings.mockReturnValue({
-      featureFlags: { skills: true, envDeploy: false, debug: true },
+      featureFlags: { skills: true, envDeploy: false, debug: true, githubImport: false },
     });
 
     const flags = getFeatureFlags();
@@ -32,6 +32,7 @@ describe('getFeatureFlags', () => {
     expect(flags.skills).toBe(true);
     expect(flags.envDeploy).toBe(false);
     expect(flags.debug).toBe(true);
+    expect(flags.githubImport).toBe(false);
   });
 
   it('falls back to env vars when featureFlags is undefined', () => {
@@ -85,7 +86,7 @@ describe('getFeatureFlags', () => {
   it('debug flag returns false when not in DB (no env var fallback)', () => {
     mockHasSettings.mockReturnValue(true);
     mockGetSettings.mockReturnValue({
-      featureFlags: { skills: false, envDeploy: false, debug: false },
+      featureFlags: { skills: false, envDeploy: false, debug: false, githubImport: false },
     });
 
     const flags = getFeatureFlags();
@@ -102,7 +103,7 @@ describe('featureFlags (backward-compatible const)', () => {
   it('exposes skills via getter that calls getFeatureFlags', () => {
     mockHasSettings.mockReturnValue(true);
     mockGetSettings.mockReturnValue({
-      featureFlags: { skills: true, envDeploy: false, debug: false },
+      featureFlags: { skills: true, envDeploy: false, debug: false, githubImport: false },
     });
 
     expect(featureFlags.skills).toBe(true);
@@ -111,7 +112,7 @@ describe('featureFlags (backward-compatible const)', () => {
   it('exposes envDeploy via getter', () => {
     mockHasSettings.mockReturnValue(true);
     mockGetSettings.mockReturnValue({
-      featureFlags: { skills: false, envDeploy: true, debug: false },
+      featureFlags: { skills: false, envDeploy: true, debug: false, githubImport: false },
     });
 
     expect(featureFlags.envDeploy).toBe(true);
@@ -120,7 +121,7 @@ describe('featureFlags (backward-compatible const)', () => {
   it('exposes debug via getter', () => {
     mockHasSettings.mockReturnValue(true);
     mockGetSettings.mockReturnValue({
-      featureFlags: { skills: false, envDeploy: false, debug: true },
+      featureFlags: { skills: false, envDeploy: false, debug: true, githubImport: false },
     });
 
     expect(featureFlags.debug).toBe(true);

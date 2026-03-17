@@ -12,7 +12,7 @@ vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }));
 
-const defaultFlags = { skills: false, envDeploy: false, debug: false };
+const defaultFlags = { skills: false, envDeploy: false, debug: false, githubImport: false };
 
 describe('FeatureFlagsSettingsSection', () => {
   beforeEach(() => {

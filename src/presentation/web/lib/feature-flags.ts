@@ -16,6 +16,7 @@ export interface FeatureFlagsState {
   skills: boolean;
   envDeploy: boolean;
   debug: boolean;
+  githubImport: boolean;
 }
 
 export function getFeatureFlags(): FeatureFlagsState {
@@ -27,6 +28,7 @@ export function getFeatureFlags(): FeatureFlagsState {
           skills: flags.skills,
           envDeploy: flags.envDeploy,
           debug: flags.debug,
+          githubImport: flags.githubImport,
         };
       }
     }
@@ -41,6 +43,7 @@ export function getFeatureFlags(): FeatureFlagsState {
         ? isEnabled(process.env.NEXT_PUBLIC_FLAG_ENV_DEPLOY)
         : true,
     debug: false,
+    githubImport: false,
   };
 }
 
@@ -57,5 +60,8 @@ export const featureFlags = {
   },
   get debug() {
     return getFeatureFlags().debug;
+  },
+  get githubImport() {
+    return getFeatureFlags().githubImport;
   },
 } as const;

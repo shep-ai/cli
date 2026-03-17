@@ -85,8 +85,8 @@ function AppShellInner({ children }: AppShellProps) {
     }
   }, []);
 
-  const fabActions: FloatingActionButtonAction[] = useMemo(
-    () => [
+  const fabActions: FloatingActionButtonAction[] = useMemo(() => {
+    const actions: FloatingActionButtonAction[] = [
       {
         id: 'new-feature',
         label: 'New Feature',
@@ -100,15 +100,23 @@ function AppShellInner({ children }: AppShellProps) {
         onClick: handleAddRepository,
         loading: addingRepo,
       },
-      {
+    ];
+    if (featureFlags.githubImport) {
+      actions.push({
         id: 'import-github',
         label: 'Import from GitHub',
         icon: <Github className="h-4 w-4" />,
         onClick: handleImportFromGitHub,
-      },
-    ],
-    [handleNewFeature, handleAddRepository, addingRepo, handleImportFromGitHub]
-  );
+      });
+    }
+    return actions;
+  }, [
+    handleNewFeature,
+    handleAddRepository,
+    addingRepo,
+    handleImportFromGitHub,
+    featureFlags.githubImport,
+  ]);
 
   return (
     <SidebarProvider defaultOpen={false}>
@@ -130,11 +138,13 @@ function AppShellInner({ children }: AppShellProps) {
           {isControlCenterRoute(pathname) && hasRepositories ? (
             <FloatingActionButton actions={fabActions} />
           ) : null}
-          <GitHubImportDialog
-            open={githubDialogOpen}
-            onOpenChange={setGithubDialogOpen}
-            onImportComplete={handleGitHubImportComplete}
-          />
+          {featureFlags.githubImport ? (
+            <GitHubImportDialog
+              open={githubDialogOpen}
+              onOpenChange={setGithubDialogOpen}
+              onImportComplete={handleGitHubImportComplete}
+            />
+          ) : null}
         </div>
       </SidebarInset>
     </SidebarProvider>
