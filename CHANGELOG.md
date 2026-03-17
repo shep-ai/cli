@@ -1,3 +1,9 @@
+# [1.125.0](https://github.com/shep-ai/cli/compare/v1.124.0...v1.125.0) (2026-03-17)
+
+### Features
+
+- **web:** cleanup settings page - remove dead auth ui and add missing notification toggles ([#403](https://github.com/shep-ai/cli/issues/403)) ([beec826](https://github.com/shep-ai/cli/commit/beec826f6763d7a95f1c263146c7f1026f5c3c74))
+
 # [1.124.0](https://github.com/shep-ai/cli/compare/v1.123.0...v1.124.0) (2026-03-16)
 
 ### Features
