@@ -687,3 +687,22 @@ rejectionFeedback:
       page and make sure it visible there
     phase: merge
     timestamp: '2026-03-17T16:57:33.642Z'
+  - iteration: 6
+    message: >-
+      my local main is behind the remote, but the ui is not showing that
+
+
+      ```git status
+
+      On branch main
+
+      Your branch is behind 'origin/main' by 2 commits, and can be
+      fast-forwarded.
+        (use "git pull" to update your local branch)
+
+      nothing to commit, working tree clean```
+    phase: merge
+    timestamp: '2026-03-17T17:39:19.102Z'
+    attachments:
+      - >-
+        /Users/arielshadkhan/.shep/attachments/pending-d09c53f4-a00c-4f62-a51b-3d538005b427/image-c3085c3d.png
