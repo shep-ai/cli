@@ -206,7 +206,7 @@ export function useDeployAction(input: DeployActionInput | null): DeployActionSt
 
       if (!result.success) {
         const errorMessage = result.error ?? 'An unexpected error occurred';
-        log.error(`deploy failed: ${errorMessage}`);
+        log.warn(`deploy failed: ${errorMessage}`);
         setDeployError(errorMessage);
         errorTimerRef.current = setTimeout(() => setDeployError(null), ERROR_CLEAR_DELAY);
       } else {
