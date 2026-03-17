@@ -1,3 +1,10 @@
+## [1.129.3](https://github.com/shep-ai/cli/compare/v1.129.2...v1.129.3) (2026-03-17)
+
+
+### Bug Fixes
+
+* **web:** use di container for terminal list in settings page ([#415](https://github.com/shep-ai/cli/issues/415)) ([f66fc93](https://github.com/shep-ai/cli/commit/f66fc932639989c571d15d7771a7beb5a895a2f2))
+
 ## [1.129.2](https://github.com/shep-ai/cli/compare/v1.129.1...v1.129.2) (2026-03-17)
 
 
