@@ -10,6 +10,7 @@
  * - Infrastructure layer provides concrete implementations
  */
 
+import type Database from 'better-sqlite3';
 import type { DeploymentState } from '@/domain/generated/output.js';
 
 /** A single log line captured from a deployment's stdout or stderr. */
@@ -44,15 +45,27 @@ export interface DeploymentStatus {
  */
 export interface IDeploymentService {
   /**
+   * Inject the database connection for persistence.
+   * Must be called before start/stop/getStatus to enable DB persistence.
+   */
+  setDatabase(db: Database.Database): void;
+
+  /**
+   * Recover dev servers from the database on startup.
+   * Validates each PID is still alive; removes dead rows.
+   */
+  recoverAll(): void;
+
+  /**
    * Start a dev server deployment for the given target.
    * If a deployment already exists for this targetId, it is stopped first.
    *
    * @param targetId - Unique identifier for the deployment target (featureId or repositoryId)
    * @param targetPath - Absolute filesystem path to the directory to run the dev server in
-   * @returns The initial deployment state (always Booting on success)
+   * @param targetType - Type of target ('feature' or 'repository')
    * @throws Error if no dev script is found in package.json or the process fails to spawn
    */
-  start(targetId: string, targetPath: string): void;
+  start(targetId: string, targetPath: string, targetType?: string): void;
 
   /**
    * Stop a running deployment gracefully.

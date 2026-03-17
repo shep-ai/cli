@@ -60,27 +60,6 @@ vi.mock('@/hooks/feature-flags-context', () => ({
   useFeatureFlags: () => ({ envDeploy: true, skills: false, debug: false }),
 }));
 
-// Mock DeploymentStatusBadge
-vi.mock('@/components/common/deployment-status-badge', () => ({
-  DeploymentStatusBadge: ({
-    status,
-    url,
-    targetId,
-  }: {
-    status: string | null;
-    url?: string | null;
-    targetId?: string;
-  }) =>
-    status ? (
-      <div
-        data-testid="deployment-status-badge"
-        data-status={status}
-        data-url={url}
-        data-target-id={targetId}
-      />
-    ) : null,
-}));
-
 // Mock radix-ui tooltip — render trigger children directly, hide content to avoid DOM noise
 vi.mock('radix-ui', () => ({
   Tooltip: {
@@ -277,11 +256,11 @@ describe('RepositoryNode', () => {
   });
 
   describe('node width', () => {
-    it('uses min-w-[18rem] class on the main button element', () => {
+    it('uses fixed w-[26rem] class on the main card element', () => {
       renderNode(dataWithRepoPath);
 
       const card = screen.getByTestId('repository-node-card');
-      expect(card).toHaveClass('min-w-[18rem]');
+      expect(card).toHaveClass('w-[26rem]');
     });
   });
 
@@ -384,7 +363,7 @@ describe('RepositoryNode', () => {
       expect(mockStop).toHaveBeenCalledOnce();
     });
 
-    it('renders DeploymentStatusBadge when status is Booting or Ready', () => {
+    it('shows URL link when deployment is Ready with url', () => {
       mockDeployHookReturn = {
         ...mockDeployHookReturn,
         status: 'Ready',
@@ -392,27 +371,26 @@ describe('RepositoryNode', () => {
       };
       renderNode(dataWithRepoPath);
 
-      const badge = screen.getByTestId('deployment-status-badge');
-      expect(badge).toBeInTheDocument();
-      expect(badge).toHaveAttribute('data-status', 'Ready');
+      const link = screen.getByRole('link', { name: /localhost:3000/ });
+      expect(link).toBeInTheDocument();
+      expect(link).toHaveAttribute('href', 'http://localhost:3000');
     });
 
-    it('does not render DeploymentStatusBadge when status is null', () => {
+    it('shows "Run" label when deployment is not active', () => {
       renderNode(dataWithRepoPath);
 
-      expect(screen.queryByTestId('deployment-status-badge')).not.toBeInTheDocument();
+      expect(screen.getByText('Run')).toBeInTheDocument();
     });
 
-    it('passes targetId (repositoryPath) to DeploymentStatusBadge', () => {
+    it('shows "Starting..." when deployment is Booting without url', () => {
       mockDeployHookReturn = {
         ...mockDeployHookReturn,
-        status: 'Ready',
-        url: 'http://localhost:3000',
+        status: 'Booting',
+        url: null,
       };
       renderNode(dataWithRepoPath);
 
-      const badge = screen.getByTestId('deployment-status-badge');
-      expect(badge).toHaveAttribute('data-target-id', '/home/user/my-repo');
+      expect(screen.getByText('Starting...')).toBeInTheDocument();
     });
   });
 
@@ -459,6 +437,70 @@ describe('RepositoryNode', () => {
       fireEvent.click(screen.getByTestId('repository-node-card'));
 
       expect(onClick).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe('git info display', () => {
+    it('renders branch name when branch is provided', () => {
+      renderNode({ ...defaultData, branch: 'main' });
+
+      expect(screen.getByTestId('repository-node-git-info')).toBeInTheDocument();
+      expect(screen.getByTestId('repository-node-branch')).toHaveTextContent('main');
+    });
+
+    it('renders behind count when behindCount is greater than 0', () => {
+      renderNode({ ...defaultData, branch: 'feat/test', behindCount: 5 });
+
+      const behind = screen.getByTestId('repository-node-behind');
+      expect(behind).toBeInTheDocument();
+      expect(behind).toHaveTextContent('5 behind');
+    });
+
+    it('does not render behind count when behindCount is 0', () => {
+      renderNode({ ...defaultData, branch: 'main', behindCount: 0 });
+
+      expect(screen.queryByTestId('repository-node-behind')).not.toBeInTheDocument();
+    });
+
+    it('does not render behind count when behindCount is null', () => {
+      renderNode({ ...defaultData, branch: 'main', behindCount: null });
+
+      expect(screen.queryByTestId('repository-node-behind')).not.toBeInTheDocument();
+    });
+
+    it('does not render git info section when branch is not provided', () => {
+      renderNode(defaultData);
+
+      expect(screen.queryByTestId('repository-node-git-info')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('commit info display', () => {
+    it('renders commit message when commitMessage is provided', () => {
+      renderNode({ ...defaultData, commitMessage: 'feat: add login page', committer: 'Jane Doe' });
+
+      expect(screen.getByTestId('repository-node-commit-info')).toBeInTheDocument();
+      expect(screen.getByTestId('repository-node-commit-message')).toHaveTextContent(
+        'feat: add login page'
+      );
+    });
+
+    it('renders committer name when committer is provided', () => {
+      renderNode({ ...defaultData, commitMessage: 'fix: typo', committer: 'John Smith' });
+
+      expect(screen.getByTestId('repository-node-committer')).toHaveTextContent('John Smith');
+    });
+
+    it('does not render committer when committer is absent', () => {
+      renderNode({ ...defaultData, commitMessage: 'fix: typo' });
+
+      expect(screen.queryByTestId('repository-node-committer')).not.toBeInTheDocument();
+    });
+
+    it('does not render commit info section when commitMessage is not provided', () => {
+      renderNode(defaultData);
+
+      expect(screen.queryByTestId('repository-node-commit-info')).not.toBeInTheDocument();
     });
   });
 });

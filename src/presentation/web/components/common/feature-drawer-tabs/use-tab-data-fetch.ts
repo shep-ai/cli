@@ -90,11 +90,15 @@ export function useTabDataFetch<K extends string>(
 
     if (!fetcher) return;
 
+    // Only show loading spinner when there's no existing data.
+    // On refresh (data already present), keep showing stale data while fetching
+    // to avoid flickering the entire tab on every poll cycle.
     if (mountedRef.current) {
-      setTabStates((prev) => ({
-        ...prev,
-        [tab]: { ...prev[tab], loading: true, error: null },
-      }));
+      setTabStates((prev) => {
+        const hasData = prev[tab]?.data !== null;
+        if (hasData) return prev; // Keep stale data visible — no loading flash
+        return { ...prev, [tab]: { ...prev[tab], loading: true, error: null } };
+      });
     }
 
     try {
@@ -107,11 +111,15 @@ export function useTabDataFetch<K extends string>(
       }
     } catch (error: unknown) {
       if (mountedRef.current) {
-        const message = error instanceof Error ? error.message : 'Failed to fetch tab data';
-        setTabStates((prev) => ({
-          ...prev,
-          [tab]: { data: null, loading: false, error: message },
-        }));
+        setTabStates((prev) => {
+          const message = error instanceof Error ? error.message : 'Failed to fetch tab data';
+          // On refresh failure, keep existing data instead of clearing it
+          const existingData = prev[tab]?.data ?? null;
+          return {
+            ...prev,
+            [tab]: { data: existingData, loading: false, error: existingData ? null : message },
+          };
+        });
       }
     }
   }, []);

@@ -128,6 +128,11 @@ export async function runCiWatchFixLoop(
     throw err;
   }
 
+  // Use the run URL from watchCi — it reflects the actual run watched,
+  // which may differ from the initial getCiStatus() result when multiple
+  // workflow runs exist for the same branch.
+  if (watchResult.runUrl) runUrl = watchResult.runUrl;
+
   if (watchResult.status === 'success') {
     log.info('CI passed on first watch');
     return { ciStatus: CiStatus.Success, ciFixAttempts, ciFixHistory, ciFixStatus: 'success' };
@@ -176,6 +181,10 @@ export async function runCiWatchFixLoop(
       }
       throw err;
     }
+
+    // Update runUrl to the run that was actually watched (avoids mismatch
+    // when multiple workflow runs exist for the same branch).
+    if (fixWatchResult.runUrl) runUrl = fixWatchResult.runUrl;
 
     const outcome = fixWatchResult.status === 'success' ? 'fixed' : 'failed';
     ciFixHistory.push({

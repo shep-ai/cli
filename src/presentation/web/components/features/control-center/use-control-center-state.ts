@@ -183,11 +183,21 @@ export function useControlCenterState(
     for (const { featureId, state, lifecycle } of resolveSseEventUpdates(newEvents)) {
       if (state !== undefined || lifecycle !== undefined) {
         const nodeId = `feat-${featureId}`;
+        const existingNode = nodesRef.current.find((n) => n.id === nodeId);
+        const existingState = existingNode
+          ? (existingNode.data as FeatureNodeData).state
+          : undefined;
+
         // Skip SSE updates for features in 'deleting' state — the optimistic
         // delete state must not be overwritten by stale SSE events (e.g. agent
         // cancellation emitting AgentFailed during the soft-delete window).
-        const existingNode = nodesRef.current.find((n) => n.id === nodeId);
-        if (existingNode && (existingNode.data as FeatureNodeData).state === 'deleting') continue;
+        if (existingState === 'deleting') continue;
+
+        // Skip SSE error events during mutation cooldown — after approve/reject
+        // the agent may still report AgentFailed from the previous run before
+        // the resume kicks in. The optimistic 'running' state must not be
+        // overwritten by stale error events during this transition window.
+        if (state === 'error' && isMutating() && existingState === 'running') continue;
 
         updateFeature(nodeId, {
           ...(state !== undefined && { state }),
@@ -195,7 +205,7 @@ export function useControlCenterState(
         });
       }
     }
-  }, [events, updateFeature]);
+  }, [events, updateFeature, isMutating]);
 
   // Listen for optimistic approval/rejection events from the drawer (fires before SSE arrives).
   // Uses beginMutation + endMutation to prevent stale poll/reconcile data from overwriting

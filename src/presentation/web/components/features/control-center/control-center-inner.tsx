@@ -63,8 +63,9 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     setCallbacks,
   } = useControlCenterState(initialNodes, initialEdges);
 
-  // Publish sidebar features to context whenever feature node data changes
-  const { setFeatures: setSidebarFeatures } = useSidebarFeaturesContext();
+  // Publish sidebar features + repo state to context
+  const { setFeatures: setSidebarFeatures, setHasRepositories: setSidebarHasRepos } =
+    useSidebarFeaturesContext();
 
   const featureNodes = useMemo(() => nodes.filter((n) => n.type === 'featureNode'), [nodes]);
 
@@ -183,23 +184,38 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     }
   }, [router, pathname, guardedNavigate]);
 
+  // Shared: after adding first repo, center canvas and open create drawer
+  const focusAndOpenDrawer = useCallback(
+    (repoPath: string) => {
+      // Wait for next render so the repo node exists in the DOM
+      setTimeout(() => {
+        fitView(AUTO_FOCUS_OPTIONS);
+
+        // Open the create-feature drawer after the fitView animation completes
+        drawerTimerRef.current = setTimeout(() => {
+          guardedNavigate(() => router.push(`/create?repo=${encodeURIComponent(repoPath)}`));
+        }, AUTO_FOCUS_DRAWER_DELAY_MS);
+      }, 0);
+    },
+    [fitView, guardedNavigate, router]
+  );
+
+  // Wrapper: add repo + auto-focus if canvas was empty
+  const addRepoAndFocus = useCallback(
+    (path: string) => {
+      const { wasEmpty, repoPath } = handleAddRepository(path);
+      if (wasEmpty) {
+        focusAndOpenDrawer(repoPath);
+      }
+    },
+    [handleAddRepository, focusAndOpenDrawer]
+  );
+
   // Listen for global "add repository" events from the top bar button
   useEffect(() => {
     const handler = (e: Event) => {
       const path = (e as CustomEvent<{ path: string }>).detail.path;
-      const { wasEmpty, repoPath } = handleAddRepository(path);
-
-      if (wasEmpty) {
-        // Wait for next render so the repo node exists in the DOM, then auto-focus
-        setTimeout(() => {
-          fitView(AUTO_FOCUS_OPTIONS);
-
-          // Open the create-feature drawer after the fitView animation completes
-          drawerTimerRef.current = setTimeout(() => {
-            guardedNavigate(() => router.push(`/create?repo=${encodeURIComponent(repoPath)}`));
-          }, AUTO_FOCUS_DRAWER_DELAY_MS);
-        }, 0);
-      }
+      addRepoAndFocus(path);
     };
     window.addEventListener('shep:add-repository', handler);
     return () => {
@@ -208,7 +224,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
         clearTimeout(drawerTimerRef.current);
       }
     };
-  }, [handleAddRepository, fitView, guardedNavigate, router]);
+  }, [addRepoAndFocus]);
 
   // Listen for create events from the create drawer (with real feature ID from server)
   useEffect(() => {
@@ -307,6 +323,11 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
 
   const hasRepositories = nodes.some((n) => n.type === 'repositoryNode');
 
+  // Publish repo state to sidebar context so AppShell can hide FAB during onboarding
+  useEffect(() => {
+    setSidebarHasRepos(hasRepositories);
+  }, [hasRepositories, setSidebarHasRepos]);
+
   // Debounced latch: prevent empty-state flicker during brief reconcile gaps
   // (e.g. stale poll momentarily drops repos), but allow the empty state to
   // return after a real delete once repos stay gone past the debounce window.
@@ -322,7 +343,9 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
       }
       setShowCanvas(true);
     } else if (showCanvas) {
-      // Repos gone — wait before showing empty state (debounce stale polls)
+      // Repos gone — clear saved viewport so next add starts centered,
+      // then wait before showing empty state (debounce stale polls)
+      resetViewport();
       latchTimerRef.current = setTimeout(() => {
         setShowCanvas(false);
         latchTimerRef.current = null;
@@ -331,7 +354,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     return () => {
       if (latchTimerRef.current) clearTimeout(latchTimerRef.current);
     };
-  }, [hasRepositories, showCanvas]);
+  }, [hasRepositories, showCanvas, resetViewport]);
 
   // Pulse the "+" button when there's a single repo with no features and the
   // create-feature drawer is not open — draws attention to the next action.
@@ -361,7 +384,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
       onPaneClick={handleClearDrawers}
       onMoveEnd={handleMoveEnd}
       onResetViewport={resetViewport}
-      emptyState={<ControlCenterEmptyState onRepositorySelect={handleAddRepository} />}
+      emptyState={<ControlCenterEmptyState onRepositorySelect={addRepoAndFocus} />}
     />
   );
 }

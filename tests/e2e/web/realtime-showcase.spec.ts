@@ -137,8 +137,10 @@ test.describe('Showcase: Real Feature Lifecycle with Audio', () => {
       timeout: 5_000,
     });
 
-    // Fill the feature name
-    await page.getByPlaceholder('e.g. GitHub OAuth Login').fill(FEATURE_NAME);
+    // Fill the feature description
+    await page
+      .getByPlaceholder('e.g. Add GitHub OAuth login with callback handling and token refresh...')
+      .fill(FEATURE_NAME);
 
     // Ensure all auto-approve gates are unchecked (force manual approval)
     for (const id of ['allowPrd', 'allowPlan', 'allowMerge']) {

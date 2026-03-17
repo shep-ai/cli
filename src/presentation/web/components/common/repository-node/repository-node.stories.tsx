@@ -8,7 +8,7 @@ const nodeTypes = { repositoryNode: RepositoryNode };
 
 function RepositoryNodeCanvas({
   data,
-  style = { width: 500, height: 250 },
+  style = { width: 550, height: 300 },
 }: {
   data: RepositoryNodeData;
   style?: React.CSSProperties;
@@ -42,6 +42,9 @@ const meta: Meta<RepositoryNodeData> = {
   },
   args: {
     name: 'shep-ai/cli',
+    branch: 'main',
+    commitMessage: 'feat: add dark mode toggle',
+    committer: 'Jane Doe',
   },
 };
 
@@ -76,10 +79,32 @@ export const LongName: Story = {
 const onAdd = () => undefined;
 
 const multipleRepos: RepositoryNodeData[] = [
-  { name: 'shep-ai/cli' },
-  { name: 'vercel/edge-runtime' },
-  { name: 'acme-corp/web-dashboard-v2' },
-  { name: 'openai/tiktoken' },
+  {
+    name: 'shep-ai/cli',
+    branch: 'main',
+    commitMessage: 'feat: add dark mode toggle',
+    committer: 'Jane Doe',
+  },
+  {
+    name: 'vercel/edge-runtime',
+    branch: 'feat/streaming',
+    commitMessage: 'fix: handle edge cases in streaming',
+    committer: 'John Smith',
+    behindCount: 3,
+  },
+  {
+    name: 'acme-corp/web-dashboard-v2',
+    branch: 'develop',
+    commitMessage: 'chore: update dependencies',
+    committer: 'Bot',
+    behindCount: 12,
+  },
+  {
+    name: 'openai/tiktoken',
+    branch: 'main',
+    commitMessage: 'perf: optimize token encoding',
+    committer: 'Alice Chen',
+  },
 ];
 
 export const Multiple: Story = {
@@ -87,12 +112,12 @@ export const Multiple: Story = {
     const nodes: RepositoryNodeType[] = multipleRepos.map((data, i) => ({
       id: `repo-${i}`,
       type: 'repositoryNode' as const,
-      position: { x: 0, y: i * 80 },
+      position: { x: 0, y: i * 140 },
       data,
     }));
 
     return (
-      <div style={{ width: 500, height: 500 }}>
+      <div style={{ width: 600, height: 750 }}>
         <ReactFlowProvider>
           <ReactFlow
             nodes={nodes}
@@ -109,10 +134,35 @@ export const Multiple: Story = {
 };
 
 const multipleReposWithButton: RepositoryNodeData[] = [
-  { name: 'shep-ai/cli', onAdd },
-  { name: 'vercel/edge-runtime', onAdd },
-  { name: 'acme-corp/web-dashboard-v2', onAdd },
-  { name: 'openai/tiktoken', onAdd },
+  {
+    name: 'shep-ai/cli',
+    onAdd,
+    branch: 'main',
+    commitMessage: 'feat: add dark mode toggle',
+    committer: 'Jane Doe',
+  },
+  {
+    name: 'vercel/edge-runtime',
+    onAdd,
+    branch: 'feat/streaming',
+    commitMessage: 'fix: handle edge cases in streaming',
+    committer: 'John Smith',
+    behindCount: 3,
+  },
+  {
+    name: 'acme-corp/web-dashboard-v2',
+    onAdd,
+    branch: 'develop',
+    commitMessage: 'chore: update dependencies',
+    committer: 'Bot',
+  },
+  {
+    name: 'openai/tiktoken',
+    onAdd,
+    branch: 'main',
+    commitMessage: 'perf: optimize token encoding',
+    committer: 'Alice Chen',
+  },
 ];
 
 export const MultipleWithButton: Story = {
@@ -120,12 +170,12 @@ export const MultipleWithButton: Story = {
     const nodes: RepositoryNodeType[] = multipleReposWithButton.map((data, i) => ({
       id: `repo-${i}`,
       type: 'repositoryNode' as const,
-      position: { x: 0, y: i * 80 },
+      position: { x: 0, y: i * 140 },
       data,
     }));
 
     return (
-      <div style={{ width: 500, height: 500 }}>
+      <div style={{ width: 600, height: 750 }}>
         <ReactFlowProvider>
           <ReactFlow
             nodes={nodes}
@@ -179,17 +229,30 @@ export const WithDeleteButton: Story = {
   argTypes: {
     onDelete: { action: 'onDelete' },
   },
-  render: (args) => <RepositoryNodeCanvas data={args} style={{ width: 550, height: 250 }} />,
+  render: (args) => <RepositoryNodeCanvas data={args} style={{ width: 600, height: 300 }} />,
 };
 
 const multipleReposWithActions: RepositoryNodeData[] = [
-  { id: 'r1', name: 'shep-ai/cli', repositoryPath: '/home/user/shep-ai/cli', onAdd, onDelete },
+  {
+    id: 'r1',
+    name: 'shep-ai/cli',
+    repositoryPath: '/home/user/shep-ai/cli',
+    onAdd,
+    onDelete,
+    branch: 'main',
+    commitMessage: 'feat(web): enrich repository node with branch and commit info',
+    committer: 'Ariel Shadkhan',
+  },
   {
     id: 'r2',
     name: 'vercel/edge-runtime',
     repositoryPath: '/home/user/vercel/edge-runtime',
     onAdd,
     onDelete,
+    branch: 'feat/streaming-v2',
+    commitMessage: 'fix: handle edge cases in streaming response',
+    committer: 'John Smith',
+    behindCount: 5,
   },
   {
     id: 'r3',
@@ -197,6 +260,10 @@ const multipleReposWithActions: RepositoryNodeData[] = [
     repositoryPath: '/home/user/acme-corp/web-dashboard-v2',
     onAdd,
     onDelete,
+    branch: 'develop',
+    commitMessage: 'chore(deps): update all dependencies to latest',
+    committer: 'Renovate Bot',
+    behindCount: 23,
   },
   {
     id: 'r4',
@@ -204,6 +271,9 @@ const multipleReposWithActions: RepositoryNodeData[] = [
     repositoryPath: '/home/user/openai/tiktoken',
     onAdd,
     onDelete,
+    branch: 'main',
+    commitMessage: 'perf: optimize token encoding for large inputs',
+    committer: 'Alice Chen',
   },
 ];
 
@@ -212,12 +282,12 @@ export const MultipleWithActions: Story = {
     const nodes: RepositoryNodeType[] = multipleReposWithActions.map((data, i) => ({
       id: `repo-${i}`,
       type: 'repositoryNode' as const,
-      position: { x: 0, y: i * 80 },
+      position: { x: 0, y: i * 140 },
       data,
     }));
 
     return (
-      <div style={{ width: 500, height: 500 }}>
+      <div style={{ width: 600, height: 800 }}>
         <ReactFlowProvider>
           <ReactFlow
             nodes={nodes}
@@ -231,4 +301,26 @@ export const MultipleWithActions: Story = {
       </div>
     );
   },
+};
+
+export const WithGitInfo: Story = {
+  args: {
+    repositoryPath: '/home/user/shep-ai/cli',
+    branch: 'feat/repo-node-enrichment',
+    commitMessage: 'feat(web): enrich repository node with branch and commit info',
+    committer: 'Ariel Shadkhan',
+    behindCount: 0,
+  },
+  render: (args) => <RepositoryNodeCanvas data={args} />,
+};
+
+export const WithGitInfoBehind: Story = {
+  args: {
+    repositoryPath: '/home/user/shep-ai/cli',
+    branch: 'feat/old-feature-branch',
+    commitMessage: 'fix: resolve merge conflict in auth module',
+    committer: 'Jane Doe',
+    behindCount: 7,
+  },
+  render: (args) => <RepositoryNodeCanvas data={args} />,
 };

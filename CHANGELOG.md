@@ -1,3 +1,28 @@
+# [1.126.0](https://github.com/shep-ai/cli/compare/v1.125.0...v1.126.0) (2026-03-17)
+
+### Features
+
+- **web:** persist dev server state and fix ci watch bug ([#402](https://github.com/shep-ai/cli/issues/402)) ([d77838b](https://github.com/shep-ai/cli/commit/d77838b4bcf976b53997c5fbb54bf67adedad188))
+
+# [1.125.0](https://github.com/shep-ai/cli/compare/v1.124.0...v1.125.0) (2026-03-17)
+
+### Features
+
+- **web:** cleanup settings page - remove dead auth ui and add missing notification toggles ([#403](https://github.com/shep-ai/cli/issues/403)) ([beec826](https://github.com/shep-ai/cli/commit/beec826f6763d7a95f1c263146c7f1026f5c3c74))
+
+# [1.124.0](https://github.com/shep-ai/cli/compare/v1.123.0...v1.124.0) (2026-03-16)
+
+### Features
+
+- **web:** inline devserver icon in feature node top row ([#398](https://github.com/shep-ai/cli/issues/398)) ([b8b967d](https://github.com/shep-ai/cli/commit/b8b967d96d49aa0754e607525f4f927911569512))
+
+# [1.123.0](https://github.com/shep-ai/cli/compare/v1.122.2...v1.123.0) (2026-03-16)
+
+### Features
+
+- **web:** enrich repository node with branch, commit message, and behind count ([#390](https://github.com/shep-ai/cli/issues/390)) ([0d752b4](https://github.com/shep-ai/cli/commit/0d752b4aafcbcf09b6727d387aa141ed67eceab6))
+- **web:** redesign activity timeline and onboarding experience ([#392](https://github.com/shep-ai/cli/issues/392)) ([9cce178](https://github.com/shep-ai/cli/commit/9cce178f300f3dcc2eb1c511c1ee80dd9c471375))
+
 ## [1.122.2](https://github.com/shep-ai/cli/compare/v1.122.1...v1.122.2) (2026-03-16)
 
 ### Bug Fixes

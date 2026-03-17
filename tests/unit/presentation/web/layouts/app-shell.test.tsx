@@ -31,13 +31,16 @@ function renderShell(children: React.ReactNode) {
  */
 function ContextPublisher({
   features,
+  hasRepositories = false,
 }: {
   features: { featureId: string; name: string; status: 'action-needed' | 'in-progress' | 'done' }[];
+  hasRepositories?: boolean;
 }) {
-  const { setFeatures } = useSidebarFeaturesContext();
+  const { setFeatures, setHasRepositories } = useSidebarFeaturesContext();
   useEffect(() => {
     setFeatures(features);
-  }, [features, setFeatures]);
+    setHasRepositories(hasRepositories);
+  }, [features, hasRepositories, setFeatures, setHasRepositories]);
   return null;
 }
 
@@ -101,10 +104,25 @@ describe('AppShell', () => {
       ['/feature/abc-123', 'feature detail'],
       ['/feature/abc-123/activity', 'feature tab'],
       ['/repository/repo-1', 'repository detail'],
-    ])('renders the FAB on control center route %s (%s)', (pathname) => {
+    ])('renders the FAB on control center route %s (%s) when repositories exist', (pathname) => {
       mockPathname = pathname;
-      renderShell(<div>Content</div>);
+      // FAB shows when there are repositories (hidden only during onboarding)
+      renderShell(
+        <>
+          <ContextPublisher
+            features={[{ featureId: 'f1', name: 'Test', status: 'in-progress' }]}
+            hasRepositories
+          />
+          <div>Content</div>
+        </>
+      );
       expect(screen.getByTestId('fab-trigger')).toBeInTheDocument();
+    });
+
+    it('hides the FAB on control center route when no repositories exist (onboarding)', () => {
+      mockPathname = '/';
+      renderShell(<div>Content</div>);
+      expect(screen.queryByTestId('fab-trigger')).not.toBeInTheDocument();
     });
 
     it.each([
