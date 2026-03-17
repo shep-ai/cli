@@ -4,12 +4,13 @@
  * Deletes a feature, its worktree, and cancels any running agent.
  * Optionally cleans up worktree and branches (local + remote).
  *
- * Usage: shep feat del <id> [--force] [--no-cleanup]
+ * Usage: shep feat del <id> [--force] [--no-cleanup] [--no-close-pr]
  *
  * @example
  * $ shep feat del feat-123
  * $ shep feat del feat-123 --force
  * $ shep feat del feat-123 --force --no-cleanup
+ * $ shep feat del feat-123 --force --no-close-pr
  */
 
 import { Command } from 'commander';
@@ -22,6 +23,7 @@ import { confirm } from '@inquirer/prompts';
 interface DelOptions {
   force?: boolean;
   cleanup?: boolean;
+  closePr?: boolean;
 }
 
 /**
@@ -33,6 +35,7 @@ export function createDelCommand(): Command {
     .argument('<id>', 'Feature ID or prefix')
     .option('-f, --force', 'Skip confirmation prompt')
     .option('--no-cleanup', 'Skip worktree and branch cleanup')
+    .option('--no-close-pr', 'Keep the pull request open')
     .action(async (featureId: string, options: DelOptions) => {
       try {
         // First show what we're about to delete
@@ -61,8 +64,28 @@ export function createDelCommand(): Command {
           });
         }
 
+        // Determine close-PR preference
+        const hasOpenPr = feature.pr?.status === 'Open';
+        let closePr: boolean | undefined;
+        if (options.closePr === false) {
+          closePr = false;
+        } else if (hasOpenPr && cleanup) {
+          if (options.force) {
+            closePr = true;
+          } else {
+            closePr = await confirm({
+              message: `Also close the pull request? (PR #${feature.pr!.number})`,
+              default: true,
+            });
+          }
+        }
+
         const deleteUseCase = container.resolve(DeleteFeatureUseCase);
-        await deleteUseCase.execute(feature.id, { cleanup });
+        const executeOptions: { cleanup: boolean; closePr?: boolean } = { cleanup };
+        if (closePr !== undefined) {
+          executeOptions.closePr = closePr;
+        }
+        await deleteUseCase.execute(feature.id, executeOptions);
 
         messages.newline();
         messages.success('Feature deleted');
@@ -70,6 +93,9 @@ export function createDelCommand(): Command {
         console.log(`  ${colors.muted('Branch:')} ${feature.branch}`);
         if (cleanup) {
           console.log(`  ${colors.muted('Cleanup:')} worktree, local branch, remote branch`);
+        }
+        if (closePr && hasOpenPr) {
+          console.log(`  ${colors.muted('PR:')}     #${feature.pr!.number} closed`);
         }
         messages.newline();
       } catch (error) {
