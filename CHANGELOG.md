@@ -1,3 +1,10 @@
+# [1.129.0](https://github.com/shep-ai/cli/compare/v1.128.0...v1.129.0) (2026-03-17)
+
+
+### Features
+
+* **web:** add close-pr option to delete-feature dialog and cli ([#405](https://github.com/shep-ai/cli/issues/405)) ([7dbdb29](https://github.com/shep-ai/cli/commit/7dbdb29811c3ededf5dff9fa2c1e1e79e8e9f7d9)), closes [#N](https://github.com/shep-ai/cli/issues/N)
+
 # [1.128.0](https://github.com/shep-ai/cli/compare/v1.127.3...v1.128.0) (2026-03-17)
 
 
